@@ -210,8 +210,6 @@ instru_notify(uint level, const char *fmt, ...)
  */
 std::atomic<ptr_int_t> tracing_mode;
 
-bool need_l0_filter_mode;
-
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, void **user_data);
@@ -247,7 +245,7 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     DR_ASSERT(enable_dups != NULL && enable_dynamic_handling != NULL);
     if (bbdup_duplication_enabled()) {
         *enable_dups = true;
-        /* make sure to update opts.non_default_case_limit if adding an encoding here */
+        /* Make sure to update opts.non_default_case_limit if adding an encoding here. */
         drbbdup_status_t res;
         if (align_attach_detach_endpoints()) {
             res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_NOP);
@@ -257,7 +255,7 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
             res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
             DR_ASSERT(res == DRBBDUP_SUCCESS);
         }
-        if (need_l0_filter_mode) {
+        if (op_L0_warmup_refs.get_value()) {
             res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_L0_FILTER);
             DR_ASSERT(res == DRBBDUP_SUCCESS);
         }
@@ -296,7 +294,7 @@ event_bb_analyze_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
                       bool translating, uintptr_t mode, void *user_data,
                       void *orig_analysis_data, void **analysis_data)
 {
-    if (mode == BBDUP_MODE_TRACE || mode == BBDUP_MODE_L0_FILTER) {
+    if (is_in_tracing_mode(mode)) {
         return event_bb_analysis(drcontext, tag, bb, for_trace, translating,
                                  analysis_data);
     } else if (mode == BBDUP_MODE_COUNT) {
@@ -315,7 +313,7 @@ static void
 event_bb_analyze_case_cleanup(void *drcontext, uintptr_t mode, void *user_data,
                               void *orig_analysis_data, void *analysis_data)
 {
-    if (mode == BBDUP_MODE_TRACE || mode == BBDUP_MODE_L0_FILTER)
+    if (is_in_tracing_mode(mode))
         event_bb_analysis_cleanup(drcontext, analysis_data);
     else if (mode == BBDUP_MODE_COUNT)
         ; /* no cleanup needed */
@@ -333,7 +331,7 @@ event_app_instruction_case(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                            uintptr_t mode, void *user_data, void *orig_analysis_data,
                            void *analysis_data)
 {
-    if (mode == BBDUP_MODE_TRACE || mode == BBDUP_MODE_L0_FILTER) {
+    if (is_in_tracing_mode(mode)) {
         return event_app_instruction(drcontext, tag, bb, instr, where, for_trace,
                                      translating, mode, orig_analysis_data,
                                      analysis_data);
@@ -389,8 +387,8 @@ instrumentation_drbbdup_init()
         ++opts.non_default_case_limit; // BBDUP_MODE_NOP.
     if (bbdup_instr_counting_enabled())
         ++opts.non_default_case_limit; // BBDUP_MODE_COUNT.
-    if (need_l0_filter_mode)
-        ++opts.non_default_case_limit; // BBDUP_MODE_COUNT.
+    if (op_L0_warmup_refs.get_value())
+        ++opts.non_default_case_limit; // BBDUP_MODE_L0_FILTER.
     // Save per-thread heap for a feature we do not need.
     opts.never_enable_dynamic_handling = true;
     drbbdup_status_t res = drbbdup_init(&opts);
@@ -414,7 +412,7 @@ instrumentation_init()
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
     else if (op_trace_after_instrs.get_value() != 0)
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
-    else if (need_l0_filter_mode)
+    else if (op_L0_warmup_refs.get_value())
         tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
 
 #ifdef DELAYED_CHECK_INLINED
@@ -1042,8 +1040,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drvector_t rvec;
     dr_emit_flags_t flags = DR_EMIT_DEFAULT;
     bool is_l0_filter = (op_L0I_filter.get_value() || op_L0D_filter.get_value());
-    if (need_l0_filter_mode)
-        is_l0_filter = (mode == BBDUP_MODE_L0_FILTER && is_l0_filter);
+    // If we have both BBDUP_MODE_TRACE and BBDUP_MODE_L0_FILTER, then L0 filter is active
+    // only when mode is BBDUP_MODE_L0_FILTER
+    if (op_L0_warmup_refs.get_value()) {
+        is_l0_filter = (mode == BBDUP_MODE_L0_FILTER);
+    }
 
     // We need drwrap's instrumentation to go first so that function trace
     // entries will not be appended to the middle of a BB's PC and Memory Access
@@ -1316,8 +1317,7 @@ static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE &&
-        tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_L0_FILTER)
+    if (!is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)))
         return true;
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
@@ -1362,8 +1362,7 @@ event_post_syscall(void *drcontext, int sysnum)
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
         return;
-    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE &&
-        tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_L0_FILTER)
+    if (!is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)))
         return;
     if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
         return;
@@ -1398,8 +1397,7 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     trace_marker_type_t marker_type;
     uintptr_t marker_val = 0;
-    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE &&
-        tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_L0_FILTER)
+    if (!is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)))
         return;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
@@ -1981,6 +1979,19 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     } else if (!op_offline.get_value() &&
                (op_record_heap.get_value() || !op_record_function.get_value().empty())) {
         FATAL("Usage error: function recording is only supported for -offline\n");
+    }
+    if (op_L0_warmup_refs.get_value()) {
+
+        DR_ASSERT(!op_L0D_filter.get_value());
+        DR_ASSERT(!op_L0I_filter.get_value());
+        if (op_L0D_filter.get_value() || op_L0I_filter.get_value()) {
+            FATAL("Usage error: cannot use -L0_filter with -L0_warmup.");
+        }
+        if (op_exit_after_tracing.get_value()) {
+            FATAL("Usage error: -warmup does not currently support -exit_after_tracing.");
+        }
+        op_L0I_filter.set_value(op_L0_warmup_refs.get_value());
+        op_L0D_filter.set_value(op_L0_warmup_refs.get_value());
     }
 
     if (op_L0_filter_deprecated.get_value()) {

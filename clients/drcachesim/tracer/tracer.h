@@ -154,7 +154,6 @@ extern std::atomic<ptr_int_t> tracing_mode;
 extern std::atomic<ptr_int_t> tracing_window;
 extern bool attached_midway;
 extern std::atomic<uint64> attached_timestamp;
-extern bool need_l0_filter_mode;
 
 /* We have multiple modes.  While just 2 results in a more efficient dispatch,
  * the power of extra modes justifies the extra overhead.
@@ -263,6 +262,12 @@ static inline bool
 align_attach_detach_endpoints()
 {
     return attached_midway && op_align_endpoints.get_value();
+}
+
+static inline bool
+is_in_tracing_mode(uintptr_t mode)
+{
+    return (mode == BBDUP_MODE_TRACE || mode == BBDUP_MODE_L0_FILTER);
 }
 
 } // namespace drmemtrace

@@ -85,6 +85,7 @@ extern droption_t<bool> op_L0_filter_deprecated;
 extern droption_t<bool> op_L0I_filter;
 extern droption_t<bool> op_L0D_filter;
 extern droption_t<bytesize_t> op_L0D_size;
+extern droption_t<bytesize_t> op_L0_warmup_refs;
 extern droption_t<bool> op_instr_only_trace;
 extern droption_t<bool> op_coherence;
 extern droption_t<bool> op_use_physical;

@@ -117,8 +117,7 @@ hit_instr_count_threshold(app_pc next_pc)
     }
 #endif
     dr_mutex_lock(mutex);
-    if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE ||
-        tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_L0_FILTER) {
+    if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire))) {
         // Another thread already changed the mode.
         dr_mutex_unlock(mutex);
         return;
@@ -145,7 +144,7 @@ hit_instr_count_threshold(app_pc next_pc)
 #endif
     DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_COUNT);
 
-    if (need_l0_filter_mode)
+    if (op_L0_warmup_refs.get_value())
         mode = BBDUP_MODE_L0_FILTER;
     else
         mode = BBDUP_MODE_TRACE;
