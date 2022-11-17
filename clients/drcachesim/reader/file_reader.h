@@ -124,7 +124,9 @@ public:
         }
         // If the user asks to skip from the very start, we still need to find the chunk
         // count marker and drain the header queue and populate the stream header values.
-        while (chunk_instr_count_ == 0 || page_size_ == 0) {
+        // XXX: We assume the page size is the final header; it is complex to wait for
+        // the timestamp as we don't want to read it yet.
+        while (page_size_ == 0) {
             input_entry_ = read_next_entry();
             process_input_entry();
         }
@@ -221,6 +223,8 @@ protected:
                 return false;
             }
             // Read the meta entries until we hit the pid.
+            // We want to pass the tid+pid to the reader *before* any markers,
+            // even though 2 markers preced the tid+pid in the file.
             std::queue<trace_entry_t> marker_queue;
             while (read_next_thread_entry(index_, &next, &thread_eof_[index_])) {
                 if (next.type == TRACE_TYPE_PID) {

@@ -98,6 +98,7 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
 }
 
 // We have no stream interface in invariant_checker_test unit tests.
+// XXX: Could we refactor the test to use a reader that takes a vector?
 void *
 invariant_checker_t::parallel_shard_init(int shard_index, void *worker_data)
 {
@@ -126,10 +127,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     // We check the memtrace_stream_t counts with our own, unless there was an
     // instr skip from the start where we cannot compare, or we're in a unit
     // test with no stream interface, or we're in serial mode (since we want
-    // per-shard counts for error reporting; XXX: we could add global local counts).
+    // per-shard counts for error reporting; XXX: we could add our own global
+    // counts to compare to the serial stream).
     ++shard->ref_count_;
     if (type_is_instr(memref.instr.type))
         ++shard->instr_count_;
+    // XXX: We also can't verify counts with a skip invoked from the middle, but
+    // we have no simple way to detect that here.
     if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && shard->stream != nullptr &&
         shard->stream->get_instruction_ordinal() > 1)
         shard->skipped_instrs_ = true;

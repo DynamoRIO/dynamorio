@@ -205,7 +205,7 @@ protected:
     uint64_t version_ = 0;
     uint64_t filetype_ = 0;
     uint64_t cache_line_size_ = 0;
-    uint64_t chunk_instr_count_ = 0; // Unchanging once set to non-zero.
+    uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
 
 private:
