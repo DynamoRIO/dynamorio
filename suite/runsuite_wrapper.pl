@@ -338,6 +338,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
                                    'code_api|client.attach_test' => 1, # i#5740
                                    'code_api|client.attach_blocking' => 1, # i#5740
+                                   'code_api|tool.drcacheoff.invariant_checker' => 1, # i#5724
                                    );
             if ($is_32) {
                 $issue_no = "#2416";
