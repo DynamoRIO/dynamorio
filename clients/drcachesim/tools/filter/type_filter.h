@@ -30,16 +30,53 @@
  * DAMAGE.
  */
 
-#ifndef _NULL_FILTER_H_
-#define _NULL_FILTER_H_ 1
+#ifndef _TYPE_FILTER_H_
+#define _TYPE_FILTER_H_ 1
 
 #include "record_filter.h"
+#include "trace_entry.h"
+
+#include <vector>
+#include <unordered_set>
+
+#ifdef MACOS
+// Provide trace_type_t and trace_marker_type_t specializations to
+// allow declaration of unordered_set<_> below. This was needed for
+// OSX particularly. In C++14, std::hash works as expected for enums
+// too: https://cplusplus.com/forum/general/238538/.
+namespace std {
+template <> struct hash<trace_type_t> {
+    size_t
+    operator()(trace_type_t t) const
+    {
+        return static_cast<size_t>(t);
+    }
+};
+template <> struct hash<trace_marker_type_t> {
+    size_t
+    operator()(trace_marker_type_t t) const
+    {
+        return static_cast<size_t>(t);
+    }
+};
+} // namespace std
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
 
-class null_filter_t : public record_filter_t::record_filter_func_t {
+class type_filter_t : public record_filter_t::record_filter_func_t {
 public:
+    type_filter_t(std::vector<trace_type_t> remove_trace_types,
+                  std::vector<trace_marker_type_t> remove_marker_types)
+    {
+        for (auto trace_type : remove_trace_types) {
+            remove_trace_types_.insert(trace_type);
+        }
+        for (auto marker_type : remove_marker_types) {
+            remove_marker_types_.insert(marker_type);
+        }
+    }
     void *
     parallel_shard_init(memtrace_stream_t *shard_stream) override
     {
@@ -48,6 +85,14 @@ public:
     bool
     parallel_shard_filter(const trace_entry_t &entry, void *shard_data) override
     {
+        if (remove_trace_types_.find(static_cast<trace_type_t>(entry.type)) !=
+            remove_trace_types_.end()) {
+            return false;
+        }
+        if (entry.type == TRACE_TYPE_MARKER) {
+            return remove_marker_types_.find(static_cast<trace_marker_type_t>(
+                       entry.size)) == remove_marker_types_.end();
+        }
         return true;
     }
     bool
@@ -55,8 +100,12 @@ public:
     {
         return true;
     }
+
+private:
+    std::unordered_set<trace_type_t> remove_trace_types_;
+    std::unordered_set<trace_marker_type_t> remove_marker_types_;
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
-#endif /* _NULL_FILTER_H_ */
+#endif /* _TYPE_FILTER_H_ */

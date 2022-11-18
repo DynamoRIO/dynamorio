@@ -139,9 +139,7 @@ add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
-add_exported_library(drmemtrace_record_filter STATIC
-  tools/filter/record_filter.cpp
-  tools/filter/null_filter.h)
+
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
 
@@ -161,6 +159,13 @@ add_exported_library(drmemtrace_simulator STATIC
   simulator/tlb.cpp
   simulator/tlb_simulator.cpp
   )
+
+add_exported_library(drmemtrace_record_filter STATIC
+  tools/filter/record_filter.cpp
+  tools/filter/cache_filter.h
+  tools/filter/type_filter.h
+  tools/filter/null_filter.h)
+target_link_libraries(drmemtrace_record_filter drmemtrace_simulator)
 
 add_exported_library(directory_iterator STATIC common/directory_iterator.cpp)
 add_dependencies(directory_iterator api_headers)
