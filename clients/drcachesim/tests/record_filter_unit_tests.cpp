@@ -197,7 +197,8 @@ test_cache_and_type_filter()
         { { TRACE_TYPE_READ, 4, { 0xaaa0 } }, { false, false } },
         // The following entry is part of the expected output, but not the input. We
         // will skip it in the parallel_shard_filter() loop below.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_BOUNDARY, 0 }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_BOUNDARY, { 0 } },
+          { true, true } },
         // Unit header.
         // Since this timestamp is greater than the last_timestamp_us set below, all
         // later entries will be output regardless of the configured filter.
