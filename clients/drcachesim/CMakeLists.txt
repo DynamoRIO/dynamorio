@@ -177,6 +177,7 @@ set(raw2trace_srcs
   tracer/instru_online.cpp
   tracer/instru_offline.cpp
   reader/reader.cpp
+  common/trace_entry.cpp
   )
 if (libsnappy)
   set(raw2trace_srcs ${raw2trace_srcs}

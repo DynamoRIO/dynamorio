@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -66,8 +66,9 @@ file_reader_t<std::ifstream *>::read_next_thread_entry(size_t thread_index,
         *eof = input_files_[thread_index]->eof();
         return false;
     }
-    VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
-           thread_index, entry->type, entry->size, entry->addr);
+    VPRINT(this, 4, "Read from thread #%zd file: type=%s (%d), size=%d, addr=%zu\n",
+           thread_index, trace_type_names[entry->type], entry->type, entry->size,
+           entry->addr);
     return true;
 }
 
