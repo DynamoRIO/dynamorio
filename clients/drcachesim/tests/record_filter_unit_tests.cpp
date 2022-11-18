@@ -37,6 +37,7 @@
 #include "droption.h"
 #include "tools/basic_counts.h"
 #include "tools/filter/null_filter.h"
+#include "tools/filter/toggle_filter.h"
 #include "tools/filter/record_filter.h"
 
 #include <vector>
@@ -66,6 +67,37 @@ static droption_t<std::string> op_tmp_output_dir(
     "[Required] Output directory for the filtered trace",
     "Specifies the directory where the filtered trace will be written.");
 
+class test_record_filter_t : public dynamorio::drmemtrace::record_filter_t {
+public:
+    test_record_filter_t(const std::vector<record_filter_func_t *> &filters)
+        : record_filter_t("", filters,
+                          /*verbose=*/0)
+    {
+    }
+    std::vector<trace_entry_t>
+    get_output_entries()
+    {
+        return output;
+    }
+
+protected:
+    bool
+    write_trace_entry(dynamorio::drmemtrace::record_filter_t::per_shard_t *shard,
+                      const trace_entry_t &entry) override
+    {
+        output.push_back(entry);
+        return true;
+    }
+    std::unique_ptr<std::ostream>
+    get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream) override
+    {
+        return nullptr;
+    }
+
+private:
+    std::vector<trace_entry_t> output;
+};
+
 static bool
 local_create_dir(const char *dir)
 {
@@ -94,7 +126,122 @@ get_basic_counts(const std::string &trace_dir)
     return counts;
 }
 
-bool
+static void
+print_entry(trace_entry_t entry)
+{
+    fprintf(stderr, "%d:%d:%ld", entry.type, entry.size, entry.addr);
+}
+
+static bool
+test_toggle_filter()
+{
+    struct expected_output {
+        trace_entry_t entry;
+        bool in_half[2];
+    };
+
+#define SPLIT_AT_INSTR_COUNT 5
+    std::vector<struct expected_output> entries = {
+        /* Trace shard header. */
+        { { TRACE_TYPE_HEADER, 0, { 1 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 2 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 3 } }, { true, true } },
+        { { TRACE_TYPE_THREAD, 0, { 4 } }, { true, true } },
+        { { TRACE_TYPE_PID, 0, { 5 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 6 } },
+          { true, true } },
+        /* Unit header. */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 7 } }, { true, false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 8 } }, { true, false } },
+        { { TRACE_TYPE_INSTR, 4, { 9 } }, { true, false } },
+        { { TRACE_TYPE_WRITE, 4, { 10 } }, { true, false } },
+        { { TRACE_TYPE_INSTR, 4, { 11 } }, { true, false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, { 12 } },
+          { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS, { 13 } },
+          { true, true } },
+        { { TRACE_TYPE_READ, 4, { 14 } }, { true, false } },
+        { { TRACE_TYPE_INSTR, 4, { 15 } }, { true, false } },
+        /* Unit header. */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 16 } }, { true, false } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 17 } }, { true, false } },
+        /* Unit header. */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 18 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 19 } }, { true, true } },
+        { { TRACE_TYPE_INSTR, 4, { 20 } }, { true, false } },
+        /* First half supposed to end here. See SPLIT_AT_INSTR_COUNT. */
+        { { TRACE_TYPE_INSTR, 4, { 21 } }, { false, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, { 22 } },
+          { false, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE, { 23 } },
+          { false, true } },
+        { { TRACE_TYPE_READ, 4, { 24 } }, { false, true } },
+        { { TRACE_TYPE_WRITE, 4, { 25 } }, { false, true } },
+        /* Unit header. */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 26 } }, { false, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 27 } }, { false, true } },
+        { { TRACE_TYPE_INSTR, 4, { 28 } }, { false, true } },
+        { { TRACE_TYPE_READ, 4, { 29 } }, { false, true } },
+        { { TRACE_TYPE_WRITE, 4, { 30 } }, { false, true } },
+        /* Trace shard footer. */
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 31 } }, { true, true } },
+        { { TRACE_TYPE_FOOTER, 0, { 32 } }, { true, true } }
+    };
+
+    /* Check each half. */
+    for (int k = 0; k < 2; ++k) {
+        dynamorio::drmemtrace::record_filter_t::record_filter_func_t *toggle_filter =
+            new dynamorio::drmemtrace::toggle_filter_t(SPLIT_AT_INSTR_COUNT, k == 0);
+        test_record_filter_t *record_filter = new test_record_filter_t({ toggle_filter });
+        void *shard_data = record_filter->parallel_shard_init_stream(0, nullptr, nullptr);
+        for (int i = 0; i < (int)entries.size(); ++i) {
+            if (!record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
+                fprintf(stderr, "Filtering failed\n");
+                return false;
+            }
+        }
+        if (!record_filter->parallel_shard_exit(shard_data)) {
+            fprintf(stderr, "Filtering exit failed\n");
+            return false;
+        }
+        std::vector<trace_entry_t> half = record_filter->get_output_entries();
+        delete record_filter;
+        delete toggle_filter;
+        int j = 0;
+        for (int i = 0; i < (int)entries.size(); ++i) {
+            if (entries[i].in_half[k]) {
+                if (j >= (int)half.size()) {
+                    fprintf(stderr, "Too few entries in filtered half %d. Expected: ", k);
+                    print_entry(entries[i].entry);
+                    fprintf(stderr, "\n");
+                    return false;
+                }
+                // We do not verify encoding content for instructions.
+                if (memcmp(&half[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
+                    fprintf(stderr, "Wrong filter result for half %d. Expected: ", k);
+                    print_entry(entries[i].entry);
+                    fprintf(stderr, ", got: ");
+                    print_entry(half[j]);
+                    fprintf(stderr, "\n");
+                    return false;
+                }
+                ++j;
+            }
+        }
+        if (j < (int)half.size()) {
+            fprintf(stderr, "Got %d extra entries in filtered half %d. Next one: ",
+                    (int)half.size() - j, k);
+            print_entry(half[j]);
+            fprintf(stderr, "\n");
+            return false;
+        }
+    }
+    fprintf(stderr, "test_toggle_filter passed\n");
+    return true;
+}
+
+// Tests I/O for the record_filter.
+static bool
 test_null_filter()
 {
     std::string output_dir = op_tmp_output_dir.get_value() + DIRSEP + "null_filter";
@@ -143,7 +290,7 @@ main(int argc, const char *argv[])
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
-    if (!test_null_filter())
+    if (!test_toggle_filter() || !test_null_filter())
         return 1;
     fprintf(stderr, "All done!\n");
     return 0;
