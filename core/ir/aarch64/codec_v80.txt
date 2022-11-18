@@ -1080,8 +1080,8 @@ x1101011xx0xxxxxxxxxxxxxxxxxxxxx  w   473  BASE       subs            wx0 : wx5 
 0101111011100000001110xxxxxxxxxx  n   474  BASE     suqadd             d0 : d5
 0x001110xx100000001110xxxxxxxxxx  n   474  BASE     suqadd            dq0 : dq5 bhsd_sz
 11010100000xxxxxxxxxxxxxxxx00001  n   475  BASE        svc                : imm16
-1101010100001xxxxxxxxxxxxxxxxxxx  n   488  BASE        sys             x0 : op1 crn imm4 op2
-1101010100101xxxxxxxxxxxxxxxxxxx  n   489  BASE       sysl             x0 : op1 crn imm4 op2
+1101010100001xxxxxxxxxxxxxxxxxxx  n   488  BASE        sys             x0 : imm3 crn imm4 op2
+1101010100101xxxxxxxxxxxxxxxxxxx  n   489  BASE       sysl             x0 : imm3 crn imm4 op2
 0x001110000xxxxx0xx000xxxxxxxxxx  n   490  BASE        tbl            dq0 : dq5 dq16 len
 x0110111xxxxxxxxxxxxxxxxxxxxxxxx  n   491  BASE       tbnz            tbz
 0x001110000xxxxx0xx100xxxxxxxxxx  n   492  BASE        tbx            dq0 : dq5 dq16 len

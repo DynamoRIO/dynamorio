@@ -7,3 +7,4 @@
 .vs
 .vscode
 build
+CMakeLists.txt.user

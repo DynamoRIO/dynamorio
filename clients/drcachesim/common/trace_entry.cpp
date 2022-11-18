@@ -80,5 +80,5 @@ const char *const trace_type_names[] = {
     "prefetch_write_l2_nt",
     "prefetch_write_l3",
     "prefetch_write_l3_nt",
-    "instr_encoding",
+    "encoding",
 };

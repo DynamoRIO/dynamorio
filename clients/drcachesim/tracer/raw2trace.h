@@ -1643,7 +1643,8 @@ private:
             have_type = true;
             buf->type = in_entry->extended.valueB;
             buf->size = in_entry->extended.valueA;
-            impl()->log(4, "Found type entry type %d size %d\n", buf->type, buf->size);
+            impl()->log(4, "Found type entry type %s (%d) size %d\n",
+                        trace_type_names[buf->type], buf->type, buf->size);
             in_entry = impl()->get_next_entry(tls);
             if (in_entry == nullptr)
                 return "Trace ends mid-block";
@@ -1704,8 +1705,9 @@ private:
             // We stored only the base reg, as an optimization.
             buf->addr += opnd_get_disp(memref.opnd);
         }
-        impl()->log(4, "Appended memref type %d size %d to " PFX "\n", buf->type,
-                    buf->size, (ptr_uint_t)buf->addr);
+        impl()->log(4, "Appended memref type %s (%d) size %d to " PFX "\n",
+                    trace_type_names[buf->type], buf->type, buf->size,
+                    (ptr_uint_t)buf->addr);
 
 #ifdef AARCH64
         // TODO i#4400: Following is a workaround to correctly represent DC ZVA in
