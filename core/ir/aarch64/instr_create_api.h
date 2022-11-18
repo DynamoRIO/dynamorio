@@ -5363,4 +5363,62 @@
  */
 #define INSTR_CREATE_umulh_sve_pred(dc, Zdn, Pg, Zm) \
     instr_create_1dst_3src(dc, OP_umulh, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FEXPA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FEXPA   <Zd>.<Ts>, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_fexpa_sve(dc, Zd, Zn) instr_create_1dst_1src(dc, OP_fexpa, Zd, Zn)
+
+/**
+ * Creates a FTMAD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FTMAD   <Zdn>.<Ts>, <Zdn>.<Ts>, <Zm>.<Ts>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ * \param imm   The immediate imm
+ */
+#define INSTR_CREATE_ftmad_sve(dc, Zdn, Zm, imm) \
+    instr_create_1dst_3src(dc, OP_ftmad, Zdn, Zdn, Zm, imm)
+
+/**
+ * Creates a FTSMUL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FTSMUL  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_ftsmul_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_ftsmul, Zd, Zn, Zm)
+
+/**
+ * Creates a FTSSEL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FTSSEL  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_ftssel_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_ftssel, Zd, Zn, Zm)
 #endif /* DR_IR_MACROS_AARCH64_H */
