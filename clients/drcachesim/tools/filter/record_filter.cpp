@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include <iostream>
 #include <fstream>
 #include <memory>
 #include <vector>
@@ -64,6 +65,8 @@ record_filter_t::record_filter_t(const std::string &output_dir,
     : output_dir_(output_dir)
     , filters_(filters)
     , verbosity_(verbose)
+    , input_entry_count_(0)
+    , output_entry_count_(0)
 {
     UNUSED(verbosity_);
     UNUSED(output_prefix_);
@@ -80,16 +83,18 @@ record_filter_t::parallel_shard_supported()
 }
 
 std::unique_ptr<std::ostream>
-record_filter_t::get_writer(const std::string &path)
+record_filter_t::get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream)
 {
+    per_shard->output_path = output_dir_ + DIRSEP + shard_stream->get_stream_name();
 #ifdef HAS_ZLIB
-    if (ends_with(path, ".gz")) {
-        VPRINT(this, 3, "Using the gzip writer for %s\n", path.c_str());
-        return std::unique_ptr<std::ostream>(new gzip_ostream_t(path));
+    if (ends_with(per_shard->output_path, ".gz")) {
+        VPRINT(this, 3, "Using the gzip writer for %s\n", per_shard->output_path.c_str());
+        return std::unique_ptr<std::ostream>(new gzip_ostream_t(per_shard->output_path));
     }
 #endif
-    VPRINT(this, 3, "Using the default writer for %s\n", path.c_str());
-    return std::unique_ptr<std::ostream>(new std::ofstream(path, std::ofstream::binary));
+    VPRINT(this, 3, "Using the default writer for %s\n", per_shard->output_path.c_str());
+    return std::unique_ptr<std::ostream>(
+        new std::ofstream(per_shard->output_path, std::ofstream::binary));
 }
 
 void *
@@ -97,14 +102,18 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
                                             memtrace_stream_t *shard_stream)
 {
     auto per_shard = new per_shard_t;
-    per_shard->output_path = output_dir_ + DIRSEP + shard_stream->get_stream_name();
-    per_shard->writer = get_writer(per_shard->output_path);
+    per_shard->writer = get_writer(per_shard, shard_stream);
     if (!per_shard->writer) {
         per_shard->error = "Could not open a writer for " + per_shard->output_path;
         success_ = false;
     }
     for (record_filter_func_t *f : filters_) {
-        filter_shard_data_.push_back(f->parallel_shard_init());
+        per_shard->filter_shard_data.push_back(f->parallel_shard_init(shard_stream));
+        if (f->get_error_string() != "") {
+            per_shard->error =
+                "Failure in initializing filter function " + f->get_error_string();
+            success_ = false;
+        }
     }
     return reinterpret_cast<void *>(per_shard);
 }
@@ -112,12 +121,15 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
 bool
 record_filter_t::parallel_shard_exit(void *shard_data)
 {
+    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    input_entry_count_ += per_shard->input_entry_count;
+    output_entry_count_ += per_shard->output_entry_count;
     bool res = true;
     for (int i = 0; i < (int)filters_.size(); ++i) {
-        if (!filters_[i]->parallel_shard_exit(filter_shard_data_[i]))
+        if (!filters_[i]->parallel_shard_exit(per_shard->filter_shard_data[i]))
             res = false;
     }
-    delete reinterpret_cast<per_shard_t *>(shard_data);
+    delete per_shard;
     return res;
 }
 
@@ -129,22 +141,56 @@ record_filter_t::parallel_shard_error(void *shard_data)
 }
 
 bool
+record_filter_t::write_trace_entry(per_shard_t *shard, const trace_entry_t &entry)
+{
+    if (!shard->writer->write((char *)&entry, sizeof(entry))) {
+        shard->error = "Failed to write to output file " + shard->output_path;
+        success_ = false;
+        return false;
+    }
+    ++shard->output_entry_count;
+    return true;
+}
+
+bool
 record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &entry)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     bool output = true;
     for (int i = 0; i < (int)filters_.size(); ++i) {
-        if (!filters_[i]->parallel_shard_filter(entry, filter_shard_data_[i]))
+        if (!filters_[i]->parallel_shard_filter(entry, per_shard->filter_shard_data[i]))
             output = false;
     }
+
+    // Optimize space by outputtin the unit header only if we are outputting something
+    // from that unit.
+    if (entry.type == TRACE_TYPE_MARKER) {
+        switch (entry.size) {
+        case TRACE_MARKER_TYPE_TIMESTAMP:
+            // No need to remember the previous unit's header anymore. We're in the
+            // next unit now.
+            per_shard->last_filtered_unit_header.clear();
+            ANNOTATE_FALLTHROUGH;
+        case TRACE_MARKER_TYPE_WINDOW_ID:
+        case TRACE_MARKER_TYPE_CPU_ID:
+            per_shard->last_filtered_unit_header.push_back(entry);
+            output = false;
+        }
+    }
+    // Since we're outputting something from this unit, output its unit header.
+    if (output && !per_shard->last_filtered_unit_header.empty()) {
+        for (trace_entry_t &unit_header_entry : per_shard->last_filtered_unit_header) {
+            if (!write_trace_entry(per_shard, unit_header_entry))
+                return false;
+        }
+        per_shard->last_filtered_unit_header.clear();
+    }
+
     // XXX i#5675: Currently we support writing to a single output file, but we may
     // want to write to multiple in the same run; e.g. splitting a trace. For now,
     // we can simply run the tool multiple times, but it can be made more efficient.
-    if (output && !per_shard->writer->write((char *)&entry, sizeof(entry))) {
-        per_shard->error = "Failed to write to output file " + per_shard->output_path;
-        success_ = false;
+    if (output && !write_trace_entry(per_shard, entry))
         return false;
-    }
     return true;
 }
 
@@ -159,7 +205,8 @@ record_filter_t::process_memref(const trace_entry_t &memref)
 bool
 record_filter_t::print_results()
 {
-    // TODO i#5675: Print stats about filtered entries.
+    std::cerr << "Outputted " << output_entry_count_ << " entries from "
+              << input_entry_count_ << " entries.\n";
     return true;
 }
 

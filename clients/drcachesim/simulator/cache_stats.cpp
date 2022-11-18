@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,6 +50,7 @@ void
 cache_stats_t::access(const memref_t &memref, bool hit,
                       caching_device_block_t *cache_block)
 {
+    last_hit_ = hit;
     // handle prefetching requests
     if (type_is_prefetch(memref.data.type)) {
         if (hit)

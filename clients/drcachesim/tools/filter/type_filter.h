@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,55 +30,58 @@
  * DAMAGE.
  */
 
+#ifndef _TYPE_FILTER_H_
+#define _TYPE_FILTER_H_ 1
+
+#include "record_filter.h"
 #include "trace_entry.h"
 
-const char *const trace_type_names[] = {
-    "read",
-    "write",
-    "prefetch",
-    "prefetch_read_l1",
-    "prefetch_read_l2",
-    "prefetch_read_l3",
-    "prefetchnta",
-    "prefetch_read",
-    "prefetch_write",
-    "prefetch_instr",
-    "instr",
-    "direct_jump",
-    "indirect_jump",
-    "conditional_jump",
-    "direct_call",
-    "indirect_call",
-    "return",
-    "instr_bundle",
-    "instr_flush",
-    "instr_flush_end",
-    "data_flush",
-    "data_flush_end",
-    "thread",
-    "thread_exit",
-    "pid",
-    "header",
-    "footer",
-    "hw prefetch",
-    "marker",
-    "non-fetched instr",
-    "maybe-fetched instr",
-    "sysenter",
-    "prefetch_read_l1_nt",
-    "prefetch_read_l2_nt",
-    "prefetch_read_l3_nt",
-    "prefetch_instr_l1",
-    "prefetch_instr_l1_nt",
-    "prefetch_instr_l2",
-    "prefetch_instr_l2_nt",
-    "prefetch_instr_l3",
-    "prefetch_instr_l3_nt",
-    "prefetch_write_l1",
-    "prefetch_write_l1_nt",
-    "prefetch_write_l2",
-    "prefetch_write_l2_nt",
-    "prefetch_write_l3",
-    "prefetch_write_l3_nt",
-    "instr_encoding",
+#include <vector>
+#include <unordered_set>
+
+namespace dynamorio {
+namespace drmemtrace {
+
+class type_filter_t : public record_filter_t::record_filter_func_t {
+public:
+    type_filter_t(std::vector<trace_type_t> remove_trace_types,
+                  std::vector<trace_marker_type_t> remove_marker_types)
+    {
+        for (auto trace_type : remove_trace_types) {
+            remove_trace_types_.insert(trace_type);
+        }
+        for (auto marker_type : remove_marker_types) {
+            remove_marker_types_.insert(marker_type);
+        }
+    }
+    void *
+    parallel_shard_init(memtrace_stream_t *shard_stream) override
+    {
+        return nullptr;
+    }
+    bool
+    parallel_shard_filter(const trace_entry_t &entry, void *shard_data) override
+    {
+        if (remove_trace_types_.find(static_cast<trace_type_t>(entry.type)) !=
+            remove_trace_types_.end()) {
+            if (entry.type != TRACE_TYPE_MARKER)
+                return false;
+            return remove_marker_types_.find(static_cast<trace_marker_type_t>(
+                       entry.size)) == remove_marker_types_.end();
+        }
+        return true;
+    }
+    bool
+    parallel_shard_exit(void *shard_data) override
+    {
+        return true;
+    }
+
+private:
+    std::unordered_set<trace_type_t> remove_trace_types_;
+    std::unordered_set<trace_marker_type_t> remove_marker_types_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
+#endif /* _TYPE_FILTER_H_ */
