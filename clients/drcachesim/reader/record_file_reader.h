@@ -145,6 +145,9 @@ public:
             ++cur_ref_count_;
             if (type_is_instr(static_cast<trace_type_t>(cur_entry_.type)))
                 ++cur_instr_count_;
+            else if (cur_entry_.type == TRACE_TYPE_MARKER &&
+                     cur_entry_.size == TRACE_MARKER_TYPE_TIMESTAMP)
+                last_timestamp_ = cur_entry_.addr;
         }
         return *this;
     }
@@ -158,6 +161,11 @@ public:
     get_instruction_ordinal() const override
     {
         return cur_instr_count_;
+    }
+    uint64_t
+    get_last_timestamp() const override
+    {
+        return last_timestamp_;
     }
 
     virtual bool
@@ -199,6 +207,7 @@ protected:
 private:
     uint64_t cur_ref_count_ = 0;
     uint64_t cur_instr_count_ = 0;
+    uint64_t last_timestamp_ = 0;
 };
 
 /**

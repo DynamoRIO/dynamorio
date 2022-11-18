@@ -164,6 +164,11 @@ run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
         {
             return "";
         }
+        uint64_t
+        get_last_timestamp() const override
+        {
+            return 0;
+        }
 
     private:
         view_t &view_;

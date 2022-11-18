@@ -282,9 +282,10 @@ reader_t::process_input_entry()
         } else {
             have_memref = true;
         }
-        if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP)
+        if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
             last_timestamp_instr_count_ = cur_instr_count_;
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT)
+            last_timestamp_ = cur_ref_.marker.marker_value;
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT)
             chunk_instr_count_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE &&
                  TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, cur_ref_.marker.marker_value))

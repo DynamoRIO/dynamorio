@@ -72,8 +72,9 @@ static droption_t<std::string> op_tmp_output_dir(
 
 class test_record_filter_t : public dynamorio::drmemtrace::record_filter_t {
 public:
-    test_record_filter_t(const std::vector<record_filter_func_t *> &filters)
-        : record_filter_t("", filters,
+    test_record_filter_t(const std::vector<record_filter_func_t *> &filters,
+                         uint64_t last_timestamp_us)
+        : record_filter_t("", filters, last_timestamp_us,
                           /*verbose=*/0)
     {
     }
@@ -99,6 +100,41 @@ protected:
 
 private:
     std::vector<trace_entry_t> output;
+};
+
+class local_stream_t : public memtrace_stream_t {
+public:
+    local_stream_t()
+    {
+    }
+    uint64_t
+    get_record_ordinal() const override
+    {
+        return 0;
+    }
+    uint64_t
+    get_instruction_ordinal() const override
+    {
+        return 0;
+    }
+    std::string
+    get_stream_name() const override
+    {
+        return "";
+    }
+    uint64_t
+    get_last_timestamp() const override
+    {
+        return last_timestamp_us_;
+    }
+    void
+    set_last_timestamp(uint64_t last_timestamp_us)
+    {
+        last_timestamp_us_ = last_timestamp_us;
+    }
+
+private:
+    uint64_t last_timestamp_us_;
 };
 
 static bool
@@ -177,11 +213,20 @@ test_cache_and_type_filter()
           { false, true } },
         { { TRACE_TYPE_INSTR, 4, { 0xaa80 } }, { true, false } },
         { { TRACE_TYPE_READ, 4, { 0xaaa0 } }, { false, false } },
+        // The following entry is part of the expected output, but not the input. We
+        // will skip it in the parallel_shard_filter() loop below.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_BOUNDARY, 0 }, { true, true } },
+        // Unit header.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xabcdef } },
+          { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xa0 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0xa1 } }, { true, true } },
         // Trace shard footer.
-        { { TRACE_TYPE_FOOTER, 0, { 0xa0 } }, { true, true } }
+        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, { true, true } }
     };
 
     for (int k = 0; k < 2; ++k) {
+        auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
         // Construct record_filter_func_ts.
         std::vector<dynamorio::drmemtrace::record_filter_t::record_filter_func_t *>
             filters;
@@ -213,9 +258,10 @@ test_cache_and_type_filter()
         }
 
         // Construct record_filter_t.
-        auto record_filter =
-            std::unique_ptr<test_record_filter_t>(new test_record_filter_t(filters));
-        void *shard_data = record_filter->parallel_shard_init_stream(0, nullptr, nullptr);
+        auto record_filter = std::unique_ptr<test_record_filter_t>(
+            new test_record_filter_t(filters, /*stop_timestamp_us=*/0xabcdee));
+        void *shard_data =
+            record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
         if (!*record_filter) {
             fprintf(stderr, "Filtering init failed\n");
             return false;
@@ -223,7 +269,20 @@ test_cache_and_type_filter()
 
         // Proccess each trace entry.
         for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-            if (!record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
+            bool input = true;
+            // We need to emulate the stream for the tool, and also
+            // skip the TRACE_MARKER_TYPE_FILTER_BOUNDARY entry which
+            // is supposed to be part of only the output, not the input.
+            if (entries[i].entry.type == TRACE_TYPE_MARKER) {
+                switch (entries[i].entry.size) {
+                case TRACE_MARKER_TYPE_TIMESTAMP:
+                    stream->set_last_timestamp(entries[i].entry.addr);
+                    break;
+                case TRACE_MARKER_TYPE_FILTER_BOUNDARY: input = false; break;
+                }
+            }
+            if (input &&
+                !record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
                 fprintf(stderr, "Filtering failed\n");
                 return false;
             }
@@ -287,6 +346,7 @@ test_null_filter()
     filter_funcs.push_back(null_filter);
     record_analysis_tool_t *record_filter =
         new dynamorio::drmemtrace::record_filter_t(output_dir, filter_funcs,
+                                                   /*stop_timestamp_us=*/0,
                                                    /*verbosity=*/0);
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter);

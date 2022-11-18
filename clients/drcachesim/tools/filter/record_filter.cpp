@@ -61,9 +61,10 @@ namespace drmemtrace {
 
 record_filter_t::record_filter_t(const std::string &output_dir,
                                  const std::vector<record_filter_func_t *> &filters,
-                                 unsigned int verbose)
+                                 uint64_t stop_timestamp_us, unsigned int verbose)
     : output_dir_(output_dir)
     , filters_(filters)
+    , stop_timestamp_us_(stop_timestamp_us)
     , verbosity_(verbose)
     , input_entry_count_(0)
     , output_entry_count_(0)
@@ -103,6 +104,8 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
 {
     auto per_shard = new per_shard_t;
     per_shard->writer = get_writer(per_shard, shard_stream);
+    per_shard->shard_stream = shard_stream;
+    per_shard->enabled = true;
     if (!per_shard->writer) {
         per_shard->error = "Could not open a writer for " + per_shard->output_path;
         success_ = false;
@@ -156,10 +159,24 @@ bool
 record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &entry)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    ++per_shard->input_entry_count;
     bool output = true;
-    for (int i = 0; i < (int)filters_.size(); ++i) {
-        if (!filters_[i]->parallel_shard_filter(entry, per_shard->filter_shard_data[i]))
-            output = false;
+    if (stop_timestamp_us_ == 0 ||
+        per_shard->shard_stream->get_last_timestamp() < stop_timestamp_us_) {
+        for (int i = 0; i < (int)filters_.size(); ++i) {
+            if (!filters_[i]->parallel_shard_filter(entry,
+                                                    per_shard->filter_shard_data[i]))
+                output = false;
+        }
+    } else {
+        if (per_shard->enabled) {
+            per_shard->enabled = false;
+            trace_entry_t filter_boundary_entry = { TRACE_TYPE_MARKER,
+                                                    TRACE_MARKER_TYPE_FILTER_BOUNDARY,
+                                                    0 };
+            if (!write_trace_entry(per_shard, filter_boundary_entry))
+                return false;
+        }
     }
 
     // Optimize space by outputtin the unit header only if we are outputting something
@@ -169,11 +186,15 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
         case TRACE_MARKER_TYPE_TIMESTAMP:
             // No need to remember the previous unit's header anymore. We're in the
             // next unit now.
+            // XXX: it may happen that we never output a unit header due to this
+            // optimization. We should ensure that we output it atleast once. We
+            // skip handling that case for now.
             per_shard->last_filtered_unit_header.clear();
             ANNOTATE_FALLTHROUGH;
         case TRACE_MARKER_TYPE_WINDOW_ID:
         case TRACE_MARKER_TYPE_CPU_ID:
-            per_shard->last_filtered_unit_header.push_back(entry);
+            if (output)
+                per_shard->last_filtered_unit_header.push_back(entry);
             output = false;
         }
     }

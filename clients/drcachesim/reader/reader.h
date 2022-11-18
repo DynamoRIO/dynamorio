@@ -145,6 +145,11 @@ public:
     {
         return cur_instr_count_;
     }
+    uint64_t
+    get_last_timestamp() const override
+    {
+        return last_timestamp_;
+    }
 
 protected:
     // This reads the next entry from the stream of entries from all threads interleaved
@@ -176,6 +181,7 @@ protected:
     uint64_t cur_instr_count_ = 0;
     uint64_t chunk_instr_count_ = 0; // Unchanging once set to non-zero.
     uint64_t last_timestamp_instr_count_ = 0;
+    uint64_t last_timestamp_ = 0;
     trace_entry_t *input_entry_ = nullptr;
 
 private:

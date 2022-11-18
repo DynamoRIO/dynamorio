@@ -81,6 +81,12 @@ public:
      */
     virtual std::string
     get_stream_name() const = 0;
+
+    /**
+     * Returns the value of the last seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+     */
+    virtual uint64_t
+    get_last_timestamp() const = 0;
 };
 
 #endif /* _MEMTRACE_STREAM_H_ */

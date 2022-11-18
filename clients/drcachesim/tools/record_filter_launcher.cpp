@@ -61,6 +61,14 @@ static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 
                                            "Verbosity level",
                                            "Verbosity level for notifications.");
 
+static droption_t<uint64_t>
+    op_stop_timestamp_us(DROPTION_SCOPE_ALL, "stop_timestamp_us", 0, 0,
+                         std::numeric_limits<uint64_t>::max(),
+                         "Timestamp (in us) in the trace when to stop filtering.",
+                         "Record filtering will be disabled (everything will be output) "
+                         "when the tool sees a TRACE_MARKER_TYPE_TIMESTAMP marker with "
+                         "timestamp greater than the specified value.");
+
 static droption_t<int> op_cache_filter_size(
     DROPTION_SCOPE_FRONTEND, "cache_filter_size", 0,
     "[Required] Enable data cache filter with given size (in bytes).",
@@ -84,6 +92,8 @@ std::vector<T>
 parse_string(std::string s, char sep = ',')
 {
     size_t pos;
+    if (s.empty())
+        return {};
     std::vector<T> vec;
     do {
         pos = s.find(sep);
@@ -142,7 +152,8 @@ _tmain(int argc, const TCHAR *targv[])
 
     auto record_filter = std::unique_ptr<record_analysis_tool_t>(
         new dynamorio::drmemtrace::record_filter_t(
-            op_output_dir.get_value(), filter_func_ptrs, op_verbose.get_value()));
+            op_output_dir.get_value(), filter_func_ptrs, op_stop_timestamp_us.get_value(),
+            op_verbose.get_value()));
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());
 
