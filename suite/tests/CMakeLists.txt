@@ -3755,6 +3755,16 @@ if (BUILD_CLIENTS)
         OFF OFF)
       set(tool.drcacheoff.skip_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip_rawtemp ON) # no preprocessor
+
+      # Ensure -cpu_scheduling follows thread migrations.
+      # We have a checked-in trace with a migration.
+      set(migrate_path
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.simple_app.trace.zip")
+      torunonly_api(tool.drcacheoff.cpu "${drcachesim_path}" "offline-cpu" ""
+        "-cpu_scheduling;-infile;${migrate_path}"
+        OFF OFF)
+      set(tool.drcacheoff.cpu_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.cpu_rawtemp ON) # no preprocessor
     endif ()
 
     # We run common.decode-bad to test markers for faults
