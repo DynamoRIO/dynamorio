@@ -165,7 +165,7 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
         per_shard->shard_stream->get_last_timestamp() >= stop_timestamp_) {
         per_shard->enabled = false;
         trace_entry_t filter_boundary_entry = { TRACE_TYPE_MARKER,
-                                                TRACE_MARKER_TYPE_FILTER_BOUNDARY,
+                                                TRACE_MARKER_TYPE_FILTER_ENDPOINT,
                                                 { 0 } };
         if (!write_trace_entry(per_shard, filter_boundary_entry))
             return false;

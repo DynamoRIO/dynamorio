@@ -198,7 +198,7 @@ test_cache_and_type_filter()
         { { TRACE_TYPE_READ, 4, { 0xaaa0 } }, { false, false } },
         // The following entry is part of the expected output, but not the input. We
         // will skip it in the parallel_shard_filter() loop below.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_BOUNDARY, { 0 } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_ENDPOINT, { 0 } },
           { true, true } },
         // Unit header.
         // Since this timestamp is greater than the last_timestamp set below, all
@@ -257,14 +257,14 @@ test_cache_and_type_filter()
         for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
             bool input = true;
             // We need to emulate the stream for the tool, and also
-            // skip the TRACE_MARKER_TYPE_FILTER_BOUNDARY entry which
+            // skip the TRACE_MARKER_TYPE_FILTER_ENDPOINT entry which
             // is supposed to be part of only the output, not the input.
             if (entries[i].entry.type == TRACE_TYPE_MARKER) {
                 switch (entries[i].entry.size) {
                 case TRACE_MARKER_TYPE_TIMESTAMP:
                     stream->set_last_timestamp(entries[i].entry.addr);
                     break;
-                case TRACE_MARKER_TYPE_FILTER_BOUNDARY: input = false; break;
+                case TRACE_MARKER_TYPE_FILTER_ENDPOINT: input = false; break;
                 }
             }
             if (input &&

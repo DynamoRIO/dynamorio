@@ -193,14 +193,6 @@ public:
         }
     }
 
-    // Returns whether the last access to this cache (not to a child cache)
-    // was a hit.
-    bool
-    did_last_access_hit()
-    {
-        return last_hit_;
-    }
-
 protected:
     bool success_;
 
@@ -252,7 +244,6 @@ protected:
 #else
     FILE *file_;
 #endif
-    bool last_hit_;
 };
 
 #endif /* _CACHING_DEVICE_STATS_H_ */
