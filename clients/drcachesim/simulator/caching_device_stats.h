@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -172,8 +172,7 @@ public:
     virtual void
     reset();
 
-    virtual bool
-    operator!()
+    virtual bool operator!()
     {
         return !success_;
     }
