@@ -87,8 +87,9 @@ public:
     {
         if (remove_trace_types_.find(static_cast<trace_type_t>(entry.type)) !=
             remove_trace_types_.end()) {
-            if (entry.type != TRACE_TYPE_MARKER)
-                return false;
+            return false;
+        }
+        if (entry.type == TRACE_TYPE_MARKER) {
             return remove_marker_types_.find(static_cast<trace_marker_type_t>(
                        entry.size)) == remove_marker_types_.end();
         }

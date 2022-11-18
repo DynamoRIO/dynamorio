@@ -73,8 +73,8 @@ static droption_t<std::string> op_tmp_output_dir(
 class test_record_filter_t : public dynamorio::drmemtrace::record_filter_t {
 public:
     test_record_filter_t(const std::vector<record_filter_func_t *> &filters,
-                         uint64_t last_timestamp_us)
-        : record_filter_t("", filters, last_timestamp_us,
+                         uint64_t last_timestamp)
+        : record_filter_t("", filters, last_timestamp,
                           /*verbose=*/0)
     {
     }
@@ -107,16 +107,16 @@ public:
     uint64_t
     get_last_timestamp() const override
     {
-        return last_timestamp_us_;
+        return last_timestamp_;
     }
     void
-    set_last_timestamp(uint64_t last_timestamp_us)
+    set_last_timestamp(uint64_t last_timestamp)
     {
-        last_timestamp_us_ = last_timestamp_us;
+        last_timestamp_ = last_timestamp;
     }
 
 private:
-    uint64_t last_timestamp_us_;
+    uint64_t last_timestamp_;
 };
 
 static bool
@@ -150,7 +150,8 @@ get_basic_counts(const std::string &trace_dir)
 static void
 print_entry(trace_entry_t entry)
 {
-    fprintf(stderr, "%d:%d:%" PRIxPTR, entry.type, entry.size, entry.addr);
+    fprintf(stderr, "%s:%d:%" PRIxPTR, trace_type_names[entry.type], entry.size,
+            entry.addr);
 }
 
 static bool
@@ -200,7 +201,7 @@ test_cache_and_type_filter()
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_BOUNDARY, { 0 } },
           { true, true } },
         // Unit header.
-        // Since this timestamp is greater than the last_timestamp_us set below, all
+        // Since this timestamp is greater than the last_timestamp set below, all
         // later entries will be output regardless of the configured filter.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xabcdef } },
           { true, true } },
@@ -229,10 +230,10 @@ test_cache_and_type_filter()
 
         auto type_filter =
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
-                new dynamorio::drmemtrace::type_filter_t(
-                    { TRACE_TYPE_ENCODING, TRACE_TYPE_MARKER },
-                    { TRACE_MARKER_TYPE_FUNC_ID, TRACE_MARKER_TYPE_FUNC_RETADDR,
-                      TRACE_MARKER_TYPE_FUNC_ARG }));
+                new dynamorio::drmemtrace::type_filter_t({ TRACE_TYPE_ENCODING },
+                                                         { TRACE_MARKER_TYPE_FUNC_ID,
+                                                           TRACE_MARKER_TYPE_FUNC_RETADDR,
+                                                           TRACE_MARKER_TYPE_FUNC_ARG }));
         if (k == 0) {
             if (type_filter->get_error_string() != "") {
                 fprintf(stderr, "Couldn't construct a type_filter %s",

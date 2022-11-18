@@ -275,7 +275,12 @@ reader_t::process_input_entry()
         }
         if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
             last_timestamp_instr_count_ = cur_instr_count_;
-            last_timestamp_ = cur_ref_.marker.marker_value;
+            // Today, a skipped memref is just a duplicate of one that we've
+            // already seen, so this condition is not really needed. But to
+            // be future-proof, we want to avoid looking at timestamps that
+            // won't be passed to the user as well.
+            if (have_memref)
+                last_timestamp_ = cur_ref_.marker.marker_value;
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
             version_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {

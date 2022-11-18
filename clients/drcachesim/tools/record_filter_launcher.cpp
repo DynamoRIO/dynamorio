@@ -62,12 +62,12 @@ static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 
                                            "Verbosity level for notifications.");
 
 static droption_t<uint64_t>
-    op_stop_timestamp_us(DROPTION_SCOPE_ALL, "stop_timestamp_us", 0, 0,
-                         std::numeric_limits<uint64_t>::max(),
-                         "Timestamp (in us) in the trace when to stop filtering.",
-                         "Record filtering will be disabled (everything will be output) "
-                         "when the tool sees a TRACE_MARKER_TYPE_TIMESTAMP marker with "
-                         "timestamp greater than the specified value.");
+    op_stop_timestamp(DROPTION_SCOPE_ALL, "stop_timestamp", 0, 0,
+                      std::numeric_limits<uint64_t>::max(),
+                      "Timestamp (in us) in the trace when to stop filtering.",
+                      "Record filtering will be disabled (everything will be output) "
+                      "when the tool sees a TRACE_MARKER_TYPE_TIMESTAMP marker with "
+                      "timestamp greater than the specified value.");
 
 static droption_t<int> op_cache_filter_size(
     DROPTION_SCOPE_FRONTEND, "cache_filter_size", 0,
@@ -89,16 +89,16 @@ static droption_t<std::string> op_remove_marker_types(
 
 template <typename T>
 std::vector<T>
-parse_string(std::string s, char sep = ',')
+parse_string(const std::string &s, char sep = ',')
 {
-    size_t pos;
+    size_t pos, at = 0;
     if (s.empty())
         return {};
     std::vector<T> vec;
     do {
-        pos = s.find(sep);
+        pos = s.find(sep, at);
         vec.push_back(static_cast<T>(std::stoi(s.substr(0, pos))));
-        s.erase(0, pos + 1);
+        at = pos + 1;
     } while (pos != std::string::npos);
     return vec;
 }
@@ -137,8 +137,6 @@ _tmain(int argc, const TCHAR *targv[])
             parse_string<trace_type_t>(op_remove_trace_types.get_value());
         std::vector<trace_marker_type_t> filter_marker_types =
             parse_string<trace_marker_type_t>(op_remove_marker_types.get_value());
-        if (!filter_marker_types.empty())
-            filter_trace_types.push_back(TRACE_TYPE_MARKER);
         filter_funcs.emplace_back(
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
                 new dynamorio::drmemtrace::type_filter_t(filter_trace_types,
@@ -152,7 +150,7 @@ _tmain(int argc, const TCHAR *targv[])
 
     auto record_filter = std::unique_ptr<record_analysis_tool_t>(
         new dynamorio::drmemtrace::record_filter_t(
-            op_output_dir.get_value(), filter_func_ptrs, op_stop_timestamp_us.get_value(),
+            op_output_dir.get_value(), filter_func_ptrs, op_stop_timestamp.get_value(),
             op_verbose.get_value()));
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());

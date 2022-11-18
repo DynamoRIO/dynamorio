@@ -99,7 +99,7 @@ public:
 
     record_filter_t(const std::string &output_dir,
                     const std::vector<record_filter_func_t *> &filters,
-                    uint64_t stop_timestamp_us, unsigned int verbose);
+                    uint64_t stop_timestamp, unsigned int verbose);
     ~record_filter_t() override;
     bool
     process_memref(const trace_entry_t &entry) override;
@@ -139,7 +139,7 @@ private:
 
     std::string output_dir_;
     std::vector<record_filter_func_t *> filters_;
-    uint64_t stop_timestamp_us_;
+    uint64_t stop_timestamp_;
     unsigned int verbosity_;
     const char *output_prefix_ = "[record_filter]";
     uint64_t input_entry_count_;
