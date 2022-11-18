@@ -48,6 +48,10 @@
 00000101xx01xxxx00xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_zer simm8_5 lsl shift1
 00000101xx01xxxx01xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_mrg simm8_5 lsl shift1
 00000100xx011001000xxxxxxxxxxxxx  n   90   SVE      eor             z0 : p10_lo z0 z5 bhsd_sz
+00000100xx100000101110xxxxxxxxxx  n   787  SVE    fexpa   z_size_hsd_0 : z_size_hsd_5
+01100101xx010xxx100000xxxxxxxxxx  n   788  SVE    ftmad   z_size_hsd_0 : z_size_hsd_0 z_size_hsd_5 imm3
+01100101xx0xxxxx000011xxxxxxxxxx  n   789  SVE   ftsmul   z_size_hsd_0 : z_size_hsd_5 z_size_hsd_16
+00000100xx1xxxxx101100xxxxxxxxxx  n   790  SVE   ftssel   z_size_hsd_0 : z_size_hsd_5 z_size_hsd_16
 0000010000100000101111xxxxxxxxxx  n   783  SVE  movprfx             z0 : z5
 00000100xx011000000xxxxxxxxxxxxx  n   327  SVE      orr             z0 : p10_lo z0 z5 bhsd_sz
 001001010101000011xxxx0xxxx00000  w   786  SVE    ptest                : p10 p_b_5

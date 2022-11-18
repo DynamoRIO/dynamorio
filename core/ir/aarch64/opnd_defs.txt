@@ -133,7 +133,7 @@
 ----------------xxxx------------  cond       # condition for CCMN, CCMP
 ----------------xxxxxx----------  scale      # encoding of #fbits value in scale field
 ----------------xxxxxxxxxxxxxxxx  imm16_0    # imm16 at position 0
--------------xxx----------------  op1        # 3 bit immediate from 16-18
+-------------xxx----------------  imm3       # 3 bit immediate from 16-18
 -------------xxx--------xxx-----  pstate     # Pstate encoded in op1:op2
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
 -------------xxx------xxxxx-----  imm8       # immediate from 16:18 and 5:9
@@ -204,15 +204,18 @@
 --------xx-----------------xxxxx  hsd_size_reg0    # hsd register, depending on size opcode
 --------xx-----------------xxxxx  bhsd_size_reg0   # bhsd register, depending on size opcode
 --------xx-----------------xxxxx  z_size_bhsd_0    # sve vector reg, elsz depending on size
+--------xx-----------------xxxxx  z_size_hsd_0     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  float_reg5  # H, S or D register
 --------xx------------xxxxx-----  hsd_size_reg5    # hsd register, depending on size opcode
 --------xx------------xxxxx-----  bhsd_size_reg5   # bhsd register, depending on size opcode
 --------xx------------xxxxx-----  z_size_bhsd_5    # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  z_size_hsd_5     # sve vector reg, elsz depending on size
 --------xx-------xxxxx----------  float_reg10 # H, S or D register
 --------xx-xxxxx----------------  float_reg16 # H, S or D register
 --------xx-xxxxx----------------  hsd_size_reg16   # hsd register, depending on size opcode
 --------xx-xxxxx----------------  bhsd_size_reg16  # bhsd register, depending on size opcode
 --------xx-xxxxx----------------  z_size_bhsd_16   # sve vector reg, elsz depending on size
+--------xx-xxxxx----------------  z_size_hsd_16    # sve vector reg, elsz depending on size
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12
 -x------------------------------  index3     # index of D subreg in Q: 0-1
