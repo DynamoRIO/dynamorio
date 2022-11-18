@@ -85,7 +85,7 @@ public:
         parallel_shard_exit(void *shard_data) = 0;
 
         /**
-         * Returns the error string. If no error occurred, it will be entry.
+         * Returns the error string. If no error occurred, it will be empty.
          */
         std::string
         get_error_string()

@@ -128,7 +128,7 @@ record_filter_t::parallel_shard_exit(void *shard_data)
     input_entry_count_ += per_shard->input_entry_count;
     output_entry_count_ += per_shard->output_entry_count;
     bool res = true;
-    for (int i = 0; i < (int)filters_.size(); ++i) {
+    for (int i = 0; i < static_cast<int>(filters_.size()); ++i) {
         if (!filters_[i]->parallel_shard_exit(per_shard->filter_shard_data[i]))
             res = false;
     }
@@ -173,13 +173,13 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
             per_shard->enabled = false;
             trace_entry_t filter_boundary_entry = { TRACE_TYPE_MARKER,
                                                     TRACE_MARKER_TYPE_FILTER_BOUNDARY,
-                                                    0 };
+                                                    { 0 } };
             if (!write_trace_entry(per_shard, filter_boundary_entry))
                 return false;
         }
     }
 
-    // Optimize space by outputtin the unit header only if we are outputting something
+    // Optimize space by outputting the unit header only if we are outputting something
     // from that unit.
     if (entry.type == TRACE_TYPE_MARKER) {
         switch (entry.size) {
@@ -188,7 +188,7 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &en
             // next unit now.
             // XXX: it may happen that we never output a unit header due to this
             // optimization. We should ensure that we output it atleast once. We
-            // skip handling that case for now.
+            // skip handling this corner case for now.
             per_shard->last_filtered_unit_header.clear();
             ANNOTATE_FALLTHROUGH;
         case TRACE_MARKER_TYPE_WINDOW_ID:
