@@ -40,9 +40,6 @@
 #include "tools/filter/type_filter.h"
 #include "tools/filter/record_filter.h"
 
-// Needed by Xcode to cast cache_filter_t* to std::unique_ptr<record_filter_func_t>.
-#include <unordered_set>
-
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
         fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \

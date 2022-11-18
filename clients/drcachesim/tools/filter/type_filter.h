@@ -39,6 +39,27 @@
 #include <vector>
 #include <unordered_set>
 
+#ifdef MACOS
+// Provide trace_type_t and trace_marker_type_t specializations to
+// allow declaration of unordered_set<_> below. This was needed for
+// OSX particularly. In C++14, std::hash works as expected for enums
+// too: https://cplusplus.com/forum/general/238538/.
+namespace std {
+  template<>
+  struct hash<trace_type_t> {
+    size_t operator()(trace_type_t t) const {
+      return static_cast<size_t>(t);
+    }
+  };
+  template<>
+  struct hash<trace_marker_type_t> {
+    size_t operator()(trace_marker_type_t t) const {
+      return static_cast<size_t>(t);
+    }
+  };
+}
+#endif
+
 namespace dynamorio {
 namespace drmemtrace {
 
