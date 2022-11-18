@@ -51,6 +51,8 @@
 #include "include/syscall.h"
 #include <errno.h>
 
+#define ABS(x) ((x) < 0 ? -(x) : (x))
+
 /* The linux/rseq.h header made a source-breaking change in torvalds/linux@bfdf4e6
  * which broke our build.  To avoid future issues we use our own definitions.
  * Binary breakage is unlikely without long periods of deprecation so this is
@@ -77,6 +79,26 @@ vm_area_vector_t *d_r_rseq_areas;
 DECLARE_CXTSWPROT_VAR(static mutex_t rseq_trigger_lock,
                       INIT_LOCK_FREE(rseq_trigger_lock));
 static volatile bool rseq_enabled;
+
+/* The struct rseq registered by glibc is present in the struct pthread.
+ * As of glibc 2.35, it is present at the following offset from the app
+ * lib seg base. We check these offsets first and then fall back to a
+ * wider search. The linux.rseq test helps detect changes in these
+ * offsets in future glibc versions.
+ */
+#ifdef X86
+#    ifdef X64
+#        define GLIBC_RSEQ_OFFSET 2464
+#    else
+#        define GLIBC_RSEQ_OFFSET 1312
+#    endif
+#else
+/* This was verified on AArch64, but not on AArch32.
+ * XXX: To improve struct rseq offset detection on AArch32, find the offset
+ * on an AArch32 machine running glibc 2.35+ and add here.
+ */
+#    define GLIBC_RSEQ_OFFSET -32
+#endif
 
 /* We require all threads to use the same TLS offset to point at struct rseq. */
 static int rseq_tls_offset;
@@ -163,7 +185,7 @@ d_r_rseq_init(void)
                                         rseq_cs_free _IF_DEBUG("rseq_cs table"));
     /* Enable rseq pre-attach for things like dr_prepopulate_cache(). */
     if (rseq_is_registered_for_current_thread())
-        rseq_locate_rseq_regions();
+        rseq_locate_rseq_regions(false);
 }
 
 void
@@ -229,7 +251,7 @@ static void
 rseq_clear_tls_ptr(dcontext_t *dcontext)
 {
     ASSERT(rseq_tls_offset != 0);
-    byte *base = get_segment_base(LIB_SEG_TLS);
+    byte *base = get_app_segment_base(LIB_SEG_TLS);
     struct rseq *app_rseq = (struct rseq *)(base + rseq_tls_offset);
     /* We're directly writing this in the cache, so we do not bother with safe_read
      * or safe_write here either.  We already cannot handle rseq adversarial cases.
@@ -545,7 +567,7 @@ rseq_process_elf_sections(module_area_t *ma, bool at_map,
 
 /* Returns whether successfully searched for rseq data (not whether found rseq data). */
 static bool
-rseq_process_module(module_area_t *ma, bool at_map)
+rseq_process_module(module_area_t *ma, bool at_map, bool saw_glibc_rseq_reg)
 {
     bool res = false;
     ASSERT(is_elf_so_header(ma->start, ma->end - ma->start));
@@ -596,7 +618,11 @@ rseq_process_module(module_area_t *ma, bool at_map)
             goto rseq_process_module_cleanup;
         strtab = (char *)(str_map + sec_hdr[elf_hdr->e_shstrndx].sh_offset - offs);
     }
-    rseq_process_elf_sections(ma, at_map, sec_hdr, strtab, load_offs);
+    /* When saw_glibc_rseq_reg is set, we are still at glibc init, and ld has not
+     * relocated the executable yet.
+     */
+    rseq_process_elf_sections(ma, at_map || saw_glibc_rseq_reg, sec_hdr, strtab,
+                              load_offs);
     res = true;
 rseq_process_module_cleanup:
     if (str_size != 0)
@@ -621,6 +647,31 @@ rseq_process_module_cleanup:
     return res;
 }
 
+static bool
+try_struct_rseq(void *try_addr)
+{
+    static const int RSEQ_RARE_SIGNATURE = 42;
+    int res = dynamorio_syscall(SYS_rseq, 4, try_addr, sizeof(struct rseq),
+                                RSEQ_FLAG_UNREGISTER, RSEQ_RARE_SIGNATURE);
+    LOG(GLOBAL, LOG_LOADER, 3, "Tried rseq @ " PFX " => %d\n", try_addr, res);
+    if (res == -EINVAL) /* Our struct != registered struct. */
+        return false;
+    /* We expect -EPERM on a signature mismatch.  On the small chance the app
+     * actually used 42 for its signature we'll have to re-register it.
+     */
+    if (res == 0) {
+        int res = dynamorio_syscall(SYS_rseq, 4, try_addr, sizeof(struct rseq), 0,
+                                    RSEQ_RARE_SIGNATURE);
+        ASSERT(res == 0);
+        res = -EPERM;
+    }
+    if (res == -EPERM) {
+        /* Found it! */
+        return true;
+    }
+    return false;
+}
+
 /* If we did not observe the app invoke SYS_rseq (because we attached mid-run)
  * we must search for its TLS location.
  */
@@ -638,6 +689,19 @@ rseq_locate_tls_offset(void)
      */
     int offset = 0;
     byte *addr = get_app_segment_base(LIB_SEG_TLS);
+    if (addr > 0) {
+        byte *try_glibc_addr = addr + GLIBC_RSEQ_OFFSET;
+        if (try_struct_rseq(try_glibc_addr)) {
+            LOG(GLOBAL, LOG_LOADER, 2,
+                "Found glibc struct rseq @ " PFX " for thread => %s:%s0x%x\n",
+                try_glibc_addr, get_register_name(LIB_SEG_TLS),
+                (GLIBC_RSEQ_OFFSET < 0 ? "-" : ""), ABS(GLIBC_RSEQ_OFFSET));
+            return GLIBC_RSEQ_OFFSET;
+        }
+    }
+    /* Either the app's glibc does not have rseq support (old glibc or disabled by app)
+     * or the offset of glibc's struct rseq has changed. We do a wider search now.
+     */
     byte *seg_bottom;
     size_t seg_size;
     if (addr > 0 && get_memory_info(addr, &seg_bottom, &seg_size, NULL)) {
@@ -646,41 +710,31 @@ rseq_locate_tls_offset(void)
         /* struct rseq_cs is aligned to 32. */
         int alignment = __alignof(struct rseq_cs);
         int i;
-        /* For x86, static TLS is at a negative offset from the app library segment
-         * base, while for aarchxx it is positive.
+        /* When rseq support is enabled in glibc 2.35+, the glibc-registered struct rseq
+         * is present in the struct pthread, which is at a positive offset from the
+         * app library segment base on x86, and negative on aarchxx. However, in the
+         * absence of rseq support from glibc, the app manually registers its own
+         * struct rseq which is present in static TLS, which is at a negative offset
+         * from the app library segment base on x86, and positive on aarchxx.
          */
-        for (i = 0; IF_X86_ELSE(addr - i * alignment >= seg_bottom,
-                                addr + i * alignment < seg_bottom + seg_size);
-             i++) {
-            byte *try_addr = IF_X86_ELSE(addr - i * alignment, addr + i * alignment);
-            ASSERT(try_addr >= seg_bottom); /* For loop guarantees this. */
-            /* Our strategy is to check all of the aligned static TLS addresses to
-             * find the registered one.  Our caller is not supposed to call here
-             * until the app has registered the current thread.
+        ASSERT(seg_bottom <= addr && addr < seg_bottom + seg_size);
+        for (i = (seg_bottom - addr) / alignment;
+             addr + i * alignment < seg_bottom + seg_size; ++i) {
+            byte *try_addr = addr + i * alignment;
+            ASSERT(seg_bottom <= try_addr &&
+                   try_addr < seg_bottom + seg_size); /* For loop guarantees this. */
+            /* Our strategy is to check all of the aligned addresses to find the
+             * registered one.  Our caller is not supposed to call here until the app
+             * has registered the current thread (either manually or using glibc).
              */
-            static const int RSEQ_RARE_SIGNATURE = 42;
-            int res = dynamorio_syscall(SYS_rseq, 4, try_addr, sizeof(struct rseq),
-                                        RSEQ_FLAG_UNREGISTER, RSEQ_RARE_SIGNATURE);
-            LOG(GLOBAL, LOG_LOADER, 3, "Tried rseq @ " PFX " => %d\n", try_addr, res);
-            if (res == -EINVAL) /* Our struct != registered struct. */
-                continue;
-            /* We expect -EPERM on a signature mismatch.  On the small chance the app
-             * actually used 42 for its signature we'll have to re-register it.
-             */
-            if (res == 0) {
-                int res = dynamorio_syscall(SYS_rseq, 4, try_addr, sizeof(struct rseq), 0,
-                                            RSEQ_RARE_SIGNATURE);
-                ASSERT(res == 0);
-                res = -EPERM;
-            }
-            if (res == -EPERM) {
-                /* Found it! */
+            if (try_struct_rseq(try_addr)) {
                 LOG(GLOBAL, LOG_LOADER, 2,
                     "Found struct rseq @ " PFX " for thread => %s:%s0x%x\n", try_addr,
-                    get_register_name(LIB_SEG_TLS), IF_X86_ELSE("-", ""), i * alignment);
-                offset = IF_X86_ELSE(-i * alignment, i * alignment);
+                    get_register_name(LIB_SEG_TLS), (i < 0 ? "-" : ""),
+                    ABS(i) * alignment);
+                offset = i * alignment;
+                break;
             }
-            break;
         }
     }
     return offset;
@@ -692,25 +746,34 @@ rseq_process_syscall(dcontext_t *dcontext)
     byte *seg_base = get_app_segment_base(LIB_SEG_TLS);
     byte *app_addr = (byte *)dcontext->sys_param0;
     bool constant_offset = false;
+    bool first_rseq_registration = false;
     if (rseq_tls_offset == 0) {
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         int offset = app_addr - seg_base;
         /* To handle races here, we use an atomic_exchange. */
         int prior = atomic_exchange_int(&rseq_tls_offset, offset);
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+        if (prior == 0)
+            first_rseq_registration = true;
         constant_offset = (prior == 0 || prior == offset);
         LOG(GLOBAL, LOG_LOADER, 2,
-            "Observed struct rseq @ " PFX " for thread => %s:%s0x%x\n", app_addr,
-            get_register_name(LIB_SEG_TLS), IF_X86_ELSE("-", ""),
-            IF_X86_ELSE(-rseq_tls_offset, rseq_tls_offset));
+            "Observed struct rseq at syscall @ " PFX " for thread => %s:%s0x%x\n",
+            app_addr, get_register_name(LIB_SEG_TLS), (rseq_tls_offset < 0 ? "-" : ""),
+            ABS(rseq_tls_offset));
     } else
         constant_offset = (seg_base + rseq_tls_offset == app_addr);
     if (!constant_offset) {
-        REPORT_FATAL_ERROR_AND_EXIT(
-            RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(), get_application_pid(),
-            "struct rseq is not always in static thread-local storage");
+        REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
+                                    get_application_pid(),
+                                    "struct rseq is not always at the same offset");
         ASSERT_NOT_REACHED();
     }
+    /* The struct rseq registered by glibc 2.35+ is inside struct pthread, which is
+     * at a positive offset from thread pointer on x86 and negative offset on AArch64,
+     * both unlike the static TLS used by manual app registration.
+     */
+    rseq_locate_rseq_regions(first_rseq_registration &&
+                             IF_X86_ELSE(rseq_tls_offset > 0, rseq_tls_offset < 0));
 }
 
 /* Restartable sequence region identification.
@@ -723,7 +786,7 @@ rseq_process_syscall(dcontext_t *dcontext)
  * the app has registered the current thread for rseq.
  */
 void
-rseq_locate_rseq_regions(void)
+rseq_locate_rseq_regions(bool saw_glibc_rseq_reg)
 {
     if (rseq_enabled)
         return;
@@ -759,7 +822,7 @@ rseq_locate_rseq_regions(void)
     module_iterator_t *iter = module_iterator_start();
     while (module_iterator_hasnext(iter)) {
         module_area_t *ma = module_iterator_next(iter);
-        rseq_process_module(ma, false /*!at_map*/);
+        rseq_process_module(ma, false /*!at_map*/, saw_glibc_rseq_reg);
     }
     module_iterator_stop(iter);
     d_r_mutex_unlock(&rseq_trigger_lock);
@@ -769,7 +832,7 @@ void
 rseq_module_init(module_area_t *ma, bool at_map)
 {
     if (rseq_enabled) {
-        rseq_process_module(ma, at_map);
+        rseq_process_module(ma, at_map, false);
     }
 }
 

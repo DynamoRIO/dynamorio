@@ -169,6 +169,30 @@ run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
         {
             return 0;
         }
+        get_version() const override
+        {
+            return 0;
+        }
+        uint64_t
+        get_filetype() const override
+        {
+            return 0;
+        }
+        uint64_t
+        get_cache_line_size() const override
+        {
+            return 0;
+        }
+        uint64_t
+        get_chunk_instr_count() const override
+        {
+            return 0;
+        }
+        uint64_t
+        get_page_size() const override
+        {
+            return 0;
+        }
 
     private:
         view_t &view_;

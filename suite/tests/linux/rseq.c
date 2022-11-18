@@ -58,6 +58,12 @@
 #    define _GNU_SOURCE
 #endif
 #include <sched.h>
+#if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 35))
+#    include <sys/rseq.h>
+#    define GLIBC_RSEQ 1
+#else
+#    define RSEQ_SIG IF_X86_ELSE(0x90909090, 0xd503201f) /* nops to disasm nicely */
+#endif
 #include <linux/rseq.h>
 #include <errno.h>
 #undef NDEBUG
@@ -66,7 +72,6 @@
 #define EXPANDSTR(x) #x
 #define STRINGIFY(x) EXPANDSTR(x)
 
-#define RSEQ_SIG IF_X86_ELSE(0x90909090, 0xd503201f) /* nops to disasm nicely */
 #ifdef RSEQ_TEST_USE_OLD_SECTION_NAME
 #    define RSEQ_SECTION_NAME "__rseq_table"
 #else
@@ -107,6 +112,56 @@ static void *thread_ready;
 
 static volatile int sigill_count;
 
+static bool
+register_rseq()
+{
+#ifdef GLIBC_RSEQ
+    if (__rseq_size > 0) {
+        /* Our glibc rseq handling in rseq_linux.c checks the following offset
+         * first for the glibc-registered struct rseq. Though we do have a
+         * fallback that does a wider search, it would be good to keep the
+         * expected offset in sync with glibc changes.
+         */
+#    ifdef X86
+#        ifdef X64
+        assert(__rseq_offset == 2464);
+#        else
+        assert(__rseq_offset == 1312);
+#        endif
+#    else
+        assert(__rseq_offset == -32);
+#    endif
+        /* Already registered by glibc. Verify that it's there. */
+        struct rseq *reg_rseq = __builtin_thread_pointer() + __rseq_offset;
+        /* Glibc uses RSEQ_SIG as the signature. The following will return
+         * EBUSY if reg_rseq is the registered struct rseq and EINVAL otherwise.
+         * FTR: if we use some other value as signature (like zero),  this
+         * becomes an EPERM vs EINVAL check.
+         */
+        int res = syscall(SYS_rseq, reg_rseq, sizeof(*reg_rseq), 0, RSEQ_SIG);
+        assert(res == -1 && (errno == EBUSY || errno == ENOSYS));
+    } else {
+#endif
+        rseq_tls.cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
+        int res = syscall(SYS_rseq, &rseq_tls, sizeof(rseq_tls), 0, RSEQ_SIG);
+        assert(res == 0 || (res == -1 && errno == ENOSYS));
+#ifdef GLIBC_RSEQ
+    }
+#endif
+    /* Linux kernel 4.18+ is required. */
+    return errno != ENOSYS;
+}
+
+static volatile struct rseq *
+get_my_rseq()
+{
+#ifdef GLIBC_RSEQ
+    if (__rseq_size > 0)
+        return (struct rseq *)(__builtin_thread_pointer() + __rseq_offset);
+#endif
+    return &rseq_tls;
+}
+
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -117,6 +172,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 static void
 test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_out)
 {
+    volatile struct rseq *reg_rseq = get_my_rseq();
     /* We use static to avoid stack reference issues with our extra frame inside the asm.
      */
     static __u32 id = RSEQ_CPU_ID_UNINITIALIZED;
@@ -141,7 +197,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "6:\n\t"
         /* Store the entry into the ptr. */
         "leaq rseq_cs_simple(%%rip), %%rax\n\t"
-        "movq %%rax, %[rseq_tls]\n\t"
+        "movq %%rax, %[rseq_cs]\n\t"
         /* Test register inputs to the sequence. */
         "movl %[cpu_id], %%eax\n\t"
         "movq %%rsp, %%rcx\n\t"
@@ -193,12 +249,12 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
 
         /* Clear the ptr. */
         "5:\n\t"
-        "movq $0, %[rseq_tls]\n\t"
+        "movq $0, %[rseq_cs]\n\t"
         /* clang-format on */
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [id] "=m"(id),
           [completions] "=m"(completions), [restarts] "=m"(restarts),
           [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
+        : [cpu_id] "m"(reg_rseq->cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
           [force_restart] "m"(force_restart)
         : "rax", "rcx", "rdx", "rbx", "rdi", "rsi", "memory");
 #elif defined(AARCH64)
@@ -218,7 +274,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
          * inputs but that's simpler than manually computing all these
          * addresses inside the sequence.
          */
-        "str x0, %[rseq_tls]\n\t"
+        "str x0, %[rseq_cs]\n\t"
         /* Test a register input to the sequence. */
         "ldr x0, %[cpu_id]\n\t"
         /* Test "falling into" the rseq region. */
@@ -262,12 +318,12 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
 
         /* Clear the ptr. */
         "5:\n\t"
-        "str xzr, %[rseq_tls]\n\t"
+        "str xzr, %[rseq_cs]\n\t"
         /* clang-format on */
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [id] "=m"(id),
           [completions] "=m"(completions), [restarts] "=m"(restarts),
           [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
+        : [cpu_id] "m"(reg_rseq->cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
           [force_restart] "m"(force_restart)
         : "x0", "x1", "memory");
 #else
@@ -294,6 +350,7 @@ test_rseq_call(void)
 static void
 test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_out)
 {
+    volatile struct rseq *reg_rseq = get_my_rseq();
     __u32 id = RSEQ_CPU_ID_UNINITIALIZED;
     int completions = 0;
     int restarts = 0;
@@ -306,7 +363,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "6:\n\t"
         /* Store the entry into the ptr. */
         "leaq rseq_cs_branches(%%rip), %%rax\n\t"
-        "movq %%rax, %[rseq_tls]\n\t"
+        "movq %%rax, %[rseq_cs]\n\t"
         /* Test a register input to the sequence. */
         "movl %[cpu_id], %%eax\n\t"
         /* Test "falling into" the rseq region. */
@@ -354,13 +411,13 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "13:\n\t"
         "12:\n\t"
         "5:\n\t"
-        "movq $0, %[rseq_tls]\n\t"
+        "movq $0, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [id] "=m"(id),
           [completions] "=m"(completions), [restarts] "=m"(restarts),
           [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [force_restart] "m"(force_restart)
+        : [cpu_id] "m"(reg_rseq->cpu_id), [force_restart] "m"(force_restart)
         : "rax", "rcx", "memory");
 #elif defined(AARCH64)
     __asm__ __volatile__(
@@ -372,7 +429,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         /* Store the entry into the ptr. */
         "adrp x0, rseq_cs_branches\n\t"
         "add x0, x0, :lo12:rseq_cs_branches\n\t"
-        "str x0, %[rseq_tls]\n\t"
+        "str x0, %[rseq_cs]\n\t"
         /* Test a register input to the sequence. */
         "ldr x0, %[cpu_id]\n\t"
         /* Test "falling into" the rseq region. */
@@ -424,18 +481,20 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "13:\n\t"
         "12:\n\t"
         "5:\n\t"
-        "str xzr, %[rseq_tls]\n\t"
+        "str xzr, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [id] "=m"(id),
           [completions] "=m"(completions), [restarts] "=m"(restarts),
           [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [force_restart] "m"(force_restart)
+        : [cpu_id] "m"(reg_rseq->cpu_id), [force_restart] "m"(force_restart)
         : "x0", "x1", "memory");
 #else
 #    error Unsupported arch
 #endif
     assert(id != RSEQ_CPU_ID_UNINITIALIZED);
+    *completions_out = completions;
+    *restarts_out = restarts;
 }
 
 static void
@@ -461,6 +520,7 @@ test_rseq_branches(void)
 static void
 test_rseq_native_fault(void)
 {
+    volatile struct rseq *reg_rseq = get_my_rseq();
     int restarts = 0;
 #ifdef X86
     __asm__ __volatile__(
@@ -471,7 +531,7 @@ test_rseq_native_fault(void)
         "6:\n\t"
         /* Store the entry into the ptr. */
         "leaq rseq_cs_fault(%%rip), %%rax\n\t"
-        "movq %%rax, %[rseq_tls]\n\t"
+        "movq %%rax, %[rseq_cs]\n\t"
         "pxor %%xmm0, %%xmm0\n\t"
         "mov $1,%%rcx\n\t"
         "movq %%rcx, %%xmm1\n\t"
@@ -507,10 +567,10 @@ test_rseq_native_fault(void)
 
         /* Clear the ptr. */
         "5:\n\t"
-        "movq $0, %[rseq_tls]\n\t"
+        "movq $0, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts)
         :
         : "rax", "rcx", "xmm0", "xmm1", "memory");
 #elif defined(AARCH64)
@@ -523,7 +583,7 @@ test_rseq_native_fault(void)
         /* Store the entry into the ptr. */
         "adrp x0, rseq_cs_fault\n\t"
         "add x0, x0, :lo12:rseq_cs_fault\n\t"
-        "str x0, %[rseq_tls]\n\t"
+        "str x0, %[rseq_cs]\n\t"
         "eor v0.16b, v0.16b, v0.16b\n\t"
         "mov x1, #1\n\t"
         "mov v1.D[0], x1\n\t"
@@ -561,10 +621,10 @@ test_rseq_native_fault(void)
 
         /* Clear the ptr. */
         "5:\n\t"
-        "str xzr, %[rseq_tls]\n\t"
+        "str xzr, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts)
         :
         : "x0", "x1", "q0", "q1", "memory");
 #else
@@ -585,6 +645,7 @@ test_rseq_native_fault(void)
 static void
 test_rseq_native_abort(void)
 {
+    volatile struct rseq *reg_rseq = get_my_rseq();
 #ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
     int restarts = 0;
 #    ifdef X86
@@ -596,7 +657,7 @@ test_rseq_native_abort(void)
         "6:\n\t"
         /* Store the entry into the ptr. */
         "leaq rseq_cs_abort(%%rip), %%rax\n\t"
-        "movq %%rax, %[rseq_tls]\n\t"
+        "movq %%rax, %[rseq_cs]\n\t"
         "pxor %%xmm0, %%xmm0\n\t"
         "mov $1,%%rcx\n\t"
         "movq %%rcx, %%xmm1\n\t"
@@ -647,13 +708,13 @@ test_rseq_native_abort(void)
 
         /* Clear the ptr. */
         "5:\n\t"
-        "movq $0, %[rseq_tls]\n\t"
+        "movq $0, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts)
         : [cpu_mask_size] "i"(sizeof(cpu_set_t)),
           [sysnum_setaffinity] "i"(SYS_sched_setaffinity)
-        : "rax", "rcx", "rdx", "xmm0", "xmm1", "memory");
+        : "rax", "rcx", "rdx", "rsi", "rdi", "xmm0", "xmm1", "memory");
 #    elif defined(AARCH64)
     __asm__ __volatile__(
         /* clang-format off */ /* (avoid indenting next few lines) */
@@ -664,7 +725,7 @@ test_rseq_native_abort(void)
         /* Store the entry into the ptr. */
         "adrp x0, rseq_cs_abort\n\t"
         "add x0, x0, :lo12:rseq_cs_abort\n\t"
-        "str x0, %[rseq_tls]\n\t"
+        "str x0, %[rseq_cs]\n\t"
         "eor v0.16b, v0.16b, v0.16b\n\t"
         "mov x1, #1\n\t"
         "mov v1.D[0], x1\n\t"
@@ -720,10 +781,10 @@ test_rseq_native_abort(void)
 
         /* Clear the ptr. */
         "5:\n\t"
-        "str xzr, %[rseq_tls]\n\t"
+        "str xzr, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts)
         : [cpu_mask_size] "i"(sizeof(cpu_set_t)),
           [sysnum_setaffinity] "i"(SYS_sched_setaffinity)
         : "x0", "x1", "x2", "x8", "q0", "q1", "memory");
@@ -739,6 +800,7 @@ test_rseq_native_abort(void)
 static void
 test_rseq_writeback_store(void)
 {
+    volatile struct rseq *reg_rseq = get_my_rseq();
     __u32 id = RSEQ_CPU_ID_UNINITIALIZED;
     int array[2] = { 0 };
     int *index = array;
@@ -751,7 +813,7 @@ test_rseq_writeback_store(void)
         /* Store the entry into the ptr. */
         "adrp x0, rseq_cs_writeback\n\t"
         "add x0, x0, :lo12:rseq_cs_writeback\n\t"
-        "str x0, %[rseq_tls]\n\t"
+        "str x0, %[rseq_cs]\n\t"
         /* Test a register input to the sequence. */
         "ldr x0, %[cpu_id]\n\t"
         /* Test "falling into" the rseq region. */
@@ -784,11 +846,11 @@ test_rseq_writeback_store(void)
 
         /* Clear the ptr. */
         "5:\n\t"
-        "str xzr, %[rseq_tls]\n\t"
+        "str xzr, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id), [index] "=g"(index)
-        : [cpu_id] "m"(rseq_tls.cpu_id)
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [id] "=m"(id), [index] "=g"(index)
+        : [cpu_id] "m"(reg_rseq->cpu_id)
         : "x0", "x1", "x2", "x28", "memory");
     assert(id != RSEQ_CPU_ID_UNINITIALIZED);
 }
@@ -802,10 +864,9 @@ rseq_thread_loop(void *arg)
      * in this function is close enough: the test already has non-determinism.
      */
     signal_cond_var(thread_ready);
-    rseq_tls.cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
-    int res = syscall(SYS_rseq, &rseq_tls, sizeof(rseq_tls), 0, RSEQ_SIG);
-    if (res != 0)
-        return NULL;
+    bool res = register_rseq();
+    assert(res);
+    volatile struct rseq *reg_rseq = get_my_rseq();
     static int zero;
 #    ifdef X86
     __asm__ __volatile__(
@@ -816,7 +877,7 @@ rseq_thread_loop(void *arg)
         "6:\n\t"
         /* Store the entry into the ptr. */
         "leaq rseq_cs_thread(%%rip), %%rax\n\t"
-        "movq %%rax, %[rseq_tls]\n\t"
+        "movq %%rax, %[rseq_cs]\n\t"
         /* Test "falling into" the rseq region. */
 
         /* Restartable sequence.  We loop to ensure we're in the region on
@@ -851,10 +912,10 @@ rseq_thread_loop(void *arg)
 
         /* Clear the ptr. */
         "5:\n\t"
-        "movq $0, %[rseq_tls]\n\t"
+        "movq $0, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [zero] "=m"(zero)
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [zero] "=m"(zero)
         : [exit_requested] "m"(exit_requested)
         : "rax", "memory");
 #    elif defined(AARCH64)
@@ -867,7 +928,7 @@ rseq_thread_loop(void *arg)
         /* Store the entry into the ptr. */
         "adrp x0, rseq_cs_thread\n\t"
         "add x0, x0, :lo12:rseq_cs_thread\n\t"
-        "str x0, %[rseq_tls]\n\t"
+        "str x0, %[rseq_cs]\n\t"
         /* Test "falling into" the rseq region. */
 
         /* Restartable sequence.  We loop to ensure we're in the region on
@@ -902,10 +963,10 @@ rseq_thread_loop(void *arg)
 
         /* Clear the ptr. */
         "5:\n\t"
-        "str xzr, %[rseq_tls]\n\t"
+        "str xzr, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [zero] "=m"(zero)
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [zero] "=m"(zero)
         : [exit_requested] "m"(exit_requested)
         : "x0", "x1", "memory");
 #    else
@@ -963,7 +1024,7 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    /* Ensure DR_XFER_RSEQ_ABORT is rasied. */
+    /* Ensure DR_XFER_RSEQ_ABORT is raised. */
     dr_register_kernel_xfer_event(kernel_xfer_event);
     drmemtrace_client_main(id, argc, argv);
 }
@@ -973,9 +1034,7 @@ int
 main()
 {
     intercept_signal(SIGILL, signal_handler, false);
-    rseq_tls.cpu_id = RSEQ_CPU_ID_UNINITIALIZED;
-    int res = syscall(SYS_rseq, &rseq_tls, sizeof(rseq_tls), 0, RSEQ_SIG);
-    if (res == 0) {
+    if (register_rseq()) {
 #ifdef RSEQ_TEST_ATTACH
         /* Set -offline to avoid trying to open a pipe to a missing reader. */
         if (setenv("DYNAMORIO_OPTIONS", "-stderr_mask 0xc -client_lib ';;-offline'",
@@ -1011,9 +1070,6 @@ main()
         join_thread(mythread);
         destroy_cond_var(thread_ready);
 #endif
-    } else {
-        /* Linux kernel 4.18+ is required. */
-        assert(errno == ENOSYS);
     }
     print("All done\n");
     return 0;

@@ -3745,6 +3745,18 @@ if (BUILD_CLIENTS)
       unset(tool.drcacheoff.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
     endif ()
 
+    if (X86 AND X64 AND ZLIB_FOUND)
+      # XXX i#5538: Add trace files for other arches.
+      set(zip_path
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
+      torunonly_api(tool.drcacheoff.skip "${drcachesim_path}" "offline-skip" ""
+        # Test invariants with global headers after skipping instrs.
+        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        OFF OFF)
+      set(tool.drcacheoff.skip_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.skip_rawtemp ON) # no preprocessor
+    endif ()
+
     # We run common.decode-bad to test markers for faults
     if (X86) # decode-bad is x86-only
       # Do not cap the trace size (done to shorten tests) b/c it will then miss
@@ -5389,5 +5401,15 @@ if (BUILD_CLIENTS AND NOT ANDROID)
   set_tests_properties(
     code_api|tool.drcachesim.simple
     code_api|tool.drcacheoff.simple
+    PROPERTIES LABELS UBUNTU_22)
+endif ()
+if (LINUX AND X64 AND HAVE_RSEQ)
+  set_tests_properties(
+    code_api|api.rseq
+    code_api|linux.rseq_disable
+    code_api|linux.rseq_noarray
+    code_api|linux.rseq
+    code_api|linux.rseq_table
+    code_api|tool.drcacheoff.rseq
     PROPERTIES LABELS UBUNTU_22)
 endif ()

@@ -1,0 +1,19 @@
+Output format:
+<record#> <instr#>: T<tid> <record details>
+------------------------------------------------------------
+        0       63: T1384871 <marker: timestamp 13313186810097539>
+        0       63: T1384871 <marker: tid 1384871 on core 9>
+       92       64: T1384871 ifetch       4 byte(s) @ 0x0000000000401028 48 83 eb 01          sub    $0x0000000000000001 %rbx -> %rbx
+       93       65: T1384871 ifetch       4 byte(s) @ 0x000000000040102c 48 83 fb 00          cmp    %rbx $0x0000000000000000
+       94       66: T1384871 ifetch       2 byte(s) @ 0x0000000000401030 75 d9                jnz    $0x000000000040100b
+       95       67: T1384871 ifetch       7 byte(s) @ 0x000000000040100b 48 c7 c7 01 00 00 00 mov    $0x0000000000000001 -> %rdi
+       96       68: T1384871 ifetch       8 byte(s) @ 0x0000000000401012 48 8d 34 25 00 20 40 lea    0x00402000 -> %rsi
+       96       68: T1384871                                             00
+       97       69: T1384871 ifetch       7 byte(s) @ 0x000000000040101a 48 c7 c2 0d 00 00 00 mov    $0x000000000000000d -> %rdx
+       98       70: T1384871 ifetch       5 byte(s) @ 0x0000000000401021 b8 01 00 00 00       mov    $0x00000001 -> %eax
+       99       71: T1384871 ifetch       2 byte(s) @ 0x0000000000401026 0f 05                syscall  -> %rcx %r11
+View tool results:
+              8 : total instructions
+
+===========================================================================
+Trace invariant checks passed
