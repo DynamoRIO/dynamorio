@@ -88,6 +88,7 @@ public:
     virtual uint64_t
     get_last_timestamp() const = 0;
 
+    /**
      * Returns the #trace_version_t value from the #TRACE_MARKER_TYPE_VERSION record
      * in the trace header.
      */
@@ -124,4 +125,58 @@ public:
     get_page_size() const = 0;
 };
 
+/**
+ * Implementation of memtrace_stream_t useful for mocks in tests.
+ */
+class test_memtrace_stream_t : public memtrace_stream_t {
+public:
+    virtual ~test_memtrace_stream_t()
+    {
+    }
+    uint64_t
+    get_record_ordinal() const override
+    {
+        return 0;
+    }
+    uint64_t
+    get_instruction_ordinal() const override
+    {
+        return 0;
+    }
+    std::string
+    get_stream_name() const override
+    {
+        return "";
+    }
+    uint64_t
+    get_last_timestamp() const override
+    {
+        return 0;
+    }
+    uint64_t
+    get_version() const override
+    {
+        return 0;
+    }
+    uint64_t
+    get_filetype() const override
+    {
+        return 0;
+    }
+    uint64_t
+    get_cache_line_size() const override
+    {
+        return 0;
+    }
+    uint64_t
+    get_chunk_instr_count() const override
+    {
+        return 0;
+    }
+    uint64_t
+    get_page_size() const override
+    {
+        return 0;
+    }
+};
 #endif /* _MEMTRACE_STREAM_H_ */

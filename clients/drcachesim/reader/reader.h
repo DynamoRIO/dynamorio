@@ -150,6 +150,7 @@ public:
     {
         return last_timestamp_;
     }
+    uint64_t
     get_version() const override
     {
         return version_;

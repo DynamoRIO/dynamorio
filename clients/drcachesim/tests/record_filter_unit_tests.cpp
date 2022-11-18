@@ -102,26 +102,8 @@ private:
     std::vector<trace_entry_t> output;
 };
 
-class local_stream_t : public memtrace_stream_t {
+class local_stream_t : public test_memtrace_stream_t {
 public:
-    local_stream_t()
-    {
-    }
-    uint64_t
-    get_record_ordinal() const override
-    {
-        return 0;
-    }
-    uint64_t
-    get_instruction_ordinal() const override
-    {
-        return 0;
-    }
-    std::string
-    get_stream_name() const override
-    {
-        return "";
-    }
     uint64_t
     get_last_timestamp() const override
     {
@@ -217,6 +199,8 @@ test_cache_and_type_filter()
         // will skip it in the parallel_shard_filter() loop below.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_BOUNDARY, 0 }, { true, true } },
         // Unit header.
+        // Since this timestamp is greater than the last_timestamp_us set below, all
+        // later entries will be output regardless of the configured filter.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xabcdef } },
           { true, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xa0 } }, { true, true } },
