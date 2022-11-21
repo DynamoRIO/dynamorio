@@ -736,8 +736,7 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
     reg_id_t reg_tmp;
     if (!memref_needs_full_info_) {
         // We write just once per bb, if not filtering.
-        if (per_block->instr_count > MAX_INSTR_COUNT ||
-            per_block->instr_count == 0)
+        if (per_block->instr_count > MAX_INSTR_COUNT || per_block->instr_count == 0)
             return adjust;
         pc = dr_fragment_app_pc(tag);
     } else {
