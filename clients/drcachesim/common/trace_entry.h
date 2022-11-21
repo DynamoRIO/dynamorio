@@ -418,6 +418,12 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_RECORD_ORDINAL,
 
+    /**
+     * Indicates a point in the trace where filtering ended.
+     * This is currently added by the record_filter tool to annotate when the
+     * warmup part of the trace ends.
+     */
+    TRACE_MARKER_TYPE_FILTER_ENDPOINT,
     // ...
     // These values are reserved for future built-in marker types.
     // ...

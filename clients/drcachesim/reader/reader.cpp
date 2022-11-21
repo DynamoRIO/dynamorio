@@ -66,7 +66,8 @@ reader_t::operator++()
             // We've already presented the thread exit entry to the analyzer.
             continue;
         }
-        VPRINT(this, 4, "RECV: type=%d, size=%d, addr=0x%zx\n", input_entry_->type,
+        VPRINT(this, 4, "RECV: type=%s (%d), size=%d, addr=0x%zx\n",
+               trace_type_names[input_entry_->type], input_entry_->type,
                input_entry_->size, input_entry_->addr);
         if (process_input_entry())
             break;
@@ -196,7 +197,8 @@ reader_t::process_input_entry()
             // XXX i#3320: Diagnostics to track down the elusive remaining case of
             // this assert on Appveyor.  We'll remove and replace with just the
             // assert once we have a fix.
-            ERRMSG("Invalid trace entry type %d before a bundle\n", cur_ref_.instr.type);
+            ERRMSG("Invalid trace entry type %s (%d) before a bundle\n",
+                   trace_type_names[cur_ref_.instr.type], cur_ref_.instr.type);
             assert(type_is_instr(cur_ref_.instr.type) ||
                    cur_ref_.instr.type == TRACE_TYPE_INSTR_NO_FETCH);
         }
@@ -273,9 +275,15 @@ reader_t::process_input_entry()
         } else {
             have_memref = true;
         }
-        if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP)
+        if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
             last_timestamp_instr_count_ = cur_instr_count_;
-        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
+            // Today, a skipped memref is just a duplicate of one that we've
+            // already seen, so this condition is not really needed. But to
+            // be future-proof, we want to avoid looking at timestamps that
+            // won't be passed to the user as well.
+            if (have_memref)
+                last_timestamp_ = cur_ref_.marker.marker_value;
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
             version_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             filetype_ = cur_ref_.marker.marker_value;
@@ -289,7 +297,8 @@ reader_t::process_input_entry()
             chunk_instr_count_ = cur_ref_.marker.marker_value;
         break;
     default:
-        ERRMSG("Unknown trace entry type %d\n", input_entry_->type);
+        ERRMSG("Unknown trace entry type %s (%d)\n", trace_type_names[input_entry_->type],
+               input_entry_->type);
         assert(false);
         at_eof_ = true; // bail
         break;

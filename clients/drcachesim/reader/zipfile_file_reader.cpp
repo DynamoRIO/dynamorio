@@ -117,8 +117,9 @@ file_reader_t<zipfile_reader_t>::read_next_thread_entry(size_t thread_index,
     }
     *entry = *zipfile->cur_buf;
     ++zipfile->cur_buf;
-    VPRINT(this, 4, "Read from thread #%zd: type=%d, size=%d, addr=%zu\n", thread_index,
-           entry->type, entry->size, entry->addr);
+    VPRINT(this, 4, "Read from thread #%zd: type=%s (%d), size=%d, addr=%zu\n",
+           thread_index, trace_type_names[entry->type], entry->type, entry->size,
+           entry->addr);
     return true;
 }
 
