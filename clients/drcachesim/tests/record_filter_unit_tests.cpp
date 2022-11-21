@@ -130,9 +130,10 @@ local_create_dir(const char *dir)
 basic_counts_t::counters_t
 get_basic_counts(const std::string &trace_dir)
 {
-    analysis_tool_t *basic_counts_tool = new basic_counts_t(/*verbose=*/0);
+    auto basic_counts_tool =
+        std::unique_ptr<basic_counts_t>(new basic_counts_t(/*verbose=*/0));
     std::vector<analysis_tool_t *> tools;
-    tools.push_back(basic_counts_tool);
+    tools.push_back(basic_counts_tool.get());
     analyzer_t analyzer(trace_dir, &tools[0], static_cast<int>(tools.size()));
     if (!analyzer) {
         FATAL_ERROR("failed to initialize analyzer: %s",
@@ -141,9 +142,7 @@ get_basic_counts(const std::string &trace_dir)
     if (!analyzer.run()) {
         FATAL_ERROR("failed to run analyzer: %s", analyzer.get_error_string().c_str());
     }
-    basic_counts_t::counters_t counts =
-        ((basic_counts_t *)basic_counts_tool)->get_total_counts();
-    delete basic_counts_tool;
+    basic_counts_t::counters_t counts = basic_counts_tool->get_total_counts();
     return counts;
 }
 
@@ -332,12 +331,12 @@ test_null_filter()
         std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
         filter_funcs;
     filter_funcs.push_back(std::move(null_filter));
-    record_analysis_tool_t *record_filter =
+    auto record_filter = std::unique_ptr<dynamorio::drmemtrace::record_filter_t>(
         new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
                                                    /*stop_timestamp_us=*/0,
-                                                   /*verbosity=*/0);
+                                                   /*verbosity=*/0));
     std::vector<record_analysis_tool_t *> tools;
-    tools.push_back(record_filter);
+    tools.push_back(record_filter.get());
     record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
                                       static_cast<int>(tools.size()));
     if (!record_analyzer) {
@@ -348,7 +347,6 @@ test_null_filter()
         FATAL_ERROR("Failed to run record filter: %s",
                     record_analyzer.get_error_string().c_str());
     }
-    delete record_filter;
 
     basic_counts_t::counters_t c1 = get_basic_counts(op_trace_dir.get_value());
     basic_counts_t::counters_t c2 = get_basic_counts(output_dir);
