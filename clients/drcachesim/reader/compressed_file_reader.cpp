@@ -103,8 +103,9 @@ file_reader_t<gzip_reader_t>::read_next_thread_entry(size_t thread_index,
 {
     if (!read_next_thread_entry_common(&input_files_[thread_index], entry, eof))
         return false;
-    VPRINT(this, 4, "Read from thread #%zd file: type=%d, size=%d, addr=%zu\n",
-           thread_index, entry->type, entry->size, entry->addr);
+    VPRINT(this, 4, "Read from thread #%zd file: type=%s (%d), size=%d, addr=%zu\n",
+           thread_index, trace_type_names[entry->type], entry->type, entry->size,
+           entry->addr);
     return true;
 }
 
@@ -156,8 +157,9 @@ record_file_reader_t<gzip_reader_t>::read_next_entry()
 {
     if (!read_next_thread_entry_common(input_file_, &cur_entry_, &eof_))
         return false;
-    VPRINT(this, 4, "Read from file: type=%d, size=%d, addr=%zu\n", cur_entry_.type,
-           cur_entry_.size, cur_entry_.addr);
+    VPRINT(this, 4, "Read from file: type=%s (%d), size=%d, addr=%zu\n",
+           trace_type_names[cur_entry_.type], cur_entry_.type, cur_entry_.size,
+           cur_entry_.addr);
     return true;
 }
 

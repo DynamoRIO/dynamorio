@@ -105,7 +105,7 @@ droption_t<bytesize_t> op_chunk_instr_count(
     // We do not support tiny chunks.  We do not support disabling chunks with a 0
     // value, to simplify testing: although we're still having to support generating
     // non-zip files for !HAS_ZLIB/!HAS_ZIP!
-    bytesize_t(10),
+    bytesize_t(1000),
 #ifdef X64
     bytesize_t(1ULL << 63),
 #else

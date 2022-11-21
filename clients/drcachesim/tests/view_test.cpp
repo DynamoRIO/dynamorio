@@ -120,7 +120,7 @@ public:
 std::string
 run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
 {
-    class local_stream_t : public memtrace_stream_t {
+    class local_stream_t : public test_memtrace_stream_t {
     public:
         local_stream_t(view_t &view, const std::vector<memref_t> &memrefs)
             : view_(view)
@@ -158,11 +158,6 @@ run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
         get_instruction_ordinal() const override
         {
             return instr_count_;
-        }
-        std::string
-        get_stream_name() const override
-        {
-            return "";
         }
 
     private:

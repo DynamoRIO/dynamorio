@@ -1141,8 +1141,9 @@ raw2trace_t::append_delayed_branch(void *tls)
                        entry.addr, tdata->index);
             } else {
                 VPRINT(4,
-                       "Appending delayed branch tagalong entry type %d for thread %d\n",
-                       entry.type, tdata->index);
+                       "Appending delayed branch tagalong entry type %s (%d) for thread "
+                       "%d\n",
+                       trace_type_names[entry.type], entry.type, tdata->index);
             }
         }
     }

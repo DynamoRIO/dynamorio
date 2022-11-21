@@ -763,7 +763,8 @@ process_entry_for_physaddr(void *drcontext, per_thread_t *data, size_t header_si
     addr_t phys = 0;
     bool success = data->physaddr.virtual2physical(drcontext, virt, &phys, &from_cache);
     ASSERT(emitted != NULL && skip != NULL, "invalid input parameters");
-    NOTIFY(4, "%s: type=%2d virt=%p phys=%p\n", __FUNCTION__, type, virt, phys);
+    NOTIFY(4, "%s: type=%s (%2d) virt=%p phys=%p\n", __FUNCTION__, trace_type_names[type],
+           type, virt, phys);
     if (!success) {
         // XXX i#1735: Unfortunately this happens; currently we use the virtual
         // address and continue.
@@ -772,8 +773,8 @@ process_entry_for_physaddr(void *drcontext, per_thread_t *data, size_t header_si
         // - wild access (NULL or very large bogus address) by app
         // - page is swapped out (unlikely since we're querying *after* the
         //   the app just accessed, but could happen)
-        NOTIFY(1, "virtual2physical translation failure for type=%2d addr=%p\n", type,
-               virt);
+        NOTIFY(1, "virtual2physical translation failure for type=%s (%2d) addr=%p\n",
+               trace_type_names[type], type, virt);
         phys = virt;
     }
     // We keep the main entries as virtual but add markers showing
@@ -881,8 +882,8 @@ process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_s
         }
         if (ALIGN_BACKWARD(virt + mem_ref_size - 1 /*open-ended*/, page_size) !=
             virt_page) {
-            NOTIFY(2, "Emitting physaddr for next page %p for type=%2d, addr=%p\n",
-                   virt_page + page_size, type, virt);
+            NOTIFY(2, "Emitting physaddr for next page %p for type=%s (%2d), addr=%p\n",
+                   virt_page + page_size, trace_type_names[type], type, virt);
             v2p_ptr =
                 process_entry_for_physaddr(drcontext, data, header_size, v2p_ptr, mem_ref,
                                            virt_page + page_size, type, &emitted, &skip);
@@ -1144,6 +1145,22 @@ void
 exit_thread_io(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+
+#ifdef UNIX
+    /**
+     * i#2384:
+     * On Linux, the thread exit event may be invoked twice for the same thread
+     * if that thread is alive during a process fork, but doesn't call the fork
+     * itself.  The first time the event callback is executed from the fork child
+     * immediately after the fork, the second time it is executed during the
+     * regular thread exit.
+     * data->file could be already closed. Write file operation is fail
+     * and it is asserted.
+     */
+    if (dr_get_process_id() != dr_get_process_id_from_drcontext(drcontext)) {
+        return;
+    }
+#endif
 
     if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) ||
         (has_tracing_windows() && !op_split_windows.get_value()) ||

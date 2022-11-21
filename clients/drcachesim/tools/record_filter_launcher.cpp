@@ -36,6 +36,8 @@
 #include "droption.h"
 #include "dr_frontend.h"
 #include "tools/filter/null_filter.h"
+#include "tools/filter/cache_filter.h"
+#include "tools/filter/type_filter.h"
 #include "tools/filter/record_filter.h"
 
 #define FATAL_ERROR(msg, ...)                               \
@@ -59,6 +61,48 @@ static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 
                                            "Verbosity level",
                                            "Verbosity level for notifications.");
 
+static droption_t<uint64_t>
+    op_stop_timestamp(DROPTION_SCOPE_ALL, "stop_timestamp", 0, 0,
+                      std::numeric_limits<uint64_t>::max(),
+                      "Timestamp (in us) in the trace when to stop filtering.",
+                      "Record filtering will be disabled (everything will be output) "
+                      "when the tool sees a TRACE_MARKER_TYPE_TIMESTAMP marker with "
+                      "timestamp greater than the specified value.");
+
+static droption_t<int> op_cache_filter_size(
+    DROPTION_SCOPE_FRONTEND, "cache_filter_size", 0,
+    "[Required] Enable data cache filter with given size (in bytes).",
+    "Enable data cache filter with given size (in bytes), with 64 byte "
+    "line size and a direct mapped LRU cache.");
+
+static droption_t<std::string> op_remove_trace_types(
+    DROPTION_SCOPE_FRONTEND, "remove_trace_types", "",
+    "[Required] Comma-separated integers for trace types to remove.",
+    "Comma-separated integers for trace types to remove. "
+    "See trace_type_t for the list of trace entry types.");
+
+static droption_t<std::string> op_remove_marker_types(
+    DROPTION_SCOPE_FRONTEND, "remove_marker_types", "",
+    "[Required] Comma-separated integers for marker types to remove.",
+    "Comma-separated integers for marker types to remove. "
+    "See trace_marker_type_t for the list of marker types.");
+
+template <typename T>
+std::vector<T>
+parse_string(const std::string &s, char sep = ',')
+{
+    size_t pos, at = 0;
+    if (s.empty())
+        return {};
+    std::vector<T> vec;
+    do {
+        pos = s.find(sep, at);
+        vec.push_back(static_cast<T>(std::stoi(s.substr(at, pos))));
+        at = pos + 1;
+    } while (pos != std::string::npos);
+    return vec;
+}
+
 int
 _tmain(int argc, const TCHAR *targv[])
 {
@@ -75,17 +119,41 @@ _tmain(int argc, const TCHAR *targv[])
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
 
-    dynamorio::drmemtrace::record_filter_t::record_filter_func_t *null_filter =
-        new dynamorio::drmemtrace::null_filter_t();
-    std::vector<dynamorio::drmemtrace::record_filter_t::record_filter_func_t *>
+    std::vector<
+        std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
         filter_funcs;
-    filter_funcs.push_back(null_filter);
+    if (op_cache_filter_size.specified()) {
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                // XXX: add more command-line options to allow the user to set these
+                // parameters.
+                new dynamorio::drmemtrace::cache_filter_t(
+                    /*cache_associativity=*/1, /*cache_line_size=*/64,
+                    op_cache_filter_size.get_value(),
+                    /*filter_data=*/true, /*filter_instrs=*/false)));
+    }
+    if (op_remove_trace_types.specified() || op_remove_marker_types.specified()) {
+        std::vector<trace_type_t> filter_trace_types =
+            parse_string<trace_type_t>(op_remove_trace_types.get_value());
+        std::vector<trace_marker_type_t> filter_marker_types =
+            parse_string<trace_marker_type_t>(op_remove_marker_types.get_value());
+        filter_funcs.emplace_back(
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+                new dynamorio::drmemtrace::type_filter_t(filter_trace_types,
+                                                         filter_marker_types)));
+    }
+    std::vector<dynamorio::drmemtrace::record_filter_t::record_filter_func_t *>
+        filter_func_ptrs;
+    for (auto &f : filter_funcs)
+        filter_func_ptrs.push_back(f.get());
     // TODO i#5675: Add other filters.
 
-    record_analysis_tool_t *record_filter = new dynamorio::drmemtrace::record_filter_t(
-        op_output_dir.get_value(), filter_funcs, op_verbose.get_value());
+    auto record_filter = std::unique_ptr<record_analysis_tool_t>(
+        new dynamorio::drmemtrace::record_filter_t(
+            op_output_dir.get_value(), filter_func_ptrs, op_stop_timestamp.get_value(),
+            op_verbose.get_value()));
     std::vector<record_analysis_tool_t *> tools;
-    tools.push_back(record_filter);
+    tools.push_back(record_filter.get());
 
     record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
                                       (int)tools.size());
@@ -98,8 +166,6 @@ _tmain(int argc, const TCHAR *targv[])
                     record_analyzer.get_error_string().c_str());
     }
     record_analyzer.print_stats();
-    delete null_filter;
-    delete record_filter;
 
     fprintf(stderr, "Done!\n");
     return 0;

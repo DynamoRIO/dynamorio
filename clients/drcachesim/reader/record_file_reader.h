@@ -145,6 +145,22 @@ public:
             ++cur_ref_count_;
             if (type_is_instr(static_cast<trace_type_t>(cur_entry_.type)))
                 ++cur_instr_count_;
+            else if (cur_entry_.type == TRACE_TYPE_MARKER) {
+                switch (cur_entry_.size) {
+                case TRACE_MARKER_TYPE_VERSION: version_ = cur_entry_.addr; break;
+                case TRACE_MARKER_TYPE_FILETYPE: filetype_ = cur_entry_.addr; break;
+                case TRACE_MARKER_TYPE_CACHE_LINE_SIZE:
+                    cache_line_size_ = cur_entry_.addr;
+                    break;
+                case TRACE_MARKER_TYPE_PAGE_SIZE: page_size_ = cur_entry_.addr; break;
+                case TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT:
+                    chunk_instr_count_ = cur_entry_.addr;
+                    break;
+                case TRACE_MARKER_TYPE_TIMESTAMP:
+                    last_timestamp_ = cur_entry_.addr;
+                    break;
+                }
+            }
         }
         return *this;
     }
@@ -158,6 +174,36 @@ public:
     get_instruction_ordinal() const override
     {
         return cur_instr_count_;
+    }
+    uint64_t
+    get_last_timestamp() const override
+    {
+        return last_timestamp_;
+    }
+    uint64_t
+    get_version() const override
+    {
+        return version_;
+    }
+    uint64_t
+    get_filetype() const override
+    {
+        return filetype_;
+    }
+    uint64_t
+    get_cache_line_size() const override
+    {
+        return cache_line_size_;
+    }
+    uint64_t
+    get_chunk_instr_count() const override
+    {
+        return chunk_instr_count_;
+    }
+    uint64_t
+    get_page_size() const override
+    {
+        return page_size_;
     }
 
     virtual bool
@@ -199,6 +245,14 @@ protected:
 private:
     uint64_t cur_ref_count_ = 0;
     uint64_t cur_instr_count_ = 0;
+    uint64_t last_timestamp_ = 0;
+
+    // Remember top-level headers for the memtrace_stream_t interface.
+    uint64_t version_ = 0;
+    uint64_t filetype_ = 0;
+    uint64_t cache_line_size_ = 0;
+    uint64_t chunk_instr_count_ = 0;
+    uint64_t page_size_ = 0;
 };
 
 /**

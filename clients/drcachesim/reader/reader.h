@@ -145,6 +145,36 @@ public:
     {
         return cur_instr_count_;
     }
+    uint64_t
+    get_last_timestamp() const override
+    {
+        return last_timestamp_;
+    }
+    uint64_t
+    get_version() const override
+    {
+        return version_;
+    }
+    uint64_t
+    get_filetype() const override
+    {
+        return filetype_;
+    }
+    uint64_t
+    get_cache_line_size() const override
+    {
+        return cache_line_size_;
+    }
+    uint64_t
+    get_chunk_instr_count() const override
+    {
+        return chunk_instr_count_;
+    }
+    uint64_t
+    get_page_size() const override
+    {
+        return page_size_;
+    }
 
 protected:
     // This reads the next entry from the stream of entries from all threads interleaved
@@ -174,9 +204,15 @@ protected:
     uint64_t cur_ref_count_ = 0;
     int64_t suppress_ref_count_ = -1;
     uint64_t cur_instr_count_ = 0;
-    uint64_t chunk_instr_count_ = 0; // Unchanging once set to non-zero.
     uint64_t last_timestamp_instr_count_ = 0;
+    uint64_t last_timestamp_ = 0;
     trace_entry_t *input_entry_ = nullptr;
+    // Remember top-level headers for the memtrace_stream_t interface.
+    uint64_t version_ = 0;
+    uint64_t filetype_ = 0;
+    uint64_t cache_line_size_ = 0;
+    uint64_t chunk_instr_count_ = 0;
+    uint64_t page_size_ = 0;
 
 private:
     struct encoding_info_t {

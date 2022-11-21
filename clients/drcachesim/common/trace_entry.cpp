@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -80,4 +80,5 @@ const char *const trace_type_names[] = {
     "prefetch_write_l2_nt",
     "prefetch_write_l3",
     "prefetch_write_l3_nt",
+    "encoding",
 };

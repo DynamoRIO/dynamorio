@@ -1282,20 +1282,6 @@ _tmain(int argc, TCHAR *targv[])
     /* we re-read the tool list if the root, platform or toolconfig dir change */
     read_tool_list(dr_toolconfig_dir, dr_platform);
 
-#if defined(LINUX) && !defined(ANDROID) && (defined(DRCONFIG) || defined(DRRUN))
-    /* XXX i#5431: Workaround for an rseq issue with glibc 2.35 which makes many
-     * apps fail up front.  We expect to remove this once the real fix is in place.
-     */
-#    include <gnu/libc-version.h>
-    const char *libc_ver = gnu_get_libc_version();
-    if (libc_ver[0] != '\0' && libc_ver[0] >= '2' && libc_ver[1] == '.' &&
-        libc_ver[2] >= '3' && libc_ver[3] >= '5') {
-        info("glibc2.35 detected: setting -disable_rseq");
-        add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
-                         "-disable_rseq");
-    }
-#endif
-
     /* parse command line */
     for (i = 1; i < argc; i++) {
 

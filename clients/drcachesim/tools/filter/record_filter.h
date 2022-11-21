@@ -66,7 +66,7 @@ public:
          * This routine can be used to initialize state for each shard.
          */
         virtual void *
-        parallel_shard_init() = 0;
+        parallel_shard_init(memtrace_stream_t *shard_stream) = 0;
         /**
          * Invoked for each #trace_entry_t in the shard. It returns
          * whether or not this \p entry should be included in the result
@@ -83,11 +83,23 @@ public:
          */
         virtual bool
         parallel_shard_exit(void *shard_data) = 0;
+
+        /**
+         * Returns the error string. If no error occurred, it will be empty.
+         */
+        std::string
+        get_error_string()
+        {
+            return error_string_;
+        }
+
+    protected:
+        std::string error_string_;
     };
 
     record_filter_t(const std::string &output_dir,
                     const std::vector<record_filter_func_t *> &filters,
-                    unsigned int verbose);
+                    uint64_t stop_timestamp, unsigned int verbose);
     ~record_filter_t() override;
     bool
     process_memref(const trace_entry_t &entry) override;
@@ -105,21 +117,33 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
 
-private:
+protected:
     struct per_shard_t {
         std::string output_path;
         std::unique_ptr<std::ostream> writer;
         std::string error;
+        std::vector<void *> filter_shard_data;
+        std::vector<trace_entry_t> last_filtered_unit_header;
+        uint64_t input_entry_count;
+        uint64_t output_entry_count;
+        memtrace_stream_t *shard_stream;
+        bool enabled;
     };
 
-    std::unique_ptr<std::ostream>
-    get_writer(const std::string &path);
+private:
+    virtual bool
+    write_trace_entry(per_shard_t *shard, const trace_entry_t &entry);
+
+    virtual std::unique_ptr<std::ostream>
+    get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
 
     std::string output_dir_;
     std::vector<record_filter_func_t *> filters_;
-    std::vector<void *> filter_shard_data_;
+    uint64_t stop_timestamp_;
     unsigned int verbosity_;
     const char *output_prefix_ = "[record_filter]";
+    uint64_t input_entry_count_;
+    uint64_t output_entry_count_;
 };
 
 } // namespace drmemtrace
