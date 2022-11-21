@@ -2773,14 +2773,12 @@ if (NOT ANDROID) # XXX i#1874: get working on Android
     "" "" "")
   use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
 endif ()
-if (NOT AARCHXX) # TODO i#1578: Hanging on AArch64.
-  if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
-    set(client.drwrap-test-detach_no_reg_compat)
-    tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
-      "" "" OFF ON OFF)
-    use_DynamoRIO_extension(client.drwrap-test-detach drwrap_static)
-    link_with_pthread(client.drwrap-test-detach)
-  endif ()
+if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+  set(client.drwrap-test-detach_no_reg_compat)
+  tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
+    "" "" OFF ON OFF)
+  use_DynamoRIO_extension(client.drwrap-test-detach drwrap_static)
+  link_with_pthread(client.drwrap-test-detach)
 endif ()
 
 tobuild_appdll(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c)
