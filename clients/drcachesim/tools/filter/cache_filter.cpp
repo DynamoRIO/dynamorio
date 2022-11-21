@@ -31,7 +31,7 @@
  */
 
 #include "cache_filter.h"
-#include "../simulator/cache_lru.h"
+#include "cache_lru.h"
 
 namespace dynamorio {
 namespace drmemtrace {
