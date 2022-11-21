@@ -50,9 +50,6 @@
 
 TEST_INSTR(sqrdmlsh_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     opnd_t elsz;
     reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -69,7 +66,7 @@ TEST_INSTR(sqrdmlsh_vector)
                                              opnd_create_reg(Rn_0[i]),
                                              opnd_create_reg(Rm_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     reg_id_t Rd_1[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -86,7 +83,7 @@ TEST_INSTR(sqrdmlsh_vector)
                                              opnd_create_reg(Rn_1[i]),
                                              opnd_create_reg(Rm_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
     reg_id_t Rd_2[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -103,7 +100,7 @@ TEST_INSTR(sqrdmlsh_vector)
                                              opnd_create_reg(Rn_2[i]),
                                              opnd_create_reg(Rm_2[i]), elsz);
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_2[i]))
-            success = false;
+            *psuccess = false;
     }
 
     reg_id_t Rd_3[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -120,17 +117,13 @@ TEST_INSTR(sqrdmlsh_vector)
                                              opnd_create_reg(Rn_3[i]),
                                              opnd_create_reg(Rm_3[i]), elsz);
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_3[i]))
-            success = false;
+            *psuccess = false;
     }
 
-    return success;
 }
 
 TEST_INSTR(sqrdmlsh_scalar_idx)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     opnd_t elsz;
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -148,7 +141,7 @@ TEST_INSTR(sqrdmlsh_scalar_idx)
             dc, opnd_create_reg(Rd_0[i]), opnd_create_reg(Rn_0[i]),
             opnd_create_reg(Rm_0[i]), opnd_create_immed_uint(index_0[i], OPSZ_0), elsz);
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     reg_id_t Rd_1[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -166,17 +159,13 @@ TEST_INSTR(sqrdmlsh_scalar_idx)
             dc, opnd_create_reg(Rd_1[i]), opnd_create_reg(Rn_1[i]),
             opnd_create_reg(Rm_1[i]), opnd_create_immed_uint(index_1[i], OPSZ_0), elsz);
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
-    return success;
 }
 
 TEST_INSTR(sqrdmlsh_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
     reg_id_t Rn_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -191,7 +180,7 @@ TEST_INSTR(sqrdmlsh_scalar)
                                              opnd_create_reg(Rn_0[i]),
                                              opnd_create_reg(Rm_0[i]));
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     reg_id_t Rd_1[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -207,17 +196,13 @@ TEST_INSTR(sqrdmlsh_scalar)
                                              opnd_create_reg(Rn_1[i]),
                                              opnd_create_reg(Rm_1[i]));
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
-    return success;
 }
 
 TEST_INSTR(ldlar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing LDLAR   <Wt>, [<Xn|SP>] */
     reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -232,7 +217,7 @@ TEST_INSTR(ldlar)
             dc, opnd_create_reg(Rt_0_0[i]),
             opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_4));
         if (!test_instr_encoding(dc, OP_ldlar, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing LDLAR   <Xt>, [<Xn|SP>] */
@@ -248,17 +233,13 @@ TEST_INSTR(ldlar)
             dc, opnd_create_reg(Rt_1_0[i]),
             opnd_create_base_disp(Rn_1_0[i], DR_REG_NULL, 0, 0, OPSZ_8));
         if (!test_instr_encoding(dc, OP_ldlar, instr, expected_1_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
-    return success;
 }
 
 TEST_INSTR(ldlarb)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing LDLARB  <Wt>, [<Xn|SP>] */
     reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -273,17 +254,13 @@ TEST_INSTR(ldlarb)
             dc, opnd_create_reg(Rt_0_0[i]),
             opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_1));
         if (!test_instr_encoding(dc, OP_ldlarb, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
-    return success;
 }
 
 TEST_INSTR(ldlarh)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing LDLARH  <Wt>, [<Xn|SP>] */
     reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -298,17 +275,13 @@ TEST_INSTR(ldlarh)
             dc, opnd_create_reg(Rt_0_0[i]),
             opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_2));
         if (!test_instr_encoding(dc, OP_ldlarh, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
-    return success;
 }
 
 TEST_INSTR(stllr)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing STLLR   <Wt>, [<Xn|SP>] */
     reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -323,7 +296,7 @@ TEST_INSTR(stllr)
             dc, opnd_create_reg(Rt_0_0[i]),
             opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_4));
         if (!test_instr_encoding(dc, OP_stllr, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing STLLR   <Xt>, [<Xn|SP>] */
@@ -339,17 +312,13 @@ TEST_INSTR(stllr)
             dc, opnd_create_reg(Rt_1_0[i]),
             opnd_create_base_disp(Rn_1_0[i], DR_REG_NULL, 0, 0, OPSZ_8));
         if (!test_instr_encoding(dc, OP_stllr, instr, expected_1_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
-    return success;
 }
 
 TEST_INSTR(stllrb)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing STLLRB  <Wt>, [<Xn|SP>] */
     reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -364,17 +333,13 @@ TEST_INSTR(stllrb)
             dc, opnd_create_reg(Rt_0_0[i]),
             opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_1));
         if (!test_instr_encoding(dc, OP_stllrb, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
-    return success;
 }
 
 TEST_INSTR(stllrh)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing STLLRH  <Wt>, [<Xn|SP>] */
     reg_id_t Rt_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -389,10 +354,9 @@ TEST_INSTR(stllrh)
             dc, opnd_create_reg(Rt_0_0[i]),
             opnd_create_base_disp(Rn_0_0[i], DR_REG_NULL, 0, 0, OPSZ_2));
         if (!test_instr_encoding(dc, OP_stllrh, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
-    return success;
 }
 
 int
@@ -405,6 +369,7 @@ main(int argc, char *argv[])
 #endif
     bool result = true;
     bool test_result;
+    instr_t *instr;
 
     RUN_INSTR_TEST(sqrdmlsh_scalar);
     RUN_INSTR_TEST(sqrdmlsh_scalar_idx);

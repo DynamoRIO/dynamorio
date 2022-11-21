@@ -54,9 +54,6 @@
 
 TEST_INSTR(fcvtas_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTAS  <Vd>.8H, <Vn>.8H */
     opnd_t elsz;
@@ -72,7 +69,7 @@ TEST_INSTR(fcvtas_vector)
         instr = INSTR_CREATE_fcvtas_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTAS  <Vd>.4H, <Vn>.4H */
@@ -88,17 +85,12 @@ TEST_INSTR(fcvtas_vector)
         instr = INSTR_CREATE_fcvtas_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(fcvtas_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTAS  <Wd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -112,7 +104,7 @@ TEST_INSTR(fcvtas_scalar)
         instr = INSTR_CREATE_fcvtas_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTAS  <Xd>, <Hn> */
@@ -126,7 +118,7 @@ TEST_INSTR(fcvtas_scalar)
         instr = INSTR_CREATE_fcvtas_scalar(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTAS  <Hd>, <Hn> */
@@ -140,10 +132,8 @@ TEST_INSTR(fcvtas_scalar)
         instr = INSTR_CREATE_fcvtas_scalar(dc, opnd_create_reg(Rd_2[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtas, instr, expected_2[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -152,9 +142,6 @@ TEST_INSTR(fcvtas_scalar)
 
 TEST_INSTR(fcvtau_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTAU  <Vd>.8H, <Vn>.8H */
     opnd_t elsz;
@@ -170,7 +157,7 @@ TEST_INSTR(fcvtau_vector)
         instr = INSTR_CREATE_fcvtau_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTAU  <Vd>.4H, <Vn>.4H */
@@ -186,17 +173,12 @@ TEST_INSTR(fcvtau_vector)
         instr = INSTR_CREATE_fcvtau_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(fcvtau_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTAU  <Wd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -210,7 +192,7 @@ TEST_INSTR(fcvtau_scalar)
         instr = INSTR_CREATE_fcvtau_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTAU  <Xd>, <Hn> */
@@ -224,7 +206,7 @@ TEST_INSTR(fcvtau_scalar)
         instr = INSTR_CREATE_fcvtau_scalar(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTAU  <Hd>, <Hn> */
@@ -238,10 +220,8 @@ TEST_INSTR(fcvtau_scalar)
         instr = INSTR_CREATE_fcvtau_scalar(dc, opnd_create_reg(Rd_2[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtau, instr, expected_2[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -250,9 +230,6 @@ TEST_INSTR(fcvtau_scalar)
 
 TEST_INSTR(fcvtms_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTMS  <Vd>.8H, <Vn>.8H */
     opnd_t elsz;
@@ -268,7 +245,7 @@ TEST_INSTR(fcvtms_vector)
         instr = INSTR_CREATE_fcvtms_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTMS  <Vd>.4H, <Vn>.4H */
@@ -284,17 +261,12 @@ TEST_INSTR(fcvtms_vector)
         instr = INSTR_CREATE_fcvtms_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(fcvtms_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTMS  <Wd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -308,7 +280,7 @@ TEST_INSTR(fcvtms_scalar)
         instr = INSTR_CREATE_fcvtms_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTMS  <Xd>, <Hn> */
@@ -322,7 +294,7 @@ TEST_INSTR(fcvtms_scalar)
         instr = INSTR_CREATE_fcvtms_scalar(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTMS  <Hd>, <Hn> */
@@ -336,10 +308,8 @@ TEST_INSTR(fcvtms_scalar)
         instr = INSTR_CREATE_fcvtms_scalar(dc, opnd_create_reg(Rd_2[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtms, instr, expected_2[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -348,9 +318,6 @@ TEST_INSTR(fcvtms_scalar)
 
 TEST_INSTR(fcvtmu_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTMU  <Vd>.8H, <Vn>.8H */
     opnd_t elsz;
@@ -366,7 +333,7 @@ TEST_INSTR(fcvtmu_vector)
         instr = INSTR_CREATE_fcvtmu_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtmu, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTMU  <Vd>.4H, <Vn>.4H */
@@ -382,17 +349,12 @@ TEST_INSTR(fcvtmu_vector)
         instr = INSTR_CREATE_fcvtmu_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtmu, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(fcvtmu_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTMU  <Wd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -406,7 +368,7 @@ TEST_INSTR(fcvtmu_scalar)
         instr = INSTR_CREATE_fcvtmu_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtmu, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTMU  <Xd>, <Hn> */
@@ -420,7 +382,7 @@ TEST_INSTR(fcvtmu_scalar)
         instr = INSTR_CREATE_fcvtmu_scalar(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtmu, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTMU  <Hd>, <Hn> */
@@ -434,10 +396,8 @@ TEST_INSTR(fcvtmu_scalar)
         instr = INSTR_CREATE_fcvtmu_scalar(dc, opnd_create_reg(Rd_2[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtmu, instr, expected_2[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -446,9 +406,6 @@ TEST_INSTR(fcvtmu_scalar)
 
 TEST_INSTR(fcvtns_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTNS  <Vd>.8H, <Vn>.8H */
     opnd_t elsz;
@@ -464,7 +421,7 @@ TEST_INSTR(fcvtns_vector)
         instr = INSTR_CREATE_fcvtns_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTNS  <Vd>.4H, <Vn>.4H */
@@ -480,17 +437,12 @@ TEST_INSTR(fcvtns_vector)
         instr = INSTR_CREATE_fcvtns_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(fcvtns_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTNS  <Wd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -504,7 +456,7 @@ TEST_INSTR(fcvtns_scalar)
         instr = INSTR_CREATE_fcvtns_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTNS  <Xd>, <Hn> */
@@ -518,7 +470,7 @@ TEST_INSTR(fcvtns_scalar)
         instr = INSTR_CREATE_fcvtns_scalar(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTNS  <Hd>, <Hn> */
@@ -532,10 +484,8 @@ TEST_INSTR(fcvtns_scalar)
         instr = INSTR_CREATE_fcvtns_scalar(dc, opnd_create_reg(Rd_2[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtns, instr, expected_2[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -544,9 +494,6 @@ TEST_INSTR(fcvtns_scalar)
 
 TEST_INSTR(fcvtnu_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTNU  <Vd>.8H, <Vn>.8H */
     opnd_t elsz;
@@ -562,7 +509,7 @@ TEST_INSTR(fcvtnu_vector)
         instr = INSTR_CREATE_fcvtnu_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtnu, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTNU  <Vd>.4H, <Vn>.4H */
@@ -578,17 +525,12 @@ TEST_INSTR(fcvtnu_vector)
         instr = INSTR_CREATE_fcvtnu_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtnu, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(fcvtnu_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTNU  <Wd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -602,7 +544,7 @@ TEST_INSTR(fcvtnu_scalar)
         instr = INSTR_CREATE_fcvtnu_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtnu, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTNU  <Xd>, <Hn> */
@@ -616,7 +558,7 @@ TEST_INSTR(fcvtnu_scalar)
         instr = INSTR_CREATE_fcvtnu_scalar(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtnu, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTNU  <Hd>, <Hn> */
@@ -630,10 +572,8 @@ TEST_INSTR(fcvtnu_scalar)
         instr = INSTR_CREATE_fcvtnu_scalar(dc, opnd_create_reg(Rd_2[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtnu, instr, expected_2[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -642,9 +582,6 @@ TEST_INSTR(fcvtnu_scalar)
 
 TEST_INSTR(fcvtps_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTPS  <Vd>.8H, <Vn>.8H */
     opnd_t elsz;
@@ -660,7 +597,7 @@ TEST_INSTR(fcvtps_vector)
         instr = INSTR_CREATE_fcvtps_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTPS  <Vd>.4H, <Vn>.4H */
@@ -676,17 +613,12 @@ TEST_INSTR(fcvtps_vector)
         instr = INSTR_CREATE_fcvtps_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(fcvtps_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTPS  <Wd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -700,7 +632,7 @@ TEST_INSTR(fcvtps_scalar)
         instr = INSTR_CREATE_fcvtps_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTPS  <Xd>, <Hn> */
@@ -714,7 +646,7 @@ TEST_INSTR(fcvtps_scalar)
         instr = INSTR_CREATE_fcvtps_scalar(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTPS  <Hd>, <Hn> */
@@ -728,10 +660,8 @@ TEST_INSTR(fcvtps_scalar)
         instr = INSTR_CREATE_fcvtps_scalar(dc, opnd_create_reg(Rd_2[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtps, instr, expected_2[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -740,9 +670,6 @@ TEST_INSTR(fcvtps_scalar)
 
 TEST_INSTR(fcvtpu_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTPU  <Vd>.8H, <Vn>.8H */
     opnd_t elsz;
@@ -758,7 +685,7 @@ TEST_INSTR(fcvtpu_vector)
         instr = INSTR_CREATE_fcvtpu_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTPU  <Vd>.4H, <Vn>.4H */
@@ -774,17 +701,12 @@ TEST_INSTR(fcvtpu_vector)
         instr = INSTR_CREATE_fcvtpu_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(fcvtpu_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FCVTPU  <Wd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -798,7 +720,7 @@ TEST_INSTR(fcvtpu_scalar)
         instr = INSTR_CREATE_fcvtpu_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTPU  <Xd>, <Hn> */
@@ -812,7 +734,7 @@ TEST_INSTR(fcvtpu_scalar)
         instr = INSTR_CREATE_fcvtpu_scalar(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FCVTPU  <Hd>, <Hn> */
@@ -826,10 +748,8 @@ TEST_INSTR(fcvtpu_scalar)
         instr = INSTR_CREATE_fcvtpu_scalar(dc, opnd_create_reg(Rd_2[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtpu, instr, expected_2[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -838,9 +758,6 @@ TEST_INSTR(fcvtpu_scalar)
 
 TEST_INSTR(fcvtzs_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCVTZS  <Hd>.<Ts>, <Hn>.<Ts> */
 
@@ -857,7 +774,7 @@ TEST_INSTR(fcvtzs_vector)
         instr = INSTR_CREATE_fcvtzs_vector(dc, opnd_create_reg(Rd_0_0[i]),
                                            opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCVTZS  <Hd>.8H, <Hn>.8H */
@@ -873,16 +790,11 @@ TEST_INSTR(fcvtzs_vector)
         instr = INSTR_CREATE_fcvtzs_vector(dc, opnd_create_reg(Rd_0_1[i]),
                                            opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_0_1[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(fcvtzs_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCVTZS  <Wd>, <Hn> */
     reg_id_t Rd_1_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -896,7 +808,7 @@ TEST_INSTR(fcvtzs_scalar)
         instr = INSTR_CREATE_fcvtzs_scalar(dc, opnd_create_reg(Rd_1_0[i]),
                                            opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_1_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCVTZS  <Xd>, <Hn> */
@@ -911,7 +823,7 @@ TEST_INSTR(fcvtzs_scalar)
         instr = INSTR_CREATE_fcvtzs_scalar(dc, opnd_create_reg(Rd_4_0[i]),
                                            opnd_create_reg(Rn_4_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_4_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCVTZS  <Wd>, <Hn>, #<fbits> */
@@ -928,7 +840,7 @@ TEST_INSTR(fcvtzs_scalar)
             dc, opnd_create_reg(Rd_10_0[i]), opnd_create_reg(Rn_10_0[i]),
             opnd_create_immed_uint(scale_10_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_10_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCVTZS  <Xd>, <Hn>, #<fbits> */
@@ -945,7 +857,7 @@ TEST_INSTR(fcvtzs_scalar)
             dc, opnd_create_reg(Rd_11_0[i]), opnd_create_reg(Rn_11_0[i]),
             opnd_create_immed_uint(scale_11_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_11_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCVTZS  <Hd>, <Hn> */
@@ -960,10 +872,8 @@ TEST_INSTR(fcvtzs_scalar)
         instr = INSTR_CREATE_fcvtzs_scalar(dc, opnd_create_reg(Rd_12_0[i]),
                                            opnd_create_reg(Rn_12_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_12_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 /*
  * FCVTZU
@@ -971,9 +881,6 @@ TEST_INSTR(fcvtzs_scalar)
 
 TEST_INSTR(fcvtzu_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCVTZU  <Hd>.<Ts>, <Hn>.<Ts> */
 
@@ -990,7 +897,7 @@ TEST_INSTR(fcvtzu_vector)
         instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(Rd_0_0[i]),
                                            opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCVTZU  <Hd>.8H, <Hn>.8H */
@@ -1006,16 +913,11 @@ TEST_INSTR(fcvtzu_vector)
         instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(Rd_0_1[i]),
                                            opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_0_1[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(fcvtzu_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCVTZU  <Wd>, <Hn> */
     reg_id_t Rd_1_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -1029,7 +931,7 @@ TEST_INSTR(fcvtzu_scalar)
         instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(Rd_1_0[i]),
                                            opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_1_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCVTZU  <Xd>, <Hn> */
@@ -1044,7 +946,7 @@ TEST_INSTR(fcvtzu_scalar)
         instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(Rd_4_0[i]),
                                            opnd_create_reg(Rn_4_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_4_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCVTZU  <Wd>, <Hn>, #<fbits> */
@@ -1061,7 +963,7 @@ TEST_INSTR(fcvtzu_scalar)
             dc, opnd_create_reg(Rd_10_0[i]), opnd_create_reg(Rn_10_0[i]),
             opnd_create_immed_uint(scale_10_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_10_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCVTZU  <Xd>, <Hn>, #<fbits> */
@@ -1078,7 +980,7 @@ TEST_INSTR(fcvtzu_scalar)
             dc, opnd_create_reg(Rd_11_0[i]), opnd_create_reg(Rn_11_0[i]),
             opnd_create_immed_uint(scale_11_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_11_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCVTZU  <Hd>, <Hn> */
@@ -1093,10 +995,8 @@ TEST_INSTR(fcvtzu_scalar)
         instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(Rd_12_0[i]),
                                            opnd_create_reg(Rn_12_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_12_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 /*
  * FRINTA
@@ -1104,9 +1004,6 @@ TEST_INSTR(fcvtzu_scalar)
 
 TEST_INSTR(frinta_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTA  <Hd>.8H, <Hn>.8H */
     opnd_t elsz;
@@ -1122,7 +1019,7 @@ TEST_INSTR(frinta_vector)
         instr = INSTR_CREATE_frinta_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frinta, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FRINTA  <Hd>.4H, <Hn>.4H */
@@ -1138,17 +1035,12 @@ TEST_INSTR(frinta_vector)
         instr = INSTR_CREATE_frinta_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frinta, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(frinta_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTA  <Hd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -1162,10 +1054,8 @@ TEST_INSTR(frinta_scalar)
         instr = INSTR_CREATE_frinta_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frinta, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -1174,9 +1064,6 @@ TEST_INSTR(frinta_scalar)
 
 TEST_INSTR(frinti_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTI  <Hd>.8H, <Hn>.8H */
     opnd_t elsz;
@@ -1192,7 +1079,7 @@ TEST_INSTR(frinti_vector)
         instr = INSTR_CREATE_frinti_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frinti, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FRINTI  <Hd>.4H, <Hn>.4H */
@@ -1208,17 +1095,12 @@ TEST_INSTR(frinti_vector)
         instr = INSTR_CREATE_frinti_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frinti, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(frinti_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTI  <Hd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -1232,10 +1114,8 @@ TEST_INSTR(frinti_scalar)
         instr = INSTR_CREATE_frinti_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frinti, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -1244,9 +1124,6 @@ TEST_INSTR(frinti_scalar)
 
 TEST_INSTR(frintm_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTM  <Hd>.8H, <Hn>.8H */
     opnd_t elsz;
@@ -1262,7 +1139,7 @@ TEST_INSTR(frintm_vector)
         instr = INSTR_CREATE_frintm_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintm, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FRINTM  <Hd>.4H, <Hn>.4H */
@@ -1278,17 +1155,12 @@ TEST_INSTR(frintm_vector)
         instr = INSTR_CREATE_frintm_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintm, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(frintm_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTM  <Hd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -1302,10 +1174,8 @@ TEST_INSTR(frintm_scalar)
         instr = INSTR_CREATE_frintm_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frintm, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -1314,9 +1184,6 @@ TEST_INSTR(frintm_scalar)
 
 TEST_INSTR(frintn_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTN  <Hd>.8H, <Hn>.8H */
     opnd_t elsz;
@@ -1332,7 +1199,7 @@ TEST_INSTR(frintn_vector)
         instr = INSTR_CREATE_frintn_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintn, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FRINTN  <Hd>.4H, <Hn>.4H */
@@ -1348,17 +1215,12 @@ TEST_INSTR(frintn_vector)
         instr = INSTR_CREATE_frintn_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintn, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(frintn_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTN  <Hd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -1372,10 +1234,8 @@ TEST_INSTR(frintn_scalar)
         instr = INSTR_CREATE_frintn_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frintn, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -1384,9 +1244,6 @@ TEST_INSTR(frintn_scalar)
 
 TEST_INSTR(frintp_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTP  <Hd>.8H, <Hn>.8H */
     opnd_t elsz;
@@ -1402,7 +1259,7 @@ TEST_INSTR(frintp_vector)
         instr = INSTR_CREATE_frintp_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintp, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FRINTP  <Hd>.4H, <Hn>.4H */
@@ -1418,17 +1275,12 @@ TEST_INSTR(frintp_vector)
         instr = INSTR_CREATE_frintp_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintp, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(frintp_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTP  <Hd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -1442,10 +1294,8 @@ TEST_INSTR(frintp_scalar)
         instr = INSTR_CREATE_frintp_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frintp, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -1454,9 +1304,6 @@ TEST_INSTR(frintp_scalar)
 
 TEST_INSTR(frintx_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTX  <Hd>.8H, <Hn>.8H */
     opnd_t elsz;
@@ -1472,7 +1319,7 @@ TEST_INSTR(frintx_vector)
         instr = INSTR_CREATE_frintx_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintx, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FRINTX  <Hd>.4H, <Hn>.4H */
@@ -1488,17 +1335,12 @@ TEST_INSTR(frintx_vector)
         instr = INSTR_CREATE_frintx_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintx, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(frintx_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTX  <Hd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -1512,10 +1354,8 @@ TEST_INSTR(frintx_scalar)
         instr = INSTR_CREATE_frintx_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frintx, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -1524,9 +1364,6 @@ TEST_INSTR(frintx_scalar)
 
 TEST_INSTR(frintz_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTZ  <Hd>.8H, <Hn>.8H */
     opnd_t elsz;
@@ -1542,7 +1379,7 @@ TEST_INSTR(frintz_vector)
         instr = INSTR_CREATE_frintz_vector(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintz, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* FRINTZ  <Hd>.4H, <Hn>.4H */
@@ -1558,17 +1395,12 @@ TEST_INSTR(frintz_vector)
         instr = INSTR_CREATE_frintz_vector(dc, opnd_create_reg(Rd_1[i]),
                                            opnd_create_reg(Rn_1[i]), elsz);
         if (!test_instr_encoding(dc, OP_frintz, instr, expected_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(frintz_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FRINTZ  <Hd>, <Hn> */
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -1582,10 +1414,8 @@ TEST_INSTR(frintz_scalar)
         instr = INSTR_CREATE_frintz_scalar(dc, opnd_create_reg(Rd_0[i]),
                                            opnd_create_reg(Rn_0[i]));
         if (!test_instr_encoding(dc, OP_frintz, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 /*
@@ -1594,9 +1424,6 @@ TEST_INSTR(frintz_scalar)
 
 TEST_INSTR(fmlal_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FMLAL   <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.<Tb> */
     reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
@@ -1626,15 +1453,10 @@ TEST_INSTR(fmlal_vector)
     };
     TEST_LOOP(fmlal, fmlal_vector, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
               opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(fmlal_vector_idx)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FMLAL   <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.H[<index>] */
     reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
@@ -1674,15 +1496,10 @@ TEST_INSTR(fmlal_vector_idx)
     TEST_LOOP(fmlal, fmlal_vector_idx, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
               opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]),
               opnd_create_immed_uint(index_0_1[i], OPSZ_0));
-
-    return success;
 }
 
 TEST_INSTR(fmlal2_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FMLAL2  <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.<Tb> */
     reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
@@ -1712,15 +1529,10 @@ TEST_INSTR(fmlal2_vector)
     };
     TEST_LOOP(fmlal2, fmlal2_vector, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
               opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(fmlal2_vector_idx)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FMLAL2  <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.H[<index>] */
     reg_id_t Rd_0_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
@@ -1760,8 +1572,6 @@ TEST_INSTR(fmlal2_vector_idx)
     TEST_LOOP(fmlal2, fmlal2_vector_idx, 6, expected_0_1[i], opnd_create_reg(Rd_0_1[i]),
               opnd_create_reg(Rn_0_1[i]), opnd_create_reg(Rm_0_1[i]),
               opnd_create_immed_uint(index_0_1[i], OPSZ_0));
-
-    return success;
 }
 
 /*
@@ -1770,9 +1580,6 @@ TEST_INSTR(fmlal2_vector_idx)
 
 TEST_INSTR(fmlsl_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FMLSL <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb> */
 
@@ -1799,15 +1606,10 @@ TEST_INSTR(fmlsl_vector)
     };
     TEST_LOOP(fmlsl, fmlsl_vector, 3, expected_1[i], opnd_create_reg(Rd_1[i]),
               opnd_create_reg(Rn_1[i]), opnd_create_reg(Rm_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(fmlsl_vector_idx)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FMLSL <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.H[<index>] */
     reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -1822,8 +1624,6 @@ TEST_INSTR(fmlsl_vector_idx)
     TEST_LOOP(fmlsl, fmlsl_vector_idx, 3, expected_0[i], opnd_create_reg(Rd_0[i]),
               opnd_create_reg(Rn_0[i]), opnd_create_reg(Rm_0[i]),
               OPND_CREATE_INT(index[i]));
-
-    return success;
 }
 
 /*
@@ -1832,9 +1632,6 @@ TEST_INSTR(fmlsl_vector_idx)
 
 TEST_INSTR(fmlsl2_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FMLSL2 <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb> */
 
@@ -1861,15 +1658,10 @@ TEST_INSTR(fmlsl2_vector)
     };
     TEST_LOOP(fmlsl2, fmlsl2_vector, 3, expected_1[i], opnd_create_reg(Rd_1[i]),
               opnd_create_reg(Rn_1[i]), opnd_create_reg(Rm_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(fmlsl2_vector_idx)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* FMLSL2 <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.H[<index>] */
     reg_id_t Rd_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -1884,15 +1676,10 @@ TEST_INSTR(fmlsl2_vector_idx)
     TEST_LOOP(fmlsl2, fmlsl2_vector_idx, 3, expected_0[i], opnd_create_reg(Rd_0[i]),
               opnd_create_reg(Rn_0[i]), opnd_create_reg(Rm_0[i]),
               OPND_CREATE_INT(index[i]));
-
-    return success;
 }
 
 TEST_INSTR(sm3partw1_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SM3PARTW1 <Sd>.4S, <Sn>.4S, <Sm>.4S */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -1909,17 +1696,12 @@ TEST_INSTR(sm3partw1_vector)
                                               opnd_create_reg(Rn_0_0[i]),
                                               opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3partw1, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sm3partw2_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SM3PARTW2 <Sd>.4S, <Sn>.4S, <Sm>.4S */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -1936,17 +1718,12 @@ TEST_INSTR(sm3partw2_vector)
                                               opnd_create_reg(Rn_0_0[i]),
                                               opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3partw2, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sm3ss1_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SM3SS1  <Sd>.4S, <Sn>.4S, <Sm>.4S, <Sa>.4S */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -1964,17 +1741,12 @@ TEST_INSTR(sm3ss1_vector)
             dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
             opnd_create_reg(Rm_0_0[i]), opnd_create_reg(Ra_0_0[i]), Ra_elsz);
         if (!test_instr_encoding(dc, OP_sm3ss1, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sm3tt1a_vector_indexed)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SM3TT1A <Sd>.4S, <Sn>.4S, <Sm>.S[<index>] */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -1993,17 +1765,12 @@ TEST_INSTR(sm3tt1a_vector_indexed)
             opnd_create_reg(Rm_0_0[i]), opnd_create_immed_uint(imm2_0_0[i], OPSZ_0),
             Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3tt1a, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sm3tt1b_vector_indexed)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SM3TT1B <Sd>.4S, <Sn>.4S, <Sm>.S[<index>] */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2022,17 +1789,12 @@ TEST_INSTR(sm3tt1b_vector_indexed)
             opnd_create_reg(Rm_0_0[i]), opnd_create_immed_uint(imm2_0_0[i], OPSZ_0),
             Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3tt1b, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sm3tt2a_vector_indexed)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SM3TT2A <Sd>.4S, <Sn>.4S, <Sm>.S[<index>] */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2051,17 +1813,12 @@ TEST_INSTR(sm3tt2a_vector_indexed)
             opnd_create_reg(Rm_0_0[i]), opnd_create_immed_uint(imm2_0_0[i], OPSZ_0),
             Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3tt2a, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sm3tt2b_vector_indexed)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SM3TT2B <Sd>.4S, <Sn>.4S, <Sm>.S[<index>] */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2080,17 +1837,12 @@ TEST_INSTR(sm3tt2b_vector_indexed)
             opnd_create_reg(Rm_0_0[i]), opnd_create_immed_uint(imm2_0_0[i], OPSZ_0),
             Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm3tt2b, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sm4e_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SM4E    <Sd>.4S, <Sn>.4S */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2105,17 +1857,12 @@ TEST_INSTR(sm4e_vector)
         instr = INSTR_CREATE_sm4e_vector(dc, opnd_create_reg(Rd_0_0[i]),
                                          opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_sm4e, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sm4ekey_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SM4EKEY <Sd>.4S, <Sn>.4S, <Sm>.4S */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2132,17 +1879,12 @@ TEST_INSTR(sm4ekey_vector)
                                             opnd_create_reg(Rn_0_0[i]),
                                             opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sm4ekey, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sha512h)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SHA512H <Qd>, <Qn>, <Dm>.2D */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2159,16 +1901,11 @@ TEST_INSTR(sha512h)
                                      opnd_create_reg(Rn_0_0[i]),
                                      opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sha512h, instr, expected_0_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(sha512h2)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SHA512H2 <Qd>, <Qn>, <Dm>.2D */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2185,16 +1922,11 @@ TEST_INSTR(sha512h2)
                                       opnd_create_reg(Rn_0_0[i]),
                                       opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sha512h2, instr, expected_0_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(sha512su0)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SHA512SU0 <Dd>.2D, <Dn>.2D */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2209,16 +1941,11 @@ TEST_INSTR(sha512su0)
         instr = INSTR_CREATE_sha512su0(dc, opnd_create_reg(Rd_0_0[i]),
                                        opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_sha512su0, instr, expected_0_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(sha512su1)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SHA512SU1 <Dd>.2D, <Dn>.2D, <Dm>.2D */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2235,16 +1962,11 @@ TEST_INSTR(sha512su1)
                                        opnd_create_reg(Rn_0_0[i]),
                                        opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sha512su1, instr, expected_0_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(bcax)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing BCAX    <Bd>.16B, <Bn>.16B, <Bm>.16B, <Ba>.16B */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2261,17 +1983,12 @@ TEST_INSTR(bcax)
             INSTR_CREATE_bcax(dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
                               opnd_create_reg(Rm_0_0[i]), opnd_create_reg(Ra_0_0[i]));
         if (!test_instr_encoding(dc, OP_bcax, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(eor3)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing EOR3    <Bd>.16B, <Bn>.16B, <Bm>.16B, <Ba>.16B */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2288,46 +2005,31 @@ TEST_INSTR(eor3)
             INSTR_CREATE_eor3(dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
                               opnd_create_reg(Rm_0_0[i]), opnd_create_reg(Ra_0_0[i]));
         if (!test_instr_encoding(dc, OP_eor3, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(esb)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing ESB      */
     const char *expected_0_0[1] = { "esb" };
     instr = INSTR_CREATE_esb(dc);
     if (!test_instr_encoding(dc, OP_esb, instr, expected_0_0[0]))
-        success = false;
-
-    return success;
+        *psuccess = false;
 }
 
 TEST_INSTR(psb)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing PSB      */
     const char *expected_0_0[1] = { "psb" };
     instr = INSTR_CREATE_psb_csync(dc);
     if (!test_instr_encoding(dc, OP_psb, instr, expected_0_0[0]))
-        success = false;
-    return success;
-}
+        *psuccess = false;}
 
 TEST_INSTR(fsqrt_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FSQRT   <Hd>.<Ts>, <Hn>.<Ts> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -2342,7 +2044,7 @@ TEST_INSTR(fsqrt_vector)
         instr = INSTR_CREATE_fsqrt_vector(dc, opnd_create_reg(Rd_0_0[i]),
                                           opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fsqrt, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -2356,16 +2058,11 @@ TEST_INSTR(fsqrt_vector)
         instr = INSTR_CREATE_fsqrt_vector(dc, opnd_create_reg(Rd_0_1[i]),
                                           opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fsqrt, instr, expected_0_1[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(fsqrt_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FSQRT   <Hd>, <Hn> */
     reg_id_t Rd_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2379,16 +2076,11 @@ TEST_INSTR(fsqrt_scalar)
         instr = INSTR_CREATE_fsqrt_scalar(dc, opnd_create_reg(Rd_1_0[i]),
                                           opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fsqrt, instr, expected_1_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(scvtf_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SCVTF   <Hd>.<Ts>, <Hn>.<Ts> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -2403,7 +2095,7 @@ TEST_INSTR(scvtf_vector)
         instr = INSTR_CREATE_scvtf_vector(dc, opnd_create_reg(Rd_0_0[i]),
                                           opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -2417,16 +2109,11 @@ TEST_INSTR(scvtf_vector)
         instr = INSTR_CREATE_scvtf_vector(dc, opnd_create_reg(Rd_0_1[i]),
                                           opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_0_1[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(scvtf_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SCVTF   <Hd>, <Wn> */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2440,7 +2127,7 @@ TEST_INSTR(scvtf_scalar)
         instr = INSTR_CREATE_scvtf_scalar(dc, opnd_create_reg(Rd_0_0[i]),
                                           opnd_create_reg(Rn_0_0[i]));
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing SCVTF   <Hd>, <Xn> */
@@ -2455,16 +2142,11 @@ TEST_INSTR(scvtf_scalar)
         instr = INSTR_CREATE_scvtf_scalar(dc, opnd_create_reg(Rd_1_0[i]),
                                           opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_1_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(scvtf_scalar_fixed)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SCVTF   <Hd>, <Wn>, #<imm> */
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2480,7 +2162,7 @@ TEST_INSTR(scvtf_scalar_fixed)
                                                 opnd_create_reg(Rn_0[i]),
                                                 OPND_CREATE_INT(scale_0[i]));
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing SCVTF   <Hd>, <Xn>, #<imm> */
@@ -2497,16 +2179,11 @@ TEST_INSTR(scvtf_scalar_fixed)
                                                 opnd_create_reg(Rn_1[i]),
                                                 OPND_CREATE_INT(scale_1[i]));
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_1[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(ucvtf_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing UCVTF   <Hd>.<Ts>, <Hn>.<Ts> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -2521,7 +2198,7 @@ TEST_INSTR(ucvtf_vector)
         instr = INSTR_CREATE_ucvtf_vector(dc, opnd_create_reg(Rd_0_0[i]),
                                           opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -2535,16 +2212,11 @@ TEST_INSTR(ucvtf_vector)
         instr = INSTR_CREATE_ucvtf_vector(dc, opnd_create_reg(Rd_0_1[i]),
                                           opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_0_1[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(ucvtf_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing UCVTF   <Hd>, <Wn> */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2558,7 +2230,7 @@ TEST_INSTR(ucvtf_scalar)
         instr = INSTR_CREATE_ucvtf_scalar(dc, opnd_create_reg(Rd_0_0[i]),
                                           opnd_create_reg(Rn_0_0[i]));
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing UCVTF   <Hd>, <Xn> */
@@ -2573,16 +2245,11 @@ TEST_INSTR(ucvtf_scalar)
         instr = INSTR_CREATE_ucvtf_scalar(dc, opnd_create_reg(Rd_1_0[i]),
                                           opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_1_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(ucvtf_scalar_fixed)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing UCVTF   <Hd>, <Wn>, #<imm> */
     reg_id_t Rd_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2598,7 +2265,7 @@ TEST_INSTR(ucvtf_scalar_fixed)
                                                 opnd_create_reg(Rn_0[i]),
                                                 OPND_CREATE_INT(scale_0[i]));
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing UCVTF   <Hd>, <Xn>, #<imm> */
@@ -2615,16 +2282,11 @@ TEST_INSTR(ucvtf_scalar_fixed)
                                                 opnd_create_reg(Rn_1[i]),
                                                 OPND_CREATE_INT(scale_1[i]));
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_1[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(rax1)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing RAX1    <Dd>.2D, <Dn>.2D, <Dm>.2D */
     reg_id_t Rd_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2639,16 +2301,11 @@ TEST_INSTR(rax1)
         instr = INSTR_CREATE_rax1(dc, opnd_create_reg(Rd_0[i]), opnd_create_reg(Rn_0[i]),
                                   opnd_create_reg(Rm_0[i]));
         if (!test_instr_encoding(dc, OP_rax1, instr, expected_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(xar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing XAR     <Dd>.2D, <Dn>.2D, <Dm>.2D, #<imm> */
     reg_id_t Rd_0_0[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
@@ -2665,16 +2322,11 @@ TEST_INSTR(xar)
                                  opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
                                  opnd_create_immed_uint(imm6_0_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_xar, instr, expected_0_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(fccmp)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     /* Testing FCCMP   <Dn>, <Dm>, #<imm>, <cond> */
     reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rm_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
@@ -2690,7 +2342,7 @@ TEST_INSTR(fccmp)
             dc, opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
             opnd_create_immed_uint(nzcv_0_0[i], OPSZ_0), condition_code_0_0[i]);
         if (!test_instr_encoding(dc, OP_fccmp, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCCMP   <Hn>, <Hm>, #<imm>, <cond> */
     reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2707,7 +2359,7 @@ TEST_INSTR(fccmp)
             dc, opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]),
             opnd_create_immed_uint(nzcv_1_0[i], OPSZ_0), condition_code_1_0[i]);
         if (!test_instr_encoding(dc, OP_fccmp, instr, expected_1_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCCMP   <Sn>, <Sm>, #<imm>, <cond> */
     reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2724,15 +2376,10 @@ TEST_INSTR(fccmp)
             dc, opnd_create_reg(Rn_2_0[i]), opnd_create_reg(Rm_2_0[i]),
             opnd_create_immed_uint(nzcv_2_0[i], OPSZ_0), condition_code_2_0[i]);
         if (!test_instr_encoding(dc, OP_fccmp, instr, expected_2_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 TEST_INSTR(fccmpe)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     /* Testing FCCMPE  <Dn>, <Dm>, #<imm>, <cond> */
     reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     reg_id_t Rm_0_0[3] = { DR_REG_D0, DR_REG_D11, DR_REG_D31 };
@@ -2748,7 +2395,7 @@ TEST_INSTR(fccmpe)
             dc, opnd_create_reg(Rn_0_0[i]), opnd_create_reg(Rm_0_0[i]),
             opnd_create_immed_uint(nzcv_0_0[i], OPSZ_0), condition_code_0_0[i]);
         if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCCMPE  <Hn>, <Hm>, #<imm>, <cond> */
     reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2765,7 +2412,7 @@ TEST_INSTR(fccmpe)
             dc, opnd_create_reg(Rn_1_0[i]), opnd_create_reg(Rm_1_0[i]),
             opnd_create_immed_uint(nzcv_1_0[i], OPSZ_0), condition_code_1_0[i]);
         if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_1_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCCMPE  <Sn>, <Sm>, #<imm>, <cond> */
     reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2782,15 +2429,10 @@ TEST_INSTR(fccmpe)
             dc, opnd_create_reg(Rn_2_0[i]), opnd_create_reg(Rm_2_0[i]),
             opnd_create_immed_uint(nzcv_2_0[i], OPSZ_0), condition_code_2_0[i]);
         if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_2_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 TEST_INSTR(fcmp)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     /* Testing FCMP    <Dn>, #0.0 */
     reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     const char *expected_0_0[3] = {
@@ -2801,7 +2443,7 @@ TEST_INSTR(fcmp)
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcmp_zero(dc, opnd_create_reg(Rn_0_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCMP    <Hn>, #0.0 */
     reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2813,7 +2455,7 @@ TEST_INSTR(fcmp)
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcmp_zero(dc, opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_1_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCMP    <Sn>, #0.0 */
     reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2825,7 +2467,7 @@ TEST_INSTR(fcmp)
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcmp_zero(dc, opnd_create_reg(Rn_2_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_2_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCMP    <Dn>, <Dm> */
     reg_id_t Rn_3_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -2839,7 +2481,7 @@ TEST_INSTR(fcmp)
         instr =
             INSTR_CREATE_fcmp(dc, opnd_create_reg(Rn_3_0[i]), opnd_create_reg(Rm_3_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_3_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCMP    <Hn>, <Hm> */
     reg_id_t Rn_4_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2853,7 +2495,7 @@ TEST_INSTR(fcmp)
         instr =
             INSTR_CREATE_fcmp(dc, opnd_create_reg(Rn_4_0[i]), opnd_create_reg(Rm_4_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_4_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCMP    <Sn>, <Sm> */
     reg_id_t Rn_5_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2867,15 +2509,10 @@ TEST_INSTR(fcmp)
         instr =
             INSTR_CREATE_fcmp(dc, opnd_create_reg(Rn_5_0[i]), opnd_create_reg(Rm_5_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_5_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 TEST_INSTR(fcmpe)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     /* Testing FCMPE   <Dn>, #0.0 */
     reg_id_t Rn_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
     const char *expected_0_0[3] = {
@@ -2886,7 +2523,7 @@ TEST_INSTR(fcmpe)
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcmpe_zero(dc, opnd_create_reg(Rn_0_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCMPE   <Hn>, #0.0 */
     reg_id_t Rn_1_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2898,7 +2535,7 @@ TEST_INSTR(fcmpe)
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcmpe_zero(dc, opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_1_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCMPE   <Sn>, #0.0 */
     reg_id_t Rn_2_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2910,7 +2547,7 @@ TEST_INSTR(fcmpe)
     for (int i = 0; i < 3; i++) {
         instr = INSTR_CREATE_fcmpe_zero(dc, opnd_create_reg(Rn_2_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_2_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCMPE   <Dn>, <Dm> */
     reg_id_t Rn_3_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -2924,7 +2561,7 @@ TEST_INSTR(fcmpe)
         instr = INSTR_CREATE_fcmpe(dc, opnd_create_reg(Rn_3_0[i]),
                                    opnd_create_reg(Rm_3_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_3_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCMPE   <Hn>, <Hm> */
     reg_id_t Rn_4_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -2938,7 +2575,7 @@ TEST_INSTR(fcmpe)
         instr = INSTR_CREATE_fcmpe(dc, opnd_create_reg(Rn_4_0[i]),
                                    opnd_create_reg(Rm_4_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_4_0[i]))
-            success = false;
+            *psuccess = false;
     }
     /* Testing FCMPE   <Sn>, <Sm> */
     reg_id_t Rn_5_0[3] = { DR_REG_S0, DR_REG_S10, DR_REG_S31 };
@@ -2952,16 +2589,11 @@ TEST_INSTR(fcmpe)
         instr = INSTR_CREATE_fcmpe(dc, opnd_create_reg(Rn_5_0[i]),
                                    opnd_create_reg(Rm_5_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_5_0[i]))
-            success = false;
-    }
-    return success;
-}
+            *psuccess = false;
+    }}
 
 TEST_INSTR(fcsel)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCSEL   <Dd>, <Dn>, <Dm>, <cond> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -2978,7 +2610,7 @@ TEST_INSTR(fcsel)
             INSTR_CREATE_fcsel(dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
                                opnd_create_reg(Rm_0_0[i]), condition_code_0_0[i]);
         if (!test_instr_encoding(dc, OP_fcsel, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCSEL   <Hd>, <Hn>, <Hm>, <cond> */
@@ -2996,7 +2628,7 @@ TEST_INSTR(fcsel)
             INSTR_CREATE_fcsel(dc, opnd_create_reg(Rd_1_0[i]), opnd_create_reg(Rn_1_0[i]),
                                opnd_create_reg(Rm_1_0[i]), condition_code_1_0[i]);
         if (!test_instr_encoding(dc, OP_fcsel, instr, expected_1_0[i]))
-            success = false;
+            *psuccess = false;
     }
 
     /* Testing FCSEL   <Sd>, <Sn>, <Sm>, <cond> */
@@ -3014,17 +2646,12 @@ TEST_INSTR(fcsel)
             INSTR_CREATE_fcsel(dc, opnd_create_reg(Rd_2_0[i]), opnd_create_reg(Rn_2_0[i]),
                                opnd_create_reg(Rm_2_0[i]), condition_code_2_0[i]);
         if (!test_instr_encoding(dc, OP_fcsel, instr, expected_2_0[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sdot_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.<Tb> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3040,7 +2667,7 @@ TEST_INSTR(sdot_vector)
                                          opnd_create_reg(Rn_0_0[i]),
                                          opnd_create_reg(Rm_0_0[i]));
         if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -3055,17 +2682,12 @@ TEST_INSTR(sdot_vector)
                                          opnd_create_reg(Rn_0_1[i]),
                                          opnd_create_reg(Rm_0_1[i]));
         if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(sdot_vector_indexed)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing SDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.4B[<index>] */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3082,7 +2704,7 @@ TEST_INSTR(sdot_vector_indexed)
             dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
             opnd_create_reg(Rm_0_0[i]), opnd_create_immed_uint(index_0_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -3098,17 +2720,12 @@ TEST_INSTR(sdot_vector_indexed)
             dc, opnd_create_reg(Rd_0_1[i]), opnd_create_reg(Rn_0_1[i]),
             opnd_create_reg(Rm_0_1[i]), opnd_create_immed_uint(index_0_1[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_sdot, instr, expected_0_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(udot_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing UDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.<Tb> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3124,7 +2741,7 @@ TEST_INSTR(udot_vector)
                                          opnd_create_reg(Rn_0_0[i]),
                                          opnd_create_reg(Rm_0_0[i]));
         if (!test_instr_encoding(dc, OP_udot, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -3139,17 +2756,12 @@ TEST_INSTR(udot_vector)
                                          opnd_create_reg(Rn_0_1[i]),
                                          opnd_create_reg(Rm_0_1[i]));
         if (!test_instr_encoding(dc, OP_udot, instr, expected_0_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(udot_vector_indexed)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing UDOT    <Sd>.<Ts>, <Bn>.<Tb>, <Bm>.4B[<index>] */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3166,7 +2778,7 @@ TEST_INSTR(udot_vector_indexed)
             dc, opnd_create_reg(Rd_0_0[i]), opnd_create_reg(Rn_0_0[i]),
             opnd_create_reg(Rm_0_0[i]), opnd_create_immed_uint(index_0_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_udot, instr, expected_0_0[i]))
-            success = false;
+            *psuccess = false;
     }
     reg_id_t Rd_0_1[3] = { DR_REG_Q0, DR_REG_Q10, DR_REG_Q31 };
     reg_id_t Rn_0_1[3] = { DR_REG_Q0, DR_REG_Q11, DR_REG_Q31 };
@@ -3182,17 +2794,12 @@ TEST_INSTR(udot_vector_indexed)
             dc, opnd_create_reg(Rd_0_1[i]), opnd_create_reg(Rn_0_1[i]),
             opnd_create_reg(Rm_0_1[i]), opnd_create_immed_uint(index_0_1[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_udot, instr, expected_0_1[i]))
-            success = false;
+            *psuccess = false;
     }
-
-    return success;
 }
 
 TEST_INSTR(fmov)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FMOV    <Wd>, <Hn> */
     reg_id_t Rd_0_0[3] = { DR_REG_W0, DR_REG_W10, DR_REG_W30 };
@@ -3237,15 +2844,10 @@ TEST_INSTR(fmov)
     };
     TEST_LOOP(fmov, fmov_general, 3, expected_3_0[i], opnd_create_reg(Rd_3_0[i]),
               opnd_create_reg(Rn_3_0[i]));
-
-    return success;
 }
 
 TEST_INSTR(fmulx_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FMULX   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3308,15 +2910,10 @@ TEST_INSTR(fmulx_vector)
     };
     TEST_LOOP(fmulx, fmulx_vector, 3, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fmulx_vector_idx)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FMULX   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.H[<index>] */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3433,15 +3030,10 @@ TEST_INSTR(fmulx_vector_idx)
     TEST_LOOP(fmulx, fmulx_vector_idx, 3, expected_3_1[i], opnd_create_reg(Rd_3_1[i]),
               opnd_create_reg(Rn_3_1[i]), opnd_create_reg(Rm_3_1[i]),
               opnd_create_immed_uint(index_3_1[i], OPSZ_0), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fmulx)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FMULX   <Hd>, <Hn>, <Hm> */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -3477,15 +3069,10 @@ TEST_INSTR(fmulx)
     };
     TEST_LOOP(fmulx, fmulx, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(facge_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FACGE   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3548,15 +3135,10 @@ TEST_INSTR(facge_vector)
     };
     TEST_LOOP(facge, facge_vector, 3, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(facge)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FACGE   <Hd>, <Hn>, <Hm> */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -3592,15 +3174,10 @@ TEST_INSTR(facge)
     };
     TEST_LOOP(facge, facge, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(facgt_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FACGT   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3663,15 +3240,10 @@ TEST_INSTR(facgt_vector)
     };
     TEST_LOOP(facgt, facgt_vector, 3, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(facgt)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FACGT   <Hd>, <Hn>, <Hm> */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -3707,15 +3279,10 @@ TEST_INSTR(facgt)
     };
     TEST_LOOP(facgt, facgt, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(faddp_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FADDP   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3778,15 +3345,10 @@ TEST_INSTR(faddp_vector)
     };
     TEST_LOOP(faddp, faddp_vector, 3, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(faddp_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FADDP   <Hd>, <Hn>.2H */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -3822,15 +3384,10 @@ TEST_INSTR(faddp_scalar)
     };
     TEST_LOOP(faddp, faddp_scalar, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fcmeq_vector_zero)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCMEQ   <Hd>.<Ts>, <Hn>.<Ts>, #0 */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3888,15 +3445,10 @@ TEST_INSTR(fcmeq_vector_zero)
     };
     TEST_LOOP(fcmeq, fcmeq_vector_zero, 3, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fcmeq_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCMEQ   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
     reg_id_t Rd_0_0[3] = { DR_REG_D0, DR_REG_D10, DR_REG_D31 };
@@ -3959,15 +3511,10 @@ TEST_INSTR(fcmeq_vector)
     };
     TEST_LOOP(fcmeq, fcmeq_vector, 3, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fcmeq_zero)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCMEQ   <Hd>, <Hn>, #0 */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -4000,15 +3547,10 @@ TEST_INSTR(fcmeq_zero)
     };
     TEST_LOOP(fcmeq, fcmeq_zero, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(fcmeq)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCMEQ   <Hd>, <Hn>, <Hm> */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -4044,15 +3586,10 @@ TEST_INSTR(fcmeq)
     };
     TEST_LOOP(fcmeq, fcmeq, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(fcmgt_vector_zero)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rn_elsz;
 
     /* Testing FCMGT   <Hd>.<Ts>, <Hn>.<Ts>, #0 */
@@ -4111,15 +3648,10 @@ TEST_INSTR(fcmgt_vector_zero)
     };
     TEST_LOOP(fcmgt, fcmgt_vector_zero, 3, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fcmgt_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FCMGT   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
@@ -4183,15 +3715,10 @@ TEST_INSTR(fcmgt_vector)
     };
     TEST_LOOP(fcmgt, fcmgt_vector, 3, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fcmgt_zero)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCMGT   <Hd>, <Hn>, #0 */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -4224,15 +3751,10 @@ TEST_INSTR(fcmgt_zero)
     };
     TEST_LOOP(fcmgt, fcmgt_zero, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(fcmgt)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCMGT   <Hd>, <Hn>, <Hm> */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -4268,15 +3790,10 @@ TEST_INSTR(fcmgt)
     };
     TEST_LOOP(fcmgt, fcmgt, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(fcmle_vector_zero)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rn_elsz;
 
     /* Testing FCMLE   <Hd>.<Ts>, <Hn>.<Ts>, #0 */
@@ -4335,15 +3852,10 @@ TEST_INSTR(fcmle_vector_zero)
     };
     TEST_LOOP(fcmle, fcmle_vector_zero, 3, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fcmle_zero)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCMLE   <Hd>, <Hn>, #0 */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -4376,15 +3888,10 @@ TEST_INSTR(fcmle_zero)
     };
     TEST_LOOP(fcmle, fcmle_zero, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(fcmlt_vector_zero)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rn_elsz;
 
     /* Testing FCMLT   <Hd>.<Ts>, <Hn>.<Ts>, #0 */
@@ -4443,15 +3950,10 @@ TEST_INSTR(fcmlt_vector_zero)
     };
     TEST_LOOP(fcmlt, fcmlt_vector_zero, 3, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fcmlt_zero)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FCMLT   <Hd>, <Hn>, #0 */
     reg_id_t Rd_0_0[3] = { DR_REG_H0, DR_REG_H10, DR_REG_H31 };
@@ -4484,15 +3986,10 @@ TEST_INSTR(fcmlt_zero)
     };
     TEST_LOOP(fcmlt, fcmlt_zero, 3, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(fmaxnmp_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FMAXNMP <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
@@ -4571,15 +4068,10 @@ TEST_INSTR(fmaxnmp_vector)
     };
     TEST_LOOP(fmaxnmp, fmaxnmp_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fmaxnmp_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rn_elsz;
 
     /* Testing FMAXNMP <Hd>, <Hn>.2H */
@@ -4622,15 +4114,10 @@ TEST_INSTR(fmaxnmp_scalar)
     };
     TEST_LOOP(fmaxnmp, fmaxnmp_scalar, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fmaxp_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FMAXP   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
@@ -4709,15 +4196,10 @@ TEST_INSTR(fmaxp_vector)
     };
     TEST_LOOP(fmaxp, fmaxp_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fmaxp_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rn_elsz;
 
     /* Testing FMAXP   <Hd>, <Hn>.2H */
@@ -4760,15 +4242,10 @@ TEST_INSTR(fmaxp_scalar)
     };
     TEST_LOOP(fmaxp, fmaxp_scalar, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fminnmp_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FMINNMP <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
@@ -4847,15 +4324,10 @@ TEST_INSTR(fminnmp_vector)
     };
     TEST_LOOP(fminnmp, fminnmp_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fminnmp_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rn_elsz;
 
     /* Testing FMINNMP <Hd>, <Hn>.2H */
@@ -4898,15 +4370,10 @@ TEST_INSTR(fminnmp_scalar)
     };
     TEST_LOOP(fminnmp, fminnmp_scalar, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fminnmv_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rn_elsz;
 
     /* Testing FMINNMV <Hd>, <Hn>.<Ts> */
@@ -4949,15 +4416,10 @@ TEST_INSTR(fminnmv_vector)
     };
     TEST_LOOP(fminnmv, fminnmv_vector, 6, expected_1_0[i], opnd_create_reg(Rd_1_0[i]),
               opnd_create_reg(Rn_1_0[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fminp_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FMINP   <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
@@ -5036,15 +4498,10 @@ TEST_INSTR(fminp_vector)
     };
     TEST_LOOP(fminp, fminp_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fminp_scalar)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rn_elsz;
 
     /* Testing FMINP   <Hd>, <Hn>.2H */
@@ -5087,15 +4544,10 @@ TEST_INSTR(fminp_scalar)
     };
     TEST_LOOP(fminp, fminp_scalar, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fmla_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FMLA    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
@@ -5174,15 +4626,10 @@ TEST_INSTR(fmla_vector)
     };
     TEST_LOOP(fmla, fmla_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fmla_vector_idx)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FMLA    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.H[<index>] */
@@ -5348,15 +4795,10 @@ TEST_INSTR(fmla_vector_idx)
     TEST_LOOP(fmla, fmla_vector_idx, 6, expected_3_1[i], opnd_create_reg(Rd_3_1[i]),
               opnd_create_reg(Rn_3_1[i]), opnd_create_reg(Rm_3_1[i]),
               opnd_create_immed_uint(index_3_1[i], OPSZ_0), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fmls_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FMLS    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
@@ -5435,15 +4877,10 @@ TEST_INSTR(fmls_vector)
     };
     TEST_LOOP(fmls, fmls_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(fmls_vector_idx)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FMLS    <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.H[<index>] */
@@ -5609,15 +5046,10 @@ TEST_INSTR(fmls_vector_idx)
     TEST_LOOP(fmls, fmls_vector_idx, 6, expected_3_1[i], opnd_create_reg(Rd_3_1[i]),
               opnd_create_reg(Rn_3_1[i]), opnd_create_reg(Rm_3_1[i]),
               opnd_create_immed_uint(index_3_1[i], OPSZ_0), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(frecpe_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rn_elsz;
 
     /* Testing FRECPE  <Hd>.<Ts>, <Hn>.<Ts> */
@@ -5686,15 +5118,10 @@ TEST_INSTR(frecpe_vector)
     };
     TEST_LOOP(frecpe, frecpe_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(frecpe)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FRECPE  <Hd>, <Hn> */
     reg_id_t Rd_0_0[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
@@ -5730,15 +5157,10 @@ TEST_INSTR(frecpe)
     };
     TEST_LOOP(frecpe, frecpe, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(frecps_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FRECPS  <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
@@ -5817,15 +5239,10 @@ TEST_INSTR(frecps_vector)
     };
     TEST_LOOP(frecps, frecps_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(frecps)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FRECPS  <Hd>, <Hn>, <Hm> */
     reg_id_t Rd_0_0[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
@@ -5870,15 +5287,10 @@ TEST_INSTR(frecps)
     };
     TEST_LOOP(frecps, frecps, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(frsqrte_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rn_elsz;
 
     /* Testing FRSQRTE <Hd>.<Ts>, <Hn>.<Ts> */
@@ -5947,15 +5359,10 @@ TEST_INSTR(frsqrte_vector)
     };
     TEST_LOOP(frsqrte, frsqrte_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), Rn_elsz);
-
-    return success;
 }
 
 TEST_INSTR(frsqrte)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FRSQRTE <Hd>, <Hn> */
     reg_id_t Rd_0_0[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
@@ -5991,15 +5398,10 @@ TEST_INSTR(frsqrte)
     };
     TEST_LOOP(frsqrte, frsqrte, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]));
-
-    return success;
 }
 
 TEST_INSTR(frsqrts_vector)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
     opnd_t Rm_elsz;
 
     /* Testing FRSQRTS <Hd>.<Ts>, <Hn>.<Ts>, <Hm>.<Ts> */
@@ -6078,15 +5480,10 @@ TEST_INSTR(frsqrts_vector)
     };
     TEST_LOOP(frsqrts, frsqrts_vector, 6, expected_1_2[i], opnd_create_reg(Rd_1_2[i]),
               opnd_create_reg(Rn_1_2[i]), opnd_create_reg(Rm_1_2[i]), Rm_elsz);
-
-    return success;
 }
 
 TEST_INSTR(frsqrts)
 {
-    bool success = true;
-    instr_t *instr;
-    byte *pc;
 
     /* Testing FRSQRTS <Hd>, <Hn>, <Hm> */
     reg_id_t Rd_0_0[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
@@ -6131,8 +5528,6 @@ TEST_INSTR(frsqrts)
     };
     TEST_LOOP(frsqrts, frsqrts, 6, expected_1_1[i], opnd_create_reg(Rd_1_1[i]),
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]));
-
-    return success;
 }
 
 int
@@ -6145,6 +5540,7 @@ main(int argc, char *argv[])
 #endif
     bool result = true;
     bool test_result;
+    instr_t *instr;
 
     RUN_INSTR_TEST(fcvtas_vector);
     RUN_INSTR_TEST(fcvtas_scalar);
