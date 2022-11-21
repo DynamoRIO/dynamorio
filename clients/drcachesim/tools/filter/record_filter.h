@@ -98,7 +98,7 @@ public:
     };
 
     record_filter_t(const std::string &output_dir,
-                    const std::vector<record_filter_func_t *> &filters,
+                    std::vector<std::unique_ptr<record_filter_func_t>> filters,
                     uint64_t stop_timestamp, unsigned int verbose);
     ~record_filter_t() override;
     bool
@@ -138,10 +138,12 @@ private:
     get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
 
     std::string output_dir_;
-    std::vector<record_filter_func_t *> filters_;
+    std::vector<std::unique_ptr<record_filter_func_t>> filters_;
     uint64_t stop_timestamp_;
     unsigned int verbosity_;
     const char *output_prefix_ = "[record_filter]";
+
+protected:
     uint64_t input_entry_count_;
     uint64_t output_entry_count_;
 };

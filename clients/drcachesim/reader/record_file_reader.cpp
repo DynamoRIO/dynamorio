@@ -41,19 +41,18 @@ template <>
 /* clang-format on */
 record_file_reader_t<std::ifstream>::~record_file_reader_t<std::ifstream>()
 {
-    if (input_file_ != nullptr)
-        delete input_file_;
 }
 
 template <>
 bool
 record_file_reader_t<std::ifstream>::open_single_file(const std::string &path)
 {
-    std::ifstream *fstream = new std::ifstream(path, std::ifstream::binary);
+    auto fstream =
+        std::unique_ptr<std::ifstream>(new std::ifstream(path, std::ifstream::binary));
     if (!*fstream)
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_file_ = fstream;
+    input_file_ = std::move(fstream);
     return true;
 }
 
