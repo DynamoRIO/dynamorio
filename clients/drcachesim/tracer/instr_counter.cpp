@@ -144,7 +144,7 @@ hit_instr_count_threshold(app_pc next_pc)
 #endif
     DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_COUNT);
 
-    if (op_L0_warmup_refs.get_value())
+    if (op_L0_filter_until_instrs.get_value())
         mode = BBDUP_MODE_L0_FILTER;
     else
         mode = BBDUP_MODE_TRACE;

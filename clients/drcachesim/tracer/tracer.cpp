@@ -255,7 +255,7 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
             res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_COUNT);
             DR_ASSERT(res == DRBBDUP_SUCCESS);
         }
-        if (op_L0_warmup_refs.get_value()) {
+        if (op_L0_filter_until_instrs.get_value()) {
             res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_L0_FILTER);
             DR_ASSERT(res == DRBBDUP_SUCCESS);
         }
@@ -387,7 +387,7 @@ instrumentation_drbbdup_init()
         ++opts.non_default_case_limit; // BBDUP_MODE_NOP.
     if (bbdup_instr_counting_enabled())
         ++opts.non_default_case_limit; // BBDUP_MODE_COUNT.
-    if (op_L0_warmup_refs.get_value())
+    if (op_L0_filter_until_instrs.get_value())
         ++opts.non_default_case_limit; // BBDUP_MODE_L0_FILTER.
     // Save per-thread heap for a feature we do not need.
     opts.never_enable_dynamic_handling = true;
@@ -412,7 +412,7 @@ instrumentation_init()
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
     else if (op_trace_after_instrs.get_value() != 0)
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
-    else if (op_L0_warmup_refs.get_value())
+    else if (op_L0_filter_until_instrs.get_value())
         tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
 
 #ifdef DELAYED_CHECK_INLINED
@@ -1042,7 +1042,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     bool is_l0_filter = (op_L0I_filter.get_value() || op_L0D_filter.get_value());
     // If we have both BBDUP_MODE_TRACE and BBDUP_MODE_L0_FILTER, then L0 filter is active
     // only when mode is BBDUP_MODE_L0_FILTER
-    if (op_L0_warmup_refs.get_value()) {
+    if (op_L0_filter_until_instrs.get_value()) {
         is_l0_filter = (mode == BBDUP_MODE_L0_FILTER);
     }
 
@@ -1980,18 +1980,15 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
                (op_record_heap.get_value() || !op_record_function.get_value().empty())) {
         FATAL("Usage error: function recording is only supported for -offline\n");
     }
-    if (op_L0_warmup_refs.get_value()) {
+    if (op_L0_filter_until_instrs.get_value()) {
 
-        DR_ASSERT(!op_L0D_filter.get_value());
-        DR_ASSERT(!op_L0I_filter.get_value());
-        if (op_L0D_filter.get_value() || op_L0I_filter.get_value()) {
-            FATAL("Usage error: cannot use -L0_filter with -L0_warmup.");
+        if (!op_L0D_filter.get_value() && !op_L0I_filter.get_value()) {
+            NOTIFY(
+                0,
+                "Assuming both L0D_filter and L0I_filter for L0_filter_until_instrs\n");
+            op_L0D_filter.set_value(op_L0_filter_until_instrs.get_value());
+            op_L0I_filter.set_value(op_L0_filter_until_instrs.get_value());
         }
-        if (op_exit_after_tracing.get_value()) {
-            FATAL("Usage error: -warmup does not currently support -exit_after_tracing.");
-        }
-        op_L0I_filter.set_value(op_L0_warmup_refs.get_value());
-        op_L0D_filter.set_value(op_L0_warmup_refs.get_value());
     }
 
     if (op_L0_filter_deprecated.get_value()) {

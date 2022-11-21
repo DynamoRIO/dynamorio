@@ -504,12 +504,13 @@ droption_t<bytesize_t>
                  "of being simulated.  This skipping may be slow for large skip values; "
                  "consider -skip_instrs for a faster method of skipping.");
 
-droption_t<bytesize_t> op_L0_warmup_refs(
-    DROPTION_SCOPE_CLIENT, "L0_warmup_refs", 0,
-    "Number of memory references for warmup trace",
-    "Specifies the number of memory references included in the warm up trace."
-    "The warmup references come after the fast forward count and before the "
-    "instruction trace. ");
+droption_t<bytesize_t> op_L0_filter_until_instrs(
+    DROPTION_SCOPE_CLIENT, "L0_filter_until_instrs", 0,
+    "Number of instructions for warmup trace",
+    "Specifies the number of instructions to run in warmup mode. In warmup mode, we "
+    "filter accesses through the L0{D,I}_filter caches. The size of these can be "
+    "specified using L0{D,I}_size. The filter instructions come after the "
+    "-trace_after_instrs count and before the instruction trace. ");
 
 droption_t<bytesize_t> op_warmup_refs(
     DROPTION_SCOPE_FRONTEND, "warmup_refs", 0,
