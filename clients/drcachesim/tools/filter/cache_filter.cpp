@@ -60,50 +60,49 @@ private:
     bool did_last_access_hit_;
 };
 
-    struct per_shard_t {
-        cache_lru_t cache;
-    };
+struct per_shard_t {
+    cache_lru_t cache;
+};
 
-    void *
-    cache_filter_t::parallel_shard_init(memtrace_stream_t *shard_stream)
-    {
-        per_shard_t *per_shard = new per_shard_t;
-        if (!(per_shard->cache.init(cache_associativity_, cache_line_size_, cache_size_,
-                                    nullptr, new cache_filter_stats_t(cache_line_size_),
-                                    nullptr))) {
-            error_string_ = "Failed to initialize cache.";
-            return nullptr;
-        }
-        return per_shard;
+void *
+cache_filter_t::parallel_shard_init(memtrace_stream_t *shard_stream)
+{
+    per_shard_t *per_shard = new per_shard_t;
+    if (!(per_shard->cache.init(cache_associativity_, cache_line_size_, cache_size_,
+                                nullptr, new cache_filter_stats_t(cache_line_size_),
+                                nullptr))) {
+        error_string_ = "Failed to initialize cache.";
+        return nullptr;
     }
-    bool
-    cache_filter_t::parallel_shard_filter(const trace_entry_t &entry, void *shard_data)
-    {
-        per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-        bool output = true;
-        // We don't process flush entries here.
-        if ((filter_data_ &&
-             (entry.type == TRACE_TYPE_READ || entry.type == TRACE_TYPE_WRITE ||
-              type_is_prefetch(static_cast<trace_type_t>(entry.type)))) ||
-            (filter_instrs_ && type_is_instr(static_cast<trace_type_t>(entry.type)))) {
-            memref_t ref;
-            ref.data.type = static_cast<trace_type_t>(entry.type);
-            ref.data.size = entry.size;
-            ref.data.addr = entry.addr;
-            per_shard->cache.request(ref);
-            output =
-                !reinterpret_cast<cache_filter_stats_t *>(per_shard->cache.get_stats())
-                     ->did_last_access_hit();
-        }
-        return output;
+    return per_shard;
+}
+bool
+cache_filter_t::parallel_shard_filter(const trace_entry_t &entry, void *shard_data)
+{
+    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    bool output = true;
+    // We don't process flush entries here.
+    if ((filter_data_ &&
+         (entry.type == TRACE_TYPE_READ || entry.type == TRACE_TYPE_WRITE ||
+          type_is_prefetch(static_cast<trace_type_t>(entry.type)))) ||
+        (filter_instrs_ && type_is_instr(static_cast<trace_type_t>(entry.type)))) {
+        memref_t ref;
+        ref.data.type = static_cast<trace_type_t>(entry.type);
+        ref.data.size = entry.size;
+        ref.data.addr = entry.addr;
+        per_shard->cache.request(ref);
+        output = !reinterpret_cast<cache_filter_stats_t *>(per_shard->cache.get_stats())
+                      ->did_last_access_hit();
     }
-    bool
-    cache_filter_t::parallel_shard_exit(void *shard_data)
-    {
-        per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-        delete per_shard->cache.get_stats();
-        delete per_shard;
-        return true;
-    }
+    return output;
+}
+bool
+cache_filter_t::parallel_shard_exit(void *shard_data)
+{
+    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    delete per_shard->cache.get_stats();
+    delete per_shard;
+    return true;
+}
 } // namespace drmemtrace
 } // namespace dynamorio
