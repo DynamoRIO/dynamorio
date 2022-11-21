@@ -105,6 +105,8 @@ simulator_t::process_memref(const memref_t &memref)
         thread2core_[memref.marker.tid] = min_core;
         ++thread_counts_[min_core];
         ++thread_ever_counts_[min_core];
+        last_thread_ = -1;
+        last_core_ = -1;
     }
     if (!knob_use_physical_)
         return true;

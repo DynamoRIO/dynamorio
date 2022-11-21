@@ -163,6 +163,7 @@ add_exported_library(drmemtrace_simulator STATIC
 add_exported_library(drmemtrace_record_filter STATIC
   tools/filter/record_filter.cpp
   tools/filter/cache_filter.h
+  tools/filter/cache_filter.cpp
   tools/filter/type_filter.h
   tools/filter/null_filter.h)
 target_link_libraries(drmemtrace_record_filter drmemtrace_simulator)
@@ -241,6 +242,7 @@ use_DynamoRIO_extension(drcachesim drutil_static)
 
 # This is to avoid ../ and common/ in the #includes of headers that we
 # export in a single dir for 3rd-party tool integration.
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/simulator)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/reader)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tracer)

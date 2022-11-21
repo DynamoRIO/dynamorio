@@ -59,11 +59,12 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-record_filter_t::record_filter_t(const std::string &output_dir,
-                                 const std::vector<record_filter_func_t *> &filters,
-                                 uint64_t stop_timestamp, unsigned int verbose)
+record_filter_t::record_filter_t(
+    const std::string &output_dir,
+    std::vector<std::unique_ptr<record_filter_func_t>> filters, uint64_t stop_timestamp,
+    unsigned int verbose)
     : output_dir_(output_dir)
-    , filters_(filters)
+    , filters_(std::move(filters))
     , stop_timestamp_(stop_timestamp)
     , verbosity_(verbose)
     , input_entry_count_(0)
@@ -110,7 +111,7 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
         per_shard->error = "Could not open a writer for " + per_shard->output_path;
         success_ = false;
     }
-    for (record_filter_func_t *f : filters_) {
+    for (auto &f : filters_) {
         per_shard->filter_shard_data.push_back(f->parallel_shard_init(shard_stream));
         if (f->get_error_string() != "") {
             per_shard->error =

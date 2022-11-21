@@ -40,6 +40,8 @@
 #include "tools/filter/type_filter.h"
 #include "tools/filter/record_filter.h"
 
+#include <limits>
+
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
         fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
@@ -142,16 +144,12 @@ _tmain(int argc, const TCHAR *targv[])
                 new dynamorio::drmemtrace::type_filter_t(filter_trace_types,
                                                          filter_marker_types)));
     }
-    std::vector<dynamorio::drmemtrace::record_filter_t::record_filter_func_t *>
-        filter_func_ptrs;
-    for (auto &f : filter_funcs)
-        filter_func_ptrs.push_back(f.get());
     // TODO i#5675: Add other filters.
 
     auto record_filter = std::unique_ptr<record_analysis_tool_t>(
         new dynamorio::drmemtrace::record_filter_t(
-            op_output_dir.get_value(), filter_func_ptrs, op_stop_timestamp.get_value(),
-            op_verbose.get_value()));
+            op_output_dir.get_value(), std::move(filter_funcs),
+            op_stop_timestamp.get_value(), op_verbose.get_value()));
     std::vector<record_analysis_tool_t *> tools;
     tools.push_back(record_filter.get());
 
