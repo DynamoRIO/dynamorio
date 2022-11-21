@@ -2592,7 +2592,7 @@ drwrap_event_restore_state_ex(void *drcontext, bool restore_memory,
                 scan_stop = (app_pc *)pt->app_esp[i + 1];
             else
                 scan_stop = (app_pc *)info->mcontext->xsp;
-            for (app_pc *scan = (app_pc *)pt->app_esp[i]; scan <= scan_stop; --scan) {
+            for (app_pc *scan = (app_pc *)pt->app_esp[i]; scan >= scan_stop; --scan) {
                 app_pc ra = get_retaddr_from_stack((reg_t)scan);
                 if (ra == (app_pc)replace_retaddr_sentinel) {
                     NOTIFY(1,
