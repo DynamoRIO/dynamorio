@@ -220,6 +220,7 @@
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12
 -x------------------------------  index3     # index of D subreg in Q: 0-1
+-x-------------------------xxxxx  wx0_30     # X register if bit 30 is set, else W
 -x-------------------------xxxxx  dq0        # Q register if bit 30 is set, else D
 -x-------------------------xxxxx  sd0        # D register if bit 30 is set, else S
 -x-------------------------xxxxx  dq0p1      # ... add 1

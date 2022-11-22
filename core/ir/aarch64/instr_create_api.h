@@ -4469,6 +4469,49 @@
 #define INSTR_CREATE_stllrh(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_stllrh, Rt, Rn)
 
 /**
+ * Creates a LDAPR load-acquire instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDAPR <Wt>, [<Xn|SP> {,#0}]
+ *    LDAPR <Xt>, [<Xn|SP> {,#0}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, W (Word, 32 bits) or X (Extended, 64 bits).
+ * \param mem  The source memory address operand.
+ */
+#define INSTR_CREATE_ldapr(dc, Rt, mem) \
+    instr_create_1dst_1src((dc), OP_ldapr, (Rt), (mem))
+
+/**
+ * Creates a LDAPRB load-acquire byte instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDAPRB <Wt>, [<Xn|SP> {,#0}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, W (Word, 32 bits).
+ * \param mem  The source memory address operand.
+ */
+#define INSTR_CREATE_ldaprb(dc, Rt, mem) \
+    instr_create_1dst_1src((dc), OP_ldaprb, (Rt), (mem))
+
+/**
+ * Creates a LDAPRH load-acquire half-word instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDAPRH <Wt>, [<Xn|SP> {,#0}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, W (Word, 32 bits).
+ * \param mem  The source memory address operand.
+ */
+#define INSTR_CREATE_ldaprh(dc, Rt, mem) \
+    instr_create_1dst_1src((dc), OP_ldaprh, (Rt), (mem))
+
+/**
  * Creates a SM3PARTW1 instruction.
  *
  * This macro is used to encode the forms:
