@@ -107,6 +107,8 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
     per_shard->writer = get_writer(per_shard, shard_stream);
     per_shard->shard_stream = shard_stream;
     per_shard->enabled = true;
+    per_shard->input_entry_count = 0;
+    per_shard->output_entry_count = 0;
     if (!per_shard->writer) {
         per_shard->error = "Could not open a writer for " + per_shard->output_path;
         success_ = false;
