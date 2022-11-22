@@ -206,11 +206,13 @@
 --------xx-----------------xxxxx  bhsd_size_reg0   # bhsd register, depending on size opcode
 --------xx-----------------xxxxx  z_size_bhsd_0    # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_hsd_0     # sve vector reg, elsz depending on size
+--------xx-----------------xxxxx  z_size_sd_0      # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  float_reg5  # H, S or D register
 --------xx------------xxxxx-----  hsd_size_reg5    # hsd register, depending on size opcode
 --------xx------------xxxxx-----  bhsd_size_reg5   # bhsd register, depending on size opcode
 --------xx------------xxxxx-----  z_size_bhsd_5    # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_hsd_5     # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  z_size_sd_5      # sve vector reg, elsz depending on size
 --------xx-------xxxxx----------  float_reg10 # H, S or D register
 --------xx-xxxxx----------------  float_reg16 # H, S or D register
 --------xx-xxxxx----------------  hsd_size_reg16   # hsd register, depending on size opcode
