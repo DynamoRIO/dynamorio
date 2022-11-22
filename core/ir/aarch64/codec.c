@@ -5419,8 +5419,8 @@ encode_opnds_ccm(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     uint imm5_flag = 0;
     if (instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 3 &&
         encode_opnd_rn(false, 5, 31, instr_get_src(instr, 0), &rn) && /* Rn */
-        opnd_is_immed_int(instr_get_src(instr, 2)) &&             /* nzcv */
-        (uint)(instr_get_predicate(instr) - DR_PRED_EQ) < 16) {   /* cond */
+        opnd_is_immed_int(instr_get_src(instr, 2)) &&                 /* nzcv */
+        (uint)(instr_get_predicate(instr) - DR_PRED_EQ) < 16) {       /* cond */
         uint nzcv = opnd_get_immed_int(instr_get_src(instr, 2));
         uint cond = instr_get_predicate(instr) - DR_PRED_EQ;
         if (opnd_is_immed_int(instr_get_src(instr, 1))) { /* imm5 */

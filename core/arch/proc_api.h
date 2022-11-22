@@ -345,9 +345,9 @@ typedef enum {
     FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),      /**< Half-precision FP (AArch64) */
     FEATURE_RAS = DEF_FEAT(AA64PFR0, 7, 1, 0),       /**< RAS extension (AArch64) */
     FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 0),       /**< Scalable Vectors (AArch64) */
-    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 0),   /**< Limited order regions (AArch64) */
-    FEATURE_SPE = DEF_FEAT(AA64DFR0, 8, 1, 0),    /**< Profiling extension (AArch64) */
-    FEATURE_PAUTH = DEF_FEAT(AA64ISAR1, 8, 1, 0), /**< PAuth extension (AArch64) */
+    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 0),    /**< Limited order regions (AArch64) */
+    FEATURE_SPE = DEF_FEAT(AA64DFR0, 8, 1, 0),     /**< Profiling extension (AArch64) */
+    FEATURE_PAUTH = DEF_FEAT(AA64ISAR1, 8, 1, 0),  /**< PAuth extension (AArch64) */
     FEATURE_LRCPC = DEF_FEAT(AA64ISAR1, 20, 1, 0), /**< LDAPR, LDAPRB, LDAPRH (AArch64) */
 } feature_bit_t;
 #endif
