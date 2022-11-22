@@ -1284,8 +1284,8 @@ encode_single_sized(opnd_size_t vec_size, uint pos_start, aarch64_reg_offset bit
 }
 
 static inline bool
-decode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, uint enc,
-               byte *pc, OUT opnd_t *opnd)
+decode_sized_base(uint pos_start, uint size_start, uint min_size, uint max_size,
+                  reg_id_t base_reg, uint enc, byte *pc, OUT opnd_t *opnd)
 {
     aarch64_reg_offset bit_size = extract_uint(enc, size_start, 2);
     if (bit_size < min_size)
@@ -1293,19 +1293,18 @@ decode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, ui
     if (bit_size > max_size)
         return false;
 
-    return decode_single_sized(DR_REG_Z0, pos_start, 5, bit_size, enc, opnd);
+    return decode_single_sized(base_reg, pos_start, 5, bit_size, enc, opnd);
 }
 
 static inline bool
-encode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, opnd_t opnd,
-               OUT uint *enc_out)
+encode_sized_base(uint pos_start, uint size_start, uint min_size, uint max_size,
+                  opnd_size_t vec_size, opnd_t opnd, OUT uint *enc_out)
 {
     if (!opnd_is_element_vector_reg(opnd))
         return false;
 
     aarch64_reg_offset size;
     uint reg_number;
-    opnd_size_t vec_size = OPSZ_SCALABLE;
 
     switch (opnd_get_vector_element_size(opnd)) {
     case OPSZ_1: size = BYTE_REG; break;
@@ -1326,6 +1325,38 @@ encode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, op
 
     *enc_out |= (size << size_start) | (reg_number << pos_start);
     return true;
+}
+
+static inline bool
+decode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, uint enc,
+               byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_base(pos_start, size_start, min_size, max_size, DR_REG_Z0, enc,
+                             pc, opnd);
+}
+
+static inline bool
+encode_sized_z(uint pos_start, uint size_start, uint min_size, uint max_size, opnd_t opnd,
+               OUT uint *enc_out)
+{
+    return encode_sized_base(pos_start, size_start, min_size, max_size, OPSZ_SCALABLE,
+                             opnd, enc_out);
+}
+
+static inline bool
+decode_sized_p(uint pos_start, uint size_start, uint min_size, uint max_size, uint enc,
+               byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_base(pos_start, size_start, min_size, max_size, DR_REG_P0, enc,
+                             pc, opnd);
+}
+
+static inline bool
+encode_sized_p(uint pos_start, uint size_start, uint min_size, uint max_size, opnd_t opnd,
+               OUT uint *enc_out)
+{
+    return encode_sized_base(pos_start, size_start, min_size, max_size,
+                             OPSZ_SCALABLE_PRED, opnd, enc_out);
 }
 
 /*******************************************************************************
@@ -4385,6 +4416,18 @@ encode_bhsd_size_regx(int rpos, uint enc, int opcode, byte *pc, opnd_t opnd,
 }
 
 static inline bool
+decode_opnd_p_size_hsd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_p(0, 22, HALF_REG, DOUBLE_REG, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_p_size_hsd_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_p(0, 22, HALF_REG, DOUBLE_REG, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_float_reg0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_opnd_float_reg(0, enc, opnd);
@@ -4447,6 +4490,18 @@ encode_opnd_z_size_hsd_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *
 }
 
 static inline bool
+decode_opnd_z_size_sd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(0, 22, SINGLE_REG, DOUBLE_REG, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_size_sd_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(0, 22, SINGLE_REG, DOUBLE_REG, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_float_reg5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_opnd_float_reg(5, enc, opnd);
@@ -4506,6 +4561,18 @@ static inline bool
 encode_opnd_z_size_hsd_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_sized_z(5, 22, HALF_REG, DOUBLE_REG, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_size_sd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(5, 22, SINGLE_REG, DOUBLE_REG, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_size_sd_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(5, 22, SINGLE_REG, DOUBLE_REG, opnd, enc_out);
 }
 
 static inline bool
