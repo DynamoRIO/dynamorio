@@ -39,6 +39,8 @@
 
 #include <assert.h>
 #include <iterator>
+#include <memory>
+
 #include "memtrace_stream.h"
 #include "reader.h"
 #include "trace_entry.h"
@@ -292,7 +294,7 @@ private:
         return true;
     }
 
-    T *input_file_ = nullptr;
+    std::unique_ptr<T> input_file_ = nullptr;
     std::string input_path_;
 
     bool

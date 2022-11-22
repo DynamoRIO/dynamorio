@@ -72,9 +72,9 @@ static droption_t<std::string> op_tmp_output_dir(
 
 class test_record_filter_t : public dynamorio::drmemtrace::record_filter_t {
 public:
-    test_record_filter_t(const std::vector<record_filter_func_t *> &filters,
+    test_record_filter_t(std::vector<std::unique_ptr<record_filter_func_t>> filters,
                          uint64_t last_timestamp)
-        : record_filter_t("", filters, last_timestamp,
+        : record_filter_t("", std::move(filters), last_timestamp,
                           /*verbose=*/0)
     {
     }
@@ -130,9 +130,10 @@ local_create_dir(const char *dir)
 basic_counts_t::counters_t
 get_basic_counts(const std::string &trace_dir)
 {
-    analysis_tool_t *basic_counts_tool = new basic_counts_t(/*verbose=*/0);
+    auto basic_counts_tool =
+        std::unique_ptr<basic_counts_t>(new basic_counts_t(/*verbose=*/0));
     std::vector<analysis_tool_t *> tools;
-    tools.push_back(basic_counts_tool);
+    tools.push_back(basic_counts_tool.get());
     analyzer_t analyzer(trace_dir, &tools[0], static_cast<int>(tools.size()));
     if (!analyzer) {
         FATAL_ERROR("failed to initialize analyzer: %s",
@@ -141,9 +142,7 @@ get_basic_counts(const std::string &trace_dir)
     if (!analyzer.run()) {
         FATAL_ERROR("failed to run analyzer: %s", analyzer.get_error_string().c_str());
     }
-    basic_counts_t::counters_t counts =
-        ((basic_counts_t *)basic_counts_tool)->get_total_counts();
-    delete basic_counts_tool;
+    basic_counts_t::counters_t counts = basic_counts_tool->get_total_counts();
     return counts;
 }
 
@@ -214,7 +213,8 @@ test_cache_and_type_filter()
     for (int k = 0; k < 2; ++k) {
         auto stream = std::unique_ptr<local_stream_t>(new local_stream_t());
         // Construct record_filter_func_ts.
-        std::vector<dynamorio::drmemtrace::record_filter_t::record_filter_func_t *>
+        std::vector<
+            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
             filters;
         auto cache_filter =
             std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
@@ -226,26 +226,26 @@ test_cache_and_type_filter()
                     cache_filter->get_error_string().c_str());
             return false;
         }
-        filters.push_back(cache_filter.get());
+        filters.push_back(std::move(cache_filter));
 
-        auto type_filter =
-            std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+        if (k == 0) {
+            auto type_filter = std::unique_ptr<
+                dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
                 new dynamorio::drmemtrace::type_filter_t({ TRACE_TYPE_ENCODING },
                                                          { TRACE_MARKER_TYPE_FUNC_ID,
                                                            TRACE_MARKER_TYPE_FUNC_RETADDR,
                                                            TRACE_MARKER_TYPE_FUNC_ARG }));
-        if (k == 0) {
             if (type_filter->get_error_string() != "") {
                 fprintf(stderr, "Couldn't construct a type_filter %s",
                         type_filter->get_error_string().c_str());
                 return false;
             }
-            filters.push_back(type_filter.get());
+            filters.push_back(std::move(type_filter));
         }
 
         // Construct record_filter_t.
         auto record_filter = std::unique_ptr<test_record_filter_t>(
-            new test_record_filter_t(filters, /*stop_timestamp_us=*/0xabcdee));
+            new test_record_filter_t(std::move(filters), /*stop_timestamp_us=*/0xabcdee));
         void *shard_data =
             record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
         if (!*record_filter) {
@@ -324,18 +324,19 @@ test_null_filter()
     if (!local_create_dir(output_dir.c_str())) {
         FATAL_ERROR("Failed to create filtered trace output dir %s", output_dir.c_str());
     }
-
-    dynamorio::drmemtrace::record_filter_t::record_filter_func_t *null_filter =
-        new dynamorio::drmemtrace::null_filter_t();
-    std::vector<dynamorio::drmemtrace::record_filter_t::record_filter_func_t *>
+    auto null_filter =
+        std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>(
+            new dynamorio::drmemtrace::null_filter_t());
+    std::vector<
+        std::unique_ptr<dynamorio::drmemtrace::record_filter_t::record_filter_func_t>>
         filter_funcs;
-    filter_funcs.push_back(null_filter);
-    record_analysis_tool_t *record_filter =
-        new dynamorio::drmemtrace::record_filter_t(output_dir, filter_funcs,
+    filter_funcs.push_back(std::move(null_filter));
+    auto record_filter = std::unique_ptr<dynamorio::drmemtrace::record_filter_t>(
+        new dynamorio::drmemtrace::record_filter_t(output_dir, std::move(filter_funcs),
                                                    /*stop_timestamp_us=*/0,
-                                                   /*verbosity=*/0);
+                                                   /*verbosity=*/0));
     std::vector<record_analysis_tool_t *> tools;
-    tools.push_back(record_filter);
+    tools.push_back(record_filter.get());
     record_analyzer_t record_analyzer(op_trace_dir.get_value(), &tools[0],
                                       static_cast<int>(tools.size()));
     if (!record_analyzer) {
@@ -346,8 +347,6 @@ test_null_filter()
         FATAL_ERROR("Failed to run record filter: %s",
                     record_analyzer.get_error_string().c_str());
     }
-    delete record_filter;
-    delete null_filter;
 
     basic_counts_t::counters_t c1 = get_basic_counts(op_trace_dir.get_value());
     basic_counts_t::counters_t c2 = get_basic_counts(output_dir);

@@ -135,7 +135,6 @@ record_file_reader_t<gzip_reader_t>::~record_file_reader_t<gzip_reader_t>()
 {
     if (input_file_ != nullptr) {
         gzclose(input_file_->file);
-        delete input_file_;
     }
 }
 
@@ -147,7 +146,7 @@ record_file_reader_t<gzip_reader_t>::open_single_file(const std::string &path)
     if (!open_single_file_common(path, file))
         return false;
     VPRINT(this, 1, "Opened input file %s\n", path.c_str());
-    input_file_ = new gzip_reader_t(file);
+    input_file_ = std::unique_ptr<gzip_reader_t>(new gzip_reader_t(file));
     return true;
 }
 
@@ -155,7 +154,7 @@ template <>
 bool
 record_file_reader_t<gzip_reader_t>::read_next_entry()
 {
-    if (!read_next_thread_entry_common(input_file_, &cur_entry_, &eof_))
+    if (!read_next_thread_entry_common(input_file_.get(), &cur_entry_, &eof_))
         return false;
     VPRINT(this, 4, "Read from file: type=%s (%d), size=%d, addr=%zu\n",
            trace_type_names[cur_entry_.type], cur_entry_.type, cur_entry_.size,

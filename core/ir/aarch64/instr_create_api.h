@@ -5363,4 +5363,195 @@
  */
 #define INSTR_CREATE_umulh_sve_pred(dc, Zdn, Pg, Zm) \
     instr_create_1dst_3src(dc, OP_umulh, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FEXPA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FEXPA   <Zd>.<Ts>, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_fexpa_sve(dc, Zd, Zn) instr_create_1dst_1src(dc, OP_fexpa, Zd, Zn)
+
+/**
+ * Creates a FTMAD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FTMAD   <Zdn>.<Ts>, <Zdn>.<Ts>, <Zm>.<Ts>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ * \param imm   The immediate imm
+ */
+#define INSTR_CREATE_ftmad_sve(dc, Zdn, Zm, imm) \
+    instr_create_1dst_3src(dc, OP_ftmad, Zdn, Zdn, Zm, imm)
+
+/**
+ * Creates a FTSMUL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FTSMUL  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_ftsmul_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_ftsmul, Zd, Zn, Zm)
+
+/**
+ * Creates a FTSSEL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FTSSEL  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_ftssel_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_ftssel, Zd, Zn, Zm)
+
+/**
+ * Creates an ABS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ABS     <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_abs_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_abs, Zd, Pg, Zn)
+
+/**
+ * Creates a CNOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CNOT    <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_cnot_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_cnot, Zd, Pg, Zn)
+
+/**
+ * Creates a NEG instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    NEG     <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_neg_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_neg, Zd, Pg, Zn)
+
+/**
+ * Creates a SABD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SABD    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_sabd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sabd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SMAX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SMAX    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_smax_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_smax, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SMAX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SMAX    <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable)
+ * \param simm   The signed immediate imm
+ */
+#define INSTR_CREATE_smax_sve(dc, Zdn, simm) \
+    instr_create_1dst_2src(dc, OP_smax, Zdn, Zdn, simm)
+
+/**
+ * Creates a SMIN instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SMIN    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_smin_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_smin, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SMIN instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SMIN    <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable)
+ * \param simm   The signed immediate imm
+ */
+#define INSTR_CREATE_smin_sve(dc, Zdn, simm) \
+    instr_create_1dst_2src(dc, OP_smin, Zdn, Zdn, simm)
+
+/**
+ * Creates an UABD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UABD    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_uabd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uabd, Zdn, Pg, Zdn, Zm)
 #endif /* DR_IR_MACROS_AARCH64_H */

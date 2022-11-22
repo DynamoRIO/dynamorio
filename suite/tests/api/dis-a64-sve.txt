@@ -49,6 +49,72 @@
 # and white-space sensitive.
 
 # Tests:
+# ABS     <Zd>.<T>, <Pg>/M, <Zn>.<T> (ABS-Z.P.Z-_)
+0416a000 : abs z0.b, p0/M, z0.b                      : abs    %p0/m %z0.b -> %z0.b
+0416a482 : abs z2.b, p1/M, z4.b                      : abs    %p1/m %z4.b -> %z2.b
+0416a8c4 : abs z4.b, p2/M, z6.b                      : abs    %p2/m %z6.b -> %z4.b
+0416a906 : abs z6.b, p2/M, z8.b                      : abs    %p2/m %z8.b -> %z6.b
+0416ad48 : abs z8.b, p3/M, z10.b                     : abs    %p3/m %z10.b -> %z8.b
+0416ad8a : abs z10.b, p3/M, z12.b                    : abs    %p3/m %z12.b -> %z10.b
+0416b1cc : abs z12.b, p4/M, z14.b                    : abs    %p4/m %z14.b -> %z12.b
+0416b20e : abs z14.b, p4/M, z16.b                    : abs    %p4/m %z16.b -> %z14.b
+0416b650 : abs z16.b, p5/M, z18.b                    : abs    %p5/m %z18.b -> %z16.b
+0416b671 : abs z17.b, p5/M, z19.b                    : abs    %p5/m %z19.b -> %z17.b
+0416b6b3 : abs z19.b, p5/M, z21.b                    : abs    %p5/m %z21.b -> %z19.b
+0416baf5 : abs z21.b, p6/M, z23.b                    : abs    %p6/m %z23.b -> %z21.b
+0416bb37 : abs z23.b, p6/M, z25.b                    : abs    %p6/m %z25.b -> %z23.b
+0416bf79 : abs z25.b, p7/M, z27.b                    : abs    %p7/m %z27.b -> %z25.b
+0416bfbb : abs z27.b, p7/M, z29.b                    : abs    %p7/m %z29.b -> %z27.b
+0416bfff : abs z31.b, p7/M, z31.b                    : abs    %p7/m %z31.b -> %z31.b
+0456a000 : abs z0.h, p0/M, z0.h                      : abs    %p0/m %z0.h -> %z0.h
+0456a482 : abs z2.h, p1/M, z4.h                      : abs    %p1/m %z4.h -> %z2.h
+0456a8c4 : abs z4.h, p2/M, z6.h                      : abs    %p2/m %z6.h -> %z4.h
+0456a906 : abs z6.h, p2/M, z8.h                      : abs    %p2/m %z8.h -> %z6.h
+0456ad48 : abs z8.h, p3/M, z10.h                     : abs    %p3/m %z10.h -> %z8.h
+0456ad8a : abs z10.h, p3/M, z12.h                    : abs    %p3/m %z12.h -> %z10.h
+0456b1cc : abs z12.h, p4/M, z14.h                    : abs    %p4/m %z14.h -> %z12.h
+0456b20e : abs z14.h, p4/M, z16.h                    : abs    %p4/m %z16.h -> %z14.h
+0456b650 : abs z16.h, p5/M, z18.h                    : abs    %p5/m %z18.h -> %z16.h
+0456b671 : abs z17.h, p5/M, z19.h                    : abs    %p5/m %z19.h -> %z17.h
+0456b6b3 : abs z19.h, p5/M, z21.h                    : abs    %p5/m %z21.h -> %z19.h
+0456baf5 : abs z21.h, p6/M, z23.h                    : abs    %p6/m %z23.h -> %z21.h
+0456bb37 : abs z23.h, p6/M, z25.h                    : abs    %p6/m %z25.h -> %z23.h
+0456bf79 : abs z25.h, p7/M, z27.h                    : abs    %p7/m %z27.h -> %z25.h
+0456bfbb : abs z27.h, p7/M, z29.h                    : abs    %p7/m %z29.h -> %z27.h
+0456bfff : abs z31.h, p7/M, z31.h                    : abs    %p7/m %z31.h -> %z31.h
+0496a000 : abs z0.s, p0/M, z0.s                      : abs    %p0/m %z0.s -> %z0.s
+0496a482 : abs z2.s, p1/M, z4.s                      : abs    %p1/m %z4.s -> %z2.s
+0496a8c4 : abs z4.s, p2/M, z6.s                      : abs    %p2/m %z6.s -> %z4.s
+0496a906 : abs z6.s, p2/M, z8.s                      : abs    %p2/m %z8.s -> %z6.s
+0496ad48 : abs z8.s, p3/M, z10.s                     : abs    %p3/m %z10.s -> %z8.s
+0496ad8a : abs z10.s, p3/M, z12.s                    : abs    %p3/m %z12.s -> %z10.s
+0496b1cc : abs z12.s, p4/M, z14.s                    : abs    %p4/m %z14.s -> %z12.s
+0496b20e : abs z14.s, p4/M, z16.s                    : abs    %p4/m %z16.s -> %z14.s
+0496b650 : abs z16.s, p5/M, z18.s                    : abs    %p5/m %z18.s -> %z16.s
+0496b671 : abs z17.s, p5/M, z19.s                    : abs    %p5/m %z19.s -> %z17.s
+0496b6b3 : abs z19.s, p5/M, z21.s                    : abs    %p5/m %z21.s -> %z19.s
+0496baf5 : abs z21.s, p6/M, z23.s                    : abs    %p6/m %z23.s -> %z21.s
+0496bb37 : abs z23.s, p6/M, z25.s                    : abs    %p6/m %z25.s -> %z23.s
+0496bf79 : abs z25.s, p7/M, z27.s                    : abs    %p7/m %z27.s -> %z25.s
+0496bfbb : abs z27.s, p7/M, z29.s                    : abs    %p7/m %z29.s -> %z27.s
+0496bfff : abs z31.s, p7/M, z31.s                    : abs    %p7/m %z31.s -> %z31.s
+04d6a000 : abs z0.d, p0/M, z0.d                      : abs    %p0/m %z0.d -> %z0.d
+04d6a482 : abs z2.d, p1/M, z4.d                      : abs    %p1/m %z4.d -> %z2.d
+04d6a8c4 : abs z4.d, p2/M, z6.d                      : abs    %p2/m %z6.d -> %z4.d
+04d6a906 : abs z6.d, p2/M, z8.d                      : abs    %p2/m %z8.d -> %z6.d
+04d6ad48 : abs z8.d, p3/M, z10.d                     : abs    %p3/m %z10.d -> %z8.d
+04d6ad8a : abs z10.d, p3/M, z12.d                    : abs    %p3/m %z12.d -> %z10.d
+04d6b1cc : abs z12.d, p4/M, z14.d                    : abs    %p4/m %z14.d -> %z12.d
+04d6b20e : abs z14.d, p4/M, z16.d                    : abs    %p4/m %z16.d -> %z14.d
+04d6b650 : abs z16.d, p5/M, z18.d                    : abs    %p5/m %z18.d -> %z16.d
+04d6b671 : abs z17.d, p5/M, z19.d                    : abs    %p5/m %z19.d -> %z17.d
+04d6b6b3 : abs z19.d, p5/M, z21.d                    : abs    %p5/m %z21.d -> %z19.d
+04d6baf5 : abs z21.d, p6/M, z23.d                    : abs    %p6/m %z23.d -> %z21.d
+04d6bb37 : abs z23.d, p6/M, z25.d                    : abs    %p6/m %z25.d -> %z23.d
+04d6bf79 : abs z25.d, p7/M, z27.d                    : abs    %p7/m %z27.d -> %z25.d
+04d6bfbb : abs z27.d, p7/M, z29.d                    : abs    %p7/m %z29.d -> %z27.d
+04d6bfff : abs z31.d, p7/M, z31.d                    : abs    %p7/m %z31.d -> %z31.d
+
 # ADD     <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (ADD-Z.P.ZZ-_)
 04000000 : add z0.b, p0/M, z0.b, z0.b                : add    %p0/m %z0.b %z0.b -> %z0.b
 04000482 : add z2.b, p1/M, z2.b, z4.b                : add    %p1/m %z2.b %z4.b -> %z2.b
@@ -257,6 +323,72 @@
 049b0b02 : bic z2.s, p2/m, z2.s, z24.s              : bic    %p2 %z2 %z24 $0x02 -> %z2
 04db0b02 : bic z2.d, p2/m, z2.d, z24.d              : bic    %p2 %z2 %z24 $0x03 -> %z2
 
+# CNOT    <Zd>.<T>, <Pg>/M, <Zn>.<T> (CNOT-Z.P.Z-_)
+041ba000 : cnot z0.b, p0/M, z0.b                     : cnot   %p0/m %z0.b -> %z0.b
+041ba482 : cnot z2.b, p1/M, z4.b                     : cnot   %p1/m %z4.b -> %z2.b
+041ba8c4 : cnot z4.b, p2/M, z6.b                     : cnot   %p2/m %z6.b -> %z4.b
+041ba906 : cnot z6.b, p2/M, z8.b                     : cnot   %p2/m %z8.b -> %z6.b
+041bad48 : cnot z8.b, p3/M, z10.b                    : cnot   %p3/m %z10.b -> %z8.b
+041bad8a : cnot z10.b, p3/M, z12.b                   : cnot   %p3/m %z12.b -> %z10.b
+041bb1cc : cnot z12.b, p4/M, z14.b                   : cnot   %p4/m %z14.b -> %z12.b
+041bb20e : cnot z14.b, p4/M, z16.b                   : cnot   %p4/m %z16.b -> %z14.b
+041bb650 : cnot z16.b, p5/M, z18.b                   : cnot   %p5/m %z18.b -> %z16.b
+041bb671 : cnot z17.b, p5/M, z19.b                   : cnot   %p5/m %z19.b -> %z17.b
+041bb6b3 : cnot z19.b, p5/M, z21.b                   : cnot   %p5/m %z21.b -> %z19.b
+041bbaf5 : cnot z21.b, p6/M, z23.b                   : cnot   %p6/m %z23.b -> %z21.b
+041bbb37 : cnot z23.b, p6/M, z25.b                   : cnot   %p6/m %z25.b -> %z23.b
+041bbf79 : cnot z25.b, p7/M, z27.b                   : cnot   %p7/m %z27.b -> %z25.b
+041bbfbb : cnot z27.b, p7/M, z29.b                   : cnot   %p7/m %z29.b -> %z27.b
+041bbfff : cnot z31.b, p7/M, z31.b                   : cnot   %p7/m %z31.b -> %z31.b
+045ba000 : cnot z0.h, p0/M, z0.h                     : cnot   %p0/m %z0.h -> %z0.h
+045ba482 : cnot z2.h, p1/M, z4.h                     : cnot   %p1/m %z4.h -> %z2.h
+045ba8c4 : cnot z4.h, p2/M, z6.h                     : cnot   %p2/m %z6.h -> %z4.h
+045ba906 : cnot z6.h, p2/M, z8.h                     : cnot   %p2/m %z8.h -> %z6.h
+045bad48 : cnot z8.h, p3/M, z10.h                    : cnot   %p3/m %z10.h -> %z8.h
+045bad8a : cnot z10.h, p3/M, z12.h                   : cnot   %p3/m %z12.h -> %z10.h
+045bb1cc : cnot z12.h, p4/M, z14.h                   : cnot   %p4/m %z14.h -> %z12.h
+045bb20e : cnot z14.h, p4/M, z16.h                   : cnot   %p4/m %z16.h -> %z14.h
+045bb650 : cnot z16.h, p5/M, z18.h                   : cnot   %p5/m %z18.h -> %z16.h
+045bb671 : cnot z17.h, p5/M, z19.h                   : cnot   %p5/m %z19.h -> %z17.h
+045bb6b3 : cnot z19.h, p5/M, z21.h                   : cnot   %p5/m %z21.h -> %z19.h
+045bbaf5 : cnot z21.h, p6/M, z23.h                   : cnot   %p6/m %z23.h -> %z21.h
+045bbb37 : cnot z23.h, p6/M, z25.h                   : cnot   %p6/m %z25.h -> %z23.h
+045bbf79 : cnot z25.h, p7/M, z27.h                   : cnot   %p7/m %z27.h -> %z25.h
+045bbfbb : cnot z27.h, p7/M, z29.h                   : cnot   %p7/m %z29.h -> %z27.h
+045bbfff : cnot z31.h, p7/M, z31.h                   : cnot   %p7/m %z31.h -> %z31.h
+049ba000 : cnot z0.s, p0/M, z0.s                     : cnot   %p0/m %z0.s -> %z0.s
+049ba482 : cnot z2.s, p1/M, z4.s                     : cnot   %p1/m %z4.s -> %z2.s
+049ba8c4 : cnot z4.s, p2/M, z6.s                     : cnot   %p2/m %z6.s -> %z4.s
+049ba906 : cnot z6.s, p2/M, z8.s                     : cnot   %p2/m %z8.s -> %z6.s
+049bad48 : cnot z8.s, p3/M, z10.s                    : cnot   %p3/m %z10.s -> %z8.s
+049bad8a : cnot z10.s, p3/M, z12.s                   : cnot   %p3/m %z12.s -> %z10.s
+049bb1cc : cnot z12.s, p4/M, z14.s                   : cnot   %p4/m %z14.s -> %z12.s
+049bb20e : cnot z14.s, p4/M, z16.s                   : cnot   %p4/m %z16.s -> %z14.s
+049bb650 : cnot z16.s, p5/M, z18.s                   : cnot   %p5/m %z18.s -> %z16.s
+049bb671 : cnot z17.s, p5/M, z19.s                   : cnot   %p5/m %z19.s -> %z17.s
+049bb6b3 : cnot z19.s, p5/M, z21.s                   : cnot   %p5/m %z21.s -> %z19.s
+049bbaf5 : cnot z21.s, p6/M, z23.s                   : cnot   %p6/m %z23.s -> %z21.s
+049bbb37 : cnot z23.s, p6/M, z25.s                   : cnot   %p6/m %z25.s -> %z23.s
+049bbf79 : cnot z25.s, p7/M, z27.s                   : cnot   %p7/m %z27.s -> %z25.s
+049bbfbb : cnot z27.s, p7/M, z29.s                   : cnot   %p7/m %z29.s -> %z27.s
+049bbfff : cnot z31.s, p7/M, z31.s                   : cnot   %p7/m %z31.s -> %z31.s
+04dba000 : cnot z0.d, p0/M, z0.d                     : cnot   %p0/m %z0.d -> %z0.d
+04dba482 : cnot z2.d, p1/M, z4.d                     : cnot   %p1/m %z4.d -> %z2.d
+04dba8c4 : cnot z4.d, p2/M, z6.d                     : cnot   %p2/m %z6.d -> %z4.d
+04dba906 : cnot z6.d, p2/M, z8.d                     : cnot   %p2/m %z8.d -> %z6.d
+04dbad48 : cnot z8.d, p3/M, z10.d                    : cnot   %p3/m %z10.d -> %z8.d
+04dbad8a : cnot z10.d, p3/M, z12.d                   : cnot   %p3/m %z12.d -> %z10.d
+04dbb1cc : cnot z12.d, p4/M, z14.d                   : cnot   %p4/m %z14.d -> %z12.d
+04dbb20e : cnot z14.d, p4/M, z16.d                   : cnot   %p4/m %z16.d -> %z14.d
+04dbb650 : cnot z16.d, p5/M, z18.d                   : cnot   %p5/m %z18.d -> %z16.d
+04dbb671 : cnot z17.d, p5/M, z19.d                   : cnot   %p5/m %z19.d -> %z17.d
+04dbb6b3 : cnot z19.d, p5/M, z21.d                   : cnot   %p5/m %z21.d -> %z19.d
+04dbbaf5 : cnot z21.d, p6/M, z23.d                   : cnot   %p6/m %z23.d -> %z21.d
+04dbbb37 : cnot z23.d, p6/M, z25.d                   : cnot   %p6/m %z25.d -> %z23.d
+04dbbf79 : cnot z25.d, p7/M, z27.d                   : cnot   %p7/m %z27.d -> %z25.d
+04dbbfbb : cnot z27.d, p7/M, z29.d                   : cnot   %p7/m %z29.d -> %z27.d
+04dbbfff : cnot z31.d, p7/M, z31.d                   : cnot   %p7/m %z31.d -> %z31.d
+
 # CPY     <Zd>.<T>, <Pg>/Z, #<imm>, <shift> (CPY-Z.O.I-_)
 05101000 : cpy z0.b, p0/Z, #-0x80, lsl #0            : cpy    %p0/z $0x80 lsl $0x00 -> %z0.b
 05121202 : cpy z2.b, p2/Z, #-0x70, lsl #0            : cpy    %p2/z $0x90 lsl $0x00 -> %z2.b
@@ -393,6 +525,206 @@
 0459105d : eor z29.h, p4/m, z29.h, z2.h             : eor    %p4 %z29 %z2 $0x01 -> %z29
 0499105d : eor z29.s, p4/m, z29.s, z2.s             : eor    %p4 %z29 %z2 $0x02 -> %z29
 04d9105d : eor z29.d, p4/m, z29.d, z2.d             : eor    %p4 %z29 %z2 $0x03 -> %z29
+
+# FEXPA   <Zd>.<T>, <Zn>.<T> (FEXPA-Z.Z-_)
+0460b800 : fexpa z0.h, z0.h                          : fexpa  %z0.h -> %z0.h
+0460b862 : fexpa z2.h, z3.h                          : fexpa  %z3.h -> %z2.h
+0460b8a4 : fexpa z4.h, z5.h                          : fexpa  %z5.h -> %z4.h
+0460b8e6 : fexpa z6.h, z7.h                          : fexpa  %z7.h -> %z6.h
+0460b928 : fexpa z8.h, z9.h                          : fexpa  %z9.h -> %z8.h
+0460b96a : fexpa z10.h, z11.h                        : fexpa  %z11.h -> %z10.h
+0460b9ac : fexpa z12.h, z13.h                        : fexpa  %z13.h -> %z12.h
+0460b9ee : fexpa z14.h, z15.h                        : fexpa  %z15.h -> %z14.h
+0460ba30 : fexpa z16.h, z17.h                        : fexpa  %z17.h -> %z16.h
+0460ba51 : fexpa z17.h, z18.h                        : fexpa  %z18.h -> %z17.h
+0460ba93 : fexpa z19.h, z20.h                        : fexpa  %z20.h -> %z19.h
+0460bad5 : fexpa z21.h, z22.h                        : fexpa  %z22.h -> %z21.h
+0460bb17 : fexpa z23.h, z24.h                        : fexpa  %z24.h -> %z23.h
+0460bb59 : fexpa z25.h, z26.h                        : fexpa  %z26.h -> %z25.h
+0460bb9b : fexpa z27.h, z28.h                        : fexpa  %z28.h -> %z27.h
+0460bbff : fexpa z31.h, z31.h                        : fexpa  %z31.h -> %z31.h
+04a0b800 : fexpa z0.s, z0.s                          : fexpa  %z0.s -> %z0.s
+04a0b862 : fexpa z2.s, z3.s                          : fexpa  %z3.s -> %z2.s
+04a0b8a4 : fexpa z4.s, z5.s                          : fexpa  %z5.s -> %z4.s
+04a0b8e6 : fexpa z6.s, z7.s                          : fexpa  %z7.s -> %z6.s
+04a0b928 : fexpa z8.s, z9.s                          : fexpa  %z9.s -> %z8.s
+04a0b96a : fexpa z10.s, z11.s                        : fexpa  %z11.s -> %z10.s
+04a0b9ac : fexpa z12.s, z13.s                        : fexpa  %z13.s -> %z12.s
+04a0b9ee : fexpa z14.s, z15.s                        : fexpa  %z15.s -> %z14.s
+04a0ba30 : fexpa z16.s, z17.s                        : fexpa  %z17.s -> %z16.s
+04a0ba51 : fexpa z17.s, z18.s                        : fexpa  %z18.s -> %z17.s
+04a0ba93 : fexpa z19.s, z20.s                        : fexpa  %z20.s -> %z19.s
+04a0bad5 : fexpa z21.s, z22.s                        : fexpa  %z22.s -> %z21.s
+04a0bb17 : fexpa z23.s, z24.s                        : fexpa  %z24.s -> %z23.s
+04a0bb59 : fexpa z25.s, z26.s                        : fexpa  %z26.s -> %z25.s
+04a0bb9b : fexpa z27.s, z28.s                        : fexpa  %z28.s -> %z27.s
+04a0bbff : fexpa z31.s, z31.s                        : fexpa  %z31.s -> %z31.s
+04e0b800 : fexpa z0.d, z0.d                          : fexpa  %z0.d -> %z0.d
+04e0b862 : fexpa z2.d, z3.d                          : fexpa  %z3.d -> %z2.d
+04e0b8a4 : fexpa z4.d, z5.d                          : fexpa  %z5.d -> %z4.d
+04e0b8e6 : fexpa z6.d, z7.d                          : fexpa  %z7.d -> %z6.d
+04e0b928 : fexpa z8.d, z9.d                          : fexpa  %z9.d -> %z8.d
+04e0b96a : fexpa z10.d, z11.d                        : fexpa  %z11.d -> %z10.d
+04e0b9ac : fexpa z12.d, z13.d                        : fexpa  %z13.d -> %z12.d
+04e0b9ee : fexpa z14.d, z15.d                        : fexpa  %z15.d -> %z14.d
+04e0ba30 : fexpa z16.d, z17.d                        : fexpa  %z17.d -> %z16.d
+04e0ba51 : fexpa z17.d, z18.d                        : fexpa  %z18.d -> %z17.d
+04e0ba93 : fexpa z19.d, z20.d                        : fexpa  %z20.d -> %z19.d
+04e0bad5 : fexpa z21.d, z22.d                        : fexpa  %z22.d -> %z21.d
+04e0bb17 : fexpa z23.d, z24.d                        : fexpa  %z24.d -> %z23.d
+04e0bb59 : fexpa z25.d, z26.d                        : fexpa  %z26.d -> %z25.d
+04e0bb9b : fexpa z27.d, z28.d                        : fexpa  %z28.d -> %z27.d
+04e0bbff : fexpa z31.d, z31.d                        : fexpa  %z31.d -> %z31.d
+
+# FTMAD   <Zdn>.<T>, <Zdn>.<T>, <Zm>.<T>, #<imm> (FTMAD-Z.ZZI-_)
+65508000 : ftmad z0.h, z0.h, z0.h, #0x0              : ftmad  %z0.h %z0.h $0x00 -> %z0.h
+65508062 : ftmad z2.h, z2.h, z3.h, #0x0              : ftmad  %z2.h %z3.h $0x00 -> %z2.h
+655180a4 : ftmad z4.h, z4.h, z5.h, #0x1              : ftmad  %z4.h %z5.h $0x01 -> %z4.h
+655180e6 : ftmad z6.h, z6.h, z7.h, #0x1              : ftmad  %z6.h %z7.h $0x01 -> %z6.h
+65528128 : ftmad z8.h, z8.h, z9.h, #0x2              : ftmad  %z8.h %z9.h $0x02 -> %z8.h
+6552816a : ftmad z10.h, z10.h, z11.h, #0x2           : ftmad  %z10.h %z11.h $0x02 -> %z10.h
+655381ac : ftmad z12.h, z12.h, z13.h, #0x3           : ftmad  %z12.h %z13.h $0x03 -> %z12.h
+655381ee : ftmad z14.h, z14.h, z15.h, #0x3           : ftmad  %z14.h %z15.h $0x03 -> %z14.h
+65548230 : ftmad z16.h, z16.h, z17.h, #0x4           : ftmad  %z16.h %z17.h $0x04 -> %z16.h
+65548251 : ftmad z17.h, z17.h, z18.h, #0x4           : ftmad  %z17.h %z18.h $0x04 -> %z17.h
+65548293 : ftmad z19.h, z19.h, z20.h, #0x4           : ftmad  %z19.h %z20.h $0x04 -> %z19.h
+655582d5 : ftmad z21.h, z21.h, z22.h, #0x5           : ftmad  %z21.h %z22.h $0x05 -> %z21.h
+65558317 : ftmad z23.h, z23.h, z24.h, #0x5           : ftmad  %z23.h %z24.h $0x05 -> %z23.h
+65568359 : ftmad z25.h, z25.h, z26.h, #0x6           : ftmad  %z25.h %z26.h $0x06 -> %z25.h
+6556839b : ftmad z27.h, z27.h, z28.h, #0x6           : ftmad  %z27.h %z28.h $0x06 -> %z27.h
+655783ff : ftmad z31.h, z31.h, z31.h, #0x7           : ftmad  %z31.h %z31.h $0x07 -> %z31.h
+65908000 : ftmad z0.s, z0.s, z0.s, #0x0              : ftmad  %z0.s %z0.s $0x00 -> %z0.s
+65908062 : ftmad z2.s, z2.s, z3.s, #0x0              : ftmad  %z2.s %z3.s $0x00 -> %z2.s
+659180a4 : ftmad z4.s, z4.s, z5.s, #0x1              : ftmad  %z4.s %z5.s $0x01 -> %z4.s
+659180e6 : ftmad z6.s, z6.s, z7.s, #0x1              : ftmad  %z6.s %z7.s $0x01 -> %z6.s
+65928128 : ftmad z8.s, z8.s, z9.s, #0x2              : ftmad  %z8.s %z9.s $0x02 -> %z8.s
+6592816a : ftmad z10.s, z10.s, z11.s, #0x2           : ftmad  %z10.s %z11.s $0x02 -> %z10.s
+659381ac : ftmad z12.s, z12.s, z13.s, #0x3           : ftmad  %z12.s %z13.s $0x03 -> %z12.s
+659381ee : ftmad z14.s, z14.s, z15.s, #0x3           : ftmad  %z14.s %z15.s $0x03 -> %z14.s
+65948230 : ftmad z16.s, z16.s, z17.s, #0x4           : ftmad  %z16.s %z17.s $0x04 -> %z16.s
+65948251 : ftmad z17.s, z17.s, z18.s, #0x4           : ftmad  %z17.s %z18.s $0x04 -> %z17.s
+65948293 : ftmad z19.s, z19.s, z20.s, #0x4           : ftmad  %z19.s %z20.s $0x04 -> %z19.s
+659582d5 : ftmad z21.s, z21.s, z22.s, #0x5           : ftmad  %z21.s %z22.s $0x05 -> %z21.s
+65958317 : ftmad z23.s, z23.s, z24.s, #0x5           : ftmad  %z23.s %z24.s $0x05 -> %z23.s
+65968359 : ftmad z25.s, z25.s, z26.s, #0x6           : ftmad  %z25.s %z26.s $0x06 -> %z25.s
+6596839b : ftmad z27.s, z27.s, z28.s, #0x6           : ftmad  %z27.s %z28.s $0x06 -> %z27.s
+659783ff : ftmad z31.s, z31.s, z31.s, #0x7           : ftmad  %z31.s %z31.s $0x07 -> %z31.s
+65d08000 : ftmad z0.d, z0.d, z0.d, #0x0              : ftmad  %z0.d %z0.d $0x00 -> %z0.d
+65d08062 : ftmad z2.d, z2.d, z3.d, #0x0              : ftmad  %z2.d %z3.d $0x00 -> %z2.d
+65d180a4 : ftmad z4.d, z4.d, z5.d, #0x1              : ftmad  %z4.d %z5.d $0x01 -> %z4.d
+65d180e6 : ftmad z6.d, z6.d, z7.d, #0x1              : ftmad  %z6.d %z7.d $0x01 -> %z6.d
+65d28128 : ftmad z8.d, z8.d, z9.d, #0x2              : ftmad  %z8.d %z9.d $0x02 -> %z8.d
+65d2816a : ftmad z10.d, z10.d, z11.d, #0x2           : ftmad  %z10.d %z11.d $0x02 -> %z10.d
+65d381ac : ftmad z12.d, z12.d, z13.d, #0x3           : ftmad  %z12.d %z13.d $0x03 -> %z12.d
+65d381ee : ftmad z14.d, z14.d, z15.d, #0x3           : ftmad  %z14.d %z15.d $0x03 -> %z14.d
+65d48230 : ftmad z16.d, z16.d, z17.d, #0x4           : ftmad  %z16.d %z17.d $0x04 -> %z16.d
+65d48251 : ftmad z17.d, z17.d, z18.d, #0x4           : ftmad  %z17.d %z18.d $0x04 -> %z17.d
+65d48293 : ftmad z19.d, z19.d, z20.d, #0x4           : ftmad  %z19.d %z20.d $0x04 -> %z19.d
+65d582d5 : ftmad z21.d, z21.d, z22.d, #0x5           : ftmad  %z21.d %z22.d $0x05 -> %z21.d
+65d58317 : ftmad z23.d, z23.d, z24.d, #0x5           : ftmad  %z23.d %z24.d $0x05 -> %z23.d
+65d68359 : ftmad z25.d, z25.d, z26.d, #0x6           : ftmad  %z25.d %z26.d $0x06 -> %z25.d
+65d6839b : ftmad z27.d, z27.d, z28.d, #0x6           : ftmad  %z27.d %z28.d $0x06 -> %z27.d
+65d783ff : ftmad z31.d, z31.d, z31.d, #0x7           : ftmad  %z31.d %z31.d $0x07 -> %z31.d
+
+# FTSMUL  <Zd>.<T>, <Zn>.<T>, <Zm>.<T> (FTSMUL-Z.ZZ-_)
+65400c00 : ftsmul z0.h, z0.h, z0.h                   : ftsmul %z0.h %z0.h -> %z0.h
+65440c62 : ftsmul z2.h, z3.h, z4.h                   : ftsmul %z3.h %z4.h -> %z2.h
+65460ca4 : ftsmul z4.h, z5.h, z6.h                   : ftsmul %z5.h %z6.h -> %z4.h
+65480ce6 : ftsmul z6.h, z7.h, z8.h                   : ftsmul %z7.h %z8.h -> %z6.h
+654a0d28 : ftsmul z8.h, z9.h, z10.h                  : ftsmul %z9.h %z10.h -> %z8.h
+654c0d6a : ftsmul z10.h, z11.h, z12.h                : ftsmul %z11.h %z12.h -> %z10.h
+654e0dac : ftsmul z12.h, z13.h, z14.h                : ftsmul %z13.h %z14.h -> %z12.h
+65500dee : ftsmul z14.h, z15.h, z16.h                : ftsmul %z15.h %z16.h -> %z14.h
+65520e30 : ftsmul z16.h, z17.h, z18.h                : ftsmul %z17.h %z18.h -> %z16.h
+65530e51 : ftsmul z17.h, z18.h, z19.h                : ftsmul %z18.h %z19.h -> %z17.h
+65550e93 : ftsmul z19.h, z20.h, z21.h                : ftsmul %z20.h %z21.h -> %z19.h
+65570ed5 : ftsmul z21.h, z22.h, z23.h                : ftsmul %z22.h %z23.h -> %z21.h
+65590f17 : ftsmul z23.h, z24.h, z25.h                : ftsmul %z24.h %z25.h -> %z23.h
+655b0f59 : ftsmul z25.h, z26.h, z27.h                : ftsmul %z26.h %z27.h -> %z25.h
+655d0f9b : ftsmul z27.h, z28.h, z29.h                : ftsmul %z28.h %z29.h -> %z27.h
+655f0fff : ftsmul z31.h, z31.h, z31.h                : ftsmul %z31.h %z31.h -> %z31.h
+65800c00 : ftsmul z0.s, z0.s, z0.s                   : ftsmul %z0.s %z0.s -> %z0.s
+65840c62 : ftsmul z2.s, z3.s, z4.s                   : ftsmul %z3.s %z4.s -> %z2.s
+65860ca4 : ftsmul z4.s, z5.s, z6.s                   : ftsmul %z5.s %z6.s -> %z4.s
+65880ce6 : ftsmul z6.s, z7.s, z8.s                   : ftsmul %z7.s %z8.s -> %z6.s
+658a0d28 : ftsmul z8.s, z9.s, z10.s                  : ftsmul %z9.s %z10.s -> %z8.s
+658c0d6a : ftsmul z10.s, z11.s, z12.s                : ftsmul %z11.s %z12.s -> %z10.s
+658e0dac : ftsmul z12.s, z13.s, z14.s                : ftsmul %z13.s %z14.s -> %z12.s
+65900dee : ftsmul z14.s, z15.s, z16.s                : ftsmul %z15.s %z16.s -> %z14.s
+65920e30 : ftsmul z16.s, z17.s, z18.s                : ftsmul %z17.s %z18.s -> %z16.s
+65930e51 : ftsmul z17.s, z18.s, z19.s                : ftsmul %z18.s %z19.s -> %z17.s
+65950e93 : ftsmul z19.s, z20.s, z21.s                : ftsmul %z20.s %z21.s -> %z19.s
+65970ed5 : ftsmul z21.s, z22.s, z23.s                : ftsmul %z22.s %z23.s -> %z21.s
+65990f17 : ftsmul z23.s, z24.s, z25.s                : ftsmul %z24.s %z25.s -> %z23.s
+659b0f59 : ftsmul z25.s, z26.s, z27.s                : ftsmul %z26.s %z27.s -> %z25.s
+659d0f9b : ftsmul z27.s, z28.s, z29.s                : ftsmul %z28.s %z29.s -> %z27.s
+659f0fff : ftsmul z31.s, z31.s, z31.s                : ftsmul %z31.s %z31.s -> %z31.s
+65c00c00 : ftsmul z0.d, z0.d, z0.d                   : ftsmul %z0.d %z0.d -> %z0.d
+65c40c62 : ftsmul z2.d, z3.d, z4.d                   : ftsmul %z3.d %z4.d -> %z2.d
+65c60ca4 : ftsmul z4.d, z5.d, z6.d                   : ftsmul %z5.d %z6.d -> %z4.d
+65c80ce6 : ftsmul z6.d, z7.d, z8.d                   : ftsmul %z7.d %z8.d -> %z6.d
+65ca0d28 : ftsmul z8.d, z9.d, z10.d                  : ftsmul %z9.d %z10.d -> %z8.d
+65cc0d6a : ftsmul z10.d, z11.d, z12.d                : ftsmul %z11.d %z12.d -> %z10.d
+65ce0dac : ftsmul z12.d, z13.d, z14.d                : ftsmul %z13.d %z14.d -> %z12.d
+65d00dee : ftsmul z14.d, z15.d, z16.d                : ftsmul %z15.d %z16.d -> %z14.d
+65d20e30 : ftsmul z16.d, z17.d, z18.d                : ftsmul %z17.d %z18.d -> %z16.d
+65d30e51 : ftsmul z17.d, z18.d, z19.d                : ftsmul %z18.d %z19.d -> %z17.d
+65d50e93 : ftsmul z19.d, z20.d, z21.d                : ftsmul %z20.d %z21.d -> %z19.d
+65d70ed5 : ftsmul z21.d, z22.d, z23.d                : ftsmul %z22.d %z23.d -> %z21.d
+65d90f17 : ftsmul z23.d, z24.d, z25.d                : ftsmul %z24.d %z25.d -> %z23.d
+65db0f59 : ftsmul z25.d, z26.d, z27.d                : ftsmul %z26.d %z27.d -> %z25.d
+65dd0f9b : ftsmul z27.d, z28.d, z29.d                : ftsmul %z28.d %z29.d -> %z27.d
+65df0fff : ftsmul z31.d, z31.d, z31.d                : ftsmul %z31.d %z31.d -> %z31.d
+
+# FTSSEL  <Zd>.<T>, <Zn>.<T>, <Zm>.<T> (FTSSEL-Z.ZZ-_)
+0460b000 : ftssel z0.h, z0.h, z0.h                   : ftssel %z0.h %z0.h -> %z0.h
+0464b062 : ftssel z2.h, z3.h, z4.h                   : ftssel %z3.h %z4.h -> %z2.h
+0466b0a4 : ftssel z4.h, z5.h, z6.h                   : ftssel %z5.h %z6.h -> %z4.h
+0468b0e6 : ftssel z6.h, z7.h, z8.h                   : ftssel %z7.h %z8.h -> %z6.h
+046ab128 : ftssel z8.h, z9.h, z10.h                  : ftssel %z9.h %z10.h -> %z8.h
+046cb16a : ftssel z10.h, z11.h, z12.h                : ftssel %z11.h %z12.h -> %z10.h
+046eb1ac : ftssel z12.h, z13.h, z14.h                : ftssel %z13.h %z14.h -> %z12.h
+0470b1ee : ftssel z14.h, z15.h, z16.h                : ftssel %z15.h %z16.h -> %z14.h
+0472b230 : ftssel z16.h, z17.h, z18.h                : ftssel %z17.h %z18.h -> %z16.h
+0473b251 : ftssel z17.h, z18.h, z19.h                : ftssel %z18.h %z19.h -> %z17.h
+0475b293 : ftssel z19.h, z20.h, z21.h                : ftssel %z20.h %z21.h -> %z19.h
+0477b2d5 : ftssel z21.h, z22.h, z23.h                : ftssel %z22.h %z23.h -> %z21.h
+0479b317 : ftssel z23.h, z24.h, z25.h                : ftssel %z24.h %z25.h -> %z23.h
+047bb359 : ftssel z25.h, z26.h, z27.h                : ftssel %z26.h %z27.h -> %z25.h
+047db39b : ftssel z27.h, z28.h, z29.h                : ftssel %z28.h %z29.h -> %z27.h
+047fb3ff : ftssel z31.h, z31.h, z31.h                : ftssel %z31.h %z31.h -> %z31.h
+04a0b000 : ftssel z0.s, z0.s, z0.s                   : ftssel %z0.s %z0.s -> %z0.s
+04a4b062 : ftssel z2.s, z3.s, z4.s                   : ftssel %z3.s %z4.s -> %z2.s
+04a6b0a4 : ftssel z4.s, z5.s, z6.s                   : ftssel %z5.s %z6.s -> %z4.s
+04a8b0e6 : ftssel z6.s, z7.s, z8.s                   : ftssel %z7.s %z8.s -> %z6.s
+04aab128 : ftssel z8.s, z9.s, z10.s                  : ftssel %z9.s %z10.s -> %z8.s
+04acb16a : ftssel z10.s, z11.s, z12.s                : ftssel %z11.s %z12.s -> %z10.s
+04aeb1ac : ftssel z12.s, z13.s, z14.s                : ftssel %z13.s %z14.s -> %z12.s
+04b0b1ee : ftssel z14.s, z15.s, z16.s                : ftssel %z15.s %z16.s -> %z14.s
+04b2b230 : ftssel z16.s, z17.s, z18.s                : ftssel %z17.s %z18.s -> %z16.s
+04b3b251 : ftssel z17.s, z18.s, z19.s                : ftssel %z18.s %z19.s -> %z17.s
+04b5b293 : ftssel z19.s, z20.s, z21.s                : ftssel %z20.s %z21.s -> %z19.s
+04b7b2d5 : ftssel z21.s, z22.s, z23.s                : ftssel %z22.s %z23.s -> %z21.s
+04b9b317 : ftssel z23.s, z24.s, z25.s                : ftssel %z24.s %z25.s -> %z23.s
+04bbb359 : ftssel z25.s, z26.s, z27.s                : ftssel %z26.s %z27.s -> %z25.s
+04bdb39b : ftssel z27.s, z28.s, z29.s                : ftssel %z28.s %z29.s -> %z27.s
+04bfb3ff : ftssel z31.s, z31.s, z31.s                : ftssel %z31.s %z31.s -> %z31.s
+04e0b000 : ftssel z0.d, z0.d, z0.d                   : ftssel %z0.d %z0.d -> %z0.d
+04e4b062 : ftssel z2.d, z3.d, z4.d                   : ftssel %z3.d %z4.d -> %z2.d
+04e6b0a4 : ftssel z4.d, z5.d, z6.d                   : ftssel %z5.d %z6.d -> %z4.d
+04e8b0e6 : ftssel z6.d, z7.d, z8.d                   : ftssel %z7.d %z8.d -> %z6.d
+04eab128 : ftssel z8.d, z9.d, z10.d                  : ftssel %z9.d %z10.d -> %z8.d
+04ecb16a : ftssel z10.d, z11.d, z12.d                : ftssel %z11.d %z12.d -> %z10.d
+04eeb1ac : ftssel z12.d, z13.d, z14.d                : ftssel %z13.d %z14.d -> %z12.d
+04f0b1ee : ftssel z14.d, z15.d, z16.d                : ftssel %z15.d %z16.d -> %z14.d
+04f2b230 : ftssel z16.d, z17.d, z18.d                : ftssel %z17.d %z18.d -> %z16.d
+04f3b251 : ftssel z17.d, z18.d, z19.d                : ftssel %z18.d %z19.d -> %z17.d
+04f5b293 : ftssel z19.d, z20.d, z21.d                : ftssel %z20.d %z21.d -> %z19.d
+04f7b2d5 : ftssel z21.d, z22.d, z23.d                : ftssel %z22.d %z23.d -> %z21.d
+04f9b317 : ftssel z23.d, z24.d, z25.d                : ftssel %z24.d %z25.d -> %z23.d
+04fbb359 : ftssel z25.d, z26.d, z27.d                : ftssel %z26.d %z27.d -> %z25.d
+04fdb39b : ftssel z27.d, z28.d, z29.d                : ftssel %z28.d %z29.d -> %z27.d
+04ffb3ff : ftssel z31.d, z31.d, z31.d                : ftssel %z31.d %z31.d -> %z31.d
 
 # MAD     <Zdn>.<T>, <Pg>/M, <Zm>.<T>, <Za>.<T> (MAD-Z.P.ZZZ-_)
 0400c000 : mad z0.b, p0/M, z0.b, z0.b                : mad    %p0/m %z0.b %z0.b %z0.b -> %z0.b
@@ -808,6 +1140,72 @@
 25f0cbfb : mul z27.d, z27.d, #0x5f                   : mul    %z27.d $0x5f -> %z27.d
 25f0cfff : mul z31.d, z31.d, #0x7f                   : mul    %z31.d $0x7f -> %z31.d
 
+# NEG     <Zd>.<T>, <Pg>/M, <Zn>.<T> (NEG-Z.P.Z-_)
+0417a000 : neg z0.b, p0/M, z0.b                      : neg    %p0/m %z0.b -> %z0.b
+0417a482 : neg z2.b, p1/M, z4.b                      : neg    %p1/m %z4.b -> %z2.b
+0417a8c4 : neg z4.b, p2/M, z6.b                      : neg    %p2/m %z6.b -> %z4.b
+0417a906 : neg z6.b, p2/M, z8.b                      : neg    %p2/m %z8.b -> %z6.b
+0417ad48 : neg z8.b, p3/M, z10.b                     : neg    %p3/m %z10.b -> %z8.b
+0417ad8a : neg z10.b, p3/M, z12.b                    : neg    %p3/m %z12.b -> %z10.b
+0417b1cc : neg z12.b, p4/M, z14.b                    : neg    %p4/m %z14.b -> %z12.b
+0417b20e : neg z14.b, p4/M, z16.b                    : neg    %p4/m %z16.b -> %z14.b
+0417b650 : neg z16.b, p5/M, z18.b                    : neg    %p5/m %z18.b -> %z16.b
+0417b671 : neg z17.b, p5/M, z19.b                    : neg    %p5/m %z19.b -> %z17.b
+0417b6b3 : neg z19.b, p5/M, z21.b                    : neg    %p5/m %z21.b -> %z19.b
+0417baf5 : neg z21.b, p6/M, z23.b                    : neg    %p6/m %z23.b -> %z21.b
+0417bb37 : neg z23.b, p6/M, z25.b                    : neg    %p6/m %z25.b -> %z23.b
+0417bf79 : neg z25.b, p7/M, z27.b                    : neg    %p7/m %z27.b -> %z25.b
+0417bfbb : neg z27.b, p7/M, z29.b                    : neg    %p7/m %z29.b -> %z27.b
+0417bfff : neg z31.b, p7/M, z31.b                    : neg    %p7/m %z31.b -> %z31.b
+0457a000 : neg z0.h, p0/M, z0.h                      : neg    %p0/m %z0.h -> %z0.h
+0457a482 : neg z2.h, p1/M, z4.h                      : neg    %p1/m %z4.h -> %z2.h
+0457a8c4 : neg z4.h, p2/M, z6.h                      : neg    %p2/m %z6.h -> %z4.h
+0457a906 : neg z6.h, p2/M, z8.h                      : neg    %p2/m %z8.h -> %z6.h
+0457ad48 : neg z8.h, p3/M, z10.h                     : neg    %p3/m %z10.h -> %z8.h
+0457ad8a : neg z10.h, p3/M, z12.h                    : neg    %p3/m %z12.h -> %z10.h
+0457b1cc : neg z12.h, p4/M, z14.h                    : neg    %p4/m %z14.h -> %z12.h
+0457b20e : neg z14.h, p4/M, z16.h                    : neg    %p4/m %z16.h -> %z14.h
+0457b650 : neg z16.h, p5/M, z18.h                    : neg    %p5/m %z18.h -> %z16.h
+0457b671 : neg z17.h, p5/M, z19.h                    : neg    %p5/m %z19.h -> %z17.h
+0457b6b3 : neg z19.h, p5/M, z21.h                    : neg    %p5/m %z21.h -> %z19.h
+0457baf5 : neg z21.h, p6/M, z23.h                    : neg    %p6/m %z23.h -> %z21.h
+0457bb37 : neg z23.h, p6/M, z25.h                    : neg    %p6/m %z25.h -> %z23.h
+0457bf79 : neg z25.h, p7/M, z27.h                    : neg    %p7/m %z27.h -> %z25.h
+0457bfbb : neg z27.h, p7/M, z29.h                    : neg    %p7/m %z29.h -> %z27.h
+0457bfff : neg z31.h, p7/M, z31.h                    : neg    %p7/m %z31.h -> %z31.h
+0497a000 : neg z0.s, p0/M, z0.s                      : neg    %p0/m %z0.s -> %z0.s
+0497a482 : neg z2.s, p1/M, z4.s                      : neg    %p1/m %z4.s -> %z2.s
+0497a8c4 : neg z4.s, p2/M, z6.s                      : neg    %p2/m %z6.s -> %z4.s
+0497a906 : neg z6.s, p2/M, z8.s                      : neg    %p2/m %z8.s -> %z6.s
+0497ad48 : neg z8.s, p3/M, z10.s                     : neg    %p3/m %z10.s -> %z8.s
+0497ad8a : neg z10.s, p3/M, z12.s                    : neg    %p3/m %z12.s -> %z10.s
+0497b1cc : neg z12.s, p4/M, z14.s                    : neg    %p4/m %z14.s -> %z12.s
+0497b20e : neg z14.s, p4/M, z16.s                    : neg    %p4/m %z16.s -> %z14.s
+0497b650 : neg z16.s, p5/M, z18.s                    : neg    %p5/m %z18.s -> %z16.s
+0497b671 : neg z17.s, p5/M, z19.s                    : neg    %p5/m %z19.s -> %z17.s
+0497b6b3 : neg z19.s, p5/M, z21.s                    : neg    %p5/m %z21.s -> %z19.s
+0497baf5 : neg z21.s, p6/M, z23.s                    : neg    %p6/m %z23.s -> %z21.s
+0497bb37 : neg z23.s, p6/M, z25.s                    : neg    %p6/m %z25.s -> %z23.s
+0497bf79 : neg z25.s, p7/M, z27.s                    : neg    %p7/m %z27.s -> %z25.s
+0497bfbb : neg z27.s, p7/M, z29.s                    : neg    %p7/m %z29.s -> %z27.s
+0497bfff : neg z31.s, p7/M, z31.s                    : neg    %p7/m %z31.s -> %z31.s
+04d7a000 : neg z0.d, p0/M, z0.d                      : neg    %p0/m %z0.d -> %z0.d
+04d7a482 : neg z2.d, p1/M, z4.d                      : neg    %p1/m %z4.d -> %z2.d
+04d7a8c4 : neg z4.d, p2/M, z6.d                      : neg    %p2/m %z6.d -> %z4.d
+04d7a906 : neg z6.d, p2/M, z8.d                      : neg    %p2/m %z8.d -> %z6.d
+04d7ad48 : neg z8.d, p3/M, z10.d                     : neg    %p3/m %z10.d -> %z8.d
+04d7ad8a : neg z10.d, p3/M, z12.d                    : neg    %p3/m %z12.d -> %z10.d
+04d7b1cc : neg z12.d, p4/M, z14.d                    : neg    %p4/m %z14.d -> %z12.d
+04d7b20e : neg z14.d, p4/M, z16.d                    : neg    %p4/m %z16.d -> %z14.d
+04d7b650 : neg z16.d, p5/M, z18.d                    : neg    %p5/m %z18.d -> %z16.d
+04d7b671 : neg z17.d, p5/M, z19.d                    : neg    %p5/m %z19.d -> %z17.d
+04d7b6b3 : neg z19.d, p5/M, z21.d                    : neg    %p5/m %z21.d -> %z19.d
+04d7baf5 : neg z21.d, p6/M, z23.d                    : neg    %p6/m %z23.d -> %z21.d
+04d7bb37 : neg z23.d, p6/M, z25.d                    : neg    %p6/m %z25.d -> %z23.d
+04d7bf79 : neg z25.d, p7/M, z27.d                    : neg    %p7/m %z27.d -> %z25.d
+04d7bfbb : neg z27.d, p7/M, z29.d                    : neg    %p7/m %z29.d -> %z27.d
+04d7bfff : neg z31.d, p7/M, z31.d                    : neg    %p7/m %z31.d -> %z31.d
+
 04181da2 : orr z2.b, p7/m, z2.b, z13.b              : orr    %p7 %z2 %z13 $0x00 -> %z2
 04581da2 : orr z2.h, p7/m, z2.h, z13.h              : orr    %p7 %z2 %z13 $0x01 -> %z2
 04981da2 : orr z2.s, p7/m, z2.s, z13.s              : orr    %p7 %z2 %z13 $0x02 -> %z2
@@ -830,6 +1228,336 @@
 2550ed80 : ptest p11, p12.b                          : ptest  %p11 %p12.b
 2550f1a0 : ptest p12, p13.b                          : ptest  %p12 %p13.b
 2550f9c0 : ptest p14, p14.b                          : ptest  %p14 %p14.b
+
+# SABD    <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (SABD-Z.P.ZZ-_)
+040c0000 : sabd z0.b, p0/M, z0.b, z0.b               : sabd   %p0/m %z0.b %z0.b -> %z0.b
+040c0482 : sabd z2.b, p1/M, z2.b, z4.b               : sabd   %p1/m %z2.b %z4.b -> %z2.b
+040c08c4 : sabd z4.b, p2/M, z4.b, z6.b               : sabd   %p2/m %z4.b %z6.b -> %z4.b
+040c0906 : sabd z6.b, p2/M, z6.b, z8.b               : sabd   %p2/m %z6.b %z8.b -> %z6.b
+040c0d48 : sabd z8.b, p3/M, z8.b, z10.b              : sabd   %p3/m %z8.b %z10.b -> %z8.b
+040c0d8a : sabd z10.b, p3/M, z10.b, z12.b            : sabd   %p3/m %z10.b %z12.b -> %z10.b
+040c11cc : sabd z12.b, p4/M, z12.b, z14.b            : sabd   %p4/m %z12.b %z14.b -> %z12.b
+040c120e : sabd z14.b, p4/M, z14.b, z16.b            : sabd   %p4/m %z14.b %z16.b -> %z14.b
+040c1650 : sabd z16.b, p5/M, z16.b, z18.b            : sabd   %p5/m %z16.b %z18.b -> %z16.b
+040c1671 : sabd z17.b, p5/M, z17.b, z19.b            : sabd   %p5/m %z17.b %z19.b -> %z17.b
+040c16b3 : sabd z19.b, p5/M, z19.b, z21.b            : sabd   %p5/m %z19.b %z21.b -> %z19.b
+040c1af5 : sabd z21.b, p6/M, z21.b, z23.b            : sabd   %p6/m %z21.b %z23.b -> %z21.b
+040c1b37 : sabd z23.b, p6/M, z23.b, z25.b            : sabd   %p6/m %z23.b %z25.b -> %z23.b
+040c1f79 : sabd z25.b, p7/M, z25.b, z27.b            : sabd   %p7/m %z25.b %z27.b -> %z25.b
+040c1fbb : sabd z27.b, p7/M, z27.b, z29.b            : sabd   %p7/m %z27.b %z29.b -> %z27.b
+040c1fff : sabd z31.b, p7/M, z31.b, z31.b            : sabd   %p7/m %z31.b %z31.b -> %z31.b
+044c0000 : sabd z0.h, p0/M, z0.h, z0.h               : sabd   %p0/m %z0.h %z0.h -> %z0.h
+044c0482 : sabd z2.h, p1/M, z2.h, z4.h               : sabd   %p1/m %z2.h %z4.h -> %z2.h
+044c08c4 : sabd z4.h, p2/M, z4.h, z6.h               : sabd   %p2/m %z4.h %z6.h -> %z4.h
+044c0906 : sabd z6.h, p2/M, z6.h, z8.h               : sabd   %p2/m %z6.h %z8.h -> %z6.h
+044c0d48 : sabd z8.h, p3/M, z8.h, z10.h              : sabd   %p3/m %z8.h %z10.h -> %z8.h
+044c0d8a : sabd z10.h, p3/M, z10.h, z12.h            : sabd   %p3/m %z10.h %z12.h -> %z10.h
+044c11cc : sabd z12.h, p4/M, z12.h, z14.h            : sabd   %p4/m %z12.h %z14.h -> %z12.h
+044c120e : sabd z14.h, p4/M, z14.h, z16.h            : sabd   %p4/m %z14.h %z16.h -> %z14.h
+044c1650 : sabd z16.h, p5/M, z16.h, z18.h            : sabd   %p5/m %z16.h %z18.h -> %z16.h
+044c1671 : sabd z17.h, p5/M, z17.h, z19.h            : sabd   %p5/m %z17.h %z19.h -> %z17.h
+044c16b3 : sabd z19.h, p5/M, z19.h, z21.h            : sabd   %p5/m %z19.h %z21.h -> %z19.h
+044c1af5 : sabd z21.h, p6/M, z21.h, z23.h            : sabd   %p6/m %z21.h %z23.h -> %z21.h
+044c1b37 : sabd z23.h, p6/M, z23.h, z25.h            : sabd   %p6/m %z23.h %z25.h -> %z23.h
+044c1f79 : sabd z25.h, p7/M, z25.h, z27.h            : sabd   %p7/m %z25.h %z27.h -> %z25.h
+044c1fbb : sabd z27.h, p7/M, z27.h, z29.h            : sabd   %p7/m %z27.h %z29.h -> %z27.h
+044c1fff : sabd z31.h, p7/M, z31.h, z31.h            : sabd   %p7/m %z31.h %z31.h -> %z31.h
+048c0000 : sabd z0.s, p0/M, z0.s, z0.s               : sabd   %p0/m %z0.s %z0.s -> %z0.s
+048c0482 : sabd z2.s, p1/M, z2.s, z4.s               : sabd   %p1/m %z2.s %z4.s -> %z2.s
+048c08c4 : sabd z4.s, p2/M, z4.s, z6.s               : sabd   %p2/m %z4.s %z6.s -> %z4.s
+048c0906 : sabd z6.s, p2/M, z6.s, z8.s               : sabd   %p2/m %z6.s %z8.s -> %z6.s
+048c0d48 : sabd z8.s, p3/M, z8.s, z10.s              : sabd   %p3/m %z8.s %z10.s -> %z8.s
+048c0d8a : sabd z10.s, p3/M, z10.s, z12.s            : sabd   %p3/m %z10.s %z12.s -> %z10.s
+048c11cc : sabd z12.s, p4/M, z12.s, z14.s            : sabd   %p4/m %z12.s %z14.s -> %z12.s
+048c120e : sabd z14.s, p4/M, z14.s, z16.s            : sabd   %p4/m %z14.s %z16.s -> %z14.s
+048c1650 : sabd z16.s, p5/M, z16.s, z18.s            : sabd   %p5/m %z16.s %z18.s -> %z16.s
+048c1671 : sabd z17.s, p5/M, z17.s, z19.s            : sabd   %p5/m %z17.s %z19.s -> %z17.s
+048c16b3 : sabd z19.s, p5/M, z19.s, z21.s            : sabd   %p5/m %z19.s %z21.s -> %z19.s
+048c1af5 : sabd z21.s, p6/M, z21.s, z23.s            : sabd   %p6/m %z21.s %z23.s -> %z21.s
+048c1b37 : sabd z23.s, p6/M, z23.s, z25.s            : sabd   %p6/m %z23.s %z25.s -> %z23.s
+048c1f79 : sabd z25.s, p7/M, z25.s, z27.s            : sabd   %p7/m %z25.s %z27.s -> %z25.s
+048c1fbb : sabd z27.s, p7/M, z27.s, z29.s            : sabd   %p7/m %z27.s %z29.s -> %z27.s
+048c1fff : sabd z31.s, p7/M, z31.s, z31.s            : sabd   %p7/m %z31.s %z31.s -> %z31.s
+04cc0000 : sabd z0.d, p0/M, z0.d, z0.d               : sabd   %p0/m %z0.d %z0.d -> %z0.d
+04cc0482 : sabd z2.d, p1/M, z2.d, z4.d               : sabd   %p1/m %z2.d %z4.d -> %z2.d
+04cc08c4 : sabd z4.d, p2/M, z4.d, z6.d               : sabd   %p2/m %z4.d %z6.d -> %z4.d
+04cc0906 : sabd z6.d, p2/M, z6.d, z8.d               : sabd   %p2/m %z6.d %z8.d -> %z6.d
+04cc0d48 : sabd z8.d, p3/M, z8.d, z10.d              : sabd   %p3/m %z8.d %z10.d -> %z8.d
+04cc0d8a : sabd z10.d, p3/M, z10.d, z12.d            : sabd   %p3/m %z10.d %z12.d -> %z10.d
+04cc11cc : sabd z12.d, p4/M, z12.d, z14.d            : sabd   %p4/m %z12.d %z14.d -> %z12.d
+04cc120e : sabd z14.d, p4/M, z14.d, z16.d            : sabd   %p4/m %z14.d %z16.d -> %z14.d
+04cc1650 : sabd z16.d, p5/M, z16.d, z18.d            : sabd   %p5/m %z16.d %z18.d -> %z16.d
+04cc1671 : sabd z17.d, p5/M, z17.d, z19.d            : sabd   %p5/m %z17.d %z19.d -> %z17.d
+04cc16b3 : sabd z19.d, p5/M, z19.d, z21.d            : sabd   %p5/m %z19.d %z21.d -> %z19.d
+04cc1af5 : sabd z21.d, p6/M, z21.d, z23.d            : sabd   %p6/m %z21.d %z23.d -> %z21.d
+04cc1b37 : sabd z23.d, p6/M, z23.d, z25.d            : sabd   %p6/m %z23.d %z25.d -> %z23.d
+04cc1f79 : sabd z25.d, p7/M, z25.d, z27.d            : sabd   %p7/m %z25.d %z27.d -> %z25.d
+04cc1fbb : sabd z27.d, p7/M, z27.d, z29.d            : sabd   %p7/m %z27.d %z29.d -> %z27.d
+04cc1fff : sabd z31.d, p7/M, z31.d, z31.d            : sabd   %p7/m %z31.d %z31.d -> %z31.d
+
+# SMAX    <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (SMAX-Z.P.ZZ-_)
+04080000 : smax z0.b, p0/M, z0.b, z0.b               : smax   %p0/m %z0.b %z0.b -> %z0.b
+04080482 : smax z2.b, p1/M, z2.b, z4.b               : smax   %p1/m %z2.b %z4.b -> %z2.b
+040808c4 : smax z4.b, p2/M, z4.b, z6.b               : smax   %p2/m %z4.b %z6.b -> %z4.b
+04080906 : smax z6.b, p2/M, z6.b, z8.b               : smax   %p2/m %z6.b %z8.b -> %z6.b
+04080d48 : smax z8.b, p3/M, z8.b, z10.b              : smax   %p3/m %z8.b %z10.b -> %z8.b
+04080d8a : smax z10.b, p3/M, z10.b, z12.b            : smax   %p3/m %z10.b %z12.b -> %z10.b
+040811cc : smax z12.b, p4/M, z12.b, z14.b            : smax   %p4/m %z12.b %z14.b -> %z12.b
+0408120e : smax z14.b, p4/M, z14.b, z16.b            : smax   %p4/m %z14.b %z16.b -> %z14.b
+04081650 : smax z16.b, p5/M, z16.b, z18.b            : smax   %p5/m %z16.b %z18.b -> %z16.b
+04081671 : smax z17.b, p5/M, z17.b, z19.b            : smax   %p5/m %z17.b %z19.b -> %z17.b
+040816b3 : smax z19.b, p5/M, z19.b, z21.b            : smax   %p5/m %z19.b %z21.b -> %z19.b
+04081af5 : smax z21.b, p6/M, z21.b, z23.b            : smax   %p6/m %z21.b %z23.b -> %z21.b
+04081b37 : smax z23.b, p6/M, z23.b, z25.b            : smax   %p6/m %z23.b %z25.b -> %z23.b
+04081f79 : smax z25.b, p7/M, z25.b, z27.b            : smax   %p7/m %z25.b %z27.b -> %z25.b
+04081fbb : smax z27.b, p7/M, z27.b, z29.b            : smax   %p7/m %z27.b %z29.b -> %z27.b
+04081fff : smax z31.b, p7/M, z31.b, z31.b            : smax   %p7/m %z31.b %z31.b -> %z31.b
+04480000 : smax z0.h, p0/M, z0.h, z0.h               : smax   %p0/m %z0.h %z0.h -> %z0.h
+04480482 : smax z2.h, p1/M, z2.h, z4.h               : smax   %p1/m %z2.h %z4.h -> %z2.h
+044808c4 : smax z4.h, p2/M, z4.h, z6.h               : smax   %p2/m %z4.h %z6.h -> %z4.h
+04480906 : smax z6.h, p2/M, z6.h, z8.h               : smax   %p2/m %z6.h %z8.h -> %z6.h
+04480d48 : smax z8.h, p3/M, z8.h, z10.h              : smax   %p3/m %z8.h %z10.h -> %z8.h
+04480d8a : smax z10.h, p3/M, z10.h, z12.h            : smax   %p3/m %z10.h %z12.h -> %z10.h
+044811cc : smax z12.h, p4/M, z12.h, z14.h            : smax   %p4/m %z12.h %z14.h -> %z12.h
+0448120e : smax z14.h, p4/M, z14.h, z16.h            : smax   %p4/m %z14.h %z16.h -> %z14.h
+04481650 : smax z16.h, p5/M, z16.h, z18.h            : smax   %p5/m %z16.h %z18.h -> %z16.h
+04481671 : smax z17.h, p5/M, z17.h, z19.h            : smax   %p5/m %z17.h %z19.h -> %z17.h
+044816b3 : smax z19.h, p5/M, z19.h, z21.h            : smax   %p5/m %z19.h %z21.h -> %z19.h
+04481af5 : smax z21.h, p6/M, z21.h, z23.h            : smax   %p6/m %z21.h %z23.h -> %z21.h
+04481b37 : smax z23.h, p6/M, z23.h, z25.h            : smax   %p6/m %z23.h %z25.h -> %z23.h
+04481f79 : smax z25.h, p7/M, z25.h, z27.h            : smax   %p7/m %z25.h %z27.h -> %z25.h
+04481fbb : smax z27.h, p7/M, z27.h, z29.h            : smax   %p7/m %z27.h %z29.h -> %z27.h
+04481fff : smax z31.h, p7/M, z31.h, z31.h            : smax   %p7/m %z31.h %z31.h -> %z31.h
+04880000 : smax z0.s, p0/M, z0.s, z0.s               : smax   %p0/m %z0.s %z0.s -> %z0.s
+04880482 : smax z2.s, p1/M, z2.s, z4.s               : smax   %p1/m %z2.s %z4.s -> %z2.s
+048808c4 : smax z4.s, p2/M, z4.s, z6.s               : smax   %p2/m %z4.s %z6.s -> %z4.s
+04880906 : smax z6.s, p2/M, z6.s, z8.s               : smax   %p2/m %z6.s %z8.s -> %z6.s
+04880d48 : smax z8.s, p3/M, z8.s, z10.s              : smax   %p3/m %z8.s %z10.s -> %z8.s
+04880d8a : smax z10.s, p3/M, z10.s, z12.s            : smax   %p3/m %z10.s %z12.s -> %z10.s
+048811cc : smax z12.s, p4/M, z12.s, z14.s            : smax   %p4/m %z12.s %z14.s -> %z12.s
+0488120e : smax z14.s, p4/M, z14.s, z16.s            : smax   %p4/m %z14.s %z16.s -> %z14.s
+04881650 : smax z16.s, p5/M, z16.s, z18.s            : smax   %p5/m %z16.s %z18.s -> %z16.s
+04881671 : smax z17.s, p5/M, z17.s, z19.s            : smax   %p5/m %z17.s %z19.s -> %z17.s
+048816b3 : smax z19.s, p5/M, z19.s, z21.s            : smax   %p5/m %z19.s %z21.s -> %z19.s
+04881af5 : smax z21.s, p6/M, z21.s, z23.s            : smax   %p6/m %z21.s %z23.s -> %z21.s
+04881b37 : smax z23.s, p6/M, z23.s, z25.s            : smax   %p6/m %z23.s %z25.s -> %z23.s
+04881f79 : smax z25.s, p7/M, z25.s, z27.s            : smax   %p7/m %z25.s %z27.s -> %z25.s
+04881fbb : smax z27.s, p7/M, z27.s, z29.s            : smax   %p7/m %z27.s %z29.s -> %z27.s
+04881fff : smax z31.s, p7/M, z31.s, z31.s            : smax   %p7/m %z31.s %z31.s -> %z31.s
+04c80000 : smax z0.d, p0/M, z0.d, z0.d               : smax   %p0/m %z0.d %z0.d -> %z0.d
+04c80482 : smax z2.d, p1/M, z2.d, z4.d               : smax   %p1/m %z2.d %z4.d -> %z2.d
+04c808c4 : smax z4.d, p2/M, z4.d, z6.d               : smax   %p2/m %z4.d %z6.d -> %z4.d
+04c80906 : smax z6.d, p2/M, z6.d, z8.d               : smax   %p2/m %z6.d %z8.d -> %z6.d
+04c80d48 : smax z8.d, p3/M, z8.d, z10.d              : smax   %p3/m %z8.d %z10.d -> %z8.d
+04c80d8a : smax z10.d, p3/M, z10.d, z12.d            : smax   %p3/m %z10.d %z12.d -> %z10.d
+04c811cc : smax z12.d, p4/M, z12.d, z14.d            : smax   %p4/m %z12.d %z14.d -> %z12.d
+04c8120e : smax z14.d, p4/M, z14.d, z16.d            : smax   %p4/m %z14.d %z16.d -> %z14.d
+04c81650 : smax z16.d, p5/M, z16.d, z18.d            : smax   %p5/m %z16.d %z18.d -> %z16.d
+04c81671 : smax z17.d, p5/M, z17.d, z19.d            : smax   %p5/m %z17.d %z19.d -> %z17.d
+04c816b3 : smax z19.d, p5/M, z19.d, z21.d            : smax   %p5/m %z19.d %z21.d -> %z19.d
+04c81af5 : smax z21.d, p6/M, z21.d, z23.d            : smax   %p6/m %z21.d %z23.d -> %z21.d
+04c81b37 : smax z23.d, p6/M, z23.d, z25.d            : smax   %p6/m %z23.d %z25.d -> %z23.d
+04c81f79 : smax z25.d, p7/M, z25.d, z27.d            : smax   %p7/m %z25.d %z27.d -> %z25.d
+04c81fbb : smax z27.d, p7/M, z27.d, z29.d            : smax   %p7/m %z27.d %z29.d -> %z27.d
+04c81fff : smax z31.d, p7/M, z31.d, z31.d            : smax   %p7/m %z31.d %z31.d -> %z31.d
+
+# SMAX    <Zdn>.<T>, <Zdn>.<T>, #<imm> (SMAX-Z.ZI-_)
+2528d000 : smax z0.b, z0.b, #-0x80                   : smax   %z0.b $0x80 -> %z0.b
+2528d202 : smax z2.b, z2.b, #-0x70                   : smax   %z2.b $0x90 -> %z2.b
+2528d404 : smax z4.b, z4.b, #-0x60                   : smax   %z4.b $0xa0 -> %z4.b
+2528d606 : smax z6.b, z6.b, #-0x50                   : smax   %z6.b $0xb0 -> %z6.b
+2528d808 : smax z8.b, z8.b, #-0x40                   : smax   %z8.b $0xc0 -> %z8.b
+2528da0a : smax z10.b, z10.b, #-0x30                 : smax   %z10.b $0xd0 -> %z10.b
+2528dc0c : smax z12.b, z12.b, #-0x20                 : smax   %z12.b $0xe0 -> %z12.b
+2528de0e : smax z14.b, z14.b, #-0x10                 : smax   %z14.b $0xf0 -> %z14.b
+2528c010 : smax z16.b, z16.b, #0x0                   : smax   %z16.b $0x00 -> %z16.b
+2528c1f1 : smax z17.b, z17.b, #0xf                   : smax   %z17.b $0x0f -> %z17.b
+2528c3f3 : smax z19.b, z19.b, #0x1f                  : smax   %z19.b $0x1f -> %z19.b
+2528c5f5 : smax z21.b, z21.b, #0x2f                  : smax   %z21.b $0x2f -> %z21.b
+2528c7f7 : smax z23.b, z23.b, #0x3f                  : smax   %z23.b $0x3f -> %z23.b
+2528c9f9 : smax z25.b, z25.b, #0x4f                  : smax   %z25.b $0x4f -> %z25.b
+2528cbfb : smax z27.b, z27.b, #0x5f                  : smax   %z27.b $0x5f -> %z27.b
+2528cfff : smax z31.b, z31.b, #0x7f                  : smax   %z31.b $0x7f -> %z31.b
+2568d000 : smax z0.h, z0.h, #-0x80                   : smax   %z0.h $0x80 -> %z0.h
+2568d202 : smax z2.h, z2.h, #-0x70                   : smax   %z2.h $0x90 -> %z2.h
+2568d404 : smax z4.h, z4.h, #-0x60                   : smax   %z4.h $0xa0 -> %z4.h
+2568d606 : smax z6.h, z6.h, #-0x50                   : smax   %z6.h $0xb0 -> %z6.h
+2568d808 : smax z8.h, z8.h, #-0x40                   : smax   %z8.h $0xc0 -> %z8.h
+2568da0a : smax z10.h, z10.h, #-0x30                 : smax   %z10.h $0xd0 -> %z10.h
+2568dc0c : smax z12.h, z12.h, #-0x20                 : smax   %z12.h $0xe0 -> %z12.h
+2568de0e : smax z14.h, z14.h, #-0x10                 : smax   %z14.h $0xf0 -> %z14.h
+2568c010 : smax z16.h, z16.h, #0x0                   : smax   %z16.h $0x00 -> %z16.h
+2568c1f1 : smax z17.h, z17.h, #0xf                   : smax   %z17.h $0x0f -> %z17.h
+2568c3f3 : smax z19.h, z19.h, #0x1f                  : smax   %z19.h $0x1f -> %z19.h
+2568c5f5 : smax z21.h, z21.h, #0x2f                  : smax   %z21.h $0x2f -> %z21.h
+2568c7f7 : smax z23.h, z23.h, #0x3f                  : smax   %z23.h $0x3f -> %z23.h
+2568c9f9 : smax z25.h, z25.h, #0x4f                  : smax   %z25.h $0x4f -> %z25.h
+2568cbfb : smax z27.h, z27.h, #0x5f                  : smax   %z27.h $0x5f -> %z27.h
+2568cfff : smax z31.h, z31.h, #0x7f                  : smax   %z31.h $0x7f -> %z31.h
+25a8d000 : smax z0.s, z0.s, #-0x80                   : smax   %z0.s $0x80 -> %z0.s
+25a8d202 : smax z2.s, z2.s, #-0x70                   : smax   %z2.s $0x90 -> %z2.s
+25a8d404 : smax z4.s, z4.s, #-0x60                   : smax   %z4.s $0xa0 -> %z4.s
+25a8d606 : smax z6.s, z6.s, #-0x50                   : smax   %z6.s $0xb0 -> %z6.s
+25a8d808 : smax z8.s, z8.s, #-0x40                   : smax   %z8.s $0xc0 -> %z8.s
+25a8da0a : smax z10.s, z10.s, #-0x30                 : smax   %z10.s $0xd0 -> %z10.s
+25a8dc0c : smax z12.s, z12.s, #-0x20                 : smax   %z12.s $0xe0 -> %z12.s
+25a8de0e : smax z14.s, z14.s, #-0x10                 : smax   %z14.s $0xf0 -> %z14.s
+25a8c010 : smax z16.s, z16.s, #0x0                   : smax   %z16.s $0x00 -> %z16.s
+25a8c1f1 : smax z17.s, z17.s, #0xf                   : smax   %z17.s $0x0f -> %z17.s
+25a8c3f3 : smax z19.s, z19.s, #0x1f                  : smax   %z19.s $0x1f -> %z19.s
+25a8c5f5 : smax z21.s, z21.s, #0x2f                  : smax   %z21.s $0x2f -> %z21.s
+25a8c7f7 : smax z23.s, z23.s, #0x3f                  : smax   %z23.s $0x3f -> %z23.s
+25a8c9f9 : smax z25.s, z25.s, #0x4f                  : smax   %z25.s $0x4f -> %z25.s
+25a8cbfb : smax z27.s, z27.s, #0x5f                  : smax   %z27.s $0x5f -> %z27.s
+25a8cfff : smax z31.s, z31.s, #0x7f                  : smax   %z31.s $0x7f -> %z31.s
+25e8d000 : smax z0.d, z0.d, #-0x80                   : smax   %z0.d $0x80 -> %z0.d
+25e8d202 : smax z2.d, z2.d, #-0x70                   : smax   %z2.d $0x90 -> %z2.d
+25e8d404 : smax z4.d, z4.d, #-0x60                   : smax   %z4.d $0xa0 -> %z4.d
+25e8d606 : smax z6.d, z6.d, #-0x50                   : smax   %z6.d $0xb0 -> %z6.d
+25e8d808 : smax z8.d, z8.d, #-0x40                   : smax   %z8.d $0xc0 -> %z8.d
+25e8da0a : smax z10.d, z10.d, #-0x30                 : smax   %z10.d $0xd0 -> %z10.d
+25e8dc0c : smax z12.d, z12.d, #-0x20                 : smax   %z12.d $0xe0 -> %z12.d
+25e8de0e : smax z14.d, z14.d, #-0x10                 : smax   %z14.d $0xf0 -> %z14.d
+25e8c010 : smax z16.d, z16.d, #0x0                   : smax   %z16.d $0x00 -> %z16.d
+25e8c1f1 : smax z17.d, z17.d, #0xf                   : smax   %z17.d $0x0f -> %z17.d
+25e8c3f3 : smax z19.d, z19.d, #0x1f                  : smax   %z19.d $0x1f -> %z19.d
+25e8c5f5 : smax z21.d, z21.d, #0x2f                  : smax   %z21.d $0x2f -> %z21.d
+25e8c7f7 : smax z23.d, z23.d, #0x3f                  : smax   %z23.d $0x3f -> %z23.d
+25e8c9f9 : smax z25.d, z25.d, #0x4f                  : smax   %z25.d $0x4f -> %z25.d
+25e8cbfb : smax z27.d, z27.d, #0x5f                  : smax   %z27.d $0x5f -> %z27.d
+25e8cfff : smax z31.d, z31.d, #0x7f                  : smax   %z31.d $0x7f -> %z31.d
+
+# SMIN    <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (SMIN-Z.P.ZZ-_)
+040a0000 : smin z0.b, p0/M, z0.b, z0.b               : smin   %p0/m %z0.b %z0.b -> %z0.b
+040a0482 : smin z2.b, p1/M, z2.b, z4.b               : smin   %p1/m %z2.b %z4.b -> %z2.b
+040a08c4 : smin z4.b, p2/M, z4.b, z6.b               : smin   %p2/m %z4.b %z6.b -> %z4.b
+040a0906 : smin z6.b, p2/M, z6.b, z8.b               : smin   %p2/m %z6.b %z8.b -> %z6.b
+040a0d48 : smin z8.b, p3/M, z8.b, z10.b              : smin   %p3/m %z8.b %z10.b -> %z8.b
+040a0d8a : smin z10.b, p3/M, z10.b, z12.b            : smin   %p3/m %z10.b %z12.b -> %z10.b
+040a11cc : smin z12.b, p4/M, z12.b, z14.b            : smin   %p4/m %z12.b %z14.b -> %z12.b
+040a120e : smin z14.b, p4/M, z14.b, z16.b            : smin   %p4/m %z14.b %z16.b -> %z14.b
+040a1650 : smin z16.b, p5/M, z16.b, z18.b            : smin   %p5/m %z16.b %z18.b -> %z16.b
+040a1671 : smin z17.b, p5/M, z17.b, z19.b            : smin   %p5/m %z17.b %z19.b -> %z17.b
+040a16b3 : smin z19.b, p5/M, z19.b, z21.b            : smin   %p5/m %z19.b %z21.b -> %z19.b
+040a1af5 : smin z21.b, p6/M, z21.b, z23.b            : smin   %p6/m %z21.b %z23.b -> %z21.b
+040a1b37 : smin z23.b, p6/M, z23.b, z25.b            : smin   %p6/m %z23.b %z25.b -> %z23.b
+040a1f79 : smin z25.b, p7/M, z25.b, z27.b            : smin   %p7/m %z25.b %z27.b -> %z25.b
+040a1fbb : smin z27.b, p7/M, z27.b, z29.b            : smin   %p7/m %z27.b %z29.b -> %z27.b
+040a1fff : smin z31.b, p7/M, z31.b, z31.b            : smin   %p7/m %z31.b %z31.b -> %z31.b
+044a0000 : smin z0.h, p0/M, z0.h, z0.h               : smin   %p0/m %z0.h %z0.h -> %z0.h
+044a0482 : smin z2.h, p1/M, z2.h, z4.h               : smin   %p1/m %z2.h %z4.h -> %z2.h
+044a08c4 : smin z4.h, p2/M, z4.h, z6.h               : smin   %p2/m %z4.h %z6.h -> %z4.h
+044a0906 : smin z6.h, p2/M, z6.h, z8.h               : smin   %p2/m %z6.h %z8.h -> %z6.h
+044a0d48 : smin z8.h, p3/M, z8.h, z10.h              : smin   %p3/m %z8.h %z10.h -> %z8.h
+044a0d8a : smin z10.h, p3/M, z10.h, z12.h            : smin   %p3/m %z10.h %z12.h -> %z10.h
+044a11cc : smin z12.h, p4/M, z12.h, z14.h            : smin   %p4/m %z12.h %z14.h -> %z12.h
+044a120e : smin z14.h, p4/M, z14.h, z16.h            : smin   %p4/m %z14.h %z16.h -> %z14.h
+044a1650 : smin z16.h, p5/M, z16.h, z18.h            : smin   %p5/m %z16.h %z18.h -> %z16.h
+044a1671 : smin z17.h, p5/M, z17.h, z19.h            : smin   %p5/m %z17.h %z19.h -> %z17.h
+044a16b3 : smin z19.h, p5/M, z19.h, z21.h            : smin   %p5/m %z19.h %z21.h -> %z19.h
+044a1af5 : smin z21.h, p6/M, z21.h, z23.h            : smin   %p6/m %z21.h %z23.h -> %z21.h
+044a1b37 : smin z23.h, p6/M, z23.h, z25.h            : smin   %p6/m %z23.h %z25.h -> %z23.h
+044a1f79 : smin z25.h, p7/M, z25.h, z27.h            : smin   %p7/m %z25.h %z27.h -> %z25.h
+044a1fbb : smin z27.h, p7/M, z27.h, z29.h            : smin   %p7/m %z27.h %z29.h -> %z27.h
+044a1fff : smin z31.h, p7/M, z31.h, z31.h            : smin   %p7/m %z31.h %z31.h -> %z31.h
+048a0000 : smin z0.s, p0/M, z0.s, z0.s               : smin   %p0/m %z0.s %z0.s -> %z0.s
+048a0482 : smin z2.s, p1/M, z2.s, z4.s               : smin   %p1/m %z2.s %z4.s -> %z2.s
+048a08c4 : smin z4.s, p2/M, z4.s, z6.s               : smin   %p2/m %z4.s %z6.s -> %z4.s
+048a0906 : smin z6.s, p2/M, z6.s, z8.s               : smin   %p2/m %z6.s %z8.s -> %z6.s
+048a0d48 : smin z8.s, p3/M, z8.s, z10.s              : smin   %p3/m %z8.s %z10.s -> %z8.s
+048a0d8a : smin z10.s, p3/M, z10.s, z12.s            : smin   %p3/m %z10.s %z12.s -> %z10.s
+048a11cc : smin z12.s, p4/M, z12.s, z14.s            : smin   %p4/m %z12.s %z14.s -> %z12.s
+048a120e : smin z14.s, p4/M, z14.s, z16.s            : smin   %p4/m %z14.s %z16.s -> %z14.s
+048a1650 : smin z16.s, p5/M, z16.s, z18.s            : smin   %p5/m %z16.s %z18.s -> %z16.s
+048a1671 : smin z17.s, p5/M, z17.s, z19.s            : smin   %p5/m %z17.s %z19.s -> %z17.s
+048a16b3 : smin z19.s, p5/M, z19.s, z21.s            : smin   %p5/m %z19.s %z21.s -> %z19.s
+048a1af5 : smin z21.s, p6/M, z21.s, z23.s            : smin   %p6/m %z21.s %z23.s -> %z21.s
+048a1b37 : smin z23.s, p6/M, z23.s, z25.s            : smin   %p6/m %z23.s %z25.s -> %z23.s
+048a1f79 : smin z25.s, p7/M, z25.s, z27.s            : smin   %p7/m %z25.s %z27.s -> %z25.s
+048a1fbb : smin z27.s, p7/M, z27.s, z29.s            : smin   %p7/m %z27.s %z29.s -> %z27.s
+048a1fff : smin z31.s, p7/M, z31.s, z31.s            : smin   %p7/m %z31.s %z31.s -> %z31.s
+04ca0000 : smin z0.d, p0/M, z0.d, z0.d               : smin   %p0/m %z0.d %z0.d -> %z0.d
+04ca0482 : smin z2.d, p1/M, z2.d, z4.d               : smin   %p1/m %z2.d %z4.d -> %z2.d
+04ca08c4 : smin z4.d, p2/M, z4.d, z6.d               : smin   %p2/m %z4.d %z6.d -> %z4.d
+04ca0906 : smin z6.d, p2/M, z6.d, z8.d               : smin   %p2/m %z6.d %z8.d -> %z6.d
+04ca0d48 : smin z8.d, p3/M, z8.d, z10.d              : smin   %p3/m %z8.d %z10.d -> %z8.d
+04ca0d8a : smin z10.d, p3/M, z10.d, z12.d            : smin   %p3/m %z10.d %z12.d -> %z10.d
+04ca11cc : smin z12.d, p4/M, z12.d, z14.d            : smin   %p4/m %z12.d %z14.d -> %z12.d
+04ca120e : smin z14.d, p4/M, z14.d, z16.d            : smin   %p4/m %z14.d %z16.d -> %z14.d
+04ca1650 : smin z16.d, p5/M, z16.d, z18.d            : smin   %p5/m %z16.d %z18.d -> %z16.d
+04ca1671 : smin z17.d, p5/M, z17.d, z19.d            : smin   %p5/m %z17.d %z19.d -> %z17.d
+04ca16b3 : smin z19.d, p5/M, z19.d, z21.d            : smin   %p5/m %z19.d %z21.d -> %z19.d
+04ca1af5 : smin z21.d, p6/M, z21.d, z23.d            : smin   %p6/m %z21.d %z23.d -> %z21.d
+04ca1b37 : smin z23.d, p6/M, z23.d, z25.d            : smin   %p6/m %z23.d %z25.d -> %z23.d
+04ca1f79 : smin z25.d, p7/M, z25.d, z27.d            : smin   %p7/m %z25.d %z27.d -> %z25.d
+04ca1fbb : smin z27.d, p7/M, z27.d, z29.d            : smin   %p7/m %z27.d %z29.d -> %z27.d
+04ca1fff : smin z31.d, p7/M, z31.d, z31.d            : smin   %p7/m %z31.d %z31.d -> %z31.d
+
+# SMIN    <Zdn>.<T>, <Zdn>.<T>, #<imm> (SMIN-Z.ZI-_)
+252ad000 : smin z0.b, z0.b, #-0x80                   : smin   %z0.b $0x80 -> %z0.b
+252ad202 : smin z2.b, z2.b, #-0x70                   : smin   %z2.b $0x90 -> %z2.b
+252ad404 : smin z4.b, z4.b, #-0x60                   : smin   %z4.b $0xa0 -> %z4.b
+252ad606 : smin z6.b, z6.b, #-0x50                   : smin   %z6.b $0xb0 -> %z6.b
+252ad808 : smin z8.b, z8.b, #-0x40                   : smin   %z8.b $0xc0 -> %z8.b
+252ada0a : smin z10.b, z10.b, #-0x30                 : smin   %z10.b $0xd0 -> %z10.b
+252adc0c : smin z12.b, z12.b, #-0x20                 : smin   %z12.b $0xe0 -> %z12.b
+252ade0e : smin z14.b, z14.b, #-0x10                 : smin   %z14.b $0xf0 -> %z14.b
+252ac010 : smin z16.b, z16.b, #0x0                   : smin   %z16.b $0x00 -> %z16.b
+252ac1f1 : smin z17.b, z17.b, #0xf                   : smin   %z17.b $0x0f -> %z17.b
+252ac3f3 : smin z19.b, z19.b, #0x1f                  : smin   %z19.b $0x1f -> %z19.b
+252ac5f5 : smin z21.b, z21.b, #0x2f                  : smin   %z21.b $0x2f -> %z21.b
+252ac7f7 : smin z23.b, z23.b, #0x3f                  : smin   %z23.b $0x3f -> %z23.b
+252ac9f9 : smin z25.b, z25.b, #0x4f                  : smin   %z25.b $0x4f -> %z25.b
+252acbfb : smin z27.b, z27.b, #0x5f                  : smin   %z27.b $0x5f -> %z27.b
+252acfff : smin z31.b, z31.b, #0x7f                  : smin   %z31.b $0x7f -> %z31.b
+256ad000 : smin z0.h, z0.h, #-0x80                   : smin   %z0.h $0x80 -> %z0.h
+256ad202 : smin z2.h, z2.h, #-0x70                   : smin   %z2.h $0x90 -> %z2.h
+256ad404 : smin z4.h, z4.h, #-0x60                   : smin   %z4.h $0xa0 -> %z4.h
+256ad606 : smin z6.h, z6.h, #-0x50                   : smin   %z6.h $0xb0 -> %z6.h
+256ad808 : smin z8.h, z8.h, #-0x40                   : smin   %z8.h $0xc0 -> %z8.h
+256ada0a : smin z10.h, z10.h, #-0x30                 : smin   %z10.h $0xd0 -> %z10.h
+256adc0c : smin z12.h, z12.h, #-0x20                 : smin   %z12.h $0xe0 -> %z12.h
+256ade0e : smin z14.h, z14.h, #-0x10                 : smin   %z14.h $0xf0 -> %z14.h
+256ac010 : smin z16.h, z16.h, #0x0                   : smin   %z16.h $0x00 -> %z16.h
+256ac1f1 : smin z17.h, z17.h, #0xf                   : smin   %z17.h $0x0f -> %z17.h
+256ac3f3 : smin z19.h, z19.h, #0x1f                  : smin   %z19.h $0x1f -> %z19.h
+256ac5f5 : smin z21.h, z21.h, #0x2f                  : smin   %z21.h $0x2f -> %z21.h
+256ac7f7 : smin z23.h, z23.h, #0x3f                  : smin   %z23.h $0x3f -> %z23.h
+256ac9f9 : smin z25.h, z25.h, #0x4f                  : smin   %z25.h $0x4f -> %z25.h
+256acbfb : smin z27.h, z27.h, #0x5f                  : smin   %z27.h $0x5f -> %z27.h
+256acfff : smin z31.h, z31.h, #0x7f                  : smin   %z31.h $0x7f -> %z31.h
+25aad000 : smin z0.s, z0.s, #-0x80                   : smin   %z0.s $0x80 -> %z0.s
+25aad202 : smin z2.s, z2.s, #-0x70                   : smin   %z2.s $0x90 -> %z2.s
+25aad404 : smin z4.s, z4.s, #-0x60                   : smin   %z4.s $0xa0 -> %z4.s
+25aad606 : smin z6.s, z6.s, #-0x50                   : smin   %z6.s $0xb0 -> %z6.s
+25aad808 : smin z8.s, z8.s, #-0x40                   : smin   %z8.s $0xc0 -> %z8.s
+25aada0a : smin z10.s, z10.s, #-0x30                 : smin   %z10.s $0xd0 -> %z10.s
+25aadc0c : smin z12.s, z12.s, #-0x20                 : smin   %z12.s $0xe0 -> %z12.s
+25aade0e : smin z14.s, z14.s, #-0x10                 : smin   %z14.s $0xf0 -> %z14.s
+25aac010 : smin z16.s, z16.s, #0x0                   : smin   %z16.s $0x00 -> %z16.s
+25aac1f1 : smin z17.s, z17.s, #0xf                   : smin   %z17.s $0x0f -> %z17.s
+25aac3f3 : smin z19.s, z19.s, #0x1f                  : smin   %z19.s $0x1f -> %z19.s
+25aac5f5 : smin z21.s, z21.s, #0x2f                  : smin   %z21.s $0x2f -> %z21.s
+25aac7f7 : smin z23.s, z23.s, #0x3f                  : smin   %z23.s $0x3f -> %z23.s
+25aac9f9 : smin z25.s, z25.s, #0x4f                  : smin   %z25.s $0x4f -> %z25.s
+25aacbfb : smin z27.s, z27.s, #0x5f                  : smin   %z27.s $0x5f -> %z27.s
+25aacfff : smin z31.s, z31.s, #0x7f                  : smin   %z31.s $0x7f -> %z31.s
+25ead000 : smin z0.d, z0.d, #-0x80                   : smin   %z0.d $0x80 -> %z0.d
+25ead202 : smin z2.d, z2.d, #-0x70                   : smin   %z2.d $0x90 -> %z2.d
+25ead404 : smin z4.d, z4.d, #-0x60                   : smin   %z4.d $0xa0 -> %z4.d
+25ead606 : smin z6.d, z6.d, #-0x50                   : smin   %z6.d $0xb0 -> %z6.d
+25ead808 : smin z8.d, z8.d, #-0x40                   : smin   %z8.d $0xc0 -> %z8.d
+25eada0a : smin z10.d, z10.d, #-0x30                 : smin   %z10.d $0xd0 -> %z10.d
+25eadc0c : smin z12.d, z12.d, #-0x20                 : smin   %z12.d $0xe0 -> %z12.d
+25eade0e : smin z14.d, z14.d, #-0x10                 : smin   %z14.d $0xf0 -> %z14.d
+25eac010 : smin z16.d, z16.d, #0x0                   : smin   %z16.d $0x00 -> %z16.d
+25eac1f1 : smin z17.d, z17.d, #0xf                   : smin   %z17.d $0x0f -> %z17.d
+25eac3f3 : smin z19.d, z19.d, #0x1f                  : smin   %z19.d $0x1f -> %z19.d
+25eac5f5 : smin z21.d, z21.d, #0x2f                  : smin   %z21.d $0x2f -> %z21.d
+25eac7f7 : smin z23.d, z23.d, #0x3f                  : smin   %z23.d $0x3f -> %z23.d
+25eac9f9 : smin z25.d, z25.d, #0x4f                  : smin   %z25.d $0x4f -> %z25.d
+25eacbfb : smin z27.d, z27.d, #0x5f                  : smin   %z27.d $0x5f -> %z27.d
+25eacfff : smin z31.d, z31.d, #0x7f                  : smin   %z31.d $0x7f -> %z31.d
 
 # SMULH   <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (SMULH-Z.P.ZZ-_)
 04120000 : smulh z0.b, p0/M, z0.b, z0.b              : smulh  %p0/m %z0.b %z0.b -> %z0.b
@@ -1490,6 +2218,72 @@
 25e3d9f8 : subr z24.d, z24.d, #0xcf, lsl #0          : subr   %z24.d $0xcf lsl $0x00 -> %z24.d
 25e3dbfa : subr z26.d, z26.d, #0xdf, lsl #0          : subr   %z26.d $0xdf lsl $0x00 -> %z26.d
 25e3dffe : subr z30.d, z30.d, #0xff, lsl #0          : subr   %z30.d $0xff lsl $0x00 -> %z30.d
+
+# UABD    <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (UABD-Z.P.ZZ-_)
+040d0000 : uabd z0.b, p0/M, z0.b, z0.b               : uabd   %p0/m %z0.b %z0.b -> %z0.b
+040d0482 : uabd z2.b, p1/M, z2.b, z4.b               : uabd   %p1/m %z2.b %z4.b -> %z2.b
+040d08c4 : uabd z4.b, p2/M, z4.b, z6.b               : uabd   %p2/m %z4.b %z6.b -> %z4.b
+040d0906 : uabd z6.b, p2/M, z6.b, z8.b               : uabd   %p2/m %z6.b %z8.b -> %z6.b
+040d0d48 : uabd z8.b, p3/M, z8.b, z10.b              : uabd   %p3/m %z8.b %z10.b -> %z8.b
+040d0d8a : uabd z10.b, p3/M, z10.b, z12.b            : uabd   %p3/m %z10.b %z12.b -> %z10.b
+040d11cc : uabd z12.b, p4/M, z12.b, z14.b            : uabd   %p4/m %z12.b %z14.b -> %z12.b
+040d120e : uabd z14.b, p4/M, z14.b, z16.b            : uabd   %p4/m %z14.b %z16.b -> %z14.b
+040d1650 : uabd z16.b, p5/M, z16.b, z18.b            : uabd   %p5/m %z16.b %z18.b -> %z16.b
+040d1671 : uabd z17.b, p5/M, z17.b, z19.b            : uabd   %p5/m %z17.b %z19.b -> %z17.b
+040d16b3 : uabd z19.b, p5/M, z19.b, z21.b            : uabd   %p5/m %z19.b %z21.b -> %z19.b
+040d1af5 : uabd z21.b, p6/M, z21.b, z23.b            : uabd   %p6/m %z21.b %z23.b -> %z21.b
+040d1b37 : uabd z23.b, p6/M, z23.b, z25.b            : uabd   %p6/m %z23.b %z25.b -> %z23.b
+040d1f79 : uabd z25.b, p7/M, z25.b, z27.b            : uabd   %p7/m %z25.b %z27.b -> %z25.b
+040d1fbb : uabd z27.b, p7/M, z27.b, z29.b            : uabd   %p7/m %z27.b %z29.b -> %z27.b
+040d1fff : uabd z31.b, p7/M, z31.b, z31.b            : uabd   %p7/m %z31.b %z31.b -> %z31.b
+044d0000 : uabd z0.h, p0/M, z0.h, z0.h               : uabd   %p0/m %z0.h %z0.h -> %z0.h
+044d0482 : uabd z2.h, p1/M, z2.h, z4.h               : uabd   %p1/m %z2.h %z4.h -> %z2.h
+044d08c4 : uabd z4.h, p2/M, z4.h, z6.h               : uabd   %p2/m %z4.h %z6.h -> %z4.h
+044d0906 : uabd z6.h, p2/M, z6.h, z8.h               : uabd   %p2/m %z6.h %z8.h -> %z6.h
+044d0d48 : uabd z8.h, p3/M, z8.h, z10.h              : uabd   %p3/m %z8.h %z10.h -> %z8.h
+044d0d8a : uabd z10.h, p3/M, z10.h, z12.h            : uabd   %p3/m %z10.h %z12.h -> %z10.h
+044d11cc : uabd z12.h, p4/M, z12.h, z14.h            : uabd   %p4/m %z12.h %z14.h -> %z12.h
+044d120e : uabd z14.h, p4/M, z14.h, z16.h            : uabd   %p4/m %z14.h %z16.h -> %z14.h
+044d1650 : uabd z16.h, p5/M, z16.h, z18.h            : uabd   %p5/m %z16.h %z18.h -> %z16.h
+044d1671 : uabd z17.h, p5/M, z17.h, z19.h            : uabd   %p5/m %z17.h %z19.h -> %z17.h
+044d16b3 : uabd z19.h, p5/M, z19.h, z21.h            : uabd   %p5/m %z19.h %z21.h -> %z19.h
+044d1af5 : uabd z21.h, p6/M, z21.h, z23.h            : uabd   %p6/m %z21.h %z23.h -> %z21.h
+044d1b37 : uabd z23.h, p6/M, z23.h, z25.h            : uabd   %p6/m %z23.h %z25.h -> %z23.h
+044d1f79 : uabd z25.h, p7/M, z25.h, z27.h            : uabd   %p7/m %z25.h %z27.h -> %z25.h
+044d1fbb : uabd z27.h, p7/M, z27.h, z29.h            : uabd   %p7/m %z27.h %z29.h -> %z27.h
+044d1fff : uabd z31.h, p7/M, z31.h, z31.h            : uabd   %p7/m %z31.h %z31.h -> %z31.h
+048d0000 : uabd z0.s, p0/M, z0.s, z0.s               : uabd   %p0/m %z0.s %z0.s -> %z0.s
+048d0482 : uabd z2.s, p1/M, z2.s, z4.s               : uabd   %p1/m %z2.s %z4.s -> %z2.s
+048d08c4 : uabd z4.s, p2/M, z4.s, z6.s               : uabd   %p2/m %z4.s %z6.s -> %z4.s
+048d0906 : uabd z6.s, p2/M, z6.s, z8.s               : uabd   %p2/m %z6.s %z8.s -> %z6.s
+048d0d48 : uabd z8.s, p3/M, z8.s, z10.s              : uabd   %p3/m %z8.s %z10.s -> %z8.s
+048d0d8a : uabd z10.s, p3/M, z10.s, z12.s            : uabd   %p3/m %z10.s %z12.s -> %z10.s
+048d11cc : uabd z12.s, p4/M, z12.s, z14.s            : uabd   %p4/m %z12.s %z14.s -> %z12.s
+048d120e : uabd z14.s, p4/M, z14.s, z16.s            : uabd   %p4/m %z14.s %z16.s -> %z14.s
+048d1650 : uabd z16.s, p5/M, z16.s, z18.s            : uabd   %p5/m %z16.s %z18.s -> %z16.s
+048d1671 : uabd z17.s, p5/M, z17.s, z19.s            : uabd   %p5/m %z17.s %z19.s -> %z17.s
+048d16b3 : uabd z19.s, p5/M, z19.s, z21.s            : uabd   %p5/m %z19.s %z21.s -> %z19.s
+048d1af5 : uabd z21.s, p6/M, z21.s, z23.s            : uabd   %p6/m %z21.s %z23.s -> %z21.s
+048d1b37 : uabd z23.s, p6/M, z23.s, z25.s            : uabd   %p6/m %z23.s %z25.s -> %z23.s
+048d1f79 : uabd z25.s, p7/M, z25.s, z27.s            : uabd   %p7/m %z25.s %z27.s -> %z25.s
+048d1fbb : uabd z27.s, p7/M, z27.s, z29.s            : uabd   %p7/m %z27.s %z29.s -> %z27.s
+048d1fff : uabd z31.s, p7/M, z31.s, z31.s            : uabd   %p7/m %z31.s %z31.s -> %z31.s
+04cd0000 : uabd z0.d, p0/M, z0.d, z0.d               : uabd   %p0/m %z0.d %z0.d -> %z0.d
+04cd0482 : uabd z2.d, p1/M, z2.d, z4.d               : uabd   %p1/m %z2.d %z4.d -> %z2.d
+04cd08c4 : uabd z4.d, p2/M, z4.d, z6.d               : uabd   %p2/m %z4.d %z6.d -> %z4.d
+04cd0906 : uabd z6.d, p2/M, z6.d, z8.d               : uabd   %p2/m %z6.d %z8.d -> %z6.d
+04cd0d48 : uabd z8.d, p3/M, z8.d, z10.d              : uabd   %p3/m %z8.d %z10.d -> %z8.d
+04cd0d8a : uabd z10.d, p3/M, z10.d, z12.d            : uabd   %p3/m %z10.d %z12.d -> %z10.d
+04cd11cc : uabd z12.d, p4/M, z12.d, z14.d            : uabd   %p4/m %z12.d %z14.d -> %z12.d
+04cd120e : uabd z14.d, p4/M, z14.d, z16.d            : uabd   %p4/m %z14.d %z16.d -> %z14.d
+04cd1650 : uabd z16.d, p5/M, z16.d, z18.d            : uabd   %p5/m %z16.d %z18.d -> %z16.d
+04cd1671 : uabd z17.d, p5/M, z17.d, z19.d            : uabd   %p5/m %z17.d %z19.d -> %z17.d
+04cd16b3 : uabd z19.d, p5/M, z19.d, z21.d            : uabd   %p5/m %z19.d %z21.d -> %z19.d
+04cd1af5 : uabd z21.d, p6/M, z21.d, z23.d            : uabd   %p6/m %z21.d %z23.d -> %z21.d
+04cd1b37 : uabd z23.d, p6/M, z23.d, z25.d            : uabd   %p6/m %z23.d %z25.d -> %z23.d
+04cd1f79 : uabd z25.d, p7/M, z25.d, z27.d            : uabd   %p7/m %z25.d %z27.d -> %z25.d
+04cd1fbb : uabd z27.d, p7/M, z27.d, z29.d            : uabd   %p7/m %z27.d %z29.d -> %z27.d
+04cd1fff : uabd z31.d, p7/M, z31.d, z31.d            : uabd   %p7/m %z31.d %z31.d -> %z31.d
 
 # UMULH   <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (UMULH-Z.P.ZZ-_)
 04130000 : umulh z0.b, p0/M, z0.b, z0.b              : umulh  %p0/m %z0.b %z0.b -> %z0.b
