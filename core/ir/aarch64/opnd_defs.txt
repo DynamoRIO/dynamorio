@@ -200,6 +200,7 @@
 --------xx----------------------  bd_sz      # element width of a vector (8<<bd_sz)
 --------xx----------------------  shift3     # shift type for add/sub (shifted register)
 --------xx----------------------  shift4     # shift type for logical (shifted register)
+--------xx------------------xxxx  p_size_hsd_0     # sve predicate vector reg, elsz depending on size
 --------xx-----------------xxxxx  float_reg0  # H, S or D register
 --------xx-----------------xxxxx  hsd_size_reg0    # hsd register, depending on size opcode
 --------xx-----------------xxxxx  bhsd_size_reg0   # bhsd register, depending on size opcode

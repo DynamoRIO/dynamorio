@@ -5554,4 +5554,36 @@
  */
 #define INSTR_CREATE_uabd_sve_pred(dc, Zdn, Pg, Zm) \
     instr_create_1dst_3src(dc, OP_uabd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FACGE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FACGE   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_facge_sve_pred(dc, Pd, Pg, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_facge, Pd, Pg, Zn, Zm)
+
+/**
+ * Creates a FACGT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FACGT   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Zn   The first source vector register, Z (Scalable)
+ * \param Zm   The second source vector register, Z (Scalable)
+ */
+#define INSTR_CREATE_facgt_sve_pred(dc, Pd, Pg, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_facgt, Pd, Pg, Zn, Zm)
 #endif /* DR_IR_MACROS_AARCH64_H */
