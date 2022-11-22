@@ -3158,6 +3158,9 @@ TEST_INSTR(facgt_sve_pred)
 
 TEST_INSTR(sdiv_sve_pred)
 {
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
 
     /* Testing SDIV    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
     reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
@@ -3191,10 +3194,15 @@ TEST_INSTR(sdiv_sve_pred)
               opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_8),
               opnd_create_predicate_reg(Pg_0_1[i], true),
               opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_8));
+
+    return success;
 }
 
 TEST_INSTR(sdivr_sve_pred)
 {
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
 
     /* Testing SDIVR   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
     reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
@@ -3228,10 +3236,15 @@ TEST_INSTR(sdivr_sve_pred)
               opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_8),
               opnd_create_predicate_reg(Pg_0_1[i], true),
               opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_8));
+
+    return success;
 }
 
 TEST_INSTR(udiv_sve_pred)
 {
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
 
     /* Testing UDIV    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
     reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
@@ -3265,10 +3278,15 @@ TEST_INSTR(udiv_sve_pred)
               opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_8),
               opnd_create_predicate_reg(Pg_0_1[i], true),
               opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_8));
+
+    return success;
 }
 
 TEST_INSTR(udivr_sve_pred)
 {
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
 
     /* Testing UDIVR   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
     reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
@@ -3302,10 +3320,15 @@ TEST_INSTR(udivr_sve_pred)
               opnd_create_reg_element_vector(Zdn_0_1[i], OPSZ_8),
               opnd_create_predicate_reg(Pg_0_1[i], true),
               opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_8));
+
+    return success;
 }
 
 TEST_INSTR(umax_sve_pred)
 {
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
 
     /* Testing UMAX    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
     reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
@@ -3371,10 +3394,15 @@ TEST_INSTR(umax_sve_pred)
               opnd_create_reg_element_vector(Zdn_0_3[i], OPSZ_8),
               opnd_create_predicate_reg(Pg_0_3[i], true),
               opnd_create_reg_element_vector(Zm_0_3[i], OPSZ_8));
+
+    return success;
 }
 
 TEST_INSTR(umax_sve)
 {
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
 
     /* Testing UMAX    <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm> */
     reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
@@ -3424,10 +3452,15 @@ TEST_INSTR(umax_sve)
     TEST_LOOP(umax, umax_sve, 6, expected_0_3[i],
               opnd_create_reg_element_vector(Zdn_0_3[i], OPSZ_8),
               opnd_create_immed_uint(imm8_0_3[i], OPSZ_1));
+
+    return success;
 }
 
 TEST_INSTR(umin_sve_pred)
 {
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
 
     /* Testing UMIN    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts> */
     reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
@@ -3493,10 +3526,15 @@ TEST_INSTR(umin_sve_pred)
               opnd_create_reg_element_vector(Zdn_0_3[i], OPSZ_8),
               opnd_create_predicate_reg(Pg_0_3[i], true),
               opnd_create_reg_element_vector(Zm_0_3[i], OPSZ_8));
+
+    return success;
 }
 
 TEST_INSTR(umin_sve)
 {
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
 
     /* Testing UMIN    <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm> */
     reg_id_t Zdn_0_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
@@ -3546,6 +3584,8 @@ TEST_INSTR(umin_sve)
     TEST_LOOP(umin, umin_sve, 6, expected_0_3[i],
               opnd_create_reg_element_vector(Zdn_0_3[i], OPSZ_8),
               opnd_create_immed_uint(imm8_0_3[i], OPSZ_1));
+
+    return success;
 }
 int
 main(int argc, char *argv[])
