@@ -67,6 +67,8 @@
 00000100xx011000000xxxxxxxxxxxxx  n   327  SVE      orr             z0 : p10_lo z0 z5 bhsd_sz
 001001010101000011xxxx0xxxx00000  w   786  SVE    ptest                : p10 p_b_5
 00000100xx001100000xxxxxxxxxxxxx  n   349  SVE     sabd  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
+00000100xx010100000xxxxxxxxxxxxx  n   363  SVE     sdiv    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
+00000100xx010110000xxxxxxxxxxxxx  n   794  SVE    sdivr    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
 00000100xx001000000xxxxxxxxxxxxx  n   386  SVE     smax  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00100101xx101000110xxxxxxxxxxxxx  n   386  SVE     smax  z_size_bhsd_0 : z_size_bhsd_0 simm8_5
 00000100xx001010000xxxxxxxxxxxxx  n   390  SVE     smin  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
@@ -85,6 +87,12 @@
 00000100xx000011000xxxxxxxxxxxxx  n   784  SVE     subr  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00100101xx10001111xxxxxxxxxxxxxx  n   784  SVE     subr  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
 00000100xx001101000xxxxxxxxxxxxx  n   499  SVE     uabd  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
+00000100xx010101000xxxxxxxxxxxxx  n   511  SVE     udiv    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
+00000100xx010111000xxxxxxxxxxxxx  n   795  SVE    udivr    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
+00000100xx001001000xxxxxxxxxxxxx  n   516  SVE     umax  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
+00100101xx101001110xxxxxxxxxxxxx  n   516  SVE     umax  z_size_bhsd_0 : z_size_bhsd_0 imm8_5
+00000100xx001011000xxxxxxxxxxxxx  n   519  SVE     umin  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
+00100101xx101011110xxxxxxxxxxxxx  n   519  SVE     umin  z_size_bhsd_0 : z_size_bhsd_0 imm8_5
 00000100xx010011000xxxxxxxxxxxxx  n   528  SVE    umulh  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00000100xx1xxxxx000101xxxxxxxxxx  n   531  SVE    uqadd             z0 : z5 z16 bhsd_sz
 00100101xx10010111xxxxxxxxxxxxxx  n   531  SVE    uqadd  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
