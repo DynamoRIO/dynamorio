@@ -47,21 +47,22 @@ static byte buf[8192];
                        : 0))
 #endif
 
-#define TEST_INSTR(instruction_name) void test_instr_##instruction_name(void *dc, instr_t *instr, bool *psuccess)
+#define TEST_INSTR(instruction_name) \
+    void test_instr_##instruction_name(void *dc, instr_t *instr, bool *psuccess)
 
-#define RUN_INSTR_TEST(instruction_name)                   \
-    test_result = true; \
+#define RUN_INSTR_TEST(instruction_name)                          \
+    test_result = true;                                           \
     test_instr_##instruction_name(dcontext, instr, &test_result); \
-    if (test_result == false) {                            \
-        print("test for " #instruction_name " failed.\n"); \
-        result = false;                                    \
+    if (test_result == false) {                                   \
+        print("test for " #instruction_name " failed.\n");        \
+        result = false;                                           \
     }
 
 #define TEST_LOOP(opcode, create_name, number, expected, args...)   \
     for (int i = 0; i < number; i++) {                              \
         instr = INSTR_CREATE_##create_name(dc, args);               \
         if (!test_instr_encoding(dc, OP_##opcode, instr, expected)) \
-            *psuccess = false;                                        \
+            *psuccess = false;                                      \
     }
 
 static bool
@@ -131,7 +132,7 @@ const reg_id_t Zn_six_offset_3[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
 const reg_id_t Pn_half_six_offset_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
                                            DR_REG_P5, DR_REG_P6, DR_REG_P7 };
 const reg_id_t Pn_six_offset_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
-                                     DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+                                      DR_REG_P8, DR_REG_P10, DR_REG_P15 };
 const reg_id_t Pn_six_offset_1[6] = { DR_REG_P0, DR_REG_P3,  DR_REG_P6,
                                       DR_REG_P9, DR_REG_P11, DR_REG_P15 };
 const reg_id_t Pn_six_offset_2[6] = { DR_REG_P0,  DR_REG_P4,  DR_REG_P7,
