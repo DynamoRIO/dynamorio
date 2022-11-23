@@ -3839,6 +3839,744 @@ TEST_INSTR(uxtw_sve_pred)
 
     return success;
 }
+
+TEST_INSTR(fcmeq_sve_zero_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMEQ   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, #0.0 */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmeq  %p0/z %z0.h $0.000000 -> %p0.h",
+        "fcmeq  %p2/z %z7.h $0.000000 -> %p2.h",
+        "fcmeq  %p3/z %z12.h $0.000000 -> %p5.h",
+        "fcmeq  %p5/z %z18.h $0.000000 -> %p8.h",
+        "fcmeq  %p6/z %z23.h $0.000000 -> %p10.h",
+        "fcmeq  %p7/z %z31.h $0.000000 -> %p15.h",
+    };
+    TEST_LOOP(fcmeq, fcmeq_sve_zero_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmeq  %p0/z %z0.s $0.000000 -> %p0.s",
+        "fcmeq  %p2/z %z7.s $0.000000 -> %p2.s",
+        "fcmeq  %p3/z %z12.s $0.000000 -> %p5.s",
+        "fcmeq  %p5/z %z18.s $0.000000 -> %p8.s",
+        "fcmeq  %p6/z %z23.s $0.000000 -> %p10.s",
+        "fcmeq  %p7/z %z31.s $0.000000 -> %p15.s",
+    };
+    TEST_LOOP(fcmeq, fcmeq_sve_zero_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmeq  %p0/z %z0.d $0.000000 -> %p0.d",
+        "fcmeq  %p2/z %z7.d $0.000000 -> %p2.d",
+        "fcmeq  %p3/z %z12.d $0.000000 -> %p5.d",
+        "fcmeq  %p5/z %z18.d $0.000000 -> %p8.d",
+        "fcmeq  %p6/z %z23.d $0.000000 -> %p10.d",
+        "fcmeq  %p7/z %z31.d $0.000000 -> %p15.d",
+    };
+    TEST_LOOP(fcmeq, fcmeq_sve_zero_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(fcmeq_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMEQ   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmeq  %p0/z %z0.h %z0.h -> %p0.h",    "fcmeq  %p2/z %z7.h %z8.h -> %p2.h",
+        "fcmeq  %p3/z %z12.h %z13.h -> %p5.h",  "fcmeq  %p5/z %z18.h %z19.h -> %p8.h",
+        "fcmeq  %p6/z %z23.h %z24.h -> %p10.h", "fcmeq  %p7/z %z31.h %z31.h -> %p15.h",
+    };
+    TEST_LOOP(fcmeq, fcmeq_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmeq  %p0/z %z0.s %z0.s -> %p0.s",    "fcmeq  %p2/z %z7.s %z8.s -> %p2.s",
+        "fcmeq  %p3/z %z12.s %z13.s -> %p5.s",  "fcmeq  %p5/z %z18.s %z19.s -> %p8.s",
+        "fcmeq  %p6/z %z23.s %z24.s -> %p10.s", "fcmeq  %p7/z %z31.s %z31.s -> %p15.s",
+    };
+    TEST_LOOP(fcmeq, fcmeq_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_2[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmeq  %p0/z %z0.d %z0.d -> %p0.d",    "fcmeq  %p2/z %z7.d %z8.d -> %p2.d",
+        "fcmeq  %p3/z %z12.d %z13.d -> %p5.d",  "fcmeq  %p5/z %z18.d %z19.d -> %p8.d",
+        "fcmeq  %p6/z %z23.d %z24.d -> %p10.d", "fcmeq  %p7/z %z31.d %z31.d -> %p15.d",
+    };
+    TEST_LOOP(fcmeq, fcmeq_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zm_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(fcmge_sve_zero_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMGE   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, #0.0 */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmge  %p0/z %z0.h $0.000000 -> %p0.h",
+        "fcmge  %p2/z %z7.h $0.000000 -> %p2.h",
+        "fcmge  %p3/z %z12.h $0.000000 -> %p5.h",
+        "fcmge  %p5/z %z18.h $0.000000 -> %p8.h",
+        "fcmge  %p6/z %z23.h $0.000000 -> %p10.h",
+        "fcmge  %p7/z %z31.h $0.000000 -> %p15.h",
+    };
+    TEST_LOOP(fcmge, fcmge_sve_zero_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmge  %p0/z %z0.s $0.000000 -> %p0.s",
+        "fcmge  %p2/z %z7.s $0.000000 -> %p2.s",
+        "fcmge  %p3/z %z12.s $0.000000 -> %p5.s",
+        "fcmge  %p5/z %z18.s $0.000000 -> %p8.s",
+        "fcmge  %p6/z %z23.s $0.000000 -> %p10.s",
+        "fcmge  %p7/z %z31.s $0.000000 -> %p15.s",
+    };
+    TEST_LOOP(fcmge, fcmge_sve_zero_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmge  %p0/z %z0.d $0.000000 -> %p0.d",
+        "fcmge  %p2/z %z7.d $0.000000 -> %p2.d",
+        "fcmge  %p3/z %z12.d $0.000000 -> %p5.d",
+        "fcmge  %p5/z %z18.d $0.000000 -> %p8.d",
+        "fcmge  %p6/z %z23.d $0.000000 -> %p10.d",
+        "fcmge  %p7/z %z31.d $0.000000 -> %p15.d",
+    };
+    TEST_LOOP(fcmge, fcmge_sve_zero_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(fcmge_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMGE   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmge  %p0/z %z0.h %z0.h -> %p0.h",    "fcmge  %p2/z %z7.h %z8.h -> %p2.h",
+        "fcmge  %p3/z %z12.h %z13.h -> %p5.h",  "fcmge  %p5/z %z18.h %z19.h -> %p8.h",
+        "fcmge  %p6/z %z23.h %z24.h -> %p10.h", "fcmge  %p7/z %z31.h %z31.h -> %p15.h",
+    };
+    TEST_LOOP(fcmge, fcmge_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmge  %p0/z %z0.s %z0.s -> %p0.s",    "fcmge  %p2/z %z7.s %z8.s -> %p2.s",
+        "fcmge  %p3/z %z12.s %z13.s -> %p5.s",  "fcmge  %p5/z %z18.s %z19.s -> %p8.s",
+        "fcmge  %p6/z %z23.s %z24.s -> %p10.s", "fcmge  %p7/z %z31.s %z31.s -> %p15.s",
+    };
+    TEST_LOOP(fcmge, fcmge_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_2[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmge  %p0/z %z0.d %z0.d -> %p0.d",    "fcmge  %p2/z %z7.d %z8.d -> %p2.d",
+        "fcmge  %p3/z %z12.d %z13.d -> %p5.d",  "fcmge  %p5/z %z18.d %z19.d -> %p8.d",
+        "fcmge  %p6/z %z23.d %z24.d -> %p10.d", "fcmge  %p7/z %z31.d %z31.d -> %p15.d",
+    };
+    TEST_LOOP(fcmge, fcmge_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zm_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(fcmgt_sve_zero_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMGT   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, #0.0 */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmgt  %p0/z %z0.h $0.000000 -> %p0.h",
+        "fcmgt  %p2/z %z7.h $0.000000 -> %p2.h",
+        "fcmgt  %p3/z %z12.h $0.000000 -> %p5.h",
+        "fcmgt  %p5/z %z18.h $0.000000 -> %p8.h",
+        "fcmgt  %p6/z %z23.h $0.000000 -> %p10.h",
+        "fcmgt  %p7/z %z31.h $0.000000 -> %p15.h",
+    };
+    TEST_LOOP(fcmgt, fcmgt_sve_zero_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmgt  %p0/z %z0.s $0.000000 -> %p0.s",
+        "fcmgt  %p2/z %z7.s $0.000000 -> %p2.s",
+        "fcmgt  %p3/z %z12.s $0.000000 -> %p5.s",
+        "fcmgt  %p5/z %z18.s $0.000000 -> %p8.s",
+        "fcmgt  %p6/z %z23.s $0.000000 -> %p10.s",
+        "fcmgt  %p7/z %z31.s $0.000000 -> %p15.s",
+    };
+    TEST_LOOP(fcmgt, fcmgt_sve_zero_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmgt  %p0/z %z0.d $0.000000 -> %p0.d",
+        "fcmgt  %p2/z %z7.d $0.000000 -> %p2.d",
+        "fcmgt  %p3/z %z12.d $0.000000 -> %p5.d",
+        "fcmgt  %p5/z %z18.d $0.000000 -> %p8.d",
+        "fcmgt  %p6/z %z23.d $0.000000 -> %p10.d",
+        "fcmgt  %p7/z %z31.d $0.000000 -> %p15.d",
+    };
+    TEST_LOOP(fcmgt, fcmgt_sve_zero_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(fcmgt_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMGT   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmgt  %p0/z %z0.h %z0.h -> %p0.h",    "fcmgt  %p2/z %z7.h %z8.h -> %p2.h",
+        "fcmgt  %p3/z %z12.h %z13.h -> %p5.h",  "fcmgt  %p5/z %z18.h %z19.h -> %p8.h",
+        "fcmgt  %p6/z %z23.h %z24.h -> %p10.h", "fcmgt  %p7/z %z31.h %z31.h -> %p15.h",
+    };
+    TEST_LOOP(fcmgt, fcmgt_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmgt  %p0/z %z0.s %z0.s -> %p0.s",    "fcmgt  %p2/z %z7.s %z8.s -> %p2.s",
+        "fcmgt  %p3/z %z12.s %z13.s -> %p5.s",  "fcmgt  %p5/z %z18.s %z19.s -> %p8.s",
+        "fcmgt  %p6/z %z23.s %z24.s -> %p10.s", "fcmgt  %p7/z %z31.s %z31.s -> %p15.s",
+    };
+    TEST_LOOP(fcmgt, fcmgt_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_2[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmgt  %p0/z %z0.d %z0.d -> %p0.d",    "fcmgt  %p2/z %z7.d %z8.d -> %p2.d",
+        "fcmgt  %p3/z %z12.d %z13.d -> %p5.d",  "fcmgt  %p5/z %z18.d %z19.d -> %p8.d",
+        "fcmgt  %p6/z %z23.d %z24.d -> %p10.d", "fcmgt  %p7/z %z31.d %z31.d -> %p15.d",
+    };
+    TEST_LOOP(fcmgt, fcmgt_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zm_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(fcmle_sve_zero_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMLE   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, #0.0 */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmle  %p0/z %z0.h $0.000000 -> %p0.h",
+        "fcmle  %p2/z %z7.h $0.000000 -> %p2.h",
+        "fcmle  %p3/z %z12.h $0.000000 -> %p5.h",
+        "fcmle  %p5/z %z18.h $0.000000 -> %p8.h",
+        "fcmle  %p6/z %z23.h $0.000000 -> %p10.h",
+        "fcmle  %p7/z %z31.h $0.000000 -> %p15.h",
+    };
+    TEST_LOOP(fcmle, fcmle_sve_zero_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmle  %p0/z %z0.s $0.000000 -> %p0.s",
+        "fcmle  %p2/z %z7.s $0.000000 -> %p2.s",
+        "fcmle  %p3/z %z12.s $0.000000 -> %p5.s",
+        "fcmle  %p5/z %z18.s $0.000000 -> %p8.s",
+        "fcmle  %p6/z %z23.s $0.000000 -> %p10.s",
+        "fcmle  %p7/z %z31.s $0.000000 -> %p15.s",
+    };
+    TEST_LOOP(fcmle, fcmle_sve_zero_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmle  %p0/z %z0.d $0.000000 -> %p0.d",
+        "fcmle  %p2/z %z7.d $0.000000 -> %p2.d",
+        "fcmle  %p3/z %z12.d $0.000000 -> %p5.d",
+        "fcmle  %p5/z %z18.d $0.000000 -> %p8.d",
+        "fcmle  %p6/z %z23.d $0.000000 -> %p10.d",
+        "fcmle  %p7/z %z31.d $0.000000 -> %p15.d",
+    };
+    TEST_LOOP(fcmle, fcmle_sve_zero_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(fcmlt_sve_zero_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMLT   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, #0.0 */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmlt  %p0/z %z0.h $0.000000 -> %p0.h",
+        "fcmlt  %p2/z %z7.h $0.000000 -> %p2.h",
+        "fcmlt  %p3/z %z12.h $0.000000 -> %p5.h",
+        "fcmlt  %p5/z %z18.h $0.000000 -> %p8.h",
+        "fcmlt  %p6/z %z23.h $0.000000 -> %p10.h",
+        "fcmlt  %p7/z %z31.h $0.000000 -> %p15.h",
+    };
+    TEST_LOOP(fcmlt, fcmlt_sve_zero_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmlt  %p0/z %z0.s $0.000000 -> %p0.s",
+        "fcmlt  %p2/z %z7.s $0.000000 -> %p2.s",
+        "fcmlt  %p3/z %z12.s $0.000000 -> %p5.s",
+        "fcmlt  %p5/z %z18.s $0.000000 -> %p8.s",
+        "fcmlt  %p6/z %z23.s $0.000000 -> %p10.s",
+        "fcmlt  %p7/z %z31.s $0.000000 -> %p15.s",
+    };
+    TEST_LOOP(fcmlt, fcmlt_sve_zero_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmlt  %p0/z %z0.d $0.000000 -> %p0.d",
+        "fcmlt  %p2/z %z7.d $0.000000 -> %p2.d",
+        "fcmlt  %p3/z %z12.d $0.000000 -> %p5.d",
+        "fcmlt  %p5/z %z18.d $0.000000 -> %p8.d",
+        "fcmlt  %p6/z %z23.d $0.000000 -> %p10.d",
+        "fcmlt  %p7/z %z31.d $0.000000 -> %p15.d",
+    };
+    TEST_LOOP(fcmlt, fcmlt_sve_zero_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(fcmne_sve_zero_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMNE   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, #0.0 */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmne  %p0/z %z0.h $0.000000 -> %p0.h",
+        "fcmne  %p2/z %z7.h $0.000000 -> %p2.h",
+        "fcmne  %p3/z %z12.h $0.000000 -> %p5.h",
+        "fcmne  %p5/z %z18.h $0.000000 -> %p8.h",
+        "fcmne  %p6/z %z23.h $0.000000 -> %p10.h",
+        "fcmne  %p7/z %z31.h $0.000000 -> %p15.h",
+    };
+    TEST_LOOP(fcmne, fcmne_sve_zero_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmne  %p0/z %z0.s $0.000000 -> %p0.s",
+        "fcmne  %p2/z %z7.s $0.000000 -> %p2.s",
+        "fcmne  %p3/z %z12.s $0.000000 -> %p5.s",
+        "fcmne  %p5/z %z18.s $0.000000 -> %p8.s",
+        "fcmne  %p6/z %z23.s $0.000000 -> %p10.s",
+        "fcmne  %p7/z %z31.s $0.000000 -> %p15.s",
+    };
+    TEST_LOOP(fcmne, fcmne_sve_zero_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmne  %p0/z %z0.d $0.000000 -> %p0.d",
+        "fcmne  %p2/z %z7.d $0.000000 -> %p2.d",
+        "fcmne  %p3/z %z12.d $0.000000 -> %p5.d",
+        "fcmne  %p5/z %z18.d $0.000000 -> %p8.d",
+        "fcmne  %p6/z %z23.d $0.000000 -> %p10.d",
+        "fcmne  %p7/z %z31.d $0.000000 -> %p15.d",
+    };
+    TEST_LOOP(fcmne, fcmne_sve_zero_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(fcmne_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMNE   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmne  %p0/z %z0.h %z0.h -> %p0.h",    "fcmne  %p2/z %z7.h %z8.h -> %p2.h",
+        "fcmne  %p3/z %z12.h %z13.h -> %p5.h",  "fcmne  %p5/z %z18.h %z19.h -> %p8.h",
+        "fcmne  %p6/z %z23.h %z24.h -> %p10.h", "fcmne  %p7/z %z31.h %z31.h -> %p15.h",
+    };
+    TEST_LOOP(fcmne, fcmne_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmne  %p0/z %z0.s %z0.s -> %p0.s",    "fcmne  %p2/z %z7.s %z8.s -> %p2.s",
+        "fcmne  %p3/z %z12.s %z13.s -> %p5.s",  "fcmne  %p5/z %z18.s %z19.s -> %p8.s",
+        "fcmne  %p6/z %z23.s %z24.s -> %p10.s", "fcmne  %p7/z %z31.s %z31.s -> %p15.s",
+    };
+    TEST_LOOP(fcmne, fcmne_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_2[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmne  %p0/z %z0.d %z0.d -> %p0.d",    "fcmne  %p2/z %z7.d %z8.d -> %p2.d",
+        "fcmne  %p3/z %z12.d %z13.d -> %p5.d",  "fcmne  %p5/z %z18.d %z19.d -> %p8.d",
+        "fcmne  %p6/z %z23.d %z24.d -> %p10.d", "fcmne  %p7/z %z31.d %z31.d -> %p15.d",
+    };
+    TEST_LOOP(fcmne, fcmne_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zm_0_2[i], OPSZ_8));
+
+    return success;
+}
+
+TEST_INSTR(fcmuo_sve_pred)
+{
+    bool success = true;
+    instr_t *instr;
+    byte *pc;
+
+    /* Testing FCMUO   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts> */
+    reg_id_t Pd_0_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_0[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_0[6] = {
+        "fcmuo  %p0/z %z0.h %z0.h -> %p0.h",    "fcmuo  %p2/z %z7.h %z8.h -> %p2.h",
+        "fcmuo  %p3/z %z12.h %z13.h -> %p5.h",  "fcmuo  %p5/z %z18.h %z19.h -> %p8.h",
+        "fcmuo  %p6/z %z23.h %z24.h -> %p10.h", "fcmuo  %p7/z %z31.h %z31.h -> %p15.h",
+    };
+    TEST_LOOP(fcmuo, fcmuo_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pd_0_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pg_0_0[i], false),
+              opnd_create_reg_element_vector(Zn_0_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2));
+
+    reg_id_t Pd_0_1[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_1[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_1[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_1[6] = {
+        "fcmuo  %p0/z %z0.s %z0.s -> %p0.s",    "fcmuo  %p2/z %z7.s %z8.s -> %p2.s",
+        "fcmuo  %p3/z %z12.s %z13.s -> %p5.s",  "fcmuo  %p5/z %z18.s %z19.s -> %p8.s",
+        "fcmuo  %p6/z %z23.s %z24.s -> %p10.s", "fcmuo  %p7/z %z31.s %z31.s -> %p15.s",
+    };
+    TEST_LOOP(fcmuo, fcmuo_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pd_0_1[i], OPSZ_4),
+              opnd_create_predicate_reg(Pg_0_1[i], false),
+              opnd_create_reg_element_vector(Zn_0_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_4));
+
+    reg_id_t Pd_0_2[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
+                           DR_REG_P8, DR_REG_P10, DR_REG_P15 };
+    reg_id_t Pg_0_2[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
+                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
+    reg_id_t Zn_0_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
+                           DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
+    reg_id_t Zm_0_2[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
+                           DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
+    const char *expected_0_2[6] = {
+        "fcmuo  %p0/z %z0.d %z0.d -> %p0.d",    "fcmuo  %p2/z %z7.d %z8.d -> %p2.d",
+        "fcmuo  %p3/z %z12.d %z13.d -> %p5.d",  "fcmuo  %p5/z %z18.d %z19.d -> %p8.d",
+        "fcmuo  %p6/z %z23.d %z24.d -> %p10.d", "fcmuo  %p7/z %z31.d %z31.d -> %p15.d",
+    };
+    TEST_LOOP(fcmuo, fcmuo_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pd_0_2[i], OPSZ_8),
+              opnd_create_predicate_reg(Pg_0_2[i], false),
+              opnd_create_reg_element_vector(Zn_0_2[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zm_0_2[i], OPSZ_8));
+
+    return success;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -3917,6 +4655,18 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(uxtb_sve_pred);
     RUN_INSTR_TEST(uxth_sve_pred);
     RUN_INSTR_TEST(uxtw_sve_pred);
+
+    RUN_INSTR_TEST(fcmeq_sve_zero_pred);
+    RUN_INSTR_TEST(fcmeq_sve_pred);
+    RUN_INSTR_TEST(fcmge_sve_zero_pred);
+    RUN_INSTR_TEST(fcmge_sve_pred);
+    RUN_INSTR_TEST(fcmgt_sve_zero_pred);
+    RUN_INSTR_TEST(fcmgt_sve_pred);
+    RUN_INSTR_TEST(fcmle_sve_zero_pred);
+    RUN_INSTR_TEST(fcmlt_sve_zero_pred);
+    RUN_INSTR_TEST(fcmne_sve_zero_pred);
+    RUN_INSTR_TEST(fcmne_sve_pred);
+    RUN_INSTR_TEST(fcmuo_sve_pred);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER
