@@ -35,6 +35,11 @@ ldar   (%x1)[8byte] -> %x0
 ldarb  (%x1)[1byte] -> %w0
 ldarh  (%x1)[2byte] -> %w0
 test_ldar complete
+ldapr  (%x1)[4byte] -> %w0
+ldapr  (%x3)[8byte] -> %x2
+ldaprb (%x5)[1byte] -> %w4
+ldaprh (%x7)[2byte] -> %w6
+test_ldapr complete
 ldur   (%x0)[1byte] -> %b0
 ldur   +0xff(%x1)[1byte] -> %b1
 ldur   (%x2)[2byte] -> %h2
