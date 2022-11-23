@@ -119,7 +119,6 @@ TEST_INSTR(sqrdmlsh_vector)
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_3[i]))
             *psuccess = false;
     }
-
 }
 
 TEST_INSTR(sqrdmlsh_scalar_idx)
@@ -161,7 +160,6 @@ TEST_INSTR(sqrdmlsh_scalar_idx)
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
             *psuccess = false;
     }
-
 }
 
 TEST_INSTR(sqrdmlsh_scalar)
@@ -198,7 +196,6 @@ TEST_INSTR(sqrdmlsh_scalar)
         if (!test_instr_encoding(dc, OP_sqrdmlsh, instr, expected_1[i]))
             *psuccess = false;
     }
-
 }
 
 TEST_INSTR(ldlar)
@@ -235,7 +232,6 @@ TEST_INSTR(ldlar)
         if (!test_instr_encoding(dc, OP_ldlar, instr, expected_1_0[i]))
             *psuccess = false;
     }
-
 }
 
 TEST_INSTR(ldlarb)
@@ -256,7 +252,6 @@ TEST_INSTR(ldlarb)
         if (!test_instr_encoding(dc, OP_ldlarb, instr, expected_0_0[i]))
             *psuccess = false;
     }
-
 }
 
 TEST_INSTR(ldlarh)
@@ -277,7 +272,6 @@ TEST_INSTR(ldlarh)
         if (!test_instr_encoding(dc, OP_ldlarh, instr, expected_0_0[i]))
             *psuccess = false;
     }
-
 }
 
 TEST_INSTR(stllr)
@@ -314,7 +308,6 @@ TEST_INSTR(stllr)
         if (!test_instr_encoding(dc, OP_stllr, instr, expected_1_0[i]))
             *psuccess = false;
     }
-
 }
 
 TEST_INSTR(stllrb)
@@ -335,7 +328,6 @@ TEST_INSTR(stllrb)
         if (!test_instr_encoding(dc, OP_stllrb, instr, expected_0_0[i]))
             *psuccess = false;
     }
-
 }
 
 TEST_INSTR(stllrh)
@@ -356,7 +348,6 @@ TEST_INSTR(stllrh)
         if (!test_instr_encoding(dc, OP_stllrh, instr, expected_0_0[i]))
             *psuccess = false;
     }
-
 }
 
 int

@@ -791,7 +791,8 @@ TEST_INSTR(fcvtzs_vector)
                                            opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_0_1[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(fcvtzs_scalar)
 {
@@ -873,7 +874,8 @@ TEST_INSTR(fcvtzs_scalar)
                                            opnd_create_reg(Rn_12_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzs, instr, expected_12_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 /*
  * FCVTZU
@@ -914,7 +916,8 @@ TEST_INSTR(fcvtzu_vector)
                                            opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_0_1[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(fcvtzu_scalar)
 {
@@ -996,7 +999,8 @@ TEST_INSTR(fcvtzu_scalar)
                                            opnd_create_reg(Rn_12_0[i]));
         if (!test_instr_encoding(dc, OP_fcvtzu, instr, expected_12_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 /*
  * FRINTA
@@ -1902,7 +1906,8 @@ TEST_INSTR(sha512h)
                                      opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sha512h, instr, expected_0_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(sha512h2)
 {
@@ -1923,7 +1928,8 @@ TEST_INSTR(sha512h2)
                                       opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sha512h2, instr, expected_0_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(sha512su0)
 {
@@ -1942,7 +1948,8 @@ TEST_INSTR(sha512su0)
                                        opnd_create_reg(Rn_0_0[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_sha512su0, instr, expected_0_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(sha512su1)
 {
@@ -1963,7 +1970,8 @@ TEST_INSTR(sha512su1)
                                        opnd_create_reg(Rm_0_0[i]), Rm_elsz);
         if (!test_instr_encoding(dc, OP_sha512su1, instr, expected_0_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(bcax)
 {
@@ -2026,7 +2034,8 @@ TEST_INSTR(psb)
     const char *expected_0_0[1] = { "psb" };
     instr = INSTR_CREATE_psb_csync(dc);
     if (!test_instr_encoding(dc, OP_psb, instr, expected_0_0[0]))
-        *psuccess = false;}
+        *psuccess = false;
+}
 
 TEST_INSTR(fsqrt_vector)
 {
@@ -2059,7 +2068,8 @@ TEST_INSTR(fsqrt_vector)
                                           opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_fsqrt, instr, expected_0_1[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(fsqrt_scalar)
 {
@@ -2077,7 +2087,8 @@ TEST_INSTR(fsqrt_scalar)
                                           opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_fsqrt, instr, expected_1_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(scvtf_vector)
 {
@@ -2110,7 +2121,8 @@ TEST_INSTR(scvtf_vector)
                                           opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_0_1[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(scvtf_scalar)
 {
@@ -2143,7 +2155,8 @@ TEST_INSTR(scvtf_scalar)
                                           opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_1_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(scvtf_scalar_fixed)
 {
@@ -2180,7 +2193,8 @@ TEST_INSTR(scvtf_scalar_fixed)
                                                 OPND_CREATE_INT(scale_1[i]));
         if (!test_instr_encoding(dc, OP_scvtf, instr, expected_1[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(ucvtf_vector)
 {
@@ -2213,7 +2227,8 @@ TEST_INSTR(ucvtf_vector)
                                           opnd_create_reg(Rn_0_1[i]), Rn_elsz);
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_0_1[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(ucvtf_scalar)
 {
@@ -2246,7 +2261,8 @@ TEST_INSTR(ucvtf_scalar)
                                           opnd_create_reg(Rn_1_0[i]));
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_1_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(ucvtf_scalar_fixed)
 {
@@ -2283,7 +2299,8 @@ TEST_INSTR(ucvtf_scalar_fixed)
                                                 OPND_CREATE_INT(scale_1[i]));
         if (!test_instr_encoding(dc, OP_ucvtf, instr, expected_1[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(rax1)
 {
@@ -2302,7 +2319,8 @@ TEST_INSTR(rax1)
                                   opnd_create_reg(Rm_0[i]));
         if (!test_instr_encoding(dc, OP_rax1, instr, expected_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(xar)
 {
@@ -2323,7 +2341,8 @@ TEST_INSTR(xar)
                                  opnd_create_immed_uint(imm6_0_0[i], OPSZ_0));
         if (!test_instr_encoding(dc, OP_xar, instr, expected_0_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(fccmp)
 {
@@ -2377,7 +2396,8 @@ TEST_INSTR(fccmp)
             opnd_create_immed_uint(nzcv_2_0[i], OPSZ_0), condition_code_2_0[i]);
         if (!test_instr_encoding(dc, OP_fccmp, instr, expected_2_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 TEST_INSTR(fccmpe)
 {
     /* Testing FCCMPE  <Dn>, <Dm>, #<imm>, <cond> */
@@ -2430,7 +2450,8 @@ TEST_INSTR(fccmpe)
             opnd_create_immed_uint(nzcv_2_0[i], OPSZ_0), condition_code_2_0[i]);
         if (!test_instr_encoding(dc, OP_fccmpe, instr, expected_2_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 TEST_INSTR(fcmp)
 {
     /* Testing FCMP    <Dn>, #0.0 */
@@ -2510,7 +2531,8 @@ TEST_INSTR(fcmp)
             INSTR_CREATE_fcmp(dc, opnd_create_reg(Rn_5_0[i]), opnd_create_reg(Rm_5_0[i]));
         if (!test_instr_encoding(dc, OP_fcmp, instr, expected_5_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 TEST_INSTR(fcmpe)
 {
     /* Testing FCMPE   <Dn>, #0.0 */
@@ -2590,7 +2612,8 @@ TEST_INSTR(fcmpe)
                                    opnd_create_reg(Rm_5_0[i]));
         if (!test_instr_encoding(dc, OP_fcmpe, instr, expected_5_0[i]))
             *psuccess = false;
-    }}
+    }
+}
 
 TEST_INSTR(fcsel)
 {
