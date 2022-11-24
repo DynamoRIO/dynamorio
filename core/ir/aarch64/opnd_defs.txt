@@ -147,8 +147,8 @@
 -----------?????----------------  bhs_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????----------------  bhsd_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????------xxxxx-----  wx5_imm5   # reg 5-9 d or q is inferred from bits 16:20
------------xxxxx----------------  imm5       # immediate for CCMN, CCMP
-
+-----------xxxxx----------------  imm5       # 5 bit immediate from 16-20
+-----------xxxxx----------------  simm5      # Signed 5 bit immediate from 16-20
 -----------xxxxx----------------  bhs_imm5_sz_s # Size encoded as least significant bit in imm5
 -----------xxxxx----------------  bhsd_imm5_sz_s # Size encoded as least significant bit in imm5
 -----------xxxxx----------------  imm5_idx   # Index from imm5
@@ -161,10 +161,12 @@
 -----------xxxxx----------------  d16        # D register
 -----------xxxxx----------------  q16        # Q register
 -----------xxxxx----------------  z16        # Z register
+-----------xxxxx----------------  z_d_16     # Z register with d size elements
 -----------xxxxx----------------  z_q_16     # Z register with q size elements
 -----------xxxxx----------------  b16        # B register
 -----------xxxxx----------------  h16        # H register
 -----------xxxxx----------------  s16        # S register
+-----------xxxxxxx--------------  imm7       # 7 bit immediate from 14-20
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prf9       # size is 0 bytes (prefetch variant of mem9)
@@ -202,6 +204,8 @@
 --------xx----------------------  bd_sz      # element width of a vector (8<<bd_sz)
 --------xx----------------------  shift3     # shift type for add/sub (shifted register)
 --------xx----------------------  shift4     # shift type for logical (shifted register)
+--------xx------------------xxxx  p_size_bhsd_0    # sve predicate vector reg, elsz depending on size
+--------xx------------------xxxx  p_size_bhs_0     # sve predicate vector reg, elsz depending on size
 --------xx------------------xxxx  p_size_hsd_0     # sve predicate vector reg, elsz depending on size
 --------xx-----------------xxxxx  float_reg0  # H, S or D register
 --------xx-----------------xxxxx  hsd_size_reg0    # hsd register, depending on size opcode
@@ -213,6 +217,7 @@
 --------xx------------xxxxx-----  hsd_size_reg5    # hsd register, depending on size opcode
 --------xx------------xxxxx-----  bhsd_size_reg5   # bhsd register, depending on size opcode
 --------xx------------xxxxx-----  z_size_bhsd_5    # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  z_size_bhs_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_hsd_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_sd_5      # sve vector reg, elsz depending on size
 --------xx-------xxxxx----------  float_reg10 # H, S or D register

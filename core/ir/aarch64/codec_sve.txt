@@ -46,6 +46,32 @@
 00100101xx10000011xxxxxxxxxxxxxx  n   9    SVE      add  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
 00000100xx011010000xxxxxxxxxxxxx  n   21   SVE      and             z0 : p10_lo z0 z5 bhsd_sz
 00000100xx011011000xxxxxxxxxxxxx  n   29   SVE      bic             z0 : p10_lo z0 z5 bhsd_sz
+00100101xx0xxxxx100xxxxxxxx0xxxx  w   807  SVE    cmpeq  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 simm5
+00100100xx0xxxxx001xxxxxxxx0xxxx  w   807  SVE    cmpeq   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
+00100100xx0xxxxx101xxxxxxxx0xxxx  w   807  SVE    cmpeq  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 z_size_bhsd_16
+00100101xx0xxxxx000xxxxxxxx0xxxx  w   808  SVE    cmpge  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 simm5
+00100100xx0xxxxx010xxxxxxxx0xxxx  w   808  SVE    cmpge   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
+00100100xx0xxxxx100xxxxxxxx0xxxx  w   808  SVE    cmpge  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 z_size_bhsd_16
+00100101xx0xxxxx000xxxxxxxx1xxxx  w   809  SVE    cmpgt  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 simm5
+00100100xx0xxxxx010xxxxxxxx1xxxx  w   809  SVE    cmpgt   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
+00100100xx0xxxxx100xxxxxxxx1xxxx  w   809  SVE    cmpgt  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 z_size_bhsd_16
+00100100xx1xxxxxxx0xxxxxxxx1xxxx  w   810  SVE    cmphi  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 imm7
+00100100xx0xxxxx110xxxxxxxx1xxxx  w   810  SVE    cmphi   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
+00100100xx0xxxxx000xxxxxxxx1xxxx  w   810  SVE    cmphi  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 z_size_bhsd_16
+00100100xx1xxxxxxx0xxxxxxxx0xxxx  w   811  SVE    cmphs  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 imm7
+00100100xx0xxxxx110xxxxxxxx0xxxx  w   811  SVE    cmphs   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
+00100100xx0xxxxx000xxxxxxxx0xxxx  w   811  SVE    cmphs  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 z_size_bhsd_16
+00100101xx0xxxxx001xxxxxxxx1xxxx  w   812  SVE    cmple  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 simm5
+00100100xx0xxxxx011xxxxxxxx1xxxx  w   812  SVE    cmple   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
+00100100xx1xxxxxxx1xxxxxxxx0xxxx  w   813  SVE    cmplo  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 imm7
+00100100xx0xxxxx111xxxxxxxx0xxxx  w   813  SVE    cmplo   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
+00100100xx1xxxxxxx1xxxxxxxx1xxxx  w   814  SVE    cmpls  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 imm7
+00100100xx0xxxxx111xxxxxxxx1xxxx  w   814  SVE    cmpls   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
+00100101xx0xxxxx001xxxxxxxx0xxxx  w   815  SVE    cmplt  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 simm5
+00100100xx0xxxxx011xxxxxxxx0xxxx  w   815  SVE    cmplt   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
+00100101xx0xxxxx100xxxxxxxx1xxxx  w   816  SVE    cmpne  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 simm5
+00100100xx0xxxxx001xxxxxxxx1xxxx  w   816  SVE    cmpne   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
+00100100xx0xxxxx101xxxxxxxx1xxxx  w   816  SVE    cmpne  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 z_size_bhsd_16
 00000100xx011011101xxxxxxxxxxxxx  n   793  SVE     cnot  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5
 00000101xx01xxxx00xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_zer simm8_5 lsl shift1
 00000101xx01xxxx01xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_mrg simm8_5 lsl shift1
