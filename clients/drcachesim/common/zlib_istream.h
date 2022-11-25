@@ -110,7 +110,7 @@ public:
         if (dir == std::ios_base::cur &&
             ((off >= 0 && gptr() + off < egptr()) ||
              (off < 0 && gptr() + off >= eback())))
-            gbump(off);
+            gbump(static_cast<int>(off));
         else {
             // Unsupported!
             return -1;
