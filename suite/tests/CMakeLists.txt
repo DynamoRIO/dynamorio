@@ -5412,7 +5412,7 @@ if (BUILD_CLIENTS AND NOT ANDROID)
     PROPERTIES LABELS UBUNTU_22)
 endif ()
 if (LINUX AND X64)
-  if (BUILD_CLIENTS)
+  if (X86 AND BUILD_CLIENTS)
     set_tests_properties(
     code_api|tool.drcachesim.simple
     code_api|tool.drcacheoff.simple
