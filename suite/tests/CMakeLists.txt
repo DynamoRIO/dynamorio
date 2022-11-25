@@ -5409,20 +5409,28 @@ if (BUILD_CLIENTS AND NOT ANDROID)
   set_tests_properties(
     code_api|tool.drcachesim.simple
     code_api|tool.drcacheoff.simple
+    PROPERTIES LABELS UBUNTU_22)
+endif ()
+if (LINUX AND X64)
+  if (BUILD_CLIENTS)
+    set_tests_properties(
+    code_api|tool.drcachesim.simple
+    code_api|tool.drcacheoff.simple
     code_api|client.drx-scattergather
     code_api|sample.memval_simple_scattergather
     code_api|tool.drcachesim.scattergather
     code_api|tool.drcacheoff.allasm-scattergather-basic-counts
     code_api|tool.drcachesim.allasm-scattergather-basic-counts
     PROPERTIES LABELS UBUNTU_22)
-endif ()
-if (LINUX AND X64 AND HAVE_RSEQ)
-  set_tests_properties(
-    code_api|api.rseq
-    code_api|linux.rseq_disable
-    code_api|linux.rseq_noarray
-    code_api|linux.rseq
-    code_api|linux.rseq_table
-    code_api|tool.drcacheoff.rseq
-    PROPERTIES LABELS UBUNTU_22)
+  endif ()
+  if (HAVE_RSEQ)
+    set_tests_properties(
+      code_api|api.rseq
+      code_api|linux.rseq_disable
+      code_api|linux.rseq_noarray
+      code_api|linux.rseq
+      code_api|linux.rseq_table
+      code_api|tool.drcacheoff.rseq
+      PROPERTIES LABELS UBUNTU_22)
+  endif ()
 endif ()
