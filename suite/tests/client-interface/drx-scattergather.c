@@ -791,14 +791,20 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
         vmovdqu32  zmm1, [REG_XDX]                        @N@\
         movw       dx, 0xffff                             @N@\
         kmovw      k1, edx                                @N@\
+        /* For the first variant below, with the xmm1
+         * index, only the first half of the xmm0 dest
+         * is set by the opcode. So we need to
+         * explicitly zero the remaining part.
+         */                                               @N@\
+        vpxor      xmm0, xmm0, xmm0                       @N@\
         opcode     xmm0 {k1}, [REG_XAX + xmm1 * 4]        @N@\
         vmovdqu32  [REG_XCX], xmm0                        @N@\
         kmovw      k1, edx                                @N@\
         opcode     xmm0 {k1}, [REG_XAX + ymm1 * 4]        @N@\
-        vmovdqu32  [REG_XCX + 16], ymm0                   @N@\
+        vmovdqu32  [REG_XCX + 16], xmm0                   @N@\
         kmovw      k1, edx                                @N@\
         opcode     ymm0 {k1}, [REG_XAX + zmm1 * 4]        @N@\
-        vmovdqu32  [REG_XCX + 48], zmm0                   @N@\
+        vmovdqu32  [REG_XCX + 48], ymm0                   @N@\
         add        REG_XSP, FRAME_PADDING                 @N@\
         POP_CALLEE_SAVED_REGS()                           @N@\
         ret                                               @N@\
