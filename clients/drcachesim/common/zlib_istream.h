@@ -84,7 +84,8 @@ public:
             // If the last inflate didn't fill the output buffer, it
             // finished with the input buffer and we need to read more.
             if (zstream_.avail_out != 0) {
-                zstream_.avail_in = fread(buf_compressed_, 1, buffer_size_, file_);
+                zstream_.avail_in =
+                    static_cast<uInt>(fread(buf_compressed_, 1, buffer_size_, file_));
                 if (ferror(file_) || zstream_.avail_in == 0)
                     return traits_type::eof();
                 zstream_.next_in = reinterpret_cast<Bytef *>(buf_compressed_);

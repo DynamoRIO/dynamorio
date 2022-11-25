@@ -88,7 +88,8 @@ public:
         }
         int res = traits_type::not_eof(extra_char);
         if (pptr() > pbase()) {
-            if (zipWriteInFileInZip(zip_, pbase(), pptr() - pbase()) != ZIP_OK)
+            if (zipWriteInFileInZip(
+                    zip_, pbase(), static_cast<unsigned int>(pptr() - pbase())) != ZIP_OK)
                 res = traits_type::eof();
         }
         setp(buf_, buf_ + buffer_size_ - 1);
