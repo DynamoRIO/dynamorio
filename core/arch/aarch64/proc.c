@@ -154,6 +154,7 @@ proc_init_arch(void)
             cpu_info.features.flags_aa64dfr0);
         LOG_FEATURE(FEATURE_SPE);
         LOG_FEATURE(FEATURE_PAUTH);
+        LOG_FEATURE(FEATURE_LRCPC);
     });
 #    endif
 #endif
@@ -175,7 +176,8 @@ proc_has_feature(feature_bit_t f)
     if (f == FEATURE_LSE || f == FEATURE_RDM || f == FEATURE_FP16 ||
         f == FEATURE_DotProd || f == FEATURE_SVE || f == FEATURE_LOR ||
         f == FEATURE_FHM || f == FEATURE_SM3 || f == FEATURE_SM4 || f == FEATURE_SHA512 ||
-        f == FEATURE_SHA3 || f == FEATURE_RAS || f == FEATURE_SPE || f == FEATURE_PAUTH)
+        f == FEATURE_SHA3 || f == FEATURE_RAS || f == FEATURE_SPE || f == FEATURE_PAUTH ||
+        f == FEATURE_LRCPC)
         return true;
 #    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;

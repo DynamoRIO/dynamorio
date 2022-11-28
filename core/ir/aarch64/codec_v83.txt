@@ -46,6 +46,9 @@
 1101011100111111000010xxxxxxxxxx  n   782  PAUTH   blraa  impx30 : x5 x0
 1101011000111111000010xxxxx11111  n   682  PAUTH  blraaz  impx30 : x5
 1101011100011111000010xxxxxxxxxx  n   683  PAUTH    braa         : x5 x0
+1x11100010111111110000xxxxxxxxxx  n   796  LRCPC   ldapr  wx0_30 : mem0
+0011100010111111110000xxxxxxxxxx  n   797  LRCPC  ldaprb      w0 : mem0
+0111100010111111110000xxxxxxxxxx  n   798  LRCPC  ldaprh      w0 : mem0
 1101101011000001000010xxxxxxxxxx  n   687  PAUTH   pacda         : x0 x5
 1101101011000001000000xxxxxxxxxx  n   688  PAUTH   pacia         : x0 x5
 1101101011000001000001xxxxxxxxxx  n   689  PAUTH   pacib         : x0 x5

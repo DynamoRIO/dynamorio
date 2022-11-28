@@ -87,6 +87,7 @@
 ---------------------------xxxxx  d0         # D register
 ---------------------------xxxxx  q0         # Q register
 ---------------------------xxxxx  z0         # Z register
+---------------------------xxxxx  z_d_0      # Z register with d size elements
 ---------------------------xxxxx  z_q_0      # Z register with q size elements
 ---------------------------xxxxx  q0p1       # Q register, add 1
 ---------------------------xxxxx  q0p2       # Q register, add 2
@@ -103,6 +104,7 @@
 ----------------------xxxxx-----  d5         # D register
 ----------------------xxxxx-----  q5         # Q register
 ----------------------xxxxx-----  z5         # Z register
+----------------------xxxxx-----  z_d_5      # Z register with d size elements
 ----------------------xxxxx-----  z_q_5      # Z register with q size elements
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
@@ -200,16 +202,19 @@
 --------xx----------------------  bd_sz      # element width of a vector (8<<bd_sz)
 --------xx----------------------  shift3     # shift type for add/sub (shifted register)
 --------xx----------------------  shift4     # shift type for logical (shifted register)
+--------xx------------------xxxx  p_size_hsd_0     # sve predicate vector reg, elsz depending on size
 --------xx-----------------xxxxx  float_reg0  # H, S or D register
 --------xx-----------------xxxxx  hsd_size_reg0    # hsd register, depending on size opcode
 --------xx-----------------xxxxx  bhsd_size_reg0   # bhsd register, depending on size opcode
 --------xx-----------------xxxxx  z_size_bhsd_0    # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_hsd_0     # sve vector reg, elsz depending on size
+--------xx-----------------xxxxx  z_size_sd_0      # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  float_reg5  # H, S or D register
 --------xx------------xxxxx-----  hsd_size_reg5    # hsd register, depending on size opcode
 --------xx------------xxxxx-----  bhsd_size_reg5   # bhsd register, depending on size opcode
 --------xx------------xxxxx-----  z_size_bhsd_5    # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_hsd_5     # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  z_size_sd_5      # sve vector reg, elsz depending on size
 --------xx-------xxxxx----------  float_reg10 # H, S or D register
 --------xx-xxxxx----------------  float_reg16 # H, S or D register
 --------xx-xxxxx----------------  hsd_size_reg16   # hsd register, depending on size opcode
@@ -219,6 +224,7 @@
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12
 -x------------------------------  index3     # index of D subreg in Q: 0-1
+-x-------------------------xxxxx  wx0_30     # X register if bit 30 is set, else W
 -x-------------------------xxxxx  dq0        # Q register if bit 30 is set, else D
 -x-------------------------xxxxx  sd0        # D register if bit 30 is set, else S
 -x-------------------------xxxxx  dq0p1      # ... add 1
