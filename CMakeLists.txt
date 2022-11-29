@@ -1822,7 +1822,14 @@ function (mac_add_inc_and_lib header lib)
 endfunction ()
 
 # zlib, snappy, and lz4 are used for some clients/ and tests.
-find_package(ZLIB)
+# TODO i#5767: Install an explicit zlib package on our Windows GA CI images
+# (this find_package finds a strawberry perl zlib which causes 32-bit build
+# and 64-bit private loader issues).
+if (WIN32 AND AUTOMATED_TESTING)
+  set(ZLIB_FOUND OFF)
+else ()
+  find_package(ZLIB)
+endif ()
 # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
 if (UNIX AND X64)
   find_library(libsnappy snappy)
