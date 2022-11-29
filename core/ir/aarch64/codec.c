@@ -3052,7 +3052,7 @@ encode_opnd_wx5_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
-/* imm5: immediate operand for conditional compare (immediate) */
+/* imm5: 5 bit immediate from 16-20 */
 
 static inline bool
 decode_opnd_imm5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -3064,6 +3064,20 @@ static inline bool
 encode_opnd_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(16, 5, false, 0, 0, opnd, enc_out);
+}
+
+/* simm5: Signed 5 bit immediate from 16-20 */
+
+static inline bool
+decode_opnd_simm5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(16, 5, true, 0, OPSZ_5b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_simm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(16, 5, true, 0, 0, opnd, enc_out);
 }
 
 /* bhs_imm5_sz_s: The element size of a vector mediated by imm5 with possible values b, h,
@@ -3279,6 +3293,22 @@ encode_opnd_z16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_vector_reg(16, Z_REG, opnd, enc_out);
 }
 
+/* z_q_16: Z register with d size elements. */
+
+static inline bool
+decode_opnd_z_d_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 16, 5, DOUBLE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_d_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 16, DOUBLE_REG, opnd, enc_out);
+}
+
+/* z_q_16: Z register with q size elements. */
+
 static inline bool
 decode_opnd_z_q_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
@@ -3331,6 +3361,20 @@ static inline bool
 encode_opnd_s16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(16, 2, opnd, enc_out);
+}
+
+/* imm7: 7-bit immediate from bits 14-20 */
+
+static inline bool
+decode_opnd_imm7(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(14, 7, false, 0, OPSZ_7b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_imm7(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(14, 7, false, 0, 0, opnd, enc_out);
 }
 
 /* mem9off: just the 9-bit offset from mem9 */
@@ -4440,6 +4484,30 @@ encode_bhsd_size_regx(int rpos, uint enc, int opcode, byte *pc, opnd_t opnd,
 }
 
 static inline bool
+decode_opnd_p_size_bhsd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_p(0, 22, BYTE_REG, DOUBLE_REG, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_p_size_bhsd_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_p(0, 22, BYTE_REG, DOUBLE_REG, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_p_size_bhs_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_p(0, 22, BYTE_REG, SINGLE_REG, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_p_size_bhs_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_p(0, 22, BYTE_REG, SINGLE_REG, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_p_size_hsd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_sized_p(0, 22, HALF_REG, DOUBLE_REG, enc, pc, opnd);
@@ -4573,6 +4641,18 @@ static inline bool
 encode_opnd_z_size_bhsd_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_sized_z(5, 22, BYTE_REG, DOUBLE_REG, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_size_bhs_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(5, 22, BYTE_REG, SINGLE_REG, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_size_bhs_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(5, 22, BYTE_REG, SINGLE_REG, opnd, enc_out);
 }
 
 static inline bool
