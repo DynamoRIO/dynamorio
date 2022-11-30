@@ -301,7 +301,7 @@ close_thread_file(void *drcontext)
         const int MAX_ITERS = 32; // Sanity limit to avoid hang.
         do {
             data->zstream.next_out = (Bytef *)data->buf_compressed;
-            data->zstream.avail_out = max_buf_size;
+            data->zstream.avail_out = static_cast<uInt>(max_buf_size);
             res = deflate(&data->zstream, Z_FINISH);
             NOTIFY(3, "final deflate => %d in=%d out=%d => in=%d, out=%d, wrote=%d\n",
                    res, 0, max_buf_size, data->zstream.avail_in, data->zstream.avail_out,
@@ -502,11 +502,11 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
                     (op_raw_compress.get_value() == "zlib" ||
                      op_raw_compress.get_value() == "gzip")) {
                 data->zstream.next_in = (Bytef *)towrite_start;
-                data->zstream.avail_in = size;
+                data->zstream.avail_in = static_cast<uInt>(size);
                 int res;
                 do {
                     data->zstream.next_out = (Bytef *)data->buf_compressed;
-                    data->zstream.avail_out = max_buf_size;
+                    data->zstream.avail_out = static_cast<uInt>(max_buf_size);
                     res = deflate(&data->zstream, Z_NO_FLUSH);
                     NOTIFY(3, "deflate => %d in=%d out=%d => in=%d, out=%d, write=%d\n",
                            res, size, size, data->zstream.avail_in,
