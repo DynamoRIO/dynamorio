@@ -354,6 +354,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_o
     testbuild_ex("release-external-32" OFF "
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=OFF
+      ${build_release_tests}
       ${install_path_cache}
       " OFF ${arg_package} "${install_build_args}")
   endif ()
