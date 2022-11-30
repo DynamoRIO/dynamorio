@@ -929,6 +929,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         uint64 min_timestamp = attached_timestamp.load(std::memory_order_acquire);
         if (min_timestamp == 0) {
             // This data is too early: we drop it.
+            NOTIFY(1, "Dropping too-early data for T%zd\n", dr_get_thread_id(drcontext));
             BUF_PTR(data->seg_base) = data->buf_base + header_size;
             return;
         }
