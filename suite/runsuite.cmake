@@ -117,7 +117,7 @@ if (arg_automated_ci)
   else ()
     # Disable -msgbox_mask by default to avoid hangs on cases where DR hits errors
     # prior to option parsing.
-    set(build_tests "${build_tests}
+    set(base_cache "${base_cache}
 AUTOMATED_TESTING:BOOL=ON")
     # We assume our GitHub Actions automated CI has password-less sudo.
     # Our Jenkins tester does not.  CI_TRIGGER is only set for Actions.
@@ -354,7 +354,6 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_o
     testbuild_ex("release-external-32" OFF "
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=OFF
-      ${build_release_tests}
       ${install_path_cache}
       " OFF ${arg_package} "${install_build_args}")
   endif ()
