@@ -412,6 +412,8 @@ offline_instru_t::refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timest
     offline_entry_t *stamp = reinterpret_cast<offline_entry_t *>(buf_ptr);
     DR_ASSERT(stamp->timestamp.type == OFFLINE_TYPE_TIMESTAMP);
     if (stamp->timestamp.usec < min_timestamp) {
+        log_(2, "%s: replacing " UINT64_FORMAT_STRING " with " UINT64_FORMAT_STRING "\n",
+             __FUNCTION__, stamp->timestamp.usec, min_timestamp);
         stamp->timestamp.usec = min_timestamp;
         return true;
     }
