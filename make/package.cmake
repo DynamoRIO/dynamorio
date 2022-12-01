@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -164,6 +164,7 @@ set(base_cache "
   BUILD_NUMBER:STRING=${arg_build}
   UNIQUE_BUILD_NUMBER:STRING=${arg_ubuild}
   BUILD_PACKAGE:BOOL=ON
+  AUTOMATED_TESTING:BOOL=ON
   ${arg_cacheappend}
   ")
 
