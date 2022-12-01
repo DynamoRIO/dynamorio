@@ -863,6 +863,7 @@ add_executable(drcachesim_ops
 set_target_properties(drcachesim_ops PROPERTIES COMPILE_FLAGS "${ORIG_CMAKE_CXX_FLAGS}")
 add_win32_flags(drcachesim_ops)
 use_DynamoRIO_extension(drcachesim_ops droption)
+add_dependencies(drcachesim_ops api_headers)
 
 # We then have to insert it into the doxygen files at build time:
 set(srcdoc ${CMAKE_CURRENT_SOURCE_DIR}/docs/drcachesim.dox.in)
