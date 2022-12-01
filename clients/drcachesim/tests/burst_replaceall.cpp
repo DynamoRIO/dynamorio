@@ -62,6 +62,8 @@
 static void *finished;
 static constexpr int num_threads = 3;
 static void *started[num_threads];
+static void *attached;
+static void *post_attach[num_threads];
 #endif
 
 bool
@@ -252,6 +254,8 @@ void *
 {
     uintptr_t i = reinterpret_cast<uintptr_t>(arg);
     signal_cond_var(started[i]);
+    wait_cond_var(attached);
+    signal_cond_var(post_attach[i]);
     wait_cond_var(finished);
     return 0;
 }
@@ -273,8 +277,10 @@ main(int argc, const char *argv[])
     uintptr_t thread[num_threads];
 #    endif
     finished = create_cond_var();
+    attached = create_cond_var();
     for (uint i = 0; i < num_threads; i++) {
         started[i] = create_cond_var();
+        post_attach[i] = create_cond_var();
 #    ifdef UNIX
         pthread_create(&thread[i], NULL, thread_func, (void *)(uintptr_t)i);
 #    else
@@ -308,6 +314,11 @@ main(int argc, const char *argv[])
         if (i == iter_start) {
             std::cerr << "pre-DR start\n";
             dr_app_start();
+            // Ensure our threads are actually scheduled during our burst window to avoid
+            // missing threads from -align_endpoints.
+            signal_cond_var(attached);
+            for (uint i = 0; i < num_threads; i++)
+                wait_cond_var(post_attach[i]);
         }
         if (i >= iter_start && i <= iter_stop)
             assert(dr_app_running_under_dynamorio());
