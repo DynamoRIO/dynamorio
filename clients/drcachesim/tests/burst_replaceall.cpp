@@ -314,11 +314,13 @@ main(int argc, const char *argv[])
         if (i == iter_start) {
             std::cerr << "pre-DR start\n";
             dr_app_start();
+#ifndef WINDOWS // XXX i#2040: Disabled until Windows static limits are fixed.
             // Ensure our threads are actually scheduled during our burst window to avoid
             // missing threads from -align_endpoints.
             signal_cond_var(attached);
             for (uint i = 0; i < num_threads; i++)
                 wait_cond_var(post_attach[i]);
+#endif
         }
         if (i >= iter_start && i <= iter_stop)
             assert(dr_app_running_under_dynamorio());
