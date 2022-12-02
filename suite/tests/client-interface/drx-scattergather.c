@@ -801,10 +801,10 @@ DECLARE_FUNC_SEH(FUNCNAME(opcode))                        @N@\
         vmovdqu32  [REG_XCX], xmm0                        @N@\
         kmovw      k1, edx                                @N@\
         opcode     xmm0 {k1}, [REG_XAX + ymm1 * 4]        @N@\
-        vmovdqu32  [REG_XCX + 16], xmm0                   @N@\
+        vmovdqu32  [REG_XCX + 16], ymm0                   @N@\
         kmovw      k1, edx                                @N@\
         opcode     ymm0 {k1}, [REG_XAX + zmm1 * 4]        @N@\
-        vmovdqu32  [REG_XCX + 48], ymm0                   @N@\
+        vmovdqu32  [REG_XCX + 48], zmm0                   @N@\
         add        REG_XSP, FRAME_PADDING                 @N@\
         POP_CALLEE_SAVED_REGS()                           @N@\
         ret                                               @N@\
