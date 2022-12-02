@@ -75,6 +75,8 @@ Cheat sheet:
 - a* is an arm iflush
 - c2* is a marker
 - c203* is a cpu id
+- c20a* is the cache line size
+- c212* is the page size
 - c200* is kernel event; c201* is kernel xfer
 
 ## Viewing post-processed files
