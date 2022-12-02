@@ -938,9 +938,6 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         instru->refresh_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
 
-    // Clear after we know we're not dropping for align_attach_detach_endpoints.
-    data->has_thread_header = false;
-
     buf_ptr = BUF_PTR(data->seg_base);
     // We may get called with nothing to write: e.g., on a syscall for
     // -L0I_filter and -L0D_filter.
@@ -960,6 +957,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                            dr_get_thread_id(drcontext), window);
         return;
     }
+
+    // Clear after we know we're not dropping the data for non-size-cap reasons.
+    data->has_thread_header = false;
 
     bool window_changed = false;
     if (has_tracing_windows() &&
