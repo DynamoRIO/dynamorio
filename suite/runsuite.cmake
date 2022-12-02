@@ -114,10 +114,14 @@ if (arg_automated_ci)
     # to be off, ruining the samples for interactive use.
     set(build_tests "")
     message("Detected a cron package build: disabling running of tests")
+    # We want the same Github Actions settings for building as we have for continuous
+    # testing so we set AUTOMATED_TESTING.
+    set(base_cache "${base_cache}
+AUTOMATED_TESTING:BOOL=ON")
   else ()
     # Disable -msgbox_mask by default to avoid hangs on cases where DR hits errors
     # prior to option parsing.
-    set(build_tests "${build_tests}
+    set(base_cache "${base_cache}
 AUTOMATED_TESTING:BOOL=ON")
     # We assume our GitHub Actions automated CI has password-less sudo.
     # Our Jenkins tester does not.  CI_TRIGGER is only set for Actions.

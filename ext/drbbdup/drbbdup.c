@@ -232,7 +232,7 @@ drbbdup_is_special_instr(instr_t *instr)
 {
     return instr != NULL &&
         (instr_is_syscall(instr) || instr_is_cti(instr) || instr_is_ubr(instr) ||
-         instr_is_interrupt(instr));
+         instr_is_interrupt(instr) IF_AARCH64(|| instr_get_opcode(instr) == OP_isb));
 }
 
 /****************************************************************************

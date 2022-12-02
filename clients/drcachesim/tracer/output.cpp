@@ -301,7 +301,7 @@ close_thread_file(void *drcontext)
         const int MAX_ITERS = 32; // Sanity limit to avoid hang.
         do {
             data->zstream.next_out = (Bytef *)data->buf_compressed;
-            data->zstream.avail_out = max_buf_size;
+            data->zstream.avail_out = static_cast<uInt>(max_buf_size);
             res = deflate(&data->zstream, Z_FINISH);
             NOTIFY(3, "final deflate => %d in=%d out=%d => in=%d, out=%d, wrote=%d\n",
                    res, 0, max_buf_size, data->zstream.avail_in, data->zstream.avail_out,
@@ -502,11 +502,11 @@ write_trace_data(void *drcontext, byte *towrite_start, byte *towrite_end,
                     (op_raw_compress.get_value() == "zlib" ||
                      op_raw_compress.get_value() == "gzip")) {
                 data->zstream.next_in = (Bytef *)towrite_start;
-                data->zstream.avail_in = size;
+                data->zstream.avail_in = static_cast<uInt>(size);
                 int res;
                 do {
                     data->zstream.next_out = (Bytef *)data->buf_compressed;
-                    data->zstream.avail_out = max_buf_size;
+                    data->zstream.avail_out = static_cast<uInt>(max_buf_size);
                     res = deflate(&data->zstream, Z_NO_FLUSH);
                     NOTIFY(3, "deflate => %d in=%d out=%d => in=%d, out=%d, write=%d\n",
                            res, size, size, data->zstream.avail_in,
@@ -918,7 +918,6 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     // the first buffer.
     if (data->has_thread_header && op_offline.get_value())
         header_size += data->init_header_size;
-    data->has_thread_header = false;
 
     if (align_attach_detach_endpoints()) {
         // This is the attach counterpart to instru_t::set_frozen_timestamp(): we place
@@ -927,11 +926,20 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         // tracing.  (Switching back to timestamps at buffer output is actually
         // worse as we then have the identical frozen timestamp for all the flushes
         // during detach, plus they are all on the same cpu too.)
+        uint64 min_timestamp = attached_timestamp.load(std::memory_order_acquire);
+        if (min_timestamp == 0) {
+            // This data is too early: we drop it.
+            NOTIFY(1, "Dropping too-early data for T%zd\n", dr_get_thread_id(drcontext));
+            BUF_PTR(data->seg_base) = data->buf_base + header_size;
+            return;
+        }
         size_t stamp_offs =
             header_size > buf_hdr_slots_size ? header_size - buf_hdr_slots_size : 0;
-        uint64 min_timestamp = attached_timestamp.load(std::memory_order_acquire);
         instru->refresh_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
+
+    // Clear after we know we're not dropping for align_attach_detach_endpoints.
+    data->has_thread_header = false;
 
     buf_ptr = BUF_PTR(data->seg_base);
     // We may get called with nothing to write: e.g., on a syscall for
