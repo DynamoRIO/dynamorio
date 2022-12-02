@@ -128,9 +128,11 @@ bool
 record_filter_t::parallel_shard_exit(void *shard_data)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-    std::lock_guard<std::mutex> guard(shard_exit_mutex_);
-    input_entry_count_ += per_shard->input_entry_count;
-    output_entry_count_ += per_shard->output_entry_count;
+    {
+        std::lock_guard<std::mutex> guard(shard_exit_mutex_);
+        input_entry_count_ += per_shard->input_entry_count;
+        output_entry_count_ += per_shard->output_entry_count;
+    }
     bool res = true;
     for (int i = 0; i < static_cast<int>(filters_.size()); ++i) {
         if (!filters_[i]->parallel_shard_exit(per_shard->filter_shard_data[i]))
