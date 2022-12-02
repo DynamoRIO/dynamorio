@@ -35,6 +35,7 @@
 
 #include "analysis_tool.h"
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace dynamorio {
@@ -142,6 +143,7 @@ private:
     uint64_t stop_timestamp_;
     unsigned int verbosity_;
     const char *output_prefix_ = "[record_filter]";
+    std::mutex shard_exit_mutex_;
 
 protected:
     uint64_t input_entry_count_;
