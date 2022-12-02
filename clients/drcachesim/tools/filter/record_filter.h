@@ -36,6 +36,7 @@
 #include "analysis_tool.h"
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 #include <vector>
 
 namespace dynamorio {
@@ -130,6 +131,10 @@ protected:
         memtrace_stream_t *shard_stream;
         bool enabled;
     };
+    std::unordered_map<memref_tid_t, per_shard_t *> shard_map_;
+    // This mutex is only needed in parallel_shard_init. In all other accesses
+    // to shard_map (print_results) we are single-threaded.
+    std::mutex shard_map_mutex_;
 
 private:
     virtual bool
@@ -143,11 +148,6 @@ private:
     uint64_t stop_timestamp_;
     unsigned int verbosity_;
     const char *output_prefix_ = "[record_filter]";
-    std::mutex shard_exit_mutex_;
-
-protected:
-    uint64_t input_entry_count_;
-    uint64_t output_entry_count_;
 };
 
 } // namespace drmemtrace
