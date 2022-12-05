@@ -67,8 +67,6 @@ record_filter_t::record_filter_t(
     , filters_(std::move(filters))
     , stop_timestamp_(stop_timestamp)
     , verbosity_(verbose)
-    , input_entry_count_(0)
-    , output_entry_count_(0)
 {
     UNUSED(verbosity_);
     UNUSED(output_prefix_);
@@ -76,6 +74,9 @@ record_filter_t::record_filter_t(
 
 record_filter_t::~record_filter_t()
 {
+    for (auto &iter : shard_map_) {
+        delete iter.second;
+    }
 }
 
 bool
@@ -121,6 +122,8 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
             success_ = false;
         }
     }
+    std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
 }
 
@@ -128,14 +131,15 @@ bool
 record_filter_t::parallel_shard_exit(void *shard_data)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-    input_entry_count_ += per_shard->input_entry_count;
-    output_entry_count_ += per_shard->output_entry_count;
     bool res = true;
     for (int i = 0; i < static_cast<int>(filters_.size()); ++i) {
         if (!filters_[i]->parallel_shard_exit(per_shard->filter_shard_data[i]))
             res = false;
     }
-    delete per_shard;
+    // Destroy the writer since we do not need it anymore. This also makes sure
+    // that data is written out to the file; curiously, a simple flush doesn't
+    // do it.
+    per_shard->writer.reset(nullptr);
     return res;
 }
 
@@ -228,8 +232,14 @@ record_filter_t::process_memref(const trace_entry_t &memref)
 bool
 record_filter_t::print_results()
 {
-    std::cerr << "Output " << output_entry_count_ << " entries from "
-              << input_entry_count_ << " entries.\n";
+    uint64_t input_entry_count = 0;
+    uint64_t output_entry_count = 0;
+    for (const auto &shard : shard_map_) {
+        input_entry_count += shard.second->input_entry_count;
+        output_entry_count += shard.second->output_entry_count;
+    }
+    std::cerr << "Output " << output_entry_count << " entries from " << input_entry_count
+              << " entries.\n";
     return true;
 }
 

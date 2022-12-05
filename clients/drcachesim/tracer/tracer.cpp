@@ -426,7 +426,9 @@ event_post_attach()
     DR_ASSERT(attached_midway);
     if (!align_attach_detach_endpoints())
         return;
-    attached_timestamp.store(instru_t::get_timestamp(), std::memory_order_release);
+    uint64 timestamp = instru_t::get_timestamp();
+    attached_timestamp.store(timestamp, std::memory_order_release);
+    NOTIFY(1, "Fully-attached timestamp is " UINT64_FORMAT_STRING "\n", timestamp);
     if (op_trace_after_instrs.get_value() != 0) {
         NOTIFY(1, "Switching to counting mode after attach\n");
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);

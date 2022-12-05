@@ -341,7 +341,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(
         VPRINT(this, 1, "Worker %d starting on trace shard %d\n", tdata->worker,
                tdata->index);
         if (!tdata->iter->init()) {
-            tdata->error = "Failed to read from trace" + tdata->trace_file;
+            tdata->error = "Failed to read from trace: " + tdata->trace_file;
             return;
         }
         std::vector<void *> shard_data(num_tools_);
