@@ -65,7 +65,8 @@ struct per_shard_t {
 };
 
 void *
-cache_filter_t::parallel_shard_init(memtrace_stream_t *shard_stream)
+cache_filter_t::parallel_shard_init(memtrace_stream_t *shard_stream,
+                                    bool partial_trace_filter)
 {
     per_shard_t *per_shard = new per_shard_t;
     if (!(per_shard->cache.init(cache_associativity_, cache_line_size_, cache_size_,
@@ -76,18 +77,16 @@ cache_filter_t::parallel_shard_init(memtrace_stream_t *shard_stream)
     }
     return per_shard;
 }
-void
-cache_filter_t::parallel_shard_process_file_type(trace_entry_t &entry, void *shard_data,
-                                                 bool partial_trace_filter)
-{
-    if (filter_instrs_)
-        entry.addr |= OFFLINE_FILE_TYPE_IFILTERED;
-    if (filter_data_)
-        entry.addr |= OFFLINE_FILE_TYPE_DFILTERED;
-}
 bool
-cache_filter_t::parallel_shard_filter(const trace_entry_t &entry, void *shard_data)
+cache_filter_t::parallel_shard_filter(trace_entry_t &entry, void *shard_data)
 {
+    if (entry.type == TRACE_TYPE_MARKER && entry.size == TRACE_MARKER_TYPE_FILETYPE) {
+        if (filter_instrs_)
+            entry.addr |= OFFLINE_FILE_TYPE_IFILTERED;
+        if (filter_data_)
+            entry.addr |= OFFLINE_FILE_TYPE_DFILTERED;
+        return true;
+    }
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     bool output = true;
     // We don't process flush entries here.
