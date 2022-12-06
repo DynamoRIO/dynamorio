@@ -93,6 +93,8 @@
 01100101xx010xxx100000xxxxxxxxxx  n   790  SVE    ftmad   z_size_hsd_0 : z_size_hsd_0 z_size_hsd_5 imm3
 01100101xx0xxxxx000011xxxxxxxxxx  n   791  SVE   ftsmul   z_size_hsd_0 : z_size_hsd_5 z_size_hsd_16
 00000100xx1xxxxx101100xxxxxxxxxx  n   792  SVE   ftssel   z_size_hsd_0 : z_size_hsd_5 z_size_hsd_16
+1000010110xxxxxx000xxxxxxxx0xxxx  n   227  SVE      ldr             p0 : svemem_gpr_simm
+1000010110xxxxxx010xxxxxxxxxxxxx  n   227  SVE      ldr             z0 : svemem_gpr_simm
 00000100xx0xxxxx110xxxxxxxxxxxxx  n   787  SVE      mad  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_16 z_size_bhsd_5
 00000100xx0xxxxx010xxxxxxxxxxxxx  n   312  SVE      mla  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5 z_size_bhsd_16 z_size_bhsd_0
 00000100xx0xxxxx011xxxxxxxxxxxxx  n   313  SVE      mls  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5 z_size_bhsd_16 z_size_bhsd_0
@@ -117,6 +119,8 @@
 00000100xx1xxxxx000110xxxxxxxxxx  n   425  SVE    sqsub             z0 : z5 z16 bhsd_sz
 00100101xx10011011xxxxxxxxxxxxxx  n   425  SVE    sqsub  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
 00000100xx1xxxxx000110xxxxxxxxxx  n   425  SVE    sqsub  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
+1110010110xxxxxx000xxxxxxxx0xxxx  n   457  SVE      str svemem_gpr_simm : p0
+1110010110xxxxxx010xxxxxxxxxxxxx  n   457  SVE      str svemem_gpr_simm : z0
 00000100xx1xxxxx000001xxxxxxxxxx  n   470  SVE      sub             z0 : z5 z16 bhsd_sz
 00000100xx000001000xxxxxxxxxxxxx  n   470  SVE      sub  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00100101xx10000111xxxxxxxxxxxxxx  n   470  SVE      sub  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
