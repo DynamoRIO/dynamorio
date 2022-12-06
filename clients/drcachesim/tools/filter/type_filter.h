@@ -82,6 +82,22 @@ public:
     {
         return nullptr;
     }
+    void
+    parallel_shard_process_file_type(trace_entry_t &entry, void *shard_data,
+                                     bool partial_trace_filter) override
+    {
+        if (TESTANY(entry.addr, OFFLINE_FILE_TYPE_ENCODINGS) && !partial_trace_filter &&
+            remove_trace_types_.find(TRACE_TYPE_ENCODING) != remove_trace_types_.end()) {
+            entry.addr &= ~OFFLINE_FILE_TYPE_ENCODINGS;
+        }
+        for (trace_type_t type : remove_trace_types_) {
+            // Not modifying file type for filtering of prefetch/flush entries.
+            if (type_is_instr(type))
+                entry.addr |= OFFLINE_FILE_TYPE_IFILTERED;
+            else if (type == TRACE_TYPE_READ || type == TRACE_TYPE_WRITE)
+                entry.addr |= OFFLINE_FILE_TYPE_DFILTERED;
+        }
+    }
     bool
     parallel_shard_filter(const trace_entry_t &entry, void *shard_data) override
     {

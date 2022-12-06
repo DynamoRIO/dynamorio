@@ -70,6 +70,18 @@ public:
         virtual void *
         parallel_shard_init(memtrace_stream_t *shard_stream) = 0;
         /**
+         * Invoked for the TRACE_TYPE_MARKER entry of type
+         * TRACE_MARKER_TYPE_FILETYPE. This routine can make changes to the file
+         * type described by the marker, based on the type of entries it filters out.
+         * The passed marker is not guaranteed to be the original one in the trace
+         * if other filter tools are present, and may include changes made by other
+         * tools. \p partial_trace_filter is set if the trace will be filtered only
+         * partially, e.g. due to stop_timestamp.
+         */
+        virtual void
+        parallel_shard_process_file_type(trace_entry_t &entry, void *shard_data,
+                                         bool partial_trace_filter) = 0;
+        /**
          * Invoked for each #trace_entry_t in the shard. It returns
          * whether or not this \p entry should be included in the result
          * trace. \p shard_data is same as what was returned by

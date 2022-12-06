@@ -76,6 +76,15 @@ cache_filter_t::parallel_shard_init(memtrace_stream_t *shard_stream)
     }
     return per_shard;
 }
+void
+cache_filter_t::parallel_shard_process_file_type(trace_entry_t &entry, void *shard_data,
+                                                 bool partial_trace_filter)
+{
+    if (filter_instrs_)
+        entry.addr |= OFFLINE_FILE_TYPE_IFILTERED;
+    if (filter_data_)
+        entry.addr |= OFFLINE_FILE_TYPE_DFILTERED;
+}
 bool
 cache_filter_t::parallel_shard_filter(const trace_entry_t &entry, void *shard_data)
 {

@@ -51,6 +51,9 @@ public:
     }
     void *
     parallel_shard_init(memtrace_stream_t *shard_stream) override;
+    void
+    parallel_shard_process_file_type(trace_entry_t &entry, void *shard_data,
+                                     bool partial_trace_filter) override;
     bool
     parallel_shard_filter(const trace_entry_t &entry, void *shard_data) override;
     bool
