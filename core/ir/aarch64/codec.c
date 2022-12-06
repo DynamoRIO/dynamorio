@@ -3671,19 +3671,20 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
-/* svemem_gpr_simm: 9 bit signed immediate offset added to base register defined in bits 5 to 9. */
+/* svemem_gpr_simm: 9 bit signed immediate offset added to base register defined in bits 5
+ * to 9. */
 
 #if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
-    /* i3044 TODO: Vector length will be read from cpuinfo, e.g.
-     * opnd_size_from_bytes(proc_get_vector_length()));
-     * Setting to fixed size for now in order to pass unit tests.
-     */
-    #define OPSZ_SVE opnd_size_from_bytes(32)
+/* i3044 TODO: Vector length will be read from cpuinfo, e.g.
+ * opnd_size_from_bytes(proc_get_vector_length()));
+ * Setting to fixed size for now in order to pass unit tests.
+ */
+#    define OPSZ_SVE opnd_size_from_bytes(32)
 #else
-    /* i3044 TODO: How do we set SVE vector length for offline decode?
-     * A command line option?
-     */
-    #define OPSZ_SVE opnd_size_from_bytes(32)
+/* i3044 TODO: How do we set SVE vector length for offline decode?
+ * A command line option?
+ */
+#    define OPSZ_SVE opnd_size_from_bytes(32)
 #endif
 
 static inline bool
@@ -3693,14 +3694,14 @@ decode_opnd_svemem_gpr_simm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     int offset9 = extract_int(simm9, 0, 9);
     if (offset9 < -256 || offset9 > 255)
         return false;
-    *opnd = opnd_create_base_disp_aarch64(
-        decode_reg(extract_uint(enc, 5, 5), true, true),
-        DR_REG_NULL, 0, false, offset9, 0, OPSZ_SVE);
+    *opnd = opnd_create_base_disp_aarch64(decode_reg(extract_uint(enc, 5, 5), true, true),
+                                          DR_REG_NULL, 0, false, offset9, 0, OPSZ_SVE);
     return true;
 }
 
 static inline bool
-encode_opnd_svemem_gpr_simm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_svemem_gpr_simm(uint enc, int opcode, byte *pc, opnd_t opnd,
+                            OUT uint *enc_out)
 {
     int disp;
     bool is_x;
