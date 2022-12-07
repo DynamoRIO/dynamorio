@@ -364,7 +364,6 @@ test_cache_and_type_filter()
                 fprintf(stderr, "\n");
                 return false;
             }
-            // We do not verify encoding content for instructions.
             if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
                 fprintf(stderr,
                         "Wrong filter result for iter=%d, at pos=%d. Expected: ", k, i);
