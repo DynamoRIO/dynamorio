@@ -257,7 +257,7 @@ test_cache_and_type_filter()
         // Filtered out by the cache_filter.
         { { TRACE_TYPE_READ, 4, { 0xaaa0 } }, true, { false, false } },
 
-        // Filter endpoint marker. Only added in the 1st test where
+        // Filter endpoint marker. Only added in the 2nd test where
         // we specify a stop_timestamp.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_ENDPOINT, { 0 } },
           false,
