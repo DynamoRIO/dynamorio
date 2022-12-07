@@ -132,7 +132,9 @@ protected:
         std::unique_ptr<std::ostream> writer;
         std::string error;
         std::vector<void *> filter_shard_data;
-        std::vector<trace_entry_t> last_filtered_unit_header;
+        std::vector<trace_entry_t> last_delayed_unit_header;
+        std::unordered_map<uint64_t, std::vector<trace_entry_t>> delayed_encodings;
+        std::vector<trace_entry_t> last_delayed_encodings;
         uint64_t input_entry_count;
         uint64_t output_entry_count;
         memtrace_stream_t *shard_stream;
@@ -150,6 +152,9 @@ private:
 
     virtual std::unique_ptr<std::ostream>
     get_writer(per_shard_t *per_shard, memtrace_stream_t *shard_stream);
+
+    bool
+    write_trace_entries(per_shard_t *shard, const std::vector<trace_entry_t> &entries);
 
     std::string output_dir_;
     std::vector<std::unique_ptr<record_filter_func_t>> filters_;

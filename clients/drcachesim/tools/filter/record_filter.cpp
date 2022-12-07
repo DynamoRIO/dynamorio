@@ -58,6 +58,15 @@
 
 namespace dynamorio {
 namespace drmemtrace {
+namespace {
+
+bool
+is_any_instr_type(trace_type_t type)
+{
+    return type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH ||
+        type == TRACE_TYPE_INSTR_NO_FETCH;
+}
+} // namespace
 
 record_filter_t::record_filter_t(
     const std::string &output_dir,
@@ -164,6 +173,17 @@ record_filter_t::write_trace_entry(per_shard_t *shard, const trace_entry_t &entr
 }
 
 bool
+record_filter_t::write_trace_entries(per_shard_t *shard,
+                                     const std::vector<trace_entry_t> &entries)
+{
+    for (const trace_entry_t &entry : entries) {
+        if (!write_trace_entry(shard, entry))
+            return false;
+    }
+    return true;
+}
+
+bool
 record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &input_entry)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
@@ -197,30 +217,58 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
             // XXX: it may happen that we never output a unit header due to this
             // optimization. We should ensure that we output it at least once. We
             // skip handling this corner case for now.
-            per_shard->last_filtered_unit_header.clear();
+            per_shard->last_delayed_unit_header.clear();
             ANNOTATE_FALLTHROUGH;
         case TRACE_MARKER_TYPE_WINDOW_ID:
         case TRACE_MARKER_TYPE_CPU_ID:
             if (output)
-                per_shard->last_filtered_unit_header.push_back(entry);
-            output = false;
+                per_shard->last_delayed_unit_header.push_back(entry);
+            return true;
         }
     }
-    // Since we're outputting something from this unit, output its unit header.
-    if (output && !per_shard->last_filtered_unit_header.empty()) {
-        for (trace_entry_t &unit_header_entry : per_shard->last_filtered_unit_header) {
-            if (!write_trace_entry(per_shard, unit_header_entry))
-                return false;
+
+    if (!output) {
+        if (is_any_instr_type(static_cast<trace_type_t>(entry.type)) &&
+            !per_shard->last_delayed_encodings.empty()) {
+            // Overwrite in case the encoding for this pc was already recorded.
+            per_shard->delayed_encodings[entry.addr] =
+                std::move(per_shard->last_delayed_encodings);
+            per_shard->last_delayed_encodings = {};
         }
-        per_shard->last_filtered_unit_header.clear();
+        return true;
+    }
+
+    if (entry.type == TRACE_TYPE_ENCODING) {
+        per_shard->last_delayed_encodings.push_back(entry);
+        return true;
+    }
+
+    // Since we're outputting something from this unit, output its unit header.
+    if (!per_shard->last_delayed_unit_header.empty()) {
+        if (!write_trace_entries(per_shard, per_shard->last_delayed_unit_header))
+            return false;
+        per_shard->last_delayed_unit_header.clear();
+    }
+
+    if (is_any_instr_type(static_cast<trace_type_t>(entry.type))) {
+        // Output if we have encodings that haven't yet been output.
+        if (!per_shard->last_delayed_encodings.empty()) {
+            // Remove previously delayed encodings.
+            per_shard->delayed_encodings.erase(entry.addr);
+            if (!write_trace_entries(per_shard, per_shard->last_delayed_encodings))
+                return false;
+            per_shard->last_delayed_encodings.clear();
+        } else if (!per_shard->delayed_encodings[entry.addr].empty()) {
+            if (!write_trace_entries(per_shard, per_shard->delayed_encodings[entry.addr]))
+                return false;
+            per_shard->delayed_encodings.erase(entry.addr);
+        }
     }
 
     // XXX i#5675: Currently we support writing to a single output file, but we may
     // want to write to multiple in the same run; e.g. splitting a trace. For now,
     // we can simply run the tool multiple times, but it can be made more efficient.
-    if (output && !write_trace_entry(per_shard, entry))
-        return false;
-    return true;
+    return write_trace_entry(per_shard, entry);
 }
 
 bool
