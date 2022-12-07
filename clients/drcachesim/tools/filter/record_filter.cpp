@@ -115,7 +115,8 @@ record_filter_t::parallel_shard_init_stream(int shard_index, void *worker_data,
         success_ = false;
     }
     for (auto &f : filters_) {
-        per_shard->filter_shard_data.push_back(f->parallel_shard_init(shard_stream));
+        per_shard->filter_shard_data.push_back(
+            f->parallel_shard_init(shard_stream, stop_timestamp_ != 0));
         if (f->get_error_string() != "") {
             per_shard->error =
                 "Failure in initializing filter function " + f->get_error_string();
@@ -163,10 +164,11 @@ record_filter_t::write_trace_entry(per_shard_t *shard, const trace_entry_t &entr
 }
 
 bool
-record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &entry)
+record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &input_entry)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     ++per_shard->input_entry_count;
+    trace_entry_t entry = input_entry;
     bool output = true;
     if (per_shard->enabled && stop_timestamp_ != 0 &&
         per_shard->shard_stream->get_last_timestamp() >= stop_timestamp_) {

@@ -170,7 +170,8 @@ test_cache_and_type_filter()
         // Trace shard header.
         { { TRACE_TYPE_HEADER, 0, { 0x1 } }, { true, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0x3 } }, { true, true } },
+        // Set OFFLINE_FILE_TYPE_ENCODINGS in the file type.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0x200 } }, { true, true } },
         { { TRACE_TYPE_THREAD, 0, { 0x4 } }, { true, true } },
         { { TRACE_TYPE_PID, 0, { 0x5 } }, { true, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
@@ -198,14 +199,15 @@ test_cache_and_type_filter()
         // The following entry is part of the expected output, but not the input. We
         // will skip it in the parallel_shard_filter() loop below.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_ENDPOINT, { 0 } },
-          { true, true } },
+          { false, true } },
         // Unit header.
         // Since this timestamp is greater than the last_timestamp set below, all
-        // later entries will be output regardless of the configured filter.
+        // later entries will be output regardless of the configured filter for the
+        // test iteration k == 1.
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xabcdef } },
           { true, true } },
         { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xa0 } }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0xa1 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0xa1 } }, { false, true } },
         // Trace shard footer.
         { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, { true, true } }
     };
@@ -244,8 +246,9 @@ test_cache_and_type_filter()
         }
 
         // Construct record_filter_t.
+        uint64_t stop_timestamp = k == 0 ? 0 : 0xabcdee;
         auto record_filter = std::unique_ptr<test_record_filter_t>(
-            new test_record_filter_t(std::move(filters), /*stop_timestamp_us=*/0xabcdee));
+            new test_record_filter_t(std::move(filters), stop_timestamp));
         void *shard_data =
             record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
         if (!*record_filter) {
@@ -291,9 +294,22 @@ test_cache_and_type_filter()
                     fprintf(stderr, "\n");
                     return false;
                 }
+                // Set the expected file type.
+                if (entries[i].entry.type == TRACE_TYPE_MARKER &&
+                    entries[i].entry.size == TRACE_MARKER_TYPE_FILETYPE) {
+                    if (k == 0) {
+                        entries[i].entry.addr |= OFFLINE_FILE_TYPE_DFILTERED;
+                        entries[i].entry.addr &= ~OFFLINE_FILE_TYPE_ENCODINGS;
+                    } else {
+                        entries[i].entry.addr |= OFFLINE_FILE_TYPE_DFILTERED;
+                        entries[i].entry.addr |= OFFLINE_FILE_TYPE_IFILTERED;
+                    }
+                }
                 // We do not verify encoding content for instructions.
                 if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
-                    fprintf(stderr, "Wrong filter result for iter=%d. Expected: ", k);
+                    fprintf(stderr,
+                            "Wrong filter result for iter=%d, at pos=%d. Expected: ", k,
+                            i);
                     print_entry(entries[i].entry);
                     fprintf(stderr, ", got: ");
                     print_entry(filtered[j]);
