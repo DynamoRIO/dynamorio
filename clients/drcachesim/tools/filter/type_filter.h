@@ -78,13 +78,33 @@ public:
         }
     }
     void *
-    parallel_shard_init(memtrace_stream_t *shard_stream) override
+    parallel_shard_init(memtrace_stream_t *shard_stream,
+                        bool partial_trace_filter) override
     {
-        return nullptr;
+        per_shard_t *per_shard = new per_shard_t;
+        per_shard->partial_trace_filter = partial_trace_filter;
+        return per_shard;
     }
     bool
-    parallel_shard_filter(const trace_entry_t &entry, void *shard_data) override
+    parallel_shard_filter(trace_entry_t &entry, void *shard_data) override
     {
+        per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+        if (entry.type == TRACE_TYPE_MARKER && entry.size == TRACE_MARKER_TYPE_FILETYPE) {
+            if (TESTANY(entry.addr, OFFLINE_FILE_TYPE_ENCODINGS) &&
+                !per_shard->partial_trace_filter &&
+                remove_trace_types_.find(TRACE_TYPE_ENCODING) !=
+                    remove_trace_types_.end()) {
+                entry.addr &= ~OFFLINE_FILE_TYPE_ENCODINGS;
+            }
+            for (trace_type_t type : remove_trace_types_) {
+                // Not modifying file type for filtering of prefetch/flush entries.
+                if (type_is_instr(type))
+                    entry.addr |= OFFLINE_FILE_TYPE_IFILTERED;
+                else if (type == TRACE_TYPE_READ || type == TRACE_TYPE_WRITE)
+                    entry.addr |= OFFLINE_FILE_TYPE_DFILTERED;
+            }
+            return true;
+        }
         if (remove_trace_types_.find(static_cast<trace_type_t>(entry.type)) !=
             remove_trace_types_.end()) {
             return false;
@@ -98,10 +118,16 @@ public:
     bool
     parallel_shard_exit(void *shard_data) override
     {
+        per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+        delete per_shard;
         return true;
     }
 
 private:
+    struct per_shard_t {
+        bool partial_trace_filter;
+    };
+
     std::unordered_set<trace_type_t> remove_trace_types_;
     std::unordered_set<trace_marker_type_t> remove_marker_types_;
 };
