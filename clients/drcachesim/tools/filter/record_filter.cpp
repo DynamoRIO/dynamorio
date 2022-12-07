@@ -202,8 +202,9 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
     if (per_shard->enabled) {
         for (int i = 0; i < static_cast<int>(filters_.size()); ++i) {
             if (!filters_[i]->parallel_shard_filter(entry,
-                                                    per_shard->filter_shard_data[i]))
+                                                    per_shard->filter_shard_data[i])) {
                 output = false;
+            }
         }
     }
 
@@ -229,17 +230,17 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
 
     if (!output) {
         if (is_any_instr_type(static_cast<trace_type_t>(entry.type)) &&
-            !per_shard->last_delayed_encodings.empty()) {
+            !per_shard->last_delayed_encoding.empty()) {
             // Overwrite in case the encoding for this pc was already recorded.
             per_shard->delayed_encodings[entry.addr] =
-                std::move(per_shard->last_delayed_encodings);
-            per_shard->last_delayed_encodings = {};
+                std::move(per_shard->last_delayed_encoding);
+            per_shard->last_delayed_encoding = {};
         }
         return true;
     }
 
     if (entry.type == TRACE_TYPE_ENCODING) {
-        per_shard->last_delayed_encodings.push_back(entry);
+        per_shard->last_delayed_encoding.push_back(entry);
         return true;
     }
 
@@ -252,12 +253,12 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
 
     if (is_any_instr_type(static_cast<trace_type_t>(entry.type))) {
         // Output if we have encodings that haven't yet been output.
-        if (!per_shard->last_delayed_encodings.empty()) {
+        if (!per_shard->last_delayed_encoding.empty()) {
             // Remove previously delayed encodings.
             per_shard->delayed_encodings.erase(entry.addr);
-            if (!write_trace_entries(per_shard, per_shard->last_delayed_encodings))
+            if (!write_trace_entries(per_shard, per_shard->last_delayed_encoding))
                 return false;
-            per_shard->last_delayed_encodings.clear();
+            per_shard->last_delayed_encoding.clear();
         } else if (!per_shard->delayed_encodings[entry.addr].empty()) {
             if (!write_trace_entries(per_shard, per_shard->delayed_encodings[entry.addr]))
                 return false;
