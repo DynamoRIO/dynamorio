@@ -1231,10 +1231,10 @@ privload_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *opd, bool is_rela
         /* Value for ELF_R_JUMP_SLOT is the symbol address, which has to exist,
          * because libdynamario is linked with "-Xlinker now", no deferred
          * dynamic symbol resolution. */
-	if (res) {
+        if (res) {
             *r_addr = (reg_t)res + addend;
             return ;
-	}
+        }
     } else if (r_type == ELF_R_NONE)
         return;
 
