@@ -3679,12 +3679,12 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
  * opnd_size_from_bytes(proc_get_vector_length()));
  * Setting to fixed size for now in order to pass unit tests.
  */
-#    define OPSZ_SVE opnd_size_from_bytes(32)
+#    define OPSZ_SVE_VL opnd_size_from_bytes(32)
 #else
 /* i3044 TODO: How do we set SVE vector length for offline decode?
  * A command line option?
  */
-#    define OPSZ_SVE opnd_size_from_bytes(32)
+#    define OPSZ_SVE_VL opnd_size_from_bytes(32)
 #endif
 
 static inline bool
@@ -3695,7 +3695,7 @@ decode_opnd_svemem_gpr_simm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     if (offset9 < -256 || offset9 > 255)
         return false;
     *opnd = opnd_create_base_disp_aarch64(decode_reg(extract_uint(enc, 5, 5), true, true),
-                                          DR_REG_NULL, 0, false, offset9, 0, OPSZ_SVE);
+                                          DR_REG_NULL, 0, false, offset9, 0, OPSZ_SVE_VL);
     return true;
 }
 
@@ -3706,7 +3706,7 @@ encode_opnd_svemem_gpr_simm(uint enc, int opcode, byte *pc, opnd_t opnd,
     int disp;
     bool is_x;
     uint rn;
-    if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != OPSZ_SVE)
+    if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != OPSZ_SVE_VL)
         return false;
     disp = opnd_get_disp(opnd);
     if (disp < -256 || disp > 255)
