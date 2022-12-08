@@ -66,18 +66,25 @@ public:
          * any entry. The returned pointer is passed to all invocations of
          * parallel_shard_filter() and parallel_shard_exit().
          * This routine can be used to initialize state for each shard.
+         * \p partial_trace_filter denotes whether the trace will be filtered
+         * only partially, e.g. due to stop_timestamp.
          */
         virtual void *
-        parallel_shard_init(memtrace_stream_t *shard_stream) = 0;
+        parallel_shard_init(memtrace_stream_t *shard_stream,
+                            bool partial_trace_filter) = 0;
         /**
          * Invoked for each #trace_entry_t in the shard. It returns
          * whether or not this \p entry should be included in the result
          * trace. \p shard_data is same as what was returned by
          * parallel_shard_init(). The given \p entry is included in the result
-         * trace iff all provided #record_filter_func_t return true.
+         * trace iff all provided #record_filter_func_t return true. The
+         * \p entry parameter can also be modified by the record_filter_func_t.
+         * The passed \p entry is not guaranteed to be the original one from
+         * the trace if other filter tools are present, and may include changes
+         * made by other tools.
          */
         virtual bool
-        parallel_shard_filter(const trace_entry_t &entry, void *shard_data) = 0;
+        parallel_shard_filter(trace_entry_t &entry, void *shard_data) = 0;
         /**
          * Invoked when all #trace_entry_t in a shard have been processed
          * by parallel_shard_filter(). \p shard_data is same as what was
