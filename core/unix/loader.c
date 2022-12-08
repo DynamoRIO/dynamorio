@@ -1233,7 +1233,7 @@ privload_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *opd, bool is_rela
          * dynamic symbol resolution. */
         if (res) {
             *r_addr = (reg_t)res + addend;
-            return ;
+            return;
         }
     } else if (r_type == ELF_R_NONE)
         return;
