@@ -1114,7 +1114,7 @@ privload_report_relocate_error()
 
 /* XXX: This routine is duplicated from module_lookup_symbol in module_elf.c.
  */
-static  app_pc
+static app_pc
 module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
 {
     app_pc res;
