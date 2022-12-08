@@ -1112,6 +1112,86 @@ privload_report_relocate_error()
     dynamorio_syscall(SYS_exit_group, 1, -1);
 }
 
+/* XXX: This routine is duplicated from module_lookup_symbol in module_elf.c.
+ */
+static  app_pc
+module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
+{
+    app_pc res;
+    const char *name;
+    privmod_t *mod;
+    bool is_ifunc;
+    dcontext_t *dcontext = get_thread_private_dcontext();
+
+    /* no name, do not search */
+    if (sym->st_name == 0 || pd == NULL)
+        return NULL;
+
+    name = (char *)pd->os_data.dynstr + sym->st_name;
+    LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s\n", name, pd->soname);
+    /* check my current module */
+    res = get_proc_address_from_os_data(&pd->os_data, pd->load_delta, name, &is_ifunc);
+    if (res != NULL) {
+        if (is_ifunc) {
+            TRY_EXCEPT_ALLOW_NO_DCONTEXT(
+                dcontext, { res = ((app_pc(*)(void))(res))(); },
+                { /* EXCEPT */
+                  ASSERT_CURIOSITY(false && "crashed while executing ifunc");
+                  res = NULL;
+                });
+        }
+        return res;
+    }
+
+    /* If not find the symbol in current module, iterate over all modules
+     * in the dependency order.
+     * FIXME: i#461 We do not tell weak/global, but return on the first we see.
+     */
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    mod = privload_first_module();
+    /* FIXME i#3850: Symbols are currently looked up following the dependency chain
+     * depth-first instead of breadth-first.
+     */
+    while (mod != NULL) {
+        pd = mod->os_privmod_data;
+        ASSERT(pd != NULL && name != NULL);
+
+        if (pd->soname != NULL) {
+            LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name,
+                pd->soname, mod->path);
+        } else {
+            LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name, "NULL",
+                mod->path);
+        }
+
+        /* XXX i#956: A private libpthread is not fully supported.  For now we let
+         * it load but avoid using any symbols like __errno_location as those
+         * cause crashes: prefer the libc version.
+         */
+        if (pd->soname != NULL && strstr(pd->soname, "libpthread") == pd->soname &&
+            strstr(name, "pthread") != name) {
+            LOG(GLOBAL, LOG_LOADER, 3, "NOT using libpthread's non-pthread symbol\n");
+            res = NULL;
+        } else {
+            res = get_proc_address_from_os_data(&pd->os_data, pd->load_delta, name,
+                                                &is_ifunc);
+        }
+        if (res != NULL) {
+            if (is_ifunc) {
+                TRY_EXCEPT_ALLOW_NO_DCONTEXT(
+                    dcontext, { res = ((app_pc(*)(void))(res))(); },
+                    { /* EXCEPT */
+                      ASSERT_CURIOSITY(false && "crashed while executing ifunc");
+                      res = NULL;
+                    });
+            }
+            return res;
+        }
+        mod = privload_next_module(mod);
+    }
+    return NULL;
+}
+
 /* XXX: This routine is called before dynamorio relocation when we are in a
  * fragile state and thus no globals access or use of ASSERT/LOG/STATS!
  */
@@ -1144,6 +1224,17 @@ privload_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *opd, bool is_rela
         else
             *r_addr += opd->load_delta;
         return;
+    } else if (r_type == ELF_R_JUMP_SLOT) {
+        uint r_sym = (uint)ELF_R_SYM(rel->r_info);
+        ELF_SYM_TYPE *sym = &((ELF_SYM_TYPE *)opd->os_data.dynsym)[r_sym];
+        app_pc res = module_lookup_symbol(sym, opd);
+        /* Value for ELF_R_JUMP_SLOT is the symbol address, which has to exist,
+         * because libdynamario is linked with "-Xlinker now", no deferred
+         * dynamic symbol resolution. */
+	if (res) {
+            *r_addr = (reg_t)res + addend;
+            return ;
+	}
     } else if (r_type == ELF_R_NONE)
         return;
 
