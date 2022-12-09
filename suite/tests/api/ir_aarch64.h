@@ -58,7 +58,7 @@ static byte buf[8192];
         result = false;                                           \
     }
 
-#define TEST_NO_OPNDS(opcode, create_name, expected)    \
+#define TEST_NO_OPNDS(opcode, create_name, expected)            \
     instr = INSTR_CREATE_##create_name(dc);                     \
     if (!test_instr_encoding(dc, OP_##opcode, instr, expected)) \
         *psuccess = false;
