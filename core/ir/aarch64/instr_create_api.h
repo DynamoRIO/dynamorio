@@ -6365,4 +6365,67 @@
  */
 #define INSTR_CREATE_cmpne_sve_pred(dc, Pd, Pg, Zn, Zm) \
     instr_create_1dst_3src(dc, OP_cmpne, Pd, Pg, Zn, Zm)
+
+/**
+ * Creates a SETFFR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SETFFR
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_setffr_sve(dc) instr_create_0dst_0src(dc, OP_setffr)
+
+/**
+ * Creates a RDFFR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RDFFR   <Pd>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate)
+ */
+#define INSTR_CREATE_rdffr_sve(dc, Pd) instr_create_1dst_0src(dc, OP_rdffr, Pd)
+
+/**
+ * Creates a RDFFR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RDFFR   <Pd>.B, <Pg>/Z
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate)
+ * \param Pg   The governing predicate register, P (Predicate)
+ */
+#define INSTR_CREATE_rdffr_sve_pred(dc, Pd, Pg) \
+    instr_create_1dst_1src(dc, OP_rdffr, Pd, Pg)
+
+/**
+ * Creates a RDFFRS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RDFFRS  <Pd>.B, <Pg>/Z
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate)
+ * \param Pg   The governing predicate register, P (Predicate)
+ */
+#define INSTR_CREATE_rdffrs_sve_pred(dc, Pd, Pg) \
+    instr_create_1dst_1src(dc, OP_rdffrs, Pd, Pg)
+
+/**
+ * Creates a WRFFR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    WRFFR   <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pn   The source predicate register, P (Predicate)
+ */
+#define INSTR_CREATE_wrffr_sve(dc, Pn) instr_create_0dst_1src(dc, OP_wrffr, Pn)
 #endif /* DR_IR_MACROS_AARCH64_H */
