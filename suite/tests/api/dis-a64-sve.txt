@@ -3435,6 +3435,60 @@
 2550f1a0 : ptest p12, p13.b                          : ptest  %p12 %p13.b
 2550f9c0 : ptest p14, p14.b                          : ptest  %p14 %p14.b
 
+# RDFFR   <Pd>.B (RDFFR-P.F-_)
+2519f000 : rdffr p0.b                                : rdffr   -> %p0.b
+2519f001 : rdffr p1.b                                : rdffr   -> %p1.b
+2519f002 : rdffr p2.b                                : rdffr   -> %p2.b
+2519f003 : rdffr p3.b                                : rdffr   -> %p3.b
+2519f004 : rdffr p4.b                                : rdffr   -> %p4.b
+2519f005 : rdffr p5.b                                : rdffr   -> %p5.b
+2519f006 : rdffr p6.b                                : rdffr   -> %p6.b
+2519f007 : rdffr p7.b                                : rdffr   -> %p7.b
+2519f008 : rdffr p8.b                                : rdffr   -> %p8.b
+2519f009 : rdffr p9.b                                : rdffr   -> %p9.b
+2519f00a : rdffr p10.b                               : rdffr   -> %p10.b
+2519f00b : rdffr p11.b                               : rdffr   -> %p11.b
+2519f00c : rdffr p12.b                               : rdffr   -> %p12.b
+2519f00d : rdffr p13.b                               : rdffr   -> %p13.b
+2519f00e : rdffr p14.b                               : rdffr   -> %p14.b
+2519f00f : rdffr p15.b                               : rdffr   -> %p15.b
+
+# RDFFR   <Pd>.B, <Pg>/Z (RDFFR-P.P.F-_)
+2518f000 : rdffr p0.b, p0/Z                          : rdffr  %p0/z -> %p0.b
+2518f041 : rdffr p1.b, p2/Z                          : rdffr  %p2/z -> %p1.b
+2518f062 : rdffr p2.b, p3/Z                          : rdffr  %p3/z -> %p2.b
+2518f083 : rdffr p3.b, p4/Z                          : rdffr  %p4/z -> %p3.b
+2518f0a4 : rdffr p4.b, p5/Z                          : rdffr  %p5/z -> %p4.b
+2518f0c5 : rdffr p5.b, p6/Z                          : rdffr  %p6/z -> %p5.b
+2518f0e6 : rdffr p6.b, p7/Z                          : rdffr  %p7/z -> %p6.b
+2518f107 : rdffr p7.b, p8/Z                          : rdffr  %p8/z -> %p7.b
+2518f128 : rdffr p8.b, p9/Z                          : rdffr  %p9/z -> %p8.b
+2518f128 : rdffr p8.b, p9/Z                          : rdffr  %p9/z -> %p8.b
+2518f149 : rdffr p9.b, p10/Z                         : rdffr  %p10/z -> %p9.b
+2518f16a : rdffr p10.b, p11/Z                        : rdffr  %p11/z -> %p10.b
+2518f18b : rdffr p11.b, p12/Z                        : rdffr  %p12/z -> %p11.b
+2518f1ac : rdffr p12.b, p13/Z                        : rdffr  %p13/z -> %p12.b
+2518f1cd : rdffr p13.b, p14/Z                        : rdffr  %p14/z -> %p13.b
+2518f1ef : rdffr p15.b, p15/Z                        : rdffr  %p15/z -> %p15.b
+
+# RDFFRS  <Pd>.B, <Pg>/Z (RDFFRS-P.P.F-_)
+2558f000 : rdffrs p0.b, p0/Z                         : rdffrs %p0/z -> %p0.b
+2558f041 : rdffrs p1.b, p2/Z                         : rdffrs %p2/z -> %p1.b
+2558f062 : rdffrs p2.b, p3/Z                         : rdffrs %p3/z -> %p2.b
+2558f083 : rdffrs p3.b, p4/Z                         : rdffrs %p4/z -> %p3.b
+2558f0a4 : rdffrs p4.b, p5/Z                         : rdffrs %p5/z -> %p4.b
+2558f0c5 : rdffrs p5.b, p6/Z                         : rdffrs %p6/z -> %p5.b
+2558f0e6 : rdffrs p6.b, p7/Z                         : rdffrs %p7/z -> %p6.b
+2558f107 : rdffrs p7.b, p8/Z                         : rdffrs %p8/z -> %p7.b
+2558f128 : rdffrs p8.b, p9/Z                         : rdffrs %p9/z -> %p8.b
+2558f128 : rdffrs p8.b, p9/Z                         : rdffrs %p9/z -> %p8.b
+2558f149 : rdffrs p9.b, p10/Z                        : rdffrs %p10/z -> %p9.b
+2558f16a : rdffrs p10.b, p11/Z                       : rdffrs %p11/z -> %p10.b
+2558f18b : rdffrs p11.b, p12/Z                       : rdffrs %p12/z -> %p11.b
+2558f1ac : rdffrs p12.b, p13/Z                       : rdffrs %p13/z -> %p12.b
+2558f1cd : rdffrs p13.b, p14/Z                       : rdffrs %p14/z -> %p13.b
+2558f1ef : rdffrs p15.b, p15/Z                       : rdffrs %p15/z -> %p15.b
+
 # SABD    <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (SABD-Z.P.ZZ-_)
 040c0000 : sabd z0.b, p0/M, z0.b, z0.b               : sabd   %p0/m %z0.b %z0.b -> %z0.b
 040c0482 : sabd z2.b, p1/M, z2.b, z4.b               : sabd   %p1/m %z2.b %z4.b -> %z2.b
@@ -3568,6 +3622,9 @@
 04d61f79 : sdivr z25.d, p7/M, z25.d, z27.d           : sdivr  %p7/m %z25.d %z27.d -> %z25.d
 04d61fbb : sdivr z27.d, p7/M, z27.d, z29.d           : sdivr  %p7/m %z27.d %z29.d -> %z27.d
 04d61fff : sdivr z31.d, p7/M, z31.d, z31.d           : sdivr  %p7/m %z31.d %z31.d -> %z31.d
+
+# SETFFR   (SETFFR-F-_)
+252c9000 : setffr                                    : setffr
 
 # SMAX    <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (SMAX-Z.P.ZZ-_)
 04080000 : smax z0.b, p0/M, z0.b, z0.b               : smax   %p0/m %z0.b %z0.b -> %z0.b
@@ -5424,6 +5481,24 @@
 04d5bf79 : uxtw z25.d, p7/M, z27.d                   : uxtw   %p7/m %z27.d -> %z25.d
 04d5bfbb : uxtw z27.d, p7/M, z29.d                   : uxtw   %p7/m %z29.d -> %z27.d
 04d5bfff : uxtw z31.d, p7/M, z31.d                   : uxtw   %p7/m %z31.d -> %z31.d
+
+# WRFFR   <Pn>.B (WRFFR-F.P-_)
+25289000 : wrffr p0.b                                : wrffr  %p0.b
+25289020 : wrffr p1.b                                : wrffr  %p1.b
+25289040 : wrffr p2.b                                : wrffr  %p2.b
+25289060 : wrffr p3.b                                : wrffr  %p3.b
+25289080 : wrffr p4.b                                : wrffr  %p4.b
+252890a0 : wrffr p5.b                                : wrffr  %p5.b
+252890c0 : wrffr p6.b                                : wrffr  %p6.b
+252890e0 : wrffr p7.b                                : wrffr  %p7.b
+25289100 : wrffr p8.b                                : wrffr  %p8.b
+25289100 : wrffr p8.b                                : wrffr  %p8.b
+25289120 : wrffr p9.b                                : wrffr  %p9.b
+25289140 : wrffr p10.b                               : wrffr  %p10.b
+25289160 : wrffr p11.b                               : wrffr  %p11.b
+25289180 : wrffr p12.b                               : wrffr  %p12.b
+252891a0 : wrffr p13.b                               : wrffr  %p13.b
+252891e0 : wrffr p15.b                               : wrffr  %p15.b
 
 # ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q (ZIP2-Z.ZZ-Q)
 05a00400 : zip2 z0.q, z0.q, z0.q                     : zip2   %z0.q %z0.q -> %z0.q

@@ -4119,6 +4119,60 @@ TEST_INSTR(cmpne_sve_pred)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_3[i], OPSZ_8));
 }
+
+TEST_INSTR(rdffr_sve)
+{
+    /* Testing RDFFR   <Pd>.B */
+    const char *expected_0_0[6] = {
+        "rdffr   -> %p0.b", "rdffr   -> %p2.b",  "rdffr   -> %p5.b",
+        "rdffr   -> %p8.b", "rdffr   -> %p10.b", "rdffr   -> %p15.b",
+    };
+    TEST_LOOP(rdffr, rdffr_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pn_six_offset_0[i], OPSZ_1));
+}
+
+TEST_INSTR(rdffr_sve_pred)
+{
+    /* Testing RDFFR   <Pd>.B, <Pg>/Z */
+    const char *expected_0_0[6] = {
+        "rdffr  %p0/z -> %p0.b", "rdffr  %p3/z -> %p2.b",   "rdffr  %p6/z -> %p5.b",
+        "rdffr  %p9/z -> %p8.b", "rdffr  %p11/z -> %p10.b", "rdffr  %p15/z -> %p15.b",
+    };
+    TEST_LOOP(rdffr, rdffr_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pn_six_offset_0[i], OPSZ_1),
+              opnd_create_predicate_reg(Pn_six_offset_1[i], false));
+}
+
+TEST_INSTR(rdffrs_sve_pred)
+{
+    /* Testing RDFFRS  <Pd>.B, <Pg>/Z */
+    const char *expected_0_0[6] = {
+        "rdffrs %p0/z -> %p0.b", "rdffrs %p3/z -> %p2.b",   "rdffrs %p6/z -> %p5.b",
+        "rdffrs %p9/z -> %p8.b", "rdffrs %p11/z -> %p10.b", "rdffrs %p15/z -> %p15.b",
+    };
+    TEST_LOOP(rdffrs, rdffrs_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pn_six_offset_0[i], OPSZ_1),
+              opnd_create_predicate_reg(Pn_six_offset_1[i], false));
+}
+
+TEST_INSTR(wrffr_sve)
+{
+
+    /* Testing WRFFR   <Pn>.B */
+    const char *expected_0_0[6] = {
+        "wrffr  %p0.b", "wrffr  %p2.b",  "wrffr  %p5.b",
+        "wrffr  %p8.b", "wrffr  %p10.b", "wrffr  %p15.b",
+    };
+    TEST_LOOP(wrffr, wrffr_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pn_six_offset_0[i], OPSZ_1));
+}
+
+TEST_INSTR(setffr_sve)
+{
+    /* Testing SETFFR */
+    TEST_NO_OPNDS(setffr, setffr_sve, "setffr");
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -4231,6 +4285,12 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(cmplt_sve_pred);
     RUN_INSTR_TEST(cmpne_sve_pred_simm);
     RUN_INSTR_TEST(cmpne_sve_pred);
+
+    RUN_INSTR_TEST(rdffr_sve_pred);
+    RUN_INSTR_TEST(rdffr_sve);
+    RUN_INSTR_TEST(rdffrs_sve_pred);
+    RUN_INSTR_TEST(setffr_sve);
+    RUN_INSTR_TEST(wrffr_sve);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

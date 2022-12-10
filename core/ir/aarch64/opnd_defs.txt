@@ -74,6 +74,7 @@
 --------------------------------  vindex_D1  # An implicit index, at index 1
 --------------------------------  zero_fp_const # A constant zero operand
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
+----------------------------xxxx  p_b_0      # P register with a byte element size
 ---------------------------xxxxx  w0         # W register (or WZR)
 ---------------------------xxxxx  w0p0       # even-numbered W register (or WZR)
 ---------------------------xxxxx  w0p1       # ... add 1
@@ -95,6 +96,7 @@
 ---------------------------xxxxx  prfop      # prefetch operation
 ------------------------xxx-----  op2        # 3 bit immediate from 5-7
 -----------------------xxxx-----  p_b_5      # P register with a byte element size
+-----------------------xxxx-----  p5_zer     # P register, zeroing
 ----------------------xxxxx-----  w5         # W register (or WZR)
 ----------------------xxxxx-----  x5         # X register (or XZR)
 ----------------------xxxxx-----  x5sp       # X register or XSP
