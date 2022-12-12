@@ -86,9 +86,16 @@
 00100100xx0xxxxx001xxxxxxxx1xxxx  w   816  SVE    cmpne   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
 00100100xx0xxxxx101xxxxxxxx1xxxx  w   816  SVE    cmpne  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 z_size_bhsd_16
 00000100xx011011101xxxxxxxxxxxxx  n   793  SVE     cnot  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5
+00000100xx011010101xxxxxxxxxxxxx  n   69   SVE      cnt  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5
+000001000010xxxx111000xxxxxxxxxx  n   835  SVE     cntb             x0 : pred_constr mul imm4_16p1
 00100101xx10000010xxxx0xxxxxxxxx  n   821  SVE     cntp             x0 : p10 p_size_bhsd_5
 00000101xx01xxxx00xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_zer simm8_5 lsl shift1
 00000101xx01xxxx01xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_mrg simm8_5 lsl shift1
+000001000011xxxx111001xxxxxxxxxx  n   836  SVE     decb             x0 : x0 pred_constr mul imm4_16p1
+000001001111xxxx111001xxxxxxxxxx  n   837  SVE     decd             x0 : x0 pred_constr mul imm4_16p1
+000001001111xxxx110001xxxxxxxxxx  n   837  SVE     decd          z_d_0 : pred_constr z_d_0 mul imm4_16p1
+000001000111xxxx111001xxxxxxxxxx  n   838  SVE     dech             x0 : x0 pred_constr mul imm4_16p1
+000001000111xxxx110001xxxxxxxxxx  n   838  SVE     dech          z_h_0 : pred_constr z_h_0 mul imm4_16p1
 00100101xx1011011000100xxxxxxxxx  n   822  SVE     decp             x0 : p_size_bhsd_5 x0
 00100101xx1011011000000xxxxxxxxx  n   822  SVE     decp   z_size_hsd_0 : p_size_hsd_5 z_size_hsd_0
 00000100xx011001000xxxxxxxxxxxxx  n   90   SVE      eor             z0 : p10_lo z0 z5 bhsd_sz
@@ -155,6 +162,9 @@
 00000100xx1xxxxx000100xxxxxxxxxx  n   403  SVE    sqadd             z0 : z5 z16 bhsd_sz
 00100101xx10010011xxxxxxxxxxxxxx  n   403  SVE    sqadd  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
 00000100xx1xxxxx000100xxxxxxxxxx  n   403  SVE    sqadd  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
+000001000110xxxx111110xxxxxxxxxx  n   839  SVE   sqdech             x0 : w0 pred_constr mul imm4_16p1
+000001000111xxxx111110xxxxxxxxxx  n   839  SVE   sqdech             x0 : x0 pred_constr mul imm4_16p1
+000001000110xxxx110010xxxxxxxxxx  n   839  SVE   sqdech          z_h_0 : pred_constr z_h_0 mul imm4_16p1
 00100101xx1010101000100xxxxxxxxx  n   824  SVE   sqdecp             x0 : p_size_bhsd_5 w0
 00100101xx1010101000110xxxxxxxxx  n   824  SVE   sqdecp             x0 : p_size_bhsd_5 x0
 00100101xx1010101000000xxxxxxxxx  n   824  SVE   sqdecp   z_size_hsd_0 : p_size_hsd_5 z_size_hsd_0

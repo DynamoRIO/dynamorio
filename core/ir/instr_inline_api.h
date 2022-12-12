@@ -299,6 +299,7 @@ opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size)
     return opnd;
 }
 
+#ifdef AARCH64
 INSTR_INLINE
 opnd_t
 opnd_create_predicate_reg(reg_id_t r, bool is_merge)
@@ -314,6 +315,7 @@ opnd_create_predicate_reg(reg_id_t r, bool is_merge)
         (ushort)(is_merge ? DR_OPND_IS_MERGE_PREDICATE : DR_OPND_IS_ZERO_PREDICATE);
     return opnd;
 }
+#endif
 
 INSTR_INLINE
 opnd_t

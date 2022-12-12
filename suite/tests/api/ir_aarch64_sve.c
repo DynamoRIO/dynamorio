@@ -5784,6 +5784,236 @@ TEST_INSTR(lastb_sve_simd_fp)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
 }
 
+TEST_INSTR(cnt_sve_pred)
+{
+
+    /* Testing CNT     <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "cnt    %p0/m %z0.b -> %z0.b",   "cnt    %p2/m %z7.b -> %z5.b",
+        "cnt    %p3/m %z12.b -> %z10.b", "cnt    %p5/m %z18.b -> %z16.b",
+        "cnt    %p6/m %z23.b -> %z21.b", "cnt    %p7/m %z31.b -> %z31.b",
+    };
+    TEST_LOOP(cnt, cnt_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_1));
+
+    const char *const expected_0_1[6] = {
+        "cnt    %p0/m %z0.h -> %z0.h",   "cnt    %p2/m %z7.h -> %z5.h",
+        "cnt    %p3/m %z12.h -> %z10.h", "cnt    %p5/m %z18.h -> %z16.h",
+        "cnt    %p6/m %z23.h -> %z21.h", "cnt    %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(cnt, cnt_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_2[6] = {
+        "cnt    %p0/m %z0.s -> %z0.s",   "cnt    %p2/m %z7.s -> %z5.s",
+        "cnt    %p3/m %z12.s -> %z10.s", "cnt    %p5/m %z18.s -> %z16.s",
+        "cnt    %p6/m %z23.s -> %z21.s", "cnt    %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(cnt, cnt_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_3[6] = {
+        "cnt    %p0/m %z0.d -> %z0.d",   "cnt    %p2/m %z7.d -> %z5.d",
+        "cnt    %p3/m %z12.d -> %z10.d", "cnt    %p5/m %z18.d -> %z16.d",
+        "cnt    %p6/m %z23.d -> %z21.d", "cnt    %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(cnt, cnt_sve_pred, 6, expected_0_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
+TEST_INSTR(cntb_shift)
+{
+
+    /* Testing CNTB    <Xd>{, <pattern>{, MUL #<imm>}} */
+    dr_pred_constr_type_t pattern_0_0[6] = {
+        DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
+        DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
+    };
+    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    const char *const expected_0_0[6] = {
+        "cntb   POW2 mul $0x01 -> %x0",   "cntb   VL6 mul $0x05 -> %x5",
+        "cntb   VL64 mul $0x08 -> %x10",  "cntb   $0x11 mul $0x0b -> %x15",
+        "cntb   $0x16 mul $0x0d -> %x20", "cntb   ALL mul $0x10 -> %x30",
+    };
+    TEST_LOOP(cntb, cntb_shift, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_immed_pred_constr(pattern_0_0[i]),
+              opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(decb_shift)
+{
+
+    /* Testing DECB    <Xdn>{, <pattern>{, MUL #<imm>}} */
+    dr_pred_constr_type_t pattern_0_0[6] = {
+        DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
+        DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
+    };
+    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    const char *const expected_0_0[6] = {
+        "decb   %x0 POW2 mul $0x01 -> %x0",    "decb   %x5 VL6 mul $0x05 -> %x5",
+        "decb   %x10 VL64 mul $0x08 -> %x10",  "decb   %x15 $0x11 mul $0x0b -> %x15",
+        "decb   %x20 $0x16 mul $0x0d -> %x20", "decb   %x30 ALL mul $0x10 -> %x30",
+    };
+    TEST_LOOP(decb, decb_shift, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_immed_pred_constr(pattern_0_0[i]),
+              opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(decd_shift)
+{
+
+    /* Testing DECD    <Xdn>{, <pattern>{, MUL #<imm>}} */
+    dr_pred_constr_type_t pattern_0_0[6] = {
+        DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
+        DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
+    };
+    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    const char *const expected_0_0[6] = {
+        "decd   %x0 POW2 mul $0x01 -> %x0",    "decd   %x5 VL6 mul $0x05 -> %x5",
+        "decd   %x10 VL64 mul $0x08 -> %x10",  "decd   %x15 $0x11 mul $0x0b -> %x15",
+        "decd   %x20 $0x16 mul $0x0d -> %x20", "decd   %x30 ALL mul $0x10 -> %x30",
+    };
+    TEST_LOOP(decd, decd_shift, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_immed_pred_constr(pattern_0_0[i]),
+              opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(decd_sve_shift)
+{
+
+    /* Testing DECD    <Zdn>.D{, <pattern>{, MUL #<imm>}} */
+    dr_pred_constr_type_t pattern_0_0[6] = {
+        DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
+        DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
+    };
+    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    const char *const expected_0_0[6] = {
+        "decd   POW2 %z0.d mul $0x01 -> %z0.d",
+        "decd   VL6 %z5.d mul $0x05 -> %z5.d",
+        "decd   VL64 %z10.d mul $0x08 -> %z10.d",
+        "decd   $0x11 %z16.d mul $0x0b -> %z16.d",
+        "decd   $0x16 %z21.d mul $0x0d -> %z21.d",
+        "decd   ALL %z31.d mul $0x10 -> %z31.d",
+    };
+    TEST_LOOP(decd, decd_sve_shift, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_immed_pred_constr(pattern_0_0[i]),
+              opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(dech_shift)
+{
+
+    /* Testing DECH    <Xdn>{, <pattern>{, MUL #<imm>}} */
+    dr_pred_constr_type_t pattern_0_0[6] = {
+        DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
+        DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
+    };
+    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    const char *const expected_0_0[6] = {
+        "dech   %x0 POW2 mul $0x01 -> %x0",    "dech   %x5 VL6 mul $0x05 -> %x5",
+        "dech   %x10 VL64 mul $0x08 -> %x10",  "dech   %x15 $0x11 mul $0x0b -> %x15",
+        "dech   %x20 $0x16 mul $0x0d -> %x20", "dech   %x30 ALL mul $0x10 -> %x30",
+    };
+    TEST_LOOP(dech, dech_shift, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_immed_pred_constr(pattern_0_0[i]),
+              opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(dech_sve_shift)
+{
+
+    /* Testing DECH    <Zdn>.H{, <pattern>{, MUL #<imm>}} */
+    dr_pred_constr_type_t pattern_0_0[6] = {
+        DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
+        DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
+    };
+    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    const char *const expected_0_0[6] = {
+        "dech   POW2 %z0.h mul $0x01 -> %z0.h",
+        "dech   VL6 %z5.h mul $0x05 -> %z5.h",
+        "dech   VL64 %z10.h mul $0x08 -> %z10.h",
+        "dech   $0x11 %z16.h mul $0x0b -> %z16.h",
+        "dech   $0x16 %z21.h mul $0x0d -> %z21.h",
+        "dech   ALL %z31.h mul $0x10 -> %z31.h",
+    };
+    TEST_LOOP(dech, dech_sve_shift, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_immed_pred_constr(pattern_0_0[i]),
+              opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(sqdech_shift_wide)
+{
+
+    /* Testing SQDECH  <Xdn>, <Wdn>{, <pattern>{, MUL #<imm>}} */
+    dr_pred_constr_type_t pattern_0_0[6] = {
+        DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
+        DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
+    };
+    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    const char *const expected_0_0[6] = {
+        "sqdech %w0 POW2 mul $0x01 -> %x0",    "sqdech %w5 VL6 mul $0x05 -> %x5",
+        "sqdech %w10 VL64 mul $0x08 -> %x10",  "sqdech %w15 $0x11 mul $0x0b -> %x15",
+        "sqdech %w20 $0x16 mul $0x0d -> %x20", "sqdech %w30 ALL mul $0x10 -> %x30",
+    };
+    TEST_LOOP(sqdech, sqdech_shift_wide, 6, expected_0_0[i],
+              opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_immed_pred_constr(pattern_0_0[i]),
+              opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(sqdech_shift)
+{
+
+    /* Testing SQDECH  <Xdn>{, <pattern>{, MUL #<imm>}} */
+    dr_pred_constr_type_t pattern_0_0[6] = {
+        DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
+        DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
+    };
+    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    const char *const expected_0_0[6] = {
+        "sqdech %x0 POW2 mul $0x01 -> %x0",    "sqdech %x5 VL6 mul $0x05 -> %x5",
+        "sqdech %x10 VL64 mul $0x08 -> %x10",  "sqdech %x15 $0x11 mul $0x0b -> %x15",
+        "sqdech %x20 $0x16 mul $0x0d -> %x20", "sqdech %x30 ALL mul $0x10 -> %x30",
+    };
+    TEST_LOOP(sqdech, sqdech_shift, 6, expected_0_0[i],
+              opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_immed_pred_constr(pattern_0_0[i]),
+              opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(sqdech_sve_shift)
+{
+
+    /* Testing SQDECH  <Zdn>.H{, <pattern>{, MUL #<imm>}} */
+    dr_pred_constr_type_t pattern_0_0[6] = {
+        DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
+        DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
+    };
+    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    const char *const expected_0_0[6] = {
+        "sqdech POW2 %z0.h mul $0x01 -> %z0.h",
+        "sqdech VL6 %z5.h mul $0x05 -> %z5.h",
+        "sqdech VL64 %z10.h mul $0x08 -> %z10.h",
+        "sqdech $0x11 %z16.h mul $0x0b -> %z16.h",
+        "sqdech $0x16 %z21.h mul $0x0d -> %z21.h",
+        "sqdech ALL %z31.h mul $0x10 -> %z31.h",
+    };
+    TEST_LOOP(sqdech, sqdech_sve_shift, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_immed_pred_constr(pattern_0_0[i]),
+              opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -5943,6 +6173,7 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(orr_sve);
     RUN_INSTR_TEST(orrs_sve_pred);
 
+<<<<<<< HEAD
     RUN_INSTR_TEST(clasta_sve_scalar);
     RUN_INSTR_TEST(clasta_sve_simd_fp);
     RUN_INSTR_TEST(clasta_sve_vector);
@@ -5953,6 +6184,18 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(lasta_sve_simd_fp);
     RUN_INSTR_TEST(lastb_sve_scalar);
     RUN_INSTR_TEST(lastb_sve_simd_fp);
+=======
+    RUN_INSTR_TEST(cnt_sve_pred);
+    RUN_INSTR_TEST(cntb_shift);
+    RUN_INSTR_TEST(decb_shift);
+    RUN_INSTR_TEST(decd_shift);
+    RUN_INSTR_TEST(decd_sve_shift);
+    RUN_INSTR_TEST(dech_shift);
+    RUN_INSTR_TEST(dech_sve_shift);
+    RUN_INSTR_TEST(sqdech_shift_wide);
+    RUN_INSTR_TEST(sqdech_shift);
+    RUN_INSTR_TEST(sqdech_sve_shift);
+>>>>>>> df4c2d22d (i#3044 AArch64 SVE codec: Add constrained predicate count instructions)
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER
