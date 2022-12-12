@@ -127,23 +127,51 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
     return result;
 }
 
-const reg_id_t Zn_six_offset_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
-                                      DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
-const reg_id_t Zn_six_offset_1[6] = { DR_REG_Z0,  DR_REG_Z6,  DR_REG_Z11,
-                                      DR_REG_Z17, DR_REG_Z22, DR_REG_Z31 };
-const reg_id_t Zn_six_offset_2[6] = { DR_REG_Z0,  DR_REG_Z7,  DR_REG_Z12,
-                                      DR_REG_Z18, DR_REG_Z23, DR_REG_Z31 };
-const reg_id_t Zn_six_offset_3[6] = { DR_REG_Z0,  DR_REG_Z8,  DR_REG_Z13,
-                                      DR_REG_Z19, DR_REG_Z24, DR_REG_Z31 };
-const reg_id_t Pn_half_six_offset_0[6] = { DR_REG_P0, DR_REG_P2, DR_REG_P3,
-                                           DR_REG_P5, DR_REG_P6, DR_REG_P7 };
-const reg_id_t Pn_six_offset_0[6] = { DR_REG_P0, DR_REG_P2,  DR_REG_P5,
-                                      DR_REG_P8, DR_REG_P10, DR_REG_P15 };
-const reg_id_t Pn_six_offset_1[6] = { DR_REG_P0, DR_REG_P3,  DR_REG_P6,
-                                      DR_REG_P9, DR_REG_P11, DR_REG_P15 };
-const reg_id_t Pn_six_offset_2[6] = { DR_REG_P0,  DR_REG_P4,  DR_REG_P7,
-                                      DR_REG_P10, DR_REG_P12, DR_REG_P15 };
-const reg_id_t Xn_six_offset_0[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
-                                      DR_REG_X15, DR_REG_X20, DR_REG_X30 };
-const reg_id_t Wn_six_offset_0[6] = { DR_REG_W0,  DR_REG_W5,  DR_REG_W10,
-                                      DR_REG_W15, DR_REG_W20, DR_REG_W30 };
+#define TEST_REG_ARRAY6(name, r0, r1, r2, r3, r4, r5)                 \
+    const reg_id_t name[6] = { DR_REG_##r0, DR_REG_##r1, DR_REG_##r2, \
+                               DR_REG_##r3, DR_REG_##r4, DR_REG_##r5 }
+TEST_REG_ARRAY6(Zn_six_offset_0, Z0, Z5, Z10, Z16, Z21, Z31);
+TEST_REG_ARRAY6(Zn_six_offset_1, Z0, Z6, Z11, Z17, Z22, Z31);
+TEST_REG_ARRAY6(Zn_six_offset_2, Z0, Z7, Z12, Z18, Z23, Z31);
+TEST_REG_ARRAY6(Zn_six_offset_3, Z0, Z8, Z13, Z19, Z24, Z31);
+
+TEST_REG_ARRAY6(Pn_half_six_offset_0, P0, P2, P3, P5, P6, P7);
+TEST_REG_ARRAY6(Pn_six_offset_0, P0, P2, P5, P8, P10, P15);
+TEST_REG_ARRAY6(Pn_six_offset_1, P0, P3, P6, P9, P11, P15);
+TEST_REG_ARRAY6(Pn_six_offset_2, P0, P4, P7, P10, P12, P15);
+
+TEST_REG_ARRAY6(Wn_six_offset_0, W0, W5, W10, W15, W20, W30);
+TEST_REG_ARRAY6(Xn_six_offset_0, X0, X5, X10, X15, X20, X30);
+
+TEST_REG_ARRAY6(Wn_six_offset_0sp, W0, W7, W12, W17, W22, WSP);
+TEST_REG_ARRAY6(Wn_six_offset_1sp, W0, W8, W13, W18, W23, WSP);
+TEST_REG_ARRAY6(Wn_six_offset_2sp, W0, W9, W14, W19, W24, WSP);
+
+TEST_REG_ARRAY6(Wn_six_offset_0zr, W0, W7, W12, W17, W22, WZR);
+TEST_REG_ARRAY6(Wn_six_offset_1zr, W0, W8, W13, W18, W23, WZR);
+TEST_REG_ARRAY6(Wn_six_offset_2zr, W0, W9, W14, W19, W24, WZR);
+
+TEST_REG_ARRAY6(Xn_six_offset_0sp, X0, X7, X12, X17, X22, SP);
+TEST_REG_ARRAY6(Xn_six_offset_1sp, X0, X8, X13, X18, X23, SP);
+TEST_REG_ARRAY6(Xn_six_offset_2sp, X0, X9, X14, X19, X24, SP);
+
+TEST_REG_ARRAY6(Xn_six_offset_0zr, X0, X7, X12, X17, X22, XZR);
+TEST_REG_ARRAY6(Xn_six_offset_1zr, X0, X8, X13, X18, X23, XZR);
+TEST_REG_ARRAY6(Xn_six_offset_2zr, X0, X9, X14, X19, X24, XZR);
+
+TEST_REG_ARRAY6(Bn_six_offset_0, B0, B5, B10, B16, B21, B31);
+TEST_REG_ARRAY6(Bn_six_offset_1, B0, B6, B11, B17, B22, B31);
+TEST_REG_ARRAY6(Bn_six_offset_2, B0, B7, B12, B18, B23, B31);
+
+TEST_REG_ARRAY6(Hn_six_offset_0, H0, H5, H10, H16, H21, H31);
+TEST_REG_ARRAY6(Hn_six_offset_1, H0, H6, H11, H17, H22, H31);
+TEST_REG_ARRAY6(Hn_six_offset_2, H0, H7, H12, H18, H23, H31);
+
+TEST_REG_ARRAY6(Sn_six_offset_0, S0, S5, S10, S16, S21, S31);
+TEST_REG_ARRAY6(Sn_six_offset_1, S0, S6, S11, S17, S22, S31);
+TEST_REG_ARRAY6(Sn_six_offset_2, S0, S7, S12, S18, S23, S31);
+
+TEST_REG_ARRAY6(Dn_six_offset_0, D0, D5, D10, D16, D21, D31);
+TEST_REG_ARRAY6(Dn_six_offset_1, D0, D6, D11, D17, D22, D31);
+TEST_REG_ARRAY6(Dn_six_offset_2, D0, D7, D12, D18, D23, D31);
+#undef TEST_REG_ARRAY6

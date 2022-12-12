@@ -4314,6 +4314,31 @@ encode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 1);
 }
 
+static inline bool
+decode_opnd_wx_size_reg5sp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const uint size = extract_uint(enc, 22, 2);
+
+    ASSERT(!(size > 3));
+    const bool is_x = size == 3;
+    const bool is_sp = true;
+    const int offset = 5;
+
+    return decode_opnd_wxn(is_x, is_sp, offset, enc, opnd);
+}
+
+static inline bool
+encode_opnd_wx_size_reg5sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num;
+    bool is_x;
+    const bool is_sp = true;
+    if (!opnd_is_reg(opnd) || !encode_reg(&num, &is_x, opnd_get_reg(opnd), is_sp))
+        return false;
+    *enc_out = num << 5;
+    return true;
+}
+
 /* fpimm13: floating-point immediate for scalar fmov */
 
 static inline bool

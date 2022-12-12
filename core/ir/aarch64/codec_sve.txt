@@ -83,6 +83,8 @@
 00100101xx10000010xxxx0xxxxxxxxx  n   821  SVE     cntp             x0 : p10 p_size_bhsd_5
 00000101xx01xxxx00xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_zer simm8_5 lsl shift1
 00000101xx01xxxx01xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_mrg simm8_5 lsl shift1
+00000101xx101000101xxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p10_mrg_lo wx_size_reg5sp
+00000101xx100000100xxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p10_mrg_lo bhsd_size_reg5
 00100101xx1011011000100xxxxxxxxx  n   822  SVE     decp             x0 : p_size_bhsd_5 x0
 00100101xx1011011000000xxxxxxxxx  n   822  SVE     decp   z_size_hsd_0 : p_size_hsd_5 z_size_hsd_0
 00000100xx011001000xxxxxxxxxxxxx  n   90   SVE      eor             z0 : p10_lo z0 z5 bhsd_sz

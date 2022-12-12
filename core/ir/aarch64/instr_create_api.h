@@ -5271,6 +5271,25 @@
     instr_create_1dst_4src(dc, OP_cpy, Zd, Pg, simm, OPND_CREATE_LSL(), shift)
 
 /**
+ * Creates a CPY instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CPY     <Zd>.<T>, <Pg>/M, <R><n|SP>
+ *    CPY     <Zd>.<T>, <Pg>/M, <V><n>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The first destination vector register, Z (Scalable)
+ * \param Pg   The governing predicate register, P (Predicate)
+ * \param Rn_or_Vn The source register. Can be a general purpose register
+ *                 W (Word, 32 bits) or X (Extended, 64 bits),
+ *                 or a vector register B (Byte, 8 bits), H (Halfword, 16 bits),
+ *                 S (Singleword, 32 bits), or D (Doubleword, 64 bits).
+ */
+#define INSTR_CREATE_cpy_sve_pred(dc, Zd, Pg, Rn_or_Vn) \
+    instr_create_1dst_2src(dc, OP_cpy, Zd, Pg, Rn_or_Vn)
+
+/**
  * Creates a PTEST instruction.
  *
  * This macro is used to encode the forms:
