@@ -639,45 +639,45 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         // Make a copy to avoid clobbering the entry we pass to process_offline_entry()
         // when it calls get_next_entry() on its own.
         offline_entry_t entry = *in_entry;
-            if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
-                VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
-                       (uint)tdata->tid, (uint64)entry.timestamp.usec);
-                byte *buf = buf_base +
-                    trace_metadata_writer_t::write_timestamp(
-                                buf_base, (uintptr_t)entry.timestamp.usec);
-                tdata->last_timestamp_ = entry.timestamp.usec;
-                CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
-                tdata->error = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
-                                     reinterpret_cast<trace_entry_t *>(buf));
-                if (!tdata->error.empty())
-                    return tdata->error;
-                continue;
-            }
-            // Append delayed branches at the end or before xfer or window-change
-            // markers; else, delay until we see a non-cti inside a block, to handle
-            // double branches (i#5141) and to group all (non-xfer) markers with a new
-            // timestamp.
-            if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
-                (entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER ||
-                 (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                  (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                   entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER ||
-                   (entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID &&
-                    entry.extended.valueA != tdata->last_window))))) {
-                tdata->error = append_delayed_branch(tdata);
-                if (!tdata->error.empty())
-                    return tdata->error;
-            }
-            if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
-                tdata->last_window = entry.extended.valueA;
-            bool flush_decode_cache = false;
-            tdata->error = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
-                                                 &last_bb_handled, &flush_decode_cache);
-            if (flush_decode_cache)
-                decode_cache_[tdata->worker].clear();
+        if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
+            VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
+                   (uint)tdata->tid, (uint64)entry.timestamp.usec);
+            byte *buf = buf_base +
+                trace_metadata_writer_t::write_timestamp(buf_base,
+                                                         (uintptr_t)entry.timestamp.usec);
+            tdata->last_timestamp_ = entry.timestamp.usec;
+            CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+            tdata->error = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
+                                 reinterpret_cast<trace_entry_t *>(buf));
             if (!tdata->error.empty())
                 return tdata->error;
+            continue;
+        }
+        // Append delayed branches at the end or before xfer or window-change
+        // markers; else, delay until we see a non-cti inside a block, to handle
+        // double branches (i#5141) and to group all (non-xfer) markers with a new
+        // timestamp.
+        if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+            (entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER ||
+             (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+              (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER ||
+               (entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID &&
+                entry.extended.valueA != tdata->last_window))))) {
+            tdata->error = append_delayed_branch(tdata);
+            if (!tdata->error.empty())
+                return tdata->error;
+        }
+        if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
+            tdata->last_window = entry.extended.valueA;
+        bool flush_decode_cache = false;
+        tdata->error = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
+                                             &last_bb_handled, &flush_decode_cache);
+        if (flush_decode_cache)
+            decode_cache_[tdata->worker].clear();
+        if (!tdata->error.empty())
+            return tdata->error;
     }
     tdata->error = "";
     return "";
