@@ -1053,7 +1053,7 @@ private:
             instrlist_append(ilist, inst);
         }
 
-        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version, true);
+        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version, false);
 
         for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
              inst = instr_get_next(inst)) {
