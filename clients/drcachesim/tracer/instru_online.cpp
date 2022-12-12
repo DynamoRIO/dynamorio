@@ -45,13 +45,12 @@
 
 #define MAX_IMM_DISP_STUR 255
 
-online_instru_t::online_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *,
-                                                         reg_id_t),
-                                 void (*insert_update_buf_ptr)(void *, instrlist_t *,
-                                                               instr_t *, reg_id_t,
-                                                               dr_pred_type_t, int),
-                                 bool memref_needs_info, drvector_t *reg_vector)
-    : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(trace_entry_t))
+online_instru_t::online_instru_t(
+    void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
+    void (*insert_update_buf_ptr)(void *, instrlist_t *, instr_t *, reg_id_t,
+                                  dr_pred_type_t, int, uintptr_t),
+    drvector_t *reg_vector)
+    : instru_t(insert_load_buf, reg_vector, sizeof(trace_entry_t))
     , insert_update_buf_ptr_(insert_update_buf_ptr)
 {
 }
@@ -315,7 +314,7 @@ int
 online_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist,
                                    instr_t *where, reg_id_t reg_ptr, int adjust,
                                    instr_t *app, opnd_t ref, int ref_index, bool write,
-                                   dr_pred_type_t pred)
+                                   dr_pred_type_t pred, bool memref_needs_full_info_)
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, app);
@@ -354,7 +353,8 @@ online_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t 
 int
 online_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
                                   instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                  int adjust, instr_t *app)
+                                  int adjust, instr_t *app, bool memref_needs_full_info,
+                                  uintptr_t mode)
 {
     bool repstr_expanded = bb_field != 0; // Avoid cl warning C4800.
 #ifdef AARCH64
@@ -368,7 +368,8 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
     // instructions are written together, which may cause us to exceed the
     // MAX_IMM_DISP_STUR.
     if (adjust + sizeof(trace_entry_t) > MAX_IMM_DISP_STUR) {
-        insert_update_buf_ptr_(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust);
+        insert_update_buf_ptr_(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust,
+                               mode);
         adjust = 0;
     }
 #endif
@@ -474,7 +475,8 @@ online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t
 
 void
 online_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
-                             instrlist_t *ilist, bool repstr_expanded)
+                             instrlist_t *ilist, bool repstr_expanded,
+                             bool memref_needs_full_info)
 {
     *bb_field = (void *)repstr_expanded;
 }

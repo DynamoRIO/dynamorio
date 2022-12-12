@@ -75,6 +75,8 @@ namespace drmemtrace {
  */
 static std::atomic<uint64> cur_window_instr_count;
 
+uint64 trace_for_instrs_curr_phase;
+
 static ptr_int_t
 get_local_window(per_thread_t *data)
 {
@@ -82,9 +84,9 @@ get_local_window(per_thread_t *data)
 }
 
 static uint64
-local_instr_count_threshold()
+local_instr_count_threshold(uint64 trace_for_instrs)
 {
-    uint64 limit = op_trace_for_instrs.get_value();
+    uint64 limit = trace_for_instrs;
     if (limit > INSTR_COUNT_LOCAL_UNIT * 10)
         return INSTR_COUNT_LOCAL_UNIT;
     else {
@@ -95,17 +97,17 @@ local_instr_count_threshold()
 
 // Returns whether we've reached the end of this tracing window.
 static bool
-count_traced_instrs(void *drcontext, int toadd)
+count_traced_instrs(void *drcontext, int toadd, uint64 trace_for_instrs)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     data->cur_window_instr_count += toadd;
-    if (data->cur_window_instr_count >= local_instr_count_threshold()) {
+    if (data->cur_window_instr_count >= local_instr_count_threshold(trace_for_instrs)) {
         uint64 newval = cur_window_instr_count.fetch_add(data->cur_window_instr_count,
                                                          std::memory_order_release) +
             // fetch_add returns old value.
             data->cur_window_instr_count;
         data->cur_window_instr_count = 0;
-        if (newval >= op_trace_for_instrs.get_value())
+        if (newval >= trace_for_instrs)
             return true;
     }
     return false;
@@ -122,25 +124,34 @@ reached_traced_instrs_threshold(void *drcontext)
         dr_mutex_unlock(mutex);
         return;
     }
-    // We've reached the end of our window.
-    // We do not attempt a proactive synchronous flush of other threads'
-    // buffers, relying on our end-of-block check for a mode change.
-    // (If -retrace_every_instrs is not set and we're not going to trace
-    // again, we still use a counting mode for simplicity of not adding
-    // yet another mode.)
-    NOTIFY(0, "Hit tracing window #%zd limit: disabling tracing.\n",
-           tracing_window.load(std::memory_order_acquire));
-    // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
-    // one in its header.
-    // If we're counting at exit time, this increment means that the thread
-    // exit entries will be the only ones in this new window: but that seems
-    // reasonable.
-    tracing_window.fetch_add(1, std::memory_order_release);
-    // We delay creating a new ouput dir until tracing is enabled again, to avoid
-    // an empty final dir.
-    DR_ASSERT(is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)));
-    tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
-    cur_window_instr_count.store(0, std::memory_order_release);
+    ptr_int_t mode = tracing_mode.load(std::memory_order_acquire);
+    if (mode == BBDUP_MODE_L0_FILTER) {
+        NOTIFY(0, "Hit tracing window #%zd filter limit: switching to full trace.\n",
+               tracing_window.load(std::memory_order_acquire));
+
+        trace_for_instrs_curr_phase = op_trace_for_instrs.get_value();
+        tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
+    } else {
+        // We've reached the end of our window.
+        // We do not attempt a proactive synchronous flush of other threads'
+        // buffers, relying on our end-of-block check for a mode change.
+        // (If -retrace_every_instrs is not set and we're not going to trace
+        // again, we still use a counting mode for simplicity of not adding
+        // yet another mode.)
+        NOTIFY(0, "Hit tracing window #%zd limit: disabling tracing.\n",
+               tracing_window.load(std::memory_order_acquire));
+        // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
+        // one in its header.
+        // If we're counting at exit time, this increment means that the thread
+        // exit entries will be the only ones in this new window: but that seems
+        // reasonable.
+        tracing_window.fetch_add(1, std::memory_order_release);
+        // We delay creating a new ouput dir until tracing is enabled again, to avoid
+        // an empty final dir.
+        DR_ASSERT(mode == BBDUP_MODE_TRACE);
+        tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
+        cur_window_instr_count.store(0, std::memory_order_release);
+    }
     dr_mutex_unlock(mutex);
 }
 
@@ -1005,13 +1016,13 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
 
     if (do_write) {
         bool hit_window_end = false;
-        if (op_trace_for_instrs.get_value() > 0) {
+        uint64 trace_for_instrs = trace_for_instrs_curr_phase;
+        if (trace_for_instrs > 0) {
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
-                if (!window_changed && !hit_window_end &&
-                    op_trace_for_instrs.get_value() > 0) {
-                    hit_window_end =
-                        count_traced_instrs(drcontext, instru->get_instr_count(mem_ref));
+                if (!window_changed && !hit_window_end && trace_for_instrs > 0) {
+                    hit_window_end = count_traced_instrs(
+                        drcontext, instru->get_instr_count(mem_ref), trace_for_instrs);
                     // We have to finish this buffer so we'll go a little beyond the
                     // precise requested window length.
                     // XXX: For small windows this may be significant: we could go
@@ -1022,9 +1033,18 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             }
             if (hit_window_end) {
                 if (op_offline.get_value() && op_split_windows.get_value()) {
-                    size_t add =
-                        instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
-                    buf_ptr += add;
+                    if (op_L0_filter_until_instrs.get_value() &&
+                        tracing_mode.load(std::memory_order_acquire) ==
+                            BBDUP_MODE_L0_FILTER) {
+                        NOTIFY(0, "Adding endpoint marker\n");
+                        size_t add = instru->append_marker(
+                            buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+                        buf_ptr += add;
+                    } else {
+                        size_t add = instru->append_thread_exit(
+                            buf_ptr, dr_get_thread_id(drcontext));
+                        buf_ptr += add;
+                    }
                 }
                 // Update the global window, but not the local so we can place the rest
                 // of this buffer into the same local window.

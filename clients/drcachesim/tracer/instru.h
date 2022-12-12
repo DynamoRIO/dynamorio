@@ -172,10 +172,8 @@ public:
     // to insert code to re-load the current trace buffer pointer into a register.
     // We require that this is passed at construction time:
     instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
-             bool memref_needs_info, drvector_t *reg_vector, size_t instruction_size,
-             bool disable_opts = false)
+             drvector_t *reg_vector, size_t instruction_size, bool disable_opts = false)
         : insert_load_buf_ptr_(insert_load_buf)
-        , memref_needs_full_info_(memref_needs_info)
         , reg_vector_(reg_vector)
         , disable_optimizations_(disable_opts)
         , instr_size_(instruction_size)
@@ -238,10 +236,12 @@ public:
     virtual int
     instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist, instr_t *where,
                       reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
-                      int ref_index, bool write, dr_pred_type_t pred) = 0;
+                      int ref_index, bool write, dr_pred_type_t pred,
+                      bool memref_needs_full_info) = 0;
     virtual int
     instrument_instr(void *drcontext, void *tag, void *bb_field, instrlist_t *ilist,
-                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) = 0;
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app,
+                     bool memref_needs_full_info, uintptr_t mode) = 0;
     virtual int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
@@ -253,7 +253,7 @@ public:
 
     virtual void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                bool repstr_expanded) = 0;
+                bool repstr_expanded, bool memref_needs_full_info) = 0;
     virtual void
     bb_analysis_cleanup(void *drcontext, void *bb_field) = 0;
 
@@ -295,7 +295,6 @@ protected:
     void (*insert_load_buf_ptr_)(void *, instrlist_t *, instr_t *, reg_id_t);
     // Whether each data ref needs its own PC and type entry (i.e.,
     // this info cannot be inferred from surrounding icache entries).
-    bool memref_needs_full_info_;
     drvector_t *reg_vector_;
     bool disable_optimizations_;
     // Stores a timestamp to use for all future unit headers.  This is meant for
@@ -315,8 +314,9 @@ class online_instru_t : public instru_t {
 public:
     online_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
                     void (*insert_update_buf_ptr)(void *, instrlist_t *, instr_t *,
-                                                  reg_id_t, dr_pred_type_t, int),
-                    bool memref_needs_info, drvector_t *reg_vector);
+                                                  reg_id_t, dr_pred_type_t, int,
+                                                  uintptr_t),
+                    drvector_t *reg_vector);
     virtual ~online_instru_t();
 
     trace_type_t
@@ -352,10 +352,12 @@ public:
     int
     instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist, instr_t *where,
                       reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
-                      int ref_index, bool write, dr_pred_type_t pred) override;
+                      int ref_index, bool write, dr_pred_type_t pred,
+                      bool memref_needs_full_info) override;
     int
     instrument_instr(void *drcontext, void *tag, void *bb_field, instrlist_t *ilist,
-                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) override;
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app,
+                     bool memref_needs_full_info, uintptr_t mode) override;
     int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
@@ -367,7 +369,7 @@ public:
 
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                bool repstr_expanded) override;
+                bool repstr_expanded, bool memref_needs_full_info) override;
     void
     bb_analysis_cleanup(void *drcontext, void *bb_field) override;
 
@@ -385,14 +387,14 @@ private:
 
 protected:
     void (*insert_update_buf_ptr_)(void *, instrlist_t *, instr_t *, reg_id_t,
-                                   dr_pred_type_t, int);
+                                   dr_pred_type_t, int, uintptr_t);
 };
 
 class offline_instru_t : public instru_t {
 public:
     offline_instru_t();
     offline_instru_t(void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
-                     bool memref_needs_info, drvector_t *reg_vector,
+                     drvector_t *reg_vector,
                      ssize_t (*write_file)(file_t file, const void *data, size_t count),
                      file_t module_file, file_t encoding_file,
                      bool disable_optimizations = false,
@@ -435,10 +437,12 @@ public:
     int
     instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist, instr_t *where,
                       reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
-                      int ref_index, bool write, dr_pred_type_t pred) override;
+                      int ref_index, bool write, dr_pred_type_t pred,
+                      bool memref_needs_full_info) override;
     int
     instrument_instr(void *drcontext, void *tag, void *bb_field, instrlist_t *ilist,
-                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) override;
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app,
+                     bool memref_needs_full_info, uintptr_t mode) override;
     int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
@@ -450,7 +454,7 @@ public:
 
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                bool repstr_expanded) override;
+                bool repstr_expanded, bool memref_needs_full_info) override;
     void
     bb_analysis_cleanup(void *drcontext, void *bb_field) override;
 
@@ -467,7 +471,8 @@ public:
     // Inserts labels marking elidable addresses. label_marks_elidable() identifies them.
     // "version" is an OFFLINE_FILE_VERSION* constant.
     void
-    identify_elidable_addresses(void *drcontext, instrlist_t *ilist, int version);
+    identify_elidable_addresses(void *drcontext, instrlist_t *ilist, int version,
+                                bool memref_needs_full_info);
     bool
     label_marks_elidable(instr_t *instr, OUT int *opnd_index, OUT int *memopnd_index,
                          OUT bool *is_write, OUT bool *needs_base);

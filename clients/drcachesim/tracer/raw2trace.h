@@ -801,7 +801,8 @@ protected:
      */
     std::string
     process_offline_entry(void *tls, const offline_entry_t *in_entry, thread_id_t tid,
-                          OUT bool *end_of_record, OUT bool *last_bb_handled)
+                          OUT bool *end_of_record, OUT bool *last_bb_handled,
+                          OUT bool *flush_decode_cache)
     {
         trace_entry_t *buf_base = impl()->get_write_buffer(tls);
         byte *buf = reinterpret_cast<byte *>(buf_base);
@@ -827,6 +828,11 @@ protected:
                     buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
                 if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
                     impl()->log(4, "Signal/exception between bbs\n");
+                } else if (in_entry->extended.valueB ==
+                           TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
+                    impl()->log(2, "Reached filter endpoint\n");
+                    saw_filter_endpoint = true;
+                    *flush_decode_cache = true;
                 }
                 // If there is currently a delayed branch that has not been emitted yet,
                 // delay most markers since intra-block markers can cause issues with
@@ -876,6 +882,9 @@ protected:
             DR_CHECK(reinterpret_cast<trace_entry_t *>(buf) == buf_base,
                      "We shouldn't have buffered anything before calling "
                      "append_bb_entries");
+            if (saw_filter_endpoint && true) {
+                impl()->set_file_type(tls, OFFLINE_FILE_TYPE_DEFAULT);
+            }
             std::string result = append_bb_entries(tls, in_entry, last_bb_handled);
             if (!result.empty())
                 return result;
@@ -1008,6 +1017,8 @@ protected:
 
     const module_mapper_t *modmap_ptr_ = nullptr;
 
+    bool saw_filter_endpoint = false;
+
 private:
     T *
     impl()
@@ -1042,7 +1053,7 @@ private:
             instrlist_append(ilist, inst);
         }
 
-        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version);
+        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version, true);
 
         for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
              inst = instr_get_next(inst)) {
@@ -2078,6 +2089,8 @@ private:
     get_version(void *tls);
     offline_file_type_t
     get_file_type(void *tls);
+    void
+    set_file_type(void *tls, offline_file_type_t file_type);
     size_t
     get_cache_line_size(void *tls);
     void
@@ -2167,6 +2180,16 @@ private:
                           block);
 #else
             table[hash_key(modidx, modoffs)].reset(block);
+#endif
+        }
+
+        void
+        clear()
+        {
+#ifdef X64
+            hashtable_clear(&table);
+#else
+            table.clear();
 #endif
         }
 

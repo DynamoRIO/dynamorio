@@ -55,7 +55,7 @@ void (*offline_instru_t::user_free_)(void *data);
 // This constructor is for use in post-processing when we just need the
 // elision utility functions.
 offline_instru_t::offline_instru_t()
-    : instru_t(nullptr, false, nullptr, sizeof(offline_entry_t))
+    : instru_t(nullptr, nullptr, sizeof(offline_entry_t))
     , write_file_func_(nullptr)
 {
     // We can't use drmgr in standalone mode, but for post-processing it's just us,
@@ -66,11 +66,11 @@ offline_instru_t::offline_instru_t()
 
 offline_instru_t::offline_instru_t(
     void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
-    bool memref_needs_info, drvector_t *reg_vector,
+    drvector_t *reg_vector,
     ssize_t (*write_file)(file_t file, const void *data, size_t count),
     file_t module_file, file_t encoding_file, bool disable_optimizations,
     void (*log)(uint level, const char *fmt, ...))
-    : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(offline_entry_t),
+    : instru_t(insert_load_buf, reg_vector, sizeof(offline_entry_t),
                disable_optimizations)
     , write_file_func_(write_file)
     , modfile_(module_file)
@@ -681,7 +681,7 @@ int
 offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist,
                                     instr_t *where, reg_id_t reg_ptr, int adjust,
                                     instr_t *app, opnd_t ref, int ref_index, bool write,
-                                    dr_pred_type_t pred)
+                                    dr_pred_type_t pred, bool memref_needs_full_info_)
 {
     // Check whether we can elide this address.
     // We expect our labels to be at "where" due to drbbdup's handling of block-final
@@ -731,7 +731,8 @@ offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
                                    instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                   int adjust, instr_t *app)
+                                   int adjust, instr_t *app, bool memref_needs_full_info_,
+                                   uintptr_t mode)
 {
     per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
     app_pc pc;
@@ -781,7 +782,8 @@ offline_instru_t::instrument_instr_encoding(void *drcontext, void *tag, void *bb
 
 void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
-                              instrlist_t *ilist, bool repstr_expanded)
+                              instrlist_t *ilist, bool repstr_expanded,
+                              bool memref_needs_full_info)
 {
     per_block_t *per_block =
         reinterpret_cast<per_block_t *>(dr_thread_alloc(drcontext, sizeof(*per_block)));
@@ -789,7 +791,8 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
 
     per_block->instr_count = instru_t::count_app_instrs(ilist);
 
-    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION);
+    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION,
+                                memref_needs_full_info);
 
     app_pc tag_pc = dr_fragment_app_pc(tag);
     if (drmodtrack_lookup(drcontext, tag_pc, nullptr, nullptr) != DRCOVLIB_SUCCESS) {
@@ -889,7 +892,7 @@ offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
 
 void
 offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilist,
-                                              int version)
+                                              int version, bool memref_needs_full_info_)
 {
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.

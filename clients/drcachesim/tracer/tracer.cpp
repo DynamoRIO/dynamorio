@@ -164,14 +164,33 @@ bool attached_midway;
 static bool
 bbdup_instr_counting_enabled()
 {
-    return op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
-        op_retrace_every_instrs.get_value() > 0;
+    return op_trace_after_instrs.get_value() > 0 ||
+        op_L0_filter_until_instrs.get_value() > 0 ||
+        op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
 }
 
 static bool
 bbdup_duplication_enabled()
 {
     return attached_midway || bbdup_instr_counting_enabled();
+}
+
+// If we have both BBDUP_MODE_TRACE and BBDUP_MODE_L0_FILTER, then L0 filter is active
+// only when mode is BBDUP_MODE_L0_FILTER
+static void
+get_L0_filters(uintptr_t mode, OUT bool *l0i_enabled, OUT bool *l0d_enabled)
+{
+    if (op_L0_filter_until_instrs.get_value()) {
+        if (mode != BBDUP_MODE_L0_FILTER) {
+            *l0i_enabled = false;
+            *l0d_enabled = false;
+            return;
+        }
+    }
+
+    *l0i_enabled = op_L0I_filter.get_value();
+    *l0d_enabled = op_L0D_filter.get_value();
+    return;
 }
 
 std::atomic<ptr_int_t> tracing_window;
@@ -212,7 +231,7 @@ std::atomic<ptr_int_t> tracing_mode;
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, void **user_data);
+                  bool translating, void **user_data, uintptr_t mode);
 
 static dr_emit_flags_t
 event_bb_analysis_cleanup(void *drcontext, void *user_data);
@@ -296,7 +315,7 @@ event_bb_analyze_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
 {
     if (is_in_tracing_mode(mode)) {
         return event_bb_analysis(drcontext, tag, bb, for_trace, translating,
-                                 analysis_data);
+                                 analysis_data, mode);
     } else if (mode == BBDUP_MODE_COUNT) {
         return event_inscount_bb_analysis(drcontext, tag, bb, for_trace, translating,
                                           analysis_data);
@@ -412,8 +431,10 @@ instrumentation_init()
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
     else if (op_trace_after_instrs.get_value() != 0)
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
-    else if (op_L0_filter_until_instrs.get_value())
+    else if (op_L0_filter_until_instrs.get_value()) {
+        trace_for_instrs_curr_phase = op_L0_filter_until_instrs.get_value();
         tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
+    }
 
 #ifdef DELAYED_CHECK_INLINED
     drx_init();
@@ -486,12 +507,13 @@ insert_load_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_
 
 static void
 insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
-                      reg_id_t reg_ptr, dr_pred_type_t pred, int adjust)
+                      reg_id_t reg_ptr, dr_pred_type_t pred, int adjust, uintptr_t mode)
 {
     if (adjust == 0)
         return;
-    if (!(op_L0I_filter.get_value() ||
-          op_L0D_filter.get_value())) // Filter skips over this for !pred.
+    bool is_L0I_enabled, is_L0D_enabled;
+    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
+    if (!(is_L0I_enabled || is_L0D_enabled)) // Filter skips over this for !pred.
         instrlist_set_auto_predicate(ilist, pred);
     MINSERT(
         ilist, where,
@@ -503,7 +525,8 @@ insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 static int
 instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_data_t *ud,
-                        instr_t *where, reg_id_t reg_ptr, int adjust)
+                        instr_t *where, reg_id_t reg_ptr, int adjust, bool is_L0I_enabled,
+                        uintptr_t mode)
 {
     // Instrument to add a full instr entry for the first instr.
     if (op_instr_encodings.get_value()) {
@@ -511,8 +534,9 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
                                                    ilist, where, reg_ptr, adjust,
                                                    ud->delay_instrs[0]);
     }
-    adjust = instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
-                                      reg_ptr, adjust, ud->delay_instrs[0]);
+    adjust =
+        instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where, reg_ptr,
+                                 adjust, ud->delay_instrs[0], is_L0I_enabled, mode);
     if (op_use_physical.get_value() || op_instr_encodings.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
         // cross page bundary, and no bundles for encodings so we can easily
@@ -524,9 +548,9 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
                     drcontext, tag, ud->instru_field, ilist, where, reg_ptr, adjust,
                     ud->delay_instrs[i]);
             }
-            adjust =
-                instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
-                                         reg_ptr, adjust, ud->delay_instrs[i]);
+            adjust = instru->instrument_instr(drcontext, tag, ud->instru_field, ilist,
+                                              where, reg_ptr, adjust, ud->delay_instrs[i],
+                                              is_L0I_enabled, mode);
         }
     } else {
         adjust =
@@ -663,7 +687,7 @@ insert_conditional_skip_target(void *drcontext, instrlist_t *ilist, instr_t *whe
  */
 static void
 instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
-                      reg_id_t reg_ptr)
+                      reg_id_t reg_ptr, uintptr_t mode)
 {
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
     bool short_reaches = true;
@@ -762,8 +786,9 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     reg_id_t reg_tmp = DR_REG_NULL, reg_tmp2 = DR_REG_NULL;
     instr_t *skip_thread = INSTR_CREATE_label(drcontext);
     reg_id_set_t app_regs_at_skip_thread;
-    if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) &&
-        thread_filtering_enabled) {
+    bool is_L0I_enabled, is_L0D_enabled;
+    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
+    if ((is_L0I_enabled || is_L0D_enabled) && thread_filtering_enabled) {
         insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp2, skip_thread,
                                 short_reaches, app_regs_at_skip_thread);
     }
@@ -792,10 +817,12 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 static reg_id_t
 insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_data_t *ud,
                    reg_id_t reg_ptr, opnd_t ref, instr_t *app, instr_t *skip,
-                   dr_pred_type_t pred)
+                   dr_pred_type_t pred, uintptr_t mode)
 {
+    bool is_L0I_enabled, is_L0D_enabled;
+    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
     // Our "level 0" inlined direct-mapped cache filter.
-    DR_ASSERT(op_L0I_filter.get_value() || op_L0D_filter.get_value());
+    DR_ASSERT((is_L0I_enabled || is_L0D_enabled));
     reg_id_t reg_idx;
     bool is_icache = opnd_is_null(ref);
     uint64 cache_size = is_icache ? op_L0I_size.get_value() : op_L0D_size.get_value();
@@ -922,16 +949,19 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
 static int
 instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t *where,
                   reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref, int ref_index,
-                  bool write, dr_pred_type_t pred)
+                  bool write, dr_pred_type_t pred, uintptr_t mode)
 {
     if (op_instr_only_trace.get_value()) {
         return adjust;
     }
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
-    if (op_L0D_filter.get_value()) {
+    bool is_L0I_enabled, is_L0D_enabled;
+    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
+
+    if (is_L0D_enabled) {
         reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr, ref, NULL,
-                                       skip, pred);
+                                       skip, pred, mode);
         if (reg_third == DR_REG_NULL) {
             instr_destroy(drcontext, skip);
             return adjust;
@@ -940,17 +970,18 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     // XXX: If we're filtering only instrs, not data, then we can possibly
     // avoid loading the buf ptr for each memref. We skip this optimization for
     // now for simplicity.
-    if (op_L0I_filter.get_value() || op_L0D_filter.get_value())
+    if ((is_L0I_enabled || is_L0D_enabled))
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     adjust = instru->instrument_memref(drcontext, ud->instru_field, ilist, where, reg_ptr,
-                                       adjust, app, ref, ref_index, write, pred);
-    if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && adjust != 0) {
+                                       adjust, app, ref, ref_index, write, pred,
+                                       is_L0I_enabled);
+    if ((is_L0I_enabled || is_L0D_enabled) && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
-        insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, pred, adjust);
+        insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, pred, adjust, mode);
         adjust = 0;
     }
     MINSERT(ilist, where, skip);
-    if (op_L0D_filter.get_value()) {
+    if (is_L0D_enabled) {
         // drreg requires parity on all paths, so we need to restore the scratch regs
         // for the filter *after* the skip target.
         if (reg_third != DR_REG_NULL &&
@@ -964,11 +995,14 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
 
 static int
 instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist,
-                 instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app)
+                 instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app,
+                 uintptr_t mode)
 {
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
-    if (op_L0I_filter.get_value()) {
+    bool is_L0I_enabled, is_L0D_enabled;
+    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
+    if (is_L0I_enabled) {
         // Count dynamic instructions per thread.
         // It is too expensive to increment per instruction, so we increment once
         // per block by the instruction count for that block.
@@ -988,27 +1022,28 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
                                     reg_ptr);
         }
         reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr,
-                                       opnd_create_null(), app, skip, DR_PRED_NONE);
+                                       opnd_create_null(), app, skip, DR_PRED_NONE, mode);
         if (reg_third == DR_REG_NULL) {
             instr_destroy(drcontext, skip);
             return adjust;
         }
     }
-    if (op_L0I_filter.get_value() || op_L0D_filter.get_value()) // Else already loaded.
+    if ((is_L0I_enabled || is_L0D_enabled)) // Else already loaded.
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     if (op_instr_encodings.get_value()) {
         adjust = instru->instrument_instr_encoding(drcontext, tag, ud->instru_field,
                                                    ilist, where, reg_ptr, adjust, app);
     }
     adjust = instru->instrument_instr(drcontext, tag, ud->instru_field, ilist, where,
-                                      reg_ptr, adjust, app);
-    if ((op_L0I_filter.get_value() || op_L0D_filter.get_value()) && adjust != 0) {
+                                      reg_ptr, adjust, app, is_L0I_enabled, mode);
+    if ((is_L0I_enabled || is_L0D_enabled) && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
-        insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust);
+        insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust,
+                              mode);
         adjust = 0;
     }
     MINSERT(ilist, where, skip);
-    if (op_L0I_filter.get_value()) {
+    if (is_L0I_enabled) {
         // drreg requires parity on all paths, so we need to restore the scratch regs
         // for the filter *after* the skip target.
         if (reg_third != DR_REG_NULL &&
@@ -1041,12 +1076,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     reg_id_t reg_ptr;
     drvector_t rvec;
     dr_emit_flags_t flags = DR_EMIT_DEFAULT;
-    bool is_l0_filter = (op_L0I_filter.get_value() || op_L0D_filter.get_value());
-    // If we have both BBDUP_MODE_TRACE and BBDUP_MODE_L0_FILTER, then L0 filter is active
-    // only when mode is BBDUP_MODE_L0_FILTER
-    if (op_L0_filter_until_instrs.get_value()) {
-        is_l0_filter = (mode == BBDUP_MODE_L0_FILTER);
-    }
+    bool is_L0I_enabled, is_L0D_enabled;
+    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
 
     // We need drwrap's instrumentation to go first so that function trace
     // entries will not be appended to the middle of a BB's PC and Memory Access
@@ -1058,7 +1089,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     drmgr_disable_auto_predication(drcontext, bb);
 
-    if (is_l0_filter && ud->repstr && is_first_nonlabel(drcontext, instr)) {
+    if ((is_L0I_enabled || is_L0D_enabled) && ud->repstr &&
+        is_first_nonlabel(drcontext, instr)) {
         // XXX: the control flow added for repstr ends up jumping over the
         // aflags spill for the memref, yet it hits the lazily-delayed aflags
         // restore.  We don't have a great solution (repstr violates drreg's
@@ -1135,7 +1167,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         // flow and other complications that could cause us to skip an instruction.
         !drmgr_in_emulation_region(drcontext, NULL) &&
         // We can't bundle with a filter.
-        !is_l0_filter &&
+        !(is_L0I_enabled || is_L0D_enabled) &&
         // The delay instr buffer is not full.
         ud->num_delay_instrs < MAX_NUM_DELAY_INSTRS) {
         ud->delay_instrs[ud->num_delay_instrs++] = instr_fetch;
@@ -1166,7 +1198,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     instr_t *skip_instru = INSTR_CREATE_label(drcontext);
     reg_id_t reg_skip = DR_REG_NULL;
     reg_id_set_t app_regs_at_skip;
-    if (!is_l0_filter) {
+    if (!(is_L0I_enabled || is_L0D_enabled)) {
         insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
         if (thread_filtering_enabled) {
             bool short_reaches = false;
@@ -1182,16 +1214,17 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     }
 
     if (ud->num_delay_instrs != 0) {
-        adjust = instrument_delay_instrs(drcontext, tag, bb, ud, where, reg_ptr, adjust);
+        adjust = instrument_delay_instrs(drcontext, tag, bb, ud, where, reg_ptr, adjust,
+                                         is_L0I_enabled, mode);
     }
 
     if (ud->strex != NULL) {
         DR_ASSERT(instr_is_exclusive_store(ud->strex));
-        adjust =
-            instrument_instr(drcontext, tag, ud, bb, where, reg_ptr, adjust, ud->strex);
+        adjust = instrument_instr(drcontext, tag, ud, bb, where, reg_ptr, adjust,
+                                  ud->strex, mode);
         adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust, ud->strex,
                                    instr_get_dst(ud->strex, 0), 0, true,
-                                   instr_get_predicate(ud->strex));
+                                   instr_get_predicate(ud->strex), mode);
         ud->strex = NULL;
     }
 
@@ -1199,8 +1232,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
      * also providing the PC for subsequent data ref entries.
      */
     if (instr_fetch != NULL && (!op_offline.get_value() || !ud->recorded_instr)) {
-        adjust =
-            instrument_instr(drcontext, tag, ud, bb, where, reg_ptr, adjust, instr_fetch);
+        adjust = instrument_instr(drcontext, tag, ud, bb, where, reg_ptr, adjust,
+                                  instr_fetch, mode);
         ud->recorded_instr = true;
         ud->last_app_pc = instr_get_app_pc(instr_fetch);
     }
@@ -1212,7 +1245,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         if (pred != DR_PRED_NONE && adjust != 0) {
             // Update buffer ptr and reset adjust to 0, because
             // we may not execute the inserted code below.
-            insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust);
+            insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust,
+                                  mode);
             adjust = 0;
         }
 
@@ -1221,7 +1255,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             if (opnd_is_memory_reference(instr_get_src(instr_operands, i))) {
                 adjust = instrument_memref(
                     drcontext, ud, bb, where, reg_ptr, adjust, instr_operands,
-                    instr_get_src(instr_operands, i), i, false, pred);
+                    instr_get_src(instr_operands, i), i, false, pred, mode);
             }
         }
 
@@ -1229,22 +1263,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             if (opnd_is_memory_reference(instr_get_dst(instr_operands, i))) {
                 adjust = instrument_memref(
                     drcontext, ud, bb, where, reg_ptr, adjust, instr_operands,
-                    instr_get_dst(instr_operands, i), i, true, pred);
+                    instr_get_dst(instr_operands, i), i, true, pred, mode);
             }
         }
         if (adjust != 0)
-            insert_update_buf_ptr(drcontext, bb, where, reg_ptr, pred, adjust);
+            insert_update_buf_ptr(drcontext, bb, where, reg_ptr, pred, adjust, mode);
     } else if (adjust != 0)
-        insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust);
+        insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust, mode);
 
     /* Insert code to call clean_call for processing the buffer.
      * We restore the registers after the clean call, which should be ok
      * assuming the clean call does not need the two register values.
      */
     if (is_last_instr(drcontext, instr)) {
-        if (is_l0_filter)
+        if ((is_L0I_enabled || is_L0D_enabled))
             insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
-        instrument_clean_call(drcontext, bb, where, reg_ptr);
+        instrument_clean_call(drcontext, bb, where, reg_ptr, mode);
     }
 
     insert_conditional_skip_target(drcontext, bb, where, skip_instru, reg_skip,
@@ -1279,7 +1313,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, void **user_data)
+                  bool translating, void **user_data, uintptr_t mode)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     user_data_t *ud = (user_data_t *)dr_thread_alloc(drcontext, sizeof(user_data_t));
@@ -1288,7 +1322,8 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     ud->scatter_gather = pt->scatter_gather;
     *user_data = (void *)ud;
 
-    instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr);
+    instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr,
+                        mode == BBDUP_MODE_L0_FILTER);
 
     ud->bb_instr_count = instru_t::count_app_instrs(bb);
     // As elsewhere in this code, we want the single-instr original and not
@@ -1982,14 +2017,15 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
                (op_record_heap.get_value() || !op_record_function.get_value().empty())) {
         FATAL("Usage error: function recording is only supported for -offline\n");
     }
+    trace_for_instrs_curr_phase = op_trace_for_instrs.get_value();
     if (op_L0_filter_until_instrs.get_value()) {
 
         if (!op_L0D_filter.get_value() && !op_L0I_filter.get_value()) {
             NOTIFY(
                 0,
                 "Assuming both L0D_filter and L0I_filter for L0_filter_until_instrs\n");
-            op_L0D_filter.set_value(op_L0_filter_until_instrs.get_value());
-            op_L0I_filter.set_value(op_L0_filter_until_instrs.get_value());
+            op_L0D_filter.set_value(true);
+            op_L0I_filter.set_value(true);
         }
     }
 
@@ -2032,18 +2068,17 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement) offline_instru_t(
-            insert_load_buf_ptr, op_L0I_filter.get_value(), &scratch_reserve_vec,
-            file_ops_func.write_file, module_file, encoding_file,
-            op_disable_optimizations.get_value(), instru_notify);
+        instru = new (placement)
+            offline_instru_t(insert_load_buf_ptr, &scratch_reserve_vec,
+                             file_ops_func.write_file, module_file, encoding_file,
+                             op_disable_optimizations.get_value(), instru_notify);
     } else {
         void *placement;
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(online_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement)
-            online_instru_t(insert_load_buf_ptr, insert_update_buf_ptr,
-                            op_L0I_filter.get_value(), &scratch_reserve_vec);
+        instru = new (placement) online_instru_t(
+            insert_load_buf_ptr, insert_update_buf_ptr, &scratch_reserve_vec);
         if (!ipc_pipe.set_name(op_ipc_name.get_value().c_str()))
             DR_ASSERT(false);
 #ifdef UNIX
