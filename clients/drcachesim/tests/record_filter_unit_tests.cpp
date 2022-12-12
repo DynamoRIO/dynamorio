@@ -156,58 +156,138 @@ print_entry(trace_entry_t entry)
 static bool
 test_cache_and_type_filter()
 {
-    struct expected_output {
+    struct test_case {
         trace_entry_t entry;
-        bool present[2];
+        // Specifies whether the entry should be processed by the record_filter
+        // as an input. Some entries are added only to show the expected output
+        // and shouldn't be used as input to the record_filter.
+        bool input;
+        // Specifies whether the entry should be expected in the result of the
+        // record filter. This is an array of size equal to the number of test
+        // cases.
+        bool output[2];
     };
 
     // We test two configurations:
     // 1. filter data address stream using a cache, and filter function markers
-    //    and encoding entries.
-    // 2. filter data and instruction address stream using a cache.
-    //
-    std::vector<struct expected_output> entries = {
+    //    and encoding entries, without any stop timestamp.
+    // 2. filter data and instruction address stream using a cache, with a
+    //    stop timestamp.
+    std::vector<struct test_case> entries = {
         // Trace shard header.
-        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0x3 } }, { true, true } },
-        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, { true, true } },
-        { { TRACE_TYPE_PID, 0, { 0x5 } }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+        { { TRACE_TYPE_HEADER, 0, { 0x1 } }, true, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 0x2 } },
+          true,
           { true, true } },
-        // Unit header.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } }, { true, true } },
-        { { TRACE_TYPE_INSTR, 4, { 0xaa00 } }, { true, true } },
-        { { TRACE_TYPE_WRITE, 4, { 0xaa80 } }, { true, true } },
-        // Unit header.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x9 } }, { false, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xa } }, { false, true } },
-        { { TRACE_TYPE_WRITE, 4, { 0xaa90 } }, { false, false } },
-        { { TRACE_TYPE_ENCODING, 0, { 0 } }, { false, true } },
+        // File type, also modified by the record_filter based on the filtering
+        // done by the filter functions.
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS | OFFLINE_FILE_TYPE_ENCODINGS } },
+          true,
+          { false, false } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS | OFFLINE_FILE_TYPE_DFILTERED } },
+          false,
+          { true, false } },
+        { { TRACE_TYPE_MARKER,
+            TRACE_MARKER_TYPE_FILETYPE,
+            { OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS | OFFLINE_FILE_TYPE_ENCODINGS |
+              OFFLINE_FILE_TYPE_DFILTERED | OFFLINE_FILE_TYPE_IFILTERED } },
+          false,
+          { false, true } },
+        { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true, true } },
+        { { TRACE_TYPE_PID, 0, { 0x5 } }, true, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 0x6 } },
+          true,
+          { true, true } },
 
         // Unit header.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xb } }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xc } }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0xd } }, { false, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0xe } }, { false, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0xf } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x7 } },
+          true,
+          { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0x8 } },
+          true,
+          { true, true } },
+        { { TRACE_TYPE_INSTR, 4, { 0xaa00 } }, true, { true, true } },
+        { { TRACE_TYPE_WRITE, 4, { 0xaa80 } }, true, { true, true } },
+
+        // Unit header. For the 1st test, this is skipped, since no entry
+        // is output from this unit.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0x9 } },
+          true,
           { false, true } },
-        { { TRACE_TYPE_INSTR, 4, { 0xaa80 } }, { true, false } },
-        { { TRACE_TYPE_READ, 4, { 0xaaa0 } }, { false, false } },
-        // The following entry is part of the expected output, but not the input. We
-        // will skip it in the parallel_shard_filter() loop below.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_ENDPOINT, { 0 } },
-          { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xa } },
+          true,
+          { false, true } },
+        // Filtered out by cache_filter.
+        { { TRACE_TYPE_WRITE, 4, { 0xaa90 } }, true, { false, false } },
+        // For the 1st test: filtered out by type_filter.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0xb } },
+          true,
+          { false, true } },
+
         // Unit header.
-        // Since this timestamp is greater than the last_timestamp set below, all
-        // later entries will be output regardless of the configured filter.
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xabcdef } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xc } },
+          true,
           { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xa0 } }, { true, true } },
-        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0xa1 } }, { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xd } },
+          true,
+          { true, true } },
+        // For the 1st test: All function markers are filtered out
+        // by type filter.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0xe } },
+          true,
+          { false, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG, { 0xf } },
+          true,
+          { false, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETADDR, { 0xa0 } },
+          true,
+          { false, true } },
+        // For the 1st test, these encoding entries are filtered out by
+        // the type_filter.
+        // For the 2nd test, these encoding entries are delayed since the
+        // following instruction at PC 0xaa80 is filtered out by the
+        // cache_filter.
+        { { TRACE_TYPE_ENCODING, 4, { 0x8bad } }, true, { false, false } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, true, { false, false } },
+        { { TRACE_TYPE_INSTR, 4, { 0xaa80 } }, true, { true, false } },
+        // Filtered out by the cache_filter.
+        { { TRACE_TYPE_READ, 4, { 0xaaa0 } }, true, { false, false } },
+
+        // Filter endpoint marker. Only added in the 2nd test where
+        // we specify a stop_timestamp.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILTER_ENDPOINT, { 0 } },
+          false,
+          { false, true } },
+
+        // Unit header.
+        // For the 2nd test: Since this timestamp is greater than the
+        // last_timestamp set below, all later entries will be output
+        // regardless of the configured filter.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 0xabcdef } },
+          true,
+          { true, true } },
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 0xa0 } },
+          true,
+          { true, true } },
+        // For the 1st test: Filtered out by type_filter.
+        { { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID, { 0xa1 } },
+          true,
+          { false, true } },
+        // For the 1st test: encoding entries are filtered out by type_filter.
+        { { TRACE_TYPE_ENCODING, 4, { 0xdead } }, true, { false, true } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xbeef } }, true, { false, true } },
+        { { TRACE_TYPE_INSTR, 4, { 0xab80 } }, true, { true, true } },
+        // For the 2nd test: Delayed encodings from the previous instance
+        // of the instruction at PC 0xaa80 that was filtered out.
+        { { TRACE_TYPE_ENCODING, 4, { 0x8bad } }, false, { false, true } },
+        { { TRACE_TYPE_ENCODING, 2, { 0xf00d } }, false, { false, true } },
+        { { TRACE_TYPE_INSTR, 4, { 0xaa80 } }, true, { true, true } },
         // Trace shard footer.
-        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, { true, true } }
+        { { TRACE_TYPE_FOOTER, 0, { 0xa2 } }, true, { true, true } }
     };
 
     for (int k = 0; k < 2; ++k) {
@@ -244,8 +324,9 @@ test_cache_and_type_filter()
         }
 
         // Construct record_filter_t.
+        uint64_t stop_timestamp = k == 0 ? 0 : 0xabcdee;
         auto record_filter = std::unique_ptr<test_record_filter_t>(
-            new test_record_filter_t(std::move(filters), /*stop_timestamp_us=*/0xabcdee));
+            new test_record_filter_t(std::move(filters), stop_timestamp));
         void *shard_data =
             record_filter->parallel_shard_init_stream(0, nullptr, stream.get());
         if (!*record_filter) {
@@ -255,19 +336,11 @@ test_cache_and_type_filter()
 
         // Proccess each trace entry.
         for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-            bool input = true;
-            // We need to emulate the stream for the tool, and also
-            // skip the TRACE_MARKER_TYPE_FILTER_ENDPOINT entry which
-            // is supposed to be part of only the output, not the input.
-            if (entries[i].entry.type == TRACE_TYPE_MARKER) {
-                switch (entries[i].entry.size) {
-                case TRACE_MARKER_TYPE_TIMESTAMP:
-                    stream->set_last_timestamp(entries[i].entry.addr);
-                    break;
-                case TRACE_MARKER_TYPE_FILTER_ENDPOINT: input = false; break;
-                }
-            }
-            if (input &&
+            // We need to emulate the stream for the tool.
+            if (entries[i].entry.type == TRACE_TYPE_MARKER &&
+                entries[i].entry.size == TRACE_MARKER_TYPE_TIMESTAMP)
+                stream->set_last_timestamp(entries[i].entry.addr);
+            if (entries[i].input &&
                 !record_filter->parallel_shard_memref(shard_data, entries[i].entry)) {
                 fprintf(stderr, "Filtering failed\n");
                 return false;
@@ -282,26 +355,25 @@ test_cache_and_type_filter()
         std::vector<trace_entry_t> filtered = record_filter->get_output_entries();
         int j = 0;
         for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-            if (entries[i].present[k]) {
-                if (j >= static_cast<int>(filtered.size())) {
-                    fprintf(
-                        stderr,
+            if (!entries[i].output[k])
+                continue;
+            if (j >= static_cast<int>(filtered.size())) {
+                fprintf(stderr,
                         "Too few entries in filtered output (iter=%d). Expected: ", k);
-                    print_entry(entries[i].entry);
-                    fprintf(stderr, "\n");
-                    return false;
-                }
-                // We do not verify encoding content for instructions.
-                if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
-                    fprintf(stderr, "Wrong filter result for iter=%d. Expected: ", k);
-                    print_entry(entries[i].entry);
-                    fprintf(stderr, ", got: ");
-                    print_entry(filtered[j]);
-                    fprintf(stderr, "\n");
-                    return false;
-                }
-                ++j;
+                print_entry(entries[i].entry);
+                fprintf(stderr, "\n");
+                return false;
             }
+            if (memcmp(&filtered[j], &entries[i].entry, sizeof(trace_entry_t)) != 0) {
+                fprintf(stderr,
+                        "Wrong filter result for iter=%d, at pos=%d. Expected: ", k, i);
+                print_entry(entries[i].entry);
+                fprintf(stderr, ", got: ");
+                print_entry(filtered[j]);
+                fprintf(stderr, "\n");
+                return false;
+            }
+            ++j;
         }
         if (j < static_cast<int>(filtered.size())) {
             fprintf(stderr,
@@ -368,6 +440,8 @@ main(int argc, const char *argv[])
     }
     if (!test_cache_and_type_filter() || !test_null_filter())
         return 1;
+    // TODO i#5675: Add test using a freshly generated trace (during the test) when
+    // zip support is added.
     fprintf(stderr, "All done!\n");
     return 0;
 }

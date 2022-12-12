@@ -2191,6 +2191,7 @@ drbbdup_event_restore_state(void *drcontext, bool restore_memory,
                 if (slots[i] == DR_REG_NULL)
                     continue;
                 reg_t val = drbbdup_get_tls_raw_slot_val(drcontext, i);
+#if !defined(RISCV64)
                 if (i == DRBBDUP_FLAG_REG_SLOT) {
                     reg_t cur = info->mcontext->xflags;
                     cur = dr_merge_arith_flags(cur, val);
@@ -2201,6 +2202,7 @@ drbbdup_event_restore_state(void *drcontext, bool restore_memory,
                         info->mcontext->xflags, cur);
                     info->mcontext->xflags = cur;
                 } else {
+#endif
                     LOG(drcontext, DR_LOG_ALL, 3,
                         "%s: restoring %s at %p (+%zd) from slot %d from " PFX " to " PFX
                         "\n",
@@ -2208,7 +2210,9 @@ drbbdup_event_restore_state(void *drcontext, bool restore_memory,
                         pc - info->fragment_info.cache_start_pc, i,
                         reg_get_value(slots[i], info->mcontext), val);
                     reg_set_value(slots[i], info->mcontext, val);
+#if !defined(RISCV64)
                 }
+#endif
             }
             return true;
         }
