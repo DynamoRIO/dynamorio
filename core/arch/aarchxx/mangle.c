@@ -82,7 +82,6 @@ typedef struct ALIGN_VAR(16) _icache_op_struct_t {
 
 /* Used in aarch64.asm. */
 icache_op_struct_t icache_op_struct;
-#define CTR_DIC_SHIFT 29
 #endif
 
 void
@@ -99,12 +98,15 @@ mangle_arch_init(void)
 #endif
 }
 
+#ifdef AARCH64
+#define CTR_DIC_SHIFT 29
 static bool
 icache_sync_by_hardware() {
     ASSERT(icache_op_struct.cached_ctr_el0 != 0);
     /* if CTR_EL0.DIC is set, icache is sync by hardware */
     return ((icache_op_struct.cached_ctr_el0 >> CTR_DIC_SHIFT) & 0x1) == 0x1;
 }
+#endif
 
 void
 insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *ilist,
@@ -2996,7 +2998,8 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         DEBUG_DECLARE(reg_id_t src_reg = opnd_get_reg(instr_get_src(instr, 0)));
         ASSERT(src_reg == DR_REG_CTR_EL0);
         if (icache_sync_by_hardware()) {
-            ptr_int_t mangle_ctr_el0 = icache_op_struct.cached_ctr_el0 & (~(0x1l << CTR_DIC_SHIFT));
+            ptr_int_t mangle_ctr_el0 = icache_op_struct.cached_ctr_el0
+                                       & (~(0x1l << CTR_DIC_SHIFT));
             LOG(THREAD, LOG_INTERP, 2, "mangle ctr_el0 as %x -> %x\n",
                 icache_op_struct.cached_ctr_el0, mangle_ctr_el0);
             reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
@@ -3004,9 +3007,11 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 insert_mov_immed_arch(dcontext, NULL, NULL, mangle_ctr_el0,
                                       opnd_create_reg(reg), ilist, instr, NULL, NULL);
             } else {
-                PRE(ilist, instr, instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+                PRE(ilist, instr, instr_create_save_to_tls(dcontext, DR_REG_X0,
+                                                           TLS_REG0_SLOT));
                 insert_mov_immed_arch(dcontext, NULL, NULL, mangle_ctr_el0,
-                                      opnd_create_reg(DR_REG_X0), ilist, instr, NULL, NULL);
+                                      opnd_create_reg(DR_REG_X0),
+                                      ilist, instr, NULL, NULL);
                 PRE(ilist, instr,
                     instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG_STOLEN_SLOT));
                 PRE(ilist, instr,
