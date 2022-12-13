@@ -288,6 +288,10 @@ instr_is_icache_op(instr_t *instr)
         return true; /* ic ivau, xT */
     if (opc == OP_isb)
         return true; /* isb */
+    if (opc == OP_mrs &&
+        opnd_is_reg(instr_get_src(instr, 0)) &&
+        opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_CTR_EL0) /* mrs ctr_el0 */
+        return true;
     return false;
 }
 
