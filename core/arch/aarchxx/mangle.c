@@ -92,16 +92,17 @@ mangle_arch_init(void)
     ASSERT(!ALIGNED(&icache_op_struct.lock, 16));
     /* cache the ctr_el0 */
     ptr_uint_t cache_info;
-    asm volatile ("mrs\t%0, ctr_el0":"=r" (cache_info));
+    asm volatile("mrs\t%0, ctr_el0" : "=r"(cache_info));
     LOG(GLOBAL, LOG_INTERP, 2, "cpu cache info: %x\n", cache_info);
     icache_op_struct.cached_ctr_el0 = cache_info;
 #endif
 }
 
 #ifdef AARCH64
-#define CTR_DIC_SHIFT 29
+#    define CTR_DIC_SHIFT 29
 static bool
-icache_sync_by_hardware() {
+icache_sync_by_hardware()
+{
     ASSERT(icache_op_struct.cached_ctr_el0 != 0);
     /* if CTR_EL0.DIC is set, icache is sync by hardware */
     return ((icache_op_struct.cached_ctr_el0 >> CTR_DIC_SHIFT) & 0x1) == 0x1;
@@ -2998,8 +2999,8 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         DEBUG_DECLARE(reg_id_t src_reg = opnd_get_reg(instr_get_src(instr, 0)));
         ASSERT(src_reg == DR_REG_CTR_EL0);
         if (icache_sync_by_hardware()) {
-            ptr_int_t mangle_ctr_el0 = icache_op_struct.cached_ctr_el0
-                                       & (~(0x1l << CTR_DIC_SHIFT));
+            ptr_int_t mangle_ctr_el0 =
+                icache_op_struct.cached_ctr_el0 & (~(0x1l << CTR_DIC_SHIFT));
             LOG(THREAD, LOG_INTERP, 2, "mangle ctr_el0 as %x -> %x\n",
                 icache_op_struct.cached_ctr_el0, mangle_ctr_el0);
             reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
@@ -3007,11 +3008,11 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 insert_mov_immed_arch(dcontext, NULL, NULL, mangle_ctr_el0,
                                       opnd_create_reg(reg), ilist, instr, NULL, NULL);
             } else {
-                PRE(ilist, instr, instr_create_save_to_tls(dcontext, DR_REG_X0,
-                                                           TLS_REG0_SLOT));
+                PRE(ilist, instr,
+                    instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
                 insert_mov_immed_arch(dcontext, NULL, NULL, mangle_ctr_el0,
-                                      opnd_create_reg(DR_REG_X0),
-                                      ilist, instr, NULL, NULL);
+                                      opnd_create_reg(DR_REG_X0), ilist, instr, NULL,
+                                      NULL);
                 PRE(ilist, instr,
                     instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG_STOLEN_SLOT));
                 PRE(ilist, instr,
@@ -3021,7 +3022,7 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instrlist_remove(ilist, instr);
             instr_destroy(dcontext, instr);
         }
-    }else
+    } else
         ASSERT_NOT_REACHED();
     return next_instr;
 }

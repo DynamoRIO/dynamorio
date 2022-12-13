@@ -942,11 +942,13 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
             app_pc end = (app_pc)dcontext->local_state->spill_space.r3;
             dcontext->next_tag = (app_pc)dcontext->local_state->spill_space.r4;
             if (end > begin) {
-              flush_fragments_from_region(dcontext, begin, end - begin, true,
-                                          NULL /*flush_completion_callback*/,
-                                          NULL /*user_data*/);
+                flush_fragments_from_region(dcontext, begin, end - begin, true,
+                                            NULL /*flush_completion_callback*/,
+                                            NULL /*user_data*/);
             } else {
-              LOG(THREAD, LOG_DISPATCH, 2, "WARNING: skip selfmod region from %llx to %llx, size %d\n", begin, end, end-begin);
+                LOG(THREAD, LOG_DISPATCH, 2,
+                    "WARNING: skip selfmod region from %llx to %llx, size %d\n",
+                    begin, end, end-begin);
             }
         }
 #endif
