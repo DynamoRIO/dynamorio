@@ -6428,4 +6428,219 @@
  * \param Pn   The source predicate register, P (Predicate)
  */
 #define INSTR_CREATE_wrffr_sve(dc, Pn) instr_create_0dst_1src(dc, OP_wrffr, Pn)
+
+/**
+ * Creates a CNTP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CNTP    <Xd>, <Pg>, <Pn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_cntp_sve_pred(dc, Rd, Pg, Pn) \
+    instr_create_1dst_2src(dc, OP_cntp, Rd, Pg, Pn)
+
+/**
+ * Creates a DECP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    DECP    <Xdn>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rdn   The second source and destination  register, X (Extended, 64 bits).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_decp_sve(dc, Rdn, Pm) \
+    instr_create_1dst_2src(dc, OP_decp, Rdn, Pm, Rdn)
+
+/**
+ * Creates a DECP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    DECP    <Zdn>.<Ts>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The second source and destination vector register, Z (Scalable).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_decp_sve_vector(dc, Zdn, Pm) \
+    instr_create_1dst_2src(dc, OP_decp, Zdn, Pm, Zdn)
+
+/**
+ * Creates an INCP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    INCP    <Xdn>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rdn   The second source and destination  register, X (Extended, 64 bits).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_incp_sve(dc, Rdn, Pm) \
+    instr_create_1dst_2src(dc, OP_incp, Rdn, Pm, Rdn)
+
+/**
+ * Creates an INCP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    INCP    <Zdn>.<Ts>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The second source and destination vector register, Z (Scalable).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_incp_sve_vector(dc, Zdn, Pm) \
+    instr_create_1dst_2src(dc, OP_incp, Zdn, Pm, Zdn)
+
+/**
+ * Creates a SQDECP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SQDECP  <Xdn>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rdn   The source and destination register, X (Extended, 64 bits).
+ * \param Pm   The source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_sqdecp_sve(dc, Rdn, Pm) \
+    instr_create_1dst_2src(dc, OP_sqdecp, Rdn, Pm, Rdn)
+
+/**
+ * Creates a SQDECP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SQDECP  <Xdn>, <Pm>.<Ts>, <Wdn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rdn   The second source and destination  register, X (Extended, 64 bits).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_sqdecp_sve_wide(dc, Rdn, Pm)  \
+    instr_create_1dst_2src(dc, OP_sqdecp, Rdn, Pm, \
+                           opnd_create_reg(opnd_get_reg(Rdn) - DR_REG_X0 + DR_REG_W0))
+
+/**
+ * Creates a SQDECP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SQDECP  <Zdn>.<Ts>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The second source and destination vector register, Z (Scalable).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_sqdecp_sve_vector(dc, Zdn, Pm) \
+    instr_create_1dst_2src(dc, OP_sqdecp, Zdn, Pm, Zdn)
+
+/**
+ * Creates a SQINCP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SQINCP  <Xdn>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rdn   The second source and destination  register, X (Extended, 64 bits).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_sqincp_sve(dc, Rdn, Pm) \
+    instr_create_1dst_2src(dc, OP_sqincp, Rdn, Pm, Rdn)
+
+/**
+ * Creates a SQINCP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SQINCP  <Xdn>, <Pm>.<Ts>, <Wdn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rdn   The second source and destination  register, X (Extended, 64 bits).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_sqincp_sve_wide(dc, Rdn, Pm)  \
+    instr_create_1dst_2src(dc, OP_sqincp, Rdn, Pm, \
+                           opnd_create_reg(opnd_get_reg(Rdn) - DR_REG_X0 + DR_REG_W0))
+
+/**
+ * Creates a SQINCP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SQINCP  <Zdn>.<Ts>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The second source and destination vector register, Z (Scalable).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_sqincp_sve_vector(dc, Zdn, Pm) \
+    instr_create_1dst_2src(dc, OP_sqincp, Zdn, Pm, Zdn)
+
+/**
+ * Creates an UQDECP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UQDECP  <Wdn>, <Pm>.<Ts>
+ *    UQDECP  <Xdn>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rdn   The second source and destination  register. Can be X (Extended, 64 bits)
+ * or W (Word, 32 bits). \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_uqdecp_sve(dc, Rdn, Pm) \
+    instr_create_1dst_2src(dc, OP_uqdecp, Rdn, Pm, Rdn)
+
+/**
+ * Creates an UQDECP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UQDECP  <Zdn>.<Ts>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The second source and destination vector register, Z (Scalable).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_uqdecp_sve_vector(dc, Zdn, Pm) \
+    instr_create_1dst_2src(dc, OP_uqdecp, Zdn, Pm, Zdn)
+
+/**
+ * Creates an UQINCP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UQINCP  <Wdn>, <Pm>.<Ts>
+ *    UQINCP  <Xdn>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rdn   The second source and destination  register. Can be X (Extended, 64 bits)
+ * or W (Word, 32 bits). \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_uqincp_sve(dc, Rdn, Pm) \
+    instr_create_1dst_2src(dc, OP_uqincp, Rdn, Pm, Rdn)
+
+/**
+ * Creates an UQINCP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UQINCP  <Zdn>.<Ts>, <Pm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The second source and destination vector register, Z (Scalable).
+ * \param Pm   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_uqincp_sve_vector(dc, Zdn, Pm) \
+    instr_create_1dst_2src(dc, OP_uqincp, Zdn, Pm, Zdn)
 #endif /* DR_IR_MACROS_AARCH64_H */
