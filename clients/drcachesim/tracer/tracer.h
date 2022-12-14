@@ -168,7 +168,7 @@ enum {
     BBDUP_MODE_COUNT = 1,     /* Instr counting for delayed tracing or trace windows. */
     BBDUP_MODE_FUNC_ONLY = 2, /* Function tracing during no-full-trace periods. */
     BBDUP_MODE_NOP = 3,       /* No tracing or counting for pre-attach or post-detach. */
-    BBDUP_MODE_L0_FILTER = 4, /* Full address tracing with L0_filter */
+    BBDUP_MODE_L0_FILTER = 4, /* Full address tracing with L0_filter. */
 };
 
 #if defined(X86_64) || defined(AARCH64)
@@ -231,8 +231,6 @@ extern size_t redzone_size;
 extern size_t max_buf_size;
 extern size_t buf_hdr_slots_size;
 
-extern uint64 trace_for_instrs_curr_phase;
-
 #define MAX_NUM_DELAY_INSTRS 32
 // Really sizeof(trace_entry_t.length)
 #define MAX_NUM_DELAY_ENTRIES (MAX_NUM_DELAY_INSTRS / sizeof(addr_t))
@@ -257,8 +255,7 @@ has_tracing_windows()
     // We return true for a single-window -trace_for_instrs (without -retrace) setup
     // since we rely on having window numbers for the end-of-block buffer output check
     // used for a single-window transition away from tracing.
-    return op_L0_filter_until_instrs.get_value() > 0 ||
-        op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
+    return op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
 }
 
 static inline bool

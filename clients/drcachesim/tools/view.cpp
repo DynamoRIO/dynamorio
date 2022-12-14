@@ -343,8 +343,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // the default case below.
             break;
         case TRACE_MARKER_TYPE_FILTER_ENDPOINT:
-            std::cerr << "<marker: filter endpoint #" << memref.marker.marker_value
-                      << ">\n";
+            std::cerr << "<marker: filter endpoint \n";
             break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
             std::cerr << "<marker: physical address for following virtual: 0x" << std::hex

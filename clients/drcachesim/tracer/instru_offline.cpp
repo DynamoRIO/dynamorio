@@ -681,7 +681,7 @@ int
 offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist,
                                     instr_t *where, reg_id_t reg_ptr, int adjust,
                                     instr_t *app, opnd_t ref, int ref_index, bool write,
-                                    dr_pred_type_t pred, bool memref_needs_full_info_)
+                                    dr_pred_type_t pred, bool memref_needs_full_info)
 {
     // Check whether we can elide this address.
     // We expect our labels to be at "where" due to drbbdup's handling of block-final
@@ -699,11 +699,11 @@ offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t
         }
     }
     // Post-processor distinguishes read, write, prefetch, flush, and finds size.
-    if (!memref_needs_full_info_) // For full info we skip this for !pred
+    if (!memref_needs_full_info) // For full info we skip this for !pred
         instrlist_set_auto_predicate(ilist, pred);
     // We allow either 0 or all 1's as the type so no need to write anything else,
     // unless a filter is in place in which case we need a PC entry.
-    if (memref_needs_full_info_) {
+    if (memref_needs_full_info) {
         per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
         reg_id_t reg_tmp;
         drreg_status_t res =
@@ -731,13 +731,13 @@ offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
                                    instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                   int adjust, instr_t *app, bool memref_needs_full_info_,
+                                   int adjust, instr_t *app, bool memref_needs_full_info,
                                    uintptr_t mode)
 {
     per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
     app_pc pc;
     reg_id_t reg_tmp;
-    if (!memref_needs_full_info_) {
+    if (!memref_needs_full_info) {
         // We write just once per bb, if not filtering.
         if (per_block->instr_count > MAX_INSTR_COUNT)
             return adjust;
@@ -751,9 +751,9 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     adjust += insert_save_pc(
         drcontext, ilist, where, reg_ptr, reg_tmp, adjust, pc,
-        memref_needs_full_info_ ? 1 : static_cast<uint>(per_block->instr_count),
+        memref_needs_full_info ? 1 : static_cast<uint>(per_block->instr_count),
         per_block);
-    if (!memref_needs_full_info_)
+    if (!memref_needs_full_info)
         per_block->instr_count = MAX_INSTR_COUNT + 1;
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
@@ -892,14 +892,14 @@ offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
 
 void
 offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilist,
-                                              int version, bool memref_needs_full_info_)
+                                              int version, bool memref_needs_full_info)
 {
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.
     if (disable_optimizations_)
         return;
     // We can't elide when doing filtering.
-    if (memref_needs_full_info_)
+    if (memref_needs_full_info)
         return;
     reg_id_set_t saw_base;
     for (instr_t *instr = instrlist_first(ilist); instr != NULL;

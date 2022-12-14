@@ -314,7 +314,7 @@ int
 online_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist,
                                    instr_t *where, reg_id_t reg_ptr, int adjust,
                                    instr_t *app, opnd_t ref, int ref_index, bool write,
-                                   dr_pred_type_t pred, bool memref_needs_full_info_)
+                                   dr_pred_type_t pred, bool memref_needs_full_info)
 {
     ushort type = (ushort)(write ? TRACE_TYPE_WRITE : TRACE_TYPE_READ);
     ushort size = (ushort)drutil_opnd_mem_size_in_bytes(ref, app);
@@ -322,9 +322,9 @@ online_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t 
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    if (!memref_needs_full_info_)    // For full info we skip this for !pred
+    if (!memref_needs_full_info)     // For full info we skip this for !pred
         instrlist_set_auto_predicate(ilist, pred);
-    if (memref_needs_full_info_) {
+    if (memref_needs_full_info) {
         // When filtering we have to insert a PC entry for every memref.
         // The 0 size indicates it's a non-icache entry.
         insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,

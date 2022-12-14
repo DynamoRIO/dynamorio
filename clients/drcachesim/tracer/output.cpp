@@ -75,8 +75,6 @@ namespace drmemtrace {
  */
 static std::atomic<uint64> cur_window_instr_count;
 
-uint64 trace_for_instrs_curr_phase;
-
 static ptr_int_t
 get_local_window(per_thread_t *data)
 {
@@ -129,7 +127,6 @@ reached_traced_instrs_threshold(void *drcontext)
         NOTIFY(0, "Hit tracing window #%zd filter limit: switching to full trace.\n",
                tracing_window.load(std::memory_order_acquire));
 
-        trace_for_instrs_curr_phase = op_trace_for_instrs.get_value();
         tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
     } else {
         // We've reached the end of our window.
@@ -1016,7 +1013,14 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
 
     if (do_write) {
         bool hit_window_end = false;
-        uint64 trace_for_instrs = trace_for_instrs_curr_phase;
+        uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
+        uint64 trace_for_instrs;
+
+        if (op_L0_filter_until_instrs.get_value() && mode == BBDUP_MODE_L0_FILTER) {
+            trace_for_instrs = op_L0_filter_until_instrs.get_value();
+        } else {
+            trace_for_instrs = op_trace_for_instrs.get_value();
+        }
         if (trace_for_instrs > 0) {
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
@@ -1034,8 +1038,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             if (hit_window_end) {
                 if (op_offline.get_value() && op_split_windows.get_value()) {
                     if (op_L0_filter_until_instrs.get_value() &&
-                        tracing_mode.load(std::memory_order_acquire) ==
-                            BBDUP_MODE_L0_FILTER) {
+                        mode == BBDUP_MODE_L0_FILTER) {
                         NOTIFY(0, "Adding endpoint marker\n");
                         size_t add = instru->append_marker(
                             buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);

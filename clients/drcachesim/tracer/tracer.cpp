@@ -431,10 +431,8 @@ instrumentation_init()
         tracing_mode.store(BBDUP_MODE_NOP, std::memory_order_release);
     else if (op_trace_after_instrs.get_value() != 0)
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
-    else if (op_L0_filter_until_instrs.get_value()) {
-        trace_for_instrs_curr_phase = op_L0_filter_until_instrs.get_value();
+    else if (op_L0_filter_until_instrs.get_value())
         tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
-    }
 
 #ifdef DELAYED_CHECK_INLINED
     drx_init();
@@ -2017,7 +2015,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
                (op_record_heap.get_value() || !op_record_function.get_value().empty())) {
         FATAL("Usage error: function recording is only supported for -offline\n");
     }
-    trace_for_instrs_curr_phase = op_trace_for_instrs.get_value();
     if (op_L0_filter_until_instrs.get_value()) {
 
         if (!op_L0D_filter.get_value() && !op_L0I_filter.get_value()) {

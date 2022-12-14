@@ -883,7 +883,11 @@ protected:
                      "We shouldn't have buffered anything before calling "
                      "append_bb_entries");
             if (saw_filter_endpoint && true) {
-                impl()->set_file_type(tls, OFFLINE_FILE_TYPE_DEFAULT);
+                int file_type = impl()->get_file_type(tls);
+                file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                               OFFLINE_FILE_TYPE_DFILTERED);
+                file_type |= OFFLINE_FILE_TYPE_DEFAULT;
+                impl()->set_file_type(tls, (offline_file_type_t)file_type);
             }
             std::string result = append_bb_entries(tls, in_entry, last_bb_handled);
             if (!result.empty())
