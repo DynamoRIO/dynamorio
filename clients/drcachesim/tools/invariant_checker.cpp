@@ -490,7 +490,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->prev_xfer_marker_.marker.marker_type !=
                 TRACE_MARKER_TYPE_KERNEL_XFER) {
             if (shard->saw_kernel_xfer_after_prev_instr_) {
-                // Back-to-back kernel xfers without an intervening app instr.
+                // We have nested signals without an intervening app instr.
                 // Push an empty instr to mean that this shouldn't be used.
                 shard->pre_signal_instr_.push({});
             } else {
