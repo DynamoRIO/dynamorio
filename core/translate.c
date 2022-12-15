@@ -799,6 +799,8 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
     ASSERT(cpc - start_cache == info->translation[0].cache_offs);
     i = 0;
     while (cpc < end_cache) {
+        LOG(THREAD_GET, LOG_INTERP, 5, "cache pc " PFX " vs " PFX "\n", cpc,
+            target_cache);
         /* we can go beyond the end of the table: then use the last point */
         if (i < info->num_entries &&
             cpc - start_cache >= info->translation[i].cache_offs) {
@@ -1715,9 +1717,9 @@ set_translation(dcontext_t *dcontext, translation_entry_t **entries, uint *num_e
         (*entries)[entry].flags |= TRANSLATE_OUR_MANGLING;
     if (in_clean_call)
         (*entries)[entry].flags |= TRANSLATE_CLEAN_CALL;
-    LOG(THREAD, LOG_FRAGMENT, 4, "\tset_translation: %d +%5d => " PFX " %s%s\n", entry,
+    LOG(THREAD, LOG_FRAGMENT, 4, "\tset_translation: %d +%5d => " PFX " %s%s%s\n", entry,
         cache_offs, app, identical ? "identical" : "contiguous",
-        our_mangling ? " ours" : "");
+        our_mangling ? " ours" : "", in_clean_call ? " call" : "");
 }
 
 void
@@ -1728,13 +1730,14 @@ translation_info_print(const translation_info_t *info, cache_pc start, file_t fi
     ASSERT(file != INVALID_FILE);
     print_file(file, "translation info " PFX "\n", info);
     for (i = 0; i < info->num_entries; i++) {
-        print_file(file, "\t%d +%5d == " PFX " => " PFX " %s%s\n", i,
+        print_file(file, "\t%d +%5d == " PFX " => " PFX " %s%s%s\n", i,
                    info->translation[i].cache_offs,
                    start + info->translation[i].cache_offs, info->translation[i].app,
                    TEST(TRANSLATE_IDENTICAL, info->translation[i].flags) ? "identical"
                                                                          : "contiguous",
                    TEST(TRANSLATE_OUR_MANGLING, info->translation[i].flags) ? " ours"
-                                                                            : "");
+                                                                            : "",
+                   TEST(TRANSLATE_CLEAN_CALL, info->translation[i].flags) ? " call" : "");
     }
 }
 

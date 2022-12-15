@@ -452,6 +452,7 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 static bool
 event_restore(void *drcontext, bool restore_memory, dr_restore_state_info_t *info)
 {
+#    ifdef X86
     /* Because we set the translation (to avoid detach timeouts) we need to restore
      * our register too.
      */
@@ -478,6 +479,7 @@ event_restore(void *drcontext, bool restore_memory, dr_restore_state_info_t *inf
     }
     instr_free(drcontext, &inst);
     reg_set_value(DR_REG_XAX, info->mcontext, dr_read_saved_reg(drcontext, SPILL_SLOT_1));
+#    endif
     return true;
 }
 
