@@ -486,7 +486,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
-            // Give up on back-to-back signals.
+            // XXX: Handle the back-to-back signals case where the second
+            // signal arrives just after the return from the first without
+            // any intervening instrs. The return point of the second one
+            // would be the pc in the kernel xfer marker of the first.
             shard->prev_xfer_marker_.marker.marker_type !=
                 TRACE_MARKER_TYPE_KERNEL_XFER) {
             if (shard->saw_kernel_xfer_after_prev_instr_) {
