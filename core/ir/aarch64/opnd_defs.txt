@@ -137,6 +137,8 @@
 ----------------xxxx------------  cond       # condition for CCMN, CCMP
 ----------------xxxxxx----------  scale      # encoding of #fbits value in scale field
 ----------------xxxxxxxxxxxxxxxx  imm16_0    # imm16 at position 0
+--------------?------??????xxxxx  z_imm13_bhsd_0 # sve vector reg, elsz depending on size value encoded within an 13 bit immediate from 5-17
+--------------xxxxxxxxxxxxx-----  imm13_const # Const value within a 13 bit immediate from 5-17
 -------------xxx----------------  imm3       # 3 bit immediate from 16-18
 -------------xxx--------xxx-----  pstate     # Pstate encoded in op1:op2
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
