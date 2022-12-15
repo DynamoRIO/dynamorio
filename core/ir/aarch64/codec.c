@@ -4655,6 +4655,30 @@ decode_opnd_bhsd_size_reg5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
+decode_opnd_p_size_bhsd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_p(5, 22, BYTE_REG, DOUBLE_REG, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_p_size_bhsd_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_p(5, 22, BYTE_REG, DOUBLE_REG, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_p_size_hsd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_p(5, 22, HALF_REG, DOUBLE_REG, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_p_size_hsd_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_p(5, 22, HALF_REG, DOUBLE_REG, opnd, enc_out);
+}
+
+static inline bool
 encode_opnd_bhsd_size_reg5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_bhsd_size_regx(5, enc, opcode, pc, opnd, enc_out);
