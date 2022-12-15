@@ -707,9 +707,10 @@ extract_imm13_size(uint enc)
     /* For the remaining, invert the value and find the index of the highest high bit
      */
     int index;
-    if (!highest_bit_set(~value, 0, 6, &index))
+    if (!highest_bit_set(~value, 0, 6, &index)) {
         /* Reserved */
         return NOT_A_REG;
+    }
 
     switch (index) {
     case 5: return SINGLE_REG;
