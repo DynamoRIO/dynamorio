@@ -164,8 +164,8 @@ bool attached_midway;
 static bool
 bbdup_instr_counting_enabled()
 {
-    return op_trace_after_instrs.get_value() > 0 ||
-        op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
+    return op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
+        op_retrace_every_instrs.get_value() > 0;
 }
 
 static bool
