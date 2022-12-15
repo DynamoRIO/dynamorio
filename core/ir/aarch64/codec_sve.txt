@@ -45,6 +45,7 @@
 00000100xx000000000xxxxxxxxxxxxx  n   9    SVE      add  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00100101xx10000011xxxxxxxxxxxxxx  n   9    SVE      add  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
 00000100xx011010000xxxxxxxxxxxxx  n   21   SVE      and             z0 : p10_lo z0 z5 bhsd_sz
+00000101100000xxxxxxxxxxxxxxxxxx  n   21   SVE      and z_imm13_bhsd_0 : z_imm13_bhsd_0 imm13_const
 00000100xx011011000xxxxxxxxxxxxx  n   29   SVE      bic             z0 : p10_lo z0 z5 bhsd_sz
 00100101xx0xxxxx100xxxxxxxx0xxxx  w   807  SVE    cmpeq  p_size_bhsd_0 : p10_zer_lo z_size_bhsd_5 simm5
 00100100xx0xxxxx001xxxxxxxx0xxxx  w   807  SVE    cmpeq   p_size_bhs_0 : p10_zer_lo z_size_bhs_5 z_d_16
@@ -79,6 +80,7 @@
 00100101xx1011011000100xxxxxxxxx  n   822  SVE     decp             x0 : p_size_bhsd_5 x0
 00100101xx1011011000000xxxxxxxxx  n   822  SVE     decp   z_size_hsd_0 : p_size_hsd_5 z_size_hsd_0
 00000100xx011001000xxxxxxxxxxxxx  n   90   SVE      eor             z0 : p10_lo z0 z5 bhsd_sz
+00000101010000xxxxxxxxxxxxxxxxxx  n   90   SVE      eor z_imm13_bhsd_0 : z_imm13_bhsd_0 imm13_const
 01100101xx0xxxxx110xxxxxxxx1xxxx  n   96   SVE    facge   p_size_hsd_0 : p10_zer_lo z_size_hsd_5 z_size_hsd_16
 01100101xx0xxxxx111xxxxxxxx1xxxx  n   97   SVE    facgt   p_size_hsd_0 : p10_zer_lo z_size_hsd_5 z_size_hsd_16
 01100101xx010010001xxxxxxxx0xxxx  n   102  SVE    fcmeq   p_size_hsd_0 : p10_zer_lo z_size_hsd_5 zero_fp_const
@@ -107,6 +109,7 @@
 00100101xx110000110xxxxxxxxxxxxx  n   321  SVE      mul  z_size_bhsd_0 : z_size_bhsd_0 simm8_5
 00000100xx010111101xxxxxxxxxxxxx  n   323  SVE      neg  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5
 00000100xx011000000xxxxxxxxxxxxx  n   327  SVE      orr             z0 : p10_lo z0 z5 bhsd_sz
+00000101000000xxxxxxxxxxxxxxxxxx  n   327  SVE      orr z_imm13_bhsd_0 : z_imm13_bhsd_0 imm13_const
 001001010101000011xxxx0xxxx00000  w   786  SVE    ptest                : p10 p_b_5
 0010010100011001111100000000xxxx  n   817  SVE    rdffr          p_b_0 :
 00100101000110001111000xxxx0xxxx  n   817  SVE    rdffr          p_b_0 : p5_zer

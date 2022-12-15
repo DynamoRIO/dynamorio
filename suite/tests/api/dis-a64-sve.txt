@@ -318,6 +318,68 @@
 049a06ff : and z31.s, p1/m, z31.s, z23.s            : and    %p1 %z31 %z23 $0x02 -> %z31
 04da06ff : and z31.d, p1/m, z31.d, z23.d            : and    %p1 %z31 %z23 $0x03 -> %z31
 
+# AND   <Zdn>.<T>, <Zdn>.<T>, #<const> (AND-Z.ZI-_)
+058006a0 : and z0.b, z0.b, #0x3f                    : and    %z0.b $0x3f -> %z0.b
+05800604 : and z4.b, z4.b, #0x01                    : and    %z4.b $0x01 -> %z4.b
+05803e06 : and z6.b, z6.b, #0x02                    : and    %z6.b $0x02 -> %z6.b
+05803608 : and z8.b, z8.b, #0x04                    : and    %z8.b $0x04 -> %z8.b
+05802e0a : and z10.b, z10.b, #0x08                  : and    %z10.b $0x08 -> %z10.b
+0580260c : and z12.b, z12.b, #0x10                  : and    %z12.b $0x10 -> %z12.b
+05801e0e : and z14.b, z14.b, #0x20                  : and    %z14.b $0x20 -> %z14.b
+05800630 : and z16.b, z16.b, #0x03                  : and    %z16.b $0x03 -> %z16.b
+05800652 : and z18.b, z18.b, #0x07                  : and    %z18.b $0x07 -> %z18.b
+05800674 : and z20.b, z20.b, #0x0f                  : and    %z20.b $0x0f -> %z20.b
+05800696 : and z22.b, z22.b, #0x1f                  : and    %z22.b $0x1f -> %z22.b
+05803e98 : and z24.b, z24.b, #0x3e                  : and    %z24.b $0x3e -> %z24.b
+0580367a : and z26.b, z26.b, #0x3c                  : and    %z26.b $0x3c -> %z26.b
+05802e5c : and z28.b, z28.b, #0x38                  : and    %z28.b $0x38 -> %z28.b
+0580263f : and z31.b, z31.b, #0x30                  : and    %z31.b $0x30 -> %z31.b
+058004a0 : and z0.h, z0.h, #0x3f                    : and    %z0.h $0x003f -> %z0.h
+05800404 : and z4.h, z4.h, #0x01                    : and    %z4.h $0x0001 -> %z4.h
+05807c06 : and z6.h, z6.h, #0x02                    : and    %z6.h $0x0002 -> %z6.h
+05807408 : and z8.h, z8.h, #0x04                    : and    %z8.h $0x0004 -> %z8.h
+05806c0a : and z10.h, z10.h, #0x08                  : and    %z10.h $0x0008 -> %z10.h
+0580640c : and z12.h, z12.h, #0x10                  : and    %z12.h $0x0010 -> %z12.h
+05805c0e : and z14.h, z14.h, #0x20                  : and    %z14.h $0x0020 -> %z14.h
+05800430 : and z16.h, z16.h, #0x03                  : and    %z16.h $0x0003 -> %z16.h
+05800452 : and z18.h, z18.h, #0x07                  : and    %z18.h $0x0007 -> %z18.h
+05800474 : and z20.h, z20.h, #0x0f                  : and    %z20.h $0x000f -> %z20.h
+05800496 : and z22.h, z22.h, #0x1f                  : and    %z22.h $0x001f -> %z22.h
+05807c98 : and z24.h, z24.h, #0x3e                  : and    %z24.h $0x003e -> %z24.h
+0580747a : and z26.h, z26.h, #0x3c                  : and    %z26.h $0x003c -> %z26.h
+05806c5c : and z28.h, z28.h, #0x38                  : and    %z28.h $0x0038 -> %z28.h
+0580643f : and z31.h, z31.h, #0x30                  : and    %z31.h $0x0030 -> %z31.h
+058000a0 : and z0.s, z0.s, #0x3f                    : and    %z0.s $0x0000003f -> %z0.s
+05800004 : and z4.s, z4.s, #0x01                    : and    %z4.s $0x00000001 -> %z4.s
+0580f806 : and z6.s, z6.s, #0x02                    : and    %z6.s $0x00000002 -> %z6.s
+0580f008 : and z8.s, z8.s, #0x04                    : and    %z8.s $0x00000004 -> %z8.s
+0580e80a : and z10.s, z10.s, #0x08                  : and    %z10.s $0x00000008 -> %z10.s
+0580e00c : and z12.s, z12.s, #0x10                  : and    %z12.s $0x00000010 -> %z12.s
+0580d80e : and z14.s, z14.s, #0x20                  : and    %z14.s $0x00000020 -> %z14.s
+05800030 : and z16.s, z16.s, #0x03                  : and    %z16.s $0x00000003 -> %z16.s
+05800052 : and z18.s, z18.s, #0x07                  : and    %z18.s $0x00000007 -> %z18.s
+05800074 : and z20.s, z20.s, #0x0f                  : and    %z20.s $0x0000000f -> %z20.s
+05800096 : and z22.s, z22.s, #0x1f                  : and    %z22.s $0x0000001f -> %z22.s
+0580f898 : and z24.s, z24.s, #0x3e                  : and    %z24.s $0x0000003e -> %z24.s
+0580f07a : and z26.s, z26.s, #0x3c                  : and    %z26.s $0x0000003c -> %z26.s
+0580e85c : and z28.s, z28.s, #0x38                  : and    %z28.s $0x00000038 -> %z28.s
+0580e03f : and z31.s, z31.s, #0x30                  : and    %z31.s $0x00000030 -> %z31.s
+058200a0 : and z0.d, z0.d, #0x3f                    : and    %z0.d $0x000000000000003f -> %z0.d
+05820004 : and z4.d, z4.d, #0x01                    : and    %z4.d $0x0000000000000001 -> %z4.d
+0583f806 : and z6.d, z6.d, #0x02                    : and    %z6.d $0x0000000000000002 -> %z6.d
+0583f008 : and z8.d, z8.d, #0x04                    : and    %z8.d $0x0000000000000004 -> %z8.d
+0583e80a : and z10.d, z10.d, #0x08                  : and    %z10.d $0x0000000000000008 -> %z10.d
+0583e00c : and z12.d, z12.d, #0x10                  : and    %z12.d $0x0000000000000010 -> %z12.d
+0583d80e : and z14.d, z14.d, #0x20                  : and    %z14.d $0x0000000000000020 -> %z14.d
+05820030 : and z16.d, z16.d, #0x03                  : and    %z16.d $0x0000000000000003 -> %z16.d
+05820052 : and z18.d, z18.d, #0x07                  : and    %z18.d $0x0000000000000007 -> %z18.d
+05820074 : and z20.d, z20.d, #0x0f                  : and    %z20.d $0x000000000000000f -> %z20.d
+05820096 : and z22.d, z22.d, #0x1f                  : and    %z22.d $0x000000000000001f -> %z22.d
+0583f898 : and z24.d, z24.d, #0x3e                  : and    %z24.d $0x000000000000003e -> %z24.d
+0583f07a : and z26.d, z26.d, #0x3c                  : and    %z26.d $0x000000000000003c -> %z26.d
+0583e85c : and z28.d, z28.d, #0x38                  : and    %z28.d $0x0000000000000038 -> %z28.d
+0583e03f : and z31.d, z31.d, #0x30                  : and    %z31.d $0x0000000000000030 -> %z31.d
+
 041b0b02 : bic z2.b, p2/m, z2.b, z24.b              : bic    %p2 %z2 %z24 $0x00 -> %z2
 045b0b02 : bic z2.h, p2/m, z2.h, z24.h              : bic    %p2 %z2 %z24 $0x01 -> %z2
 049b0b02 : bic z2.s, p2/m, z2.s, z24.s              : bic    %p2 %z2 %z24 $0x02 -> %z2
@@ -2264,6 +2326,68 @@
 0499105d : eor z29.s, p4/m, z29.s, z2.s             : eor    %p4 %z29 %z2 $0x02 -> %z29
 04d9105d : eor z29.d, p4/m, z29.d, z2.d             : eor    %p4 %z29 %z2 $0x03 -> %z29
 
+# EOR   <Zdn>.<T>, <Zdn>.<T>, #<const> (EOR-Z.ZI-_)
+054006a0 : eor z0.b, z0.b, #0x3f                    : eor    %z0.b $0x3f -> %z0.b
+05400604 : eor z4.b, z4.b, #0x01                    : eor    %z4.b $0x01 -> %z4.b
+05403e06 : eor z6.b, z6.b, #0x02                    : eor    %z6.b $0x02 -> %z6.b
+05403608 : eor z8.b, z8.b, #0x04                    : eor    %z8.b $0x04 -> %z8.b
+05402e0a : eor z10.b, z10.b, #0x08                  : eor    %z10.b $0x08 -> %z10.b
+0540260c : eor z12.b, z12.b, #0x10                  : eor    %z12.b $0x10 -> %z12.b
+05401e0e : eor z14.b, z14.b, #0x20                  : eor    %z14.b $0x20 -> %z14.b
+05400630 : eor z16.b, z16.b, #0x03                  : eor    %z16.b $0x03 -> %z16.b
+05400652 : eor z18.b, z18.b, #0x07                  : eor    %z18.b $0x07 -> %z18.b
+05400674 : eor z20.b, z20.b, #0x0f                  : eor    %z20.b $0x0f -> %z20.b
+05400696 : eor z22.b, z22.b, #0x1f                  : eor    %z22.b $0x1f -> %z22.b
+05403e98 : eor z24.b, z24.b, #0x3e                  : eor    %z24.b $0x3e -> %z24.b
+0540367a : eor z26.b, z26.b, #0x3c                  : eor    %z26.b $0x3c -> %z26.b
+05402e5c : eor z28.b, z28.b, #0x38                  : eor    %z28.b $0x38 -> %z28.b
+0540263f : eor z31.b, z31.b, #0x30                  : eor    %z31.b $0x30 -> %z31.b
+054004a0 : eor z0.h, z0.h, #0x3f                    : eor    %z0.h $0x003f -> %z0.h
+05400404 : eor z4.h, z4.h, #0x01                    : eor    %z4.h $0x0001 -> %z4.h
+05407c06 : eor z6.h, z6.h, #0x02                    : eor    %z6.h $0x0002 -> %z6.h
+05407408 : eor z8.h, z8.h, #0x04                    : eor    %z8.h $0x0004 -> %z8.h
+05406c0a : eor z10.h, z10.h, #0x08                  : eor    %z10.h $0x0008 -> %z10.h
+0540640c : eor z12.h, z12.h, #0x10                  : eor    %z12.h $0x0010 -> %z12.h
+05405c0e : eor z14.h, z14.h, #0x20                  : eor    %z14.h $0x0020 -> %z14.h
+05400430 : eor z16.h, z16.h, #0x03                  : eor    %z16.h $0x0003 -> %z16.h
+05400452 : eor z18.h, z18.h, #0x07                  : eor    %z18.h $0x0007 -> %z18.h
+05400474 : eor z20.h, z20.h, #0x0f                  : eor    %z20.h $0x000f -> %z20.h
+05400496 : eor z22.h, z22.h, #0x1f                  : eor    %z22.h $0x001f -> %z22.h
+05407c98 : eor z24.h, z24.h, #0x3e                  : eor    %z24.h $0x003e -> %z24.h
+0540747a : eor z26.h, z26.h, #0x3c                  : eor    %z26.h $0x003c -> %z26.h
+05406c5c : eor z28.h, z28.h, #0x38                  : eor    %z28.h $0x0038 -> %z28.h
+0540643f : eor z31.h, z31.h, #0x30                  : eor    %z31.h $0x0030 -> %z31.h
+054000a0 : eor z0.s, z0.s, #0x3f                    : eor    %z0.s $0x0000003f -> %z0.s
+05400004 : eor z4.s, z4.s, #0x01                    : eor    %z4.s $0x00000001 -> %z4.s
+0540f806 : eor z6.s, z6.s, #0x02                    : eor    %z6.s $0x00000002 -> %z6.s
+0540f008 : eor z8.s, z8.s, #0x04                    : eor    %z8.s $0x00000004 -> %z8.s
+0540e80a : eor z10.s, z10.s, #0x08                  : eor    %z10.s $0x00000008 -> %z10.s
+0540e00c : eor z12.s, z12.s, #0x10                  : eor    %z12.s $0x00000010 -> %z12.s
+0540d80e : eor z14.s, z14.s, #0x20                  : eor    %z14.s $0x00000020 -> %z14.s
+05400030 : eor z16.s, z16.s, #0x03                  : eor    %z16.s $0x00000003 -> %z16.s
+05400052 : eor z18.s, z18.s, #0x07                  : eor    %z18.s $0x00000007 -> %z18.s
+05400074 : eor z20.s, z20.s, #0x0f                  : eor    %z20.s $0x0000000f -> %z20.s
+05400096 : eor z22.s, z22.s, #0x1f                  : eor    %z22.s $0x0000001f -> %z22.s
+0540f898 : eor z24.s, z24.s, #0x3e                  : eor    %z24.s $0x0000003e -> %z24.s
+0540f07a : eor z26.s, z26.s, #0x3c                  : eor    %z26.s $0x0000003c -> %z26.s
+0540e85c : eor z28.s, z28.s, #0x38                  : eor    %z28.s $0x00000038 -> %z28.s
+0540e03f : eor z31.s, z31.s, #0x30                  : eor    %z31.s $0x00000030 -> %z31.s
+054200a0 : eor z0.d, z0.d, #0x3f                    : eor    %z0.d $0x000000000000003f -> %z0.d
+05420004 : eor z4.d, z4.d, #0x01                    : eor    %z4.d $0x0000000000000001 -> %z4.d
+0543f806 : eor z6.d, z6.d, #0x02                    : eor    %z6.d $0x0000000000000002 -> %z6.d
+0543f008 : eor z8.d, z8.d, #0x04                    : eor    %z8.d $0x0000000000000004 -> %z8.d
+0543e80a : eor z10.d, z10.d, #0x08                  : eor    %z10.d $0x0000000000000008 -> %z10.d
+0543e00c : eor z12.d, z12.d, #0x10                  : eor    %z12.d $0x0000000000000010 -> %z12.d
+0543d80e : eor z14.d, z14.d, #0x20                  : eor    %z14.d $0x0000000000000020 -> %z14.d
+05420030 : eor z16.d, z16.d, #0x03                  : eor    %z16.d $0x0000000000000003 -> %z16.d
+05420052 : eor z18.d, z18.d, #0x07                  : eor    %z18.d $0x0000000000000007 -> %z18.d
+05420074 : eor z20.d, z20.d, #0x0f                  : eor    %z20.d $0x000000000000000f -> %z20.d
+05420096 : eor z22.d, z22.d, #0x1f                  : eor    %z22.d $0x000000000000001f -> %z22.d
+0543f898 : eor z24.d, z24.d, #0x3e                  : eor    %z24.d $0x000000000000003e -> %z24.d
+0543f07a : eor z26.d, z26.d, #0x3c                  : eor    %z26.d $0x000000000000003c -> %z26.d
+0543e85c : eor z28.d, z28.d, #0x38                  : eor    %z28.d $0x0000000000000038 -> %z28.d
+0543e03f : eor z31.d, z31.d, #0x30                  : eor    %z31.d $0x0000000000000030 -> %z31.d
+
 # FACGE   <Pd>.<T>, <Pg>/Z, <Zn>.<T>, <Zm>.<T> (FACGE-P.P.ZZ-_)
 6540c010 : facge p0.h, p0/Z, z0.h, z0.h              : facge  %p0/z %z0.h %z0.h -> %p0.h
 6545c491 : facge p1.h, p1/Z, z4.h, z5.h              : facge  %p1/z %z4.h %z5.h -> %p1.h
@@ -3714,6 +3838,68 @@
 04581da2 : orr z2.h, p7/m, z2.h, z13.h              : orr    %p7 %z2 %z13 $0x01 -> %z2
 04981da2 : orr z2.s, p7/m, z2.s, z13.s              : orr    %p7 %z2 %z13 $0x02 -> %z2
 04d81da2 : orr z2.d, p7/m, z2.d, z13.d              : orr    %p7 %z2 %z13 $0x03 -> %z2
+
+# ORR   <Zdn>.<T>, <Zdn>.<T>, #<const> (ORR-Z.ZI-_)
+050006a0 : orr z0.b, z0.b, #0x3f                    : orr    %z0.b $0x3f -> %z0.b
+05000604 : orr z4.b, z4.b, #0x01                    : orr    %z4.b $0x01 -> %z4.b
+05003e06 : orr z6.b, z6.b, #0x02                    : orr    %z6.b $0x02 -> %z6.b
+05003608 : orr z8.b, z8.b, #0x04                    : orr    %z8.b $0x04 -> %z8.b
+05002e0a : orr z10.b, z10.b, #0x08                  : orr    %z10.b $0x08 -> %z10.b
+0500260c : orr z12.b, z12.b, #0x10                  : orr    %z12.b $0x10 -> %z12.b
+05001e0e : orr z14.b, z14.b, #0x20                  : orr    %z14.b $0x20 -> %z14.b
+05000630 : orr z16.b, z16.b, #0x03                  : orr    %z16.b $0x03 -> %z16.b
+05000652 : orr z18.b, z18.b, #0x07                  : orr    %z18.b $0x07 -> %z18.b
+05000674 : orr z20.b, z20.b, #0x0f                  : orr    %z20.b $0x0f -> %z20.b
+05000696 : orr z22.b, z22.b, #0x1f                  : orr    %z22.b $0x1f -> %z22.b
+05003e98 : orr z24.b, z24.b, #0x3e                  : orr    %z24.b $0x3e -> %z24.b
+0500367a : orr z26.b, z26.b, #0x3c                  : orr    %z26.b $0x3c -> %z26.b
+05002e5c : orr z28.b, z28.b, #0x38                  : orr    %z28.b $0x38 -> %z28.b
+0500263f : orr z31.b, z31.b, #0x30                  : orr    %z31.b $0x30 -> %z31.b
+050004a0 : orr z0.h, z0.h, #0x3f                    : orr    %z0.h $0x003f -> %z0.h
+05000404 : orr z4.h, z4.h, #0x01                    : orr    %z4.h $0x0001 -> %z4.h
+05007c06 : orr z6.h, z6.h, #0x02                    : orr    %z6.h $0x0002 -> %z6.h
+05007408 : orr z8.h, z8.h, #0x04                    : orr    %z8.h $0x0004 -> %z8.h
+05006c0a : orr z10.h, z10.h, #0x08                  : orr    %z10.h $0x0008 -> %z10.h
+0500640c : orr z12.h, z12.h, #0x10                  : orr    %z12.h $0x0010 -> %z12.h
+05005c0e : orr z14.h, z14.h, #0x20                  : orr    %z14.h $0x0020 -> %z14.h
+05000430 : orr z16.h, z16.h, #0x03                  : orr    %z16.h $0x0003 -> %z16.h
+05000452 : orr z18.h, z18.h, #0x07                  : orr    %z18.h $0x0007 -> %z18.h
+05000474 : orr z20.h, z20.h, #0x0f                  : orr    %z20.h $0x000f -> %z20.h
+05000496 : orr z22.h, z22.h, #0x1f                  : orr    %z22.h $0x001f -> %z22.h
+05007c98 : orr z24.h, z24.h, #0x3e                  : orr    %z24.h $0x003e -> %z24.h
+0500747a : orr z26.h, z26.h, #0x3c                  : orr    %z26.h $0x003c -> %z26.h
+05006c5c : orr z28.h, z28.h, #0x38                  : orr    %z28.h $0x0038 -> %z28.h
+0500643f : orr z31.h, z31.h, #0x30                  : orr    %z31.h $0x0030 -> %z31.h
+050000a0 : orr z0.s, z0.s, #0x3f                    : orr    %z0.s $0x0000003f -> %z0.s
+05000004 : orr z4.s, z4.s, #0x01                    : orr    %z4.s $0x00000001 -> %z4.s
+0500f806 : orr z6.s, z6.s, #0x02                    : orr    %z6.s $0x00000002 -> %z6.s
+0500f008 : orr z8.s, z8.s, #0x04                    : orr    %z8.s $0x00000004 -> %z8.s
+0500e80a : orr z10.s, z10.s, #0x08                  : orr    %z10.s $0x00000008 -> %z10.s
+0500e00c : orr z12.s, z12.s, #0x10                  : orr    %z12.s $0x00000010 -> %z12.s
+0500d80e : orr z14.s, z14.s, #0x20                  : orr    %z14.s $0x00000020 -> %z14.s
+05000030 : orr z16.s, z16.s, #0x03                  : orr    %z16.s $0x00000003 -> %z16.s
+05000052 : orr z18.s, z18.s, #0x07                  : orr    %z18.s $0x00000007 -> %z18.s
+05000074 : orr z20.s, z20.s, #0x0f                  : orr    %z20.s $0x0000000f -> %z20.s
+05000096 : orr z22.s, z22.s, #0x1f                  : orr    %z22.s $0x0000001f -> %z22.s
+0500f898 : orr z24.s, z24.s, #0x3e                  : orr    %z24.s $0x0000003e -> %z24.s
+0500f07a : orr z26.s, z26.s, #0x3c                  : orr    %z26.s $0x0000003c -> %z26.s
+0500e85c : orr z28.s, z28.s, #0x38                  : orr    %z28.s $0x00000038 -> %z28.s
+0500e03f : orr z31.s, z31.s, #0x30                  : orr    %z31.s $0x00000030 -> %z31.s
+050200a0 : orr z0.d, z0.d, #0x3f                    : orr    %z0.d $0x000000000000003f -> %z0.d
+05020004 : orr z4.d, z4.d, #0x01                    : orr    %z4.d $0x0000000000000001 -> %z4.d
+0503f806 : orr z6.d, z6.d, #0x02                    : orr    %z6.d $0x0000000000000002 -> %z6.d
+0503f008 : orr z8.d, z8.d, #0x04                    : orr    %z8.d $0x0000000000000004 -> %z8.d
+0503e80a : orr z10.d, z10.d, #0x08                  : orr    %z10.d $0x0000000000000008 -> %z10.d
+0503e00c : orr z12.d, z12.d, #0x10                  : orr    %z12.d $0x0000000000000010 -> %z12.d
+0503d80e : orr z14.d, z14.d, #0x20                  : orr    %z14.d $0x0000000000000020 -> %z14.d
+05020030 : orr z16.d, z16.d, #0x03                  : orr    %z16.d $0x0000000000000003 -> %z16.d
+05020052 : orr z18.d, z18.d, #0x07                  : orr    %z18.d $0x0000000000000007 -> %z18.d
+05020074 : orr z20.d, z20.d, #0x0f                  : orr    %z20.d $0x000000000000000f -> %z20.d
+05020096 : orr z22.d, z22.d, #0x1f                  : orr    %z22.d $0x000000000000001f -> %z22.d
+0503f898 : orr z24.d, z24.d, #0x3e                  : orr    %z24.d $0x000000000000003e -> %z24.d
+0503f07a : orr z26.d, z26.d, #0x3c                  : orr    %z26.d $0x000000000000003c -> %z26.d
+0503e85c : orr z28.d, z28.d, #0x38                  : orr    %z28.d $0x0000000000000038 -> %z28.d
+0503e03f : orr z31.d, z31.d, #0x30                  : orr    %z31.d $0x0000000000000030 -> %z31.d
 
 # PTEST   <Pg>, <Pn>.B (PTEST-.P.P-_)
 2550c000 : ptest p0, p0.b                            : ptest  %p0 %p0.b
