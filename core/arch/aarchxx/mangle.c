@@ -90,11 +90,15 @@ mangle_arch_init(void)
 #ifdef AARCH64
     /* Check address of "lock" is unaligned. See comment in icache_op_struct_t. */
     ASSERT(!ALIGNED(&icache_op_struct.lock, 16));
+#    ifdef DR_HOST_NOT_TARGET
+    icache_op_struct.cached_ctr_el0 = 0;
+#    else
     /* cache the ctr_el0 */
     ptr_uint_t cache_info;
     asm volatile("mrs\t%0, ctr_el0" : "=r"(cache_info));
     LOG(GLOBAL, LOG_INTERP, 2, "cpu cache info: %x\n", cache_info);
     icache_op_struct.cached_ctr_el0 = cache_info;
+#    endif
 #endif
 }
 
@@ -103,9 +107,13 @@ mangle_arch_init(void)
 static bool
 icache_sync_by_hardware()
 {
+#    ifdef DR_HOST_NOT_TARGET
+    return false;
+#    else
     ASSERT(icache_op_struct.cached_ctr_el0 != 0);
     /* if CTR_EL0.DIC is set, icache is sync by hardware */
     return ((icache_op_struct.cached_ctr_el0 >> CTR_DIC_SHIFT) & 0x1) == 0x1;
+#    endif
 }
 #endif
 
@@ -3005,14 +3013,28 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 icache_op_struct.cached_ctr_el0, mangle_ctr_el0);
             reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
             if (reg != dr_reg_stolen) {
+#    ifdef DR_HOST_NOT_TARGET
+                /* We built all our asm code for the host, but here we need it for the
+                 * target. We have to ifdef it out to separate.  Xref i#1684.
+                 */
+                ASSERT_NOT_REACHED();
+#    else
                 insert_mov_immed_arch(dcontext, NULL, NULL, mangle_ctr_el0,
                                       opnd_create_reg(reg), ilist, instr, NULL, NULL);
+#    endif
             } else {
                 PRE(ilist, instr,
                     instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+#    ifdef DR_HOST_NOT_TARGET
+                /* We built all our asm code for the host, but here we need it for the
+                 * target. We have to ifdef it out to separate.  Xref i#1684.
+                 */
+                ASSERT_NOT_REACHED();
+#    else
                 insert_mov_immed_arch(dcontext, NULL, NULL, mangle_ctr_el0,
                                       opnd_create_reg(DR_REG_X0), ilist, instr, NULL,
                                       NULL);
+#    endif
                 PRE(ilist, instr,
                     instr_create_save_to_tls(dcontext, DR_REG_X0, TLS_REG_STOLEN_SLOT));
                 PRE(ilist, instr,
