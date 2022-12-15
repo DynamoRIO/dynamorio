@@ -6643,4 +6643,75 @@
  */
 #define INSTR_CREATE_uqincp_sve_vector(dc, Zdn, Pm) \
     instr_create_1dst_2src(dc, OP_uqincp, Zdn, Pm, Zdn)
+
+/**
+ * Creates an AND instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AND     <Zdn>.<T>, <Zdn>.<T>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param imm   The immediate logicalImm
+ */
+#define INSTR_CREATE_and_sve_imm(dc, Zdn, imm) \
+    instr_create_1dst_2src(dc, OP_and, Zdn, Zdn, imm)
+
+/**
+ * Creates a BIC instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BIC     <Zdn>.<T>, <Zdn>.<T>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param imm   The immediate logicalImm
+ */
+#define INSTR_CREATE_bic_sve_imm(dc, Zdn, imm) \
+    instr_create_1dst_2src(dc, OP_and, Zdn, Zdn, opnd_invert_immed_int(imm))
+
+/**
+ * Creates an EOR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    EOR     <Zdn>.<T>, <Zdn>.<T>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param imm   The immediate logicalImm
+ */
+#define INSTR_CREATE_eor_sve_imm(dc, Zdn, imm) \
+    instr_create_1dst_2src(dc, OP_eor, Zdn, Zdn, imm)
+
+/**
+ * Creates an ORR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ORR     <Zdn>.<T>, <Zdn>.<T>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param imm   The immediate logicalImm
+ */
+#define INSTR_CREATE_orr_sve_imm(dc, Zdn, imm) \
+    instr_create_1dst_2src(dc, OP_orr, Zdn, Zdn, imm)
+
+/**
+ * Creates an ORN instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ORN     <Zdn>.<T>, <Zdn>.<T>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param imm   The immediate logicalImm
+ */
+#define INSTR_CREATE_orn_sve_imm(dc, Zdn, imm) \
+    instr_create_1dst_2src(dc, OP_orr, Zdn, Zdn, opnd_invert_immed_int(imm))
+
 #endif /* DR_IR_MACROS_AARCH64_H */

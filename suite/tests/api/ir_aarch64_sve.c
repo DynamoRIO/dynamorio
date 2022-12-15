@@ -4767,6 +4767,227 @@ TEST_INSTR(uqincp_sve_vector)
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_reg_element_vector(Pn_six_offset_1[i], OPSZ_8));
 }
+
+TEST_INSTR(and_sve_imm)
+{
+    /* Testing AND     <Zdn>.<T>, <Zdn>.<T>, #<imm> */
+    int imm13[6] = { 1, 4, 8, 16, 32, 63 };
+    const char *expected_0[6] = {
+        "and    %z0.b $0x01 -> %z0.b",   "and    %z5.b $0x04 -> %z5.b",
+        "and    %z10.b $0x08 -> %z10.b", "and    %z16.b $0x10 -> %z16.b",
+        "and    %z21.b $0x20 -> %z21.b", "and    %z31.b $0x3f -> %z31.b",
+    };
+    TEST_LOOP(and, and_sve_imm, 6, expected_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_immed_int(imm13[i], OPSZ_1));
+
+    const char *expected_1[6] = {
+        "and    %z0.h $0x0001 -> %z0.h",   "and    %z5.h $0x0004 -> %z5.h",
+        "and    %z10.h $0x0008 -> %z10.h", "and    %z16.h $0x0010 -> %z16.h",
+        "and    %z21.h $0x0020 -> %z21.h", "and    %z31.h $0x003f -> %z31.h",
+    };
+    TEST_LOOP(and, and_sve_imm, 6, expected_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_immed_int(imm13[i], OPSZ_2));
+
+    const char *expected_2[6] = {
+        "and    %z0.s $0x00000001 -> %z0.s",   "and    %z5.s $0x00000004 -> %z5.s",
+        "and    %z10.s $0x00000008 -> %z10.s", "and    %z16.s $0x00000010 -> %z16.s",
+        "and    %z21.s $0x00000020 -> %z21.s", "and    %z31.s $0x0000003f -> %z31.s",
+    };
+    TEST_LOOP(and, and_sve_imm, 6, expected_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_immed_int(imm13[i], OPSZ_4));
+
+    const char *expected_3[6] = {
+        "and    %z0.d $0x0000000000000001 -> %z0.d",
+        "and    %z5.d $0x0000000000000004 -> %z5.d",
+        "and    %z10.d $0x0000000000000008 -> %z10.d",
+        "and    %z16.d $0x0000000000000010 -> %z16.d",
+        "and    %z21.d $0x0000000000000020 -> %z21.d",
+        "and    %z31.d $0x000000000000003f -> %z31.d",
+    };
+    TEST_LOOP(and, and_sve_imm, 6, expected_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_immed_int(imm13[i], OPSZ_8));
+}
+
+TEST_INSTR(bic_sve_imm)
+{
+    /* Testing BIC     <Zdn>.<T>, <Zdn>.<T>, #<imm> */
+    int imm13[6] = { 1, 4, 8, 16, 32, 63 };
+    const char *expected_0[6] = {
+        "and    %z0.b $0xfe -> %z0.b",   "and    %z5.b $0xfb -> %z5.b",
+        "and    %z10.b $0xf7 -> %z10.b", "and    %z16.b $0xef -> %z16.b",
+        "and    %z21.b $0xdf -> %z21.b", "and    %z31.b $0xc0 -> %z31.b",
+    };
+    TEST_LOOP(and, bic_sve_imm, 6, expected_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_immed_int(imm13[i], OPSZ_1));
+
+    const char *expected_1[6] = {
+        "and    %z0.h $0xfffe -> %z0.h",   "and    %z5.h $0xfffb -> %z5.h",
+        "and    %z10.h $0xfff7 -> %z10.h", "and    %z16.h $0xffef -> %z16.h",
+        "and    %z21.h $0xffdf -> %z21.h", "and    %z31.h $0xffc0 -> %z31.h",
+    };
+    TEST_LOOP(and, bic_sve_imm, 6, expected_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_immed_int(imm13[i], OPSZ_2));
+
+    const char *expected_2[6] = {
+        "and    %z0.s $0xfffffffe -> %z0.s",   "and    %z5.s $0xfffffffb -> %z5.s",
+        "and    %z10.s $0xfffffff7 -> %z10.s", "and    %z16.s $0xffffffef -> %z16.s",
+        "and    %z21.s $0xffffffdf -> %z21.s", "and    %z31.s $0xffffffc0 -> %z31.s",
+    };
+    TEST_LOOP(and, bic_sve_imm, 6, expected_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_immed_int(imm13[i], OPSZ_4));
+
+    const char *expected_3[6] = {
+        "and    %z0.d $0xfffffffffffffffe -> %z0.d",
+        "and    %z5.d $0xfffffffffffffffb -> %z5.d",
+        "and    %z10.d $0xfffffffffffffff7 -> %z10.d",
+        "and    %z16.d $0xffffffffffffffef -> %z16.d",
+        "and    %z21.d $0xffffffffffffffdf -> %z21.d",
+        "and    %z31.d $0xffffffffffffffc0 -> %z31.d",
+    };
+    TEST_LOOP(and, bic_sve_imm, 6, expected_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_immed_int(imm13[i], OPSZ_8));
+}
+
+TEST_INSTR(eor_sve_imm)
+{
+    /* Testing EOR     <Zdn>.<T>, <Zdn>.<T>, #<imm> */
+    int imm13[6] = { 1, 4, 8, 16, 32, 63 };
+    const char *expected_0[6] = {
+        "eor    %z0.b $0x01 -> %z0.b",   "eor    %z5.b $0x04 -> %z5.b",
+        "eor    %z10.b $0x08 -> %z10.b", "eor    %z16.b $0x10 -> %z16.b",
+        "eor    %z21.b $0x20 -> %z21.b", "eor    %z31.b $0x3f -> %z31.b",
+    };
+    TEST_LOOP(eor, eor_sve_imm, 6, expected_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_immed_int(imm13[i], OPSZ_1));
+
+    const char *expected_1[6] = {
+        "eor    %z0.h $0x0001 -> %z0.h",   "eor    %z5.h $0x0004 -> %z5.h",
+        "eor    %z10.h $0x0008 -> %z10.h", "eor    %z16.h $0x0010 -> %z16.h",
+        "eor    %z21.h $0x0020 -> %z21.h", "eor    %z31.h $0x003f -> %z31.h",
+    };
+    TEST_LOOP(eor, eor_sve_imm, 6, expected_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_immed_int(imm13[i], OPSZ_2));
+
+    const char *expected_2[6] = {
+        "eor    %z0.s $0x00000001 -> %z0.s",   "eor    %z5.s $0x00000004 -> %z5.s",
+        "eor    %z10.s $0x00000008 -> %z10.s", "eor    %z16.s $0x00000010 -> %z16.s",
+        "eor    %z21.s $0x00000020 -> %z21.s", "eor    %z31.s $0x0000003f -> %z31.s",
+    };
+    TEST_LOOP(eor, eor_sve_imm, 6, expected_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_immed_int(imm13[i], OPSZ_4));
+
+    const char *expected_3[6] = {
+        "eor    %z0.d $0x0000000000000001 -> %z0.d",
+        "eor    %z5.d $0x0000000000000004 -> %z5.d",
+        "eor    %z10.d $0x0000000000000008 -> %z10.d",
+        "eor    %z16.d $0x0000000000000010 -> %z16.d",
+        "eor    %z21.d $0x0000000000000020 -> %z21.d",
+        "eor    %z31.d $0x000000000000003f -> %z31.d",
+    };
+    TEST_LOOP(eor, eor_sve_imm, 6, expected_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_immed_int(imm13[i], OPSZ_8));
+}
+
+TEST_INSTR(orr_sve_imm)
+{
+    /* Testing ORR     <Zdn>.<T>, <Zdn>.<T>, #<imm> */
+    int imm13[6] = { 1, 4, 8, 16, 32, 63 };
+    const char *expected_0[6] = {
+        "orr    %z0.b $0x01 -> %z0.b",   "orr    %z5.b $0x04 -> %z5.b",
+        "orr    %z10.b $0x08 -> %z10.b", "orr    %z16.b $0x10 -> %z16.b",
+        "orr    %z21.b $0x20 -> %z21.b", "orr    %z31.b $0x3f -> %z31.b",
+    };
+    TEST_LOOP(orr, orr_sve_imm, 6, expected_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_immed_int(imm13[i], OPSZ_1));
+
+    const char *expected_1[6] = {
+        "orr    %z0.h $0x0001 -> %z0.h",   "orr    %z5.h $0x0004 -> %z5.h",
+        "orr    %z10.h $0x0008 -> %z10.h", "orr    %z16.h $0x0010 -> %z16.h",
+        "orr    %z21.h $0x0020 -> %z21.h", "orr    %z31.h $0x003f -> %z31.h",
+    };
+    TEST_LOOP(orr, orr_sve_imm, 6, expected_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_immed_int(imm13[i], OPSZ_2));
+
+    const char *expected_2[6] = {
+        "orr    %z0.s $0x00000001 -> %z0.s",   "orr    %z5.s $0x00000004 -> %z5.s",
+        "orr    %z10.s $0x00000008 -> %z10.s", "orr    %z16.s $0x00000010 -> %z16.s",
+        "orr    %z21.s $0x00000020 -> %z21.s", "orr    %z31.s $0x0000003f -> %z31.s",
+    };
+    TEST_LOOP(orr, orr_sve_imm, 6, expected_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_immed_int(imm13[i], OPSZ_4));
+
+    const char *expected_3[6] = {
+        "orr    %z0.d $0x0000000000000001 -> %z0.d",
+        "orr    %z5.d $0x0000000000000004 -> %z5.d",
+        "orr    %z10.d $0x0000000000000008 -> %z10.d",
+        "orr    %z16.d $0x0000000000000010 -> %z16.d",
+        "orr    %z21.d $0x0000000000000020 -> %z21.d",
+        "orr    %z31.d $0x000000000000003f -> %z31.d",
+    };
+    TEST_LOOP(orr, orr_sve_imm, 6, expected_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_immed_int(imm13[i], OPSZ_8));
+}
+
+TEST_INSTR(orn_sve_imm)
+{
+    /* Testing ORN     <Zdn>.<T>, <Zdn>.<T>, #<imm> */
+    int imm13[6] = { 1, 4, 8, 16, 32, 63 };
+    const char *expected_0[6] = {
+        "orr    %z0.b $0xfe -> %z0.b",   "orr    %z5.b $0xfb -> %z5.b",
+        "orr    %z10.b $0xf7 -> %z10.b", "orr    %z16.b $0xef -> %z16.b",
+        "orr    %z21.b $0xdf -> %z21.b", "orr    %z31.b $0xc0 -> %z31.b",
+    };
+    TEST_LOOP(orr, orn_sve_imm, 6, expected_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_immed_int(imm13[i], OPSZ_1));
+
+    const char *expected_1[6] = {
+        "orr    %z0.h $0xfffe -> %z0.h",   "orr    %z5.h $0xfffb -> %z5.h",
+        "orr    %z10.h $0xfff7 -> %z10.h", "orr    %z16.h $0xffef -> %z16.h",
+        "orr    %z21.h $0xffdf -> %z21.h", "orr    %z31.h $0xffc0 -> %z31.h",
+    };
+    TEST_LOOP(orr, orn_sve_imm, 6, expected_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_immed_int(imm13[i], OPSZ_2));
+
+    const char *expected_2[6] = {
+        "orr    %z0.s $0xfffffffe -> %z0.s",   "orr    %z5.s $0xfffffffb -> %z5.s",
+        "orr    %z10.s $0xfffffff7 -> %z10.s", "orr    %z16.s $0xffffffef -> %z16.s",
+        "orr    %z21.s $0xffffffdf -> %z21.s", "orr    %z31.s $0xffffffc0 -> %z31.s",
+    };
+    TEST_LOOP(orr, orn_sve_imm, 6, expected_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_immed_int(imm13[i], OPSZ_4));
+
+    const char *expected_3[6] = {
+        "orr    %z0.d $0xfffffffffffffffe -> %z0.d",
+        "orr    %z5.d $0xfffffffffffffffb -> %z5.d",
+        "orr    %z10.d $0xfffffffffffffff7 -> %z10.d",
+        "orr    %z16.d $0xffffffffffffffef -> %z16.d",
+        "orr    %z21.d $0xffffffffffffffdf -> %z21.d",
+        "orr    %z31.d $0xffffffffffffffc0 -> %z31.d",
+    };
+    TEST_LOOP(orr, orn_sve_imm, 6, expected_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_immed_int(imm13[i], OPSZ_8));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -4899,6 +5120,12 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(uqdecp_sve);
     RUN_INSTR_TEST(uqincp_sve);
     RUN_INSTR_TEST(uqincp_sve);
+
+    RUN_INSTR_TEST(and_sve_imm);
+    RUN_INSTR_TEST(bic_sve_imm);
+    RUN_INSTR_TEST(eor_sve_imm);
+    RUN_INSTR_TEST(orr_sve_imm);
+    RUN_INSTR_TEST(orn_sve_imm);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

@@ -384,6 +384,24 @@ opnd_create_immed_int64(int64 i, opnd_size_t size)
     return opnd;
 }
 
+opnd_t
+opnd_invert_immed_int(opnd_t opnd)
+{
+    CLIENT_ASSERT(opnd.kind == IMMED_INTEGER_kind, "opnd_invert_immed_int: invalid kind");
+
+    const int bit_size = opnd_size_in_bits(opnd.size);
+    const uint64 mask =
+        (bit_size < 64) ? ((uint64)1 << opnd_size_in_bits(opnd.size)) - 1 : ~((uint64)0);
+    if (opnd.aux.flags & DR_OPND_MULTI_PART) {
+        opnd.value.immed_int_multi_part.low &= mask;
+        opnd.value.immed_int_multi_part.high &= mask >> 32;
+    } else {
+        opnd.value.immed_int = ~opnd.value.immed_int & mask;
+    }
+
+    return opnd;
+}
+
 bool
 opnd_is_immed_int64(opnd_t opnd)
 {
