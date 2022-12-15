@@ -414,16 +414,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                   // resumption point.
                   shard->pre_signal_instr_.top().instr.type ==
                       TRACE_TYPE_INSTR_SYSENTER) &&
-                 (memref.instr.addr == shard->pre_signal_instr_.top().instr.addr ||
-                  // Asynch will go to the subsequent instr.
-                  memref.instr.addr ==
-                      shard->pre_signal_instr_.top().instr.addr +
-                          shard->pre_signal_instr_.top().instr.size ||
-                  // Too hard to figure out branch targets.  We have the
-                  // prev_xfer_int_pc_ though.
-                  type_is_instr_branch(shard->pre_signal_instr_.top().instr.type) ||
-                  shard->pre_signal_instr_.top().instr.type ==
-                      TRACE_TYPE_INSTR_SYSENTER)) ||
+                 (
+                     // Skip pre_signal_instr_ check if there was no such instr.
+                     shard->pre_signal_instr_.top().instr.addr == 0 ||
+                     memref.instr.addr == shard->pre_signal_instr_.top().instr.addr ||
+                     // Asynch will go to the subsequent instr.
+                     memref.instr.addr ==
+                         shard->pre_signal_instr_.top().instr.addr +
+                             shard->pre_signal_instr_.top().instr.size ||
+                     // Too hard to figure out branch targets.  We have the
+                     // prev_xfer_int_pc_ though.
+                     type_is_instr_branch(shard->pre_signal_instr_.top().instr.type) ||
+                     shard->pre_signal_instr_.top().instr.type ==
+                         TRACE_TYPE_INSTR_SYSENTER)) ||
                     // Nested signal.  XXX: This only works for our annotated test
                     // signal_invariants where we know shard->app_handler_pc_.
                     memref.instr.addr == shard->app_handler_pc_ ||
@@ -438,6 +441,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
 #endif
         shard->prev_instr_ = memref;
+        shard->saw_kernel_xfer_after_prev_instr_ = false;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
         // prior (i#3937).
@@ -482,9 +486,23 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
-            // Give up on back-to-back signals.
-            shard->prev_xfer_marker_.marker.marker_type != TRACE_MARKER_TYPE_KERNEL_XFER)
-            shard->pre_signal_instr_.push(shard->prev_instr_);
+            // XXX: Handle the back-to-back signals case where the second
+            // signal arrives just after the return from the first without
+            // any intervening instrs. The return point of the second one
+            // would be the pc in the kernel xfer marker of the first.
+            shard->prev_xfer_marker_.marker.marker_type !=
+                TRACE_MARKER_TYPE_KERNEL_XFER) {
+            if (shard->saw_kernel_xfer_after_prev_instr_) {
+                // We have nested signals without an intervening app instr.
+                // Push an empty instr to mean that this shouldn't be used.
+                shard->pre_signal_instr_.push({});
+            } else {
+                shard->saw_kernel_xfer_after_prev_instr_ = true;
+                // If there was a kernel xfer marker at the very beginning
+                // of the trace, we may still push an empty instr here.
+                shard->pre_signal_instr_.push(shard->prev_instr_);
+            }
+        }
 #endif
         shard->prev_xfer_marker_ = memref;
         shard->last_xfer_marker_ = memref;
