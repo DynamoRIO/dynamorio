@@ -831,7 +831,7 @@ protected:
                 } else if (in_entry->extended.valueB ==
                            TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
                     impl()->log(2, "Reached filter endpoint\n");
-                    saw_filter_endpoint = true;
+                    saw_filter_endpoint_ = true;
                     *flush_decode_cache = true;
                 }
                 // If there is currently a delayed branch that has not been emitted yet,
@@ -882,7 +882,7 @@ protected:
             DR_CHECK(reinterpret_cast<trace_entry_t *>(buf) == buf_base,
                      "We shouldn't have buffered anything before calling "
                      "append_bb_entries");
-            if (saw_filter_endpoint && true) {
+            if (saw_filter_endpoint_) {
                 int file_type = impl()->get_file_type(tls);
                 file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
                                OFFLINE_FILE_TYPE_DFILTERED);
@@ -1021,7 +1021,7 @@ protected:
 
     const module_mapper_t *modmap_ptr_ = nullptr;
 
-    bool saw_filter_endpoint = false;
+    bool saw_filter_endpoint_ = false;
 
 private:
     T *

@@ -238,6 +238,8 @@ public:
                       reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref,
                       int ref_index, bool write, dr_pred_type_t pred,
                       bool memref_needs_full_info) = 0;
+    // Note that the 'mode' parameter is an opaque value passed to the
+    // insert_update_buf_ptr_ callback function.
     virtual int
     instrument_instr(void *drcontext, void *tag, void *bb_field, instrlist_t *ilist,
                      instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app,

@@ -84,12 +84,11 @@ get_local_window(per_thread_t *data)
 static uint64
 local_instr_count_threshold(uint64 trace_for_instrs)
 {
-    uint64 limit = trace_for_instrs;
-    if (limit > INSTR_COUNT_LOCAL_UNIT * 10)
+    if (trace_for_instrs > INSTR_COUNT_LOCAL_UNIT * 10)
         return INSTR_COUNT_LOCAL_UNIT;
     else {
         /* For small windows, use a smaller add-to-global trigger. */
-        return limit / 10;
+        return trace_for_instrs / 10;
     }
 }
 
@@ -124,7 +123,7 @@ reached_traced_instrs_threshold(void *drcontext)
     }
     ptr_int_t mode = tracing_mode.load(std::memory_order_acquire);
     if (mode == BBDUP_MODE_L0_FILTER) {
-        NOTIFY(0, "Hit tracing window #%zd filter limit: switching to full trace.\n",
+        NOTIFY(0, "Hit tracing filter limit at window #%zd : switching to full trace.\n",
                tracing_window.load(std::memory_order_acquire));
 
         tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);

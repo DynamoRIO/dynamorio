@@ -165,7 +165,6 @@ static bool
 bbdup_instr_counting_enabled()
 {
     return op_trace_after_instrs.get_value() > 0 ||
-        op_L0_filter_until_instrs.get_value() > 0 ||
         op_trace_for_instrs.get_value() > 0 || op_retrace_every_instrs.get_value() > 0;
 }
 
@@ -178,7 +177,7 @@ bbdup_duplication_enabled()
 // If we have both BBDUP_MODE_TRACE and BBDUP_MODE_L0_FILTER, then L0 filter is active
 // only when mode is BBDUP_MODE_L0_FILTER
 static void
-get_L0_filters(uintptr_t mode, OUT bool *l0i_enabled, OUT bool *l0d_enabled)
+get_L0_filters_enabled(uintptr_t mode, OUT bool *l0i_enabled, OUT bool *l0d_enabled)
 {
     if (op_L0_filter_until_instrs.get_value()) {
         if (mode != BBDUP_MODE_L0_FILTER) {
@@ -264,7 +263,7 @@ event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     DR_ASSERT(enable_dups != NULL && enable_dynamic_handling != NULL);
     if (bbdup_duplication_enabled()) {
         *enable_dups = true;
-        /* Make sure to update opts.non_default_case_limit if adding an encoding here. */
+        // Make sure to update opts.non_default_case_limit if adding an encoding here.
         drbbdup_status_t res;
         if (align_attach_detach_endpoints()) {
             res = drbbdup_register_case_encoding(drbbdup_ctx, BBDUP_MODE_NOP);
@@ -510,7 +509,7 @@ insert_update_buf_ptr(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (adjust == 0)
         return;
     bool is_L0I_enabled, is_L0D_enabled;
-    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
+    get_L0_filters_enabled(mode, &is_L0I_enabled, &is_L0D_enabled);
     if (!(is_L0I_enabled || is_L0D_enabled)) // Filter skips over this for !pred.
         instrlist_set_auto_predicate(ilist, pred);
     MINSERT(
@@ -785,7 +784,7 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     instr_t *skip_thread = INSTR_CREATE_label(drcontext);
     reg_id_set_t app_regs_at_skip_thread;
     bool is_L0I_enabled, is_L0D_enabled;
-    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
+    get_L0_filters_enabled(mode, &is_L0I_enabled, &is_L0D_enabled);
     if ((is_L0I_enabled || is_L0D_enabled) && thread_filtering_enabled) {
         insert_conditional_skip(drcontext, ilist, where, reg_ptr, &reg_tmp2, skip_thread,
                                 short_reaches, app_regs_at_skip_thread);
@@ -818,7 +817,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
                    dr_pred_type_t pred, uintptr_t mode)
 {
     bool is_L0I_enabled, is_L0D_enabled;
-    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
+    get_L0_filters_enabled(mode, &is_L0I_enabled, &is_L0D_enabled);
     // Our "level 0" inlined direct-mapped cache filter.
     DR_ASSERT((is_L0I_enabled || is_L0D_enabled));
     reg_id_t reg_idx;
@@ -955,7 +954,7 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
     bool is_L0I_enabled, is_L0D_enabled;
-    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
+    get_L0_filters_enabled(mode, &is_L0I_enabled, &is_L0D_enabled);
 
     if (is_L0D_enabled) {
         reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr, ref, NULL,
@@ -999,7 +998,7 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
     bool is_L0I_enabled, is_L0D_enabled;
-    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
+    get_L0_filters_enabled(mode, &is_L0I_enabled, &is_L0D_enabled);
     if (is_L0I_enabled) {
         // Count dynamic instructions per thread.
         // It is too expensive to increment per instruction, so we increment once
@@ -1075,7 +1074,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drvector_t rvec;
     dr_emit_flags_t flags = DR_EMIT_DEFAULT;
     bool is_L0I_enabled, is_L0D_enabled;
-    get_L0_filters(mode, &is_L0I_enabled, &is_L0D_enabled);
+    get_L0_filters_enabled(mode, &is_L0I_enabled, &is_L0D_enabled);
 
     // We need drwrap's instrumentation to go first so that function trace
     // entries will not be appended to the middle of a BB's PC and Memory Access
@@ -2016,7 +2015,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         FATAL("Usage error: function recording is only supported for -offline\n");
     }
     if (op_L0_filter_until_instrs.get_value()) {
-
         if (!op_L0D_filter.get_value() && !op_L0I_filter.get_value()) {
             NOTIFY(
                 0,
