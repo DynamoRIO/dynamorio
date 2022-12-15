@@ -854,6 +854,13 @@ enum {
      * their application values, as required for DR's internal block mangling.
      */
     DR_NOTE_REG_BARRIER,
+    /* Used for translation from an instruction list.  These apply not only to
+     * client-inserted clean calls but all inserted calls whether inserted by
+     * clients or DR and whether fully clean or not.  This is thus distinct from
+     * DR_NOTE_CLEAN_CALL_END.
+     */
+    DR_NOTE_CALLOUT_SEQUENCE_START,
+    DR_NOTE_CALLOUT_SEQUENCE_END,
 };
 
 /**

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -382,7 +382,7 @@ check_xsp(ptr_uint_t *xsp)
 #    endif
 
 void
-make_writable(ptr_uint_t pc)
+make_mem_writable(ptr_uint_t pc)
 {
     protect_mem((void *)pc, 1024, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
 }
@@ -409,6 +409,109 @@ test_thread_func(void (*asm_func)(void))
     sideline_exit = false;
     sideline_ready_for_detach = false;
 }
+
+/***************************************************************************
+ * Client code
+ */
+
+static void *load_from;
+
+static dr_emit_flags_t
+event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+{
+#    ifdef X86
+    /* Test i#5786 where a tool-inserted pc-relative load that doesn't reach is
+     * mangled by DR and the resulting DR-mangling with no translation triggers
+     * DR's (fragile) clean call identication and incorrectly tries to restore
+     * state from (garbage) on the dstack.
+     */
+    instr_t *first = instrlist_first(bb);
+    dr_save_reg(drcontext, bb, first, DR_REG_XAX, SPILL_SLOT_1);
+    instrlist_meta_preinsert(bb, first,
+                             XINST_CREATE_load(drcontext, opnd_create_reg(DR_REG_XAX),
+                                               OPND_CREATE_ABSMEM(load_from, OPSZ_PTR)));
+    dr_restore_reg(drcontext, bb, first, DR_REG_XAX, SPILL_SLOT_1);
+    /* XXX i#4232: If we do not give translations, detach can fail as there are so
+     * many no-translation instrs here a thread can end up never landing on a
+     * full-state-translatable PC.  Thus, we set the translation, and provide a
+     * restore-state event.  i#4232 covers are more automated/convenient way to solve
+     * this.
+     */
+    for (instr_t *inst = instrlist_first(bb); inst != first; inst = instr_get_next(inst))
+        instr_set_translation(inst, instr_get_app_pc(first));
+#    endif
+    /* Test both by alternating and assuming we hit both at the detach points
+     * in the various tests.
+     */
+    if ((ptr_uint_t)tag % 2 == 0)
+        return DR_EMIT_DEFAULT;
+    else
+        return DR_EMIT_STORE_TRANSLATIONS;
+}
+
+static bool
+event_restore(void *drcontext, bool restore_memory, dr_restore_state_info_t *info)
+{
+    /* Because we set the translation (to avoid detach timeouts) we need to restore
+     * our register too.
+     */
+    if (info->fragment_info.cache_start_pc == NULL ||
+        /* At the first instr should require no translation. */
+        info->raw_mcontext->pc <= info->fragment_info.cache_start_pc)
+        return true;
+    instr_t inst;
+    instr_init(drcontext, &inst);
+    byte *pc = info->fragment_info.cache_start_pc;
+    while (pc < info->raw_mcontext->pc) {
+        instr_reset(drcontext, &inst);
+        pc = decode(drcontext, pc, &inst);
+        bool tls;
+        uint offs;
+        bool spill;
+        reg_id_t reg;
+        if (instr_is_reg_spill_or_restore(drcontext, &inst, &tls, &spill, &reg, &offs) &&
+            tls && !spill && reg == DR_REG_XAX) {
+            /* The target point is past our restore. */
+            instr_free(drcontext, &inst);
+            return true;
+        }
+    }
+    instr_free(drcontext, &inst);
+    reg_set_value(DR_REG_XAX, info->mcontext, dr_read_saved_reg(drcontext, SPILL_SLOT_1));
+    return true;
+}
+
+static void
+event_exit(void)
+{
+    dr_custom_free(NULL, 0, load_from, dr_page_size());
+    dr_unregister_bb_event(event_bb);
+    dr_unregister_restore_state_ex_event(event_restore);
+    dr_unregister_exit_event(event_exit);
+}
+
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    static bool do_once;
+    if (!do_once) {
+        print("in dr_client_main\n");
+        do_once = true;
+    }
+    dr_register_bb_event(event_bb);
+    dr_register_restore_state_ex_event(event_restore);
+    dr_register_exit_event(event_exit);
+
+    /* Try to get an address that is not 32-bit-displacement reachable from
+     * the cache.
+     */
+    load_from = dr_custom_alloc(NULL, 0, dr_page_size(),
+                                DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+}
+
+/***************************************************************************
+ * Top-level
+ */
 
 int
 main(void)
@@ -715,7 +818,7 @@ START_FILE
 
 DECL_EXTERN(sideline_exit)
 DECL_EXTERN(sideline_ready_for_detach)
-DECL_EXTERN(make_writable)
+DECL_EXTERN(make_mem_writable)
 DECL_EXTERN(check_gpr_vals)
 DECL_EXTERN(safe_stack)
 
@@ -974,7 +1077,7 @@ GLOBAL_LABEL(FUNCNAME:)
         call     check_gprs_from_DR_retaddr
 check_gprs_from_DR_retaddr:
         pop      REG_XAX
-        CALLC1(GLOBAL_REF(make_writable), REG_XAX)
+        CALLC1(GLOBAL_REF(make_mem_writable), REG_XAX)
         /* Put in unique values. */
         CALLC0(unique_values_to_registers)
         /* Signal that we are ready for a detach. */
@@ -1039,7 +1142,7 @@ GLOBAL_LABEL(FUNCNAME:)
         call     check_eflags_from_DR_retaddr
 check_eflags_from_DR_retaddr:
         pop      REG_XAX
-        CALLC1(GLOBAL_REF(make_writable), REG_XAX)
+        CALLC1(GLOBAL_REF(make_mem_writable), REG_XAX)
         /* Put in a unique value. */
         mov      REG_XAX, MAKE_HEX_ASM(XFLAGS_BASE())
         push     REG_XAX
@@ -1112,7 +1215,7 @@ GLOBAL_LABEL(FUNCNAME:)
         call     check_xsp_from_DR_retaddr
 check_xsp_from_DR_retaddr:
         pop      REG_XAX
-        CALLC1(GLOBAL_REF(make_writable), REG_XAX)
+        CALLC1(GLOBAL_REF(make_mem_writable), REG_XAX)
         /* Put in a unique value. */
         mov      REG_XCX, REG_XSP
         mov      REG_XSP, PTRSZ SYMREF(safe_stack)

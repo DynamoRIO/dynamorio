@@ -97,6 +97,8 @@ typedef struct _translate_walk_t {
     bool in_mangle_region_epilogue;
     /* What is the translation target of the current mangle region */
     app_pc translation;
+    /* Are we inside a clean call? */
+    bool in_clean_call;
 } translate_walk_t;
 
 static void
@@ -345,6 +347,12 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
     reg_id_t reg, r;
     bool spill, spill_tls;
 
+    if (instr_is_label(inst)) {
+        if (instr_get_note(inst) == (void *)DR_NOTE_CALLOUT_SEQUENCE_START)
+            walk->in_clean_call = true;
+        else if (instr_get_note(inst) == (void *)DR_NOTE_CALLOUT_SEQUENCE_END)
+            walk->in_clean_call = false;
+    }
     if (instr_is_our_mangling(inst)) {
         if (!walk->in_mangle_region) {
             walk->in_mangle_region = true;
@@ -361,12 +369,12 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
                 walk->translation);
         } else
             ASSERT(walk->translation == instr_get_translation(inst));
-        /* PR 302951: we recognize a clean call by its NULL translation.
+        /* We recognize a clean call by explicit labels or flags.
          * We do not track any stack or spills: we assume we will only
          * fault on an argument that references app memory, in which case
          * we restore to the priv_mcontext_t on the stack.
          */
-        if (walk->translation == NULL) {
+        if (walk->in_clean_call) {
             DOLOG(4, LOG_INTERP, {
                 d_r_loginst(get_thread_private_dcontext(), 4, inst,
                             "\tin clean call arg region");
@@ -703,9 +711,7 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
 static void
 translate_restore_clean_call(dcontext_t *tdcontext, translate_walk_t *walk)
 {
-    /* PR 302951: we recognize a clean call by its combination of
-     * our-mangling and NULL translation.
-     * We restore to the priv_mcontext_t that was pushed on the stack.
+    /* We restore to the priv_mcontext_t that was pushed on the stack.
      * FIXME i#4219: This is not safe: see comment below.
      */
     LOG(THREAD_GET, LOG_INTERP, 2, "\ttranslating clean call arg crash\n");
@@ -766,7 +772,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
     byte *cpc, *prev_cpc;
     cache_pc target_cache = mc->pc;
     uint i;
-    bool contig = true, ours = false;
+    bool contig = true, ours = false, in_clean_call = false;
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
     instr_t instr;
     translate_walk_t walk;
@@ -800,6 +806,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
             answer = info->translation[i].app;
             contig = !TEST(TRANSLATE_IDENTICAL, info->translation[i].flags);
             ours = TEST(TRANSLATE_OUR_MANGLING, info->translation[i].flags);
+            in_clean_call = TEST(TRANSLATE_CLEAN_CALL, info->translation[i].flags);
             i++;
         }
 
@@ -834,6 +841,8 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
         instr_set_translation(&instr, answer);
         translate_walk_track_pre_instr(tdcontext, &instr, &walk);
         translate_walk_track_post_instr(tdcontext, &instr, &walk);
+        /* We directly set this field rather than inserting synthetic labels. */
+        walk.in_clean_call = in_clean_call;
 
         /* advance translation by the stride: either instr length or 0 */
         if (contig)
@@ -860,7 +869,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
          * xl8 we could be before setup or after teardown of the mcontext on the
          * dstack, and with leaner clean calls we might not have the full mcontext.
          */
-        if (answer == NULL && ours)
+        if (answer == NULL && walk.in_clean_call)
             translate_restore_clean_call(tdcontext, &walk);
         else
             res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
@@ -1021,7 +1030,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                 /* PR 302951: our clean calls do show up here and have full state.
                  * FIXME i#4219: This is not safe: see comment above.
                  */
-                if (instr_is_our_mangling(inst))
+                if (walk.in_clean_call)
                     translate_restore_clean_call(tdcontext, &walk);
                 else
                     res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
@@ -1688,7 +1697,7 @@ translation_info_free(dcontext_t *dcontext, translation_info_t *info)
 static inline void
 set_translation(dcontext_t *dcontext, translation_entry_t **entries, uint *num_entries,
                 uint entry, ushort cache_offs, app_pc app, bool identical,
-                bool our_mangling)
+                bool our_mangling, bool in_clean_call)
 {
     if (entry >= *num_entries) {
         /* alloc new arrays 2x as big */
@@ -1704,6 +1713,8 @@ set_translation(dcontext_t *dcontext, translation_entry_t **entries, uint *num_e
         (*entries)[entry].flags |= TRANSLATE_IDENTICAL;
     if (our_mangling)
         (*entries)[entry].flags |= TRANSLATE_OUR_MANGLING;
+    if (in_clean_call)
+        (*entries)[entry].flags |= TRANSLATE_CLEAN_CALL;
     LOG(THREAD, LOG_FRAGMENT, 4, "\tset_translation: %d +%5d => " PFX " %s%s\n", entry,
         cache_offs, app, identical ? "identical" : "contiguous",
         our_mangling ? " ours" : "");
@@ -1787,7 +1798,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
     if (fragment_prefix_size(f->flags) > 0) {
         ASSERT(f->start_pc < cpc);
         set_translation(dcontext, &entries, &num_entries, i, 0, f->tag,
-                        true /*identical*/, true /*our mangling*/);
+                        true /*identical*/, true /*our mangling*/, false /*!call*/);
         last_translation = f->tag;
         last_contig = false;
         i++;
@@ -1798,13 +1809,19 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
         app_pc app = instr_get_translation(inst);
         uint prev_i = i;
+        bool in_clean_call = false;
         /* Should only be NULL for meta-code added by a client.
          * We preserve the NULL so our translation routines know to not
          * let this be a thread relocation point
          */
-        /* i#739, skip label instr */
-        if (instr_is_label(inst))
+        if (instr_is_label(inst)) {
+            if (instr_get_note(inst) == (void *)DR_NOTE_CALLOUT_SEQUENCE_START)
+                in_clean_call = true;
+            else if (instr_get_note(inst) == (void *)DR_NOTE_CALLOUT_SEQUENCE_END)
+                in_clean_call = false;
+            /* i#739, skip label instr */
             continue;
+        }
         /* PR 302951: clean call args are instr_is_our_mangling so no assert for that */
         ASSERT(app != NULL || instr_is_meta(inst));
         /* see whether we need a new entry, or the current stride (contig
@@ -1832,7 +1849,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
                 } else {
                     set_translation(dcontext, &entries, &num_entries, i,
                                     (ushort)(cpc - f->start_pc), app, true /*identical*/,
-                                    instr_is_our_mangling(inst));
+                                    instr_is_our_mangling(inst), in_clean_call);
                     i++;
                 }
                 last_contig = false;
@@ -1843,7 +1860,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
                  */
                 set_translation(dcontext, &entries, &num_entries, i,
                                 (ushort)(cpc - f->start_pc), app, false /*contig*/,
-                                instr_is_our_mangling(inst));
+                                instr_is_our_mangling(inst), in_clean_call);
                 last_contig = true;
                 i++;
             } /* else, contig continues */
@@ -1866,7 +1883,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
                     /* probably a follow-ubr, so create a new contig entry */
                     set_translation(dcontext, &entries, &num_entries, i,
                                     (ushort)(cpc - f->start_pc), app, false /*contig*/,
-                                    instr_is_our_mangling(inst));
+                                    instr_is_our_mangling(inst), in_clean_call);
                     last_contig = true;
                     i++;
                 }
@@ -1874,15 +1891,17 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
         }
         last_translation = app;
 
-        /* We need to make a new entry if the our-mangling flag changed */
+        /* We need to make a new entry if the flags changed. */
         if (i > 0 && i == prev_i &&
-            instr_is_our_mangling(inst) !=
-                TEST(TRANSLATE_OUR_MANGLING, entries[i - 1].flags)) {
+            (!BOOLS_MATCH(instr_is_our_mangling(inst),
+                          TEST(TRANSLATE_OUR_MANGLING, entries[i - 1].flags)) ||
+             !BOOLS_MATCH(in_clean_call,
+                          TEST(TRANSLATE_CLEAN_CALL, entries[i - 1].flags)))) {
             /* our manglings are usually identical */
             bool identical = instr_is_our_mangling(inst);
             set_translation(dcontext, &entries, &num_entries, i,
                             (ushort)(cpc - f->start_pc), app, identical,
-                            instr_is_our_mangling(inst));
+                            instr_is_our_mangling(inst), in_clean_call);
             last_contig = !identical;
             i++;
         }

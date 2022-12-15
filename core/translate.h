@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,6 +53,7 @@ enum {
      */
     TRANSLATE_IDENTICAL = 0x0001,    /* otherwise contiguous */
     TRANSLATE_OUR_MANGLING = 0x0002, /* added by our own mangling (PR 267260) */
+    TRANSLATE_CLEAN_CALL = 0x0004,   /* Added by our own mangling. */
 };                                   /* no typedef b/c we need ushort not int */
 
 /* Translation table entry (case 3559).

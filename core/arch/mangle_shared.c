@@ -188,6 +188,10 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
 {
     uint dstack_offs = 0;
 
+    instr_t *start_label = INSTR_CREATE_label(dcontext);
+    instr_set_note(start_label, (void *)DR_NOTE_CALLOUT_SEQUENCE_START);
+    PRE(ilist, instr, start_label);
+
     if (cci == NULL)
         cci = &default_clean_call_info;
 
@@ -427,6 +431,9 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         PRE(ilist, instr,
             instr_create_restore_from_dcontext(dcontext, REG_XSP, XSP_OFFSET));
     }
+    instr_t *end_label = INSTR_CREATE_label(dcontext);
+    instr_set_note(end_label, (void *)DR_NOTE_CALLOUT_SEQUENCE_END);
+    PRE(ilist, instr, end_label);
 }
 
 bool
