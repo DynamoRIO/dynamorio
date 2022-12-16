@@ -71,10 +71,11 @@ void
 invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
                                      const std::string &invariant_name)
 {
+    uint64_t ref_count = shard->stream == nullptr ? shard->ref_count_
+                                                  : shard->stream->get_record_ordinal();
     if (!condition) {
         std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
-                  << shard->stream->get_record_ordinal() << ": " << invariant_name
-                  << "\n";
+                  << ref_count << ": " << invariant_name << "\n";
         abort();
     }
 }
