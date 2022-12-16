@@ -491,9 +491,6 @@ DR_API
 INSTR_INLINE
 /**
  * Gets the value of the user-controlled note field in \p instr.
- * \note Important: is also used when emitting for targets that are other
- * instructions.  Thus it will be overwritten when calling instrlist_encode()
- * or instrlist_encode_to_copy() with \p has_instr_jmp_targets set to true.
  * \note The note field is copied (shallowly) by instr_clone().
  */
 void *

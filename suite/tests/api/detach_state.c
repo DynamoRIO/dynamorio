@@ -1014,7 +1014,8 @@ GLOBAL_LABEL(FUNCNAME:)
 /* We use the x2 immed, which ends in 0x01, to mean "true". */
 #   define SET_SIDELINE_READY \
         SET_GPR_IMMED(x2, MAKE_HEX_C(X2_BASE())) @N@ \
-        adr      x0, sideline_ready_for_detach @N@\
+        adrp     x0, sideline_ready_for_detach @N@ \
+        add      x0, x0, :lo12:sideline_ready_for_detach @N@ \
         strb     w2, [x0]
 #elif defined(RISCV64)
     /* FIXME i#3544: Not implemented */
@@ -1026,7 +1027,8 @@ GLOBAL_LABEL(FUNCNAME:)
         cmp      BYTE SYMREF(sideline_exit), HEX(1)
 #elif defined(AARCH64)
 #   define CHECK_SIDELINE_EXIT \
-        adr      x0, sideline_exit @N@\
+        adrp     x0, sideline_exit @N@ \
+        add      x0, x0, :lo12:sideline_exit @N@ \
         ldrb     w0, [x0] @N@\
         cmp      x0, #1
 #elif defined(RISCV64)
