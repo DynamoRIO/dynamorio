@@ -161,6 +161,7 @@ instr_clone(void *drcontext, instr_t *orig)
     }
     /* copy note (we make no guarantee, and have no way, to do a deep clone) */
     instr->note = orig->note;
+    instr->offset = orig->offset;
     if (instr_is_label(orig))
         memcpy(&instr->label_data, &orig->label_data, sizeof(instr->label_data));
     return instr;

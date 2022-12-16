@@ -136,6 +136,7 @@ changes:
    the register in the structure from struct.value.reg to
    struct.value.reg_and_element_size.reg. The element size can be accessed directly
    via struct.value.reg_and_element_size.element_size.
+ - Changed the size of the #instr_t structure by appending a field.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.

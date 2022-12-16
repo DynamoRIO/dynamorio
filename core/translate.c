@@ -1809,10 +1809,10 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
         ASSERT(f->start_pc == cpc);
         last_contig = true; /* we create 1st entry on 1st loop iter */
     }
+    bool in_clean_call = false;
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
         app_pc app = instr_get_translation(inst);
         uint prev_i = i;
-        bool in_clean_call = false;
         /* Should only be NULL for meta-code added by a client.
          * We preserve the NULL so our translation routines know to not
          * let this be a thread relocation point

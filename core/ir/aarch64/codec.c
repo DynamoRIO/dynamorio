@@ -231,7 +231,7 @@ encode_pc_off(OUT uint *poff, int bits, byte *pc, instr_t *instr, opnd_t opnd,
     if (opnd.kind == PC_kind)
         off = opnd.value.pc - pc;
     else if (opnd.kind == INSTR_kind)
-        off = (byte *)opnd_get_instr(opnd)->note - (byte *)instr->note;
+        off = (byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset;
     else
         return false;
     range = (ptr_uint_t)1 << bits;
@@ -750,7 +750,8 @@ encode_opnd_adr_page(int scale, byte *pc, opnd_t opnd, OUT uint *enc_out, instr_
         offset = (ptr_int_t)opnd_get_addr(opnd) -
             (ptr_int_t)((ptr_uint_t)pc >> scale << scale);
     } else if (opnd_is_instr(opnd)) {
-        offset = (ptr_int_t)((byte *)opnd_get_instr(opnd)->note - (byte *)instr->note);
+        offset =
+            (ptr_int_t)((byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset);
     } else
         return false;
 
@@ -3603,9 +3604,8 @@ encode_opnd_instr(int bit_pos, opnd_t opnd, byte *start_pc, instr_t *containing_
     if (!opnd_is_instr(opnd)) {
         return false;
     }
-    ptr_uint_t val =
-        ((ptr_uint_t)instr_get_note(opnd_get_instr(opnd)) -
-         (ptr_uint_t)instr_get_note(containing_instr) + (ptr_uint_t)start_pc) >>
+    ptr_uint_t val = (opnd_get_instr(opnd)->offset - containing_instr->offset +
+                      (ptr_uint_t)start_pc) >>
         opnd_get_shift(opnd);
 
     uint bits = opnd_size_in_bits(opnd_get_size(opnd));
