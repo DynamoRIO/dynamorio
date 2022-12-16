@@ -2362,6 +2362,22 @@ encode_opnd_p10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_p(10, 15, opnd, enc_out);
 }
 
+/* p10_zer: SVE predicate registers p0-p15, zeroing */
+static inline bool
+decode_opnd_p10_zer(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_predicate_reg(DR_REG_P0 + extract_uint(enc, 10, 4), false);
+    return true;
+}
+
+static inline bool
+encode_opnd_p10_zer(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_predicate_zero(opnd))
+        return false;
+    return encode_opnd_p(10, 15, opnd, enc_out);
+}
+
 /* cmode_s_sz: Operand for 32 bit elements' shift amount */
 
 static inline bool
@@ -3049,6 +3065,21 @@ encode_opnd_p16_zer(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     if (!opnd_is_predicate_zero(opnd))
         return false;
     return encode_opnd_p(16, 15, opnd, enc_out);
+}
+
+/* p_b_16: P register with a byte element size */
+static inline bool
+decode_opnd_p_b_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_P0, 16, 4, BYTE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_p_b_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_predicate_reg(opnd))
+        return false;
+    return encode_single_sized(OPSZ_SCALABLE_PRED, 16, BYTE_REG, opnd, enc_out);
 }
 
 /* sysreg: system register, operand of MRS/MSR */
