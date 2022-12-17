@@ -130,15 +130,15 @@ public:
  */
 class default_memtrace_stream_t : public memtrace_stream_t {
 public:
-    virtual ~default_memtrace_stream_t()
-    {
-    }
     default_memtrace_stream_t()
         : record_ordinal_(nullptr)
     {
     }
     default_memtrace_stream_t(uint64_t *record_ordinal)
         : record_ordinal_(record_ordinal)
+    {
+    }
+    virtual ~default_memtrace_stream_t()
     {
     }
     uint64_t
