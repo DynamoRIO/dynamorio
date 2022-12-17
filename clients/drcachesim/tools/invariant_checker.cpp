@@ -549,6 +549,7 @@ invariant_checker_t::check_schedule_data()
     // Check that the scheduling data in the files written by raw2trace match
     // the data in the trace.
     per_shard_t global;
+    // Use a synthetic stream object to allow report_if_false to work normally.
     auto stream = std::unique_ptr<memtrace_stream_t>(new default_memtrace_stream_t());
     global.stream = stream.get();
     std::vector<schedule_entry_t> serial;
