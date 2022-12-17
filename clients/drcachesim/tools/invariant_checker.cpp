@@ -71,11 +71,10 @@ void
 invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
                                      const std::string &invariant_name)
 {
-    uint64_t ref_count = shard->stream == nullptr ? shard->ref_count_
-                                                  : shard->stream->get_record_ordinal();
     if (!condition) {
         std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
-                  << ref_count << ": " << invariant_name << "\n";
+                  << shard->stream->get_record_ordinal() << ": " << invariant_name
+                  << "\n";
         abort();
     }
 }
@@ -550,6 +549,8 @@ invariant_checker_t::check_schedule_data()
     // Check that the scheduling data in the files written by raw2trace match
     // the data in the trace.
     per_shard_t global;
+    auto stream = std::unique_ptr<memtrace_stream_t>(new default_memtrace_stream_t());
+    global.stream = stream.get();
     std::vector<schedule_entry_t> serial;
     std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
     for (auto &shard_keyval : shard_map_) {

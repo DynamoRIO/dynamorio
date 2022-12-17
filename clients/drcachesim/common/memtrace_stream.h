@@ -128,9 +128,9 @@ public:
 /**
  * Implementation of memtrace_stream_t useful for mocks in tests.
  */
-class test_memtrace_stream_t : public memtrace_stream_t {
+class default_memtrace_stream_t : public memtrace_stream_t {
 public:
-    virtual ~test_memtrace_stream_t()
+    virtual ~default_memtrace_stream_t()
     {
     }
     uint64_t
