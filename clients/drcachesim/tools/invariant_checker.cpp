@@ -550,7 +550,8 @@ invariant_checker_t::check_schedule_data()
     // the data in the trace.
     per_shard_t global;
     // Use a synthetic stream object to allow report_if_false to work normally.
-    auto stream = std::unique_ptr<memtrace_stream_t>(new default_memtrace_stream_t());
+    auto stream = std::unique_ptr<memtrace_stream_t>(
+        new default_memtrace_stream_t(&global.ref_count_));
     global.stream = stream.get();
     std::vector<schedule_entry_t> serial;
     std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
