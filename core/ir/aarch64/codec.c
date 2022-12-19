@@ -2130,9 +2130,9 @@ encode_opnd_mem9qpost(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
 }
 
 /**
- * pred_constr: pattern field that can sometimes be stringy and sometimes
- * a plain imm. Treated as an imm internally and stringified on printing
- * as needed. Is used to encode the predicate constraint.
+ * pred_constr: predicate constraints which set active elements for various
+ * opcodes. Treated as imms internally. Named constraints are stringified on
+ * output. Unspecified constraints are output as ints.
  */
 
 static inline bool
@@ -2143,8 +2143,7 @@ decode_opnd_pred_constr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_pred_constr(uint enc, int opcode, byte *pc, opnd_t opnd,
-                                OUT uint *enc_out)
+encode_opnd_pred_constr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(5, 5, false, 0, DR_OPND_IS_PREDICATE_CONSTRAINT, opnd,
                            enc_out);

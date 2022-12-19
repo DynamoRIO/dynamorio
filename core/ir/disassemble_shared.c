@@ -286,8 +286,7 @@ aarch64_reg_opnd_suffix(opnd_t opnd)
 bool
 aarch64_predicate_constraint_is_mapped(ptr_int_t value)
 {
-    return value >= DR_PRED_CONSTR_FIRST_NUMBER &&
-        value <= DR_PRED_CONSTR_LAST_NUMBER;
+    return value >= DR_PRED_CONSTR_FIRST_NUMBER && value <= DR_PRED_CONSTR_LAST_NUMBER;
 }
 
 static const char *
