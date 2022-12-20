@@ -832,6 +832,10 @@ protected:
                            TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
                     impl()->log(2, "Reached filter endpoint\n");
                     saw_filter_endpoint_ = true;
+                    // For the full trace, the cache contains block-level info unlike the
+                    // filtered trace which contains instr-level info. Since we cannot use
+                    // the decode cache entries after the transition, we need to flush the
+                    // cache here.
                     *flush_decode_cache = true;
                 }
                 // If there is currently a delayed branch that has not been emitted yet,
@@ -883,6 +887,9 @@ protected:
                      "We shouldn't have buffered anything before calling "
                      "append_bb_entries");
             if (saw_filter_endpoint_) {
+                // The file type needs to be updated during the switch to correctly
+                // process the entries that follow after. This does not affect the
+                // written-out type.
                 int file_type = impl()->get_file_type(tls);
                 file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
                                OFFLINE_FILE_TYPE_DFILTERED);

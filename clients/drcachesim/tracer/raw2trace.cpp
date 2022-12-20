@@ -1413,6 +1413,8 @@ raw2trace_t::get_file_type(void *tls)
 void
 raw2trace_t::set_file_type(void *tls, offline_file_type_t file_type)
 {
+    // The file type needs to be updated during the switch to correctly process the
+    // entries that follow after. This does not affect the written-out type.
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     tdata->file_type = file_type;
 }

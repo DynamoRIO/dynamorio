@@ -164,6 +164,8 @@ bool attached_midway;
 static bool
 bbdup_instr_counting_enabled()
 {
+    // XXX: with no other options -trace_for_instrs switches to counting mode once tracing
+    // is done, so return true. Now that we have a NOP mode this could be changed.
     return op_trace_after_instrs.get_value() > 0 || op_trace_for_instrs.get_value() > 0 ||
         op_retrace_every_instrs.get_value() > 0;
 }
