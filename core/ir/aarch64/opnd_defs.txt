@@ -123,6 +123,7 @@
 ------------------x-------------  shift1     # LSL #0 or #8 depending on bit 13
 ------------------xx------------  imm2idx    # imm from 13-12, used as an index
 ------------------xxxx----------  p10        # SVE predicate registers p0-p15
+------------------xxxx----------  p10_zer    # SVE predicate registers p0-p15, zeroing
 -----------------xx-------------  cmode_s_sz # Vector shift for 32 bit elements
 -----------------xx-------------  len        # imm2 len
 -----------------xxxx-----------  imm4idx    # imm4 from 11-14
@@ -137,6 +138,8 @@
 ----------------xxxx------------  cond       # condition for CCMN, CCMP
 ----------------xxxxxx----------  scale      # encoding of #fbits value in scale field
 ----------------xxxxxxxxxxxxxxxx  imm16_0    # imm16 at position 0
+--------------?------??????xxxxx  z_imm13_bhsd_0 # sve vector reg, elsz depending on size value encoded within an 13 bit immediate from 5-17
+--------------xxxxxxxxxxxxx-----  imm13_const # Const value within a 13 bit immediate from 5-17
 -------------xxx----------------  imm3       # 3 bit immediate from 16-18
 -------------xxx--------xxx-----  pstate     # Pstate encoded in op1:op2
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
@@ -144,6 +147,7 @@
 -------------xxx------xxxxx-----  exp_imm8   # expanded immediate from 16:18 and 5:9
 ------------xxxx----------------  p16_mrg    # merging P register at position 16
 ------------xxxx----------------  p16_zer    # zeroing P register at position 16
+------------xxxx----------------  p_b_16     # P register with a byte element size at position 16
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------?????----------------  bh_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????----------------  bhs_imm5_sz # Size encoded as least significant bit in imm5

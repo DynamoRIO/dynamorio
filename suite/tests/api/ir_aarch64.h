@@ -117,7 +117,7 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
         print("but expected:\n");
         print("   %s\n", expected);
         print("Encoded as:\n");
-        print("   %08x\n\n", pc);
+        print("   0x%08x\n\n", *((int *)pc));
         result = false;
     }
 

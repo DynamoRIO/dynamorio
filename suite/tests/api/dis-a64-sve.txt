@@ -318,10 +318,180 @@
 049a06ff : and z31.s, p1/m, z31.s, z23.s            : and    %p1 %z31 %z23 $0x02 -> %z31
 04da06ff : and z31.d, p1/m, z31.d, z23.d            : and    %p1 %z31 %z23 $0x03 -> %z31
 
+# AND   <Zdn>.<T>, <Zdn>.<T>, #<const> (AND-Z.ZI-_)
+058006a0 : and z0.b, z0.b, #0x3f                    : and    %z0.b $0x3f -> %z0.b
+05800604 : and z4.b, z4.b, #0x01                    : and    %z4.b $0x01 -> %z4.b
+05803e06 : and z6.b, z6.b, #0x02                    : and    %z6.b $0x02 -> %z6.b
+05803608 : and z8.b, z8.b, #0x04                    : and    %z8.b $0x04 -> %z8.b
+05802e0a : and z10.b, z10.b, #0x08                  : and    %z10.b $0x08 -> %z10.b
+0580260c : and z12.b, z12.b, #0x10                  : and    %z12.b $0x10 -> %z12.b
+05801e0e : and z14.b, z14.b, #0x20                  : and    %z14.b $0x20 -> %z14.b
+05800630 : and z16.b, z16.b, #0x03                  : and    %z16.b $0x03 -> %z16.b
+05800652 : and z18.b, z18.b, #0x07                  : and    %z18.b $0x07 -> %z18.b
+05800674 : and z20.b, z20.b, #0x0f                  : and    %z20.b $0x0f -> %z20.b
+05800696 : and z22.b, z22.b, #0x1f                  : and    %z22.b $0x1f -> %z22.b
+05803e98 : and z24.b, z24.b, #0x3e                  : and    %z24.b $0x3e -> %z24.b
+0580367a : and z26.b, z26.b, #0x3c                  : and    %z26.b $0x3c -> %z26.b
+05802e5c : and z28.b, z28.b, #0x38                  : and    %z28.b $0x38 -> %z28.b
+0580263f : and z31.b, z31.b, #0x30                  : and    %z31.b $0x30 -> %z31.b
+058004a0 : and z0.h, z0.h, #0x3f                    : and    %z0.h $0x003f -> %z0.h
+05800404 : and z4.h, z4.h, #0x01                    : and    %z4.h $0x0001 -> %z4.h
+05807c06 : and z6.h, z6.h, #0x02                    : and    %z6.h $0x0002 -> %z6.h
+05807408 : and z8.h, z8.h, #0x04                    : and    %z8.h $0x0004 -> %z8.h
+05806c0a : and z10.h, z10.h, #0x08                  : and    %z10.h $0x0008 -> %z10.h
+0580640c : and z12.h, z12.h, #0x10                  : and    %z12.h $0x0010 -> %z12.h
+05805c0e : and z14.h, z14.h, #0x20                  : and    %z14.h $0x0020 -> %z14.h
+05800430 : and z16.h, z16.h, #0x03                  : and    %z16.h $0x0003 -> %z16.h
+05800452 : and z18.h, z18.h, #0x07                  : and    %z18.h $0x0007 -> %z18.h
+05800474 : and z20.h, z20.h, #0x0f                  : and    %z20.h $0x000f -> %z20.h
+05800496 : and z22.h, z22.h, #0x1f                  : and    %z22.h $0x001f -> %z22.h
+05807c98 : and z24.h, z24.h, #0x3e                  : and    %z24.h $0x003e -> %z24.h
+0580747a : and z26.h, z26.h, #0x3c                  : and    %z26.h $0x003c -> %z26.h
+05806c5c : and z28.h, z28.h, #0x38                  : and    %z28.h $0x0038 -> %z28.h
+0580643f : and z31.h, z31.h, #0x30                  : and    %z31.h $0x0030 -> %z31.h
+058000a0 : and z0.s, z0.s, #0x3f                    : and    %z0.s $0x0000003f -> %z0.s
+05800004 : and z4.s, z4.s, #0x01                    : and    %z4.s $0x00000001 -> %z4.s
+0580f806 : and z6.s, z6.s, #0x02                    : and    %z6.s $0x00000002 -> %z6.s
+0580f008 : and z8.s, z8.s, #0x04                    : and    %z8.s $0x00000004 -> %z8.s
+0580e80a : and z10.s, z10.s, #0x08                  : and    %z10.s $0x00000008 -> %z10.s
+0580e00c : and z12.s, z12.s, #0x10                  : and    %z12.s $0x00000010 -> %z12.s
+0580d80e : and z14.s, z14.s, #0x20                  : and    %z14.s $0x00000020 -> %z14.s
+05800030 : and z16.s, z16.s, #0x03                  : and    %z16.s $0x00000003 -> %z16.s
+05800052 : and z18.s, z18.s, #0x07                  : and    %z18.s $0x00000007 -> %z18.s
+05800074 : and z20.s, z20.s, #0x0f                  : and    %z20.s $0x0000000f -> %z20.s
+05800096 : and z22.s, z22.s, #0x1f                  : and    %z22.s $0x0000001f -> %z22.s
+0580f898 : and z24.s, z24.s, #0x3e                  : and    %z24.s $0x0000003e -> %z24.s
+0580f07a : and z26.s, z26.s, #0x3c                  : and    %z26.s $0x0000003c -> %z26.s
+0580e85c : and z28.s, z28.s, #0x38                  : and    %z28.s $0x00000038 -> %z28.s
+0580e03f : and z31.s, z31.s, #0x30                  : and    %z31.s $0x00000030 -> %z31.s
+058200a0 : and z0.d, z0.d, #0x3f                    : and    %z0.d $0x000000000000003f -> %z0.d
+05820004 : and z4.d, z4.d, #0x01                    : and    %z4.d $0x0000000000000001 -> %z4.d
+0583f806 : and z6.d, z6.d, #0x02                    : and    %z6.d $0x0000000000000002 -> %z6.d
+0583f008 : and z8.d, z8.d, #0x04                    : and    %z8.d $0x0000000000000004 -> %z8.d
+0583e80a : and z10.d, z10.d, #0x08                  : and    %z10.d $0x0000000000000008 -> %z10.d
+0583e00c : and z12.d, z12.d, #0x10                  : and    %z12.d $0x0000000000000010 -> %z12.d
+0583d80e : and z14.d, z14.d, #0x20                  : and    %z14.d $0x0000000000000020 -> %z14.d
+05820030 : and z16.d, z16.d, #0x03                  : and    %z16.d $0x0000000000000003 -> %z16.d
+05820052 : and z18.d, z18.d, #0x07                  : and    %z18.d $0x0000000000000007 -> %z18.d
+05820074 : and z20.d, z20.d, #0x0f                  : and    %z20.d $0x000000000000000f -> %z20.d
+05820096 : and z22.d, z22.d, #0x1f                  : and    %z22.d $0x000000000000001f -> %z22.d
+0583f898 : and z24.d, z24.d, #0x3e                  : and    %z24.d $0x000000000000003e -> %z24.d
+0583f07a : and z26.d, z26.d, #0x3c                  : and    %z26.d $0x000000000000003c -> %z26.d
+0583e85c : and z28.d, z28.d, #0x38                  : and    %z28.d $0x0000000000000038 -> %z28.d
+0583e03f : and z31.d, z31.d, #0x30                  : and    %z31.d $0x0000000000000030 -> %z31.d
+
+# AND     <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (AND-P.P.PP-Z)
+25004000 : and p0.b, p0/Z, p0.b, p0.b                : and    %p0/z %p0.b %p0.b -> %p0.b
+25044861 : and p1.b, p2/Z, p3.b, p4.b                : and    %p2/z %p3.b %p4.b -> %p1.b
+25054c82 : and p2.b, p3/Z, p4.b, p5.b                : and    %p3/z %p4.b %p5.b -> %p2.b
+250650a3 : and p3.b, p4/Z, p5.b, p6.b                : and    %p4/z %p5.b %p6.b -> %p3.b
+250754c4 : and p4.b, p5/Z, p6.b, p7.b                : and    %p5/z %p6.b %p7.b -> %p4.b
+250858e5 : and p5.b, p6/Z, p7.b, p8.b                : and    %p6/z %p7.b %p8.b -> %p5.b
+25095d06 : and p6.b, p7/Z, p8.b, p9.b                : and    %p7/z %p8.b %p9.b -> %p6.b
+250a6127 : and p7.b, p8/Z, p9.b, p10.b               : and    %p8/z %p9.b %p10.b -> %p7.b
+250b6548 : and p8.b, p9/Z, p10.b, p11.b              : and    %p9/z %p10.b %p11.b -> %p8.b
+250b6548 : and p8.b, p9/Z, p10.b, p11.b              : and    %p9/z %p10.b %p11.b -> %p8.b
+250c6969 : and p9.b, p10/Z, p11.b, p12.b             : and    %p10/z %p11.b %p12.b -> %p9.b
+250d6d8a : and p10.b, p11/Z, p12.b, p13.b            : and    %p11/z %p12.b %p13.b -> %p10.b
+250e71ab : and p11.b, p12/Z, p13.b, p14.b            : and    %p12/z %p13.b %p14.b -> %p11.b
+250f75cc : and p12.b, p13/Z, p14.b, p15.b            : and    %p13/z %p14.b %p15.b -> %p12.b
+250079ed : and p13.b, p14/Z, p15.b, p0.b             : and    %p14/z %p15.b %p0.b -> %p13.b
+250f7def : and p15.b, p15/Z, p15.b, p15.b            : and    %p15/z %p15.b %p15.b -> %p15.b
+
+# AND     <Zd>.D, <Zn>.D, <Zm>.D (AND-Z.ZZ-_)
+04203000 : and z0.d, z0.d, z0.d                      : and    %z0.d %z0.d -> %z0.d
+04243062 : and z2.d, z3.d, z4.d                      : and    %z3.d %z4.d -> %z2.d
+042630a4 : and z4.d, z5.d, z6.d                      : and    %z5.d %z6.d -> %z4.d
+042830e6 : and z6.d, z7.d, z8.d                      : and    %z7.d %z8.d -> %z6.d
+042a3128 : and z8.d, z9.d, z10.d                     : and    %z9.d %z10.d -> %z8.d
+042c316a : and z10.d, z11.d, z12.d                   : and    %z11.d %z12.d -> %z10.d
+042e31ac : and z12.d, z13.d, z14.d                   : and    %z13.d %z14.d -> %z12.d
+043031ee : and z14.d, z15.d, z16.d                   : and    %z15.d %z16.d -> %z14.d
+04323230 : and z16.d, z17.d, z18.d                   : and    %z17.d %z18.d -> %z16.d
+04333251 : and z17.d, z18.d, z19.d                   : and    %z18.d %z19.d -> %z17.d
+04353293 : and z19.d, z20.d, z21.d                   : and    %z20.d %z21.d -> %z19.d
+043732d5 : and z21.d, z22.d, z23.d                   : and    %z22.d %z23.d -> %z21.d
+04393317 : and z23.d, z24.d, z25.d                   : and    %z24.d %z25.d -> %z23.d
+043b3359 : and z25.d, z26.d, z27.d                   : and    %z26.d %z27.d -> %z25.d
+043d339b : and z27.d, z28.d, z29.d                   : and    %z28.d %z29.d -> %z27.d
+043f33ff : and z31.d, z31.d, z31.d                   : and    %z31.d %z31.d -> %z31.d
+
+# ANDS    <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (ANDS-P.P.PP-Z)
+25404000 : ands p0.b, p0/Z, p0.b, p0.b               : ands   %p0/z %p0.b %p0.b -> %p0.b
+25444861 : ands p1.b, p2/Z, p3.b, p4.b               : ands   %p2/z %p3.b %p4.b -> %p1.b
+25454c82 : ands p2.b, p3/Z, p4.b, p5.b               : ands   %p3/z %p4.b %p5.b -> %p2.b
+254650a3 : ands p3.b, p4/Z, p5.b, p6.b               : ands   %p4/z %p5.b %p6.b -> %p3.b
+254754c4 : ands p4.b, p5/Z, p6.b, p7.b               : ands   %p5/z %p6.b %p7.b -> %p4.b
+254858e5 : ands p5.b, p6/Z, p7.b, p8.b               : ands   %p6/z %p7.b %p8.b -> %p5.b
+25495d06 : ands p6.b, p7/Z, p8.b, p9.b               : ands   %p7/z %p8.b %p9.b -> %p6.b
+254a6127 : ands p7.b, p8/Z, p9.b, p10.b              : ands   %p8/z %p9.b %p10.b -> %p7.b
+254b6548 : ands p8.b, p9/Z, p10.b, p11.b             : ands   %p9/z %p10.b %p11.b -> %p8.b
+254b6548 : ands p8.b, p9/Z, p10.b, p11.b             : ands   %p9/z %p10.b %p11.b -> %p8.b
+254c6969 : ands p9.b, p10/Z, p11.b, p12.b            : ands   %p10/z %p11.b %p12.b -> %p9.b
+254d6d8a : ands p10.b, p11/Z, p12.b, p13.b           : ands   %p11/z %p12.b %p13.b -> %p10.b
+254e71ab : ands p11.b, p12/Z, p13.b, p14.b           : ands   %p12/z %p13.b %p14.b -> %p11.b
+254f75cc : ands p12.b, p13/Z, p14.b, p15.b           : ands   %p13/z %p14.b %p15.b -> %p12.b
+254079ed : ands p13.b, p14/Z, p15.b, p0.b            : ands   %p14/z %p15.b %p0.b -> %p13.b
+254f7def : ands p15.b, p15/Z, p15.b, p15.b           : ands   %p15/z %p15.b %p15.b -> %p15.b
+
 041b0b02 : bic z2.b, p2/m, z2.b, z24.b              : bic    %p2 %z2 %z24 $0x00 -> %z2
 045b0b02 : bic z2.h, p2/m, z2.h, z24.h              : bic    %p2 %z2 %z24 $0x01 -> %z2
 049b0b02 : bic z2.s, p2/m, z2.s, z24.s              : bic    %p2 %z2 %z24 $0x02 -> %z2
 04db0b02 : bic z2.d, p2/m, z2.d, z24.d              : bic    %p2 %z2 %z24 $0x03 -> %z2
+
+# BIC     <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (BIC-P.P.PP-Z)
+25004010 : bic p0.b, p0/Z, p0.b, p0.b                : bic    %p0/z %p0.b %p0.b -> %p0.b
+25044871 : bic p1.b, p2/Z, p3.b, p4.b                : bic    %p2/z %p3.b %p4.b -> %p1.b
+25054c92 : bic p2.b, p3/Z, p4.b, p5.b                : bic    %p3/z %p4.b %p5.b -> %p2.b
+250650b3 : bic p3.b, p4/Z, p5.b, p6.b                : bic    %p4/z %p5.b %p6.b -> %p3.b
+250754d4 : bic p4.b, p5/Z, p6.b, p7.b                : bic    %p5/z %p6.b %p7.b -> %p4.b
+250858f5 : bic p5.b, p6/Z, p7.b, p8.b                : bic    %p6/z %p7.b %p8.b -> %p5.b
+25095d16 : bic p6.b, p7/Z, p8.b, p9.b                : bic    %p7/z %p8.b %p9.b -> %p6.b
+250a6137 : bic p7.b, p8/Z, p9.b, p10.b               : bic    %p8/z %p9.b %p10.b -> %p7.b
+250b6558 : bic p8.b, p9/Z, p10.b, p11.b              : bic    %p9/z %p10.b %p11.b -> %p8.b
+250b6558 : bic p8.b, p9/Z, p10.b, p11.b              : bic    %p9/z %p10.b %p11.b -> %p8.b
+250c6979 : bic p9.b, p10/Z, p11.b, p12.b             : bic    %p10/z %p11.b %p12.b -> %p9.b
+250d6d9a : bic p10.b, p11/Z, p12.b, p13.b            : bic    %p11/z %p12.b %p13.b -> %p10.b
+250e71bb : bic p11.b, p12/Z, p13.b, p14.b            : bic    %p12/z %p13.b %p14.b -> %p11.b
+250f75dc : bic p12.b, p13/Z, p14.b, p15.b            : bic    %p13/z %p14.b %p15.b -> %p12.b
+250079fd : bic p13.b, p14/Z, p15.b, p0.b             : bic    %p14/z %p15.b %p0.b -> %p13.b
+250f7dff : bic p15.b, p15/Z, p15.b, p15.b            : bic    %p15/z %p15.b %p15.b -> %p15.b
+
+# BIC     <Zd>.D, <Zn>.D, <Zm>.D (BIC-Z.ZZ-_)
+04e03000 : bic z0.d, z0.d, z0.d                      : bic    %z0.d %z0.d -> %z0.d
+04e43062 : bic z2.d, z3.d, z4.d                      : bic    %z3.d %z4.d -> %z2.d
+04e630a4 : bic z4.d, z5.d, z6.d                      : bic    %z5.d %z6.d -> %z4.d
+04e830e6 : bic z6.d, z7.d, z8.d                      : bic    %z7.d %z8.d -> %z6.d
+04ea3128 : bic z8.d, z9.d, z10.d                     : bic    %z9.d %z10.d -> %z8.d
+04ec316a : bic z10.d, z11.d, z12.d                   : bic    %z11.d %z12.d -> %z10.d
+04ee31ac : bic z12.d, z13.d, z14.d                   : bic    %z13.d %z14.d -> %z12.d
+04f031ee : bic z14.d, z15.d, z16.d                   : bic    %z15.d %z16.d -> %z14.d
+04f23230 : bic z16.d, z17.d, z18.d                   : bic    %z17.d %z18.d -> %z16.d
+04f33251 : bic z17.d, z18.d, z19.d                   : bic    %z18.d %z19.d -> %z17.d
+04f53293 : bic z19.d, z20.d, z21.d                   : bic    %z20.d %z21.d -> %z19.d
+04f732d5 : bic z21.d, z22.d, z23.d                   : bic    %z22.d %z23.d -> %z21.d
+04f93317 : bic z23.d, z24.d, z25.d                   : bic    %z24.d %z25.d -> %z23.d
+04fb3359 : bic z25.d, z26.d, z27.d                   : bic    %z26.d %z27.d -> %z25.d
+04fd339b : bic z27.d, z28.d, z29.d                   : bic    %z28.d %z29.d -> %z27.d
+04ff33ff : bic z31.d, z31.d, z31.d                   : bic    %z31.d %z31.d -> %z31.d
+
+# BICS    <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (BICS-P.P.PP-Z)
+25404010 : bics p0.b, p0/Z, p0.b, p0.b               : bics   %p0/z %p0.b %p0.b -> %p0.b
+25444871 : bics p1.b, p2/Z, p3.b, p4.b               : bics   %p2/z %p3.b %p4.b -> %p1.b
+25454c92 : bics p2.b, p3/Z, p4.b, p5.b               : bics   %p3/z %p4.b %p5.b -> %p2.b
+254650b3 : bics p3.b, p4/Z, p5.b, p6.b               : bics   %p4/z %p5.b %p6.b -> %p3.b
+254754d4 : bics p4.b, p5/Z, p6.b, p7.b               : bics   %p5/z %p6.b %p7.b -> %p4.b
+254858f5 : bics p5.b, p6/Z, p7.b, p8.b               : bics   %p6/z %p7.b %p8.b -> %p5.b
+25495d16 : bics p6.b, p7/Z, p8.b, p9.b               : bics   %p7/z %p8.b %p9.b -> %p6.b
+254a6137 : bics p7.b, p8/Z, p9.b, p10.b              : bics   %p8/z %p9.b %p10.b -> %p7.b
+254b6558 : bics p8.b, p9/Z, p10.b, p11.b             : bics   %p9/z %p10.b %p11.b -> %p8.b
+254b6558 : bics p8.b, p9/Z, p10.b, p11.b             : bics   %p9/z %p10.b %p11.b -> %p8.b
+254c6979 : bics p9.b, p10/Z, p11.b, p12.b            : bics   %p10/z %p11.b %p12.b -> %p9.b
+254d6d9a : bics p10.b, p11/Z, p12.b, p13.b           : bics   %p11/z %p12.b %p13.b -> %p10.b
+254e71bb : bics p11.b, p12/Z, p13.b, p14.b           : bics   %p12/z %p13.b %p14.b -> %p11.b
+254f75dc : bics p12.b, p13/Z, p14.b, p15.b           : bics   %p13/z %p14.b %p15.b -> %p12.b
+254079fd : bics p13.b, p14/Z, p15.b, p0.b            : bics   %p14/z %p15.b %p0.b -> %p13.b
+254f7dff : bics p15.b, p15/Z, p15.b, p15.b           : bics   %p15/z %p15.b %p15.b -> %p15.b
 
 # CMPEQ   <Pd>.<T>, <Pg>/Z, <Zn>.<T>, #<imm> (CMPEQ-P.P.ZI-_)
 25108000 : cmpeq p0.b, p0/Z, z0.b, #-0x10            : cmpeq  %p0/z %z0.b $0xf0 -> %p0.b
@@ -2264,6 +2434,122 @@
 0499105d : eor z29.s, p4/m, z29.s, z2.s             : eor    %p4 %z29 %z2 $0x02 -> %z29
 04d9105d : eor z29.d, p4/m, z29.d, z2.d             : eor    %p4 %z29 %z2 $0x03 -> %z29
 
+# EOR   <Zdn>.<T>, <Zdn>.<T>, #<const> (EOR-Z.ZI-_)
+054006a0 : eor z0.b, z0.b, #0x3f                    : eor    %z0.b $0x3f -> %z0.b
+05400604 : eor z4.b, z4.b, #0x01                    : eor    %z4.b $0x01 -> %z4.b
+05403e06 : eor z6.b, z6.b, #0x02                    : eor    %z6.b $0x02 -> %z6.b
+05403608 : eor z8.b, z8.b, #0x04                    : eor    %z8.b $0x04 -> %z8.b
+05402e0a : eor z10.b, z10.b, #0x08                  : eor    %z10.b $0x08 -> %z10.b
+0540260c : eor z12.b, z12.b, #0x10                  : eor    %z12.b $0x10 -> %z12.b
+05401e0e : eor z14.b, z14.b, #0x20                  : eor    %z14.b $0x20 -> %z14.b
+05400630 : eor z16.b, z16.b, #0x03                  : eor    %z16.b $0x03 -> %z16.b
+05400652 : eor z18.b, z18.b, #0x07                  : eor    %z18.b $0x07 -> %z18.b
+05400674 : eor z20.b, z20.b, #0x0f                  : eor    %z20.b $0x0f -> %z20.b
+05400696 : eor z22.b, z22.b, #0x1f                  : eor    %z22.b $0x1f -> %z22.b
+05403e98 : eor z24.b, z24.b, #0x3e                  : eor    %z24.b $0x3e -> %z24.b
+0540367a : eor z26.b, z26.b, #0x3c                  : eor    %z26.b $0x3c -> %z26.b
+05402e5c : eor z28.b, z28.b, #0x38                  : eor    %z28.b $0x38 -> %z28.b
+0540263f : eor z31.b, z31.b, #0x30                  : eor    %z31.b $0x30 -> %z31.b
+054004a0 : eor z0.h, z0.h, #0x3f                    : eor    %z0.h $0x003f -> %z0.h
+05400404 : eor z4.h, z4.h, #0x01                    : eor    %z4.h $0x0001 -> %z4.h
+05407c06 : eor z6.h, z6.h, #0x02                    : eor    %z6.h $0x0002 -> %z6.h
+05407408 : eor z8.h, z8.h, #0x04                    : eor    %z8.h $0x0004 -> %z8.h
+05406c0a : eor z10.h, z10.h, #0x08                  : eor    %z10.h $0x0008 -> %z10.h
+0540640c : eor z12.h, z12.h, #0x10                  : eor    %z12.h $0x0010 -> %z12.h
+05405c0e : eor z14.h, z14.h, #0x20                  : eor    %z14.h $0x0020 -> %z14.h
+05400430 : eor z16.h, z16.h, #0x03                  : eor    %z16.h $0x0003 -> %z16.h
+05400452 : eor z18.h, z18.h, #0x07                  : eor    %z18.h $0x0007 -> %z18.h
+05400474 : eor z20.h, z20.h, #0x0f                  : eor    %z20.h $0x000f -> %z20.h
+05400496 : eor z22.h, z22.h, #0x1f                  : eor    %z22.h $0x001f -> %z22.h
+05407c98 : eor z24.h, z24.h, #0x3e                  : eor    %z24.h $0x003e -> %z24.h
+0540747a : eor z26.h, z26.h, #0x3c                  : eor    %z26.h $0x003c -> %z26.h
+05406c5c : eor z28.h, z28.h, #0x38                  : eor    %z28.h $0x0038 -> %z28.h
+0540643f : eor z31.h, z31.h, #0x30                  : eor    %z31.h $0x0030 -> %z31.h
+054000a0 : eor z0.s, z0.s, #0x3f                    : eor    %z0.s $0x0000003f -> %z0.s
+05400004 : eor z4.s, z4.s, #0x01                    : eor    %z4.s $0x00000001 -> %z4.s
+0540f806 : eor z6.s, z6.s, #0x02                    : eor    %z6.s $0x00000002 -> %z6.s
+0540f008 : eor z8.s, z8.s, #0x04                    : eor    %z8.s $0x00000004 -> %z8.s
+0540e80a : eor z10.s, z10.s, #0x08                  : eor    %z10.s $0x00000008 -> %z10.s
+0540e00c : eor z12.s, z12.s, #0x10                  : eor    %z12.s $0x00000010 -> %z12.s
+0540d80e : eor z14.s, z14.s, #0x20                  : eor    %z14.s $0x00000020 -> %z14.s
+05400030 : eor z16.s, z16.s, #0x03                  : eor    %z16.s $0x00000003 -> %z16.s
+05400052 : eor z18.s, z18.s, #0x07                  : eor    %z18.s $0x00000007 -> %z18.s
+05400074 : eor z20.s, z20.s, #0x0f                  : eor    %z20.s $0x0000000f -> %z20.s
+05400096 : eor z22.s, z22.s, #0x1f                  : eor    %z22.s $0x0000001f -> %z22.s
+0540f898 : eor z24.s, z24.s, #0x3e                  : eor    %z24.s $0x0000003e -> %z24.s
+0540f07a : eor z26.s, z26.s, #0x3c                  : eor    %z26.s $0x0000003c -> %z26.s
+0540e85c : eor z28.s, z28.s, #0x38                  : eor    %z28.s $0x00000038 -> %z28.s
+0540e03f : eor z31.s, z31.s, #0x30                  : eor    %z31.s $0x00000030 -> %z31.s
+054200a0 : eor z0.d, z0.d, #0x3f                    : eor    %z0.d $0x000000000000003f -> %z0.d
+05420004 : eor z4.d, z4.d, #0x01                    : eor    %z4.d $0x0000000000000001 -> %z4.d
+0543f806 : eor z6.d, z6.d, #0x02                    : eor    %z6.d $0x0000000000000002 -> %z6.d
+0543f008 : eor z8.d, z8.d, #0x04                    : eor    %z8.d $0x0000000000000004 -> %z8.d
+0543e80a : eor z10.d, z10.d, #0x08                  : eor    %z10.d $0x0000000000000008 -> %z10.d
+0543e00c : eor z12.d, z12.d, #0x10                  : eor    %z12.d $0x0000000000000010 -> %z12.d
+0543d80e : eor z14.d, z14.d, #0x20                  : eor    %z14.d $0x0000000000000020 -> %z14.d
+05420030 : eor z16.d, z16.d, #0x03                  : eor    %z16.d $0x0000000000000003 -> %z16.d
+05420052 : eor z18.d, z18.d, #0x07                  : eor    %z18.d $0x0000000000000007 -> %z18.d
+05420074 : eor z20.d, z20.d, #0x0f                  : eor    %z20.d $0x000000000000000f -> %z20.d
+05420096 : eor z22.d, z22.d, #0x1f                  : eor    %z22.d $0x000000000000001f -> %z22.d
+0543f898 : eor z24.d, z24.d, #0x3e                  : eor    %z24.d $0x000000000000003e -> %z24.d
+0543f07a : eor z26.d, z26.d, #0x3c                  : eor    %z26.d $0x000000000000003c -> %z26.d
+0543e85c : eor z28.d, z28.d, #0x38                  : eor    %z28.d $0x0000000000000038 -> %z28.d
+0543e03f : eor z31.d, z31.d, #0x30                  : eor    %z31.d $0x0000000000000030 -> %z31.d
+
+# EOR     <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (EOR-P.P.PP-Z)
+25004200 : eor p0.b, p0/Z, p0.b, p0.b                : eor    %p0/z %p0.b %p0.b -> %p0.b
+25044a61 : eor p1.b, p2/Z, p3.b, p4.b                : eor    %p2/z %p3.b %p4.b -> %p1.b
+25054e82 : eor p2.b, p3/Z, p4.b, p5.b                : eor    %p3/z %p4.b %p5.b -> %p2.b
+250652a3 : eor p3.b, p4/Z, p5.b, p6.b                : eor    %p4/z %p5.b %p6.b -> %p3.b
+250756c4 : eor p4.b, p5/Z, p6.b, p7.b                : eor    %p5/z %p6.b %p7.b -> %p4.b
+25085ae5 : eor p5.b, p6/Z, p7.b, p8.b                : eor    %p6/z %p7.b %p8.b -> %p5.b
+25095f06 : eor p6.b, p7/Z, p8.b, p9.b                : eor    %p7/z %p8.b %p9.b -> %p6.b
+250a6327 : eor p7.b, p8/Z, p9.b, p10.b               : eor    %p8/z %p9.b %p10.b -> %p7.b
+250b6748 : eor p8.b, p9/Z, p10.b, p11.b              : eor    %p9/z %p10.b %p11.b -> %p8.b
+250b6748 : eor p8.b, p9/Z, p10.b, p11.b              : eor    %p9/z %p10.b %p11.b -> %p8.b
+250c6b69 : eor p9.b, p10/Z, p11.b, p12.b             : eor    %p10/z %p11.b %p12.b -> %p9.b
+250d6f8a : eor p10.b, p11/Z, p12.b, p13.b            : eor    %p11/z %p12.b %p13.b -> %p10.b
+250e73ab : eor p11.b, p12/Z, p13.b, p14.b            : eor    %p12/z %p13.b %p14.b -> %p11.b
+250f77cc : eor p12.b, p13/Z, p14.b, p15.b            : eor    %p13/z %p14.b %p15.b -> %p12.b
+25007bed : eor p13.b, p14/Z, p15.b, p0.b             : eor    %p14/z %p15.b %p0.b -> %p13.b
+250f7fef : eor p15.b, p15/Z, p15.b, p15.b            : eor    %p15/z %p15.b %p15.b -> %p15.b
+
+# EOR     <Zd>.D, <Zn>.D, <Zm>.D (EOR-Z.ZZ-_)
+04a03000 : eor z0.d, z0.d, z0.d                      : eor    %z0.d %z0.d -> %z0.d
+04a43062 : eor z2.d, z3.d, z4.d                      : eor    %z3.d %z4.d -> %z2.d
+04a630a4 : eor z4.d, z5.d, z6.d                      : eor    %z5.d %z6.d -> %z4.d
+04a830e6 : eor z6.d, z7.d, z8.d                      : eor    %z7.d %z8.d -> %z6.d
+04aa3128 : eor z8.d, z9.d, z10.d                     : eor    %z9.d %z10.d -> %z8.d
+04ac316a : eor z10.d, z11.d, z12.d                   : eor    %z11.d %z12.d -> %z10.d
+04ae31ac : eor z12.d, z13.d, z14.d                   : eor    %z13.d %z14.d -> %z12.d
+04b031ee : eor z14.d, z15.d, z16.d                   : eor    %z15.d %z16.d -> %z14.d
+04b23230 : eor z16.d, z17.d, z18.d                   : eor    %z17.d %z18.d -> %z16.d
+04b33251 : eor z17.d, z18.d, z19.d                   : eor    %z18.d %z19.d -> %z17.d
+04b53293 : eor z19.d, z20.d, z21.d                   : eor    %z20.d %z21.d -> %z19.d
+04b732d5 : eor z21.d, z22.d, z23.d                   : eor    %z22.d %z23.d -> %z21.d
+04b93317 : eor z23.d, z24.d, z25.d                   : eor    %z24.d %z25.d -> %z23.d
+04bb3359 : eor z25.d, z26.d, z27.d                   : eor    %z26.d %z27.d -> %z25.d
+04bd339b : eor z27.d, z28.d, z29.d                   : eor    %z28.d %z29.d -> %z27.d
+04bf33ff : eor z31.d, z31.d, z31.d                   : eor    %z31.d %z31.d -> %z31.d
+
+# EORS    <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (EORS-P.P.PP-Z)
+25404200 : eors p0.b, p0/Z, p0.b, p0.b               : eors   %p0/z %p0.b %p0.b -> %p0.b
+25444a61 : eors p1.b, p2/Z, p3.b, p4.b               : eors   %p2/z %p3.b %p4.b -> %p1.b
+25454e82 : eors p2.b, p3/Z, p4.b, p5.b               : eors   %p3/z %p4.b %p5.b -> %p2.b
+254652a3 : eors p3.b, p4/Z, p5.b, p6.b               : eors   %p4/z %p5.b %p6.b -> %p3.b
+254756c4 : eors p4.b, p5/Z, p6.b, p7.b               : eors   %p5/z %p6.b %p7.b -> %p4.b
+25485ae5 : eors p5.b, p6/Z, p7.b, p8.b               : eors   %p6/z %p7.b %p8.b -> %p5.b
+25495f06 : eors p6.b, p7/Z, p8.b, p9.b               : eors   %p7/z %p8.b %p9.b -> %p6.b
+254a6327 : eors p7.b, p8/Z, p9.b, p10.b              : eors   %p8/z %p9.b %p10.b -> %p7.b
+254b6748 : eors p8.b, p9/Z, p10.b, p11.b             : eors   %p9/z %p10.b %p11.b -> %p8.b
+254b6748 : eors p8.b, p9/Z, p10.b, p11.b             : eors   %p9/z %p10.b %p11.b -> %p8.b
+254c6b69 : eors p9.b, p10/Z, p11.b, p12.b            : eors   %p10/z %p11.b %p12.b -> %p9.b
+254d6f8a : eors p10.b, p11/Z, p12.b, p13.b           : eors   %p11/z %p12.b %p13.b -> %p10.b
+254e73ab : eors p11.b, p12/Z, p13.b, p14.b           : eors   %p12/z %p13.b %p14.b -> %p11.b
+254f77cc : eors p12.b, p13/Z, p14.b, p15.b           : eors   %p13/z %p14.b %p15.b -> %p12.b
+25407bed : eors p13.b, p14/Z, p15.b, p0.b            : eors   %p14/z %p15.b %p0.b -> %p13.b
+254f7fef : eors p15.b, p15/Z, p15.b, p15.b           : eors   %p15/z %p15.b %p15.b -> %p15.b
+
 # FACGE   <Pd>.<T>, <Pg>/Z, <Zn>.<T>, <Zm>.<T> (FACGE-P.P.ZZ-_)
 6540c010 : facge p0.h, p0/Z, z0.h, z0.h              : facge  %p0/z %z0.h %z0.h -> %p0.h
 6545c491 : facge p1.h, p1/Z, z4.h, z5.h              : facge  %p1/z %z4.h %z5.h -> %p1.h
@@ -3644,6 +3930,42 @@
 25f0cbfb : mul z27.d, z27.d, #0x5f                   : mul    %z27.d $0x5f -> %z27.d
 25f0cfff : mul z31.d, z31.d, #0x7f                   : mul    %z31.d $0x7f -> %z31.d
 
+# NAND    <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (NAND-P.P.PP-Z)
+25804210 : nand p0.b, p0/Z, p0.b, p0.b               : nand   %p0/z %p0.b %p0.b -> %p0.b
+25844a71 : nand p1.b, p2/Z, p3.b, p4.b               : nand   %p2/z %p3.b %p4.b -> %p1.b
+25854e92 : nand p2.b, p3/Z, p4.b, p5.b               : nand   %p3/z %p4.b %p5.b -> %p2.b
+258652b3 : nand p3.b, p4/Z, p5.b, p6.b               : nand   %p4/z %p5.b %p6.b -> %p3.b
+258756d4 : nand p4.b, p5/Z, p6.b, p7.b               : nand   %p5/z %p6.b %p7.b -> %p4.b
+25885af5 : nand p5.b, p6/Z, p7.b, p8.b               : nand   %p6/z %p7.b %p8.b -> %p5.b
+25895f16 : nand p6.b, p7/Z, p8.b, p9.b               : nand   %p7/z %p8.b %p9.b -> %p6.b
+258a6337 : nand p7.b, p8/Z, p9.b, p10.b              : nand   %p8/z %p9.b %p10.b -> %p7.b
+258b6758 : nand p8.b, p9/Z, p10.b, p11.b             : nand   %p9/z %p10.b %p11.b -> %p8.b
+258b6758 : nand p8.b, p9/Z, p10.b, p11.b             : nand   %p9/z %p10.b %p11.b -> %p8.b
+258c6b79 : nand p9.b, p10/Z, p11.b, p12.b            : nand   %p10/z %p11.b %p12.b -> %p9.b
+258d6f9a : nand p10.b, p11/Z, p12.b, p13.b           : nand   %p11/z %p12.b %p13.b -> %p10.b
+258e73bb : nand p11.b, p12/Z, p13.b, p14.b           : nand   %p12/z %p13.b %p14.b -> %p11.b
+258f77dc : nand p12.b, p13/Z, p14.b, p15.b           : nand   %p13/z %p14.b %p15.b -> %p12.b
+25807bfd : nand p13.b, p14/Z, p15.b, p0.b            : nand   %p14/z %p15.b %p0.b -> %p13.b
+258f7fff : nand p15.b, p15/Z, p15.b, p15.b           : nand   %p15/z %p15.b %p15.b -> %p15.b
+
+# NANDS   <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (NANDS-P.P.PP-Z)
+25c04210 : nands p0.b, p0/Z, p0.b, p0.b              : nands  %p0/z %p0.b %p0.b -> %p0.b
+25c44a71 : nands p1.b, p2/Z, p3.b, p4.b              : nands  %p2/z %p3.b %p4.b -> %p1.b
+25c54e92 : nands p2.b, p3/Z, p4.b, p5.b              : nands  %p3/z %p4.b %p5.b -> %p2.b
+25c652b3 : nands p3.b, p4/Z, p5.b, p6.b              : nands  %p4/z %p5.b %p6.b -> %p3.b
+25c756d4 : nands p4.b, p5/Z, p6.b, p7.b              : nands  %p5/z %p6.b %p7.b -> %p4.b
+25c85af5 : nands p5.b, p6/Z, p7.b, p8.b              : nands  %p6/z %p7.b %p8.b -> %p5.b
+25c95f16 : nands p6.b, p7/Z, p8.b, p9.b              : nands  %p7/z %p8.b %p9.b -> %p6.b
+25ca6337 : nands p7.b, p8/Z, p9.b, p10.b             : nands  %p8/z %p9.b %p10.b -> %p7.b
+25cb6758 : nands p8.b, p9/Z, p10.b, p11.b            : nands  %p9/z %p10.b %p11.b -> %p8.b
+25cb6758 : nands p8.b, p9/Z, p10.b, p11.b            : nands  %p9/z %p10.b %p11.b -> %p8.b
+25cc6b79 : nands p9.b, p10/Z, p11.b, p12.b           : nands  %p10/z %p11.b %p12.b -> %p9.b
+25cd6f9a : nands p10.b, p11/Z, p12.b, p13.b          : nands  %p11/z %p12.b %p13.b -> %p10.b
+25ce73bb : nands p11.b, p12/Z, p13.b, p14.b          : nands  %p12/z %p13.b %p14.b -> %p11.b
+25cf77dc : nands p12.b, p13/Z, p14.b, p15.b          : nands  %p13/z %p14.b %p15.b -> %p12.b
+25c07bfd : nands p13.b, p14/Z, p15.b, p0.b           : nands  %p14/z %p15.b %p0.b -> %p13.b
+25cf7fff : nands p15.b, p15/Z, p15.b, p15.b          : nands  %p15/z %p15.b %p15.b -> %p15.b
+
 # NEG     <Zd>.<T>, <Pg>/M, <Zn>.<T> (NEG-Z.P.Z-_)
 0417a000 : neg z0.b, p0/M, z0.b                      : neg    %p0/m %z0.b -> %z0.b
 0417a482 : neg z2.b, p1/M, z4.b                      : neg    %p1/m %z4.b -> %z2.b
@@ -3710,10 +4032,264 @@
 04d7bfbb : neg z27.d, p7/M, z29.d                    : neg    %p7/m %z29.d -> %z27.d
 04d7bfff : neg z31.d, p7/M, z31.d                    : neg    %p7/m %z31.d -> %z31.d
 
+# NOR     <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (NOR-P.P.PP-Z)
+25804200 : nor p0.b, p0/Z, p0.b, p0.b                : nor    %p0/z %p0.b %p0.b -> %p0.b
+25844a61 : nor p1.b, p2/Z, p3.b, p4.b                : nor    %p2/z %p3.b %p4.b -> %p1.b
+25854e82 : nor p2.b, p3/Z, p4.b, p5.b                : nor    %p3/z %p4.b %p5.b -> %p2.b
+258652a3 : nor p3.b, p4/Z, p5.b, p6.b                : nor    %p4/z %p5.b %p6.b -> %p3.b
+258756c4 : nor p4.b, p5/Z, p6.b, p7.b                : nor    %p5/z %p6.b %p7.b -> %p4.b
+25885ae5 : nor p5.b, p6/Z, p7.b, p8.b                : nor    %p6/z %p7.b %p8.b -> %p5.b
+25895f06 : nor p6.b, p7/Z, p8.b, p9.b                : nor    %p7/z %p8.b %p9.b -> %p6.b
+258a6327 : nor p7.b, p8/Z, p9.b, p10.b               : nor    %p8/z %p9.b %p10.b -> %p7.b
+258b6748 : nor p8.b, p9/Z, p10.b, p11.b              : nor    %p9/z %p10.b %p11.b -> %p8.b
+258b6748 : nor p8.b, p9/Z, p10.b, p11.b              : nor    %p9/z %p10.b %p11.b -> %p8.b
+258c6b69 : nor p9.b, p10/Z, p11.b, p12.b             : nor    %p10/z %p11.b %p12.b -> %p9.b
+258d6f8a : nor p10.b, p11/Z, p12.b, p13.b            : nor    %p11/z %p12.b %p13.b -> %p10.b
+258e73ab : nor p11.b, p12/Z, p13.b, p14.b            : nor    %p12/z %p13.b %p14.b -> %p11.b
+258f77cc : nor p12.b, p13/Z, p14.b, p15.b            : nor    %p13/z %p14.b %p15.b -> %p12.b
+25807bed : nor p13.b, p14/Z, p15.b, p0.b             : nor    %p14/z %p15.b %p0.b -> %p13.b
+258f7fef : nor p15.b, p15/Z, p15.b, p15.b            : nor    %p15/z %p15.b %p15.b -> %p15.b
+
+# NORS    <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (NORS-P.P.PP-Z)
+25c04200 : nors p0.b, p0/Z, p0.b, p0.b               : nors   %p0/z %p0.b %p0.b -> %p0.b
+25c44a61 : nors p1.b, p2/Z, p3.b, p4.b               : nors   %p2/z %p3.b %p4.b -> %p1.b
+25c54e82 : nors p2.b, p3/Z, p4.b, p5.b               : nors   %p3/z %p4.b %p5.b -> %p2.b
+25c652a3 : nors p3.b, p4/Z, p5.b, p6.b               : nors   %p4/z %p5.b %p6.b -> %p3.b
+25c756c4 : nors p4.b, p5/Z, p6.b, p7.b               : nors   %p5/z %p6.b %p7.b -> %p4.b
+25c85ae5 : nors p5.b, p6/Z, p7.b, p8.b               : nors   %p6/z %p7.b %p8.b -> %p5.b
+25c95f06 : nors p6.b, p7/Z, p8.b, p9.b               : nors   %p7/z %p8.b %p9.b -> %p6.b
+25ca6327 : nors p7.b, p8/Z, p9.b, p10.b              : nors   %p8/z %p9.b %p10.b -> %p7.b
+25cb6748 : nors p8.b, p9/Z, p10.b, p11.b             : nors   %p9/z %p10.b %p11.b -> %p8.b
+25cb6748 : nors p8.b, p9/Z, p10.b, p11.b             : nors   %p9/z %p10.b %p11.b -> %p8.b
+25cc6b69 : nors p9.b, p10/Z, p11.b, p12.b            : nors   %p10/z %p11.b %p12.b -> %p9.b
+25cd6f8a : nors p10.b, p11/Z, p12.b, p13.b           : nors   %p11/z %p12.b %p13.b -> %p10.b
+25ce73ab : nors p11.b, p12/Z, p13.b, p14.b           : nors   %p12/z %p13.b %p14.b -> %p11.b
+25cf77cc : nors p12.b, p13/Z, p14.b, p15.b           : nors   %p13/z %p14.b %p15.b -> %p12.b
+25c07bed : nors p13.b, p14/Z, p15.b, p0.b            : nors   %p14/z %p15.b %p0.b -> %p13.b
+25cf7fef : nors p15.b, p15/Z, p15.b, p15.b           : nors   %p15/z %p15.b %p15.b -> %p15.b
+
+# NOT     <Zd>.<T>, <Pg>/M, <Zn>.<T> (NOT-Z.P.Z-_)
+041ea000 : not z0.b, p0/M, z0.b                      : not    %p0/m %z0.b -> %z0.b
+041ea482 : not z2.b, p1/M, z4.b                      : not    %p1/m %z4.b -> %z2.b
+041ea8c4 : not z4.b, p2/M, z6.b                      : not    %p2/m %z6.b -> %z4.b
+041ea906 : not z6.b, p2/M, z8.b                      : not    %p2/m %z8.b -> %z6.b
+041ead48 : not z8.b, p3/M, z10.b                     : not    %p3/m %z10.b -> %z8.b
+041ead8a : not z10.b, p3/M, z12.b                    : not    %p3/m %z12.b -> %z10.b
+041eb1cc : not z12.b, p4/M, z14.b                    : not    %p4/m %z14.b -> %z12.b
+041eb20e : not z14.b, p4/M, z16.b                    : not    %p4/m %z16.b -> %z14.b
+041eb650 : not z16.b, p5/M, z18.b                    : not    %p5/m %z18.b -> %z16.b
+041eb671 : not z17.b, p5/M, z19.b                    : not    %p5/m %z19.b -> %z17.b
+041eb6b3 : not z19.b, p5/M, z21.b                    : not    %p5/m %z21.b -> %z19.b
+041ebaf5 : not z21.b, p6/M, z23.b                    : not    %p6/m %z23.b -> %z21.b
+041ebb37 : not z23.b, p6/M, z25.b                    : not    %p6/m %z25.b -> %z23.b
+041ebf79 : not z25.b, p7/M, z27.b                    : not    %p7/m %z27.b -> %z25.b
+041ebfbb : not z27.b, p7/M, z29.b                    : not    %p7/m %z29.b -> %z27.b
+041ebfff : not z31.b, p7/M, z31.b                    : not    %p7/m %z31.b -> %z31.b
+045ea000 : not z0.h, p0/M, z0.h                      : not    %p0/m %z0.h -> %z0.h
+045ea482 : not z2.h, p1/M, z4.h                      : not    %p1/m %z4.h -> %z2.h
+045ea8c4 : not z4.h, p2/M, z6.h                      : not    %p2/m %z6.h -> %z4.h
+045ea906 : not z6.h, p2/M, z8.h                      : not    %p2/m %z8.h -> %z6.h
+045ead48 : not z8.h, p3/M, z10.h                     : not    %p3/m %z10.h -> %z8.h
+045ead8a : not z10.h, p3/M, z12.h                    : not    %p3/m %z12.h -> %z10.h
+045eb1cc : not z12.h, p4/M, z14.h                    : not    %p4/m %z14.h -> %z12.h
+045eb20e : not z14.h, p4/M, z16.h                    : not    %p4/m %z16.h -> %z14.h
+045eb650 : not z16.h, p5/M, z18.h                    : not    %p5/m %z18.h -> %z16.h
+045eb671 : not z17.h, p5/M, z19.h                    : not    %p5/m %z19.h -> %z17.h
+045eb6b3 : not z19.h, p5/M, z21.h                    : not    %p5/m %z21.h -> %z19.h
+045ebaf5 : not z21.h, p6/M, z23.h                    : not    %p6/m %z23.h -> %z21.h
+045ebb37 : not z23.h, p6/M, z25.h                    : not    %p6/m %z25.h -> %z23.h
+045ebf79 : not z25.h, p7/M, z27.h                    : not    %p7/m %z27.h -> %z25.h
+045ebfbb : not z27.h, p7/M, z29.h                    : not    %p7/m %z29.h -> %z27.h
+045ebfff : not z31.h, p7/M, z31.h                    : not    %p7/m %z31.h -> %z31.h
+049ea000 : not z0.s, p0/M, z0.s                      : not    %p0/m %z0.s -> %z0.s
+049ea482 : not z2.s, p1/M, z4.s                      : not    %p1/m %z4.s -> %z2.s
+049ea8c4 : not z4.s, p2/M, z6.s                      : not    %p2/m %z6.s -> %z4.s
+049ea906 : not z6.s, p2/M, z8.s                      : not    %p2/m %z8.s -> %z6.s
+049ead48 : not z8.s, p3/M, z10.s                     : not    %p3/m %z10.s -> %z8.s
+049ead8a : not z10.s, p3/M, z12.s                    : not    %p3/m %z12.s -> %z10.s
+049eb1cc : not z12.s, p4/M, z14.s                    : not    %p4/m %z14.s -> %z12.s
+049eb20e : not z14.s, p4/M, z16.s                    : not    %p4/m %z16.s -> %z14.s
+049eb650 : not z16.s, p5/M, z18.s                    : not    %p5/m %z18.s -> %z16.s
+049eb671 : not z17.s, p5/M, z19.s                    : not    %p5/m %z19.s -> %z17.s
+049eb6b3 : not z19.s, p5/M, z21.s                    : not    %p5/m %z21.s -> %z19.s
+049ebaf5 : not z21.s, p6/M, z23.s                    : not    %p6/m %z23.s -> %z21.s
+049ebb37 : not z23.s, p6/M, z25.s                    : not    %p6/m %z25.s -> %z23.s
+049ebf79 : not z25.s, p7/M, z27.s                    : not    %p7/m %z27.s -> %z25.s
+049ebfbb : not z27.s, p7/M, z29.s                    : not    %p7/m %z29.s -> %z27.s
+049ebfff : not z31.s, p7/M, z31.s                    : not    %p7/m %z31.s -> %z31.s
+04dea000 : not z0.d, p0/M, z0.d                      : not    %p0/m %z0.d -> %z0.d
+04dea482 : not z2.d, p1/M, z4.d                      : not    %p1/m %z4.d -> %z2.d
+04dea8c4 : not z4.d, p2/M, z6.d                      : not    %p2/m %z6.d -> %z4.d
+04dea906 : not z6.d, p2/M, z8.d                      : not    %p2/m %z8.d -> %z6.d
+04dead48 : not z8.d, p3/M, z10.d                     : not    %p3/m %z10.d -> %z8.d
+04dead8a : not z10.d, p3/M, z12.d                    : not    %p3/m %z12.d -> %z10.d
+04deb1cc : not z12.d, p4/M, z14.d                    : not    %p4/m %z14.d -> %z12.d
+04deb20e : not z14.d, p4/M, z16.d                    : not    %p4/m %z16.d -> %z14.d
+04deb650 : not z16.d, p5/M, z18.d                    : not    %p5/m %z18.d -> %z16.d
+04deb671 : not z17.d, p5/M, z19.d                    : not    %p5/m %z19.d -> %z17.d
+04deb6b3 : not z19.d, p5/M, z21.d                    : not    %p5/m %z21.d -> %z19.d
+04debaf5 : not z21.d, p6/M, z23.d                    : not    %p6/m %z23.d -> %z21.d
+04debb37 : not z23.d, p6/M, z25.d                    : not    %p6/m %z25.d -> %z23.d
+04debf79 : not z25.d, p7/M, z27.d                    : not    %p7/m %z27.d -> %z25.d
+04debfbb : not z27.d, p7/M, z29.d                    : not    %p7/m %z29.d -> %z27.d
+04debfff : not z31.d, p7/M, z31.d                    : not    %p7/m %z31.d -> %z31.d
+
+# ORN     <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (ORN-P.P.PP-Z)
+25804010 : orn p0.b, p0/Z, p0.b, p0.b                : orn    %p0/z %p0.b %p0.b -> %p0.b
+25844871 : orn p1.b, p2/Z, p3.b, p4.b                : orn    %p2/z %p3.b %p4.b -> %p1.b
+25854c92 : orn p2.b, p3/Z, p4.b, p5.b                : orn    %p3/z %p4.b %p5.b -> %p2.b
+258650b3 : orn p3.b, p4/Z, p5.b, p6.b                : orn    %p4/z %p5.b %p6.b -> %p3.b
+258754d4 : orn p4.b, p5/Z, p6.b, p7.b                : orn    %p5/z %p6.b %p7.b -> %p4.b
+258858f5 : orn p5.b, p6/Z, p7.b, p8.b                : orn    %p6/z %p7.b %p8.b -> %p5.b
+25895d16 : orn p6.b, p7/Z, p8.b, p9.b                : orn    %p7/z %p8.b %p9.b -> %p6.b
+258a6137 : orn p7.b, p8/Z, p9.b, p10.b               : orn    %p8/z %p9.b %p10.b -> %p7.b
+258b6558 : orn p8.b, p9/Z, p10.b, p11.b              : orn    %p9/z %p10.b %p11.b -> %p8.b
+258b6558 : orn p8.b, p9/Z, p10.b, p11.b              : orn    %p9/z %p10.b %p11.b -> %p8.b
+258c6979 : orn p9.b, p10/Z, p11.b, p12.b             : orn    %p10/z %p11.b %p12.b -> %p9.b
+258d6d9a : orn p10.b, p11/Z, p12.b, p13.b            : orn    %p11/z %p12.b %p13.b -> %p10.b
+258e71bb : orn p11.b, p12/Z, p13.b, p14.b            : orn    %p12/z %p13.b %p14.b -> %p11.b
+258f75dc : orn p12.b, p13/Z, p14.b, p15.b            : orn    %p13/z %p14.b %p15.b -> %p12.b
+258079fd : orn p13.b, p14/Z, p15.b, p0.b             : orn    %p14/z %p15.b %p0.b -> %p13.b
+258f7dff : orn p15.b, p15/Z, p15.b, p15.b            : orn    %p15/z %p15.b %p15.b -> %p15.b
+
+# ORNS    <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (ORNS-P.P.PP-Z)
+25c04010 : orns p0.b, p0/Z, p0.b, p0.b               : orns   %p0/z %p0.b %p0.b -> %p0.b
+25c44871 : orns p1.b, p2/Z, p3.b, p4.b               : orns   %p2/z %p3.b %p4.b -> %p1.b
+25c54c92 : orns p2.b, p3/Z, p4.b, p5.b               : orns   %p3/z %p4.b %p5.b -> %p2.b
+25c650b3 : orns p3.b, p4/Z, p5.b, p6.b               : orns   %p4/z %p5.b %p6.b -> %p3.b
+25c754d4 : orns p4.b, p5/Z, p6.b, p7.b               : orns   %p5/z %p6.b %p7.b -> %p4.b
+25c858f5 : orns p5.b, p6/Z, p7.b, p8.b               : orns   %p6/z %p7.b %p8.b -> %p5.b
+25c95d16 : orns p6.b, p7/Z, p8.b, p9.b               : orns   %p7/z %p8.b %p9.b -> %p6.b
+25ca6137 : orns p7.b, p8/Z, p9.b, p10.b              : orns   %p8/z %p9.b %p10.b -> %p7.b
+25cb6558 : orns p8.b, p9/Z, p10.b, p11.b             : orns   %p9/z %p10.b %p11.b -> %p8.b
+25cb6558 : orns p8.b, p9/Z, p10.b, p11.b             : orns   %p9/z %p10.b %p11.b -> %p8.b
+25cc6979 : orns p9.b, p10/Z, p11.b, p12.b            : orns   %p10/z %p11.b %p12.b -> %p9.b
+25cd6d9a : orns p10.b, p11/Z, p12.b, p13.b           : orns   %p11/z %p12.b %p13.b -> %p10.b
+25ce71bb : orns p11.b, p12/Z, p13.b, p14.b           : orns   %p12/z %p13.b %p14.b -> %p11.b
+25cf75dc : orns p12.b, p13/Z, p14.b, p15.b           : orns   %p13/z %p14.b %p15.b -> %p12.b
+25c079fd : orns p13.b, p14/Z, p15.b, p0.b            : orns   %p14/z %p15.b %p0.b -> %p13.b
+25cf7dff : orns p15.b, p15/Z, p15.b, p15.b           : orns   %p15/z %p15.b %p15.b -> %p15.b
+
 04181da2 : orr z2.b, p7/m, z2.b, z13.b              : orr    %p7 %z2 %z13 $0x00 -> %z2
 04581da2 : orr z2.h, p7/m, z2.h, z13.h              : orr    %p7 %z2 %z13 $0x01 -> %z2
 04981da2 : orr z2.s, p7/m, z2.s, z13.s              : orr    %p7 %z2 %z13 $0x02 -> %z2
 04d81da2 : orr z2.d, p7/m, z2.d, z13.d              : orr    %p7 %z2 %z13 $0x03 -> %z2
+
+# ORR   <Zdn>.<T>, <Zdn>.<T>, #<const> (ORR-Z.ZI-_)
+050006a0 : orr z0.b, z0.b, #0x3f                    : orr    %z0.b $0x3f -> %z0.b
+05000604 : orr z4.b, z4.b, #0x01                    : orr    %z4.b $0x01 -> %z4.b
+05003e06 : orr z6.b, z6.b, #0x02                    : orr    %z6.b $0x02 -> %z6.b
+05003608 : orr z8.b, z8.b, #0x04                    : orr    %z8.b $0x04 -> %z8.b
+05002e0a : orr z10.b, z10.b, #0x08                  : orr    %z10.b $0x08 -> %z10.b
+0500260c : orr z12.b, z12.b, #0x10                  : orr    %z12.b $0x10 -> %z12.b
+05001e0e : orr z14.b, z14.b, #0x20                  : orr    %z14.b $0x20 -> %z14.b
+05000630 : orr z16.b, z16.b, #0x03                  : orr    %z16.b $0x03 -> %z16.b
+05000652 : orr z18.b, z18.b, #0x07                  : orr    %z18.b $0x07 -> %z18.b
+05000674 : orr z20.b, z20.b, #0x0f                  : orr    %z20.b $0x0f -> %z20.b
+05000696 : orr z22.b, z22.b, #0x1f                  : orr    %z22.b $0x1f -> %z22.b
+05003e98 : orr z24.b, z24.b, #0x3e                  : orr    %z24.b $0x3e -> %z24.b
+0500367a : orr z26.b, z26.b, #0x3c                  : orr    %z26.b $0x3c -> %z26.b
+05002e5c : orr z28.b, z28.b, #0x38                  : orr    %z28.b $0x38 -> %z28.b
+0500263f : orr z31.b, z31.b, #0x30                  : orr    %z31.b $0x30 -> %z31.b
+050004a0 : orr z0.h, z0.h, #0x3f                    : orr    %z0.h $0x003f -> %z0.h
+05000404 : orr z4.h, z4.h, #0x01                    : orr    %z4.h $0x0001 -> %z4.h
+05007c06 : orr z6.h, z6.h, #0x02                    : orr    %z6.h $0x0002 -> %z6.h
+05007408 : orr z8.h, z8.h, #0x04                    : orr    %z8.h $0x0004 -> %z8.h
+05006c0a : orr z10.h, z10.h, #0x08                  : orr    %z10.h $0x0008 -> %z10.h
+0500640c : orr z12.h, z12.h, #0x10                  : orr    %z12.h $0x0010 -> %z12.h
+05005c0e : orr z14.h, z14.h, #0x20                  : orr    %z14.h $0x0020 -> %z14.h
+05000430 : orr z16.h, z16.h, #0x03                  : orr    %z16.h $0x0003 -> %z16.h
+05000452 : orr z18.h, z18.h, #0x07                  : orr    %z18.h $0x0007 -> %z18.h
+05000474 : orr z20.h, z20.h, #0x0f                  : orr    %z20.h $0x000f -> %z20.h
+05000496 : orr z22.h, z22.h, #0x1f                  : orr    %z22.h $0x001f -> %z22.h
+05007c98 : orr z24.h, z24.h, #0x3e                  : orr    %z24.h $0x003e -> %z24.h
+0500747a : orr z26.h, z26.h, #0x3c                  : orr    %z26.h $0x003c -> %z26.h
+05006c5c : orr z28.h, z28.h, #0x38                  : orr    %z28.h $0x0038 -> %z28.h
+0500643f : orr z31.h, z31.h, #0x30                  : orr    %z31.h $0x0030 -> %z31.h
+050000a0 : orr z0.s, z0.s, #0x3f                    : orr    %z0.s $0x0000003f -> %z0.s
+05000004 : orr z4.s, z4.s, #0x01                    : orr    %z4.s $0x00000001 -> %z4.s
+0500f806 : orr z6.s, z6.s, #0x02                    : orr    %z6.s $0x00000002 -> %z6.s
+0500f008 : orr z8.s, z8.s, #0x04                    : orr    %z8.s $0x00000004 -> %z8.s
+0500e80a : orr z10.s, z10.s, #0x08                  : orr    %z10.s $0x00000008 -> %z10.s
+0500e00c : orr z12.s, z12.s, #0x10                  : orr    %z12.s $0x00000010 -> %z12.s
+0500d80e : orr z14.s, z14.s, #0x20                  : orr    %z14.s $0x00000020 -> %z14.s
+05000030 : orr z16.s, z16.s, #0x03                  : orr    %z16.s $0x00000003 -> %z16.s
+05000052 : orr z18.s, z18.s, #0x07                  : orr    %z18.s $0x00000007 -> %z18.s
+05000074 : orr z20.s, z20.s, #0x0f                  : orr    %z20.s $0x0000000f -> %z20.s
+05000096 : orr z22.s, z22.s, #0x1f                  : orr    %z22.s $0x0000001f -> %z22.s
+0500f898 : orr z24.s, z24.s, #0x3e                  : orr    %z24.s $0x0000003e -> %z24.s
+0500f07a : orr z26.s, z26.s, #0x3c                  : orr    %z26.s $0x0000003c -> %z26.s
+0500e85c : orr z28.s, z28.s, #0x38                  : orr    %z28.s $0x00000038 -> %z28.s
+0500e03f : orr z31.s, z31.s, #0x30                  : orr    %z31.s $0x00000030 -> %z31.s
+050200a0 : orr z0.d, z0.d, #0x3f                    : orr    %z0.d $0x000000000000003f -> %z0.d
+05020004 : orr z4.d, z4.d, #0x01                    : orr    %z4.d $0x0000000000000001 -> %z4.d
+0503f806 : orr z6.d, z6.d, #0x02                    : orr    %z6.d $0x0000000000000002 -> %z6.d
+0503f008 : orr z8.d, z8.d, #0x04                    : orr    %z8.d $0x0000000000000004 -> %z8.d
+0503e80a : orr z10.d, z10.d, #0x08                  : orr    %z10.d $0x0000000000000008 -> %z10.d
+0503e00c : orr z12.d, z12.d, #0x10                  : orr    %z12.d $0x0000000000000010 -> %z12.d
+0503d80e : orr z14.d, z14.d, #0x20                  : orr    %z14.d $0x0000000000000020 -> %z14.d
+05020030 : orr z16.d, z16.d, #0x03                  : orr    %z16.d $0x0000000000000003 -> %z16.d
+05020052 : orr z18.d, z18.d, #0x07                  : orr    %z18.d $0x0000000000000007 -> %z18.d
+05020074 : orr z20.d, z20.d, #0x0f                  : orr    %z20.d $0x000000000000000f -> %z20.d
+05020096 : orr z22.d, z22.d, #0x1f                  : orr    %z22.d $0x000000000000001f -> %z22.d
+0503f898 : orr z24.d, z24.d, #0x3e                  : orr    %z24.d $0x000000000000003e -> %z24.d
+0503f07a : orr z26.d, z26.d, #0x3c                  : orr    %z26.d $0x000000000000003c -> %z26.d
+0503e85c : orr z28.d, z28.d, #0x38                  : orr    %z28.d $0x0000000000000038 -> %z28.d
+0503e03f : orr z31.d, z31.d, #0x30                  : orr    %z31.d $0x0000000000000030 -> %z31.d
+
+# ORR     <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (ORR-P.P.PP-Z)
+25804000 : orr p0.b, p0/Z, p0.b, p0.b                : orr    %p0/z %p0.b %p0.b -> %p0.b
+25844861 : orr p1.b, p2/Z, p3.b, p4.b                : orr    %p2/z %p3.b %p4.b -> %p1.b
+25854c82 : orr p2.b, p3/Z, p4.b, p5.b                : orr    %p3/z %p4.b %p5.b -> %p2.b
+258650a3 : orr p3.b, p4/Z, p5.b, p6.b                : orr    %p4/z %p5.b %p6.b -> %p3.b
+258754c4 : orr p4.b, p5/Z, p6.b, p7.b                : orr    %p5/z %p6.b %p7.b -> %p4.b
+258858e5 : orr p5.b, p6/Z, p7.b, p8.b                : orr    %p6/z %p7.b %p8.b -> %p5.b
+25895d06 : orr p6.b, p7/Z, p8.b, p9.b                : orr    %p7/z %p8.b %p9.b -> %p6.b
+258a6127 : orr p7.b, p8/Z, p9.b, p10.b               : orr    %p8/z %p9.b %p10.b -> %p7.b
+258b6548 : orr p8.b, p9/Z, p10.b, p11.b              : orr    %p9/z %p10.b %p11.b -> %p8.b
+258b6548 : orr p8.b, p9/Z, p10.b, p11.b              : orr    %p9/z %p10.b %p11.b -> %p8.b
+258c6969 : orr p9.b, p10/Z, p11.b, p12.b             : orr    %p10/z %p11.b %p12.b -> %p9.b
+258d6d8a : orr p10.b, p11/Z, p12.b, p13.b            : orr    %p11/z %p12.b %p13.b -> %p10.b
+258e71ab : orr p11.b, p12/Z, p13.b, p14.b            : orr    %p12/z %p13.b %p14.b -> %p11.b
+258f75cc : orr p12.b, p13/Z, p14.b, p15.b            : orr    %p13/z %p14.b %p15.b -> %p12.b
+258079ed : orr p13.b, p14/Z, p15.b, p0.b             : orr    %p14/z %p15.b %p0.b -> %p13.b
+258f7def : orr p15.b, p15/Z, p15.b, p15.b            : orr    %p15/z %p15.b %p15.b -> %p15.b
+
+# ORR     <Zd>.D, <Zn>.D, <Zm>.D (ORR-Z.ZZ-_)
+04603000 : orr z0.d, z0.d, z0.d                      : orr    %z0.d %z0.d -> %z0.d
+04643062 : orr z2.d, z3.d, z4.d                      : orr    %z3.d %z4.d -> %z2.d
+046630a4 : orr z4.d, z5.d, z6.d                      : orr    %z5.d %z6.d -> %z4.d
+046830e6 : orr z6.d, z7.d, z8.d                      : orr    %z7.d %z8.d -> %z6.d
+046a3128 : orr z8.d, z9.d, z10.d                     : orr    %z9.d %z10.d -> %z8.d
+046c316a : orr z10.d, z11.d, z12.d                   : orr    %z11.d %z12.d -> %z10.d
+046e31ac : orr z12.d, z13.d, z14.d                   : orr    %z13.d %z14.d -> %z12.d
+047031ee : orr z14.d, z15.d, z16.d                   : orr    %z15.d %z16.d -> %z14.d
+04723230 : orr z16.d, z17.d, z18.d                   : orr    %z17.d %z18.d -> %z16.d
+04733251 : orr z17.d, z18.d, z19.d                   : orr    %z18.d %z19.d -> %z17.d
+04753293 : orr z19.d, z20.d, z21.d                   : orr    %z20.d %z21.d -> %z19.d
+047732d5 : orr z21.d, z22.d, z23.d                   : orr    %z22.d %z23.d -> %z21.d
+04793317 : orr z23.d, z24.d, z25.d                   : orr    %z24.d %z25.d -> %z23.d
+047b3359 : orr z25.d, z26.d, z27.d                   : orr    %z26.d %z27.d -> %z25.d
+047d339b : orr z27.d, z28.d, z29.d                   : orr    %z28.d %z29.d -> %z27.d
+047f33ff : orr z31.d, z31.d, z31.d                   : orr    %z31.d %z31.d -> %z31.d
+
+# ORRS    <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B (ORRS-P.P.PP-Z)
+25c04000 : orrs p0.b, p0/Z, p0.b, p0.b               : orrs   %p0/z %p0.b %p0.b -> %p0.b
+25c44861 : orrs p1.b, p2/Z, p3.b, p4.b               : orrs   %p2/z %p3.b %p4.b -> %p1.b
+25c54c82 : orrs p2.b, p3/Z, p4.b, p5.b               : orrs   %p3/z %p4.b %p5.b -> %p2.b
+25c650a3 : orrs p3.b, p4/Z, p5.b, p6.b               : orrs   %p4/z %p5.b %p6.b -> %p3.b
+25c754c4 : orrs p4.b, p5/Z, p6.b, p7.b               : orrs   %p5/z %p6.b %p7.b -> %p4.b
+25c858e5 : orrs p5.b, p6/Z, p7.b, p8.b               : orrs   %p6/z %p7.b %p8.b -> %p5.b
+25c95d06 : orrs p6.b, p7/Z, p8.b, p9.b               : orrs   %p7/z %p8.b %p9.b -> %p6.b
+25ca6127 : orrs p7.b, p8/Z, p9.b, p10.b              : orrs   %p8/z %p9.b %p10.b -> %p7.b
+25cb6548 : orrs p8.b, p9/Z, p10.b, p11.b             : orrs   %p9/z %p10.b %p11.b -> %p8.b
+25cb6548 : orrs p8.b, p9/Z, p10.b, p11.b             : orrs   %p9/z %p10.b %p11.b -> %p8.b
+25cc6969 : orrs p9.b, p10/Z, p11.b, p12.b            : orrs   %p10/z %p11.b %p12.b -> %p9.b
+25cd6d8a : orrs p10.b, p11/Z, p12.b, p13.b           : orrs   %p11/z %p12.b %p13.b -> %p10.b
+25ce71ab : orrs p11.b, p12/Z, p13.b, p14.b           : orrs   %p12/z %p13.b %p14.b -> %p11.b
+25cf75cc : orrs p12.b, p13/Z, p14.b, p15.b           : orrs   %p13/z %p14.b %p15.b -> %p12.b
+25c079ed : orrs p13.b, p14/Z, p15.b, p0.b            : orrs   %p14/z %p15.b %p0.b -> %p13.b
+25cf7def : orrs p15.b, p15/Z, p15.b, p15.b           : orrs   %p15/z %p15.b %p15.b -> %p15.b
 
 # PTEST   <Pg>, <Pn>.B (PTEST-.P.P-_)
 2550c000 : ptest p0, p0.b                            : ptest  %p0 %p0.b

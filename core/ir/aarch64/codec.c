@@ -201,9 +201,9 @@ static inline bool
 try_encode_int(OUT uint *bits, int len, int scale, ptr_int_t val)
 {
     /* If any of lowest 'scale' bits are set, or 'val' is out of range, fail. */
-    if (((ptr_uint_t)val & ((1U << scale) - 1)) != 0 ||
-        val < -((ptr_int_t)1 << (len + scale - 1)) ||
-        val >= (ptr_int_t)1 << (len + scale - 1))
+    const ptr_int_t range_val = ((ptr_int_t)1 << (len + scale)) - 1;
+    if (((ptr_uint_t)val & ((1U << scale) - 1)) != 0 || val < -range_val ||
+        val >= range_val)
         return false;
     *bits = (ptr_uint_t)val >> scale & ((1U << len) - 1);
     return true;
@@ -691,6 +691,37 @@ multistruct_regcount(uint enc)
     }
     ASSERT(false);
     return 0;
+}
+
+/* Extracts the size from an imm13 field.  Returns NOT_A_REG if the read value is invalid.
+ */
+static aarch64_reg_offset
+extract_imm13_size(uint enc)
+{
+    const ptr_uint_t value = extract_uint(enc, 5, 13);
+
+    /* Bit 12 is high iff type is a double */
+    if (TEST(1 << 12, value))
+        return DOUBLE_REG;
+
+    /* For the remaining, invert the value and find the index of the highest high bit
+     */
+    int index;
+    if (!highest_bit_set(~value, 0, 6, &index)) {
+        /* Reserved */
+        return NOT_A_REG;
+    }
+
+    switch (index) {
+    case 5: return SINGLE_REG;
+    case 4: return HALF_REG;
+    case 3:
+    case 2:
+    case 1: return BYTE_REG;
+    default:
+        /* Reserved */
+        return NOT_A_REG;
+    }
 }
 
 /*******************************************************************************
@@ -2330,6 +2361,22 @@ encode_opnd_p10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_p(10, 15, opnd, enc_out);
 }
 
+/* p10_zer: SVE predicate registers p0-p15, zeroing */
+static inline bool
+decode_opnd_p10_zer(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_predicate_reg(DR_REG_P0 + extract_uint(enc, 10, 4), false);
+    return true;
+}
+
+static inline bool
+encode_opnd_p10_zer(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_predicate_zero(opnd))
+        return false;
+    return encode_opnd_p(10, 15, opnd, enc_out);
+}
+
 /* cmode_s_sz: Operand for 32 bit elements' shift amount */
 
 static inline bool
@@ -2607,6 +2654,87 @@ encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     uint enc_value;
     encode_opnd_int(0, 16, false, false, 0, opnd, &enc_value);
     *enc_out = enc_value;
+    return true;
+}
+
+/* z_imm13_bhsd_0: sve vector reg, elsz depending on size value encoded within an 13 bit
+ * immediate from 5-17 */
+static inline bool
+decode_opnd_z_imm13_bhsd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 0, 5, extract_imm13_size(enc), enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_imm13_bhsd_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 0, extract_imm13_size(enc), opnd, enc_out);
+}
+
+/* imm13_const: Const value within an 13 bit immediate from 5-17 */
+static inline bool
+decode_opnd_imm13_const(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const ptr_uint_t imm_enc = extract_uint(enc, 5, 13);
+    ptr_uint_t imm_val = decode_bitmask(imm_enc);
+    if (imm_val == 0)
+        return false;
+
+    /* The const field is always 64 bits, consisting of a repeating register-wide
+     * subfields. However this is not the value the compiler has written, so chop off the
+     * excess.
+     */
+    opnd_size_t opnd_size;
+    switch (extract_imm13_size(enc)) {
+    case BYTE_REG:
+        opnd_size = OPSZ_1;
+        imm_val = BITS(imm_val, 7, 0);
+        break;
+    case HALF_REG:
+        opnd_size = OPSZ_2;
+        imm_val = BITS(imm_val, 15, 0);
+        break;
+    case SINGLE_REG:
+        opnd_size = OPSZ_4;
+        imm_val = BITS(imm_val, 31, 0);
+        break;
+    case DOUBLE_REG: opnd_size = OPSZ_8; break;
+    default: return false;
+    }
+
+    *opnd = opnd_create_immed_int(imm_val, opnd_size);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm13_const(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    ptr_uint_t imm_val = opnd_get_immed_int(opnd);
+
+    /* The encoding process expects repeating register-wide subfields in the bitmask
+     * encoding input, so we need to add in the repeating subfields we removed in the
+     * decoder.
+     */
+    const int width = opnd_size_in_bits(opnd_get_size(opnd));
+    if (width == 0)
+        return false;
+
+    if (width != 64) {
+        const ptr_uint_t subfield = imm_val & (((ptr_uint_t)1 << width) - 1);
+        for (int i = 0; i < 64; i += width) {
+            imm_val <<= width;
+            imm_val |= subfield;
+        }
+    }
+
+    uint imm_enc;
+    if (!try_encode_int(&imm_enc, 13, 0, encode_bitmask(imm_val)))
+        return false;
+
+    *enc_out = (ptr_uint_t)imm_enc << 5;
     return true;
 }
 
@@ -2936,6 +3064,21 @@ encode_opnd_p16_zer(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     if (!opnd_is_predicate_zero(opnd))
         return false;
     return encode_opnd_p(16, 15, opnd, enc_out);
+}
+
+/* p_b_16: P register with a byte element size */
+static inline bool
+decode_opnd_p_b_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_P0, 16, 4, BYTE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_p_b_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_predicate_reg(opnd))
+        return false;
+    return encode_single_sized(OPSZ_SCALABLE_PRED, 16, BYTE_REG, opnd, enc_out);
 }
 
 /* sysreg: system register, operand of MRS/MSR */
