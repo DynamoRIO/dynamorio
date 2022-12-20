@@ -5351,8 +5351,8 @@ TEST_INSTR(str)
     int simm_0[6] = { 0, 255, -256, 127, -128, -1 };
     const char *expected_0[6] = {
         "str    %z0 -> (%x0)[32byte]",          "str    %z5 -> +0xff(%x5)[32byte]",
-        "str    %z10 -> -0x0100(%x10)[32byte]", "str    %z16 -> +0x7f(%x16)[32byte]",
-        "str    %z21 -> -0x80(%x21)[32byte]",   "str    %z31 -> -0x01(%x30)[32byte]"
+        "str    %z10 -> -0x0100(%x10)[32byte]", "str    %z16 -> +0x7f(%x15)[32byte]",
+        "str    %z21 -> -0x80(%x20)[32byte]",   "str    %z31 -> -0x01(%x30)[32byte]"
     };
     TEST_LOOP(str, str, 6, expected_0[i],
               opnd_create_base_disp_aarch64(Xn_six_offset_0[i], DR_REG_NULL, 0, false,
@@ -5363,8 +5363,8 @@ TEST_INSTR(str)
     int simm_1[6] = { 0, 255, -256, 127, -128, -1 };
     const char *expected_1[6] = {
         "str    %p0 -> (%x0)[32byte]",         "str    %p2 -> +0xff(%x5)[32byte]",
-        "str    %p5 -> -0x0100(%x10)[32byte]", "str    %p8 -> +0x7f(%x16)[32byte]",
-        "str    %p10 -> -0x80(%x21)[32byte]",  "str    %p15 -> -0x01(%x30)[32byte]"
+        "str    %p5 -> -0x0100(%x10)[32byte]", "str    %p8 -> +0x7f(%x15)[32byte]",
+        "str    %p10 -> -0x80(%x20)[32byte]",  "str    %p15 -> -0x01(%x30)[32byte]"
     };
     TEST_LOOP(str, str, 6, expected_1[i],
               opnd_create_base_disp_aarch64(Xn_six_offset_0[i], DR_REG_NULL, 0, false,
