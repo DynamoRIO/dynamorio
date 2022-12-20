@@ -136,7 +136,11 @@ changes:
    the register in the structure from struct.value.reg to
    struct.value.reg_and_element_size.reg. The element size can be accessed directly
    via struct.value.reg_and_element_size.element_size.
- - Changed the size of the #instr_t structure by appending a field.
+ - Changed the size of the #instr_t structure by appending a field which is used
+   for relative offsets while encoding.  The note field is no longer modified
+   during encoding.
+ - Reduced the value of #DR_NOTE_FIRST_RESERVED.  This is not expected to cause
+   problems unless clients are directly choosing high note values.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.

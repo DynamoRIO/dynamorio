@@ -831,19 +831,30 @@ typedef struct _module_data_t module_data_t;
 /**
  * Upper note values are reserved for core DR.
  */
-#    define DR_NOTE_FIRST_RESERVED 0xfffffffffffffff0ULL
+#    define DR_NOTE_FIRST_RESERVED 0xffffffffffff0000ULL
+#    define DR_NOTE_OLD_FIRST_RESERVED 0xfffffffffffffff0ULL
 #else
 /**
  * Upper note values are reserved for core DR.
  */
-#    define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
+#    define DR_NOTE_FIRST_RESERVED 0xffff0000UL
+#    define DR_NOTE_OLD_FIRST_RESERVED 0xfffffff0UL
 #endif
 enum {
+    /**
+     * Used for internal translation from an instruction list.  These apply not only to
+     * client-inserted clean calls but all inserted calls whether inserted by
+     * clients or DR and whether fully clean or not.  This is thus distinct from
+     * #DR_NOTE_CLEAN_CALL_END.
+     */
+    DR_NOTE_CALLOUT_SEQUENCE_START = DR_NOTE_FIRST_RESERVED,
+    DR_NOTE_CALLOUT_SEQUENCE_END,
+    /* **** Add new labels here in the new space in between new and old. ****** */
     /**
      * Identifies an annotation point.  This label will be replaced by a
      * clean call to the registered annotation handler.
      */
-    DR_NOTE_ANNOTATION = DR_NOTE_FIRST_RESERVED + 1,
+    DR_NOTE_ANNOTATION = DR_NOTE_OLD_FIRST_RESERVED + 1,
     DR_NOTE_RSEQ,
     DR_NOTE_LDEX,
     /** Identifies the end of a clean call. */
@@ -854,13 +865,7 @@ enum {
      * their application values, as required for DR's internal block mangling.
      */
     DR_NOTE_REG_BARRIER,
-    /* Used for translation from an instruction list.  These apply not only to
-     * client-inserted clean calls but all inserted calls whether inserted by
-     * clients or DR and whether fully clean or not.  This is thus distinct from
-     * DR_NOTE_CLEAN_CALL_END.
-     */
-    DR_NOTE_CALLOUT_SEQUENCE_START,
-    DR_NOTE_CALLOUT_SEQUENCE_END,
+    /* Add new labels above, not here where there is little space. */
 };
 
 /**
