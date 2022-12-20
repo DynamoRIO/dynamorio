@@ -460,6 +460,14 @@ event_restore(void *drcontext, bool restore_memory, dr_restore_state_info_t *inf
         /* At the first instr should require no translation. */
         info->raw_mcontext->pc <= info->fragment_info.cache_start_pc)
         return true;
+#        ifdef X64
+    /* We have a code cache address here: verify load_from is not 32-bit-displacement
+     * reachable from here.
+     */
+    assert(
+        (ptr_int_t)load_from - (ptr_int_t)info->fragment_info.cache_start_pc < INT_MIN ||
+        (ptr_int_t)load_from - (ptr_int_t)info->fragment_info.cache_start_pc > INT_MAX);
+#        endif
     instr_t inst;
     instr_init(drcontext, &inst);
     byte *pc = info->fragment_info.cache_start_pc;
@@ -505,7 +513,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_register_exit_event(event_exit);
 
     /* Try to get an address that is not 32-bit-displacement reachable from
-     * the cache.
+     * the cache.  We have an assert on reachability in event_restore().
      */
     load_from = dr_custom_alloc(NULL, 0, dr_page_size(),
                                 DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
