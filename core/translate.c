@@ -348,9 +348,9 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
     bool spill, spill_tls;
 
     if (instr_is_label(inst)) {
-        if (instr_get_note(inst) == (void *)DR_NOTE_CALLOUT_SEQUENCE_START)
+        if (instr_get_note(inst) == (void *)DR_NOTE_CALL_SEQUENCE_START)
             walk->in_clean_call = true;
-        else if (instr_get_note(inst) == (void *)DR_NOTE_CALLOUT_SEQUENCE_END)
+        else if (instr_get_note(inst) == (void *)DR_NOTE_CALL_SEQUENCE_END)
             walk->in_clean_call = false;
     }
     if (instr_is_our_mangling(inst)) {
@@ -1818,9 +1818,9 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
          * let this be a thread relocation point
          */
         if (instr_is_label(inst)) {
-            if (instr_get_note(inst) == (void *)DR_NOTE_CALLOUT_SEQUENCE_START)
+            if (instr_get_note(inst) == (void *)DR_NOTE_CALL_SEQUENCE_START)
                 in_clean_call = true;
-            else if (instr_get_note(inst) == (void *)DR_NOTE_CALLOUT_SEQUENCE_END)
+            else if (instr_get_note(inst) == (void *)DR_NOTE_CALL_SEQUENCE_END)
                 in_clean_call = false;
             /* i#739, skip label instr */
             continue;

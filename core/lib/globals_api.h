@@ -847,8 +847,8 @@ enum {
      * clients or DR and whether fully clean or not.  This is thus distinct from
      * #DR_NOTE_CLEAN_CALL_END.
      */
-    DR_NOTE_CALLOUT_SEQUENCE_START = DR_NOTE_FIRST_RESERVED,
-    DR_NOTE_CALLOUT_SEQUENCE_END,
+    DR_NOTE_CALL_SEQUENCE_START = DR_NOTE_FIRST_RESERVED,
+    DR_NOTE_CALL_SEQUENCE_END,
     /* **** Add new labels here in the new space in between new and old. ****** */
     /**
      * Identifies an annotation point.  This label will be replaced by a
