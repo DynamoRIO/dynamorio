@@ -97,6 +97,7 @@ protected:
         int instrs_until_interrupt_ = -1;
         int memrefs_until_interrupt_ = -1;
 #endif
+        bool saw_kernel_xfer_after_prev_instr_ = false;
         bool saw_timestamp_but_no_instr_ = false;
         bool found_cache_line_size_marker_ = false;
         bool found_instr_count_marker_ = false;

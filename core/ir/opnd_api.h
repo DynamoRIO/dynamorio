@@ -1937,6 +1937,14 @@ opnd_create_immed_int64(int64 i, opnd_size_t data_size);
 
 DR_API
 /**
+ * Performs a bitwise NOT operation on the integer value in \p opnd, but only on the LSB
+ * bits provided by opnd_size_in_bits(opnd). \p opnd must carry an immed integer.
+ */
+opnd_t
+opnd_invert_immed_int(opnd_t opnd);
+
+DR_API
+/**
  * Returns an immediate float operand with value \p f.
  * The caller's code should use proc_save_fpstate() or be inside a
  * clean call that has requested to preserve the floating-point state.

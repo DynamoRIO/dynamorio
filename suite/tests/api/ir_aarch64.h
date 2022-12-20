@@ -58,6 +58,11 @@ static byte buf[8192];
         result = false;                                           \
     }
 
+#define TEST_NO_OPNDS(opcode, create_name, expected)            \
+    instr = INSTR_CREATE_##create_name(dc);                     \
+    if (!test_instr_encoding(dc, OP_##opcode, instr, expected)) \
+        *psuccess = false;
+
 #define TEST_LOOP(opcode, create_name, number, expected, args...)   \
     for (int i = 0; i < number; i++) {                              \
         instr = INSTR_CREATE_##create_name(dc, args);               \
@@ -77,7 +82,8 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
     char *buf = malloc(buflen);
 
     if (instr_get_opcode(instr) != opcode) {
-        print("incorrect opcode for instr %s: %s\n\n", opcode, instr_get_opcode(instr));
+        print("incorrect opcode for instr %s: %s\n\n", decode_opcode_name(opcode),
+              decode_opcode_name(instr_get_opcode(instr)));
         instr_destroy(dc, instr);
         return false;
     }
@@ -111,7 +117,7 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
         print("but expected:\n");
         print("   %s\n", expected);
         print("Encoded as:\n");
-        print("   %08x\n\n", pc);
+        print("   0x%08x\n\n", *((int *)pc));
         result = false;
     }
 
@@ -146,3 +152,7 @@ const reg_id_t Pn_six_offset_1[6] = { DR_REG_P0, DR_REG_P3,  DR_REG_P6,
                                       DR_REG_P9, DR_REG_P11, DR_REG_P15 };
 const reg_id_t Pn_six_offset_2[6] = { DR_REG_P0,  DR_REG_P4,  DR_REG_P7,
                                       DR_REG_P10, DR_REG_P12, DR_REG_P15 };
+const reg_id_t Xn_six_offset_0[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
+                                      DR_REG_X15, DR_REG_X20, DR_REG_X30 };
+const reg_id_t Wn_six_offset_0[6] = { DR_REG_W0,  DR_REG_W5,  DR_REG_W10,
+                                      DR_REG_W15, DR_REG_W20, DR_REG_W30 };

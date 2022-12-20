@@ -60,6 +60,8 @@ elseif (AARCHXX)
   else ()
     add_definitions(-DARM_32)
   endif ()
+elseif (RISCV64)
+    add_definitions(-DRISCV_64)
 endif ()
 
 # GCC 6+ has a warning for an ABI change due to a bug introduced in GCC 5:
