@@ -7212,8 +7212,7 @@
  *    DECB    <Xdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The first source and destination  register, X (Extended, 64
- *              bits).
+ * \param Rdn   The vector register to be decremented, X (Extended, 64 bits).
  * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
  * \param imm   The imm used as the predicate constraint multiplier.
  */
@@ -7228,8 +7227,7 @@
  *    DECD    <Xdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The first source and destination  register, X (Extended, 64
- *              bits).
+ * \param Rdn   The vector register to be decremented, X (Extended, 64 bits).
  * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
  * \param imm   The imm used as the predicate constraint multiplier.
  */
@@ -7244,7 +7242,7 @@
  *    DECD    <Zdn>.D{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zdn   The second source and destination vector register, Z (Scalable).
+ * \param Zdn   The vector register to be decremented, Z (Scalable).
  * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
  * \param imm   The imm used as the predicate constraint multiplier.
  */
@@ -7259,8 +7257,7 @@
  *    DECH    <Xdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The first source and destination  register, X (Extended, 64
- *              bits).
+ * \param Rdn   The vector register to be decremented, X (Extended, 64 bits).
  * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
  * \param imm   The imm used as the predicate constraint multiplier.
  */
@@ -7275,7 +7272,7 @@
  *    DECH    <Zdn>.H{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zdn   The second source and destination vector register, Z (Scalable).
+ * \param Zdn   The vector register to be decremented, Z (Scalable).
  * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
  * \param imm   The imm used as the predicate constraint multiplier.
  */
