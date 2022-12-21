@@ -7013,4 +7013,162 @@
 #define INSTR_CREATE_orrs_sve_pred(dc, Pd, Pg, Pn, Pm) \
     instr_create_1dst_3src(dc, OP_orrs, Pd, Pg, Pn, Pm)
 
+/**
+ * Creates a CLASTA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CLASTA  <R><dn>, <Pg>, <R><dn>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rdn  The first source and destination register. Can be W (Word, 32 bits) or
+ * X (Extended, 64 bits).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_clasta_sve_scalar(dc, Rdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_clasta, Rdn, Pg, Rdn, Zm)
+
+/**
+ * Creates a CLASTA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CLASTA  <V><dn>, <Pg>, <V><dn>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Vdn  The first source and destination register. Can be D (doubleword, 64 bits),
+ * S (singleword, 32 bits), H (halfword, 16 bits) or B (byte, 8 bits).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_clasta_sve_simd_fp(dc, Vdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_clasta, Vdn, Pg, Vdn, Zm)
+
+/**
+ * Creates a CLASTA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CLASTA  <Zdn>.<Ts>, <Pg>, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn  The first source and destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_clasta_sve_vector(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_clasta, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a CLASTB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CLASTB  <R><dn>, <Pg>, <R><dn>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rdn  The first source and destination register. Can be W (Word, 32 bits) or
+ * X (Extended, 64 bits).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_clastb_sve_scalar(dc, Rdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_clastb, Rdn, Pg, Rdn, Zm)
+
+/**
+ * Creates a CLASTB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CLASTB  <V><dn>, <Pg>, <V><dn>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Vdn  The first source and destination register. Can be D (doubleword, 64 bits),
+ * S (singleword, 32 bits), H (halfword, 16 bits) or B (byte, 8 bits).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_clastb_sve_simd_fp(dc, Vdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_clastb, Vdn, Pg, Vdn, Zm)
+
+/**
+ * Creates a CLASTB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CLASTB  <Zdn>.<Ts>, <Pg>, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn  The first source and destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_clastb_sve_vector(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_clastb, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a LASTA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LASTA   <R><d>, <Pg>, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register. Can be W (Word, 32 bits) or X (Extended,
+ * 64 bits).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_lasta_sve_scalar(dc, Rd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_lasta, Rd, Pg, Zn)
+
+/**
+ * Creates a LASTA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LASTA   <V><d>, <Pg>, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Vd   The destination  register. Can be D (doubleword, 64 bits), B (byte, 8
+ * bits), S (singleword, 32 bits) or H (halfword, 16 bits).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_lasta_sve_simd_fp(dc, Vd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_lasta, Vd, Pg, Zn)
+
+/**
+ * Creates a LASTB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LASTB   <R><d>, <Pg>, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register. Can be W (Word, 32 bits) or X (Extended,
+ * 64 bits).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_lastb_sve_scalar(dc, Rd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_lastb, Rd, Pg, Zn)
+
+/**
+ * Creates a LASTB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LASTB   <V><d>, <Pg>, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Vd   The destination  register. Can be D (doubleword, 64 bits), B (byte, 8
+ * bits), S (singleword, 32 bits) or H (halfword, 16 bits).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_lastb_sve_simd_fp(dc, Vd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_lastb, Vd, Pg, Zn)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
