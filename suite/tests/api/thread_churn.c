@@ -62,15 +62,21 @@ int
 main(int argc, char **argv)
 {
     /* We test thread exit leaks by ensuring memory usage is the same after
-     * both 5 threads and 500 threads.
+     * both 6 threads and 600 threads.  (There is a non-linearity from 5 to 6
+     * due to unit boundaries so we start at 6.)
+     * There is another non-linearity with heap units so we have the global
+     * units not change size.
      */
-    const int count_A = 10;
-    const int count_B = 500;
+    const int count_A = 6;
+    const int count_B = 600;
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+                   "-initial_global_heap_unit_size 256K -stderr_mask 0xc"
 #define VERBOSE 0
 #if VERBOSE
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-rstats_to_stderr -stderr_mask 0xc"))
-        print("Failed to set env var!\n");
+                   " -rstats_to_stderr "
 #endif
+                   ))
+        print("Failed to set env var!\n");
 
     assert(!dr_app_running_under_dynamorio());
     dr_app_setup_and_start();
