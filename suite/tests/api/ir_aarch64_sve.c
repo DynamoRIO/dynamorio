@@ -5829,72 +5829,72 @@ TEST_INSTR(cnt_sve_pred)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
 }
 
-TEST_INSTR(cntb_shift)
+TEST_INSTR(cntb)
 {
 
     /* Testing CNTB    <Xd>{, <pattern>{, MUL #<imm>}} */
-    dr_pred_constr_type_t pattern_0_0[6] = {
+    static const dr_pred_constr_type_t pattern_0_0[6] = {
         DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
         DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
     };
-    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
         "cntb   POW2 mul $0x01 -> %x0",   "cntb   VL6 mul $0x05 -> %x5",
         "cntb   VL64 mul $0x08 -> %x10",  "cntb   $0x11 mul $0x0b -> %x15",
         "cntb   $0x16 mul $0x0d -> %x20", "cntb   ALL mul $0x10 -> %x30",
     };
-    TEST_LOOP(cntb, cntb_shift, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+    TEST_LOOP(cntb, cntb, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
               opnd_create_immed_pred_constr(pattern_0_0[i]),
               opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
 }
 
-TEST_INSTR(decb_shift)
+TEST_INSTR(decb)
 {
 
     /* Testing DECB    <Xdn>{, <pattern>{, MUL #<imm>}} */
-    dr_pred_constr_type_t pattern_0_0[6] = {
+    static const dr_pred_constr_type_t pattern_0_0[6] = {
         DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
         DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
     };
-    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
         "decb   %x0 POW2 mul $0x01 -> %x0",    "decb   %x5 VL6 mul $0x05 -> %x5",
         "decb   %x10 VL64 mul $0x08 -> %x10",  "decb   %x15 $0x11 mul $0x0b -> %x15",
         "decb   %x20 $0x16 mul $0x0d -> %x20", "decb   %x30 ALL mul $0x10 -> %x30",
     };
-    TEST_LOOP(decb, decb_shift, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+    TEST_LOOP(decb, decb, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
               opnd_create_immed_pred_constr(pattern_0_0[i]),
               opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
 }
 
-TEST_INSTR(decd_shift)
+TEST_INSTR(decd)
 {
 
     /* Testing DECD    <Xdn>{, <pattern>{, MUL #<imm>}} */
-    dr_pred_constr_type_t pattern_0_0[6] = {
+    static const dr_pred_constr_type_t pattern_0_0[6] = {
         DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
         DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
     };
-    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
         "decd   %x0 POW2 mul $0x01 -> %x0",    "decd   %x5 VL6 mul $0x05 -> %x5",
         "decd   %x10 VL64 mul $0x08 -> %x10",  "decd   %x15 $0x11 mul $0x0b -> %x15",
         "decd   %x20 $0x16 mul $0x0d -> %x20", "decd   %x30 ALL mul $0x10 -> %x30",
     };
-    TEST_LOOP(decd, decd_shift, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+    TEST_LOOP(decd, decd, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
               opnd_create_immed_pred_constr(pattern_0_0[i]),
               opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
 }
 
-TEST_INSTR(decd_sve_shift)
+TEST_INSTR(decd_sve)
 {
 
     /* Testing DECD    <Zdn>.D{, <pattern>{, MUL #<imm>}} */
-    dr_pred_constr_type_t pattern_0_0[6] = {
+    static const dr_pred_constr_type_t pattern_0_0[6] = {
         DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
         DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
     };
-    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
         "decd   POW2 %z0.d mul $0x01 -> %z0.d",
         "decd   VL6 %z5.d mul $0x05 -> %z5.d",
@@ -5903,40 +5903,40 @@ TEST_INSTR(decd_sve_shift)
         "decd   $0x16 %z21.d mul $0x0d -> %z21.d",
         "decd   ALL %z31.d mul $0x10 -> %z31.d",
     };
-    TEST_LOOP(decd, decd_sve_shift, 6, expected_0_0[i],
+    TEST_LOOP(decd, decd_sve, 6, expected_0_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_immed_pred_constr(pattern_0_0[i]),
               opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
 }
 
-TEST_INSTR(dech_shift)
+TEST_INSTR(dech)
 {
 
     /* Testing DECH    <Xdn>{, <pattern>{, MUL #<imm>}} */
-    dr_pred_constr_type_t pattern_0_0[6] = {
+    static const dr_pred_constr_type_t pattern_0_0[6] = {
         DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
         DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
     };
-    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
         "dech   %x0 POW2 mul $0x01 -> %x0",    "dech   %x5 VL6 mul $0x05 -> %x5",
         "dech   %x10 VL64 mul $0x08 -> %x10",  "dech   %x15 $0x11 mul $0x0b -> %x15",
         "dech   %x20 $0x16 mul $0x0d -> %x20", "dech   %x30 ALL mul $0x10 -> %x30",
     };
-    TEST_LOOP(dech, dech_shift, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+    TEST_LOOP(dech, dech, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
               opnd_create_immed_pred_constr(pattern_0_0[i]),
               opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
 }
 
-TEST_INSTR(dech_sve_shift)
+TEST_INSTR(dech_sve)
 {
 
     /* Testing DECH    <Zdn>.H{, <pattern>{, MUL #<imm>}} */
-    dr_pred_constr_type_t pattern_0_0[6] = {
+    static const dr_pred_constr_type_t pattern_0_0[6] = {
         DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
         DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
     };
-    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
         "dech   POW2 %z0.h mul $0x01 -> %z0.h",
         "dech   VL6 %z5.h mul $0x05 -> %z5.h",
@@ -5945,61 +5945,60 @@ TEST_INSTR(dech_sve_shift)
         "dech   $0x16 %z21.h mul $0x0d -> %z21.h",
         "dech   ALL %z31.h mul $0x10 -> %z31.h",
     };
-    TEST_LOOP(dech, dech_sve_shift, 6, expected_0_0[i],
+    TEST_LOOP(dech, dech_sve, 6, expected_0_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
               opnd_create_immed_pred_constr(pattern_0_0[i]),
               opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
 }
 
-TEST_INSTR(sqdech_shift_wide)
+TEST_INSTR(sqdech_wide)
 {
 
     /* Testing SQDECH  <Xdn>, <Wdn>{, <pattern>{, MUL #<imm>}} */
-    dr_pred_constr_type_t pattern_0_0[6] = {
+    static const dr_pred_constr_type_t pattern_0_0[6] = {
         DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
         DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
     };
-    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
         "sqdech %w0 POW2 mul $0x01 -> %x0",    "sqdech %w5 VL6 mul $0x05 -> %x5",
         "sqdech %w10 VL64 mul $0x08 -> %x10",  "sqdech %w15 $0x11 mul $0x0b -> %x15",
         "sqdech %w20 $0x16 mul $0x0d -> %x20", "sqdech %w30 ALL mul $0x10 -> %x30",
     };
-    TEST_LOOP(sqdech, sqdech_shift_wide, 6, expected_0_0[i],
+    TEST_LOOP(sqdech, sqdech_wide, 6, expected_0_0[i],
               opnd_create_reg(Xn_six_offset_0[i]),
               opnd_create_immed_pred_constr(pattern_0_0[i]),
               opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
 }
 
-TEST_INSTR(sqdech_shift)
+TEST_INSTR(sqdech)
 {
 
     /* Testing SQDECH  <Xdn>{, <pattern>{, MUL #<imm>}} */
-    dr_pred_constr_type_t pattern_0_0[6] = {
+    static const dr_pred_constr_type_t pattern_0_0[6] = {
         DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
         DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
     };
-    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
         "sqdech %x0 POW2 mul $0x01 -> %x0",    "sqdech %x5 VL6 mul $0x05 -> %x5",
         "sqdech %x10 VL64 mul $0x08 -> %x10",  "sqdech %x15 $0x11 mul $0x0b -> %x15",
         "sqdech %x20 $0x16 mul $0x0d -> %x20", "sqdech %x30 ALL mul $0x10 -> %x30",
     };
-    TEST_LOOP(sqdech, sqdech_shift, 6, expected_0_0[i],
-              opnd_create_reg(Xn_six_offset_0[i]),
+    TEST_LOOP(sqdech, sqdech, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
               opnd_create_immed_pred_constr(pattern_0_0[i]),
               opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
 }
 
-TEST_INSTR(sqdech_sve_shift)
+TEST_INSTR(sqdech_sve)
 {
 
     /* Testing SQDECH  <Zdn>.H{, <pattern>{, MUL #<imm>}} */
-    dr_pred_constr_type_t pattern_0_0[6] = {
+    static const dr_pred_constr_type_t pattern_0_0[6] = {
         DR_PRED_CONSTR_POW2,     DR_PRED_CONSTR_VL6,      DR_PRED_CONSTR_VL64,
         DR_PRED_CONSTR_UIMM5_17, DR_PRED_CONSTR_UIMM5_22, DR_PRED_CONSTR_ALL
     };
-    uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
+    static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
         "sqdech POW2 %z0.h mul $0x01 -> %z0.h",
         "sqdech VL6 %z5.h mul $0x05 -> %z5.h",
@@ -6008,7 +6007,7 @@ TEST_INSTR(sqdech_sve_shift)
         "sqdech $0x16 %z21.h mul $0x0d -> %z21.h",
         "sqdech ALL %z31.h mul $0x10 -> %z31.h",
     };
-    TEST_LOOP(sqdech, sqdech_sve_shift, 6, expected_0_0[i],
+    TEST_LOOP(sqdech, sqdech_sve, 6, expected_0_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
               opnd_create_immed_pred_constr(pattern_0_0[i]),
               opnd_create_immed_uint(imm4_0_0[i], OPSZ_4b));
@@ -6173,7 +6172,6 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(orr_sve);
     RUN_INSTR_TEST(orrs_sve_pred);
 
-<<<<<<< HEAD
     RUN_INSTR_TEST(clasta_sve_scalar);
     RUN_INSTR_TEST(clasta_sve_simd_fp);
     RUN_INSTR_TEST(clasta_sve_vector);
@@ -6184,18 +6182,17 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(lasta_sve_simd_fp);
     RUN_INSTR_TEST(lastb_sve_scalar);
     RUN_INSTR_TEST(lastb_sve_simd_fp);
-=======
+
     RUN_INSTR_TEST(cnt_sve_pred);
-    RUN_INSTR_TEST(cntb_shift);
-    RUN_INSTR_TEST(decb_shift);
-    RUN_INSTR_TEST(decd_shift);
-    RUN_INSTR_TEST(decd_sve_shift);
-    RUN_INSTR_TEST(dech_shift);
-    RUN_INSTR_TEST(dech_sve_shift);
-    RUN_INSTR_TEST(sqdech_shift_wide);
-    RUN_INSTR_TEST(sqdech_shift);
-    RUN_INSTR_TEST(sqdech_sve_shift);
->>>>>>> df4c2d22d (i#3044 AArch64 SVE codec: Add constrained predicate count instructions)
+    RUN_INSTR_TEST(cntb);
+    RUN_INSTR_TEST(decb);
+    RUN_INSTR_TEST(decd);
+    RUN_INSTR_TEST(decd_sve);
+    RUN_INSTR_TEST(dech);
+    RUN_INSTR_TEST(dech_sve);
+    RUN_INSTR_TEST(sqdech_wide);
+    RUN_INSTR_TEST(sqdech);
+    RUN_INSTR_TEST(sqdech_sve);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

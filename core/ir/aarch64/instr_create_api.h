@@ -7198,10 +7198,10 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd   The destination  register, X (Extended, 64 bits).
- * \param pattern   The immediate symbolised
- * \param imm   The immediate shiftOp
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ * \param imm   The imm used as the predicate constraint multiplier.
  */
-#define INSTR_CREATE_cntb_shift(dc, Rd, pattern, imm) \
+#define INSTR_CREATE_cntb(dc, Rd, pattern, imm) \
     instr_create_1dst_3src(dc, OP_cntb, Rd, pattern, OPND_CREATE_MUL(), imm)
 
 /**
@@ -7212,11 +7212,12 @@
  *    DECB    <Xdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The first source and destination  register, X (Extended, 64 bits).
- * \param pattern   The immediate symbolised
- * \param imm   The immediate shiftOp
+ * \param Rdn   The first source and destination  register, X (Extended, 64
+ *              bits).
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ * \param imm   The imm used as the predicate constraint multiplier.
  */
-#define INSTR_CREATE_decb_shift(dc, Rdn, pattern, imm) \
+#define INSTR_CREATE_decb(dc, Rdn, pattern, imm) \
     instr_create_1dst_4src(dc, OP_decb, Rdn, Rdn, pattern, OPND_CREATE_MUL(), imm)
 
 /**
@@ -7227,11 +7228,12 @@
  *    DECD    <Xdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The first source and destination  register, X (Extended, 64 bits).
- * \param pattern   The immediate symbolised
- * \param imm   The immediate shiftOp
+ * \param Rdn   The first source and destination  register, X (Extended, 64
+ *              bits).
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ * \param imm   The imm used as the predicate constraint multiplier.
  */
-#define INSTR_CREATE_decd_shift(dc, Rdn, pattern, imm) \
+#define INSTR_CREATE_decd(dc, Rdn, pattern, imm) \
     instr_create_1dst_4src(dc, OP_decd, Rdn, Rdn, pattern, OPND_CREATE_MUL(), imm)
 
 /**
@@ -7243,10 +7245,10 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zdn   The second source and destination vector register, Z (Scalable).
- * \param pattern   The immediate symbolised
- * \param imm   The immediate shiftOp
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ * \param imm   The imm used as the predicate constraint multiplier.
  */
-#define INSTR_CREATE_decd_sve_shift(dc, Zdn, pattern, imm) \
+#define INSTR_CREATE_decd_sve(dc, Zdn, pattern, imm) \
     instr_create_1dst_4src(dc, OP_decd, Zdn, pattern, Zdn, OPND_CREATE_MUL(), imm)
 
 /**
@@ -7257,11 +7259,12 @@
  *    DECH    <Xdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The first source and destination  register, X (Extended, 64 bits).
- * \param pattern   The immediate symbolised
- * \param imm   The immediate shiftOp
+ * \param Rdn   The first source and destination  register, X (Extended, 64
+ *              bits).
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ * \param imm   The imm used as the predicate constraint multiplier.
  */
-#define INSTR_CREATE_dech_shift(dc, Rdn, pattern, imm) \
+#define INSTR_CREATE_dech(dc, Rdn, pattern, imm) \
     instr_create_1dst_4src(dc, OP_dech, Rdn, Rdn, pattern, OPND_CREATE_MUL(), imm)
 
 /**
@@ -7273,10 +7276,10 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zdn   The second source and destination vector register, Z (Scalable).
- * \param pattern   The immediate symbolised
- * \param imm   The immediate shiftOp
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ * \param imm   The imm used as the predicate constraint multiplier.
  */
-#define INSTR_CREATE_dech_sve_shift(dc, Zdn, pattern, imm) \
+#define INSTR_CREATE_dech_sve(dc, Zdn, pattern, imm) \
     instr_create_1dst_4src(dc, OP_dech, Zdn, pattern, Zdn, OPND_CREATE_MUL(), imm)
 
 /**
@@ -7287,11 +7290,13 @@
  *    SQDECH  <Xdn>, <Wdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The first source and destination  register, X (Extended, 64 bits).
- * \param pattern   The immediate symbolised
- * \param imm   The immediate shiftOp
+ * \param Rdn   The first source and destination  register, X (Extended, 64
+ *              bits). The 32 bit result from the source
+ *              register is sign extended to 64 bits.
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ * \param imm   The imm used as the predicate constraint multiplier.
  */
-#define INSTR_CREATE_sqdech_shift_wide(dc, Rdn, pattern, imm)                          \
+#define INSTR_CREATE_sqdech_wide(dc, Rdn, pattern, imm)                                \
     instr_create_1dst_4src(dc, OP_sqdech, Rdn,                                         \
                            opnd_create_reg(opnd_get_reg(Rdn) - DR_REG_X0 + DR_REG_W0), \
                            pattern, OPND_CREATE_MUL(), imm)
@@ -7304,11 +7309,12 @@
  *    SQDECH  <Xdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The first source and destination  register, X (Extended, 64 bits).
- * \param pattern   The immediate symbolised
- * \param imm   The immediate shiftOp
+ * \param Rdn   The first source and destination  register, X (Extended, 64
+ *              bits).
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ * \param imm   The imm used as the predicate constraint multiplier.
  */
-#define INSTR_CREATE_sqdech_shift(dc, Rdn, pattern, imm) \
+#define INSTR_CREATE_sqdech(dc, Rdn, pattern, imm) \
     instr_create_1dst_4src(dc, OP_sqdech, Rdn, Rdn, pattern, OPND_CREATE_MUL(), imm)
 
 /**
@@ -7320,10 +7326,10 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zdn   The second source and destination vector register, Z (Scalable).
- * \param pattern   The immediate symbolised
- * \param imm   The immediate shiftOp
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ * \param imm   The imm used as the predicate constraint multiplier.
  */
-#define INSTR_CREATE_sqdech_sve_shift(dc, Zdn, pattern, imm) \
+#define INSTR_CREATE_sqdech_sve(dc, Zdn, pattern, imm) \
     instr_create_1dst_4src(dc, OP_sqdech, Zdn, pattern, Zdn, OPND_CREATE_MUL(), imm)
 
 #endif /* DR_IR_MACROS_AARCH64_H */
