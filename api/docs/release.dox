@@ -140,7 +140,8 @@ changes:
    for relative offsets while encoding.  The note field is no longer modified
    during encoding.
  - Reduced the value of #DR_NOTE_FIRST_RESERVED.  This is not expected to cause
-   problems unless clients are directly choosing high note values.
+   problems unless clients are directly choosing high note values without using
+   drmgr_reserve_note_range().
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.

@@ -597,8 +597,13 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                            YMMH_REG_SIZE);
                 }
             }
-            /* Lazy signal state can stop us from setting the full state.
-             * Switch the signal to full state if necessary.
+            /* XXX: We've observed the kernel leaving out the AVX flag in signal
+             * contexts for DR's suspend signals, even when all app threads have used AVX
+             * instructions already
+             * (https://github.com/DynamoRIO/dynamorio/pull/5791#issuecomment-1358789851).
+             * We ensure we're setting the full state to avoid problems on detach,
+             * although we do not fully understand how the kernel can have this local
+             * laziness in AVX state.
              */
             uint bv_high, bv_low;
             dr_xgetbv(&bv_high, &bv_low);
