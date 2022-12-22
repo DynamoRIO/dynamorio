@@ -696,7 +696,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         break;
     case REG_kind:
         reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), opnd_get_flags(opnd), "",
-                        IF_AARCHXX_ELSE(aarch64_reg_opnd_suffix(opnd), ""));
+                        IF_AARCH64_ELSE(aarch64_reg_opnd_suffix(opnd), ""));
         break;
     case BASE_DISP_kind: opnd_base_disp_disassemble(buf, bufsz, sofar, opnd); break;
 #if defined(X64) || defined(ARM)
