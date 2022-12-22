@@ -4314,6 +4314,25 @@ encode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 1);
 }
 
+/* r_size_wx_0: GPR scalar register, register size, W or X depending on size bits */
+static inline bool
+decode_opnd_r_size_wx_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const bool is_x = extract_uint(enc, 22, 2) == 0b11;
+    return decode_opnd_wxn(is_x, false, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_r_size_wx_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd))
+        return false;
+
+    const reg_id_t reg = opnd_get_reg(opnd);
+    const bool is_x = (DR_REG_X0 <= reg && reg <= DR_REG_X30) || (reg == DR_REG_XZR);
+    return encode_opnd_wxn(is_x, false, 0, opnd, enc_out);
+}
+
 /* fpimm13: floating-point immediate for scalar fmov */
 
 static inline bool
