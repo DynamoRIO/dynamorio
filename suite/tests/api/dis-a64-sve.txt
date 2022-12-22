@@ -493,6 +493,402 @@
 254079fd : bics p13.b, p14/Z, p15.b, p0.b            : bics   %p14/z %p15.b %p0.b -> %p13.b
 254f7dff : bics p15.b, p15/Z, p15.b, p15.b           : bics   %p15/z %p15.b %p15.b -> %p15.b
 
+# CLASTA  <R><dn>, <Pg>, <R><dn>, <Zm>.<T> (CLASTA-R.P.Z-_)
+0530a000 : clasta w0, p0, w0, z0.b          : clasta %p0 %w0 %z0.b -> %w0
+0530a484 : clasta w4, p1, w4, z4.b          : clasta %p1 %w4 %z4.b -> %w4
+0530a8c6 : clasta w6, p2, w6, z6.b          : clasta %p2 %w6 %z6.b -> %w6
+0530a908 : clasta w8, p2, w8, z8.b          : clasta %p2 %w8 %z8.b -> %w8
+0530ad4a : clasta w10, p3, w10, z10.b       : clasta %p3 %w10 %z10.b -> %w10
+0530ad8c : clasta w12, p3, w12, z12.b       : clasta %p3 %w12 %z12.b -> %w12
+0530b1ce : clasta w14, p4, w14, z14.b       : clasta %p4 %w14 %z14.b -> %w14
+0530b210 : clasta w16, p4, w16, z16.b       : clasta %p4 %w16 %z16.b -> %w16
+0530b652 : clasta w18, p5, w18, z18.b       : clasta %p5 %w18 %z18.b -> %w18
+0530b673 : clasta w19, p5, w19, z19.b       : clasta %p5 %w19 %z19.b -> %w19
+0530b6b5 : clasta w21, p5, w21, z21.b       : clasta %p5 %w21 %z21.b -> %w21
+0530baf7 : clasta w23, p6, w23, z23.b       : clasta %p6 %w23 %z23.b -> %w23
+0530bb39 : clasta w25, p6, w25, z25.b       : clasta %p6 %w25 %z25.b -> %w25
+0530bf7b : clasta w27, p7, w27, z27.b       : clasta %p7 %w27 %z27.b -> %w27
+0530bfbd : clasta w29, p7, w29, z29.b       : clasta %p7 %w29 %z29.b -> %w29
+0530bfff : clasta wzr, p7, wzr, z31.b       : clasta %p7 %wzr %z31.b -> %wzr
+0570a000 : clasta w0, p0, w0, z0.h          : clasta %p0 %w0 %z0.h -> %w0
+0570a484 : clasta w4, p1, w4, z4.h          : clasta %p1 %w4 %z4.h -> %w4
+0570a8c6 : clasta w6, p2, w6, z6.h          : clasta %p2 %w6 %z6.h -> %w6
+0570a908 : clasta w8, p2, w8, z8.h          : clasta %p2 %w8 %z8.h -> %w8
+0570ad4a : clasta w10, p3, w10, z10.h       : clasta %p3 %w10 %z10.h -> %w10
+0570ad8c : clasta w12, p3, w12, z12.h       : clasta %p3 %w12 %z12.h -> %w12
+0570b1ce : clasta w14, p4, w14, z14.h       : clasta %p4 %w14 %z14.h -> %w14
+0570b210 : clasta w16, p4, w16, z16.h       : clasta %p4 %w16 %z16.h -> %w16
+0570b652 : clasta w18, p5, w18, z18.h       : clasta %p5 %w18 %z18.h -> %w18
+0570b673 : clasta w19, p5, w19, z19.h       : clasta %p5 %w19 %z19.h -> %w19
+0570b6b5 : clasta w21, p5, w21, z21.h       : clasta %p5 %w21 %z21.h -> %w21
+0570baf7 : clasta w23, p6, w23, z23.h       : clasta %p6 %w23 %z23.h -> %w23
+0570bb39 : clasta w25, p6, w25, z25.h       : clasta %p6 %w25 %z25.h -> %w25
+0570bf7b : clasta w27, p7, w27, z27.h       : clasta %p7 %w27 %z27.h -> %w27
+0570bfbd : clasta w29, p7, w29, z29.h       : clasta %p7 %w29 %z29.h -> %w29
+0570bfff : clasta wzr, p7, wzr, z31.h       : clasta %p7 %wzr %z31.h -> %wzr
+05b0a000 : clasta w0, p0, w0, z0.s          : clasta %p0 %w0 %z0.s -> %w0
+05b0a484 : clasta w4, p1, w4, z4.s          : clasta %p1 %w4 %z4.s -> %w4
+05b0a8c6 : clasta w6, p2, w6, z6.s          : clasta %p2 %w6 %z6.s -> %w6
+05b0a908 : clasta w8, p2, w8, z8.s          : clasta %p2 %w8 %z8.s -> %w8
+05b0ad4a : clasta w10, p3, w10, z10.s       : clasta %p3 %w10 %z10.s -> %w10
+05b0ad8c : clasta w12, p3, w12, z12.s       : clasta %p3 %w12 %z12.s -> %w12
+05b0b1ce : clasta w14, p4, w14, z14.s       : clasta %p4 %w14 %z14.s -> %w14
+05b0b210 : clasta w16, p4, w16, z16.s       : clasta %p4 %w16 %z16.s -> %w16
+05b0b652 : clasta w18, p5, w18, z18.s       : clasta %p5 %w18 %z18.s -> %w18
+05b0b673 : clasta w19, p5, w19, z19.s       : clasta %p5 %w19 %z19.s -> %w19
+05b0b6b5 : clasta w21, p5, w21, z21.s       : clasta %p5 %w21 %z21.s -> %w21
+05b0baf7 : clasta w23, p6, w23, z23.s       : clasta %p6 %w23 %z23.s -> %w23
+05b0bb39 : clasta w25, p6, w25, z25.s       : clasta %p6 %w25 %z25.s -> %w25
+05b0bf7b : clasta w27, p7, w27, z27.s       : clasta %p7 %w27 %z27.s -> %w27
+05b0bfbd : clasta w29, p7, w29, z29.s       : clasta %p7 %w29 %z29.s -> %w29
+05b0bfff : clasta wzr, p7, wzr, z31.s       : clasta %p7 %wzr %z31.s -> %wzr
+05f0a000 : clasta x0, p0, x0, z0.d          : clasta %p0 %x0 %z0.d -> %x0
+05f0a484 : clasta x4, p1, x4, z4.d          : clasta %p1 %x4 %z4.d -> %x4
+05f0a8c6 : clasta x6, p2, x6, z6.d          : clasta %p2 %x6 %z6.d -> %x6
+05f0a908 : clasta x8, p2, x8, z8.d          : clasta %p2 %x8 %z8.d -> %x8
+05f0ad4a : clasta x10, p3, x10, z10.d       : clasta %p3 %x10 %z10.d -> %x10
+05f0ad8c : clasta x12, p3, x12, z12.d       : clasta %p3 %x12 %z12.d -> %x12
+05f0b1ce : clasta x14, p4, x14, z14.d       : clasta %p4 %x14 %z14.d -> %x14
+05f0b210 : clasta x16, p4, x16, z16.d       : clasta %p4 %x16 %z16.d -> %x16
+05f0b652 : clasta x18, p5, x18, z18.d       : clasta %p5 %x18 %z18.d -> %x18
+05f0b673 : clasta x19, p5, x19, z19.d       : clasta %p5 %x19 %z19.d -> %x19
+05f0b6b5 : clasta x21, p5, x21, z21.d       : clasta %p5 %x21 %z21.d -> %x21
+05f0baf7 : clasta x23, p6, x23, z23.d       : clasta %p6 %x23 %z23.d -> %x23
+05f0bb39 : clasta x25, p6, x25, z25.d       : clasta %p6 %x25 %z25.d -> %x25
+05f0bf7b : clasta x27, p7, x27, z27.d       : clasta %p7 %x27 %z27.d -> %x27
+05f0bfbd : clasta x29, p7, x29, z29.d       : clasta %p7 %x29 %z29.d -> %x29
+05f0bfff : clasta xzr, p7, xzr, z31.d       : clasta %p7 %xzr %z31.d -> %xzr
+
+# CLASTA  <V><dn>, <Pg>, <V><dn>, <Zm>.<T> (CLASTA-V.P.Z-_)
+052a8000 : clasta b0, p0, b0, z0.b          : clasta %p0 %b0 %z0.b -> %b0
+052a8484 : clasta b4, p1, b4, z4.b          : clasta %p1 %b4 %z4.b -> %b4
+052a88c6 : clasta b6, p2, b6, z6.b          : clasta %p2 %b6 %z6.b -> %b6
+052a8908 : clasta b8, p2, b8, z8.b          : clasta %p2 %b8 %z8.b -> %b8
+052a8d4a : clasta b10, p3, b10, z10.b       : clasta %p3 %b10 %z10.b -> %b10
+052a8d8c : clasta b12, p3, b12, z12.b       : clasta %p3 %b12 %z12.b -> %b12
+052a91ce : clasta b14, p4, b14, z14.b       : clasta %p4 %b14 %z14.b -> %b14
+052a9210 : clasta b16, p4, b16, z16.b       : clasta %p4 %b16 %z16.b -> %b16
+052a9652 : clasta b18, p5, b18, z18.b       : clasta %p5 %b18 %z18.b -> %b18
+052a9673 : clasta b19, p5, b19, z19.b       : clasta %p5 %b19 %z19.b -> %b19
+052a96b5 : clasta b21, p5, b21, z21.b       : clasta %p5 %b21 %z21.b -> %b21
+052a9af7 : clasta b23, p6, b23, z23.b       : clasta %p6 %b23 %z23.b -> %b23
+052a9b39 : clasta b25, p6, b25, z25.b       : clasta %p6 %b25 %z25.b -> %b25
+052a9f7b : clasta b27, p7, b27, z27.b       : clasta %p7 %b27 %z27.b -> %b27
+052a9fbd : clasta b29, p7, b29, z29.b       : clasta %p7 %b29 %z29.b -> %b29
+052a9fff : clasta b31, p7, b31, z31.b       : clasta %p7 %b31 %z31.b -> %b31
+056a8000 : clasta h0, p0, h0, z0.h          : clasta %p0 %h0 %z0.h -> %h0
+056a8484 : clasta h4, p1, h4, z4.h          : clasta %p1 %h4 %z4.h -> %h4
+056a88c6 : clasta h6, p2, h6, z6.h          : clasta %p2 %h6 %z6.h -> %h6
+056a8908 : clasta h8, p2, h8, z8.h          : clasta %p2 %h8 %z8.h -> %h8
+056a8d4a : clasta h10, p3, h10, z10.h       : clasta %p3 %h10 %z10.h -> %h10
+056a8d8c : clasta h12, p3, h12, z12.h       : clasta %p3 %h12 %z12.h -> %h12
+056a91ce : clasta h14, p4, h14, z14.h       : clasta %p4 %h14 %z14.h -> %h14
+056a9210 : clasta h16, p4, h16, z16.h       : clasta %p4 %h16 %z16.h -> %h16
+056a9652 : clasta h18, p5, h18, z18.h       : clasta %p5 %h18 %z18.h -> %h18
+056a9673 : clasta h19, p5, h19, z19.h       : clasta %p5 %h19 %z19.h -> %h19
+056a96b5 : clasta h21, p5, h21, z21.h       : clasta %p5 %h21 %z21.h -> %h21
+056a9af7 : clasta h23, p6, h23, z23.h       : clasta %p6 %h23 %z23.h -> %h23
+056a9b39 : clasta h25, p6, h25, z25.h       : clasta %p6 %h25 %z25.h -> %h25
+056a9f7b : clasta h27, p7, h27, z27.h       : clasta %p7 %h27 %z27.h -> %h27
+056a9fbd : clasta h29, p7, h29, z29.h       : clasta %p7 %h29 %z29.h -> %h29
+056a9fff : clasta h31, p7, h31, z31.h       : clasta %p7 %h31 %z31.h -> %h31
+05aa8000 : clasta s0, p0, s0, z0.s          : clasta %p0 %s0 %z0.s -> %s0
+05aa8484 : clasta s4, p1, s4, z4.s          : clasta %p1 %s4 %z4.s -> %s4
+05aa88c6 : clasta s6, p2, s6, z6.s          : clasta %p2 %s6 %z6.s -> %s6
+05aa8908 : clasta s8, p2, s8, z8.s          : clasta %p2 %s8 %z8.s -> %s8
+05aa8d4a : clasta s10, p3, s10, z10.s       : clasta %p3 %s10 %z10.s -> %s10
+05aa8d8c : clasta s12, p3, s12, z12.s       : clasta %p3 %s12 %z12.s -> %s12
+05aa91ce : clasta s14, p4, s14, z14.s       : clasta %p4 %s14 %z14.s -> %s14
+05aa9210 : clasta s16, p4, s16, z16.s       : clasta %p4 %s16 %z16.s -> %s16
+05aa9652 : clasta s18, p5, s18, z18.s       : clasta %p5 %s18 %z18.s -> %s18
+05aa9673 : clasta s19, p5, s19, z19.s       : clasta %p5 %s19 %z19.s -> %s19
+05aa96b5 : clasta s21, p5, s21, z21.s       : clasta %p5 %s21 %z21.s -> %s21
+05aa9af7 : clasta s23, p6, s23, z23.s       : clasta %p6 %s23 %z23.s -> %s23
+05aa9b39 : clasta s25, p6, s25, z25.s       : clasta %p6 %s25 %z25.s -> %s25
+05aa9f7b : clasta s27, p7, s27, z27.s       : clasta %p7 %s27 %z27.s -> %s27
+05aa9fbd : clasta s29, p7, s29, z29.s       : clasta %p7 %s29 %z29.s -> %s29
+05aa9fff : clasta s31, p7, s31, z31.s       : clasta %p7 %s31 %z31.s -> %s31
+05ea8000 : clasta d0, p0, d0, z0.d          : clasta %p0 %d0 %z0.d -> %d0
+05ea8484 : clasta d4, p1, d4, z4.d          : clasta %p1 %d4 %z4.d -> %d4
+05ea88c6 : clasta d6, p2, d6, z6.d          : clasta %p2 %d6 %z6.d -> %d6
+05ea8908 : clasta d8, p2, d8, z8.d          : clasta %p2 %d8 %z8.d -> %d8
+05ea8d4a : clasta d10, p3, d10, z10.d       : clasta %p3 %d10 %z10.d -> %d10
+05ea8d8c : clasta d12, p3, d12, z12.d       : clasta %p3 %d12 %z12.d -> %d12
+05ea91ce : clasta d14, p4, d14, z14.d       : clasta %p4 %d14 %z14.d -> %d14
+05ea9210 : clasta d16, p4, d16, z16.d       : clasta %p4 %d16 %z16.d -> %d16
+05ea9652 : clasta d18, p5, d18, z18.d       : clasta %p5 %d18 %z18.d -> %d18
+05ea9673 : clasta d19, p5, d19, z19.d       : clasta %p5 %d19 %z19.d -> %d19
+05ea96b5 : clasta d21, p5, d21, z21.d       : clasta %p5 %d21 %z21.d -> %d21
+05ea9af7 : clasta d23, p6, d23, z23.d       : clasta %p6 %d23 %z23.d -> %d23
+05ea9b39 : clasta d25, p6, d25, z25.d       : clasta %p6 %d25 %z25.d -> %d25
+05ea9f7b : clasta d27, p7, d27, z27.d       : clasta %p7 %d27 %z27.d -> %d27
+05ea9fbd : clasta d29, p7, d29, z29.d       : clasta %p7 %d29 %z29.d -> %d29
+05ea9fff : clasta d31, p7, d31, z31.d       : clasta %p7 %d31 %z31.d -> %d31
+
+# CLASTA  <Zdn>.<T>, <Pg>, <Zdn>.<T>, <Zm>.<T> (CLASTA-Z.P.ZZ-_)
+05288000 : clasta z0.b, p0, z0.b, z0.b               : clasta %p0 %z0.b %z0.b -> %z0.b
+05288482 : clasta z2.b, p1, z2.b, z4.b               : clasta %p1 %z2.b %z4.b -> %z2.b
+052888c4 : clasta z4.b, p2, z4.b, z6.b               : clasta %p2 %z4.b %z6.b -> %z4.b
+05288906 : clasta z6.b, p2, z6.b, z8.b               : clasta %p2 %z6.b %z8.b -> %z6.b
+05288d48 : clasta z8.b, p3, z8.b, z10.b              : clasta %p3 %z8.b %z10.b -> %z8.b
+05288d8a : clasta z10.b, p3, z10.b, z12.b            : clasta %p3 %z10.b %z12.b -> %z10.b
+052891cc : clasta z12.b, p4, z12.b, z14.b            : clasta %p4 %z12.b %z14.b -> %z12.b
+0528920e : clasta z14.b, p4, z14.b, z16.b            : clasta %p4 %z14.b %z16.b -> %z14.b
+05289650 : clasta z16.b, p5, z16.b, z18.b            : clasta %p5 %z16.b %z18.b -> %z16.b
+05289671 : clasta z17.b, p5, z17.b, z19.b            : clasta %p5 %z17.b %z19.b -> %z17.b
+052896b3 : clasta z19.b, p5, z19.b, z21.b            : clasta %p5 %z19.b %z21.b -> %z19.b
+05289af5 : clasta z21.b, p6, z21.b, z23.b            : clasta %p6 %z21.b %z23.b -> %z21.b
+05289b37 : clasta z23.b, p6, z23.b, z25.b            : clasta %p6 %z23.b %z25.b -> %z23.b
+05289f79 : clasta z25.b, p7, z25.b, z27.b            : clasta %p7 %z25.b %z27.b -> %z25.b
+05289fbb : clasta z27.b, p7, z27.b, z29.b            : clasta %p7 %z27.b %z29.b -> %z27.b
+05289fff : clasta z31.b, p7, z31.b, z31.b            : clasta %p7 %z31.b %z31.b -> %z31.b
+05688000 : clasta z0.h, p0, z0.h, z0.h               : clasta %p0 %z0.h %z0.h -> %z0.h
+05688482 : clasta z2.h, p1, z2.h, z4.h               : clasta %p1 %z2.h %z4.h -> %z2.h
+056888c4 : clasta z4.h, p2, z4.h, z6.h               : clasta %p2 %z4.h %z6.h -> %z4.h
+05688906 : clasta z6.h, p2, z6.h, z8.h               : clasta %p2 %z6.h %z8.h -> %z6.h
+05688d48 : clasta z8.h, p3, z8.h, z10.h              : clasta %p3 %z8.h %z10.h -> %z8.h
+05688d8a : clasta z10.h, p3, z10.h, z12.h            : clasta %p3 %z10.h %z12.h -> %z10.h
+056891cc : clasta z12.h, p4, z12.h, z14.h            : clasta %p4 %z12.h %z14.h -> %z12.h
+0568920e : clasta z14.h, p4, z14.h, z16.h            : clasta %p4 %z14.h %z16.h -> %z14.h
+05689650 : clasta z16.h, p5, z16.h, z18.h            : clasta %p5 %z16.h %z18.h -> %z16.h
+05689671 : clasta z17.h, p5, z17.h, z19.h            : clasta %p5 %z17.h %z19.h -> %z17.h
+056896b3 : clasta z19.h, p5, z19.h, z21.h            : clasta %p5 %z19.h %z21.h -> %z19.h
+05689af5 : clasta z21.h, p6, z21.h, z23.h            : clasta %p6 %z21.h %z23.h -> %z21.h
+05689b37 : clasta z23.h, p6, z23.h, z25.h            : clasta %p6 %z23.h %z25.h -> %z23.h
+05689f79 : clasta z25.h, p7, z25.h, z27.h            : clasta %p7 %z25.h %z27.h -> %z25.h
+05689fbb : clasta z27.h, p7, z27.h, z29.h            : clasta %p7 %z27.h %z29.h -> %z27.h
+05689fff : clasta z31.h, p7, z31.h, z31.h            : clasta %p7 %z31.h %z31.h -> %z31.h
+05a88000 : clasta z0.s, p0, z0.s, z0.s               : clasta %p0 %z0.s %z0.s -> %z0.s
+05a88482 : clasta z2.s, p1, z2.s, z4.s               : clasta %p1 %z2.s %z4.s -> %z2.s
+05a888c4 : clasta z4.s, p2, z4.s, z6.s               : clasta %p2 %z4.s %z6.s -> %z4.s
+05a88906 : clasta z6.s, p2, z6.s, z8.s               : clasta %p2 %z6.s %z8.s -> %z6.s
+05a88d48 : clasta z8.s, p3, z8.s, z10.s              : clasta %p3 %z8.s %z10.s -> %z8.s
+05a88d8a : clasta z10.s, p3, z10.s, z12.s            : clasta %p3 %z10.s %z12.s -> %z10.s
+05a891cc : clasta z12.s, p4, z12.s, z14.s            : clasta %p4 %z12.s %z14.s -> %z12.s
+05a8920e : clasta z14.s, p4, z14.s, z16.s            : clasta %p4 %z14.s %z16.s -> %z14.s
+05a89650 : clasta z16.s, p5, z16.s, z18.s            : clasta %p5 %z16.s %z18.s -> %z16.s
+05a89671 : clasta z17.s, p5, z17.s, z19.s            : clasta %p5 %z17.s %z19.s -> %z17.s
+05a896b3 : clasta z19.s, p5, z19.s, z21.s            : clasta %p5 %z19.s %z21.s -> %z19.s
+05a89af5 : clasta z21.s, p6, z21.s, z23.s            : clasta %p6 %z21.s %z23.s -> %z21.s
+05a89b37 : clasta z23.s, p6, z23.s, z25.s            : clasta %p6 %z23.s %z25.s -> %z23.s
+05a89f79 : clasta z25.s, p7, z25.s, z27.s            : clasta %p7 %z25.s %z27.s -> %z25.s
+05a89fbb : clasta z27.s, p7, z27.s, z29.s            : clasta %p7 %z27.s %z29.s -> %z27.s
+05a89fff : clasta z31.s, p7, z31.s, z31.s            : clasta %p7 %z31.s %z31.s -> %z31.s
+05e88000 : clasta z0.d, p0, z0.d, z0.d               : clasta %p0 %z0.d %z0.d -> %z0.d
+05e88482 : clasta z2.d, p1, z2.d, z4.d               : clasta %p1 %z2.d %z4.d -> %z2.d
+05e888c4 : clasta z4.d, p2, z4.d, z6.d               : clasta %p2 %z4.d %z6.d -> %z4.d
+05e88906 : clasta z6.d, p2, z6.d, z8.d               : clasta %p2 %z6.d %z8.d -> %z6.d
+05e88d48 : clasta z8.d, p3, z8.d, z10.d              : clasta %p3 %z8.d %z10.d -> %z8.d
+05e88d8a : clasta z10.d, p3, z10.d, z12.d            : clasta %p3 %z10.d %z12.d -> %z10.d
+05e891cc : clasta z12.d, p4, z12.d, z14.d            : clasta %p4 %z12.d %z14.d -> %z12.d
+05e8920e : clasta z14.d, p4, z14.d, z16.d            : clasta %p4 %z14.d %z16.d -> %z14.d
+05e89650 : clasta z16.d, p5, z16.d, z18.d            : clasta %p5 %z16.d %z18.d -> %z16.d
+05e89671 : clasta z17.d, p5, z17.d, z19.d            : clasta %p5 %z17.d %z19.d -> %z17.d
+05e896b3 : clasta z19.d, p5, z19.d, z21.d            : clasta %p5 %z19.d %z21.d -> %z19.d
+05e89af5 : clasta z21.d, p6, z21.d, z23.d            : clasta %p6 %z21.d %z23.d -> %z21.d
+05e89b37 : clasta z23.d, p6, z23.d, z25.d            : clasta %p6 %z23.d %z25.d -> %z23.d
+05e89f79 : clasta z25.d, p7, z25.d, z27.d            : clasta %p7 %z25.d %z27.d -> %z25.d
+05e89fbb : clasta z27.d, p7, z27.d, z29.d            : clasta %p7 %z27.d %z29.d -> %z27.d
+05e89fff : clasta z31.d, p7, z31.d, z31.d            : clasta %p7 %z31.d %z31.d -> %z31.d
+
+# CLASTB  <R><dn>, <Pg>, <R><dn>, <Zm>.<T> (CLASTB-R.P.Z-_)
+0531a000 : clastb w0, p0, w0, z0.b          : clastb %p0 %w0 %z0.b -> %w0
+0531a484 : clastb w4, p1, w4, z4.b          : clastb %p1 %w4 %z4.b -> %w4
+0531a8c6 : clastb w6, p2, w6, z6.b          : clastb %p2 %w6 %z6.b -> %w6
+0531a908 : clastb w8, p2, w8, z8.b          : clastb %p2 %w8 %z8.b -> %w8
+0531ad4a : clastb w10, p3, w10, z10.b       : clastb %p3 %w10 %z10.b -> %w10
+0531ad8c : clastb w12, p3, w12, z12.b       : clastb %p3 %w12 %z12.b -> %w12
+0531b1ce : clastb w14, p4, w14, z14.b       : clastb %p4 %w14 %z14.b -> %w14
+0531b210 : clastb w16, p4, w16, z16.b       : clastb %p4 %w16 %z16.b -> %w16
+0531b652 : clastb w18, p5, w18, z18.b       : clastb %p5 %w18 %z18.b -> %w18
+0531b673 : clastb w19, p5, w19, z19.b       : clastb %p5 %w19 %z19.b -> %w19
+0531b6b5 : clastb w21, p5, w21, z21.b       : clastb %p5 %w21 %z21.b -> %w21
+0531baf7 : clastb w23, p6, w23, z23.b       : clastb %p6 %w23 %z23.b -> %w23
+0531bb39 : clastb w25, p6, w25, z25.b       : clastb %p6 %w25 %z25.b -> %w25
+0531bf7b : clastb w27, p7, w27, z27.b       : clastb %p7 %w27 %z27.b -> %w27
+0531bfbd : clastb w29, p7, w29, z29.b       : clastb %p7 %w29 %z29.b -> %w29
+0531bfff : clastb wzr, p7, wzr, z31.b       : clastb %p7 %wzr %z31.b -> %wzr
+0571a000 : clastb w0, p0, w0, z0.h          : clastb %p0 %w0 %z0.h -> %w0
+0571a484 : clastb w4, p1, w4, z4.h          : clastb %p1 %w4 %z4.h -> %w4
+0571a8c6 : clastb w6, p2, w6, z6.h          : clastb %p2 %w6 %z6.h -> %w6
+0571a908 : clastb w8, p2, w8, z8.h          : clastb %p2 %w8 %z8.h -> %w8
+0571ad4a : clastb w10, p3, w10, z10.h       : clastb %p3 %w10 %z10.h -> %w10
+0571ad8c : clastb w12, p3, w12, z12.h       : clastb %p3 %w12 %z12.h -> %w12
+0571b1ce : clastb w14, p4, w14, z14.h       : clastb %p4 %w14 %z14.h -> %w14
+0571b210 : clastb w16, p4, w16, z16.h       : clastb %p4 %w16 %z16.h -> %w16
+0571b652 : clastb w18, p5, w18, z18.h       : clastb %p5 %w18 %z18.h -> %w18
+0571b673 : clastb w19, p5, w19, z19.h       : clastb %p5 %w19 %z19.h -> %w19
+0571b6b5 : clastb w21, p5, w21, z21.h       : clastb %p5 %w21 %z21.h -> %w21
+0571baf7 : clastb w23, p6, w23, z23.h       : clastb %p6 %w23 %z23.h -> %w23
+0571bb39 : clastb w25, p6, w25, z25.h       : clastb %p6 %w25 %z25.h -> %w25
+0571bf7b : clastb w27, p7, w27, z27.h       : clastb %p7 %w27 %z27.h -> %w27
+0571bfbd : clastb w29, p7, w29, z29.h       : clastb %p7 %w29 %z29.h -> %w29
+0571bfff : clastb wzr, p7, wzr, z31.h       : clastb %p7 %wzr %z31.h -> %wzr
+05b1a000 : clastb w0, p0, w0, z0.s          : clastb %p0 %w0 %z0.s -> %w0
+05b1a484 : clastb w4, p1, w4, z4.s          : clastb %p1 %w4 %z4.s -> %w4
+05b1a8c6 : clastb w6, p2, w6, z6.s          : clastb %p2 %w6 %z6.s -> %w6
+05b1a908 : clastb w8, p2, w8, z8.s          : clastb %p2 %w8 %z8.s -> %w8
+05b1ad4a : clastb w10, p3, w10, z10.s       : clastb %p3 %w10 %z10.s -> %w10
+05b1ad8c : clastb w12, p3, w12, z12.s       : clastb %p3 %w12 %z12.s -> %w12
+05b1b1ce : clastb w14, p4, w14, z14.s       : clastb %p4 %w14 %z14.s -> %w14
+05b1b210 : clastb w16, p4, w16, z16.s       : clastb %p4 %w16 %z16.s -> %w16
+05b1b652 : clastb w18, p5, w18, z18.s       : clastb %p5 %w18 %z18.s -> %w18
+05b1b673 : clastb w19, p5, w19, z19.s       : clastb %p5 %w19 %z19.s -> %w19
+05b1b6b5 : clastb w21, p5, w21, z21.s       : clastb %p5 %w21 %z21.s -> %w21
+05b1baf7 : clastb w23, p6, w23, z23.s       : clastb %p6 %w23 %z23.s -> %w23
+05b1bb39 : clastb w25, p6, w25, z25.s       : clastb %p6 %w25 %z25.s -> %w25
+05b1bf7b : clastb w27, p7, w27, z27.s       : clastb %p7 %w27 %z27.s -> %w27
+05b1bfbd : clastb w29, p7, w29, z29.s       : clastb %p7 %w29 %z29.s -> %w29
+05b1bfff : clastb wzr, p7, wzr, z31.s       : clastb %p7 %wzr %z31.s -> %wzr
+05f1a000 : clastb x0, p0, x0, z0.d          : clastb %p0 %x0 %z0.d -> %x0
+05f1a484 : clastb x4, p1, x4, z4.d          : clastb %p1 %x4 %z4.d -> %x4
+05f1a8c6 : clastb x6, p2, x6, z6.d          : clastb %p2 %x6 %z6.d -> %x6
+05f1a908 : clastb x8, p2, x8, z8.d          : clastb %p2 %x8 %z8.d -> %x8
+05f1ad4a : clastb x10, p3, x10, z10.d       : clastb %p3 %x10 %z10.d -> %x10
+05f1ad8c : clastb x12, p3, x12, z12.d       : clastb %p3 %x12 %z12.d -> %x12
+05f1b1ce : clastb x14, p4, x14, z14.d       : clastb %p4 %x14 %z14.d -> %x14
+05f1b210 : clastb x16, p4, x16, z16.d       : clastb %p4 %x16 %z16.d -> %x16
+05f1b652 : clastb x18, p5, x18, z18.d       : clastb %p5 %x18 %z18.d -> %x18
+05f1b673 : clastb x19, p5, x19, z19.d       : clastb %p5 %x19 %z19.d -> %x19
+05f1b6b5 : clastb x21, p5, x21, z21.d       : clastb %p5 %x21 %z21.d -> %x21
+05f1baf7 : clastb x23, p6, x23, z23.d       : clastb %p6 %x23 %z23.d -> %x23
+05f1bb39 : clastb x25, p6, x25, z25.d       : clastb %p6 %x25 %z25.d -> %x25
+05f1bf7b : clastb x27, p7, x27, z27.d       : clastb %p7 %x27 %z27.d -> %x27
+05f1bfbd : clastb x29, p7, x29, z29.d       : clastb %p7 %x29 %z29.d -> %x29
+05f1bfff : clastb xzr, p7, xzr, z31.d       : clastb %p7 %xzr %z31.d -> %xzr
+
+# CLASTB  <V><dn>, <Pg>, <V><dn>, <Zm>.<T> (CLASTB-V.P.Z-_)
+052b8000 : clastb b0, p0, b0, z0.b          : clastb %p0 %b0 %z0.b -> %b0
+052b8484 : clastb b4, p1, b4, z4.b          : clastb %p1 %b4 %z4.b -> %b4
+052b88c6 : clastb b6, p2, b6, z6.b          : clastb %p2 %b6 %z6.b -> %b6
+052b8908 : clastb b8, p2, b8, z8.b          : clastb %p2 %b8 %z8.b -> %b8
+052b8d4a : clastb b10, p3, b10, z10.b       : clastb %p3 %b10 %z10.b -> %b10
+052b8d8c : clastb b12, p3, b12, z12.b       : clastb %p3 %b12 %z12.b -> %b12
+052b91ce : clastb b14, p4, b14, z14.b       : clastb %p4 %b14 %z14.b -> %b14
+052b9210 : clastb b16, p4, b16, z16.b       : clastb %p4 %b16 %z16.b -> %b16
+052b9652 : clastb b18, p5, b18, z18.b       : clastb %p5 %b18 %z18.b -> %b18
+052b9673 : clastb b19, p5, b19, z19.b       : clastb %p5 %b19 %z19.b -> %b19
+052b96b5 : clastb b21, p5, b21, z21.b       : clastb %p5 %b21 %z21.b -> %b21
+052b9af7 : clastb b23, p6, b23, z23.b       : clastb %p6 %b23 %z23.b -> %b23
+052b9b39 : clastb b25, p6, b25, z25.b       : clastb %p6 %b25 %z25.b -> %b25
+052b9f7b : clastb b27, p7, b27, z27.b       : clastb %p7 %b27 %z27.b -> %b27
+052b9fbd : clastb b29, p7, b29, z29.b       : clastb %p7 %b29 %z29.b -> %b29
+052b9fff : clastb b31, p7, b31, z31.b       : clastb %p7 %b31 %z31.b -> %b31
+056b8000 : clastb h0, p0, h0, z0.h          : clastb %p0 %h0 %z0.h -> %h0
+056b8484 : clastb h4, p1, h4, z4.h          : clastb %p1 %h4 %z4.h -> %h4
+056b88c6 : clastb h6, p2, h6, z6.h          : clastb %p2 %h6 %z6.h -> %h6
+056b8908 : clastb h8, p2, h8, z8.h          : clastb %p2 %h8 %z8.h -> %h8
+056b8d4a : clastb h10, p3, h10, z10.h       : clastb %p3 %h10 %z10.h -> %h10
+056b8d8c : clastb h12, p3, h12, z12.h       : clastb %p3 %h12 %z12.h -> %h12
+056b91ce : clastb h14, p4, h14, z14.h       : clastb %p4 %h14 %z14.h -> %h14
+056b9210 : clastb h16, p4, h16, z16.h       : clastb %p4 %h16 %z16.h -> %h16
+056b9652 : clastb h18, p5, h18, z18.h       : clastb %p5 %h18 %z18.h -> %h18
+056b9673 : clastb h19, p5, h19, z19.h       : clastb %p5 %h19 %z19.h -> %h19
+056b96b5 : clastb h21, p5, h21, z21.h       : clastb %p5 %h21 %z21.h -> %h21
+056b9af7 : clastb h23, p6, h23, z23.h       : clastb %p6 %h23 %z23.h -> %h23
+056b9b39 : clastb h25, p6, h25, z25.h       : clastb %p6 %h25 %z25.h -> %h25
+056b9f7b : clastb h27, p7, h27, z27.h       : clastb %p7 %h27 %z27.h -> %h27
+056b9fbd : clastb h29, p7, h29, z29.h       : clastb %p7 %h29 %z29.h -> %h29
+056b9fff : clastb h31, p7, h31, z31.h       : clastb %p7 %h31 %z31.h -> %h31
+05ab8000 : clastb s0, p0, s0, z0.s          : clastb %p0 %s0 %z0.s -> %s0
+05ab8484 : clastb s4, p1, s4, z4.s          : clastb %p1 %s4 %z4.s -> %s4
+05ab88c6 : clastb s6, p2, s6, z6.s          : clastb %p2 %s6 %z6.s -> %s6
+05ab8908 : clastb s8, p2, s8, z8.s          : clastb %p2 %s8 %z8.s -> %s8
+05ab8d4a : clastb s10, p3, s10, z10.s       : clastb %p3 %s10 %z10.s -> %s10
+05ab8d8c : clastb s12, p3, s12, z12.s       : clastb %p3 %s12 %z12.s -> %s12
+05ab91ce : clastb s14, p4, s14, z14.s       : clastb %p4 %s14 %z14.s -> %s14
+05ab9210 : clastb s16, p4, s16, z16.s       : clastb %p4 %s16 %z16.s -> %s16
+05ab9652 : clastb s18, p5, s18, z18.s       : clastb %p5 %s18 %z18.s -> %s18
+05ab9673 : clastb s19, p5, s19, z19.s       : clastb %p5 %s19 %z19.s -> %s19
+05ab96b5 : clastb s21, p5, s21, z21.s       : clastb %p5 %s21 %z21.s -> %s21
+05ab9af7 : clastb s23, p6, s23, z23.s       : clastb %p6 %s23 %z23.s -> %s23
+05ab9b39 : clastb s25, p6, s25, z25.s       : clastb %p6 %s25 %z25.s -> %s25
+05ab9f7b : clastb s27, p7, s27, z27.s       : clastb %p7 %s27 %z27.s -> %s27
+05ab9fbd : clastb s29, p7, s29, z29.s       : clastb %p7 %s29 %z29.s -> %s29
+05ab9fff : clastb s31, p7, s31, z31.s       : clastb %p7 %s31 %z31.s -> %s31
+05eb8000 : clastb d0, p0, d0, z0.d          : clastb %p0 %d0 %z0.d -> %d0
+05eb8484 : clastb d4, p1, d4, z4.d          : clastb %p1 %d4 %z4.d -> %d4
+05eb88c6 : clastb d6, p2, d6, z6.d          : clastb %p2 %d6 %z6.d -> %d6
+05eb8908 : clastb d8, p2, d8, z8.d          : clastb %p2 %d8 %z8.d -> %d8
+05eb8d4a : clastb d10, p3, d10, z10.d       : clastb %p3 %d10 %z10.d -> %d10
+05eb8d8c : clastb d12, p3, d12, z12.d       : clastb %p3 %d12 %z12.d -> %d12
+05eb91ce : clastb d14, p4, d14, z14.d       : clastb %p4 %d14 %z14.d -> %d14
+05eb9210 : clastb d16, p4, d16, z16.d       : clastb %p4 %d16 %z16.d -> %d16
+05eb9652 : clastb d18, p5, d18, z18.d       : clastb %p5 %d18 %z18.d -> %d18
+05eb9673 : clastb d19, p5, d19, z19.d       : clastb %p5 %d19 %z19.d -> %d19
+05eb96b5 : clastb d21, p5, d21, z21.d       : clastb %p5 %d21 %z21.d -> %d21
+05eb9af7 : clastb d23, p6, d23, z23.d       : clastb %p6 %d23 %z23.d -> %d23
+05eb9b39 : clastb d25, p6, d25, z25.d       : clastb %p6 %d25 %z25.d -> %d25
+05eb9f7b : clastb d27, p7, d27, z27.d       : clastb %p7 %d27 %z27.d -> %d27
+05eb9fbd : clastb d29, p7, d29, z29.d       : clastb %p7 %d29 %z29.d -> %d29
+05eb9fff : clastb d31, p7, d31, z31.d       : clastb %p7 %d31 %z31.d -> %d31
+
+# CLASTB  <Zdn>.<T>, <Pg>, <Zdn>.<T>, <Zm>.<T> (CLASTB-Z.P.ZZ-_)
+05298000 : clastb z0.b, p0, z0.b, z0.b               : clastb %p0 %z0.b %z0.b -> %z0.b
+05298482 : clastb z2.b, p1, z2.b, z4.b               : clastb %p1 %z2.b %z4.b -> %z2.b
+052988c4 : clastb z4.b, p2, z4.b, z6.b               : clastb %p2 %z4.b %z6.b -> %z4.b
+05298906 : clastb z6.b, p2, z6.b, z8.b               : clastb %p2 %z6.b %z8.b -> %z6.b
+05298d48 : clastb z8.b, p3, z8.b, z10.b              : clastb %p3 %z8.b %z10.b -> %z8.b
+05298d8a : clastb z10.b, p3, z10.b, z12.b            : clastb %p3 %z10.b %z12.b -> %z10.b
+052991cc : clastb z12.b, p4, z12.b, z14.b            : clastb %p4 %z12.b %z14.b -> %z12.b
+0529920e : clastb z14.b, p4, z14.b, z16.b            : clastb %p4 %z14.b %z16.b -> %z14.b
+05299650 : clastb z16.b, p5, z16.b, z18.b            : clastb %p5 %z16.b %z18.b -> %z16.b
+05299671 : clastb z17.b, p5, z17.b, z19.b            : clastb %p5 %z17.b %z19.b -> %z17.b
+052996b3 : clastb z19.b, p5, z19.b, z21.b            : clastb %p5 %z19.b %z21.b -> %z19.b
+05299af5 : clastb z21.b, p6, z21.b, z23.b            : clastb %p6 %z21.b %z23.b -> %z21.b
+05299b37 : clastb z23.b, p6, z23.b, z25.b            : clastb %p6 %z23.b %z25.b -> %z23.b
+05299f79 : clastb z25.b, p7, z25.b, z27.b            : clastb %p7 %z25.b %z27.b -> %z25.b
+05299fbb : clastb z27.b, p7, z27.b, z29.b            : clastb %p7 %z27.b %z29.b -> %z27.b
+05299fff : clastb z31.b, p7, z31.b, z31.b            : clastb %p7 %z31.b %z31.b -> %z31.b
+05698000 : clastb z0.h, p0, z0.h, z0.h               : clastb %p0 %z0.h %z0.h -> %z0.h
+05698482 : clastb z2.h, p1, z2.h, z4.h               : clastb %p1 %z2.h %z4.h -> %z2.h
+056988c4 : clastb z4.h, p2, z4.h, z6.h               : clastb %p2 %z4.h %z6.h -> %z4.h
+05698906 : clastb z6.h, p2, z6.h, z8.h               : clastb %p2 %z6.h %z8.h -> %z6.h
+05698d48 : clastb z8.h, p3, z8.h, z10.h              : clastb %p3 %z8.h %z10.h -> %z8.h
+05698d8a : clastb z10.h, p3, z10.h, z12.h            : clastb %p3 %z10.h %z12.h -> %z10.h
+056991cc : clastb z12.h, p4, z12.h, z14.h            : clastb %p4 %z12.h %z14.h -> %z12.h
+0569920e : clastb z14.h, p4, z14.h, z16.h            : clastb %p4 %z14.h %z16.h -> %z14.h
+05699650 : clastb z16.h, p5, z16.h, z18.h            : clastb %p5 %z16.h %z18.h -> %z16.h
+05699671 : clastb z17.h, p5, z17.h, z19.h            : clastb %p5 %z17.h %z19.h -> %z17.h
+056996b3 : clastb z19.h, p5, z19.h, z21.h            : clastb %p5 %z19.h %z21.h -> %z19.h
+05699af5 : clastb z21.h, p6, z21.h, z23.h            : clastb %p6 %z21.h %z23.h -> %z21.h
+05699b37 : clastb z23.h, p6, z23.h, z25.h            : clastb %p6 %z23.h %z25.h -> %z23.h
+05699f79 : clastb z25.h, p7, z25.h, z27.h            : clastb %p7 %z25.h %z27.h -> %z25.h
+05699fbb : clastb z27.h, p7, z27.h, z29.h            : clastb %p7 %z27.h %z29.h -> %z27.h
+05699fff : clastb z31.h, p7, z31.h, z31.h            : clastb %p7 %z31.h %z31.h -> %z31.h
+05a98000 : clastb z0.s, p0, z0.s, z0.s               : clastb %p0 %z0.s %z0.s -> %z0.s
+05a98482 : clastb z2.s, p1, z2.s, z4.s               : clastb %p1 %z2.s %z4.s -> %z2.s
+05a988c4 : clastb z4.s, p2, z4.s, z6.s               : clastb %p2 %z4.s %z6.s -> %z4.s
+05a98906 : clastb z6.s, p2, z6.s, z8.s               : clastb %p2 %z6.s %z8.s -> %z6.s
+05a98d48 : clastb z8.s, p3, z8.s, z10.s              : clastb %p3 %z8.s %z10.s -> %z8.s
+05a98d8a : clastb z10.s, p3, z10.s, z12.s            : clastb %p3 %z10.s %z12.s -> %z10.s
+05a991cc : clastb z12.s, p4, z12.s, z14.s            : clastb %p4 %z12.s %z14.s -> %z12.s
+05a9920e : clastb z14.s, p4, z14.s, z16.s            : clastb %p4 %z14.s %z16.s -> %z14.s
+05a99650 : clastb z16.s, p5, z16.s, z18.s            : clastb %p5 %z16.s %z18.s -> %z16.s
+05a99671 : clastb z17.s, p5, z17.s, z19.s            : clastb %p5 %z17.s %z19.s -> %z17.s
+05a996b3 : clastb z19.s, p5, z19.s, z21.s            : clastb %p5 %z19.s %z21.s -> %z19.s
+05a99af5 : clastb z21.s, p6, z21.s, z23.s            : clastb %p6 %z21.s %z23.s -> %z21.s
+05a99b37 : clastb z23.s, p6, z23.s, z25.s            : clastb %p6 %z23.s %z25.s -> %z23.s
+05a99f79 : clastb z25.s, p7, z25.s, z27.s            : clastb %p7 %z25.s %z27.s -> %z25.s
+05a99fbb : clastb z27.s, p7, z27.s, z29.s            : clastb %p7 %z27.s %z29.s -> %z27.s
+05a99fff : clastb z31.s, p7, z31.s, z31.s            : clastb %p7 %z31.s %z31.s -> %z31.s
+05e98000 : clastb z0.d, p0, z0.d, z0.d               : clastb %p0 %z0.d %z0.d -> %z0.d
+05e98482 : clastb z2.d, p1, z2.d, z4.d               : clastb %p1 %z2.d %z4.d -> %z2.d
+05e988c4 : clastb z4.d, p2, z4.d, z6.d               : clastb %p2 %z4.d %z6.d -> %z4.d
+05e98906 : clastb z6.d, p2, z6.d, z8.d               : clastb %p2 %z6.d %z8.d -> %z6.d
+05e98d48 : clastb z8.d, p3, z8.d, z10.d              : clastb %p3 %z8.d %z10.d -> %z8.d
+05e98d8a : clastb z10.d, p3, z10.d, z12.d            : clastb %p3 %z10.d %z12.d -> %z10.d
+05e991cc : clastb z12.d, p4, z12.d, z14.d            : clastb %p4 %z12.d %z14.d -> %z12.d
+05e9920e : clastb z14.d, p4, z14.d, z16.d            : clastb %p4 %z14.d %z16.d -> %z14.d
+05e99650 : clastb z16.d, p5, z16.d, z18.d            : clastb %p5 %z16.d %z18.d -> %z16.d
+05e99671 : clastb z17.d, p5, z17.d, z19.d            : clastb %p5 %z17.d %z19.d -> %z17.d
+05e996b3 : clastb z19.d, p5, z19.d, z21.d            : clastb %p5 %z19.d %z21.d -> %z19.d
+05e99af5 : clastb z21.d, p6, z21.d, z23.d            : clastb %p6 %z21.d %z23.d -> %z21.d
+05e99b37 : clastb z23.d, p6, z23.d, z25.d            : clastb %p6 %z23.d %z25.d -> %z23.d
+05e99f79 : clastb z25.d, p7, z25.d, z27.d            : clastb %p7 %z25.d %z27.d -> %z25.d
+05e99fbb : clastb z27.d, p7, z27.d, z29.d            : clastb %p7 %z27.d %z29.d -> %z27.d
+05e99fff : clastb z31.d, p7, z31.d, z31.d            : clastb %p7 %z31.d %z31.d -> %z31.d
+
 # CMPEQ   <Pd>.<T>, <Pg>/Z, <Zn>.<T>, #<imm> (CMPEQ-P.P.ZI-_)
 25108000 : cmpeq p0.b, p0/Z, z0.b, #-0x10            : cmpeq  %p0/z %z0.b $0xf0 -> %p0.b
 25128481 : cmpeq p1.b, p1/Z, z4.b, #-0xe             : cmpeq  %p1/z %z4.b $0xf2 -> %p1.b
@@ -3515,6 +3911,270 @@
 25ec81b9 : incp z25.d, p13                           : incp   %p13.d %z25.d -> %z25.d
 25ec81db : incp z27.d, p14                           : incp   %p14.d %z27.d -> %z27.d
 25ec81ff : incp z31.d, p15                           : incp   %p15.d %z31.d -> %z31.d
+
+# LASTA <R><d>, <Pg>, <Zn>.<T> (LASTA-R.P.Z-_)
+0520a000 : lasta w0, p0, z0.b          : lasta  %p0 %z0.b -> %w0
+0520a484 : lasta w4, p1, z4.b          : lasta  %p1 %z4.b -> %w4
+0520a8c6 : lasta w6, p2, z6.b          : lasta  %p2 %z6.b -> %w6
+0520a908 : lasta w8, p2, z8.b          : lasta  %p2 %z8.b -> %w8
+0520ad4a : lasta w10, p3, z10.b        : lasta  %p3 %z10.b -> %w10
+0520ad8c : lasta w12, p3, z12.b        : lasta  %p3 %z12.b -> %w12
+0520b1ce : lasta w14, p4, z14.b        : lasta  %p4 %z14.b -> %w14
+0520b210 : lasta w16, p4, z16.b        : lasta  %p4 %z16.b -> %w16
+0520b652 : lasta w18, p5, z18.b        : lasta  %p5 %z18.b -> %w18
+0520b673 : lasta w19, p5, z19.b        : lasta  %p5 %z19.b -> %w19
+0520b6b5 : lasta w21, p5, z21.b        : lasta  %p5 %z21.b -> %w21
+0520baf7 : lasta w23, p6, z23.b        : lasta  %p6 %z23.b -> %w23
+0520bb39 : lasta w25, p6, z25.b        : lasta  %p6 %z25.b -> %w25
+0520bf7b : lasta w27, p7, z27.b        : lasta  %p7 %z27.b -> %w27
+0520bfbd : lasta w29, p7, z29.b        : lasta  %p7 %z29.b -> %w29
+0520bfff : lasta wzr, p7, z31.b        : lasta  %p7 %z31.b -> %wzr
+0560a000 : lasta w0, p0, z0.h          : lasta  %p0 %z0.h -> %w0
+0560a484 : lasta w4, p1, z4.h          : lasta  %p1 %z4.h -> %w4
+0560a8c6 : lasta w6, p2, z6.h          : lasta  %p2 %z6.h -> %w6
+0560a908 : lasta w8, p2, z8.h          : lasta  %p2 %z8.h -> %w8
+0560ad4a : lasta w10, p3, z10.h        : lasta  %p3 %z10.h -> %w10
+0560ad8c : lasta w12, p3, z12.h        : lasta  %p3 %z12.h -> %w12
+0560b1ce : lasta w14, p4, z14.h        : lasta  %p4 %z14.h -> %w14
+0560b210 : lasta w16, p4, z16.h        : lasta  %p4 %z16.h -> %w16
+0560b652 : lasta w18, p5, z18.h        : lasta  %p5 %z18.h -> %w18
+0560b673 : lasta w19, p5, z19.h        : lasta  %p5 %z19.h -> %w19
+0560b6b5 : lasta w21, p5, z21.h        : lasta  %p5 %z21.h -> %w21
+0560baf7 : lasta w23, p6, z23.h        : lasta  %p6 %z23.h -> %w23
+0560bb39 : lasta w25, p6, z25.h        : lasta  %p6 %z25.h -> %w25
+0560bf7b : lasta w27, p7, z27.h        : lasta  %p7 %z27.h -> %w27
+0560bfbd : lasta w29, p7, z29.h        : lasta  %p7 %z29.h -> %w29
+0560bfff : lasta wzr, p7, z31.h        : lasta  %p7 %z31.h -> %wzr
+05a0a000 : lasta w0, p0, z0.s          : lasta  %p0 %z0.s -> %w0
+05a0a484 : lasta w4, p1, z4.s          : lasta  %p1 %z4.s -> %w4
+05a0a8c6 : lasta w6, p2, z6.s          : lasta  %p2 %z6.s -> %w6
+05a0a908 : lasta w8, p2, z8.s          : lasta  %p2 %z8.s -> %w8
+05a0ad4a : lasta w10, p3, z10.s        : lasta  %p3 %z10.s -> %w10
+05a0ad8c : lasta w12, p3, z12.s        : lasta  %p3 %z12.s -> %w12
+05a0b1ce : lasta w14, p4, z14.s        : lasta  %p4 %z14.s -> %w14
+05a0b210 : lasta w16, p4, z16.s        : lasta  %p4 %z16.s -> %w16
+05a0b652 : lasta w18, p5, z18.s        : lasta  %p5 %z18.s -> %w18
+05a0b673 : lasta w19, p5, z19.s        : lasta  %p5 %z19.s -> %w19
+05a0b6b5 : lasta w21, p5, z21.s        : lasta  %p5 %z21.s -> %w21
+05a0baf7 : lasta w23, p6, z23.s        : lasta  %p6 %z23.s -> %w23
+05a0bb39 : lasta w25, p6, z25.s        : lasta  %p6 %z25.s -> %w25
+05a0bf7b : lasta w27, p7, z27.s        : lasta  %p7 %z27.s -> %w27
+05a0bfbd : lasta w29, p7, z29.s        : lasta  %p7 %z29.s -> %w29
+05a0bfff : lasta wzr, p7, z31.s        : lasta  %p7 %z31.s -> %wzr
+05e0a000 : lasta x0, p0, z0.d          : lasta  %p0 %z0.d -> %x0
+05e0a484 : lasta x4, p1, z4.d          : lasta  %p1 %z4.d -> %x4
+05e0a8c6 : lasta x6, p2, z6.d          : lasta  %p2 %z6.d -> %x6
+05e0a908 : lasta x8, p2, z8.d          : lasta  %p2 %z8.d -> %x8
+05e0ad4a : lasta x10, p3, z10.d        : lasta  %p3 %z10.d -> %x10
+05e0ad8c : lasta x12, p3, z12.d        : lasta  %p3 %z12.d -> %x12
+05e0b1ce : lasta x14, p4, z14.d        : lasta  %p4 %z14.d -> %x14
+05e0b210 : lasta x16, p4, z16.d        : lasta  %p4 %z16.d -> %x16
+05e0b652 : lasta x18, p5, z18.d        : lasta  %p5 %z18.d -> %x18
+05e0b673 : lasta x19, p5, z19.d        : lasta  %p5 %z19.d -> %x19
+05e0b6b5 : lasta x21, p5, z21.d        : lasta  %p5 %z21.d -> %x21
+05e0baf7 : lasta x23, p6, z23.d        : lasta  %p6 %z23.d -> %x23
+05e0bb39 : lasta x25, p6, z25.d        : lasta  %p6 %z25.d -> %x25
+05e0bf7b : lasta x27, p7, z27.d        : lasta  %p7 %z27.d -> %x27
+05e0bfbd : lasta x29, p7, z29.d        : lasta  %p7 %z29.d -> %x29
+05e0bfff : lasta xzr, p7, z31.d        : lasta  %p7 %z31.d -> %xzr
+
+# LASTA <V><d>, <Pg>, <Zn>.<T> (LASTA-V.P.Z-_)
+05228000 : lasta b0, p0, z0.b          : lasta  %p0 %z0.b -> %b0
+05228484 : lasta b4, p1, z4.b          : lasta  %p1 %z4.b -> %b4
+052288c6 : lasta b6, p2, z6.b          : lasta  %p2 %z6.b -> %b6
+05228908 : lasta b8, p2, z8.b          : lasta  %p2 %z8.b -> %b8
+05228d4a : lasta b10, p3, z10.b        : lasta  %p3 %z10.b -> %b10
+05228d8c : lasta b12, p3, z12.b        : lasta  %p3 %z12.b -> %b12
+052291ce : lasta b14, p4, z14.b        : lasta  %p4 %z14.b -> %b14
+05229210 : lasta b16, p4, z16.b        : lasta  %p4 %z16.b -> %b16
+05229652 : lasta b18, p5, z18.b        : lasta  %p5 %z18.b -> %b18
+05229673 : lasta b19, p5, z19.b        : lasta  %p5 %z19.b -> %b19
+052296b5 : lasta b21, p5, z21.b        : lasta  %p5 %z21.b -> %b21
+05229af7 : lasta b23, p6, z23.b        : lasta  %p6 %z23.b -> %b23
+05229b39 : lasta b25, p6, z25.b        : lasta  %p6 %z25.b -> %b25
+05229f7b : lasta b27, p7, z27.b        : lasta  %p7 %z27.b -> %b27
+05229fbd : lasta b29, p7, z29.b        : lasta  %p7 %z29.b -> %b29
+05229fff : lasta b31, p7, z31.b        : lasta  %p7 %z31.b -> %b31
+05628000 : lasta h0, p0, z0.h          : lasta  %p0 %z0.h -> %h0
+05628484 : lasta h4, p1, z4.h          : lasta  %p1 %z4.h -> %h4
+056288c6 : lasta h6, p2, z6.h          : lasta  %p2 %z6.h -> %h6
+05628908 : lasta h8, p2, z8.h          : lasta  %p2 %z8.h -> %h8
+05628d4a : lasta h10, p3, z10.h        : lasta  %p3 %z10.h -> %h10
+05628d8c : lasta h12, p3, z12.h        : lasta  %p3 %z12.h -> %h12
+056291ce : lasta h14, p4, z14.h        : lasta  %p4 %z14.h -> %h14
+05629210 : lasta h16, p4, z16.h        : lasta  %p4 %z16.h -> %h16
+05629652 : lasta h18, p5, z18.h        : lasta  %p5 %z18.h -> %h18
+05629673 : lasta h19, p5, z19.h        : lasta  %p5 %z19.h -> %h19
+056296b5 : lasta h21, p5, z21.h        : lasta  %p5 %z21.h -> %h21
+05629af7 : lasta h23, p6, z23.h        : lasta  %p6 %z23.h -> %h23
+05629b39 : lasta h25, p6, z25.h        : lasta  %p6 %z25.h -> %h25
+05629f7b : lasta h27, p7, z27.h        : lasta  %p7 %z27.h -> %h27
+05629fbd : lasta h29, p7, z29.h        : lasta  %p7 %z29.h -> %h29
+05629fff : lasta h31, p7, z31.h        : lasta  %p7 %z31.h -> %h31
+05a28000 : lasta s0, p0, z0.s          : lasta  %p0 %z0.s -> %s0
+05a28484 : lasta s4, p1, z4.s          : lasta  %p1 %z4.s -> %s4
+05a288c6 : lasta s6, p2, z6.s          : lasta  %p2 %z6.s -> %s6
+05a28908 : lasta s8, p2, z8.s          : lasta  %p2 %z8.s -> %s8
+05a28d4a : lasta s10, p3, z10.s        : lasta  %p3 %z10.s -> %s10
+05a28d8c : lasta s12, p3, z12.s        : lasta  %p3 %z12.s -> %s12
+05a291ce : lasta s14, p4, z14.s        : lasta  %p4 %z14.s -> %s14
+05a29210 : lasta s16, p4, z16.s        : lasta  %p4 %z16.s -> %s16
+05a29652 : lasta s18, p5, z18.s        : lasta  %p5 %z18.s -> %s18
+05a29673 : lasta s19, p5, z19.s        : lasta  %p5 %z19.s -> %s19
+05a296b5 : lasta s21, p5, z21.s        : lasta  %p5 %z21.s -> %s21
+05a29af7 : lasta s23, p6, z23.s        : lasta  %p6 %z23.s -> %s23
+05a29b39 : lasta s25, p6, z25.s        : lasta  %p6 %z25.s -> %s25
+05a29f7b : lasta s27, p7, z27.s        : lasta  %p7 %z27.s -> %s27
+05a29fbd : lasta s29, p7, z29.s        : lasta  %p7 %z29.s -> %s29
+05a29fff : lasta s31, p7, z31.s        : lasta  %p7 %z31.s -> %s31
+05e28000 : lasta d0, p0, z0.d          : lasta  %p0 %z0.d -> %d0
+05e28484 : lasta d4, p1, z4.d          : lasta  %p1 %z4.d -> %d4
+05e288c6 : lasta d6, p2, z6.d          : lasta  %p2 %z6.d -> %d6
+05e28908 : lasta d8, p2, z8.d          : lasta  %p2 %z8.d -> %d8
+05e28d4a : lasta d10, p3, z10.d        : lasta  %p3 %z10.d -> %d10
+05e28d8c : lasta d12, p3, z12.d        : lasta  %p3 %z12.d -> %d12
+05e291ce : lasta d14, p4, z14.d        : lasta  %p4 %z14.d -> %d14
+05e29210 : lasta d16, p4, z16.d        : lasta  %p4 %z16.d -> %d16
+05e29652 : lasta d18, p5, z18.d        : lasta  %p5 %z18.d -> %d18
+05e29673 : lasta d19, p5, z19.d        : lasta  %p5 %z19.d -> %d19
+05e296b5 : lasta d21, p5, z21.d        : lasta  %p5 %z21.d -> %d21
+05e29af7 : lasta d23, p6, z23.d        : lasta  %p6 %z23.d -> %d23
+05e29b39 : lasta d25, p6, z25.d        : lasta  %p6 %z25.d -> %d25
+05e29f7b : lasta d27, p7, z27.d        : lasta  %p7 %z27.d -> %d27
+05e29fbd : lasta d29, p7, z29.d        : lasta  %p7 %z29.d -> %d29
+05e29fff : lasta d31, p7, z31.d        : lasta  %p7 %z31.d -> %d31
+
+# LASTB <R><d>, <Pg>, <Zn>.<T> (LASTB-R.P.Z-_)
+0521a000 : lastb w0, p0, z0.b          : lastb  %p0 %z0.b -> %w0
+0521a484 : lastb w4, p1, z4.b          : lastb  %p1 %z4.b -> %w4
+0521a8c6 : lastb w6, p2, z6.b          : lastb  %p2 %z6.b -> %w6
+0521a908 : lastb w8, p2, z8.b          : lastb  %p2 %z8.b -> %w8
+0521ad4a : lastb w10, p3, z10.b        : lastb  %p3 %z10.b -> %w10
+0521ad8c : lastb w12, p3, z12.b        : lastb  %p3 %z12.b -> %w12
+0521b1ce : lastb w14, p4, z14.b        : lastb  %p4 %z14.b -> %w14
+0521b210 : lastb w16, p4, z16.b        : lastb  %p4 %z16.b -> %w16
+0521b652 : lastb w18, p5, z18.b        : lastb  %p5 %z18.b -> %w18
+0521b673 : lastb w19, p5, z19.b        : lastb  %p5 %z19.b -> %w19
+0521b6b5 : lastb w21, p5, z21.b        : lastb  %p5 %z21.b -> %w21
+0521baf7 : lastb w23, p6, z23.b        : lastb  %p6 %z23.b -> %w23
+0521bb39 : lastb w25, p6, z25.b        : lastb  %p6 %z25.b -> %w25
+0521bf7b : lastb w27, p7, z27.b        : lastb  %p7 %z27.b -> %w27
+0521bfbd : lastb w29, p7, z29.b        : lastb  %p7 %z29.b -> %w29
+0521bfff : lastb wzr, p7, z31.b        : lastb  %p7 %z31.b -> %wzr
+0561a000 : lastb w0, p0, z0.h          : lastb  %p0 %z0.h -> %w0
+0561a484 : lastb w4, p1, z4.h          : lastb  %p1 %z4.h -> %w4
+0561a8c6 : lastb w6, p2, z6.h          : lastb  %p2 %z6.h -> %w6
+0561a908 : lastb w8, p2, z8.h          : lastb  %p2 %z8.h -> %w8
+0561ad4a : lastb w10, p3, z10.h        : lastb  %p3 %z10.h -> %w10
+0561ad8c : lastb w12, p3, z12.h        : lastb  %p3 %z12.h -> %w12
+0561b1ce : lastb w14, p4, z14.h        : lastb  %p4 %z14.h -> %w14
+0561b210 : lastb w16, p4, z16.h        : lastb  %p4 %z16.h -> %w16
+0561b652 : lastb w18, p5, z18.h        : lastb  %p5 %z18.h -> %w18
+0561b673 : lastb w19, p5, z19.h        : lastb  %p5 %z19.h -> %w19
+0561b6b5 : lastb w21, p5, z21.h        : lastb  %p5 %z21.h -> %w21
+0561baf7 : lastb w23, p6, z23.h        : lastb  %p6 %z23.h -> %w23
+0561bb39 : lastb w25, p6, z25.h        : lastb  %p6 %z25.h -> %w25
+0561bf7b : lastb w27, p7, z27.h        : lastb  %p7 %z27.h -> %w27
+0561bfbd : lastb w29, p7, z29.h        : lastb  %p7 %z29.h -> %w29
+0561bfff : lastb wzr, p7, z31.h        : lastb  %p7 %z31.h -> %wzr
+05a1a000 : lastb w0, p0, z0.s          : lastb  %p0 %z0.s -> %w0
+05a1a484 : lastb w4, p1, z4.s          : lastb  %p1 %z4.s -> %w4
+05a1a8c6 : lastb w6, p2, z6.s          : lastb  %p2 %z6.s -> %w6
+05a1a908 : lastb w8, p2, z8.s          : lastb  %p2 %z8.s -> %w8
+05a1ad4a : lastb w10, p3, z10.s        : lastb  %p3 %z10.s -> %w10
+05a1ad8c : lastb w12, p3, z12.s        : lastb  %p3 %z12.s -> %w12
+05a1b1ce : lastb w14, p4, z14.s        : lastb  %p4 %z14.s -> %w14
+05a1b210 : lastb w16, p4, z16.s        : lastb  %p4 %z16.s -> %w16
+05a1b652 : lastb w18, p5, z18.s        : lastb  %p5 %z18.s -> %w18
+05a1b673 : lastb w19, p5, z19.s        : lastb  %p5 %z19.s -> %w19
+05a1b6b5 : lastb w21, p5, z21.s        : lastb  %p5 %z21.s -> %w21
+05a1baf7 : lastb w23, p6, z23.s        : lastb  %p6 %z23.s -> %w23
+05a1bb39 : lastb w25, p6, z25.s        : lastb  %p6 %z25.s -> %w25
+05a1bf7b : lastb w27, p7, z27.s        : lastb  %p7 %z27.s -> %w27
+05a1bfbd : lastb w29, p7, z29.s        : lastb  %p7 %z29.s -> %w29
+05a1bfff : lastb wzr, p7, z31.s        : lastb  %p7 %z31.s -> %wzr
+05e1a000 : lastb x0, p0, z0.d          : lastb  %p0 %z0.d -> %x0
+05e1a484 : lastb x4, p1, z4.d          : lastb  %p1 %z4.d -> %x4
+05e1a8c6 : lastb x6, p2, z6.d          : lastb  %p2 %z6.d -> %x6
+05e1a908 : lastb x8, p2, z8.d          : lastb  %p2 %z8.d -> %x8
+05e1ad4a : lastb x10, p3, z10.d        : lastb  %p3 %z10.d -> %x10
+05e1ad8c : lastb x12, p3, z12.d        : lastb  %p3 %z12.d -> %x12
+05e1b1ce : lastb x14, p4, z14.d        : lastb  %p4 %z14.d -> %x14
+05e1b210 : lastb x16, p4, z16.d        : lastb  %p4 %z16.d -> %x16
+05e1b652 : lastb x18, p5, z18.d        : lastb  %p5 %z18.d -> %x18
+05e1b673 : lastb x19, p5, z19.d        : lastb  %p5 %z19.d -> %x19
+05e1b6b5 : lastb x21, p5, z21.d        : lastb  %p5 %z21.d -> %x21
+05e1baf7 : lastb x23, p6, z23.d        : lastb  %p6 %z23.d -> %x23
+05e1bb39 : lastb x25, p6, z25.d        : lastb  %p6 %z25.d -> %x25
+05e1bf7b : lastb x27, p7, z27.d        : lastb  %p7 %z27.d -> %x27
+05e1bfbd : lastb x29, p7, z29.d        : lastb  %p7 %z29.d -> %x29
+05e1bfff : lastb xzr, p7, z31.d        : lastb  %p7 %z31.d -> %xzr
+
+# LASTB <V><d>, <Pg>, <Zn>.<T> (LASTB-V.P.Z-_)
+05238000 : lastb b0, p0, z0.b          : lastb  %p0 %z0.b -> %b0
+05238484 : lastb b4, p1, z4.b          : lastb  %p1 %z4.b -> %b4
+052388c6 : lastb b6, p2, z6.b          : lastb  %p2 %z6.b -> %b6
+05238908 : lastb b8, p2, z8.b          : lastb  %p2 %z8.b -> %b8
+05238d4a : lastb b10, p3, z10.b        : lastb  %p3 %z10.b -> %b10
+05238d8c : lastb b12, p3, z12.b        : lastb  %p3 %z12.b -> %b12
+052391ce : lastb b14, p4, z14.b        : lastb  %p4 %z14.b -> %b14
+05239210 : lastb b16, p4, z16.b        : lastb  %p4 %z16.b -> %b16
+05239652 : lastb b18, p5, z18.b        : lastb  %p5 %z18.b -> %b18
+05239673 : lastb b19, p5, z19.b        : lastb  %p5 %z19.b -> %b19
+052396b5 : lastb b21, p5, z21.b        : lastb  %p5 %z21.b -> %b21
+05239af7 : lastb b23, p6, z23.b        : lastb  %p6 %z23.b -> %b23
+05239b39 : lastb b25, p6, z25.b        : lastb  %p6 %z25.b -> %b25
+05239f7b : lastb b27, p7, z27.b        : lastb  %p7 %z27.b -> %b27
+05239fbd : lastb b29, p7, z29.b        : lastb  %p7 %z29.b -> %b29
+05239fff : lastb b31, p7, z31.b        : lastb  %p7 %z31.b -> %b31
+05638000 : lastb h0, p0, z0.h          : lastb  %p0 %z0.h -> %h0
+05638484 : lastb h4, p1, z4.h          : lastb  %p1 %z4.h -> %h4
+056388c6 : lastb h6, p2, z6.h          : lastb  %p2 %z6.h -> %h6
+05638908 : lastb h8, p2, z8.h          : lastb  %p2 %z8.h -> %h8
+05638d4a : lastb h10, p3, z10.h        : lastb  %p3 %z10.h -> %h10
+05638d8c : lastb h12, p3, z12.h        : lastb  %p3 %z12.h -> %h12
+056391ce : lastb h14, p4, z14.h        : lastb  %p4 %z14.h -> %h14
+05639210 : lastb h16, p4, z16.h        : lastb  %p4 %z16.h -> %h16
+05639652 : lastb h18, p5, z18.h        : lastb  %p5 %z18.h -> %h18
+05639673 : lastb h19, p5, z19.h        : lastb  %p5 %z19.h -> %h19
+056396b5 : lastb h21, p5, z21.h        : lastb  %p5 %z21.h -> %h21
+05639af7 : lastb h23, p6, z23.h        : lastb  %p6 %z23.h -> %h23
+05639b39 : lastb h25, p6, z25.h        : lastb  %p6 %z25.h -> %h25
+05639f7b : lastb h27, p7, z27.h        : lastb  %p7 %z27.h -> %h27
+05639fbd : lastb h29, p7, z29.h        : lastb  %p7 %z29.h -> %h29
+05639fff : lastb h31, p7, z31.h        : lastb  %p7 %z31.h -> %h31
+05a38000 : lastb s0, p0, z0.s          : lastb  %p0 %z0.s -> %s0
+05a38484 : lastb s4, p1, z4.s          : lastb  %p1 %z4.s -> %s4
+05a388c6 : lastb s6, p2, z6.s          : lastb  %p2 %z6.s -> %s6
+05a38908 : lastb s8, p2, z8.s          : lastb  %p2 %z8.s -> %s8
+05a38d4a : lastb s10, p3, z10.s        : lastb  %p3 %z10.s -> %s10
+05a38d8c : lastb s12, p3, z12.s        : lastb  %p3 %z12.s -> %s12
+05a391ce : lastb s14, p4, z14.s        : lastb  %p4 %z14.s -> %s14
+05a39210 : lastb s16, p4, z16.s        : lastb  %p4 %z16.s -> %s16
+05a39652 : lastb s18, p5, z18.s        : lastb  %p5 %z18.s -> %s18
+05a39673 : lastb s19, p5, z19.s        : lastb  %p5 %z19.s -> %s19
+05a396b5 : lastb s21, p5, z21.s        : lastb  %p5 %z21.s -> %s21
+05a39af7 : lastb s23, p6, z23.s        : lastb  %p6 %z23.s -> %s23
+05a39b39 : lastb s25, p6, z25.s        : lastb  %p6 %z25.s -> %s25
+05a39f7b : lastb s27, p7, z27.s        : lastb  %p7 %z27.s -> %s27
+05a39fbd : lastb s29, p7, z29.s        : lastb  %p7 %z29.s -> %s29
+05a39fff : lastb s31, p7, z31.s        : lastb  %p7 %z31.s -> %s31
+05e38000 : lastb d0, p0, z0.d          : lastb  %p0 %z0.d -> %d0
+05e38484 : lastb d4, p1, z4.d          : lastb  %p1 %z4.d -> %d4
+05e388c6 : lastb d6, p2, z6.d          : lastb  %p2 %z6.d -> %d6
+05e38908 : lastb d8, p2, z8.d          : lastb  %p2 %z8.d -> %d8
+05e38d4a : lastb d10, p3, z10.d        : lastb  %p3 %z10.d -> %d10
+05e38d8c : lastb d12, p3, z12.d        : lastb  %p3 %z12.d -> %d12
+05e391ce : lastb d14, p4, z14.d        : lastb  %p4 %z14.d -> %d14
+05e39210 : lastb d16, p4, z16.d        : lastb  %p4 %z16.d -> %d16
+05e39652 : lastb d18, p5, z18.d        : lastb  %p5 %z18.d -> %d18
+05e39673 : lastb d19, p5, z19.d        : lastb  %p5 %z19.d -> %d19
+05e396b5 : lastb d21, p5, z21.d        : lastb  %p5 %z21.d -> %d21
+05e39af7 : lastb d23, p6, z23.d        : lastb  %p6 %z23.d -> %d23
+05e39b39 : lastb d25, p6, z25.d        : lastb  %p6 %z25.d -> %d25
+05e39f7b : lastb d27, p7, z27.d        : lastb  %p7 %z27.d -> %d27
+05e39fbd : lastb d29, p7, z29.d        : lastb  %p7 %z29.d -> %d29
+05e39fff : lastb d31, p7, z31.d        : lastb  %p7 %z31.d -> %d31
 
 # MAD     <Zdn>.<T>, <Pg>/M, <Zm>.<T>, <Za>.<T> (MAD-Z.P.ZZZ-_)
 0400c000 : mad z0.b, p0/M, z0.b, z0.b                : mad    %p0/m %z0.b %z0.b %z0.b -> %z0.b

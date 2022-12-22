@@ -128,15 +128,25 @@ public:
 /**
  * Implementation of memtrace_stream_t useful for mocks in tests.
  */
-class test_memtrace_stream_t : public memtrace_stream_t {
+class default_memtrace_stream_t : public memtrace_stream_t {
 public:
-    virtual ~test_memtrace_stream_t()
+    default_memtrace_stream_t()
+        : record_ordinal_(nullptr)
+    {
+    }
+    default_memtrace_stream_t(uint64_t *record_ordinal)
+        : record_ordinal_(record_ordinal)
+    {
+    }
+    virtual ~default_memtrace_stream_t()
     {
     }
     uint64_t
     get_record_ordinal() const override
     {
-        return 0;
+        if (record_ordinal_ == nullptr)
+            return 0;
+        return *record_ordinal_;
     }
     uint64_t
     get_instruction_ordinal() const override
@@ -178,5 +188,8 @@ public:
     {
         return 0;
     }
+
+private:
+    uint64_t *record_ordinal_;
 };
 #endif /* _MEMTRACE_STREAM_H_ */
