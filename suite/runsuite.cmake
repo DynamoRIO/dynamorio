@@ -422,7 +422,7 @@ if (NOT cross_riscv64_linux_only AND NOT cross_aarchxx_linux_only AND
         ")
     endif (DO_ALL_BUILDS)
   endif (ARCH_IS_X86 AND NOT APPLE)
-endif (NOT cross_riscv64_linux_only NOT cross_aarchxx_linux_only AND
+endif (NOT cross_riscv64_linux_only AND NOT cross_aarchxx_linux_only AND
   NOT cross_android_only AND NOT a64_on_x86_only)
 
 if (UNIX AND ARCH_IS_X86)
@@ -562,7 +562,7 @@ if (ARCH_IS_X86 AND UNIX)
     set(optional_cross_compile ON)
   endif ()
   set(ARCH_IS_X86 OFF)
-  # TODO i#3544: Run build tests.
+  # TODO i#3544: Port tests to RISCV and build them in the workflow.
   set(build_tests "BUILD_TESTS:BOOL=OFF")
 
   testbuild_ex("riscv64-debug-internal" ON "
