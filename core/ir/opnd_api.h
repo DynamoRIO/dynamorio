@@ -2025,7 +2025,7 @@ opnd_create_immed_double(double d);
 #ifdef AARCH64
 DR_API
 /**
- * Returns an immediate operand for the use in SVE predicate constraint
+ * Returns an immediate operand for use in SVE predicate constraint
  * operands.
  */
 opnd_t

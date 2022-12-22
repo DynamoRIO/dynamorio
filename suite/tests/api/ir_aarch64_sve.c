@@ -5896,12 +5896,12 @@ TEST_INSTR(decd_sve)
     };
     static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
-        "decd   POW2 %z0.d mul $0x01 -> %z0.d",
-        "decd   VL6 %z5.d mul $0x05 -> %z5.d",
-        "decd   VL64 %z10.d mul $0x08 -> %z10.d",
-        "decd   $0x11 %z16.d mul $0x0b -> %z16.d",
-        "decd   $0x16 %z21.d mul $0x0d -> %z21.d",
-        "decd   ALL %z31.d mul $0x10 -> %z31.d",
+        "decd   %z0.d POW2 mul $0x01 -> %z0.d",
+        "decd   %z5.d VL6 mul $0x05 -> %z5.d",
+        "decd   %z10.d VL64 mul $0x08 -> %z10.d",
+        "decd   %z16.d $0x11 mul $0x0b -> %z16.d",
+        "decd   %z21.d $0x16 mul $0x0d -> %z21.d",
+        "decd   %z31.d ALL mul $0x10 -> %z31.d",
     };
     TEST_LOOP(decd, decd_sve, 6, expected_0_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
@@ -5938,12 +5938,12 @@ TEST_INSTR(dech_sve)
     };
     static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
-        "dech   POW2 %z0.h mul $0x01 -> %z0.h",
-        "dech   VL6 %z5.h mul $0x05 -> %z5.h",
-        "dech   VL64 %z10.h mul $0x08 -> %z10.h",
-        "dech   $0x11 %z16.h mul $0x0b -> %z16.h",
-        "dech   $0x16 %z21.h mul $0x0d -> %z21.h",
-        "dech   ALL %z31.h mul $0x10 -> %z31.h",
+        "dech   %z0.h POW2 mul $0x01 -> %z0.h",
+        "dech   %z5.h VL6 mul $0x05 -> %z5.h",
+        "dech   %z10.h VL64 mul $0x08 -> %z10.h",
+        "dech   %z16.h $0x11 mul $0x0b -> %z16.h",
+        "dech   %z21.h $0x16 mul $0x0d -> %z21.h",
+        "dech   %z31.h ALL mul $0x10 -> %z31.h",
     };
     TEST_LOOP(dech, dech_sve, 6, expected_0_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
@@ -6000,12 +6000,12 @@ TEST_INSTR(sqdech_sve)
     };
     static const uint imm4_0_0[6] = { 1, 5, 8, 11, 13, 16 };
     const char *const expected_0_0[6] = {
-        "sqdech POW2 %z0.h mul $0x01 -> %z0.h",
-        "sqdech VL6 %z5.h mul $0x05 -> %z5.h",
-        "sqdech VL64 %z10.h mul $0x08 -> %z10.h",
-        "sqdech $0x11 %z16.h mul $0x0b -> %z16.h",
-        "sqdech $0x16 %z21.h mul $0x0d -> %z21.h",
-        "sqdech ALL %z31.h mul $0x10 -> %z31.h",
+        "sqdech %z0.h POW2 mul $0x01 -> %z0.h",
+        "sqdech %z5.h VL6 mul $0x05 -> %z5.h",
+        "sqdech %z10.h VL64 mul $0x08 -> %z10.h",
+        "sqdech %z16.h $0x11 mul $0x0b -> %z16.h",
+        "sqdech %z21.h $0x16 mul $0x0d -> %z21.h",
+        "sqdech %z31.h ALL mul $0x10 -> %z31.h",
     };
     TEST_LOOP(sqdech, sqdech_sve, 6, expected_0_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),

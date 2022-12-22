@@ -617,7 +617,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
          */
         if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask))) {
             print_to_buffer(buf, bufsz, sofar, "%s%s%d", immed_prefix(), sign, (uint)val);
-#ifdef AARCHXX
+#ifdef AARCH64
         } else if (TEST(opnd_get_flags(opnd), DR_OPND_IS_PREDICATE_CONSTRAINT) &&
                    !aarch64_predicate_constraint_is_mapped(val)) {
             print_to_buffer(buf, bufsz, sofar, aarch64_predicate_constraint_string(val));

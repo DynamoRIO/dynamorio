@@ -114,7 +114,7 @@
 /** Create an operand specifying LSL, the default shift type when there is no shift. */
 #define OPND_CREATE_LSL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
 
-/** Create an operand specifying MUL, a multiplier for SVE predicate constraints. */
+/** Create an operand specifying MUL, a multiplier operand. */
 #define OPND_CREATE_MUL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_MUL), DR_OPND_IS_SHIFT)
 
 /****************************************************************************
@@ -7174,7 +7174,7 @@
 #define INSTR_CREATE_lastb_sve_simd_fp(dc, Vd, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_lastb, Vd, Pg, Zn)
 
-/*
+/**
  * Creates a CNT instruction.
  *
  * This macro is used to encode the forms:
@@ -7212,7 +7212,7 @@
  *    DECB    <Xdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The vector register to be decremented, X (Extended, 64 bits).
+ * \param Rdn   The GPR register to be decremented, X (Extended, 64 bits).
  * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
  * \param imm   The imm used as the predicate constraint multiplier.
  */
@@ -7227,7 +7227,7 @@
  *    DECD    <Xdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The vector register to be decremented, X (Extended, 64 bits).
+ * \param Rdn   The GPR register to be decremented, X (Extended, 64 bits).
  * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
  * \param imm   The imm used as the predicate constraint multiplier.
  */
@@ -7247,7 +7247,7 @@
  * \param imm   The imm used as the predicate constraint multiplier.
  */
 #define INSTR_CREATE_decd_sve(dc, Zdn, pattern, imm) \
-    instr_create_1dst_4src(dc, OP_decd, Zdn, pattern, Zdn, OPND_CREATE_MUL(), imm)
+    instr_create_1dst_4src(dc, OP_decd, Zdn, Zdn, pattern, OPND_CREATE_MUL(), imm)
 
 /**
  * Creates a DECH instruction.
@@ -7257,7 +7257,7 @@
  *    DECH    <Xdn>{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Rdn   The vector register to be decremented, X (Extended, 64 bits).
+ * \param Rdn   The GPR register to be decremented, X (Extended, 64 bits).
  * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
  * \param imm   The imm used as the predicate constraint multiplier.
  */
@@ -7277,7 +7277,7 @@
  * \param imm   The imm used as the predicate constraint multiplier.
  */
 #define INSTR_CREATE_dech_sve(dc, Zdn, pattern, imm) \
-    instr_create_1dst_4src(dc, OP_dech, Zdn, pattern, Zdn, OPND_CREATE_MUL(), imm)
+    instr_create_1dst_4src(dc, OP_dech, Zdn, Zdn, pattern, OPND_CREATE_MUL(), imm)
 
 /**
  * Creates a SQDECH instruction.
@@ -7322,11 +7322,10 @@
  *    SQDECH  <Zdn>.H{, <pattern>{, MUL #<imm>}}
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zdn   The second source and destination vector register, Z (Scalable).
+ * \param Zdn   The source and destination vector register, Z (Scalable).
  * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
  * \param imm   The imm used as the predicate constraint multiplier.
  */
 #define INSTR_CREATE_sqdech_sve(dc, Zdn, pattern, imm) \
-    instr_create_1dst_4src(dc, OP_sqdech, Zdn, pattern, Zdn, OPND_CREATE_MUL(), imm)
-
+    instr_create_1dst_4src(dc, OP_sqdech, Zdn, Zdn, pattern, OPND_CREATE_MUL(), imm)
 #endif /* DR_IR_MACROS_AARCH64_H */
