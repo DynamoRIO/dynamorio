@@ -553,7 +553,7 @@ if (ARCH_IS_X86 AND UNIX AND (a64_on_x86_only OR NOT arg_automated_ci))
 endif ()
 
 if (ARCH_IS_X86 AND UNIX)
-  #TODO i#3544: Run tests under QEMU
+  # TODO i#3544: Run tests under QEMU
   set(orig_extra_ctest_args ${extra_ctest_args})
   set(run_tests OFF)
   set(prev_optional_cross_compile ${optional_cross_compile})
@@ -562,7 +562,7 @@ if (ARCH_IS_X86 AND UNIX)
     set(optional_cross_compile ON)
   endif ()
   set(ARCH_IS_X86 OFF)
-  #TODO i#3544: Run build tests.
+  # TODO i#3544: Run build tests.
   set(build_tests "BUILD_TESTS:BOOL=OFF")
 
   testbuild_ex("riscv64-debug-internal" ON "
