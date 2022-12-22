@@ -555,9 +555,9 @@ endif ()
 if (ARCH_IS_X86 AND UNIX)
   # TODO i#3544: Run tests under QEMU
   set(orig_extra_ctest_args ${extra_ctest_args})
-  set(run_tests OFF)
   set(prev_optional_cross_compile ${optional_cross_compile})
   set(prev_run_tests ${run_tests})
+  set(run_tests OFF)
   if (NOT cross_riscv64_linux_only)
     set(optional_cross_compile ON)
   endif ()
@@ -577,6 +577,11 @@ if (ARCH_IS_X86 AND UNIX)
     ${build_tests}
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-riscv64.cmake
     " OFF ${arg_package} "")
+
+  set(run_tests ${prev_run_tests})
+  set(extra_ctest_args ${orig_extra_ctest_args})
+  set(optional_cross_compile ${prev_optional_cross_compile})
+
 endif ()
 
 # XXX: do we still care about these builds?
