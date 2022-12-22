@@ -255,7 +255,7 @@ opnd_size_suffix_intel(opnd_t opnd)
     return "";
 }
 
-#ifdef AARCH64
+#ifdef AARCHXX
 static const char *
 opnd_size_element_suffix(opnd_t opnd)
 {
@@ -282,7 +282,8 @@ aarch64_reg_opnd_suffix(opnd_t opnd)
 
     return "";
 }
-
+#endif
+#ifdef AARCH64
 bool
 aarch64_predicate_constraint_is_mapped(ptr_int_t value)
 {
@@ -696,7 +697,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         break;
     case REG_kind:
         reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), opnd_get_flags(opnd), "",
-                        IF_AARCH64_ELSE(aarch64_reg_opnd_suffix(opnd), ""));
+                        IF_AARCHXX_ELSE(aarch64_reg_opnd_suffix(opnd), ""));
         break;
     case BASE_DISP_kind: opnd_base_disp_disassemble(buf, bufsz, sofar, opnd); break;
 #if defined(X64) || defined(ARM)
