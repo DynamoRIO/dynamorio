@@ -49,7 +49,7 @@ set(arg_package OFF)
 set(arg_require_format OFF)
 set(cross_aarchxx_linux_only OFF)
 set(cross_android_only OFF)
-set(cross_riscvxx_linux_only OFF)
+set(cross_riscv64_linux_only OFF)
 set(arg_debug_only OFF) # Only build the main debug builds.
 set(arg_nontest_only OFF) # Only build configs with no tests.
 foreach (arg ${CTEST_SCRIPT_ARG})
@@ -58,8 +58,8 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
       set(cross_aarchxx_linux_only ON)
     endif()
-    if ($ENV{DYNAMORIO_CROSS_RISCVXX_LINUX_ONLY} MATCHES "yes")
-      set(cross_riscvxx_linux_only ON)
+    if ($ENV{DYNAMORIO_cross_riscv64_linux_only} MATCHES "yes")
+      set(cross_riscv64_linux_only ON)
     endif()
     if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
       set(cross_android_only ON)
@@ -323,7 +323,8 @@ endif ()
 # also turned on for release-external-64, but ctest will run with label
 # RUN_IN_RELEASE.
 
-if (NOT cross_riscvxx_linux_only AND NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_only)
+if (NOT cross_riscv64_linux_only AND NOT cross_aarchxx_linux_only AND
+  NOT cross_android_only AND NOT a64_on_x86_only)
   # For cross-arch execve test we need to "make install"
   if (NOT arg_nontest_only)
     testbuild_ex("debug-internal-32" OFF "
@@ -421,7 +422,8 @@ if (NOT cross_riscvxx_linux_only AND NOT cross_aarchxx_linux_only AND NOT cross_
         ")
     endif (DO_ALL_BUILDS)
   endif (ARCH_IS_X86 AND NOT APPLE)
-endif (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_only)
+endif (NOT cross_riscv64_linux_only NOT cross_aarchxx_linux_only AND
+  NOT cross_android_only AND NOT a64_on_x86_only)
 
 if (UNIX AND ARCH_IS_X86)
   # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
@@ -550,14 +552,17 @@ if (ARCH_IS_X86 AND UNIX AND (a64_on_x86_only OR NOT arg_automated_ci))
     " OFF ${arg_package} "")
 endif ()
 
-if (ARCH_IS_X86 AND UNIX AND cross_riscvxx_linux_only)
-# Do riscv cross-compilation if cross_riscvxx_linux_only is on.
+if (ARCH_IS_X86 AND UNIX)
+  #TODO i#3544: Run tests under QEMU
   set(orig_extra_ctest_args ${extra_ctest_args})
   set(run_tests OFF)
   set(prev_optional_cross_compile ${optional_cross_compile})
   set(prev_run_tests ${run_tests})
+  if (NOT cross_riscv64_linux_only)
+    set(optional_cross_compile ON)
+  endif ()
   set(ARCH_IS_X86 OFF)
-  # TODO Because of riscv can't run the build tests. So set it closed here.
+  #TODO i#3544: Run build tests.
   set(build_tests "BUILD_TESTS:BOOL=OFF")
 
   testbuild_ex("riscv64-debug-internal" ON "

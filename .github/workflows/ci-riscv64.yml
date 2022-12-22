@@ -28,9 +28,9 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Github Actions workflow for RISCVXX Continuous Integration testing.
+# Github Actions workflow for RISCV64 Continuous Integration testing.
 
-name: ci-riscvxx
+name: ci-riscv64
 on:
   # Run on pushes to master and on pull request changes, including from a
   # forked repo with no "push" trigger, while avoiding duplicate triggers.
@@ -48,8 +48,7 @@ defaults:
     shell: bash
 
 jobs:
-  # RISCV64 cross-compile with gcc, with some tests run under QEMU.
-  # We use a more recent Ubuntu for a more recent QEMU.
+  # RISCV64 cross-compile with gcc
   # We use ubuntu 22.04 because the compilition here need python (3.10.x)
   riscv64-cross-compile:
     runs-on: ubuntu-22.04
@@ -70,15 +69,14 @@ jobs:
     # Install cross-compiler for cross-compiling Linux build.
     # Unfortunately there are no libunwind or compression cross-compile
     # packages so we unpack the native versions and copy their files.
-    # Unfortunately there are only kinetic (ubuntu 22.10) has linunwind-riscv64 packages.
+    # Unfortunately, only kinetic (ubuntu 22.10) has linunwind-riscv64 packages.
     # I prefer debian-ports here, it is more close to upstream.
     - name: Create Build Environment
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake crossbuild-essential-riscv64 git  \
-        qemu-user qemu-user-binfmt
-        sudo sh -c "echo 'deb [trusted=yes arch=riscv64] http://deb.debian.org/debian-ports sid main' |tee -a /etc/apt/sources.list"
-        sudo apt update
+          qemu-user qemu-user-binfmt
+        sudo add-apt-repository 'deb [trusted=yes arch=riscv64] http://deb.debian.org/debian-ports sid main'
         apt download libunwind8:riscv64 libunwind-dev:riscv64 liblzma5:riscv64 \
           zlib1g:riscv64 zlib1g-dev:riscv64 libsnappy1v5:riscv64 libsnappy-dev:riscv64 \
           liblz4-1:riscv64 liblz4-dev:riscv64
@@ -92,7 +90,7 @@ jobs:
       working-directory: ${{ github.workspace }}
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
       env:
-        DYNAMORIO_CROSS_RISCVXX_LINUX_ONLY: yes
+        DYNAMORIO_CROSS_RISCV64_LINUX_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
