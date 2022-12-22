@@ -255,7 +255,7 @@ opnd_size_suffix_intel(opnd_t opnd)
     return "";
 }
 
-#ifdef AARCHXX
+#ifdef AARCH64
 static const char *
 opnd_size_element_suffix(opnd_t opnd)
 {
