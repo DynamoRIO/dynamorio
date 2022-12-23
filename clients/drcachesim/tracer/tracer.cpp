@@ -141,6 +141,7 @@ instru_t *instru;
 static client_id_t client_id;
 void *mutex;            /* for multithread support */
 uint64 num_refs_racy;   /* racy global memory reference count */
+uint64 num_filter_refs_racy; /* racy global memory reference count in warmup mode */
 static uint64 num_refs; /* keep a global memory reference count */
 static uint64 num_writeouts;
 static uint64 num_v2p_writeouts;
@@ -1730,6 +1731,7 @@ event_exit(void)
     thread_filtering_enabled = false;
     num_refs = 0;
     num_refs_racy = 0;
+    num_filter_refs_racy = 0;
 
     exit_io();
 

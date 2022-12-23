@@ -608,7 +608,12 @@ typedef enum {
     OFFLINE_FILE_TYPE_ARCH_X86_64 = 0x40,      /**< Recorded on x86 (64-bit). */
     OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
         OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
-        OFFLINE_FILE_TYPE_ARCH_X86_64,   /**< All possible architecture types. */
+        OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
+    /**
+     * Note: this file type may transition to non-filtered. This transition is indicated
+     * by the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. A single-file multi-window file
+     * that starts out filtered is guaranteed to have every window start out filtered.
+     */
     OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
     OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */

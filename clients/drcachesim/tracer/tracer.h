@@ -224,6 +224,8 @@ struct file_ops_func_t {
 extern struct file_ops_func_t file_ops_func;
 
 extern uint64 num_refs_racy; /* racy global memory reference count */
+extern uint64
+    num_filter_refs_racy; /* racy global memory reference count in warmup mode */
 extern char logsubdir[MAXIMUM_PATH];
 extern char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 extern size_t trace_buf_size;
@@ -239,7 +241,7 @@ static inline bool
 is_num_refs_beyond_global_max(void)
 {
     return op_max_global_trace_refs.get_value() > 0 &&
-        num_refs_racy > op_max_global_trace_refs.get_value();
+        (num_refs_racy - num_filter_refs_racy) > op_max_global_trace_refs.get_value();
 }
 
 static inline bool

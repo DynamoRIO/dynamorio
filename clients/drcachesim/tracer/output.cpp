@@ -122,32 +122,25 @@ reached_traced_instrs_threshold(void *drcontext)
         return;
     }
     ptr_int_t mode = tracing_mode.load(std::memory_order_acquire);
-    if (mode == BBDUP_MODE_L0_FILTER) {
-        NOTIFY(0, "Hit tracing filter limit at window #%zd : switching to full trace.\n",
-               tracing_window.load(std::memory_order_acquire));
-
-        tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
-    } else {
-        // We've reached the end of our window.
-        // We do not attempt a proactive synchronous flush of other threads'
-        // buffers, relying on our end-of-block check for a mode change.
-        // (If -retrace_every_instrs is not set and we're not going to trace
-        // again, we still use a counting mode for simplicity of not adding
-        // yet another mode.)
-        NOTIFY(0, "Hit tracing window #%zd limit: disabling tracing.\n",
-               tracing_window.load(std::memory_order_acquire));
-        // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
-        // one in its header.
-        // If we're counting at exit time, this increment means that the thread
-        // exit entries will be the only ones in this new window: but that seems
-        // reasonable.
-        tracing_window.fetch_add(1, std::memory_order_release);
-        // We delay creating a new ouput dir until tracing is enabled again, to avoid
-        // an empty final dir.
-        DR_ASSERT(mode == BBDUP_MODE_TRACE);
-        tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
-        cur_window_instr_count.store(0, std::memory_order_release);
-    }
+    // We've reached the end of our window.
+    // We do not attempt a proactive synchronous flush of other threads'
+    // buffers, relying on our end-of-block check for a mode change.
+    // (If -retrace_every_instrs is not set and we're not going to trace
+    // again, we still use a counting mode for simplicity of not adding
+    // yet another mode.)
+    NOTIFY(0, "Hit tracing window #%zd limit: disabling tracing.\n",
+           tracing_window.load(std::memory_order_acquire));
+    // No need to append TRACE_MARKER_TYPE_WINDOW_ID: the next buffer will have
+    // one in its header.
+    // If we're counting at exit time, this increment means that the thread
+    // exit entries will be the only ones in this new window: but that seems
+    // reasonable.
+    tracing_window.fetch_add(1, std::memory_order_release);
+    // We delay creating a new ouput dir until tracing is enabled again, to avoid
+    // an empty final dir.
+    DR_ASSERT(mode == BBDUP_MODE_TRACE);
+    tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
+    cur_window_instr_count.store(0, std::memory_order_release);
     dr_mutex_unlock(mutex);
 }
 
@@ -982,7 +975,10 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         if (op_offline.get_value() && op_split_windows.get_value())
             buf_ptr += instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
     }
-    if (!skip_size_cap &&
+
+    uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
+
+    if (!skip_size_cap && mode != BBDUP_MODE_L0_FILTER &&
         (is_bytes_written_beyond_trace_max(data) || is_num_refs_beyond_global_max())) {
         /* We don't guarantee to match the limit exactly so we allow one buffer
          * beyond.  We also don't put much effort into reducing overhead once
@@ -1012,20 +1008,29 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
 
     if (do_write) {
         bool hit_window_end = false;
-        uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
-        uint64 trace_for_instrs;
 
         if (op_L0_filter_until_instrs.get_value() && mode == BBDUP_MODE_L0_FILTER) {
-            trace_for_instrs = op_L0_filter_until_instrs.get_value();
-        } else {
-            trace_for_instrs = op_trace_for_instrs.get_value();
-        }
-        if (trace_for_instrs > 0) {
+            int toadd = *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
+            hit_window_end = count_traced_instrs(drcontext, toadd,
+                                                 op_L0_filter_until_instrs.get_value());
+            if (hit_window_end) {
+                data->bytes_written = 0;
+                NOTIFY(0, "Adding endpoint marker\n");
+                size_t add =
+                    instru->append_marker(buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+                buf_ptr += add;
+                NOTIFY(0, "Hit tracing filter limit : switching to full trace.\n");
+
+                tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
+            }
+        } else if (op_trace_for_instrs.get_value() > 0) {
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
-                if (!window_changed && !hit_window_end && trace_for_instrs > 0) {
-                    hit_window_end = count_traced_instrs(
-                        drcontext, instru->get_instr_count(mem_ref), trace_for_instrs);
+                if (!window_changed && !hit_window_end &&
+                    op_trace_for_instrs.get_value() > 0) {
+                    hit_window_end =
+                        count_traced_instrs(drcontext, instru->get_instr_count(mem_ref),
+                                            op_trace_for_instrs.get_value());
                     // We have to finish this buffer so we'll go a little beyond the
                     // precise requested window length.
                     // XXX: For small windows this may be significant: we could go
@@ -1036,17 +1041,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             }
             if (hit_window_end) {
                 if (op_offline.get_value() && op_split_windows.get_value()) {
-                    if (op_L0_filter_until_instrs.get_value() &&
-                        mode == BBDUP_MODE_L0_FILTER) {
-                        NOTIFY(0, "Adding endpoint marker\n");
-                        size_t add = instru->append_marker(
-                            buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
-                        buf_ptr += add;
-                    } else {
-                        size_t add = instru->append_thread_exit(
-                            buf_ptr, dr_get_thread_id(drcontext));
-                        buf_ptr += add;
-                    }
+                    size_t add =
+                        instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
+                    buf_ptr += add;
                 }
                 // Update the global window, but not the local so we can place the rest
                 // of this buffer into the same local window.
@@ -1081,8 +1078,11 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     BUF_PTR(data->seg_base) += append_unit_header(drcontext, BUF_PTR(data->seg_base),
                                                   dr_get_thread_id(drcontext), window);
     num_refs_racy += current_num_refs;
-    if (op_exit_after_tracing.get_value() > 0 &&
-        num_refs_racy > op_exit_after_tracing.get_value()) {
+    if (mode == BBDUP_MODE_L0_FILTER) {
+        num_filter_refs_racy += current_num_refs;
+    }
+    if (mode != BBDUP_MODE_L0_FILTER && op_exit_after_tracing.get_value() > 0 &&
+        (num_refs_racy - num_filter_refs_racy) > op_exit_after_tracing.get_value()) {
         dr_mutex_lock(mutex);
         if (!exited_process) {
             exited_process = true;
@@ -1091,7 +1091,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             // the process but that requires a client-triggered detach so for now
             // we settle for exiting.
             NOTIFY(0, "Exiting process after ~" UINT64_FORMAT_STRING " references.\n",
-                   num_refs_racy);
+                   num_refs_racy - num_filter_refs_racy);
             dr_exit_process(0);
         }
         dr_mutex_unlock(mutex);
