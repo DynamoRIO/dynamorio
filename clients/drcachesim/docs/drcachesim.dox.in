@@ -59,6 +59,7 @@ embedded instruction encodings and fast seeking.  Please see the
  - \subpage google_workload_traces
  - \subpage sec_drcachesim_config_file
  - \subpage sec_drcachesim_offline
+ - \subpage sec_drcachesim_filter
  - \subpage sec_drcachesim_partial
  - \subpage sec_drcachesim_sim
  - \subpage sec_drcachesim_analyzer
@@ -1056,6 +1057,24 @@ For details on the offline trace format and how to diagnose problems
 with offline traces, see \ref page_debug_memtrace.
 
 ****************************************************************************
+\page sec_drcachesim_filter Filtered Traces
+
+Filtered traces are \p drcachesim traces filtered by an online first-level
+cache.
+
+- The \p -L0I_filter and \p -L0D_filter options can be used to enable the
+  filter. These caches are direct-mapped with size equal to \p
+  -L0I_size/-L0D_size.  They use virtual addresses regardless of -use_physical.
+  The dynamic (pre-filtered) per-thread instruction count is tracked and
+  supplied via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer
+  boundaries and at thread exit.
+- The \p -L0I_size and \p -L0D_size options specify the cache sizes. Must be a
+  power of 2 and a multiple of \p -line_size, unless it is set to 0, which
+  disables entries from appearing in the trace.
+- The \p -L0_filter_until_instrs option is used to collect filtered traces
+  together with full trace (see \ref sec_drcachesim_partial)
+
+****************************************************************************
 \page sec_drcachesim_partial Tracing a Subset of Execution
 
 While the cache simulator supports skipping references, for large
@@ -1095,6 +1114,14 @@ limited in several ways:
 - The \p -max_trace_size option sets a cap on the number of bytes written
   by each thread.  This is a per-thread limit, and if one thread hits the
   limit it does not affect the trace recoding of other threads.
+- The \p -L0_filter_until_instrs option collects a filtered trace before
+  transitioning to a full trace. It is intended to be used with one of the
+  tracing options listed above. The filter trace and full trace are stored in a
+  single file separated by a #TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. When
+  used with windows (i.e., \p -retrace_every_instrs), each window contains a
+  filter trace and a full trace. When we have windows contained in a
+  single-file, the #TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of
+  filtered records.
 
 If the application can be modified, it can be linked with the \p drcachesim
 tracer and use DynamoRIO's start/stop API routines dr_app_setup_and_start()
