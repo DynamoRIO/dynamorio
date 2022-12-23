@@ -243,6 +243,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api,thread_private|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#1807
+                'code_api|client.file_io' => 1, # i#5802
                 );
 
             %ignore_failures_64 = (
@@ -302,6 +303,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'finite_shared_trace_cache,cache_shared_trace_regen|common.nativeexec' => 1, # i#1807
                 # We list this without any "options|" which will match all variations.
                 'common.floatpc_xl8all' => 1, # i#2267
+                'code_api|client.file_io' => 1, # i#5802
                 );
             if ($is_long) {
                 # These are important tests so we only ignore in the long suite,
