@@ -2511,6 +2511,106 @@
 04dbbfbb : cnot z27.d, p7/M, z29.d                   : cnot   %p7/m %z29.d -> %z27.d
 04dbbfff : cnot z31.d, p7/M, z31.d                   : cnot   %p7/m %z31.d -> %z31.d
 
+# CNT     <Zd>.<T>, <Pg>/M, <Zn>.<T> (CNT-Z.P.Z-_)
+041aa000 : cnt z0.b, p0/M, z0.b                      : cnt    %p0/m %z0.b -> %z0.b
+041aa482 : cnt z2.b, p1/M, z4.b                      : cnt    %p1/m %z4.b -> %z2.b
+041aa8c4 : cnt z4.b, p2/M, z6.b                      : cnt    %p2/m %z6.b -> %z4.b
+041aa906 : cnt z6.b, p2/M, z8.b                      : cnt    %p2/m %z8.b -> %z6.b
+041aad48 : cnt z8.b, p3/M, z10.b                     : cnt    %p3/m %z10.b -> %z8.b
+041aad8a : cnt z10.b, p3/M, z12.b                    : cnt    %p3/m %z12.b -> %z10.b
+041ab1cc : cnt z12.b, p4/M, z14.b                    : cnt    %p4/m %z14.b -> %z12.b
+041ab20e : cnt z14.b, p4/M, z16.b                    : cnt    %p4/m %z16.b -> %z14.b
+041ab650 : cnt z16.b, p5/M, z18.b                    : cnt    %p5/m %z18.b -> %z16.b
+041ab671 : cnt z17.b, p5/M, z19.b                    : cnt    %p5/m %z19.b -> %z17.b
+041ab6b3 : cnt z19.b, p5/M, z21.b                    : cnt    %p5/m %z21.b -> %z19.b
+041abaf5 : cnt z21.b, p6/M, z23.b                    : cnt    %p6/m %z23.b -> %z21.b
+041abb37 : cnt z23.b, p6/M, z25.b                    : cnt    %p6/m %z25.b -> %z23.b
+041abf79 : cnt z25.b, p7/M, z27.b                    : cnt    %p7/m %z27.b -> %z25.b
+041abfbb : cnt z27.b, p7/M, z29.b                    : cnt    %p7/m %z29.b -> %z27.b
+041abfff : cnt z31.b, p7/M, z31.b                    : cnt    %p7/m %z31.b -> %z31.b
+045aa000 : cnt z0.h, p0/M, z0.h                      : cnt    %p0/m %z0.h -> %z0.h
+045aa482 : cnt z2.h, p1/M, z4.h                      : cnt    %p1/m %z4.h -> %z2.h
+045aa8c4 : cnt z4.h, p2/M, z6.h                      : cnt    %p2/m %z6.h -> %z4.h
+045aa906 : cnt z6.h, p2/M, z8.h                      : cnt    %p2/m %z8.h -> %z6.h
+045aad48 : cnt z8.h, p3/M, z10.h                     : cnt    %p3/m %z10.h -> %z8.h
+045aad8a : cnt z10.h, p3/M, z12.h                    : cnt    %p3/m %z12.h -> %z10.h
+045ab1cc : cnt z12.h, p4/M, z14.h                    : cnt    %p4/m %z14.h -> %z12.h
+045ab20e : cnt z14.h, p4/M, z16.h                    : cnt    %p4/m %z16.h -> %z14.h
+045ab650 : cnt z16.h, p5/M, z18.h                    : cnt    %p5/m %z18.h -> %z16.h
+045ab671 : cnt z17.h, p5/M, z19.h                    : cnt    %p5/m %z19.h -> %z17.h
+045ab6b3 : cnt z19.h, p5/M, z21.h                    : cnt    %p5/m %z21.h -> %z19.h
+045abaf5 : cnt z21.h, p6/M, z23.h                    : cnt    %p6/m %z23.h -> %z21.h
+045abb37 : cnt z23.h, p6/M, z25.h                    : cnt    %p6/m %z25.h -> %z23.h
+045abf79 : cnt z25.h, p7/M, z27.h                    : cnt    %p7/m %z27.h -> %z25.h
+045abfbb : cnt z27.h, p7/M, z29.h                    : cnt    %p7/m %z29.h -> %z27.h
+045abfff : cnt z31.h, p7/M, z31.h                    : cnt    %p7/m %z31.h -> %z31.h
+049aa000 : cnt z0.s, p0/M, z0.s                      : cnt    %p0/m %z0.s -> %z0.s
+049aa482 : cnt z2.s, p1/M, z4.s                      : cnt    %p1/m %z4.s -> %z2.s
+049aa8c4 : cnt z4.s, p2/M, z6.s                      : cnt    %p2/m %z6.s -> %z4.s
+049aa906 : cnt z6.s, p2/M, z8.s                      : cnt    %p2/m %z8.s -> %z6.s
+049aad48 : cnt z8.s, p3/M, z10.s                     : cnt    %p3/m %z10.s -> %z8.s
+049aad8a : cnt z10.s, p3/M, z12.s                    : cnt    %p3/m %z12.s -> %z10.s
+049ab1cc : cnt z12.s, p4/M, z14.s                    : cnt    %p4/m %z14.s -> %z12.s
+049ab20e : cnt z14.s, p4/M, z16.s                    : cnt    %p4/m %z16.s -> %z14.s
+049ab650 : cnt z16.s, p5/M, z18.s                    : cnt    %p5/m %z18.s -> %z16.s
+049ab671 : cnt z17.s, p5/M, z19.s                    : cnt    %p5/m %z19.s -> %z17.s
+049ab6b3 : cnt z19.s, p5/M, z21.s                    : cnt    %p5/m %z21.s -> %z19.s
+049abaf5 : cnt z21.s, p6/M, z23.s                    : cnt    %p6/m %z23.s -> %z21.s
+049abb37 : cnt z23.s, p6/M, z25.s                    : cnt    %p6/m %z25.s -> %z23.s
+049abf79 : cnt z25.s, p7/M, z27.s                    : cnt    %p7/m %z27.s -> %z25.s
+049abfbb : cnt z27.s, p7/M, z29.s                    : cnt    %p7/m %z29.s -> %z27.s
+049abfff : cnt z31.s, p7/M, z31.s                    : cnt    %p7/m %z31.s -> %z31.s
+04daa000 : cnt z0.d, p0/M, z0.d                      : cnt    %p0/m %z0.d -> %z0.d
+04daa482 : cnt z2.d, p1/M, z4.d                      : cnt    %p1/m %z4.d -> %z2.d
+04daa8c4 : cnt z4.d, p2/M, z6.d                      : cnt    %p2/m %z6.d -> %z4.d
+04daa906 : cnt z6.d, p2/M, z8.d                      : cnt    %p2/m %z8.d -> %z6.d
+04daad48 : cnt z8.d, p3/M, z10.d                     : cnt    %p3/m %z10.d -> %z8.d
+04daad8a : cnt z10.d, p3/M, z12.d                    : cnt    %p3/m %z12.d -> %z10.d
+04dab1cc : cnt z12.d, p4/M, z14.d                    : cnt    %p4/m %z14.d -> %z12.d
+04dab20e : cnt z14.d, p4/M, z16.d                    : cnt    %p4/m %z16.d -> %z14.d
+04dab650 : cnt z16.d, p5/M, z18.d                    : cnt    %p5/m %z18.d -> %z16.d
+04dab671 : cnt z17.d, p5/M, z19.d                    : cnt    %p5/m %z19.d -> %z17.d
+04dab6b3 : cnt z19.d, p5/M, z21.d                    : cnt    %p5/m %z21.d -> %z19.d
+04dabaf5 : cnt z21.d, p6/M, z23.d                    : cnt    %p6/m %z23.d -> %z21.d
+04dabb37 : cnt z23.d, p6/M, z25.d                    : cnt    %p6/m %z25.d -> %z23.d
+04dabf79 : cnt z25.d, p7/M, z27.d                    : cnt    %p7/m %z27.d -> %z25.d
+04dabfbb : cnt z27.d, p7/M, z29.d                    : cnt    %p7/m %z29.d -> %z27.d
+04dabfff : cnt z31.d, p7/M, z31.d                    : cnt    %p7/m %z31.d -> %z31.d
+
+# CNTB    <Xd>{, <pattern>{, MUL #<imm>}} (CNTB-R.S-_)
+0420e000 : cntb x0, POW2, MUL #1                     : cntb   POW2 mul $0x01 -> %x0
+0420e021 : cntb x1, VL1, MUL #1                      : cntb   VL1 mul $0x01 -> %x1
+0421e042 : cntb x2, VL2, MUL #2                      : cntb   VL2 mul $0x02 -> %x2
+0421e063 : cntb x3, VL3, MUL #2                      : cntb   VL3 mul $0x02 -> %x3
+0422e084 : cntb x4, VL4, MUL #3                      : cntb   VL4 mul $0x03 -> %x4
+0422e0a5 : cntb x5, VL5, MUL #3                      : cntb   VL5 mul $0x03 -> %x5
+0423e0c6 : cntb x6, VL6, MUL #4                      : cntb   VL6 mul $0x04 -> %x6
+0423e0e7 : cntb x7, VL7, MUL #4                      : cntb   VL7 mul $0x04 -> %x7
+0424e108 : cntb x8, VL8, MUL #5                      : cntb   VL8 mul $0x05 -> %x8
+0424e128 : cntb x8, VL16, MUL #5                     : cntb   VL16 mul $0x05 -> %x8
+0425e149 : cntb x9, VL32, MUL #6                     : cntb   VL32 mul $0x06 -> %x9
+0425e16a : cntb x10, VL64, MUL #6                    : cntb   VL64 mul $0x06 -> %x10
+0426e18b : cntb x11, VL128, MUL #7                   : cntb   VL128 mul $0x07 -> %x11
+0426e1ac : cntb x12, VL256, MUL #7                   : cntb   VL256 mul $0x07 -> %x12
+0427e1cd : cntb x13, 14, MUL #8                      : cntb   $0x0e mul $0x08 -> %x13
+0427e1ee : cntb x14, 15, MUL #8                      : cntb   $0x0f mul $0x08 -> %x14
+0428e20f : cntb x15, 16, MUL #9                      : cntb   $0x10 mul $0x09 -> %x15
+0428e230 : cntb x16, 17, MUL #9                      : cntb   $0x11 mul $0x09 -> %x16
+0428e251 : cntb x17, 18, MUL #9                      : cntb   $0x12 mul $0x09 -> %x17
+0429e272 : cntb x18, 19, MUL #10                     : cntb   $0x13 mul $0x0a -> %x18
+0429e293 : cntb x19, 20, MUL #10                     : cntb   $0x14 mul $0x0a -> %x19
+042ae2b4 : cntb x20, 21, MUL #11                     : cntb   $0x15 mul $0x0b -> %x20
+042ae2d5 : cntb x21, 22, MUL #11                     : cntb   $0x16 mul $0x0b -> %x21
+042be2f6 : cntb x22, 23, MUL #12                     : cntb   $0x17 mul $0x0c -> %x22
+042be316 : cntb x22, 24, MUL #12                     : cntb   $0x18 mul $0x0c -> %x22
+042ce337 : cntb x23, 25, MUL #13                     : cntb   $0x19 mul $0x0d -> %x23
+042ce358 : cntb x24, 26, MUL #13                     : cntb   $0x1a mul $0x0d -> %x24
+042de379 : cntb x25, 27, MUL #14                     : cntb   $0x1b mul $0x0e -> %x25
+042de39a : cntb x26, 28, MUL #14                     : cntb   $0x1c mul $0x0e -> %x26
+042ee3bb : cntb x27, MUL4, MUL #15                   : cntb   MUL4 mul $0x0f -> %x27
+042ee3dc : cntb x28, MUL3, MUL #15                   : cntb   MUL3 mul $0x0f -> %x28
+042fe3fe : cntb x30, ALL, MUL #16                    : cntb   ALL mul $0x10 -> %x30
+
 # CNTP    <Xd>, <Pg>, <Pn>.<T> (CNTP-R.P.P-_)
 25208000 : cntp x0, p0, p0.b                         : cntp   %p0 %p0.b -> %x0
 25208862 : cntp x2, p2, p3.b                         : cntp   %p2 %p3.b -> %x2
@@ -2708,6 +2808,176 @@
 05dc49f8 : cpy z24.d, p12/M, #0x4f, lsl #0           : cpy    %p12/m $0x4f lsl $0x00 -> %z24.d
 05dd4bfa : cpy z26.d, p13/M, #0x5f, lsl #0           : cpy    %p13/m $0x5f lsl $0x00 -> %z26.d
 05de4ffe : cpy z30.d, p14/M, #0x7f, lsl #0           : cpy    %p14/m $0x7f lsl $0x00 -> %z30.d
+
+# DECB    <Xdn>{, <pattern>{, MUL #<imm>}} (DECB-R.RS-_)
+0430e400 : decb x0, POW2, MUL #1                     : decb   %x0 POW2 mul $0x01 -> %x0
+0430e421 : decb x1, VL1, MUL #1                      : decb   %x1 VL1 mul $0x01 -> %x1
+0431e442 : decb x2, VL2, MUL #2                      : decb   %x2 VL2 mul $0x02 -> %x2
+0431e463 : decb x3, VL3, MUL #2                      : decb   %x3 VL3 mul $0x02 -> %x3
+0432e484 : decb x4, VL4, MUL #3                      : decb   %x4 VL4 mul $0x03 -> %x4
+0432e4a5 : decb x5, VL5, MUL #3                      : decb   %x5 VL5 mul $0x03 -> %x5
+0433e4c6 : decb x6, VL6, MUL #4                      : decb   %x6 VL6 mul $0x04 -> %x6
+0433e4e7 : decb x7, VL7, MUL #4                      : decb   %x7 VL7 mul $0x04 -> %x7
+0434e508 : decb x8, VL8, MUL #5                      : decb   %x8 VL8 mul $0x05 -> %x8
+0434e528 : decb x8, VL16, MUL #5                     : decb   %x8 VL16 mul $0x05 -> %x8
+0435e549 : decb x9, VL32, MUL #6                     : decb   %x9 VL32 mul $0x06 -> %x9
+0435e56a : decb x10, VL64, MUL #6                    : decb   %x10 VL64 mul $0x06 -> %x10
+0436e58b : decb x11, VL128, MUL #7                   : decb   %x11 VL128 mul $0x07 -> %x11
+0436e5ac : decb x12, VL256, MUL #7                   : decb   %x12 VL256 mul $0x07 -> %x12
+0437e5cd : decb x13, 14, MUL #8                      : decb   %x13 $0x0e mul $0x08 -> %x13
+0437e5ee : decb x14, 15, MUL #8                      : decb   %x14 $0x0f mul $0x08 -> %x14
+0438e60f : decb x15, 16, MUL #9                      : decb   %x15 $0x10 mul $0x09 -> %x15
+0438e630 : decb x16, 17, MUL #9                      : decb   %x16 $0x11 mul $0x09 -> %x16
+0438e651 : decb x17, 18, MUL #9                      : decb   %x17 $0x12 mul $0x09 -> %x17
+0439e672 : decb x18, 19, MUL #10                     : decb   %x18 $0x13 mul $0x0a -> %x18
+0439e693 : decb x19, 20, MUL #10                     : decb   %x19 $0x14 mul $0x0a -> %x19
+043ae6b4 : decb x20, 21, MUL #11                     : decb   %x20 $0x15 mul $0x0b -> %x20
+043ae6d5 : decb x21, 22, MUL #11                     : decb   %x21 $0x16 mul $0x0b -> %x21
+043be6f6 : decb x22, 23, MUL #12                     : decb   %x22 $0x17 mul $0x0c -> %x22
+043be716 : decb x22, 24, MUL #12                     : decb   %x22 $0x18 mul $0x0c -> %x22
+043ce737 : decb x23, 25, MUL #13                     : decb   %x23 $0x19 mul $0x0d -> %x23
+043ce758 : decb x24, 26, MUL #13                     : decb   %x24 $0x1a mul $0x0d -> %x24
+043de779 : decb x25, 27, MUL #14                     : decb   %x25 $0x1b mul $0x0e -> %x25
+043de79a : decb x26, 28, MUL #14                     : decb   %x26 $0x1c mul $0x0e -> %x26
+043ee7bb : decb x27, MUL4, MUL #15                   : decb   %x27 MUL4 mul $0x0f -> %x27
+043ee7dc : decb x28, MUL3, MUL #15                   : decb   %x28 MUL3 mul $0x0f -> %x28
+043fe7fe : decb x30, ALL, MUL #16                    : decb   %x30 ALL mul $0x10 -> %x30
+
+# DECD    <Xdn>{, <pattern>{, MUL #<imm>}} (DECD-R.RS-_)
+04f0e400 : decd x0, POW2, MUL #1                     : decd   %x0 POW2 mul $0x01 -> %x0
+04f0e421 : decd x1, VL1, MUL #1                      : decd   %x1 VL1 mul $0x01 -> %x1
+04f1e442 : decd x2, VL2, MUL #2                      : decd   %x2 VL2 mul $0x02 -> %x2
+04f1e463 : decd x3, VL3, MUL #2                      : decd   %x3 VL3 mul $0x02 -> %x3
+04f2e484 : decd x4, VL4, MUL #3                      : decd   %x4 VL4 mul $0x03 -> %x4
+04f2e4a5 : decd x5, VL5, MUL #3                      : decd   %x5 VL5 mul $0x03 -> %x5
+04f3e4c6 : decd x6, VL6, MUL #4                      : decd   %x6 VL6 mul $0x04 -> %x6
+04f3e4e7 : decd x7, VL7, MUL #4                      : decd   %x7 VL7 mul $0x04 -> %x7
+04f4e508 : decd x8, VL8, MUL #5                      : decd   %x8 VL8 mul $0x05 -> %x8
+04f4e528 : decd x8, VL16, MUL #5                     : decd   %x8 VL16 mul $0x05 -> %x8
+04f5e549 : decd x9, VL32, MUL #6                     : decd   %x9 VL32 mul $0x06 -> %x9
+04f5e56a : decd x10, VL64, MUL #6                    : decd   %x10 VL64 mul $0x06 -> %x10
+04f6e58b : decd x11, VL128, MUL #7                   : decd   %x11 VL128 mul $0x07 -> %x11
+04f6e5ac : decd x12, VL256, MUL #7                   : decd   %x12 VL256 mul $0x07 -> %x12
+04f7e5cd : decd x13, 14, MUL #8                      : decd   %x13 $0x0e mul $0x08 -> %x13
+04f7e5ee : decd x14, 15, MUL #8                      : decd   %x14 $0x0f mul $0x08 -> %x14
+04f8e60f : decd x15, 16, MUL #9                      : decd   %x15 $0x10 mul $0x09 -> %x15
+04f8e630 : decd x16, 17, MUL #9                      : decd   %x16 $0x11 mul $0x09 -> %x16
+04f8e651 : decd x17, 18, MUL #9                      : decd   %x17 $0x12 mul $0x09 -> %x17
+04f9e672 : decd x18, 19, MUL #10                     : decd   %x18 $0x13 mul $0x0a -> %x18
+04f9e693 : decd x19, 20, MUL #10                     : decd   %x19 $0x14 mul $0x0a -> %x19
+04fae6b4 : decd x20, 21, MUL #11                     : decd   %x20 $0x15 mul $0x0b -> %x20
+04fae6d5 : decd x21, 22, MUL #11                     : decd   %x21 $0x16 mul $0x0b -> %x21
+04fbe6f6 : decd x22, 23, MUL #12                     : decd   %x22 $0x17 mul $0x0c -> %x22
+04fbe716 : decd x22, 24, MUL #12                     : decd   %x22 $0x18 mul $0x0c -> %x22
+04fce737 : decd x23, 25, MUL #13                     : decd   %x23 $0x19 mul $0x0d -> %x23
+04fce758 : decd x24, 26, MUL #13                     : decd   %x24 $0x1a mul $0x0d -> %x24
+04fde779 : decd x25, 27, MUL #14                     : decd   %x25 $0x1b mul $0x0e -> %x25
+04fde79a : decd x26, 28, MUL #14                     : decd   %x26 $0x1c mul $0x0e -> %x26
+04fee7bb : decd x27, MUL4, MUL #15                   : decd   %x27 MUL4 mul $0x0f -> %x27
+04fee7dc : decd x28, MUL3, MUL #15                   : decd   %x28 MUL3 mul $0x0f -> %x28
+04ffe7fe : decd x30, ALL, MUL #16                    : decd   %x30 ALL mul $0x10 -> %x30
+
+# DECD    <Zdn>.D{, <pattern>{, MUL #<imm>}} (DECD-Z.ZS-_)
+04f0c400 : decd z0.d, POW2, MUL #1                   : decd   %z0.d POW2 mul $0x01 -> %z0.d
+04f0c421 : decd z1.d, VL1, MUL #1                    : decd   %z1.d VL1 mul $0x01 -> %z1.d
+04f1c442 : decd z2.d, VL2, MUL #2                    : decd   %z2.d VL2 mul $0x02 -> %z2.d
+04f1c463 : decd z3.d, VL3, MUL #2                    : decd   %z3.d VL3 mul $0x02 -> %z3.d
+04f2c484 : decd z4.d, VL4, MUL #3                    : decd   %z4.d VL4 mul $0x03 -> %z4.d
+04f2c4a5 : decd z5.d, VL5, MUL #3                    : decd   %z5.d VL5 mul $0x03 -> %z5.d
+04f3c4c6 : decd z6.d, VL6, MUL #4                    : decd   %z6.d VL6 mul $0x04 -> %z6.d
+04f3c4e7 : decd z7.d, VL7, MUL #4                    : decd   %z7.d VL7 mul $0x04 -> %z7.d
+04f4c508 : decd z8.d, VL8, MUL #5                    : decd   %z8.d VL8 mul $0x05 -> %z8.d
+04f4c529 : decd z9.d, VL16, MUL #5                   : decd   %z9.d VL16 mul $0x05 -> %z9.d
+04f5c54a : decd z10.d, VL32, MUL #6                  : decd   %z10.d VL32 mul $0x06 -> %z10.d
+04f5c56b : decd z11.d, VL64, MUL #6                  : decd   %z11.d VL64 mul $0x06 -> %z11.d
+04f6c58c : decd z12.d, VL128, MUL #7                 : decd   %z12.d VL128 mul $0x07 -> %z12.d
+04f6c5ad : decd z13.d, VL256, MUL #7                 : decd   %z13.d VL256 mul $0x07 -> %z13.d
+04f7c5ce : decd z14.d, 14, MUL #8                    : decd   %z14.d $0x0e mul $0x08 -> %z14.d
+04f7c5ef : decd z15.d, 15, MUL #8                    : decd   %z15.d $0x0f mul $0x08 -> %z15.d
+04f8c610 : decd z16.d, 16, MUL #9                    : decd   %z16.d $0x10 mul $0x09 -> %z16.d
+04f8c630 : decd z16.d, 17, MUL #9                    : decd   %z16.d $0x11 mul $0x09 -> %z16.d
+04f8c651 : decd z17.d, 18, MUL #9                    : decd   %z17.d $0x12 mul $0x09 -> %z17.d
+04f9c672 : decd z18.d, 19, MUL #10                   : decd   %z18.d $0x13 mul $0x0a -> %z18.d
+04f9c693 : decd z19.d, 20, MUL #10                   : decd   %z19.d $0x14 mul $0x0a -> %z19.d
+04fac6b4 : decd z20.d, 21, MUL #11                   : decd   %z20.d $0x15 mul $0x0b -> %z20.d
+04fac6d5 : decd z21.d, 22, MUL #11                   : decd   %z21.d $0x16 mul $0x0b -> %z21.d
+04fbc6f6 : decd z22.d, 23, MUL #12                   : decd   %z22.d $0x17 mul $0x0c -> %z22.d
+04fbc717 : decd z23.d, 24, MUL #12                   : decd   %z23.d $0x18 mul $0x0c -> %z23.d
+04fcc738 : decd z24.d, 25, MUL #13                   : decd   %z24.d $0x19 mul $0x0d -> %z24.d
+04fcc759 : decd z25.d, 26, MUL #13                   : decd   %z25.d $0x1a mul $0x0d -> %z25.d
+04fdc77a : decd z26.d, 27, MUL #14                   : decd   %z26.d $0x1b mul $0x0e -> %z26.d
+04fdc79b : decd z27.d, 28, MUL #14                   : decd   %z27.d $0x1c mul $0x0e -> %z27.d
+04fec7bc : decd z28.d, MUL4, MUL #15                 : decd   %z28.d MUL4 mul $0x0f -> %z28.d
+04fec7dd : decd z29.d, MUL3, MUL #15                 : decd   %z29.d MUL3 mul $0x0f -> %z29.d
+04ffc7ff : decd z31.d, ALL, MUL #16                  : decd   %z31.d ALL mul $0x10 -> %z31.d
+
+# DECH    <Xdn>{, <pattern>{, MUL #<imm>}} (DECH-R.RS-_)
+0470e400 : dech x0, POW2, MUL #1                     : dech   %x0 POW2 mul $0x01 -> %x0
+0470e421 : dech x1, VL1, MUL #1                      : dech   %x1 VL1 mul $0x01 -> %x1
+0471e442 : dech x2, VL2, MUL #2                      : dech   %x2 VL2 mul $0x02 -> %x2
+0471e463 : dech x3, VL3, MUL #2                      : dech   %x3 VL3 mul $0x02 -> %x3
+0472e484 : dech x4, VL4, MUL #3                      : dech   %x4 VL4 mul $0x03 -> %x4
+0472e4a5 : dech x5, VL5, MUL #3                      : dech   %x5 VL5 mul $0x03 -> %x5
+0473e4c6 : dech x6, VL6, MUL #4                      : dech   %x6 VL6 mul $0x04 -> %x6
+0473e4e7 : dech x7, VL7, MUL #4                      : dech   %x7 VL7 mul $0x04 -> %x7
+0474e508 : dech x8, VL8, MUL #5                      : dech   %x8 VL8 mul $0x05 -> %x8
+0474e528 : dech x8, VL16, MUL #5                     : dech   %x8 VL16 mul $0x05 -> %x8
+0475e549 : dech x9, VL32, MUL #6                     : dech   %x9 VL32 mul $0x06 -> %x9
+0475e56a : dech x10, VL64, MUL #6                    : dech   %x10 VL64 mul $0x06 -> %x10
+0476e58b : dech x11, VL128, MUL #7                   : dech   %x11 VL128 mul $0x07 -> %x11
+0476e5ac : dech x12, VL256, MUL #7                   : dech   %x12 VL256 mul $0x07 -> %x12
+0477e5cd : dech x13, 14, MUL #8                      : dech   %x13 $0x0e mul $0x08 -> %x13
+0477e5ee : dech x14, 15, MUL #8                      : dech   %x14 $0x0f mul $0x08 -> %x14
+0478e60f : dech x15, 16, MUL #9                      : dech   %x15 $0x10 mul $0x09 -> %x15
+0478e630 : dech x16, 17, MUL #9                      : dech   %x16 $0x11 mul $0x09 -> %x16
+0478e651 : dech x17, 18, MUL #9                      : dech   %x17 $0x12 mul $0x09 -> %x17
+0479e672 : dech x18, 19, MUL #10                     : dech   %x18 $0x13 mul $0x0a -> %x18
+0479e693 : dech x19, 20, MUL #10                     : dech   %x19 $0x14 mul $0x0a -> %x19
+047ae6b4 : dech x20, 21, MUL #11                     : dech   %x20 $0x15 mul $0x0b -> %x20
+047ae6d5 : dech x21, 22, MUL #11                     : dech   %x21 $0x16 mul $0x0b -> %x21
+047be6f6 : dech x22, 23, MUL #12                     : dech   %x22 $0x17 mul $0x0c -> %x22
+047be716 : dech x22, 24, MUL #12                     : dech   %x22 $0x18 mul $0x0c -> %x22
+047ce737 : dech x23, 25, MUL #13                     : dech   %x23 $0x19 mul $0x0d -> %x23
+047ce758 : dech x24, 26, MUL #13                     : dech   %x24 $0x1a mul $0x0d -> %x24
+047de779 : dech x25, 27, MUL #14                     : dech   %x25 $0x1b mul $0x0e -> %x25
+047de79a : dech x26, 28, MUL #14                     : dech   %x26 $0x1c mul $0x0e -> %x26
+047ee7bb : dech x27, MUL4, MUL #15                   : dech   %x27 MUL4 mul $0x0f -> %x27
+047ee7dc : dech x28, MUL3, MUL #15                   : dech   %x28 MUL3 mul $0x0f -> %x28
+047fe7fe : dech x30, ALL, MUL #16                    : dech   %x30 ALL mul $0x10 -> %x30
+
+# DECH    <Zdn>.H{, <pattern>{, MUL #<imm>}} (DECH-Z.ZS-_)
+0470c400 : dech z0.h, POW2, MUL #1                   : dech   %z0.h POW2 mul $0x01 -> %z0.h
+0470c421 : dech z1.h, VL1, MUL #1                    : dech   %z1.h VL1 mul $0x01 -> %z1.h
+0471c442 : dech z2.h, VL2, MUL #2                    : dech   %z2.h VL2 mul $0x02 -> %z2.h
+0471c463 : dech z3.h, VL3, MUL #2                    : dech   %z3.h VL3 mul $0x02 -> %z3.h
+0472c484 : dech z4.h, VL4, MUL #3                    : dech   %z4.h VL4 mul $0x03 -> %z4.h
+0472c4a5 : dech z5.h, VL5, MUL #3                    : dech   %z5.h VL5 mul $0x03 -> %z5.h
+0473c4c6 : dech z6.h, VL6, MUL #4                    : dech   %z6.h VL6 mul $0x04 -> %z6.h
+0473c4e7 : dech z7.h, VL7, MUL #4                    : dech   %z7.h VL7 mul $0x04 -> %z7.h
+0474c508 : dech z8.h, VL8, MUL #5                    : dech   %z8.h VL8 mul $0x05 -> %z8.h
+0474c529 : dech z9.h, VL16, MUL #5                   : dech   %z9.h VL16 mul $0x05 -> %z9.h
+0475c54a : dech z10.h, VL32, MUL #6                  : dech   %z10.h VL32 mul $0x06 -> %z10.h
+0475c56b : dech z11.h, VL64, MUL #6                  : dech   %z11.h VL64 mul $0x06 -> %z11.h
+0476c58c : dech z12.h, VL128, MUL #7                 : dech   %z12.h VL128 mul $0x07 -> %z12.h
+0476c5ad : dech z13.h, VL256, MUL #7                 : dech   %z13.h VL256 mul $0x07 -> %z13.h
+0477c5ce : dech z14.h, 14, MUL #8                    : dech   %z14.h $0x0e mul $0x08 -> %z14.h
+0477c5ef : dech z15.h, 15, MUL #8                    : dech   %z15.h $0x0f mul $0x08 -> %z15.h
+0478c610 : dech z16.h, 16, MUL #9                    : dech   %z16.h $0x10 mul $0x09 -> %z16.h
+0478c630 : dech z16.h, 17, MUL #9                    : dech   %z16.h $0x11 mul $0x09 -> %z16.h
+0478c651 : dech z17.h, 18, MUL #9                    : dech   %z17.h $0x12 mul $0x09 -> %z17.h
+0479c672 : dech z18.h, 19, MUL #10                   : dech   %z18.h $0x13 mul $0x0a -> %z18.h
+0479c693 : dech z19.h, 20, MUL #10                   : dech   %z19.h $0x14 mul $0x0a -> %z19.h
+047ac6b4 : dech z20.h, 21, MUL #11                   : dech   %z20.h $0x15 mul $0x0b -> %z20.h
+047ac6d5 : dech z21.h, 22, MUL #11                   : dech   %z21.h $0x16 mul $0x0b -> %z21.h
+047bc6f6 : dech z22.h, 23, MUL #12                   : dech   %z22.h $0x17 mul $0x0c -> %z22.h
+047bc717 : dech z23.h, 24, MUL #12                   : dech   %z23.h $0x18 mul $0x0c -> %z23.h
+047cc738 : dech z24.h, 25, MUL #13                   : dech   %z24.h $0x19 mul $0x0d -> %z24.h
+047cc759 : dech z25.h, 26, MUL #13                   : dech   %z25.h $0x1a mul $0x0d -> %z25.h
+047dc77a : dech z26.h, 27, MUL #14                   : dech   %z26.h $0x1b mul $0x0e -> %z26.h
+047dc79b : dech z27.h, 28, MUL #14                   : dech   %z27.h $0x1c mul $0x0e -> %z27.h
+047ec7bc : dech z28.h, MUL4, MUL #15                 : dech   %z28.h MUL4 mul $0x0f -> %z28.h
+047ec7dd : dech z29.h, MUL3, MUL #15                 : dech   %z29.h MUL3 mul $0x0f -> %z29.h
+047fc7ff : dech z31.h, ALL, MUL #16                  : dech   %z31.h ALL mul $0x10 -> %z31.h
 
 # DECP    <Xdn>, <Pm>.<T> (DECP-R.P.R-_)
 252d8800 : decp x0, p0.b                             : decp   %p0.b %x0 -> %x0
@@ -5621,6 +5891,108 @@
 04fa1338 : sqadd z24.d, z25.d, z26.d                 : sqadd  %z25.d %z26.d -> %z24.d
 04fc137a : sqadd z26.d, z27.d, z28.d                 : sqadd  %z27.d %z28.d -> %z26.d
 04fe13de : sqadd z30.d, z30.d, z30.d                 : sqadd  %z30.d %z30.d -> %z30.d
+
+# SQDECH  <Xdn>, <Wdn>{, <pattern>{, MUL #<imm>}} (SQDECH-R.RS-SX)
+0460f800 : sqdech x0, w0, POW2, MUL #1               : sqdech %w0 POW2 mul $0x01 -> %x0
+0460f821 : sqdech x1, w1, VL1, MUL #1                : sqdech %w1 VL1 mul $0x01 -> %x1
+0461f842 : sqdech x2, w2, VL2, MUL #2                : sqdech %w2 VL2 mul $0x02 -> %x2
+0461f863 : sqdech x3, w3, VL3, MUL #2                : sqdech %w3 VL3 mul $0x02 -> %x3
+0462f884 : sqdech x4, w4, VL4, MUL #3                : sqdech %w4 VL4 mul $0x03 -> %x4
+0462f8a5 : sqdech x5, w5, VL5, MUL #3                : sqdech %w5 VL5 mul $0x03 -> %x5
+0463f8c6 : sqdech x6, w6, VL6, MUL #4                : sqdech %w6 VL6 mul $0x04 -> %x6
+0463f8e7 : sqdech x7, w7, VL7, MUL #4                : sqdech %w7 VL7 mul $0x04 -> %x7
+0464f908 : sqdech x8, w8, VL8, MUL #5                : sqdech %w8 VL8 mul $0x05 -> %x8
+0464f928 : sqdech x8, w8, VL16, MUL #5               : sqdech %w8 VL16 mul $0x05 -> %x8
+0465f949 : sqdech x9, w9, VL32, MUL #6               : sqdech %w9 VL32 mul $0x06 -> %x9
+0465f96a : sqdech x10, w10, VL64, MUL #6             : sqdech %w10 VL64 mul $0x06 -> %x10
+0466f98b : sqdech x11, w11, VL128, MUL #7            : sqdech %w11 VL128 mul $0x07 -> %x11
+0466f9ac : sqdech x12, w12, VL256, MUL #7            : sqdech %w12 VL256 mul $0x07 -> %x12
+0467f9cd : sqdech x13, w13, 14, MUL #8               : sqdech %w13 $0x0e mul $0x08 -> %x13
+0467f9ee : sqdech x14, w14, 15, MUL #8               : sqdech %w14 $0x0f mul $0x08 -> %x14
+0468fa0f : sqdech x15, w15, 16, MUL #9               : sqdech %w15 $0x10 mul $0x09 -> %x15
+0468fa30 : sqdech x16, w16, 17, MUL #9               : sqdech %w16 $0x11 mul $0x09 -> %x16
+0468fa51 : sqdech x17, w17, 18, MUL #9               : sqdech %w17 $0x12 mul $0x09 -> %x17
+0469fa72 : sqdech x18, w18, 19, MUL #10              : sqdech %w18 $0x13 mul $0x0a -> %x18
+0469fa93 : sqdech x19, w19, 20, MUL #10              : sqdech %w19 $0x14 mul $0x0a -> %x19
+046afab4 : sqdech x20, w20, 21, MUL #11              : sqdech %w20 $0x15 mul $0x0b -> %x20
+046afad5 : sqdech x21, w21, 22, MUL #11              : sqdech %w21 $0x16 mul $0x0b -> %x21
+046bfaf6 : sqdech x22, w22, 23, MUL #12              : sqdech %w22 $0x17 mul $0x0c -> %x22
+046bfb16 : sqdech x22, w22, 24, MUL #12              : sqdech %w22 $0x18 mul $0x0c -> %x22
+046cfb37 : sqdech x23, w23, 25, MUL #13              : sqdech %w23 $0x19 mul $0x0d -> %x23
+046cfb58 : sqdech x24, w24, 26, MUL #13              : sqdech %w24 $0x1a mul $0x0d -> %x24
+046dfb79 : sqdech x25, w25, 27, MUL #14              : sqdech %w25 $0x1b mul $0x0e -> %x25
+046dfb9a : sqdech x26, w26, 28, MUL #14              : sqdech %w26 $0x1c mul $0x0e -> %x26
+046efbbb : sqdech x27, w27, MUL4, MUL #15            : sqdech %w27 MUL4 mul $0x0f -> %x27
+046efbdc : sqdech x28, w28, MUL3, MUL #15            : sqdech %w28 MUL3 mul $0x0f -> %x28
+046ffbfe : sqdech x30, w30, ALL, MUL #16             : sqdech %w30 ALL mul $0x10 -> %x30
+
+# SQDECH  <Xdn>{, <pattern>{, MUL #<imm>}} (SQDECH-R.RS-X)
+0470f800 : sqdech x0, POW2, MUL #1                   : sqdech %x0 POW2 mul $0x01 -> %x0
+0470f821 : sqdech x1, VL1, MUL #1                    : sqdech %x1 VL1 mul $0x01 -> %x1
+0471f842 : sqdech x2, VL2, MUL #2                    : sqdech %x2 VL2 mul $0x02 -> %x2
+0471f863 : sqdech x3, VL3, MUL #2                    : sqdech %x3 VL3 mul $0x02 -> %x3
+0472f884 : sqdech x4, VL4, MUL #3                    : sqdech %x4 VL4 mul $0x03 -> %x4
+0472f8a5 : sqdech x5, VL5, MUL #3                    : sqdech %x5 VL5 mul $0x03 -> %x5
+0473f8c6 : sqdech x6, VL6, MUL #4                    : sqdech %x6 VL6 mul $0x04 -> %x6
+0473f8e7 : sqdech x7, VL7, MUL #4                    : sqdech %x7 VL7 mul $0x04 -> %x7
+0474f908 : sqdech x8, VL8, MUL #5                    : sqdech %x8 VL8 mul $0x05 -> %x8
+0474f928 : sqdech x8, VL16, MUL #5                   : sqdech %x8 VL16 mul $0x05 -> %x8
+0475f949 : sqdech x9, VL32, MUL #6                   : sqdech %x9 VL32 mul $0x06 -> %x9
+0475f96a : sqdech x10, VL64, MUL #6                  : sqdech %x10 VL64 mul $0x06 -> %x10
+0476f98b : sqdech x11, VL128, MUL #7                 : sqdech %x11 VL128 mul $0x07 -> %x11
+0476f9ac : sqdech x12, VL256, MUL #7                 : sqdech %x12 VL256 mul $0x07 -> %x12
+0477f9cd : sqdech x13, 14, MUL #8                    : sqdech %x13 $0x0e mul $0x08 -> %x13
+0477f9ee : sqdech x14, 15, MUL #8                    : sqdech %x14 $0x0f mul $0x08 -> %x14
+0478fa0f : sqdech x15, 16, MUL #9                    : sqdech %x15 $0x10 mul $0x09 -> %x15
+0478fa30 : sqdech x16, 17, MUL #9                    : sqdech %x16 $0x11 mul $0x09 -> %x16
+0478fa51 : sqdech x17, 18, MUL #9                    : sqdech %x17 $0x12 mul $0x09 -> %x17
+0479fa72 : sqdech x18, 19, MUL #10                   : sqdech %x18 $0x13 mul $0x0a -> %x18
+0479fa93 : sqdech x19, 20, MUL #10                   : sqdech %x19 $0x14 mul $0x0a -> %x19
+047afab4 : sqdech x20, 21, MUL #11                   : sqdech %x20 $0x15 mul $0x0b -> %x20
+047afad5 : sqdech x21, 22, MUL #11                   : sqdech %x21 $0x16 mul $0x0b -> %x21
+047bfaf6 : sqdech x22, 23, MUL #12                   : sqdech %x22 $0x17 mul $0x0c -> %x22
+047bfb16 : sqdech x22, 24, MUL #12                   : sqdech %x22 $0x18 mul $0x0c -> %x22
+047cfb37 : sqdech x23, 25, MUL #13                   : sqdech %x23 $0x19 mul $0x0d -> %x23
+047cfb58 : sqdech x24, 26, MUL #13                   : sqdech %x24 $0x1a mul $0x0d -> %x24
+047dfb79 : sqdech x25, 27, MUL #14                   : sqdech %x25 $0x1b mul $0x0e -> %x25
+047dfb9a : sqdech x26, 28, MUL #14                   : sqdech %x26 $0x1c mul $0x0e -> %x26
+047efbbb : sqdech x27, MUL4, MUL #15                 : sqdech %x27 MUL4 mul $0x0f -> %x27
+047efbdc : sqdech x28, MUL3, MUL #15                 : sqdech %x28 MUL3 mul $0x0f -> %x28
+047ffbfe : sqdech x30, ALL, MUL #16                  : sqdech %x30 ALL mul $0x10 -> %x30
+
+# SQDECH  <Zdn>.H{, <pattern>{, MUL #<imm>}} (SQDECH-Z.ZS-_)
+0460c800 : sqdech z0.h, POW2, MUL #1                 : sqdech %z0.h POW2 mul $0x01 -> %z0.h
+0460c821 : sqdech z1.h, VL1, MUL #1                  : sqdech %z1.h VL1 mul $0x01 -> %z1.h
+0461c842 : sqdech z2.h, VL2, MUL #2                  : sqdech %z2.h VL2 mul $0x02 -> %z2.h
+0461c863 : sqdech z3.h, VL3, MUL #2                  : sqdech %z3.h VL3 mul $0x02 -> %z3.h
+0462c884 : sqdech z4.h, VL4, MUL #3                  : sqdech %z4.h VL4 mul $0x03 -> %z4.h
+0462c8a5 : sqdech z5.h, VL5, MUL #3                  : sqdech %z5.h VL5 mul $0x03 -> %z5.h
+0463c8c6 : sqdech z6.h, VL6, MUL #4                  : sqdech %z6.h VL6 mul $0x04 -> %z6.h
+0463c8e7 : sqdech z7.h, VL7, MUL #4                  : sqdech %z7.h VL7 mul $0x04 -> %z7.h
+0464c908 : sqdech z8.h, VL8, MUL #5                  : sqdech %z8.h VL8 mul $0x05 -> %z8.h
+0464c929 : sqdech z9.h, VL16, MUL #5                 : sqdech %z9.h VL16 mul $0x05 -> %z9.h
+0465c94a : sqdech z10.h, VL32, MUL #6                : sqdech %z10.h VL32 mul $0x06 -> %z10.h
+0465c96b : sqdech z11.h, VL64, MUL #6                : sqdech %z11.h VL64 mul $0x06 -> %z11.h
+0466c98c : sqdech z12.h, VL128, MUL #7               : sqdech %z12.h VL128 mul $0x07 -> %z12.h
+0466c9ad : sqdech z13.h, VL256, MUL #7               : sqdech %z13.h VL256 mul $0x07 -> %z13.h
+0467c9ce : sqdech z14.h, 14, MUL #8                  : sqdech %z14.h $0x0e mul $0x08 -> %z14.h
+0467c9ef : sqdech z15.h, 15, MUL #8                  : sqdech %z15.h $0x0f mul $0x08 -> %z15.h
+0468ca10 : sqdech z16.h, 16, MUL #9                  : sqdech %z16.h $0x10 mul $0x09 -> %z16.h
+0468ca30 : sqdech z16.h, 17, MUL #9                  : sqdech %z16.h $0x11 mul $0x09 -> %z16.h
+0468ca51 : sqdech z17.h, 18, MUL #9                  : sqdech %z17.h $0x12 mul $0x09 -> %z17.h
+0469ca72 : sqdech z18.h, 19, MUL #10                 : sqdech %z18.h $0x13 mul $0x0a -> %z18.h
+0469ca93 : sqdech z19.h, 20, MUL #10                 : sqdech %z19.h $0x14 mul $0x0a -> %z19.h
+046acab4 : sqdech z20.h, 21, MUL #11                 : sqdech %z20.h $0x15 mul $0x0b -> %z20.h
+046acad5 : sqdech z21.h, 22, MUL #11                 : sqdech %z21.h $0x16 mul $0x0b -> %z21.h
+046bcaf6 : sqdech z22.h, 23, MUL #12                 : sqdech %z22.h $0x17 mul $0x0c -> %z22.h
+046bcb17 : sqdech z23.h, 24, MUL #12                 : sqdech %z23.h $0x18 mul $0x0c -> %z23.h
+046ccb38 : sqdech z24.h, 25, MUL #13                 : sqdech %z24.h $0x19 mul $0x0d -> %z24.h
+046ccb59 : sqdech z25.h, 26, MUL #13                 : sqdech %z25.h $0x1a mul $0x0d -> %z25.h
+046dcb7a : sqdech z26.h, 27, MUL #14                 : sqdech %z26.h $0x1b mul $0x0e -> %z26.h
+046dcb9b : sqdech z27.h, 28, MUL #14                 : sqdech %z27.h $0x1c mul $0x0e -> %z27.h
+046ecbbc : sqdech z28.h, MUL4, MUL #15               : sqdech %z28.h MUL4 mul $0x0f -> %z28.h
+046ecbdd : sqdech z29.h, MUL3, MUL #15               : sqdech %z29.h MUL3 mul $0x0f -> %z29.h
+046fcbff : sqdech z31.h, ALL, MUL #16                : sqdech %z31.h ALL mul $0x10 -> %z31.h
 
 # SQDECP  <Xdn>, <Pm>.<T>, <Wdn> (SQDECP-R.P.R-SX)
 252a8800 : sqdecp x0, p0.b, w0                       : sqdecp %p0.b %w0 -> %x0
