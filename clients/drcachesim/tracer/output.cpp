@@ -94,7 +94,7 @@ local_instr_count_threshold(uint64 trace_for_instrs)
 
 // Returns whether we've reached the end of this tracing window.
 static bool
-count_traced_instrs(void *drcontext, int toadd, uint64 trace_for_instrs)
+count_traced_instrs(void *drcontext, uintptr_t toadd, uint64 trace_for_instrs)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     data->cur_window_instr_count += toadd;
@@ -1010,7 +1010,8 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         bool hit_window_end = false;
 
         if (op_L0_filter_until_instrs.get_value() && mode == BBDUP_MODE_L0_FILTER) {
-            int toadd = *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
+            uintptr_t toadd =
+                *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
             hit_window_end = count_traced_instrs(drcontext, toadd,
                                                  op_L0_filter_until_instrs.get_value());
             if (hit_window_end) {
