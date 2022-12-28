@@ -8,3 +8,5 @@
 .vscode
 build
 CMakeLists.txt.user
+tags
+cscope.out
