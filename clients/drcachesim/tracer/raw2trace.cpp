@@ -610,6 +610,8 @@ std::string
 raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                         OUT bool *end_of_record)
 {
+    // Set to initial state before processing a new trace.
+    saw_filter_endpoint_ = false;
     // We now convert each offline entry into a trace_entry_t.
     // We fill in instr entries and memref type and size.
     const offline_entry_t *in_entry = get_next_entry(tdata);
