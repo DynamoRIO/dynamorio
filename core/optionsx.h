@@ -630,6 +630,14 @@ OPTION_DEFAULT_INTERNAL(uint, opt_mangle, 1,
 OPTION_DEFAULT_INTERNAL(bool, unsafe_build_ldstex, false,
                         "replace blocks using exclusive load/store with a "
                         "macro-instruction (unsafe)")
+/* i#5771: fake the DIC bit of CTR.EL0.
+ * 0 - force DIC as 0
+ * 1 - force DIC as 1
+ * other - dont change
+ */
+OPTION_DEFAULT_INTERNAL(
+    uint, unsafe_fake_el0_dic, 2,
+    "fake DIC bit of CTR.EL0 (0:force 0, 1:force 1, other:dont change)")
 #endif
 #ifdef AARCHXX
 /* TODO i#1698: ARM is still missing the abilty to convert the following:
