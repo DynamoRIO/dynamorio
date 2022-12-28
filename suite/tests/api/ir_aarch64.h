@@ -82,7 +82,8 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
     char *buf = malloc(buflen);
 
     if (instr_get_opcode(instr) != opcode) {
-        print("incorrect opcode for instr %s: %s\n\n", opcode, instr_get_opcode(instr));
+        print("incorrect opcode for instr %s: %s\n\n", decode_opcode_name(opcode),
+              decode_opcode_name(instr_get_opcode(instr)));
         instr_destroy(dc, instr);
         return false;
     }
@@ -116,7 +117,7 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
         print("but expected:\n");
         print("   %s\n", expected);
         print("Encoded as:\n");
-        print("   %08x\n\n", pc);
+        print("   0x%08x\n\n", *((int *)pc));
         result = false;
     }
 
@@ -142,3 +143,19 @@ const reg_id_t Pn_six_offset_1[6] = { DR_REG_P0, DR_REG_P3,  DR_REG_P6,
                                       DR_REG_P9, DR_REG_P11, DR_REG_P15 };
 const reg_id_t Pn_six_offset_2[6] = { DR_REG_P0,  DR_REG_P4,  DR_REG_P7,
                                       DR_REG_P10, DR_REG_P12, DR_REG_P15 };
+const reg_id_t Xn_six_offset_0[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
+                                      DR_REG_X15, DR_REG_X20, DR_REG_X30 };
+const reg_id_t Xn_six_offset_1_zr[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
+                                         DR_REG_X16, DR_REG_X21, DR_REG_XZR };
+const reg_id_t Wn_six_offset_0[6] = { DR_REG_W0,  DR_REG_W5,  DR_REG_W10,
+                                      DR_REG_W15, DR_REG_W20, DR_REG_W30 };
+const reg_id_t Wn_six_offset_1_zr[6] = { DR_REG_W0,  DR_REG_W6,  DR_REG_W11,
+                                         DR_REG_W16, DR_REG_W21, DR_REG_WZR };
+const reg_id_t Vdn_b_six_offset_0[6] = { DR_REG_B0,  DR_REG_B5,  DR_REG_B10,
+                                         DR_REG_B16, DR_REG_B21, DR_REG_B31 };
+const reg_id_t Vdn_h_six_offset_0[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
+                                         DR_REG_H16, DR_REG_H21, DR_REG_H31 };
+const reg_id_t Vdn_s_six_offset_0[6] = { DR_REG_S0,  DR_REG_S5,  DR_REG_S10,
+                                         DR_REG_S16, DR_REG_S21, DR_REG_S31 };
+const reg_id_t Vdn_d_six_offset_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
+                                         DR_REG_D16, DR_REG_D21, DR_REG_D31 };

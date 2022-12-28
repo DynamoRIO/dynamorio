@@ -49,6 +49,7 @@ set(arg_package OFF)
 set(arg_require_format OFF)
 set(cross_aarchxx_linux_only OFF)
 set(cross_android_only OFF)
+set(cross_riscv64_linux_only OFF)
 set(arg_debug_only OFF) # Only build the main debug builds.
 set(arg_nontest_only OFF) # Only build configs with no tests.
 foreach (arg ${CTEST_SCRIPT_ARG})
@@ -56,6 +57,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     set(arg_automated_ci ON)
     if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
       set(cross_aarchxx_linux_only ON)
+    endif()
+    if ($ENV{DYNAMORIO_CROSS_RISCV64_LINUX_ONLY} MATCHES "yes")
+      set(cross_riscv64_linux_only ON)
     endif()
     if ($ENV{DYNAMORIO_CROSS_ANDROID_ONLY} MATCHES "yes")
       set(cross_android_only ON)
@@ -319,7 +323,8 @@ endif ()
 # also turned on for release-external-64, but ctest will run with label
 # RUN_IN_RELEASE.
 
-if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_only)
+if (NOT cross_riscv64_linux_only AND NOT cross_aarchxx_linux_only AND
+  NOT cross_android_only AND NOT a64_on_x86_only)
   # For cross-arch execve test we need to "make install"
   if (NOT arg_nontest_only)
     testbuild_ex("debug-internal-32" OFF "
@@ -417,7 +422,8 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_o
         ")
     endif (DO_ALL_BUILDS)
   endif (ARCH_IS_X86 AND NOT APPLE)
-endif (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_only)
+endif (NOT cross_riscv64_linux_only AND NOT cross_aarchxx_linux_only AND
+  NOT cross_android_only AND NOT a64_on_x86_only)
 
 if (UNIX AND ARCH_IS_X86)
   # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
@@ -544,6 +550,38 @@ if (ARCH_IS_X86 AND UNIX AND (a64_on_x86_only OR NOT arg_automated_ci))
     INTERNAL:BOOL=ON
     ${build_tests}
     " OFF ${arg_package} "")
+endif ()
+
+if (ARCH_IS_X86 AND UNIX)
+  # TODO i#3544: Run tests under QEMU
+  set(orig_extra_ctest_args ${extra_ctest_args})
+  set(prev_optional_cross_compile ${optional_cross_compile})
+  set(prev_run_tests ${run_tests})
+  set(run_tests OFF)
+  if (NOT cross_riscv64_linux_only)
+    set(optional_cross_compile ON)
+  endif ()
+  set(ARCH_IS_X86 OFF)
+  # TODO i#3544: Port tests to RISCV and build them in the workflow.
+  set(build_tests "BUILD_TESTS:BOOL=OFF")
+
+  testbuild_ex("riscv64-debug-internal" ON "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    ${build_tests}
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-riscv64.cmake
+    " OFF ${arg_package} "")
+  testbuild_ex("riscv64-release-external" ON "
+    DEBUG:BOOL=OFF
+    INTERNAL:BOOL=OFF
+    ${build_tests}
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-riscv64.cmake
+    " OFF ${arg_package} "")
+
+  set(run_tests ${prev_run_tests})
+  set(extra_ctest_args ${orig_extra_ctest_args})
+  set(optional_cross_compile ${prev_optional_cross_compile})
+
 endif ()
 
 # XXX: do we still care about these builds?

@@ -384,6 +384,24 @@ opnd_create_immed_int64(int64 i, opnd_size_t size)
     return opnd;
 }
 
+opnd_t
+opnd_invert_immed_int(opnd_t opnd)
+{
+    CLIENT_ASSERT(opnd.kind == IMMED_INTEGER_kind, "opnd_invert_immed_int: invalid kind");
+
+    const int bit_size = opnd_size_in_bits(opnd.size);
+    const uint64 mask =
+        (bit_size < 64) ? ((uint64)1 << opnd_size_in_bits(opnd.size)) - 1 : ~((uint64)0);
+    if (opnd.aux.flags & DR_OPND_MULTI_PART) {
+        opnd.value.immed_int_multi_part.low &= mask;
+        opnd.value.immed_int_multi_part.high &= mask >> 32;
+    } else {
+        opnd.value.immed_int = ~opnd.value.immed_int & mask;
+    }
+
+    return opnd;
+}
+
 bool
 opnd_is_immed_int64(opnd_t opnd)
 {
@@ -424,6 +442,20 @@ opnd_create_immed_double(double i)
     opnd.value.immed_double = i;
     /* currently only used for implicit constants that have no size */
     opnd.size = OPSZ_0;
+    return opnd;
+}
+#endif
+
+#ifdef AARCH64
+opnd_t
+opnd_create_immed_pred_constr(dr_pred_constr_type_t p)
+{
+    opnd_t opnd;
+    opnd.kind = IMMED_INTEGER_kind;
+    opnd.aux.flags = DR_OPND_IS_PREDICATE_CONSTRAINT;
+    opnd.value.immed_int = p;
+    /* all predicate constraints have 5 bits*/
+    opnd.size = OPSZ_5b;
     return opnd;
 }
 #endif

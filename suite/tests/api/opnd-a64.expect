@@ -17,4 +17,14 @@ location: 248
 location: 192
 location: 252
 location: 224
+opnd size: 1, value: 0x0
+opnd size: 1, value: 0x1
+opnd size: 3, value: 0x6
+opnd size: 3, value: 0x2
+opnd size: 8, value: 0xcc
+opnd size: 8, value: 0xf
+opnd size: 32, value: 0xcccccccc
+opnd size: 32, value: 0xf0f0f0f
+opnd size: 64, value: 0xf0f0f0fcccccccc
+opnd size: 64, value: 0xcccccccc0f0f0f0f
 all done

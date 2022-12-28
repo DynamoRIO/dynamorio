@@ -1618,6 +1618,7 @@ typedef enum _dr_shift_type_t {
     DR_SHIFT_LSR, /**< Logical shift right. */
     DR_SHIFT_ASR, /**< Arithmetic shift right. */
     DR_SHIFT_ROR, /**< Rotate right. */
+    DR_SHIFT_MUL, /**< Multiply. */
     /**
      * The register is rotated right by 1 bit, with the carry flag (rather than
      * bit 0) being shifted in to the most-significant bit.  (For shifts of
@@ -1650,6 +1651,49 @@ typedef enum _dr_extend_type_t {
     DR_EXTEND_SXTW,     /**< Signed extend word. */
     DR_EXTEND_SXTX,     /**< Signed extend doubleword (a no-op). */
 } dr_extend_type_t;
+
+/**
+ * These flags describe the values for "pattern" operands for aarch64
+ * predicate count instructions. They are always set for imms with the
+ * flag #DR_OPND_IS_PREDICATE_CONSTRAINT
+ */
+typedef enum _dr_pred_constr_type_t {
+    DR_PRED_CONSTR_POW2 = 0, /**< POW2 pattern. */
+    DR_PRED_CONSTR_VL1,      /**< 1 active elements. */
+    DR_PRED_CONSTR_VL2,      /**< 2 active elements. */
+    DR_PRED_CONSTR_VL3,      /**< 3 active elements. */
+    DR_PRED_CONSTR_VL4,      /**< 4 active elements. */
+    DR_PRED_CONSTR_VL5,      /**< 5 active elements. */
+    DR_PRED_CONSTR_VL6,      /**< 6 active elements. */
+    DR_PRED_CONSTR_VL7,      /**< 7 active elements. */
+    DR_PRED_CONSTR_VL8,      /**< 8 active elements. */
+    DR_PRED_CONSTR_VL16,     /**< 16 active elements. */
+    DR_PRED_CONSTR_VL32,     /**< 32 active elements. */
+    DR_PRED_CONSTR_VL64,     /**< 64 active elements. */
+    DR_PRED_CONSTR_VL128,    /**< 128 active elements. */
+    DR_PRED_CONSTR_VL256,    /**< 256 active elements. */
+    DR_PRED_CONSTR_UIMM5_14, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_15, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_16, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_17, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_18, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_19, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_20, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_21, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_22, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_23, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_24, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_25, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_26, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_27, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_UIMM5_28, /**< Unspecified constraint. */
+    DR_PRED_CONSTR_MUL4,     /**< Largest multiple of 4 active elements. */
+    DR_PRED_CONSTR_MUL3,     /**< Largest multiple of 3 active elements. */
+    DR_PRED_CONSTR_ALL,      /**< all elements active. */
+
+    DR_PRED_CONSTR_FIRST_NUMBER = DR_PRED_CONSTR_UIMM5_14,
+    DR_PRED_CONSTR_LAST_NUMBER = DR_PRED_CONSTR_UIMM5_28,
+} dr_pred_constr_type_t;
 
 /**
  * These flags describe operations performed on the value of a source register
@@ -1709,6 +1753,11 @@ typedef enum _dr_opnd_flags_t {
      */
     DR_OPND_IS_MERGE_PREDICATE = 0x200,
     DR_OPND_IS_ZERO_PREDICATE = 0x400,
+    /**
+     * This immediate integer operand should be treated as an AArch64
+     * SVE predicate constraint
+     */
+    DR_OPND_IS_PREDICATE_CONSTRAINT = 0x800,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -1888,14 +1937,20 @@ INSTR_INLINE
 opnd_t
 opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size);
 
+#ifdef AARCH64
 DR_API
 INSTR_INLINE
 /**
- * Returns a register operand corresponding to a vector
- * register that has an element size.
+ * Returns a SVE predicate register for use as a governing predicate
+ * with either "/m" merge mode set or "/z" zeroing mode set depending
+ * on /p is_merge
+ * For creating general (non-governing) predicate registers,
+ * use opnd_create_reg() for scalar predicates and
+ * opnd_create_reg_element_vector() for vector predicates.
  */
 opnd_t
 opnd_create_predicate_reg(reg_id_t r, bool is_merge);
+#endif
 
 DR_API
 INSTR_INLINE
@@ -1937,6 +1992,14 @@ opnd_create_immed_int64(int64 i, opnd_size_t data_size);
 
 DR_API
 /**
+ * Performs a bitwise NOT operation on the integer value in \p opnd, but only on the LSB
+ * bits provided by opnd_size_in_bits(opnd). \p opnd must carry an immed integer.
+ */
+opnd_t
+opnd_invert_immed_int(opnd_t opnd);
+
+DR_API
+/**
  * Returns an immediate float operand with value \p f.
  * The caller's code should use proc_save_fpstate() or be inside a
  * clean call that has requested to preserve the floating-point state.
@@ -1957,6 +2020,16 @@ DR_API
  */
 opnd_t
 opnd_create_immed_double(double d);
+#endif
+
+#ifdef AARCH64
+DR_API
+/**
+ * Returns an immediate operand for use in SVE predicate constraint
+ * operands.
+ */
+opnd_t
+opnd_create_immed_pred_constr(dr_pred_constr_type_t p);
 #endif
 
 DR_API
