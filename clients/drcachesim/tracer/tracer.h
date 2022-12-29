@@ -168,7 +168,7 @@ enum {
     BBDUP_MODE_COUNT = 1,     /* Instr counting for delayed tracing or trace windows. */
     BBDUP_MODE_FUNC_ONLY = 2, /* Function tracing during no-full-trace periods. */
     BBDUP_MODE_NOP = 3,       /* No tracing or counting for pre-attach or post-detach. */
-    BBDUP_MODE_L0_FILTER = 4, /* Full address tracing with L0_filter. */
+    BBDUP_MODE_L0_FILTER = 4, /* Address tracing with L0_filter. */
 };
 
 #if defined(X86_64) || defined(AARCH64)

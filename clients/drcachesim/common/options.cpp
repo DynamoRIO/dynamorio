@@ -508,7 +508,8 @@ droption_t<bytesize_t>
 droption_t<bytesize_t> op_L0_filter_until_instrs(
     DROPTION_SCOPE_CLIENT, "L0_filter_until_instrs", 0,
     "Number of instructions for warmup trace",
-    "Specifies the number of instructions to run in warmup mode. In warmup mode, we "
+    "Specifies the number of instructions to run in warmup mode. This instruction count "
+    "is per-thread. In warmup mode, we "
     "filter accesses through the -L0{D,I}_filter caches. If neither -L0D_filter nor "
     "-L0I_filter are specified then both are assumed to be true. The size of these can "
     "be specified using -L0{D,I}_size. The filter instructions come after the "

@@ -1007,14 +1007,13 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     }
 
     if (do_write) {
-        bool hit_window_end = false;
 
         if (op_L0_filter_until_instrs.get_value() && mode == BBDUP_MODE_L0_FILTER) {
             uintptr_t toadd =
                 *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
-            hit_window_end = count_traced_instrs(drcontext, toadd,
-                                                 op_L0_filter_until_instrs.get_value());
-            if (hit_window_end) {
+            bool reached_L0_filter_until_instrs_limit = count_traced_instrs(
+                drcontext, toadd, op_L0_filter_until_instrs.get_value());
+            if (reached_L0_filter_until_instrs_limit) {
                 data->bytes_written = 0;
                 NOTIFY(0, "Adding filter endpoint marker for -L0_filter_until_instrs\n");
                 size_t add =
@@ -1027,6 +1026,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
             }
         } else if (op_trace_for_instrs.get_value() > 0) {
+            bool hit_window_end = false;
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
                 if (!window_changed && !hit_window_end &&
