@@ -1,6 +1,6 @@
 Hit delay threshold: enabling tracing.
 Adding endpoint marker
-Hit tracing filter limit : switching to full trace.
+Hit tracing window #0 filter limit: switching to full trace.
 Hit tracing window #0 limit: disabling tracing.
 Hit retrace threshold: enabling tracing for window #1.
 [^W]*

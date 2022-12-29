@@ -1,7 +1,7 @@
 Assuming both L0D_filter and L0I_filter for L0_filter_until_instrs
 Hit delay threshold: enabling tracing.
 Adding endpoint marker
-Hit tracing filter limit : switching to full trace.
+Hit tracing window #0 filter limit: switching to full trace.
 Hello, world!
 Basic counts tool results:
 Total counts:

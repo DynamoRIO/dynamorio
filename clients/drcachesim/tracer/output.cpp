@@ -1020,7 +1020,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                 size_t add =
                     instru->append_marker(buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
                 buf_ptr += add;
-                NOTIFY(0, "Hit tracing filter limit : switching to full trace.\n");
+                NOTIFY(0,
+                       "Hit tracing window #%zd filter limit: switching to full trace.\n",
+                       tracing_window.load(std::memory_order_acquire));
 
                 tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
             }
