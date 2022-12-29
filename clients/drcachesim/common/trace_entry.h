@@ -611,8 +611,9 @@ typedef enum {
         OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
     /**
      * Note: this file type may transition to non-filtered. This transition is indicated
-     * by the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. A single-file multi-window file
-     * that starts out filtered is guaranteed to have every window start out filtered.
+     * by the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. Each window (which is indicated by
+     * the TRACE_MARKER_TYPE_WINDOW_ID marker) starts out filtered.
+     * TODO: add a new file type for mixed traces.
      */
     OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */

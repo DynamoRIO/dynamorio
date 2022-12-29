@@ -121,7 +121,6 @@ reached_traced_instrs_threshold(void *drcontext)
         dr_mutex_unlock(mutex);
         return;
     }
-    ptr_int_t mode = tracing_mode.load(std::memory_order_acquire);
     // We've reached the end of our window.
     // We do not attempt a proactive synchronous flush of other threads'
     // buffers, relying on our end-of-block check for a mode change.
@@ -138,7 +137,7 @@ reached_traced_instrs_threshold(void *drcontext)
     tracing_window.fetch_add(1, std::memory_order_release);
     // We delay creating a new ouput dir until tracing is enabled again, to avoid
     // an empty final dir.
-    DR_ASSERT(mode == BBDUP_MODE_TRACE);
+    DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE);
     tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
     cur_window_instr_count.store(0, std::memory_order_release);
     dr_mutex_unlock(mutex);
@@ -975,9 +974,10 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         if (op_offline.get_value() && op_split_windows.get_value())
             buf_ptr += instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
     }
-
     uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
-
+    // When -L0_filter_until_instrs is used with -max_trace_size/-max_global_trace_refs,
+    // the max size/refs limit applies to the full trace and not the filtered trace so we
+    // can skip the check in filter mode.
     if (!skip_size_cap && mode != BBDUP_MODE_L0_FILTER &&
         (is_bytes_written_beyond_trace_max(data) || is_num_refs_beyond_global_max())) {
         /* We don't guarantee to match the limit exactly so we allow one buffer
@@ -1016,7 +1016,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                                                  op_L0_filter_until_instrs.get_value());
             if (hit_window_end) {
                 data->bytes_written = 0;
-                NOTIFY(0, "Adding endpoint marker\n");
+                NOTIFY(0, "Adding filter endpoint marker for -L0_filter_until_instrs\n");
                 size_t add =
                     instru->append_marker(buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
                 buf_ptr += add;
@@ -1084,6 +1084,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     if (mode == BBDUP_MODE_L0_FILTER) {
         num_filter_refs_racy += current_num_refs;
     }
+    // When -L0_filter_until_instrs is used with -exit_after_tracing, the
+    // exit_after_tracing limit applies to the full trace and not the filtered trace so we
+    // can skip this check in filter mode.
     if (mode != BBDUP_MODE_L0_FILTER && op_exit_after_tracing.get_value() > 0 &&
         (num_refs_racy - num_filter_refs_racy) > op_exit_after_tracing.get_value()) {
         dr_mutex_lock(mutex);

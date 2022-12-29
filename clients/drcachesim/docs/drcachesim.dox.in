@@ -1119,9 +1119,8 @@ limited in several ways:
   tracing options listed above. The filter trace and full trace are stored in a
   single file separated by a #TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. When
   used with windows (i.e., \p -retrace_every_instrs), each window contains a
-  filter trace and a full trace. When we have windows contained in a
-  single-file, the #TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of
-  filtered records.
+  filter trace and a full trace. The #TRACE_MARKER_TYPE_WINDOW_ID markers
+  indicate start of filtered records.
 
 If the application can be modified, it can be linked with the \p drcachesim
 tracer and use DynamoRIO's start/stop API routines dr_app_setup_and_start()
