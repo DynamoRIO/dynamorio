@@ -453,6 +453,9 @@ event_post_attach()
     if (op_trace_after_instrs.get_value() != 0) {
         NOTIFY(1, "Switching to counting mode after attach\n");
         tracing_mode.store(BBDUP_MODE_COUNT, std::memory_order_release);
+    } else if (op_L0_filter_until_instrs.get_value()) {
+        NOTIFY(1, "Switching to filter mode after attach\n");
+        tracing_mode.store(BBDUP_MODE_L0_FILTER, std::memory_order_release);
     } else {
         NOTIFY(1, "Switching to tracing mode after attach\n");
         tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);

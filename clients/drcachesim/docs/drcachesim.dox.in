@@ -1115,7 +1115,7 @@ limited in several ways:
   by each thread.  This is a per-thread limit, and if one thread hits the
   limit it does not affect the trace recoding of other threads.
 - The \p -L0_filter_until_instrs option collects a filtered trace before
-  transitioning to a full trace. It is intended to be used with one of the
+  transitioning to a full trace. It is compatible with the
   tracing options listed above. The filter trace and full trace are stored in a
   single file separated by a #TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. When
   used with windows (i.e., \p -retrace_every_instrs), each window contains a

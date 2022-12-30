@@ -734,7 +734,9 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
     DR_ASSERT(span % instru->sizeof_entry() == 0);
     uint current_num_refs = (uint)(span / instru->sizeof_entry());
     data->num_refs += current_num_refs;
-    data->bytes_written += buf_ptr - pipe_start;
+    uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
+    if (mode != BBDUP_MODE_L0_FILTER)
+        data->bytes_written += buf_ptr - pipe_start;
     bool is_v2p = false;
     if (buf_base >= data->v2p_buf && buf_base < data->v2p_buf + get_v2p_buffer_size())
         is_v2p = true;
@@ -1014,7 +1016,6 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             bool reached_L0_filter_until_instrs_limit = count_traced_instrs(
                 drcontext, toadd, op_L0_filter_until_instrs.get_value());
             if (reached_L0_filter_until_instrs_limit) {
-                data->bytes_written = 0;
                 NOTIFY(0, "Adding filter endpoint marker for -L0_filter_until_instrs\n");
                 size_t add =
                     instru->append_marker(buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
