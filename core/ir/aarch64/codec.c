@@ -2424,6 +2424,22 @@ encode_opnd_p10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_p(10, 15, opnd, enc_out);
 }
 
+/* p10_mrg: SVE predicate registers p0-p15, merging */
+static inline bool
+decode_opnd_p10_mrg(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_predicate_reg(DR_REG_P0 + extract_uint(enc, 10, 4), true);
+    return true;
+}
+
+static inline bool
+encode_opnd_p10_mrg(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_predicate_merge(opnd))
+        return false;
+    return encode_opnd_p(10, 15, opnd, enc_out);
+}
+
 /* p10_zer: SVE predicate registers p0-p15, zeroing */
 static inline bool
 decode_opnd_p10_zer(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
