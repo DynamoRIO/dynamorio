@@ -446,6 +446,20 @@ opnd_create_immed_double(double i)
 }
 #endif
 
+#ifdef AARCH64
+opnd_t
+opnd_create_immed_pred_constr(dr_pred_constr_type_t p)
+{
+    opnd_t opnd;
+    opnd.kind = IMMED_INTEGER_kind;
+    opnd.aux.flags = DR_OPND_IS_PREDICATE_CONSTRAINT;
+    opnd.value.immed_int = p;
+    /* all predicate constraints have 5 bits*/
+    opnd.size = OPSZ_5b;
+    return opnd;
+}
+#endif
+
 opnd_t
 opnd_create_immed_float_for_opcode(uint opcode)
 {

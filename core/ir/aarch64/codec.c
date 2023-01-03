@@ -1433,6 +1433,25 @@ encode_opnd_lsl(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return true;
 }
 
+/* mul: constant MUL for predicate counts, no encoding bits */
+
+static inline bool
+decode_opnd_mul(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint t = DR_SHIFT_MUL;
+    return decode_opnd_int(0, 4, false, 0, OPSZ_2b, DR_OPND_IS_SHIFT, t, opnd);
+}
+
+static inline bool
+encode_opnd_mul(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint t;
+    if (!encode_opnd_int(0, 4, false, 0, DR_OPND_IS_SHIFT, opnd, &t) || t != DR_SHIFT_MUL)
+        return false;
+    *enc_out = 0;
+    return true;
+}
+
 /* h_sz: Operand size for half precision encoding of floating point vector
  * instructions. We need to convert the generic size operand to the right
  * encoding bits. It only supports ISZ_HALF.
@@ -1818,6 +1837,30 @@ encode_opnd_z0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 }
 
 static inline bool
+decode_opnd_z_h_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 0, 5, HALF_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_h_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 0, HALF_REG, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_s_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 0, 5, SINGLE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_s_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 0, SINGLE_REG, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_z_d_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_single_sized(DR_REG_Z0, 0, 5, DOUBLE_REG, enc, opnd);
@@ -2101,6 +2144,26 @@ static inline bool
 encode_opnd_mem9qpost(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_mem9_bytes(16, true, opnd, enc_out);
+}
+
+/**
+ * pred_constr: predicate constraints which set active elements for various
+ * opcodes. Treated as imms internally. Named constraints are stringified on
+ * output. Unspecified constraints are output as ints.
+ */
+
+static inline bool
+decode_opnd_pred_constr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(5, 5, false, 0, OPSZ_5b, DR_OPND_IS_PREDICATE_CONSTRAINT, enc,
+                           opnd);
+}
+
+static inline bool
+encode_opnd_pred_constr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(5, 5, false, 0, DR_OPND_IS_PREDICATE_CONSTRAINT, opnd,
+                           enc_out);
 }
 
 /* vmsz: B/H/S/D for load/store multiple structures */
@@ -3098,6 +3161,29 @@ encode_opnd_p_b_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     if (!opnd_is_predicate_reg(opnd))
         return false;
     return encode_single_sized(OPSZ_SCALABLE_PRED, 16, BYTE_REG, opnd, enc_out);
+}
+
+/* imm4_16p1: immediate operand for some predicate counts */
+
+static inline bool
+decode_opnd_imm4_16p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    ptr_int_t val = extract_uint(enc, 16, 4) + 1;
+    *opnd = opnd_create_immed_int(val, OPSZ_4b);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm4_16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_uint_t val;
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    val = opnd_get_immed_int(opnd) - 1;
+    if (val < 0 || val > ((uint)1 << 4))
+        return false;
+    *enc_out = val << 16;
+    return true;
 }
 
 /* sysreg: system register, operand of MRS/MSR */
@@ -4377,6 +4463,25 @@ static inline bool
 encode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 1);
+}
+
+/* r_size_wx_0: GPR scalar register, register size, W or X depending on size bits */
+static inline bool
+decode_opnd_r_size_wx_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const bool is_x = extract_uint(enc, 22, 2) == 0b11;
+    return decode_opnd_wxn(is_x, false, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_r_size_wx_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd))
+        return false;
+
+    const reg_id_t reg = opnd_get_reg(opnd);
+    const bool is_x = (DR_REG_X0 <= reg && reg <= DR_REG_X30) || (reg == DR_REG_XZR);
+    return encode_opnd_wxn(is_x, false, 0, opnd, enc_out);
 }
 
 /* fpimm13: floating-point immediate for scalar fmov */

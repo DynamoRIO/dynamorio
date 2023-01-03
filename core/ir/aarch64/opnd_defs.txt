@@ -65,6 +65,7 @@
 
 --------------------------------  impx30     # implicit X30 operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
+--------------------------------  mul        # implicit MUL
 --------------------------------  h_sz       # element width of FP vector reg, used to
                                              # distinguish FP16 and float/double encs
 --------------------------------  b_const_sz # as above, but for byte width
@@ -89,6 +90,8 @@
 ---------------------------xxxxx  d0         # D register
 ---------------------------xxxxx  q0         # Q register
 ---------------------------xxxxx  z0         # Z register
+---------------------------xxxxx  z_h_0      # Z register with h size elements
+---------------------------xxxxx  z_s_0      # Z register with s size elements
 ---------------------------xxxxx  z_d_0      # Z register with d size elements
 ---------------------------xxxxx  z_q_0      # Z register with q size elements
 ---------------------------xxxxx  q0p1       # Q register, add 1
@@ -110,6 +113,7 @@
 ----------------------xxxxx-----  z_d_5      # Z register with d size elements
 ----------------------xxxxx-----  z_q_5      # Z register with q size elements
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
+----------------------xxxxx-----  pred_constr  # pattern operand
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
 --------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB, MSR
                                              # CRm field for SYS and SYSL
@@ -149,6 +153,7 @@
 ------------xxxx----------------  p16_mrg    # merging P register at position 16
 ------------xxxx----------------  p16_zer    # zeroing P register at position 16
 ------------xxxx----------------  p_b_16     # P register with a byte element size at position 16
+------------xxxx----------------  imm4_16p1  # 4bit imm at 19-16, plus 1
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------?????----------------  bh_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????----------------  bhs_imm5_sz # Size encoded as least significant bit in imm5
@@ -204,6 +209,7 @@
 ---------++++xxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
 ---------++++xxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
 ---------++++xxx----------------  immhb_fxp  # encoding of #fbits value in immh:immb fields
+--------??-----------------xxxxx  r_size_wx_0      # GPR scalar register, elsz depending on size
 --------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
