@@ -8058,4 +8058,228 @@
  */
 #define INSTR_CREATE_uqincw_sve(dc, Zdn, pattern, imm) \
     instr_create_1dst_4src(dc, OP_uqincw, Zdn, Zdn, pattern, OPND_CREATE_MUL(), imm)
+
+/**
+ * Creates a BRKA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BRKA    <Pd>.B, <Pg>/<ZM>, <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_brka_sve_pred(dc, Pd, Pg, Pn) \
+    instr_create_1dst_2src(dc, OP_brka, Pd, Pg, Pn)
+
+/**
+ * Creates a BRKAS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BRKAS   <Pd>.B, <Pg>/Z, <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_brkas_sve_pred(dc, Pd, Pg, Pn) \
+    instr_create_1dst_2src(dc, OP_brkas, Pd, Pg, Pn)
+
+/**
+ * Creates a BRKB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BRKB    <Pd>.B, <Pg>/<ZM>, <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_brkb_sve_pred(dc, Pd, Pg, Pn) \
+    instr_create_1dst_2src(dc, OP_brkb, Pd, Pg, Pn)
+
+/**
+ * Creates a BRKBS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BRKBS   <Pd>.B, <Pg>/Z, <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_brkbs_sve_pred(dc, Pd, Pg, Pn) \
+    instr_create_1dst_2src(dc, OP_brkbs, Pd, Pg, Pn)
+
+/**
+ * Creates a BRKN instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BRKN    <Pdm>.B, <Pg>/Z, <Pn>.B, <Pdm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pdm   The second source and destination predicate register, P
+ *              (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_brkn_sve_pred(dc, Pdm, Pg, Pn) \
+    instr_create_1dst_3src(dc, OP_brkn, Pdm, Pg, Pn, Pdm)
+
+/**
+ * Creates a BRKNS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BRKNS   <Pdm>.B, <Pg>/Z, <Pn>.B, <Pdm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pdm   The second source and destination predicate register, P
+ *              (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_brkns_sve_pred(dc, Pdm, Pg, Pn) \
+    instr_create_1dst_3src(dc, OP_brkns, Pdm, Pg, Pn, Pdm)
+
+/**
+ * Creates a BRKPA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BRKPA   <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ * \param Pm   The second source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_brkpa_sve_pred(dc, Pd, Pg, Pn, Pm) \
+    instr_create_1dst_3src(dc, OP_brkpa, Pd, Pg, Pn, Pm)
+
+/**
+ * Creates a BRKPAS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BRKPAS  <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ * \param Pm   The second source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_brkpas_sve_pred(dc, Pd, Pg, Pn, Pm) \
+    instr_create_1dst_3src(dc, OP_brkpas, Pd, Pg, Pn, Pm)
+
+/**
+ * Creates a BRKPB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BRKPB   <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ * \param Pm   The second source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_brkpb_sve_pred(dc, Pd, Pg, Pn, Pm) \
+    instr_create_1dst_3src(dc, OP_brkpb, Pd, Pg, Pn, Pm)
+
+/**
+ * Creates a BRKPBS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BRKPBS  <Pd>.B, <Pg>/Z, <Pn>.B, <Pm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ * \param Pm   The second source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_brkpbs_sve_pred(dc, Pd, Pg, Pn, Pm) \
+    instr_create_1dst_3src(dc, OP_brkpbs, Pd, Pg, Pn, Pm)
+
+/**
+ * Creates a WHILELE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    WHILELE <Pd>.<Ts>, <R><n>, <R><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilele_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilele, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILELO instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    WHILELO <Pd>.<Ts>, <R><n>, <R><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilelo_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilelo, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILELS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    WHILELS <Pd>.<Ts>, <R><n>, <R><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilels_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilels, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILELT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    WHILELT <Pd>.<Ts>, <R><n>, <R><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilelt_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilelt, Pd, Rn, Rm)
 #endif /* DR_IR_MACROS_AARCH64_H */
