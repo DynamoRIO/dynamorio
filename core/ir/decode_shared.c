@@ -186,11 +186,12 @@ dr_set_sve_vl(int vl)
      * CLIENT_ASSERT(!proc_has_feature(FEATURE_SVE),
      *               "SVE vector length not settable when running on SVE h/w.");
      */
-    for (int i = 0; i < sizeof(sve_veclens); i++)
+    for (int i = 0; i < sizeof(sve_veclens); i++) {
         if (vl == sve_veclens[i]) {
             sve_veclen = vl;
             return;
         }
+    }
     CLIENT_ASSERT(false, "invalid SVE vector length");
 }
 
