@@ -56,4 +56,21 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
     ((((uint32)(_enc)) >> (bitmin)) & \
      (uint32)((1ULL << ((bitmax) - (bitmin) + 1)) - 1ULL))
 
+#if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
+/* i3044 TODO: Vector length will be read from cpuinfo, e.g.
+ * opnd_size_from_bytes(proc_get_vector_length()));
+ * Setting to fixed size for now in order to pass unit tests.
+ */
+#    define OPSZ_SVE_VL opnd_size_from_bytes(dr_get_sve_vl() / 8)
+#else
+/* SVE vector length for off-line decoder set using -vl option with drdisas,
+ * e.g.
+ * $ drdisas -vl 256 e58057a1 85865e6b
+ *  e58057a1   str    %z1 -> +0x05(%x29)[32byte]
+ *  85865e6b   ldr    +0x37(%x19)[32byte] -> %z11
+ * $
+ */
+#    define OPSZ_SVE_VL opnd_size_from_bytes(dr_get_sve_vl() / 8)
+#endif
+
 #endif /* CODEC_H */

@@ -54,6 +54,13 @@ droption_t<std::string> op_syntax(DROPTION_SCOPE_FRONTEND, "syntax", "intel",
 droption_t<std::string> op_mode(DROPTION_SCOPE_FRONTEND, "mode", "arm",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.",
                                 "Decodes using the specified mode: 'arm' or 'thumb'.");
+#elif defined(AARCH64)
+droption_t<unsigned int>
+    op_sve_vl(DROPTION_SCOPE_FRONTEND, "vl", 128,
+              "Sets the SVE vector length to one of: 128 256 384 512 640 768 896 1024 "
+              "1152 1280 1408 1536 1664 1792 1920 2048.",
+              "Sets the SVE vector length to one of: 128 256 384 512 640 768 896 1024 "
+              "1152 1280 1408 1536 1664 1792 1920 2048.");
 #endif
 
 droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
@@ -133,6 +140,10 @@ main(int argc, const char *argv[])
             return 1;
         }
     }
+#endif
+
+#ifdef AARCH64
+    dr_set_sve_vl(op_sve_vl.get_value());
 #endif
 
     // XXX i#4021: arm not yet supported.

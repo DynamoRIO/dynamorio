@@ -3948,18 +3948,6 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
 /* svemem_gpr_simm: 9 bit signed immediate offset added to base register defined in bits 5
  * to 9.
  */
-#if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
-/* i3044 TODO: Vector length will be read from cpuinfo, e.g.
- * opnd_size_from_bytes(proc_get_vector_length()));
- * Setting to fixed size for now in order to pass unit tests.
- */
-#    define OPSZ_SVE_VL opnd_size_from_bytes(32)
-#else
-/* i3044 TODO: How do we set SVE vector length for offline decode?
- * A command line option?
- */
-#    define OPSZ_SVE_VL opnd_size_from_bytes(32)
-#endif
 
 static inline bool
 decode_opnd_svemem_gpr_simm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -6401,5 +6389,10 @@ uint
 encode_common(byte *pc, instr_t *i, decode_info_t *di)
 {
     ASSERT(((ptr_int_t)pc & 3) == 0);
+
+#if defined(DR_HOST_NOT_TARGET) || defined(STANDALONE_DECODER)
+    dr_set_sve_vl(256);
+#endif
+
     return encoder_v80(pc, i, di);
 }

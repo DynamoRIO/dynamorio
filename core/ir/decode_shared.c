@@ -174,6 +174,32 @@ const char *const size_names[] = {
     "OPSZ_eighth_16_vex32_evex64",
 };
 
+/* AArch64 Scalable Vector Extension's vector length in bits. */
+int sve_veclen;
+int sve_veclens[] = { 128,  256,  384,  512,  640,  768,  896,  1024,
+                      1152, 1280, 1408, 1536, 1664, 1792, 1920, 2048 };
+
+void
+dr_set_sve_vl(int vl)
+{
+    /* i3044 TODO: Vector length will be read from h/w when running on SVE.
+     * CLIENT_ASSERT(!proc_has_feature(FEATURE_SVE),
+     *               "SVE vector length not settable when running on SVE h/w.");
+     */
+    for (int i = 0; i < sizeof(sve_veclens); i++)
+        if (vl == sve_veclens[i]) {
+            sve_veclen = vl;
+            return;
+        }
+    CLIENT_ASSERT(false, "invalid SVE vector length");
+}
+
+int
+dr_get_sve_vl(void)
+{
+    return sve_veclen;
+}
+
 /* point at this when you need a canonical invalid instr
  * type is OP_INVALID so can be copied to instr->opcode
  */
