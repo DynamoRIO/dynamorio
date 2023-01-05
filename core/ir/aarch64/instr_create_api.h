@@ -8377,4 +8377,34 @@
 #define INSTR_CREATE_insr_sve_simd_fp(dc, Zdn, Vm) \
     instr_create_1dst_2src(dc, OP_insr, Zdn, Zdn, Vm)
 
+/**
+ * Creates an EXT instruction (destructive).
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    EXT     <Zdn>.B, <Zdn>.B, <Zm>.B, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn  The first source and destination vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ * \param imm  The immediate imm.
+ */
+#define INSTR_CREATE_ext_sve(dc, Zdn, Zm, imm) \
+    instr_create_1dst_3src(dc, OP_ext, Zdn, Zdn, Zm, imm)
+
+/**
+ * Creates a SPLICE instruction (destructive).
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SPLICE  <Zdn>.<Ts>, <Pv>, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn  The second source and destination vector register, Z (Scalable).
+ * \param Pv   The first source predicate register, P (Predicate).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_splice_sve(dc, Zdn, Pv, Zm) \
+    instr_create_1dst_3src(dc, OP_splice, Zdn, Pv, Zdn, Zm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */

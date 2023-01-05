@@ -123,6 +123,7 @@
 001001010000xxxx01xxxx1xxxx0xxxx  n   90   SVE      eor          p_b_0 : p10_zer p_b_5 p_b_16
 00000100101xxxxx001100xxxxxxxxxx  n   90   SVE      eor          z_d_0 : z_d_5 z_d_16
 001001010100xxxx01xxxx1xxxx0xxxx  w   828  SVE     eors          p_b_0 : p10_zer p_b_5 p_b_16
+00000101001xxxxx000xxxxxxxxxxxxx  n   92   SVE      ext          z_b_0 : z_b_0 z_b_5 imm8_10
 01100101xx0xxxxx110xxxxxxxx1xxxx  n   96   SVE    facge   p_size_hsd_0 : p10_zer_lo z_size_hsd_5 z_size_hsd_16
 01100101xx0xxxxx111xxxxxxxx1xxxx  n   97   SVE    facgt   p_size_hsd_0 : p10_zer_lo z_size_hsd_5 z_size_hsd_16
 01100101xx010010001xxxxxxxx0xxxx  n   102  SVE    fcmeq   p_size_hsd_0 : p10_zer_lo z_size_hsd_5 zero_fp_const
@@ -188,6 +189,7 @@
 00000100xx001010000xxxxxxxxxxxxx  n   390  SVE     smin  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00100101xx101010110xxxxxxxxxxxxx  n   390  SVE     smin  z_size_bhsd_0 : z_size_bhsd_0 simm8_5
 00000100xx010010000xxxxxxxxxxxxx  n   399  SVE    smulh  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
+00000101xx101100100xxxxxxxxxxxxx  n   882  SVE   splice  z_size_bhsd_0 : p10_lo z_size_bhsd_0 z_size_bhsd_5
 00000100xx1xxxxx000100xxxxxxxxxx  n   403  SVE    sqadd             z0 : z5 z16 bhsd_sz
 00100101xx10010011xxxxxxxxxxxxxx  n   403  SVE    sqadd  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
 00000100xx1xxxxx000100xxxxxxxxxx  n   403  SVE    sqadd  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
