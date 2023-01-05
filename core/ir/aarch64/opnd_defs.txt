@@ -128,6 +128,7 @@
 ------------------x-------------  shift1     # LSL #0 or #8 depending on bit 13
 ------------------xx------------  imm2idx    # imm from 13-12, used as an index
 ------------------xxxx----------  p10        # SVE predicate registers p0-p15
+------------------xxxx----------  p10_mrg    # SVE predicate registers p0-p15, merging
 ------------------xxxx----------  p10_zer    # SVE predicate registers p0-p15, zeroing
 -----------------xx-------------  cmode_s_sz # Vector shift for 32 bit elements
 -----------------xx-------------  len        # imm2 len

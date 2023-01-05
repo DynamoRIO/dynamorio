@@ -53,6 +53,18 @@
 001001010000xxxx01xxxx0xxxx1xxxx  n   29   SVE      bic          p_b_0 : p10_zer p_b_5 p_b_16
 00000100111xxxxx001100xxxxxxxxxx  n   29   SVE      bic          z_d_0 : z_d_5 z_d_16
 001001010100xxxx01xxxx0xxxx1xxxx  w   30   SVE     bics          p_b_0 : p10_zer p_b_5 p_b_16
+001001010001000001xxxx0xxxx0xxxx  n   867  SVE     brka          p_b_0 : p10_zer p_b_5
+001001010001000001xxxx0xxxx1xxxx  n   867  SVE     brka          p_b_0 : p10_mrg p_b_5
+001001010101000001xxxx0xxxx0xxxx  w   868  SVE    brkas          p_b_0 : p10_zer p_b_5
+001001011001000001xxxx0xxxx0xxxx  n   869  SVE     brkb          p_b_0 : p10_zer p_b_5
+001001011001000001xxxx0xxxx1xxxx  n   869  SVE     brkb          p_b_0 : p10_mrg p_b_5
+001001011101000001xxxx0xxxx0xxxx  w   870  SVE    brkbs          p_b_0 : p10_zer p_b_5
+001001010001100001xxxx0xxxx0xxxx  n   871  SVE     brkn          p_b_0 : p10_zer p_b_5 p_b_0
+001001010101100001xxxx0xxxx0xxxx  w   872  SVE    brkns          p_b_0 : p10_zer p_b_5 p_b_0
+001001010000xxxx11xxxx0xxxx0xxxx  n   873  SVE    brkpa          p_b_0 : p10_zer p_b_5 p_b_16
+001001010100xxxx11xxxx0xxxx0xxxx  w   874  SVE   brkpas          p_b_0 : p10_zer p_b_5 p_b_16
+001001010000xxxx11xxxx0xxxx1xxxx  n   875  SVE    brkpb          p_b_0 : p10_zer p_b_5 p_b_16
+001001010100xxxx11xxxx0xxxx1xxxx  w   876  SVE   brkpbs          p_b_0 : p10_zer p_b_5 p_b_16
 00000101xx110000101xxxxxxxxxxxxx  n   835  SVE   clasta    r_size_wx_0 : p10_lo r_size_wx_0 z_size_bhsd_5
 00000101xx101010100xxxxxxxxxxxxx  n   835  SVE   clasta  bhsd_size_reg0 : p10_lo bhsd_size_reg0 z_size_bhsd_5
 00000101xx101000100xxxxxxxxxxxxx  n   835  SVE   clasta  z_size_bhsd_0 : p10_lo z_size_bhsd_0 z_size_bhsd_5
@@ -263,5 +275,13 @@
 00000100xx010001101xxxxxxxxxxxxx  n   802  SVE     uxtb   z_size_hsd_0 : p10_mrg_lo z_size_hsd_5
 00000100xx010011101xxxxxxxxxxxxx  n   803  SVE     uxth    z_size_sd_0 : p10_mrg_lo z_size_sd_5
 0000010011010101101xxxxxxxxxxxxx  n   804  SVE     uxtw          z_d_0 : p10_mrg_lo z_d_5
+00100101xx1xxxxx000001xxxxx1xxxx  w   877  SVE  whilele  p_size_bhsd_0 : w5 w16
+00100101xx1xxxxx000101xxxxx1xxxx  w   877  SVE  whilele  p_size_bhsd_0 : x5 x16
+00100101xx1xxxxx000011xxxxx0xxxx  w   878  SVE  whilelo  p_size_bhsd_0 : w5 w16
+00100101xx1xxxxx000111xxxxx0xxxx  w   878  SVE  whilelo  p_size_bhsd_0 : x5 x16
+00100101xx1xxxxx000011xxxxx1xxxx  w   879  SVE  whilels  p_size_bhsd_0 : w5 w16
+00100101xx1xxxxx000111xxxxx1xxxx  w   879  SVE  whilels  p_size_bhsd_0 : x5 x16
+00100101xx1xxxxx000001xxxxx0xxxx  w   880  SVE  whilelt  p_size_bhsd_0 : w5 w16
+00100101xx1xxxxx000101xxxxx0xxxx  w   880  SVE  whilelt  p_size_bhsd_0 : x5 x16
 00100101001010001001000xxxx00000  n   820  SVE    wrffr                : p_b_5
 00000101101xxxxx000001xxxxxxxxxx  n   566  SVE     zip2          z_q_0 : z_q_5 z_q_16
