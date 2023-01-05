@@ -52,9 +52,10 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr);
 uint
 encode_common(byte *pc, instr_t *i, decode_info_t *di);
 
-#define BITS(_enc, bitmax, bitmin)    \
-    ((((uint32)(_enc)) >> (bitmin)) & \
-     (uint32)((1ULL << ((bitmax) - (bitmin) + 1)) - 1ULL))
+#define MASK(size) ((1ULL << (size)) - 1ULL)
+
+#define BITS(_enc, bitmax, bitmin) \
+    ((((uint32)(_enc)) >> (bitmin)) & (uint32)MASK((bitmax) - (bitmin) + 1))
 
 #if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
 /* i3044 TODO: Vector length will be read from cpuinfo, e.g.

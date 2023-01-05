@@ -90,6 +90,7 @@
 ---------------------------xxxxx  d0         # D register
 ---------------------------xxxxx  q0         # Q register
 ---------------------------xxxxx  z0         # Z register
+---------------------------xxxxx  z_b_0      # Z register with b size elements
 ---------------------------xxxxx  z_h_0      # Z register with h size elements
 ---------------------------xxxxx  z_s_0      # Z register with s size elements
 ---------------------------xxxxx  z_d_0      # Z register with d size elements
@@ -110,6 +111,7 @@
 ----------------------xxxxx-----  d5         # D register
 ----------------------xxxxx-----  q5         # Q register
 ----------------------xxxxx-----  z5         # Z register
+----------------------xxxxx-----  z_b_5      # Z register with b size elements
 ----------------------xxxxx-----  z_d_5      # Z register with d size elements
 ----------------------xxxxx-----  z_q_5      # Z register with q size elements
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
@@ -159,6 +161,8 @@
 -----------?????----------------  bh_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????----------------  bhs_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????----------------  bhsd_imm5_sz # Size encoded as least significant bit in imm5
+-----------?????-----------xxxxx  z_tsz_bhsdq_0   # Z register with size encoded in tsz field
+-----------?????------xxxxx-----  z_tsz_bhsdq_5   # Z register with size encoded in tsz field
 -----------?????------xxxxx-----  wx5_imm5   # reg 5-9 d or q is inferred from bits 16:20
 -----------xxxxx----------------  imm5       # 5 bit immediate from 16-20
 -----------xxxxx----------------  simm5      # Signed 5 bit immediate from 16-20
@@ -179,6 +183,7 @@
 -----------xxxxx----------------  b16        # B register
 -----------xxxxx----------------  h16        # H register
 -----------xxxxx----------------  s16        # S register
+-----------xxxxx---xxx----------  imm8_10    # 8 bit imm at pos 10, split across 20:16 and 12:10
 -----------xxxxxxx--------------  imm7       # 7 bit immediate from 14-20
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
@@ -210,7 +215,9 @@
 ---------++++xxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
 ---------++++xxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
 ---------++++xxx----------------  immhb_fxp  # encoding of #fbits value in immh:immb fields
---------??-----------------xxxxx  r_size_wx_0      # GPR scalar register, elsz depending on size
+--------??-----------------xxxxx  wx_size_0_zr # GPR scalar register, register size, W or X depending on size bits
+--------??------------xxxxx-----  wx_size_5_sp # GPR scalar register, register size, W or X depending on size bits
+--------??------------xxxxx-----  wx_size_5_zr # GPR scalar register, register size, W or X depending on size bits
 --------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
@@ -243,6 +250,7 @@
 --------xx-xxxxx----------------  bhsd_size_reg16  # bhsd register, depending on size opcode
 --------xx-xxxxx----------------  z_size_bhsd_16   # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_size_hsd_16    # sve vector reg, elsz depending on size
+--------xx-xxxxx----------------  imm2_tsz_index   # Index encoded in imm2:tsz
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12
 -x------------------------------  index3     # index of D subreg in Q: 0-1
