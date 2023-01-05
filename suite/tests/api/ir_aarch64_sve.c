@@ -7947,6 +7947,65 @@ TEST_INSTR(insr_sve_simd_fp)
               opnd_create_reg(Vdn_d_six_offset_0[i]));
 }
 
+TEST_INSTR(ext_sve)
+{
+    /* Testing EXT     <Zdn>.B, <Zdn>.B, <Zm>.B, #<imm> */
+    static const uint imm8_0_0[6] = { 0, 44, 87, 130, 172, 255 };
+    const char *const expected_0_0[6] = {
+        "ext    %z0.b %z0.b $0x00 -> %z0.b",    "ext    %z5.b %z6.b $0x2c -> %z5.b",
+        "ext    %z10.b %z11.b $0x57 -> %z10.b", "ext    %z16.b %z17.b $0x82 -> %z16.b",
+        "ext    %z21.b %z22.b $0xac -> %z21.b", "ext    %z31.b %z31.b $0xff -> %z31.b",
+    };
+    TEST_LOOP(ext, ext_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_1),
+              opnd_create_immed_uint(imm8_0_0[i], OPSZ_1));
+}
+
+TEST_INSTR(splice_sve)
+{
+    /* Testing SPLICE  <Zdn>.<Ts>, <Pv>, <Zdn>.<Ts>, <Zm>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "splice %p0 %z0.b %z0.b -> %z0.b",    "splice %p2 %z5.b %z7.b -> %z5.b",
+        "splice %p3 %z10.b %z12.b -> %z10.b", "splice %p5 %z16.b %z18.b -> %z16.b",
+        "splice %p6 %z21.b %z23.b -> %z21.b", "splice %p7 %z31.b %z31.b -> %z31.b",
+    };
+    TEST_LOOP(splice, splice_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_1));
+
+    const char *const expected_0_1[6] = {
+        "splice %p0 %z0.h %z0.h -> %z0.h",    "splice %p2 %z5.h %z7.h -> %z5.h",
+        "splice %p3 %z10.h %z12.h -> %z10.h", "splice %p5 %z16.h %z18.h -> %z16.h",
+        "splice %p6 %z21.h %z23.h -> %z21.h", "splice %p7 %z31.h %z31.h -> %z31.h",
+    };
+    TEST_LOOP(splice, splice_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_2[6] = {
+        "splice %p0 %z0.s %z0.s -> %z0.s",    "splice %p2 %z5.s %z7.s -> %z5.s",
+        "splice %p3 %z10.s %z12.s -> %z10.s", "splice %p5 %z16.s %z18.s -> %z16.s",
+        "splice %p6 %z21.s %z23.s -> %z21.s", "splice %p7 %z31.s %z31.s -> %z31.s",
+    };
+    TEST_LOOP(splice, splice_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_3[6] = {
+        "splice %p0 %z0.d %z0.d -> %z0.d",    "splice %p2 %z5.d %z7.d -> %z5.d",
+        "splice %p3 %z10.d %z12.d -> %z10.d", "splice %p5 %z16.d %z18.d -> %z16.d",
+        "splice %p6 %z21.d %z23.d -> %z21.d", "splice %p7 %z31.d %z31.d -> %z31.d",
+    };
+    TEST_LOOP(splice, splice_sve, 6, expected_0_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -8194,6 +8253,9 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(dup_sve_scalar);
     RUN_INSTR_TEST(insr_sve_scalar);
     RUN_INSTR_TEST(insr_sve_simd_fp);
+
+    RUN_INSTR_TEST(ext_sve);
+    RUN_INSTR_TEST(splice_sve);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

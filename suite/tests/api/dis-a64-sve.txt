@@ -3812,6 +3812,24 @@
 25407bed : eors p13.b, p14/Z, p15.b, p0.b            : eors   %p14/z %p15.b %p0.b -> %p13.b
 254f7fef : eors p15.b, p15/Z, p15.b, p15.b           : eors   %p15/z %p15.b %p15.b -> %p15.b
 
+# EXT     <Zdn>.B, <Zdn>.B, <Zm>.B, #<imm> (EXT-Z.ZI-Des)
+05200000 : ext z0.b, z0.b, z0.b, #0x0                : ext    %z0.b %z0.b $0x00 -> %z0.b
+05220062 : ext z2.b, z2.b, z3.b, #0x10               : ext    %z2.b %z3.b $0x10 -> %z2.b
+052400a4 : ext z4.b, z4.b, z5.b, #0x20               : ext    %z4.b %z5.b $0x20 -> %z4.b
+052600e6 : ext z6.b, z6.b, z7.b, #0x30               : ext    %z6.b %z7.b $0x30 -> %z6.b
+05280128 : ext z8.b, z8.b, z9.b, #0x40               : ext    %z8.b %z9.b $0x40 -> %z8.b
+052a016a : ext z10.b, z10.b, z11.b, #0x50            : ext    %z10.b %z11.b $0x50 -> %z10.b
+052c01ac : ext z12.b, z12.b, z13.b, #0x60            : ext    %z12.b %z13.b $0x60 -> %z12.b
+052e01ee : ext z14.b, z14.b, z15.b, #0x70            : ext    %z14.b %z15.b $0x70 -> %z14.b
+05300230 : ext z16.b, z16.b, z17.b, #0x80            : ext    %z16.b %z17.b $0x80 -> %z16.b
+05311e51 : ext z17.b, z17.b, z18.b, #0x8f            : ext    %z17.b %z18.b $0x8f -> %z17.b
+05331e93 : ext z19.b, z19.b, z20.b, #0x9f            : ext    %z19.b %z20.b $0x9f -> %z19.b
+05351ed5 : ext z21.b, z21.b, z22.b, #0xaf            : ext    %z21.b %z22.b $0xaf -> %z21.b
+05371f17 : ext z23.b, z23.b, z24.b, #0xbf            : ext    %z23.b %z24.b $0xbf -> %z23.b
+05391f59 : ext z25.b, z25.b, z26.b, #0xcf            : ext    %z25.b %z26.b $0xcf -> %z25.b
+053b1f9b : ext z27.b, z27.b, z28.b, #0xdf            : ext    %z27.b %z28.b $0xdf -> %z27.b
+053f1fff : ext z31.b, z31.b, z31.b, #0xff            : ext    %z31.b %z31.b $0xff -> %z31.b
+
 # FACGE   <Pd>.<T>, <Pg>/Z, <Zn>.<T>, <Zm>.<T> (FACGE-P.P.ZZ-_)
 6540c010 : facge p0.h, p0/Z, z0.h, z0.h              : facge  %p0/z %z0.h %z0.h -> %p0.h
 6545c491 : facge p1.h, p1/Z, z4.h, z5.h              : facge  %p1/z %z4.h %z5.h -> %p1.h
@@ -6725,6 +6743,72 @@
 04d21f79 : smulh z25.d, p7/M, z25.d, z27.d           : smulh  %p7/m %z25.d %z27.d -> %z25.d
 04d21fbb : smulh z27.d, p7/M, z27.d, z29.d           : smulh  %p7/m %z27.d %z29.d -> %z27.d
 04d21fff : smulh z31.d, p7/M, z31.d, z31.d           : smulh  %p7/m %z31.d %z31.d -> %z31.d
+
+# SPLICE  <Zdn>.<T>, <Pv>, <Zdn>.<T>, <Zm>.<T> (SPLICE-Z.P.ZZ-Des)
+052c8000 : splice z0.b, p0, z0.b, z0.b               : splice %p0 %z0.b %z0.b -> %z0.b
+052c8482 : splice z2.b, p1, z2.b, z4.b               : splice %p1 %z2.b %z4.b -> %z2.b
+052c88c4 : splice z4.b, p2, z4.b, z6.b               : splice %p2 %z4.b %z6.b -> %z4.b
+052c8906 : splice z6.b, p2, z6.b, z8.b               : splice %p2 %z6.b %z8.b -> %z6.b
+052c8d48 : splice z8.b, p3, z8.b, z10.b              : splice %p3 %z8.b %z10.b -> %z8.b
+052c8d8a : splice z10.b, p3, z10.b, z12.b            : splice %p3 %z10.b %z12.b -> %z10.b
+052c91cc : splice z12.b, p4, z12.b, z14.b            : splice %p4 %z12.b %z14.b -> %z12.b
+052c920e : splice z14.b, p4, z14.b, z16.b            : splice %p4 %z14.b %z16.b -> %z14.b
+052c9650 : splice z16.b, p5, z16.b, z18.b            : splice %p5 %z16.b %z18.b -> %z16.b
+052c9671 : splice z17.b, p5, z17.b, z19.b            : splice %p5 %z17.b %z19.b -> %z17.b
+052c96b3 : splice z19.b, p5, z19.b, z21.b            : splice %p5 %z19.b %z21.b -> %z19.b
+052c9af5 : splice z21.b, p6, z21.b, z23.b            : splice %p6 %z21.b %z23.b -> %z21.b
+052c9b37 : splice z23.b, p6, z23.b, z25.b            : splice %p6 %z23.b %z25.b -> %z23.b
+052c9f79 : splice z25.b, p7, z25.b, z27.b            : splice %p7 %z25.b %z27.b -> %z25.b
+052c9fbb : splice z27.b, p7, z27.b, z29.b            : splice %p7 %z27.b %z29.b -> %z27.b
+052c9fff : splice z31.b, p7, z31.b, z31.b            : splice %p7 %z31.b %z31.b -> %z31.b
+056c8000 : splice z0.h, p0, z0.h, z0.h               : splice %p0 %z0.h %z0.h -> %z0.h
+056c8482 : splice z2.h, p1, z2.h, z4.h               : splice %p1 %z2.h %z4.h -> %z2.h
+056c88c4 : splice z4.h, p2, z4.h, z6.h               : splice %p2 %z4.h %z6.h -> %z4.h
+056c8906 : splice z6.h, p2, z6.h, z8.h               : splice %p2 %z6.h %z8.h -> %z6.h
+056c8d48 : splice z8.h, p3, z8.h, z10.h              : splice %p3 %z8.h %z10.h -> %z8.h
+056c8d8a : splice z10.h, p3, z10.h, z12.h            : splice %p3 %z10.h %z12.h -> %z10.h
+056c91cc : splice z12.h, p4, z12.h, z14.h            : splice %p4 %z12.h %z14.h -> %z12.h
+056c920e : splice z14.h, p4, z14.h, z16.h            : splice %p4 %z14.h %z16.h -> %z14.h
+056c9650 : splice z16.h, p5, z16.h, z18.h            : splice %p5 %z16.h %z18.h -> %z16.h
+056c9671 : splice z17.h, p5, z17.h, z19.h            : splice %p5 %z17.h %z19.h -> %z17.h
+056c96b3 : splice z19.h, p5, z19.h, z21.h            : splice %p5 %z19.h %z21.h -> %z19.h
+056c9af5 : splice z21.h, p6, z21.h, z23.h            : splice %p6 %z21.h %z23.h -> %z21.h
+056c9b37 : splice z23.h, p6, z23.h, z25.h            : splice %p6 %z23.h %z25.h -> %z23.h
+056c9f79 : splice z25.h, p7, z25.h, z27.h            : splice %p7 %z25.h %z27.h -> %z25.h
+056c9fbb : splice z27.h, p7, z27.h, z29.h            : splice %p7 %z27.h %z29.h -> %z27.h
+056c9fff : splice z31.h, p7, z31.h, z31.h            : splice %p7 %z31.h %z31.h -> %z31.h
+05ac8000 : splice z0.s, p0, z0.s, z0.s               : splice %p0 %z0.s %z0.s -> %z0.s
+05ac8482 : splice z2.s, p1, z2.s, z4.s               : splice %p1 %z2.s %z4.s -> %z2.s
+05ac88c4 : splice z4.s, p2, z4.s, z6.s               : splice %p2 %z4.s %z6.s -> %z4.s
+05ac8906 : splice z6.s, p2, z6.s, z8.s               : splice %p2 %z6.s %z8.s -> %z6.s
+05ac8d48 : splice z8.s, p3, z8.s, z10.s              : splice %p3 %z8.s %z10.s -> %z8.s
+05ac8d8a : splice z10.s, p3, z10.s, z12.s            : splice %p3 %z10.s %z12.s -> %z10.s
+05ac91cc : splice z12.s, p4, z12.s, z14.s            : splice %p4 %z12.s %z14.s -> %z12.s
+05ac920e : splice z14.s, p4, z14.s, z16.s            : splice %p4 %z14.s %z16.s -> %z14.s
+05ac9650 : splice z16.s, p5, z16.s, z18.s            : splice %p5 %z16.s %z18.s -> %z16.s
+05ac9671 : splice z17.s, p5, z17.s, z19.s            : splice %p5 %z17.s %z19.s -> %z17.s
+05ac96b3 : splice z19.s, p5, z19.s, z21.s            : splice %p5 %z19.s %z21.s -> %z19.s
+05ac9af5 : splice z21.s, p6, z21.s, z23.s            : splice %p6 %z21.s %z23.s -> %z21.s
+05ac9b37 : splice z23.s, p6, z23.s, z25.s            : splice %p6 %z23.s %z25.s -> %z23.s
+05ac9f79 : splice z25.s, p7, z25.s, z27.s            : splice %p7 %z25.s %z27.s -> %z25.s
+05ac9fbb : splice z27.s, p7, z27.s, z29.s            : splice %p7 %z27.s %z29.s -> %z27.s
+05ac9fff : splice z31.s, p7, z31.s, z31.s            : splice %p7 %z31.s %z31.s -> %z31.s
+05ec8000 : splice z0.d, p0, z0.d, z0.d               : splice %p0 %z0.d %z0.d -> %z0.d
+05ec8482 : splice z2.d, p1, z2.d, z4.d               : splice %p1 %z2.d %z4.d -> %z2.d
+05ec88c4 : splice z4.d, p2, z4.d, z6.d               : splice %p2 %z4.d %z6.d -> %z4.d
+05ec8906 : splice z6.d, p2, z6.d, z8.d               : splice %p2 %z6.d %z8.d -> %z6.d
+05ec8d48 : splice z8.d, p3, z8.d, z10.d              : splice %p3 %z8.d %z10.d -> %z8.d
+05ec8d8a : splice z10.d, p3, z10.d, z12.d            : splice %p3 %z10.d %z12.d -> %z10.d
+05ec91cc : splice z12.d, p4, z12.d, z14.d            : splice %p4 %z12.d %z14.d -> %z12.d
+05ec920e : splice z14.d, p4, z14.d, z16.d            : splice %p4 %z14.d %z16.d -> %z14.d
+05ec9650 : splice z16.d, p5, z16.d, z18.d            : splice %p5 %z16.d %z18.d -> %z16.d
+05ec9671 : splice z17.d, p5, z17.d, z19.d            : splice %p5 %z17.d %z19.d -> %z17.d
+05ec96b3 : splice z19.d, p5, z19.d, z21.d            : splice %p5 %z19.d %z21.d -> %z19.d
+05ec9af5 : splice z21.d, p6, z21.d, z23.d            : splice %p6 %z21.d %z23.d -> %z21.d
+05ec9b37 : splice z23.d, p6, z23.d, z25.d            : splice %p6 %z23.d %z25.d -> %z23.d
+05ec9f79 : splice z25.d, p7, z25.d, z27.d            : splice %p7 %z25.d %z27.d -> %z25.d
+05ec9fbb : splice z27.d, p7, z27.d, z29.d            : splice %p7 %z27.d %z29.d -> %z27.d
+05ec9fff : splice z31.d, p7, z31.d, z31.d            : splice %p7 %z31.d %z31.d -> %z31.d
 
 # SQADD   <Zdn>.<T>, <Zdn>.<T>, #<imm>, <shift> (SQADD-Z.ZI-_)
 2524c000 : sqadd z0.b, z0.b, #0x0, lsl #0            : sqadd  %z0.b $0x00 lsl $0x00 -> %z0.b

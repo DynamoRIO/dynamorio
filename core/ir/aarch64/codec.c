@@ -1836,6 +1836,18 @@ encode_opnd_z0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 }
 
 static inline bool
+decode_opnd_z_b_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 0, 5, BYTE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_b_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 0, BYTE_REG, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_z_h_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_single_sized(DR_REG_Z0, 0, 5, HALF_REG, enc, opnd);
@@ -2105,6 +2117,18 @@ static inline bool
 encode_opnd_z5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(5, Z_REG, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_b_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 5, 5, BYTE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_b_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 5, BYTE_REG, opnd, enc_out);
 }
 
 static inline bool
@@ -3703,6 +3727,29 @@ static inline bool
 encode_opnd_s16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(16, 2, opnd, enc_out);
+}
+
+/* imm8_10: 8 bit imm at pos 10, split across 20:16 and 12:10. */
+
+static inline bool
+decode_opnd_imm8_10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const ptr_uint_t lo = extract_uint(enc, 10, 3);
+    const ptr_uint_t hi = extract_uint(enc, 16, 5) << 3;
+
+    *opnd = opnd_create_immed_uint(hi | lo, OPSZ_1);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm8_10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint imm;
+    if (!try_encode_imm(&imm, 8, opnd))
+        return false;
+
+    *enc_out = (BITS(imm, 7, 3) << 16) | (BITS(imm, 2, 0) << 10);
+    return true;
 }
 
 /* imm7: 7-bit immediate from bits 14-20 */
