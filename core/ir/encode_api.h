@@ -76,7 +76,7 @@ dr_get_isa_mode(void *drcontext);
 /**
  * AArch64 Scalable Vector Extension's vector length in bits is one of:
  * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
- * i3044 TODO: This function will only allow setting vector length if not
+ * TODO i#3044: This function will only allow setting vector length if not
  * running on SVE.
  */
 void

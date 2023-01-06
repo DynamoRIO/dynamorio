@@ -182,10 +182,7 @@ int sve_veclens[] = { 128,  256,  384,  512,  640,  768,  896,  1024,
 void
 dr_set_sve_vl(int vl)
 {
-    /* i3044 TODO: Vector length will be read from h/w when running on SVE.
-     * CLIENT_ASSERT(!proc_has_feature(FEATURE_SVE),
-     *               "SVE vector length not settable when running on SVE h/w.");
-     */
+    /* TODO i#3044: Vector length will be read from h/w when running on SVE. */
     for (int i = 0; i < sizeof(sve_veclens); i++) {
         if (vl == sve_veclens[i]) {
             sve_veclen = vl;
