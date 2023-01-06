@@ -4078,7 +4078,7 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
 
 static inline bool
 encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
-                            OUT uint *enc_out)
+                                OUT uint *enc_out)
 {
     int disp;
     bool is_x;
