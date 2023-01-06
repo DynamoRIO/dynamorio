@@ -87,6 +87,14 @@ get_processor_specific_info(void)
     cpu_info.features.flags_aa64pfr0 = isa_features[AA64PFR0];
     cpu_info.features.flags_aa64mmfr1 = isa_features[AA64MMFR1];
     cpu_info.features.flags_aa64dfr0 = isa_features[AA64DFR0];
+
+#        if !defined(DR_HOST_NOT_TARGET) && defined(SVE)
+    /* TODO i#3044: Vector length will be set by reading value from h/w. */
+    CLIENT_ASSERT(false, "TODO i#3044: SVE requires initialisation of vector length!");
+#        elif !defined(STANDALONE_DECODER) || defined(DR_HOST_NOT_TARGET)
+    /* Set SVE vector length for unit tests. */
+    dr_set_sve_vl(256);
+#        endif
 }
 #    endif
 
