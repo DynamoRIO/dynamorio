@@ -61,7 +61,7 @@ decode_bitmask(uint enc)
     if (TEST(1U << 12, enc)) {
         if (len == 63)
             return 0;
-        x = ((ptr_uint_t)1 << (len + 1)) - 1;
+        x = MASK(len + 1);
         return x >> pos | x << 1 << (63 - pos);
     } else {
         uint i, t = 32;
@@ -73,7 +73,7 @@ decode_bitmask(uint enc)
         x = len & (t - 1);
         if (x == t - 1)
             return 0;
-        x = ((ptr_uint_t)1 << (x + 1)) - 1;
+        x = MASK(x + 1);
         pos &= t - 1;
         x = x >> pos | x << (t - pos);
         for (i = 2; i < 64; i *= 2) {
@@ -98,34 +98,34 @@ encode_bitmask(ptr_uint_t x)
     if (x == 0)
         return -1;
 
-    if (x >> 2 == (x & (((ptr_uint_t)1 << (64 - 2)) - 1)))
-        rep = 2, x &= ((ptr_uint_t)1 << 2) - 1;
-    else if (x >> 4 == (x & (((ptr_uint_t)1 << (64 - 4)) - 1)))
-        rep = 4, x &= ((ptr_uint_t)1 << 4) - 1;
-    else if (x >> 8 == (x & (((ptr_uint_t)1 << (64 - 8)) - 1)))
-        rep = 8, x &= ((ptr_uint_t)1 << 8) - 1;
-    else if (x >> 16 == (x & (((ptr_uint_t)1 << (64 - 16)) - 1)))
-        rep = 16, x &= ((ptr_uint_t)1 << 16) - 1;
-    else if (x >> 32 == (x & (((ptr_uint_t)1 << (64 - 32)) - 1)))
-        rep = 32, x &= ((ptr_uint_t)1 << 32) - 1;
+    if (x >> 2 == (x & MASK(64 - 2)))
+        rep = 2, x &= MASK(2);
+    else if (x >> 4 == (x & MASK(64 - 4)))
+        rep = 4, x &= MASK(4);
+    else if (x >> 8 == (x & MASK(64 - 8)))
+        rep = 8, x &= MASK(8);
+    else if (x >> 16 == (x & MASK(64 - 16)))
+        rep = 16, x &= MASK(16);
+    else if (x >> 32 == (x & MASK(64 - 32)))
+        rep = 32, x &= MASK(32);
     else
         rep = 64;
 
     pos = 0;
-    (x & (((ptr_uint_t)1 << 32) - 1)) != 0 ? 0 : (x >>= 32, pos += 32);
-    (x & (((ptr_uint_t)1 << 16) - 1)) != 0 ? 0 : (x >>= 16, pos += 16);
-    (x & (((ptr_uint_t)1 << 8) - 1)) != 0 ? 0 : (x >>= 8, pos += 8);
-    (x & (((ptr_uint_t)1 << 4) - 1)) != 0 ? 0 : (x >>= 4, pos += 4);
-    (x & (((ptr_uint_t)1 << 2) - 1)) != 0 ? 0 : (x >>= 2, pos += 2);
-    (x & (((ptr_uint_t)1 << 1) - 1)) != 0 ? 0 : (x >>= 1, pos += 1);
+    (x & MASK(32)) != 0 ? 0 : (x >>= 32, pos += 32);
+    (x & MASK(16)) != 0 ? 0 : (x >>= 16, pos += 16);
+    (x & MASK(8)) != 0 ? 0 : (x >>= 8, pos += 8);
+    (x & MASK(4)) != 0 ? 0 : (x >>= 4, pos += 4);
+    (x & MASK(2)) != 0 ? 0 : (x >>= 2, pos += 2);
+    (x & MASK(1)) != 0 ? 0 : (x >>= 1, pos += 1);
 
     len = 0;
-    (~x & (((ptr_uint_t)1 << 32) - 1)) != 0 ? 0 : (x >>= 32, len += 32);
-    (~x & (((ptr_uint_t)1 << 16) - 1)) != 0 ? 0 : (x >>= 16, len += 16);
-    (~x & (((ptr_uint_t)1 << 8) - 1)) != 0 ? 0 : (x >>= 8, len += 8);
-    (~x & (((ptr_uint_t)1 << 4) - 1)) != 0 ? 0 : (x >>= 4, len += 4);
-    (~x & (((ptr_uint_t)1 << 2) - 1)) != 0 ? 0 : (x >>= 2, len += 2);
-    (~x & (((ptr_uint_t)1 << 1) - 1)) != 0 ? 0 : (x >>= 1, len += 1);
+    (~x & MASK(32)) != 0 ? 0 : (x >>= 32, len += 32);
+    (~x & MASK(16)) != 0 ? 0 : (x >>= 16, len += 16);
+    (~x & MASK(8)) != 0 ? 0 : (x >>= 8, len += 8);
+    (~x & MASK(4)) != 0 ? 0 : (x >>= 4, len += 4);
+    (~x & MASK(2)) != 0 ? 0 : (x >>= 2, len += 2);
+    (~x & MASK(1)) != 0 ? 0 : (x >>= 1, len += 1);
 
     if (x != 0)
         return -1;
@@ -141,8 +141,7 @@ encode_bitmask(ptr_uint_t x)
 static inline ptr_int_t
 extract_int(uint enc, int pos, int len)
 {
-    uint u = ((enc >> pos & (((uint)1 << (len - 1)) - 1)) -
-              (enc >> pos & ((uint)1 << (len - 1))));
+    uint u = ((enc >> pos & MASK(len - 1)) - (enc >> pos & ((uint)1 << (len - 1))));
     return u << 1 < u ? -(ptr_int_t)~u - 1 : u;
 }
 
@@ -151,7 +150,7 @@ static inline ptr_uint_t
 extract_uint(uint enc, int pos, int len)
 {
     /* pos starts at bit 0 and len includes pos bit as part of its length. */
-    return enc >> pos & (((uint)1 << len) - 1);
+    return enc >> pos & MASK(len);
 }
 
 /* Find the highest bit set in subfield, relative to the starting position. */
@@ -201,11 +200,10 @@ static inline bool
 try_encode_int(OUT uint *bits, int len, int scale, ptr_int_t val)
 {
     /* If any of lowest 'scale' bits are set, or 'val' is out of range, fail. */
-    const ptr_int_t range_val = ((ptr_int_t)1 << (len + scale)) - 1;
-    if (((ptr_uint_t)val & ((1U << scale) - 1)) != 0 || val < -range_val ||
-        val >= range_val)
+    const ptr_int_t range_val = MASK(len + scale);
+    if (((ptr_uint_t)val & MASK(scale)) != 0 || val < -range_val || val >= range_val)
         return false;
-    *bits = (ptr_uint_t)val >> scale & ((1U << len) - 1);
+    *bits = (ptr_uint_t)val >> scale & MASK(len);
     return true;
 }
 
@@ -724,6 +722,24 @@ extract_imm13_size(uint enc)
     }
 }
 
+/* Extracts the operand size from a tsz field */
+static opnd_size_t
+extract_tsz_size(uint enc)
+{
+    int lbs;
+    if (!lowest_bit_set(enc, 16, 5, &lbs))
+        return OPSZ_NA;
+
+    switch (lbs) {
+    case 0: return OPSZ_1;
+    case 1: return OPSZ_2;
+    case 2: return OPSZ_4;
+    case 3: return OPSZ_8;
+    case 4: return OPSZ_16;
+    default: return OPSZ_NA;
+    }
+}
+
 /*******************************************************************************
  * Pairs of functions for decoding and encoding a generalised type of operand.
  */
@@ -861,7 +877,7 @@ encode_opnd_int(int pos, int len, bool signd, int scale, dr_opnd_flags_t flags,
     if (!opnd_is_immed_int(opnd) || (opnd_get_flags(opnd) & flags) != flags)
         return false;
     val = opnd_get_immed_int(opnd);
-    if ((val & (((ptr_uint_t)1 << scale) - 1)) != 0)
+    if ((val & MASK(scale)) != 0)
         return false;
     if ((val + (signd ? ((ptr_uint_t)1 << (len + scale - 1)) : 0)) >> (len + scale) != 0)
         return false;
@@ -958,7 +974,7 @@ encode_opnd_mem7_postindex(bool post, uint enc, opnd_t opnd, OUT uint *enc_out)
     if (disp == 0 && opnd.value.base_disp.pre_index == post)
         return false;
     if (post ? disp != 0
-             : ((uint)disp & ((1 << scale) - 1)) != 0 ||
+             : ((uint)disp & MASK(scale)) != 0 ||
                 (uint)disp + (0x40 << scale) >= (0x80 << scale))
         return false;
     *enc_out = xn << 5 | ((uint)disp >> scale & 0x7f) << 15;
@@ -1613,6 +1629,23 @@ encode_opnd_nzcv(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 }
 #endif /* Currently unused. */
 
+/* p0: SVE predicate register at bit position 0; P0-P15 */
+
+static inline bool
+decode_opnd_p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_P0 + extract_uint(enc, 0, 4));
+    return true;
+}
+
+static inline bool
+encode_opnd_p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_predicate_reg(opnd))
+        return false;
+    return encode_opnd_p(0, 15, opnd, enc_out);
+}
+
 /* w0: W register or WZR at bit position 0 */
 
 static inline bool
@@ -1817,6 +1850,18 @@ static inline bool
 encode_opnd_z0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(0, Z_REG, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_b_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 0, 5, BYTE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_b_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 0, BYTE_REG, opnd, enc_out);
 }
 
 static inline bool
@@ -2089,6 +2134,18 @@ static inline bool
 encode_opnd_z5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(5, Z_REG, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_b_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 5, 5, BYTE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_b_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 5, BYTE_REG, opnd, enc_out);
 }
 
 static inline bool
@@ -2409,6 +2466,8 @@ encode_opnd_imm2idx(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_opnd_int(12, 2, false, 0, 0, opnd, enc_out);
 }
 
+/* p10: SVE predicate register at bit position 10; P0-P15 */
+
 static inline bool
 decode_opnd_p10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
@@ -2420,6 +2479,22 @@ static inline bool
 encode_opnd_p10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     if (!opnd_is_predicate_reg(opnd))
+        return false;
+    return encode_opnd_p(10, 15, opnd, enc_out);
+}
+
+/* p10_mrg: SVE predicate registers p0-p15, merging */
+static inline bool
+decode_opnd_p10_mrg(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_predicate_reg(DR_REG_P0 + extract_uint(enc, 10, 4), true);
+    return true;
+}
+
+static inline bool
+encode_opnd_p10_mrg(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_predicate_merge(opnd))
         return false;
     return encode_opnd_p(10, 15, opnd, enc_out);
 }
@@ -2786,7 +2861,7 @@ encode_opnd_imm13_const(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *e
         return false;
 
     if (width != 64) {
-        const ptr_uint_t subfield = imm_val & (((ptr_uint_t)1 << width) - 1);
+        const ptr_uint_t subfield = imm_val & MASK(width);
         for (int i = 0; i < 64; i += width) {
             imm_val <<= width;
             imm_val |= subfield;
@@ -3281,6 +3356,58 @@ encode_opnd_bhsd_imm5_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *
     return imm5_sz_encode(VECTOR_ELEM_WIDTH_DOUBLE, false, opnd, enc_out);
 }
 
+static inline bool
+decode_z_tsz_bhsdq_base(uint enc, uint pos, OUT opnd_t *opnd)
+{
+    const opnd_size_t size = extract_tsz_size(enc);
+    if (size == OPSZ_NA)
+        return false;
+
+    *opnd = opnd_create_reg_element_vector(DR_REG_Z0 + extract_uint(enc, pos, 5), size);
+    return true;
+}
+
+static inline bool
+encode_z_tsz_bhsdq_base(opnd_t opnd, uint pos, OUT uint *enc_out)
+{
+    if (!opnd_is_element_vector_reg(opnd))
+        return false;
+
+    opnd_size_t vec_size = OPSZ_SCALABLE;
+    uint reg_number;
+    if (!encode_vreg(&vec_size, &reg_number, opnd))
+        return false;
+
+    *enc_out |= reg_number << pos;
+    return true;
+}
+
+/* z_tsz_bhsdq_0: Z register with size encoded in tsz field */
+static inline bool
+decode_opnd_z_tsz_bhsdq_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_z_tsz_bhsdq_base(enc, 0, opnd);
+}
+
+static inline bool
+encode_opnd_z_tsz_bhsdq_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_z_tsz_bhsdq_base(opnd, 0, enc_out);
+}
+
+/* z_tsz_bhsdq_5: Z register with size encoded in tsz field */
+static inline bool
+decode_opnd_z_tsz_bhsdq_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_z_tsz_bhsdq_base(enc, 5, opnd);
+}
+
+static inline bool
+encode_opnd_z_tsz_bhsdq_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_z_tsz_bhsdq_base(opnd, 5, enc_out);
+}
+
 /* wx5_imm5: bits 5-9 is a GPR whose width is dependent on information in
    an imm5 from bits 16-20
 */
@@ -3413,7 +3540,7 @@ encode_opnd_imm5_idx(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
 
     index = opnd_get_immed_int(opnd);
     uint min_index = 0;
-    uint max_index = (1 << opnd_size_in_bits(index_size)) - 1;
+    uint max_index = MASK(opnd_size_in_bits(index_size));
 
     if (index < min_index || index > max_index)
         return false;
@@ -3621,6 +3748,29 @@ encode_opnd_s16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_vector_reg(16, 2, opnd, enc_out);
 }
 
+/* imm8_10: 8 bit imm at pos 10, split across 20:16 and 12:10. */
+
+static inline bool
+decode_opnd_imm8_10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const ptr_uint_t lo = extract_uint(enc, 10, 3);
+    const ptr_uint_t hi = extract_uint(enc, 16, 5) << 3;
+
+    *opnd = opnd_create_immed_uint(hi | lo, OPSZ_1);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm8_10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint imm;
+    if (!try_encode_imm(&imm, 8, opnd))
+        return false;
+
+    *enc_out = (BITS(imm, 7, 3) << 16) | (BITS(imm, 2, 0) << 10);
+    return true;
+}
+
 /* imm7: 7-bit immediate from bits 14-20 */
 
 static inline bool
@@ -3729,7 +3879,7 @@ encode_opnd_instr(int bit_pos, opnd_t opnd, byte *start_pc, instr_t *containing_
     // We expect truncation; instrlist_insert_mov_instr_addr splits the instr's
     // encoded address into INSTR_kind operands in multiple mov instructions in the
     // ilist, each representing a 2-byte portion of the complete address.
-    val &= ((1 << bits) - 1);
+    val &= MASK(bits);
 
     ASSERT((*enc_out & (val << bit_pos)) == 0);
     *enc_out |= (val << bit_pos);
@@ -3907,6 +4057,40 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
         return false;
     // index=H:L:M
     *enc_out = (val >> 2 & 1) << H | (val >> 1 & 1) << L | (val & 1) << M;
+    return true;
+}
+
+/* svemem_gpr_simm9_vl: 9 bit signed immediate offset added to base register
+ * defined in bits 5 to 9.
+ */
+
+static inline bool
+decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint simm9 = (extract_uint(enc, 16, 6) << 3) | extract_uint(enc, 10, 3);
+    int offset9 = extract_int(simm9, 0, 9);
+    if (offset9 < -256 || offset9 > 255)
+        return false;
+    *opnd = opnd_create_base_disp_aarch64(decode_reg(extract_uint(enc, 5, 5), true, true),
+                                          DR_REG_NULL, 0, false, offset9, 0, OPSZ_SVE_VL);
+    return true;
+}
+
+static inline bool
+encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
+                                OUT uint *enc_out)
+{
+    int disp;
+    bool is_x;
+    uint rn;
+    if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != OPSZ_SVE_VL)
+        return false;
+    disp = opnd_get_disp(opnd);
+    if (disp < -256 || disp > 255)
+        return false;
+    if (!encode_reg(&rn, &is_x, opnd_get_base(opnd), true) || !is_x)
+        return false;
+    *enc_out = (rn << 5) | (BITS(disp, 8, 3) << 16) | (BITS(disp, 2, 0) << 10);
     return true;
 }
 
@@ -4400,23 +4584,62 @@ encode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 1);
 }
 
-/* r_size_wx_0: GPR scalar register, register size, W or X depending on size bits */
 static inline bool
-decode_opnd_r_size_wx_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_wx_size_reg(uint enc, bool is_sp, uint pos, OUT opnd_t *opnd)
 {
     const bool is_x = extract_uint(enc, 22, 2) == 0b11;
-    return decode_opnd_wxn(is_x, false, 0, enc, opnd);
+    return decode_opnd_wxn(is_x, is_sp, pos, enc, opnd);
 }
 
 static inline bool
-encode_opnd_r_size_wx_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_wx_size_reg(bool is_sp, uint pos, opnd_t opnd, OUT uint *enc_out)
 {
     if (!opnd_is_reg(opnd))
         return false;
 
     const reg_id_t reg = opnd_get_reg(opnd);
-    const bool is_x = (DR_REG_X0 <= reg && reg <= DR_REG_X30) || (reg == DR_REG_XZR);
-    return encode_opnd_wxn(is_x, false, 0, opnd, enc_out);
+    const bool is_x = (DR_REG_X0 <= reg && reg <= DR_REG_X30) ||
+        (is_sp ? (reg == DR_REG_XSP) : (reg == DR_REG_XZR));
+    return encode_opnd_wxn(is_x, is_sp, pos, opnd, enc_out);
+}
+
+/* wx_size_reg0_zr: GPR scalar register, register size, W or X depending on size bits */
+static inline bool
+decode_opnd_wx_size_0_zr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_wx_size_reg(enc, false, 0, opnd);
+}
+
+static inline bool
+encode_opnd_wx_size_0_zr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_wx_size_reg(false, 0, opnd, enc_out);
+}
+
+/* wx_size_reg5_sp: GPR scalar register, register size, W or X depending on size bits */
+static inline bool
+decode_opnd_wx_size_5_sp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_wx_size_reg(enc, true, 5, opnd);
+}
+
+static inline bool
+encode_opnd_wx_size_5_sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_wx_size_reg(true, 5, opnd, enc_out);
+}
+
+/* wx_size_reg5_zr: GPR scalar register, register size, W or X depending on size bits */
+static inline bool
+decode_opnd_wx_size_5_zr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_wx_size_reg(enc, false, 5, opnd);
+}
+
+static inline bool
+encode_opnd_wx_size_5_zr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_wx_size_reg(false, 5, opnd, enc_out);
 }
 
 /* fpimm13: floating-point immediate for scalar fmov */
@@ -5053,6 +5276,59 @@ static inline bool
 encode_opnd_z_size_hsd_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_sized_z(16, 22, HALF_REG, DOUBLE_REG, opnd, enc_out);
+}
+
+/* imm2_tsz_index: Index encoded in imm2:tsz */
+static inline bool
+decode_opnd_imm2_tsz_index(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    /* The size in tsz determines how many MSB bits are available for the imm's value */
+    const opnd_size_t size = extract_tsz_size(enc);
+    if (size == OPSZ_NA)
+        return false;
+
+    /* Just used as a cheap log2 */
+    int size_lbs;
+    if (!lowest_bit_set(opnd_size_in_bytes(size), 0, 5, &size_lbs))
+        return false;
+
+    /* The immediate's value is derived from imm:tsz, but the number of higher bits used
+     * in tsz varies depending on the size which is indicated by the lowest bit set in tsz
+     */
+    const ptr_uint_t tsz = extract_uint(enc, 16, 5);
+    const ptr_uint_t imm = extract_uint(enc, 22, 2);
+
+    const uint offset = size_lbs + 1;
+    const ptr_uint_t tsz_field = tsz >> offset;
+    const ptr_uint_t imm_field = imm << (5 - offset);
+    const opnd_size_t imm_size = OPSZ_7b - offset;
+
+    *opnd = opnd_create_immed_uint(imm_field | tsz_field, imm_size);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm2_tsz_index(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    const ptr_uint_t value = opnd_get_immed_int(opnd);
+    const opnd_size_t size = opnd_get_size(opnd);
+    if (size == OPSZ_NA)
+        return false;
+
+    /* The immediate's value and size are encoded in the imm:tsz fields. The position of
+     * the lowest bit set in tsz indicates the size, and the remaining upper bits set the
+     * lower bits of the immediate's value (imm field sets the two upper bits)
+     */
+    const uint offset = size - OPSZ_2b;
+    const uint tsz_value =
+        ((0b10000 >> offset) | ((value & MASK(offset + 1)) << (5 - offset))) & 0b11111;
+    const uint imm_value = (value >> offset) & 0b11;
+
+    *enc_out = (imm_value << 22) | (tsz_value << 16);
+    return true;
 }
 
 /* mem0p: as mem0, but a pair of registers, so double size */
@@ -6320,5 +6596,10 @@ uint
 encode_common(byte *pc, instr_t *i, decode_info_t *di)
 {
     ASSERT(((ptr_int_t)pc & 3) == 0);
+
+#if defined(DR_HOST_NOT_TARGET) || defined(STANDALONE_DECODER)
+    dr_set_sve_vl(256);
+#endif
+
     return encoder_v80(pc, i, di);
 }
