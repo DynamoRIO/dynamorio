@@ -127,6 +127,10 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
     return result;
 }
 
+const reg_id_t Xn_six_offset_0[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
+                                      DR_REG_X15, DR_REG_X20, DR_REG_X30 };
+const reg_id_t Xn_six_offset_1[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
+                                      DR_REG_X17, DR_REG_X22, DR_REG_X30 };
 const reg_id_t Zn_six_offset_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
                                       DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
 const reg_id_t Zn_six_offset_1[6] = { DR_REG_Z0,  DR_REG_Z6,  DR_REG_Z11,
@@ -143,8 +147,6 @@ const reg_id_t Pn_six_offset_1[6] = { DR_REG_P0, DR_REG_P3,  DR_REG_P6,
                                       DR_REG_P9, DR_REG_P11, DR_REG_P15 };
 const reg_id_t Pn_six_offset_2[6] = { DR_REG_P0,  DR_REG_P4,  DR_REG_P7,
                                       DR_REG_P10, DR_REG_P12, DR_REG_P15 };
-const reg_id_t Xn_six_offset_0[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
-                                      DR_REG_X15, DR_REG_X20, DR_REG_X30 };
 const reg_id_t Xn_six_offset_1_zr[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
                                          DR_REG_X16, DR_REG_X21, DR_REG_XZR };
 const reg_id_t Xn_six_offset_1_sp[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,

@@ -1629,6 +1629,23 @@ encode_opnd_nzcv(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 }
 #endif /* Currently unused. */
 
+/* p0: SVE predicate register at bit position 0; P0-P15 */
+
+static inline bool
+decode_opnd_p0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_P0 + extract_uint(enc, 0, 4));
+    return true;
+}
+
+static inline bool
+encode_opnd_p0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_predicate_reg(opnd))
+        return false;
+    return encode_opnd_p(0, 15, opnd, enc_out);
+}
+
 /* w0: W register or WZR at bit position 0 */
 
 static inline bool
@@ -2448,6 +2465,8 @@ encode_opnd_imm2idx(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
         return false;
     return encode_opnd_int(12, 2, false, 0, 0, opnd, enc_out);
 }
+
+/* p10: SVE predicate register at bit position 10; P0-P15 */
 
 static inline bool
 decode_opnd_p10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -4038,6 +4057,40 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
         return false;
     // index=H:L:M
     *enc_out = (val >> 2 & 1) << H | (val >> 1 & 1) << L | (val & 1) << M;
+    return true;
+}
+
+/* svemem_gpr_simm9_vl: 9 bit signed immediate offset added to base register
+ * defined in bits 5 to 9.
+ */
+
+static inline bool
+decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint simm9 = (extract_uint(enc, 16, 6) << 3) | extract_uint(enc, 10, 3);
+    int offset9 = extract_int(simm9, 0, 9);
+    if (offset9 < -256 || offset9 > 255)
+        return false;
+    *opnd = opnd_create_base_disp_aarch64(decode_reg(extract_uint(enc, 5, 5), true, true),
+                                          DR_REG_NULL, 0, false, offset9, 0, OPSZ_SVE_VL);
+    return true;
+}
+
+static inline bool
+encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
+                                OUT uint *enc_out)
+{
+    int disp;
+    bool is_x;
+    uint rn;
+    if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != OPSZ_SVE_VL)
+        return false;
+    disp = opnd_get_disp(opnd);
+    if (disp < -256 || disp > 255)
+        return false;
+    if (!encode_reg(&rn, &is_x, opnd_get_base(opnd), true) || !is_x)
+        return false;
+    *enc_out = (rn << 5) | (BITS(disp, 8, 3) << 16) | (BITS(disp, 2, 0) << 10);
     return true;
 }
 
@@ -6543,5 +6596,10 @@ uint
 encode_common(byte *pc, instr_t *i, decode_info_t *di)
 {
     ASSERT(((ptr_int_t)pc & 3) == 0);
+
+#if defined(DR_HOST_NOT_TARGET) || defined(STANDALONE_DECODER)
+    dr_set_sve_vl(256);
+#endif
+
     return encoder_v80(pc, i, di);
 }
