@@ -9234,4 +9234,15 @@
 #define INSTR_CREATE_rbit_sve_pred(dc, Zd, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_rbit, Zd, Pg, Zn)
 
+/*
+ * Creates a FCPY instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCPY    <Zd>.<Ts>, <Pg>/M, #<imm>
+ * \param imm  The floating-point immediate value to be copied.
+ */
+#define INSTR_CREATE_fcpy_sve_pred(dc, Zd, Pg, imm) \
+    instr_create_1dst_2src(dc, OP_fcpy, Zd, Pg, imm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
