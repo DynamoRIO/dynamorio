@@ -1095,9 +1095,9 @@ TEST_INSTR(cpy_sve_pred)
 
     /* Testing CPY     <Zd>.<Ts>, <Pg>/M, <V><n> */
     const char *expected_1_0[6] = {
-        "cpy    %p0/m %b0 -> %z0.b",   "cpy    %p2/m %b7 -> %z5.b",
-        "cpy    %p3/m %b12 -> %z10.b", "cpy    %p5/m %b18 -> %z16.b",
-        "cpy    %p6/m %b23 -> %z21.b", "cpy    %p7/m %b31 -> %z31.b",
+        "cpy    %p0/m %b0 -> %z0.b",   "cpy    %p2/m %b5 -> %z5.b",
+        "cpy    %p3/m %b10 -> %z10.b", "cpy    %p5/m %b16 -> %z16.b",
+        "cpy    %p6/m %b21 -> %z21.b", "cpy    %p7/m %b31 -> %z31.b",
     };
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_1_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
@@ -1105,9 +1105,9 @@ TEST_INSTR(cpy_sve_pred)
               opnd_create_reg(Vdn_b_six_offset_0[i]));
 
     const char *expected_1_1[6] = {
-        "cpy    %p0/m %h0 -> %z0.h",   "cpy    %p2/m %h7 -> %z5.h",
-        "cpy    %p3/m %h12 -> %z10.h", "cpy    %p5/m %h18 -> %z16.h",
-        "cpy    %p6/m %h23 -> %z21.h", "cpy    %p7/m %h31 -> %z31.h",
+        "cpy    %p0/m %h0 -> %z0.h",   "cpy    %p2/m %h5 -> %z5.h",
+        "cpy    %p3/m %h10 -> %z10.h", "cpy    %p5/m %h16 -> %z16.h",
+        "cpy    %p6/m %h21 -> %z21.h", "cpy    %p7/m %h31 -> %z31.h",
     };
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_1_1[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
@@ -1115,9 +1115,9 @@ TEST_INSTR(cpy_sve_pred)
               opnd_create_reg(Vdn_h_six_offset_0[i]));
 
     const char *expected_1_2[6] = {
-        "cpy    %p0/m %s0 -> %z0.s",   "cpy    %p2/m %s7 -> %z5.s",
-        "cpy    %p3/m %s12 -> %z10.s", "cpy    %p5/m %s18 -> %z16.s",
-        "cpy    %p6/m %s23 -> %z21.s", "cpy    %p7/m %s31 -> %z31.s",
+        "cpy    %p0/m %s0 -> %z0.s",   "cpy    %p2/m %s5 -> %z5.s",
+        "cpy    %p3/m %s10 -> %z10.s", "cpy    %p5/m %s16 -> %z16.s",
+        "cpy    %p6/m %s21 -> %z21.s", "cpy    %p7/m %s31 -> %z31.s",
     };
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_1_2[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
@@ -1125,9 +1125,9 @@ TEST_INSTR(cpy_sve_pred)
               opnd_create_reg(Vdn_s_six_offset_0[i]));
 
     const char *expected_1_3[6] = {
-        "cpy    %p0/m %d0 -> %z0.d",   "cpy    %p2/m %d7 -> %z5.d",
-        "cpy    %p3/m %d12 -> %z10.d", "cpy    %p5/m %d18 -> %z16.d",
-        "cpy    %p6/m %d23 -> %z21.d", "cpy    %p7/m %d31 -> %z31.d",
+        "cpy    %p0/m %d0 -> %z0.d",   "cpy    %p2/m %d5 -> %z5.d",
+        "cpy    %p3/m %d10 -> %z10.d", "cpy    %p5/m %d16 -> %z16.d",
+        "cpy    %p6/m %d21 -> %z21.d", "cpy    %p7/m %d31 -> %z31.d",
     };
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_1_3[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
