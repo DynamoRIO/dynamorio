@@ -1102,7 +1102,7 @@ TEST_INSTR(cpy_sve_pred)
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_1_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
               opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
-              opnd_create_reg(Bn_six_offset_2[i]));
+              opnd_create_reg(Vdn_b_six_offset_0[i]));
 
     const char *expected_1_1[6] = {
         "cpy    %p0/m %h0 -> %z0.h",   "cpy    %p2/m %h7 -> %z5.h",
@@ -1112,7 +1112,7 @@ TEST_INSTR(cpy_sve_pred)
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_1_1[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
               opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
-              opnd_create_reg(Hn_six_offset_2[i]));
+              opnd_create_reg(Vdn_h_six_offset_0[i]));
 
     const char *expected_1_2[6] = {
         "cpy    %p0/m %s0 -> %z0.s",   "cpy    %p2/m %s7 -> %z5.s",
@@ -1122,7 +1122,7 @@ TEST_INSTR(cpy_sve_pred)
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_1_2[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
               opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
-              opnd_create_reg(Sn_six_offset_2[i]));
+              opnd_create_reg(Vdn_s_six_offset_0[i]));
 
     const char *expected_1_3[6] = {
         "cpy    %p0/m %d0 -> %z0.d",   "cpy    %p2/m %d7 -> %z5.d",
@@ -1132,7 +1132,7 @@ TEST_INSTR(cpy_sve_pred)
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_1_3[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
-              opnd_create_reg(Dn_six_offset_2[i]));
+              opnd_create_reg(Vdn_d_six_offset_0[i]));
 }
 
 TEST_INSTR(ptest_sve_pred)
