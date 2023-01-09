@@ -77,6 +77,7 @@
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ----------------------------xxxx  p0         # SVE predicate registers p0-p15
 ----------------------------xxxx  p_b_0      # P register with a byte element size
+----------------------------xxxx  p_h_0      # P register with a halfword element size
 ---------------------------xxxxx  w0         # W register (or WZR)
 ---------------------------xxxxx  w0p0       # even-numbered W register (or WZR)
 ---------------------------xxxxx  w0p1       # ... add 1
@@ -218,6 +219,7 @@
 --------??-----------------xxxxx  wx_size_0_zr # GPR scalar register, register size, W or X depending on size bits
 --------??------------xxxxx-----  wx_size_5_sp # GPR scalar register, register size, W or X depending on size bits
 --------??------------xxxxx-----  wx_size_5_zr # GPR scalar register, register size, W or X depending on size bits
+--------??------------xxxxx-----  z_tb_bhs_5 # sve vector reg, elsz depending on size Tb
 --------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
@@ -248,6 +250,7 @@
 --------xx-xxxxx----------------  float_reg16 # H, S or D register
 --------xx-xxxxx----------------  hsd_size_reg16   # hsd register, depending on size opcode
 --------xx-xxxxx----------------  bhsd_size_reg16  # bhsd register, depending on size opcode
+--------xx-xxxxx----------------  p_size_bhsd_16   # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_size_bhsd_16   # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_size_hsd_16    # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  imm2_tsz_index   # Index encoded in imm2:tsz
