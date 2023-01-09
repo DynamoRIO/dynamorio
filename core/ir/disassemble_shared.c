@@ -282,6 +282,38 @@ aarch64_reg_opnd_suffix(opnd_t opnd)
 
     return "";
 }
+#endif
+#ifdef AARCH64
+bool
+aarch64_predicate_constraint_is_mapped(ptr_int_t value)
+{
+    return value >= DR_PRED_CONSTR_FIRST_NUMBER && value <= DR_PRED_CONSTR_LAST_NUMBER;
+}
+
+static const char *
+aarch64_predicate_constraint_string(ptr_int_t value)
+{
+    switch (value) {
+    case DR_PRED_CONSTR_POW2: return "POW2";
+    case DR_PRED_CONSTR_VL1: return "VL1";
+    case DR_PRED_CONSTR_VL2: return "VL2";
+    case DR_PRED_CONSTR_VL3: return "VL3";
+    case DR_PRED_CONSTR_VL4: return "VL4";
+    case DR_PRED_CONSTR_VL5: return "VL5";
+    case DR_PRED_CONSTR_VL6: return "VL6";
+    case DR_PRED_CONSTR_VL7: return "VL7";
+    case DR_PRED_CONSTR_VL8: return "VL8";
+    case DR_PRED_CONSTR_VL16: return "VL16";
+    case DR_PRED_CONSTR_VL32: return "VL32";
+    case DR_PRED_CONSTR_VL64: return "VL64";
+    case DR_PRED_CONSTR_VL128: return "VL128";
+    case DR_PRED_CONSTR_VL256: return "VL256";
+    case DR_PRED_CONSTR_MUL4: return "MUL4";
+    case DR_PRED_CONSTR_MUL3: return "MUL3";
+    case DR_PRED_CONSTR_ALL: return "ALL";
+    default: return "UKNOWN_CONSTRAINT";
+    }
+}
 
 #endif
 
@@ -586,6 +618,11 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
          */
         if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask))) {
             print_to_buffer(buf, bufsz, sofar, "%s%s%d", immed_prefix(), sign, (uint)val);
+#ifdef AARCH64
+        } else if (TEST(opnd_get_flags(opnd), DR_OPND_IS_PREDICATE_CONSTRAINT) &&
+                   !aarch64_predicate_constraint_is_mapped(val)) {
+            print_to_buffer(buf, bufsz, sofar, aarch64_predicate_constraint_string(val));
+#endif
         } else if (sz <= 1) {
             print_to_buffer(buf, bufsz, sofar, "%s%s0x%02x", immed_prefix(), sign,
                             (uint)((byte)val));
