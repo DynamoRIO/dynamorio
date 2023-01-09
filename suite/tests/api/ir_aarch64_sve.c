@@ -1054,44 +1054,44 @@ TEST_INSTR(cpy_sve_pred)
 {
     /* Testing CPY     <Zd>.<Ts>, <Pg>/M, <R><n|SP> */
     const char *expected_0_0[6] = {
-        "cpy    %p0/m %w0 -> %z0.b",   "cpy    %p2/m %w7 -> %z5.b",
-        "cpy    %p3/m %w12 -> %z10.b", "cpy    %p5/m %w17 -> %z16.b",
-        "cpy    %p6/m %w22 -> %z21.b", "cpy    %p7/m %wsp -> %z31.b",
+        "cpy    %p0/m %w0 -> %z0.b",   "cpy    %p2/m %w6 -> %z5.b",
+        "cpy    %p3/m %w11 -> %z10.b", "cpy    %p5/m %w16 -> %z16.b",
+        "cpy    %p6/m %w21 -> %z21.b", "cpy    %p7/m %wsp -> %z31.b",
     };
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_0_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
               opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
-              opnd_create_reg(Wn_six_offset_0sp[i]));
+              opnd_create_reg(Wn_six_offset_1_sp[i]));
 
     const char *expected_0_1[6] = {
-        "cpy    %p0/m %w0 -> %z0.h",   "cpy    %p2/m %w7 -> %z5.h",
-        "cpy    %p3/m %w12 -> %z10.h", "cpy    %p5/m %w17 -> %z16.h",
-        "cpy    %p6/m %w22 -> %z21.h", "cpy    %p7/m %wsp -> %z31.h",
+        "cpy    %p0/m %w0 -> %z0.h",   "cpy    %p2/m %w6 -> %z5.h",
+        "cpy    %p3/m %w11 -> %z10.h", "cpy    %p5/m %w16 -> %z16.h",
+        "cpy    %p6/m %w21 -> %z21.h", "cpy    %p7/m %wsp -> %z31.h",
     };
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_0_1[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
               opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
-              opnd_create_reg(Wn_six_offset_0sp[i]));
+              opnd_create_reg(Wn_six_offset_1_sp[i]));
 
     const char *expected_0_2[6] = {
-        "cpy    %p0/m %w0 -> %z0.s",   "cpy    %p2/m %w7 -> %z5.s",
-        "cpy    %p3/m %w12 -> %z10.s", "cpy    %p5/m %w17 -> %z16.s",
-        "cpy    %p6/m %w22 -> %z21.s", "cpy    %p7/m %wsp -> %z31.s",
+        "cpy    %p0/m %w0 -> %z0.s",   "cpy    %p2/m %w6 -> %z5.s",
+        "cpy    %p3/m %w11 -> %z10.s", "cpy    %p5/m %w16 -> %z16.s",
+        "cpy    %p6/m %w21 -> %z21.s", "cpy    %p7/m %wsp -> %z31.s",
     };
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_0_2[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
               opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
-              opnd_create_reg(Wn_six_offset_0sp[i]));
+              opnd_create_reg(Wn_six_offset_1_sp[i]));
 
     const char *expected_0_3[6] = {
-        "cpy    %p0/m %x0 -> %z0.d",   "cpy    %p2/m %x7 -> %z5.d",
-        "cpy    %p3/m %x12 -> %z10.d", "cpy    %p5/m %x17 -> %z16.d",
-        "cpy    %p6/m %x22 -> %z21.d", "cpy    %p7/m %sp -> %z31.d",
+        "cpy    %p0/m %x0 -> %z0.d",   "cpy    %p2/m %x6 -> %z5.d",
+        "cpy    %p3/m %x11 -> %z10.d", "cpy    %p5/m %x16 -> %z16.d",
+        "cpy    %p6/m %x21 -> %z21.d", "cpy    %p7/m %sp -> %z31.d",
     };
     TEST_LOOP(cpy, cpy_sve_pred, 6, expected_0_3[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
-              opnd_create_reg(Xn_six_offset_0sp[i]));
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
 
     /* Testing CPY     <Zd>.<Ts>, <Pg>/M, <V><n> */
     const char *expected_1_0[6] = {
