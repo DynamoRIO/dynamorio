@@ -44,7 +44,7 @@ typedef enum {
     DOUBLE_REG = 3,
     QUAD_REG = 4,
     Z_REG = 5,
-    NOT_A_REG = DR_REG_INVALID
+    NOT_A_REG = 255
 } aarch64_reg_offset;
 
 byte *
