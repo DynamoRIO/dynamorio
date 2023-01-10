@@ -6675,7 +6675,8 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zdn   The first source and destination vector register, Z (Scalable).
- * \param imm   The immediate logicalImm
+ * \param imm   The immediate logicalImm.  The 13 bit immediate defining a 64, 32, 16 or 8
+ * bit mask of 2, 4, 8, 16, 32 or 64 bit fields.
  */
 #define INSTR_CREATE_and_sve_imm(dc, Zdn, imm) \
     instr_create_1dst_2src(dc, OP_and, Zdn, Zdn, imm)
@@ -6689,7 +6690,8 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zdn   The first source and destination vector register, Z (Scalable).
- * \param imm   The immediate logicalImm
+ * \param imm   The immediate logicalImm.  The 13 bit immediate defining a 64, 32, 16 or 8
+ * bit mask of 2, 4, 8, 16, 32 or 64 bit fields.
  */
 #define INSTR_CREATE_bic_sve_imm(dc, Zdn, imm) \
     instr_create_1dst_2src(dc, OP_and, Zdn, Zdn, opnd_invert_immed_int(imm))
@@ -6703,7 +6705,8 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zdn   The first source and destination vector register, Z (Scalable).
- * \param imm   The immediate logicalImm
+ * \param imm   The immediate logicalImm.  The 13 bit immediate defining a 64, 32, 16 or 8
+ * bit mask of 2, 4, 8, 16, 32 or 64 bit fields.
  */
 #define INSTR_CREATE_eor_sve_imm(dc, Zdn, imm) \
     instr_create_1dst_2src(dc, OP_eor, Zdn, Zdn, imm)
@@ -6717,7 +6720,8 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zdn   The first source and destination vector register, Z (Scalable).
- * \param imm   The immediate logicalImm
+ * \param imm   The immediate logicalImm.  The 13 bit immediate defining a 64, 32, 16 or 8
+ * bit mask of 2, 4, 8, 16, 32 or 64 bit fields.
  */
 #define INSTR_CREATE_orr_sve_imm(dc, Zdn, imm) \
     instr_create_1dst_2src(dc, OP_orr, Zdn, Zdn, imm)
@@ -6731,7 +6735,8 @@
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zdn   The first source and destination vector register, Z (Scalable).
- * \param imm   The immediate logicalImm
+ * \param imm   The immediate logicalImm.  The 13 bit immediate defining a 64, 32, 16 or 8
+ * bit mask of 2, 4, 8, 16, 32 or 64 bit fields.
  */
 #define INSTR_CREATE_orn_sve_imm(dc, Zdn, imm) \
     instr_create_1dst_2src(dc, OP_orr, Zdn, Zdn, opnd_invert_immed_int(imm))
@@ -8783,5 +8788,34 @@
  */
 #define INSTR_CREATE_trn2_sve_vector(dc, Zd, Zn, Zm) \
     instr_create_1dst_2src(dc, OP_trn2, Zd, Zn, Zm)
+
+/**
+ * Creates a DUPM instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    DUPM    <Zd>.<Ts>, #<const>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param imm  The immediate logicalImm.  The 13 bit immediate defining a 64, 32, 16 or 8
+ * bit mask of 2, 4, 8, 16, 32 or 64 bit fields.
+ */
+#define INSTR_CREATE_dupm_sve(dc, Zd, imm) instr_create_1dst_1src(dc, OP_dupm, Zd, imm)
+
+/**
+ * Creates an EON instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    EON     <Zdn>.<Ts>, <Zdn>.<Ts>, #<imm>
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param imm   The immediate logicalImm.  The 13 bit immediate defining a 64, 32, 16 or 8
+ * bit mask of 2, 4, 8, 16, 32 or 64 bit fields.
+ */
+#define INSTR_CREATE_eon_sve_imm(dc, Zdn, imm) \
+    instr_create_1dst_2src(dc, OP_eor, Zdn, Zdn, opnd_invert_immed_int(imm))
 
 #endif /* DR_IR_MACROS_AARCH64_H */

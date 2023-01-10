@@ -8987,6 +8987,90 @@ TEST_INSTR(trn2_sve_vector)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
 }
 
+TEST_INSTR(dupm_sve)
+{
+    /* Testing DUPM    <Zd>.<Ts>, #<const> */
+    int imm13[6] = { 1, 4, 8, 16, 32, 63 };
+    const char *expected_0[6] = {
+        "dupm   $0x01 -> %z0.b",  "dupm   $0x04 -> %z5.b",  "dupm   $0x08 -> %z10.b",
+        "dupm   $0x10 -> %z16.b", "dupm   $0x20 -> %z21.b", "dupm   $0x3f -> %z31.b",
+    };
+    TEST_LOOP(dupm, dupm_sve, 6, expected_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_immed_int(imm13[i], OPSZ_1));
+
+    const char *expected_1[6] = {
+        "dupm   $0x0001 -> %z0.h",  "dupm   $0x0004 -> %z5.h",
+        "dupm   $0x0008 -> %z10.h", "dupm   $0x0010 -> %z16.h",
+        "dupm   $0x0020 -> %z21.h", "dupm   $0x003f -> %z31.h",
+    };
+    TEST_LOOP(dupm, dupm_sve, 6, expected_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_immed_int(imm13[i], OPSZ_2));
+
+    const char *expected_2[6] = {
+        "dupm   $0x00000001 -> %z0.s",  "dupm   $0x00000004 -> %z5.s",
+        "dupm   $0x00000008 -> %z10.s", "dupm   $0x00000010 -> %z16.s",
+        "dupm   $0x00000020 -> %z21.s", "dupm   $0x0000003f -> %z31.s",
+    };
+    TEST_LOOP(dupm, dupm_sve, 6, expected_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_immed_int(imm13[i], OPSZ_4));
+
+    const char *expected_3[6] = {
+        "dupm   $0x0000000000000001 -> %z0.d",  "dupm   $0x0000000000000004 -> %z5.d",
+        "dupm   $0x0000000000000008 -> %z10.d", "dupm   $0x0000000000000010 -> %z16.d",
+        "dupm   $0x0000000000000020 -> %z21.d", "dupm   $0x000000000000003f -> %z31.d",
+    };
+    TEST_LOOP(dupm, dupm_sve, 6, expected_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_immed_int(imm13[i], OPSZ_8));
+}
+
+TEST_INSTR(eon_sve_imm)
+{
+    /* Testing EON     <Zdn>.<T>, <Zdn>.<T>, #<imm> */
+    int imm13[6] = { 1, 4, 8, 16, 32, 63 };
+    const char *expected_0[6] = {
+        "eor    %z0.b $0xfe -> %z0.b",   "eor    %z5.b $0xfb -> %z5.b",
+        "eor    %z10.b $0xf7 -> %z10.b", "eor    %z16.b $0xef -> %z16.b",
+        "eor    %z21.b $0xdf -> %z21.b", "eor    %z31.b $0xc0 -> %z31.b",
+    };
+    TEST_LOOP(eor, eon_sve_imm, 6, expected_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_immed_int(imm13[i], OPSZ_1));
+
+    const char *expected_1[6] = {
+        "eor    %z0.h $0xfffe -> %z0.h",   "eor    %z5.h $0xfffb -> %z5.h",
+        "eor    %z10.h $0xfff7 -> %z10.h", "eor    %z16.h $0xffef -> %z16.h",
+        "eor    %z21.h $0xffdf -> %z21.h", "eor    %z31.h $0xffc0 -> %z31.h",
+    };
+    TEST_LOOP(eor, eon_sve_imm, 6, expected_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_immed_int(imm13[i], OPSZ_2));
+
+    const char *expected_2[6] = {
+        "eor    %z0.s $0xfffffffe -> %z0.s",   "eor    %z5.s $0xfffffffb -> %z5.s",
+        "eor    %z10.s $0xfffffff7 -> %z10.s", "eor    %z16.s $0xffffffef -> %z16.s",
+        "eor    %z21.s $0xffffffdf -> %z21.s", "eor    %z31.s $0xffffffc0 -> %z31.s",
+    };
+    TEST_LOOP(eor, eon_sve_imm, 6, expected_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_immed_int(imm13[i], OPSZ_4));
+
+    const char *expected_3[6] = {
+        "eor    %z0.d $0xfffffffffffffffe -> %z0.d",
+        "eor    %z5.d $0xfffffffffffffffb -> %z5.d",
+        "eor    %z10.d $0xfffffffffffffff7 -> %z10.d",
+        "eor    %z16.d $0xffffffffffffffef -> %z16.d",
+        "eor    %z21.d $0xffffffffffffffdf -> %z21.d",
+        "eor    %z31.d $0xffffffffffffffc0 -> %z31.d",
+    };
+    TEST_LOOP(eor, eon_sve_imm, 6, expected_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_immed_int(imm13[i], OPSZ_8));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -9268,6 +9352,9 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(trn1_sve_vector);
     RUN_INSTR_TEST(trn2_sve_pred);
     RUN_INSTR_TEST(trn2_sve_vector);
+
+    RUN_INSTR_TEST(dupm_sve);
+    RUN_INSTR_TEST(eon_sve_imm);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER
