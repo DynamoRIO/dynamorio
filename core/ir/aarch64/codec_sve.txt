@@ -107,6 +107,8 @@
 00000101xx100001100xxxxxxxxxxxxx  n   886  SVE  compact    z_size_sd_0 : p10_lo z_size_sd_5
 00000101xx01xxxx00xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_zer simm8_5 lsl shift1
 00000101xx01xxxx01xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_mrg simm8_5 lsl shift1
+00000101xx101000101xxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p10_mrg_lo wx_size_5_sp
+00000101xx100000100xxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p10_mrg_lo bhsd_size_reg5
 000001000011xxxx111001xxxxxxxxxx  n   840  SVE     decb             x0 : x0 pred_constr mul imm4_16p1
 000001001111xxxx111001xxxxxxxxxx  n   841  SVE     decd             x0 : x0 pred_constr mul imm4_16p1
 000001001111xxxx110001xxxxxxxxxx  n   841  SVE     decd          z_d_0 : z_d_0 pred_constr mul imm4_16p1
