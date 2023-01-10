@@ -121,6 +121,7 @@
 00100101xx11100011xxxxxxxxxxxxxx  n   88   SVE      dup  z_size_bhsd_0 : simm8_5 lsl shift1
 00000101xx1xxxxx001000xxxxxxxxxx  n   88   SVE      dup  z_tsz_bhsdq_0 : z_tsz_bhsdq_5 imm2_tsz_index
 00000101xx100000001110xxxxxxxxxx  n   88   SVE      dup  z_size_bhsd_0 : wx_size_5_sp
+00000101110000xxxxxxxxxxxxxxxxxx  n   893  SVE     dupm  z_imm13_bhsd_0 : imm13_const
 00000100xx011001000xxxxxxxxxxxxx  n   90   SVE      eor             z0 : p10_lo z0 z5 bhsd_sz
 00000101010000xxxxxxxxxxxxxxxxxx  n   90   SVE      eor  z_imm13_bhsd_0 : z_imm13_bhsd_0 imm13_const
 001001010000xxxx01xxxx1xxxx0xxxx  n   90   SVE      eor          p_b_0 : p10_zer p_b_5 p_b_16

@@ -3857,6 +3857,68 @@
 05e03b7b : dup z27.d, x27          : dup    %x27 -> %z27.d
 05e03bff : dup z31.d, sp           : dup    %sp -> %z31.d
 
+# DUP   <Zdn>.<T>, #<const> (DUPM-Z.I-_)
+05c006a0 : dupm z0.b, #0x3f                   : dupm   $0x3f -> %z0.b
+05c00604 : dupm z4.b, #0x01                   : dupm   $0x01 -> %z4.b
+05c03e06 : dupm z6.b, #0x02                   : dupm   $0x02 -> %z6.b
+05c03608 : dupm z8.b, #0x04                   : dupm   $0x04 -> %z8.b
+05c02e0a : dupm z10.b, #0x08                  : dupm   $0x08 -> %z10.b
+05c0260c : dupm z12.b, #0x10                  : dupm   $0x10 -> %z12.b
+05c01e0e : dupm z14.b, #0x20                  : dupm   $0x20 -> %z14.b
+05c00630 : dupm z16.b, #0x03                  : dupm   $0x03 -> %z16.b
+05c00652 : dupm z18.b, #0x07                  : dupm   $0x07 -> %z18.b
+05c00674 : dupm z20.b, #0x0f                  : dupm   $0x0f -> %z20.b
+05c00696 : dupm z22.b, #0x1f                  : dupm   $0x1f -> %z22.b
+05c03e98 : dupm z24.b, #0x3e                  : dupm   $0x3e -> %z24.b
+05c0367a : dupm z26.b, #0x3c                  : dupm   $0x3c -> %z26.b
+05c02e5c : dupm z28.b, #0x38                  : dupm   $0x38 -> %z28.b
+05c0263f : dupm z31.b, #0x30                  : dupm   $0x30 -> %z31.b
+05c004a0 : dupm z0.h, #0x3f                   : dupm   $0x003f -> %z0.h
+05c00404 : dupm z4.h, #0x01                   : dupm   $0x0001 -> %z4.h
+05c07c06 : dupm z6.h, #0x02                   : dupm   $0x0002 -> %z6.h
+05c07408 : dupm z8.h, #0x04                   : dupm   $0x0004 -> %z8.h
+05c06c0a : dupm z10.h, #0x08                  : dupm   $0x0008 -> %z10.h
+05c0640c : dupm z12.h, #0x10                  : dupm   $0x0010 -> %z12.h
+05c05c0e : dupm z14.h, #0x20                  : dupm   $0x0020 -> %z14.h
+05c00430 : dupm z16.h, #0x03                  : dupm   $0x0003 -> %z16.h
+05c00452 : dupm z18.h, #0x07                  : dupm   $0x0007 -> %z18.h
+05c00474 : dupm z20.h, #0x0f                  : dupm   $0x000f -> %z20.h
+05c00496 : dupm z22.h, #0x1f                  : dupm   $0x001f -> %z22.h
+05c07c98 : dupm z24.h, #0x3e                  : dupm   $0x003e -> %z24.h
+05c0747a : dupm z26.h, #0x3c                  : dupm   $0x003c -> %z26.h
+05c06c5c : dupm z28.h, #0x38                  : dupm   $0x0038 -> %z28.h
+05c0643f : dupm z31.h, #0x30                  : dupm   $0x0030 -> %z31.h
+05c000a0 : dupm z0.s, #0x3f                   : dupm   $0x0000003f -> %z0.s
+05c00004 : dupm z4.s, #0x01                   : dupm   $0x00000001 -> %z4.s
+05c0f806 : dupm z6.s, #0x02                   : dupm   $0x00000002 -> %z6.s
+05c0f008 : dupm z8.s, #0x04                   : dupm   $0x00000004 -> %z8.s
+05c0e80a : dupm z10.s, #0x08                  : dupm   $0x00000008 -> %z10.s
+05c0e00c : dupm z12.s, #0x10                  : dupm   $0x00000010 -> %z12.s
+05c0d80e : dupm z14.s, #0x20                  : dupm   $0x00000020 -> %z14.s
+05c00030 : dupm z16.s, #0x03                  : dupm   $0x00000003 -> %z16.s
+05c00052 : dupm z18.s, #0x07                  : dupm   $0x00000007 -> %z18.s
+05c00074 : dupm z20.s, #0x0f                  : dupm   $0x0000000f -> %z20.s
+05c00096 : dupm z22.s, #0x1f                  : dupm   $0x0000001f -> %z22.s
+05c0f898 : dupm z24.s, #0x3e                  : dupm   $0x0000003e -> %z24.s
+05c0f07a : dupm z26.s, #0x3c                  : dupm   $0x0000003c -> %z26.s
+05c0e85c : dupm z28.s, #0x38                  : dupm   $0x00000038 -> %z28.s
+05c0e03f : dupm z31.s, #0x30                  : dupm   $0x00000030 -> %z31.s
+05c200a0 : dupm z0.d, #0x3f                   : dupm   $0x000000000000003f -> %z0.d
+05c20004 : dupm z4.d, #0x01                   : dupm   $0x0000000000000001 -> %z4.d
+05c3f806 : dupm z6.d, #0x02                   : dupm   $0x0000000000000002 -> %z6.d
+05c3f008 : dupm z8.d, #0x04                   : dupm   $0x0000000000000004 -> %z8.d
+05c3e80a : dupm z10.d, #0x08                  : dupm   $0x0000000000000008 -> %z10.d
+05c3e00c : dupm z12.d, #0x10                  : dupm   $0x0000000000000010 -> %z12.d
+05c3d80e : dupm z14.d, #0x20                  : dupm   $0x0000000000000020 -> %z14.d
+05c20030 : dupm z16.d, #0x03                  : dupm   $0x0000000000000003 -> %z16.d
+05c20052 : dupm z18.d, #0x07                  : dupm   $0x0000000000000007 -> %z18.d
+05c20074 : dupm z20.d, #0x0f                  : dupm   $0x000000000000000f -> %z20.d
+05c20096 : dupm z22.d, #0x1f                  : dupm   $0x000000000000001f -> %z22.d
+05c3f898 : dupm z24.d, #0x3e                  : dupm   $0x000000000000003e -> %z24.d
+05c3f07a : dupm z26.d, #0x3c                  : dupm   $0x000000000000003c -> %z26.d
+05c3e85c : dupm z28.d, #0x38                  : dupm   $0x0000000000000038 -> %z28.d
+05c3e03f : dupm z31.d, #0x30                  : dupm   $0x0000000000000030 -> %z31.d
+
 0419105d : eor z29.b, p4/m, z29.b, z2.b             : eor    %p4 %z29 %z2 $0x00 -> %z29
 0459105d : eor z29.h, p4/m, z29.h, z2.h             : eor    %p4 %z29 %z2 $0x01 -> %z29
 0499105d : eor z29.s, p4/m, z29.s, z2.s             : eor    %p4 %z29 %z2 $0x02 -> %z29
