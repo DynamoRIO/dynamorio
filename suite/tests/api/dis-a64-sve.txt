@@ -6532,6 +6532,42 @@
 25c079ed : orrs p13.b, p14/Z, p15.b, p0.b            : orrs   %p14/z %p15.b %p0.b -> %p13.b
 25cf7def : orrs p15.b, p15/Z, p15.b, p15.b           : orrs   %p15/z %p15.b %p15.b -> %p15.b
 
+# PFALSE  <Pd>.B (PFALSE-P-_)
+2518e400 : pfalse p0.b                               : pfalse  -> %p0.b
+2518e401 : pfalse p1.b                               : pfalse  -> %p1.b
+2518e402 : pfalse p2.b                               : pfalse  -> %p2.b
+2518e403 : pfalse p3.b                               : pfalse  -> %p3.b
+2518e404 : pfalse p4.b                               : pfalse  -> %p4.b
+2518e405 : pfalse p5.b                               : pfalse  -> %p5.b
+2518e406 : pfalse p6.b                               : pfalse  -> %p6.b
+2518e407 : pfalse p7.b                               : pfalse  -> %p7.b
+2518e408 : pfalse p8.b                               : pfalse  -> %p8.b
+2518e408 : pfalse p8.b                               : pfalse  -> %p8.b
+2518e409 : pfalse p9.b                               : pfalse  -> %p9.b
+2518e40a : pfalse p10.b                              : pfalse  -> %p10.b
+2518e40b : pfalse p11.b                              : pfalse  -> %p11.b
+2518e40c : pfalse p12.b                              : pfalse  -> %p12.b
+2518e40d : pfalse p13.b                              : pfalse  -> %p13.b
+2518e40f : pfalse p15.b                              : pfalse  -> %p15.b
+
+# PFIRST  <Pdn>.B, <Pg>, <Pdn>.B (PFIRST-P.P.P-_)
+2558c000 : pfirst p0.b, p0, p0.b                     : pfirst %p0 %p0.b -> %p0.b
+2558c041 : pfirst p1.b, p2, p1.b                     : pfirst %p2 %p1.b -> %p1.b
+2558c062 : pfirst p2.b, p3, p2.b                     : pfirst %p3 %p2.b -> %p2.b
+2558c083 : pfirst p3.b, p4, p3.b                     : pfirst %p4 %p3.b -> %p3.b
+2558c0a4 : pfirst p4.b, p5, p4.b                     : pfirst %p5 %p4.b -> %p4.b
+2558c0c5 : pfirst p5.b, p6, p5.b                     : pfirst %p6 %p5.b -> %p5.b
+2558c0e6 : pfirst p6.b, p7, p6.b                     : pfirst %p7 %p6.b -> %p6.b
+2558c107 : pfirst p7.b, p8, p7.b                     : pfirst %p8 %p7.b -> %p7.b
+2558c128 : pfirst p8.b, p9, p8.b                     : pfirst %p9 %p8.b -> %p8.b
+2558c128 : pfirst p8.b, p9, p8.b                     : pfirst %p9 %p8.b -> %p8.b
+2558c149 : pfirst p9.b, p10, p9.b                    : pfirst %p10 %p9.b -> %p9.b
+2558c16a : pfirst p10.b, p11, p10.b                  : pfirst %p11 %p10.b -> %p10.b
+2558c18b : pfirst p11.b, p12, p11.b                  : pfirst %p12 %p11.b -> %p11.b
+2558c1ac : pfirst p12.b, p13, p12.b                  : pfirst %p13 %p12.b -> %p12.b
+2558c1cd : pfirst p13.b, p14, p13.b                  : pfirst %p14 %p13.b -> %p13.b
+2558c1ef : pfirst p15.b, p15, p15.b                  : pfirst %p15 %p15.b -> %p15.b
+
 # PTEST   <Pg>, <Pn>.B (PTEST-.P.P-_)
 2550c000 : ptest p0, p0.b                            : ptest  %p0 %p0.b
 2550c440 : ptest p1, p2.b                            : ptest  %p1 %p2.b
@@ -6549,6 +6585,266 @@
 2550ed80 : ptest p11, p12.b                          : ptest  %p11 %p12.b
 2550f1a0 : ptest p12, p13.b                          : ptest  %p12 %p13.b
 2550f9c0 : ptest p14, p14.b                          : ptest  %p14 %p14.b
+
+# PTRUE   <Pd>.<T>{, <pattern>} (PTRUE-P.S-_)
+2518e000 : ptrue p0.b, POW2                          : ptrue  POW2 -> %p0.b
+2518e020 : ptrue p0.b, VL1                           : ptrue  VL1 -> %p0.b
+2518e041 : ptrue p1.b, VL2                           : ptrue  VL2 -> %p1.b
+2518e061 : ptrue p1.b, VL3                           : ptrue  VL3 -> %p1.b
+2518e082 : ptrue p2.b, VL4                           : ptrue  VL4 -> %p2.b
+2518e0a2 : ptrue p2.b, VL5                           : ptrue  VL5 -> %p2.b
+2518e0c3 : ptrue p3.b, VL6                           : ptrue  VL6 -> %p3.b
+2518e0e3 : ptrue p3.b, VL7                           : ptrue  VL7 -> %p3.b
+2518e104 : ptrue p4.b, VL8                           : ptrue  VL8 -> %p4.b
+2518e124 : ptrue p4.b, VL16                          : ptrue  VL16 -> %p4.b
+2518e145 : ptrue p5.b, VL32                          : ptrue  VL32 -> %p5.b
+2518e165 : ptrue p5.b, VL64                          : ptrue  VL64 -> %p5.b
+2518e186 : ptrue p6.b, VL128                         : ptrue  VL128 -> %p6.b
+2518e1a6 : ptrue p6.b, VL256                         : ptrue  VL256 -> %p6.b
+2518e1c7 : ptrue p7.b, 14                            : ptrue  $0x0e -> %p7.b
+2518e1e7 : ptrue p7.b, 15                            : ptrue  $0x0f -> %p7.b
+2518e208 : ptrue p8.b, 16                            : ptrue  $0x10 -> %p8.b
+2518e228 : ptrue p8.b, 17                            : ptrue  $0x11 -> %p8.b
+2518e248 : ptrue p8.b, 18                            : ptrue  $0x12 -> %p8.b
+2518e269 : ptrue p9.b, 19                            : ptrue  $0x13 -> %p9.b
+2518e289 : ptrue p9.b, 20                            : ptrue  $0x14 -> %p9.b
+2518e2aa : ptrue p10.b, 21                           : ptrue  $0x15 -> %p10.b
+2518e2ca : ptrue p10.b, 22                           : ptrue  $0x16 -> %p10.b
+2518e2eb : ptrue p11.b, 23                           : ptrue  $0x17 -> %p11.b
+2518e30b : ptrue p11.b, 24                           : ptrue  $0x18 -> %p11.b
+2518e32c : ptrue p12.b, 25                           : ptrue  $0x19 -> %p12.b
+2518e34c : ptrue p12.b, 26                           : ptrue  $0x1a -> %p12.b
+2518e36d : ptrue p13.b, 27                           : ptrue  $0x1b -> %p13.b
+2518e38d : ptrue p13.b, 28                           : ptrue  $0x1c -> %p13.b
+2518e3ae : ptrue p14.b, MUL4                         : ptrue  MUL4 -> %p14.b
+2518e3ce : ptrue p14.b, MUL3                         : ptrue  MUL3 -> %p14.b
+2518e3ef : ptrue p15.b, ALL                          : ptrue  ALL -> %p15.b
+2558e000 : ptrue p0.h, POW2                          : ptrue  POW2 -> %p0.h
+2558e020 : ptrue p0.h, VL1                           : ptrue  VL1 -> %p0.h
+2558e041 : ptrue p1.h, VL2                           : ptrue  VL2 -> %p1.h
+2558e061 : ptrue p1.h, VL3                           : ptrue  VL3 -> %p1.h
+2558e082 : ptrue p2.h, VL4                           : ptrue  VL4 -> %p2.h
+2558e0a2 : ptrue p2.h, VL5                           : ptrue  VL5 -> %p2.h
+2558e0c3 : ptrue p3.h, VL6                           : ptrue  VL6 -> %p3.h
+2558e0e3 : ptrue p3.h, VL7                           : ptrue  VL7 -> %p3.h
+2558e104 : ptrue p4.h, VL8                           : ptrue  VL8 -> %p4.h
+2558e124 : ptrue p4.h, VL16                          : ptrue  VL16 -> %p4.h
+2558e145 : ptrue p5.h, VL32                          : ptrue  VL32 -> %p5.h
+2558e165 : ptrue p5.h, VL64                          : ptrue  VL64 -> %p5.h
+2558e186 : ptrue p6.h, VL128                         : ptrue  VL128 -> %p6.h
+2558e1a6 : ptrue p6.h, VL256                         : ptrue  VL256 -> %p6.h
+2558e1c7 : ptrue p7.h, 14                            : ptrue  $0x0e -> %p7.h
+2558e1e7 : ptrue p7.h, 15                            : ptrue  $0x0f -> %p7.h
+2558e208 : ptrue p8.h, 16                            : ptrue  $0x10 -> %p8.h
+2558e228 : ptrue p8.h, 17                            : ptrue  $0x11 -> %p8.h
+2558e248 : ptrue p8.h, 18                            : ptrue  $0x12 -> %p8.h
+2558e269 : ptrue p9.h, 19                            : ptrue  $0x13 -> %p9.h
+2558e289 : ptrue p9.h, 20                            : ptrue  $0x14 -> %p9.h
+2558e2aa : ptrue p10.h, 21                           : ptrue  $0x15 -> %p10.h
+2558e2ca : ptrue p10.h, 22                           : ptrue  $0x16 -> %p10.h
+2558e2eb : ptrue p11.h, 23                           : ptrue  $0x17 -> %p11.h
+2558e30b : ptrue p11.h, 24                           : ptrue  $0x18 -> %p11.h
+2558e32c : ptrue p12.h, 25                           : ptrue  $0x19 -> %p12.h
+2558e34c : ptrue p12.h, 26                           : ptrue  $0x1a -> %p12.h
+2558e36d : ptrue p13.h, 27                           : ptrue  $0x1b -> %p13.h
+2558e38d : ptrue p13.h, 28                           : ptrue  $0x1c -> %p13.h
+2558e3ae : ptrue p14.h, MUL4                         : ptrue  MUL4 -> %p14.h
+2558e3ce : ptrue p14.h, MUL3                         : ptrue  MUL3 -> %p14.h
+2558e3ef : ptrue p15.h, ALL                          : ptrue  ALL -> %p15.h
+2598e000 : ptrue p0.s, POW2                          : ptrue  POW2 -> %p0.s
+2598e020 : ptrue p0.s, VL1                           : ptrue  VL1 -> %p0.s
+2598e041 : ptrue p1.s, VL2                           : ptrue  VL2 -> %p1.s
+2598e061 : ptrue p1.s, VL3                           : ptrue  VL3 -> %p1.s
+2598e082 : ptrue p2.s, VL4                           : ptrue  VL4 -> %p2.s
+2598e0a2 : ptrue p2.s, VL5                           : ptrue  VL5 -> %p2.s
+2598e0c3 : ptrue p3.s, VL6                           : ptrue  VL6 -> %p3.s
+2598e0e3 : ptrue p3.s, VL7                           : ptrue  VL7 -> %p3.s
+2598e104 : ptrue p4.s, VL8                           : ptrue  VL8 -> %p4.s
+2598e124 : ptrue p4.s, VL16                          : ptrue  VL16 -> %p4.s
+2598e145 : ptrue p5.s, VL32                          : ptrue  VL32 -> %p5.s
+2598e165 : ptrue p5.s, VL64                          : ptrue  VL64 -> %p5.s
+2598e186 : ptrue p6.s, VL128                         : ptrue  VL128 -> %p6.s
+2598e1a6 : ptrue p6.s, VL256                         : ptrue  VL256 -> %p6.s
+2598e1c7 : ptrue p7.s, 14                            : ptrue  $0x0e -> %p7.s
+2598e1e7 : ptrue p7.s, 15                            : ptrue  $0x0f -> %p7.s
+2598e208 : ptrue p8.s, 16                            : ptrue  $0x10 -> %p8.s
+2598e228 : ptrue p8.s, 17                            : ptrue  $0x11 -> %p8.s
+2598e248 : ptrue p8.s, 18                            : ptrue  $0x12 -> %p8.s
+2598e269 : ptrue p9.s, 19                            : ptrue  $0x13 -> %p9.s
+2598e289 : ptrue p9.s, 20                            : ptrue  $0x14 -> %p9.s
+2598e2aa : ptrue p10.s, 21                           : ptrue  $0x15 -> %p10.s
+2598e2ca : ptrue p10.s, 22                           : ptrue  $0x16 -> %p10.s
+2598e2eb : ptrue p11.s, 23                           : ptrue  $0x17 -> %p11.s
+2598e30b : ptrue p11.s, 24                           : ptrue  $0x18 -> %p11.s
+2598e32c : ptrue p12.s, 25                           : ptrue  $0x19 -> %p12.s
+2598e34c : ptrue p12.s, 26                           : ptrue  $0x1a -> %p12.s
+2598e36d : ptrue p13.s, 27                           : ptrue  $0x1b -> %p13.s
+2598e38d : ptrue p13.s, 28                           : ptrue  $0x1c -> %p13.s
+2598e3ae : ptrue p14.s, MUL4                         : ptrue  MUL4 -> %p14.s
+2598e3ce : ptrue p14.s, MUL3                         : ptrue  MUL3 -> %p14.s
+2598e3ef : ptrue p15.s, ALL                          : ptrue  ALL -> %p15.s
+25d8e000 : ptrue p0.d, POW2                          : ptrue  POW2 -> %p0.d
+25d8e020 : ptrue p0.d, VL1                           : ptrue  VL1 -> %p0.d
+25d8e041 : ptrue p1.d, VL2                           : ptrue  VL2 -> %p1.d
+25d8e061 : ptrue p1.d, VL3                           : ptrue  VL3 -> %p1.d
+25d8e082 : ptrue p2.d, VL4                           : ptrue  VL4 -> %p2.d
+25d8e0a2 : ptrue p2.d, VL5                           : ptrue  VL5 -> %p2.d
+25d8e0c3 : ptrue p3.d, VL6                           : ptrue  VL6 -> %p3.d
+25d8e0e3 : ptrue p3.d, VL7                           : ptrue  VL7 -> %p3.d
+25d8e104 : ptrue p4.d, VL8                           : ptrue  VL8 -> %p4.d
+25d8e124 : ptrue p4.d, VL16                          : ptrue  VL16 -> %p4.d
+25d8e145 : ptrue p5.d, VL32                          : ptrue  VL32 -> %p5.d
+25d8e165 : ptrue p5.d, VL64                          : ptrue  VL64 -> %p5.d
+25d8e186 : ptrue p6.d, VL128                         : ptrue  VL128 -> %p6.d
+25d8e1a6 : ptrue p6.d, VL256                         : ptrue  VL256 -> %p6.d
+25d8e1c7 : ptrue p7.d, 14                            : ptrue  $0x0e -> %p7.d
+25d8e1e7 : ptrue p7.d, 15                            : ptrue  $0x0f -> %p7.d
+25d8e208 : ptrue p8.d, 16                            : ptrue  $0x10 -> %p8.d
+25d8e228 : ptrue p8.d, 17                            : ptrue  $0x11 -> %p8.d
+25d8e248 : ptrue p8.d, 18                            : ptrue  $0x12 -> %p8.d
+25d8e269 : ptrue p9.d, 19                            : ptrue  $0x13 -> %p9.d
+25d8e289 : ptrue p9.d, 20                            : ptrue  $0x14 -> %p9.d
+25d8e2aa : ptrue p10.d, 21                           : ptrue  $0x15 -> %p10.d
+25d8e2ca : ptrue p10.d, 22                           : ptrue  $0x16 -> %p10.d
+25d8e2eb : ptrue p11.d, 23                           : ptrue  $0x17 -> %p11.d
+25d8e30b : ptrue p11.d, 24                           : ptrue  $0x18 -> %p11.d
+25d8e32c : ptrue p12.d, 25                           : ptrue  $0x19 -> %p12.d
+25d8e34c : ptrue p12.d, 26                           : ptrue  $0x1a -> %p12.d
+25d8e36d : ptrue p13.d, 27                           : ptrue  $0x1b -> %p13.d
+25d8e38d : ptrue p13.d, 28                           : ptrue  $0x1c -> %p13.d
+25d8e3ae : ptrue p14.d, MUL4                         : ptrue  MUL4 -> %p14.d
+25d8e3ce : ptrue p14.d, MUL3                         : ptrue  MUL3 -> %p14.d
+25d8e3ef : ptrue p15.d, ALL                          : ptrue  ALL -> %p15.d
+
+# PTRUES  <Pd>.<T>{, <pattern>} (PTRUES-P.S-_)
+2519e000 : ptrues p0.b, POW2                         : ptrues POW2 -> %p0.b
+2519e020 : ptrues p0.b, VL1                          : ptrues VL1 -> %p0.b
+2519e041 : ptrues p1.b, VL2                          : ptrues VL2 -> %p1.b
+2519e061 : ptrues p1.b, VL3                          : ptrues VL3 -> %p1.b
+2519e082 : ptrues p2.b, VL4                          : ptrues VL4 -> %p2.b
+2519e0a2 : ptrues p2.b, VL5                          : ptrues VL5 -> %p2.b
+2519e0c3 : ptrues p3.b, VL6                          : ptrues VL6 -> %p3.b
+2519e0e3 : ptrues p3.b, VL7                          : ptrues VL7 -> %p3.b
+2519e104 : ptrues p4.b, VL8                          : ptrues VL8 -> %p4.b
+2519e124 : ptrues p4.b, VL16                         : ptrues VL16 -> %p4.b
+2519e145 : ptrues p5.b, VL32                         : ptrues VL32 -> %p5.b
+2519e165 : ptrues p5.b, VL64                         : ptrues VL64 -> %p5.b
+2519e186 : ptrues p6.b, VL128                        : ptrues VL128 -> %p6.b
+2519e1a6 : ptrues p6.b, VL256                        : ptrues VL256 -> %p6.b
+2519e1c7 : ptrues p7.b, 14                           : ptrues $0x0e -> %p7.b
+2519e1e7 : ptrues p7.b, 15                           : ptrues $0x0f -> %p7.b
+2519e208 : ptrues p8.b, 16                           : ptrues $0x10 -> %p8.b
+2519e228 : ptrues p8.b, 17                           : ptrues $0x11 -> %p8.b
+2519e248 : ptrues p8.b, 18                           : ptrues $0x12 -> %p8.b
+2519e269 : ptrues p9.b, 19                           : ptrues $0x13 -> %p9.b
+2519e289 : ptrues p9.b, 20                           : ptrues $0x14 -> %p9.b
+2519e2aa : ptrues p10.b, 21                          : ptrues $0x15 -> %p10.b
+2519e2ca : ptrues p10.b, 22                          : ptrues $0x16 -> %p10.b
+2519e2eb : ptrues p11.b, 23                          : ptrues $0x17 -> %p11.b
+2519e30b : ptrues p11.b, 24                          : ptrues $0x18 -> %p11.b
+2519e32c : ptrues p12.b, 25                          : ptrues $0x19 -> %p12.b
+2519e34c : ptrues p12.b, 26                          : ptrues $0x1a -> %p12.b
+2519e36d : ptrues p13.b, 27                          : ptrues $0x1b -> %p13.b
+2519e38d : ptrues p13.b, 28                          : ptrues $0x1c -> %p13.b
+2519e3ae : ptrues p14.b, MUL4                        : ptrues MUL4 -> %p14.b
+2519e3ce : ptrues p14.b, MUL3                        : ptrues MUL3 -> %p14.b
+2519e3ef : ptrues p15.b, ALL                         : ptrues ALL -> %p15.b
+2559e000 : ptrues p0.h, POW2                         : ptrues POW2 -> %p0.h
+2559e020 : ptrues p0.h, VL1                          : ptrues VL1 -> %p0.h
+2559e041 : ptrues p1.h, VL2                          : ptrues VL2 -> %p1.h
+2559e061 : ptrues p1.h, VL3                          : ptrues VL3 -> %p1.h
+2559e082 : ptrues p2.h, VL4                          : ptrues VL4 -> %p2.h
+2559e0a2 : ptrues p2.h, VL5                          : ptrues VL5 -> %p2.h
+2559e0c3 : ptrues p3.h, VL6                          : ptrues VL6 -> %p3.h
+2559e0e3 : ptrues p3.h, VL7                          : ptrues VL7 -> %p3.h
+2559e104 : ptrues p4.h, VL8                          : ptrues VL8 -> %p4.h
+2559e124 : ptrues p4.h, VL16                         : ptrues VL16 -> %p4.h
+2559e145 : ptrues p5.h, VL32                         : ptrues VL32 -> %p5.h
+2559e165 : ptrues p5.h, VL64                         : ptrues VL64 -> %p5.h
+2559e186 : ptrues p6.h, VL128                        : ptrues VL128 -> %p6.h
+2559e1a6 : ptrues p6.h, VL256                        : ptrues VL256 -> %p6.h
+2559e1c7 : ptrues p7.h, 14                           : ptrues $0x0e -> %p7.h
+2559e1e7 : ptrues p7.h, 15                           : ptrues $0x0f -> %p7.h
+2559e208 : ptrues p8.h, 16                           : ptrues $0x10 -> %p8.h
+2559e228 : ptrues p8.h, 17                           : ptrues $0x11 -> %p8.h
+2559e248 : ptrues p8.h, 18                           : ptrues $0x12 -> %p8.h
+2559e269 : ptrues p9.h, 19                           : ptrues $0x13 -> %p9.h
+2559e289 : ptrues p9.h, 20                           : ptrues $0x14 -> %p9.h
+2559e2aa : ptrues p10.h, 21                          : ptrues $0x15 -> %p10.h
+2559e2ca : ptrues p10.h, 22                          : ptrues $0x16 -> %p10.h
+2559e2eb : ptrues p11.h, 23                          : ptrues $0x17 -> %p11.h
+2559e30b : ptrues p11.h, 24                          : ptrues $0x18 -> %p11.h
+2559e32c : ptrues p12.h, 25                          : ptrues $0x19 -> %p12.h
+2559e34c : ptrues p12.h, 26                          : ptrues $0x1a -> %p12.h
+2559e36d : ptrues p13.h, 27                          : ptrues $0x1b -> %p13.h
+2559e38d : ptrues p13.h, 28                          : ptrues $0x1c -> %p13.h
+2559e3ae : ptrues p14.h, MUL4                        : ptrues MUL4 -> %p14.h
+2559e3ce : ptrues p14.h, MUL3                        : ptrues MUL3 -> %p14.h
+2559e3ef : ptrues p15.h, ALL                         : ptrues ALL -> %p15.h
+2599e000 : ptrues p0.s, POW2                         : ptrues POW2 -> %p0.s
+2599e020 : ptrues p0.s, VL1                          : ptrues VL1 -> %p0.s
+2599e041 : ptrues p1.s, VL2                          : ptrues VL2 -> %p1.s
+2599e061 : ptrues p1.s, VL3                          : ptrues VL3 -> %p1.s
+2599e082 : ptrues p2.s, VL4                          : ptrues VL4 -> %p2.s
+2599e0a2 : ptrues p2.s, VL5                          : ptrues VL5 -> %p2.s
+2599e0c3 : ptrues p3.s, VL6                          : ptrues VL6 -> %p3.s
+2599e0e3 : ptrues p3.s, VL7                          : ptrues VL7 -> %p3.s
+2599e104 : ptrues p4.s, VL8                          : ptrues VL8 -> %p4.s
+2599e124 : ptrues p4.s, VL16                         : ptrues VL16 -> %p4.s
+2599e145 : ptrues p5.s, VL32                         : ptrues VL32 -> %p5.s
+2599e165 : ptrues p5.s, VL64                         : ptrues VL64 -> %p5.s
+2599e186 : ptrues p6.s, VL128                        : ptrues VL128 -> %p6.s
+2599e1a6 : ptrues p6.s, VL256                        : ptrues VL256 -> %p6.s
+2599e1c7 : ptrues p7.s, 14                           : ptrues $0x0e -> %p7.s
+2599e1e7 : ptrues p7.s, 15                           : ptrues $0x0f -> %p7.s
+2599e208 : ptrues p8.s, 16                           : ptrues $0x10 -> %p8.s
+2599e228 : ptrues p8.s, 17                           : ptrues $0x11 -> %p8.s
+2599e248 : ptrues p8.s, 18                           : ptrues $0x12 -> %p8.s
+2599e269 : ptrues p9.s, 19                           : ptrues $0x13 -> %p9.s
+2599e289 : ptrues p9.s, 20                           : ptrues $0x14 -> %p9.s
+2599e2aa : ptrues p10.s, 21                          : ptrues $0x15 -> %p10.s
+2599e2ca : ptrues p10.s, 22                          : ptrues $0x16 -> %p10.s
+2599e2eb : ptrues p11.s, 23                          : ptrues $0x17 -> %p11.s
+2599e30b : ptrues p11.s, 24                          : ptrues $0x18 -> %p11.s
+2599e32c : ptrues p12.s, 25                          : ptrues $0x19 -> %p12.s
+2599e34c : ptrues p12.s, 26                          : ptrues $0x1a -> %p12.s
+2599e36d : ptrues p13.s, 27                          : ptrues $0x1b -> %p13.s
+2599e38d : ptrues p13.s, 28                          : ptrues $0x1c -> %p13.s
+2599e3ae : ptrues p14.s, MUL4                        : ptrues MUL4 -> %p14.s
+2599e3ce : ptrues p14.s, MUL3                        : ptrues MUL3 -> %p14.s
+2599e3ef : ptrues p15.s, ALL                         : ptrues ALL -> %p15.s
+25d9e000 : ptrues p0.d, POW2                         : ptrues POW2 -> %p0.d
+25d9e020 : ptrues p0.d, VL1                          : ptrues VL1 -> %p0.d
+25d9e041 : ptrues p1.d, VL2                          : ptrues VL2 -> %p1.d
+25d9e061 : ptrues p1.d, VL3                          : ptrues VL3 -> %p1.d
+25d9e082 : ptrues p2.d, VL4                          : ptrues VL4 -> %p2.d
+25d9e0a2 : ptrues p2.d, VL5                          : ptrues VL5 -> %p2.d
+25d9e0c3 : ptrues p3.d, VL6                          : ptrues VL6 -> %p3.d
+25d9e0e3 : ptrues p3.d, VL7                          : ptrues VL7 -> %p3.d
+25d9e104 : ptrues p4.d, VL8                          : ptrues VL8 -> %p4.d
+25d9e124 : ptrues p4.d, VL16                         : ptrues VL16 -> %p4.d
+25d9e145 : ptrues p5.d, VL32                         : ptrues VL32 -> %p5.d
+25d9e165 : ptrues p5.d, VL64                         : ptrues VL64 -> %p5.d
+25d9e186 : ptrues p6.d, VL128                        : ptrues VL128 -> %p6.d
+25d9e1a6 : ptrues p6.d, VL256                        : ptrues VL256 -> %p6.d
+25d9e1c7 : ptrues p7.d, 14                           : ptrues $0x0e -> %p7.d
+25d9e1e7 : ptrues p7.d, 15                           : ptrues $0x0f -> %p7.d
+25d9e208 : ptrues p8.d, 16                           : ptrues $0x10 -> %p8.d
+25d9e228 : ptrues p8.d, 17                           : ptrues $0x11 -> %p8.d
+25d9e248 : ptrues p8.d, 18                           : ptrues $0x12 -> %p8.d
+25d9e269 : ptrues p9.d, 19                           : ptrues $0x13 -> %p9.d
+25d9e289 : ptrues p9.d, 20                           : ptrues $0x14 -> %p9.d
+25d9e2aa : ptrues p10.d, 21                          : ptrues $0x15 -> %p10.d
+25d9e2ca : ptrues p10.d, 22                          : ptrues $0x16 -> %p10.d
+25d9e2eb : ptrues p11.d, 23                          : ptrues $0x17 -> %p11.d
+25d9e30b : ptrues p11.d, 24                          : ptrues $0x18 -> %p11.d
+25d9e32c : ptrues p12.d, 25                          : ptrues $0x19 -> %p12.d
+25d9e34c : ptrues p12.d, 26                          : ptrues $0x1a -> %p12.d
+25d9e36d : ptrues p13.d, 27                          : ptrues $0x1b -> %p13.d
+25d9e38d : ptrues p13.d, 28                          : ptrues $0x1c -> %p13.d
+25d9e3ae : ptrues p14.d, MUL4                        : ptrues MUL4 -> %p14.d
+25d9e3ce : ptrues p14.d, MUL3                        : ptrues MUL3 -> %p14.d
+25d9e3ef : ptrues p15.d, ALL                         : ptrues ALL -> %p15.d
 
 # PUNPKHI <Pd>.H, <Pn>.B (PUNPKHI-P.P-_)
 05314000 : punpkhi p0.h, p0.b                        : punpkhi %p0.b -> %p0.h
@@ -7007,6 +7303,90 @@
 04d61f79 : sdivr z25.d, p7/M, z25.d, z27.d           : sdivr  %p7/m %z25.d %z27.d -> %z25.d
 04d61fbb : sdivr z27.d, p7/M, z27.d, z29.d           : sdivr  %p7/m %z27.d %z29.d -> %z27.d
 04d61fff : sdivr z31.d, p7/M, z31.d, z31.d           : sdivr  %p7/m %z31.d %z31.d -> %z31.d
+
+# SEL     <Pd>.B, <Pg>, <Pn>.B, <Pm>.B (SEL-P.P.PP-_)
+25004210 : sel p0.b, p0, p0.b, p0.b                  : sel    %p0 %p0.b %p0.b -> %p0.b
+25044a71 : sel p1.b, p2, p3.b, p4.b                  : sel    %p2 %p3.b %p4.b -> %p1.b
+25054e92 : sel p2.b, p3, p4.b, p5.b                  : sel    %p3 %p4.b %p5.b -> %p2.b
+250652b3 : sel p3.b, p4, p5.b, p6.b                  : sel    %p4 %p5.b %p6.b -> %p3.b
+250756d4 : sel p4.b, p5, p6.b, p7.b                  : sel    %p5 %p6.b %p7.b -> %p4.b
+25085af5 : sel p5.b, p6, p7.b, p8.b                  : sel    %p6 %p7.b %p8.b -> %p5.b
+25095f16 : sel p6.b, p7, p8.b, p9.b                  : sel    %p7 %p8.b %p9.b -> %p6.b
+250a6337 : sel p7.b, p8, p9.b, p10.b                 : sel    %p8 %p9.b %p10.b -> %p7.b
+250b6758 : sel p8.b, p9, p10.b, p11.b                : sel    %p9 %p10.b %p11.b -> %p8.b
+250b6758 : sel p8.b, p9, p10.b, p11.b                : sel    %p9 %p10.b %p11.b -> %p8.b
+250c6b79 : sel p9.b, p10, p11.b, p12.b               : sel    %p10 %p11.b %p12.b -> %p9.b
+250d6f9a : sel p10.b, p11, p12.b, p13.b              : sel    %p11 %p12.b %p13.b -> %p10.b
+250e73bb : sel p11.b, p12, p13.b, p14.b              : sel    %p12 %p13.b %p14.b -> %p11.b
+250f77dc : sel p12.b, p13, p14.b, p15.b              : sel    %p13 %p14.b %p15.b -> %p12.b
+25007bfd : sel p13.b, p14, p15.b, p0.b               : sel    %p14 %p15.b %p0.b -> %p13.b
+250f7fff : sel p15.b, p15, p15.b, p15.b              : sel    %p15 %p15.b %p15.b -> %p15.b
+
+# SEL     <Zd>.<T>, <Pv>, <Zn>.<T>, <Zm>.<T> (SEL-Z.P.ZZ-_)
+0520c000 : sel z0.b, p0, z0.b, z0.b                  : sel    %p0 %z0.b %z0.b -> %z0.b
+0525c882 : sel z2.b, p2, z4.b, z5.b                  : sel    %p2 %z4.b %z5.b -> %z2.b
+0527ccc4 : sel z4.b, p3, z6.b, z7.b                  : sel    %p3 %z6.b %z7.b -> %z4.b
+0529d106 : sel z6.b, p4, z8.b, z9.b                  : sel    %p4 %z8.b %z9.b -> %z6.b
+052bd548 : sel z8.b, p5, z10.b, z11.b                : sel    %p5 %z10.b %z11.b -> %z8.b
+052dd98a : sel z10.b, p6, z12.b, z13.b               : sel    %p6 %z12.b %z13.b -> %z10.b
+052fddcc : sel z12.b, p7, z14.b, z15.b               : sel    %p7 %z14.b %z15.b -> %z12.b
+0531e20e : sel z14.b, p8, z16.b, z17.b               : sel    %p8 %z16.b %z17.b -> %z14.b
+0533e650 : sel z16.b, p9, z18.b, z19.b               : sel    %p9 %z18.b %z19.b -> %z16.b
+0534e671 : sel z17.b, p9, z19.b, z20.b               : sel    %p9 %z19.b %z20.b -> %z17.b
+0536eab3 : sel z19.b, p10, z21.b, z22.b              : sel    %p10 %z21.b %z22.b -> %z19.b
+0538eef5 : sel z21.b, p11, z23.b, z24.b              : sel    %p11 %z23.b %z24.b -> %z21.b
+053af337 : sel z23.b, p12, z25.b, z26.b              : sel    %p12 %z25.b %z26.b -> %z23.b
+053cf779 : sel z25.b, p13, z27.b, z28.b              : sel    %p13 %z27.b %z28.b -> %z25.b
+053efbbb : sel z27.b, p14, z29.b, z30.b              : sel    %p14 %z29.b %z30.b -> %z27.b
+053fffff : sel z31.b, p15, z31.b, z31.b              : sel    %p15 %z31.b %z31.b -> %z31.b
+0560c000 : sel z0.h, p0, z0.h, z0.h                  : sel    %p0 %z0.h %z0.h -> %z0.h
+0565c882 : sel z2.h, p2, z4.h, z5.h                  : sel    %p2 %z4.h %z5.h -> %z2.h
+0567ccc4 : sel z4.h, p3, z6.h, z7.h                  : sel    %p3 %z6.h %z7.h -> %z4.h
+0569d106 : sel z6.h, p4, z8.h, z9.h                  : sel    %p4 %z8.h %z9.h -> %z6.h
+056bd548 : sel z8.h, p5, z10.h, z11.h                : sel    %p5 %z10.h %z11.h -> %z8.h
+056dd98a : sel z10.h, p6, z12.h, z13.h               : sel    %p6 %z12.h %z13.h -> %z10.h
+056fddcc : sel z12.h, p7, z14.h, z15.h               : sel    %p7 %z14.h %z15.h -> %z12.h
+0571e20e : sel z14.h, p8, z16.h, z17.h               : sel    %p8 %z16.h %z17.h -> %z14.h
+0573e650 : sel z16.h, p9, z18.h, z19.h               : sel    %p9 %z18.h %z19.h -> %z16.h
+0574e671 : sel z17.h, p9, z19.h, z20.h               : sel    %p9 %z19.h %z20.h -> %z17.h
+0576eab3 : sel z19.h, p10, z21.h, z22.h              : sel    %p10 %z21.h %z22.h -> %z19.h
+0578eef5 : sel z21.h, p11, z23.h, z24.h              : sel    %p11 %z23.h %z24.h -> %z21.h
+057af337 : sel z23.h, p12, z25.h, z26.h              : sel    %p12 %z25.h %z26.h -> %z23.h
+057cf779 : sel z25.h, p13, z27.h, z28.h              : sel    %p13 %z27.h %z28.h -> %z25.h
+057efbbb : sel z27.h, p14, z29.h, z30.h              : sel    %p14 %z29.h %z30.h -> %z27.h
+057fffff : sel z31.h, p15, z31.h, z31.h              : sel    %p15 %z31.h %z31.h -> %z31.h
+05a0c000 : sel z0.s, p0, z0.s, z0.s                  : sel    %p0 %z0.s %z0.s -> %z0.s
+05a5c882 : sel z2.s, p2, z4.s, z5.s                  : sel    %p2 %z4.s %z5.s -> %z2.s
+05a7ccc4 : sel z4.s, p3, z6.s, z7.s                  : sel    %p3 %z6.s %z7.s -> %z4.s
+05a9d106 : sel z6.s, p4, z8.s, z9.s                  : sel    %p4 %z8.s %z9.s -> %z6.s
+05abd548 : sel z8.s, p5, z10.s, z11.s                : sel    %p5 %z10.s %z11.s -> %z8.s
+05add98a : sel z10.s, p6, z12.s, z13.s               : sel    %p6 %z12.s %z13.s -> %z10.s
+05afddcc : sel z12.s, p7, z14.s, z15.s               : sel    %p7 %z14.s %z15.s -> %z12.s
+05b1e20e : sel z14.s, p8, z16.s, z17.s               : sel    %p8 %z16.s %z17.s -> %z14.s
+05b3e650 : sel z16.s, p9, z18.s, z19.s               : sel    %p9 %z18.s %z19.s -> %z16.s
+05b4e671 : sel z17.s, p9, z19.s, z20.s               : sel    %p9 %z19.s %z20.s -> %z17.s
+05b6eab3 : sel z19.s, p10, z21.s, z22.s              : sel    %p10 %z21.s %z22.s -> %z19.s
+05b8eef5 : sel z21.s, p11, z23.s, z24.s              : sel    %p11 %z23.s %z24.s -> %z21.s
+05baf337 : sel z23.s, p12, z25.s, z26.s              : sel    %p12 %z25.s %z26.s -> %z23.s
+05bcf779 : sel z25.s, p13, z27.s, z28.s              : sel    %p13 %z27.s %z28.s -> %z25.s
+05befbbb : sel z27.s, p14, z29.s, z30.s              : sel    %p14 %z29.s %z30.s -> %z27.s
+05bfffff : sel z31.s, p15, z31.s, z31.s              : sel    %p15 %z31.s %z31.s -> %z31.s
+05e0c000 : sel z0.d, p0, z0.d, z0.d                  : sel    %p0 %z0.d %z0.d -> %z0.d
+05e5c882 : sel z2.d, p2, z4.d, z5.d                  : sel    %p2 %z4.d %z5.d -> %z2.d
+05e7ccc4 : sel z4.d, p3, z6.d, z7.d                  : sel    %p3 %z6.d %z7.d -> %z4.d
+05e9d106 : sel z6.d, p4, z8.d, z9.d                  : sel    %p4 %z8.d %z9.d -> %z6.d
+05ebd548 : sel z8.d, p5, z10.d, z11.d                : sel    %p5 %z10.d %z11.d -> %z8.d
+05edd98a : sel z10.d, p6, z12.d, z13.d               : sel    %p6 %z12.d %z13.d -> %z10.d
+05efddcc : sel z12.d, p7, z14.d, z15.d               : sel    %p7 %z14.d %z15.d -> %z12.d
+05f1e20e : sel z14.d, p8, z16.d, z17.d               : sel    %p8 %z16.d %z17.d -> %z14.d
+05f3e650 : sel z16.d, p9, z18.d, z19.d               : sel    %p9 %z18.d %z19.d -> %z16.d
+05f4e671 : sel z17.d, p9, z19.d, z20.d               : sel    %p9 %z19.d %z20.d -> %z17.d
+05f6eab3 : sel z19.d, p10, z21.d, z22.d              : sel    %p10 %z21.d %z22.d -> %z19.d
+05f8eef5 : sel z21.d, p11, z23.d, z24.d              : sel    %p11 %z23.d %z24.d -> %z21.d
+05faf337 : sel z23.d, p12, z25.d, z26.d              : sel    %p12 %z25.d %z26.d -> %z23.d
+05fcf779 : sel z25.d, p13, z27.d, z28.d              : sel    %p13 %z27.d %z28.d -> %z25.d
+05fefbbb : sel z27.d, p14, z29.d, z30.d              : sel    %p14 %z29.d %z30.d -> %z27.d
+05ffffff : sel z31.d, p15, z31.d, z31.d              : sel    %p15 %z31.d %z31.d -> %z31.d
 
 # SETFFR   (SETFFR-F-_)
 252c9000 : setffr                                    : setffr
