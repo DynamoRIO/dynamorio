@@ -2048,6 +2048,23 @@ encode_opnd_p_b_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return encode_single_sized(OPSZ_SCALABLE_PRED, 5, BYTE_REG, opnd, enc_out);
 }
 
+/* p5: P register */
+
+static inline bool
+decode_opnd_p5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_P0 + extract_uint(enc, 5, 4));
+    return true;
+}
+
+static inline bool
+encode_opnd_p5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_predicate_reg(opnd))
+        return false;
+    return encode_opnd_p(5, 15, opnd, enc_out);
+}
+
 static inline bool
 decode_opnd_p5_zer(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
