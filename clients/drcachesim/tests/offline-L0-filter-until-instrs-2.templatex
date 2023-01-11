@@ -1,0 +1,14 @@
+Hit delay threshold: enabling tracing.
+Adding filter endpoint marker for -L0_filter_until_instrs
+Hit tracing window #0 filter limit: switching to full trace.
+Hit tracing window #0 limit: disabling tracing.
+Hit retrace threshold: enabling tracing for window #1.
+[^W]*
+Basic counts tool results:
+.*
+           1 total threads
+.*
+Basic counts tool results:
+.*
+Basic counts tool results:
+.*

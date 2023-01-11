@@ -3747,6 +3747,10 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd3
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
 
+    torunonly_drcacheoff(L0-filter-until-instrs-2 ${ci_shared_app}
+        "-trace_after_instrs 10 -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+
     torunonly_drcacheoff(L0-filter-until-instrs-exit-after ${ci_shared_app}
         "-trace_after_instrs 10K -L0_filter_until_instrs 10K -exit_after_tracing 10K"
       "@-simulator_type@basic_counts" "")
