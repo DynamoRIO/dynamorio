@@ -150,7 +150,7 @@ x001111011100001000000xxxxxxxxxx  n   120  FP16    fcvtnu  wx0 : h5
 0x00111110xxxxxx0100x0xxxxxxxxxx  n   145  FHM      fmlsl  dq0 : dq0 sd5 dq16_h_sz vindex_H h_sz
 0x101110101xxxxx110011xxxxxxxxxx  n   146  FHM     fmlsl2  dq0 : dq0 sd5 sd16 h_sz
 0x10111110xxxxxx1100x0xxxxxxxxxx  n   146  FHM     fmlsl2  dq0 : dq0 sd5 dq16_h_sz vindex_H h_sz
-00011110111xxxxxxxx10000000xxxxx  n   147  FP16      fmov   h0 : fpimm13
+00011110111xxxxxxxx10000000xxxxx  n   147  FP16      fmov   h0 : fpimm8_13
 0001111011100111000000xxxxxxxxxx  n   147  FP16      fmov   h0 : w5
 1001111011100111000000xxxxxxxxxx  n   147  FP16      fmov   h0 : x5
 0001111011100110000000xxxxxxxxxx  n   147  FP16      fmov   w0 : h5
