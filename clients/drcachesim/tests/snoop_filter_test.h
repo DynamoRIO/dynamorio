@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -20,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,51 +30,10 @@
  * DAMAGE.
  */
 
-#ifndef _SNOOP_FILTER_H_
-#define _SNOOP_FILTER_H_ 1
+#ifndef _SNOOP_FILTER_TEST_
+#define _SNOOP_FILTER_TEST_ 1
 
-#include "cache.h"
-#include <unordered_map>
-#include <vector>
+void
+unit_test_snoop_filter();
 
-struct coherence_table_entry_t {
-    std::vector<bool> sharers;
-    bool dirty;
-};
-
-struct snoop_filter_stats_t {
-    unsigned int num_writes;
-    unsigned int num_writebacks;
-    unsigned int num_invalidates;
-    std::unordered_map<addr_t, coherence_table_entry_t> coherence_table;
-};
-
-class snoop_filter_t {
-public:
-    snoop_filter_t(void);
-    virtual ~snoop_filter_t()
-    {
-    }
-    virtual bool
-    init(cache_t **caches, int num_snooped_caches);
-    virtual void
-    snoop(addr_t tag, int id, bool is_write);
-    virtual void
-    snoop_eviction(addr_t tag, int id);
-    void
-    print_stats(void);
-    snoop_filter_stats_t
-    get_coherence_stats(void);
-
-protected:
-    // XXX: This initial coherence implementation uses a perfect snoop filter.
-    std::unordered_map<addr_t, coherence_table_entry_t> coherence_table_;
-    snoop_filter_stats_t snoop_filter_stats_;
-    cache_t **caches_;
-    int num_snooped_caches_;
-    int_least64_t num_writes_;
-    int_least64_t num_writebacks_;
-    int_least64_t num_invalidates_;
-};
-
-#endif /* _SNOOP_FILTER_H_ */
+#endif /* _SNOOP_FILTER_TEST_ */
