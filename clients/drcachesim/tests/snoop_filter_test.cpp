@@ -49,7 +49,7 @@ enum {
 };
 
 static const addr_t ADDR_A = 128;
-static const int snooped_cache_line_size = 32;
+static const int SNOOPED_FILTER_LINE_SIZE = 32;
 
 class snoop_filter_test_t {
 
@@ -88,9 +88,9 @@ public:
         for (int i = 0; i < num_cores_; i++) {
             snooped_caches_[i] = new cache_lru_t;
             snooped_caches_[i]->init(
-                /*associativity=*/4, snooped_cache_line_size,
+                /*associativity=*/4, SNOOPED_FILTER_LINE_SIZE,
                 /*total_size=*/256, llc,
-                new cache_stats_t((int)snooped_cache_line_size, "", true, true),
+                new cache_stats_t((int)SNOOPED_FILTER_LINE_SIZE, "", true, true),
                 /*prefetcher=*/nullptr,
                 /*inclusive=*/true, /*coherence_cache=*/true, i, snoop_filter_);
         }
@@ -116,7 +116,7 @@ public:
         assert(stats.num_writes == expected_num_writes);
         assert(stats.num_invalidates == expected_num_invalidates);
         assert(stats.num_writebacks == expected_num_writebacks);
-        addr_t tag = addr >> compute_log2(snooped_cache_line_size);
+        addr_t tag = addr >> compute_log2(SNOOPED_FILTER_LINE_SIZE);
         coherence_table_entry_t *coherence_table_entry = &stats.coherence_table[tag];
         auto num_sharers = std::count(coherence_table_entry->sharers.begin(),
                                       coherence_table_entry->sharers.end(), true);
@@ -132,7 +132,7 @@ private:
 };
 
 void
-unit_test_snoop_filter_two_cores()
+unit_test_snoop_filter_two_cores(void)
 {
     snoop_filter_test_t snoop_filter_test(2);
     snoop_filter_test.initialize_caches_and_snoop_filter();
@@ -160,7 +160,7 @@ unit_test_snoop_filter_two_cores()
 }
 
 void
-unit_test_snoop_filter_four_cores()
+unit_test_snoop_filter_four_cores(void)
 {
     snoop_filter_test_t snoop_filter_test(4);
     snoop_filter_test.initialize_caches_and_snoop_filter();
@@ -198,7 +198,7 @@ unit_test_snoop_filter_four_cores()
 }
 
 void
-unit_test_snoop_filter()
+unit_test_snoop_filter(void)
 {
     unit_test_snoop_filter_two_cores();
     unit_test_snoop_filter_four_cores();

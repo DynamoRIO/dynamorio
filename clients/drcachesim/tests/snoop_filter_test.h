@@ -34,6 +34,6 @@
 #define _SNOOP_FILTER_TEST_ 1
 
 void
-unit_test_snoop_filter();
+unit_test_snoop_filter(void);
 
 #endif /* _SNOOP_FILTER_TEST_ */
