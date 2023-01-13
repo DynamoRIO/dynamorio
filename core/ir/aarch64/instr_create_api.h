@@ -8818,4 +8818,120 @@
 #define INSTR_CREATE_eon_sve_imm(dc, Zdn, imm) \
     instr_create_1dst_2src(dc, OP_eor, Zdn, Zdn, opnd_invert_immed_int(imm))
 
+/**
+ * Creates a PFALSE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PFALSE  <Pd>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_pfalse_sve(dc, Pd) instr_create_1dst_0src(dc, OP_pfalse, Pd)
+
+/**
+ * Creates a PFIRST instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PFIRST  <Pdn>.B, <Pg>, <Pdn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pdn   The source and destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_pfirst_sve(dc, Pdn, Pg) \
+    instr_create_1dst_2src(dc, OP_pfirst, Pdn, Pg, Pdn)
+
+/**
+ * Creates a SEL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SEL     <Pd>.B, <Pg>, <Pn>.B, <Pm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ * \param Pm   The second source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_sel_sve_pred(dc, Pd, Pg, Pn, Pm) \
+    instr_create_1dst_3src(dc, OP_sel, Pd, Pg, Pn, Pm)
+
+/**
+ * Creates a SEL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SEL     <Zd>.<Ts>, <Pv>, <Zn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Pv   The first source predicate register, P (Predicate).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_sel_sve_vector(dc, Zd, Pv, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_sel, Zd, Pv, Zn, Zm)
+
+/**
+ * Creates an MOV instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    MOV     <Pd>.B, <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_mov_sve_pred(dc, Pd, Pn) \
+    instr_create_1dst_3src(dc, OP_orr, Pd,    \
+                           opnd_create_predicate_reg(opnd_get_reg(Pn), false), Pn, Pn)
+
+/**
+ * Creates an MOVS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    MOVS    <Pd>.B, <Pg>/Z, <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_movs_sve_pred(dc, Pd, Pg, Pn) \
+    instr_create_1dst_3src(dc, OP_ands, Pd, Pg, Pn, Pn)
+
+/**
+ * Creates a PTRUE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PTRUE   <Pd>.<Ts>{, <pattern>}
+ * \endverbatim
+ * \param dc        The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd        The destination predicate register, P (Predicate).
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ */
+#define INSTR_CREATE_ptrue_sve(dc, Pd, pattern) \
+    instr_create_1dst_1src(dc, OP_ptrue, Pd, pattern)
+
+/**
+ * Creates a PTRUES instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PTRUES  <Pd>.<Ts>{, <pattern>}
+ * \endverbatim
+ * \param dc        The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd        The destination predicate register, P (Predicate).
+ * \param pattern   The predicate constraint, see #dr_pred_constr_type_t.
+ */
+#define INSTR_CREATE_ptrues_sve(dc, Pd, pattern) \
+    instr_create_1dst_1src(dc, OP_ptrues, Pd, pattern)
+
 #endif /* DR_IR_MACROS_AARCH64_H */

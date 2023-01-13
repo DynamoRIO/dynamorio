@@ -102,6 +102,7 @@
 ---------------------------xxxxx  prfop      # prefetch operation
 ------------------------xxx-----  op2        # 3 bit immediate from 5-7
 -----------------------xxxx-----  p_b_5      # P register with a byte element size
+-----------------------xxxx-----  p5         # P register
 -----------------------xxxx-----  p5_zer     # P register, zeroing
 ----------------------xxxxx-----  w5         # W register (or WZR)
 ----------------------xxxxx-----  x5         # X register (or XZR)
