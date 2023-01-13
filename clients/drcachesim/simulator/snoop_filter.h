@@ -43,9 +43,9 @@ struct coherence_table_entry_t {
 };
 
 struct snoop_filter_stats_t {
-    unsigned int num_writes;
-    unsigned int num_writebacks;
-    unsigned int num_invalidates;
+    int_least64_t num_writes;
+    int_least64_t num_writebacks;
+    int_least64_t num_invalidates;
     std::unordered_map<addr_t, coherence_table_entry_t> coherence_table;
 };
 
