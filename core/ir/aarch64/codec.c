@@ -692,6 +692,9 @@ multistruct_regcount(uint enc)
     return 0;
 }
 
+static bool
+decode_fpimm8_single(uint a, uint b, uint c, uint defgh, OUT opnd_t *opnd);
+
 static inline bool
 decode_fpimm8_half(uint a, uint b, uint c, uint defgh, OUT opnd_t *opnd)
 {
@@ -779,6 +782,9 @@ decode_fpimm8_double(uint64_t a, uint64_t b, uint64_t c, uint64_t defgh, OUT opn
 
     return true;
 }
+
+static bool
+encode_fpimm8_single(opnd_t opnd, uint abc_offset, uint defgh_offset, OUT uint *enc_out);
 
 static inline bool
 encode_fpimm8_half(opnd_t opnd, uint abc_offset, uint defgh_offset, OUT uint *enc_out)
