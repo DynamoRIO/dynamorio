@@ -58,27 +58,59 @@ churn_threads(int count)
     }
 }
 
-#ifdef VERBOSE
 static void
-print_stats(dr_stats_t *stats)
+compare_stats(dr_stats_t *a, dr_stats_t *b)
 {
-    print("  unreach_heap : " UINT64_FORMAT_STRING "\n",
-          stats->peak_vmm_blocks_unreach_heap);
-    print("  unreach_stack: " UINT64_FORMAT_STRING "\n",
-          stats->peak_vmm_blocks_unreach_stack);
-    print("  unreach_special_heap: " UINT64_FORMAT_STRING "\n",
-          stats->peak_vmm_blocks_unreach_special_heap);
-    print("  unreach_special_mmap: " UINT64_FORMAT_STRING "\n",
-          stats->peak_vmm_blocks_unreach_special_mmap);
-    print("  reach_heap : " UINT64_FORMAT_STRING "\n", stats->peak_vmm_blocks_reach_heap);
-    print("  reach_cache : " UINT64_FORMAT_STRING "\n",
-          stats->peak_vmm_blocks_reach_cache);
-    print("  reach_special_heap: " UINT64_FORMAT_STRING "\n",
-          stats->peak_vmm_blocks_reach_special_heap);
-    print("  reach_special_mmap: " UINT64_FORMAT_STRING "\n",
-          stats->peak_vmm_blocks_reach_special_mmap);
+    /* XXX: Somehow the first run has *more* heap blocks.  2nd and any subsequent
+     * are identical.  Just living with that and requiring a >= b in general.
+     */
+    if (a->peak_vmm_blocks_unreach_heap < b->peak_vmm_blocks_unreach_heap) {
+        print("mismatch unreach_heap : " UINT64_FORMAT_STRING " vs " UINT64_FORMAT_STRING
+              "\n",
+              a->peak_vmm_blocks_unreach_heap, b->peak_vmm_blocks_unreach_heap);
+    }
+    if (a->peak_vmm_blocks_unreach_stack < b->peak_vmm_blocks_unreach_stack) {
+        print("mismatch unreach_stack : " UINT64_FORMAT_STRING " vs " UINT64_FORMAT_STRING
+              "\n",
+              a->peak_vmm_blocks_unreach_stack, b->peak_vmm_blocks_unreach_stack);
+    }
+    if (a->peak_vmm_blocks_unreach_special_heap <
+        b->peak_vmm_blocks_unreach_special_heap) {
+        print("mismatch unreach_special_heap : " UINT64_FORMAT_STRING
+              " vs " UINT64_FORMAT_STRING "\n",
+              a->peak_vmm_blocks_unreach_special_heap,
+              b->peak_vmm_blocks_unreach_special_heap);
+    }
+    if (a->peak_vmm_blocks_unreach_special_mmap <
+        b->peak_vmm_blocks_unreach_special_mmap) {
+        print("mismatch unreach_special_mmap : " UINT64_FORMAT_STRING
+              " vs " UINT64_FORMAT_STRING "\n",
+              a->peak_vmm_blocks_unreach_special_mmap,
+              b->peak_vmm_blocks_unreach_special_mmap);
+    }
+    if (a->peak_vmm_blocks_reach_heap < b->peak_vmm_blocks_reach_heap) {
+        print("mismatch reach_heap : " UINT64_FORMAT_STRING " vs " UINT64_FORMAT_STRING
+              "\n",
+              a->peak_vmm_blocks_reach_heap, b->peak_vmm_blocks_reach_heap);
+    }
+    if (a->peak_vmm_blocks_reach_cache < b->peak_vmm_blocks_reach_cache) {
+        print("mismatch reach_cache : " UINT64_FORMAT_STRING " vs " UINT64_FORMAT_STRING
+              "\n",
+              a->peak_vmm_blocks_reach_cache, b->peak_vmm_blocks_reach_cache);
+    }
+    if (a->peak_vmm_blocks_reach_special_heap < b->peak_vmm_blocks_reach_special_heap) {
+        print("mismatch reach_special_heap : " UINT64_FORMAT_STRING
+              " vs " UINT64_FORMAT_STRING "\n",
+              a->peak_vmm_blocks_reach_special_heap,
+              b->peak_vmm_blocks_reach_special_heap);
+    }
+    if (a->peak_vmm_blocks_reach_special_mmap < b->peak_vmm_blocks_reach_special_mmap) {
+        print("mismatch reach_special_mmap : " UINT64_FORMAT_STRING
+              " vs " UINT64_FORMAT_STRING "\n",
+              a->peak_vmm_blocks_reach_special_mmap,
+              b->peak_vmm_blocks_reach_special_mmap);
+    }
 }
-#endif
 
 int
 main(int argc, char **argv)
@@ -119,26 +151,7 @@ main(int argc, char **argv)
     assert(stats_B.peak_num_threads == 2);
     assert(stats_B.num_threads_created == count_B + 1);
 
-    /* XXX: Somehow the first run has *more* heap blocks.  2nd and any subsequent
-     * are identical.  Just living with that and requiring <=.
-     */
-#ifdef VERBOSE
-    print_stats(&stats_A);
-    print_stats(&stats_B);
-#endif
-    assert(stats_B.peak_vmm_blocks_unreach_heap <= stats_A.peak_vmm_blocks_unreach_heap);
-    assert(stats_B.peak_vmm_blocks_unreach_stack <=
-           stats_A.peak_vmm_blocks_unreach_stack);
-    assert(stats_B.peak_vmm_blocks_unreach_special_heap <=
-           stats_A.peak_vmm_blocks_unreach_special_heap);
-    assert(stats_B.peak_vmm_blocks_unreach_special_mmap <=
-           stats_A.peak_vmm_blocks_unreach_special_mmap);
-    assert(stats_B.peak_vmm_blocks_reach_heap <= stats_A.peak_vmm_blocks_reach_heap);
-    assert(stats_B.peak_vmm_blocks_reach_cache <= stats_A.peak_vmm_blocks_reach_cache);
-    assert(stats_B.peak_vmm_blocks_reach_special_heap <=
-           stats_A.peak_vmm_blocks_reach_special_heap);
-    assert(stats_B.peak_vmm_blocks_reach_special_mmap <=
-           stats_A.peak_vmm_blocks_reach_special_mmap);
+    compare_stats(&stats_A, &stats_B);
 
     print("all done\n");
     return 0;
