@@ -122,7 +122,8 @@ main(int argc, char **argv)
      * units not change size.
      */
     const int count_A = 6;
-    const int count_B = 600;
+    const int count_B = 6;
+    const int count_C = 600;
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    "-initial_global_heap_unit_size 256K -stderr_mask 0xc"
 #ifdef VERBOSE
@@ -151,7 +152,22 @@ main(int argc, char **argv)
     assert(stats_B.peak_num_threads == 2);
     assert(stats_B.num_threads_created == count_B + 1);
 
+    assert(!dr_app_running_under_dynamorio());
+    dr_app_setup_and_start();
+    assert(dr_app_running_under_dynamorio());
+    churn_threads(count_B);
+    dr_stats_t stats_C = { sizeof(dr_stats_t) };
+    dr_app_stop_and_cleanup_with_stats(&stats_C);
+    assert(!dr_app_running_under_dynamorio());
+    assert(stats_C.peak_num_threads == 2);
+    assert(stats_C.num_threads_created == count_B + 1);
+
+    print("A to B\n");
     compare_stats(&stats_A, &stats_B);
+    print("B to C\n");
+    compare_stats(&stats_B, &stats_C);
+    print("A to C\n");
+    compare_stats(&stats_A, &stats_C);
 
     print("all done\n");
     return 0;
