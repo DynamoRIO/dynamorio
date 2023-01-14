@@ -8273,6 +8273,8 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
     sig_detach_info_t detach_info;
 
     LOG(THREAD, LOG_ASYNCH, 1, "%s: detaching\n", __FUNCTION__);
+    DOLOG(3, LOG_ASYNCH,
+          { dump_sigcontext(dcontext, get_sigcontext_from_rt_frame(frame)); });
 
     if (!atomic_read_bool(&multiple_handlers_present)) {
         /* Save the app's handlers (we only support one handler setups) for

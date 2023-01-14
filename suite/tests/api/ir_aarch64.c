@@ -5622,62 +5622,64 @@ test_mov_instr_addr_encoding(void *dc, instr_t *instr, uint opcode, uint target_
     instr_destroy(dc, decin);
 }
 
+#ifdef DR_FAST_IR /* For offset field access. */
 static void
 test_mov_instr_addr(void *dc)
 {
     instr_t *label_instr = instr_create_0dst_0src(dc, OP_LABEL);
-    instr_set_note(label_instr, (void *)(ptr_int_t)0x100);
+    label_instr->offset = 0x100;
 
     instr_t *movz_instr_sh0_2b = INSTR_CREATE_movz(
         dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_2, 0),
         OPND_CREATE_INT(0));
-    instr_set_note(movz_instr_sh0_2b, (void *)(ptr_int_t)0x10);
+    movz_instr_sh0_2b->offset = 0x10;
     test_mov_instr_addr_encoding(dc, movz_instr_sh0_2b, OP_movz, 0xf0, 0, 0xffff);
 
     instr_t *movz_instr_sh16_2b = INSTR_CREATE_movk(
         dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_2, 16),
         OPND_CREATE_INT(0));
-    instr_set_note(movz_instr_sh16_2b, (void *)(ptr_int_t)0x20);
+    movz_instr_sh16_2b->offset = 0x20;
     test_mov_instr_addr_encoding(dc, movz_instr_sh16_2b, OP_movk, 0xe0, 16, 0xffff);
 
     instr_t *movz_instr_sh32_2b = INSTR_CREATE_movz(
         dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_2, 32),
         OPND_CREATE_INT(0));
-    instr_set_note(movz_instr_sh32_2b, (void *)(ptr_int_t)0x30);
+    movz_instr_sh32_2b->offset = 0x30;
     test_mov_instr_addr_encoding(dc, movz_instr_sh32_2b, OP_movz, 0xd0, 32, 0xffff);
 
     instr_t *movz_instr_sh48_2b = INSTR_CREATE_movk(
         dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_2, 48),
         OPND_CREATE_INT(0));
-    instr_set_note(movz_instr_sh48_2b, (void *)(ptr_int_t)0x40);
+    movz_instr_sh48_2b->offset = 0x40;
     test_mov_instr_addr_encoding(dc, movz_instr_sh48_2b, OP_movk, 0xc0, 48, 0xffff);
 
     instr_t *movz_instr_sh0_1b = INSTR_CREATE_movk(
         dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_1, 0),
         OPND_CREATE_INT(0));
-    instr_set_note(movz_instr_sh0_1b, (void *)(ptr_int_t)0x10);
+    movz_instr_sh0_1b->offset = 0x10;
     test_mov_instr_addr_encoding(dc, movz_instr_sh0_1b, OP_movk, 0xf0, 0, 0xff);
 
     instr_t *movz_instr_sh16_1b = INSTR_CREATE_movz(
         dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_1, 16),
         OPND_CREATE_INT(0));
-    instr_set_note(movz_instr_sh16_1b, (void *)(ptr_int_t)0x20);
+    movz_instr_sh16_1b->offset = 0x20;
     test_mov_instr_addr_encoding(dc, movz_instr_sh16_1b, OP_movz, 0xe0, 16, 0xff);
 
     instr_t *movz_instr_sh32_1b = INSTR_CREATE_movk(
         dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_1, 32),
         OPND_CREATE_INT(0));
-    instr_set_note(movz_instr_sh32_1b, (void *)(ptr_int_t)0x30);
+    movz_instr_sh32_1b->offset = 0x30;
     test_mov_instr_addr_encoding(dc, movz_instr_sh32_1b, OP_movk, 0xd0, 32, 0xff);
 
     instr_t *movz_instr_sh48_1b = INSTR_CREATE_movz(
         dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_1, 48),
         OPND_CREATE_INT(0));
-    instr_set_note(movz_instr_sh48_1b, (void *)(ptr_int_t)0x40);
+    movz_instr_sh48_1b->offset = 0x40;
     test_mov_instr_addr_encoding(dc, movz_instr_sh48_1b, OP_movz, 0xc0, 48, 0xff);
 
     instr_destroy(dc, label_instr);
 }
+#endif
 
 static void
 test_fcvtas_scalar(void *dc)
@@ -7115,7 +7117,9 @@ main(int argc, char *argv[])
     test_opnd(dcontext);
     print("test_opnd complete\n");
 
+#ifdef DR_FAST_IR /* For offset field access. */
     test_mov_instr_addr(dcontext);
+#endif
     print("test_mov_instr_addr complete\n");
 
     test_fcvtas_scalar(dcontext);

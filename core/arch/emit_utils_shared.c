@@ -1048,10 +1048,10 @@ encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch, instrlist_t *i
     }
 
     /* now encode the instructions */
-    /* must set note fields first with offset */
+    /* Must set offset fields first. */
     len = 0;
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
-        instr_set_note(inst, (void *)(ptr_uint_t)len);
+        inst->offset = len;
         len += instr_length(dcontext, inst);
     }
 

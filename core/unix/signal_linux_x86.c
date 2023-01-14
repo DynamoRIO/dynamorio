@@ -265,6 +265,8 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
          */
         uint bv_high, bv_low;
         dr_xgetbv(&bv_high, &bv_low);
+        LOG(THREAD, LOG_ASYNCH, 3, "setting xstate_bv from 0x%016lx to 0x%08x%08x\n",
+            xstate->xstate_hdr.xstate_bv, bv_high, bv_low);
         xstate->xstate_hdr.xstate_bv = (((uint64)bv_high) << 32) | bv_low;
     }
     for (i = 0; i < proc_num_simd_sse_avx_saved(); i++) {
@@ -594,6 +596,23 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
                     memcpy(&xstate->ymmh.ymmh_space[i * 4], &mc->simd[i].u32[4],
                            YMMH_REG_SIZE);
                 }
+            }
+            /* XXX: We've observed the kernel leaving out the AVX flag in signal
+             * contexts for DR's suspend signals, even when all app threads have used AVX
+             * instructions already
+             * (https://github.com/DynamoRIO/dynamorio/pull/5791#issuecomment-1358789851).
+             * We ensure we're setting the full state to avoid problems on detach,
+             * although we do not fully understand how the kernel can have this local
+             * laziness in AVX state.
+             */
+            uint bv_high, bv_low;
+            dr_xgetbv(&bv_high, &bv_low);
+            uint64 real_val = (((uint64)bv_high) << 32) | bv_low;
+            if (xstate->xstate_hdr.xstate_bv != real_val) {
+                LOG(THREAD_GET, LOG_ASYNCH, 3,
+                    "%s: setting xstate_bv from 0x%016lx to 0x%016lx\n", __FUNCTION__,
+                    xstate->xstate_hdr.xstate_bv, real_val);
+                xstate->xstate_hdr.xstate_bv = real_val;
             }
         }
 #ifdef X64

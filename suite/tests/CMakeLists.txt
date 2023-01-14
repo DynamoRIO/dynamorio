@@ -2949,7 +2949,7 @@ link_with_pthread(api.startstop)
 tobuild_api(api.detach api/detach.c "" "" OFF OFF OFF)
 link_with_pthread(api.detach)
 if (LINUX AND X64) # Will take extra work to port to 32-bit.
-  tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF OFF)
+  tobuild_api(api.detach_state api/detach_state.c "" "" OFF ON OFF)
   target_include_directories(api.detach_state PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/api)
   link_with_pthread(api.detach_state)
