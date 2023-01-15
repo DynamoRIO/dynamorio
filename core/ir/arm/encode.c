@@ -1034,12 +1034,12 @@ get_immed_val_shared(decode_info_t *di, opnd_t opnd, bool relative, bool selecte
             CLIENT_ASSERT(opnd_get_shift(opnd) == 0,
                           "relative shifted instr not supported");
             /* For A32, "cur PC" is "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
-            return (ptr_int_t)opnd_get_instr(opnd)->note -
-                (di->cur_note +
+            return (ptr_int_t)opnd_get_instr(opnd)->offset -
+                (di->cur_offs +
                  decode_cur_pc(di->final_pc, di->isa_mode, di->opcode, NULL) -
                  di->final_pc);
         } else {
-            ptr_int_t val = (ptr_int_t)opnd_get_instr(opnd)->note - (di->cur_note) +
+            ptr_int_t val = (ptr_int_t)opnd_get_instr(opnd)->offset - (di->cur_offs) +
                 (ptr_int_t)di->final_pc;
             /* Support insert_mov_instr_addr() by truncating to opnd size */
             uint bits = opnd_size_in_bits(opnd_get_size(opnd));
@@ -1053,9 +1053,9 @@ get_immed_val_shared(decode_info_t *di, opnd_t opnd, bool relative, bool selecte
     } else if (opnd_is_near_pc(opnd)) {
         if (relative) {
             /* For A32, "cur PC" is "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
-            return (ptr_int_t)(
-                opnd_get_pc(opnd) -
-                decode_cur_pc(di->final_pc, di->isa_mode, di->opcode, NULL));
+            return (
+                ptr_int_t)(opnd_get_pc(opnd) -
+                           decode_cur_pc(di->final_pc, di->isa_mode, di->opcode, NULL));
         } else {
             return (ptr_int_t)opnd_get_pc(opnd);
         }
@@ -1353,8 +1353,8 @@ get_abspc_delta(decode_info_t *di, opnd_t opnd)
 {
     /* For A32, "cur PC" is really "PC + 8"; "PC + 4" for Thumb, sometimes aligned */
     if (opnd_is_mem_instr(opnd)) {
-        return (ptr_int_t)opnd_get_instr(opnd)->note -
-            (di->cur_note + decode_cur_pc(di->final_pc, di->isa_mode, di->opcode, NULL) -
+        return (ptr_int_t)opnd_get_instr(opnd)->offset -
+            (di->cur_offs + decode_cur_pc(di->final_pc, di->isa_mode, di->opcode, NULL) -
              di->final_pc) +
             opnd_get_mem_instr_disp(opnd);
     } else {
@@ -3036,7 +3036,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     di.check_reachable = check_reachable;
     di.start_pc = copy_pc;
     di.final_pc = final_pc;
-    di.cur_note = (ptr_int_t)instr->note;
+    di.cur_offs = (ptr_int_t)instr->offset;
     di.encode_state = *get_encode_state(dcontext);
 
     /* We need to track the IT block state even for raw-bits-valid instrs.

@@ -1726,8 +1726,8 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 
     if (TEST(INSTR_CLOBBER_RETADDR, instr->flags)) {
-        /* we put the value in the note field earlier */
-        ptr_uint_t val = (ptr_uint_t)instr->note;
+        /* we put the value in the offset field earlier */
+        ptr_uint_t val = (ptr_uint_t)instr->offset;
         insert_mov_ptr_uint_beyond_TOS(dcontext, ilist, instr, val, retsz);
     }
 
