@@ -2510,6 +2510,20 @@ encode_opnd_pred_constr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *e
                            enc_out);
 }
 
+/* simm5_5: Signed 5 bit immediate from 5-9 */
+
+static inline bool
+decode_opnd_simm5_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(5, 5, true, 0, OPSZ_5b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_simm5_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(5, 5, true, 0, 0, opnd, enc_out);
+}
+
 /* vmsz: B/H/S/D for load/store multiple structures */
 
 static inline bool
@@ -5018,6 +5032,19 @@ encode_opnd_z_tszl19_bhsd_5(uint enc, int opcode, byte *pc, opnd_t opnd,
 {
     return encode_sized_base(5, 0, BYTE_REG, DOUBLE_REG, OPSZ_SCALABLE, false, opnd,
                              enc_out);
+}
+
+/* wx_size_16_zr: GPR scalar register, register size, W or X depending on size bits */
+static inline bool
+decode_opnd_wx_size_16_zr(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_wx_size_reg(enc, false, 16, opnd);
+}
+
+static inline bool
+encode_opnd_wx_size_16_zr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_wx_size_reg(false, 16, opnd, enc_out);
 }
 
 /* fpimm13: floating-point immediate for scalar fmov */

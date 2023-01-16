@@ -131,6 +131,10 @@ const reg_id_t Xn_six_offset_0[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
                                       DR_REG_X15, DR_REG_X20, DR_REG_X30 };
 const reg_id_t Xn_six_offset_1[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
                                       DR_REG_X17, DR_REG_X22, DR_REG_X30 };
+const reg_id_t Xn_six_offset_2[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
+                                      DR_REG_X16, DR_REG_X21, DR_REG_X30 };
+const reg_id_t Xn_six_offset_3[6] = { DR_REG_X0,  DR_REG_X7,  DR_REG_X12,
+                                      DR_REG_X17, DR_REG_X22, DR_REG_X30 };
 const reg_id_t Zn_six_offset_0[6] = { DR_REG_Z0,  DR_REG_Z5,  DR_REG_Z10,
                                       DR_REG_Z16, DR_REG_Z21, DR_REG_Z31 };
 const reg_id_t Zn_six_offset_1[6] = { DR_REG_Z0,  DR_REG_Z6,  DR_REG_Z11,
@@ -155,6 +159,10 @@ const reg_id_t Xn_six_offset_2_sp[6] = { DR_REG_X0,  DR_REG_X7,  DR_REG_X12,
                                          DR_REG_X17, DR_REG_X22, DR_REG_SP };
 const reg_id_t Wn_six_offset_0[6] = { DR_REG_W0,  DR_REG_W5,  DR_REG_W10,
                                       DR_REG_W15, DR_REG_W20, DR_REG_W30 };
+const reg_id_t Wn_six_offset_1[6] = { DR_REG_W0,  DR_REG_W6,  DR_REG_W11,
+                                      DR_REG_W16, DR_REG_W21, DR_REG_W30 };
+const reg_id_t Wn_six_offset_2[6] = { DR_REG_W0,  DR_REG_W7,  DR_REG_W12,
+                                      DR_REG_W17, DR_REG_W22, DR_REG_W30 };
 const reg_id_t Wn_six_offset_1_zr[6] = { DR_REG_W0,  DR_REG_W6,  DR_REG_W11,
                                          DR_REG_W16, DR_REG_W21, DR_REG_WZR };
 const reg_id_t Wn_six_offset_1_sp[6] = { DR_REG_W0,  DR_REG_W6,  DR_REG_W11,
