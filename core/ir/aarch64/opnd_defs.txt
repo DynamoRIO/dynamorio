@@ -218,9 +218,12 @@
 ---------++++xxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
 ---------++++xxx----------------  immhb_fxp  # encoding of #fbits value in immh:immb fields
 --------??-----------------xxxxx  wx_size_0_zr # GPR scalar register, register size, W or X depending on size bits
+--------??------------??---xxxxx  z_tszl8_bhsd_0 # z element register mediated by the tszl and tszh fields
 --------??------------xxxxx-----  wx_size_5_sp # GPR scalar register, register size, W or X depending on size bits
 --------??------------xxxxx-----  wx_size_5_zr # GPR scalar register, register size, W or X depending on size bits
 --------??------------xxxxx-----  z_tb_bhs_5 # sve vector reg, elsz depending on size Tb
+--------??-??--------------xxxxx  z_tszl19_bhsd_0 # z element register mediated by the tszl and tszh fields
+--------??-??---------xxxxx-----  z_tszl19_bhsd_5 # z element register mediated by the tszl and tszh fields
 --------??-xxxxxxxx-------------  fpimm8_13  # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
@@ -232,13 +235,14 @@
 --------xx------------------xxxx  p_size_bhsd_0    # sve predicate vector reg, elsz depending on size
 --------xx------------------xxxx  p_size_bhs_0     # sve predicate vector reg, elsz depending on size
 --------xx------------------xxxx  p_size_hsd_0     # sve predicate vector reg, elsz depending on size
---------xx-----------------xxxxx  float_reg0  # H, S or D register
+--------xx-----------------xxxxx  float_reg0       # H, S or D register
 --------xx-----------------xxxxx  hsd_size_reg0    # hsd register, depending on size opcode
 --------xx-----------------xxxxx  bhsd_size_reg0   # bhsd register, depending on size opcode
 --------xx-----------------xxxxx  z_size_bhsd_0    # sve vector reg, elsz depending on size
+--------xx-----------------xxxxx  z_size_bhs_0     # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_hsd_0     # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_sd_0      # sve vector reg, elsz depending on size
---------xx------------xxxxx-----  float_reg5  # H, S or D register
+--------xx------------xxxxx-----  float_reg5       # H, S or D register
 --------xx------------xxxxx-----  hsd_size_reg5    # hsd register, depending on size opcode
 --------xx------------xxxxx-----  bhsd_size_reg5   # bhsd register, depending on size opcode
 --------xx------------xxxxx-----  p_size_bhsd_5    # sve predicate vector reg, elsz depending on size
@@ -247,8 +251,12 @@
 --------xx------------xxxxx-----  z_size_bhs_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_hsd_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_sd_5      # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  tszl8_imm3_5     # imm constructed from imm3 and some bits of tsz
+--------xx------------xxxxx-----  tszl8_imm3_5p1   # imm constructed from imm3 and some bits of tsz, plus 1
 --------xx-------xxxxx----------  float_reg10 # H, S or D register
 --------xx-xxxxx----------------  float_reg16 # H, S or D register
+--------xx-xxxxx----------------  tszl19_imm3_16   # imm constructed from imm3 and some bits of tsz
+--------xx-xxxxx----------------  tszl19_imm3_16p1 # imm constructed from imm3 and some bits of tsz, plus 1
 --------xx-xxxxx----------------  hsd_size_reg16   # hsd register, depending on size opcode
 --------xx-xxxxx----------------  bhsd_size_reg16  # bhsd register, depending on size opcode
 --------xx-xxxxx----------------  p_size_bhsd_16   # sve vector reg, elsz depending on size
