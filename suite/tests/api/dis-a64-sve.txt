@@ -5336,6 +5336,106 @@
 65dedfad : fcmuo p13.d, p7/Z, z29.d, z30.d           : fcmuo  %p7/z %z29.d %z30.d -> %p13.d
 65dfdfef : fcmuo p15.d, p7/Z, z31.d, z31.d           : fcmuo  %p7/z %z31.d %z31.d -> %p15.d
 
+# FCPY    <Zd>.<T>, <Pg>/M, #<const> (FCPY-Z.P.I-_)
+0550d000 : fcpy z0.h, p0/M, #-2.0                    : fcpy   %p0/m $-2.000000 -> %z0.h
+0552d042 : fcpy z2.h, p2/M, #-2.25                   : fcpy   %p2/m $-2.250000 -> %z2.h
+0553d084 : fcpy z4.h, p3/M, #-2.5                    : fcpy   %p3/m $-2.500000 -> %z4.h
+0554d0c6 : fcpy z6.h, p4/M, #-2.75                   : fcpy   %p4/m $-2.750000 -> %z6.h
+0555d108 : fcpy z8.h, p5/M, #-3.0                    : fcpy   %p5/m $-3.000000 -> %z8.h
+0556d14a : fcpy z10.h, p6/M, #-3.25                  : fcpy   %p6/m $-3.250000 -> %z10.h
+0557d18c : fcpy z12.h, p7/M, #-3.5                   : fcpy   %p7/m $-3.500000 -> %z12.h
+0558d1ce : fcpy z14.h, p8/M, #-3.75                  : fcpy   %p8/m $-3.750000 -> %z14.h
+0559c010 : fcpy z16.h, p9/M, #2.0                    : fcpy   %p9/m $2.000000 -> %z16.h
+0559ce31 : fcpy z17.h, p9/M, #1.0625                 : fcpy   %p9/m $1.062500 -> %z17.h
+055ace73 : fcpy z19.h, p10/M, #1.1875                : fcpy   %p10/m $1.187500 -> %z19.h
+055bceb5 : fcpy z21.h, p11/M, #1.3125                : fcpy   %p11/m $1.312500 -> %z21.h
+055ccef7 : fcpy z23.h, p12/M, #1.4375                : fcpy   %p12/m $1.437500 -> %z23.h
+055dcf39 : fcpy z25.h, p13/M, #1.5625                : fcpy   %p13/m $1.562500 -> %z25.h
+055ecf7b : fcpy z27.h, p14/M, #1.6875                : fcpy   %p14/m $1.687500 -> %z27.h
+055fcfff : fcpy z31.h, p15/M, #1.9375                : fcpy   %p15/m $1.937500 -> %z31.h
+0590d000 : fcpy z0.s, p0/M, #-2.0                    : fcpy   %p0/m $-2.000000 -> %z0.s
+0592d042 : fcpy z2.s, p2/M, #-2.25                   : fcpy   %p2/m $-2.250000 -> %z2.s
+0593d084 : fcpy z4.s, p3/M, #-2.5                    : fcpy   %p3/m $-2.500000 -> %z4.s
+0594d0c6 : fcpy z6.s, p4/M, #-2.75                   : fcpy   %p4/m $-2.750000 -> %z6.s
+0595d108 : fcpy z8.s, p5/M, #-3.0                    : fcpy   %p5/m $-3.000000 -> %z8.s
+0596d14a : fcpy z10.s, p6/M, #-3.25                  : fcpy   %p6/m $-3.250000 -> %z10.s
+0597d18c : fcpy z12.s, p7/M, #-3.5                   : fcpy   %p7/m $-3.500000 -> %z12.s
+0598d1ce : fcpy z14.s, p8/M, #-3.75                  : fcpy   %p8/m $-3.750000 -> %z14.s
+0599c010 : fcpy z16.s, p9/M, #2.0                    : fcpy   %p9/m $2.000000 -> %z16.s
+0599ce31 : fcpy z17.s, p9/M, #1.0625                 : fcpy   %p9/m $1.062500 -> %z17.s
+059ace73 : fcpy z19.s, p10/M, #1.1875                : fcpy   %p10/m $1.187500 -> %z19.s
+059bceb5 : fcpy z21.s, p11/M, #1.3125                : fcpy   %p11/m $1.312500 -> %z21.s
+059ccef7 : fcpy z23.s, p12/M, #1.4375                : fcpy   %p12/m $1.437500 -> %z23.s
+059dcf39 : fcpy z25.s, p13/M, #1.5625                : fcpy   %p13/m $1.562500 -> %z25.s
+059ecf7b : fcpy z27.s, p14/M, #1.6875                : fcpy   %p14/m $1.687500 -> %z27.s
+059fcfff : fcpy z31.s, p15/M, #1.9375                : fcpy   %p15/m $1.937500 -> %z31.s
+05d0d000 : fcpy z0.d, p0/M, #-2.0                    : fcpy   %p0/m $-2.000000 -> %z0.d
+05d2d042 : fcpy z2.d, p2/M, #-2.25                   : fcpy   %p2/m $-2.250000 -> %z2.d
+05d3d084 : fcpy z4.d, p3/M, #-2.5                    : fcpy   %p3/m $-2.500000 -> %z4.d
+05d4d0c6 : fcpy z6.d, p4/M, #-2.75                   : fcpy   %p4/m $-2.750000 -> %z6.d
+05d5d108 : fcpy z8.d, p5/M, #-3.0                    : fcpy   %p5/m $-3.000000 -> %z8.d
+05d6d14a : fcpy z10.d, p6/M, #-3.25                  : fcpy   %p6/m $-3.250000 -> %z10.d
+05d7d18c : fcpy z12.d, p7/M, #-3.5                   : fcpy   %p7/m $-3.500000 -> %z12.d
+05d8d1ce : fcpy z14.d, p8/M, #-3.75                  : fcpy   %p8/m $-3.750000 -> %z14.d
+05d9c010 : fcpy z16.d, p9/M, #2.0                    : fcpy   %p9/m $2.000000 -> %z16.d
+05d9ce31 : fcpy z17.d, p9/M, #1.0625                 : fcpy   %p9/m $1.062500 -> %z17.d
+05dace73 : fcpy z19.d, p10/M, #1.1875                : fcpy   %p10/m $1.187500 -> %z19.d
+05dbceb5 : fcpy z21.d, p11/M, #1.3125                : fcpy   %p11/m $1.312500 -> %z21.d
+05dccef7 : fcpy z23.d, p12/M, #1.4375                : fcpy   %p12/m $1.437500 -> %z23.d
+05ddcf39 : fcpy z25.d, p13/M, #1.5625                : fcpy   %p13/m $1.562500 -> %z25.d
+05decf7b : fcpy z27.d, p14/M, #1.6875                : fcpy   %p14/m $1.687500 -> %z27.d
+05dfcfff : fcpy z31.d, p15/M, #1.9375                : fcpy   %p15/m $1.937500 -> %z31.d
+
+# FDUP    <Zd>.<T>, #<const> (FDUP-Z.I-_)
+2579d000 : fdup z0.h, #-2.0                          : fdup   $-2.000000 -> %z0.h
+2579d042 : fdup z2.h, #-2.25                         : fdup   $-2.250000 -> %z2.h
+2579d084 : fdup z4.h, #-2.5                          : fdup   $-2.500000 -> %z4.h
+2579d0c6 : fdup z6.h, #-2.75                         : fdup   $-2.750000 -> %z6.h
+2579d108 : fdup z8.h, #-3.0                          : fdup   $-3.000000 -> %z8.h
+2579d14a : fdup z10.h, #-3.25                        : fdup   $-3.250000 -> %z10.h
+2579d18c : fdup z12.h, #-3.5                         : fdup   $-3.500000 -> %z12.h
+2579d1ce : fdup z14.h, #-3.75                        : fdup   $-3.750000 -> %z14.h
+2579c010 : fdup z16.h, #2.0                          : fdup   $2.000000 -> %z16.h
+2579ce31 : fdup z17.h, #1.0625                       : fdup   $1.062500 -> %z17.h
+2579ce73 : fdup z19.h, #1.1875                       : fdup   $1.187500 -> %z19.h
+2579ceb5 : fdup z21.h, #1.3125                       : fdup   $1.312500 -> %z21.h
+2579cef7 : fdup z23.h, #1.4375                       : fdup   $1.437500 -> %z23.h
+2579cf39 : fdup z25.h, #1.5625                       : fdup   $1.562500 -> %z25.h
+2579cf7b : fdup z27.h, #1.6875                       : fdup   $1.687500 -> %z27.h
+2579cfff : fdup z31.h, #1.9375                       : fdup   $1.937500 -> %z31.h
+25b9d000 : fdup z0.s, #-2.0                          : fdup   $-2.000000 -> %z0.s
+25b9d042 : fdup z2.s, #-2.25                         : fdup   $-2.250000 -> %z2.s
+25b9d084 : fdup z4.s, #-2.5                          : fdup   $-2.500000 -> %z4.s
+25b9d0c6 : fdup z6.s, #-2.75                         : fdup   $-2.750000 -> %z6.s
+25b9d108 : fdup z8.s, #-3.0                          : fdup   $-3.000000 -> %z8.s
+25b9d14a : fdup z10.s, #-3.25                        : fdup   $-3.250000 -> %z10.s
+25b9d18c : fdup z12.s, #-3.5                         : fdup   $-3.500000 -> %z12.s
+25b9d1ce : fdup z14.s, #-3.75                        : fdup   $-3.750000 -> %z14.s
+25b9c010 : fdup z16.s, #2.0                          : fdup   $2.000000 -> %z16.s
+25b9ce31 : fdup z17.s, #1.0625                       : fdup   $1.062500 -> %z17.s
+25b9ce73 : fdup z19.s, #1.1875                       : fdup   $1.187500 -> %z19.s
+25b9ceb5 : fdup z21.s, #1.3125                       : fdup   $1.312500 -> %z21.s
+25b9cef7 : fdup z23.s, #1.4375                       : fdup   $1.437500 -> %z23.s
+25b9cf39 : fdup z25.s, #1.5625                       : fdup   $1.562500 -> %z25.s
+25b9cf7b : fdup z27.s, #1.6875                       : fdup   $1.687500 -> %z27.s
+25b9cfff : fdup z31.s, #1.9375                       : fdup   $1.937500 -> %z31.s
+25f9d000 : fdup z0.d, #-2.0                          : fdup   $-2.000000 -> %z0.d
+25f9d042 : fdup z2.d, #-2.25                         : fdup   $-2.250000 -> %z2.d
+25f9d084 : fdup z4.d, #-2.5                          : fdup   $-2.500000 -> %z4.d
+25f9d0c6 : fdup z6.d, #-2.75                         : fdup   $-2.750000 -> %z6.d
+25f9d108 : fdup z8.d, #-3.0                          : fdup   $-3.000000 -> %z8.d
+25f9d14a : fdup z10.d, #-3.25                        : fdup   $-3.250000 -> %z10.d
+25f9d18c : fdup z12.d, #-3.5                         : fdup   $-3.500000 -> %z12.d
+25f9d1ce : fdup z14.d, #-3.75                        : fdup   $-3.750000 -> %z14.d
+25f9c010 : fdup z16.d, #2.0                          : fdup   $2.000000 -> %z16.d
+25f9ce31 : fdup z17.d, #1.0625                       : fdup   $1.062500 -> %z17.d
+25f9ce73 : fdup z19.d, #1.1875                       : fdup   $1.187500 -> %z19.d
+25f9ceb5 : fdup z21.d, #1.3125                       : fdup   $1.312500 -> %z21.d
+25f9cef7 : fdup z23.d, #1.4375                       : fdup   $1.437500 -> %z23.d
+25f9cf39 : fdup z25.d, #1.5625                       : fdup   $1.562500 -> %z25.d
+25f9cf7b : fdup z27.d, #1.6875                       : fdup   $1.687500 -> %z27.d
+25f9cfff : fdup z31.d, #1.9375                       : fdup   $1.937500 -> %z31.d
+
 # FEXPA   <Zd>.<T>, <Zn>.<T> (FEXPA-Z.Z-_)
 0460b800 : fexpa z0.h, z0.h                          : fexpa  %z0.h -> %z0.h
 0460b862 : fexpa z2.h, z3.h                          : fexpa  %z3.h -> %z2.h

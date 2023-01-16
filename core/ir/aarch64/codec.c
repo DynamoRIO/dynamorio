@@ -4864,6 +4864,38 @@ encode_opnd_z_tb_bhs_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
     return encode_sized_z_tb(5, BYTE_REG, SINGLE_REG, opnd, enc_out);
 }
 
+/* fpimm8_5: floating-point 8 bit imm at pos 5 */
+
+static inline bool
+decode_opnd_fpimm8_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const uint size = extract_uint(enc, 22, 2);
+    const uint a = extract_uint(enc, 12, 1);
+    const uint b = extract_uint(enc, 11, 1);
+    const uint c = extract_uint(enc, 10, 1);
+    const uint defgh = extract_uint(enc, 5, 5);
+    switch (size) {
+    case 0b01: return decode_fpimm8_half(a, b, c, defgh, opnd);
+    case 0b10: return decode_fpimm8_single(a, b, c, defgh, opnd);
+    case 0b11: return decode_fpimm8_double(a, b, c, defgh, opnd);
+    }
+
+    return false;
+}
+
+static inline bool
+encode_opnd_fpimm8_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    const uint size = extract_uint(enc, 22, 2);
+    switch (size) {
+    case 0b01: return encode_fpimm8_half(opnd, 10, 5, enc_out);
+    case 0b10: return encode_fpimm8_single(opnd, 10, 5, enc_out);
+    case 0b11: return encode_fpimm8_double(opnd, 10, 5, enc_out);
+    }
+
+    return false;
+}
+
 static inline bool
 decode_opnd_z_tszl19_bhsd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
