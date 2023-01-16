@@ -221,7 +221,7 @@
 --------??------------xxxxx-----  wx_size_5_sp # GPR scalar register, register size, W or X depending on size bits
 --------??------------xxxxx-----  wx_size_5_zr # GPR scalar register, register size, W or X depending on size bits
 --------??------------xxxxx-----  z_tb_bhs_5 # sve vector reg, elsz depending on size Tb
---------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
+--------??-xxxxxxxx-------------  fpimm8_13  # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
 --------xx----------------------  bhs_sz     # element width of a vector (8<<bhs_sz)
