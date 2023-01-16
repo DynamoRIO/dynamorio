@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -288,9 +288,8 @@ struct _instr_t {
     uint eflags;   /* contains EFLAGS_ bits, but amount of info varies
                     * depending on how instr was decoded/built */
 
-    /* this field is for the use of passes as an annotation.
-     * it is also used to hold the offset of an instruction when encoding
-     * pc-relative instructions. A small range of values is reserved for internal use
+    /* This field is for the use of passes as an annotation.
+     * A small range of values is reserved for internal use
      * by DR and cannot be used by clients; see DR_NOTE_FIRST_RESERVED in globals.h.
      */
     void *note;
@@ -299,6 +298,8 @@ struct _instr_t {
     instr_t *prev;
     instr_t *next;
 
+    /* Used to hold the relative offset within an instruction list when encoding. */
+    size_t offset;
 };     /* instr_t */
 #endif /* DR_FAST_IR */
 
@@ -490,9 +491,6 @@ DR_API
 INSTR_INLINE
 /**
  * Gets the value of the user-controlled note field in \p instr.
- * \note Important: is also used when emitting for targets that are other
- * instructions.  Thus it will be overwritten when calling instrlist_encode()
- * or instrlist_encode_to_copy() with \p has_instr_jmp_targets set to true.
  * \note The note field is copied (shallowly) by instr_clone().
  */
 void *

@@ -377,9 +377,9 @@ typedef struct {
  */
 typedef struct {
 #    ifdef X64
-    uint black_box_uint[26];
+    uint black_box_uint[28];
 #    else
-    uint black_box_uint[17];
+    uint black_box_uint[18];
 #    endif
 } instr_t;
 #else
@@ -831,12 +831,12 @@ typedef struct _module_data_t module_data_t;
 /**
  * Upper note values are reserved for core DR.
  */
-#    define DR_NOTE_FIRST_RESERVED 0xfffffffffffffff0ULL
+#    define DR_NOTE_FIRST_RESERVED 0xffffffffffff0000ULL
 #else
 /**
  * Upper note values are reserved for core DR.
  */
-#    define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
+#    define DR_NOTE_FIRST_RESERVED 0xffff0000UL
 #endif
 enum {
     /**
@@ -854,6 +854,14 @@ enum {
      * their application values, as required for DR's internal block mangling.
      */
     DR_NOTE_REG_BARRIER,
+    /**
+     * Used for internal translation from an instruction list.  These apply not only to
+     * client-inserted clean calls but all inserted calls whether inserted by
+     * clients or DR and whether fully clean or not.  This is thus distinct from
+     * #DR_NOTE_CLEAN_CALL_END.
+     */
+    DR_NOTE_CALL_SEQUENCE_START,
+    DR_NOTE_CALL_SEQUENCE_END,
 };
 
 /**
