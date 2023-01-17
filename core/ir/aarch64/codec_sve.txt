@@ -165,6 +165,26 @@
 01100101xx0xxxxx011xxxxxxxx1xxxx  n   805  SVE    fcmne   p_size_hsd_0 : p10_zer_lo z_size_hsd_5 z_size_hsd_16
 01100101xx0xxxxx110xxxxxxxx0xxxx  n   806  SVE    fcmuo   p_size_hsd_0 : p10_zer_lo z_size_hsd_5 z_size_hsd_16
 00000101xx01xxxx110xxxxxxxxxxxxx  n   906  SVE     fcpy   z_size_hsd_0 : p16_mrg fpimm8_5
+0110010111001000101xxxxxxxxxxxxx  n   110  SVE     fcvt          z_h_0 : p10_mrg_lo z_d_5
+0110010111001010101xxxxxxxxxxxxx  n   110  SVE     fcvt          z_s_0 : p10_mrg_lo z_d_5
+0110010111001001101xxxxxxxxxxxxx  n   110  SVE     fcvt          z_d_0 : p10_mrg_lo z_h_5
+0110010110001001101xxxxxxxxxxxxx  n   110  SVE     fcvt          z_s_0 : p10_mrg_lo z_h_5
+0110010111001011101xxxxxxxxxxxxx  n   110  SVE     fcvt          z_d_0 : p10_mrg_lo z_s_5
+0110010110001000101xxxxxxxxxxxxx  n   110  SVE     fcvt          z_h_0 : p10_mrg_lo z_s_5
+0110010111011000101xxxxxxxxxxxxx  n   125  SVE   fcvtzs          z_s_0 : p10_mrg_lo z_d_5
+0110010111011110101xxxxxxxxxxxxx  n   125  SVE   fcvtzs          z_d_0 : p10_mrg_lo z_d_5
+0110010101011010101xxxxxxxxxxxxx  n   125  SVE   fcvtzs          z_h_0 : p10_mrg_lo z_h_5
+0110010101011100101xxxxxxxxxxxxx  n   125  SVE   fcvtzs          z_s_0 : p10_mrg_lo z_h_5
+0110010101011110101xxxxxxxxxxxxx  n   125  SVE   fcvtzs          z_d_0 : p10_mrg_lo z_h_5
+0110010110011100101xxxxxxxxxxxxx  n   125  SVE   fcvtzs          z_s_0 : p10_mrg_lo z_s_5
+0110010111011100101xxxxxxxxxxxxx  n   125  SVE   fcvtzs          z_d_0 : p10_mrg_lo z_s_5
+0110010111011001101xxxxxxxxxxxxx  n   126  SVE   fcvtzu          z_s_0 : p10_mrg_lo z_d_5
+0110010111011111101xxxxxxxxxxxxx  n   126  SVE   fcvtzu          z_d_0 : p10_mrg_lo z_d_5
+0110010101011011101xxxxxxxxxxxxx  n   126  SVE   fcvtzu          z_h_0 : p10_mrg_lo z_h_5
+0110010101011101101xxxxxxxxxxxxx  n   126  SVE   fcvtzu          z_s_0 : p10_mrg_lo z_h_5
+0110010101011111101xxxxxxxxxxxxx  n   126  SVE   fcvtzu          z_d_0 : p10_mrg_lo z_h_5
+0110010110011101101xxxxxxxxxxxxx  n   126  SVE   fcvtzu          z_s_0 : p10_mrg_lo z_s_5
+0110010111011101101xxxxxxxxxxxxx  n   126  SVE   fcvtzu          z_d_0 : p10_mrg_lo z_s_5
 00100101xx111001110xxxxxxxxxxxxx  n   907  SVE     fdup   z_size_hsd_0 : fpimm8_5
 00000100xx100000101110xxxxxxxxxx  n   789  SVE    fexpa   z_size_hsd_0 : z_size_hsd_5
 0110010101000100001xxxxxxxxxxxxx  n   132  SVE  fmaxnmv             h0 : p10_lo z_size_hsd_5
@@ -179,6 +199,13 @@
 0110010101000111001xxxxxxxxxxxxx  n   140  SVE    fminv             h0 : p10_lo z_size_hsd_5
 0110010110000111001xxxxxxxxxxxxx  n   140  SVE    fminv             s0 : p10_lo z_size_hsd_5
 0110010111000111001xxxxxxxxxxxxx  n   140  SVE    fminv             d0 : p10_lo z_size_hsd_5
+01100101xx000100101xxxxxxxxxxxxx  n   158  SVE   frinta   z_size_hsd_0 : p10_mrg_lo z_size_hsd_5
+01100101xx000111101xxxxxxxxxxxxx  n   159  SVE   frinti   z_size_hsd_0 : p10_mrg_lo z_size_hsd_5
+01100101xx000010101xxxxxxxxxxxxx  n   160  SVE   frintm   z_size_hsd_0 : p10_mrg_lo z_size_hsd_5
+01100101xx000000101xxxxxxxxxxxxx  n   161  SVE   frintn   z_size_hsd_0 : p10_mrg_lo z_size_hsd_5
+01100101xx000001101xxxxxxxxxxxxx  n   162  SVE   frintp   z_size_hsd_0 : p10_mrg_lo z_size_hsd_5
+01100101xx000110101xxxxxxxxxxxxx  n   163  SVE   frintx   z_size_hsd_0 : p10_mrg_lo z_size_hsd_5
+01100101xx000011101xxxxxxxxxxxxx  n   164  SVE   frintz   z_size_hsd_0 : p10_mrg_lo z_size_hsd_5
 01100101xx010xxx100000xxxxxxxxxx  n   790  SVE    ftmad   z_size_hsd_0 : z_size_hsd_0 z_size_hsd_5 imm3
 01100101xx0xxxxx000011xxxxxxxxxx  n   791  SVE   ftsmul   z_size_hsd_0 : z_size_hsd_5 z_size_hsd_16
 00000100xx1xxxxx101100xxxxxxxxxx  n   792  SVE   ftssel   z_size_hsd_0 : z_size_hsd_5 z_size_hsd_16
@@ -273,6 +300,13 @@
 0000010111100110100xxxxxxxxxxxxx  n   885  SVE     revw          z_d_0 : p10_mrg_lo z_d_5
 00000100xx001100000xxxxxxxxxxxxx  n   349  SVE     sabd  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00000100xx000000001xxxxxxxxxxxxx  n   920  SVE    saddv             d0 : p10_lo z_size_bhs_5
+0110010101010010101xxxxxxxxxxxxx  n   362  SVE    scvtf          z_h_0 : p10_mrg_lo z_h_5
+0110010111010000101xxxxxxxxxxxxx  n   362  SVE    scvtf          z_d_0 : p10_mrg_lo z_s_5
+0110010101010100101xxxxxxxxxxxxx  n   362  SVE    scvtf          z_h_0 : p10_mrg_lo z_s_5
+0110010110010100101xxxxxxxxxxxxx  n   362  SVE    scvtf          z_s_0 : p10_mrg_lo z_s_5
+0110010111010110101xxxxxxxxxxxxx  n   362  SVE    scvtf          z_d_0 : p10_mrg_lo z_d_5
+0110010101010110101xxxxxxxxxxxxx  n   362  SVE    scvtf          z_h_0 : p10_mrg_lo z_d_5
+0110010111010100101xxxxxxxxxxxxx  n   362  SVE    scvtf          z_s_0 : p10_mrg_lo z_d_5
 00000100xx010100000xxxxxxxxxxxxx  n   363  SVE     sdiv    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
 00000100xx010110000xxxxxxxxxxxxx  n   794  SVE    sdivr    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
 001001010000xxxx01xxxx1xxxx1xxxx  n   896  SVE      sel          p_b_0 : p10 p_b_5 p_b_16
@@ -346,6 +380,13 @@
 00000101xx1xxxxx011101xxxxxxxxxx  n   495  SVE     trn2  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
 00000100xx001101000xxxxxxxxxxxxx  n   499  SVE     uabd  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00000100xx000001001xxxxxxxxxxxxx  n   921  SVE    uaddv             d0 : p10_lo z_size_bhsd_5
+0110010101010011101xxxxxxxxxxxxx  n   510  SVE    ucvtf          z_h_0 : p10_mrg_lo z_h_5
+0110010111010001101xxxxxxxxxxxxx  n   510  SVE    ucvtf          z_d_0 : p10_mrg_lo z_s_5
+0110010101010101101xxxxxxxxxxxxx  n   510  SVE    ucvtf          z_h_0 : p10_mrg_lo z_s_5
+0110010110010101101xxxxxxxxxxxxx  n   510  SVE    ucvtf          z_s_0 : p10_mrg_lo z_s_5
+0110010111010111101xxxxxxxxxxxxx  n   510  SVE    ucvtf          z_d_0 : p10_mrg_lo z_d_5
+0110010101010111101xxxxxxxxxxxxx  n   510  SVE    ucvtf          z_h_0 : p10_mrg_lo z_d_5
+0110010111010101101xxxxxxxxxxxxx  n   510  SVE    ucvtf          z_s_0 : p10_mrg_lo z_d_5
 00000100xx010101000xxxxxxxxxxxxx  n   511  SVE     udiv    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
 00000100xx010111000xxxxxxxxxxxxx  n   795  SVE    udivr    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
 00000100xx001001000xxxxxxxxxxxxx  n   516  SVE     umax  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5

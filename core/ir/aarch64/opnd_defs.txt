@@ -114,6 +114,8 @@
 ----------------------xxxxx-----  q5         # Q register
 ----------------------xxxxx-----  z5         # Z register
 ----------------------xxxxx-----  z_b_5      # Z register with b size elements
+----------------------xxxxx-----  z_h_5      # Z register with h size elements
+----------------------xxxxx-----  z_s_5      # Z register with s size elements
 ----------------------xxxxx-----  z_d_5      # Z register with d size elements
 ----------------------xxxxx-----  z_q_5      # Z register with q size elements
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
