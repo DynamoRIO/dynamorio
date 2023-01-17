@@ -151,6 +151,8 @@ const reg_id_t Xn_six_offset_1_zr[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
                                          DR_REG_X16, DR_REG_X21, DR_REG_XZR };
 const reg_id_t Xn_six_offset_1_sp[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
                                          DR_REG_X16, DR_REG_X21, DR_REG_XSP };
+const reg_id_t Xn_six_offset_2_sp[6] = { DR_REG_X0,  DR_REG_X7,  DR_REG_X12,
+                                         DR_REG_X17, DR_REG_X22, DR_REG_SP };
 const reg_id_t Wn_six_offset_0[6] = { DR_REG_W0,  DR_REG_W5,  DR_REG_W10,
                                       DR_REG_W15, DR_REG_W20, DR_REG_W30 };
 const reg_id_t Wn_six_offset_1_zr[6] = { DR_REG_W0,  DR_REG_W6,  DR_REG_W11,

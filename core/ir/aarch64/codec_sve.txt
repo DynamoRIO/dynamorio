@@ -171,6 +171,22 @@
 00000101xx100010100xxxxxxxxxxxxx  n   837  SVE    lasta  bhsd_size_reg0 : p10_lo z_size_bhsd_5
 00000101xx100001101xxxxxxxxxxxxx  n   838  SVE    lastb   wx_size_0_zr : p10_lo z_size_bhsd_5
 00000101xx100011100xxxxxxxxxxxxx  n   838  SVE    lastb  bhsd_size_reg0 : p10_lo z_size_bhsd_5
+1000010001xxxxxx101xxxxxxxxxxxxx  n   908  SVE    ld1rb          z_h_0 : svememx6_b_5 p10_zer_lo
+1000010001xxxxxx110xxxxxxxxxxxxx  n   908  SVE    ld1rb          z_s_0 : svememx6_b_5 p10_zer_lo
+1000010001xxxxxx111xxxxxxxxxxxxx  n   908  SVE    ld1rb          z_d_0 : svememx6_b_5 p10_zer_lo
+1000010001xxxxxx100xxxxxxxxxxxxx  n   908  SVE    ld1rb          z_b_0 : svememx6_b_5 p10_zer_lo
+1000010111xxxxxx111xxxxxxxxxxxxx  n   909  SVE    ld1rd          z_d_0 : svememx6_d_5 p10_zer_lo
+1000010011xxxxxx101xxxxxxxxxxxxx  n   910  SVE    ld1rh          z_h_0 : svememx6_h_5 p10_zer_lo
+1000010011xxxxxx110xxxxxxxxxxxxx  n   910  SVE    ld1rh          z_s_0 : svememx6_h_5 p10_zer_lo
+1000010011xxxxxx111xxxxxxxxxxxxx  n   910  SVE    ld1rh          z_d_0 : svememx6_h_5 p10_zer_lo
+1000010111xxxxxx110xxxxxxxxxxxxx  n   911  SVE   ld1rsb          z_h_0 : svememx6_b_5 p10_zer_lo
+1000010111xxxxxx101xxxxxxxxxxxxx  n   911  SVE   ld1rsb          z_s_0 : svememx6_b_5 p10_zer_lo
+1000010111xxxxxx100xxxxxxxxxxxxx  n   911  SVE   ld1rsb          z_d_0 : svememx6_b_5 p10_zer_lo
+1000010101xxxxxx101xxxxxxxxxxxxx  n   912  SVE   ld1rsh          z_s_0 : svememx6_h_5 p10_zer_lo
+1000010101xxxxxx100xxxxxxxxxxxxx  n   912  SVE   ld1rsh          z_d_0 : svememx6_h_5 p10_zer_lo
+1000010011xxxxxx100xxxxxxxxxxxxx  n   913  SVE   ld1rsw          z_d_0 : svememx6_s_5 p10_zer_lo
+1000010101xxxxxx110xxxxxxxxxxxxx  n   914  SVE    ld1rw          z_s_0 : svememx6_s_5 p10_zer_lo
+1000010101xxxxxx111xxxxxxxxxxxxx  n   914  SVE    ld1rw          z_d_0 : svememx6_s_5 p10_zer_lo
 1000010110xxxxxx000xxxxxxxx0xxxx  n   227  SVE      ldr             p0 : svemem_gpr_simm9_vl
 1000010110xxxxxx010xxxxxxxxxxxxx  n   227  SVE      ldr             z0 : svemem_gpr_simm9_vl
 00000100xx000011100xxxxxxxxxxxxx  n   902  SVE      lsl  z_tszl8_bhsd_0 : p10_mrg_lo z_tszl8_bhsd_0 tszl8_imm3_5
