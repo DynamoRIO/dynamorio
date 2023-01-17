@@ -222,6 +222,7 @@
 --------??------------xxxxx-----  wx_size_5_sp # GPR scalar register, register size, W or X depending on size bits
 --------??------------xxxxx-----  wx_size_5_zr # GPR scalar register, register size, W or X depending on size bits
 --------??------------xxxxx-----  z_tb_bhs_5 # sve vector reg, elsz depending on size Tb
+--------??---------xxxxxxxx-----  fpimm8_5   # floating-point 8 bit imm at pos 5
 --------??-??--------------xxxxx  z_tszl19_bhsd_0 # z element register mediated by the tszl and tszh fields
 --------??-??---------xxxxx-----  z_tszl19_bhsd_5 # z element register mediated by the tszl and tszh fields
 --------??-xxxxxxxx-------------  fpimm8_13  # floating-point immediate for scalar fmov

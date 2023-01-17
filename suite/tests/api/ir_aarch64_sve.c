@@ -10708,6 +10708,75 @@ TEST_INSTR(uminv_sve_pred)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
 }
 
+TEST_INSTR(fcpy_sve_pred)
+{
+    /* Testing FCPY    <Zd>.<Ts>, <Pg>/M, #<const> */
+    static const float imm8[6] = { -31.0, -0.40625, 2.0, 3.875, 10.0, 13.5 };
+
+    const char *const expected_0_0[6] = {
+        "fcpy   %p0/m $-31.000000 -> %z0.h",  "fcpy   %p3/m $-0.406250 -> %z5.h",
+        "fcpy   %p6/m $2.000000 -> %z10.h",   "fcpy   %p9/m $3.875000 -> %z16.h",
+        "fcpy   %p11/m $10.000000 -> %z21.h", "fcpy   %p15/m $13.500000 -> %z31.h",
+    };
+    TEST_LOOP(fcpy, fcpy_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_six_offset_1[i], true),
+              opnd_create_immed_float(imm8[i]));
+
+    const char *const expected_0_1[6] = {
+        "fcpy   %p0/m $-31.000000 -> %z0.s",  "fcpy   %p3/m $-0.406250 -> %z5.s",
+        "fcpy   %p6/m $2.000000 -> %z10.s",   "fcpy   %p9/m $3.875000 -> %z16.s",
+        "fcpy   %p11/m $10.000000 -> %z21.s", "fcpy   %p15/m $13.500000 -> %z31.s",
+    };
+    TEST_LOOP(fcpy, fcpy_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_six_offset_1[i], true),
+              opnd_create_immed_float(imm8[i]));
+
+    const char *const expected_0_2[6] = {
+        "fcpy   %p0/m $-31.000000 -> %z0.d",  "fcpy   %p3/m $-0.406250 -> %z5.d",
+        "fcpy   %p6/m $2.000000 -> %z10.d",   "fcpy   %p9/m $3.875000 -> %z16.d",
+        "fcpy   %p11/m $10.000000 -> %z21.d", "fcpy   %p15/m $13.500000 -> %z31.d",
+    };
+    TEST_LOOP(fcpy, fcpy_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_six_offset_1[i], true),
+              opnd_create_immed_double(imm8[i]));
+}
+
+TEST_INSTR(fdup_sve)
+{
+
+    /* Testing FDUP    <Zd>.<Ts>, #<const> */
+    static const float imm8[6] = { -15.5, -3.875, -0.125, 1.9375, 6.25, 31.0 };
+    const char *const expected_0_0[6] = {
+        "fdup   $-15.500000 -> %z0.h", "fdup   $-3.875000 -> %z5.h",
+        "fdup   $-0.125000 -> %z10.h", "fdup   $1.937500 -> %z16.h",
+        "fdup   $6.250000 -> %z21.h",  "fdup   $31.000000 -> %z31.h",
+    };
+    TEST_LOOP(fdup, fdup_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_immed_float(imm8[i]));
+
+    const char *const expected_0_1[6] = {
+        "fdup   $-15.500000 -> %z0.s", "fdup   $-3.875000 -> %z5.s",
+        "fdup   $-0.125000 -> %z10.s", "fdup   $1.937500 -> %z16.s",
+        "fdup   $6.250000 -> %z21.s",  "fdup   $31.000000 -> %z31.s",
+    };
+    TEST_LOOP(fdup, fdup_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_immed_float(imm8[i]));
+
+    const char *const expected_0_2[6] = {
+        "fdup   $-15.500000 -> %z0.d", "fdup   $-3.875000 -> %z5.d",
+        "fdup   $-0.125000 -> %z10.d", "fdup   $1.937500 -> %z16.d",
+        "fdup   $6.250000 -> %z21.d",  "fdup   $31.000000 -> %z31.d",
+    };
+    TEST_LOOP(fdup, fdup_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_immed_double(imm8[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -11038,6 +11107,9 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(uaddv_sve_pred);
     RUN_INSTR_TEST(umaxv_sve_pred);
     RUN_INSTR_TEST(uminv_sve_pred);
+
+    RUN_INSTR_TEST(fcpy_sve_pred);
+    RUN_INSTR_TEST(fdup_sve);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

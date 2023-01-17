@@ -9479,4 +9479,29 @@
  */
 #define INSTR_CREATE_uminv_sve_pred(dc, Vd, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_uminv, Vd, Pg, Zn)
+
+/*
+ * Creates a FCPY instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCPY    <Zd>.<Ts>, <Pg>/M, #<imm>
+ * \param imm  The floating-point immediate value to be copied.
+ */
+#define INSTR_CREATE_fcpy_sve_pred(dc, Zd, Pg, imm) \
+    instr_create_1dst_2src(dc, OP_fcpy, Zd, Pg, imm)
+
+/**
+ * Creates a FDUP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FDUP    <Zd>.<Ts>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param imm  The floating-point immediate value to be copied.
+ */
+#define INSTR_CREATE_fdup_sve(dc, Zd, imm) instr_create_1dst_1src(dc, OP_fdup, Zd, imm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
