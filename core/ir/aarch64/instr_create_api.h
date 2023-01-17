@@ -9258,4 +9258,139 @@
  */
 #define INSTR_CREATE_fdup_sve(dc, Zd, imm) instr_create_1dst_1src(dc, OP_fdup, Zd, imm)
 
+/**
+ * Creates a LD1RB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD1RB   { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ *    LD1RB   { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ *    LD1RB   { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ *    LD1RB   { <Zt>.B }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6,
+ *             OPSZ_1)
+ */
+#define INSTR_CREATE_ld1rb_sve(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ld1rb, Zt, Rn, Pg)
+
+/**
+ * Creates a LD1RH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD1RH   { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ *    LD1RH   { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ *    LD1RH   { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6,
+ *             OPSZ_2)
+ */
+#define INSTR_CREATE_ld1rh_sve(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ld1rh, Zt, Rn, Pg)
+
+/**
+ * Creates a LD1RW instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD1RW   { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ *    LD1RW   { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6,
+ *             OPSZ_4)
+ */
+#define INSTR_CREATE_ld1rw_sve(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ld1rw, Zt, Rn, Pg)
+
+/**
+ * Creates a LD1RD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD1RD   { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6,
+ *             OPSZ_8)
+ */
+#define INSTR_CREATE_ld1rd_sve(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ld1rd, Zt, Rn, Pg)
+
+/**
+ * Creates a LD1RSB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD1RSB  { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ *    LD1RSB  { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ *    LD1RSB  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6,
+ *             OPSZ_1)
+ */
+#define INSTR_CREATE_ld1rsb_sve(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ld1rsb, Zt, Rn, Pg)
+
+/**
+ * Creates a LD1RSH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD1RSH  { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ *    LD1RSH  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6,
+ *             OPSZ_2)
+ */
+#define INSTR_CREATE_ld1rsh_sve(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ld1rsh, Zt, Rn, Pg)
+
+/**
+ * Creates a LD1RSW instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD1RSW  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<pimm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6,
+ *             OPSZ_4)
+ */
+#define INSTR_CREATE_ld1rsw_sve(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ld1rsw, Zt, Rn, Pg)
+
 #endif /* DR_IR_MACROS_AARCH64_H */

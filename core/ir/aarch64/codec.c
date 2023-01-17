@@ -4235,6 +4235,92 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
+static inline bool
+decode_svememx6_5(uint enc, aarch64_reg_offset offset, OUT opnd_t *opnd)
+{
+    const uint scale = 1 << offset;
+    *opnd = create_base_imm(enc, extract_uint(enc, 16, 6) * scale, scale);
+    return true;
+}
+
+static inline bool
+encode_svememx6_5(aarch64_reg_offset offset, opnd_t opnd, OUT uint *enc_out)
+{
+    uint xn;
+    if (!is_base_imm(opnd, &xn))
+        return false;
+
+    const uint scale = 1 << offset;
+    if (opnd_size_in_bytes(opnd_get_size(opnd)) != scale)
+        return false;
+
+    const int disp = opnd_get_disp(opnd);
+    CLIENT_ASSERT((disp % scale) == 0, "Disp is not a multiple of the scale");
+
+    const int enc_disp = disp / scale;
+    CLIENT_ASSERT((enc_disp >= 0) && (enc_disp < 64),
+                  "Encoded disp must be less than 64");
+
+    *enc_out = (enc_disp << 16) | (xn << 5);
+    return true;
+}
+
+/* memz6_b_5: vector memory reg with 6 bit imm for byte value */
+
+static inline bool
+decode_opnd_svememx6_b_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_svememx6_5(enc, BYTE_REG, opnd);
+}
+
+static inline bool
+encode_opnd_svememx6_b_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_svememx6_5(BYTE_REG, opnd, enc_out);
+}
+
+/* memz6_h_5: vector memory reg with 6 bit imm for half value */
+
+static inline bool
+decode_opnd_svememx6_h_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_svememx6_5(enc, HALF_REG, opnd);
+}
+
+static inline bool
+encode_opnd_svememx6_h_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_svememx6_5(HALF_REG, opnd, enc_out);
+}
+
+/* memz6_s_5: vector memory reg with 6 bit imm for single value */
+
+static inline bool
+decode_opnd_svememx6_s_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_svememx6_5(enc, SINGLE_REG, opnd);
+}
+
+static inline bool
+encode_opnd_svememx6_s_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_svememx6_5(SINGLE_REG, opnd, enc_out);
+}
+
+/* memz6_d_5: vector memory reg with 6 bit imm for double value */
+
+static inline bool
+decode_opnd_svememx6_d_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_svememx6_5(enc, DOUBLE_REG, opnd);
+}
+
+static inline bool
+encode_opnd_svememx6_d_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_svememx6_5(DOUBLE_REG, opnd, enc_out);
+}
+
 /* svemem_gpr_simm9_vl: 9 bit signed immediate offset added to base register
  * defined in bits 5 to 9.
  */
