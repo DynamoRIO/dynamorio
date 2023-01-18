@@ -3424,7 +3424,7 @@ if (BUILD_CLIENTS)
 
     torunonly_drcachesim(coherence client.annotation-concurrency "-coherence"
       "${annotation_test_args_shorter}")
-    set(tool.drcachesim.coherence_timeout 400) # This test is long.
+    set(tool.drcachesim.coherence_timeout 150) # This test is long.
 
     # TLB simulator's multi-thread sanity check
     torunonly_drcachesim(TLB-threads client.annotation-concurrency
