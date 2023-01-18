@@ -5017,6 +5017,21 @@
     instr_create_1dst_1src(dc, OP_movprfx, Zd, Zn)
 
 /**
+ * Creates a MOVPRFX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    MOVPRFX <Zd>.<Ts>, <Pg>/<ZM>, <Zn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_movprfx_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_movprfx, Zd, Pg, Zn)
+
+/**
  * Creates a SQADD instruction.
  *
  * This macro is used to encode the forms:
