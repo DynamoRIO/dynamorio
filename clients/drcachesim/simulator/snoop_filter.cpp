@@ -59,7 +59,7 @@ void
 snoop_filter_t::snoop(addr_t tag, int id, bool is_write)
 {
     coherence_table_entry_t *coherence_entry = &coherence_table_[tag];
-    snoop_filter_stats_.coherence_table = coherence_table_;
+    snoop_filter_stats_.coherence_table[tag] = coherence_table_[tag];
     // Initialize new snoop filter entry.
     if (coherence_entry->sharers.empty()) {
         coherence_entry->sharers.resize(num_snooped_caches_, false);
