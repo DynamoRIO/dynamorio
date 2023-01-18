@@ -9639,4 +9639,26 @@
 #define INSTR_CREATE_ld1rsw_sve(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ld1rsw, Zt, Rn, Pg)
 
+/**
+ * Creates an INDEX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    INDEX   <Zd>.<Ts>, #<imm1>, #<imm2>
+ *    INDEX   <Zd>.<Ts>, #<imm>, <R><m>
+ *    INDEX   <Zd>.<Ts>, <R><n>, #<imm>
+ *    INDEX   <Zd>.<Ts>, <R><n>, <R><m>
+ * \endverbatim
+ * \param dc         The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd         The destination vector register, Z (Scalable).
+ * \param Rn_or_imm  The first source operand. Can be W (Word, 32 bits) or X
+ *                   (Extended, 64 bits) register or a 5-bit signed immediate
+ *                   in the range -16 to 15.
+ * \param Rm_or_imm  The second source operand. Can be W (Word, 32 bits) or X
+ *                   (Extended, 64 bits) register or a 5-bit signed immediate
+ *                   in the range -16 to 15.
+ */
+#define INSTR_CREATE_index_sve(dc, Zd, Rn_or_imm, Rm_or_imm) \
+    instr_create_1dst_2src(dc, OP_index, Zd, Rn_or_imm, Rm_or_imm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */

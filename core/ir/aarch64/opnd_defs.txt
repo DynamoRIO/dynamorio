@@ -118,6 +118,7 @@
 ----------------------xxxxx-----  z_q_5      # Z register with q size elements
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
 ----------------------xxxxx-----  pred_constr  # pattern operand
+----------------------xxxxx-----  simm5_5    # Signed 5 bit immediate from 5 - 9
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
 --------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB, MSR
                                              # CRm field for SYS and SYSL
@@ -229,6 +230,7 @@
 --------??---------xxxxxxxx-----  fpimm8_5   # floating-point 8 bit imm at pos 5
 --------??-??--------------xxxxx  z_tszl19_bhsd_0 # z element register mediated by the tszl and tszh fields
 --------??-??---------xxxxx-----  z_tszl19_bhsd_5 # z element register mediated by the tszl and tszh fields
+--------??-xxxxx----------------  wx_size_16_zr # GPR scalar register, register size, W or X depending on size bits
 --------??-xxxxxxxx-------------  fpimm8_13  # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
