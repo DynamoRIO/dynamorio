@@ -2476,7 +2476,6 @@ encode_opnd_z_s_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return encode_single_sized(OPSZ_SCALABLE, 5, SINGLE_REG, opnd, enc_out);
 }
 
-
 static inline bool
 decode_opnd_z_d_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
