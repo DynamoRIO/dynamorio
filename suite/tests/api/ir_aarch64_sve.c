@@ -11220,6 +11220,635 @@ TEST_INSTR(index_sve)
               opnd_create_reg(Xn_six_offset_2[i]), opnd_create_reg(Xn_six_offset_3[i]));
 }
 
+TEST_INSTR(fcvt_sve_pred)
+{
+    /* Testing FCVT    <Zd>.H, <Pg>/M, <Zn>.D */
+    const char *const expected_0_0[6] = {
+        "fcvt   %p0/m %z0.d -> %z0.h",   "fcvt   %p2/m %z7.d -> %z5.h",
+        "fcvt   %p3/m %z12.d -> %z10.h", "fcvt   %p5/m %z18.d -> %z16.h",
+        "fcvt   %p6/m %z23.d -> %z21.h", "fcvt   %p7/m %z31.d -> %z31.h",
+    };
+    TEST_LOOP(fcvt, fcvt_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing FCVT    <Zd>.S, <Pg>/M, <Zn>.D */
+    const char *const expected_1_0[6] = {
+        "fcvt   %p0/m %z0.d -> %z0.s",   "fcvt   %p2/m %z7.d -> %z5.s",
+        "fcvt   %p3/m %z12.d -> %z10.s", "fcvt   %p5/m %z18.d -> %z16.s",
+        "fcvt   %p6/m %z23.d -> %z21.s", "fcvt   %p7/m %z31.d -> %z31.s",
+    };
+    TEST_LOOP(fcvt, fcvt_sve_pred, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing FCVT    <Zd>.D, <Pg>/M, <Zn>.H */
+    const char *const expected_2_0[6] = {
+        "fcvt   %p0/m %z0.h -> %z0.d",   "fcvt   %p2/m %z7.h -> %z5.d",
+        "fcvt   %p3/m %z12.h -> %z10.d", "fcvt   %p5/m %z18.h -> %z16.d",
+        "fcvt   %p6/m %z23.h -> %z21.d", "fcvt   %p7/m %z31.h -> %z31.d",
+    };
+    TEST_LOOP(fcvt, fcvt_sve_pred, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    /* Testing FCVT    <Zd>.S, <Pg>/M, <Zn>.H */
+    const char *const expected_3_0[6] = {
+        "fcvt   %p0/m %z0.h -> %z0.s",   "fcvt   %p2/m %z7.h -> %z5.s",
+        "fcvt   %p3/m %z12.h -> %z10.s", "fcvt   %p5/m %z18.h -> %z16.s",
+        "fcvt   %p6/m %z23.h -> %z21.s", "fcvt   %p7/m %z31.h -> %z31.s",
+    };
+    TEST_LOOP(fcvt, fcvt_sve_pred, 6, expected_3_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    /* Testing FCVT    <Zd>.D, <Pg>/M, <Zn>.S */
+    const char *const expected_4_0[6] = {
+        "fcvt   %p0/m %z0.s -> %z0.d",   "fcvt   %p2/m %z7.s -> %z5.d",
+        "fcvt   %p3/m %z12.s -> %z10.d", "fcvt   %p5/m %z18.s -> %z16.d",
+        "fcvt   %p6/m %z23.s -> %z21.d", "fcvt   %p7/m %z31.s -> %z31.d",
+    };
+    TEST_LOOP(fcvt, fcvt_sve_pred, 6, expected_4_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    /* Testing FCVT    <Zd>.H, <Pg>/M, <Zn>.S */
+    const char *const expected_5_0[6] = {
+        "fcvt   %p0/m %z0.s -> %z0.h",   "fcvt   %p2/m %z7.s -> %z5.h",
+        "fcvt   %p3/m %z12.s -> %z10.h", "fcvt   %p5/m %z18.s -> %z16.h",
+        "fcvt   %p6/m %z23.s -> %z21.h", "fcvt   %p7/m %z31.s -> %z31.h",
+    };
+    TEST_LOOP(fcvt, fcvt_sve_pred, 6, expected_5_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+}
+
+TEST_INSTR(fcvtzs_sve_pred)
+{
+    /* Testing FCVTZS  <Zd>.S, <Pg>/M, <Zn>.D */
+    const char *const expected_0_0[6] = {
+        "fcvtzs %p0/m %z0.d -> %z0.s",   "fcvtzs %p2/m %z7.d -> %z5.s",
+        "fcvtzs %p3/m %z12.d -> %z10.s", "fcvtzs %p5/m %z18.d -> %z16.s",
+        "fcvtzs %p6/m %z23.d -> %z21.s", "fcvtzs %p7/m %z31.d -> %z31.s",
+    };
+    TEST_LOOP(fcvtzs, fcvtzs_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing FCVTZS  <Zd>.D, <Pg>/M, <Zn>.D */
+    const char *const expected_1_0[6] = {
+        "fcvtzs %p0/m %z0.d -> %z0.d",   "fcvtzs %p2/m %z7.d -> %z5.d",
+        "fcvtzs %p3/m %z12.d -> %z10.d", "fcvtzs %p5/m %z18.d -> %z16.d",
+        "fcvtzs %p6/m %z23.d -> %z21.d", "fcvtzs %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(fcvtzs, fcvtzs_sve_pred, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing FCVTZS  <Zd>.H, <Pg>/M, <Zn>.H */
+    const char *const expected_2_0[6] = {
+        "fcvtzs %p0/m %z0.h -> %z0.h",   "fcvtzs %p2/m %z7.h -> %z5.h",
+        "fcvtzs %p3/m %z12.h -> %z10.h", "fcvtzs %p5/m %z18.h -> %z16.h",
+        "fcvtzs %p6/m %z23.h -> %z21.h", "fcvtzs %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(fcvtzs, fcvtzs_sve_pred, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    /* Testing FCVTZS  <Zd>.S, <Pg>/M, <Zn>.H */
+    const char *const expected_3_0[6] = {
+        "fcvtzs %p0/m %z0.h -> %z0.s",   "fcvtzs %p2/m %z7.h -> %z5.s",
+        "fcvtzs %p3/m %z12.h -> %z10.s", "fcvtzs %p5/m %z18.h -> %z16.s",
+        "fcvtzs %p6/m %z23.h -> %z21.s", "fcvtzs %p7/m %z31.h -> %z31.s",
+    };
+    TEST_LOOP(fcvtzs, fcvtzs_sve_pred, 6, expected_3_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    /* Testing FCVTZS  <Zd>.D, <Pg>/M, <Zn>.H */
+    const char *const expected_4_0[6] = {
+        "fcvtzs %p0/m %z0.h -> %z0.d",   "fcvtzs %p2/m %z7.h -> %z5.d",
+        "fcvtzs %p3/m %z12.h -> %z10.d", "fcvtzs %p5/m %z18.h -> %z16.d",
+        "fcvtzs %p6/m %z23.h -> %z21.d", "fcvtzs %p7/m %z31.h -> %z31.d",
+    };
+    TEST_LOOP(fcvtzs, fcvtzs_sve_pred, 6, expected_4_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    /* Testing FCVTZS  <Zd>.S, <Pg>/M, <Zn>.S */
+    const char *const expected_5_0[6] = {
+        "fcvtzs %p0/m %z0.s -> %z0.s",   "fcvtzs %p2/m %z7.s -> %z5.s",
+        "fcvtzs %p3/m %z12.s -> %z10.s", "fcvtzs %p5/m %z18.s -> %z16.s",
+        "fcvtzs %p6/m %z23.s -> %z21.s", "fcvtzs %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(fcvtzs, fcvtzs_sve_pred, 6, expected_5_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    /* Testing FCVTZS  <Zd>.D, <Pg>/M, <Zn>.S */
+    const char *const expected_6_0[6] = {
+        "fcvtzs %p0/m %z0.s -> %z0.d",   "fcvtzs %p2/m %z7.s -> %z5.d",
+        "fcvtzs %p3/m %z12.s -> %z10.d", "fcvtzs %p5/m %z18.s -> %z16.d",
+        "fcvtzs %p6/m %z23.s -> %z21.d", "fcvtzs %p7/m %z31.s -> %z31.d",
+    };
+    TEST_LOOP(fcvtzs, fcvtzs_sve_pred, 6, expected_6_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+}
+
+TEST_INSTR(fcvtzu_sve_pred)
+{
+    /* Testing FCVTZU  <Zd>.S, <Pg>/M, <Zn>.D */
+    const char *const expected_0_0[6] = {
+        "fcvtzu %p0/m %z0.d -> %z0.s",   "fcvtzu %p2/m %z7.d -> %z5.s",
+        "fcvtzu %p3/m %z12.d -> %z10.s", "fcvtzu %p5/m %z18.d -> %z16.s",
+        "fcvtzu %p6/m %z23.d -> %z21.s", "fcvtzu %p7/m %z31.d -> %z31.s",
+    };
+    TEST_LOOP(fcvtzu, fcvtzu_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing FCVTZU  <Zd>.D, <Pg>/M, <Zn>.D */
+    const char *const expected_1_0[6] = {
+        "fcvtzu %p0/m %z0.d -> %z0.d",   "fcvtzu %p2/m %z7.d -> %z5.d",
+        "fcvtzu %p3/m %z12.d -> %z10.d", "fcvtzu %p5/m %z18.d -> %z16.d",
+        "fcvtzu %p6/m %z23.d -> %z21.d", "fcvtzu %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(fcvtzu, fcvtzu_sve_pred, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing FCVTZU  <Zd>.H, <Pg>/M, <Zn>.H */
+    const char *const expected_2_0[6] = {
+        "fcvtzu %p0/m %z0.h -> %z0.h",   "fcvtzu %p2/m %z7.h -> %z5.h",
+        "fcvtzu %p3/m %z12.h -> %z10.h", "fcvtzu %p5/m %z18.h -> %z16.h",
+        "fcvtzu %p6/m %z23.h -> %z21.h", "fcvtzu %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(fcvtzu, fcvtzu_sve_pred, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    /* Testing FCVTZU  <Zd>.S, <Pg>/M, <Zn>.H */
+    const char *const expected_3_0[6] = {
+        "fcvtzu %p0/m %z0.h -> %z0.s",   "fcvtzu %p2/m %z7.h -> %z5.s",
+        "fcvtzu %p3/m %z12.h -> %z10.s", "fcvtzu %p5/m %z18.h -> %z16.s",
+        "fcvtzu %p6/m %z23.h -> %z21.s", "fcvtzu %p7/m %z31.h -> %z31.s",
+    };
+    TEST_LOOP(fcvtzu, fcvtzu_sve_pred, 6, expected_3_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    /* Testing FCVTZU  <Zd>.D, <Pg>/M, <Zn>.H */
+    const char *const expected_4_0[6] = {
+        "fcvtzu %p0/m %z0.h -> %z0.d",   "fcvtzu %p2/m %z7.h -> %z5.d",
+        "fcvtzu %p3/m %z12.h -> %z10.d", "fcvtzu %p5/m %z18.h -> %z16.d",
+        "fcvtzu %p6/m %z23.h -> %z21.d", "fcvtzu %p7/m %z31.h -> %z31.d",
+    };
+    TEST_LOOP(fcvtzu, fcvtzu_sve_pred, 6, expected_4_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    /* Testing FCVTZU  <Zd>.S, <Pg>/M, <Zn>.S */
+    const char *const expected_5_0[6] = {
+        "fcvtzu %p0/m %z0.s -> %z0.s",   "fcvtzu %p2/m %z7.s -> %z5.s",
+        "fcvtzu %p3/m %z12.s -> %z10.s", "fcvtzu %p5/m %z18.s -> %z16.s",
+        "fcvtzu %p6/m %z23.s -> %z21.s", "fcvtzu %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(fcvtzu, fcvtzu_sve_pred, 6, expected_5_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    /* Testing FCVTZU  <Zd>.D, <Pg>/M, <Zn>.S */
+    const char *const expected_6_0[6] = {
+        "fcvtzu %p0/m %z0.s -> %z0.d",   "fcvtzu %p2/m %z7.s -> %z5.d",
+        "fcvtzu %p3/m %z12.s -> %z10.d", "fcvtzu %p5/m %z18.s -> %z16.d",
+        "fcvtzu %p6/m %z23.s -> %z21.d", "fcvtzu %p7/m %z31.s -> %z31.d",
+    };
+    TEST_LOOP(fcvtzu, fcvtzu_sve_pred, 6, expected_6_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+}
+
+TEST_INSTR(frinta_sve_pred)
+{
+    /* Testing FRINTA  <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "frinta %p0/m %z0.h -> %z0.h",   "frinta %p2/m %z7.h -> %z5.h",
+        "frinta %p3/m %z12.h -> %z10.h", "frinta %p5/m %z18.h -> %z16.h",
+        "frinta %p6/m %z23.h -> %z21.h", "frinta %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(frinta, frinta_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "frinta %p0/m %z0.s -> %z0.s",   "frinta %p2/m %z7.s -> %z5.s",
+        "frinta %p3/m %z12.s -> %z10.s", "frinta %p5/m %z18.s -> %z16.s",
+        "frinta %p6/m %z23.s -> %z21.s", "frinta %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(frinta, frinta_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "frinta %p0/m %z0.d -> %z0.d",   "frinta %p2/m %z7.d -> %z5.d",
+        "frinta %p3/m %z12.d -> %z10.d", "frinta %p5/m %z18.d -> %z16.d",
+        "frinta %p6/m %z23.d -> %z21.d", "frinta %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(frinta, frinta_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
+TEST_INSTR(frinti_sve_pred)
+{
+    /* Testing FRINTI  <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "frinti %p0/m %z0.h -> %z0.h",   "frinti %p2/m %z7.h -> %z5.h",
+        "frinti %p3/m %z12.h -> %z10.h", "frinti %p5/m %z18.h -> %z16.h",
+        "frinti %p6/m %z23.h -> %z21.h", "frinti %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(frinti, frinti_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "frinti %p0/m %z0.s -> %z0.s",   "frinti %p2/m %z7.s -> %z5.s",
+        "frinti %p3/m %z12.s -> %z10.s", "frinti %p5/m %z18.s -> %z16.s",
+        "frinti %p6/m %z23.s -> %z21.s", "frinti %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(frinti, frinti_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "frinti %p0/m %z0.d -> %z0.d",   "frinti %p2/m %z7.d -> %z5.d",
+        "frinti %p3/m %z12.d -> %z10.d", "frinti %p5/m %z18.d -> %z16.d",
+        "frinti %p6/m %z23.d -> %z21.d", "frinti %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(frinti, frinti_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
+TEST_INSTR(frintm_sve_pred)
+{
+    /* Testing FRINTM  <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "frintm %p0/m %z0.h -> %z0.h",   "frintm %p2/m %z7.h -> %z5.h",
+        "frintm %p3/m %z12.h -> %z10.h", "frintm %p5/m %z18.h -> %z16.h",
+        "frintm %p6/m %z23.h -> %z21.h", "frintm %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(frintm, frintm_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "frintm %p0/m %z0.s -> %z0.s",   "frintm %p2/m %z7.s -> %z5.s",
+        "frintm %p3/m %z12.s -> %z10.s", "frintm %p5/m %z18.s -> %z16.s",
+        "frintm %p6/m %z23.s -> %z21.s", "frintm %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(frintm, frintm_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "frintm %p0/m %z0.d -> %z0.d",   "frintm %p2/m %z7.d -> %z5.d",
+        "frintm %p3/m %z12.d -> %z10.d", "frintm %p5/m %z18.d -> %z16.d",
+        "frintm %p6/m %z23.d -> %z21.d", "frintm %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(frintm, frintm_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
+TEST_INSTR(frintn_sve_pred)
+{
+
+    /* Testing FRINTN  <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "frintn %p0/m %z0.h -> %z0.h",   "frintn %p2/m %z7.h -> %z5.h",
+        "frintn %p3/m %z12.h -> %z10.h", "frintn %p5/m %z18.h -> %z16.h",
+        "frintn %p6/m %z23.h -> %z21.h", "frintn %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(frintn, frintn_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "frintn %p0/m %z0.s -> %z0.s",   "frintn %p2/m %z7.s -> %z5.s",
+        "frintn %p3/m %z12.s -> %z10.s", "frintn %p5/m %z18.s -> %z16.s",
+        "frintn %p6/m %z23.s -> %z21.s", "frintn %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(frintn, frintn_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "frintn %p0/m %z0.d -> %z0.d",   "frintn %p2/m %z7.d -> %z5.d",
+        "frintn %p3/m %z12.d -> %z10.d", "frintn %p5/m %z18.d -> %z16.d",
+        "frintn %p6/m %z23.d -> %z21.d", "frintn %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(frintn, frintn_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
+TEST_INSTR(frintp_sve_pred)
+{
+    /* Testing FRINTP  <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "frintp %p0/m %z0.h -> %z0.h",   "frintp %p2/m %z7.h -> %z5.h",
+        "frintp %p3/m %z12.h -> %z10.h", "frintp %p5/m %z18.h -> %z16.h",
+        "frintp %p6/m %z23.h -> %z21.h", "frintp %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(frintp, frintp_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "frintp %p0/m %z0.s -> %z0.s",   "frintp %p2/m %z7.s -> %z5.s",
+        "frintp %p3/m %z12.s -> %z10.s", "frintp %p5/m %z18.s -> %z16.s",
+        "frintp %p6/m %z23.s -> %z21.s", "frintp %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(frintp, frintp_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "frintp %p0/m %z0.d -> %z0.d",   "frintp %p2/m %z7.d -> %z5.d",
+        "frintp %p3/m %z12.d -> %z10.d", "frintp %p5/m %z18.d -> %z16.d",
+        "frintp %p6/m %z23.d -> %z21.d", "frintp %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(frintp, frintp_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
+TEST_INSTR(frintx_sve_pred)
+{
+
+    /* Testing FRINTX  <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "frintx %p0/m %z0.h -> %z0.h",   "frintx %p2/m %z7.h -> %z5.h",
+        "frintx %p3/m %z12.h -> %z10.h", "frintx %p5/m %z18.h -> %z16.h",
+        "frintx %p6/m %z23.h -> %z21.h", "frintx %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(frintx, frintx_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "frintx %p0/m %z0.s -> %z0.s",   "frintx %p2/m %z7.s -> %z5.s",
+        "frintx %p3/m %z12.s -> %z10.s", "frintx %p5/m %z18.s -> %z16.s",
+        "frintx %p6/m %z23.s -> %z21.s", "frintx %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(frintx, frintx_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "frintx %p0/m %z0.d -> %z0.d",   "frintx %p2/m %z7.d -> %z5.d",
+        "frintx %p3/m %z12.d -> %z10.d", "frintx %p5/m %z18.d -> %z16.d",
+        "frintx %p6/m %z23.d -> %z21.d", "frintx %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(frintx, frintx_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
+TEST_INSTR(frintz_sve_pred)
+{
+    /* Testing FRINTZ  <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "frintz %p0/m %z0.h -> %z0.h",   "frintz %p2/m %z7.h -> %z5.h",
+        "frintz %p3/m %z12.h -> %z10.h", "frintz %p5/m %z18.h -> %z16.h",
+        "frintz %p6/m %z23.h -> %z21.h", "frintz %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(frintz, frintz_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "frintz %p0/m %z0.s -> %z0.s",   "frintz %p2/m %z7.s -> %z5.s",
+        "frintz %p3/m %z12.s -> %z10.s", "frintz %p5/m %z18.s -> %z16.s",
+        "frintz %p6/m %z23.s -> %z21.s", "frintz %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(frintz, frintz_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "frintz %p0/m %z0.d -> %z0.d",   "frintz %p2/m %z7.d -> %z5.d",
+        "frintz %p3/m %z12.d -> %z10.d", "frintz %p5/m %z18.d -> %z16.d",
+        "frintz %p6/m %z23.d -> %z21.d", "frintz %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(frintz, frintz_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
+TEST_INSTR(scvtf_sve_pred)
+{
+    /* Testing SCVTF   <Zd>.H, <Pg>/M, <Zn>.H */
+    const char *const expected_0_0[6] = {
+        "scvtf  %p0/m %z0.h -> %z0.h",   "scvtf  %p2/m %z7.h -> %z5.h",
+        "scvtf  %p3/m %z12.h -> %z10.h", "scvtf  %p5/m %z18.h -> %z16.h",
+        "scvtf  %p6/m %z23.h -> %z21.h", "scvtf  %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(scvtf, scvtf_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    /* Testing SCVTF   <Zd>.D, <Pg>/M, <Zn>.S */
+    const char *const expected_1_0[6] = {
+        "scvtf  %p0/m %z0.s -> %z0.d",   "scvtf  %p2/m %z7.s -> %z5.d",
+        "scvtf  %p3/m %z12.s -> %z10.d", "scvtf  %p5/m %z18.s -> %z16.d",
+        "scvtf  %p6/m %z23.s -> %z21.d", "scvtf  %p7/m %z31.s -> %z31.d",
+    };
+    TEST_LOOP(scvtf, scvtf_sve_pred, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    /* Testing SCVTF   <Zd>.H, <Pg>/M, <Zn>.S */
+    const char *const expected_2_0[6] = {
+        "scvtf  %p0/m %z0.s -> %z0.h",   "scvtf  %p2/m %z7.s -> %z5.h",
+        "scvtf  %p3/m %z12.s -> %z10.h", "scvtf  %p5/m %z18.s -> %z16.h",
+        "scvtf  %p6/m %z23.s -> %z21.h", "scvtf  %p7/m %z31.s -> %z31.h",
+    };
+    TEST_LOOP(scvtf, scvtf_sve_pred, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    /* Testing SCVTF   <Zd>.S, <Pg>/M, <Zn>.S */
+    const char *const expected_3_0[6] = {
+        "scvtf  %p0/m %z0.s -> %z0.s",   "scvtf  %p2/m %z7.s -> %z5.s",
+        "scvtf  %p3/m %z12.s -> %z10.s", "scvtf  %p5/m %z18.s -> %z16.s",
+        "scvtf  %p6/m %z23.s -> %z21.s", "scvtf  %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(scvtf, scvtf_sve_pred, 6, expected_3_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    /* Testing SCVTF   <Zd>.D, <Pg>/M, <Zn>.D */
+    const char *const expected_4_0[6] = {
+        "scvtf  %p0/m %z0.d -> %z0.d",   "scvtf  %p2/m %z7.d -> %z5.d",
+        "scvtf  %p3/m %z12.d -> %z10.d", "scvtf  %p5/m %z18.d -> %z16.d",
+        "scvtf  %p6/m %z23.d -> %z21.d", "scvtf  %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(scvtf, scvtf_sve_pred, 6, expected_4_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing SCVTF   <Zd>.H, <Pg>/M, <Zn>.D */
+    const char *const expected_5_0[6] = {
+        "scvtf  %p0/m %z0.d -> %z0.h",   "scvtf  %p2/m %z7.d -> %z5.h",
+        "scvtf  %p3/m %z12.d -> %z10.h", "scvtf  %p5/m %z18.d -> %z16.h",
+        "scvtf  %p6/m %z23.d -> %z21.h", "scvtf  %p7/m %z31.d -> %z31.h",
+    };
+    TEST_LOOP(scvtf, scvtf_sve_pred, 6, expected_5_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing SCVTF   <Zd>.S, <Pg>/M, <Zn>.D */
+    const char *const expected_6_0[6] = {
+        "scvtf  %p0/m %z0.d -> %z0.s",   "scvtf  %p2/m %z7.d -> %z5.s",
+        "scvtf  %p3/m %z12.d -> %z10.s", "scvtf  %p5/m %z18.d -> %z16.s",
+        "scvtf  %p6/m %z23.d -> %z21.s", "scvtf  %p7/m %z31.d -> %z31.s",
+    };
+    TEST_LOOP(scvtf, scvtf_sve_pred, 6, expected_6_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
+TEST_INSTR(ucvtf_sve_pred)
+{
+    /* Testing UCVTF   <Zd>.H, <Pg>/M, <Zn>.H */
+    const char *const expected_0_0[6] = {
+        "ucvtf  %p0/m %z0.h -> %z0.h",   "ucvtf  %p2/m %z7.h -> %z5.h",
+        "ucvtf  %p3/m %z12.h -> %z10.h", "ucvtf  %p5/m %z18.h -> %z16.h",
+        "ucvtf  %p6/m %z23.h -> %z21.h", "ucvtf  %p7/m %z31.h -> %z31.h",
+    };
+    TEST_LOOP(ucvtf, ucvtf_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+
+    /* Testing UCVTF   <Zd>.D, <Pg>/M, <Zn>.S */
+    const char *const expected_1_0[6] = {
+        "ucvtf  %p0/m %z0.s -> %z0.d",   "ucvtf  %p2/m %z7.s -> %z5.d",
+        "ucvtf  %p3/m %z12.s -> %z10.d", "ucvtf  %p5/m %z18.s -> %z16.d",
+        "ucvtf  %p6/m %z23.s -> %z21.d", "ucvtf  %p7/m %z31.s -> %z31.d",
+    };
+    TEST_LOOP(ucvtf, ucvtf_sve_pred, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    /* Testing UCVTF   <Zd>.H, <Pg>/M, <Zn>.S */
+    const char *const expected_2_0[6] = {
+        "ucvtf  %p0/m %z0.s -> %z0.h",   "ucvtf  %p2/m %z7.s -> %z5.h",
+        "ucvtf  %p3/m %z12.s -> %z10.h", "ucvtf  %p5/m %z18.s -> %z16.h",
+        "ucvtf  %p6/m %z23.s -> %z21.h", "ucvtf  %p7/m %z31.s -> %z31.h",
+    };
+    TEST_LOOP(ucvtf, ucvtf_sve_pred, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    /* Testing UCVTF   <Zd>.S, <Pg>/M, <Zn>.S */
+    const char *const expected_3_0[6] = {
+        "ucvtf  %p0/m %z0.s -> %z0.s",   "ucvtf  %p2/m %z7.s -> %z5.s",
+        "ucvtf  %p3/m %z12.s -> %z10.s", "ucvtf  %p5/m %z18.s -> %z16.s",
+        "ucvtf  %p6/m %z23.s -> %z21.s", "ucvtf  %p7/m %z31.s -> %z31.s",
+    };
+    TEST_LOOP(ucvtf, ucvtf_sve_pred, 6, expected_3_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
+
+    /* Testing UCVTF   <Zd>.D, <Pg>/M, <Zn>.D */
+    const char *const expected_4_0[6] = {
+        "ucvtf  %p0/m %z0.d -> %z0.d",   "ucvtf  %p2/m %z7.d -> %z5.d",
+        "ucvtf  %p3/m %z12.d -> %z10.d", "ucvtf  %p5/m %z18.d -> %z16.d",
+        "ucvtf  %p6/m %z23.d -> %z21.d", "ucvtf  %p7/m %z31.d -> %z31.d",
+    };
+    TEST_LOOP(ucvtf, ucvtf_sve_pred, 6, expected_4_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing UCVTF   <Zd>.H, <Pg>/M, <Zn>.D */
+    const char *const expected_5_0[6] = {
+        "ucvtf  %p0/m %z0.d -> %z0.h",   "ucvtf  %p2/m %z7.d -> %z5.h",
+        "ucvtf  %p3/m %z12.d -> %z10.h", "ucvtf  %p5/m %z18.d -> %z16.h",
+        "ucvtf  %p6/m %z23.d -> %z21.h", "ucvtf  %p7/m %z31.d -> %z31.h",
+    };
+    TEST_LOOP(ucvtf, ucvtf_sve_pred, 6, expected_5_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing UCVTF   <Zd>.S, <Pg>/M, <Zn>.D */
+    const char *const expected_6_0[6] = {
+        "ucvtf  %p0/m %z0.d -> %z0.s",   "ucvtf  %p2/m %z7.d -> %z5.s",
+        "ucvtf  %p3/m %z12.d -> %z10.s", "ucvtf  %p5/m %z18.d -> %z16.s",
+        "ucvtf  %p6/m %z23.d -> %z21.s", "ucvtf  %p7/m %z31.d -> %z31.s",
+    };
+    TEST_LOOP(ucvtf, ucvtf_sve_pred, 6, expected_6_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -11562,6 +12191,19 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(ld1rsb_sve);
     RUN_INSTR_TEST(ld1rsh_sve);
     RUN_INSTR_TEST(ld1rsw_sve);
+
+    RUN_INSTR_TEST(fcvt_sve_pred);
+    RUN_INSTR_TEST(fcvtzs_sve_pred);
+    RUN_INSTR_TEST(fcvtzu_sve_pred);
+    RUN_INSTR_TEST(frinta_sve_pred);
+    RUN_INSTR_TEST(frinti_sve_pred);
+    RUN_INSTR_TEST(frintm_sve_pred);
+    RUN_INSTR_TEST(frintn_sve_pred);
+    RUN_INSTR_TEST(frintp_sve_pred);
+    RUN_INSTR_TEST(frintx_sve_pred);
+    RUN_INSTR_TEST(frintz_sve_pred);
+    RUN_INSTR_TEST(scvtf_sve_pred);
+    RUN_INSTR_TEST(ucvtf_sve_pred);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER
