@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2022 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2023 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -2166,9 +2166,10 @@ drbbdup_event_restore_state(void *drcontext, bool restore_memory,
         return true;
     }
     if (info->fragment_info.ilist == NULL) {
-        /* XXX: Decode from the cache to build an ilist and pass it to the code below.
-         * We'll need heurisitcs to generate DRBBDUP_LABEL_START.  For now we bail and
-         * assume this is rare enough to force an asynch xl8 to retry.
+        /* TODO i#5686: Decode from the cache to build an ilist and pass it to the code
+         * below.  We'll need heuristics to generate DRBBDUP_LABEL_START (XXX i#3801 on
+         * letting us store our labels).  For now we bail and assume this is rare enough
+         * to force an asynch xl8 to retry.
          */
         return false;
     }
@@ -2181,6 +2182,8 @@ drbbdup_event_restore_state(void *drcontext, bool restore_memory,
         slots[i] = DR_REG_NULL;
     reg_id_t top_slots[DRBBDUP_SLOT_COUNT];
     byte *pc = info->fragment_info.cache_start_pc;
+    byte *containing_copy_start_pc = NULL;
+    instr_t *containing_copy_start_instr = NULL;
     bool prior_instr_was_flag_spill = false;
     bool found_copy = false;
     for (instr_t *inst = instrlist_first(info->fragment_info.ilist); inst != NULL;
@@ -2214,6 +2217,27 @@ drbbdup_event_restore_state(void *drcontext, bool restore_memory,
                 }
 #endif
             }
+            /* Modify the parameters to subsequent restore callbacks so they focus on
+             * just the relevant copy so that clients and libraries don't have to be
+             * drbbdup-aware (if they have state machines or other construts they may
+             * get confused as they cross from one copy to another).  This is a little
+             * hacky but the alternative is a big change: integrate drbbdup into drmgr
+             * so it can more cleanly control the parameters.
+             */
+            if (containing_copy_start_pc != NULL) {
+                LOG(drcontext, DR_LOG_ALL, 2,
+                    "%s: changing cache_start_pc from %p to %p\n", __FUNCTION__,
+                    info->fragment_info.cache_start_pc, containing_copy_start_pc);
+                info->fragment_info.cache_start_pc = containing_copy_start_pc;
+                instr_t *in = instrlist_first(info->fragment_info.ilist);
+                instr_t *nxt;
+                while (in != containing_copy_start_instr) {
+                    nxt = instr_get_next(in);
+                    instrlist_remove(info->fragment_info.ilist, in);
+                    instr_destroy(drcontext, in);
+                    in = nxt;
+                }
+            }
             return true;
         }
         if (drbbdup_is_at_label(inst, DRBBDUP_LABEL_START)) {
@@ -2222,6 +2246,8 @@ drbbdup_event_restore_state(void *drcontext, bool restore_memory,
              * of the prior no-match dispatch.
              */
             LOG(drcontext, DR_LOG_ALL, 4, "%s: start label at %p\n", __FUNCTION__, pc);
+            containing_copy_start_pc = pc;
+            containing_copy_start_instr = inst;
             if (!found_copy) {
                 found_copy = true;
                 memcpy(top_slots, slots, sizeof(top_slots));
@@ -2340,13 +2366,17 @@ drbbdup_init(drbbdup_options_t *ops_in)
     drmgr_priority_t insert_priority = { sizeof(drmgr_priority_t),
                                          DRMGR_PRIORITY_INSERT_NAME_DRBBDUP, NULL, NULL,
                                          DRMGR_PRIORITY_INSERT_DRBBDUP };
+    drmgr_priority_t restore_priority = { sizeof(drmgr_priority_t),
+                                          DRMGR_PRIORITY_RESTORE_NAME_DRBBDUP, NULL, NULL,
+                                          DRMGR_PRIORITY_RESTORE_DRBBDUP };
 
     if (!drmgr_register_bb_app2app_event(drbbdup_duplicate_phase, &app2app_priority) ||
         !drmgr_register_bb_instrumentation_ex_event(
             NULL, drbbdup_analyse_phase, drbbdup_link_phase, NULL, &insert_priority) ||
         !drmgr_register_thread_init_event(drbbdup_thread_init) ||
         !drmgr_register_thread_exit_event(drbbdup_thread_exit) ||
-        !drmgr_register_restore_state_ex_event(drbbdup_event_restore_state) ||
+        !drmgr_register_restore_state_ex_event_ex(drbbdup_event_restore_state,
+                                                  &restore_priority) ||
         !dr_raw_tls_calloc(&tls_raw_reg, &tls_raw_base, DRBBDUP_SLOT_COUNT, 0) ||
         drreg_init(&drreg_ops) != DRREG_SUCCESS)
         return DRBBDUP_ERROR;
