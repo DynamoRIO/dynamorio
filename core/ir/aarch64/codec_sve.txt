@@ -262,6 +262,8 @@
 00000100xx0xxxxx010xxxxxxxxxxxxx  n   312  SVE      mla  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5 z_size_bhsd_16 z_size_bhsd_0
 00000100xx0xxxxx011xxxxxxxxxxxxx  n   313  SVE      mls  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5 z_size_bhsd_16 z_size_bhsd_0
 0000010000100000101111xxxxxxxxxx  n   783  SVE  movprfx             z0 : z5
+00000100xx010000001xxxxxxxxxxxxx  n   783  SVE  movprfx  z_size_bhsd_0 : p10_zer_lo z_size_bhsd_5
+00000100xx010001001xxxxxxxxxxxxx  n   783  SVE  movprfx  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5
 00000100xx0xxxxx111xxxxxxxxxxxxx  n   788  SVE      msb  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_16 z_size_bhsd_5
 00000100xx010000000xxxxxxxxxxxxx  n   321  SVE      mul  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00100101xx110000110xxxxxxxxxxxxx  n   321  SVE      mul  z_size_bhsd_0 : z_size_bhsd_0 simm8_5
