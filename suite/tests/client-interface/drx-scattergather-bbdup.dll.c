@@ -163,9 +163,10 @@ event_bb_analyze_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trac
     } else if (mode == INSTRU_MODE_EXPAND) {
         return event_bb_analysis(drcontext, tag, bb, for_trace, translating,
                                  analysis_data);
-    } else
+    } else {
         DR_ASSERT(false);
-    return DR_EMIT_DEFAULT;
+        return DR_EMIT_DEFAULT;
+    }
 }
 
 static void
