@@ -1796,8 +1796,8 @@ vprint_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt,
      * to clobber a char, just like for -1 being returned when the written chars do
      * not all fit.
      */
-    *sofar += (len == -1 || len == (bufsz - *sofar) ? (bufsz - *sofar - 1)
-                                                    : (len < 0 ? 0 : len));
+    *sofar += (len == -1 || len == (ssize_t)(bufsz - *sofar) ? (bufsz - *sofar - 1)
+                                                             : (len < 0 ? 0 : len));
     /* be paranoid: though usually many calls in a row and could delay until end */
     buf[bufsz - 1] = '\0';
     return ok;
