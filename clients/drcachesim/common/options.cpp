@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -287,10 +287,10 @@ droption_t<bytesize_t> op_max_global_trace_refs(
     "The reference count is approximate.");
 
 droption_t<bool> op_align_endpoints(
-    // XXX i#2039,i#5686: Make this true by default (and maybe remove it altogether) once
-    // robustness issues with drbbdup are fixed (restore state for scatter/gather and
-    // other libs; yet-undiagnosed other state restore issues) on x86.
-    DROPTION_SCOPE_CLIENT, "align_endpoints", IF_X86_ELSE(false, true),
+    // XXX i#2039,i#5686: Remove this altogether once more time passes and we
+    // are no longer worried about any robustness issues with drbbdup where we might
+    // want to disable this to see where a new problem is coming from.
+    DROPTION_SCOPE_CLIENT, "align_endpoints", true,
     "Nop tracing when partially attached or detached",
     "When using attach/detach to trace a burst, the attach and detach processes are "
     "staggered, with the set of threads producing trace data incrementally growing or "
