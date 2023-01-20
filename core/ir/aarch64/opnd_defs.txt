@@ -114,10 +114,13 @@
 ----------------------xxxxx-----  q5         # Q register
 ----------------------xxxxx-----  z5         # Z register
 ----------------------xxxxx-----  z_b_5      # Z register with b size elements
+----------------------xxxxx-----  z_h_5      # Z register with h size elements
+----------------------xxxxx-----  z_s_5      # Z register with s size elements
 ----------------------xxxxx-----  z_d_5      # Z register with d size elements
 ----------------------xxxxx-----  z_q_5      # Z register with q size elements
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
 ----------------------xxxxx-----  pred_constr  # pattern operand
+----------------------xxxxx-----  simm5_5    # Signed 5 bit immediate from 5 - 9
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
 --------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB, MSR
                                              # CRm field for SYS and SYSL
@@ -198,6 +201,10 @@
 ----------?xxxxx--?-??----------  x16immvr   # computes immed from 21, 13 and 11:10
 ----------?xxxxx???-??----------  x16immvs   # computes immed from 21, 15:13 and 11:10
 ----------xx--------x-----------  vindex_H   # Index for vector with half elements (0-7)
+----------xxxxxx------xxxxx-----  svememx6_b_5    # vector memory reg with 6 bit imm for byte value
+----------xxxxxx------xxxxx-----  svememx6_h_5    # vector memory reg with 6 bit imm for half value
+----------xxxxxx------xxxxx-----  svememx6_s_5    # vector memory reg with 6 bit imm for single value
+----------xxxxxx------xxxxx-----  svememx6_d_5    # vector memory reg with 6 bit imm for double value
 ----------xxxxxx---xxxxxxxx-----  svemem_gpr_simm9_vl # imm offset and base reg for SVE ld/st
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
@@ -218,10 +225,15 @@
 ---------++++xxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
 ---------++++xxx----------------  immhb_fxp  # encoding of #fbits value in immh:immb fields
 --------??-----------------xxxxx  wx_size_0_zr # GPR scalar register, register size, W or X depending on size bits
+--------??------------??---xxxxx  z_tszl8_bhsd_0 # z element register mediated by the tszl and tszh fields
 --------??------------xxxxx-----  wx_size_5_sp # GPR scalar register, register size, W or X depending on size bits
 --------??------------xxxxx-----  wx_size_5_zr # GPR scalar register, register size, W or X depending on size bits
 --------??------------xxxxx-----  z_tb_bhs_5 # sve vector reg, elsz depending on size Tb
---------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
+--------??---------xxxxxxxx-----  fpimm8_5   # floating-point 8 bit imm at pos 5
+--------??-??--------------xxxxx  z_tszl19_bhsd_0 # z element register mediated by the tszl and tszh fields
+--------??-??---------xxxxx-----  z_tszl19_bhsd_5 # z element register mediated by the tszl and tszh fields
+--------??-xxxxx----------------  wx_size_16_zr # GPR scalar register, register size, W or X depending on size bits
+--------??-xxxxxxxx-------------  fpimm8_13  # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
 --------xx----------------------  bhs_sz     # element width of a vector (8<<bhs_sz)
@@ -232,13 +244,14 @@
 --------xx------------------xxxx  p_size_bhsd_0    # sve predicate vector reg, elsz depending on size
 --------xx------------------xxxx  p_size_bhs_0     # sve predicate vector reg, elsz depending on size
 --------xx------------------xxxx  p_size_hsd_0     # sve predicate vector reg, elsz depending on size
---------xx-----------------xxxxx  float_reg0  # H, S or D register
+--------xx-----------------xxxxx  float_reg0       # H, S or D register
 --------xx-----------------xxxxx  hsd_size_reg0    # hsd register, depending on size opcode
 --------xx-----------------xxxxx  bhsd_size_reg0   # bhsd register, depending on size opcode
 --------xx-----------------xxxxx  z_size_bhsd_0    # sve vector reg, elsz depending on size
+--------xx-----------------xxxxx  z_size_bhs_0     # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_hsd_0     # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_sd_0      # sve vector reg, elsz depending on size
---------xx------------xxxxx-----  float_reg5  # H, S or D register
+--------xx------------xxxxx-----  float_reg5       # H, S or D register
 --------xx------------xxxxx-----  hsd_size_reg5    # hsd register, depending on size opcode
 --------xx------------xxxxx-----  bhsd_size_reg5   # bhsd register, depending on size opcode
 --------xx------------xxxxx-----  p_size_bhsd_5    # sve predicate vector reg, elsz depending on size
@@ -247,8 +260,12 @@
 --------xx------------xxxxx-----  z_size_bhs_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_hsd_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_sd_5      # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  tszl8_imm3_5     # imm constructed from imm3 and some bits of tsz
+--------xx------------xxxxx-----  tszl8_imm3_5p1   # imm constructed from imm3 and some bits of tsz, plus 1
 --------xx-------xxxxx----------  float_reg10 # H, S or D register
 --------xx-xxxxx----------------  float_reg16 # H, S or D register
+--------xx-xxxxx----------------  tszl19_imm3_16   # imm constructed from imm3 and some bits of tsz
+--------xx-xxxxx----------------  tszl19_imm3_16p1 # imm constructed from imm3 and some bits of tsz, plus 1
 --------xx-xxxxx----------------  hsd_size_reg16   # hsd register, depending on size opcode
 --------xx-xxxxx----------------  bhsd_size_reg16  # bhsd register, depending on size opcode
 --------xx-xxxxx----------------  p_size_bhsd_16   # sve vector reg, elsz depending on size
