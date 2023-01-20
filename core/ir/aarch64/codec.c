@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2016-2022 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -5555,7 +5555,7 @@ tsz_imm3_decode(uint imm3_pos, uint tszl_pos, bool one_indexed, uint enc, int op
     case 1: shift_size = OPSZ_4b; break;
     case 2: shift_size = OPSZ_5b; break;
     case 3: shift_size = OPSZ_6b; break;
-    default: ASSERT_NOT_REACHED();
+    default: ASSERT_NOT_REACHED(); shift_size = OPSZ_NA;
     }
 
     uint value;
