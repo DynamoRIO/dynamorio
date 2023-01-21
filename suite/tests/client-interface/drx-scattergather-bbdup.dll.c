@@ -37,6 +37,7 @@
 #include "drmgr.h"
 #include "drreg.h"
 #include "drx.h"
+#include "drbbdup.h"
 #include "drx-scattergather-shared.h"
 #include <limits.h>
 
@@ -45,6 +46,8 @@ static uint64 global_sg_count;
 static void
 event_exit(void)
 {
+    drbbdup_status_t res = drbbdup_exit();
+    CHECK(res == DRBBDUP_SUCCESS, "drbbdup exit failed");
     drx_exit();
     drreg_exit();
     drmgr_exit();
@@ -67,26 +70,52 @@ static app_pc mask_clobber_test_avx512_scatter_pc = (app_pc)INT_MAX;
 static app_pc mask_update_test_avx512_scatter_pc = (app_pc)INT_MAX;
 static app_pc mask_update_test_avx2_gather_pc = (app_pc)INT_MAX;
 
+static ptr_int_t instru_mode;
+enum {
+    INSTRU_MODE_EXPAND = 0,
+    INSTRU_MODE_NOP = 1,
+};
+
+static uintptr_t
+event_bb_setup(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
+               bool *enable_dups, bool *enable_dynamic_handling, void *user_data)
+{
+    *enable_dups = true;
+    drbbdup_status_t res;
+    res = drbbdup_register_case_encoding(drbbdup_ctx, INSTRU_MODE_NOP);
+    CHECK(res == DRBBDUP_SUCCESS, "register case failed");
+    *enable_dynamic_handling = false;
+    return INSTRU_MODE_EXPAND;
+}
+
+static void
+event_bb_retrieve_mode(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
+                       void *user_data, void *orig_analysis_data)
+{
+    /* Nop. */
+}
+
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
-                      bool for_trace, bool translating, void *user_data)
+                      instr_t *where, bool for_trace, bool translating,
+                      void *orig_analysis_data, void *user_data)
 {
     uint num_instrs;
     if (user_data == NULL)
         return DR_EMIT_DEFAULT;
     num_instrs = *(uint *)user_data;
-    if (drmgr_is_last_instr(drcontext, instr))
-        dr_thread_free(drcontext, user_data, sizeof(uint));
-    if (!drmgr_is_first_instr(drcontext, instr))
+    bool first = false;
+    if (drbbdup_is_first_instr(drcontext, instr, &first) != DRBBDUP_SUCCESS || !first)
         return DR_EMIT_DEFAULT;
-    dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb), (void *)inscount,
-                         false /* save fpstate */, 1, OPND_CREATE_INT32(num_instrs));
-    return DR_EMIT_DEFAULT;
+    dr_insert_clean_call(drcontext, bb, where, (void *)inscount, false /* save fpstate */,
+                         1, OPND_CREATE_INT32(num_instrs));
+    /* We stress test the non-recreate path. */
+    return DR_EMIT_DEFAULT; // NOCHECK STORE_TRANSLATIONS;
 }
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, void *user_data)
+                  bool translating, void **user_data)
 {
     uint num_sg_instrs = 0;
     bool is_emulation = false;
@@ -118,8 +147,54 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         if (!instr_is_app(instr))
             continue;
     }
-    uint *num_instr_data = (uint *)user_data;
+    *user_data = (uint *)dr_thread_alloc(drcontext, sizeof(uint));
+    uint *num_instr_data = (uint *)*user_data;
     *num_instr_data = num_sg_instrs;
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb_analyze_case(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                      bool translating, uintptr_t mode, void *user_data,
+                      void *orig_analysis_data, void **analysis_data)
+{
+    if (mode == INSTRU_MODE_NOP) {
+        return DR_EMIT_DEFAULT;
+    } else if (mode == INSTRU_MODE_EXPAND) {
+        return event_bb_analysis(drcontext, tag, bb, for_trace, translating,
+                                 analysis_data);
+    } else {
+        DR_ASSERT(false);
+        return DR_EMIT_DEFAULT;
+    }
+}
+
+static void
+event_bb_analyze_case_cleanup(void *drcontext, uintptr_t mode, void *user_data,
+                              void *orig_analysis_data, void *analysis_data)
+{
+    if (mode == INSTRU_MODE_NOP) {
+        /* No cleanup needed. */
+    } else if (mode == INSTRU_MODE_EXPAND) {
+        dr_thread_free(drcontext, analysis_data, sizeof(uint));
+    } else
+        DR_ASSERT(false);
+}
+
+static dr_emit_flags_t
+event_app_instruction_case(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                           instr_t *where, bool for_trace, bool translating,
+                           uintptr_t mode, void *user_data, void *orig_analysis_data,
+                           void *analysis_data)
+{
+    if (mode == INSTRU_MODE_NOP) {
+        return DR_EMIT_DEFAULT;
+    }
+    if (mode == INSTRU_MODE_EXPAND) {
+        return event_app_instruction(drcontext, tag, bb, instr, where, for_trace,
+                                     translating, orig_analysis_data, analysis_data);
+    } else
+        DR_ASSERT(false);
     return DR_EMIT_DEFAULT;
 }
 
@@ -169,7 +244,7 @@ search_for_next_gather_pc(void *drcontext, instr_t *start_instr)
 
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                 bool translating, void **user_data)
+                 bool translating)
 {
     instr_t *instr;
     bool expanded = false;
@@ -306,14 +381,14 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             break;
         }
     }
-    *user_data = (uint *)dr_thread_alloc(drcontext, sizeof(uint));
     return DR_EMIT_DEFAULT;
 }
 
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    drmgr_priority_t priority = { sizeof(priority), "drx-scattergather", NULL, NULL, 0 };
+    drmgr_priority_t priority = { sizeof(priority), "drx-scattergather-bbdup", NULL, NULL,
+                                  0 };
     drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
     drreg_status_t res;
     bool ok = drmgr_init();
@@ -323,7 +398,26 @@ dr_init(client_id_t id)
     res = drreg_init(&ops);
     CHECK(res == DRREG_SUCCESS, "drreg_init failed");
     dr_register_exit_event(event_exit);
-    ok = drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_bb_analysis,
-                                                    event_app_instruction, NULL, NULL);
-    CHECK(ok, "drmgr register bb failed");
+
+    drbbdup_options_t opts = {
+        sizeof(opts),
+    };
+    opts.struct_size = sizeof(drbbdup_options_t);
+    opts.set_up_bb_dups = event_bb_setup;
+    opts.insert_encode = event_bb_retrieve_mode;
+    opts.analyze_case_ex = event_bb_analyze_case;
+    opts.destroy_case_analysis = event_bb_analyze_case_cleanup;
+    opts.instrument_instr_ex = event_app_instruction_case;
+    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&instru_mode, OPSZ_PTR);
+    opts.atomic_load_encoding = true;
+    opts.non_default_case_limit = 1;
+
+    drbbdup_status_t bbdup_res = drbbdup_init(&opts);
+    CHECK(bbdup_res == DRBBDUP_SUCCESS, "drbbdup init failed");
+
+    drmgr_priority_t pri_pre_bbdup = { sizeof(drmgr_priority_t),
+                                       "drx-scattergather-bbdup-app2app", NULL, NULL,
+                                       DRMGR_PRIORITY_APP2APP_DRBBDUP - 1 };
+    ok = drmgr_register_bb_app2app_event(event_bb_app2app, &pri_pre_bbdup);
+    CHECK(ok, "drmgr register app2app failed");
 }
