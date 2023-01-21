@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2022 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2023 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -2960,6 +2960,8 @@ drx_restore_state_scatter_gather(
             break;
         if (instr_is_scatter(&params.inst))
             break;
+        dr_log(drcontext, DR_LOG_ALL, 3, "%s @%p state=%d\n", __FUNCTION__,
+               params.prev_pc, params.detect_state);
         if ((*state_machine_func)(drcontext, &params))
             break;
     }
