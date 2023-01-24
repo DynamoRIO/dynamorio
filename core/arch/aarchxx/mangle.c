@@ -149,14 +149,15 @@ create_load_or_store_instr(dcontext_t *dcontext, reg_id_t reg, opnd_t mem, bool 
  * is odd. Optionally takes reg_skip into account.
  */
 static void
-insert_save_or_restore_registers(
-    dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, bool *reg_skip,
-    reg_id_t base_reg, reg_id_t first_reg, bool save, int reg_type,
-    opnd_t (*get_mem_opnd)(uint base_reg, bool is_single_reg, int reg_type,
-                           uint num_saved, callee_info_t *ci),
-    callee_info_t *ci)
+insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                                 bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
+                                 bool save, int reg_type,
+                                 opnd_t (*get_mem_opnd)(uint base_reg, bool is_single_reg,
+                                                        int reg_type, uint num_saved,
+                                                        callee_info_t *ci),
+                                 callee_info_t *ci)
 {
-    /* TODO i#3044: Add save/restore of SVE predicate registers. */
+    /* TODO i#5365: Add save/restore of SVE predicate registers. */
     uint i, reg1 = UINT_MAX, num_regs = (reg_type == GPR_REG_TYPE) ? 30 : 32;
     uint saved_regs = 0;
     instr_t *new_instr;
@@ -230,8 +231,8 @@ insert_save_or_restore_registers(
         for (i = 0; i < num_regs; i++) {
             if (reg_skip != NULL && reg_skip[i])
                 continue;
-            opnd_t mem =
-                get_mem_opnd(base_reg, true /* is_single_reg */, SVE_REG_TYPE, saved_regs, ci);
+            opnd_t mem = get_mem_opnd(base_reg, true /* is_single_reg */, SVE_REG_TYPE,
+                                      saved_regs, ci);
             /* disp should never be greater than MAX_SVE_STR_OFFSET because it
              * is the immediate multiplied by the current vector register size
              * in bytes: STR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}] and we only go up
@@ -247,8 +248,7 @@ insert_save_or_restore_registers(
 
 static void
 insert_save_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                      bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
-                      int reg_type)
+                      bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg, int reg_type)
 {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
                                      first_reg, true /* save */, reg_type,
@@ -266,8 +266,8 @@ insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 }
 
 static opnd_t
-inline_get_mem_opnd(uint base_reg, bool is_single_reg, int reg_type,
-                    uint reg_id, callee_info_t *ci)
+inline_get_mem_opnd(uint base_reg, bool is_single_reg, int reg_type, uint reg_id,
+                    callee_info_t *ci)
 {
     return callee_info_slot_opnd(ci, SLOT_REG, reg_id);
 }
@@ -287,8 +287,8 @@ insert_restore_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_
                                 void *ci)
 {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, 0, first_reg,
-                                     false /* restore */, reg_type,
-                                     inline_get_mem_opnd, (callee_info_t *)ci);
+                                     false /* restore */, reg_type, inline_get_mem_opnd,
+                                     (callee_info_t *)ci);
 }
 
 #endif
@@ -439,9 +439,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     if (proc_has_feature(FEATURE_SVE)) {
         /* add x0, x0, #(dstack_offs) */
         PRE(ilist, instr,
-            XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0), OPND_CREATE_INT16(512)));
-        insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Z0,
-                              SVE_REG_TYPE);
+            XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
+                             OPND_CREATE_INT16(512)));
+        insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
+                              DR_REG_Z0, SVE_REG_TYPE);
     }
 
     dstack_offs += (proc_num_simd_registers() * sizeof(dr_simd_t));
@@ -569,8 +570,8 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
                          OPND_CREATE_INT32(current_offs)));
 
     if (proc_has_feature(FEATURE_SVE))
-        insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Z0,
-                                 SVE_REG_TYPE);
+        insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
+                                 DR_REG_Z0, SVE_REG_TYPE);
 
     /* Pop SIMD registers. */
     insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0,

@@ -74,18 +74,20 @@ test_get_size()
         uint64 vl;
         /* Read vector length from SVE hardware. */
         asm(".inst 0x04bf5020\n" /* rdvl x0, #1 */
-            "mov %0, x0" : "=r"(vl) : : "x0");
+            "mov %0, x0"
+            : "=r"(vl)
+            :
+            : "x0");
         opsz_vl = opnd_size_from_bytes(vl);
-    }
-    else {
-	/* Set vector length to 256 bits for unit tests on non-SVE hardware. */
+    } else {
+        /* Set vector length to 256 bits for unit tests on non-SVE hardware. */
         opsz_vl = OPSZ_32;
     }
     for (uint i = 0; i < 32; i++) {
         ASSERT(reg_get_size((reg_id_t)DR_REG_Z0 + i) == opsz_vl);
     }
 
-    /* TODO i#3044: Check sizes of SVE predicate regs. */
+    /* TODO i#5365: Check sizes of SVE predicate regs. */
     for (uint i = 0; i < 16; i++) {
         ASSERT(reg_get_size((reg_id_t)DR_REG_P0 + i) == OPSZ_SCALABLE_PRED);
     }
@@ -306,7 +308,7 @@ main(int argc, char *argv[])
      * on SVE h/w. This is validated with the direct read of vector length
      * using the SVE RDVL instruction in test_get_size() above.
      */
-     dr_standalone_init();
+    dr_standalone_init();
 
     test_get_size();
 

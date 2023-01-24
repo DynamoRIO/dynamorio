@@ -78,7 +78,7 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
     mc->fpcr = fpc->fpcr;
     ASSERT((sizeof(mc->simd->q) * MCXT_NUM_SIMD_SLOTS) == sizeof(fpc->vregs));
     memcpy(&mc->simd, &fpc->vregs, sizeof(mc->simd));
-    /* TODO i#3044: memcpy(&mc->simd->u32,...)
+    /* TODO i#5365: memcpy(&mc->simd->u32,...)
      * See also sve_context in core/unix/include/sigcontext.h.
      */
 }
@@ -96,7 +96,7 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
     fpc->fpcr = mc->fpcr;
     ASSERT(sizeof(fpc->vregs) == (sizeof(mc->simd->q) * MCXT_NUM_SIMD_SLOTS));
     memcpy(&fpc->vregs, &mc->simd, sizeof(fpc->vregs));
-    /* TODO i#3044: memcpy(..., &mc->simd->u32)
+    /* TODO i#5365: memcpy(..., &mc->simd->u32)
      * See also sve_context in core/unix/include/sigcontext.h.
      */
     next->magic = 0;

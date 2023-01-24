@@ -358,17 +358,17 @@ struct fpsimd_context {
     __uint128_t vregs[32];
 };
 
-/* TODO i#3044: Storage of sve_context in kernel_sigcontext_t.__reserved, see
+/* TODO i#5365: Storage of sve_context in kernel_sigcontext_t.__reserved, see
  * above. See also sigcontext_to_mcontext_simd() and
  * mcontext_to_sigcontext_simd().
  */
 
-#        define SVE_MAGIC       0x53564501
+#        define SVE_MAGIC 0x53564501
 
 struct sve_context {
-        struct _aarch64_ctx head;
-        __u16 vl;
-        __u16 __reserved[3];
+    struct _aarch64_ctx head;
+    __u16 vl;
+    __u16 __reserved[3];
 };
 #    endif
 

@@ -815,11 +815,11 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
             record->app_clone_args = app_clone_args;
         } else {
 #endif
-	    /* TODO i#3044: If the record is created using this SP,
-	     * get_clone_record() crashes with SIGSEGV when the record pointer
-	     * is accessed in ASSERT(dstack_base == record->dstack). This does
-	     * not happen when dr_clone_args->stack + dr_clone_args->stack_size
-	     * (above) is used.
+            /* TODO i#5365: If the record is created using this SP,
+             * get_clone_record() crashes with SIGSEGV when the record pointer
+             * is accessed in ASSERT(dstack_base == record->dstack). This does
+             * not happen when dr_clone_args->stack + dr_clone_args->stack_size
+             * (above) is used.
              */
             record->app_thread_xsp = *app_thread_xsp;
             record->clone_flags = dcontext->sys_param0;

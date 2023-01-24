@@ -4371,7 +4371,8 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
     if (offset9 < -256 || offset9 > 255)
         return false;
     *opnd = opnd_create_base_disp_aarch64(decode_reg(extract_uint(enc, 5, 5), true, true),
-                                          DR_REG_NULL, 0, false, offset9, 0, OPSZ_SVE_VL_BYTES);
+                                          DR_REG_NULL, 0, false, offset9, 0,
+                                          OPSZ_SVE_VL_BYTES);
     return true;
 }
 

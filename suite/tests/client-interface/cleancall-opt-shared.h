@@ -343,7 +343,8 @@ dump_diff_mcontexts(void)
 #elif defined(AARCH64)
         dr_simd_t before_reg = before_mcontext.simd[i];
         dr_simd_t after_reg = after_mcontext.simd[i];
-        size_t mmsz = proc_has_feature(FEATURE_SVE) ? proc_get_sve_vector_length_bytes() : 16;
+        size_t mmsz =
+            proc_has_feature(FEATURE_SVE) ? proc_get_sve_vector_length_bytes() : 16;
         const char *diff_str =
             (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
         dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x", i, before_reg.u32[0],
