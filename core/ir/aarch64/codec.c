@@ -2003,6 +2003,20 @@ encode_opnd_x0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(true, false, 0, opnd, enc_out);
 }
 
+/* x0: X register or SP at bit position 0 */
+
+static inline bool
+decode_opnd_x0sp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxn(/*is_x=*/true, /*is_sp=*/true, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x0sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxn(/*is_x=*/true, /*is_sp=*/true, 0, opnd, enc_out);
+}
+
 /* memx0: memory operand with no offset used as memref for SYS */
 
 static inline bool
@@ -2546,6 +2560,20 @@ static inline bool
 encode_opnd_simm5_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(5, 5, true, 0, 0, opnd, enc_out);
+}
+
+/* simm6_5: Signed 6 bit immediate from 5-10 */
+
+static inline bool
+decode_opnd_simm6_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(5, 6, true, 0, OPSZ_6b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_simm6_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(5, 6, true, 0, 0, opnd, enc_out);
 }
 
 /* vmsz: B/H/S/D for load/store multiple structures */
@@ -3820,6 +3848,20 @@ static inline bool
 encode_opnd_x16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_wxn(true, false, 16, opnd, enc_out);
+}
+
+/* x16sp: X register or SP at bit position 16 */
+
+static inline bool
+decode_opnd_x16sp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxn(/*is_x=*/true, /*is_sp=*/true, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x16sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxn(/*is_x=*/true, /*is_sp=*/true, 16, opnd, enc_out);
 }
 
 /* x16p0: even-numbered X register or XZR at bit position 16 */

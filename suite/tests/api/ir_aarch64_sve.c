@@ -12009,6 +12009,52 @@ TEST_INSTR(pnext_sve)
               opnd_create_reg(Pn_six_offset_1[i]));
 }
 
+TEST_INSTR(addpl)
+{
+    /* Testing ADDPL   <Xd|SP>, <Xn|SP>, #<imm> */
+    static const reg_id_t Rd_0_0[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
+                                        DR_REG_X15, DR_REG_X20, DR_REG_SP };
+    static const reg_id_t Rn_0_0[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
+                                        DR_REG_X16, DR_REG_X21, DR_REG_SP };
+    static const int imm6_0_0[6] = { -32, -20, -9, 2, 12, 31 };
+    const char *const expected_0_0[6] = {
+        "addpl  %x0 $0xe0 -> %x0",   "addpl  %x6 $0xec -> %x5",
+        "addpl  %x11 $0xf7 -> %x10", "addpl  %x16 $0x02 -> %x15",
+        "addpl  %x21 $0x0c -> %x20", "addpl  %sp $0x1f -> %sp",
+    };
+    TEST_LOOP(addpl, addpl, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_immed_int(imm6_0_0[i], OPSZ_6b));
+}
+
+TEST_INSTR(addvl)
+{
+    /* Testing ADDVL   <Xd|SP>, <Xn|SP>, #<imm> */
+    static const reg_id_t Rd_0_0[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
+                                        DR_REG_X15, DR_REG_X20, DR_REG_SP };
+    static const reg_id_t Rn_0_0[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
+                                        DR_REG_X16, DR_REG_X21, DR_REG_SP };
+    static const int imm6_0_0[6] = { -32, -20, -9, 2, 12, 31 };
+    const char *const expected_0_0[6] = {
+        "addvl  %x0 $0xe0 -> %x0",   "addvl  %x6 $0xec -> %x5",
+        "addvl  %x11 $0xf7 -> %x10", "addvl  %x16 $0x02 -> %x15",
+        "addvl  %x21 $0x0c -> %x20", "addvl  %sp $0x1f -> %sp",
+    };
+    TEST_LOOP(addvl, addvl, 6, expected_0_0[i], opnd_create_reg(Rd_0_0[i]),
+              opnd_create_reg(Rn_0_0[i]), opnd_create_immed_int(imm6_0_0[i], OPSZ_6b));
+}
+
+TEST_INSTR(rdvl)
+{
+    /* Testing RDVL    <Xd>, #<imm> */
+    static const int imm6_0_0[6] = { -32, -21, -10, 1, 11, 31 };
+    const char *const expected_0_0[6] = {
+        "rdvl   $0xe0 -> %x0",  "rdvl   $0xeb -> %x5",  "rdvl   $0xf6 -> %x10",
+        "rdvl   $0x01 -> %x15", "rdvl   $0x0b -> %x20", "rdvl   $0x1f -> %x30",
+    };
+    TEST_LOOP(rdvl, rdvl, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_immed_int(imm6_0_0[i], OPSZ_6b));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -12368,6 +12414,10 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(ctermeq);
     RUN_INSTR_TEST(ctermne);
     RUN_INSTR_TEST(pnext_sve);
+
+    RUN_INSTR_TEST(addpl);
+    RUN_INSTR_TEST(addvl);
+    RUN_INSTR_TEST(rdvl);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

@@ -9930,4 +9930,47 @@
 #define INSTR_CREATE_pnext_sve(dc, Pdn, Pv) \
     instr_create_1dst_2src(dc, OP_pnext, Pdn, Pv, Pdn)
 
+/**
+ * Creates an ADDPL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ADDPL   <Xd|SP>, <Xn|SP>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param simm   The signed immediate imm.
+ */
+#define INSTR_CREATE_addpl(dc, Rd, Rn, simm) \
+    instr_create_1dst_2src(dc, OP_addpl, Rd, Rn, simm)
+
+/**
+ * Creates an ADDVL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ADDVL   <Xd|SP>, <Xn|SP>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param simm   The signed immediate imm.
+ */
+#define INSTR_CREATE_addvl(dc, Rd, Rn, simm) \
+    instr_create_1dst_2src(dc, OP_addvl, Rd, Rn, simm)
+
+/**
+ * Creates a RDVL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RDVL    <Xd>, #<imm>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param simm   The signed immediate imm.
+ */
+#define INSTR_CREATE_rdvl(dc, Rd, simm) instr_create_1dst_1src(dc, OP_rdvl, Rd, simm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */

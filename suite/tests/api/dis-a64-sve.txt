@@ -313,6 +313,42 @@
 04fc037a : add z26.d, z27.d, z28.d                   : add    %z27.d %z28.d -> %z26.d
 04fe03de : add z30.d, z30.d, z30.d                   : add    %z30.d %z30.d -> %z30.d
 
+# ADDPL   <Xd|SP>, <Xn|SP>, #<imm> (ADDPL-R.RI-_)
+04605400 : addpl x0, x0, #-0x20                      : addpl  %x0 $0xe0 -> %x0
+04635482 : addpl x2, x3, #-0x1c                      : addpl  %x3 $0xe4 -> %x2
+04655504 : addpl x4, x5, #-0x18                      : addpl  %x5 $0xe8 -> %x4
+04675586 : addpl x6, x7, #-0x14                      : addpl  %x7 $0xec -> %x6
+04695608 : addpl x8, x9, #-0x10                      : addpl  %x9 $0xf0 -> %x8
+046a5689 : addpl x9, x10, #-0xc                      : addpl  %x10 $0xf4 -> %x9
+046c570b : addpl x11, x12, #-0x8                     : addpl  %x12 $0xf8 -> %x11
+046e578d : addpl x13, x14, #-0x4                     : addpl  %x14 $0xfc -> %x13
+0470500f : addpl x15, x16, #0x0                      : addpl  %x16 $0x00 -> %x15
+04725071 : addpl x17, x18, #0x3                      : addpl  %x18 $0x03 -> %x17
+047450f3 : addpl x19, x20, #0x7                      : addpl  %x20 $0x07 -> %x19
+04765175 : addpl x21, x22, #0xb                      : addpl  %x22 $0x0b -> %x21
+047751f6 : addpl x22, x23, #0xf                      : addpl  %x23 $0x0f -> %x22
+04795278 : addpl x24, x25, #0x13                     : addpl  %x25 $0x13 -> %x24
+047b52fa : addpl x26, x27, #0x17                     : addpl  %x27 $0x17 -> %x26
+047f53ff : addpl sp, sp, #0x1f                       : addpl  %sp $0x1f -> %sp
+
+# ADDVL   <Xd|SP>, <Xn|SP>, #<imm> (ADDVL-R.RI-_)
+04205400 : addvl x0, x0, #-0x20                      : addvl  %x0 $0xe0 -> %x0
+04235482 : addvl x2, x3, #-0x1c                      : addvl  %x3 $0xe4 -> %x2
+04255504 : addvl x4, x5, #-0x18                      : addvl  %x5 $0xe8 -> %x4
+04275586 : addvl x6, x7, #-0x14                      : addvl  %x7 $0xec -> %x6
+04295608 : addvl x8, x9, #-0x10                      : addvl  %x9 $0xf0 -> %x8
+042a5689 : addvl x9, x10, #-0xc                      : addvl  %x10 $0xf4 -> %x9
+042c570b : addvl x11, x12, #-0x8                     : addvl  %x12 $0xf8 -> %x11
+042e578d : addvl x13, x14, #-0x4                     : addvl  %x14 $0xfc -> %x13
+0430500f : addvl x15, x16, #0x0                      : addvl  %x16 $0x00 -> %x15
+04325071 : addvl x17, x18, #0x3                      : addvl  %x18 $0x03 -> %x17
+043450f3 : addvl x19, x20, #0x7                      : addvl  %x20 $0x07 -> %x19
+04365175 : addvl x21, x22, #0xb                      : addvl  %x22 $0x0b -> %x21
+043751f6 : addvl x22, x23, #0xf                      : addvl  %x23 $0x0f -> %x22
+04395278 : addvl x24, x25, #0x13                     : addvl  %x25 $0x13 -> %x24
+043b52fa : addvl x26, x27, #0x17                     : addvl  %x27 $0x17 -> %x26
+043f53ff : addvl sp, sp, #0x1f                       : addvl  %sp $0x1f -> %sp
+
 041a06ff : and z31.b, p1/m, z31.b, z23.b            : and    %p1 %z31 %z23 $0x00 -> %z31
 045a06ff : and z31.h, p1/m, z31.h, z23.h            : and    %p1 %z31 %z23 $0x01 -> %z31
 049a06ff : and z31.s, p1/m, z31.s, z23.s            : and    %p1 %z31 %z23 $0x02 -> %z31
@@ -10481,6 +10517,24 @@
 2558f1ac : rdffrs p12.b, p13/Z                       : rdffrs %p13/z -> %p12.b
 2558f1cd : rdffrs p13.b, p14/Z                       : rdffrs %p14/z -> %p13.b
 2558f1ef : rdffrs p15.b, p15/Z                       : rdffrs %p15/z -> %p15.b
+
+# RDVL    <Xd>, #<imm> (RDVL-R.I-_)
+04bf5400 : rdvl x0, #-0x20                           : rdvl   $0xe0 -> %x0
+04bf5482 : rdvl x2, #-0x1c                           : rdvl   $0xe4 -> %x2
+04bf5504 : rdvl x4, #-0x18                           : rdvl   $0xe8 -> %x4
+04bf5586 : rdvl x6, #-0x14                           : rdvl   $0xec -> %x6
+04bf5608 : rdvl x8, #-0x10                           : rdvl   $0xf0 -> %x8
+04bf5689 : rdvl x9, #-0xc                            : rdvl   $0xf4 -> %x9
+04bf570b : rdvl x11, #-0x8                           : rdvl   $0xf8 -> %x11
+04bf578d : rdvl x13, #-0x4                           : rdvl   $0xfc -> %x13
+04bf500f : rdvl x15, #0x0                            : rdvl   $0x00 -> %x15
+04bf5071 : rdvl x17, #0x3                            : rdvl   $0x03 -> %x17
+04bf50f3 : rdvl x19, #0x7                            : rdvl   $0x07 -> %x19
+04bf5175 : rdvl x21, #0xb                            : rdvl   $0x0b -> %x21
+04bf51f6 : rdvl x22, #0xf                            : rdvl   $0x0f -> %x22
+04bf5278 : rdvl x24, #0x13                           : rdvl   $0x13 -> %x24
+04bf52fa : rdvl x26, #0x17                           : rdvl   $0x17 -> %x26
+04bf53fe : rdvl x30, #0x1f                           : rdvl   $0x1f -> %x30
 
 # REV     <Pd>.<T>, <Pn>.<T> (REV-P.P-_)
 05344000 : rev p0.b, p0.b                            : rev    %p0.b -> %p0.b
