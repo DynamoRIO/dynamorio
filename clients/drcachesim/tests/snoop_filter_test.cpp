@@ -94,10 +94,10 @@ public:
     }
 
     void
-    request_and_check_state(int cache_id, const addr_t addr,
-                            const trace_type_t type, int expected_num_writes,
-                            int expected_num_invalidates, int expected_num_writebacks,
-                            int expected_num_sharers, bool block_is_dirty)
+    request_and_check_state(int cache_id, const addr_t addr, const trace_type_t type,
+                            int expected_num_writes, int expected_num_invalidates,
+                            int expected_num_writebacks, int expected_num_sharers,
+                            bool block_is_dirty)
     {
         memref_t ref;
         ref.data.size = 1;
