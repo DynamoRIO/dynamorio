@@ -3983,6 +3983,74 @@
 05e09fbb : cpy z27.d, p7/M, d29                      : cpy    %p7/m %d29 -> %z27.d
 05e09fff : cpy z31.d, p7/M, d31                      : cpy    %p7/m %d31 -> %z31.d
 
+# CTERMEQ <R><n>, <R><m> (CTERMEQ-RR-_)
+25a02000 : ctermeq w0, w0                            : ctermeq %w0 %w0
+25a32040 : ctermeq w2, w3                            : ctermeq %w2 %w3
+25a52080 : ctermeq w4, w5                            : ctermeq %w4 %w5
+25a720c0 : ctermeq w6, w7                            : ctermeq %w6 %w7
+25a92100 : ctermeq w8, w9                            : ctermeq %w8 %w9
+25aa2120 : ctermeq w9, w10                           : ctermeq %w9 %w10
+25ac2160 : ctermeq w11, w12                          : ctermeq %w11 %w12
+25ae21a0 : ctermeq w13, w14                          : ctermeq %w13 %w14
+25b021e0 : ctermeq w15, w16                          : ctermeq %w15 %w16
+25b22220 : ctermeq w17, w18                          : ctermeq %w17 %w18
+25b42260 : ctermeq w19, w20                          : ctermeq %w19 %w20
+25b622a0 : ctermeq w21, w22                          : ctermeq %w21 %w22
+25b722c0 : ctermeq w22, w23                          : ctermeq %w22 %w23
+25b92300 : ctermeq w24, w25                          : ctermeq %w24 %w25
+25bb2340 : ctermeq w26, w27                          : ctermeq %w26 %w27
+25be23c0 : ctermeq w30, w30                          : ctermeq %w30 %w30
+25e02000 : ctermeq x0, x0                            : ctermeq %x0 %x0
+25e32040 : ctermeq x2, x3                            : ctermeq %x2 %x3
+25e52080 : ctermeq x4, x5                            : ctermeq %x4 %x5
+25e720c0 : ctermeq x6, x7                            : ctermeq %x6 %x7
+25e92100 : ctermeq x8, x9                            : ctermeq %x8 %x9
+25ea2120 : ctermeq x9, x10                           : ctermeq %x9 %x10
+25ec2160 : ctermeq x11, x12                          : ctermeq %x11 %x12
+25ee21a0 : ctermeq x13, x14                          : ctermeq %x13 %x14
+25f021e0 : ctermeq x15, x16                          : ctermeq %x15 %x16
+25f22220 : ctermeq x17, x18                          : ctermeq %x17 %x18
+25f42260 : ctermeq x19, x20                          : ctermeq %x19 %x20
+25f622a0 : ctermeq x21, x22                          : ctermeq %x21 %x22
+25f722c0 : ctermeq x22, x23                          : ctermeq %x22 %x23
+25f92300 : ctermeq x24, x25                          : ctermeq %x24 %x25
+25fb2340 : ctermeq x26, x27                          : ctermeq %x26 %x27
+25fe23c0 : ctermeq x30, x30                          : ctermeq %x30 %x30
+
+# CTERMNE <R><n>, <R><m> (CTERMNE-RR-_)
+25a02010 : ctermne w0, w0                            : ctermne %w0 %w0
+25a32050 : ctermne w2, w3                            : ctermne %w2 %w3
+25a52090 : ctermne w4, w5                            : ctermne %w4 %w5
+25a720d0 : ctermne w6, w7                            : ctermne %w6 %w7
+25a92110 : ctermne w8, w9                            : ctermne %w8 %w9
+25aa2130 : ctermne w9, w10                           : ctermne %w9 %w10
+25ac2170 : ctermne w11, w12                          : ctermne %w11 %w12
+25ae21b0 : ctermne w13, w14                          : ctermne %w13 %w14
+25b021f0 : ctermne w15, w16                          : ctermne %w15 %w16
+25b22230 : ctermne w17, w18                          : ctermne %w17 %w18
+25b42270 : ctermne w19, w20                          : ctermne %w19 %w20
+25b622b0 : ctermne w21, w22                          : ctermne %w21 %w22
+25b722d0 : ctermne w22, w23                          : ctermne %w22 %w23
+25b92310 : ctermne w24, w25                          : ctermne %w24 %w25
+25bb2350 : ctermne w26, w27                          : ctermne %w26 %w27
+25be23d0 : ctermne w30, w30                          : ctermne %w30 %w30
+25e02010 : ctermne x0, x0                            : ctermne %x0 %x0
+25e32050 : ctermne x2, x3                            : ctermne %x2 %x3
+25e52090 : ctermne x4, x5                            : ctermne %x4 %x5
+25e720d0 : ctermne x6, x7                            : ctermne %x6 %x7
+25e92110 : ctermne x8, x9                            : ctermne %x8 %x9
+25ea2130 : ctermne x9, x10                           : ctermne %x9 %x10
+25ec2170 : ctermne x11, x12                          : ctermne %x11 %x12
+25ee21b0 : ctermne x13, x14                          : ctermne %x13 %x14
+25f021f0 : ctermne x15, x16                          : ctermne %x15 %x16
+25f22230 : ctermne x17, x18                          : ctermne %x17 %x18
+25f42270 : ctermne x19, x20                          : ctermne %x19 %x20
+25f622b0 : ctermne x21, x22                          : ctermne %x21 %x22
+25f722d0 : ctermne x22, x23                          : ctermne %x22 %x23
+25f92310 : ctermne x24, x25                          : ctermne %x24 %x25
+25fb2350 : ctermne x26, x27                          : ctermne %x26 %x27
+25fe23d0 : ctermne x30, x30                          : ctermne %x30 %x30
+
 # DECB    <Xdn>{, <pattern>{, MUL #<imm>}} (DECB-R.RS-_)
 0430e400 : decb x0, POW2, MUL #1                     : decb   %x0 POW2 mul $0x01 -> %x0
 0430e421 : decb x1, VL1, MUL #1                      : decb   %x1 VL1 mul $0x01 -> %x1
@@ -9913,6 +9981,72 @@
 2558c1ac : pfirst p12.b, p13, p12.b                  : pfirst %p13 %p12.b -> %p12.b
 2558c1cd : pfirst p13.b, p14, p13.b                  : pfirst %p14 %p13.b -> %p13.b
 2558c1ef : pfirst p15.b, p15, p15.b                  : pfirst %p15 %p15.b -> %p15.b
+
+# PNEXT   <Pdn>.<T>, <Pv>, <Pdn>.<T> (PNEXT-P.P.P-_)
+2519c400 : pnext p0.b, p0, p0.b                      : pnext  %p0 %p0.b -> %p0.b
+2519c441 : pnext p1.b, p2, p1.b                      : pnext  %p2 %p1.b -> %p1.b
+2519c462 : pnext p2.b, p3, p2.b                      : pnext  %p3 %p2.b -> %p2.b
+2519c483 : pnext p3.b, p4, p3.b                      : pnext  %p4 %p3.b -> %p3.b
+2519c4a4 : pnext p4.b, p5, p4.b                      : pnext  %p5 %p4.b -> %p4.b
+2519c4c5 : pnext p5.b, p6, p5.b                      : pnext  %p6 %p5.b -> %p5.b
+2519c4e6 : pnext p6.b, p7, p6.b                      : pnext  %p7 %p6.b -> %p6.b
+2519c507 : pnext p7.b, p8, p7.b                      : pnext  %p8 %p7.b -> %p7.b
+2519c528 : pnext p8.b, p9, p8.b                      : pnext  %p9 %p8.b -> %p8.b
+2519c528 : pnext p8.b, p9, p8.b                      : pnext  %p9 %p8.b -> %p8.b
+2519c549 : pnext p9.b, p10, p9.b                     : pnext  %p10 %p9.b -> %p9.b
+2519c56a : pnext p10.b, p11, p10.b                   : pnext  %p11 %p10.b -> %p10.b
+2519c58b : pnext p11.b, p12, p11.b                   : pnext  %p12 %p11.b -> %p11.b
+2519c5ac : pnext p12.b, p13, p12.b                   : pnext  %p13 %p12.b -> %p12.b
+2519c5cd : pnext p13.b, p14, p13.b                   : pnext  %p14 %p13.b -> %p13.b
+2519c5ef : pnext p15.b, p15, p15.b                   : pnext  %p15 %p15.b -> %p15.b
+2559c400 : pnext p0.h, p0, p0.h                      : pnext  %p0 %p0.h -> %p0.h
+2559c441 : pnext p1.h, p2, p1.h                      : pnext  %p2 %p1.h -> %p1.h
+2559c462 : pnext p2.h, p3, p2.h                      : pnext  %p3 %p2.h -> %p2.h
+2559c483 : pnext p3.h, p4, p3.h                      : pnext  %p4 %p3.h -> %p3.h
+2559c4a4 : pnext p4.h, p5, p4.h                      : pnext  %p5 %p4.h -> %p4.h
+2559c4c5 : pnext p5.h, p6, p5.h                      : pnext  %p6 %p5.h -> %p5.h
+2559c4e6 : pnext p6.h, p7, p6.h                      : pnext  %p7 %p6.h -> %p6.h
+2559c507 : pnext p7.h, p8, p7.h                      : pnext  %p8 %p7.h -> %p7.h
+2559c528 : pnext p8.h, p9, p8.h                      : pnext  %p9 %p8.h -> %p8.h
+2559c528 : pnext p8.h, p9, p8.h                      : pnext  %p9 %p8.h -> %p8.h
+2559c549 : pnext p9.h, p10, p9.h                     : pnext  %p10 %p9.h -> %p9.h
+2559c56a : pnext p10.h, p11, p10.h                   : pnext  %p11 %p10.h -> %p10.h
+2559c58b : pnext p11.h, p12, p11.h                   : pnext  %p12 %p11.h -> %p11.h
+2559c5ac : pnext p12.h, p13, p12.h                   : pnext  %p13 %p12.h -> %p12.h
+2559c5cd : pnext p13.h, p14, p13.h                   : pnext  %p14 %p13.h -> %p13.h
+2559c5ef : pnext p15.h, p15, p15.h                   : pnext  %p15 %p15.h -> %p15.h
+2599c400 : pnext p0.s, p0, p0.s                      : pnext  %p0 %p0.s -> %p0.s
+2599c441 : pnext p1.s, p2, p1.s                      : pnext  %p2 %p1.s -> %p1.s
+2599c462 : pnext p2.s, p3, p2.s                      : pnext  %p3 %p2.s -> %p2.s
+2599c483 : pnext p3.s, p4, p3.s                      : pnext  %p4 %p3.s -> %p3.s
+2599c4a4 : pnext p4.s, p5, p4.s                      : pnext  %p5 %p4.s -> %p4.s
+2599c4c5 : pnext p5.s, p6, p5.s                      : pnext  %p6 %p5.s -> %p5.s
+2599c4e6 : pnext p6.s, p7, p6.s                      : pnext  %p7 %p6.s -> %p6.s
+2599c507 : pnext p7.s, p8, p7.s                      : pnext  %p8 %p7.s -> %p7.s
+2599c528 : pnext p8.s, p9, p8.s                      : pnext  %p9 %p8.s -> %p8.s
+2599c528 : pnext p8.s, p9, p8.s                      : pnext  %p9 %p8.s -> %p8.s
+2599c549 : pnext p9.s, p10, p9.s                     : pnext  %p10 %p9.s -> %p9.s
+2599c56a : pnext p10.s, p11, p10.s                   : pnext  %p11 %p10.s -> %p10.s
+2599c58b : pnext p11.s, p12, p11.s                   : pnext  %p12 %p11.s -> %p11.s
+2599c5ac : pnext p12.s, p13, p12.s                   : pnext  %p13 %p12.s -> %p12.s
+2599c5cd : pnext p13.s, p14, p13.s                   : pnext  %p14 %p13.s -> %p13.s
+2599c5ef : pnext p15.s, p15, p15.s                   : pnext  %p15 %p15.s -> %p15.s
+25d9c400 : pnext p0.d, p0, p0.d                      : pnext  %p0 %p0.d -> %p0.d
+25d9c441 : pnext p1.d, p2, p1.d                      : pnext  %p2 %p1.d -> %p1.d
+25d9c462 : pnext p2.d, p3, p2.d                      : pnext  %p3 %p2.d -> %p2.d
+25d9c483 : pnext p3.d, p4, p3.d                      : pnext  %p4 %p3.d -> %p3.d
+25d9c4a4 : pnext p4.d, p5, p4.d                      : pnext  %p5 %p4.d -> %p4.d
+25d9c4c5 : pnext p5.d, p6, p5.d                      : pnext  %p6 %p5.d -> %p5.d
+25d9c4e6 : pnext p6.d, p7, p6.d                      : pnext  %p7 %p6.d -> %p6.d
+25d9c507 : pnext p7.d, p8, p7.d                      : pnext  %p8 %p7.d -> %p7.d
+25d9c528 : pnext p8.d, p9, p8.d                      : pnext  %p9 %p8.d -> %p8.d
+25d9c528 : pnext p8.d, p9, p8.d                      : pnext  %p9 %p8.d -> %p8.d
+25d9c549 : pnext p9.d, p10, p9.d                     : pnext  %p10 %p9.d -> %p9.d
+25d9c56a : pnext p10.d, p11, p10.d                   : pnext  %p11 %p10.d -> %p10.d
+25d9c58b : pnext p11.d, p12, p11.d                   : pnext  %p12 %p11.d -> %p11.d
+25d9c5ac : pnext p12.d, p13, p12.d                   : pnext  %p13 %p12.d -> %p12.d
+25d9c5cd : pnext p13.d, p14, p13.d                   : pnext  %p14 %p13.d -> %p13.d
+25d9c5ef : pnext p15.d, p15, p15.d                   : pnext  %p15 %p15.d -> %p15.d
 
 # PTEST   <Pg>, <Pn>.B (PTEST-.P.P-_)
 2550c000 : ptest p0, p0.b                            : ptest  %p0 %p0.b
