@@ -365,7 +365,7 @@ def generate_encoder(patterns, opndsettab, opndtab, opc_props, curr_isa, next_is
     for opcode in sorted(case):
         c.append('    case OP_%s:' % opcode)
         if opc_props[opcode].feat != 'BASE':
-            c.append('#       if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)')
+            c.append('#       if !defined(BUILD_TESTS)')
             c.append('        if (!proc_has_feature(FEATURE_%s))' % opc_props[opcode].feat)
             c.append('            return ENCFAIL;')
             c.append('#       endif')

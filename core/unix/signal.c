@@ -815,6 +815,12 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
             record->app_clone_args = app_clone_args;
         } else {
 #endif
+	    /* TODO i#3044: If the record is created using this SP,
+	     * get_clone_record() crashes with SIGSEGV when the record pointer
+	     * is accessed in ASSERT(dstack_base == record->dstack). This does
+	     * not happen when dr_clone_args->stack + dr_clone_args->stack_size
+	     * (above) is used.
+             */
             record->app_thread_xsp = *app_thread_xsp;
             record->clone_flags = dcontext->sys_param0;
             IF_LINUX(record->app_clone_args = NULL);
@@ -902,7 +908,7 @@ set_clone_record_fields(void *record, reg_t app_thread_xsp, app_pc continuation_
  *
  * CAUTION: don't use a lot of stack in this routine as it gets invoked on the
  *          dstack from new_thread_setup - this is because this routine assumes
- *          no more than a page of dstack has been used so far since the clone
+ *          no more than 2 pages of dstack have been used so far since the clone
  *          system call was done.
  */
 void *
@@ -917,14 +923,14 @@ get_clone_record(reg_t xsp)
     /* The (size of the clone record +
      *      stack used by new_thread_start (only for setting up priv_mcontext_t) +
      *      stack used by new_thread_setup before calling get_clone_record())
-     * is less than a page.  This is verified by the assert below.  If it does
-     * exceed a page, it won't happen at random during runtime, but in a
+     * is less than 2 pages.  This is verified by the assert below.  If it does
+     * exceed 2 pages, it won't happen at random during runtime, but in a
      * predictable way during development, which will be caught by the assert.
-     * The current usage is about 800 bytes for clone_record +
+     * The current usage is about 1920 bytes for clone_record +
      * sizeof(priv_mcontext_t) + few words in new_thread_setup before
      * get_clone_record() is called.
      */
-    dstack_base = (byte *)ALIGN_FORWARD(xsp, PAGE_SIZE);
+    dstack_base = (byte *)ALIGN_FORWARD(xsp, PAGE_SIZE) + PAGE_SIZE;
     record = (clone_record_t *)(dstack_base - sizeof(clone_record_t));
 
     /* dstack_base and the dstack in the clone record should be the same. */

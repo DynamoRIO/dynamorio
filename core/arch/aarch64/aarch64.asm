@@ -47,14 +47,7 @@ START_FILE
 #endif
 
 /* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
-#define PRIV_MCONTEXT_SIZE 800
-
-/* offset of priv_mcontext_t in dr_mcontext_t */
-#define PRIV_MCONTEXT_OFFSET 16
-
-#if PRIV_MCONTEXT_OFFSET < 16 || PRIV_MCONTEXT_OFFSET % 16 != 0
-# error PRIV_MCONTEXT_OFFSET
-#endif
+#define PRIV_MCONTEXT_SIZE 2336
 
 /* offsetof(spill_state_t, r0) */
 #define spill_state_r0_OFFSET 0
@@ -76,7 +69,7 @@ START_FILE
 /* offsetof(priv_mcontext_t, simd) */
 #define simd_OFFSET (16 * ARG_SZ*2 + 32)
 /* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0x368
+#define dstack_OFFSET     0x968
 /* offsetof(dcontext_t, is_exiting) */
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 /* offsetof(struct tlsdesc_t, arg) */
@@ -246,6 +239,9 @@ save_priv_mcontext_helper:
         st1      {v20.2d-v23.2d}, [x4], #64
         st1      {v24.2d-v27.2d}, [x4], #64
         st1      {v28.2d-v31.2d}, [x4], #64
+	/* TODO i#3044: Save Z/P regs as well? Will require runtime check of
+         * ID_AA64PFR0_EL1 for FEAT_SVE.
+         */
         ret
 
         DECLARE_EXPORTED_FUNC(dr_app_start)

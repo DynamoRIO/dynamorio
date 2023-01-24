@@ -476,7 +476,7 @@ insert_inline_reg_save(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
     insert_get_mcontext_base(dcontext, ilist, where, ci->spill_reg);
 
     insert_save_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_START_GPR,
-                                 true, (void *)ci);
+                                 GPR_REG_TYPE, (void *)ci);
 
     /* Save nzcv */
     if (!cci->skip_save_flags && ci->write_flags) {
@@ -512,7 +512,7 @@ insert_inline_reg_restore(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     insert_restore_inline_registers(dcontext, ilist, where, cci->reg_skip, DR_REG_X0,
-                                    true, (void *)ci);
+                                    GPR_REG_TYPE, (void *)ci);
 
     /* Restore reg used for unprotected_context_t pointer. */
     PRE(ilist, where,

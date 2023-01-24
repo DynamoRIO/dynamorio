@@ -802,7 +802,7 @@ encode_fpimm8_half(opnd_t opnd, uint abc_offset, uint defgh_offset, OUT uint *en
      *   abbb cdef gh00 0000
      */
 #ifdef HAVE_HALF_FLOAT
-#    if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
+#    if !defined(BUILD_TESTS)
     CLIENT_ASSERT(proc_has_feature(FEATURE_FP16),
                   "half-precision floating-point not supported on this host");
 #    endif
@@ -4371,7 +4371,7 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
     if (offset9 < -256 || offset9 > 255)
         return false;
     *opnd = opnd_create_base_disp_aarch64(decode_reg(extract_uint(enc, 5, 5), true, true),
-                                          DR_REG_NULL, 0, false, offset9, 0, OPSZ_SVE_VL);
+                                          DR_REG_NULL, 0, false, offset9, 0, OPSZ_SVE_VL_BYTES);
     return true;
 }
 
@@ -4382,7 +4382,7 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
     int disp;
     bool is_x;
     uint rn;
-    if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != OPSZ_SVE_VL)
+    if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != OPSZ_SVE_VL_BYTES)
         return false;
     disp = opnd_get_disp(opnd);
     if (disp < -256 || disp > 255)

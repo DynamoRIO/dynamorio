@@ -485,6 +485,19 @@ DR_API
 const char *
 proc_get_cache_size_str(cache_size_t size);
 
+#ifdef AARCHXX
+DR_API
+/**
+ * Returns the size in bytes of the SVE registers' vector length set by the
+ * AArch64 hardware implementor. Length can be from 128 to 2048 bits in
+ * multiples of 128 bits:
+ * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
+ * Currently DynamoRIO supports implementations of up to 512 bits.
+ */
+uint
+proc_get_sve_vector_length_bytes(void);
+#endif
+
 DR_API
 /**
  * Returns the size in bytes needed for a buffer for saving the x87 floating point state.

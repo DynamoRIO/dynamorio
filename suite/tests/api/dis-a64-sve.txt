@@ -12885,7 +12885,6 @@
 
 # STR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}]
 e58043c0 : str z0, [x30]                            : str    %z0 -> (%x30)[32byte]
-e58043c0 : str z0, [x30]                            : str    %z0 -> (%x30)[32byte]
 e58057a1 : str z1, [x29, #5, mul vl]                : str    %z1 -> +0x05(%x29)[32byte]
 e5bf4fa1 : str z1, [x29, #-5, mul vl]               : str    %z1 -> -0x05(%x29)[32byte]
 e5814b82 : str z2, [x28, #10, mul vl]               : str    %z2 -> +0x0a(%x28)[32byte]
