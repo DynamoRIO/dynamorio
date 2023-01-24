@@ -34,12 +34,14 @@
 #include <iostream>
 #undef NDEBUG
 #include <assert.h>
-#include "snoop_filter_test.h"
+#include "drcachesim_unit_tests.h"
 #include "simulator/cache_lru.h"
 #include "snoop_filter.h"
 #include "cache.h"
 #include <algorithm>
 #include <memory>
+
+namespace drcachesim_unit_tests {
 
 enum {
     CPU_0,
@@ -54,7 +56,7 @@ static const int SNOOPED_FILTER_LINE_SIZE = 32;
 class snoop_filter_test_t {
 
 public:
-    snoop_filter_test_t(const int num_cores)
+    snoop_filter_test_t(int num_cores)
         : num_cores_(num_cores)
     {
     }
@@ -72,37 +74,27 @@ public:
     initialize_caches_and_snoop_filter()
     {
         cache_t *llc = new cache_lru_t;
-        if (!llc->init(/*associatibity=*/8, /*line_size=*/64,
-                       /*total_size=*/1024, nullptr,
-                       new cache_stats_t((int)64, "", true))) {
-            std::string error_string =
-                "Usage error: failed to initialize LL cache.  Ensure sizes and "
-                "associativity are powers of 2, that the total size is a multiple "
-                "of the line size, and that any miss file path is writable.";
-            std::cerr << error_string << "\n";
-            return;
-        }
-
-        unsigned int total_snooped_caches = 1 * num_cores_;
+        assert(llc->init(/*associativity=*/8, /*line_size=*/64,
+                         /*total_size=*/1024, nullptr,
+                         new cache_stats_t(/*block_size=*/64, /*miss_file=*/"",
+                                           /*warmup_enabled=*/true)));
+        // Here we assume, a single snooped cache per core.
+        unsigned int total_snooped_caches = num_cores_;
         snooped_caches_ = new cache_t *[total_snooped_caches];
         for (int i = 0; i < num_cores_; i++) {
             snooped_caches_[i] = new cache_lru_t;
             snooped_caches_[i]->init(
                 /*associativity=*/4, SNOOPED_FILTER_LINE_SIZE,
                 /*total_size=*/256, llc,
-                new cache_stats_t((int)SNOOPED_FILTER_LINE_SIZE, "", true, true),
+                new cache_stats_t(SNOOPED_FILTER_LINE_SIZE, "", true, true),
                 /*prefetcher=*/nullptr,
                 /*inclusive=*/true, /*coherence_cache=*/true, i, snoop_filter_);
         }
-
-        if (!snoop_filter_->init(snooped_caches_, num_cores_)) {
-            std::cerr << "Usage error: failed to initialize snoop filter.\n";
-            return;
-        }
+        assert(snoop_filter_->init(snooped_caches_, num_cores_));
     }
 
     void
-    request_and_check_state(const int cache_id, const addr_t addr,
+    request_and_check_state(int cache_id, const addr_t addr,
                             const trace_type_t type, int expected_num_writes,
                             int expected_num_invalidates, int expected_num_writebacks,
                             int expected_num_sharers, bool block_is_dirty)
@@ -131,75 +123,76 @@ private:
     cache_t **snooped_caches_;
 };
 
-void
-unit_test_snoop_filter_two_cores(void)
+static void
+unit_test_snoop_filter_two_cores()
 {
     snoop_filter_test_t snoop_filter_test(2);
     snoop_filter_test.initialize_caches_and_snoop_filter();
     snoop_filter_test.request_and_check_state(CPU_0, ADDR_A, TRACE_TYPE_READ,
-                                              /*num_writes*/ 0,
-                                              /*num_invalidates*/ 0,
-                                              /*num_writebacks*/ 0,
-                                              /*num_sharers*/ 0,
-                                              /*block_is_dirty*/ false);
+                                              /*num_writes=*/0,
+                                              /*num_invalidates=*/0,
+                                              /*num_writebacks=*/0,
+                                              /*num_sharers=*/0,
+                                              /*block_is_dirty=*/false);
     snoop_filter_test.request_and_check_state(CPU_1, ADDR_A, TRACE_TYPE_READ,
-                                              /*num_writes*/ 0,
-                                              /*num_invalidates*/ 0,
-                                              /*num_writebacks*/ 0,
-                                              /*num_sharers*/ 1, false);
+                                              /*num_writes=*/0,
+                                              /*num_invalidates=*/0,
+                                              /*num_writebacks=*/0,
+                                              /*num_sharers=*/1, false);
     snoop_filter_test.request_and_check_state(CPU_0, ADDR_A, TRACE_TYPE_WRITE,
-                                              /*num_writes*/ 1,
-                                              /*num_invalidates*/ 1,
-                                              /*num_writebacks*/ 0,
-                                              /*num_sharers*/ 2, false);
+                                              /*num_writes=*/1,
+                                              /*num_invalidates=*/1,
+                                              /*num_writebacks=*/0,
+                                              /*num_sharers=*/2, false);
     snoop_filter_test.request_and_check_state(CPU_1, ADDR_A, TRACE_TYPE_READ,
-                                              /*num_writes*/ 1,
-                                              /*num_invalidates*/ 1,
-                                              /*num_writebacks*/ 1,
-                                              /*num_sharers*/ 1, true);
+                                              /*num_writes=*/1,
+                                              /*num_invalidates=*/1,
+                                              /*num_writebacks=*/1,
+                                              /*num_sharers=*/1, true);
 }
 
-void
-unit_test_snoop_filter_four_cores(void)
+static void
+unit_test_snoop_filter_four_cores()
 {
     snoop_filter_test_t snoop_filter_test(4);
     snoop_filter_test.initialize_caches_and_snoop_filter();
     snoop_filter_test.request_and_check_state(CPU_0, ADDR_A, TRACE_TYPE_READ,
-                                              /*num_writes*/ 0,
-                                              /*num_invalidates*/ 0,
-                                              /*num_writebacks*/ 0,
-                                              /*num_sharers*/ 0,
-                                              /*block_is_dirty*/ false);
+                                              /*num_writes=*/0,
+                                              /*num_invalidates=*/0,
+                                              /*num_writebacks=*/0,
+                                              /*num_sharers=*/0,
+                                              /*block_is_dirty=*/false);
     snoop_filter_test.request_and_check_state(CPU_1, ADDR_A, TRACE_TYPE_READ,
-                                              /*num_writes*/ 0,
-                                              /*num_invalidates*/ 0,
-                                              /*num_writebacks*/ 0,
-                                              /*num_sharers*/ 1, false);
+                                              /*num_writes=*/0,
+                                              /*num_invalidates=*/0,
+                                              /*num_writebacks=*/0,
+                                              /*num_sharers=*/1, false);
     snoop_filter_test.request_and_check_state(CPU_2, ADDR_A, TRACE_TYPE_WRITE,
-                                              /*num_writes*/ 1,
-                                              /*num_invalidates*/ 2,
-                                              /*num_writebacks*/ 0,
-                                              /*num_sharers*/ 2, false);
+                                              /*num_writes=*/1,
+                                              /*num_invalidates=*/2,
+                                              /*num_writebacks=*/0,
+                                              /*num_sharers=*/2, false);
     snoop_filter_test.request_and_check_state(CPU_3, ADDR_A, TRACE_TYPE_READ,
-                                              /*num_writes*/ 1,
-                                              /*num_invalidates*/ 2,
-                                              /*num_writebacks*/ 1,
-                                              /*num_sharers*/ 1, true);
+                                              /*num_writes=*/1,
+                                              /*num_invalidates=*/2,
+                                              /*num_writebacks=*/1,
+                                              /*num_sharers=*/1, true);
     snoop_filter_test.request_and_check_state(CPU_0, ADDR_A, TRACE_TYPE_READ,
-                                              /*num_writes*/ 1,
-                                              /*num_invalidates*/ 2,
-                                              /*num_writebacks*/ 1,
-                                              /*num_sharers*/ 2, false);
+                                              /*num_writes=*/1,
+                                              /*num_invalidates=*/2,
+                                              /*num_writebacks=*/1,
+                                              /*num_sharers=*/2, false);
     snoop_filter_test.request_and_check_state(CPU_1, ADDR_A, TRACE_TYPE_WRITE,
-                                              /*num_writes*/ 2,
-                                              /*num_invalidates*/ 5,
-                                              /*num_writebacks*/ 1,
-                                              /*num_sharers*/ 3, false);
+                                              /*num_writes=*/2,
+                                              /*num_invalidates=*/5,
+                                              /*num_writebacks=*/1,
+                                              /*num_sharers=*/3, false);
 }
 
 void
-unit_test_snoop_filter(void)
+unit_test_snoop_filter()
 {
     unit_test_snoop_filter_two_cores();
     unit_test_snoop_filter_four_cores();
 }
+} // namespace drcachesim_unit_tests

@@ -34,9 +34,11 @@
 #include <iostream>
 #undef NDEBUG
 #include <assert.h>
-#include "cache_replacement_policy_unit_test.h"
+#include "drcachesim_unit_tests.h"
 #include "simulator/cache_fifo.h"
 #include "simulator/cache_lru.h"
+
+namespace drcachesim_unit_tests {
 
 // Indices for test address vector.
 enum {
@@ -249,3 +251,4 @@ unit_test_cache_replacement_policy()
     unit_test_cache_fifo_eight_way();
     // XXX i#4842: Add more test sequences.
 }
+} // namespace drcachesim_unit_tests

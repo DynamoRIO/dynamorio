@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,10 +35,11 @@
 #include <cstdlib>
 #undef NDEBUG
 #include <assert.h>
-#include "cache_replacement_policy_unit_test.h"
-#include "snoop_filter_test.h"
+#include "drcachesim_unit_tests.h"
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
+
+namespace drcachesim_unit_tests {
 
 static cache_simulator_knobs_t
 make_test_knobs()
@@ -320,3 +321,4 @@ main(int argc, const char *argv[])
     unit_test_snoop_filter();
     return 0;
 }
+} // namespace drcachesim_unit_tests
