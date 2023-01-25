@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2022 ARM Limited.    All rights reserved.
 # **********************************************************
@@ -654,7 +654,9 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
         set_target_properties(${test} PROPERTIES COMPILE_FLAGS "${tst_flags}")
       endif ()
     else ()
-      set(${test}_realtest ${ci_shared_app} PARENT_SCOPE)
+      if (NOT DEFINED ${test}_realtest)
+        set(${test}_realtest ${ci_shared_app} PARENT_SCOPE)
+      endif ()
     endif ()
   endif ()
 
@@ -1666,6 +1668,20 @@ function(optimize target)
     append_property_string(TARGET ${target} COMPILE_FLAGS "/Ox /GL")
   endif (UNIX)
 endfunction(optimize)
+
+macro(set_avx_flags target)
+  if (proc_supports_avx512)
+    if (TARGET ${target}) # Support calling on non-exe target.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_AVX512}")
+    endif ()
+    set(${target}_runavx512 1)
+  elseif (proc_supports_avx)
+    if (TARGET ${target}) # Support calling on non-exe target.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_AVX}")
+    endif ()
+    set(${target}_runavx 1)
+  endif ()
+endmacro(set_avx_flags)
 
 ###########################################################################
 
@@ -2731,13 +2747,20 @@ if (X86)
     use_DynamoRIO_extension(client.drx-scattergather.dll drmgr)
     use_DynamoRIO_extension(client.drx-scattergather.dll drx)
     use_DynamoRIO_extension(client.drx-scattergather.dll drreg)
-    if (proc_supports_avx512)
-      append_property_string(TARGET client.drx-scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
-      set(client.drx-scattergather_runavx512 1)
-    elseif (proc_supports_avx)
-      append_property_string(TARGET client.drx-scattergather COMPILE_FLAGS "${CFLAGS_AVX}")
-      set(client.drx-scattergather_runavx 1)
-    endif ()
+    set_avx_flags(client.drx-scattergather)
+
+    # Our scattergather drbbdup test uses the same app as the base test.
+    set(client.drx-scattergather-bbdup_realtest client.drx-scattergather)
+    set(client.drx-scattergather-bbdup_expectbase "drx-scattergather")
+    tobuild_ci(client.drx-scattergather-bbdup client-interface/drx-scattergather-bbdup.c
+      "" "" "")
+    target_include_directories(client.drx-scattergather PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+    use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drmgr)
+    use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drx)
+    use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drreg)
+    use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drbbdup)
+    set_avx_flags(client.drx-scattergather-bbdup)
 
     if (X64 AND UNIX)
       if (proc_supports_avx)
@@ -2745,10 +2768,7 @@ if (X86)
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
           "-early_inject" "")
         append_pure_asm_app_link_flags(allasm_scattergather)
-        if (proc_supports_avx512)
-          append_property_string(TARGET allasm_scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
-          set(allasm_scattergather_runavx512 1)
-        endif (proc_supports_avx512)
+        set_avx_flags(allasm_scattergather)
       endif (proc_supports_avx)
       add_exe(allasm_repstr
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
@@ -2949,19 +2969,13 @@ link_with_pthread(api.startstop)
 tobuild_api(api.detach api/detach.c "" "" OFF OFF OFF)
 link_with_pthread(api.detach)
 if (LINUX AND X64) # Will take extra work to port to 32-bit.
-  tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF OFF)
+  tobuild_api(api.detach_state api/detach_state.c "" "" OFF ON OFF)
   target_include_directories(api.detach_state PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/api)
   link_with_pthread(api.detach_state)
   set_source_files_properties(detach_state.c_asm.asm APPEND_LIST PROPERTIES
     OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/api/detach_state_shared.h")
-  if (proc_supports_avx512)
-    append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX512}")
-    set(api.detach_state_runavx512 1)
-  elseif (proc_supports_avx)
-    append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX}")
-    set(api.detach_state_runavx 1)
-  endif ()
+  set_avx_flags(api.detach_state)
 endif ()
 if (UNIX)
   if (X64) # TODO i#4664: Fix crash in vsyscall hook under native threads.
@@ -4552,9 +4566,8 @@ if (UNIX)
   # FIXME i#58: port test to MacOS
   if (NOT ARM AND NOT AARCH64 AND NOT APPLE)
     tobuild(linux.sigcontext linux/sigcontext.c)
+    set_avx_flags(linux.sigcontext)
     if (proc_supports_avx512)
-      append_property_string(TARGET linux.sigcontext COMPILE_FLAGS "${CFLAGS_AVX512}")
-      set(linux.sigcontext_runavx512 1)
       if (CLANG)
         append_property_string(TARGET linux.sigcontext COMPILE_FLAGS
           "-mllvm -x86-use-vzeroupper=0")
@@ -4562,9 +4575,6 @@ if (UNIX)
         append_property_string(TARGET linux.sigcontext COMPILE_FLAGS
           "-mno-vzeroupper")
       endif ()
-    elseif (proc_supports_avx)
-      append_property_string(TARGET linux.sigcontext COMPILE_FLAGS "${CFLAGS_AVX}")
-      set(linux.sigcontext_runavx 1)
     endif ()
   endif ()
   if (NOT APPLE)

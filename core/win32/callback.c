@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1315,12 +1315,11 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
                               assume_not_on_dstack, action_after);
     }
 
-    /* now encode the instructions */
-    /* must set note fields first with offset */
+    /* Now encode the instructions, first setting the offset fields. */
     len = 0;
     push_pc = NULL;
     for (inst = instrlist_first(&ilist); inst; inst = instr_get_next(inst)) {
-        instr_set_note(inst, (void *)(ptr_int_t)len);
+        inst->offset = len;
         len += instr_length(dcontext, inst);
     }
     start_pc = pc;

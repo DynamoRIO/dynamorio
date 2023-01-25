@@ -112,18 +112,17 @@ static const uint BLOCK_SIZES[] = {
     /* 40 dbg / 36 rel: */
     ALIGN_FORWARD(sizeof(fragment_t) + sizeof(indirect_linkstub_t), HEAP_ALIGNMENT),
 #if defined(X64)
-    sizeof(instr_t), /* 104 x64 */
 #    ifdef DEBUG
     sizeof(fragment_t) + sizeof(direct_linkstub_t) +
         sizeof(cbr_fallthrough_linkstub_t), /* 112 dbg x64 / 104 rel x64 */
 #    else
-/* release == instr_t */
+    sizeof(instr_t), /* 112 x64 */
 #    endif
 #else
     sizeof(fragment_t) + sizeof(direct_linkstub_t) +
         sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
 #    ifndef DEBUG
-    sizeof(instr_t),                        /* 68 */
+    sizeof(instr_t),                        /* 72 */
 #    endif
 #endif
     /* we keep this bucket even though only 10% or so of normal bbs

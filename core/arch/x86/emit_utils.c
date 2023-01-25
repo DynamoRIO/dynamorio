@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -226,48 +226,48 @@ insert_spill_or_restore(dcontext_t *dcontext, cache_pc pc, uint flags, bool spil
     } else
 #endif /* X64 */
         if (shared) {
-        /* mov %ebx, fs:os_tls_offset(tls_offs) */
-        /* trying hard to keep the size of the stub 5 for eax, 6 else */
-        /* FIXME: case 5231 when staying on trace space is better,
-         * when going through this to the IBL routine speed asks for
-         * not adding the prefix.
-         */
-        bool addr16 = (require_addr16 || use_addr_prefix_on_short_disp());
-        if (addr16) {
-            *pc = ADDR_PREFIX_OPCODE;
-            pc++;
-        }
-        *pc = TLS_SEG_OPCODE;
-        pc++;
-        *pc = opcode;
-        pc++;
-        if (reg != REG_XAX) {
-            /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax
-             * w/o addr16 those are 0x1d, 0x0d, 0x05
+            /* mov %ebx, fs:os_tls_offset(tls_offs) */
+            /* trying hard to keep the size of the stub 5 for eax, 6 else */
+            /* FIXME: case 5231 when staying on trace space is better,
+             * when going through this to the IBL routine speed asks for
+             * not adding the prefix.
              */
-            *pc = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), addr16 ? 6 : 5 /*rm*/);
+            bool addr16 = (require_addr16 || use_addr_prefix_on_short_disp());
+            if (addr16) {
+                *pc = ADDR_PREFIX_OPCODE;
+                pc++;
+            }
+            *pc = TLS_SEG_OPCODE;
             pc++;
-        }
-        if (addr16) {
-            *((ushort *)pc) = os_tls_offset(tls_offs);
-            pc += 2;
+            *pc = opcode;
+            pc++;
+            if (reg != REG_XAX) {
+                /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax
+                 * w/o addr16 those are 0x1d, 0x0d, 0x05
+                 */
+                *pc = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), addr16 ? 6 : 5 /*rm*/);
+                pc++;
+            }
+            if (addr16) {
+                *((ushort *)pc) = os_tls_offset(tls_offs);
+                pc += 2;
+            } else {
+                *((uint *)pc) = os_tls_offset(tls_offs);
+                pc += 4;
+            }
         } else {
-            *((uint *)pc) = os_tls_offset(tls_offs);
+            /* mov %ebx,((int)&dcontext)+dc_offs */
+            *pc = opcode;
+            pc++;
+            if (reg != REG_XAX) {
+                /* 0x1d for ebx, 0x0d for ecx, 0x05 for eax */
+                *pc = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 5 /*rm*/);
+                pc++;
+            }
+            IF_X64(ASSERT_NOT_IMPLEMENTED(false));
+            *((uint *)pc) = (uint)(ptr_uint_t)UNPROT_OFFS(dcontext, dc_offs);
             pc += 4;
         }
-    } else {
-        /* mov %ebx,((int)&dcontext)+dc_offs */
-        *pc = opcode;
-        pc++;
-        if (reg != REG_XAX) {
-            /* 0x1d for ebx, 0x0d for ecx, 0x05 for eax */
-            *pc = MODRM_BYTE(0 /*mod*/, reg_get_bits(reg), 5 /*rm*/);
-            pc++;
-        }
-        IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-        *((uint *)pc) = (uint)(ptr_uint_t)UNPROT_OFFS(dcontext, dc_offs);
-        pc += 4;
-    }
     ASSERT(IF_X64_ELSE(false, !shared) ||
            (pc - start_pc) ==
                (reg == REG_XAX ? SIZE_MOV_XAX_TO_TLS(flags, require_addr16)
@@ -420,7 +420,7 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
                         ASSERT((int)nop_length == instr_length(dcontext, nop_inst));
                         if (emitting) {
                             /* fixup offsets */
-                            instr_set_note(nop_inst, (void *)(ptr_uint_t)offset);
+                            nop_inst->offset = offset;
                             /* only inc stats for emitting, not for recreating */
                             STATS_PAD_JMPS_ADD(f->flags, num_nops, 1);
                             STATS_PAD_JMPS_ADD(f->flags, nop_bytes, nop_length);
@@ -443,7 +443,7 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
             }
         }
         if (emitting)
-            instr_set_note(inst, (void *)(ptr_uint_t)offset); /* used by instr_encode */
+            inst->offset = offset; /* used by instr_encode */
         offset += instr_length(dcontext, inst);
     }
     return start_shift;

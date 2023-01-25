@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -438,9 +438,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
         IF_X64(CLIENT_ASSERT(instr_get_isa_mode(inst) == isa_mode,
                              "single fragment cannot mix x86 and x64 modes"));
         if (!PAD_FRAGMENT_JMPS(flags)) {
-            /* we're going to skip the 2nd pass, save this instr's offset in
-             * the note field (used by instr_encode) */
-            instr_set_note(inst, (void *)(ptr_uint_t)offset);
+            /* We're going to skip the 2nd pass; save the offset for instr_encode. */
+            inst->offset = offset;
         }
         if (instr_ok_to_emit(inst))
             offset += instr_length(dcontext, inst);
@@ -505,7 +504,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
             extra_jmp_padding_body += 2;
             instrlist_append(ilist, INSTR_CREATE_nop(dcontext));
             ASSERT(instr_length(dcontext, instrlist_last(ilist)) == 2);
-            instr_set_note(instrlist_last(ilist), (void *)(ptr_uint_t)offset);
+            instrlist_last(ilist)->offset = offset;
         }
         ASSERT(ALIGNED(offset + extra_jmp_padding_body, PC_LOAD_ADDR_ALIGN));
     }
