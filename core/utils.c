@@ -1779,6 +1779,9 @@ print_file(file_t f, const char *fmt, ...)
  * Returns false if there was not room for the string plus a null,
  * but still prints the maximum that will fit plus a null.
  */
+/* XXX: This is duplicated in ir/decodlib.c's print_to_buffer.
+ * Could we move this into io.c to share it with decodelib?
+ */
 static bool
 vprint_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt,
                  va_list ap)
