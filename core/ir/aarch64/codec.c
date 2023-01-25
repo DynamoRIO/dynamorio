@@ -4943,20 +4943,6 @@ encode_opnd_wx_sz_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_opnd_rn(false, 5, 22, opnd, enc_out);
 }
 
-/* wx_sz_16: W/X register (or WZR/XZR) with size indicated in bit 22 */
-
-static inline bool
-decode_opnd_wx_sz_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_rn(false, 16, 22, enc, opnd);
-}
-
-static inline bool
-encode_opnd_wx_sz_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    return encode_opnd_rn(false, 16, 22, opnd, enc_out);
-}
-
 /* i3_index_19: Index value from 22, 20:19 */
 
 static inline bool
@@ -4975,6 +4961,20 @@ encode_opnd_i3_index_19(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *e
     const uint value = (uint)opnd_get_immed_int(opnd);
     *enc_out = (BITS(value, 2, 2) << 22) | (BITS(value, 1, 0) << 19);
     return true;
+}
+
+/* wx_sz_16: W/X register (or WZR/XZR) with size indicated in bit 22 */
+
+static inline bool
+decode_opnd_wx_sz_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_rn(false, 16, 22, enc, opnd);
+}
+
+static inline bool
+encode_opnd_wx_sz_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_rn(false, 16, 22, opnd, enc_out);
 }
 
 static inline bool
