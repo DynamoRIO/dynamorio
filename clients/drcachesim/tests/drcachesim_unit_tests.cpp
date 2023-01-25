@@ -307,18 +307,18 @@ LLC {
     assert(cache_sim.get_cache_metric(metric_name_t::CHILD_HITS, 3, 0) ==
            num_accesses - 1);
 }
+} // namespace drcachesim_unit_tests
 
 int
 main(int argc, const char *argv[])
 {
-    unit_test_metrics_API();
-    unit_test_compulsory_misses();
-    unit_test_warmup_fraction();
-    unit_test_warmup_refs();
-    unit_test_sim_refs();
-    unit_test_child_hits();
-    unit_test_cache_replacement_policy();
-    unit_test_snoop_filter();
+    drcachesim_unit_tests::unit_test_metrics_API();
+    drcachesim_unit_tests::unit_test_compulsory_misses();
+    drcachesim_unit_tests::unit_test_warmup_fraction();
+    drcachesim_unit_tests::unit_test_warmup_refs();
+    drcachesim_unit_tests::unit_test_sim_refs();
+    drcachesim_unit_tests::unit_test_child_hits();
+    drcachesim_unit_tests::unit_test_cache_replacement_policy();
+    drcachesim_unit_tests::unit_test_snoop_filter();
     return 0;
 }
-} // namespace drcachesim_unit_tests
