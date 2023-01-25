@@ -101,6 +101,9 @@
 ---------------------------xxxxx  q0p2       # Q register, add 2
 ---------------------------xxxxx  q0p3       # Q register, add 3
 ---------------------------xxxxx  prfop      # prefetch operation
+--------------------------x-----  fpimm1_half_one_5 # 1 bit floating-point index, represents 0.5 or 1.0
+--------------------------x-----  fpimm1_zero_one_5 # 1 bit floating-point index, represents 0.0 or 1.0
+--------------------------x-----  fpimm1_half_two_5 # 1 bit floating-point index, represents 0.5 or 2.0
 ------------------------xxx-----  op2        # 3 bit immediate from 5-7
 -----------------------xxxx-----  p_b_5      # P register with a byte element size
 -----------------------xxxx-----  p5         # P register
@@ -156,6 +159,8 @@
 --------------?------??????xxxxx  z_imm13_bhsd_0 # sve vector reg, elsz depending on size value encoded within an 13 bit immediate from 5-17
 --------------xxxxxxxxxxxxx-----  imm13_const # Const value within a 13 bit immediate from 5-17
 -------------xxx----------------  imm3       # 3 bit immediate from 16-18
+-------------xxx----------------  z3_h_16    # Z0-7 register with h size elements at position 16
+-------------xxx----------------  z3_s_16    # Z0-7 register with s size elements at position 16
 -------------xxx--------xxx-----  pstate     # Pstate encoded in op1:op2
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
 -------------xxx------xxxxx-----  imm8       # immediate from 16:18 and 5:9
@@ -164,6 +169,7 @@
 ------------xxxx----------------  p16_zer    # zeroing P register at position 16
 ------------xxxx----------------  p_b_16     # P register with a byte element size at position 16
 ------------xxxx----------------  imm4_16p1  # 4bit imm at 19-16, plus 1
+------------xxxx----------------  z4_d_16     # Z0-15 register with d size elements at position 16
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------?????----------------  bh_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????----------------  bhs_imm5_sz # Size encoded as least significant bit in imm5
@@ -171,6 +177,8 @@
 -----------?????-----------xxxxx  z_tsz_bhsdq_0   # Z register with size encoded in tsz field
 -----------?????------xxxxx-----  z_tsz_bhsdq_5   # Z register with size encoded in tsz field
 -----------?????------xxxxx-----  wx5_imm5   # reg 5-9 d or q is inferred from bits 16:20
+-----------x--------------------  i1_index_20 # Index value from 20
+-----------xx-------------------  i2_index_19 # Index value from 20:19
 -----------xxxxx----------------  imm5       # 5 bit immediate from 16-20
 -----------xxxxx----------------  simm5      # Signed 5 bit immediate from 16-20
 -----------xxxxx----------------  bhs_imm5_sz_s # Size encoded as least significant bit in imm5
@@ -225,6 +233,7 @@
 ---------x----------------------  hs_fsz      # element width of FP vector reg for half or single
 ---------x------------xxxxx-----  dq5_sz     # as dqx, but depending on the sz bit rather than the Q bit
 ---------x------------xxxxx-----  wx_sz_5    # W/X register (or WZR/XZR) with size indicated in bit 22
+---------x-xx-------------------  i3_index_19 # Index value from 22, 20:19
 ---------x-xxxxx----------------  wx_sz_16   # W/X register (or WZR/XZR) with size indicated in bit 22
 ---------++++xxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
 ---------++++xxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
