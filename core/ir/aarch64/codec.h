@@ -78,9 +78,10 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
     CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \
     return false;
 
-#define IF_RETURN_FALSE(condition) \
-    if (condition) {               \
-        RETURN_FALSE               \
+#define IF_RETURN_FALSE(condition)                                 \
+    if (condition) {                                               \
+        CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \
+        return false;                                              \
     }
 
 #endif /* CODEC_H */
