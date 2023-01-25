@@ -4771,6 +4771,34 @@ encode_opnd_dq5_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return encode_opnd_dq_plus(0, 5, 22, opnd, enc_out);
 }
 
+/* wx_sz_5: W/X register (or WZR/XZR) with size indicated in bit 22 */
+
+static inline bool
+decode_opnd_wx_sz_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_rn(false, 5, 22, enc, opnd);
+}
+
+static inline bool
+encode_opnd_wx_sz_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_rn(false, 5, 22, opnd, enc_out);
+}
+
+/* wx_sz_16: W/X register (or WZR/XZR) with size indicated in bit 22 */
+
+static inline bool
+decode_opnd_wx_sz_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_rn(false, 16, 22, enc, opnd);
+}
+
+static inline bool
+encode_opnd_wx_sz_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_rn(false, 16, 22, opnd, enc_out);
+}
+
 static inline bool
 immhb_shf_decode(uint enc, int opcode, byte *pc, OUT opnd_t *opnd, uint min_shift)
 {

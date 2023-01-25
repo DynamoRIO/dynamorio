@@ -11933,6 +11933,82 @@ TEST_INSTR(ucvtf_sve_pred)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
 }
 
+TEST_INSTR(ctermeq)
+{
+    /* Testing CTERMEQ <R><n>, <R><m> */
+    const char *const expected_0_0[6] = {
+        "ctermeq %w0 %w0",   "ctermeq %w5 %w6",   "ctermeq %w10 %w11",
+        "ctermeq %w15 %w16", "ctermeq %w20 %w21", "ctermeq %w30 %w30",
+    };
+    TEST_LOOP(ctermeq, ctermeq, 6, expected_0_0[i], opnd_create_reg(Wn_six_offset_0[i]),
+              opnd_create_reg(Wn_six_offset_1[i]));
+
+    const char *const expected_0_1[6] = {
+        "ctermeq %x0 %x0",   "ctermeq %x5 %x6",   "ctermeq %x10 %x11",
+        "ctermeq %x15 %x16", "ctermeq %x20 %x21", "ctermeq %x30 %x30",
+    };
+    TEST_LOOP(ctermeq, ctermeq, 6, expected_0_1[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_2[i]));
+}
+
+TEST_INSTR(ctermne)
+{
+    /* Testing CTERMNE <R><n>, <R><m> */
+    const char *const expected_0_0[6] = {
+        "ctermne %w0 %w0",   "ctermne %w5 %w6",   "ctermne %w10 %w11",
+        "ctermne %w15 %w16", "ctermne %w20 %w21", "ctermne %w30 %w30",
+    };
+    TEST_LOOP(ctermne, ctermne, 6, expected_0_0[i], opnd_create_reg(Wn_six_offset_0[i]),
+              opnd_create_reg(Wn_six_offset_1[i]));
+
+    const char *const expected_0_1[6] = {
+        "ctermne %x0 %x0",   "ctermne %x5 %x6",   "ctermne %x10 %x11",
+        "ctermne %x15 %x16", "ctermne %x20 %x21", "ctermne %x30 %x30",
+    };
+    TEST_LOOP(ctermne, ctermne, 6, expected_0_1[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_2[i]));
+}
+
+TEST_INSTR(pnext_sve)
+{
+    /* Testing PNEXT   <Pdn>.<Ts>, <Pv>, <Pdn>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "pnext  %p0 %p0.b -> %p0.b",    "pnext  %p3 %p2.b -> %p2.b",
+        "pnext  %p6 %p5.b -> %p5.b",    "pnext  %p9 %p8.b -> %p8.b",
+        "pnext  %p11 %p10.b -> %p10.b", "pnext  %p15 %p15.b -> %p15.b",
+    };
+    TEST_LOOP(pnext, pnext_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Pn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg(Pn_six_offset_1[i]));
+
+    const char *const expected_0_1[6] = {
+        "pnext  %p0 %p0.h -> %p0.h",    "pnext  %p3 %p2.h -> %p2.h",
+        "pnext  %p6 %p5.h -> %p5.h",    "pnext  %p9 %p8.h -> %p8.h",
+        "pnext  %p11 %p10.h -> %p10.h", "pnext  %p15 %p15.h -> %p15.h",
+    };
+    TEST_LOOP(pnext, pnext_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Pn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg(Pn_six_offset_1[i]));
+
+    const char *const expected_0_2[6] = {
+        "pnext  %p0 %p0.s -> %p0.s",    "pnext  %p3 %p2.s -> %p2.s",
+        "pnext  %p6 %p5.s -> %p5.s",    "pnext  %p9 %p8.s -> %p8.s",
+        "pnext  %p11 %p10.s -> %p10.s", "pnext  %p15 %p15.s -> %p15.s",
+    };
+    TEST_LOOP(pnext, pnext_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Pn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg(Pn_six_offset_1[i]));
+
+    const char *const expected_0_3[6] = {
+        "pnext  %p0 %p0.d -> %p0.d",    "pnext  %p3 %p2.d -> %p2.d",
+        "pnext  %p6 %p5.d -> %p5.d",    "pnext  %p9 %p8.d -> %p8.d",
+        "pnext  %p11 %p10.d -> %p10.d", "pnext  %p15 %p15.d -> %p15.d",
+    };
+    TEST_LOOP(pnext, pnext_sve, 6, expected_0_3[i],
+              opnd_create_reg_element_vector(Pn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg(Pn_six_offset_1[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -12288,6 +12364,10 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(frintz_sve_pred);
     RUN_INSTR_TEST(scvtf_sve_pred);
     RUN_INSTR_TEST(ucvtf_sve_pred);
+
+    RUN_INSTR_TEST(ctermeq);
+    RUN_INSTR_TEST(ctermne);
+    RUN_INSTR_TEST(pnext_sve);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

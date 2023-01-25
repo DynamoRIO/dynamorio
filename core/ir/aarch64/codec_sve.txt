@@ -122,6 +122,8 @@
 00000101xx01xxxx01xxxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p16_mrg simm8_5 lsl shift1
 00000101xx101000101xxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p10_mrg_lo wx_size_5_sp
 00000101xx100000100xxxxxxxxxxxxx  n   785  SVE      cpy  z_size_bhsd_0 : p10_mrg_lo bhsd_size_reg5
+001001011x1xxxxx001000xxxxx00000  rw  923  SVE  ctermeq                : wx_sz_5 wx_sz_16
+001001011x1xxxxx001000xxxxx10000  rw  924  SVE  ctermne                : wx_sz_5 wx_sz_16
 000001000011xxxx111001xxxxxxxxxx  n   840  SVE     decb             x0 : x0 pred_constr mul imm4_16p1
 000001001111xxxx111001xxxxxxxxxx  n   841  SVE     decd             x0 : x0 pred_constr mul imm4_16p1
 000001001111xxxx110001xxxxxxxxxx  n   841  SVE     decd          z_d_0 : z_d_0 pred_constr mul imm4_16p1
@@ -286,6 +288,7 @@
 0000010011011000001xxxxxxxxxxxxx  n   919  SVE      orv             d0 : p10_lo z_size_bhsd_5
 0010010100011000111001000000xxxx  n   894  SVE   pfalse          p_b_0 :
 00100101010110001100000xxxx0xxxx  w   895  SVE   pfirst          p_b_0 : p5 p_b_0
+00100101xx0110011100010xxxx0xxxx  w   925  SVE    pnext  p_size_bhsd_0 : p5 p_size_bhsd_0
 001001010101000011xxxx0xxxx00000  w   786  SVE    ptest                : p10 p_b_5
 00100101xx011000111000xxxxx0xxxx  n   897  SVE    ptrue  p_size_bhsd_0 : pred_constr
 00100101xx011001111000xxxxx0xxxx  w   898  SVE   ptrues  p_size_bhsd_0 : pred_constr
