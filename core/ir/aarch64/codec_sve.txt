@@ -44,8 +44,8 @@
 00000100xx1xxxxx000000xxxxxxxxxx  n   9    SVE      add  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
 00000100xx000000000xxxxxxxxxxxxx  n   9    SVE      add  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00100101xx10000011xxxxxxxxxxxxxx  n   9    SVE      add  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
-00000100011xxxxx01010xxxxxxxxxxx  n   926  SVE    addpl           x0sp : x16sp simm6_5
-00000100001xxxxx01010xxxxxxxxxxx  n   927  SVE    addvl           x0sp : x16sp simm6_5
+00000100011xxxxx01010xxxxxxxxxxx  n   934  SVE    addpl           x0sp : x16sp simm6_5
+00000100001xxxxx01010xxxxxxxxxxx  n   935  SVE    addvl           x0sp : x16sp simm6_5
 00000100xx011010000xxxxxxxxxxxxx  n   21   SVE      and             z0 : p10_lo z0 z5 bhsd_sz
 00000101100000xxxxxxxxxxxxxxxxxx  n   21   SVE      and  z_imm13_bhsd_0 : z_imm13_bhsd_0 imm13_const
 001001010000xxxx01xxxx0xxxx0xxxx  n   21   SVE      and          p_b_0 : p10_zer p_b_5 p_b_16
@@ -348,7 +348,7 @@
 0010010100011001111100000000xxxx  n   817  SVE    rdffr          p_b_0 :
 00100101000110001111000xxxx0xxxx  n   817  SVE    rdffr          p_b_0 : p5_zer
 00100101010110001111000xxxx0xxxx  w   818  SVE   rdffrs          p_b_0 : p5_zer
-000001001011111101010xxxxxxxxxxx  n   928  SVE     rdvl             x0 : simm6_5
+000001001011111101010xxxxxxxxxxx  n   936  SVE     rdvl             x0 : simm6_5
 00000101xx1101000100000xxxx0xxxx  n   337  SVE      rev  p_size_bhsd_0 : p_size_bhsd_5
 00000101xx111000001110xxxxxxxxxx  n   337  SVE      rev  z_size_bhsd_0 : z_size_bhsd_5
 00000101xx100100100xxxxxxxxxxxxx  n   883  SVE     revb   z_size_hsd_0 : p10_mrg_lo z_size_hsd_5

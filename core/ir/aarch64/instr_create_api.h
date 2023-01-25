@@ -9930,6 +9930,7 @@
 #define INSTR_CREATE_pnext_sve(dc, Pdn, Pv) \
     instr_create_1dst_2src(dc, OP_pnext, Pdn, Pv, Pdn)
 
+/**
  * Creates a FABD instruction.
  *
  * This macro is used to encode the forms:
