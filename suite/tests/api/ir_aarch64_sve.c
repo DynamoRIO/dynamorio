@@ -14099,7 +14099,6 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(fmul_sve_vector);
     RUN_INSTR_TEST(fmul_sve_idx);
 
-
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER
     dr_standalone_exit();
