@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -201,6 +201,7 @@ bool
 online_instru_t::refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
 {
     trace_entry_t *stamp = reinterpret_cast<trace_entry_t *>(buf_ptr);
+    stamp++; // Skip the tid added by append_unit_header() before the timestamp.
     DR_ASSERT(stamp->type == TRACE_TYPE_MARKER &&
               stamp->size == TRACE_MARKER_TYPE_TIMESTAMP);
     if (stamp->addr < min_timestamp) {
