@@ -81,8 +81,7 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
     }
 
 #define IF_RETURN_FALSE(condition) \
-    if (condition) {               \
-        RETURN_FALSE               \
-    }
+    if (condition)                 \
+    RETURN_FALSE
 
 #endif /* CODEC_H */
