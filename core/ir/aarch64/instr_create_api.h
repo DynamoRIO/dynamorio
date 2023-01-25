@@ -9885,4 +9885,49 @@
 #define INSTR_CREATE_ucvtf_sve_pred(dc, Zd, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ucvtf, Zd, Pg, Zn)
 
+/**
+ * Creates a CTERMEQ instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CTERMEQ <R><n>, <R><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The first source  register. Can be X (Extended, 64 bits) or W
+ *             (Word, 32 bits).
+ * \param Rm   The second source  register. Can be X (Extended, 64 bits) or W
+ *             (Word, 32 bits).
+ */
+#define INSTR_CREATE_ctermeq(dc, Rn, Rm) instr_create_0dst_2src(dc, OP_ctermeq, Rn, Rm)
+
+/**
+ * Creates a CTERMNE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CTERMNE <R><n>, <R><m>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The first source  register. Can be X (Extended, 64 bits) or W
+ *             (Word, 32 bits).
+ * \param Rm   The second source  register. Can be X (Extended, 64 bits) or W
+ *             (Word, 32 bits).
+ */
+#define INSTR_CREATE_ctermne(dc, Rn, Rm) instr_create_0dst_2src(dc, OP_ctermne, Rn, Rm)
+
+/**
+ * Creates a PNEXT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PNEXT   <Pdn>.<Ts>, <Pv>, <Pdn>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pdn   The second source and destination predicate register, P
+ *              (Predicate).
+ * \param Pv   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_pnext_sve(dc, Pdn, Pv) \
+    instr_create_1dst_2src(dc, OP_pnext, Pdn, Pv, Pdn)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
