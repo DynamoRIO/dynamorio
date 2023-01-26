@@ -349,6 +349,268 @@
 043b52fa : addvl x26, x27, #0x17                     : addvl  %x27 $0x17 -> %x26
 043f53ff : addvl sp, sp, #0x1f                       : addvl  %sp $0x1f -> %sp
 
+# ADR     <Zd>.D, [<Zn>.D, <Zm>.D, SXTW <amount>] (ADR-Z.AZ-D.s32.scaled)
+0420a000 : adr z0.d, [z0.d, z0.d, SXTW]              : adr    (%z0.d,%z0.d,sxtw) -> %z0.d
+0424a062 : adr z2.d, [z3.d, z4.d, SXTW]              : adr    (%z3.d,%z4.d,sxtw) -> %z2.d
+0426a0a4 : adr z4.d, [z5.d, z6.d, SXTW]              : adr    (%z5.d,%z6.d,sxtw) -> %z4.d
+0428a0e6 : adr z6.d, [z7.d, z8.d, SXTW]              : adr    (%z7.d,%z8.d,sxtw) -> %z6.d
+042aa128 : adr z8.d, [z9.d, z10.d, SXTW]             : adr    (%z9.d,%z10.d,sxtw) -> %z8.d
+042ca16a : adr z10.d, [z11.d, z12.d, SXTW]           : adr    (%z11.d,%z12.d,sxtw) -> %z10.d
+042ea1ac : adr z12.d, [z13.d, z14.d, SXTW]           : adr    (%z13.d,%z14.d,sxtw) -> %z12.d
+0430a1ee : adr z14.d, [z15.d, z16.d, SXTW]           : adr    (%z15.d,%z16.d,sxtw) -> %z14.d
+0432a230 : adr z16.d, [z17.d, z18.d, SXTW]           : adr    (%z17.d,%z18.d,sxtw) -> %z16.d
+0433a251 : adr z17.d, [z18.d, z19.d, SXTW]           : adr    (%z18.d,%z19.d,sxtw) -> %z17.d
+0435a293 : adr z19.d, [z20.d, z21.d, SXTW]           : adr    (%z20.d,%z21.d,sxtw) -> %z19.d
+0437a2d5 : adr z21.d, [z22.d, z23.d, SXTW]           : adr    (%z22.d,%z23.d,sxtw) -> %z21.d
+0439a317 : adr z23.d, [z24.d, z25.d, SXTW]           : adr    (%z24.d,%z25.d,sxtw) -> %z23.d
+043ba359 : adr z25.d, [z26.d, z27.d, SXTW]           : adr    (%z26.d,%z27.d,sxtw) -> %z25.d
+043da39b : adr z27.d, [z28.d, z29.d, SXTW]           : adr    (%z28.d,%z29.d,sxtw) -> %z27.d
+043fa3ff : adr z31.d, [z31.d, z31.d, SXTW]           : adr    (%z31.d,%z31.d,sxtw) -> %z31.d
+0420a400 : adr z0.d, [z0.d, z0.d, SXTW #1]           : adr    (%z0.d,%z0.d,sxtw #1) -> %z0.d
+0424a462 : adr z2.d, [z3.d, z4.d, SXTW #1]           : adr    (%z3.d,%z4.d,sxtw #1) -> %z2.d
+0426a4a4 : adr z4.d, [z5.d, z6.d, SXTW #1]           : adr    (%z5.d,%z6.d,sxtw #1) -> %z4.d
+0428a4e6 : adr z6.d, [z7.d, z8.d, SXTW #1]           : adr    (%z7.d,%z8.d,sxtw #1) -> %z6.d
+042aa528 : adr z8.d, [z9.d, z10.d, SXTW #1]          : adr    (%z9.d,%z10.d,sxtw #1) -> %z8.d
+042ca56a : adr z10.d, [z11.d, z12.d, SXTW #1]        : adr    (%z11.d,%z12.d,sxtw #1) -> %z10.d
+042ea5ac : adr z12.d, [z13.d, z14.d, SXTW #1]        : adr    (%z13.d,%z14.d,sxtw #1) -> %z12.d
+0430a5ee : adr z14.d, [z15.d, z16.d, SXTW #1]        : adr    (%z15.d,%z16.d,sxtw #1) -> %z14.d
+0432a630 : adr z16.d, [z17.d, z18.d, SXTW #1]        : adr    (%z17.d,%z18.d,sxtw #1) -> %z16.d
+0433a651 : adr z17.d, [z18.d, z19.d, SXTW #1]        : adr    (%z18.d,%z19.d,sxtw #1) -> %z17.d
+0435a693 : adr z19.d, [z20.d, z21.d, SXTW #1]        : adr    (%z20.d,%z21.d,sxtw #1) -> %z19.d
+0437a6d5 : adr z21.d, [z22.d, z23.d, SXTW #1]        : adr    (%z22.d,%z23.d,sxtw #1) -> %z21.d
+0439a717 : adr z23.d, [z24.d, z25.d, SXTW #1]        : adr    (%z24.d,%z25.d,sxtw #1) -> %z23.d
+043ba759 : adr z25.d, [z26.d, z27.d, SXTW #1]        : adr    (%z26.d,%z27.d,sxtw #1) -> %z25.d
+043da79b : adr z27.d, [z28.d, z29.d, SXTW #1]        : adr    (%z28.d,%z29.d,sxtw #1) -> %z27.d
+043fa7ff : adr z31.d, [z31.d, z31.d, SXTW #1]        : adr    (%z31.d,%z31.d,sxtw #1) -> %z31.d
+0420a800 : adr z0.d, [z0.d, z0.d, SXTW #2]           : adr    (%z0.d,%z0.d,sxtw #2) -> %z0.d
+0424a862 : adr z2.d, [z3.d, z4.d, SXTW #2]           : adr    (%z3.d,%z4.d,sxtw #2) -> %z2.d
+0426a8a4 : adr z4.d, [z5.d, z6.d, SXTW #2]           : adr    (%z5.d,%z6.d,sxtw #2) -> %z4.d
+0428a8e6 : adr z6.d, [z7.d, z8.d, SXTW #2]           : adr    (%z7.d,%z8.d,sxtw #2) -> %z6.d
+042aa928 : adr z8.d, [z9.d, z10.d, SXTW #2]          : adr    (%z9.d,%z10.d,sxtw #2) -> %z8.d
+042ca96a : adr z10.d, [z11.d, z12.d, SXTW #2]        : adr    (%z11.d,%z12.d,sxtw #2) -> %z10.d
+042ea9ac : adr z12.d, [z13.d, z14.d, SXTW #2]        : adr    (%z13.d,%z14.d,sxtw #2) -> %z12.d
+0430a9ee : adr z14.d, [z15.d, z16.d, SXTW #2]        : adr    (%z15.d,%z16.d,sxtw #2) -> %z14.d
+0432aa30 : adr z16.d, [z17.d, z18.d, SXTW #2]        : adr    (%z17.d,%z18.d,sxtw #2) -> %z16.d
+0433aa51 : adr z17.d, [z18.d, z19.d, SXTW #2]        : adr    (%z18.d,%z19.d,sxtw #2) -> %z17.d
+0435aa93 : adr z19.d, [z20.d, z21.d, SXTW #2]        : adr    (%z20.d,%z21.d,sxtw #2) -> %z19.d
+0437aad5 : adr z21.d, [z22.d, z23.d, SXTW #2]        : adr    (%z22.d,%z23.d,sxtw #2) -> %z21.d
+0439ab17 : adr z23.d, [z24.d, z25.d, SXTW #2]        : adr    (%z24.d,%z25.d,sxtw #2) -> %z23.d
+043bab59 : adr z25.d, [z26.d, z27.d, SXTW #2]        : adr    (%z26.d,%z27.d,sxtw #2) -> %z25.d
+043dab9b : adr z27.d, [z28.d, z29.d, SXTW #2]        : adr    (%z28.d,%z29.d,sxtw #2) -> %z27.d
+043fabff : adr z31.d, [z31.d, z31.d, SXTW #2]        : adr    (%z31.d,%z31.d,sxtw #2) -> %z31.d
+0420ac00 : adr z0.d, [z0.d, z0.d, SXTW #3]           : adr    (%z0.d,%z0.d,sxtw #3) -> %z0.d
+0424ac62 : adr z2.d, [z3.d, z4.d, SXTW #3]           : adr    (%z3.d,%z4.d,sxtw #3) -> %z2.d
+0426aca4 : adr z4.d, [z5.d, z6.d, SXTW #3]           : adr    (%z5.d,%z6.d,sxtw #3) -> %z4.d
+0428ace6 : adr z6.d, [z7.d, z8.d, SXTW #3]           : adr    (%z7.d,%z8.d,sxtw #3) -> %z6.d
+042aad28 : adr z8.d, [z9.d, z10.d, SXTW #3]          : adr    (%z9.d,%z10.d,sxtw #3) -> %z8.d
+042cad6a : adr z10.d, [z11.d, z12.d, SXTW #3]        : adr    (%z11.d,%z12.d,sxtw #3) -> %z10.d
+042eadac : adr z12.d, [z13.d, z14.d, SXTW #3]        : adr    (%z13.d,%z14.d,sxtw #3) -> %z12.d
+0430adee : adr z14.d, [z15.d, z16.d, SXTW #3]        : adr    (%z15.d,%z16.d,sxtw #3) -> %z14.d
+0432ae30 : adr z16.d, [z17.d, z18.d, SXTW #3]        : adr    (%z17.d,%z18.d,sxtw #3) -> %z16.d
+0433ae51 : adr z17.d, [z18.d, z19.d, SXTW #3]        : adr    (%z18.d,%z19.d,sxtw #3) -> %z17.d
+0435ae93 : adr z19.d, [z20.d, z21.d, SXTW #3]        : adr    (%z20.d,%z21.d,sxtw #3) -> %z19.d
+0437aed5 : adr z21.d, [z22.d, z23.d, SXTW #3]        : adr    (%z22.d,%z23.d,sxtw #3) -> %z21.d
+0439af17 : adr z23.d, [z24.d, z25.d, SXTW #3]        : adr    (%z24.d,%z25.d,sxtw #3) -> %z23.d
+043baf59 : adr z25.d, [z26.d, z27.d, SXTW #3]        : adr    (%z26.d,%z27.d,sxtw #3) -> %z25.d
+043daf9b : adr z27.d, [z28.d, z29.d, SXTW #3]        : adr    (%z28.d,%z29.d,sxtw #3) -> %z27.d
+043fafff : adr z31.d, [z31.d, z31.d, SXTW #3]        : adr    (%z31.d,%z31.d,sxtw #3) -> %z31.d
+
+# ADR     <Zd>.D, [<Zn>.D, <Zm>.D, UXTW <amount>] (ADR-Z.AZ-D.u32.scaled)
+0460a000 : adr z0.d, [z0.d, z0.d, UXTW]              : adr    (%z0.d,%z0.d,uxtw) -> %z0.d
+0464a062 : adr z2.d, [z3.d, z4.d, UXTW]              : adr    (%z3.d,%z4.d,uxtw) -> %z2.d
+0466a0a4 : adr z4.d, [z5.d, z6.d, UXTW]              : adr    (%z5.d,%z6.d,uxtw) -> %z4.d
+0468a0e6 : adr z6.d, [z7.d, z8.d, UXTW]              : adr    (%z7.d,%z8.d,uxtw) -> %z6.d
+046aa128 : adr z8.d, [z9.d, z10.d, UXTW]             : adr    (%z9.d,%z10.d,uxtw) -> %z8.d
+046ca16a : adr z10.d, [z11.d, z12.d, UXTW]           : adr    (%z11.d,%z12.d,uxtw) -> %z10.d
+046ea1ac : adr z12.d, [z13.d, z14.d, UXTW]           : adr    (%z13.d,%z14.d,uxtw) -> %z12.d
+0470a1ee : adr z14.d, [z15.d, z16.d, UXTW]           : adr    (%z15.d,%z16.d,uxtw) -> %z14.d
+0472a230 : adr z16.d, [z17.d, z18.d, UXTW]           : adr    (%z17.d,%z18.d,uxtw) -> %z16.d
+0473a251 : adr z17.d, [z18.d, z19.d, UXTW]           : adr    (%z18.d,%z19.d,uxtw) -> %z17.d
+0475a293 : adr z19.d, [z20.d, z21.d, UXTW]           : adr    (%z20.d,%z21.d,uxtw) -> %z19.d
+0477a2d5 : adr z21.d, [z22.d, z23.d, UXTW]           : adr    (%z22.d,%z23.d,uxtw) -> %z21.d
+0479a317 : adr z23.d, [z24.d, z25.d, UXTW]           : adr    (%z24.d,%z25.d,uxtw) -> %z23.d
+047ba359 : adr z25.d, [z26.d, z27.d, UXTW]           : adr    (%z26.d,%z27.d,uxtw) -> %z25.d
+047da39b : adr z27.d, [z28.d, z29.d, UXTW]           : adr    (%z28.d,%z29.d,uxtw) -> %z27.d
+047fa3ff : adr z31.d, [z31.d, z31.d, UXTW]           : adr    (%z31.d,%z31.d,uxtw) -> %z31.d
+0460a400 : adr z0.d, [z0.d, z0.d, UXTW #1]           : adr    (%z0.d,%z0.d,uxtw #1) -> %z0.d
+0464a462 : adr z2.d, [z3.d, z4.d, UXTW #1]           : adr    (%z3.d,%z4.d,uxtw #1) -> %z2.d
+0466a4a4 : adr z4.d, [z5.d, z6.d, UXTW #1]           : adr    (%z5.d,%z6.d,uxtw #1) -> %z4.d
+0468a4e6 : adr z6.d, [z7.d, z8.d, UXTW #1]           : adr    (%z7.d,%z8.d,uxtw #1) -> %z6.d
+046aa528 : adr z8.d, [z9.d, z10.d, UXTW #1]          : adr    (%z9.d,%z10.d,uxtw #1) -> %z8.d
+046ca56a : adr z10.d, [z11.d, z12.d, UXTW #1]        : adr    (%z11.d,%z12.d,uxtw #1) -> %z10.d
+046ea5ac : adr z12.d, [z13.d, z14.d, UXTW #1]        : adr    (%z13.d,%z14.d,uxtw #1) -> %z12.d
+0470a5ee : adr z14.d, [z15.d, z16.d, UXTW #1]        : adr    (%z15.d,%z16.d,uxtw #1) -> %z14.d
+0472a630 : adr z16.d, [z17.d, z18.d, UXTW #1]        : adr    (%z17.d,%z18.d,uxtw #1) -> %z16.d
+0473a651 : adr z17.d, [z18.d, z19.d, UXTW #1]        : adr    (%z18.d,%z19.d,uxtw #1) -> %z17.d
+0475a693 : adr z19.d, [z20.d, z21.d, UXTW #1]        : adr    (%z20.d,%z21.d,uxtw #1) -> %z19.d
+0477a6d5 : adr z21.d, [z22.d, z23.d, UXTW #1]        : adr    (%z22.d,%z23.d,uxtw #1) -> %z21.d
+0479a717 : adr z23.d, [z24.d, z25.d, UXTW #1]        : adr    (%z24.d,%z25.d,uxtw #1) -> %z23.d
+047ba759 : adr z25.d, [z26.d, z27.d, UXTW #1]        : adr    (%z26.d,%z27.d,uxtw #1) -> %z25.d
+047da79b : adr z27.d, [z28.d, z29.d, UXTW #1]        : adr    (%z28.d,%z29.d,uxtw #1) -> %z27.d
+047fa7ff : adr z31.d, [z31.d, z31.d, UXTW #1]        : adr    (%z31.d,%z31.d,uxtw #1) -> %z31.d
+0460a800 : adr z0.d, [z0.d, z0.d, UXTW #2]           : adr    (%z0.d,%z0.d,uxtw #2) -> %z0.d
+0464a862 : adr z2.d, [z3.d, z4.d, UXTW #2]           : adr    (%z3.d,%z4.d,uxtw #2) -> %z2.d
+0466a8a4 : adr z4.d, [z5.d, z6.d, UXTW #2]           : adr    (%z5.d,%z6.d,uxtw #2) -> %z4.d
+0468a8e6 : adr z6.d, [z7.d, z8.d, UXTW #2]           : adr    (%z7.d,%z8.d,uxtw #2) -> %z6.d
+046aa928 : adr z8.d, [z9.d, z10.d, UXTW #2]          : adr    (%z9.d,%z10.d,uxtw #2) -> %z8.d
+046ca96a : adr z10.d, [z11.d, z12.d, UXTW #2]        : adr    (%z11.d,%z12.d,uxtw #2) -> %z10.d
+046ea9ac : adr z12.d, [z13.d, z14.d, UXTW #2]        : adr    (%z13.d,%z14.d,uxtw #2) -> %z12.d
+0470a9ee : adr z14.d, [z15.d, z16.d, UXTW #2]        : adr    (%z15.d,%z16.d,uxtw #2) -> %z14.d
+0472aa30 : adr z16.d, [z17.d, z18.d, UXTW #2]        : adr    (%z17.d,%z18.d,uxtw #2) -> %z16.d
+0473aa51 : adr z17.d, [z18.d, z19.d, UXTW #2]        : adr    (%z18.d,%z19.d,uxtw #2) -> %z17.d
+0475aa93 : adr z19.d, [z20.d, z21.d, UXTW #2]        : adr    (%z20.d,%z21.d,uxtw #2) -> %z19.d
+0477aad5 : adr z21.d, [z22.d, z23.d, UXTW #2]        : adr    (%z22.d,%z23.d,uxtw #2) -> %z21.d
+0479ab17 : adr z23.d, [z24.d, z25.d, UXTW #2]        : adr    (%z24.d,%z25.d,uxtw #2) -> %z23.d
+047bab59 : adr z25.d, [z26.d, z27.d, UXTW #2]        : adr    (%z26.d,%z27.d,uxtw #2) -> %z25.d
+047dab9b : adr z27.d, [z28.d, z29.d, UXTW #2]        : adr    (%z28.d,%z29.d,uxtw #2) -> %z27.d
+047fabff : adr z31.d, [z31.d, z31.d, UXTW #2]        : adr    (%z31.d,%z31.d,uxtw #2) -> %z31.d
+0460ac00 : adr z0.d, [z0.d, z0.d, UXTW #3]           : adr    (%z0.d,%z0.d,uxtw #3) -> %z0.d
+0464ac62 : adr z2.d, [z3.d, z4.d, UXTW #3]           : adr    (%z3.d,%z4.d,uxtw #3) -> %z2.d
+0466aca4 : adr z4.d, [z5.d, z6.d, UXTW #3]           : adr    (%z5.d,%z6.d,uxtw #3) -> %z4.d
+0468ace6 : adr z6.d, [z7.d, z8.d, UXTW #3]           : adr    (%z7.d,%z8.d,uxtw #3) -> %z6.d
+046aad28 : adr z8.d, [z9.d, z10.d, UXTW #3]          : adr    (%z9.d,%z10.d,uxtw #3) -> %z8.d
+046cad6a : adr z10.d, [z11.d, z12.d, UXTW #3]        : adr    (%z11.d,%z12.d,uxtw #3) -> %z10.d
+046eadac : adr z12.d, [z13.d, z14.d, UXTW #3]        : adr    (%z13.d,%z14.d,uxtw #3) -> %z12.d
+0470adee : adr z14.d, [z15.d, z16.d, UXTW #3]        : adr    (%z15.d,%z16.d,uxtw #3) -> %z14.d
+0472ae30 : adr z16.d, [z17.d, z18.d, UXTW #3]        : adr    (%z17.d,%z18.d,uxtw #3) -> %z16.d
+0473ae51 : adr z17.d, [z18.d, z19.d, UXTW #3]        : adr    (%z18.d,%z19.d,uxtw #3) -> %z17.d
+0475ae93 : adr z19.d, [z20.d, z21.d, UXTW #3]        : adr    (%z20.d,%z21.d,uxtw #3) -> %z19.d
+0477aed5 : adr z21.d, [z22.d, z23.d, UXTW #3]        : adr    (%z22.d,%z23.d,uxtw #3) -> %z21.d
+0479af17 : adr z23.d, [z24.d, z25.d, UXTW #3]        : adr    (%z24.d,%z25.d,uxtw #3) -> %z23.d
+047baf59 : adr z25.d, [z26.d, z27.d, UXTW #3]        : adr    (%z26.d,%z27.d,uxtw #3) -> %z25.d
+047daf9b : adr z27.d, [z28.d, z29.d, UXTW #3]        : adr    (%z28.d,%z29.d,uxtw #3) -> %z27.d
+047fafff : adr z31.d, [z31.d, z31.d, UXTW #3]        : adr    (%z31.d,%z31.d,uxtw #3) -> %z31.d
+
+# ADR     <Zd>.<T>, [<Zn>.<T>, <Zm>.<T>, <extend> <amount>] (ADR-Z.AZ-SD.same.scaled)
+04a0a000 : adr z0.s, [z0.s, z0.s]                    : adr    (%z0.s,%z0.s) -> %z0.s
+04a4a062 : adr z2.s, [z3.s, z4.s]                    : adr    (%z3.s,%z4.s) -> %z2.s
+04a6a0a4 : adr z4.s, [z5.s, z6.s]                    : adr    (%z5.s,%z6.s) -> %z4.s
+04a8a0e6 : adr z6.s, [z7.s, z8.s]                    : adr    (%z7.s,%z8.s) -> %z6.s
+04aaa128 : adr z8.s, [z9.s, z10.s]                   : adr    (%z9.s,%z10.s) -> %z8.s
+04aca16a : adr z10.s, [z11.s, z12.s]                 : adr    (%z11.s,%z12.s) -> %z10.s
+04aea1ac : adr z12.s, [z13.s, z14.s]                 : adr    (%z13.s,%z14.s) -> %z12.s
+04b0a1ee : adr z14.s, [z15.s, z16.s]                 : adr    (%z15.s,%z16.s) -> %z14.s
+04b2a230 : adr z16.s, [z17.s, z18.s]                 : adr    (%z17.s,%z18.s) -> %z16.s
+04b3a251 : adr z17.s, [z18.s, z19.s]                 : adr    (%z18.s,%z19.s) -> %z17.s
+04b5a293 : adr z19.s, [z20.s, z21.s]                 : adr    (%z20.s,%z21.s) -> %z19.s
+04b7a2d5 : adr z21.s, [z22.s, z23.s]                 : adr    (%z22.s,%z23.s) -> %z21.s
+04b9a317 : adr z23.s, [z24.s, z25.s]                 : adr    (%z24.s,%z25.s) -> %z23.s
+04bba359 : adr z25.s, [z26.s, z27.s]                 : adr    (%z26.s,%z27.s) -> %z25.s
+04bda39b : adr z27.s, [z28.s, z29.s]                 : adr    (%z28.s,%z29.s) -> %z27.s
+04bfa3ff : adr z31.s, [z31.s, z31.s]                 : adr    (%z31.s,%z31.s) -> %z31.s
+04a0a400 : adr z0.s, [z0.s, z0.s, LSL #1]            : adr    (%z0.s,%z0.s,lsl #1) -> %z0.s
+04a4a462 : adr z2.s, [z3.s, z4.s, LSL #1]            : adr    (%z3.s,%z4.s,lsl #1) -> %z2.s
+04a6a4a4 : adr z4.s, [z5.s, z6.s, LSL #1]            : adr    (%z5.s,%z6.s,lsl #1) -> %z4.s
+04a8a4e6 : adr z6.s, [z7.s, z8.s, LSL #1]            : adr    (%z7.s,%z8.s,lsl #1) -> %z6.s
+04aaa528 : adr z8.s, [z9.s, z10.s, LSL #1]           : adr    (%z9.s,%z10.s,lsl #1) -> %z8.s
+04aca56a : adr z10.s, [z11.s, z12.s, LSL #1]         : adr    (%z11.s,%z12.s,lsl #1) -> %z10.s
+04aea5ac : adr z12.s, [z13.s, z14.s, LSL #1]         : adr    (%z13.s,%z14.s,lsl #1) -> %z12.s
+04b0a5ee : adr z14.s, [z15.s, z16.s, LSL #1]         : adr    (%z15.s,%z16.s,lsl #1) -> %z14.s
+04b2a630 : adr z16.s, [z17.s, z18.s, LSL #1]         : adr    (%z17.s,%z18.s,lsl #1) -> %z16.s
+04b3a651 : adr z17.s, [z18.s, z19.s, LSL #1]         : adr    (%z18.s,%z19.s,lsl #1) -> %z17.s
+04b5a693 : adr z19.s, [z20.s, z21.s, LSL #1]         : adr    (%z20.s,%z21.s,lsl #1) -> %z19.s
+04b7a6d5 : adr z21.s, [z22.s, z23.s, LSL #1]         : adr    (%z22.s,%z23.s,lsl #1) -> %z21.s
+04b9a717 : adr z23.s, [z24.s, z25.s, LSL #1]         : adr    (%z24.s,%z25.s,lsl #1) -> %z23.s
+04bba759 : adr z25.s, [z26.s, z27.s, LSL #1]         : adr    (%z26.s,%z27.s,lsl #1) -> %z25.s
+04bda79b : adr z27.s, [z28.s, z29.s, LSL #1]         : adr    (%z28.s,%z29.s,lsl #1) -> %z27.s
+04bfa7ff : adr z31.s, [z31.s, z31.s, LSL #1]         : adr    (%z31.s,%z31.s,lsl #1) -> %z31.s
+04a0a800 : adr z0.s, [z0.s, z0.s, LSL #2]            : adr    (%z0.s,%z0.s,lsl #2) -> %z0.s
+04a4a862 : adr z2.s, [z3.s, z4.s, LSL #2]            : adr    (%z3.s,%z4.s,lsl #2) -> %z2.s
+04a6a8a4 : adr z4.s, [z5.s, z6.s, LSL #2]            : adr    (%z5.s,%z6.s,lsl #2) -> %z4.s
+04a8a8e6 : adr z6.s, [z7.s, z8.s, LSL #2]            : adr    (%z7.s,%z8.s,lsl #2) -> %z6.s
+04aaa928 : adr z8.s, [z9.s, z10.s, LSL #2]           : adr    (%z9.s,%z10.s,lsl #2) -> %z8.s
+04aca96a : adr z10.s, [z11.s, z12.s, LSL #2]         : adr    (%z11.s,%z12.s,lsl #2) -> %z10.s
+04aea9ac : adr z12.s, [z13.s, z14.s, LSL #2]         : adr    (%z13.s,%z14.s,lsl #2) -> %z12.s
+04b0a9ee : adr z14.s, [z15.s, z16.s, LSL #2]         : adr    (%z15.s,%z16.s,lsl #2) -> %z14.s
+04b2aa30 : adr z16.s, [z17.s, z18.s, LSL #2]         : adr    (%z17.s,%z18.s,lsl #2) -> %z16.s
+04b3aa51 : adr z17.s, [z18.s, z19.s, LSL #2]         : adr    (%z18.s,%z19.s,lsl #2) -> %z17.s
+04b5aa93 : adr z19.s, [z20.s, z21.s, LSL #2]         : adr    (%z20.s,%z21.s,lsl #2) -> %z19.s
+04b7aad5 : adr z21.s, [z22.s, z23.s, LSL #2]         : adr    (%z22.s,%z23.s,lsl #2) -> %z21.s
+04b9ab17 : adr z23.s, [z24.s, z25.s, LSL #2]         : adr    (%z24.s,%z25.s,lsl #2) -> %z23.s
+04bbab59 : adr z25.s, [z26.s, z27.s, LSL #2]         : adr    (%z26.s,%z27.s,lsl #2) -> %z25.s
+04bdab9b : adr z27.s, [z28.s, z29.s, LSL #2]         : adr    (%z28.s,%z29.s,lsl #2) -> %z27.s
+04bfabff : adr z31.s, [z31.s, z31.s, LSL #2]         : adr    (%z31.s,%z31.s,lsl #2) -> %z31.s
+04a0ac00 : adr z0.s, [z0.s, z0.s, LSL #3]            : adr    (%z0.s,%z0.s,lsl #3) -> %z0.s
+04a4ac62 : adr z2.s, [z3.s, z4.s, LSL #3]            : adr    (%z3.s,%z4.s,lsl #3) -> %z2.s
+04a6aca4 : adr z4.s, [z5.s, z6.s, LSL #3]            : adr    (%z5.s,%z6.s,lsl #3) -> %z4.s
+04a8ace6 : adr z6.s, [z7.s, z8.s, LSL #3]            : adr    (%z7.s,%z8.s,lsl #3) -> %z6.s
+04aaad28 : adr z8.s, [z9.s, z10.s, LSL #3]           : adr    (%z9.s,%z10.s,lsl #3) -> %z8.s
+04acad6a : adr z10.s, [z11.s, z12.s, LSL #3]         : adr    (%z11.s,%z12.s,lsl #3) -> %z10.s
+04aeadac : adr z12.s, [z13.s, z14.s, LSL #3]         : adr    (%z13.s,%z14.s,lsl #3) -> %z12.s
+04b0adee : adr z14.s, [z15.s, z16.s, LSL #3]         : adr    (%z15.s,%z16.s,lsl #3) -> %z14.s
+04b2ae30 : adr z16.s, [z17.s, z18.s, LSL #3]         : adr    (%z17.s,%z18.s,lsl #3) -> %z16.s
+04b3ae51 : adr z17.s, [z18.s, z19.s, LSL #3]         : adr    (%z18.s,%z19.s,lsl #3) -> %z17.s
+04b5ae93 : adr z19.s, [z20.s, z21.s, LSL #3]         : adr    (%z20.s,%z21.s,lsl #3) -> %z19.s
+04b7aed5 : adr z21.s, [z22.s, z23.s, LSL #3]         : adr    (%z22.s,%z23.s,lsl #3) -> %z21.s
+04b9af17 : adr z23.s, [z24.s, z25.s, LSL #3]         : adr    (%z24.s,%z25.s,lsl #3) -> %z23.s
+04bbaf59 : adr z25.s, [z26.s, z27.s, LSL #3]         : adr    (%z26.s,%z27.s,lsl #3) -> %z25.s
+04bdaf9b : adr z27.s, [z28.s, z29.s, LSL #3]         : adr    (%z28.s,%z29.s,lsl #3) -> %z27.s
+04bfafff : adr z31.s, [z31.s, z31.s, LSL #3]         : adr    (%z31.s,%z31.s,lsl #3) -> %z31.s
+04e0a000 : adr z0.d, [z0.d, z0.d]                    : adr    (%z0.d,%z0.d) -> %z0.d
+04e4a062 : adr z2.d, [z3.d, z4.d]                    : adr    (%z3.d,%z4.d) -> %z2.d
+04e6a0a4 : adr z4.d, [z5.d, z6.d]                    : adr    (%z5.d,%z6.d) -> %z4.d
+04e8a0e6 : adr z6.d, [z7.d, z8.d]                    : adr    (%z7.d,%z8.d) -> %z6.d
+04eaa128 : adr z8.d, [z9.d, z10.d]                   : adr    (%z9.d,%z10.d) -> %z8.d
+04eca16a : adr z10.d, [z11.d, z12.d]                 : adr    (%z11.d,%z12.d) -> %z10.d
+04eea1ac : adr z12.d, [z13.d, z14.d]                 : adr    (%z13.d,%z14.d) -> %z12.d
+04f0a1ee : adr z14.d, [z15.d, z16.d]                 : adr    (%z15.d,%z16.d) -> %z14.d
+04f2a230 : adr z16.d, [z17.d, z18.d]                 : adr    (%z17.d,%z18.d) -> %z16.d
+04f3a251 : adr z17.d, [z18.d, z19.d]                 : adr    (%z18.d,%z19.d) -> %z17.d
+04f5a293 : adr z19.d, [z20.d, z21.d]                 : adr    (%z20.d,%z21.d) -> %z19.d
+04f7a2d5 : adr z21.d, [z22.d, z23.d]                 : adr    (%z22.d,%z23.d) -> %z21.d
+04f9a317 : adr z23.d, [z24.d, z25.d]                 : adr    (%z24.d,%z25.d) -> %z23.d
+04fba359 : adr z25.d, [z26.d, z27.d]                 : adr    (%z26.d,%z27.d) -> %z25.d
+04fda39b : adr z27.d, [z28.d, z29.d]                 : adr    (%z28.d,%z29.d) -> %z27.d
+04ffa3ff : adr z31.d, [z31.d, z31.d]                 : adr    (%z31.d,%z31.d) -> %z31.d
+04e0a400 : adr z0.d, [z0.d, z0.d, LSL #1]            : adr    (%z0.d,%z0.d,lsl #1) -> %z0.d
+04e4a462 : adr z2.d, [z3.d, z4.d, LSL #1]            : adr    (%z3.d,%z4.d,lsl #1) -> %z2.d
+04e6a4a4 : adr z4.d, [z5.d, z6.d, LSL #1]            : adr    (%z5.d,%z6.d,lsl #1) -> %z4.d
+04e8a4e6 : adr z6.d, [z7.d, z8.d, LSL #1]            : adr    (%z7.d,%z8.d,lsl #1) -> %z6.d
+04eaa528 : adr z8.d, [z9.d, z10.d, LSL #1]           : adr    (%z9.d,%z10.d,lsl #1) -> %z8.d
+04eca56a : adr z10.d, [z11.d, z12.d, LSL #1]         : adr    (%z11.d,%z12.d,lsl #1) -> %z10.d
+04eea5ac : adr z12.d, [z13.d, z14.d, LSL #1]         : adr    (%z13.d,%z14.d,lsl #1) -> %z12.d
+04f0a5ee : adr z14.d, [z15.d, z16.d, LSL #1]         : adr    (%z15.d,%z16.d,lsl #1) -> %z14.d
+04f2a630 : adr z16.d, [z17.d, z18.d, LSL #1]         : adr    (%z17.d,%z18.d,lsl #1) -> %z16.d
+04f3a651 : adr z17.d, [z18.d, z19.d, LSL #1]         : adr    (%z18.d,%z19.d,lsl #1) -> %z17.d
+04f5a693 : adr z19.d, [z20.d, z21.d, LSL #1]         : adr    (%z20.d,%z21.d,lsl #1) -> %z19.d
+04f7a6d5 : adr z21.d, [z22.d, z23.d, LSL #1]         : adr    (%z22.d,%z23.d,lsl #1) -> %z21.d
+04f9a717 : adr z23.d, [z24.d, z25.d, LSL #1]         : adr    (%z24.d,%z25.d,lsl #1) -> %z23.d
+04fba759 : adr z25.d, [z26.d, z27.d, LSL #1]         : adr    (%z26.d,%z27.d,lsl #1) -> %z25.d
+04fda79b : adr z27.d, [z28.d, z29.d, LSL #1]         : adr    (%z28.d,%z29.d,lsl #1) -> %z27.d
+04ffa7ff : adr z31.d, [z31.d, z31.d, LSL #1]         : adr    (%z31.d,%z31.d,lsl #1) -> %z31.d
+04e0a800 : adr z0.d, [z0.d, z0.d, LSL #2]            : adr    (%z0.d,%z0.d,lsl #2) -> %z0.d
+04e4a862 : adr z2.d, [z3.d, z4.d, LSL #2]            : adr    (%z3.d,%z4.d,lsl #2) -> %z2.d
+04e6a8a4 : adr z4.d, [z5.d, z6.d, LSL #2]            : adr    (%z5.d,%z6.d,lsl #2) -> %z4.d
+04e8a8e6 : adr z6.d, [z7.d, z8.d, LSL #2]            : adr    (%z7.d,%z8.d,lsl #2) -> %z6.d
+04eaa928 : adr z8.d, [z9.d, z10.d, LSL #2]           : adr    (%z9.d,%z10.d,lsl #2) -> %z8.d
+04eca96a : adr z10.d, [z11.d, z12.d, LSL #2]         : adr    (%z11.d,%z12.d,lsl #2) -> %z10.d
+04eea9ac : adr z12.d, [z13.d, z14.d, LSL #2]         : adr    (%z13.d,%z14.d,lsl #2) -> %z12.d
+04f0a9ee : adr z14.d, [z15.d, z16.d, LSL #2]         : adr    (%z15.d,%z16.d,lsl #2) -> %z14.d
+04f2aa30 : adr z16.d, [z17.d, z18.d, LSL #2]         : adr    (%z17.d,%z18.d,lsl #2) -> %z16.d
+04f3aa51 : adr z17.d, [z18.d, z19.d, LSL #2]         : adr    (%z18.d,%z19.d,lsl #2) -> %z17.d
+04f5aa93 : adr z19.d, [z20.d, z21.d, LSL #2]         : adr    (%z20.d,%z21.d,lsl #2) -> %z19.d
+04f7aad5 : adr z21.d, [z22.d, z23.d, LSL #2]         : adr    (%z22.d,%z23.d,lsl #2) -> %z21.d
+04f9ab17 : adr z23.d, [z24.d, z25.d, LSL #2]         : adr    (%z24.d,%z25.d,lsl #2) -> %z23.d
+04fbab59 : adr z25.d, [z26.d, z27.d, LSL #2]         : adr    (%z26.d,%z27.d,lsl #2) -> %z25.d
+04fdab9b : adr z27.d, [z28.d, z29.d, LSL #2]         : adr    (%z28.d,%z29.d,lsl #2) -> %z27.d
+04ffabff : adr z31.d, [z31.d, z31.d, LSL #2]         : adr    (%z31.d,%z31.d,lsl #2) -> %z31.d
+04e0ac00 : adr z0.d, [z0.d, z0.d, LSL #3]            : adr    (%z0.d,%z0.d,lsl #3) -> %z0.d
+04e4ac62 : adr z2.d, [z3.d, z4.d, LSL #3]            : adr    (%z3.d,%z4.d,lsl #3) -> %z2.d
+04e6aca4 : adr z4.d, [z5.d, z6.d, LSL #3]            : adr    (%z5.d,%z6.d,lsl #3) -> %z4.d
+04e8ace6 : adr z6.d, [z7.d, z8.d, LSL #3]            : adr    (%z7.d,%z8.d,lsl #3) -> %z6.d
+04eaad28 : adr z8.d, [z9.d, z10.d, LSL #3]           : adr    (%z9.d,%z10.d,lsl #3) -> %z8.d
+04ecad6a : adr z10.d, [z11.d, z12.d, LSL #3]         : adr    (%z11.d,%z12.d,lsl #3) -> %z10.d
+04eeadac : adr z12.d, [z13.d, z14.d, LSL #3]         : adr    (%z13.d,%z14.d,lsl #3) -> %z12.d
+04f0adee : adr z14.d, [z15.d, z16.d, LSL #3]         : adr    (%z15.d,%z16.d,lsl #3) -> %z14.d
+04f2ae30 : adr z16.d, [z17.d, z18.d, LSL #3]         : adr    (%z17.d,%z18.d,lsl #3) -> %z16.d
+04f3ae51 : adr z17.d, [z18.d, z19.d, LSL #3]         : adr    (%z18.d,%z19.d,lsl #3) -> %z17.d
+04f5ae93 : adr z19.d, [z20.d, z21.d, LSL #3]         : adr    (%z20.d,%z21.d,lsl #3) -> %z19.d
+04f7aed5 : adr z21.d, [z22.d, z23.d, LSL #3]         : adr    (%z22.d,%z23.d,lsl #3) -> %z21.d
+04f9af17 : adr z23.d, [z24.d, z25.d, LSL #3]         : adr    (%z24.d,%z25.d,lsl #3) -> %z23.d
+04fbaf59 : adr z25.d, [z26.d, z27.d, LSL #3]         : adr    (%z26.d,%z27.d,lsl #3) -> %z25.d
+04fdaf9b : adr z27.d, [z28.d, z29.d, LSL #3]         : adr    (%z28.d,%z29.d,lsl #3) -> %z27.d
+04ffafff : adr z31.d, [z31.d, z31.d, LSL #3]         : adr    (%z31.d,%z31.d,lsl #3) -> %z31.d
+
 041a06ff : and z31.b, p1/m, z31.b, z23.b            : and    %p1 %z31 %z23 $0x00 -> %z31
 045a06ff : and z31.h, p1/m, z31.h, z23.h            : and    %p1 %z31 %z23 $0x01 -> %z31
 049a06ff : and z31.s, p1/m, z31.s, z23.s            : and    %p1 %z31 %z23 $0x02 -> %z31

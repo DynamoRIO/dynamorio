@@ -442,6 +442,12 @@ reg_is_fp(reg_id_t reg)
 }
 
 bool
+reg_is_z(reg_id_t reg)
+{
+    return DR_REG_Z0 <= reg && reg <= DR_REG_Z31;
+}
+
+bool
 instr_is_nop(instr_t *instr)
 {
     uint opc = instr_get_opcode(instr);

@@ -5251,6 +5251,38 @@ encode_opnd_hs_fsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return false;
 }
 
+/* z_sz_sd  # sve vector reg, element size depending on sz. */
+
+static inline bool
+encode_opnd_z_sz_sd(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_reg(opnd))
+
+    const uint reg_number = (uint)(opnd_get_reg(opnd) - DR_REG_Z0);
+    IF_RETURN_FALSE(!(reg_number < 32))
+
+    uint sz = 0;
+    switch (opnd_get_vector_element_size(opnd)) {
+    case OPSZ_4: sz = 0; break;
+    case OPSZ_8: sz = 1; break;
+    default: RETURN_FALSE;
+    }
+
+    *enc_out |= (sz << 22) | (reg_number << 0);
+
+    return true;
+}
+
+static inline bool
+decode_opnd_z_sz_sd(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    if (TEST(1u << 22, enc)) {
+        return decode_single_sized(DR_REG_Z0, 0, 5, DOUBLE_REG, enc, opnd);
+    } else {
+        return decode_single_sized(DR_REG_Z0, 0, 5, SINGLE_REG, enc, opnd);
+    }
+}
+
 /* dq5_sz: D/Q register at bit position 5; bit 22 selects Q reg */
 
 static inline bool
@@ -5611,6 +5643,85 @@ static inline bool
 encode_opnd_wx_size_16_zr(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_wx_size_reg(false, 16, opnd, enc_out);
+}
+
+/* svemem_vec_vec_idx: SVE memory address [<Zn>.<T>, <Zm>.<T>{, <mod> <amount>}] */
+
+static inline bool
+decode_svemem_vec_vec_opc(uint opc, OUT opnd_size_t *element_size,
+                          OUT dr_extend_type_t *extend_type)
+{
+    switch (opc) {
+    case 0b00:
+        *element_size = OPSZ_8;
+        *extend_type = DR_EXTEND_SXTW;
+        return true;
+    case 0b01:
+        *element_size = OPSZ_8;
+        *extend_type = DR_EXTEND_UXTW;
+        return true;
+    // DR_EXTEND_UXTX is an alias for LSL. LSL preferred in disassembly.
+    case 0b10:
+        *element_size = OPSZ_4;
+        *extend_type = DR_EXTEND_UXTX;
+        return true;
+    case 0b11:
+        *element_size = OPSZ_8;
+        *extend_type = DR_EXTEND_UXTX;
+        return true;
+    }
+    return false;
+}
+
+static inline bool
+decode_opnd_svemem_vec_vec_idx(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    opnd_size_t element_size;
+    dr_extend_type_t extend_type;
+    if (!decode_svemem_vec_vec_opc(BITS(enc, 23, 22), &element_size, &extend_type))
+        return false;
+
+    const uint msz = extract_uint(enc, 10, 2);
+
+    const reg_id_t zn = DR_REG_Z0 + extract_uint(enc, 5, 5);
+    const reg_id_t zm = DR_REG_Z0 + extract_uint(enc, 16, 5);
+
+    /* This operand is used for SVE ADR instructions which don't transfer any memory.
+     * If this operand ends up being used for other instructions in the future we will
+     * need to calculate the appropriate transfer amount here.
+     */
+    ASSERT(opcode == OP_adr);
+    const opnd_size_t mem_transfer_size = OPSZ_0;
+
+    *opnd = opnd_create_vector_base_disp_aarch64(zn, zm, element_size, extend_type,
+                                                 /*scaled=*/msz != 0,
+                                                 /*disp=*/0,
+                                                 /*flags=*/0, mem_transfer_size, msz);
+    return true;
+}
+
+static inline bool
+encode_opnd_svemem_vec_vec_idx(uint enc, int opcode, byte *pc, opnd_t opnd,
+                               OUT uint *enc_out)
+{
+    if (!opnd_is_base_disp(opnd))
+        return false;
+
+    const uint zn = (uint)(opnd_get_base(opnd) - DR_REG_Z0);
+    const uint zm = (uint)(opnd_get_index(opnd) - DR_REG_Z0);
+
+    opnd_size_t element_size;
+    dr_extend_type_t extend_type;
+    uint msz;
+    if (!((zn < 32) && (zm < 32)) ||
+        !decode_svemem_vec_vec_opc(BITS(enc, 23, 22), &element_size, &extend_type) ||
+        element_size != opnd_get_vector_element_size(opnd) ||
+        extend_type != opnd_get_index_extend(opnd, NULL, &msz))
+        return false;
+
+    *enc_out |= (zm << 16) | (msz << 10) | (zn << 5);
+
+    return true;
 }
 
 /* fpimm13: floating-point immediate for scalar fmov */

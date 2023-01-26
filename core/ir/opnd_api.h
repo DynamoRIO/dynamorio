@@ -650,6 +650,54 @@ enum {
     DR_REG_R15,                               /**< The "r15" register. */
 #    endif
 
+#    ifdef AARCH64
+    /* SVE vector registers */
+    DR_REG_Z0,  /**< The "z0" register. */
+    DR_REG_Z1,  /**< The "z1" register. */
+    DR_REG_Z2,  /**< The "z2" register. */
+    DR_REG_Z3,  /**< The "z3" register. */
+    DR_REG_Z4,  /**< The "z4" register. */
+    DR_REG_Z5,  /**< The "z5" register. */
+    DR_REG_Z6,  /**< The "z6" register. */
+    DR_REG_Z7,  /**< The "z7" register. */
+    DR_REG_Z8,  /**< The "z8" register. */
+    DR_REG_Z9,  /**< The "z9" register. */
+    DR_REG_Z10, /**< The "z10" register. */
+    DR_REG_Z11, /**< The "z11" register. */
+    DR_REG_Z12, /**< The "z12" register. */
+    DR_REG_Z13, /**< The "z13" register. */
+    DR_REG_Z14, /**< The "z14" register. */
+    DR_REG_Z15, /**< The "z15" register. */
+    DR_REG_Z16, /**< The "z16" register. */
+    DR_REG_Z17, /**< The "z17" register. */
+    DR_REG_Z18, /**< The "z18" register. */
+    DR_REG_Z19, /**< The "z19" register. */
+    DR_REG_Z20, /**< The "z20" register. */
+    DR_REG_Z21, /**< The "z21" register. */
+    DR_REG_Z22, /**< The "z22" register. */
+    DR_REG_Z23, /**< The "z23" register. */
+    DR_REG_Z24, /**< The "z24" register. */
+    DR_REG_Z25, /**< The "z25" register. */
+    DR_REG_Z26, /**< The "z26" register. */
+    DR_REG_Z27, /**< The "z27" register. */
+    DR_REG_Z28, /**< The "z28" register. */
+    DR_REG_Z29, /**< The "z29" register. */
+    DR_REG_Z30, /**< The "z30" register. */
+    DR_REG_Z31, /**< The "z31" register. */
+#    endif
+
+/* All registers that can be used in address operands must be before this point.
+ *
+ * Base+disp operands do not store the full reg_id_t value, only the lower
+ * REG_SPECIFIER_BITS, so any register used in addressing must be less than
+ * 1 << REG_SPECIFIER_BITS. This is checked in d_r_arch_init().
+ */
+#    if defined(AARCH64)
+    DR_REG_MAX_ADDRESSING_REG = DR_REG_Z31,
+#    else
+    DR_REG_MAX_ADDRESSING_REG = DR_REG_R15,
+#    endif
+
     /* 128-bit SIMD registers */
     DR_REG_Q0,  /**< The "q0" register. */
     DR_REG_Q1,  /**< The "q1" register. */
@@ -973,40 +1021,6 @@ enum {
     DR_REG_TPIDRURO, /**< User Read-Only Thread ID Register */
 
 #    ifdef AARCH64
-    /* SVE vector registers */
-    DR_REG_Z0,  /**< The "z0" register. */
-    DR_REG_Z1,  /**< The "z1" register. */
-    DR_REG_Z2,  /**< The "z2" register. */
-    DR_REG_Z3,  /**< The "z3" register. */
-    DR_REG_Z4,  /**< The "z4" register. */
-    DR_REG_Z5,  /**< The "z5" register. */
-    DR_REG_Z6,  /**< The "z6" register. */
-    DR_REG_Z7,  /**< The "z7" register. */
-    DR_REG_Z8,  /**< The "z8" register. */
-    DR_REG_Z9,  /**< The "z9" register. */
-    DR_REG_Z10, /**< The "z10" register. */
-    DR_REG_Z11, /**< The "z11" register. */
-    DR_REG_Z12, /**< The "z12" register. */
-    DR_REG_Z13, /**< The "z13" register. */
-    DR_REG_Z14, /**< The "z14" register. */
-    DR_REG_Z15, /**< The "z15" register. */
-    DR_REG_Z16, /**< The "z16" register. */
-    DR_REG_Z17, /**< The "z17" register. */
-    DR_REG_Z18, /**< The "z18" register. */
-    DR_REG_Z19, /**< The "z19" register. */
-    DR_REG_Z20, /**< The "z20" register. */
-    DR_REG_Z21, /**< The "z21" register. */
-    DR_REG_Z22, /**< The "z22" register. */
-    DR_REG_Z23, /**< The "z23" register. */
-    DR_REG_Z24, /**< The "z24" register. */
-    DR_REG_Z25, /**< The "z25" register. */
-    DR_REG_Z26, /**< The "z26" register. */
-    DR_REG_Z27, /**< The "z27" register. */
-    DR_REG_Z28, /**< The "z28" register. */
-    DR_REG_Z29, /**< The "z29" register. */
-    DR_REG_Z30, /**< The "z30" register. */
-    DR_REG_Z31, /**< The "z31" register. */
-
     /* SVE predicate registers */
     DR_REG_P0,  /**< The "p0" register. */
     DR_REG_P1,  /**< The "p1" register. */
@@ -1858,6 +1872,10 @@ struct _opnd_t {
             byte /*bool*/ scaled : 1;
             /* Shift offset amount */
             byte /*uint*/ scaled_value : 3;
+            /* Indicates the element size for vector base and index registers.
+             * This is ignored if the base and index registers are scalar registers.
+             */
+            byte /*enum*/ element_size : 1;
 #    elif defined(ARM)
             byte /*dr_shift_type_t*/ shift_type : 3;
             byte shift_amount_minus_1 : 5; /* 1..31 so we store (val - 1) */
@@ -2271,6 +2289,28 @@ opnd_t
 opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
                               dr_extend_type_t extend_type, bool scaled, int disp,
                               dr_opnd_flags_t flags, opnd_size_t size);
+
+DR_API
+/**
+ * Same as opnd_create_base_disp_shift_aarch64 but creates an operand that uses vector
+ * registers for the base and/or index.
+ * At least one of \p base_reg and \p index_reg should be a vector register.
+ * \p element_size indicates the element size for any vector registers used and must be
+ * one of:
+ *     OPSZ_4 (single, 32-bit)
+ *     OPSZ_8 (double, 64-bit)
+ *
+ * TODO i#3044: WARNING this function may change during SVE development of
+ * DynamoRIO. The function will be considered stable when this warning has been
+ * removed.
+ *
+ * \note AArch64-only.
+ */
+opnd_t
+opnd_create_vector_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                                     opnd_size_t element_size,
+                                     dr_extend_type_t extend_type, bool scaled, int disp,
+                                     dr_opnd_flags_t flags, opnd_size_t size, uint shift);
 #endif
 
 DR_API
@@ -3145,6 +3185,16 @@ DR_API
  */
 bool
 reg_is_32bit(reg_id_t reg);
+
+#if defined(AARCH64)
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a Z (SVE scalable vector) register.
+ */
+bool
+reg_is_z(reg_id_t reg);
+#endif
 
 DR_API
 /**

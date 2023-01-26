@@ -314,13 +314,31 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
     }
 }
 
+#if defined(AARCH64)
+/* Possible values of opnd.value.base_disp.element_size. */
+enum {
+    ELEMENT_SIZE_SINGLE = 0,
+    ELEMENT_SIZE_DOUBLE = 1,
+};
+#endif
+
 opnd_size_t
 opnd_get_vector_element_size(opnd_t opnd)
 {
-    if (opnd.kind != REG_kind || !TEST(DR_OPND_IS_VECTOR, opnd.aux.flags))
+    if (!TEST(DR_OPND_IS_VECTOR, opnd.aux.flags))
         return OPSZ_NA;
 
-    return opnd.value.reg_and_element_size.element_size;
+    switch (opnd.kind) {
+    case REG_kind: return opnd.value.reg_and_element_size.element_size;
+#if defined(AARCH64)
+    case BASE_DISP_kind:
+        switch (opnd.value.base_disp.element_size) {
+        case ELEMENT_SIZE_SINGLE: return OPSZ_4;
+        case ELEMENT_SIZE_DOUBLE: return OPSZ_8;
+        }
+#endif
+    default: return OPSZ_NA;
+    }
 }
 
 /* immediate operands */
@@ -756,10 +774,13 @@ opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
 #endif
 
 #ifdef AARCH64
+
 opnd_t
-opnd_create_base_disp_shift_aarch64(reg_id_t base_reg, reg_id_t index_reg,
-                                    dr_extend_type_t extend_type, bool scaled, int disp,
-                                    dr_opnd_flags_t flags, opnd_size_t size, uint shift)
+opnd_create_base_disp_aarch64_common(reg_id_t base_reg, reg_id_t index_reg,
+                                     byte element_size, dr_extend_type_t extend_type,
+                                     bool scaled, int disp, dr_opnd_flags_t flags,
+                                     opnd_size_t size, uint shift)
+
 {
     opnd_t opnd;
     opnd.kind = BASE_DISP_kind;
@@ -779,6 +800,7 @@ opnd_create_base_disp_shift_aarch64(reg_id_t base_reg, reg_id_t index_reg,
     opnd.value.base_disp.base_reg = base_reg;
     opnd.value.base_disp.index_reg = index_reg;
     opnd.value.base_disp.pre_index = false;
+    opnd.value.base_disp.element_size = element_size;
     opnd_set_disp_helper(&opnd, disp);
     opnd.aux.flags = flags;
     if (!opnd_set_index_extend_value(&opnd, extend_type, scaled, shift))
@@ -787,13 +809,48 @@ opnd_create_base_disp_shift_aarch64(reg_id_t base_reg, reg_id_t index_reg,
 }
 
 opnd_t
+opnd_create_vector_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                                     opnd_size_t element_size,
+                                     dr_extend_type_t extend_type, bool scaled, int disp,
+                                     dr_opnd_flags_t flags, opnd_size_t size, uint shift)
+{
+    byte internal_element_size = 0;
+    switch (element_size) {
+    case OPSZ_4: internal_element_size = ELEMENT_SIZE_SINGLE; break;
+    case OPSZ_8: internal_element_size = ELEMENT_SIZE_DOUBLE; break;
+    default:
+        CLIENT_ASSERT(false,
+                      "opnd_create_vector_base_disp_aarch64: invalid element size");
+    }
+
+    CLIENT_ASSERT(reg_is_z(base_reg) || reg_is_z(index_reg),
+                  "opnd_create_vector_base_disp_aarch64: at least one of the base "
+                  "register and index register must be a vector register");
+
+    flags |= DR_OPND_IS_VECTOR;
+
+    return opnd_create_base_disp_aarch64_common(base_reg, index_reg,
+                                                internal_element_size, extend_type,
+                                                scaled, disp, flags, size, shift);
+}
+
+opnd_t
+opnd_create_base_disp_shift_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                                    dr_extend_type_t extend_type, bool scaled, int disp,
+                                    dr_opnd_flags_t flags, opnd_size_t size, uint shift)
+{
+    return opnd_create_base_disp_aarch64_common(base_reg, index_reg, 0, extend_type,
+                                                scaled, disp, flags, size, shift);
+}
+
+opnd_t
 opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
                               dr_extend_type_t extend_type, bool scaled, int disp,
                               dr_opnd_flags_t flags, opnd_size_t size)
 {
     const uint shift = scaled ? opnd_size_to_shift_amount(size) : 0;
-    return opnd_create_base_disp_shift_aarch64(base_reg, index_reg, extend_type, scaled,
-                                               disp, flags, size, shift);
+    return opnd_create_base_disp_aarch64_common(base_reg, index_reg, 0, extend_type,
+                                                scaled, disp, flags, size, shift);
 }
 #endif
 

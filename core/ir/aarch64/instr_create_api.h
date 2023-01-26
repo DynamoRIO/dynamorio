@@ -11217,4 +11217,26 @@
 #define INSTR_CREATE_prfw_sve_pred(dc, prfop, Pg, Rn) \
     instr_create_0dst_3src(dc, OP_prfw, prfop, Pg, Rn)
 
+/*
+ * Creates an ADR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ADR     <Zd>.D, [<Zn>.D, <Zm>.D, SXTW <amount>]
+ *    ADR     <Zd>.D, [<Zn>.D, <Zm>.D, UXTW <amount>]
+ *    ADR     <Zd>.<Ts>, [<Zn>.<Ts>, <Zm>.<Ts>, <extend> <amount>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector base register with a register offset,
+ *             constructed with one of:
+ *             opnd_create_vector_base_disp_aarch64(Zn, Zm, OPSZ_8,
+ *                                                  DR_EXTEND_SXTW, 0, 0, 0, OPSZ_0, shift_amount)
+ *             opnd_create_vector_base_disp_aarch64(Zn, Zm, OPSZ_8,
+ *                                                  DR_EXTEND_UXTW, 0, 0, 0, OPSZ_0, shift_amount)
+ *             opnd_create_vector_base_disp_aarch64(Zn, Zm, elsz,
+ *                                                  DR_EXTEND_UXTX, 0, 0, 0, OPSZ_0, shift_amount)
+ */
+#define INSTR_CREATE_adr_sve(dc, Zd, Zn) instr_create_1dst_1src(dc, OP_adr, Zd, Zn)
+
 #endif /* DR_IR_MACROS_AARCH64_H */

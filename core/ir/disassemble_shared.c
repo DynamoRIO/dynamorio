@@ -339,6 +339,16 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
     int disp = opnd_get_disp(opnd);
     reg_id_t index = opnd_get_index(opnd);
 
+    const char *base_suffix = "";
+    const char *index_suffix = "";
+
+#if defined(AARCH64)
+    if (reg_is_z(base))
+        base_suffix = opnd_size_element_suffix(opnd);
+    if (reg_is_z(index))
+        index_suffix = opnd_size_element_suffix(opnd);
+#endif
+
     opnd_mem_disassemble_prefix(buf, bufsz, sofar, opnd);
 
     if (seg != REG_NULL)
@@ -346,13 +356,13 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
 
     if (TESTANY(DR_DISASM_INTEL | DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask))) {
         if (base != REG_NULL)
-            reg_disassemble(buf, bufsz, sofar, base, 0, "", "");
+            reg_disassemble(buf, bufsz, sofar, base, 0, "", base_suffix);
         if (index != REG_NULL) {
             reg_disassemble(
                 buf, bufsz, sofar, index, opnd_get_flags(opnd),
                 (base != REG_NULL && !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) ? "+"
                                                                                    : "",
-                "");
+                index_suffix);
             opnd_base_disp_scale_disassemble(buf, bufsz, sofar, opnd);
         }
     }
@@ -403,9 +413,10 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
         if (base != REG_NULL || index != REG_NULL) {
             print_to_buffer(buf, bufsz, sofar, "(");
             if (base != REG_NULL)
-                reg_disassemble(buf, bufsz, sofar, base, 0, "", "");
+                reg_disassemble(buf, bufsz, sofar, base, 0, "", base_suffix);
             if (index != REG_NULL) {
-                reg_disassemble(buf, bufsz, sofar, index, opnd_get_flags(opnd), ",", "");
+                reg_disassemble(buf, bufsz, sofar, index, opnd_get_flags(opnd), ",",
+                                index_suffix);
                 opnd_base_disp_scale_disassemble(buf, bufsz, sofar, opnd);
             }
             print_to_buffer(buf, bufsz, sofar, ")");
@@ -1358,9 +1369,9 @@ common_disassemble_fragment(dcontext_t *dcontext, fragment_t *f_in, file_t outfi
                         ? (TEST(FRAG_TEMP_PRIVATE, f->flags) ? "private temp, "
                                                              : "private, ")
                         : "")),
-            (TEST(FRAG_IS_TRACE, f->flags))            ? "trace, "
-                : (TEST(FRAG_IS_TRACE_HEAD, f->flags)) ? "tracehead, "
-                                                       : "",
+            (TEST(FRAG_IS_TRACE, f->flags))
+                ? "trace, "
+                : (TEST(FRAG_IS_TRACE_HEAD, f->flags)) ? "tracehead, " : "",
             f->size, (TEST(FRAG_CANNOT_BE_TRACE, f->flags)) ? ", cannot be trace" : "",
             (TEST(FRAG_MUST_END_TRACE, f->flags)) ? ", must end trace" : "",
             (TEST(FRAG_CANNOT_DELETE, f->flags)) ? ", cannot delete" : "");

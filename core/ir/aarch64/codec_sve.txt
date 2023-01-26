@@ -46,6 +46,9 @@
 00100101xx10000011xxxxxxxxxxxxxx  n   9    SVE      add  z_size_bhsd_0 : z_size_bhsd_0 imm8_5 lsl shift1
 00000100011xxxxx01010xxxxxxxxxxx  n   934  SVE    addpl           x0sp : x16sp simm6_5
 00000100001xxxxx01010xxxxxxxxxxx  n   935  SVE    addvl           x0sp : x16sp simm6_5
+00000100001xxxxx1010xxxxxxxxxxxx  n   15   SVE      adr          z_d_0 : svemem_vec_vec_idx
+00000100011xxxxx1010xxxxxxxxxxxx  n   15   SVE      adr          z_d_0 : svemem_vec_vec_idx
+000001001x1xxxxx1010xxxxxxxxxxxx  n   15   SVE      adr        z_sz_sd : svemem_vec_vec_idx
 00000100xx011010000xxxxxxxxxxxxx  n   21   SVE      and             z0 : p10_lo z0 z5 bhsd_sz
 00000101100000xxxxxxxxxxxxxxxxxx  n   21   SVE      and  z_imm13_bhsd_0 : z_imm13_bhsd_0 imm13_const
 001001010000xxxx01xxxx0xxxx0xxxx  n   21   SVE      and          p_b_0 : p10_zer p_b_5 p_b_16
