@@ -2004,8 +2004,7 @@ tobuild(common.getretaddr common/getretaddr.c)
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # XXX i#1287: implement for MacOS
   # We do not support -no_early_inject on Android (i#1873).
-  # FIXME i#1799: clang does not support "asm goto".
-  if (NOT APPLE AND NOT ANDROID AND ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
+  if (NOT APPLE AND NOT ANDROID AND ANNOTATIONS)
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
     tobuild_appdll(common.nativeexec common/nativeexec.c)
@@ -2241,8 +2240,7 @@ else (UNIX)
   set(annotation_test_args_shorter
     "client.annotation-concurrency.appdll.dll" "A" "4" "64" "3")
 endif (UNIX)
-# FIXME i#1799: clang does not support "asm goto"
-if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
+if (ANNOTATIONS)
   set(DynamoRIO_USE_LIBC OFF)
   tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
     "" "" "${annotation_test_args}")
@@ -2358,7 +2356,7 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     client.annotation-detection-opt annotation-detection.native
     client-interface/annotation-detection.c "")
   set(DynamoRIO_USE_LIBC ON)
-else (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
+else (ANNOTATIONS)
   # We build the client.annotation-concurrency app even if we have no annotation
   # support, since it is used in drcachesim tests.
   add_exe(client.annotation-concurrency
@@ -2370,7 +2368,7 @@ else (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     client-interface/annotation-concurrency.c)
   append_property_string(TARGET client.annotation-concurrency.appdll COMPILE_FLAGS
     "-DANNOTATIONS_DISABLED")
-endif (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
+endif (ANNOTATIONS)
 
 if (UNIX)
   # XXX i#1246: Make partial_module_map work for Windows as well.

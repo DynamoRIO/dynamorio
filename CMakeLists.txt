@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -661,6 +661,9 @@ if (UNIX)
   identify_clang(CMAKE_COMPILER_IS_CLANG)
   if (CMAKE_COMPILER_IS_CLANG)
     set(CLANG 1)
+    if ("${CMAKE_C_COMPILER_VERSION}" VERSION_LESS "9.0")
+      message(FATAL_ERROR "clang < 9.0 is not supported")
+    endif ()
   endif (CMAKE_COMPILER_IS_CLANG)
 
   if (CYGWIN)
