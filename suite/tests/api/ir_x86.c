@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2752,6 +2752,42 @@ test_extra_leading_prefixes(void *dc)
 #endif
 }
 
+static void
+test_disasm_to_buffer(void *dc)
+{
+    /* Test disassemble_to_buffer() corner cases. */
+    byte *pc;
+    byte b[] = { 0x90 };
+    char dbuf[512];
+    const char *expect = "nop\n";
+    size_t expect_len = strlen(expect);
+    int len;
+    /* Test plenty of room. */
+    pc = disassemble_to_buffer(dc, b, b, false /*no pc*/, false /*no bytes*/, dbuf,
+                               expect_len + 10, &len);
+    ASSERT(pc == b + 1);
+    ASSERT(strcmp(dbuf, expect) == 0);
+    ASSERT(len == expect_len);
+    /* Test just enough room. */
+    pc = disassemble_to_buffer(dc, b, b, false /*no pc*/, false /*no bytes*/, dbuf,
+                               expect_len + 1 /*null*/, &len);
+    ASSERT(pc == b + 1);
+    ASSERT(strcmp(dbuf, expect) == 0);
+    ASSERT(len == expect_len);
+    /* Test not enough room for null. */
+    pc = disassemble_to_buffer(dc, b, b, false /*no pc*/, false /*no bytes*/, dbuf,
+                               expect_len, &len);
+    ASSERT(pc == b + 1);
+    ASSERT(strncmp(dbuf, expect, len) == 0);
+    ASSERT(len == expect_len - 1);
+    /* Test not enough room for full string. */
+    pc = disassemble_to_buffer(dc, b, b, false /*no pc*/, false /*no bytes*/, dbuf,
+                               expect_len - 1, &len);
+    ASSERT(pc == b + 1);
+    ASSERT(strncmp(dbuf, expect, len) == 0);
+    ASSERT(len == expect_len - 2);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2842,6 +2878,8 @@ main(int argc, char *argv[])
     test_evex_compressed_disp_with_segment_prefix(dcontext);
 
     test_extra_leading_prefixes(dcontext);
+
+    test_disasm_to_buffer(dcontext);
 
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);
