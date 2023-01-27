@@ -82,6 +82,7 @@
 ---------------------------xxxxx  w0p0       # even-numbered W register (or WZR)
 ---------------------------xxxxx  w0p1       # ... add 1
 ---------------------------xxxxx  x0         # X register (or XZR)
+---------------------------xxxxx  x0sp       # X register (or SP)
 ---------------------------xxxxx  memx0      # X register used as memref for SYS
 ---------------------------xxxxx  x0p0       # even-numbered X register (or XZR)
 ---------------------------xxxxx  x0p1       # ... add 1
@@ -124,6 +125,7 @@
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
 ----------------------xxxxx-----  pred_constr  # pattern operand
 ----------------------xxxxx-----  simm5_5    # Signed 5 bit immediate from 5 - 9
+---------------------xxxxxx-----  simm6_5    # Signed 6 bit immediate from 5 - 10
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
 --------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB, MSR
                                              # CRm field for SYS and SYSL
@@ -186,6 +188,7 @@
 -----------xxxxx----------------  w16p0      # even-numbered W register (or WZR)
 -----------xxxxx----------------  w16p1      # ... add 1
 -----------xxxxx----------------  x16        # X register (or XZR)
+-----------xxxxx----------------  x16sp      # X register (or SP)
 -----------xxxxx----------------  x16p0      # even-numbered X register (or XZR)
 -----------xxxxx----------------  x16p1      # ... add 1
 -----------xxxxx----------------  d16        # D register
