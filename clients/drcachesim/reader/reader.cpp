@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -262,21 +262,19 @@ reader_t::process_input_entry()
         // and use them to start post-seek iteration.
         if (chunk_instr_count_ > 0 &&
             cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP &&
-            cur_instr_count_ / chunk_instr_count_ !=
-                last_timestamp_instr_count_ / chunk_instr_count_) {
+            skip_chunk_header_.find(cur_tid_) != skip_chunk_header_.end()) {
             VPRINT(this, 2, "skipping start-of-chunk dup timestamp\n");
-            skip_next_cpu_ = true;
-        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
-                   skip_next_cpu_) {
+        } else if (chunk_instr_count_ > 0 &&
+                   cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
+                   skip_chunk_header_.find(cur_tid_) != skip_chunk_header_.end()) {
             VPRINT(this, 2, "skipping start-of-chunk dup cpu\n");
-            skip_next_cpu_ = false;
+            skip_chunk_header_.erase(cur_tid_);
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_RECORD_ORDINAL) {
             // Not exposed to tools.
         } else {
             have_memref = true;
         }
         if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
-            last_timestamp_instr_count_ = cur_instr_count_;
             // Today, a skipped memref is just a duplicate of one that we've
             // already seen, so this condition is not really needed. But to
             // be future-proof, we want to avoid looking at timestamps that
@@ -295,6 +293,8 @@ reader_t::process_input_entry()
             page_size_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT)
             chunk_instr_count_ = cur_ref_.marker.marker_value;
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER)
+            skip_chunk_header_.insert(cur_tid_);
         break;
     default:
         ERRMSG("Unknown trace entry type %s (%d)\n", trace_type_names[input_entry_->type],
