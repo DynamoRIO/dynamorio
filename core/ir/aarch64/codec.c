@@ -2003,6 +2003,20 @@ encode_opnd_x0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(true, false, 0, opnd, enc_out);
 }
 
+/* x0: X register or SP at bit position 0 */
+
+static inline bool
+decode_opnd_x0sp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxn(/*is_x=*/true, /*is_sp=*/true, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x0sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxn(/*is_x=*/true, /*is_sp=*/true, 0, opnd, enc_out);
+}
+
 /* memx0: memory operand with no offset used as memref for SYS */
 
 static inline bool
@@ -2253,6 +2267,73 @@ static inline bool
 encode_opnd_prfop(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(0, 5, false, 0, 0, opnd, enc_out);
+}
+
+static inline bool
+decode_float_const_pair(uint pos, float first, float second, uint enc, OUT opnd_t *opnd)
+{
+    const float value = extract_uint(enc, pos, 1) == 0 ? first : second;
+    *opnd = opnd_create_immed_float(value);
+
+    return true;
+}
+
+static inline bool
+encode_float_const_pair(uint pos, float first, float second, opnd_t opnd,
+                        OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_immed_float(opnd))
+
+    const float value = opnd_get_immed_float(opnd);
+    IF_RETURN_FALSE((value != first) && (value != second))
+
+    *enc_out = (value == first ? 0 : 1) << pos;
+    return true;
+}
+
+/* half_one_size_hsd_5: 1 bit floating-point index, 0.5 or 1.0 */
+
+static inline bool
+decode_opnd_fpimm1_half_one_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_float_const_pair(5, 0.5f, 1.0f, enc, opnd);
+}
+
+static inline bool
+encode_opnd_fpimm1_half_one_5(uint enc, int opcode, byte *pc, opnd_t opnd,
+                              OUT uint *enc_out)
+{
+    return encode_float_const_pair(5, 0.5f, 1.0f, opnd, enc_out);
+}
+
+/* zero_one_size_hsd_5: 1 bit floating-point index, 0.0 or 1.0 */
+
+static inline bool
+decode_opnd_fpimm1_zero_one_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_float_const_pair(5, 0.0f, 1.0f, enc, opnd);
+}
+
+static inline bool
+encode_opnd_fpimm1_zero_one_5(uint enc, int opcode, byte *pc, opnd_t opnd,
+                              OUT uint *enc_out)
+{
+    return encode_float_const_pair(5, 0.0f, 1.0f, opnd, enc_out);
+}
+
+/* half_two_size_hsd_5: 1 bit floating-point index, 0.5 or 2.0 */
+
+static inline bool
+decode_opnd_fpimm1_half_two_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_float_const_pair(5, 0.5f, 2.0f, enc, opnd);
+}
+
+static inline bool
+encode_opnd_fpimm1_half_two_5(uint enc, int opcode, byte *pc, opnd_t opnd,
+                              OUT uint *enc_out)
+{
+    return encode_float_const_pair(5, 0.5f, 2.0f, opnd, enc_out);
 }
 
 /* op2: 3-bit immediate from bits 5-7 */
@@ -2546,6 +2627,20 @@ static inline bool
 encode_opnd_simm5_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(5, 5, true, 0, 0, opnd, enc_out);
+}
+
+/* simm6_5: Signed 6 bit immediate from 5-10 */
+
+static inline bool
+decode_opnd_simm6_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(5, 6, true, 0, OPSZ_6b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_simm6_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(5, 6, true, 0, 0, opnd, enc_out);
 }
 
 /* vmsz: B/H/S/D for load/store multiple structures */
@@ -3232,6 +3327,40 @@ encode_opnd_imm3(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(16, 3, false, 0, 0, opnd, enc_out);
 }
 
+/* z3_h_16: Z0-7 register with h size elements at position 16 */
+
+static inline bool
+decode_opnd_z3_h_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 16, 3, HALF_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z3_h_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    const reg_id_t reg = opnd_get_reg(opnd);
+    IF_RETURN_FALSE((reg < DR_REG_Z0) || (reg > DR_REG_Z7))
+
+    return encode_single_sized(OPSZ_SCALABLE, 16, HALF_REG, opnd, enc_out);
+}
+
+/* z3_s_16: Z0-7 register with s size elements at position 16 */
+
+static inline bool
+decode_opnd_z3_s_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 16, 3, SINGLE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z3_s_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    const reg_id_t reg = opnd_get_reg(opnd);
+    IF_RETURN_FALSE((reg < DR_REG_Z0) || (reg > DR_REG_Z7))
+
+    return encode_single_sized(OPSZ_SCALABLE, 16, SINGLE_REG, opnd, enc_out);
+}
+
 /* pstate: decode pstate from 5-7 and 16-18 */
 
 static inline bool
@@ -3463,6 +3592,23 @@ encode_opnd_imm4_16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     return true;
 }
 
+/* z4_d_16: Z0-15 register with d size elements at position 16 */
+
+static inline bool
+decode_opnd_z4_d_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 16, 4, DOUBLE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z4_d_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    const reg_id_t reg = opnd_get_reg(opnd);
+    IF_RETURN_FALSE((reg < DR_REG_Z0) || (reg > DR_REG_Z15))
+
+    return encode_single_sized(OPSZ_SCALABLE, 16, DOUBLE_REG, opnd, enc_out);
+}
+
 /* sysreg: system register, operand of MRS/MSR */
 
 static inline bool
@@ -3651,6 +3797,46 @@ encode_opnd_wx5_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
+/* i1_index_20: Index value from 20 */
+
+static inline bool
+decode_opnd_i1_index_20(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_immed_uint(extract_uint(enc, 20, 1), OPSZ_1b);
+    return true;
+}
+
+static inline bool
+encode_opnd_i1_index_20(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd)) {
+        RETURN_FALSE
+    }
+
+    const uint value = (uint)opnd_get_immed_int(opnd);
+    *enc_out = BITS(value, 0, 0) << 20;
+    return true;
+}
+
+/* i2_index_19: Index value from 20:19 */
+
+static inline bool
+decode_opnd_i2_index_19(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_immed_uint(extract_uint(enc, 19, 2), OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_i2_index_19(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_immed_int(opnd))
+
+    const uint value = (uint)opnd_get_immed_int(opnd);
+    *enc_out = BITS(value, 1, 0) << 19;
+    return true;
+}
+
 /* imm5: 5 bit immediate from 16-20 */
 
 static inline bool
@@ -3820,6 +4006,20 @@ static inline bool
 encode_opnd_x16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_wxn(true, false, 16, opnd, enc_out);
+}
+
+/* x16sp: X register or SP at bit position 16 */
+
+static inline bool
+decode_opnd_x16sp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_wxn(/*is_x=*/true, /*is_sp=*/true, 16, enc, opnd);
+}
+
+static inline bool
+encode_opnd_x16sp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_wxn(/*is_x=*/true, /*is_sp=*/true, 16, opnd, enc_out);
 }
 
 /* x16p0: even-numbered X register or XZR at bit position 16 */
@@ -4783,6 +4983,26 @@ static inline bool
 encode_opnd_wx_sz_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_rn(false, 5, 22, opnd, enc_out);
+}
+
+/* i3_index_19: Index value from 22, 20:19 */
+
+static inline bool
+decode_opnd_i3_index_19(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const uint value = (extract_uint(enc, 22, 1) << 2) | extract_uint(enc, 19, 2);
+    *opnd = opnd_create_immed_uint(value, OPSZ_3b);
+    return true;
+}
+
+static inline bool
+encode_opnd_i3_index_19(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_immed_int(opnd))
+
+    const uint value = (uint)opnd_get_immed_int(opnd);
+    *enc_out = (BITS(value, 2, 2) << 22) | (BITS(value, 1, 0) << 19);
+    return true;
 }
 
 /* wx_sz_16: W/X register (or WZR/XZR) with size indicated in bit 22 */

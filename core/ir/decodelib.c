@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -187,22 +187,21 @@ bool
 print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, ...)
 {
     /* in io.c */
-    extern int vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
+    extern int d_r_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
     ssize_t len;
     va_list ap;
     bool ok;
     va_start(ap, fmt);
-    len = vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
+    len = d_r_vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
     va_end(ap);
     ok = (len > 0 && len < (ssize_t)(bufsz - *sofar));
-#    ifdef UNIX
-    /* Linux vsnprintf returns what would have been written, unlike Windows
-     * or d_r_vsnprintf
+    /* XXX: Unfortunately we're duplicating core/utils.c's vprint_to_buffer.
+     * Could we move that into io.c to share it with decodelib?
+     * For now we duplicate the complex check here: see the comment in
+     * vprint_to_buffer on the explanation.
      */
-    if (len >= (ssize_t)(bufsz - *sofar))
-        len = -1;
-#    endif
-    *sofar += (len == -1 ? (bufsz - *sofar - 1) : (len < 0 ? 0 : len));
+    *sofar += (len == -1 || len == (ssize_t)(bufsz - *sofar) ? (bufsz - *sofar - 1)
+                                                             : (len < 0 ? 0 : len));
     /* be paranoid: though usually many calls in a row and could delay until end */
     buf[bufsz - 1] = '\0';
     return ok;
