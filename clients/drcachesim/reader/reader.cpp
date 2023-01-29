@@ -305,7 +305,8 @@ reader_t::process_input_entry()
     }
     if (have_memref) {
         if (suppress_ref_count_ > 0) {
-            VPRINT(this, 4, "suppressing %" PRIu64 " ref counts\n", suppress_ref_count_);
+            VPRINT(this, 4, "suppressing %" PRIu64 " ref counts @%" PRIu64 "\n",
+                   suppress_ref_count_, cur_ref_count_);
             --suppress_ref_count_;
         } else {
             if (suppress_ref_count_ == 0) {
@@ -313,6 +314,7 @@ reader_t::process_input_entry()
                 suppress_ref_count_ = -1;
             }
             ++cur_ref_count_;
+            VPRINT(this, 5, "ref count is now @%" PRIu64 "\n", cur_ref_count_);
         }
     }
     return have_memref;

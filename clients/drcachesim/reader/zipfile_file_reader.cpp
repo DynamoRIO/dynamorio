@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -187,6 +187,7 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
         zipfile->cur_buf = zipfile->max_buf;
     }
     // We have to linearly walk the last mile.
+    bool prev_was_record_ord = false;
     while (cur_instr_count_ < stop_count_) { // End condition is never reached.
         if (!read_next_thread_entry(thread_index, &entry_copy_, eof))
             return false;
@@ -197,16 +198,26 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
             type_is_instr(static_cast<trace_type_t>(entry_copy_.type)))
             break;
         // To examine the produced memrefs we'd have to have the base reader
-        // expose these hidden entries.  It is simpler for use to read the
+        // expose these hidden entries.  It is simpler for us to read the
         // trace_entry_t directly prior to processing by the base class.
         if (entry_copy_.type == TRACE_TYPE_MARKER) {
-            if (entry_copy_.size == TRACE_MARKER_TYPE_RECORD_ORDINAL)
+            if (entry_copy_.size == TRACE_MARKER_TYPE_RECORD_ORDINAL) {
                 cur_ref_count_ = entry_copy_.addr;
-            else if (entry_copy_.size == TRACE_MARKER_TYPE_TIMESTAMP)
+                prev_was_record_ord = true;
+                VPRINT(this, 4, "Found record ordinal marker: new ord %" PRIu64 "\n",
+                       cur_ref_count_);
+            } else if (entry_copy_.size == TRACE_MARKER_TYPE_TIMESTAMP) {
                 timestamp = entry_copy_;
-            else if (entry_copy_.size == TRACE_MARKER_TYPE_CPU_ID)
+                if (prev_was_record_ord)
+                    --cur_ref_count_;
+            } else if (entry_copy_.size == TRACE_MARKER_TYPE_CPU_ID) {
                 cpu = entry_copy_;
-        }
+                if (prev_was_record_ord)
+                    --cur_ref_count_;
+            } else
+                prev_was_record_ord = false;
+        } else
+            prev_was_record_ord = false;
         // Update core state.
         input_entry_ = &entry_copy_;
         process_input_entry();
