@@ -87,7 +87,7 @@ protected:
     inline void
     print_header()
     {
-        std::cerr << std::setw(9) << "Output format:\n<record#> <instr#>"
+        std::cerr << std::setw(12) << "Output format:\n<record#> <instr#>"
                   << ": T<tid> <record details>\n"
                   << "------------------------------------------------------------\n";
     }
@@ -105,7 +105,7 @@ protected:
             stream << "------------------------------------------------------------\n";
         prev_tid_ = memref.instr.tid;
         prev_record_ = record_ord;
-        stream << std::setw(9) << record_ord << std::setw(9)
+        stream << std::setw(12) << record_ord << std::setw(12)
                << memstream->get_instruction_ordinal() << ": T" << memref.marker.tid
                << " ";
     }
