@@ -87,7 +87,7 @@ protected:
     inline void
     print_header()
     {
-        std::cerr << std::setw(12) << "Output format:\n<record#>    <instr#>   "
+        std::cerr << std::setw(12) << "Output format:\n   <record#>    <instr#>"
                   << ": T<tid> <record details>\n"
                   << "------------------------------------------------------------\n";
     }
