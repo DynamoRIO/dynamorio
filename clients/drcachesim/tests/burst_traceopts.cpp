@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,7 +41,7 @@
 #    include "drmemtrace/drmemtrace.h"
 #    include "drcovlib.h"
 #    include "analysis_tool.h"
-#    include "analyzer.h"
+#    include "scheduler.h"
 #    include "tracer/raw2trace.h"
 #    include "tracer/raw2trace_directory.h"
 #    include <assert.h>
@@ -49,6 +49,8 @@
 #    include <math.h>
 #    include <stdlib.h>
 #    include <string.h>
+
+using namespace dynamorio::drmemtrace;
 
 /* Unit tests for classes used for trace optimizations. */
 void
@@ -224,35 +226,62 @@ main(int argc, const char *argv[])
 
     // Now compare the two traces using external iterators and a custom tool.
     void *dr_context = dr_standalone_init();
-    analyzer_t analyzer_opt(dir_opt);
-    analyzer_t analyzer_noopt(dir_noopt);
-    if (!analyzer_opt) {
-        std::cerr << "Failed to initialize iterator " << analyzer_opt.get_error_string()
+
+    scheduler_t::scheduler_options_t sched_ops(
+        scheduler_t::STREAM_BY_SYNTHETIC_CPU,
+        scheduler_t::SCHEDULE_INTERLEAVE_AS_RECORDED);
+
+    scheduler_t scheduler_opt;
+    std::vector<scheduler_t::input_workload_t> sched_opt_inputs;
+    sched_opt_inputs.emplace_back(dir_opt);
+    if (scheduler_opt.init(sched_opt_inputs, 1, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS) {
+        std::cerr << "Failed to initialize scheduler " << scheduler_opt.get_error_string()
                   << "\n";
     }
-    if (!analyzer_noopt) {
-        std::cerr << "Failed to initialize iterator " << analyzer_noopt.get_error_string()
-                  << "\n";
+
+    scheduler_t scheduler_noopt;
+    std::vector<scheduler_t::input_workload_t> sched_noopt_inputs;
+    sched_noopt_inputs.emplace_back(dir_noopt);
+    if (scheduler_noopt.init(sched_noopt_inputs, 1, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS) {
+        std::cerr << "Failed to initialize scheduler "
+                  << scheduler_noopt.get_error_string() << "\n";
     }
-    reader_t &iter_opt = analyzer_opt.begin();
-    reader_t &iter_noopt = analyzer_noopt.begin();
-    for (int64 entry_count = 0;
-         iter_opt != analyzer_opt.end() && iter_noopt != analyzer_noopt.end();
-         ++iter_opt, ++iter_noopt, ++entry_count) {
-        if ((*iter_opt).marker.type != (*iter_noopt).marker.type) {
+
+    auto *stream_opt = scheduler_opt.get_stream(0);
+    auto *stream_noopt = scheduler_noopt.get_stream(0);
+    int64 entry_count = 0;
+    while (true) {
+        memref_t memref_opt;
+        scheduler_t::stream_status_t status = stream_opt->next_record(memref_opt);
+        if (status == scheduler_t::STATUS_EOF)
+            break;
+        assert(status == scheduler_t::STATUS_OK);
+        memref_t memref_noopt;
+        status = stream_noopt->next_record(memref_noopt);
+        if (status == scheduler_t::STATUS_EOF)
+            break;
+        assert(status == scheduler_t::STATUS_OK);
+        if (memref_opt.marker.type != memref_noopt.marker.type) {
             // Allow a header from a trace buffer filling up at a different
             // point in optimized vs unoptimized.
-            while ((*iter_opt).marker.type == TRACE_TYPE_MARKER)
-                ++iter_opt;
-            while ((*iter_noopt).marker.type == TRACE_TYPE_MARKER)
-                ++iter_noopt;
+            while (memref_opt.marker.type == TRACE_TYPE_MARKER) {
+                status = stream_opt->next_record(memref_opt);
+                assert(status == scheduler_t::STATUS_OK);
+            }
+            while (memref_noopt.marker.type == TRACE_TYPE_MARKER) {
+                status = stream_noopt->next_record(memref_noopt);
+                assert(status == scheduler_t::STATUS_OK);
+            }
         }
         std::string error =
-            compare_memref(dr_context, entry_count, *iter_opt, *iter_noopt);
+            compare_memref(dr_context, entry_count, memref_opt, memref_noopt);
         if (!error.empty()) {
             std::cerr << "Trace mismatch found: " << error << "\n";
             break;
         }
+        ++entry_count;
     }
     dr_standalone_exit();
 

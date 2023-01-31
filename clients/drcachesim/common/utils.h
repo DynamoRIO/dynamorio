@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,9 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+
+// XXX: DR should export this
+#define INVALID_THREAD_ID 0
 
 // XXX: perhaps we should use a C++-ish stream approach instead
 // This cannot be named ERROR as that conflicts with Windows headers.

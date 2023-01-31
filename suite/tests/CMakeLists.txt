@@ -3900,7 +3900,8 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/reader"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer")
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/scheduler")
       set(tool.drcacheoff.gencode_nodr ON)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
         "" "@-simulator_type@opcode_mix" "")

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,8 @@
 #include "analyzer.h"
 #include "histogram_create.h"
 #include "../tools/invariant_checker.h"
+
+using namespace dynamorio::drmemtrace;
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -121,17 +123,28 @@ _tmain(int argc, const TCHAR *targv[])
     delete tool1;
 
     if (op_test_mode.get_value()) {
-        // Test the external-iterator interface.
+        // Test the direct scheduler_t interface where we control iteration.
         tool1 = histogram_tool_create(op_line_size.get_value(), op_report_top.get_value(),
                                       op_verbose.get_value());
-        analyzer_t external(op_trace_dir.get_value());
-        if (!external) {
-            FATAL_ERROR("failed to initialize analyzer: %s",
-                        external.get_error_string().c_str());
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(op_trace_dir.get_value());
+        scheduler_t::scheduler_options_t sched_ops(
+            scheduler_t::STREAM_BY_SYNTHETIC_CPU,
+            scheduler_t::SCHEDULE_INTERLEAVE_AS_RECORDED);
+        if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS) {
+            FATAL_ERROR("failed to initialize scheduler: %s",
+                        scheduler.get_error_string().c_str());
         }
-        for (reader_t &iter = external.begin(); iter != external.end(); ++iter) {
-            std::string error;
-            if (!tool1->process_memref(*iter)) {
+        auto *stream = scheduler.get_stream(0);
+        while (true) {
+            memref_t record;
+            scheduler_t::stream_status_t status = stream->next_record(record);
+            if (status == scheduler_t::STATUS_EOF)
+                break;
+            if (status != scheduler_t::STATUS_OK)
+                FATAL_ERROR("scheduler failed to advance: %d", status);
+            if (!tool1->process_memref(record)) {
                 FATAL_ERROR("tool failed to process entire trace: %s",
                             tool1->get_error_string().c_str());
             }

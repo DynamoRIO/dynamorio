@@ -39,6 +39,7 @@
 
 #include <assert.h>
 #include <iterator>
+#include <queue>
 #include <unordered_map>
 #include <unordered_set>
 // For exporting we avoid "../common" and rely on -I.
@@ -182,6 +183,13 @@ protected:
     // in timestamp order.
     virtual trace_entry_t *
     read_next_entry() = 0;
+    // This first checks the local queue before calling read_next_entry().
+    // in timestamp order.
+    virtual trace_entry_t *
+    read_next_queue_or_entry();
+    // Replaces the just-read record with the prior record, supplied here.
+    virtual void
+    use_prev(trace_entry_t *prev);
     // This reads the next entry from the single stream of entries
     // from the specified thread.  If it returns false it will set *eof to distinguish
     // end-of-file from an error.
@@ -214,6 +222,8 @@ protected:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
+    std::queue<trace_entry_t> queue_;
+    trace_entry_t local_entry_;
 
 private:
     struct encoding_info_t {

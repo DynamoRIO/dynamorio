@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,7 +34,7 @@
  * a "burst" of execution in the middle of the application.  It then detaches.
  * It then post-processes the acquired trace and confirms various assertions.
  */
-#include "analyzer.h"
+#include "scheduler.h"
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
 #include "tracer/instru.h"
@@ -53,6 +53,8 @@
                    : 0))
 #define ASSERT_NOT_REACHED() ASSERT_MSG(false, "Shouldn't be reached")
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+
+using namespace dynamorio::drmemtrace;
 
 /*******************************************************************************
  * Begin application code.
@@ -219,9 +221,14 @@ main(int argc, const char *argv[])
     std::string trace_dir = gather_trace();
 
     void *dr_context = dr_standalone_init();
-    analyzer_t analyzer(trace_dir);
-    if (!analyzer) {
-        std::cerr << "Failed to initialize iterator " << analyzer.get_error_string()
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(trace_dir);
+    scheduler_t::scheduler_options_t sched_ops(
+        scheduler_t::STREAM_BY_SYNTHETIC_CPU,
+        scheduler_t::SCHEDULE_INTERLEAVE_AS_RECORDED);
+    if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS) {
+        std::cerr << "Failed to initialize scheduler " << scheduler.get_error_string()
                   << "\n";
     }
     bool found_cache_line_size_marker = false;
@@ -229,8 +236,13 @@ main(int argc, const char *argv[])
     int dc_zva_instr_count = 0;
     int dc_zva_memref_count = 0;
     addr_t last_dc_zva_pc = 0;
-    for (reader_t &iter = analyzer.begin(); iter != analyzer.end(); ++iter) {
-        memref_t memref = *iter;
+    auto *stream = scheduler.get_stream(0);
+    while (true) {
+        memref_t memref;
+        scheduler_t::stream_status_t status = stream->next_record(memref);
+        if (status == scheduler_t::STATUS_EOF)
+            break;
+        assert(status == scheduler_t::STATUS_OK);
         if (memref.marker.type == TRACE_TYPE_MARKER &&
             memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
             found_cache_line_size_marker = true;

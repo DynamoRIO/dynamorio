@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,6 +50,9 @@
 #include "analysis_tool.h"
 #include "reader.h"
 #include "record_file_reader.h"
+#include "scheduler.h"
+
+using namespace dynamorio::drmemtrace;
 
 /**
  * An analyzer is the top-level driver of a set of trace analysis tools.
@@ -92,15 +95,11 @@ public:
     get_error_string();
 
     /**
-     * We have two usage models: one where there are multiple tools and the
-     * trace iteration is performed by analyzer_t and supports parallel trace
-     * analysis, and another where a single tool controls the iteration.
-     *
-     * The default, simpler, multiple-tool-supporting model uses this constructor.
-     * The analyzer will reference the tools array passed in during its lifetime:
-     * it does not make a copy.
-     * The user must free them afterward.
-     * The analyzer calls the initialize() function on each tool before use.
+     * The analyzer usage model supports multiple tools, with the trace iteration
+     * performed by analyzer_t.  It supports parallel trace analysis.  The analyzer will
+     * reference the tools array passed in during its lifetime: it does not make a copy.
+     * The user must free them afterward.  The analyzer calls the initialize_stream()
+     * function on each tool before use.
      */
     analyzer_tmpl_t(const std::string &trace_path,
                     analysis_tool_tmpl_t<RecordType> **tools, int num_tools,
@@ -112,83 +111,65 @@ public:
     virtual bool
     print_stats();
 
-    /**
-     * The alternate usage model exposes the iterator to a single tool.
-     * This model does not currently support parallel shard analysis.
-     */
-    analyzer_tmpl_t(const std::string &trace_path);
-    /**
-     * As the iterator is more heavyweight than regular container iterators
-     * we hold it internally and return a reference.  Copying will fail to compile
-     * as U is virtual, reminding the caller of begin() to use a reference. This usage
-     * model supports only a single user of the iterator: the multi-tool model above
-     * should be used if multiple tools are involved.
-     */
-    virtual ReaderType &
-    begin();
-    virtual ReaderType &
-    end(); /** End iterator for the external-iterator usage model. */
-
 protected:
-    // Data for one trace shard.  Our concurrency model has each shard
+    typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
+
+    // Data for one worker thread.  Our concurrency model has each input shard
     // analyzed by a single worker thread, eliminating the need for locks.
-    struct analyzer_shard_data_t {
-        analyzer_shard_data_t(int index, std::unique_ptr<ReaderType> iter,
-                              const std::string &trace_file)
+    struct analyzer_worker_data_t {
+        analyzer_worker_data_t(int index, typename sched_type_t::stream_t *stream)
             : index(index)
-            , worker(0)
-            , iter(std::move(iter))
-            , trace_file(trace_file)
+            , stream(stream)
         {
         }
-        analyzer_shard_data_t(analyzer_shard_data_t &&src)
+        analyzer_worker_data_t(analyzer_worker_data_t &&src)
         {
             index = src.index;
-            worker = src.worker;
-            iter = std::move(src.iter);
-            trace_file = std::move(src.trace_file);
+            stream = src.stream;
             error = std::move(src.error);
         }
 
         int index;
-        int worker;
-        std::unique_ptr<ReaderType> iter;
-        std::string trace_file;
+        typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
         std::string error;
 
     private:
-        analyzer_shard_data_t(const analyzer_shard_data_t &) = delete;
-        analyzer_shard_data_t &
-        operator=(const analyzer_shard_data_t &) = delete;
+        analyzer_worker_data_t(const analyzer_worker_data_t &) = delete;
+        analyzer_worker_data_t &
+        operator=(const analyzer_worker_data_t &) = delete;
     };
 
+    // Either trace_path must be non-empty, or both reader and reader_end must be set.
     bool
-    init_file_reader(const std::string &trace_path, int verbosity = 0);
+    init_scheduler(
+        const std::string &trace_path,
+        std::unique_ptr<ReaderType> reader = std::unique_ptr<ReaderType>(nullptr),
+        std::unique_ptr<ReaderType> reader_end = std::unique_ptr<ReaderType>(nullptr),
+        int verbosity = 0);
 
-    std::unique_ptr<ReaderType>
-    get_reader(const std::string &path, int verbosity);
-
-    std::unique_ptr<ReaderType>
-    get_default_reader();
-
-    // This finalizes the trace_iter setup.  It can block and is meant to be
-    // called at the top of run() or begin().
-    bool
-    start_reading();
+    // Used for std::thread so we need an rvalue (so no &worker).
+    void
+    process_tasks(analyzer_worker_data_t *worker);
 
     void
-    process_tasks(std::vector<analyzer_shard_data_t *> *tasks);
+    process_serial(analyzer_worker_data_t &worker);
+
+    bool
+    record_has_tid(RecordType record, memref_tid_t &tid);
+
+    bool
+    record_is_thread_exit(RecordType record, memref_tid_t &tid);
 
     bool success_;
+    scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
     std::string error_string_;
-    std::vector<analyzer_shard_data_t> thread_data_;
-    std::unique_ptr<ReaderType> serial_trace_iter_;
-    std::unique_ptr<ReaderType> trace_end_;
+    // For serial mode we have just one entry here but it is this controller
+    // thread who operates it, not a separately-created worker.
+    std::vector<analyzer_worker_data_t> worker_data_;
     int num_tools_;
     analysis_tool_tmpl_t<RecordType> **tools_;
     bool parallel_;
     int worker_count_;
-    std::vector<std::vector<analyzer_shard_data_t *>> worker_tasks_;
     int verbosity_ = 0;
     const char *output_prefix_ = "[analyzer]";
     uint64_t skip_instrs_ = 0;
