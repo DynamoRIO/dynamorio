@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,7 @@
 #include <assert.h>
 #include <iterator>
 #include <unordered_map>
+#include <unordered_set>
 // For exporting we avoid "../common" and rely on -I.
 #include "memref.h"
 #include "memtrace_stream.h"
@@ -204,7 +205,7 @@ protected:
     uint64_t cur_ref_count_ = 0;
     int64_t suppress_ref_count_ = -1;
     uint64_t cur_instr_count_ = 0;
-    uint64_t last_timestamp_instr_count_ = 0;
+    std::unordered_set<memref_tid_t> skip_chunk_header_;
     uint64_t last_timestamp_ = 0;
     trace_entry_t *input_entry_ = nullptr;
     // Remember top-level headers for the memtrace_stream_t interface.
@@ -228,7 +229,6 @@ private:
     addr_t prev_instr_addr_ = 0;
     int bundle_idx_ = 0;
     std::unordered_map<memref_tid_t, memref_pid_t> tid2pid_;
-    bool skip_next_cpu_ = false;
     bool expect_no_encodings_ = true;
     encoding_info_t last_encoding_;
     std::unordered_map<addr_t, encoding_info_t> encodings_;

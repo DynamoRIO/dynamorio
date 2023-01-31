@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -361,10 +361,12 @@ protected:
         return true;
     }
 
+    // Protected for access by mock_file_reader_t.
+    std::vector<T> input_files_;
+
 private:
     std::string input_path_;
     std::vector<std::string> input_path_list_;
-    std::vector<T> input_files_;
     trace_entry_t entry_copy_;
     // The current thread we're processing is "index".  If it's set to input_files_.size()
     // that means we need to pick a new thread.
