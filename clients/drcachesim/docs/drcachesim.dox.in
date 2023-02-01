@@ -652,28 +652,28 @@ and the instruction fetch ordinal.
 \code
 $ $ bin64/drrun -t drcachesim -simulator_type view -indir drmemtrace.*.dir -sim_refs 20
 Output format:
-<record#> <instr#>: T<tid> <record details>
+   <record#>    <instr#>: T<tid> <record details>
 ------------------------------------------------------------
-        1        0: T3256418 <marker: version 4>
-        2        0: T3256418 <marker: filetype 0x240>
-        3        0: T3256418 <marker: cache line size 64>
-        4        0: T3256418 <marker: chunk instruction count 1024>
-        5        0: T3256418 <marker: page size 4096>
-        6        0: T3256418 <marker: timestamp 13312410768080478>
-        7        0: T3256418 <marker: tid 3256418 on core 7>
-        8        1: T3256418 ifetch       3 byte(s) @ 0x00007fc205a61940 48 89 e7             mov    %rsp, %rdi
-        9        2: T3256418 ifetch       5 byte(s) @ 0x00007fc205a61943 e8 b8 0c 00 00       call   $0x00007fc205a62600
-       10        2: T3256418 write        8 byte(s) @ 0x00007fff9a9e3528 by PC 0x00007fc205a61943
-       11        3: T3256418 ifetch       1 byte(s) @ 0x00007fc205a62600 55                   push   %rbp
-       12        3: T3256418 write        8 byte(s) @ 0x00007fff9a9e3520 by PC 0x00007fc205a62600
-       13        4: T3256418 ifetch       3 byte(s) @ 0x00007fc205a62601 48 89 e5             mov    %rsp, %rbp
-       14        5: T3256418 ifetch       2 byte(s) @ 0x00007fc205a62604 41 57                push   %r15
-       15        5: T3256418 write        8 byte(s) @ 0x00007fff9a9e3518 by PC 0x00007fc205a62604
-       16        6: T3256418 ifetch       2 byte(s) @ 0x00007fc205a62606 41 56                push   %r14
-       17        6: T3256418 write        8 byte(s) @ 0x00007fff9a9e3510 by PC 0x00007fc205a62606
-       18        7: T3256418 ifetch       2 byte(s) @ 0x00007fc205a62608 41 55                push   %r13
-       19        7: T3256418 write        8 byte(s) @ 0x00007fff9a9e3508 by PC 0x00007fc205a62608
-       20        8: T3256418 ifetch       2 byte(s) @ 0x00007fc205a6260a 41 54                push   %r12
+           1           0: T3256418 <marker: version 4>
+           2           0: T3256418 <marker: filetype 0x240>
+           3           0: T3256418 <marker: cache line size 64>
+           4           0: T3256418 <marker: chunk instruction count 1024>
+           5           0: T3256418 <marker: page size 4096>
+           6           0: T3256418 <marker: timestamp 13312410768080478>
+           7           0: T3256418 <marker: tid 3256418 on core 7>
+           8           1: T3256418 ifetch       3 byte(s) @ 0x00007fc205a61940 48 89 e7             mov    %rsp, %rdi
+           9           2: T3256418 ifetch       5 byte(s) @ 0x00007fc205a61943 e8 b8 0c 00 00       call   $0x00007fc205a62600
+          10           2: T3256418 write        8 byte(s) @ 0x00007fff9a9e3528 by PC 0x00007fc205a61943
+          11           3: T3256418 ifetch       1 byte(s) @ 0x00007fc205a62600 55                   push   %rbp
+          12           3: T3256418 write        8 byte(s) @ 0x00007fff9a9e3520 by PC 0x00007fc205a62600
+          13           4: T3256418 ifetch       3 byte(s) @ 0x00007fc205a62601 48 89 e5             mov    %rsp, %rbp
+          14           5: T3256418 ifetch       2 byte(s) @ 0x00007fc205a62604 41 57                push   %r15
+          15           5: T3256418 write        8 byte(s) @ 0x00007fff9a9e3518 by PC 0x00007fc205a62604
+          16           6: T3256418 ifetch       2 byte(s) @ 0x00007fc205a62606 41 56                push   %r14
+          17           6: T3256418 write        8 byte(s) @ 0x00007fff9a9e3510 by PC 0x00007fc205a62606
+          18           7: T3256418 ifetch       2 byte(s) @ 0x00007fc205a62608 41 55                push   %r13
+          19           7: T3256418 write        8 byte(s) @ 0x00007fff9a9e3508 by PC 0x00007fc205a62608
+          20           8: T3256418 ifetch       2 byte(s) @ 0x00007fc205a6260a 41 54                push   %r12
 View tool results:
               8 : total instructions
 \endcode

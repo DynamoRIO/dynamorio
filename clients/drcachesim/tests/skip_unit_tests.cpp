@@ -121,7 +121,7 @@ test_skip_initial()
         CHECK(starts_with(line, "Output format"), "missing header");
         // Next we expect "<record#> <instr#>: T<tid> <record details>"
         std::getline(res_stream, line, '\n');
-        CHECK(starts_with(line, "<record#> <instr#>"), "missing 2nd header");
+        CHECK(starts_with(line, "   <record#>    <instr#>"), "missing 2nd header");
         // Next we expect "------------------------------------------------------------"
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "------"), "missing divider line");
