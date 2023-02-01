@@ -109,11 +109,11 @@ test_skip_initial()
         std::stringstream res_stream(res);
         // Example output for -skip_instrs 49:
         //    Output format:
-        //    <record#> <instr#>: T<tid> <record details>
+        //    <--record#-> <--instr#->: T<tid> <record details>
         //    ------------------------------------------------------------
-        //            0       49: T3854659 <marker: timestamp 13312570674112282>
-        //            0       49: T3854659 <marker: tid 3854659 on core 3>
-        //           62       50: T3854659 ifetch       2 byte(s) @ 0x0000000000401030 75
+        //               0          49: T3854659 <marker: timestamp 13312570674112282>
+        //               0          49: T3854659 <marker: tid 3854659 on core 3>
+        //              62          50: T3854659 ifetch       2 byte(s) @ 0x0000000000401
         //                                   d9                jnz    $0x000000000040100b
         std::string line;
         // First we expect "Output format:"
@@ -121,7 +121,7 @@ test_skip_initial()
         CHECK(starts_with(line, "Output format"), "missing header");
         // Next we expect "<record#> <instr#>: T<tid> <record details>"
         std::getline(res_stream, line, '\n');
-        CHECK(starts_with(line, "<  record# > <  instr# >"), "missing 2nd header");
+        CHECK(starts_with(line, "<--record#-> <--instr#->"), "missing 2nd header");
         // Next we expect "------------------------------------------------------------"
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "------"), "missing divider line");

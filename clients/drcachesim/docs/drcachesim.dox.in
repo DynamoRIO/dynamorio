@@ -652,7 +652,7 @@ and the instruction fetch ordinal.
 \code
 $ $ bin64/drrun -t drcachesim -simulator_type view -indir drmemtrace.*.dir -sim_refs 20
 Output format:
-<  record# > <  instr# >: T<tid> <record details>
+<--record#-> <--instr#->: T<tid> <record details>
 ------------------------------------------------------------
            1           0: T3256418 <marker: version 4>
            2           0: T3256418 <marker: filetype 0x240>
