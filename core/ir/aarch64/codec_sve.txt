@@ -377,6 +377,10 @@
 0010010100011000111001000000xxxx  n   894  SVE   pfalse          p_b_0 :
 00100101010110001100000xxxx0xxxx  w   895  SVE   pfirst          p_b_0 : p5 p_b_0
 00100101xx0110011100010xxxx0xxxx  w   925  SVE    pnext  p_size_bhsd_0 : p5 p_size_bhsd_0
+1000010111xxxxxx000xxxxxxxx0xxxx  n   963  SVE     prfb                : prfop4 p10_lo svemem_gpr_simm6_vl
+1000010111xxxxxx011xxxxxxxx0xxxx  n   964  SVE     prfd                : prfop4 p10_lo svemem_gpr_simm6_vl
+1000010111xxxxxx001xxxxxxxx0xxxx  n   965  SVE     prfh                : prfop4 p10_lo svemem_gpr_simm6_vl
+1000010111xxxxxx010xxxxxxxx0xxxx  n   966  SVE     prfw                : prfop4 p10_lo svemem_gpr_simm6_vl
 001001010101000011xxxx0xxxx00000  w   786  SVE    ptest                : p10 p_b_5
 00100101xx011000111000xxxxx0xxxx  n   897  SVE    ptrue  p_size_bhsd_0 : pred_constr
 00100101xx011001111000xxxxx0xxxx  w   898  SVE   ptrues  p_size_bhsd_0 : pred_constr

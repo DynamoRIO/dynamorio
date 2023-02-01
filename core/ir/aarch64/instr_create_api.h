@@ -11149,4 +11149,72 @@
 #define INSTR_CREATE_usmmla_sve(dc, Zda, Zn, Zm) \
     instr_create_1dst_3src(dc, OP_usmmla, Zda, Zda, Zn, Zm)
 
+/*
+ * Creates a PRFB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PRFB    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param prfop The prefetch operation.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The second source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6, OPSZ_0)
+ */
+#define INSTR_CREATE_prfb_sve_pred(dc, prfop, Pg, Rn) \
+    instr_create_0dst_3src(dc, OP_prfb, prfop, Pg, Rn)
+
+/**
+ * Creates a PRFD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PRFD    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param prfop The prefetch operation.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The second source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6, OPSZ_0)
+ */
+#define INSTR_CREATE_prfd_sve_pred(dc, prfop, Pg, Rn) \
+    instr_create_0dst_3src(dc, OP_prfd, prfop, Pg, Rn)
+
+/**
+ * Creates a PRFH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PRFH    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param prfop The prefetch operation.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The second source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6, OPSZ_0)
+ */
+#define INSTR_CREATE_prfh_sve_pred(dc, prfop, Pg, Rn) \
+    instr_create_0dst_3src(dc, OP_prfh, prfop, Pg, Rn)
+
+/**
+ * Creates a PRFW instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PRFW    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param prfop The prefetch operation.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The second source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm6, OPSZ_0)
+ */
+#define INSTR_CREATE_prfw_sve_pred(dc, prfop, Pg, Rn) \
+    instr_create_0dst_3src(dc, OP_prfw, prfop, Pg, Rn)
+
 #endif /* DR_IR_MACROS_AARCH64_H */

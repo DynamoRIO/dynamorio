@@ -14590,6 +14590,82 @@ TEST_INSTR(usmmla_sve)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_1));
 }
 
+TEST_INSTR(prfb_sve_pred)
+{
+    /* Testing PRFB    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] */
+    static const uint prfop_0_0[6] = { /*PLDL1KEEP*/ 0,  /*PLDL2KEEP*/ 2,
+                                       /*PLDL3STRM*/ 5,  /*PSTL1KEEP*/ 8,
+                                       /*PSTL2KEEP*/ 10, 15 };
+    static const int imm6_0_0[6] = { -32, -19, -8, 0, 13, 31 };
+    const char *const expected_0_0[6] = {
+        "prfb   $0x00 %p0 -0x20(%x0)",  "prfb   $0x02 %p2 -0x13(%x7)",
+        "prfb   $0x05 %p3 -0x08(%x12)", "prfb   $0x08 %p5 (%x17)",
+        "prfb   $0x0a %p6 +0x0d(%x22)", "prfb   $0x0f %p7 +0x1f(%sp)",
+    };
+    TEST_LOOP(prfb, prfb_sve_pred, 6, expected_0_0[i],
+              opnd_create_immed_uint(prfop_0_0[i], OPSZ_4b),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp(Xn_six_offset_2_sp[i], DR_REG_NULL, 0, imm6_0_0[i],
+                                    OPSZ_0));
+}
+
+TEST_INSTR(prfd_sve_pred)
+{
+    /* Testing PRFD    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] */
+    static const uint prfop_0_0[6] = { /*PLDL1KEEP*/ 0,  /*PLDL2KEEP*/ 2,
+                                       /*PLDL3STRM*/ 5,  /*PSTL1KEEP*/ 8,
+                                       /*PSTL2KEEP*/ 10, 15 };
+    static const int imm6_0_0[6] = { -32, -19, -8, 0, 13, 31 };
+    const char *const expected_0_0[6] = {
+        "prfd   $0x00 %p0 -0x20(%x0)",  "prfd   $0x02 %p2 -0x13(%x7)",
+        "prfd   $0x05 %p3 -0x08(%x12)", "prfd   $0x08 %p5 (%x17)",
+        "prfd   $0x0a %p6 +0x0d(%x22)", "prfd   $0x0f %p7 +0x1f(%sp)",
+    };
+    TEST_LOOP(prfd, prfd_sve_pred, 6, expected_0_0[i],
+              opnd_create_immed_uint(prfop_0_0[i], OPSZ_4b),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp(Xn_six_offset_2_sp[i], DR_REG_NULL, 0, imm6_0_0[i],
+                                    OPSZ_0));
+}
+
+TEST_INSTR(prfh_sve_pred)
+{
+    /* Testing PRFH    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] */
+    static const uint prfop_0_0[6] = { /*PLDL1KEEP*/ 0,  /*PLDL2KEEP*/ 2,
+                                       /*PLDL3STRM*/ 5,  /*PSTL1KEEP*/ 8,
+                                       /*PSTL2KEEP*/ 10, 15 };
+    static const int imm6_0_0[6] = { -32, -19, -8, 0, 13, 31 };
+    const char *const expected_0_0[6] = {
+        "prfh   $0x00 %p0 -0x20(%x0)",  "prfh   $0x02 %p2 -0x13(%x7)",
+        "prfh   $0x05 %p3 -0x08(%x12)", "prfh   $0x08 %p5 (%x17)",
+        "prfh   $0x0a %p6 +0x0d(%x22)", "prfh   $0x0f %p7 +0x1f(%sp)",
+    };
+    TEST_LOOP(prfh, prfh_sve_pred, 6, expected_0_0[i],
+              opnd_create_immed_uint(prfop_0_0[i], OPSZ_4b),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp(Xn_six_offset_2_sp[i], DR_REG_NULL, 0, imm6_0_0[i],
+                                    OPSZ_0));
+}
+
+TEST_INSTR(prfw_sve_pred)
+{
+    /* Testing PRFW    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] */
+    static const uint prfop_0_0[6] = { /*PLDL1KEEP*/ 0,  /*PLDL2KEEP*/ 2,
+                                       /*PLDL3STRM*/ 5,  /*PSTL1KEEP*/ 8,
+                                       /*PSTL2KEEP*/ 10, 15 };
+    static const int imm6_0_0[6] = { -32, -19, -8, 0, 13, 31 };
+    const char *const expected_0_0[6] = {
+        "prfw   $0x00 %p0 -0x20(%x0)",  "prfw   $0x02 %p2 -0x13(%x7)",
+        "prfw   $0x05 %p3 -0x08(%x12)", "prfw   $0x08 %p5 (%x17)",
+        "prfw   $0x0a %p6 +0x0d(%x22)", "prfw   $0x0f %p7 +0x1f(%sp)",
+    };
+    TEST_LOOP(prfw, prfw_sve_pred, 6, expected_0_0[i],
+              opnd_create_immed_uint(prfop_0_0[i], OPSZ_4b),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp(Xn_six_offset_2_sp[i], DR_REG_NULL, 0, imm6_0_0[i],
+                                    OPSZ_0));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -15033,6 +15109,11 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(usdot_sve);
     RUN_INSTR_TEST(usdot_sve_idx);
     RUN_INSTR_TEST(usmmla_sve);
+
+    RUN_INSTR_TEST(prfb_sve_pred);
+    RUN_INSTR_TEST(prfd_sve_pred);
+    RUN_INSTR_TEST(prfh_sve_pred);
+    RUN_INSTR_TEST(prfw_sve_pred);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER
