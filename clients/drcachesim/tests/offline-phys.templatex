@@ -9,7 +9,7 @@ Adios world!
 Adios world!
 Adios world!
 Output format:
-   <record#>    <instr#>: T<tid> <record details>
+<  record# > <  instr# >: T<tid> <record details>
 ------------------------------------------------------------
            1           0: T[0-9]+ <marker: version 4>
            2           0: T[0-9]+ <marker: filetype 0x242>

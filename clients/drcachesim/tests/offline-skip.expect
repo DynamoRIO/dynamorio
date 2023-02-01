@@ -1,5 +1,5 @@
 Output format:
-   <record#>    <instr#>: T<tid> <record details>
+<  record# > <  instr# >: T<tid> <record details>
 ------------------------------------------------------------
            0          63: T1384871 <marker: timestamp 13313186810097539>
            0          63: T1384871 <marker: tid 1384871 on core 9>
