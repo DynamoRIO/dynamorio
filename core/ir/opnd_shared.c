@@ -757,9 +757,9 @@ opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
 
 #ifdef AARCH64
 opnd_t
-opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
-                              dr_extend_type_t extend_type, bool scaled, int disp,
-                              dr_opnd_flags_t flags, opnd_size_t size)
+opnd_create_base_disp_shift_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                                    dr_extend_type_t extend_type, bool scaled, int disp,
+                                    dr_opnd_flags_t flags, opnd_size_t size, uint shift)
 {
     opnd_t opnd;
     opnd.kind = BASE_DISP_kind;
@@ -781,9 +781,19 @@ opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
     opnd.value.base_disp.pre_index = false;
     opnd_set_disp_helper(&opnd, disp);
     opnd.aux.flags = flags;
-    if (!opnd_set_index_extend(&opnd, extend_type, scaled))
+    if (!opnd_set_index_extend_value(&opnd, extend_type, scaled, shift))
         CLIENT_ASSERT(false, "opnd_create_base_disp_aarch64: invalid extend type");
     return opnd;
+}
+
+opnd_t
+opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                              dr_extend_type_t extend_type, bool scaled, int disp,
+                              dr_opnd_flags_t flags, opnd_size_t size)
+{
+    const uint shift = scaled ? opnd_size_to_shift_amount(size) : 0;
+    return opnd_create_base_disp_shift_aarch64(base_reg, index_reg, extend_type, scaled,
+                                               disp, flags, size, shift);
 }
 #endif
 
@@ -890,8 +900,8 @@ opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount)
 #endif /* ARM */
 
 #ifdef AARCH64
-static uint
-opnd_size_to_extend_amount(opnd_size_t size)
+uint
+opnd_size_to_shift_amount(opnd_size_t size)
 {
     switch (size) {
     default:
@@ -903,6 +913,8 @@ opnd_size_to_extend_amount(opnd_size_t size)
     case OPSZ_0: /* fall-through */
     case OPSZ_8: return 3;
     case OPSZ_16: return 4;
+    case OPSZ_32: return 5;
+    case OPSZ_64: return 6;
     }
 }
 
@@ -918,7 +930,7 @@ opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount)
         extend = opnd.value.base_disp.extend_type;
         scaled_out = opnd.value.base_disp.scaled;
         if (scaled_out)
-            amount_out = opnd_size_to_extend_amount(opnd_get_size(opnd));
+            amount_out = opnd.value.base_disp.scaled_value;
     }
     if (scaled != NULL)
         *scaled = scaled_out;
@@ -928,7 +940,8 @@ opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount)
 }
 
 bool
-opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
+opnd_set_index_extend_value(opnd_t *opnd, dr_extend_type_t extend, bool scaled,
+                            uint scaled_value)
 {
     if (!opnd_is_base_disp(*opnd)) {
         CLIENT_ASSERT(false, "opnd_set_index_shift called on invalid opnd type");
@@ -938,9 +951,21 @@ opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
         CLIENT_ASSERT(false, "opnd index extend: invalid extend type");
         return false;
     }
+    if (scaled_value > 7) {
+        CLIENT_ASSERT(false, "opnd index extend: invalid scaled value");
+        return false;
+    }
     opnd->value.base_disp.extend_type = extend;
     opnd->value.base_disp.scaled = scaled;
+    opnd->value.base_disp.scaled_value = scaled_value;
     return true;
+}
+
+bool
+opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
+{
+    const uint value = scaled ? opnd_size_to_shift_amount(opnd_get_size(*opnd)) : 0;
+    return opnd_set_index_extend_value(opnd, extend, scaled, value);
 }
 #endif /* AARCH64 */
 
