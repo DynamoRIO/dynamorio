@@ -732,6 +732,74 @@ struct schedule_entry_t {
     uint64_t instr_count;
 } END_PACKED_STRUCTURE;
 
+#ifdef BUILD_PT_TRACER
+
+/**
+ * The type of a syscall PT entry in the offline output.
+ */
+typedef enum {
+    SYSCALL_PT_ENTRY_TYPE_PID = 0,
+    SYSCALL_PT_ENTRY_TYPE_THREAD,
+    SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY,
+    SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY,
+    SYSCALL_PT_ENTRY_TYPE_SYSCALL_METADATA_BOUNDARY,
+    SYSCALL_PT_ENTRY_TYPE_SYSNUM,
+    SYSCALL_PT_ENTRY_TYPE_SYSCALL_ID,
+    SYSCALL_PT_ENTRY_TYPE_SYSCALL_PT_DATA_SIZE,
+    SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_BOUNDARY,
+    SYSCALL_PT_ENTRY_TYPE_MAX = 9
+} syscall_pt_entry_type_t;
+
+START_PACKED_STRUCTURE
+struct _syscall_pt_entry_t {
+    union {
+        struct {
+            uint64_t pid : 60;
+            uint64_t type : 4;
+        } pid;
+        struct {
+            uint64_t tid : 60;
+            uint64_t type : 4;
+        } tid;
+        union {
+            struct {
+                uint64_t data_size : 60;
+                uint64_t type : 4;
+            } pt_metadata_boundary;
+            struct {
+                uint64_t data_size : 60;
+                uint64_t type : 4;
+            } syscall_metadata_boundary;
+            struct {
+                uint64_t data_size : 59;
+                uint64_t is_last : 1;
+                uint64_t type : 4;
+            } pt_data_boundary;
+        };
+        union {
+            struct {
+                uint64_t sysnum : 60;
+                uint64_t type : 4;
+            } sysnum;
+            struct {
+                uint64_t id : 60;
+                uint64_t type : 4;
+            } syscall_id;
+            struct {
+                uint64_t pt_data_size : 60;
+                uint64_t type : 4;
+            } syscall_pt_data_size;
+            struct {
+                uint64_t args_num : 60;
+                uint64_t type : 4;
+            } syscall_args_boundary;
+        };
+        uint64_t combined_value;
+    };
+} END_PACKED_STRUCTURE;
+typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
+#endif
+
 /**
  * The name of the file in -offline mode where module data is written.
  * Its creation can be customized using drmemtrace_custom_module_data()

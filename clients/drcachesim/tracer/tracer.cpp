@@ -1491,7 +1491,7 @@ init_thread_in_process(void *drcontext)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         data->syscall_pt_trace.init(
-            drcontext, kernel_pt_logsubdir, MAXIMUM_PATH,
+            drcontext, kernel_pt_logsubdir,
             // XXX i#5505: This should be per-thread and per-window; once we've
             // finalized the PT output scheme we should pass those parameters.
             [](const char *fname, uint mode_flags) {

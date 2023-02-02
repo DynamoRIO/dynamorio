@@ -45,8 +45,11 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
-#define DR_FAST_IR 1
+#ifndef DR_FAST_IR
+#    define DR_FAST_IR 1
+#endif
 #include "dr_api.h"
+#include "pt_mcache.h"
 
 #ifndef IN
 #    define IN // nothing
@@ -91,6 +94,15 @@ public:
 enum pt2ir_convert_status_t {
     /** The conversion process is successful. */
     PT2IR_CONV_SUCCESS = 0,
+
+    /** The conversion process fail to start for invalid input. */
+    PT2IR_CONV_ERROR_INVALID_INPUT,
+
+    /** The conversion process ends with a failure to alloc the decoder. */
+    PT2IR_CONV_ERROR_ALLOC_DECODER,
+
+    /** The conversion process ends with a failure to add image sections. */
+    PT2IR_CONV_ERROR_ADD_IMAGE_SECTION,
 
     /** The conversion process ends with a failure to sync to the PSB packet. */
     PT2IR_CONV_ERROR_SYNC_PACKET,
@@ -222,21 +234,6 @@ public:
     pt_config_t pt_config;
 
     /**
-     * The PT raw trace file path.
-     */
-    std::string raw_file_path;
-
-    /**
-     * The elf file path.
-     */
-    std::string elf_file_path;
-
-    /**
-     * The runtime load address of the elf file.
-     */
-    uint64_t elf_base;
-
-    /**
      * The libipt-sb config of PT raw trace.
      */
     pt_sb_config_t sb_config;
@@ -261,9 +258,6 @@ public:
 
     pt2ir_config_t()
     {
-        raw_file_path = "";
-        elf_file_path = "";
-        elf_base = 0;
         sb_primary_file_path = "";
         sb_secondary_file_path_list.clear();
         kcore_path = "";
@@ -343,11 +337,11 @@ public:
 
     /**
      * Returns true if the pt2ir_t is successfully initialized. Returns false on failure.
-     * \note Parse struct pt2ir_config_t and initialize PT instruction decoder, the
-     * sideband session, and images caches.
+     * \note Parse struct pt2ir_config_t and initialize the shared config of PT
+     * instruction decoder, the sideband session, and images caches.
      */
     bool
-    init(IN pt2ir_config_t &pt2ir_config);
+    init(IN pt2ir_config_t &pt2ir_config, IN std::istream *elf_f, IN uint64_t elf_base);
 
     /**
      * Returns pt2ir_convert_status_t. If the convertion is successful, the function
@@ -360,15 +354,10 @@ public:
      * successful, the caller needs to destroy the ilist.
      */
     pt2ir_convert_status_t
-    convert(OUT instrlist_autoclean_t &ilist);
+    convert(IN uint8_t *pt_data, IN size_t pt_data_size,
+            OUT instrlist_autoclean_t &ilist);
 
 private:
-    /* Load PT raw file to buffer. The struct pt_insn_decoder will decode this buffer to
-     * libipt's IR.
-     */
-    bool
-    load_pt_raw_file(IN std::string &path);
-
     /* Load the elf section in kcore to sideband session iscache and store the section
      * index to sideband kimage.
      * \note XXX: Could we not use kcore? We can store all kernel modules and the mapping
@@ -388,20 +377,20 @@ private:
      * It will used to generate the error message during the decoding process.
      */
     void
-    dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip);
-
-    /* Buffer for caching the PT raw trace. */
-    std::unique_ptr<unsigned char> pt_raw_buffer_;
-    size_t pt_raw_buffer_size_;
-
-    /* The libipt instruction decoder. */
-    struct pt_insn_decoder *pt_instr_decoder_;
+    dx_decoding_error(IN struct pt_insn_decoder *pt_instr_decoder, IN int errcode,
+                      IN const char *errtype, IN uint64_t ip);
 
     /* The libipt image section cache. */
     struct pt_image_section_cache *pt_iscache_;
 
     /* The libipt sideband session. */
     struct pt_sb_session *pt_sb_session_;
+
+    /* The shared libipt config. */
+    struct pt_config pt_config_;
+
+    /* The memory cached sections for PT decoder. */
+    pt_mcache_t pt_mcache_;
 };
 
 #endif /* _PT2IR_H_ */

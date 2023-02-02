@@ -37,8 +37,10 @@
 #define _SYSCALL_PT_TRACE_ 1
 
 #include <cstddef>
+#include <string>
 
 #include "../common/utils.h"
+#include "../common/trace_entry.h"
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "drpttracer.h"
@@ -108,7 +110,7 @@ public:
      * pass in the output directory and the file write function.
      */
     bool
-    init(void *drcontext, char *pt_dir_name, size_t pt_dir_name_size,
+    init(void *drcontext, char* pt_dir_name,
          drmemtrace_open_file_func_t open_file_func,
          drmemtrace_write_file_func_t write_file_func,
          drmemtrace_close_file_func_t close_file_func);
@@ -146,7 +148,11 @@ public:
     is_syscall_pt_trace_enabled(IN int sysnum);
 
 private:
-    /* Dump PT trace and the metadata to files. */
+    /* Dump the metadata to a per-thread file. */
+    bool
+    metadata_dump(pt_metadata_t metadata);
+
+    /* Dump PT trace data to a per-thread file. */
     bool
     trace_data_dump(drpttracer_output_autoclean_t &output);
 
@@ -162,6 +168,12 @@ private:
     /* The pttracer handle held by this instance. */
     drpttracer_handle_autoclean_t pttracer_handle_;
 
+    /* The pttracer output data held by every instance. The output buffer is a shared
+     * buffer that stores PT trace data for each system call. The buffer will be updated
+     * when stop_syscall_pt_trace() is invoked.
+     */
+    drpttracer_output_autoclean_t pttracer_output_buffer_;
+
     /* The number of recorded syscall. */
     int recorded_syscall_count_;
 
@@ -173,8 +185,48 @@ private:
      */
     void *drcontext_;
 
-    /* The output directory name. */
-    char pt_dir_name_[MAXIMUM_PATH];
+    /**
+     * We store the syscall's trace data following the format below:
+     * (1) The per-thread metadata and all syscalls' trace data are stored in one or
+     * mutiple PT DATA Buffers(PDB). And all PDBs will be aligned to a fixed size. The PDB
+     * format is:
+     * +---+---+-----------------------+
+     * |pid|tid|syscall_pt_entry_t list|
+     * +---+---+-----------------------+
+     *
+     * (2) There are three types of PDBs:
+     * a. The per-thread metadata PDB's format is:
+     * +---+---+--------------------+-----------+
+     * |pid|tid|pt_metadata_boundary|PT_METADATA|
+     * +---+---+--------------------+-----------+
+     *
+     * b. The PDB's format of syscall metadata is:
+     * +---+---+------+------------------+----------------+
+     * |pid|tid|syscall_metadata_boundary|SYSCALL_METADATA|
+     * +---+---+------+------------------+----------------+
+     * The SYSCALL_METADATA is a list of syscall_pt_entry_t. The format is:
+     * +------+----------+--------------------+---------------------+----+
+     * |sysnum|syscall_id|syscall_pt_data_size|syscall_args_boundary|ARGS|
+     * +------+----------+--------------------+---------------------+----+
+     *
+     * c. The PDB's format of syscall PT data is:
+     * +---+---+-----------+-------+
+     * |pid|tid|pt_boundary|PT_DATA|
+     * +---+---+-----------+-------+
+     *
+     */
+#define MAX_NUM_SYSCALL_PT_ENTRIES 4096
+
+    /* The output buffer.
+     * It is equal in size to a PT DATA Buffer.
+     */
+    syscall_pt_entry_t output_buffer_[MAX_NUM_SYSCALL_PT_ENTRIES];
+
+    /* The output file.
+     * It is a per-thread file. It stores the PT trace data and metadata for
+     * every syscall in the current thread.
+     */
+    file_t output_file_;
 };
 
 #endif /* _SYSCALL_PT_TRACE_ */

@@ -323,6 +323,42 @@ option_init(int argc, const char *argv[])
     return true;
 }
 
+static bool
+load_pt_raw_file(IN const std::string &path, OUT std::unique_ptr<char[]> &pt_raw_buffer,
+                 OUT size_t &pt_raw_buffer_size)
+{
+    /* Under C++11, there is no good solution to get the file size after using ifstream to
+     * open a file. Because we will not change the PT raw trace file during converting, we
+     * don't need to think about write-after-read. We get the file size from file stat
+     * first and then use ifstream to open and read the PT raw trace file.
+     * XXX: We may need to update Dynamorio to support C++17+. Then we can implement the
+     * following logic without opening the file twice.
+     */
+    errno = 0;
+    struct stat fstat;
+    if (stat(path.c_str(), &fstat) == -1) {
+        std::cerr << CLIENT_NAME << ": Failed to get file size of trace file: " << path
+                  << ": " << errno << std::endl;
+        return false;
+    }
+    pt_raw_buffer_size = static_cast<size_t>(fstat.st_size);
+
+    pt_raw_buffer = std::unique_ptr<char[]>(new char[pt_raw_buffer_size]);
+    std::ifstream f(path, std::ios::binary | std::ios::in);
+    if (!f.is_open()) {
+        std::cerr << CLIENT_NAME << ": Failed to open trace file: " << path << std::endl;
+        return false;
+    }
+    f.read(pt_raw_buffer.get(), pt_raw_buffer_size);
+    if (f.fail()) {
+        std::cerr << CLIENT_NAME << ": Failed to read trace file: " << path << std::endl;
+        return false;
+    }
+
+    f.close();
+    return true;
+}
+
 #define IF_SPECIFIED_THEN_SET(__OP_VARIABLE__, __TO_SET_VARIABLE__) \
     do {                                                            \
         if (__OP_VARIABLE__.specified()) {                          \
@@ -346,9 +382,6 @@ main(int argc, const char *argv[])
     if (op_raw_pt_metadata.specified()) {
         config.init_with_metadata(op_raw_pt_metadata.get_value());
     }
-    config.raw_file_path = op_raw_pt.get_value();
-    config.elf_file_path = op_elf.get_value();
-    config.elf_base = op_elf_base.get_value();
     config.sb_primary_file_path = op_primary_sb.get_value();
     std::istringstream op_secondary_sb_stream(op_secondary_sb.get_value());
     copy(std::istream_iterator<std::string>(op_secondary_sb_stream),
@@ -376,14 +409,28 @@ main(int argc, const char *argv[])
     config.pt_config.cpu.vendor =
         config.pt_config.cpu.family != 0 ? CPU_VENDOR_INTEL : CPU_VENDOR_UNKNOWN;
 
+    std::ifstream *f = nullptr;
+    if (op_mode.get_value() == "ELF") {
+        f = new std::ifstream(op_elf.get_value(), std::ios::binary | std::ios::in);
+    }
+
     /* Convert the PT raw trace to DR IR. */
     std::unique_ptr<pt2ir_t> ptconverter(new pt2ir_t());
-    if (!ptconverter->init(config)) {
+    if (!ptconverter->init(config, f, op_elf_base.get_value())) {
         std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
         return FAILURE;
     }
+
+    std::unique_ptr<char[]> pt_raw_buffer = std::unique_ptr<char[]>(nullptr);
+    size_t pt_raw_buffer_size = 0;
+    if (!load_pt_raw_file(op_raw_pt.get_value(), pt_raw_buffer, pt_raw_buffer_size)) {
+        std::cerr << CLIENT_NAME << ": failed to read PT raw trace." << std::endl;
+        return FAILURE;
+    }
+
     instrlist_autoclean_t ilist = { GLOBAL_DCONTEXT, nullptr };
-    pt2ir_convert_status_t status = ptconverter->convert(ilist);
+    pt2ir_convert_status_t status = ptconverter->convert(
+        reinterpret_cast<uint8_t *>(pt_raw_buffer.get()), pt_raw_buffer_size, ilist);
     if (status != PT2IR_CONV_SUCCESS) {
         std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
                   << "[error status: " << status << "]" << std::endl;

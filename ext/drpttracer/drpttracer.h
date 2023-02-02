@@ -100,16 +100,17 @@ typedef struct _pt_metadata_t {
 
 /**
  * The storage container type of drpttracer's output.
- * This data struct is used by drpttracer to store PT metadata, PT trace, and
- * sideband data. These data can be dumped into different files by the client. These files
- * can be the inputs of pt2ir_t, which decodes the PT data into Dynamorio's IR.
+ * This data struct is used by drpttracer to store PT trace, and sideband data. These data
+ * can be dumped into different files by the client. These files can be the inputs of
+ * pt2ir_t, which decodes the PT data into Dynamorio's IR.
  */
 typedef struct _drpttracer_output_t {
-    pt_metadata_t metadata;    /**< The PT trace's metadata. */
-    void *pt;                  /**< The PT trace's pointer. */
-    size_t pt_size;            /**< The size of PT trace. */
-    void *sideband_data;       /**< The PT sideband data's pointer. */
-    size_t sideband_data_size; /**< The buffer size of PT sideband data. */
+    void *pt_buffer;       /**< The buffer of PT trace. */
+    size_t pt_buffer_size; /**< The size of PT trace's buffer. */
+    size_t pt_size;        /**< The size of vaild PT trace stored in PT buffer. */
+    void *sd_buffer;       /**< The PT sideband data's buffer. */
+    size_t sd_buffer_size; /**< The size of PT sideband data's buffer. */
+    size_t sd_size;        /**< The size of vaild PT sideband data stored in PT buffer. */
 } drpttracer_output_t;
 
 /***************************************************************************
@@ -155,6 +156,8 @@ typedef enum {
     DRPTTRACER_ERROR_FAILED_TO_MMAP_PERF_DATA,
     /** Operation failed: failed to mmap PT data. */
     DRPTTRACER_ERROR_FAILED_TO_MMAP_PT_DATA,
+    /** Operation failed: failed to allocate output buffer. */
+    DRPTTRACER_ERROR_FAILED_TO_ALLOCATE_OUTPUT_BUFFER,
     /** Operation failed: failed to start tracing. */
     DRPTTRACER_ERROR_FAILED_TO_START_TRACING,
     /** Operation failed: failed to stop tracing. */
@@ -164,9 +167,9 @@ typedef enum {
     /** Operation failed: failed to read PT data from PT ring buffer. */
     DRPTTRACER_ERROR_FAILED_TO_READ_PT_DATA,
     /** Operation failed: overwritten sideband data. */
-    DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA,
+    DRPTTRACER_ERROR_OVERWRITTEN_SB_DATA,
     /** Operation failed: failed to read SIDEBAND data from perf data ring buffer. */
-    DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBAND_DATA,
+    DRPTTRACER_ERROR_FAILED_TO_READ_SB_DATA,
 } drpttracer_status_t;
 
 /**
@@ -193,13 +196,13 @@ DR_EXPORT
  *
  * \param[in] drcontext  The context of DynamoRIO.
  * \param[in] tracing_mode  The tracing mode.
- * \param[in] pt_size_shift  The size shift of PT trace's buffer.
- * \param[in] sideband_size_shift  The size shift of sideband data's buffer.
+ * \param[in] pt_size_shift  The size shift of PT trace's ring buffer.
+ * \param[in] sd_size_shift  The size shift of sideband data's ring buffer.
  * \param[out] tracer_handle  The pttracer handle.
  *
  * \note The size offset is used to control the size of the buffer allocated by the perf:
  *       sizeof(PT trace's buffer) = 2 ^ pt_size_shift * PAGE_SIZE.
- *       sizeof(Sideband data's buffer) = 2 ^ sideband_size_shift * PAGE_SIZE.
+ *       sizeof(Sideband data's buffer) = 2 ^ sd_size_shift * PAGE_SIZE.
  * Additionally, perf sets the buffer size to 4MiB by default. Therefore, when the client
  * uses drpttracer to trace, it is best to set the trace and sideband buffer larger than
  * 4Mib.
@@ -208,7 +211,7 @@ DR_EXPORT
  * Insufficient buffer size will lead to lost data, which may cause issues in pt2ir_t
  * decoding. If we detect an overflow, drpttracer_stop_tracing() will return an error code
  * #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE or
- * #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA.
+ * #DRPTTRACER_ERROR_OVERWRITTEN_SB_DATA.
  *
  * \note Each thread corresponds to a trace handle. When calling
  * drpttracer_create_handle(), the client will get a tracer_handle. The client can start
@@ -224,7 +227,7 @@ DR_EXPORT
  */
 drpttracer_status_t
 drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
-                         IN uint pt_size_shift, IN uint sideband_size_shift,
+                         IN uint pt_size_shift, IN uint sd_size_shift,
                          OUT void **tracer_handle);
 
 DR_EXPORT
@@ -268,7 +271,7 @@ DR_EXPORT
  * \note If the buffer size that was set in drpttracer_start_tracing() is not enough,
  * this function will return an error status code:
  *  - Return #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE if the PT trace is overwritten.
- *  - Return #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA if the sideband data is
+ *  - Return #DRPTTRACER_ERROR_OVERWRITTEN_SB_DATA if the sideband data is
  * overwritten.
  *
  * \note The client can dump the output data to files. After online tracing is done,
@@ -281,7 +284,34 @@ DR_EXPORT
  */
 drpttracer_status_t
 drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
-                        OUT drpttracer_output_t **output);
+                        OUT drpttracer_output_t *output);
+
+DR_EXPORT
+/**
+ * Get the PT metadata of the current pttracer handle.
+ *
+ * \param[in] tracer_handle The pttracer handle.
+ * \param[out] pt_metadata  The PT metadata of the current pttracer handle.
+ *
+ * \return the status code.
+ */
+drpttracer_status_t
+drpttracer_get_pt_metadata(IN void *tracer_handle, OUT pt_metadata_t *pt_metadata);
+
+DR_EXPORT
+/**
+ * Creates an output object of drpttracer.
+ *
+ * \param[in] drcontext  The context of DynamoRIO.
+ * \param[in] pt_buf_size_shift  The size shift of the PT trace's output buffer.
+ * \param[in] sd_buf_size_shift  The size shift of the sideband data's output buffer.
+ * \param[out] output  The output object that will be created.
+ *
+ * \return the status code.
+ */
+drpttracer_status_t
+drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
+                         IN size_t sd_buf_size_shift, OUT drpttracer_output_t **output);
 
 DR_EXPORT
 /**
