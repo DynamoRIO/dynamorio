@@ -184,19 +184,37 @@ check_branch_target_after_branch()
 bool
 new_test()
 {
-    std::vector<memref_t> memrefs = { gen_instr(1, 1),
-                                      gen_branch(1, 2),
-                                      gen_marker(1, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
-                                                 1),
-                                      gen_marker(1, TRACE_MARKER_TYPE_CHUNK_FOOTER, 3),
-                                      gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 3),
-                                      gen_instr(1, 3) };
+    // There should be no invariant here. Normal branching with nothing else happening.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1), gen_branch(1, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1), gen_instr(1, 3)
+        };
 
-    // TODO(sahil): Fix the logic around this error so that it passes.
-    if (!run_checker(memrefs, false)) {
-        return false;
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+        return true;
     }
-    return true;
+
+    // Currently this returns an invariant. This should not. It is the same as the
+    // previous test case and the only difference is that branching crosses a chunk
+    // boundary.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+            gen_branch(1, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_CHUNK_FOOTER, 3),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 3),
+            gen_instr(1, 3)
+        };
+
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+        return true;
+    }
 }
 
 bool
