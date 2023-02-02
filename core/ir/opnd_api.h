@@ -1854,8 +1854,10 @@ struct _opnd_t {
             byte /*bool*/ pre_index : 1;
             /* Access this using opnd_get_index_extend and opnd_set_index_extend. */
             byte /*dr_extend_type_t*/ extend_type : 3;
-            /* Shift register offset left by amount implied by size of memory operand: */
+            /* Enable shift register offset left */
             byte /*bool*/ scaled : 1;
+            /* Shift offset amount */
+            byte /*uint*/ scaled_value : 3;
 #    elif defined(ARM)
             byte /*dr_shift_type_t*/ shift_type : 3;
             byte shift_amount_minus_1 : 5; /* 1..31 so we store (val - 1) */
@@ -2227,6 +2229,13 @@ opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
 #ifdef AARCH64
 DR_API
 /**
+ * Returns the left shift amount from \p size.
+ */
+uint
+opnd_size_to_shift_amount(opnd_size_t size);
+
+DR_API
+/**
  * Returns a memory reference operand that refers to either a base
  * register with a constant displacement:
  * - [base_reg, disp]
@@ -2234,12 +2243,27 @@ DR_API
  * Or a base register plus an optionally extended and shifted index register:
  * - [base_reg, index_reg, extend_type, shift_amount]
  *
- * The shift_amount is zero or, if \p scaled, a value determined by the
- * size of the operand.
+ * If \p scaled is enabled, \p shift determines the shift amount.
  *
  * The resulting operand has data size \p size (must be an OPSZ_ constant).
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
  * Either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * TODO i#3044: WARNING this function may change during SVE development of
+ * DynamoRIO. The function will be considered stable when this warning has been
+ * removed.
+ *
+ * \note AArch64-only.
+ */
+opnd_t
+opnd_create_base_disp_shift_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                                    dr_extend_type_t extend_type, bool scaled, int disp,
+                                    dr_opnd_flags_t flags, opnd_size_t size, uint shift);
+
+DR_API
+/**
+ * Same as opnd_create_base_disp_shift_aarch64 but if \p scaled is true then the extend
+ * amount is calculated from the operand size (otherwise it is zero).
  *
  * \note AArch64-only.
  */
@@ -2836,8 +2860,19 @@ DR_API
 /**
  * Assumes \p opnd is a base+disp memory reference.
  * Sets the index register to be extended by \p extend and optionally \p scaled.
- * Returns whether successful. If the offset is scaled the amount it is shifted
- * by is determined by the size of the memory operand.
+ * Returns whether successful. If \p scaled is zero, the offset is not scaled.
+ * \note AArch64-only.
+ */
+bool
+opnd_set_index_extend_value(opnd_t *opnd, dr_extend_type_t extend, bool scaled,
+                            uint scaled_value);
+
+DR_API
+/**
+ * Assumes \p opnd is a base+disp memory reference.
+ * Sets the index register to be extended by \p extend and optionally \p scaled.
+ * Returns whether successful. If \p scaled is zero, the offset is not scaled; otherwise
+ * is calculated from the operand size.
  * \note AArch64-only.
  */
 bool

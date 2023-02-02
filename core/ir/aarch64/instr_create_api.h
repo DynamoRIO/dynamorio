@@ -10616,4 +10616,139 @@
  */
 #define INSTR_CREATE_rdvl(dc, Rd, simm) instr_create_1dst_1src(dc, OP_rdvl, Rd, simm)
 
+/**
+ * Creates a LDFF1B instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDFF1B  { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, <Xm>}]
+ *    LDFF1B  { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, <Xm>}]
+ *    LDFF1B  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, <Xm>}]
+ *    LDFF1B  { <Zt>.B }, <Pg>/Z, [<Xn|SP>{, <Xm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, Rm,
+ *             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_1)
+ */
+#define INSTR_CREATE_ldff1b_sve_pred(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ldff1b, Zt, Rn, Pg)
+
+/**
+ * Creates a LDFF1D instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDFF1D  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, <Xm>, LSL #3}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
+ *             DR_EXTEND_UXTX, 1, 0, 0, OPSZ_32, 3)
+ */
+#define INSTR_CREATE_ldff1d_sve_pred(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ldff1d, Zt, Rn, Pg)
+
+/**
+ * Creates a LDFF1H instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDFF1H  { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, <Xm>, LSL #1}]
+ *    LDFF1H  { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, <Xm>, LSL #1}]
+ *    LDFF1H  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, <Xm>, LSL #1}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
+ *             DR_EXTEND_UXTX, 1, 0, 0, OPSZ_32, 1)
+ */
+#define INSTR_CREATE_ldff1h_sve_pred(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ldff1h, Zt, Rn, Pg)
+
+/**
+ * Creates a LDFF1SB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDFF1SB { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, <Xm>}]
+ *    LDFF1SB { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, <Xm>}]
+ *    LDFF1SB { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, <Xm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, Rm,
+ *             DR_EXTEND_UXTX, false, 0, 0, OPSZ_1)
+ */
+#define INSTR_CREATE_ldff1sb_sve_pred(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ldff1sb, Zt, Rn, Pg)
+
+/**
+ * Creates a LDFF1SH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDFF1SH { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, <Xm>, LSL #1}]
+ *    LDFF1SH { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, <Xm>, LSL #1}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
+ *             DR_EXTEND_UXTX, 1, 0, 0, OPSZ_16, 1)
+ */
+#define INSTR_CREATE_ldff1sh_sve_pred(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ldff1sh, Zt, Rn, Pg)
+
+/**
+ * Creates a LDFF1SW instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDFF1SW { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, <Xm>, LSL #2}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
+ *             DR_EXTEND_UXTX, 1, 0, 0, OPSZ_16, 2)
+ */
+#define INSTR_CREATE_ldff1sw_sve_pred(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ldff1sw, Zt, Rn, Pg)
+
+/**
+ * Creates a LDFF1W instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDFF1W  { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, <Xm>, LSL #2}]
+ *    LDFF1W  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, <Xm>, LSL #2}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
+ *             DR_EXTEND_UXTX, 1, 0, 0, OPSZ_32, 2)
+ */
+#define INSTR_CREATE_ldff1w_sve_pred(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ldff1w, Zt, Rn, Pg)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
