@@ -184,14 +184,12 @@ check_branch_target_after_branch()
 bool
 new_test()
 {
-
     std::vector<memref_t> memrefs = { gen_instr(1, 1),
                                       gen_branch(1, 2),
                                       gen_marker(1, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
                                                  1),
                                       gen_marker(1, TRACE_MARKER_TYPE_CHUNK_FOOTER, 3),
                                       gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 3),
-                                      gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 4),
                                       gen_instr(1, 3) };
 
     // TODO(sahil): Fix the logic around this error so that it passes.
