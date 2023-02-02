@@ -194,7 +194,6 @@ new_test()
         if (!run_checker(memrefs, false)) {
             return false;
         }
-        return true;
     }
 
     // Currently this returns an invariant. This should not. It is the same as the
@@ -213,8 +212,9 @@ new_test()
         if (!run_checker(memrefs, false)) {
             return false;
         }
-        return true;
     }
+
+    return true;
 }
 
 bool
