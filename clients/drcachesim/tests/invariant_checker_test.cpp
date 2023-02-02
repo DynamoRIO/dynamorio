@@ -180,6 +180,27 @@ check_branch_target_after_branch()
     return true;
 }
 
+// TODO(sahil): Eventually move this over to the correct function.
+bool
+new_test()
+{
+
+    std::vector<memref_t> memrefs = { gen_instr(1, 1),
+                                      gen_branch(1, 2),
+                                      gen_marker(1, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT,
+                                                 1),
+                                      gen_marker(1, TRACE_MARKER_TYPE_CHUNK_FOOTER, 3),
+                                      gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 3),
+                                      gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 4),
+                                      gen_instr(1, 3) };
+
+    // TODO(sahil): Fix the logic around this error so that it passes.
+    if (!run_checker(memrefs, false)) {
+        return false;
+    }
+    return true;
+}
+
 bool
 check_sane_control_flow()
 {
@@ -419,7 +440,7 @@ int
 main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
-        check_kernel_xfer() && check_rseq() && check_function_markers()) {
+        check_kernel_xfer() && check_rseq() && check_function_markers() && new_test()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
