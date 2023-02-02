@@ -364,11 +364,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(shard,
                             !shard->saw_timestamp_but_no_instr_ ||
                                 // The invariant is relaxed for a signal.
-                                // prev_xfer_marker_ is cleared on an instr, so if set to
-                                // non-sentinel it means it is immediately prior, in
-                                // between prev_instr_ and memref.
+                                // prev_xfer_marker_ is cleared on an instr, so if set
+                                // to non-sentinel it means it is immediately prior,
+                                // in between prev_instr_ and memref.
                                 shard->prev_xfer_marker_.marker.marker_type ==
-                                    TRACE_MARKER_TYPE_KERNEL_EVENT,
+                                    TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                                // Relax the invariant if we see a chunk footer. That
+                                // means we are crossing chunks.
+                                shard->prev_prev_entry_.marker.marker_type ==
+                                    TRACE_MARKER_TYPE_CHUNK_FOOTER,
                             "Branch target not immediately after branch");
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
