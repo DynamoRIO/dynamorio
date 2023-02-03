@@ -1163,6 +1163,7 @@ raw2trace_t::get_write_buffer(void *tls)
     return tdata->out_buf.data();
 }
 
+// TODO(sahil): This is where the timestamp is getting written when a new chunk starts.
 std::string
 raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
 {
@@ -1195,6 +1196,7 @@ raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
     return "";
 }
 
+// TODO(sahil): This is where the footer from the previous chunk gets written.
 std::string
 raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
 {
