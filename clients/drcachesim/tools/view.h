@@ -87,8 +87,8 @@ protected:
     inline void
     print_header()
     {
-        std::cerr << "Output format:\n<--record#-> <--instr#->"
-                  << ": <---tid---> <record details>\n"
+        std::cerr << "Output format:\n"
+                  << "<--record#-> <--instr#->: <---tid---> <record details>\n"
                   << "------------------------------------------------------------\n";
     }
 
