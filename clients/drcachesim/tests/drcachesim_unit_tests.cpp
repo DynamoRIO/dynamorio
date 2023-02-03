@@ -306,9 +306,202 @@ LLC {
            num_accesses - 1);
 }
 
+static cache_simulator_knobs_t
+gen_cache_knobs(int line_size,
+                int l1_sets,
+                int l1_ways,  // Associativity
+                int ll_sets,
+                int ll_ways) {
+    cache_simulator_knobs_t knobs;
+    knobs.num_cores = 1;
+    knobs.line_size = line_size;
+    knobs.L1I_size = line_size * l1_sets * l1_ways;
+    knobs.L1D_size = line_size * l1_sets * l1_ways;
+    knobs.L1I_assoc = l1_ways;
+    knobs.L1D_assoc = l1_ways;
+    knobs.LL_size = line_size * ll_sets * ll_ways;
+    knobs.LL_assoc = ll_ways;
+    knobs.data_prefetcher = "none";
+    // knobs.warmup_fraction = 0.0;
+    return knobs;
+}
+
+static int
+generate_1D_accesses(cache_simulator_t &cache_sim, addr_t start_address, int step_size,
+                     int step_count, int loop_count = 1)
+{
+    int access_count = 0;
+    for (int i = 0; i < loop_count; ++i) {
+        memref_t ref;
+        ref.data.type = TRACE_TYPE_READ;
+        ref.data.size = 8;
+        addr_t end_address = start_address + step_size * step_count;
+        for (addr_t addr = start_address; addr < end_address; addr += step_size) {
+            ref.data.addr = addr;
+            if (!cache_sim.process_memref(ref)) {
+                std::cerr << "generate_1D_accesses failed: "
+                          << cache_sim.get_error_string() << "\n";
+                exit(1);
+            }
+            ++access_count;
+        }
+    }
+    return access_count;
+}
+
+struct CStats {
+  int_least64_t hits;
+  int_least64_t misses;
+  int_least64_t child_hits;
+};
+
+static CStats
+get_cache_stats(cache_simulator_t &cache_sim, int level)
+{
+  CStats stats;
+  stats.hits = cache_sim.get_cache_metric(metric_name_t::HITS, level, 0);
+  stats.misses = cache_sim.get_cache_metric(metric_name_t::MISSES, level, 0);
+  stats.child_hits = cache_sim.get_cache_metric(metric_name_t::CHILD_HITS, level, 0);
+  return stats;
+}
+
+void
+unit_test_cache_size()
+{
+    constexpr int kLineSize = 64;
+    constexpr int kL1Sets = 32;
+    constexpr int kL1Ways = 8;
+    constexpr int kL1Size = kLineSize * kL1Sets * kL1Ways;
+    constexpr int kLLSets = 128;
+    constexpr int kLLWays = 4;
+    constexpr int kLLSize = kLineSize * kLLSets * kLLWays;
+
+    cache_simulator_knobs_t knobs =
+        gen_cache_knobs(kLineSize, kL1Sets, kL1Ways, kLLSets, kLLWays);
+
+    // Access a buffer of increasing size, make sure hits + misses are expected.
+    constexpr int kNumLoops = 4;
+    for (uint32_t bufsize = kL1Size / 4; bufsize < kLLSize * 4; bufsize *= 2) {
+        cache_simulator_t cache_sim(knobs);
+        auto read_count =
+            generate_1D_accesses(cache_sim, 0, kLineSize, bufsize / kLineSize, kNumLoops);
+        CStats l1stats = get_cache_stats(cache_sim, 1);
+        auto hits = l1stats.hits;
+        auto misses = l1stats.misses;
+
+        int expected_misses =
+            (bufsize <= kL1Size) ? bufsize / kLineSize : bufsize * kNumLoops / kLineSize;
+        int expected_hits = read_count - expected_misses;
+        std::cerr << "L1:"
+                  << " bufsize=" << bufsize << " L1size=" << kL1Size
+                  << " num_accesses=" << read_count << " hits=" << hits
+                  << " expected_hits=" << expected_hits << " misses=" << misses
+                  << " expected_misses=" << expected_misses << "\n";
+        assert(hits == expected_hits);
+        assert(misses == expected_misses);
+
+        CStats llstats = get_cache_stats(cache_sim, 2);
+        auto llhits = llstats.hits;
+        auto llmisses = llstats.misses;
+
+        int expected_llmisses =
+            (bufsize <= kLLSize) ? bufsize / kLineSize : bufsize * kNumLoops / kLineSize;
+        int expected_llhits = read_count - expected_hits - expected_llmisses;
+        std::cerr << "LL:"
+                  << " bufsize=" << bufsize << " LLsize=" << kLLSize
+                  << " num_accesses=" << expected_misses << " hits=" << llhits
+                  << " expected_hits=" << expected_llhits << " misses=" << llmisses
+                  << " expected_misses=" << expected_llmisses
+                  << " child_hits=" << llstats.child_hits
+                  << "\n";
+        assert(llhits == expected_llhits);
+        assert(llmisses == expected_llmisses);
+    }
+
+    /*
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0, cache_split_t::DATA) ==
+           11);
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 2, 0) == 1);
+    */
+}
+
+void
+unit_test_cache_assoc()
+{
+    constexpr int kLineSize = 64;
+    constexpr int kL1Sets = 32;
+    constexpr int kL1Ways = 8;
+    constexpr int kL1Size = kLineSize * kL1Sets * kL1Ways;
+    constexpr int kLLSets = 128;
+    constexpr int kLLWays = 4;
+    constexpr int kLLSize = kLineSize * kLLSets * kLLWays;
+
+    cache_simulator_knobs_t knobs =
+        gen_cache_knobs(kLineSize, kL1Sets, kL1Ways, kLLSets, kLLWays);
+
+    // Access a buffer of increasing size, make sure hits + misses are expected.
+    constexpr int kNumLoops = 4;
+    for (uint32_t bufsize = kL1Size / 4; bufsize < kLLSize * 4; bufsize *= 2) {
+      std::cerr << "\n**** bufsize=" << bufsize << " *****\n";
+        for (int assoc = 1; assoc <= 32; assoc *= 2) {
+            cache_simulator_t cache_sim(knobs);
+            auto way_size = bufsize / assoc;
+            std::cerr << "\n**** assoc=" << assoc << " way_size=" << way_size
+                      << " *****\n";
+            int read_count = 0;
+            for (int lp = 0; lp < kNumLoops; ++lp) {
+                for (int i = 0; i < assoc; ++i) {
+                    read_count += generate_1D_accesses(cache_sim, i * bufsize, kLineSize,
+                                                       way_size / kLineSize, 1);
+                }
+            }
+            CStats l1stats = get_cache_stats(cache_sim, 1);
+            auto hits = l1stats.hits;
+            auto misses = l1stats.misses;
+
+            int expected_misses = (bufsize <= kL1Size && assoc <= kL1Ways)
+                ? bufsize / kLineSize
+                : bufsize * kNumLoops / kLineSize;
+            int expected_hits = read_count - expected_misses;
+            std::cerr << "L1:"
+                      << " bufsize=" << bufsize << " L1size=" << kL1Size
+                      << " num_accesses=" << read_count << " hits=" << hits
+                      << " expected_hits=" << expected_hits << " misses=" << misses
+                      << " expected_misses=" << expected_misses << "\n";
+            assert(hits == expected_hits);
+            assert(misses == expected_misses);
+
+            CStats llstats = get_cache_stats(cache_sim, 2);
+            auto llhits = llstats.hits;
+            auto llmisses = llstats.misses;
+
+            int expected_llmisses = (bufsize <= kLLSize && assoc <= kLLWays)
+                ? bufsize / kLineSize
+                : expected_misses;  // bufsize * kNumLoops / kLineSize;
+            int expected_llhits = read_count - expected_hits - expected_llmisses;
+            std::cerr << "LL:"
+                      << " bufsize=" << bufsize << " LLsize=" << kLLSize
+                      << " num_accesses=" << expected_misses << " hits=" << llhits
+                      << " expected_hits=" << expected_llhits << " misses=" << llmisses
+                      << " expected_misses=" << expected_llmisses
+                      << " child_hits=" << llstats.child_hits << "\n";
+            assert(llhits == expected_llhits);
+            assert(llmisses == expected_llmisses);
+        }
+    }
+
+    /*
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0, cache_split_t::DATA) ==
+           11);
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 2, 0) == 1);
+    */
+}
+
 int
 main(int argc, const char *argv[])
 {
+    unit_test_cache_size();
+    unit_test_cache_assoc();
     unit_test_metrics_API();
     unit_test_compulsory_misses();
     unit_test_warmup_fraction();
