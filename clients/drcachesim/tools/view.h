@@ -108,7 +108,7 @@ protected:
 
         stream << std::setw(12) << record_ord << std::setw(12)
                << memstream->get_instruction_ordinal() << ": " << std::setw(11)
-               << "T" + std::to_string(memref.marker.tid) << " ";
+               << memref.marker.tid << " ";
     }
 
     /* We make this the first field so that dr_standalone_exit() is called after
