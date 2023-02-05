@@ -304,7 +304,7 @@ test_thread_limit(instrlist_t &ilist, const std::vector<memref_t> &memrefs,
     std::string res = run_test_helper(view, memrefs);
     // Count the Tnnnn prefixes.
     std::stringstream ss;
-    ss << "T" << thread2_id;
+    ss << std::setw(11) << thread2_id;
     std::string prefix = ss.str();
     int found_prefixes = 0;
     size_t pos = 0;
