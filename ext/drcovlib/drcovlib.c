@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2023 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -139,7 +139,14 @@ bb_table_print(void *drcontext, per_thread_t *data)
         ASSERT(false, "invalid log file");
         return;
     }
-    dr_fprintf(data->log, "BB Table: %u bbs\n", drtable_num_entries(data->bb_table));
+    /* We do not support >32U-bit-max (~4 billion) blocks.
+     * drcov2lcov would need a number of changes to support this.
+     * We have a debug-build check here.
+     */
+    ASSERT(drtable_num_entries(data->bb_table) <= UINT_MAX,
+           "block count exceeds 32-bit max");
+    dr_fprintf(data->log, "BB Table: %u bbs\n",
+               (uint)drtable_num_entries(data->bb_table));
     if (TEST(DRCOVLIB_DUMP_AS_TEXT, options.flags)) {
         dr_fprintf(data->log, "module id, start, size:\n");
         drtable_iterate(data->bb_table, data, bb_table_entry_print);
