@@ -302,7 +302,7 @@ test_thread_limit(instrlist_t &ilist, const std::vector<memref_t> &memrefs,
     }
     view_test_t view(drcontext, ilist, thread2_id, 0, 0);
     std::string res = run_test_helper(view, memrefs);
-    // Count the "       nnnn" prefixes (the width of the tid file is 11 characters.
+    // Count the "       nnnn" prefixes (the width of the tid file is 11 characters).
     std::stringstream ss;
     ss << std::setw(11) << thread2_id;
     std::string prefix = ss.str();
