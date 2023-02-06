@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2023 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -699,7 +699,7 @@ if (BUILD_TESTS)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
 
-    add_executable(tool.drcacheoff.view_test tests/view_test.cpp)
+    add_executable(tool.drcacheoff.view_test tests/view_test.cpp reader/file_reader.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
     add_win32_flags(tool.drcacheoff.view_test)
     target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace)

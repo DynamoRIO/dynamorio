@@ -988,6 +988,27 @@ get_vector_element_reg_offset(opnd_t opnd)
     }
 }
 
+static inline opnd_size_t
+get_opnd_size_from_offset(aarch64_reg_offset offset)
+{
+    switch (offset) {
+    case BYTE_REG: return OPSZ_1;
+    case HALF_REG: return OPSZ_2;
+    case SINGLE_REG: return OPSZ_4;
+    case DOUBLE_REG: return OPSZ_8;
+    case QUAD_REG: return OPSZ_16;
+    default: ASSERT_NOT_REACHED(); return OPSZ_NA;
+    }
+}
+
+static inline uint
+get_elements_in_sve_vector(aarch64_reg_offset element_size)
+{
+    const uint element_length =
+        opnd_size_in_bits(get_opnd_size_from_offset(element_size));
+    return opnd_size_in_bits(OPSZ_SVE_VL) / element_length;
+}
+
 /*******************************************************************************
  * Pairs of functions for decoding and encoding a generalised type of operand.
  */
@@ -6039,6 +6060,73 @@ encode_opnd_imm2_tsz_index(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint
     const uint imm_value = (value >> offset) & 0b11;
 
     *enc_out = (imm_value << 22) | (tsz_value << 16);
+    return true;
+}
+
+static inline bool
+dtype_is_signed(uint dtype)
+{
+    /* No need for a ASSERT_NOT_REACHED as all possible values of dtype are used in the
+     * instructions */
+    switch (dtype) {
+    case 0b1110:
+    case 0b1101:
+    case 0b1100:
+    case 0b1001:
+    case 0b1000:
+    case 0b0100: return true;
+    default: return false;
+    }
+}
+
+/* svemem_gpr: GPR offset and base reg for SVE ld/st */
+
+static inline bool
+decode_opnd_svemem_gpr_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint dtype = extract_uint(enc, 21, 4);
+    if (dtype_is_signed(dtype))
+        dtype = ~dtype;
+
+    const aarch64_reg_offset insz = BITS(dtype, 3, 2);
+    const aarch64_reg_offset elsz = BITS(dtype, 1, 0);
+
+    const uint elements = get_elements_in_sve_vector(elsz);
+    const opnd_size_t mem_transfer = opnd_size_from_bytes((1 << insz) * elements);
+    const opnd_size_t insz_opsz = get_opnd_size_from_offset(insz);
+
+    const reg_id_t rn = decode_reg(extract_uint(enc, 5, 5), true, true);
+    const reg_id_t rm = decode_reg(extract_uint(enc, 16, 5), true, false);
+
+    /* The byte load type does not use offset scaling, so set to zero in those cases */
+    *opnd = opnd_create_base_disp_shift_aarch64(rn, rm, DR_EXTEND_UXTX, insz != BYTE_REG,
+                                                0, 0, mem_transfer,
+                                                opnd_size_to_shift_amount(insz_opsz));
+    return true;
+}
+
+static inline bool
+encode_opnd_svemem_gpr_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint dtype = extract_uint(enc, 21, 4);
+    if (dtype_is_signed(dtype))
+        dtype = ~dtype;
+
+    const aarch64_reg_offset insz = BITS(dtype, 3, 2);
+    const aarch64_reg_offset elsz = BITS(dtype, 1, 0);
+
+    const uint elements = get_elements_in_sve_vector(elsz);
+    const opnd_size_t mem_transfer = opnd_size_from_bytes((1 << insz) * elements);
+
+    IF_RETURN_FALSE(!opnd_is_base_disp(opnd) || (opnd_get_size(opnd) != mem_transfer) ||
+                    (opnd_get_disp(opnd) != 0))
+
+    uint rn, rm;
+    bool is_x;
+    IF_RETURN_FALSE(!encode_reg(&rn, &is_x, opnd_get_base(opnd), true) || !is_x)
+    IF_RETURN_FALSE(!encode_reg(&rm, &is_x, opnd_get_index(opnd), false) || !is_x)
+
+    *enc_out = (rm << 16) | (rn << 5);
     return true;
 }
 

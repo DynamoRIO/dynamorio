@@ -87,8 +87,8 @@ protected:
     inline void
     print_header()
     {
-        std::cerr << std::setw(9) << "Output format:\n<record#> <instr#>"
-                  << ": T<tid> <record details>\n"
+        std::cerr << "Output format:\n"
+                  << "<--record#-> <--instr#->: <---tid---> <record details>\n"
                   << "------------------------------------------------------------\n";
     }
 
@@ -105,9 +105,10 @@ protected:
             stream << "------------------------------------------------------------\n";
         prev_tid_ = memref.instr.tid;
         prev_record_ = record_ord;
-        stream << std::setw(9) << record_ord << std::setw(9)
-               << memstream->get_instruction_ordinal() << ": T" << memref.marker.tid
-               << " ";
+
+        stream << std::setw(12) << record_ord << std::setw(12)
+               << memstream->get_instruction_ordinal() << ": " << std::setw(11)
+               << "T" + std::to_string(memref.marker.tid) << " ";
     }
 
     /* We make this the first field so that dr_standalone_exit() is called after

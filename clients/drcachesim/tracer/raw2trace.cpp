@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1187,6 +1187,8 @@ raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
     buf += trace_metadata_writer_t::write_marker(
         buf, TRACE_MARKER_TYPE_RECORD_ORDINAL,
         static_cast<uintptr_t>(tdata->cur_chunk_ref_count));
+    log(2, "Chunk #" INT64_FORMAT_STRING " ord marker " INT64_FORMAT_STRING "\n",
+        tdata->chunk_count_, tdata->cur_chunk_ref_count);
     buf +=
         trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)tdata->last_timestamp_);
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CPU_ID,
@@ -1196,8 +1198,8 @@ raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
     // need to go into the schedule file.
     if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
         return "Failed to write to output file";
-    // These didn't go through tdata->memref_counter so we manually add.
-    tdata->cur_chunk_ref_count += (buf - buf_base) / sizeof(trace_entry_t);
+    // These didn't go through tdata->memref_counter but all 3 should be invisible
+    // so we don't want to increment cur_chunk_ref_count.
     return "";
 }
 
