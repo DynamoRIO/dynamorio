@@ -70,7 +70,7 @@ public:
     bool
     print_results() override;
 
-    constexpr int
+    static constexpr int
     tid_column_width()
     {
         return kTidColumnWidth;
