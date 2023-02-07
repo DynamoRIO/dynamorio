@@ -73,7 +73,7 @@ public:
     static constexpr int
     tid_column_width()
     {
-        return kTidColumnWidth;
+        return TID_COLUMN_WIDTH;
     }
 
 protected:
@@ -112,9 +112,9 @@ protected:
         prev_tid_ = memref.instr.tid;
         prev_record_ = record_ord;
 
-        stream << std::setw(kRecordColumnWidth) << record_ord
-               << std::setw(kInstrColumnWidth) << memstream->get_instruction_ordinal()
-               << ": " << std::setw(kTidColumnWidth) << memref.marker.tid << " ";
+        stream << std::setw(RECORD_COLUMN_WIDTH) << record_ord
+               << std::setw(INSTR_COLUMN_WIDTH) << memstream->get_instruction_ordinal()
+               << ": " << std::setw(TID_COLUMN_WIDTH) << memref.marker.tid << " ";
     }
 
     /* We make this the first field so that dr_standalone_exit() is called after
@@ -155,9 +155,9 @@ protected:
     memtrace_stream_t *serial_stream_ = nullptr;
 
 private:
-    static constexpr int kRecordColumnWidth = 12;
-    static constexpr int kInstrColumnWidth = 12;
-    static constexpr int kTidColumnWidth = 11;
+    static constexpr int RECORD_COLUMN_WIDTH = 12;
+    static constexpr int INSTR_COLUMN_WIDTH = 12;
+    static constexpr int TID_COLUMN_WIDTH = 11;
 };
 
 #endif /* _VIEW_H_ */
