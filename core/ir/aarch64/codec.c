@@ -2678,6 +2678,41 @@ encode_opnd_vmsz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(10, 2, false, 0, 0, opnd, enc_out);
 }
 
+static inline bool
+decode_imm2_nesw(uint enc, uint pos, OUT opnd_t *opnd)
+{
+    const uint value = extract_uint(enc, pos, 2) * 90;
+    *opnd = opnd_create_immed_uint(value, OPSZ_2);
+
+    return true;
+}
+
+static inline bool
+encode_imm2_nesw(uint pos, opnd_t opnd, OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_immed_int(opnd))
+
+    const uint value = opnd_get_immed_int(opnd);
+    IF_RETURN_FALSE((value > 270) || (value % 90 != 0))
+
+    *enc_out = (value / 90) << pos;
+    return true;
+}
+
+/* imm2_nesw_10: 2 bit symbolised imm, representing 0, 90, 180, or 270 */
+
+static inline bool
+decode_opnd_imm2_nesw_10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_imm2_nesw(enc, 10, opnd);
+}
+
+static inline bool
+encode_opnd_imm2_nesw_10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_imm2_nesw(10, opnd, enc_out);
+}
+
 /* imm4: immediate operand for some system instructions */
 
 static inline bool
@@ -3028,6 +3063,20 @@ encode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
     return true;
 }
 
+/* imm2_nesw_13: 2 bit symbolised imm, representing 0, 90, 180, or 270 */
+
+static inline bool
+decode_opnd_imm2_nesw_13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_imm2_nesw(enc, 13, opnd);
+}
+
+static inline bool
+encode_opnd_imm2_nesw_13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_imm2_nesw(13, opnd, enc_out);
+}
+
 /* len: imm2 at bits 13 & 14 */
 
 static inline bool
@@ -3250,6 +3299,29 @@ encode_opnd_imm16_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     uint enc_value;
     encode_opnd_int(0, 16, false, false, 0, opnd, &enc_value);
     *enc_out = enc_value;
+    return true;
+}
+
+/* imm1_ew_16: 1 bit symbolised imm, representing 90 or 270 */
+
+static inline bool
+decode_opnd_imm1_ew_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const uint value = extract_uint(enc, 16, 1) == 0 ? 90 : 270;
+    *opnd = opnd_create_immed_uint(value, OPSZ_2);
+
+    return true;
+}
+
+static inline bool
+encode_opnd_imm1_ew_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_immed_int(opnd))
+
+    const uint value = opnd_get_immed_int(opnd);
+    IF_RETURN_FALSE((value != 90) && (value != 270))
+
+    *enc_out = (value == 90 ? 0 : 1) << 16;
     return true;
 }
 
@@ -3611,6 +3683,23 @@ encode_opnd_imm4_16p1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
         return false;
     *enc_out = val << 16;
     return true;
+}
+
+/* z4_s_16: Z0-15 register with s size elements at position 16 */
+
+static inline bool
+decode_opnd_z4_s_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 16, 4, SINGLE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z4_s_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    const reg_id_t reg = opnd_get_reg(opnd);
+    IF_RETURN_FALSE((reg < DR_REG_Z0) || (reg > DR_REG_Z15))
+
+    return encode_single_sized(OPSZ_SCALABLE, 16, SINGLE_REG, opnd, enc_out);
 }
 
 /* z4_d_16: Z0-15 register with d size elements at position 16 */
