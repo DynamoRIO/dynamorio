@@ -177,26 +177,8 @@ check_branch_target_after_branch()
         if (!run_checker(memrefs, false))
             return false;
     }
-    return true;
-}
-
-// TODO(sahil): Eventually move this over to the correct function.
-bool
-new_test()
-{
-    // There should be no invariant here. Normal branching with nothing else happening.
-    {
-        std::vector<memref_t> memrefs = { gen_instr(1, 1), gen_branch(1, 2),
-                                          gen_instr(1, 3) };
-
-        if (!run_checker(memrefs, false)) {
-            return false;
-        }
-    }
-
-    // Currently this returns an invariant. This should not. It is the same as the
-    // previous test case and the only difference is that branching crosses a chunk
-    // boundary.
+    // Invariant should not trigger when it detects a timestamp at the start of a new
+    // chunk.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
@@ -211,7 +193,6 @@ new_test()
             return false;
         }
     }
-
     return true;
 }
 
@@ -454,7 +435,7 @@ int
 main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
-        check_kernel_xfer() && check_rseq() && check_function_markers() && new_test()) {
+        check_kernel_xfer() && check_rseq() && check_function_markers()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
