@@ -454,10 +454,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                   << " type " << memref.instr.type << "\n";
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP &&
-        // Timestamps at the start of a chunk should be invisible to analysis tools. These
-        // are duplicate timestamps used to faciliate skipping.
-        shard->prev_entry_.marker.marker_type != TRACE_MARKER_TYPE_CHUNK_FOOTER) {
+        memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         shard->last_timestamp_ = memref.marker.marker_value;
         shard->saw_timestamp_but_no_instr_ = true;
         if (knob_verbose_ >= 3) {
