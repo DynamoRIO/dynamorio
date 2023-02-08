@@ -36,6 +36,8 @@
 #undef NDEBUG
 #include <assert.h>
 #include "cache_replacement_policy_unit_test.h"
+#include "simulator/cache.h"
+#include "simulator/cache_lru.h"
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
 
@@ -306,202 +308,201 @@ LLC {
            num_accesses - 1);
 }
 
-static cache_simulator_knobs_t
-gen_cache_knobs(int line_size,
-                int l1_sets,
-                int l1_ways,  // Associativity
-                int ll_sets,
-                int ll_ways) {
-    cache_simulator_knobs_t knobs;
-    knobs.num_cores = 1;
-    knobs.line_size = line_size;
-    knobs.L1I_size = line_size * l1_sets * l1_ways;
-    knobs.L1D_size = line_size * l1_sets * l1_ways;
-    knobs.L1I_assoc = l1_ways;
-    knobs.L1D_assoc = l1_ways;
-    knobs.LL_size = line_size * ll_sets * ll_ways;
-    knobs.LL_assoc = ll_ways;
-    knobs.data_prefetcher = "none";
-    // knobs.warmup_fraction = 0.0;
-    return knobs;
-}
-
+// Generate a sequence of read accesses to a cache in a 2-D access pattern.
+// Loop A is the outer loop, while loop B is the inner, fastest-changing
+// loop.  The whole 2D access pattern is repeated <loop_count> times.
+// Each access is to <start_address> + <A index> * <step_size_a>
+//                                   + <B index> * <step_size_b>
+// Returns the total number of accesses performed.
 static int
-generate_1D_accesses(cache_simulator_t &cache_sim, addr_t start_address, int step_size,
-                     int step_count, int loop_count = 1)
+generate_2D_accesses(cache_t &cache, addr_t start_address, int step_size_a,
+                     int step_count_a, int step_size_b, int step_count_b,
+                     int loop_count = 1)
 {
     int access_count = 0;
     for (int i = 0; i < loop_count; ++i) {
         memref_t ref;
         ref.data.type = TRACE_TYPE_READ;
-        ref.data.size = 8;
-        addr_t end_address = start_address + step_size * step_count;
-        for (addr_t addr = start_address; addr < end_address; addr += step_size) {
-            ref.data.addr = addr;
-            if (!cache_sim.process_memref(ref)) {
-                std::cerr << "generate_1D_accesses failed: "
-                          << cache_sim.get_error_string() << "\n";
-                exit(1);
+        ref.data.size = 4;
+        for (int step_a = 0; step_a < step_count_a; ++step_a) {
+            for (int step_b = 0; step_b < step_count_b; ++step_b) {
+                addr_t addr = start_address + step_a * step_size_a + step_b * step_size_b;
+                ref.data.addr = addr;
+                cache.request(ref);
+                ++access_count;
             }
-            ++access_count;
         }
     }
     return access_count;
 }
 
+// Convenience wrapper for a linear access pattern.
+static int
+generate_1D_accesses(cache_t &cache, addr_t start_address, int step_size, int step_count,
+                     int loop_count = 1)
+{
+    return generate_2D_accesses(cache, start_address, step_size, step_count, 0, 1,
+                                loop_count);
+}
+
+// Helper code to grab a snapshot of cache stats.
 struct CStats {
-  int_least64_t hits;
-  int_least64_t misses;
-  int_least64_t child_hits;
+    int_least64_t hits;
+    int_least64_t misses;
+    int_least64_t child_hits;
 };
 
 static CStats
-get_cache_stats(cache_simulator_t &cache_sim, int level)
+get_cache_stats(caching_device_stats_t &stats)
 {
-  CStats stats;
-  stats.hits = cache_sim.get_cache_metric(metric_name_t::HITS, level, 0);
-  stats.misses = cache_sim.get_cache_metric(metric_name_t::MISSES, level, 0);
-  stats.child_hits = cache_sim.get_cache_metric(metric_name_t::CHILD_HITS, level, 0);
-  return stats;
+    CStats cs;
+    cs.hits = stats.get_metric(metric_name_t::HITS);
+    cs.misses = stats.get_metric(metric_name_t::MISSES);
+    cs.child_hits = stats.get_metric(metric_name_t::CHILD_HITS);
+    return cs;
 }
 
+// Creates and tests LRU caches in a range of assocativities, verifying
+// the associativity works as expected.
+void
+unit_test_cache_associativity()
+{
+    // Range of associativities to be tested.
+    constexpr int MIN_ASSOC = 1;
+    constexpr int MAX_ASSOC = 16;
+
+    constexpr int LINE_SIZE = 32;
+    constexpr int BLOCKS_PER_WAY = 16;
+
+    // Only power-of-two associativities are currently supported.
+    for (int assoc = MIN_ASSOC; assoc <= MAX_ASSOC; assoc *= 2) {
+        int total_size = LINE_SIZE * BLOCKS_PER_WAY * assoc;
+        // Test access patterns that stress increasing associativity.
+        for (uint32_t test_assoc = 1; test_assoc <= 2 * assoc; ++test_assoc) {
+            cache_lru_t cache;
+            caching_device_stats_t stats(/*miss_file=*/"", LINE_SIZE);
+            assert(cache.init(assoc, LINE_SIZE, total_size, /*parent=*/nullptr, &stats));
+            // Test start address is arbitrary.
+            addr_t start_address = test_assoc * total_size;
+
+            constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
+            auto read_count =
+                generate_2D_accesses(cache, start_address, LINE_SIZE, BLOCKS_PER_WAY,
+                                     total_size, test_assoc, NUM_LOOPS);
+            CStats c_stats = get_cache_stats(stats);
+            assert(read_count == NUM_LOOPS * BLOCKS_PER_WAY * test_assoc);
+
+            int expected_misses =
+                (test_assoc <= assoc) ? BLOCKS_PER_WAY * test_assoc : read_count;
+            int expected_hits = read_count - expected_misses;
+            if (expected_hits != c_stats.hits || expected_misses != c_stats.misses) {
+                std::cerr << "ERROR in unit_test_cache_associativity():"
+                          << " test_assoc=" << test_assoc << " read_count=" << read_count
+                          << " expected_hits=" << expected_hits
+                          << " actual_hits=" << c_stats.hits
+                          << " expected_misses=" << expected_misses
+                          << " actual_misses=" << c_stats.misses << "\n";
+            }
+            assert(expected_hits == c_stats.hits);
+            assert(expected_misses == c_stats.misses);
+        }
+    }
+}
+
+// Tests an LRU cache to verify it behaves as its size requires.
 void
 unit_test_cache_size()
 {
-    constexpr int kLineSize = 64;
-    constexpr int kL1Sets = 32;
-    constexpr int kL1Ways = 8;
-    constexpr int kL1Size = kLineSize * kL1Sets * kL1Ways;
-    constexpr int kLLSets = 128;
-    constexpr int kLLWays = 4;
-    constexpr int kLLSize = kLineSize * kLLSets * kLLWays;
+    // Range of cache sizes to test.  16KB - 4MB hits the most interesting ones.
+    constexpr int MIN_TOTAL_SIZE = 16 * 1024;
+    constexpr int MAX_TOTAL_SIZE = 4 * 1024 * 1024;
+    constexpr int LINE_SIZE = 64;
+    constexpr int ASSOCIATIVITY = 2;
 
-    cache_simulator_knobs_t knobs =
-        gen_cache_knobs(kLineSize, kL1Sets, kL1Ways, kLLSets, kLLWays);
+    for (int cache_size = MIN_TOTAL_SIZE; cache_size <= MAX_TOTAL_SIZE; cache_size *= 2) {
+        // Access a buffer of increasing size, make sure hits + misses are expected.
+        for (int buffer_size = cache_size / 2; buffer_size < cache_size * 2;
+             buffer_size *= 2) {
+            cache_lru_t cache;
+            caching_device_stats_t stats(/*miss_file=*/"", LINE_SIZE);
+            cache.init(ASSOCIATIVITY, LINE_SIZE, cache_size, /*parent=*/nullptr, &stats);
+            constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
+            auto read_count = generate_1D_accesses(cache, 0, LINE_SIZE,
+                                                   buffer_size / LINE_SIZE, NUM_LOOPS);
+            CStats c_stats = get_cache_stats(stats);
 
-    // Access a buffer of increasing size, make sure hits + misses are expected.
-    constexpr int kNumLoops = 4;
-    for (uint32_t bufsize = kL1Size / 4; bufsize < kLLSize * 4; bufsize *= 2) {
-        cache_simulator_t cache_sim(knobs);
-        auto read_count =
-            generate_1D_accesses(cache_sim, 0, kLineSize, bufsize / kLineSize, kNumLoops);
-        CStats l1stats = get_cache_stats(cache_sim, 1);
-        auto hits = l1stats.hits;
-        auto misses = l1stats.misses;
-
-        int expected_misses =
-            (bufsize <= kL1Size) ? bufsize / kLineSize : bufsize * kNumLoops / kLineSize;
-        int expected_hits = read_count - expected_misses;
-        std::cerr << "L1:"
-                  << " bufsize=" << bufsize << " L1size=" << kL1Size
-                  << " num_accesses=" << read_count << " hits=" << hits
-                  << " expected_hits=" << expected_hits << " misses=" << misses
-                  << " expected_misses=" << expected_misses << "\n";
-        assert(hits == expected_hits);
-        assert(misses == expected_misses);
-
-        CStats llstats = get_cache_stats(cache_sim, 2);
-        auto llhits = llstats.hits;
-        auto llmisses = llstats.misses;
-
-        int expected_llmisses =
-            (bufsize <= kLLSize) ? bufsize / kLineSize : bufsize * kNumLoops / kLineSize;
-        int expected_llhits = read_count - expected_hits - expected_llmisses;
-        std::cerr << "LL:"
-                  << " bufsize=" << bufsize << " LLsize=" << kLLSize
-                  << " num_accesses=" << expected_misses << " hits=" << llhits
-                  << " expected_hits=" << expected_llhits << " misses=" << llmisses
-                  << " expected_misses=" << expected_llmisses
-                  << " child_hits=" << llstats.child_hits
-                  << "\n";
-        assert(llhits == expected_llhits);
-        assert(llmisses == expected_llmisses);
-    }
-
-    /*
-    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0, cache_split_t::DATA) ==
-           11);
-    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 2, 0) == 1);
-    */
-}
-
-void
-unit_test_cache_assoc()
-{
-    constexpr int kLineSize = 64;
-    constexpr int kL1Sets = 32;
-    constexpr int kL1Ways = 8;
-    constexpr int kL1Size = kLineSize * kL1Sets * kL1Ways;
-    constexpr int kLLSets = 128;
-    constexpr int kLLWays = 4;
-    constexpr int kLLSize = kLineSize * kLLSets * kLLWays;
-
-    cache_simulator_knobs_t knobs =
-        gen_cache_knobs(kLineSize, kL1Sets, kL1Ways, kLLSets, kLLWays);
-
-    // Access a buffer of increasing size, make sure hits + misses are expected.
-    constexpr int kNumLoops = 4;
-    for (uint32_t bufsize = kL1Size / 4; bufsize < kLLSize * 4; bufsize *= 2) {
-      std::cerr << "\n**** bufsize=" << bufsize << " *****\n";
-        for (int assoc = 1; assoc <= 32; assoc *= 2) {
-            cache_simulator_t cache_sim(knobs);
-            auto way_size = bufsize / assoc;
-            std::cerr << "\n**** assoc=" << assoc << " way_size=" << way_size
-                      << " *****\n";
-            int read_count = 0;
-            for (int lp = 0; lp < kNumLoops; ++lp) {
-                for (int i = 0; i < assoc; ++i) {
-                    read_count += generate_1D_accesses(cache_sim, i * bufsize, kLineSize,
-                                                       way_size / kLineSize, 1);
-                }
-            }
-            CStats l1stats = get_cache_stats(cache_sim, 1);
-            auto hits = l1stats.hits;
-            auto misses = l1stats.misses;
-
-            int expected_misses = (bufsize <= kL1Size && assoc <= kL1Ways)
-                ? bufsize / kLineSize
-                : bufsize * kNumLoops / kLineSize;
+            int expected_misses = (buffer_size <= cache_size)
+                ? buffer_size / LINE_SIZE
+                : buffer_size * NUM_LOOPS / LINE_SIZE;
             int expected_hits = read_count - expected_misses;
-            std::cerr << "L1:"
-                      << " bufsize=" << bufsize << " L1size=" << kL1Size
-                      << " num_accesses=" << read_count << " hits=" << hits
-                      << " expected_hits=" << expected_hits << " misses=" << misses
-                      << " expected_misses=" << expected_misses << "\n";
-            assert(hits == expected_hits);
-            assert(misses == expected_misses);
 
-            CStats llstats = get_cache_stats(cache_sim, 2);
-            auto llhits = llstats.hits;
-            auto llmisses = llstats.misses;
-
-            int expected_llmisses = (bufsize <= kLLSize && assoc <= kLLWays)
-                ? bufsize / kLineSize
-                : expected_misses;  // bufsize * kNumLoops / kLineSize;
-            int expected_llhits = read_count - expected_hits - expected_llmisses;
-            std::cerr << "LL:"
-                      << " bufsize=" << bufsize << " LLsize=" << kLLSize
-                      << " num_accesses=" << expected_misses << " hits=" << llhits
-                      << " expected_hits=" << expected_llhits << " misses=" << llmisses
-                      << " expected_misses=" << expected_llmisses
-                      << " child_hits=" << llstats.child_hits << "\n";
-            assert(llhits == expected_llhits);
-            assert(llmisses == expected_llmisses);
+            if (expected_hits != c_stats.hits || expected_misses != c_stats.misses) {
+                std::cerr << "ERROR in unit_test_cache_size():"
+                          << " cache_size=" << cache_size
+                          << " test_buffer_size=" << buffer_size
+                          << " num_accesses=" << read_count << " hits=" << c_stats.hits
+                          << " expected_hits=" << expected_hits
+                          << " misses=" << c_stats.misses
+                          << " expected_misses=" << expected_misses << "\n";
+            }
+            assert(c_stats.hits == expected_hits);
+            assert(c_stats.misses == expected_misses);
         }
     }
+}
 
-    /*
-    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0, cache_split_t::DATA) ==
-           11);
-    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 2, 0) == 1);
-    */
+// Tests a cache to verify its line size works as expected.
+void
+unit_test_cache_line_size()
+{
+    // Range of line sizes to test.
+    constexpr int MIN_LINE_SIZE = 16;
+    constexpr int MAX_LINE_SIZE = 256;
+
+    constexpr int BLOCKS_PER_WAY = 16;
+    constexpr int ASSOCIATIVITY = 2;
+
+    for (int line_size = MIN_LINE_SIZE; line_size <= MAX_LINE_SIZE; line_size *= 2) {
+        // Stride through the cache at a test line size.  If test line size is
+        // less than actual line size, there will be cache hits.  If test line
+        // size is larger than actual line size, there will be fewer misses than
+        // lines in the cache.
+        for (uint32_t stride = line_size / 2; stride < line_size * 2; stride *= 2) {
+            int cache_line_count = BLOCKS_PER_WAY * ASSOCIATIVITY;
+            int total_cache_size = line_size * cache_line_count;
+            cache_t cache;
+            caching_device_stats_t stats(/*miss_file=*/"", line_size);
+            cache.init(ASSOCIATIVITY, line_size, total_cache_size, /*parent=*/nullptr,
+                       &stats);
+            auto read_count =
+                generate_1D_accesses(cache, 0, stride, total_cache_size / stride);
+            CStats c_stats = get_cache_stats(stats);
+
+            int expected_misses =
+                (stride <= line_size) ? cache_line_count : total_cache_size / stride;
+            int expected_hits = read_count - expected_misses;
+            assert(read_count == total_cache_size / stride);
+
+            if (expected_hits != c_stats.hits || expected_misses != c_stats.misses) {
+                std::cerr << "ERROR in unit_test_cache_line_size():"
+                          << " line_size=" << line_size << " stride=" << stride
+                          << " read_count=" << read_count << " hits=" << c_stats.hits
+                          << " expected_hits=" << expected_hits
+                          << " misses=" << c_stats.misses
+                          << " expected_misses=" << expected_misses << "\n";
+            }
+            assert(c_stats.hits == expected_hits);
+            assert(c_stats.misses == expected_misses);
+        }
+    }
 }
 
 int
 main(int argc, const char *argv[])
 {
+    unit_test_cache_line_size();
     unit_test_cache_size();
-    unit_test_cache_assoc();
+    unit_test_cache_associativity();
     unit_test_metrics_API();
     unit_test_compulsory_misses();
     unit_test_warmup_fraction();
