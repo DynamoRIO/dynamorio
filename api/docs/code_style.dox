@@ -161,11 +161,11 @@ strcmp() and memcmp(), the use of ! is counter-intuitive.
 
   \b GOOD: `if (p == NULL) ...`
 
-  \e BAD:  `if (p)`
+  \e BAD:  `if (!p)`
 
   \b GOOD: `if (p != NULL) ...`
 
-  \e BAD:  `if (!p)`
+  \e BAD:  `if (p)`
 
   \b GOOD: `if (strncmp(...) == 0) ...`
 
