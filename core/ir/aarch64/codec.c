@@ -4302,7 +4302,7 @@ svemem_gprs_per_element_encode(uint bytes_per_element, aarch64_reg_offset elemen
     const opnd_size_t mem_transfer = opnd_size_from_bytes(bytes_per_element * elements);
 
     if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != mem_transfer ||
-                    opnd_get_disp(opnd) != 0)
+        opnd_get_disp(opnd) != 0)
         return false;
 
     uint rn, rm;
@@ -4323,11 +4323,9 @@ decode_opnd_svemem_gprs_b1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_svemem_gprs_b1(uint enc, int opcode, byte *pc, opnd_t opnd,
-                             OUT uint *enc_out)
+encode_opnd_svemem_gprs_b1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return svemem_gprs_per_element_encode(1, BYTE_REG, 0, enc, opcode, pc, opnd,
-                                          enc_out);
+    return svemem_gprs_per_element_encode(1, BYTE_REG, 0, enc, opcode, pc, opnd, enc_out);
 }
 
 /* imm8_10: 8 bit imm at pos 10, split across 20:16 and 12:10. */
