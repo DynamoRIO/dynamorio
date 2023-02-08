@@ -13962,6 +13962,145 @@ TEST_INSTR(ldff1w_sve_pred)
                                                   0, 0, OPSZ_16, 2));
 }
 
+TEST_INSTR(fcadd_sve_pred)
+{
+    /* Testing FCADD   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>, <const> */
+    static const uint rot_0_0[6] = { 90, 270, 270, 270, 90, 270 };
+    const char *const expected_0_0[6] = {
+        "fcadd  %p0/m %z0.h %z0.h $0x005a -> %z0.h",
+        "fcadd  %p2/m %z5.h %z7.h $0x010e -> %z5.h",
+        "fcadd  %p3/m %z10.h %z12.h $0x010e -> %z10.h",
+        "fcadd  %p5/m %z16.h %z18.h $0x010e -> %z16.h",
+        "fcadd  %p6/m %z21.h %z23.h $0x005a -> %z21.h",
+        "fcadd  %p7/m %z31.h %z31.h $0x010e -> %z31.h",
+    };
+    TEST_LOOP(fcadd, fcadd_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "fcadd  %p0/m %z0.s %z0.s $0x005a -> %z0.s",
+        "fcadd  %p2/m %z5.s %z7.s $0x010e -> %z5.s",
+        "fcadd  %p3/m %z10.s %z12.s $0x010e -> %z10.s",
+        "fcadd  %p5/m %z16.s %z18.s $0x010e -> %z16.s",
+        "fcadd  %p6/m %z21.s %z23.s $0x005a -> %z21.s",
+        "fcadd  %p7/m %z31.s %z31.s $0x010e -> %z31.s",
+    };
+    TEST_LOOP(fcadd, fcadd_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+
+    const char *const expected_0_2[6] = {
+        "fcadd  %p0/m %z0.d %z0.d $0x005a -> %z0.d",
+        "fcadd  %p2/m %z5.d %z7.d $0x010e -> %z5.d",
+        "fcadd  %p3/m %z10.d %z12.d $0x010e -> %z10.d",
+        "fcadd  %p5/m %z16.d %z18.d $0x010e -> %z16.d",
+        "fcadd  %p6/m %z21.d %z23.d $0x005a -> %z21.d",
+        "fcadd  %p7/m %z31.d %z31.d $0x010e -> %z31.d",
+    };
+    TEST_LOOP(fcadd, fcadd_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+}
+
+TEST_INSTR(fcmla_sve_vector)
+{
+    /* Testing FCMLA   <Zda>.<Ts>, <Pg>/M, <Zn>.<Ts>, <Zm>.<Ts>, <const> */
+    static const uint rot_0_0[6] = { 0, 0, 90, 180, 180, 270 };
+    const char *const expected_0_0[6] = {
+        "fcmla  %z0.h %p0/m %z0.h %z0.h $0x0000 -> %z0.h",
+        "fcmla  %z5.h %p2/m %z7.h %z8.h $0x0000 -> %z5.h",
+        "fcmla  %z10.h %p3/m %z12.h %z13.h $0x005a -> %z10.h",
+        "fcmla  %z16.h %p5/m %z18.h %z19.h $0x00b4 -> %z16.h",
+        "fcmla  %z21.h %p6/m %z23.h %z24.h $0x00b4 -> %z21.h",
+        "fcmla  %z31.h %p7/m %z31.h %z31.h $0x010e -> %z31.h",
+    };
+    TEST_LOOP(fcmla, fcmla_sve_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_3[i], OPSZ_2),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "fcmla  %z0.s %p0/m %z0.s %z0.s $0x0000 -> %z0.s",
+        "fcmla  %z5.s %p2/m %z7.s %z8.s $0x0000 -> %z5.s",
+        "fcmla  %z10.s %p3/m %z12.s %z13.s $0x005a -> %z10.s",
+        "fcmla  %z16.s %p5/m %z18.s %z19.s $0x00b4 -> %z16.s",
+        "fcmla  %z21.s %p6/m %z23.s %z24.s $0x00b4 -> %z21.s",
+        "fcmla  %z31.s %p7/m %z31.s %z31.s $0x010e -> %z31.s",
+    };
+    TEST_LOOP(fcmla, fcmla_sve_vector, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_3[i], OPSZ_4),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+
+    const char *const expected_0_2[6] = {
+        "fcmla  %z0.d %p0/m %z0.d %z0.d $0x0000 -> %z0.d",
+        "fcmla  %z5.d %p2/m %z7.d %z8.d $0x0000 -> %z5.d",
+        "fcmla  %z10.d %p3/m %z12.d %z13.d $0x005a -> %z10.d",
+        "fcmla  %z16.d %p5/m %z18.d %z19.d $0x00b4 -> %z16.d",
+        "fcmla  %z21.d %p6/m %z23.d %z24.d $0x00b4 -> %z21.d",
+        "fcmla  %z31.d %p7/m %z31.d %z31.d $0x010e -> %z31.d",
+    };
+    TEST_LOOP(fcmla, fcmla_sve_vector, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_3[i], OPSZ_8),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+}
+
+TEST_INSTR(fcmla_sve_idx)
+{
+    /* Testing FCMLA   <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const> */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    static const uint rot_0_0[6] = { 0, 0, 90, 180, 180, 270 };
+    const char *const expected_0_0[6] = {
+        "fcmla  %z0.h %z0.h %z0.h $0x00 $0x0000 -> %z0.h",
+        "fcmla  %z5.h %z6.h %z3.h $0x03 $0x0000 -> %z5.h",
+        "fcmla  %z10.h %z11.h %z4.h $0x00 $0x005a -> %z10.h",
+        "fcmla  %z16.h %z17.h %z6.h $0x01 $0x00b4 -> %z16.h",
+        "fcmla  %z21.h %z22.h %z7.h $0x01 $0x00b4 -> %z21.h",
+        "fcmla  %z31.h %z31.h %z7.h $0x03 $0x010e -> %z31.h",
+    };
+    TEST_LOOP(fcmla, fcmla_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+
+    /* Testing FCMLA   <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const> */
+    static const reg_id_t Zm_0_1[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    const char *const expected_0_1[6] = {
+        "fcmla  %z0.s %z0.s %z0.s $0x00 $0x0000 -> %z0.s",
+        "fcmla  %z5.s %z6.s %z4.s $0x01 $0x0000 -> %z5.s",
+        "fcmla  %z10.s %z11.s %z7.s $0x01 $0x005a -> %z10.s",
+        "fcmla  %z16.s %z17.s %z10.s $0x01 $0x00b4 -> %z16.s",
+        "fcmla  %z21.s %z22.s %z12.s $0x00 $0x00b4 -> %z21.s",
+        "fcmla  %z31.s %z31.s %z15.s $0x01 $0x010e -> %z31.s",
+    };
+    TEST_LOOP(fcmla, fcmla_sve_idx, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_1[i], OPSZ_4),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -14376,6 +14515,12 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(ldff1sh_sve_pred);
     RUN_INSTR_TEST(ldff1sw_sve_pred);
     RUN_INSTR_TEST(ldff1w_sve_pred);
+
+    RUN_INSTR_TEST(fcadd_sve_pred);
+
+    RUN_INSTR_TEST(fcmla_sve_vector);
+    RUN_INSTR_TEST(fcmla_sve_idx);
+    RUN_INSTR_TEST(fcmla_sve_idx);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

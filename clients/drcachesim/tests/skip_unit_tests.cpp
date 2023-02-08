@@ -111,9 +111,9 @@ test_skip_initial()
         //    Output format:
         //    <--record#-> <--instr#->: <---tid---> <record details>
         //    ------------------------------------------------------------
-        //               0          49:    T3854659 <marker: timestamp 13312570674112282>
-        //               0          49:    T3854659 <marker: tid 3854659 on core 3>
-        //              62          50:    T3854659 ifetch    2 byte(s) @ 0x0000000401 ...
+        //               0          49:     3854659 <marker: timestamp 13312570674112282>
+        //               0          49:     3854659 <marker: tid 3854659 on core 3>
+        //              62          50:     3854659 ifetch    2 byte(s) @ 0x0000000401 ...
         //                                   d9                jnz    $0x000000000040100b
         std::string line;
         // First we expect "Output format:"

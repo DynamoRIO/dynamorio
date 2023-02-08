@@ -655,26 +655,26 @@ $ $ bin64/drrun -t drcachesim -simulator_type view -indir drmemtrace.*.dir -sim_
 Output format:
 <--record#-> <--instr#->: <---tid---> <record details>
 ------------------------------------------------------------
-           1           0:    T3256418 <marker: version 4>
-           2           0:    T3256418 <marker: filetype 0x240>
-           3           0:    T3256418 <marker: cache line size 64>
-           4           0:    T3256418 <marker: chunk instruction count 1024>
-           5           0:    T3256418 <marker: page size 4096>
-           6           0:    T3256418 <marker: timestamp 13312410768080478>
-           7           0:    T3256418 <marker: tid 3256418 on core 7>
-           8           1:    T3256418 ifetch       3 byte(s) @ 0x00007fc205a61940 48 89 e7             mov    %rsp, %rdi
-           9           2:    T3256418 ifetch       5 byte(s) @ 0x00007fc205a61943 e8 b8 0c 00 00       call   $0x00007fc205a62600
-          10           2:    T3256418 write        8 byte(s) @ 0x00007fff9a9e3528 by PC 0x00007fc205a61943
-          11           3:    T3256418 ifetch       1 byte(s) @ 0x00007fc205a62600 55                   push   %rbp
-          12           3:    T3256418 write        8 byte(s) @ 0x00007fff9a9e3520 by PC 0x00007fc205a62600
-          13           4:    T3256418 ifetch       3 byte(s) @ 0x00007fc205a62601 48 89 e5             mov    %rsp, %rbp
-          14           5:    T3256418 ifetch       2 byte(s) @ 0x00007fc205a62604 41 57                push   %r15
-          15           5:    T3256418 write        8 byte(s) @ 0x00007fff9a9e3518 by PC 0x00007fc205a62604
-          16           6:    T3256418 ifetch       2 byte(s) @ 0x00007fc205a62606 41 56                push   %r14
-          17           6:    T3256418 write        8 byte(s) @ 0x00007fff9a9e3510 by PC 0x00007fc205a62606
-          18           7:    T3256418 ifetch       2 byte(s) @ 0x00007fc205a62608 41 55                push   %r13
-          19           7:    T3256418 write        8 byte(s) @ 0x00007fff9a9e3508 by PC 0x00007fc205a62608
-          20           8:    T3256418 ifetch       2 byte(s) @ 0x00007fc205a6260a 41 54                push   %r12
+           1           0:     3256418 <marker: version 4>
+           2           0:     3256418 <marker: filetype 0x240>
+           3           0:     3256418 <marker: cache line size 64>
+           4           0:     3256418 <marker: chunk instruction count 1024>
+           5           0:     3256418 <marker: page size 4096>
+           6           0:     3256418 <marker: timestamp 13312410768080478>
+           7           0:     3256418 <marker: tid 3256418 on core 7>
+           8           1:     3256418 ifetch       3 byte(s) @ 0x00007fc205a61940 48 89 e7             mov    %rsp, %rdi
+           9           2:     3256418 ifetch       5 byte(s) @ 0x00007fc205a61943 e8 b8 0c 00 00       call   $0x00007fc205a62600
+          10           2:     3256418 write        8 byte(s) @ 0x00007fff9a9e3528 by PC 0x00007fc205a61943
+          11           3:     3256418 ifetch       1 byte(s) @ 0x00007fc205a62600 55                   push   %rbp
+          12           3:     3256418 write        8 byte(s) @ 0x00007fff9a9e3520 by PC 0x00007fc205a62600
+          13           4:     3256418 ifetch       3 byte(s) @ 0x00007fc205a62601 48 89 e5             mov    %rsp, %rbp
+          14           5:     3256418 ifetch       2 byte(s) @ 0x00007fc205a62604 41 57                push   %r15
+          15           5:     3256418 write        8 byte(s) @ 0x00007fff9a9e3518 by PC 0x00007fc205a62604
+          16           6:     3256418 ifetch       2 byte(s) @ 0x00007fc205a62606 41 56                push   %r14
+          17           6:     3256418 write        8 byte(s) @ 0x00007fff9a9e3510 by PC 0x00007fc205a62606
+          18           7:     3256418 ifetch       2 byte(s) @ 0x00007fc205a62608 41 55                push   %r13
+          19           7:     3256418 write        8 byte(s) @ 0x00007fff9a9e3508 by PC 0x00007fc205a62608
+          20           8:     3256418 ifetch       2 byte(s) @ 0x00007fc205a6260a 41 54                push   %r12
 View tool results:
               8 : total instructions
 \endcode
@@ -683,19 +683,19 @@ An example of thread switches:
 
 \code
 ------------------------------------------------------------
-       46        0: T3264758 <marker: timestamp 13312413437398055>
-       47        0: T3264758 <marker: tid 3264758 on core 2>
-       48        1: T3264758 ifetch       3 byte(s) @ 0x00007f4ea89e4940 48 89 e7             mov    %rsp, %rdi
-       49        2: T3264758 ifetch       5 byte(s) @ 0x00007f4ea89e4943 e8 b8 0c 00 00       call   $0x00007f4ea89e5600
-       50        2: T3264758 write        8 byte(s) @ 0x00007ffd93a0cf18 by PC 0x00007f4ea89e4943
+       46        0:  3264758 <marker: timestamp 13312413437398055>
+       47        0:  3264758 <marker: tid 3264758 on core 2>
+       48        1:  3264758 ifetch       3 byte(s) @ 0x00007f4ea89e4940 48 89 e7             mov    %rsp, %rdi
+       49        2:  3264758 ifetch       5 byte(s) @ 0x00007f4ea89e4943 e8 b8 0c 00 00       call   $0x00007f4ea89e5600
+       50        2:  3264758 write        8 byte(s) @ 0x00007ffd93a0cf18 by PC 0x00007f4ea89e4943
 ...
-  2854543  2149665: T3264758 ifetch       5 byte(s) @ 0x00007f4ea7c87f8c b8 0e 00 00 00       mov    $0x0000000e, %eax
-  2854544  2149666: T3264758 ifetch       2 byte(s) @ 0x00007f4ea7c87f91 0f 05                syscall
+  2854543  2149665:  3264758 ifetch       5 byte(s) @ 0x00007f4ea7c87f8c b8 0e 00 00 00       mov    $0x0000000e, %eax
+  2854544  2149666:  3264758 ifetch       2 byte(s) @ 0x00007f4ea7c87f91 0f 05                syscall
 ------------------------------------------------------------
-  2854545  2149666: T3264760 <marker: timestamp 13312413438835999>
-  2854546  2149666: T3264760 <marker: tid 3264760 on core 11>
-  2854547  2149667: T3264760 ifetch       3 byte(s) @ 0x00007f4ea7d0b099 48 85 c0             test   %rax, %rax
-  2854548  2149668: T3264760 ifetch       2 byte(s) @ 0x00007f4ea7d0b09c 7c 18                jl     $0x00007f4ea7d0b0b6
+  2854545  2149666:  3264760 <marker: timestamp 13312413438835999>
+  2854546  2149666:  3264760 <marker: tid 3264760 on core 11>
+  2854547  2149667:  3264760 ifetch       3 byte(s) @ 0x00007f4ea7d0b099 48 85 c0             test   %rax, %rax
+  2854548  2149668:  3264760 ifetch       2 byte(s) @ 0x00007f4ea7d0b09c 7c 18                jl     $0x00007f4ea7d0b0b6
 ...
 \endcode
 
@@ -705,40 +705,40 @@ with metadata showing that the signal was delivered just after a
 non-taken conditional branch:
 
 \code
-  2851502  2147588: T3264758 ifetch       2 byte(s) @ 0x00007f4ea7c87a54 eb 14                jmp    $0x00007f4ea7c87a6a
-  2851503  2147588: T3264758 <marker: kernel xfer from 0x7f4ea7c87a6a to handler>
-  2851504  2147588: T3264758 <marker: timestamp 13312413438786440>
-  2851505  2147588: T3264758 <marker: tid 3264758 on core 8>
-  2851506  2147589: T3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbdba 55                   push   %rbp
-  2851507  2147589: T3264758 write        8 byte(s) @ 0x00007ffd93a0be30 by PC 0x00007f4ea47fbdba
-  2851508  2147590: T3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdbb 48 89 e5             mov    %rsp, %rbp
-  2851509  2147591: T3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdbe 89 7d fc             mov    %edi, -0x04(%rbp)
-  2851510  2147591: T3264758 write        4 byte(s) @ 0x00007ffd93a0be2c by PC 0x00007f4ea47fbdbe
-  2851511  2147592: T3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc1 48 89 75 f0          mov    %rsi, -0x10(%rbp)
-  2851512  2147592: T3264758 write        8 byte(s) @ 0x00007ffd93a0be20 by PC 0x00007f4ea47fbdc1
-  2851513  2147593: T3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc5 48 89 55 e8          mov    %rdx, -0x18(%rbp)
-  2851514  2147593: T3264758 write        8 byte(s) @ 0x00007ffd93a0be18 by PC 0x00007f4ea47fbdc5
-  2851515  2147594: T3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc9 83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
-  2851516  2147594: T3264758 read         4 byte(s) @ 0x00007ffd93a0be2c by PC 0x00007f4ea47fbdc9
-  2851517  2147595: T3264758 ifetch       2 byte(s) @ 0x00007f4ea47fbdcd 75 0f                jnz    $0x00007f4ea47fbdde
-  2851518  2147596: T3264758 ifetch       6 byte(s) @ 0x00007f4ea47fbdcf 8b 05 7f 23 20 00    mov    <rel> 0x00007f4ea49fe154, %eax
-  2851519  2147596: T3264758 read         4 byte(s) @ 0x00007f4ea49fe154 by PC 0x00007f4ea47fbdcf
-  2851520  2147597: T3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdd5 83 c0 01             add    $0x01, %eax
-  2851521  2147598: T3264758 ifetch       6 byte(s) @ 0x00007f4ea47fbdd8 89 05 76 23 20 00    mov    %eax, <rel> 0x00007f4ea49fe154
-  2851522  2147598: T3264758 write        4 byte(s) @ 0x00007f4ea49fe154 by PC 0x00007f4ea47fbdd8
-  2851523  2147599: T3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbdde 90                   nop
-  2851524  2147600: T3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbddf 5d                   pop    %rbp
-  2851525  2147600: T3264758 read         8 byte(s) @ 0x00007ffd93a0be30 by PC 0x00007f4ea47fbddf
-  2851526  2147601: T3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbde0 c3                   ret
-  2851527  2147601: T3264758 read         8 byte(s) @ 0x00007ffd93a0be38 by PC 0x00007f4ea47fbde0
-  2851528  2147602: T3264758 ifetch       7 byte(s) @ 0x00007f4ea7c3daa0 48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
-  2851529  2147603: T3264758 ifetch       2 byte(s) @ 0x00007f4ea7c3daa7 0f 05                syscall
-  2851530  2147603: T3264758 <marker: timestamp 13312413438787645>
-  2851531  2147603: T3264758 <marker: tid 3264758 on core 8>
-  2851532  2147603: T3264758 <marker: syscall xfer from 0x7f4ea7c3daa9>
-  2851533  2147603: T3264758 <marker: timestamp 13312413438787652>
-  2851534  2147603: T3264758 <marker: tid 3264758 on core 8>
-  2851535  2147604: T3264758 ifetch       5 byte(s) @ 0x00007f4ea7c87a6a e8 11 8b 07 00       call   $0x00007f4ea7d00580
+  2851502  2147588:  3264758 ifetch       2 byte(s) @ 0x00007f4ea7c87a54 eb 14                jmp    $0x00007f4ea7c87a6a
+  2851503  2147588:  3264758 <marker: kernel xfer from 0x7f4ea7c87a6a to handler>
+  2851504  2147588:  3264758 <marker: timestamp 13312413438786440>
+  2851505  2147588:  3264758 <marker: tid 3264758 on core 8>
+  2851506  2147589:  3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbdba 55                   push   %rbp
+  2851507  2147589:  3264758 write        8 byte(s) @ 0x00007ffd93a0be30 by PC 0x00007f4ea47fbdba
+  2851508  2147590:  3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdbb 48 89 e5             mov    %rsp, %rbp
+  2851509  2147591:  3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdbe 89 7d fc             mov    %edi, -0x04(%rbp)
+  2851510  2147591:  3264758 write        4 byte(s) @ 0x00007ffd93a0be2c by PC 0x00007f4ea47fbdbe
+  2851511  2147592:  3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc1 48 89 75 f0          mov    %rsi, -0x10(%rbp)
+  2851512  2147592:  3264758 write        8 byte(s) @ 0x00007ffd93a0be20 by PC 0x00007f4ea47fbdc1
+  2851513  2147593:  3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc5 48 89 55 e8          mov    %rdx, -0x18(%rbp)
+  2851514  2147593:  3264758 write        8 byte(s) @ 0x00007ffd93a0be18 by PC 0x00007f4ea47fbdc5
+  2851515  2147594:  3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc9 83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
+  2851516  2147594:  3264758 read         4 byte(s) @ 0x00007ffd93a0be2c by PC 0x00007f4ea47fbdc9
+  2851517  2147595:  3264758 ifetch       2 byte(s) @ 0x00007f4ea47fbdcd 75 0f                jnz    $0x00007f4ea47fbdde
+  2851518  2147596:  3264758 ifetch       6 byte(s) @ 0x00007f4ea47fbdcf 8b 05 7f 23 20 00    mov    <rel> 0x00007f4ea49fe154, %eax
+  2851519  2147596:  3264758 read         4 byte(s) @ 0x00007f4ea49fe154 by PC 0x00007f4ea47fbdcf
+  2851520  2147597:  3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdd5 83 c0 01             add    $0x01, %eax
+  2851521  2147598:  3264758 ifetch       6 byte(s) @ 0x00007f4ea47fbdd8 89 05 76 23 20 00    mov    %eax, <rel> 0x00007f4ea49fe154
+  2851522  2147598:  3264758 write        4 byte(s) @ 0x00007f4ea49fe154 by PC 0x00007f4ea47fbdd8
+  2851523  2147599:  3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbdde 90                   nop
+  2851524  2147600:  3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbddf 5d                   pop    %rbp
+  2851525  2147600:  3264758 read         8 byte(s) @ 0x00007ffd93a0be30 by PC 0x00007f4ea47fbddf
+  2851526  2147601:  3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbde0 c3                   ret
+  2851527  2147601:  3264758 read         8 byte(s) @ 0x00007ffd93a0be38 by PC 0x00007f4ea47fbde0
+  2851528  2147602:  3264758 ifetch       7 byte(s) @ 0x00007f4ea7c3daa0 48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
+  2851529  2147603:  3264758 ifetch       2 byte(s) @ 0x00007f4ea7c3daa7 0f 05                syscall
+  2851530  2147603:  3264758 <marker: timestamp 13312413438787645>
+  2851531  2147603:  3264758 <marker: tid 3264758 on core 8>
+  2851532  2147603:  3264758 <marker: syscall xfer from 0x7f4ea7c3daa9>
+  2851533  2147603:  3264758 <marker: timestamp 13312413438787652>
+  2851534  2147603:  3264758 <marker: tid 3264758 on core 8>
+  2851535  2147604:  3264758 ifetch       5 byte(s) @ 0x00007f4ea7c87a6a e8 11 8b 07 00       call   $0x00007f4ea7d00580
 \endcode
 
 \section sec_tool_func_view View Function Calls
