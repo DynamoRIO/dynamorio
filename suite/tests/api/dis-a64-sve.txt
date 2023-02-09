@@ -966,6 +966,150 @@
 04d49fbb : asrr z27.d, p7/M, z27.d, z29.d            : asrr   %p7/m %z27.d %z29.d -> %z27.d
 04d49fff : asrr z31.d, p7/M, z31.d, z31.d            : asrr   %p7/m %z31.d %z31.d -> %z31.d
 
+# BFCVT   <Zd>.H, <Pg>/M, <Zn>.S (BFCVT-Z.P.Z-S2BF)
+658aa000 : bfcvt z0.h, p0/M, z0.s                    : bfcvt  %p0/m %z0.s -> %z0.h
+658aa482 : bfcvt z2.h, p1/M, z4.s                    : bfcvt  %p1/m %z4.s -> %z2.h
+658aa8c4 : bfcvt z4.h, p2/M, z6.s                    : bfcvt  %p2/m %z6.s -> %z4.h
+658aa906 : bfcvt z6.h, p2/M, z8.s                    : bfcvt  %p2/m %z8.s -> %z6.h
+658aad48 : bfcvt z8.h, p3/M, z10.s                   : bfcvt  %p3/m %z10.s -> %z8.h
+658aad8a : bfcvt z10.h, p3/M, z12.s                  : bfcvt  %p3/m %z12.s -> %z10.h
+658ab1cc : bfcvt z12.h, p4/M, z14.s                  : bfcvt  %p4/m %z14.s -> %z12.h
+658ab20e : bfcvt z14.h, p4/M, z16.s                  : bfcvt  %p4/m %z16.s -> %z14.h
+658ab650 : bfcvt z16.h, p5/M, z18.s                  : bfcvt  %p5/m %z18.s -> %z16.h
+658ab671 : bfcvt z17.h, p5/M, z19.s                  : bfcvt  %p5/m %z19.s -> %z17.h
+658ab6b3 : bfcvt z19.h, p5/M, z21.s                  : bfcvt  %p5/m %z21.s -> %z19.h
+658abaf5 : bfcvt z21.h, p6/M, z23.s                  : bfcvt  %p6/m %z23.s -> %z21.h
+658abb37 : bfcvt z23.h, p6/M, z25.s                  : bfcvt  %p6/m %z25.s -> %z23.h
+658abf79 : bfcvt z25.h, p7/M, z27.s                  : bfcvt  %p7/m %z27.s -> %z25.h
+658abfbb : bfcvt z27.h, p7/M, z29.s                  : bfcvt  %p7/m %z29.s -> %z27.h
+658abfff : bfcvt z31.h, p7/M, z31.s                  : bfcvt  %p7/m %z31.s -> %z31.h
+
+# BFDOT   <Zda>.S, <Zn>.H, <Zm>.H (BFDOT-Z.ZZZ-_)
+64608000 : bfdot z0.s, z0.h, z0.h                    : bfdot  %z0.s %z0.h %z0.h -> %z0.s
+64648062 : bfdot z2.s, z3.h, z4.h                    : bfdot  %z2.s %z3.h %z4.h -> %z2.s
+646680a4 : bfdot z4.s, z5.h, z6.h                    : bfdot  %z4.s %z5.h %z6.h -> %z4.s
+646880e6 : bfdot z6.s, z7.h, z8.h                    : bfdot  %z6.s %z7.h %z8.h -> %z6.s
+646a8128 : bfdot z8.s, z9.h, z10.h                   : bfdot  %z8.s %z9.h %z10.h -> %z8.s
+646c816a : bfdot z10.s, z11.h, z12.h                 : bfdot  %z10.s %z11.h %z12.h -> %z10.s
+646e81ac : bfdot z12.s, z13.h, z14.h                 : bfdot  %z12.s %z13.h %z14.h -> %z12.s
+647081ee : bfdot z14.s, z15.h, z16.h                 : bfdot  %z14.s %z15.h %z16.h -> %z14.s
+64728230 : bfdot z16.s, z17.h, z18.h                 : bfdot  %z16.s %z17.h %z18.h -> %z16.s
+64738251 : bfdot z17.s, z18.h, z19.h                 : bfdot  %z17.s %z18.h %z19.h -> %z17.s
+64758293 : bfdot z19.s, z20.h, z21.h                 : bfdot  %z19.s %z20.h %z21.h -> %z19.s
+647782d5 : bfdot z21.s, z22.h, z23.h                 : bfdot  %z21.s %z22.h %z23.h -> %z21.s
+64798317 : bfdot z23.s, z24.h, z25.h                 : bfdot  %z23.s %z24.h %z25.h -> %z23.s
+647b8359 : bfdot z25.s, z26.h, z27.h                 : bfdot  %z25.s %z26.h %z27.h -> %z25.s
+647d839b : bfdot z27.s, z28.h, z29.h                 : bfdot  %z27.s %z28.h %z29.h -> %z27.s
+647f83ff : bfdot z31.s, z31.h, z31.h                 : bfdot  %z31.s %z31.h %z31.h -> %z31.s
+
+# BFDOT   <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (BFDOT-Z.ZZZi-_)
+64604000 : bfdot z0.s, z0.h, z0.h[0]                 : bfdot  %z0.s %z0.h %z0.h $0x00 -> %z0.s
+64624062 : bfdot z2.s, z3.h, z2.h[0]                 : bfdot  %z2.s %z3.h %z2.h $0x00 -> %z2.s
+646340a4 : bfdot z4.s, z5.h, z3.h[0]                 : bfdot  %z4.s %z5.h %z3.h $0x00 -> %z4.s
+646b40e6 : bfdot z6.s, z7.h, z3.h[1]                 : bfdot  %z6.s %z7.h %z3.h $0x01 -> %z6.s
+646c4128 : bfdot z8.s, z9.h, z4.h[1]                 : bfdot  %z8.s %z9.h %z4.h $0x01 -> %z8.s
+646c416a : bfdot z10.s, z11.h, z4.h[1]               : bfdot  %z10.s %z11.h %z4.h $0x01 -> %z10.s
+646d41ac : bfdot z12.s, z13.h, z5.h[1]               : bfdot  %z12.s %z13.h %z5.h $0x01 -> %z12.s
+646d41ee : bfdot z14.s, z15.h, z5.h[1]               : bfdot  %z14.s %z15.h %z5.h $0x01 -> %z14.s
+64764230 : bfdot z16.s, z17.h, z6.h[2]               : bfdot  %z16.s %z17.h %z6.h $0x02 -> %z16.s
+64764251 : bfdot z17.s, z18.h, z6.h[2]               : bfdot  %z17.s %z18.h %z6.h $0x02 -> %z17.s
+64764293 : bfdot z19.s, z20.h, z6.h[2]               : bfdot  %z19.s %z20.h %z6.h $0x02 -> %z19.s
+647742d5 : bfdot z21.s, z22.h, z7.h[2]               : bfdot  %z21.s %z22.h %z7.h $0x02 -> %z21.s
+64774317 : bfdot z23.s, z24.h, z7.h[2]               : bfdot  %z23.s %z24.h %z7.h $0x02 -> %z23.s
+64704359 : bfdot z25.s, z26.h, z0.h[2]               : bfdot  %z25.s %z26.h %z0.h $0x02 -> %z25.s
+6478439b : bfdot z27.s, z28.h, z0.h[3]               : bfdot  %z27.s %z28.h %z0.h $0x03 -> %z27.s
+647f43ff : bfdot z31.s, z31.h, z7.h[3]               : bfdot  %z31.s %z31.h %z7.h $0x03 -> %z31.s
+
+# BFMLALB <Zda>.S, <Zn>.H, <Zm>.H (BFMLALB-Z.ZZZ-_)
+64e08000 : bfmlalb z0.s, z0.h, z0.h                  : bfmlalb %z0.s %z0.h %z0.h -> %z0.s
+64e48062 : bfmlalb z2.s, z3.h, z4.h                  : bfmlalb %z2.s %z3.h %z4.h -> %z2.s
+64e680a4 : bfmlalb z4.s, z5.h, z6.h                  : bfmlalb %z4.s %z5.h %z6.h -> %z4.s
+64e880e6 : bfmlalb z6.s, z7.h, z8.h                  : bfmlalb %z6.s %z7.h %z8.h -> %z6.s
+64ea8128 : bfmlalb z8.s, z9.h, z10.h                 : bfmlalb %z8.s %z9.h %z10.h -> %z8.s
+64ec816a : bfmlalb z10.s, z11.h, z12.h               : bfmlalb %z10.s %z11.h %z12.h -> %z10.s
+64ee81ac : bfmlalb z12.s, z13.h, z14.h               : bfmlalb %z12.s %z13.h %z14.h -> %z12.s
+64f081ee : bfmlalb z14.s, z15.h, z16.h               : bfmlalb %z14.s %z15.h %z16.h -> %z14.s
+64f28230 : bfmlalb z16.s, z17.h, z18.h               : bfmlalb %z16.s %z17.h %z18.h -> %z16.s
+64f38251 : bfmlalb z17.s, z18.h, z19.h               : bfmlalb %z17.s %z18.h %z19.h -> %z17.s
+64f58293 : bfmlalb z19.s, z20.h, z21.h               : bfmlalb %z19.s %z20.h %z21.h -> %z19.s
+64f782d5 : bfmlalb z21.s, z22.h, z23.h               : bfmlalb %z21.s %z22.h %z23.h -> %z21.s
+64f98317 : bfmlalb z23.s, z24.h, z25.h               : bfmlalb %z23.s %z24.h %z25.h -> %z23.s
+64fb8359 : bfmlalb z25.s, z26.h, z27.h               : bfmlalb %z25.s %z26.h %z27.h -> %z25.s
+64fd839b : bfmlalb z27.s, z28.h, z29.h               : bfmlalb %z27.s %z28.h %z29.h -> %z27.s
+64ff83ff : bfmlalb z31.s, z31.h, z31.h               : bfmlalb %z31.s %z31.h %z31.h -> %z31.s
+
+# BFMLALB <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (BFMLALB-Z.ZZZi-_)
+64e04000 : bfmlalb z0.s, z0.h, z0.h[0]               : bfmlalb %z0.s %z0.h %z0.h $0x00 -> %z0.s
+64e24062 : bfmlalb z2.s, z3.h, z2.h[0]               : bfmlalb %z2.s %z3.h %z2.h $0x00 -> %z2.s
+64e348a4 : bfmlalb z4.s, z5.h, z3.h[1]               : bfmlalb %z4.s %z5.h %z3.h $0x01 -> %z4.s
+64e348e6 : bfmlalb z6.s, z7.h, z3.h[1]               : bfmlalb %z6.s %z7.h %z3.h $0x01 -> %z6.s
+64ec4128 : bfmlalb z8.s, z9.h, z4.h[2]               : bfmlalb %z8.s %z9.h %z4.h $0x02 -> %z8.s
+64ec416a : bfmlalb z10.s, z11.h, z4.h[2]             : bfmlalb %z10.s %z11.h %z4.h $0x02 -> %z10.s
+64ed49ac : bfmlalb z12.s, z13.h, z5.h[3]             : bfmlalb %z12.s %z13.h %z5.h $0x03 -> %z12.s
+64ed49ee : bfmlalb z14.s, z15.h, z5.h[3]             : bfmlalb %z14.s %z15.h %z5.h $0x03 -> %z14.s
+64f64230 : bfmlalb z16.s, z17.h, z6.h[4]             : bfmlalb %z16.s %z17.h %z6.h $0x04 -> %z16.s
+64f64251 : bfmlalb z17.s, z18.h, z6.h[4]             : bfmlalb %z17.s %z18.h %z6.h $0x04 -> %z17.s
+64f64293 : bfmlalb z19.s, z20.h, z6.h[4]             : bfmlalb %z19.s %z20.h %z6.h $0x04 -> %z19.s
+64f74ad5 : bfmlalb z21.s, z22.h, z7.h[5]             : bfmlalb %z21.s %z22.h %z7.h $0x05 -> %z21.s
+64f74b17 : bfmlalb z23.s, z24.h, z7.h[5]             : bfmlalb %z23.s %z24.h %z7.h $0x05 -> %z23.s
+64f84359 : bfmlalb z25.s, z26.h, z0.h[6]             : bfmlalb %z25.s %z26.h %z0.h $0x06 -> %z25.s
+64f8439b : bfmlalb z27.s, z28.h, z0.h[6]             : bfmlalb %z27.s %z28.h %z0.h $0x06 -> %z27.s
+64ff4bff : bfmlalb z31.s, z31.h, z7.h[7]             : bfmlalb %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# BFMLALT <Zda>.S, <Zn>.H, <Zm>.H (BFMLALT-Z.ZZZ-_)
+64e08400 : bfmlalt z0.s, z0.h, z0.h                  : bfmlalt %z0.s %z0.h %z0.h -> %z0.s
+64e48462 : bfmlalt z2.s, z3.h, z4.h                  : bfmlalt %z2.s %z3.h %z4.h -> %z2.s
+64e684a4 : bfmlalt z4.s, z5.h, z6.h                  : bfmlalt %z4.s %z5.h %z6.h -> %z4.s
+64e884e6 : bfmlalt z6.s, z7.h, z8.h                  : bfmlalt %z6.s %z7.h %z8.h -> %z6.s
+64ea8528 : bfmlalt z8.s, z9.h, z10.h                 : bfmlalt %z8.s %z9.h %z10.h -> %z8.s
+64ec856a : bfmlalt z10.s, z11.h, z12.h               : bfmlalt %z10.s %z11.h %z12.h -> %z10.s
+64ee85ac : bfmlalt z12.s, z13.h, z14.h               : bfmlalt %z12.s %z13.h %z14.h -> %z12.s
+64f085ee : bfmlalt z14.s, z15.h, z16.h               : bfmlalt %z14.s %z15.h %z16.h -> %z14.s
+64f28630 : bfmlalt z16.s, z17.h, z18.h               : bfmlalt %z16.s %z17.h %z18.h -> %z16.s
+64f38651 : bfmlalt z17.s, z18.h, z19.h               : bfmlalt %z17.s %z18.h %z19.h -> %z17.s
+64f58693 : bfmlalt z19.s, z20.h, z21.h               : bfmlalt %z19.s %z20.h %z21.h -> %z19.s
+64f786d5 : bfmlalt z21.s, z22.h, z23.h               : bfmlalt %z21.s %z22.h %z23.h -> %z21.s
+64f98717 : bfmlalt z23.s, z24.h, z25.h               : bfmlalt %z23.s %z24.h %z25.h -> %z23.s
+64fb8759 : bfmlalt z25.s, z26.h, z27.h               : bfmlalt %z25.s %z26.h %z27.h -> %z25.s
+64fd879b : bfmlalt z27.s, z28.h, z29.h               : bfmlalt %z27.s %z28.h %z29.h -> %z27.s
+64ff87ff : bfmlalt z31.s, z31.h, z31.h               : bfmlalt %z31.s %z31.h %z31.h -> %z31.s
+
+# BFMLALT <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (BFMLALT-Z.ZZZi-_)
+64e04400 : bfmlalt z0.s, z0.h, z0.h[0]               : bfmlalt %z0.s %z0.h %z0.h $0x00 -> %z0.s
+64e24462 : bfmlalt z2.s, z3.h, z2.h[0]               : bfmlalt %z2.s %z3.h %z2.h $0x00 -> %z2.s
+64e34ca4 : bfmlalt z4.s, z5.h, z3.h[1]               : bfmlalt %z4.s %z5.h %z3.h $0x01 -> %z4.s
+64e34ce6 : bfmlalt z6.s, z7.h, z3.h[1]               : bfmlalt %z6.s %z7.h %z3.h $0x01 -> %z6.s
+64ec4528 : bfmlalt z8.s, z9.h, z4.h[2]               : bfmlalt %z8.s %z9.h %z4.h $0x02 -> %z8.s
+64ec456a : bfmlalt z10.s, z11.h, z4.h[2]             : bfmlalt %z10.s %z11.h %z4.h $0x02 -> %z10.s
+64ed4dac : bfmlalt z12.s, z13.h, z5.h[3]             : bfmlalt %z12.s %z13.h %z5.h $0x03 -> %z12.s
+64ed4dee : bfmlalt z14.s, z15.h, z5.h[3]             : bfmlalt %z14.s %z15.h %z5.h $0x03 -> %z14.s
+64f64630 : bfmlalt z16.s, z17.h, z6.h[4]             : bfmlalt %z16.s %z17.h %z6.h $0x04 -> %z16.s
+64f64651 : bfmlalt z17.s, z18.h, z6.h[4]             : bfmlalt %z17.s %z18.h %z6.h $0x04 -> %z17.s
+64f64693 : bfmlalt z19.s, z20.h, z6.h[4]             : bfmlalt %z19.s %z20.h %z6.h $0x04 -> %z19.s
+64f74ed5 : bfmlalt z21.s, z22.h, z7.h[5]             : bfmlalt %z21.s %z22.h %z7.h $0x05 -> %z21.s
+64f74f17 : bfmlalt z23.s, z24.h, z7.h[5]             : bfmlalt %z23.s %z24.h %z7.h $0x05 -> %z23.s
+64f84759 : bfmlalt z25.s, z26.h, z0.h[6]             : bfmlalt %z25.s %z26.h %z0.h $0x06 -> %z25.s
+64f8479b : bfmlalt z27.s, z28.h, z0.h[6]             : bfmlalt %z27.s %z28.h %z0.h $0x06 -> %z27.s
+64ff4fff : bfmlalt z31.s, z31.h, z7.h[7]             : bfmlalt %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# BFMMLA  <Zda>.S, <Zn>.H, <Zm>.H (BFMMLA-Z.ZZZ-_)
+6460e400 : bfmmla z0.s, z0.h, z0.h                   : bfmmla %z0.s %z0.h %z0.h -> %z0.s
+6464e462 : bfmmla z2.s, z3.h, z4.h                   : bfmmla %z2.s %z3.h %z4.h -> %z2.s
+6466e4a4 : bfmmla z4.s, z5.h, z6.h                   : bfmmla %z4.s %z5.h %z6.h -> %z4.s
+6468e4e6 : bfmmla z6.s, z7.h, z8.h                   : bfmmla %z6.s %z7.h %z8.h -> %z6.s
+646ae528 : bfmmla z8.s, z9.h, z10.h                  : bfmmla %z8.s %z9.h %z10.h -> %z8.s
+646ce56a : bfmmla z10.s, z11.h, z12.h                : bfmmla %z10.s %z11.h %z12.h -> %z10.s
+646ee5ac : bfmmla z12.s, z13.h, z14.h                : bfmmla %z12.s %z13.h %z14.h -> %z12.s
+6470e5ee : bfmmla z14.s, z15.h, z16.h                : bfmmla %z14.s %z15.h %z16.h -> %z14.s
+6472e630 : bfmmla z16.s, z17.h, z18.h                : bfmmla %z16.s %z17.h %z18.h -> %z16.s
+6473e651 : bfmmla z17.s, z18.h, z19.h                : bfmmla %z17.s %z18.h %z19.h -> %z17.s
+6475e693 : bfmmla z19.s, z20.h, z21.h                : bfmmla %z19.s %z20.h %z21.h -> %z19.s
+6477e6d5 : bfmmla z21.s, z22.h, z23.h                : bfmmla %z21.s %z22.h %z23.h -> %z21.s
+6479e717 : bfmmla z23.s, z24.h, z25.h                : bfmmla %z23.s %z24.h %z25.h -> %z23.s
+647be759 : bfmmla z25.s, z26.h, z27.h                : bfmmla %z25.s %z26.h %z27.h -> %z25.s
+647de79b : bfmmla z27.s, z28.h, z29.h                : bfmmla %z27.s %z28.h %z29.h -> %z27.s
+647fe7ff : bfmmla z31.s, z31.h, z31.h                : bfmmla %z31.s %z31.h %z31.h -> %z31.s
+
 041b0b02 : bic z2.b, p2/m, z2.b, z24.b              : bic    %p2 %z2 %z24 $0x00 -> %z2
 045b0b02 : bic z2.h, p2/m, z2.h, z24.h              : bic    %p2 %z2 %z24 $0x01 -> %z2
 049b0b02 : bic z2.s, p2/m, z2.s, z24.s              : bic    %p2 %z2 %z24 $0x02 -> %z2
@@ -14279,6 +14423,24 @@ a41edfff : ldnt1b z31.b, p7/Z, [sp, x30]             : ldnt1b (%sp,%x30)[32byte]
 04ca3fbb : sminv d27, p7, z29.d                      : sminv  %p7 %z29.d -> %d27
 04ca3fff : sminv d31, p7, z31.d                      : sminv  %p7 %z31.d -> %d31
 
+# SMMLA   <Zda>.S, <Zn>.B, <Zm>.B (SMMLA-Z.ZZZ-_)
+45009800 : smmla z0.s, z0.b, z0.b                    : smmla  %z0.s %z0.b %z0.b -> %z0.s
+45049862 : smmla z2.s, z3.b, z4.b                    : smmla  %z2.s %z3.b %z4.b -> %z2.s
+450698a4 : smmla z4.s, z5.b, z6.b                    : smmla  %z4.s %z5.b %z6.b -> %z4.s
+450898e6 : smmla z6.s, z7.b, z8.b                    : smmla  %z6.s %z7.b %z8.b -> %z6.s
+450a9928 : smmla z8.s, z9.b, z10.b                   : smmla  %z8.s %z9.b %z10.b -> %z8.s
+450c996a : smmla z10.s, z11.b, z12.b                 : smmla  %z10.s %z11.b %z12.b -> %z10.s
+450e99ac : smmla z12.s, z13.b, z14.b                 : smmla  %z12.s %z13.b %z14.b -> %z12.s
+451099ee : smmla z14.s, z15.b, z16.b                 : smmla  %z14.s %z15.b %z16.b -> %z14.s
+45129a30 : smmla z16.s, z17.b, z18.b                 : smmla  %z16.s %z17.b %z18.b -> %z16.s
+45139a51 : smmla z17.s, z18.b, z19.b                 : smmla  %z17.s %z18.b %z19.b -> %z17.s
+45159a93 : smmla z19.s, z20.b, z21.b                 : smmla  %z19.s %z20.b %z21.b -> %z19.s
+45179ad5 : smmla z21.s, z22.b, z23.b                 : smmla  %z21.s %z22.b %z23.b -> %z21.s
+45199b17 : smmla z23.s, z24.b, z25.b                 : smmla  %z23.s %z24.b %z25.b -> %z23.s
+451b9b59 : smmla z25.s, z26.b, z27.b                 : smmla  %z25.s %z26.b %z27.b -> %z25.s
+451d9b9b : smmla z27.s, z28.b, z29.b                 : smmla  %z27.s %z28.b %z29.b -> %z27.s
+451f9bff : smmla z31.s, z31.b, z31.b                 : smmla  %z31.s %z31.b %z31.b -> %z31.s
+
 # SMULH   <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (SMULH-Z.P.ZZ-_)
 04120000 : smulh z0.b, p0/M, z0.b, z0.b              : smulh  %p0/m %z0.b %z0.b -> %z0.b
 04120482 : smulh z2.b, p1/M, z2.b, z4.b              : smulh  %p1/m %z2.b %z4.b -> %z2.b
@@ -16301,6 +16463,24 @@ e5b615ef : str p15, [x15, #-75, mul vl]             : str    %p15 -> -0x4b(%x15)
 25e3dbfa : subr z26.d, z26.d, #0xdf, lsl #0          : subr   %z26.d $0xdf lsl $0x00 -> %z26.d
 25e3dffe : subr z30.d, z30.d, #0xff, lsl #0          : subr   %z30.d $0xff lsl $0x00 -> %z30.d
 
+# SUDOT   <Zda>.S, <Zn>.B, <Zm>.B[<imm>] (SUDOT-Z.ZZZi-S)
+44a01c00 : sudot z0.s, z0.b, z0.b[0]                 : sudot  %z0.s %z0.b %z0.b $0x00 -> %z0.s
+44a21c62 : sudot z2.s, z3.b, z2.b[0]                 : sudot  %z2.s %z3.b %z2.b $0x00 -> %z2.s
+44a31ca4 : sudot z4.s, z5.b, z3.b[0]                 : sudot  %z4.s %z5.b %z3.b $0x00 -> %z4.s
+44ab1ce6 : sudot z6.s, z7.b, z3.b[1]                 : sudot  %z6.s %z7.b %z3.b $0x01 -> %z6.s
+44ac1d28 : sudot z8.s, z9.b, z4.b[1]                 : sudot  %z8.s %z9.b %z4.b $0x01 -> %z8.s
+44ac1d6a : sudot z10.s, z11.b, z4.b[1]               : sudot  %z10.s %z11.b %z4.b $0x01 -> %z10.s
+44ad1dac : sudot z12.s, z13.b, z5.b[1]               : sudot  %z12.s %z13.b %z5.b $0x01 -> %z12.s
+44ad1dee : sudot z14.s, z15.b, z5.b[1]               : sudot  %z14.s %z15.b %z5.b $0x01 -> %z14.s
+44b61e30 : sudot z16.s, z17.b, z6.b[2]               : sudot  %z16.s %z17.b %z6.b $0x02 -> %z16.s
+44b61e51 : sudot z17.s, z18.b, z6.b[2]               : sudot  %z17.s %z18.b %z6.b $0x02 -> %z17.s
+44b61e93 : sudot z19.s, z20.b, z6.b[2]               : sudot  %z19.s %z20.b %z6.b $0x02 -> %z19.s
+44b71ed5 : sudot z21.s, z22.b, z7.b[2]               : sudot  %z21.s %z22.b %z7.b $0x02 -> %z21.s
+44b71f17 : sudot z23.s, z24.b, z7.b[2]               : sudot  %z23.s %z24.b %z7.b $0x02 -> %z23.s
+44b01f59 : sudot z25.s, z26.b, z0.b[2]               : sudot  %z25.s %z26.b %z0.b $0x02 -> %z25.s
+44b81f9b : sudot z27.s, z28.b, z0.b[3]               : sudot  %z27.s %z28.b %z0.b $0x03 -> %z27.s
+44bf1fff : sudot z31.s, z31.b, z7.b[3]               : sudot  %z31.s %z31.b %z7.b $0x03 -> %z31.s
+
 # SUNPKHI <Zd>.<T>, <Zn>.<Tb> (SUNPKHI-Z.Z-_)
 05713800 : sunpkhi z0.h, z0.b                        : sunpkhi %z0.b -> %z0.h
 05713862 : sunpkhi z2.h, z3.b                        : sunpkhi %z3.b -> %z2.h
@@ -17554,6 +17734,24 @@ e5b615ef : str p15, [x15, #-75, mul vl]             : str    %p15 -> -0x4b(%x15)
 04cb3f79 : uminv d25, p7, z27.d                      : uminv  %p7 %z27.d -> %d25
 04cb3fbb : uminv d27, p7, z29.d                      : uminv  %p7 %z29.d -> %d27
 04cb3fff : uminv d31, p7, z31.d                      : uminv  %p7 %z31.d -> %d31
+
+# UMMLA   <Zda>.S, <Zn>.B, <Zm>.B (UMMLA-Z.ZZZ-_)
+45c09800 : ummla z0.s, z0.b, z0.b                    : ummla  %z0.s %z0.b %z0.b -> %z0.s
+45c49862 : ummla z2.s, z3.b, z4.b                    : ummla  %z2.s %z3.b %z4.b -> %z2.s
+45c698a4 : ummla z4.s, z5.b, z6.b                    : ummla  %z4.s %z5.b %z6.b -> %z4.s
+45c898e6 : ummla z6.s, z7.b, z8.b                    : ummla  %z6.s %z7.b %z8.b -> %z6.s
+45ca9928 : ummla z8.s, z9.b, z10.b                   : ummla  %z8.s %z9.b %z10.b -> %z8.s
+45cc996a : ummla z10.s, z11.b, z12.b                 : ummla  %z10.s %z11.b %z12.b -> %z10.s
+45ce99ac : ummla z12.s, z13.b, z14.b                 : ummla  %z12.s %z13.b %z14.b -> %z12.s
+45d099ee : ummla z14.s, z15.b, z16.b                 : ummla  %z14.s %z15.b %z16.b -> %z14.s
+45d29a30 : ummla z16.s, z17.b, z18.b                 : ummla  %z16.s %z17.b %z18.b -> %z16.s
+45d39a51 : ummla z17.s, z18.b, z19.b                 : ummla  %z17.s %z18.b %z19.b -> %z17.s
+45d59a93 : ummla z19.s, z20.b, z21.b                 : ummla  %z19.s %z20.b %z21.b -> %z19.s
+45d79ad5 : ummla z21.s, z22.b, z23.b                 : ummla  %z21.s %z22.b %z23.b -> %z21.s
+45d99b17 : ummla z23.s, z24.b, z25.b                 : ummla  %z23.s %z24.b %z25.b -> %z23.s
+45db9b59 : ummla z25.s, z26.b, z27.b                 : ummla  %z25.s %z26.b %z27.b -> %z25.s
+45dd9b9b : ummla z27.s, z28.b, z29.b                 : ummla  %z27.s %z28.b %z29.b -> %z27.s
+45df9bff : ummla z31.s, z31.b, z31.b                 : ummla  %z31.s %z31.b %z31.b -> %z31.s
 
 # UMULH   <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (UMULH-Z.P.ZZ-_)
 04130000 : umulh z0.b, p0/M, z0.b, z0.b              : umulh  %p0/m %z0.b %z0.b -> %z0.b
@@ -18996,6 +19194,60 @@ e5b615ef : str p15, [x15, #-75, mul vl]             : str    %p15 -> -0x4b(%x15)
 04fa1f38 : uqsub z24.d, z25.d, z26.d                 : uqsub  %z25.d %z26.d -> %z24.d
 04fc1f7a : uqsub z26.d, z27.d, z28.d                 : uqsub  %z27.d %z28.d -> %z26.d
 04fe1fde : uqsub z30.d, z30.d, z30.d                 : uqsub  %z30.d %z30.d -> %z30.d
+
+# USDOT   <Zda>.S, <Zn>.B, <Zm>.B (USDOT-Z.ZZZ-S)
+44807800 : usdot z0.s, z0.b, z0.b                    : usdot  %z0.s %z0.b %z0.b -> %z0.s
+44847862 : usdot z2.s, z3.b, z4.b                    : usdot  %z2.s %z3.b %z4.b -> %z2.s
+448678a4 : usdot z4.s, z5.b, z6.b                    : usdot  %z4.s %z5.b %z6.b -> %z4.s
+448878e6 : usdot z6.s, z7.b, z8.b                    : usdot  %z6.s %z7.b %z8.b -> %z6.s
+448a7928 : usdot z8.s, z9.b, z10.b                   : usdot  %z8.s %z9.b %z10.b -> %z8.s
+448c796a : usdot z10.s, z11.b, z12.b                 : usdot  %z10.s %z11.b %z12.b -> %z10.s
+448e79ac : usdot z12.s, z13.b, z14.b                 : usdot  %z12.s %z13.b %z14.b -> %z12.s
+449079ee : usdot z14.s, z15.b, z16.b                 : usdot  %z14.s %z15.b %z16.b -> %z14.s
+44927a30 : usdot z16.s, z17.b, z18.b                 : usdot  %z16.s %z17.b %z18.b -> %z16.s
+44937a51 : usdot z17.s, z18.b, z19.b                 : usdot  %z17.s %z18.b %z19.b -> %z17.s
+44957a93 : usdot z19.s, z20.b, z21.b                 : usdot  %z19.s %z20.b %z21.b -> %z19.s
+44977ad5 : usdot z21.s, z22.b, z23.b                 : usdot  %z21.s %z22.b %z23.b -> %z21.s
+44997b17 : usdot z23.s, z24.b, z25.b                 : usdot  %z23.s %z24.b %z25.b -> %z23.s
+449b7b59 : usdot z25.s, z26.b, z27.b                 : usdot  %z25.s %z26.b %z27.b -> %z25.s
+449d7b9b : usdot z27.s, z28.b, z29.b                 : usdot  %z27.s %z28.b %z29.b -> %z27.s
+449f7bff : usdot z31.s, z31.b, z31.b                 : usdot  %z31.s %z31.b %z31.b -> %z31.s
+
+# USDOT   <Zda>.S, <Zn>.B, <Zm>.B[<imm>] (USDOT-Z.ZZZi-S)
+44a01800 : usdot z0.s, z0.b, z0.b[0]                 : usdot  %z0.s %z0.b %z0.b $0x00 -> %z0.s
+44a21862 : usdot z2.s, z3.b, z2.b[0]                 : usdot  %z2.s %z3.b %z2.b $0x00 -> %z2.s
+44a318a4 : usdot z4.s, z5.b, z3.b[0]                 : usdot  %z4.s %z5.b %z3.b $0x00 -> %z4.s
+44ab18e6 : usdot z6.s, z7.b, z3.b[1]                 : usdot  %z6.s %z7.b %z3.b $0x01 -> %z6.s
+44ac1928 : usdot z8.s, z9.b, z4.b[1]                 : usdot  %z8.s %z9.b %z4.b $0x01 -> %z8.s
+44ac196a : usdot z10.s, z11.b, z4.b[1]               : usdot  %z10.s %z11.b %z4.b $0x01 -> %z10.s
+44ad19ac : usdot z12.s, z13.b, z5.b[1]               : usdot  %z12.s %z13.b %z5.b $0x01 -> %z12.s
+44ad19ee : usdot z14.s, z15.b, z5.b[1]               : usdot  %z14.s %z15.b %z5.b $0x01 -> %z14.s
+44b61a30 : usdot z16.s, z17.b, z6.b[2]               : usdot  %z16.s %z17.b %z6.b $0x02 -> %z16.s
+44b61a51 : usdot z17.s, z18.b, z6.b[2]               : usdot  %z17.s %z18.b %z6.b $0x02 -> %z17.s
+44b61a93 : usdot z19.s, z20.b, z6.b[2]               : usdot  %z19.s %z20.b %z6.b $0x02 -> %z19.s
+44b71ad5 : usdot z21.s, z22.b, z7.b[2]               : usdot  %z21.s %z22.b %z7.b $0x02 -> %z21.s
+44b71b17 : usdot z23.s, z24.b, z7.b[2]               : usdot  %z23.s %z24.b %z7.b $0x02 -> %z23.s
+44b01b59 : usdot z25.s, z26.b, z0.b[2]               : usdot  %z25.s %z26.b %z0.b $0x02 -> %z25.s
+44b81b9b : usdot z27.s, z28.b, z0.b[3]               : usdot  %z27.s %z28.b %z0.b $0x03 -> %z27.s
+44bf1bff : usdot z31.s, z31.b, z7.b[3]               : usdot  %z31.s %z31.b %z7.b $0x03 -> %z31.s
+
+# USMMLA  <Zda>.S, <Zn>.B, <Zm>.B (USMMLA-Z.ZZZ-_)
+45809800 : usmmla z0.s, z0.b, z0.b                   : usmmla %z0.s %z0.b %z0.b -> %z0.s
+45849862 : usmmla z2.s, z3.b, z4.b                   : usmmla %z2.s %z3.b %z4.b -> %z2.s
+458698a4 : usmmla z4.s, z5.b, z6.b                   : usmmla %z4.s %z5.b %z6.b -> %z4.s
+458898e6 : usmmla z6.s, z7.b, z8.b                   : usmmla %z6.s %z7.b %z8.b -> %z6.s
+458a9928 : usmmla z8.s, z9.b, z10.b                  : usmmla %z8.s %z9.b %z10.b -> %z8.s
+458c996a : usmmla z10.s, z11.b, z12.b                : usmmla %z10.s %z11.b %z12.b -> %z10.s
+458e99ac : usmmla z12.s, z13.b, z14.b                : usmmla %z12.s %z13.b %z14.b -> %z12.s
+459099ee : usmmla z14.s, z15.b, z16.b                : usmmla %z14.s %z15.b %z16.b -> %z14.s
+45929a30 : usmmla z16.s, z17.b, z18.b                : usmmla %z16.s %z17.b %z18.b -> %z16.s
+45939a51 : usmmla z17.s, z18.b, z19.b                : usmmla %z17.s %z18.b %z19.b -> %z17.s
+45959a93 : usmmla z19.s, z20.b, z21.b                : usmmla %z19.s %z20.b %z21.b -> %z19.s
+45979ad5 : usmmla z21.s, z22.b, z23.b                : usmmla %z21.s %z22.b %z23.b -> %z21.s
+45999b17 : usmmla z23.s, z24.b, z25.b                : usmmla %z23.s %z24.b %z25.b -> %z23.s
+459b9b59 : usmmla z25.s, z26.b, z27.b                : usmmla %z25.s %z26.b %z27.b -> %z25.s
+459d9b9b : usmmla z27.s, z28.b, z29.b                : usmmla %z27.s %z28.b %z29.b -> %z27.s
+459f9bff : usmmla z31.s, z31.b, z31.b                : usmmla %z31.s %z31.b %z31.b -> %z31.s
 
 # UUNPKHI <Zd>.<T>, <Zn>.<Tb> (UUNPKHI-Z.Z-_)
 05733800 : uunpkhi z0.h, z0.b                        : uunpkhi %z0.b -> %z0.h

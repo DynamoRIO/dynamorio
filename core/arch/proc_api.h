@@ -179,13 +179,15 @@ typedef struct {
     uint64 flags_aa64pfr0;  /**< AArch64 feature flags stored in ID_AA64PFR0_EL1 */
     uint64 flags_aa64mmfr1; /**< AArch64 feature flags stored in ID_AA64MMFR1_EL1 */
     uint64 flags_aa64dfr0;  /**< AArch64 feature flags stored in ID_AA64DFR0_EL1 */
+    uint64 flags_aa64zfr0;  /**< AArch64 feature flags stored in ID_AA64ZFR0_EL1 */
 } features_t;
 typedef enum {
     AA64ISAR0 = 0,
     AA64ISAR1 = 1,
     AA64PFR0 = 2,
     AA64MMFR1 = 3,
-    AA64DFR0 = 4
+    AA64DFR0 = 4,
+    AA64ZFR0 = 5,
 } feature_reg_idx_t;
 #endif
 #ifdef RISCV64
@@ -345,10 +347,12 @@ typedef enum {
     FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),      /**< Half-precision FP (AArch64) */
     FEATURE_RAS = DEF_FEAT(AA64PFR0, 7, 1, 0),       /**< RAS extension (AArch64) */
     FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 0),       /**< Scalable Vectors (AArch64) */
-    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 0),    /**< Limited order regions (AArch64) */
-    FEATURE_SPE = DEF_FEAT(AA64DFR0, 8, 1, 0),     /**< Profiling extension (AArch64) */
-    FEATURE_PAUTH = DEF_FEAT(AA64ISAR1, 8, 1, 0),  /**< PAuth extension (AArch64) */
-    FEATURE_LRCPC = DEF_FEAT(AA64ISAR1, 20, 1, 0), /**< LDAPR, LDAPRB, LDAPRH (AArch64) */
+    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 0),   /**< Limited order regions (AArch64) */
+    FEATURE_SPE = DEF_FEAT(AA64DFR0, 8, 1, 0),    /**< Profiling extension (AArch64) */
+    FEATURE_PAUTH = DEF_FEAT(AA64ISAR1, 2, 1, 0), /**< PAuth extension (AArch64) */
+    FEATURE_LRCPC = DEF_FEAT(AA64ISAR1, 5, 1, 0), /**< LDAPR, LDAPRB, LDAPRH (AArch64) */
+    FEATURE_BF16 = DEF_FEAT(AA64ZFR0, 5, 1, 0),   /**< SVE BFloat16 */
+    FEATURE_I8MM = DEF_FEAT(AA64ZFR0, 11, 1, 0),  /**< SVE Int8 matrix multiplication */
 } feature_bit_t;
 #endif
 #ifdef RISCV64
