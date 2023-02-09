@@ -3420,6 +3420,23 @@ encode_opnd_imm3(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(16, 3, false, 0, 0, opnd, enc_out);
 }
 
+/* z3_b_16: Z0-7 register with b size elements at position 16 */
+
+static inline bool
+decode_opnd_z3_b_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 16, 3, BYTE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z3_b_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    const reg_id_t reg = opnd_get_reg(opnd);
+    IF_RETURN_FALSE((reg < DR_REG_Z0) || (reg > DR_REG_Z7))
+
+    return encode_single_sized(OPSZ_SCALABLE, 16, BYTE_REG, opnd, enc_out);
+}
+
 /* z3_h_16: Z0-7 register with h size elements at position 16 */
 
 static inline bool
@@ -3947,6 +3964,27 @@ encode_opnd_i2_index_19(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *e
     return true;
 }
 
+/* i3_index_11: Index value from 20:19,11 */
+
+static inline bool
+decode_opnd_i3_index_11(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const uint i3h = extract_uint(enc, 19, 2) << 1;
+    const uint i3l = extract_uint(enc, 11, 1);
+    *opnd = opnd_create_immed_uint(i3h | i3l, OPSZ_3b);
+    return true;
+}
+
+static inline bool
+encode_opnd_i3_index_11(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_immed_int(opnd))
+
+    const uint value = (uint)opnd_get_immed_int(opnd);
+    *enc_out = (BITS(value, 2, 1) << 19) | (BITS(value, 0, 0) << 11);
+    return true;
+}
+
 /* imm5: 5 bit immediate from 16-20 */
 
 static inline bool
@@ -4200,6 +4238,34 @@ static inline bool
 encode_opnd_z16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(16, Z_REG, opnd, enc_out);
+}
+
+/* z_b_16: Z register with b size elements. */
+
+static inline bool
+decode_opnd_z_b_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 16, 5, BYTE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_b_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 16, BYTE_REG, opnd, enc_out);
+}
+
+/* z_h_16: Z register with h size elements. */
+
+static inline bool
+decode_opnd_z_h_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, 16, 5, HALF_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_h_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 16, HALF_REG, opnd, enc_out);
 }
 
 /* z_q_16: Z register with d size elements. */

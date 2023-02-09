@@ -10934,4 +10934,219 @@
 #define INSTR_CREATE_stnt1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_stnt1b, Rn, Zt, Pg)
 
+/**
+ * Creates a BFCVT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFCVT   <Zd>.H, <Pg>/M, <Zn>.S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_bfcvt_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_bfcvt, Zd, Pg, Zn)
+
+/**
+ * Creates a BFDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFDOT   <Zda>.S, <Zn>.H, <Zm>.H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_bfdot_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_bfdot, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a BFDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFDOT   <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z (Scalable).
+ * \param Zn    The second source vector register, Z (Scalable).
+ * \param Zm    The third source vector register, Z (Scalable).
+ * \param index The immediate index
+ */
+#define INSTR_CREATE_bfdot_sve_idx(dc, Zda, Zn, Zm, index) \
+    instr_create_1dst_4src(dc, OP_bfdot, Zda, Zda, Zn, Zm, index)
+
+/**
+ * Creates a BFMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFMLALB <Zda>.S, <Zn>.H, <Zm>.H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_bfmlalb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_bfmlalb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a BFMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFMLALB <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z (Scalable).
+ * \param Zn    The second source vector register, Z (Scalable).
+ * \param Zm    The third source vector register, Z (Scalable).
+ * \param index The immediate index
+ */
+#define INSTR_CREATE_bfmlalb_sve_idx(dc, Zda, Zn, Zm, index) \
+    instr_create_1dst_4src(dc, OP_bfmlalb, Zda, Zda, Zn, Zm, index)
+
+/**
+ * Creates a BFMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFMLALT <Zda>.S, <Zn>.H, <Zm>.H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_bfmlalt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_bfmlalt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a BFMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFMLALT <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z (Scalable).
+ * \param Zn    The second source vector register, Z (Scalable).
+ * \param Zm    The third source vector register, Z (Scalable).
+ * \param index The immediate index
+ */
+#define INSTR_CREATE_bfmlalt_sve_idx(dc, Zda, Zn, Zm, index) \
+    instr_create_1dst_4src(dc, OP_bfmlalt, Zda, Zda, Zn, Zm, index)
+
+/**
+ * Creates a BFMMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFMMLA  <Zda>.S, <Zn>.H, <Zm>.H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_bfmmla_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_bfmmla, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SMMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SMMLA   <Zda>.S, <Zn>.B, <Zm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_smmla_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_smmla, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SUDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SUDOT   <Zda>.S, <Zn>.B, <Zm>.B[<index>]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z (Scalable).
+ * \param Zn    The second source vector register, Z (Scalable).
+ * \param Zm    The third source vector register, Z (Scalable).
+ * \param index The immediate index
+ */
+#define INSTR_CREATE_sudot_sve_idx(dc, Zda, Zn, Zm, index) \
+    instr_create_1dst_4src(dc, OP_sudot, Zda, Zda, Zn, Zm, index)
+
+/**
+ * Creates an UMMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UMMLA   <Zda>.S, <Zn>.B, <Zm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_ummla_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_ummla, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates an USDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    USDOT   <Zda>.S, <Zn>.B, <Zm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_usdot_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_usdot, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates an USDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    USDOT   <Zda>.S, <Zn>.B, <Zm>.B[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ * \param index The immediate index
+ */
+#define INSTR_CREATE_usdot_sve_idx(dc, Zda, Zn, Zm, index) \
+    instr_create_1dst_4src(dc, OP_usdot, Zda, Zda, Zn, Zm, index)
+
+/**
+ * Creates an USMMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    USMMLA  <Zda>.S, <Zn>.B, <Zm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_usmmla_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_usmmla, Zda, Zda, Zn, Zm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
