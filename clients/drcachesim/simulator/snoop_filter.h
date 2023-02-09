@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,13 @@ struct coherence_table_entry_t {
     bool dirty;
 };
 
+struct snoop_filter_stats_t {
+    int_least64_t num_writes;
+    int_least64_t num_writebacks;
+    int_least64_t num_invalidates;
+    std::unordered_map<addr_t, coherence_table_entry_t> coherence_table;
+};
+
 class snoop_filter_t {
 public:
     snoop_filter_t(void);
@@ -56,10 +63,13 @@ public:
     snoop_eviction(addr_t tag, int id);
     void
     print_stats(void);
+    snoop_filter_stats_t
+    get_coherence_stats(void);
 
 protected:
     // XXX: This initial coherence implementation uses a perfect snoop filter.
     std::unordered_map<addr_t, coherence_table_entry_t> coherence_table_;
+    snoop_filter_stats_t snoop_filter_stats_;
     cache_t **caches_;
     int num_snooped_caches_;
     int_least64_t num_writes_;

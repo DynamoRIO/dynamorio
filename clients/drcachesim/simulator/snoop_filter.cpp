@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -59,6 +59,7 @@ void
 snoop_filter_t::snoop(addr_t tag, int id, bool is_write)
 {
     coherence_table_entry_t *coherence_entry = &coherence_table_[tag];
+    snoop_filter_stats_.coherence_table[tag] = coherence_table_[tag];
     // Initialize new snoop filter entry.
     if (coherence_entry->sharers.empty()) {
         coherence_entry->sharers.resize(num_snooped_caches_, false);
@@ -134,4 +135,13 @@ snoop_filter_t::print_stats(void)
     std::cerr << prefix << std::setw(18) << std::left << "Writebacks:" << std::setw(20)
               << std::right << num_writebacks_ << std::endl;
     std::cerr.imbue(std::locale("C")); // Reset to avoid affecting later prints.
+}
+
+snoop_filter_stats_t
+snoop_filter_t::get_coherence_stats(void)
+{
+    snoop_filter_stats_.num_writes = num_writes_;
+    snoop_filter_stats_.num_writebacks = num_writebacks_;
+    snoop_filter_stats_.num_invalidates = num_invalidates_;
+    return snoop_filter_stats_;
 }

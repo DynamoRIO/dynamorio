@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,10 +30,10 @@
  * DAMAGE.
  */
 
-#ifndef _CACHE_REPLACEMENT_POLICY_UNIT_TESTS_
-#define _CACHE_REPLACEMENT_POLICY_UNIT_TESTS_ 1
+namespace drcachesim_unit_tests {
 
 void
 unit_test_cache_replacement_policy();
-
-#endif /* _CACHE_REPLACEMENT_POLICY_UNIT_TESTS_ */
+void
+unit_test_snoop_filter();
+} // namespace drcachesim_unit_tests

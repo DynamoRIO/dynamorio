@@ -637,7 +637,7 @@ endif ()
 
 if (BUILD_TESTS)
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp
-    tests/cache_replacement_policy_unit_test.cpp)
+    tests/cache_replacement_policy_unit_test.cpp tests/snoop_filter_test.cpp)
   target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
     drmemtrace_static drmemtrace_analyzer ${zlib_libs})
   add_win32_flags(tool.drcachesim.unit_tests)
