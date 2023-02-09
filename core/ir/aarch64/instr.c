@@ -261,8 +261,7 @@ instr_is_prefetch(instr_t *instr)
     case OP_prfb:
     case OP_prfh:
     case OP_prfw:
-    case OP_prfd:
-        return true;
+    case OP_prfd: return true;
     default: return false;
     }
 }
