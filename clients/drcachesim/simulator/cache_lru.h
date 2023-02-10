@@ -43,12 +43,21 @@ namespace drmemtrace {
 
 class cache_lru_t : public cache_t {
 public:
+    explicit cache_lru_t(const std::string &name = "cache_lru")
+        : cache_t(name)
+    {
+    }
     bool
     init(int associativity, int line_size, int total_size, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
          bool inclusive = false, bool coherent_cache = false, int id_ = -1,
          snoop_filter_t *snoop_filter_ = nullptr,
          const std::vector<caching_device_t *> &children = {}) override;
+    std::string
+    get_replace_policy() const override
+    {
+        return "LRU";
+    }
 
 protected:
     void

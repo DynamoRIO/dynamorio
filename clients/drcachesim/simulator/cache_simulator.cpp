@@ -84,14 +84,14 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     // XXX i#1703: get defaults from hardware being run on.
 
     // This configuration allows for one shared LLC only.
-    cache_t *llc = create_cache(knobs_.replace_policy);
+    std::string cache_name = "LL";
+    cache_t *llc = create_cache(cache_name, knobs_.replace_policy);
     if (llc == NULL) {
         error_string_ = "create_cache failed for the LLC";
         success_ = false;
         return;
     }
 
-    std::string cache_name = "LL";
     all_caches_[cache_name] = llc;
     llcaches_[cache_name] = llc;
 
@@ -125,14 +125,16 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     }
 
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
-        l1_icaches_[i] = create_cache(knobs_.replace_policy);
+        cache_name = "L1I" + (knobs_.num_cores > 0 ? std::to_string(i) : "");
+        l1_icaches_[i] = create_cache(cache_name, knobs_.replace_policy);
         if (l1_icaches_[i] == NULL) {
             error_string_ = "create_cache failed for an l1_icache";
             success_ = false;
             return;
         }
         snooped_caches_[2 * i] = l1_icaches_[i];
-        l1_dcaches_[i] = create_cache(knobs_.replace_policy);
+        cache_name = "L1D" + (knobs_.num_cores > 0 ? std::to_string(i) : "");
+        l1_dcaches_[i] = create_cache(cache_name, knobs_.replace_policy);
         if (l1_dcaches_[i] == NULL) {
             error_string_ = "create_cache failed for an l1_dcache";
             success_ = false;
@@ -162,10 +164,8 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
             return;
         }
 
-        cache_name = "L1_I_Cache_" + std::to_string(i);
-        all_caches_[cache_name] = l1_icaches_[i];
-        cache_name = "L1_D_Cache_" + std::to_string(i);
-        all_caches_[cache_name] = l1_dcaches_[i];
+        all_caches_[l1_icaches_[i]->get_name()] = l1_icaches_[i];
+        all_caches_[l1_dcaches_[i]->get_name()] = l1_dcaches_[i];
     }
 
     if (knobs_.model_coherence &&
@@ -213,7 +213,7 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file)
         std::string cache_name = cache_params_it.first;
         const auto &cache_config = cache_params_it.second;
 
-        cache_t *cache = create_cache(cache_config.replace_policy);
+        cache_t *cache = create_cache(cache_name, cache_config.replace_policy);
         if (cache == NULL) {
             success_ = false;
             return;
@@ -578,12 +578,15 @@ cache_simulator_t::print_results()
         print_core(i);
         if (thread_ever_counts_[i] > 0) {
             if (l1_icaches_[i] != l1_dcaches_[i]) {
-                std::cerr << "  L1I stats:" << std::endl;
+                std::cerr << "  " << l1_icaches_[i]->get_name()
+                          << " stats: " << l1_icaches_[i]->get_description() << std::endl;
                 l1_icaches_[i]->get_stats()->print_stats("    ");
-                std::cerr << "  L1D stats:" << std::endl;
+                std::cerr << "  " << l1_dcaches_[i]->get_name()
+                          << " stats: " << l1_dcaches_[i]->get_description() << std::endl;
                 l1_dcaches_[i]->get_stats()->print_stats("    ");
             } else {
-                std::cerr << "  unified L1 stats:" << std::endl;
+                std::cerr << "  unified " << l1_icaches_[i]->get_name()
+                          << " stats: " << l1_icaches_[i]->get_description() << std::endl;
                 l1_icaches_[i]->get_stats()->print_stats("    ");
             }
         }
@@ -591,13 +594,15 @@ cache_simulator_t::print_results()
 
     // Print non-L1, non-LLC cache stats.
     for (auto &caches_it : other_caches_) {
-        std::cerr << caches_it.first << " stats:" << std::endl;
+        std::cerr << caches_it.first << " stats: " << caches_it.second->get_description()
+                  << std::endl;
         caches_it.second->get_stats()->print_stats("    ");
     }
 
     // Print LLC stats.
     for (auto &caches_it : llcaches_) {
-        std::cerr << caches_it.first << " stats:" << std::endl;
+        std::cerr << caches_it.first << " stats: " << caches_it.second->get_description()
+                  << std::endl;
         caches_it.second->get_stats()->print_stats("    ");
     }
 
@@ -650,15 +655,15 @@ cache_simulator_t::get_knobs() const
 }
 
 cache_t *
-cache_simulator_t::create_cache(const std::string &policy)
+cache_simulator_t::create_cache(const std::string &name, const std::string &policy)
 {
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
         policy == REPLACE_POLICY_LRU)             // set to LRU
-        return new cache_lru_t;
+        return new cache_lru_t(name);
     if (policy == REPLACE_POLICY_LFU) // set to LFU
-        return new cache_t;
+        return new cache_t(name);
     if (policy == REPLACE_POLICY_FIFO) // set to FIFO
-        return new cache_fifo_t;
+        return new cache_fifo_t(name);
 
     // undefined replacement policy
     ERRMSG("Usage error: undefined replacement policy. "
