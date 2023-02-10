@@ -142,7 +142,7 @@ protected:
     inline int
     compute_block_idx(addr_t tag) const
     {
-        return (tag & blocks_per_set_mask_) << assoc_bits_;
+        return (tag & blocks_per_set_mask_) * associativity_;
     }
     inline caching_device_block_t &
     get_caching_device_block(int block_idx, int way) const
@@ -181,8 +181,8 @@ protected:
     init_blocks() = 0;
 
     int associativity_;
-    int block_size_;
-    int num_blocks_;
+    int block_size_; // Also known as line length.
+    int num_blocks_; // Total number of lines in cache = size / block_size.
     bool coherent_cache_;
     // This is an index into snoop filter's array of caches.
     int id_;
@@ -206,7 +206,6 @@ protected:
     int blocks_per_set_;
     // Optimization fields for fast bit operations
     int blocks_per_set_mask_;
-    int assoc_bits_;
     int block_size_bits_;
 
     caching_device_stats_t *stats_;

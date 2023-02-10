@@ -374,8 +374,8 @@ unit_test_cache_associativity()
     static constexpr int LINE_SIZE = 32;
     static constexpr int BLOCKS_PER_WAY = 16;
 
-    // Only power-of-two associativities are currently supported.
-    for (int assoc = MIN_ASSOC; assoc <= MAX_ASSOC; assoc *= 2) {
+    // Test all associativities.
+    for (int assoc = MIN_ASSOC; assoc <= MAX_ASSOC; ++assoc) {
         int total_size = LINE_SIZE * BLOCKS_PER_WAY * assoc;
         // Test access patterns that stress increasing associativity.
         for (uint32_t test_assoc = 1; test_assoc <= 2 * assoc; ++test_assoc) {
@@ -417,19 +417,20 @@ unit_test_cache_associativity()
 void
 unit_test_cache_size()
 {
-    // Range of cache sizes to test.  16KB - 4MB hits the most interesting ones.
-    static constexpr int MIN_TOTAL_SIZE = 16 * 1024;
-    static constexpr int MAX_TOTAL_SIZE = 4 * 1024 * 1024;
+    // Range of cache sizes to test, including some non-power-of-two.
+    static const int TEST_SIZES_KB[] = { 16, 32, 48, 256, 768, 2048 };
     static constexpr int LINE_SIZE = 64;
-    static constexpr int ASSOCIATIVITY = 2;
 
-    for (int cache_size = MIN_TOTAL_SIZE; cache_size <= MAX_TOTAL_SIZE; cache_size *= 2) {
+    for (int cache_size_kb : TEST_SIZES_KB) {
+        int cache_size = cache_size_kb * 1024;
+        bool size_is_po2 = (cache_size_kb & (cache_size_kb - 1)) == 0;
+        int associativity = size_is_po2 ? 2 : 3;
         // Access a buffer of increasing size, make sure hits + misses are expected.
         for (int buffer_size = cache_size / 2; buffer_size < cache_size * 2;
              buffer_size *= 2) {
             cache_lru_t cache;
             caching_device_stats_t stats(/*miss_file=*/"", LINE_SIZE);
-            bool initialized = cache.init(ASSOCIATIVITY, LINE_SIZE, cache_size,
+            bool initialized = cache.init(associativity, LINE_SIZE, cache_size,
                                           /*parent=*/nullptr, &stats);
             assert(initialized);
             static constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
@@ -504,12 +505,55 @@ unit_test_cache_line_size()
     }
 }
 
+// Verify that illegal cache configurations are rejected.
+void
+unit_test_cache_bad_configs()
+{
+    // Safe values we aren't testing.
+    const int safe_assoc = 1;
+    const int safe_line_size = 32;
+    const int safe_cache_size = 1024;
+
+    // Setup the cache to test.
+    cache_t cache;
+    caching_device_stats_t stats(/*miss_file=*/"", safe_line_size);
+
+    // 0 values are bad for any of these parameters.
+    std::cerr << "Testing 0 parameters.\n";
+    assert(!cache.init(0, safe_line_size, safe_cache_size, /*parent=*/nullptr, &stats));
+    assert(!cache.init(safe_assoc, 0, safe_cache_size, /*parent=*/nullptr, &stats));
+    assert(!cache.init(safe_assoc, safe_line_size, 0, /*parent=*/nullptr, &stats));
+
+    // Test other bad line sizes: <4 and/or non-power-of-two.
+    std::cerr << "Testing bad line size parameters.\n";
+    assert(!cache.init(safe_assoc, 1, safe_cache_size, /*parent=*/nullptr, &stats));
+    assert(!cache.init(safe_assoc, 2, safe_cache_size, /*parent=*/nullptr, &stats));
+    assert(!cache.init(safe_assoc, 7, safe_cache_size, /*parent=*/nullptr, &stats));
+    assert(!cache.init(safe_assoc, 65, safe_cache_size, /*parent=*/nullptr, &stats));
+
+    // Size, associativity, and line_size are related.  The requirement is that
+    // size/associativity is a power-of-two, and >= line_size, so try some
+    // combinations that should fail.
+    std::cerr << "Testing bad associativity and size combinations.\n";
+    struct {
+        int assoc;
+        int size;
+    } bad_combinations[] = {
+        { 3, 1024 }, { 4, 768 }, { 64, 64 }, { 16, 8 * safe_line_size }
+    };
+    for (const auto &combo : bad_combinations) {
+        assert(!cache.init(combo.assoc, safe_line_size, combo.size, /*parent=*/nullptr,
+                           &stats));
+    }
+}
+
 int
 main(int argc, const char *argv[])
 {
     unit_test_cache_associativity();
     unit_test_cache_size();
     unit_test_cache_line_size();
+    unit_test_cache_bad_configs();
     unit_test_metrics_API();
     unit_test_compulsory_misses();
     unit_test_warmup_fraction();

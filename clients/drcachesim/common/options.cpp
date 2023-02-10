@@ -145,37 +145,41 @@ droption_t<unsigned int> op_num_cores(DROPTION_SCOPE_FRONTEND, "cores", 4,
 droption_t<unsigned int> op_line_size(
     DROPTION_SCOPE_FRONTEND, "line_size", 64, "Cache line size",
     "Specifies the cache line size, which is assumed to be identical for L1 and L2 "
-    "caches.  Must be a power of 2.");
+    "caches.  Must be at least 4 and a power of 2.");
 
-droption_t<bytesize_t> op_L1I_size(
-    DROPTION_SCOPE_FRONTEND, "L1I_size", 32 * 1024U, "Instruction cache total size",
-    "Specifies the total size of each L1 instruction cache.  Must be a power of 2 "
-    "and a multiple of -line_size.");
+droption_t<bytesize_t>
+    op_L1I_size(DROPTION_SCOPE_FRONTEND, "L1I_size", 32 * 1024U,
+                "Instruction cache total size",
+                "Specifies the total size of each L1 instruction cache."
+                " L1I_size/L1I_assoc must be a power of 2 and a multiple of -line_size.");
 
 droption_t<bytesize_t>
     op_L1D_size(DROPTION_SCOPE_FRONTEND, "L1D_size", bytesize_t(32 * 1024),
                 "Data cache total size",
-                "Specifies the total size of each L1 data cache.  Must be a power of 2 "
-                "and a multiple of -line_size.");
+                "Specifies the total size of each L1 data cache."
+                " L1D_size/L1D_assoc must be a power of 2 and a multiple of -line_size.");
 
 droption_t<unsigned int> op_L1I_assoc(
     DROPTION_SCOPE_FRONTEND, "L1I_assoc", 8, "Instruction cache associativity",
-    "Specifies the associativity of each L1 instruction cache.  Must be a power of 2.");
+    "Specifies the associativity of each L1 instruction cache."
+    " L1I_size/L1I_assoc must be a power of 2 and a multiple of -line_size.");
 
 droption_t<unsigned int> op_L1D_assoc(
     DROPTION_SCOPE_FRONTEND, "L1D_assoc", 8, "Data cache associativity",
-    "Specifies the associativity of each L1 data cache.  Must be a power of 2.");
+    "Specifies the associativity of each L1 data cache."
+    " L1D_size/L1D_assoc must be a power of 2 and a multiple of -line_size.");
 
 droption_t<bytesize_t> op_LL_size(DROPTION_SCOPE_FRONTEND, "LL_size", 8 * 1024 * 1024,
                                   "Last-level cache total size",
                                   "Specifies the total size of the unified last-level "
-                                  "(L2) cache.  Must be a power of 2 "
-                                  "and a multiple of -line_size.");
+                                  "(L2) cache."
+                                  " LL_size/LL_assoc must be a power of 2"
+                                  " and a multiple of -line_size.");
 
 droption_t<unsigned int>
     op_LL_assoc(DROPTION_SCOPE_FRONTEND, "LL_assoc", 16, "Last-level cache associativity",
                 "Specifies the associativity of the unified last-level (L2) cache.  "
-                "Must be a power of 2.");
+                " LL_size/LL_assoc must be a power of 2 and a multiple of -line_size.");
 
 droption_t<std::string> op_LL_miss_file(
     DROPTION_SCOPE_FRONTEND, "LL_miss_file", "",

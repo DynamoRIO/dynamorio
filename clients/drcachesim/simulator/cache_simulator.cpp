@@ -108,8 +108,8 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
                    new cache_stats_t((int)knobs_.line_size, knobs_.LL_miss_file,
                                      warmup_enabled_))) {
         error_string_ =
-            "Usage error: failed to initialize LL cache.  Ensure sizes and "
-            "associativity are powers of 2, that the total size is a multiple "
+            "Usage error: failed to initialize LL cache.  Ensure size divided by "
+            "associativity is a power of 2, that the total size is a multiple "
             "of the line size, and that any miss file path is writable.";
         success_ = false;
         return;
@@ -155,7 +155,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
                 false /*inclusive*/, knobs_.model_coherence, (2 * i) + 1,
                 snoop_filter_)) {
             error_string_ = "Usage error: failed to initialize L1 caches.  Ensure sizes "
-                            "and associativity are powers of 2 "
+                            "divided by associativities are powers of 2 "
                             "and that the total sizes are multiples of the line size.";
             success_ = false;
             return;
@@ -654,9 +654,9 @@ cache_simulator_t::create_cache(const std::string &policy)
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LRU
         policy == REPLACE_POLICY_LRU)             // set to LRU
         return new cache_lru_t;
-    if (policy == REPLACE_POLICY_LFU) // set to LFU
+    if (policy == REPLACE_POLICY_LFU)             // set to LFU
         return new cache_t;
-    if (policy == REPLACE_POLICY_FIFO) // set to FIFO
+    if (policy == REPLACE_POLICY_FIFO)            // set to FIFO
         return new cache_fifo_t;
 
     // undefined replacement policy
