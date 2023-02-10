@@ -14670,12 +14670,9 @@ TEST_INSTR(adr_sve)
 {
     /* Testing ADR     <Zd>.D, [<Zn>.D, <Zm>.D, SXTW <amount>] */
     const char *const expected_0_0[6] = {
-        "adr    (%z0.d,%z0.d,sxtw) -> %z0.d",
-        "adr    (%z6.d,%z7.d,sxtw) -> %z5.d",
-        "adr    (%z11.d,%z12.d,sxtw) -> %z10.d",
-        "adr    (%z17.d,%z18.d,sxtw) -> %z16.d",
-        "adr    (%z22.d,%z23.d,sxtw) -> %z21.d",
-        "adr    (%z31.d,%z31.d,sxtw) -> %z31.d",
+        "adr    (%z0.d,%z0.d,sxtw) -> %z0.d",    "adr    (%z6.d,%z7.d,sxtw) -> %z5.d",
+        "adr    (%z11.d,%z12.d,sxtw) -> %z10.d", "adr    (%z17.d,%z18.d,sxtw) -> %z16.d",
+        "adr    (%z22.d,%z23.d,sxtw) -> %z21.d", "adr    (%z31.d,%z31.d,sxtw) -> %z31.d",
     };
     TEST_LOOP(adr, adr_sve, 6, expected_0_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
@@ -14727,12 +14724,9 @@ TEST_INSTR(adr_sve)
 
     /* Testing ADR     <Zd>.D, [<Zn>.D, <Zm>.D, UXTW <amount>] */
     const char *const expected_1_0[6] = {
-        "adr    (%z0.d,%z0.d,uxtw) -> %z0.d",
-        "adr    (%z6.d,%z7.d,uxtw) -> %z5.d",
-        "adr    (%z11.d,%z12.d,uxtw) -> %z10.d",
-        "adr    (%z17.d,%z18.d,uxtw) -> %z16.d",
-        "adr    (%z22.d,%z23.d,uxtw) -> %z21.d",
-        "adr    (%z31.d,%z31.d,uxtw) -> %z31.d",
+        "adr    (%z0.d,%z0.d,uxtw) -> %z0.d",    "adr    (%z6.d,%z7.d,uxtw) -> %z5.d",
+        "adr    (%z11.d,%z12.d,uxtw) -> %z10.d", "adr    (%z17.d,%z18.d,uxtw) -> %z16.d",
+        "adr    (%z22.d,%z23.d,uxtw) -> %z21.d", "adr    (%z31.d,%z31.d,uxtw) -> %z31.d",
     };
     TEST_LOOP(adr, adr_sve, 6, expected_1_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
@@ -14784,12 +14778,9 @@ TEST_INSTR(adr_sve)
 
     /* Testing ADR     <Zd>.<Ts>, [<Zn>.<Ts>, <Zm>.<Ts>, <extend> <amount>] */
     const char *const expected_2_0[6] = {
-        "adr    (%z0.s,%z0.s) -> %z0.s",
-        "adr    (%z6.s,%z7.s) -> %z5.s",
-        "adr    (%z11.s,%z12.s) -> %z10.s",
-        "adr    (%z17.s,%z18.s) -> %z16.s",
-        "adr    (%z22.s,%z23.s) -> %z21.s",
-        "adr    (%z31.s,%z31.s) -> %z31.s",
+        "adr    (%z0.s,%z0.s) -> %z0.s",    "adr    (%z6.s,%z7.s) -> %z5.s",
+        "adr    (%z11.s,%z12.s) -> %z10.s", "adr    (%z17.s,%z18.s) -> %z16.s",
+        "adr    (%z22.s,%z23.s) -> %z21.s", "adr    (%z31.s,%z31.s) -> %z31.s",
     };
     TEST_LOOP(adr, adr_sve, 6, expected_2_0[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
@@ -14840,12 +14831,9 @@ TEST_INSTR(adr_sve)
                                                    OPSZ_0, 3));
 
     const char *const expected_2_4[6] = {
-        "adr    (%z0.d,%z0.d) -> %z0.d",
-        "adr    (%z6.d,%z7.d) -> %z5.d",
-        "adr    (%z11.d,%z12.d) -> %z10.d",
-        "adr    (%z17.d,%z18.d) -> %z16.d",
-        "adr    (%z22.d,%z23.d) -> %z21.d",
-        "adr    (%z31.d,%z31.d) -> %z31.d",
+        "adr    (%z0.d,%z0.d) -> %z0.d",    "adr    (%z6.d,%z7.d) -> %z5.d",
+        "adr    (%z11.d,%z12.d) -> %z10.d", "adr    (%z17.d,%z18.d) -> %z16.d",
+        "adr    (%z22.d,%z23.d) -> %z21.d", "adr    (%z31.d,%z31.d) -> %z31.d",
     };
     TEST_LOOP(adr, adr_sve, 6, expected_2_4[i],
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),

@@ -11230,12 +11230,12 @@
  * \param Zd   The destination vector register, Z (Scalable).
  * \param Zn   The first source vector base register with a register offset,
  *             constructed with one of:
- *             opnd_create_vector_base_disp_aarch64(Zn, Zm, OPSZ_8,
- *                                                  DR_EXTEND_SXTW, 0, 0, 0, OPSZ_0, shift_amount)
- *             opnd_create_vector_base_disp_aarch64(Zn, Zm, OPSZ_8,
- *                                                  DR_EXTEND_UXTW, 0, 0, 0, OPSZ_0, shift_amount)
- *             opnd_create_vector_base_disp_aarch64(Zn, Zm, elsz,
- *                                                  DR_EXTEND_UXTX, 0, 0, 0, OPSZ_0, shift_amount)
+ *             opnd_create_vector_base_disp_aarch64(Zn, Zm, OPSZ_8, DR_EXTEND_SXTW,
+ *                                                  0, 0, 0, OPSZ_0, shift_amount)
+ *             opnd_create_vector_base_disp_aarch64(Zn, Zm, OPSZ_8, DR_EXTEND_UXTW,
+ *                                                  0, 0, 0, OPSZ_0, shift_amount)
+ *             opnd_create_vector_base_disp_aarch64(Zn, Zm, elsz, DR_EXTEND_UXTX,
+ *                                                  0, 0, 0, OPSZ_0, shift_amount)
  */
 #define INSTR_CREATE_adr_sve(dc, Zd, Zn) instr_create_1dst_1src(dc, OP_adr, Zd, Zn)
 

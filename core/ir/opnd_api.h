@@ -632,22 +632,22 @@ enum {
     DR_REG_WZR, /**< The "wzr" zero pseudo-register. */
 #    else
     /* 32-bit general purpose */
-    DR_REG_R0,                                /**< The "r0" register. */
-    DR_REG_R1,                                /**< The "r1" register. */
-    DR_REG_R2,                                /**< The "r2" register. */
-    DR_REG_R3,                                /**< The "r3" register. */
-    DR_REG_R4,                                /**< The "r4" register. */
-    DR_REG_R5,                                /**< The "r5" register. */
-    DR_REG_R6,                                /**< The "r6" register. */
-    DR_REG_R7,                                /**< The "r7" register. */
-    DR_REG_R8,                                /**< The "r8" register. */
-    DR_REG_R9,                                /**< The "r9" register. */
-    DR_REG_R10,                               /**< The "r10" register. */
-    DR_REG_R11,                               /**< The "r11" register. */
-    DR_REG_R12,                               /**< The "r12" register. */
-    DR_REG_R13,                               /**< The "r13" register. */
-    DR_REG_R14,                               /**< The "r14" register. */
-    DR_REG_R15,                               /**< The "r15" register. */
+    DR_REG_R0,  /**< The "r0" register. */
+    DR_REG_R1,  /**< The "r1" register. */
+    DR_REG_R2,  /**< The "r2" register. */
+    DR_REG_R3,  /**< The "r3" register. */
+    DR_REG_R4,  /**< The "r4" register. */
+    DR_REG_R5,  /**< The "r5" register. */
+    DR_REG_R6,  /**< The "r6" register. */
+    DR_REG_R7,  /**< The "r7" register. */
+    DR_REG_R8,  /**< The "r8" register. */
+    DR_REG_R9,  /**< The "r9" register. */
+    DR_REG_R10, /**< The "r10" register. */
+    DR_REG_R11, /**< The "r11" register. */
+    DR_REG_R12, /**< The "r12" register. */
+    DR_REG_R13, /**< The "r13" register. */
+    DR_REG_R14, /**< The "r14" register. */
+    DR_REG_R15, /**< The "r15" register. */
 #    endif
 
 #    ifdef AARCH64
