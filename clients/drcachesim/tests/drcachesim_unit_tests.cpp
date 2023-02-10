@@ -346,16 +346,16 @@ generate_1D_accesses(cache_t &cache, addr_t start_address, int step_size, int st
 }
 
 // Helper code to grab a snapshot of cache stats.
-struct cache_stats_t {
+struct cache_stats_snapshot_t {
     int_least64_t hits;
     int_least64_t misses;
     int_least64_t child_hits;
 };
 
-static cache_stats_t
+static cache_stats_snapshot_t
 get_cache_stats(caching_device_stats_t &stats)
 {
-    cache_stats_t cs;
+    cache_stats_snapshot_t cs;
     cs.hits = stats.get_metric(metric_name_t::HITS);
     cs.misses = stats.get_metric(metric_name_t::MISSES);
     cs.child_hits = stats.get_metric(metric_name_t::CHILD_HITS);
@@ -391,7 +391,7 @@ unit_test_cache_associativity()
             auto read_count =
                 generate_2D_accesses(cache, start_address, LINE_SIZE, BLOCKS_PER_WAY,
                                      total_size, test_assoc, NUM_LOOPS);
-            cache_stats_t c_stats = get_cache_stats(stats);
+            cache_stats_snapshot_t c_stats = get_cache_stats(stats);
             assert(read_count == NUM_LOOPS * BLOCKS_PER_WAY * test_assoc);
 
             // This is an LRU cache, so once the buffer size exceeds the cache
@@ -435,7 +435,7 @@ unit_test_cache_size()
             static constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
             auto read_count = generate_1D_accesses(cache, 0, LINE_SIZE,
                                                    buffer_size / LINE_SIZE, NUM_LOOPS);
-            cache_stats_t c_stats = get_cache_stats(stats);
+            cache_stats_snapshot_t c_stats = get_cache_stats(stats);
 
             int expected_misses = (buffer_size <= cache_size)
                 ? buffer_size / LINE_SIZE
@@ -483,7 +483,7 @@ unit_test_cache_line_size()
             assert(initialized);
             auto read_count =
                 generate_1D_accesses(cache, 0, stride, total_cache_size / stride);
-            cache_stats_t c_stats = get_cache_stats(stats);
+            cache_stats_snapshot_t c_stats = get_cache_stats(stats);
 
             int expected_misses =
                 (stride <= line_size) ? cache_line_count : total_cache_size / stride;
