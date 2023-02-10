@@ -346,16 +346,16 @@ generate_1D_accesses(cache_t &cache, addr_t start_address, int step_size, int st
 }
 
 // Helper code to grab a snapshot of cache stats.
-struct CStats {
+struct cache_stats_t {
     int_least64_t hits;
     int_least64_t misses;
     int_least64_t child_hits;
 };
 
-static CStats
+static cache_stats_t
 get_cache_stats(caching_device_stats_t &stats)
 {
-    CStats cs;
+    cache_stats_t cs;
     cs.hits = stats.get_metric(metric_name_t::HITS);
     cs.misses = stats.get_metric(metric_name_t::MISSES);
     cs.child_hits = stats.get_metric(metric_name_t::CHILD_HITS);
@@ -368,11 +368,11 @@ void
 unit_test_cache_associativity()
 {
     // Range of associativities to be tested.
-    constexpr int MIN_ASSOC = 1;
-    constexpr int MAX_ASSOC = 16;
+    static constexpr int MIN_ASSOC = 1;
+    static constexpr int MAX_ASSOC = 16;
 
-    constexpr int LINE_SIZE = 32;
-    constexpr int BLOCKS_PER_WAY = 16;
+    static constexpr int LINE_SIZE = 32;
+    static constexpr int BLOCKS_PER_WAY = 16;
 
     // Only power-of-two associativities are currently supported.
     for (int assoc = MIN_ASSOC; assoc <= MAX_ASSOC; assoc *= 2) {
@@ -381,17 +381,21 @@ unit_test_cache_associativity()
         for (uint32_t test_assoc = 1; test_assoc <= 2 * assoc; ++test_assoc) {
             cache_lru_t cache;
             caching_device_stats_t stats(/*miss_file=*/"", LINE_SIZE);
-            assert(cache.init(assoc, LINE_SIZE, total_size, /*parent=*/nullptr, &stats));
+            bool initialized =
+                cache.init(assoc, LINE_SIZE, total_size, /*parent=*/nullptr, &stats);
+            assert(initialized);
             // Test start address is arbitrary.
             addr_t start_address = test_assoc * total_size;
 
-            constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
+            static constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
             auto read_count =
                 generate_2D_accesses(cache, start_address, LINE_SIZE, BLOCKS_PER_WAY,
                                      total_size, test_assoc, NUM_LOOPS);
-            CStats c_stats = get_cache_stats(stats);
+            cache_stats_t c_stats = get_cache_stats(stats);
             assert(read_count == NUM_LOOPS * BLOCKS_PER_WAY * test_assoc);
 
+            // This is an LRU cache, so once the buffer size exceeds the cache
+            // size there will be no hits.
             int expected_misses =
                 (test_assoc <= assoc) ? BLOCKS_PER_WAY * test_assoc : read_count;
             int expected_hits = read_count - expected_misses;
@@ -414,10 +418,10 @@ void
 unit_test_cache_size()
 {
     // Range of cache sizes to test.  16KB - 4MB hits the most interesting ones.
-    constexpr int MIN_TOTAL_SIZE = 16 * 1024;
-    constexpr int MAX_TOTAL_SIZE = 4 * 1024 * 1024;
-    constexpr int LINE_SIZE = 64;
-    constexpr int ASSOCIATIVITY = 2;
+    static constexpr int MIN_TOTAL_SIZE = 16 * 1024;
+    static constexpr int MAX_TOTAL_SIZE = 4 * 1024 * 1024;
+    static constexpr int LINE_SIZE = 64;
+    static constexpr int ASSOCIATIVITY = 2;
 
     for (int cache_size = MIN_TOTAL_SIZE; cache_size <= MAX_TOTAL_SIZE; cache_size *= 2) {
         // Access a buffer of increasing size, make sure hits + misses are expected.
@@ -425,11 +429,13 @@ unit_test_cache_size()
              buffer_size *= 2) {
             cache_lru_t cache;
             caching_device_stats_t stats(/*miss_file=*/"", LINE_SIZE);
-            cache.init(ASSOCIATIVITY, LINE_SIZE, cache_size, /*parent=*/nullptr, &stats);
-            constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
+            bool initialized = cache.init(ASSOCIATIVITY, LINE_SIZE, cache_size,
+                                          /*parent=*/nullptr, &stats);
+            assert(initialized);
+            static constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
             auto read_count = generate_1D_accesses(cache, 0, LINE_SIZE,
                                                    buffer_size / LINE_SIZE, NUM_LOOPS);
-            CStats c_stats = get_cache_stats(stats);
+            cache_stats_t c_stats = get_cache_stats(stats);
 
             int expected_misses = (buffer_size <= cache_size)
                 ? buffer_size / LINE_SIZE
@@ -456,11 +462,11 @@ void
 unit_test_cache_line_size()
 {
     // Range of line sizes to test.
-    constexpr int MIN_LINE_SIZE = 16;
-    constexpr int MAX_LINE_SIZE = 256;
+    static constexpr int MIN_LINE_SIZE = 16;
+    static constexpr int MAX_LINE_SIZE = 256;
 
-    constexpr int BLOCKS_PER_WAY = 16;
-    constexpr int ASSOCIATIVITY = 2;
+    static constexpr int BLOCKS_PER_WAY = 16;
+    static constexpr int ASSOCIATIVITY = 2;
 
     for (int line_size = MIN_LINE_SIZE; line_size <= MAX_LINE_SIZE; line_size *= 2) {
         // Stride through the cache at a test line size.  If test line size is
@@ -472,11 +478,12 @@ unit_test_cache_line_size()
             int total_cache_size = line_size * cache_line_count;
             cache_t cache;
             caching_device_stats_t stats(/*miss_file=*/"", line_size);
-            cache.init(ASSOCIATIVITY, line_size, total_cache_size, /*parent=*/nullptr,
-                       &stats);
+            bool initialized = cache.init(ASSOCIATIVITY, line_size, total_cache_size,
+                                          /*parent=*/nullptr, &stats);
+            assert(initialized);
             auto read_count =
                 generate_1D_accesses(cache, 0, stride, total_cache_size / stride);
-            CStats c_stats = get_cache_stats(stats);
+            cache_stats_t c_stats = get_cache_stats(stats);
 
             int expected_misses =
                 (stride <= line_size) ? cache_line_count : total_cache_size / stride;
@@ -500,9 +507,9 @@ unit_test_cache_line_size()
 int
 main(int argc, const char *argv[])
 {
-    unit_test_cache_line_size();
-    unit_test_cache_size();
     unit_test_cache_associativity();
+    unit_test_cache_size();
+    unit_test_cache_line_size();
     unit_test_metrics_API();
     unit_test_compulsory_misses();
     unit_test_warmup_fraction();
