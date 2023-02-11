@@ -642,6 +642,13 @@ endif ()
 # Be sure to give the targets qualified test names ("tool.drcache*...").
 
 if (BUILD_TESTS)
+  add_executable(tool.drcachesim.reuse_distance_unit_test tests/reuse_distance_test.cpp)
+  target_link_libraries(tool.drcachesim.reuse_distance_unit_test drmemtrace_simulator
+    drmemtrace_static drmemtrace_reuse_distance drmemtrace_analyzer ${zlib_libs})
+  add_win32_flags(tool.drcachesim.reuse_distance_unit_test)
+  add_test(NAME tool.drcachesim.reuse_distance_unit_test
+       COMMAND tool.drcachesim.reuse_distance_unit_test)
+
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp
     tests/cache_replacement_policy_unit_test.cpp)
   target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
