@@ -544,10 +544,10 @@ private:
     free_custom_module_data(void *data);
 
     // These identify the 4 fields we store in the label data area array.
-    static CONSTEXPR int LABEL_DATA_ELIDED_INDEX = 0;       // Index among all operands.
-    static CONSTEXPR int LABEL_DATA_ELIDED_MEMOP_INDEX = 1; // Index among memory ops.
-    static CONSTEXPR int LABEL_DATA_ELIDED_IS_WRITE = 2;
-    static CONSTEXPR int LABEL_DATA_ELIDED_NEEDS_BASE = 3;
+    static constexpr int LABEL_DATA_ELIDED_INDEX = 0;       // Index among all operands.
+    static constexpr int LABEL_DATA_ELIDED_MEMOP_INDEX = 1; // Index among memory ops.
+    static constexpr int LABEL_DATA_ELIDED_IS_WRITE = 2;
+    static constexpr int LABEL_DATA_ELIDED_NEEDS_BASE = 3;
     ptr_uint_t elide_memref_note_;
     bool standalone_ = false;
     file_t modfile_ = INVALID_FILE;

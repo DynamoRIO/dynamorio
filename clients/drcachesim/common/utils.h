@@ -96,13 +96,6 @@
 #    define END_PACKED_STRUCTURE __attribute__((__packed__))
 #endif
 
-/* TODO(i#2924): Remove this and others like it once we stop supporting VS2013. */
-#if defined(WINDOWS) && _MSC_VER < 1900
-#    define CONSTEXPR const /* 'constexpr' not supported */
-#else
-#    define CONSTEXPR constexpr
-#endif
-
 #ifndef __has_cpp_attribute
 #    define __has_cpp_attribute(x) 0 // Compatibility with non-clang compilers.
 #endif

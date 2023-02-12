@@ -966,6 +966,150 @@
 04d49fbb : asrr z27.d, p7/M, z27.d, z29.d            : asrr   %p7/m %z27.d %z29.d -> %z27.d
 04d49fff : asrr z31.d, p7/M, z31.d, z31.d            : asrr   %p7/m %z31.d %z31.d -> %z31.d
 
+# BFCVT   <Zd>.H, <Pg>/M, <Zn>.S (BFCVT-Z.P.Z-S2BF)
+658aa000 : bfcvt z0.h, p0/M, z0.s                    : bfcvt  %p0/m %z0.s -> %z0.h
+658aa482 : bfcvt z2.h, p1/M, z4.s                    : bfcvt  %p1/m %z4.s -> %z2.h
+658aa8c4 : bfcvt z4.h, p2/M, z6.s                    : bfcvt  %p2/m %z6.s -> %z4.h
+658aa906 : bfcvt z6.h, p2/M, z8.s                    : bfcvt  %p2/m %z8.s -> %z6.h
+658aad48 : bfcvt z8.h, p3/M, z10.s                   : bfcvt  %p3/m %z10.s -> %z8.h
+658aad8a : bfcvt z10.h, p3/M, z12.s                  : bfcvt  %p3/m %z12.s -> %z10.h
+658ab1cc : bfcvt z12.h, p4/M, z14.s                  : bfcvt  %p4/m %z14.s -> %z12.h
+658ab20e : bfcvt z14.h, p4/M, z16.s                  : bfcvt  %p4/m %z16.s -> %z14.h
+658ab650 : bfcvt z16.h, p5/M, z18.s                  : bfcvt  %p5/m %z18.s -> %z16.h
+658ab671 : bfcvt z17.h, p5/M, z19.s                  : bfcvt  %p5/m %z19.s -> %z17.h
+658ab6b3 : bfcvt z19.h, p5/M, z21.s                  : bfcvt  %p5/m %z21.s -> %z19.h
+658abaf5 : bfcvt z21.h, p6/M, z23.s                  : bfcvt  %p6/m %z23.s -> %z21.h
+658abb37 : bfcvt z23.h, p6/M, z25.s                  : bfcvt  %p6/m %z25.s -> %z23.h
+658abf79 : bfcvt z25.h, p7/M, z27.s                  : bfcvt  %p7/m %z27.s -> %z25.h
+658abfbb : bfcvt z27.h, p7/M, z29.s                  : bfcvt  %p7/m %z29.s -> %z27.h
+658abfff : bfcvt z31.h, p7/M, z31.s                  : bfcvt  %p7/m %z31.s -> %z31.h
+
+# BFDOT   <Zda>.S, <Zn>.H, <Zm>.H (BFDOT-Z.ZZZ-_)
+64608000 : bfdot z0.s, z0.h, z0.h                    : bfdot  %z0.s %z0.h %z0.h -> %z0.s
+64648062 : bfdot z2.s, z3.h, z4.h                    : bfdot  %z2.s %z3.h %z4.h -> %z2.s
+646680a4 : bfdot z4.s, z5.h, z6.h                    : bfdot  %z4.s %z5.h %z6.h -> %z4.s
+646880e6 : bfdot z6.s, z7.h, z8.h                    : bfdot  %z6.s %z7.h %z8.h -> %z6.s
+646a8128 : bfdot z8.s, z9.h, z10.h                   : bfdot  %z8.s %z9.h %z10.h -> %z8.s
+646c816a : bfdot z10.s, z11.h, z12.h                 : bfdot  %z10.s %z11.h %z12.h -> %z10.s
+646e81ac : bfdot z12.s, z13.h, z14.h                 : bfdot  %z12.s %z13.h %z14.h -> %z12.s
+647081ee : bfdot z14.s, z15.h, z16.h                 : bfdot  %z14.s %z15.h %z16.h -> %z14.s
+64728230 : bfdot z16.s, z17.h, z18.h                 : bfdot  %z16.s %z17.h %z18.h -> %z16.s
+64738251 : bfdot z17.s, z18.h, z19.h                 : bfdot  %z17.s %z18.h %z19.h -> %z17.s
+64758293 : bfdot z19.s, z20.h, z21.h                 : bfdot  %z19.s %z20.h %z21.h -> %z19.s
+647782d5 : bfdot z21.s, z22.h, z23.h                 : bfdot  %z21.s %z22.h %z23.h -> %z21.s
+64798317 : bfdot z23.s, z24.h, z25.h                 : bfdot  %z23.s %z24.h %z25.h -> %z23.s
+647b8359 : bfdot z25.s, z26.h, z27.h                 : bfdot  %z25.s %z26.h %z27.h -> %z25.s
+647d839b : bfdot z27.s, z28.h, z29.h                 : bfdot  %z27.s %z28.h %z29.h -> %z27.s
+647f83ff : bfdot z31.s, z31.h, z31.h                 : bfdot  %z31.s %z31.h %z31.h -> %z31.s
+
+# BFDOT   <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (BFDOT-Z.ZZZi-_)
+64604000 : bfdot z0.s, z0.h, z0.h[0]                 : bfdot  %z0.s %z0.h %z0.h $0x00 -> %z0.s
+64624062 : bfdot z2.s, z3.h, z2.h[0]                 : bfdot  %z2.s %z3.h %z2.h $0x00 -> %z2.s
+646340a4 : bfdot z4.s, z5.h, z3.h[0]                 : bfdot  %z4.s %z5.h %z3.h $0x00 -> %z4.s
+646b40e6 : bfdot z6.s, z7.h, z3.h[1]                 : bfdot  %z6.s %z7.h %z3.h $0x01 -> %z6.s
+646c4128 : bfdot z8.s, z9.h, z4.h[1]                 : bfdot  %z8.s %z9.h %z4.h $0x01 -> %z8.s
+646c416a : bfdot z10.s, z11.h, z4.h[1]               : bfdot  %z10.s %z11.h %z4.h $0x01 -> %z10.s
+646d41ac : bfdot z12.s, z13.h, z5.h[1]               : bfdot  %z12.s %z13.h %z5.h $0x01 -> %z12.s
+646d41ee : bfdot z14.s, z15.h, z5.h[1]               : bfdot  %z14.s %z15.h %z5.h $0x01 -> %z14.s
+64764230 : bfdot z16.s, z17.h, z6.h[2]               : bfdot  %z16.s %z17.h %z6.h $0x02 -> %z16.s
+64764251 : bfdot z17.s, z18.h, z6.h[2]               : bfdot  %z17.s %z18.h %z6.h $0x02 -> %z17.s
+64764293 : bfdot z19.s, z20.h, z6.h[2]               : bfdot  %z19.s %z20.h %z6.h $0x02 -> %z19.s
+647742d5 : bfdot z21.s, z22.h, z7.h[2]               : bfdot  %z21.s %z22.h %z7.h $0x02 -> %z21.s
+64774317 : bfdot z23.s, z24.h, z7.h[2]               : bfdot  %z23.s %z24.h %z7.h $0x02 -> %z23.s
+64704359 : bfdot z25.s, z26.h, z0.h[2]               : bfdot  %z25.s %z26.h %z0.h $0x02 -> %z25.s
+6478439b : bfdot z27.s, z28.h, z0.h[3]               : bfdot  %z27.s %z28.h %z0.h $0x03 -> %z27.s
+647f43ff : bfdot z31.s, z31.h, z7.h[3]               : bfdot  %z31.s %z31.h %z7.h $0x03 -> %z31.s
+
+# BFMLALB <Zda>.S, <Zn>.H, <Zm>.H (BFMLALB-Z.ZZZ-_)
+64e08000 : bfmlalb z0.s, z0.h, z0.h                  : bfmlalb %z0.s %z0.h %z0.h -> %z0.s
+64e48062 : bfmlalb z2.s, z3.h, z4.h                  : bfmlalb %z2.s %z3.h %z4.h -> %z2.s
+64e680a4 : bfmlalb z4.s, z5.h, z6.h                  : bfmlalb %z4.s %z5.h %z6.h -> %z4.s
+64e880e6 : bfmlalb z6.s, z7.h, z8.h                  : bfmlalb %z6.s %z7.h %z8.h -> %z6.s
+64ea8128 : bfmlalb z8.s, z9.h, z10.h                 : bfmlalb %z8.s %z9.h %z10.h -> %z8.s
+64ec816a : bfmlalb z10.s, z11.h, z12.h               : bfmlalb %z10.s %z11.h %z12.h -> %z10.s
+64ee81ac : bfmlalb z12.s, z13.h, z14.h               : bfmlalb %z12.s %z13.h %z14.h -> %z12.s
+64f081ee : bfmlalb z14.s, z15.h, z16.h               : bfmlalb %z14.s %z15.h %z16.h -> %z14.s
+64f28230 : bfmlalb z16.s, z17.h, z18.h               : bfmlalb %z16.s %z17.h %z18.h -> %z16.s
+64f38251 : bfmlalb z17.s, z18.h, z19.h               : bfmlalb %z17.s %z18.h %z19.h -> %z17.s
+64f58293 : bfmlalb z19.s, z20.h, z21.h               : bfmlalb %z19.s %z20.h %z21.h -> %z19.s
+64f782d5 : bfmlalb z21.s, z22.h, z23.h               : bfmlalb %z21.s %z22.h %z23.h -> %z21.s
+64f98317 : bfmlalb z23.s, z24.h, z25.h               : bfmlalb %z23.s %z24.h %z25.h -> %z23.s
+64fb8359 : bfmlalb z25.s, z26.h, z27.h               : bfmlalb %z25.s %z26.h %z27.h -> %z25.s
+64fd839b : bfmlalb z27.s, z28.h, z29.h               : bfmlalb %z27.s %z28.h %z29.h -> %z27.s
+64ff83ff : bfmlalb z31.s, z31.h, z31.h               : bfmlalb %z31.s %z31.h %z31.h -> %z31.s
+
+# BFMLALB <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (BFMLALB-Z.ZZZi-_)
+64e04000 : bfmlalb z0.s, z0.h, z0.h[0]               : bfmlalb %z0.s %z0.h %z0.h $0x00 -> %z0.s
+64e24062 : bfmlalb z2.s, z3.h, z2.h[0]               : bfmlalb %z2.s %z3.h %z2.h $0x00 -> %z2.s
+64e348a4 : bfmlalb z4.s, z5.h, z3.h[1]               : bfmlalb %z4.s %z5.h %z3.h $0x01 -> %z4.s
+64e348e6 : bfmlalb z6.s, z7.h, z3.h[1]               : bfmlalb %z6.s %z7.h %z3.h $0x01 -> %z6.s
+64ec4128 : bfmlalb z8.s, z9.h, z4.h[2]               : bfmlalb %z8.s %z9.h %z4.h $0x02 -> %z8.s
+64ec416a : bfmlalb z10.s, z11.h, z4.h[2]             : bfmlalb %z10.s %z11.h %z4.h $0x02 -> %z10.s
+64ed49ac : bfmlalb z12.s, z13.h, z5.h[3]             : bfmlalb %z12.s %z13.h %z5.h $0x03 -> %z12.s
+64ed49ee : bfmlalb z14.s, z15.h, z5.h[3]             : bfmlalb %z14.s %z15.h %z5.h $0x03 -> %z14.s
+64f64230 : bfmlalb z16.s, z17.h, z6.h[4]             : bfmlalb %z16.s %z17.h %z6.h $0x04 -> %z16.s
+64f64251 : bfmlalb z17.s, z18.h, z6.h[4]             : bfmlalb %z17.s %z18.h %z6.h $0x04 -> %z17.s
+64f64293 : bfmlalb z19.s, z20.h, z6.h[4]             : bfmlalb %z19.s %z20.h %z6.h $0x04 -> %z19.s
+64f74ad5 : bfmlalb z21.s, z22.h, z7.h[5]             : bfmlalb %z21.s %z22.h %z7.h $0x05 -> %z21.s
+64f74b17 : bfmlalb z23.s, z24.h, z7.h[5]             : bfmlalb %z23.s %z24.h %z7.h $0x05 -> %z23.s
+64f84359 : bfmlalb z25.s, z26.h, z0.h[6]             : bfmlalb %z25.s %z26.h %z0.h $0x06 -> %z25.s
+64f8439b : bfmlalb z27.s, z28.h, z0.h[6]             : bfmlalb %z27.s %z28.h %z0.h $0x06 -> %z27.s
+64ff4bff : bfmlalb z31.s, z31.h, z7.h[7]             : bfmlalb %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# BFMLALT <Zda>.S, <Zn>.H, <Zm>.H (BFMLALT-Z.ZZZ-_)
+64e08400 : bfmlalt z0.s, z0.h, z0.h                  : bfmlalt %z0.s %z0.h %z0.h -> %z0.s
+64e48462 : bfmlalt z2.s, z3.h, z4.h                  : bfmlalt %z2.s %z3.h %z4.h -> %z2.s
+64e684a4 : bfmlalt z4.s, z5.h, z6.h                  : bfmlalt %z4.s %z5.h %z6.h -> %z4.s
+64e884e6 : bfmlalt z6.s, z7.h, z8.h                  : bfmlalt %z6.s %z7.h %z8.h -> %z6.s
+64ea8528 : bfmlalt z8.s, z9.h, z10.h                 : bfmlalt %z8.s %z9.h %z10.h -> %z8.s
+64ec856a : bfmlalt z10.s, z11.h, z12.h               : bfmlalt %z10.s %z11.h %z12.h -> %z10.s
+64ee85ac : bfmlalt z12.s, z13.h, z14.h               : bfmlalt %z12.s %z13.h %z14.h -> %z12.s
+64f085ee : bfmlalt z14.s, z15.h, z16.h               : bfmlalt %z14.s %z15.h %z16.h -> %z14.s
+64f28630 : bfmlalt z16.s, z17.h, z18.h               : bfmlalt %z16.s %z17.h %z18.h -> %z16.s
+64f38651 : bfmlalt z17.s, z18.h, z19.h               : bfmlalt %z17.s %z18.h %z19.h -> %z17.s
+64f58693 : bfmlalt z19.s, z20.h, z21.h               : bfmlalt %z19.s %z20.h %z21.h -> %z19.s
+64f786d5 : bfmlalt z21.s, z22.h, z23.h               : bfmlalt %z21.s %z22.h %z23.h -> %z21.s
+64f98717 : bfmlalt z23.s, z24.h, z25.h               : bfmlalt %z23.s %z24.h %z25.h -> %z23.s
+64fb8759 : bfmlalt z25.s, z26.h, z27.h               : bfmlalt %z25.s %z26.h %z27.h -> %z25.s
+64fd879b : bfmlalt z27.s, z28.h, z29.h               : bfmlalt %z27.s %z28.h %z29.h -> %z27.s
+64ff87ff : bfmlalt z31.s, z31.h, z31.h               : bfmlalt %z31.s %z31.h %z31.h -> %z31.s
+
+# BFMLALT <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (BFMLALT-Z.ZZZi-_)
+64e04400 : bfmlalt z0.s, z0.h, z0.h[0]               : bfmlalt %z0.s %z0.h %z0.h $0x00 -> %z0.s
+64e24462 : bfmlalt z2.s, z3.h, z2.h[0]               : bfmlalt %z2.s %z3.h %z2.h $0x00 -> %z2.s
+64e34ca4 : bfmlalt z4.s, z5.h, z3.h[1]               : bfmlalt %z4.s %z5.h %z3.h $0x01 -> %z4.s
+64e34ce6 : bfmlalt z6.s, z7.h, z3.h[1]               : bfmlalt %z6.s %z7.h %z3.h $0x01 -> %z6.s
+64ec4528 : bfmlalt z8.s, z9.h, z4.h[2]               : bfmlalt %z8.s %z9.h %z4.h $0x02 -> %z8.s
+64ec456a : bfmlalt z10.s, z11.h, z4.h[2]             : bfmlalt %z10.s %z11.h %z4.h $0x02 -> %z10.s
+64ed4dac : bfmlalt z12.s, z13.h, z5.h[3]             : bfmlalt %z12.s %z13.h %z5.h $0x03 -> %z12.s
+64ed4dee : bfmlalt z14.s, z15.h, z5.h[3]             : bfmlalt %z14.s %z15.h %z5.h $0x03 -> %z14.s
+64f64630 : bfmlalt z16.s, z17.h, z6.h[4]             : bfmlalt %z16.s %z17.h %z6.h $0x04 -> %z16.s
+64f64651 : bfmlalt z17.s, z18.h, z6.h[4]             : bfmlalt %z17.s %z18.h %z6.h $0x04 -> %z17.s
+64f64693 : bfmlalt z19.s, z20.h, z6.h[4]             : bfmlalt %z19.s %z20.h %z6.h $0x04 -> %z19.s
+64f74ed5 : bfmlalt z21.s, z22.h, z7.h[5]             : bfmlalt %z21.s %z22.h %z7.h $0x05 -> %z21.s
+64f74f17 : bfmlalt z23.s, z24.h, z7.h[5]             : bfmlalt %z23.s %z24.h %z7.h $0x05 -> %z23.s
+64f84759 : bfmlalt z25.s, z26.h, z0.h[6]             : bfmlalt %z25.s %z26.h %z0.h $0x06 -> %z25.s
+64f8479b : bfmlalt z27.s, z28.h, z0.h[6]             : bfmlalt %z27.s %z28.h %z0.h $0x06 -> %z27.s
+64ff4fff : bfmlalt z31.s, z31.h, z7.h[7]             : bfmlalt %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# BFMMLA  <Zda>.S, <Zn>.H, <Zm>.H (BFMMLA-Z.ZZZ-_)
+6460e400 : bfmmla z0.s, z0.h, z0.h                   : bfmmla %z0.s %z0.h %z0.h -> %z0.s
+6464e462 : bfmmla z2.s, z3.h, z4.h                   : bfmmla %z2.s %z3.h %z4.h -> %z2.s
+6466e4a4 : bfmmla z4.s, z5.h, z6.h                   : bfmmla %z4.s %z5.h %z6.h -> %z4.s
+6468e4e6 : bfmmla z6.s, z7.h, z8.h                   : bfmmla %z6.s %z7.h %z8.h -> %z6.s
+646ae528 : bfmmla z8.s, z9.h, z10.h                  : bfmmla %z8.s %z9.h %z10.h -> %z8.s
+646ce56a : bfmmla z10.s, z11.h, z12.h                : bfmmla %z10.s %z11.h %z12.h -> %z10.s
+646ee5ac : bfmmla z12.s, z13.h, z14.h                : bfmmla %z12.s %z13.h %z14.h -> %z12.s
+6470e5ee : bfmmla z14.s, z15.h, z16.h                : bfmmla %z14.s %z15.h %z16.h -> %z14.s
+6472e630 : bfmmla z16.s, z17.h, z18.h                : bfmmla %z16.s %z17.h %z18.h -> %z16.s
+6473e651 : bfmmla z17.s, z18.h, z19.h                : bfmmla %z17.s %z18.h %z19.h -> %z17.s
+6475e693 : bfmmla z19.s, z20.h, z21.h                : bfmmla %z19.s %z20.h %z21.h -> %z19.s
+6477e6d5 : bfmmla z21.s, z22.h, z23.h                : bfmmla %z21.s %z22.h %z23.h -> %z21.s
+6479e717 : bfmmla z23.s, z24.h, z25.h                : bfmmla %z23.s %z24.h %z25.h -> %z23.s
+647be759 : bfmmla z25.s, z26.h, z27.h                : bfmmla %z25.s %z26.h %z27.h -> %z25.s
+647de79b : bfmmla z27.s, z28.h, z29.h                : bfmmla %z27.s %z28.h %z29.h -> %z27.s
+647fe7ff : bfmmla z31.s, z31.h, z31.h                : bfmmla %z31.s %z31.h %z31.h -> %z31.s
+
 041b0b02 : bic z2.b, p2/m, z2.b, z24.b              : bic    %p2 %z2 %z24 $0x00 -> %z2
 045b0b02 : bic z2.h, p2/m, z2.h, z24.h              : bic    %p2 %z2 %z24 $0x01 -> %z2
 049b0b02 : bic z2.s, p2/m, z2.s, z24.s              : bic    %p2 %z2 %z24 $0x02 -> %z2
@@ -10144,6 +10288,78 @@
 05e39fbd : lastb d29, p7, z29.d        : lastb  %p7 %z29.d -> %d29
 05e39fff : lastb d31, p7, z31.d        : lastb  %p7 %z31.d -> %d31
 
+# LD1B    { <Zt>.H }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD1B-Z.P.BR-U16)
+a4204000 : ld1b z0.h, p0/Z, [x0, x0]                 : ld1b   (%x0,%x0)[16byte] %p0/z -> %z0.h
+a4254482 : ld1b z2.h, p1/Z, [x4, x5]                 : ld1b   (%x4,%x5)[16byte] %p1/z -> %z2.h
+a42748c4 : ld1b z4.h, p2/Z, [x6, x7]                 : ld1b   (%x6,%x7)[16byte] %p2/z -> %z4.h
+a4294906 : ld1b z6.h, p2/Z, [x8, x9]                 : ld1b   (%x8,%x9)[16byte] %p2/z -> %z6.h
+a42b4d48 : ld1b z8.h, p3/Z, [x10, x11]               : ld1b   (%x10,%x11)[16byte] %p3/z -> %z8.h
+a42c4d6a : ld1b z10.h, p3/Z, [x11, x12]              : ld1b   (%x11,%x12)[16byte] %p3/z -> %z10.h
+a42e51ac : ld1b z12.h, p4/Z, [x13, x14]              : ld1b   (%x13,%x14)[16byte] %p4/z -> %z12.h
+a43051ee : ld1b z14.h, p4/Z, [x15, x16]              : ld1b   (%x15,%x16)[16byte] %p4/z -> %z14.h
+a4325630 : ld1b z16.h, p5/Z, [x17, x18]              : ld1b   (%x17,%x18)[16byte] %p5/z -> %z16.h
+a4345671 : ld1b z17.h, p5/Z, [x19, x20]              : ld1b   (%x19,%x20)[16byte] %p5/z -> %z17.h
+a43656b3 : ld1b z19.h, p5/Z, [x21, x22]              : ld1b   (%x21,%x22)[16byte] %p5/z -> %z19.h
+a4385af5 : ld1b z21.h, p6/Z, [x23, x24]              : ld1b   (%x23,%x24)[16byte] %p6/z -> %z21.h
+a4395b17 : ld1b z23.h, p6/Z, [x24, x25]              : ld1b   (%x24,%x25)[16byte] %p6/z -> %z23.h
+a43b5f59 : ld1b z25.h, p7/Z, [x26, x27]              : ld1b   (%x26,%x27)[16byte] %p7/z -> %z25.h
+a43d5f9b : ld1b z27.h, p7/Z, [x28, x29]              : ld1b   (%x28,%x29)[16byte] %p7/z -> %z27.h
+a43e5fff : ld1b z31.h, p7/Z, [sp, x30]               : ld1b   (%sp,%x30)[16byte] %p7/z -> %z31.h
+
+# LD1B    { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD1B-Z.P.BR-U32)
+a4404000 : ld1b z0.s, p0/Z, [x0, x0]                 : ld1b   (%x0,%x0)[8byte] %p0/z -> %z0.s
+a4454482 : ld1b z2.s, p1/Z, [x4, x5]                 : ld1b   (%x4,%x5)[8byte] %p1/z -> %z2.s
+a44748c4 : ld1b z4.s, p2/Z, [x6, x7]                 : ld1b   (%x6,%x7)[8byte] %p2/z -> %z4.s
+a4494906 : ld1b z6.s, p2/Z, [x8, x9]                 : ld1b   (%x8,%x9)[8byte] %p2/z -> %z6.s
+a44b4d48 : ld1b z8.s, p3/Z, [x10, x11]               : ld1b   (%x10,%x11)[8byte] %p3/z -> %z8.s
+a44c4d6a : ld1b z10.s, p3/Z, [x11, x12]              : ld1b   (%x11,%x12)[8byte] %p3/z -> %z10.s
+a44e51ac : ld1b z12.s, p4/Z, [x13, x14]              : ld1b   (%x13,%x14)[8byte] %p4/z -> %z12.s
+a45051ee : ld1b z14.s, p4/Z, [x15, x16]              : ld1b   (%x15,%x16)[8byte] %p4/z -> %z14.s
+a4525630 : ld1b z16.s, p5/Z, [x17, x18]              : ld1b   (%x17,%x18)[8byte] %p5/z -> %z16.s
+a4545671 : ld1b z17.s, p5/Z, [x19, x20]              : ld1b   (%x19,%x20)[8byte] %p5/z -> %z17.s
+a45656b3 : ld1b z19.s, p5/Z, [x21, x22]              : ld1b   (%x21,%x22)[8byte] %p5/z -> %z19.s
+a4585af5 : ld1b z21.s, p6/Z, [x23, x24]              : ld1b   (%x23,%x24)[8byte] %p6/z -> %z21.s
+a4595b17 : ld1b z23.s, p6/Z, [x24, x25]              : ld1b   (%x24,%x25)[8byte] %p6/z -> %z23.s
+a45b5f59 : ld1b z25.s, p7/Z, [x26, x27]              : ld1b   (%x26,%x27)[8byte] %p7/z -> %z25.s
+a45d5f9b : ld1b z27.s, p7/Z, [x28, x29]              : ld1b   (%x28,%x29)[8byte] %p7/z -> %z27.s
+a45e5fff : ld1b z31.s, p7/Z, [sp, x30]               : ld1b   (%sp,%x30)[8byte] %p7/z -> %z31.s
+
+# LD1B    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD1B-Z.P.BR-U64)
+a4604000 : ld1b z0.d, p0/Z, [x0, x0]                 : ld1b   (%x0,%x0)[4byte] %p0/z -> %z0.d
+a4654482 : ld1b z2.d, p1/Z, [x4, x5]                 : ld1b   (%x4,%x5)[4byte] %p1/z -> %z2.d
+a46748c4 : ld1b z4.d, p2/Z, [x6, x7]                 : ld1b   (%x6,%x7)[4byte] %p2/z -> %z4.d
+a4694906 : ld1b z6.d, p2/Z, [x8, x9]                 : ld1b   (%x8,%x9)[4byte] %p2/z -> %z6.d
+a46b4d48 : ld1b z8.d, p3/Z, [x10, x11]               : ld1b   (%x10,%x11)[4byte] %p3/z -> %z8.d
+a46c4d6a : ld1b z10.d, p3/Z, [x11, x12]              : ld1b   (%x11,%x12)[4byte] %p3/z -> %z10.d
+a46e51ac : ld1b z12.d, p4/Z, [x13, x14]              : ld1b   (%x13,%x14)[4byte] %p4/z -> %z12.d
+a47051ee : ld1b z14.d, p4/Z, [x15, x16]              : ld1b   (%x15,%x16)[4byte] %p4/z -> %z14.d
+a4725630 : ld1b z16.d, p5/Z, [x17, x18]              : ld1b   (%x17,%x18)[4byte] %p5/z -> %z16.d
+a4745671 : ld1b z17.d, p5/Z, [x19, x20]              : ld1b   (%x19,%x20)[4byte] %p5/z -> %z17.d
+a47656b3 : ld1b z19.d, p5/Z, [x21, x22]              : ld1b   (%x21,%x22)[4byte] %p5/z -> %z19.d
+a4785af5 : ld1b z21.d, p6/Z, [x23, x24]              : ld1b   (%x23,%x24)[4byte] %p6/z -> %z21.d
+a4795b17 : ld1b z23.d, p6/Z, [x24, x25]              : ld1b   (%x24,%x25)[4byte] %p6/z -> %z23.d
+a47b5f59 : ld1b z25.d, p7/Z, [x26, x27]              : ld1b   (%x26,%x27)[4byte] %p7/z -> %z25.d
+a47d5f9b : ld1b z27.d, p7/Z, [x28, x29]              : ld1b   (%x28,%x29)[4byte] %p7/z -> %z27.d
+a47e5fff : ld1b z31.d, p7/Z, [sp, x30]               : ld1b   (%sp,%x30)[4byte] %p7/z -> %z31.d
+
+# LD1B    { <Zt>.B }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD1B-Z.P.BR-U8)
+a4004000 : ld1b z0.b, p0/Z, [x0, x0]                 : ld1b   (%x0,%x0)[32byte] %p0/z -> %z0.b
+a4054482 : ld1b z2.b, p1/Z, [x4, x5]                 : ld1b   (%x4,%x5)[32byte] %p1/z -> %z2.b
+a40748c4 : ld1b z4.b, p2/Z, [x6, x7]                 : ld1b   (%x6,%x7)[32byte] %p2/z -> %z4.b
+a4094906 : ld1b z6.b, p2/Z, [x8, x9]                 : ld1b   (%x8,%x9)[32byte] %p2/z -> %z6.b
+a40b4d48 : ld1b z8.b, p3/Z, [x10, x11]               : ld1b   (%x10,%x11)[32byte] %p3/z -> %z8.b
+a40c4d6a : ld1b z10.b, p3/Z, [x11, x12]              : ld1b   (%x11,%x12)[32byte] %p3/z -> %z10.b
+a40e51ac : ld1b z12.b, p4/Z, [x13, x14]              : ld1b   (%x13,%x14)[32byte] %p4/z -> %z12.b
+a41051ee : ld1b z14.b, p4/Z, [x15, x16]              : ld1b   (%x15,%x16)[32byte] %p4/z -> %z14.b
+a4125630 : ld1b z16.b, p5/Z, [x17, x18]              : ld1b   (%x17,%x18)[32byte] %p5/z -> %z16.b
+a4145671 : ld1b z17.b, p5/Z, [x19, x20]              : ld1b   (%x19,%x20)[32byte] %p5/z -> %z17.b
+a41656b3 : ld1b z19.b, p5/Z, [x21, x22]              : ld1b   (%x21,%x22)[32byte] %p5/z -> %z19.b
+a4185af5 : ld1b z21.b, p6/Z, [x23, x24]              : ld1b   (%x23,%x24)[32byte] %p6/z -> %z21.b
+a4195b17 : ld1b z23.b, p6/Z, [x24, x25]              : ld1b   (%x24,%x25)[32byte] %p6/z -> %z23.b
+a41b5f59 : ld1b z25.b, p7/Z, [x26, x27]              : ld1b   (%x26,%x27)[32byte] %p7/z -> %z25.b
+a41d5f9b : ld1b z27.b, p7/Z, [x28, x29]              : ld1b   (%x28,%x29)[32byte] %p7/z -> %z27.b
+a41e5fff : ld1b z31.b, p7/Z, [sp, x30]               : ld1b   (%sp,%x30)[32byte] %p7/z -> %z31.b
+
 # LD1RB   { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, #<pimm>}] (LD1RB-Z.P.BI-U16)
 8440a000 : ld1rb z0.h, p0/Z, [x0, #0]                : ld1rb  (%x0)[1byte] %p0/z -> %z0.h
 8444a482 : ld1rb z2.h, p1/Z, [x4, #4]                : ld1rb  +0x04(%x4)[1byte] %p1/z -> %z2.h
@@ -10288,6 +10504,42 @@
 84f7ff9b : ld1rh z27.d, p7/Z, [x28, #110]            : ld1rh  +0x6e(%x28)[2byte] %p7/z -> %z27.d
 84ffffff : ld1rh z31.d, p7/Z, [sp, #126]             : ld1rh  +0x7e(%sp)[2byte] %p7/z -> %z31.d
 
+# LD1ROB  { <Zt>.B }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD1ROB-Z.P.BR-Contiguous)
+a4200000 : ld1rob z0.b, p0/Z, [x0, x0]               : ld1rob (%x0,%x0)[32byte] %p0/z -> %z0.b
+a4250482 : ld1rob z2.b, p1/Z, [x4, x5]               : ld1rob (%x4,%x5)[32byte] %p1/z -> %z2.b
+a42708c4 : ld1rob z4.b, p2/Z, [x6, x7]               : ld1rob (%x6,%x7)[32byte] %p2/z -> %z4.b
+a4290906 : ld1rob z6.b, p2/Z, [x8, x9]               : ld1rob (%x8,%x9)[32byte] %p2/z -> %z6.b
+a42b0d48 : ld1rob z8.b, p3/Z, [x10, x11]             : ld1rob (%x10,%x11)[32byte] %p3/z -> %z8.b
+a42c0d6a : ld1rob z10.b, p3/Z, [x11, x12]            : ld1rob (%x11,%x12)[32byte] %p3/z -> %z10.b
+a42e11ac : ld1rob z12.b, p4/Z, [x13, x14]            : ld1rob (%x13,%x14)[32byte] %p4/z -> %z12.b
+a43011ee : ld1rob z14.b, p4/Z, [x15, x16]            : ld1rob (%x15,%x16)[32byte] %p4/z -> %z14.b
+a4321630 : ld1rob z16.b, p5/Z, [x17, x18]            : ld1rob (%x17,%x18)[32byte] %p5/z -> %z16.b
+a4341671 : ld1rob z17.b, p5/Z, [x19, x20]            : ld1rob (%x19,%x20)[32byte] %p5/z -> %z17.b
+a43616b3 : ld1rob z19.b, p5/Z, [x21, x22]            : ld1rob (%x21,%x22)[32byte] %p5/z -> %z19.b
+a4381af5 : ld1rob z21.b, p6/Z, [x23, x24]            : ld1rob (%x23,%x24)[32byte] %p6/z -> %z21.b
+a4391b17 : ld1rob z23.b, p6/Z, [x24, x25]            : ld1rob (%x24,%x25)[32byte] %p6/z -> %z23.b
+a43b1f59 : ld1rob z25.b, p7/Z, [x26, x27]            : ld1rob (%x26,%x27)[32byte] %p7/z -> %z25.b
+a43d1f9b : ld1rob z27.b, p7/Z, [x28, x29]            : ld1rob (%x28,%x29)[32byte] %p7/z -> %z27.b
+a43e1fff : ld1rob z31.b, p7/Z, [sp, x30]             : ld1rob (%sp,%x30)[32byte] %p7/z -> %z31.b
+
+# LD1RQB  { <Zt>.B }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD1RQB-Z.P.BR-Contiguous)
+a4000000 : ld1rqb z0.b, p0/Z, [x0, x0]               : ld1rqb (%x0,%x0)[32byte] %p0/z -> %z0.b
+a4050482 : ld1rqb z2.b, p1/Z, [x4, x5]               : ld1rqb (%x4,%x5)[32byte] %p1/z -> %z2.b
+a40708c4 : ld1rqb z4.b, p2/Z, [x6, x7]               : ld1rqb (%x6,%x7)[32byte] %p2/z -> %z4.b
+a4090906 : ld1rqb z6.b, p2/Z, [x8, x9]               : ld1rqb (%x8,%x9)[32byte] %p2/z -> %z6.b
+a40b0d48 : ld1rqb z8.b, p3/Z, [x10, x11]             : ld1rqb (%x10,%x11)[32byte] %p3/z -> %z8.b
+a40c0d6a : ld1rqb z10.b, p3/Z, [x11, x12]            : ld1rqb (%x11,%x12)[32byte] %p3/z -> %z10.b
+a40e11ac : ld1rqb z12.b, p4/Z, [x13, x14]            : ld1rqb (%x13,%x14)[32byte] %p4/z -> %z12.b
+a41011ee : ld1rqb z14.b, p4/Z, [x15, x16]            : ld1rqb (%x15,%x16)[32byte] %p4/z -> %z14.b
+a4121630 : ld1rqb z16.b, p5/Z, [x17, x18]            : ld1rqb (%x17,%x18)[32byte] %p5/z -> %z16.b
+a4141671 : ld1rqb z17.b, p5/Z, [x19, x20]            : ld1rqb (%x19,%x20)[32byte] %p5/z -> %z17.b
+a41616b3 : ld1rqb z19.b, p5/Z, [x21, x22]            : ld1rqb (%x21,%x22)[32byte] %p5/z -> %z19.b
+a4181af5 : ld1rqb z21.b, p6/Z, [x23, x24]            : ld1rqb (%x23,%x24)[32byte] %p6/z -> %z21.b
+a4191b17 : ld1rqb z23.b, p6/Z, [x24, x25]            : ld1rqb (%x24,%x25)[32byte] %p6/z -> %z23.b
+a41b1f59 : ld1rqb z25.b, p7/Z, [x26, x27]            : ld1rqb (%x26,%x27)[32byte] %p7/z -> %z25.b
+a41d1f9b : ld1rqb z27.b, p7/Z, [x28, x29]            : ld1rqb (%x28,%x29)[32byte] %p7/z -> %z27.b
+a41e1fff : ld1rqb z31.b, p7/Z, [sp, x30]             : ld1rqb (%sp,%x30)[32byte] %p7/z -> %z31.b
+
 # LD1RSB  { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, #<pimm>}] (LD1RSB-Z.P.BI-S16)
 85c0c000 : ld1rsb z0.h, p0/Z, [x0, #0]               : ld1rsb (%x0)[1byte] %p0/z -> %z0.h
 85c4c482 : ld1rsb z2.h, p1/Z, [x4, #4]               : ld1rsb +0x04(%x4)[1byte] %p1/z -> %z2.h
@@ -10431,6 +10683,60 @@
 8573ff59 : ld1rw z25.d, p7/Z, [x26, #204]            : ld1rw  +0xcc(%x26)[4byte] %p7/z -> %z25.d
 8577ff9b : ld1rw z27.d, p7/Z, [x28, #220]            : ld1rw  +0xdc(%x28)[4byte] %p7/z -> %z27.d
 857fffff : ld1rw z31.d, p7/Z, [sp, #252]             : ld1rw  +0xfc(%sp)[4byte] %p7/z -> %z31.d
+
+# LD1SB   { <Zt>.H }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD1SB-Z.P.BR-S16)
+a5c04000 : ld1sb z0.h, p0/Z, [x0, x0]                : ld1sb  (%x0,%x0)[16byte] %p0/z -> %z0.h
+a5c54482 : ld1sb z2.h, p1/Z, [x4, x5]                : ld1sb  (%x4,%x5)[16byte] %p1/z -> %z2.h
+a5c748c4 : ld1sb z4.h, p2/Z, [x6, x7]                : ld1sb  (%x6,%x7)[16byte] %p2/z -> %z4.h
+a5c94906 : ld1sb z6.h, p2/Z, [x8, x9]                : ld1sb  (%x8,%x9)[16byte] %p2/z -> %z6.h
+a5cb4d48 : ld1sb z8.h, p3/Z, [x10, x11]              : ld1sb  (%x10,%x11)[16byte] %p3/z -> %z8.h
+a5cc4d6a : ld1sb z10.h, p3/Z, [x11, x12]             : ld1sb  (%x11,%x12)[16byte] %p3/z -> %z10.h
+a5ce51ac : ld1sb z12.h, p4/Z, [x13, x14]             : ld1sb  (%x13,%x14)[16byte] %p4/z -> %z12.h
+a5d051ee : ld1sb z14.h, p4/Z, [x15, x16]             : ld1sb  (%x15,%x16)[16byte] %p4/z -> %z14.h
+a5d25630 : ld1sb z16.h, p5/Z, [x17, x18]             : ld1sb  (%x17,%x18)[16byte] %p5/z -> %z16.h
+a5d45671 : ld1sb z17.h, p5/Z, [x19, x20]             : ld1sb  (%x19,%x20)[16byte] %p5/z -> %z17.h
+a5d656b3 : ld1sb z19.h, p5/Z, [x21, x22]             : ld1sb  (%x21,%x22)[16byte] %p5/z -> %z19.h
+a5d85af5 : ld1sb z21.h, p6/Z, [x23, x24]             : ld1sb  (%x23,%x24)[16byte] %p6/z -> %z21.h
+a5d95b17 : ld1sb z23.h, p6/Z, [x24, x25]             : ld1sb  (%x24,%x25)[16byte] %p6/z -> %z23.h
+a5db5f59 : ld1sb z25.h, p7/Z, [x26, x27]             : ld1sb  (%x26,%x27)[16byte] %p7/z -> %z25.h
+a5dd5f9b : ld1sb z27.h, p7/Z, [x28, x29]             : ld1sb  (%x28,%x29)[16byte] %p7/z -> %z27.h
+a5de5fff : ld1sb z31.h, p7/Z, [sp, x30]              : ld1sb  (%sp,%x30)[16byte] %p7/z -> %z31.h
+
+# LD1SB   { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD1SB-Z.P.BR-S32)
+a5a04000 : ld1sb z0.s, p0/Z, [x0, x0]                : ld1sb  (%x0,%x0)[8byte] %p0/z -> %z0.s
+a5a54482 : ld1sb z2.s, p1/Z, [x4, x5]                : ld1sb  (%x4,%x5)[8byte] %p1/z -> %z2.s
+a5a748c4 : ld1sb z4.s, p2/Z, [x6, x7]                : ld1sb  (%x6,%x7)[8byte] %p2/z -> %z4.s
+a5a94906 : ld1sb z6.s, p2/Z, [x8, x9]                : ld1sb  (%x8,%x9)[8byte] %p2/z -> %z6.s
+a5ab4d48 : ld1sb z8.s, p3/Z, [x10, x11]              : ld1sb  (%x10,%x11)[8byte] %p3/z -> %z8.s
+a5ac4d6a : ld1sb z10.s, p3/Z, [x11, x12]             : ld1sb  (%x11,%x12)[8byte] %p3/z -> %z10.s
+a5ae51ac : ld1sb z12.s, p4/Z, [x13, x14]             : ld1sb  (%x13,%x14)[8byte] %p4/z -> %z12.s
+a5b051ee : ld1sb z14.s, p4/Z, [x15, x16]             : ld1sb  (%x15,%x16)[8byte] %p4/z -> %z14.s
+a5b25630 : ld1sb z16.s, p5/Z, [x17, x18]             : ld1sb  (%x17,%x18)[8byte] %p5/z -> %z16.s
+a5b45671 : ld1sb z17.s, p5/Z, [x19, x20]             : ld1sb  (%x19,%x20)[8byte] %p5/z -> %z17.s
+a5b656b3 : ld1sb z19.s, p5/Z, [x21, x22]             : ld1sb  (%x21,%x22)[8byte] %p5/z -> %z19.s
+a5b85af5 : ld1sb z21.s, p6/Z, [x23, x24]             : ld1sb  (%x23,%x24)[8byte] %p6/z -> %z21.s
+a5b95b17 : ld1sb z23.s, p6/Z, [x24, x25]             : ld1sb  (%x24,%x25)[8byte] %p6/z -> %z23.s
+a5bb5f59 : ld1sb z25.s, p7/Z, [x26, x27]             : ld1sb  (%x26,%x27)[8byte] %p7/z -> %z25.s
+a5bd5f9b : ld1sb z27.s, p7/Z, [x28, x29]             : ld1sb  (%x28,%x29)[8byte] %p7/z -> %z27.s
+a5be5fff : ld1sb z31.s, p7/Z, [sp, x30]              : ld1sb  (%sp,%x30)[8byte] %p7/z -> %z31.s
+
+# LD1SB   { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD1SB-Z.P.BR-S64)
+a5804000 : ld1sb z0.d, p0/Z, [x0, x0]                : ld1sb  (%x0,%x0)[4byte] %p0/z -> %z0.d
+a5854482 : ld1sb z2.d, p1/Z, [x4, x5]                : ld1sb  (%x4,%x5)[4byte] %p1/z -> %z2.d
+a58748c4 : ld1sb z4.d, p2/Z, [x6, x7]                : ld1sb  (%x6,%x7)[4byte] %p2/z -> %z4.d
+a5894906 : ld1sb z6.d, p2/Z, [x8, x9]                : ld1sb  (%x8,%x9)[4byte] %p2/z -> %z6.d
+a58b4d48 : ld1sb z8.d, p3/Z, [x10, x11]              : ld1sb  (%x10,%x11)[4byte] %p3/z -> %z8.d
+a58c4d6a : ld1sb z10.d, p3/Z, [x11, x12]             : ld1sb  (%x11,%x12)[4byte] %p3/z -> %z10.d
+a58e51ac : ld1sb z12.d, p4/Z, [x13, x14]             : ld1sb  (%x13,%x14)[4byte] %p4/z -> %z12.d
+a59051ee : ld1sb z14.d, p4/Z, [x15, x16]             : ld1sb  (%x15,%x16)[4byte] %p4/z -> %z14.d
+a5925630 : ld1sb z16.d, p5/Z, [x17, x18]             : ld1sb  (%x17,%x18)[4byte] %p5/z -> %z16.d
+a5945671 : ld1sb z17.d, p5/Z, [x19, x20]             : ld1sb  (%x19,%x20)[4byte] %p5/z -> %z17.d
+a59656b3 : ld1sb z19.d, p5/Z, [x21, x22]             : ld1sb  (%x21,%x22)[4byte] %p5/z -> %z19.d
+a5985af5 : ld1sb z21.d, p6/Z, [x23, x24]             : ld1sb  (%x23,%x24)[4byte] %p6/z -> %z21.d
+a5995b17 : ld1sb z23.d, p6/Z, [x24, x25]             : ld1sb  (%x24,%x25)[4byte] %p6/z -> %z23.d
+a59b5f59 : ld1sb z25.d, p7/Z, [x26, x27]             : ld1sb  (%x26,%x27)[4byte] %p7/z -> %z25.d
+a59d5f9b : ld1sb z27.d, p7/Z, [x28, x29]             : ld1sb  (%x28,%x29)[4byte] %p7/z -> %z27.d
+a59e5fff : ld1sb z31.d, p7/Z, [sp, x30]              : ld1sb  (%sp,%x30)[4byte] %p7/z -> %z31.d
 
 # LDFF1B  { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, <Xm>}] (LDFF1B-Z.P.BR-U16)
 a4206000 : ldff1b z0.h, p0/Z, [x0, x0]               : ldff1b (%x0,%x0)[16byte] %p0/z -> %z0.h
@@ -10719,6 +11025,24 @@ a5797b17 : ldff1w z23.d, p6/Z, [x24, x25, LSL #2]    : ldff1w (%x24,%x25,lsl #2)
 a57b7f59 : ldff1w z25.d, p7/Z, [x26, x27, LSL #2]    : ldff1w (%x26,%x27,lsl #2)[16byte] %p7/z -> %z25.d
 a57d7f9b : ldff1w z27.d, p7/Z, [x28, x29, LSL #2]    : ldff1w (%x28,%x29,lsl #2)[16byte] %p7/z -> %z27.d
 a57e7fff : ldff1w z31.d, p7/Z, [sp, x30, LSL #2]     : ldff1w (%sp,%x30,lsl #2)[16byte] %p7/z -> %z31.d
+
+# LDNT1B  { <Zt>.B }, <Pg>/Z, [<Xn|SP>, <Xm>] (LDNT1B-Z.P.BR-Contiguous)
+a400c000 : ldnt1b z0.b, p0/Z, [x0, x0]               : ldnt1b (%x0,%x0)[32byte] %p0/z -> %z0.b
+a405c482 : ldnt1b z2.b, p1/Z, [x4, x5]               : ldnt1b (%x4,%x5)[32byte] %p1/z -> %z2.b
+a407c8c4 : ldnt1b z4.b, p2/Z, [x6, x7]               : ldnt1b (%x6,%x7)[32byte] %p2/z -> %z4.b
+a409c906 : ldnt1b z6.b, p2/Z, [x8, x9]               : ldnt1b (%x8,%x9)[32byte] %p2/z -> %z6.b
+a40bcd48 : ldnt1b z8.b, p3/Z, [x10, x11]             : ldnt1b (%x10,%x11)[32byte] %p3/z -> %z8.b
+a40ccd6a : ldnt1b z10.b, p3/Z, [x11, x12]            : ldnt1b (%x11,%x12)[32byte] %p3/z -> %z10.b
+a40ed1ac : ldnt1b z12.b, p4/Z, [x13, x14]            : ldnt1b (%x13,%x14)[32byte] %p4/z -> %z12.b
+a410d1ee : ldnt1b z14.b, p4/Z, [x15, x16]            : ldnt1b (%x15,%x16)[32byte] %p4/z -> %z14.b
+a412d630 : ldnt1b z16.b, p5/Z, [x17, x18]            : ldnt1b (%x17,%x18)[32byte] %p5/z -> %z16.b
+a414d671 : ldnt1b z17.b, p5/Z, [x19, x20]            : ldnt1b (%x19,%x20)[32byte] %p5/z -> %z17.b
+a416d6b3 : ldnt1b z19.b, p5/Z, [x21, x22]            : ldnt1b (%x21,%x22)[32byte] %p5/z -> %z19.b
+a418daf5 : ldnt1b z21.b, p6/Z, [x23, x24]            : ldnt1b (%x23,%x24)[32byte] %p6/z -> %z21.b
+a419db17 : ldnt1b z23.b, p6/Z, [x24, x25]            : ldnt1b (%x24,%x25)[32byte] %p6/z -> %z23.b
+a41bdf59 : ldnt1b z25.b, p7/Z, [x26, x27]            : ldnt1b (%x26,%x27)[32byte] %p7/z -> %z25.b
+a41ddf9b : ldnt1b z27.b, p7/Z, [x28, x29]            : ldnt1b (%x28,%x29)[32byte] %p7/z -> %z27.b
+a41edfff : ldnt1b z31.b, p7/Z, [sp, x30]             : ldnt1b (%sp,%x30)[32byte] %p7/z -> %z31.b
 
 # LDR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}]
 858043c0 : ldr z0, [x30]                            : ldr    (%x30)[32byte] -> %z0
@@ -12620,6 +12944,78 @@ a57e7fff : ldff1w z31.d, p7/Z, [sp, x30, LSL #2]     : ldff1w (%sp,%x30,lsl #2)[
 25d9c5cd : pnext p13.d, p14, p13.d                   : pnext  %p14 %p13.d -> %p13.d
 25d9c5ef : pnext p15.d, p15, p15.d                   : pnext  %p15 %p15.d -> %p15.d
 
+# PRFB    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] (PRFB-I.P.BI-S)
+85e00000 : prfb PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfb   $0x00 %p0 -0x20(%x0)
+85e40481 : prfb PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfb   $0x01 %p1 -0x1c(%x4)
+85e808c2 : prfb PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfb   $0x02 %p2 -0x18(%x6)
+85ec0903 : prfb PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfb   $0x03 %p2 -0x14(%x8)
+85f00d44 : prfb PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfb   $0x04 %p3 -0x10(%x10)
+85f40d65 : prfb PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfb   $0x05 %p3 -0x0c(%x11)
+85f811a6 : prfb 6, p4, [x13, #-8, MUL VL]            : prfb   $0x06 %p4 -0x08(%x13)
+85fc11e7 : prfb 7, p4, [x15, #-4, MUL VL]            : prfb   $0x07 %p4 -0x04(%x15)
+85c01628 : prfb PSTL1KEEP, p5, [x17, #0, MUL VL]     : prfb   $0x08 %p5 (%x17)
+85c31669 : prfb PSTL1STRM, p5, [x19, #3, MUL VL]     : prfb   $0x09 %p5 +0x03(%x19)
+85c716aa : prfb PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfb   $0x0a %p5 +0x07(%x21)
+85cb1aeb : prfb PSTL2STRM, p6, [x23, #11, MUL VL]    : prfb   $0x0b %p6 +0x0b(%x23)
+85cf1b0c : prfb PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfb   $0x0c %p6 +0x0f(%x24)
+85d31f4d : prfb PSTL3STRM, p7, [x26, #19, MUL VL]    : prfb   $0x0d %p7 +0x13(%x26)
+85d71f8e : prfb 14, p7, [x28, #23, MUL VL]           : prfb   $0x0e %p7 +0x17(%x28)
+85df1fef : prfb 15, p7, [sp, #31, MUL VL]            : prfb   $0x0f %p7 +0x1f(%sp)
+
+# PRFD    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] (PRFD-I.P.BI-S)
+85e06000 : prfd PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfd   $0x00 %p0 -0x20(%x0)
+85e46481 : prfd PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfd   $0x01 %p1 -0x1c(%x4)
+85e868c2 : prfd PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfd   $0x02 %p2 -0x18(%x6)
+85ec6903 : prfd PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfd   $0x03 %p2 -0x14(%x8)
+85f06d44 : prfd PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfd   $0x04 %p3 -0x10(%x10)
+85f46d65 : prfd PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfd   $0x05 %p3 -0x0c(%x11)
+85f871a6 : prfd 6, p4, [x13, #-8, MUL VL]            : prfd   $0x06 %p4 -0x08(%x13)
+85fc71e7 : prfd 7, p4, [x15, #-4, MUL VL]            : prfd   $0x07 %p4 -0x04(%x15)
+85c07628 : prfd PSTL1KEEP, p5, [x17, #0, MUL VL]     : prfd   $0x08 %p5 (%x17)
+85c37669 : prfd PSTL1STRM, p5, [x19, #3, MUL VL]     : prfd   $0x09 %p5 +0x03(%x19)
+85c776aa : prfd PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfd   $0x0a %p5 +0x07(%x21)
+85cb7aeb : prfd PSTL2STRM, p6, [x23, #11, MUL VL]    : prfd   $0x0b %p6 +0x0b(%x23)
+85cf7b0c : prfd PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfd   $0x0c %p6 +0x0f(%x24)
+85d37f4d : prfd PSTL3STRM, p7, [x26, #19, MUL VL]    : prfd   $0x0d %p7 +0x13(%x26)
+85d77f8e : prfd 14, p7, [x28, #23, MUL VL]           : prfd   $0x0e %p7 +0x17(%x28)
+85df7fef : prfd 15, p7, [sp, #31, MUL VL]            : prfd   $0x0f %p7 +0x1f(%sp)
+
+# PRFH    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] (PRFH-I.P.BI-S)
+85e02000 : prfh PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfh   $0x00 %p0 -0x20(%x0)
+85e42481 : prfh PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfh   $0x01 %p1 -0x1c(%x4)
+85e828c2 : prfh PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfh   $0x02 %p2 -0x18(%x6)
+85ec2903 : prfh PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfh   $0x03 %p2 -0x14(%x8)
+85f02d44 : prfh PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfh   $0x04 %p3 -0x10(%x10)
+85f42d65 : prfh PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfh   $0x05 %p3 -0x0c(%x11)
+85f831a6 : prfh 6, p4, [x13, #-8, MUL VL]            : prfh   $0x06 %p4 -0x08(%x13)
+85fc31e7 : prfh 7, p4, [x15, #-4, MUL VL]            : prfh   $0x07 %p4 -0x04(%x15)
+85c03628 : prfh PSTL1KEEP, p5, [x17, #0, MUL VL]     : prfh   $0x08 %p5 (%x17)
+85c33669 : prfh PSTL1STRM, p5, [x19, #3, MUL VL]     : prfh   $0x09 %p5 +0x03(%x19)
+85c736aa : prfh PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfh   $0x0a %p5 +0x07(%x21)
+85cb3aeb : prfh PSTL2STRM, p6, [x23, #11, MUL VL]    : prfh   $0x0b %p6 +0x0b(%x23)
+85cf3b0c : prfh PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfh   $0x0c %p6 +0x0f(%x24)
+85d33f4d : prfh PSTL3STRM, p7, [x26, #19, MUL VL]    : prfh   $0x0d %p7 +0x13(%x26)
+85d73f8e : prfh 14, p7, [x28, #23, MUL VL]           : prfh   $0x0e %p7 +0x17(%x28)
+85df3fef : prfh 15, p7, [sp, #31, MUL VL]            : prfh   $0x0f %p7 +0x1f(%sp)
+
+# PRFW    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] (PRFW-I.P.BI-S)
+85e04000 : prfw PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfw   $0x00 %p0 -0x20(%x0)
+85e44481 : prfw PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfw   $0x01 %p1 -0x1c(%x4)
+85e848c2 : prfw PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfw   $0x02 %p2 -0x18(%x6)
+85ec4903 : prfw PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfw   $0x03 %p2 -0x14(%x8)
+85f04d44 : prfw PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfw   $0x04 %p3 -0x10(%x10)
+85f44d65 : prfw PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfw   $0x05 %p3 -0x0c(%x11)
+85f851a6 : prfw 6, p4, [x13, #-8, MUL VL]            : prfw   $0x06 %p4 -0x08(%x13)
+85fc51e7 : prfw 7, p4, [x15, #-4, MUL VL]            : prfw   $0x07 %p4 -0x04(%x15)
+85c05628 : prfw PSTL1KEEP, p5, [x17, #0, MUL VL]     : prfw   $0x08 %p5 (%x17)
+85c35669 : prfw PSTL1STRM, p5, [x19, #3, MUL VL]     : prfw   $0x09 %p5 +0x03(%x19)
+85c756aa : prfw PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfw   $0x0a %p5 +0x07(%x21)
+85cb5aeb : prfw PSTL2STRM, p6, [x23, #11, MUL VL]    : prfw   $0x0b %p6 +0x0b(%x23)
+85cf5b0c : prfw PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfw   $0x0c %p6 +0x0f(%x24)
+85d35f4d : prfw PSTL3STRM, p7, [x26, #19, MUL VL]    : prfw   $0x0d %p7 +0x13(%x26)
+85d75f8e : prfw 14, p7, [x28, #23, MUL VL]           : prfw   $0x0e %p7 +0x17(%x28)
+85df5fef : prfw 15, p7, [sp, #31, MUL VL]            : prfw   $0x0f %p7 +0x1f(%sp)
+
 # PTEST   <Pg>, <Pn>.B (PTEST-.P.P-_)
 2550c000 : ptest p0, p0.b                            : ptest  %p0 %p0.b
 2550c440 : ptest p1, p2.b                            : ptest  %p1 %p2.b
@@ -14098,6 +14494,24 @@ a57e7fff : ldff1w z31.d, p7/Z, [sp, x30, LSL #2]     : ldff1w (%sp,%x30,lsl #2)[
 04ca3f79 : sminv d25, p7, z27.d                      : sminv  %p7 %z27.d -> %d25
 04ca3fbb : sminv d27, p7, z29.d                      : sminv  %p7 %z29.d -> %d27
 04ca3fff : sminv d31, p7, z31.d                      : sminv  %p7 %z31.d -> %d31
+
+# SMMLA   <Zda>.S, <Zn>.B, <Zm>.B (SMMLA-Z.ZZZ-_)
+45009800 : smmla z0.s, z0.b, z0.b                    : smmla  %z0.s %z0.b %z0.b -> %z0.s
+45049862 : smmla z2.s, z3.b, z4.b                    : smmla  %z2.s %z3.b %z4.b -> %z2.s
+450698a4 : smmla z4.s, z5.b, z6.b                    : smmla  %z4.s %z5.b %z6.b -> %z4.s
+450898e6 : smmla z6.s, z7.b, z8.b                    : smmla  %z6.s %z7.b %z8.b -> %z6.s
+450a9928 : smmla z8.s, z9.b, z10.b                   : smmla  %z8.s %z9.b %z10.b -> %z8.s
+450c996a : smmla z10.s, z11.b, z12.b                 : smmla  %z10.s %z11.b %z12.b -> %z10.s
+450e99ac : smmla z12.s, z13.b, z14.b                 : smmla  %z12.s %z13.b %z14.b -> %z12.s
+451099ee : smmla z14.s, z15.b, z16.b                 : smmla  %z14.s %z15.b %z16.b -> %z14.s
+45129a30 : smmla z16.s, z17.b, z18.b                 : smmla  %z16.s %z17.b %z18.b -> %z16.s
+45139a51 : smmla z17.s, z18.b, z19.b                 : smmla  %z17.s %z18.b %z19.b -> %z17.s
+45159a93 : smmla z19.s, z20.b, z21.b                 : smmla  %z19.s %z20.b %z21.b -> %z19.s
+45179ad5 : smmla z21.s, z22.b, z23.b                 : smmla  %z21.s %z22.b %z23.b -> %z21.s
+45199b17 : smmla z23.s, z24.b, z25.b                 : smmla  %z23.s %z24.b %z25.b -> %z23.s
+451b9b59 : smmla z25.s, z26.b, z27.b                 : smmla  %z25.s %z26.b %z27.b -> %z25.s
+451d9b9b : smmla z27.s, z28.b, z29.b                 : smmla  %z27.s %z28.b %z29.b -> %z27.s
+451f9bff : smmla z31.s, z31.b, z31.b                 : smmla  %z31.s %z31.b %z31.b -> %z31.s
 
 # SMULH   <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (SMULH-Z.P.ZZ-_)
 04120000 : smulh z0.b, p0/M, z0.b, z0.b              : smulh  %p0/m %z0.b %z0.b -> %z0.b
@@ -15607,6 +16021,90 @@ a57e7fff : ldff1w z31.d, p7/Z, [sp, x30, LSL #2]     : ldff1w (%sp,%x30,lsl #2)[
 04fc1b7a : sqsub z26.d, z27.d, z28.d                 : sqsub  %z27.d %z28.d -> %z26.d
 04fe1bde : sqsub z30.d, z30.d, z30.d                 : sqsub  %z30.d %z30.d -> %z30.d
 
+# ST1B    { <Zt>.<T> }, <Pg>, [<Xn|SP>, <Xm>] (ST1B-Z.P.BR-_)
+e4004000 : st1b z0.b, p0, [x0, x0]                   : st1b   %z0.b %p0 -> (%x0,%x0)[32byte]
+e4054482 : st1b z2.b, p1, [x4, x5]                   : st1b   %z2.b %p1 -> (%x4,%x5)[32byte]
+e40748c4 : st1b z4.b, p2, [x6, x7]                   : st1b   %z4.b %p2 -> (%x6,%x7)[32byte]
+e4094906 : st1b z6.b, p2, [x8, x9]                   : st1b   %z6.b %p2 -> (%x8,%x9)[32byte]
+e40b4d48 : st1b z8.b, p3, [x10, x11]                 : st1b   %z8.b %p3 -> (%x10,%x11)[32byte]
+e40c4d6a : st1b z10.b, p3, [x11, x12]                : st1b   %z10.b %p3 -> (%x11,%x12)[32byte]
+e40e51ac : st1b z12.b, p4, [x13, x14]                : st1b   %z12.b %p4 -> (%x13,%x14)[32byte]
+e41051ee : st1b z14.b, p4, [x15, x16]                : st1b   %z14.b %p4 -> (%x15,%x16)[32byte]
+e4125630 : st1b z16.b, p5, [x17, x18]                : st1b   %z16.b %p5 -> (%x17,%x18)[32byte]
+e4145671 : st1b z17.b, p5, [x19, x20]                : st1b   %z17.b %p5 -> (%x19,%x20)[32byte]
+e41656b3 : st1b z19.b, p5, [x21, x22]                : st1b   %z19.b %p5 -> (%x21,%x22)[32byte]
+e4185af5 : st1b z21.b, p6, [x23, x24]                : st1b   %z21.b %p6 -> (%x23,%x24)[32byte]
+e4195b17 : st1b z23.b, p6, [x24, x25]                : st1b   %z23.b %p6 -> (%x24,%x25)[32byte]
+e41b5f59 : st1b z25.b, p7, [x26, x27]                : st1b   %z25.b %p7 -> (%x26,%x27)[32byte]
+e41d5f9b : st1b z27.b, p7, [x28, x29]                : st1b   %z27.b %p7 -> (%x28,%x29)[32byte]
+e41e5fff : st1b z31.b, p7, [sp, x30]                 : st1b   %z31.b %p7 -> (%sp,%x30)[32byte]
+e4204000 : st1b z0.h, p0, [x0, x0]                   : st1b   %z0.h %p0 -> (%x0,%x0)[16byte]
+e4254482 : st1b z2.h, p1, [x4, x5]                   : st1b   %z2.h %p1 -> (%x4,%x5)[16byte]
+e42748c4 : st1b z4.h, p2, [x6, x7]                   : st1b   %z4.h %p2 -> (%x6,%x7)[16byte]
+e4294906 : st1b z6.h, p2, [x8, x9]                   : st1b   %z6.h %p2 -> (%x8,%x9)[16byte]
+e42b4d48 : st1b z8.h, p3, [x10, x11]                 : st1b   %z8.h %p3 -> (%x10,%x11)[16byte]
+e42c4d6a : st1b z10.h, p3, [x11, x12]                : st1b   %z10.h %p3 -> (%x11,%x12)[16byte]
+e42e51ac : st1b z12.h, p4, [x13, x14]                : st1b   %z12.h %p4 -> (%x13,%x14)[16byte]
+e43051ee : st1b z14.h, p4, [x15, x16]                : st1b   %z14.h %p4 -> (%x15,%x16)[16byte]
+e4325630 : st1b z16.h, p5, [x17, x18]                : st1b   %z16.h %p5 -> (%x17,%x18)[16byte]
+e4345671 : st1b z17.h, p5, [x19, x20]                : st1b   %z17.h %p5 -> (%x19,%x20)[16byte]
+e43656b3 : st1b z19.h, p5, [x21, x22]                : st1b   %z19.h %p5 -> (%x21,%x22)[16byte]
+e4385af5 : st1b z21.h, p6, [x23, x24]                : st1b   %z21.h %p6 -> (%x23,%x24)[16byte]
+e4395b17 : st1b z23.h, p6, [x24, x25]                : st1b   %z23.h %p6 -> (%x24,%x25)[16byte]
+e43b5f59 : st1b z25.h, p7, [x26, x27]                : st1b   %z25.h %p7 -> (%x26,%x27)[16byte]
+e43d5f9b : st1b z27.h, p7, [x28, x29]                : st1b   %z27.h %p7 -> (%x28,%x29)[16byte]
+e43e5fff : st1b z31.h, p7, [sp, x30]                 : st1b   %z31.h %p7 -> (%sp,%x30)[16byte]
+e4404000 : st1b z0.s, p0, [x0, x0]                   : st1b   %z0.s %p0 -> (%x0,%x0)[8byte]
+e4454482 : st1b z2.s, p1, [x4, x5]                   : st1b   %z2.s %p1 -> (%x4,%x5)[8byte]
+e44748c4 : st1b z4.s, p2, [x6, x7]                   : st1b   %z4.s %p2 -> (%x6,%x7)[8byte]
+e4494906 : st1b z6.s, p2, [x8, x9]                   : st1b   %z6.s %p2 -> (%x8,%x9)[8byte]
+e44b4d48 : st1b z8.s, p3, [x10, x11]                 : st1b   %z8.s %p3 -> (%x10,%x11)[8byte]
+e44c4d6a : st1b z10.s, p3, [x11, x12]                : st1b   %z10.s %p3 -> (%x11,%x12)[8byte]
+e44e51ac : st1b z12.s, p4, [x13, x14]                : st1b   %z12.s %p4 -> (%x13,%x14)[8byte]
+e45051ee : st1b z14.s, p4, [x15, x16]                : st1b   %z14.s %p4 -> (%x15,%x16)[8byte]
+e4525630 : st1b z16.s, p5, [x17, x18]                : st1b   %z16.s %p5 -> (%x17,%x18)[8byte]
+e4545671 : st1b z17.s, p5, [x19, x20]                : st1b   %z17.s %p5 -> (%x19,%x20)[8byte]
+e45656b3 : st1b z19.s, p5, [x21, x22]                : st1b   %z19.s %p5 -> (%x21,%x22)[8byte]
+e4585af5 : st1b z21.s, p6, [x23, x24]                : st1b   %z21.s %p6 -> (%x23,%x24)[8byte]
+e4595b17 : st1b z23.s, p6, [x24, x25]                : st1b   %z23.s %p6 -> (%x24,%x25)[8byte]
+e45b5f59 : st1b z25.s, p7, [x26, x27]                : st1b   %z25.s %p7 -> (%x26,%x27)[8byte]
+e45d5f9b : st1b z27.s, p7, [x28, x29]                : st1b   %z27.s %p7 -> (%x28,%x29)[8byte]
+e45e5fff : st1b z31.s, p7, [sp, x30]                 : st1b   %z31.s %p7 -> (%sp,%x30)[8byte]
+e4604000 : st1b z0.d, p0, [x0, x0]                   : st1b   %z0.d %p0 -> (%x0,%x0)[4byte]
+e4654482 : st1b z2.d, p1, [x4, x5]                   : st1b   %z2.d %p1 -> (%x4,%x5)[4byte]
+e46748c4 : st1b z4.d, p2, [x6, x7]                   : st1b   %z4.d %p2 -> (%x6,%x7)[4byte]
+e4694906 : st1b z6.d, p2, [x8, x9]                   : st1b   %z6.d %p2 -> (%x8,%x9)[4byte]
+e46b4d48 : st1b z8.d, p3, [x10, x11]                 : st1b   %z8.d %p3 -> (%x10,%x11)[4byte]
+e46c4d6a : st1b z10.d, p3, [x11, x12]                : st1b   %z10.d %p3 -> (%x11,%x12)[4byte]
+e46e51ac : st1b z12.d, p4, [x13, x14]                : st1b   %z12.d %p4 -> (%x13,%x14)[4byte]
+e47051ee : st1b z14.d, p4, [x15, x16]                : st1b   %z14.d %p4 -> (%x15,%x16)[4byte]
+e4725630 : st1b z16.d, p5, [x17, x18]                : st1b   %z16.d %p5 -> (%x17,%x18)[4byte]
+e4745671 : st1b z17.d, p5, [x19, x20]                : st1b   %z17.d %p5 -> (%x19,%x20)[4byte]
+e47656b3 : st1b z19.d, p5, [x21, x22]                : st1b   %z19.d %p5 -> (%x21,%x22)[4byte]
+e4785af5 : st1b z21.d, p6, [x23, x24]                : st1b   %z21.d %p6 -> (%x23,%x24)[4byte]
+e4795b17 : st1b z23.d, p6, [x24, x25]                : st1b   %z23.d %p6 -> (%x24,%x25)[4byte]
+e47b5f59 : st1b z25.d, p7, [x26, x27]                : st1b   %z25.d %p7 -> (%x26,%x27)[4byte]
+e47d5f9b : st1b z27.d, p7, [x28, x29]                : st1b   %z27.d %p7 -> (%x28,%x29)[4byte]
+e47e5fff : st1b z31.d, p7, [sp, x30]                 : st1b   %z31.d %p7 -> (%sp,%x30)[4byte]
+
+# STNT1B  { <Zt>.B }, <Pg>, [<Xn|SP>, <Xm>] (STNT1B-Z.P.BR-Contiguous)
+e4006000 : stnt1b z0.b, p0, [x0, x0]                 : stnt1b %z0.b %p0 -> (%x0,%x0)[32byte]
+e4056482 : stnt1b z2.b, p1, [x4, x5]                 : stnt1b %z2.b %p1 -> (%x4,%x5)[32byte]
+e40768c4 : stnt1b z4.b, p2, [x6, x7]                 : stnt1b %z4.b %p2 -> (%x6,%x7)[32byte]
+e4096906 : stnt1b z6.b, p2, [x8, x9]                 : stnt1b %z6.b %p2 -> (%x8,%x9)[32byte]
+e40b6d48 : stnt1b z8.b, p3, [x10, x11]               : stnt1b %z8.b %p3 -> (%x10,%x11)[32byte]
+e40c6d6a : stnt1b z10.b, p3, [x11, x12]              : stnt1b %z10.b %p3 -> (%x11,%x12)[32byte]
+e40e71ac : stnt1b z12.b, p4, [x13, x14]              : stnt1b %z12.b %p4 -> (%x13,%x14)[32byte]
+e41071ee : stnt1b z14.b, p4, [x15, x16]              : stnt1b %z14.b %p4 -> (%x15,%x16)[32byte]
+e4127630 : stnt1b z16.b, p5, [x17, x18]              : stnt1b %z16.b %p5 -> (%x17,%x18)[32byte]
+e4147671 : stnt1b z17.b, p5, [x19, x20]              : stnt1b %z17.b %p5 -> (%x19,%x20)[32byte]
+e41676b3 : stnt1b z19.b, p5, [x21, x22]              : stnt1b %z19.b %p5 -> (%x21,%x22)[32byte]
+e4187af5 : stnt1b z21.b, p6, [x23, x24]              : stnt1b %z21.b %p6 -> (%x23,%x24)[32byte]
+e4197b17 : stnt1b z23.b, p6, [x24, x25]              : stnt1b %z23.b %p6 -> (%x24,%x25)[32byte]
+e41b7f59 : stnt1b z25.b, p7, [x26, x27]              : stnt1b %z25.b %p7 -> (%x26,%x27)[32byte]
+e41d7f9b : stnt1b z27.b, p7, [x28, x29]              : stnt1b %z27.b %p7 -> (%x28,%x29)[32byte]
+e41e7fff : stnt1b z31.b, p7, [sp, x30]               : stnt1b %z31.b %p7 -> (%sp,%x30)[32byte]
+
 # STR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}]
 e58043c0 : str z0, [x30]                            : str    %z0 -> (%x30)[32byte]
 e58043c0 : str z0, [x30]                            : str    %z0 -> (%x30)[32byte]
@@ -16036,6 +16534,24 @@ e5b615ef : str p15, [x15, #-75, mul vl]             : str    %p15 -> -0x4b(%x15)
 25e3d9f8 : subr z24.d, z24.d, #0xcf, lsl #0          : subr   %z24.d $0xcf lsl $0x00 -> %z24.d
 25e3dbfa : subr z26.d, z26.d, #0xdf, lsl #0          : subr   %z26.d $0xdf lsl $0x00 -> %z26.d
 25e3dffe : subr z30.d, z30.d, #0xff, lsl #0          : subr   %z30.d $0xff lsl $0x00 -> %z30.d
+
+# SUDOT   <Zda>.S, <Zn>.B, <Zm>.B[<imm>] (SUDOT-Z.ZZZi-S)
+44a01c00 : sudot z0.s, z0.b, z0.b[0]                 : sudot  %z0.s %z0.b %z0.b $0x00 -> %z0.s
+44a21c62 : sudot z2.s, z3.b, z2.b[0]                 : sudot  %z2.s %z3.b %z2.b $0x00 -> %z2.s
+44a31ca4 : sudot z4.s, z5.b, z3.b[0]                 : sudot  %z4.s %z5.b %z3.b $0x00 -> %z4.s
+44ab1ce6 : sudot z6.s, z7.b, z3.b[1]                 : sudot  %z6.s %z7.b %z3.b $0x01 -> %z6.s
+44ac1d28 : sudot z8.s, z9.b, z4.b[1]                 : sudot  %z8.s %z9.b %z4.b $0x01 -> %z8.s
+44ac1d6a : sudot z10.s, z11.b, z4.b[1]               : sudot  %z10.s %z11.b %z4.b $0x01 -> %z10.s
+44ad1dac : sudot z12.s, z13.b, z5.b[1]               : sudot  %z12.s %z13.b %z5.b $0x01 -> %z12.s
+44ad1dee : sudot z14.s, z15.b, z5.b[1]               : sudot  %z14.s %z15.b %z5.b $0x01 -> %z14.s
+44b61e30 : sudot z16.s, z17.b, z6.b[2]               : sudot  %z16.s %z17.b %z6.b $0x02 -> %z16.s
+44b61e51 : sudot z17.s, z18.b, z6.b[2]               : sudot  %z17.s %z18.b %z6.b $0x02 -> %z17.s
+44b61e93 : sudot z19.s, z20.b, z6.b[2]               : sudot  %z19.s %z20.b %z6.b $0x02 -> %z19.s
+44b71ed5 : sudot z21.s, z22.b, z7.b[2]               : sudot  %z21.s %z22.b %z7.b $0x02 -> %z21.s
+44b71f17 : sudot z23.s, z24.b, z7.b[2]               : sudot  %z23.s %z24.b %z7.b $0x02 -> %z23.s
+44b01f59 : sudot z25.s, z26.b, z0.b[2]               : sudot  %z25.s %z26.b %z0.b $0x02 -> %z25.s
+44b81f9b : sudot z27.s, z28.b, z0.b[3]               : sudot  %z27.s %z28.b %z0.b $0x03 -> %z27.s
+44bf1fff : sudot z31.s, z31.b, z7.b[3]               : sudot  %z31.s %z31.b %z7.b $0x03 -> %z31.s
 
 # SUNPKHI <Zd>.<T>, <Zn>.<Tb> (SUNPKHI-Z.Z-_)
 05713800 : sunpkhi z0.h, z0.b                        : sunpkhi %z0.b -> %z0.h
@@ -17290,6 +17806,24 @@ e5b615ef : str p15, [x15, #-75, mul vl]             : str    %p15 -> -0x4b(%x15)
 04cb3f79 : uminv d25, p7, z27.d                      : uminv  %p7 %z27.d -> %d25
 04cb3fbb : uminv d27, p7, z29.d                      : uminv  %p7 %z29.d -> %d27
 04cb3fff : uminv d31, p7, z31.d                      : uminv  %p7 %z31.d -> %d31
+
+# UMMLA   <Zda>.S, <Zn>.B, <Zm>.B (UMMLA-Z.ZZZ-_)
+45c09800 : ummla z0.s, z0.b, z0.b                    : ummla  %z0.s %z0.b %z0.b -> %z0.s
+45c49862 : ummla z2.s, z3.b, z4.b                    : ummla  %z2.s %z3.b %z4.b -> %z2.s
+45c698a4 : ummla z4.s, z5.b, z6.b                    : ummla  %z4.s %z5.b %z6.b -> %z4.s
+45c898e6 : ummla z6.s, z7.b, z8.b                    : ummla  %z6.s %z7.b %z8.b -> %z6.s
+45ca9928 : ummla z8.s, z9.b, z10.b                   : ummla  %z8.s %z9.b %z10.b -> %z8.s
+45cc996a : ummla z10.s, z11.b, z12.b                 : ummla  %z10.s %z11.b %z12.b -> %z10.s
+45ce99ac : ummla z12.s, z13.b, z14.b                 : ummla  %z12.s %z13.b %z14.b -> %z12.s
+45d099ee : ummla z14.s, z15.b, z16.b                 : ummla  %z14.s %z15.b %z16.b -> %z14.s
+45d29a30 : ummla z16.s, z17.b, z18.b                 : ummla  %z16.s %z17.b %z18.b -> %z16.s
+45d39a51 : ummla z17.s, z18.b, z19.b                 : ummla  %z17.s %z18.b %z19.b -> %z17.s
+45d59a93 : ummla z19.s, z20.b, z21.b                 : ummla  %z19.s %z20.b %z21.b -> %z19.s
+45d79ad5 : ummla z21.s, z22.b, z23.b                 : ummla  %z21.s %z22.b %z23.b -> %z21.s
+45d99b17 : ummla z23.s, z24.b, z25.b                 : ummla  %z23.s %z24.b %z25.b -> %z23.s
+45db9b59 : ummla z25.s, z26.b, z27.b                 : ummla  %z25.s %z26.b %z27.b -> %z25.s
+45dd9b9b : ummla z27.s, z28.b, z29.b                 : ummla  %z27.s %z28.b %z29.b -> %z27.s
+45df9bff : ummla z31.s, z31.b, z31.b                 : ummla  %z31.s %z31.b %z31.b -> %z31.s
 
 # UMULH   <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (UMULH-Z.P.ZZ-_)
 04130000 : umulh z0.b, p0/M, z0.b, z0.b              : umulh  %p0/m %z0.b %z0.b -> %z0.b
@@ -18732,6 +19266,60 @@ e5b615ef : str p15, [x15, #-75, mul vl]             : str    %p15 -> -0x4b(%x15)
 04fa1f38 : uqsub z24.d, z25.d, z26.d                 : uqsub  %z25.d %z26.d -> %z24.d
 04fc1f7a : uqsub z26.d, z27.d, z28.d                 : uqsub  %z27.d %z28.d -> %z26.d
 04fe1fde : uqsub z30.d, z30.d, z30.d                 : uqsub  %z30.d %z30.d -> %z30.d
+
+# USDOT   <Zda>.S, <Zn>.B, <Zm>.B (USDOT-Z.ZZZ-S)
+44807800 : usdot z0.s, z0.b, z0.b                    : usdot  %z0.s %z0.b %z0.b -> %z0.s
+44847862 : usdot z2.s, z3.b, z4.b                    : usdot  %z2.s %z3.b %z4.b -> %z2.s
+448678a4 : usdot z4.s, z5.b, z6.b                    : usdot  %z4.s %z5.b %z6.b -> %z4.s
+448878e6 : usdot z6.s, z7.b, z8.b                    : usdot  %z6.s %z7.b %z8.b -> %z6.s
+448a7928 : usdot z8.s, z9.b, z10.b                   : usdot  %z8.s %z9.b %z10.b -> %z8.s
+448c796a : usdot z10.s, z11.b, z12.b                 : usdot  %z10.s %z11.b %z12.b -> %z10.s
+448e79ac : usdot z12.s, z13.b, z14.b                 : usdot  %z12.s %z13.b %z14.b -> %z12.s
+449079ee : usdot z14.s, z15.b, z16.b                 : usdot  %z14.s %z15.b %z16.b -> %z14.s
+44927a30 : usdot z16.s, z17.b, z18.b                 : usdot  %z16.s %z17.b %z18.b -> %z16.s
+44937a51 : usdot z17.s, z18.b, z19.b                 : usdot  %z17.s %z18.b %z19.b -> %z17.s
+44957a93 : usdot z19.s, z20.b, z21.b                 : usdot  %z19.s %z20.b %z21.b -> %z19.s
+44977ad5 : usdot z21.s, z22.b, z23.b                 : usdot  %z21.s %z22.b %z23.b -> %z21.s
+44997b17 : usdot z23.s, z24.b, z25.b                 : usdot  %z23.s %z24.b %z25.b -> %z23.s
+449b7b59 : usdot z25.s, z26.b, z27.b                 : usdot  %z25.s %z26.b %z27.b -> %z25.s
+449d7b9b : usdot z27.s, z28.b, z29.b                 : usdot  %z27.s %z28.b %z29.b -> %z27.s
+449f7bff : usdot z31.s, z31.b, z31.b                 : usdot  %z31.s %z31.b %z31.b -> %z31.s
+
+# USDOT   <Zda>.S, <Zn>.B, <Zm>.B[<imm>] (USDOT-Z.ZZZi-S)
+44a01800 : usdot z0.s, z0.b, z0.b[0]                 : usdot  %z0.s %z0.b %z0.b $0x00 -> %z0.s
+44a21862 : usdot z2.s, z3.b, z2.b[0]                 : usdot  %z2.s %z3.b %z2.b $0x00 -> %z2.s
+44a318a4 : usdot z4.s, z5.b, z3.b[0]                 : usdot  %z4.s %z5.b %z3.b $0x00 -> %z4.s
+44ab18e6 : usdot z6.s, z7.b, z3.b[1]                 : usdot  %z6.s %z7.b %z3.b $0x01 -> %z6.s
+44ac1928 : usdot z8.s, z9.b, z4.b[1]                 : usdot  %z8.s %z9.b %z4.b $0x01 -> %z8.s
+44ac196a : usdot z10.s, z11.b, z4.b[1]               : usdot  %z10.s %z11.b %z4.b $0x01 -> %z10.s
+44ad19ac : usdot z12.s, z13.b, z5.b[1]               : usdot  %z12.s %z13.b %z5.b $0x01 -> %z12.s
+44ad19ee : usdot z14.s, z15.b, z5.b[1]               : usdot  %z14.s %z15.b %z5.b $0x01 -> %z14.s
+44b61a30 : usdot z16.s, z17.b, z6.b[2]               : usdot  %z16.s %z17.b %z6.b $0x02 -> %z16.s
+44b61a51 : usdot z17.s, z18.b, z6.b[2]               : usdot  %z17.s %z18.b %z6.b $0x02 -> %z17.s
+44b61a93 : usdot z19.s, z20.b, z6.b[2]               : usdot  %z19.s %z20.b %z6.b $0x02 -> %z19.s
+44b71ad5 : usdot z21.s, z22.b, z7.b[2]               : usdot  %z21.s %z22.b %z7.b $0x02 -> %z21.s
+44b71b17 : usdot z23.s, z24.b, z7.b[2]               : usdot  %z23.s %z24.b %z7.b $0x02 -> %z23.s
+44b01b59 : usdot z25.s, z26.b, z0.b[2]               : usdot  %z25.s %z26.b %z0.b $0x02 -> %z25.s
+44b81b9b : usdot z27.s, z28.b, z0.b[3]               : usdot  %z27.s %z28.b %z0.b $0x03 -> %z27.s
+44bf1bff : usdot z31.s, z31.b, z7.b[3]               : usdot  %z31.s %z31.b %z7.b $0x03 -> %z31.s
+
+# USMMLA  <Zda>.S, <Zn>.B, <Zm>.B (USMMLA-Z.ZZZ-_)
+45809800 : usmmla z0.s, z0.b, z0.b                   : usmmla %z0.s %z0.b %z0.b -> %z0.s
+45849862 : usmmla z2.s, z3.b, z4.b                   : usmmla %z2.s %z3.b %z4.b -> %z2.s
+458698a4 : usmmla z4.s, z5.b, z6.b                   : usmmla %z4.s %z5.b %z6.b -> %z4.s
+458898e6 : usmmla z6.s, z7.b, z8.b                   : usmmla %z6.s %z7.b %z8.b -> %z6.s
+458a9928 : usmmla z8.s, z9.b, z10.b                  : usmmla %z8.s %z9.b %z10.b -> %z8.s
+458c996a : usmmla z10.s, z11.b, z12.b                : usmmla %z10.s %z11.b %z12.b -> %z10.s
+458e99ac : usmmla z12.s, z13.b, z14.b                : usmmla %z12.s %z13.b %z14.b -> %z12.s
+459099ee : usmmla z14.s, z15.b, z16.b                : usmmla %z14.s %z15.b %z16.b -> %z14.s
+45929a30 : usmmla z16.s, z17.b, z18.b                : usmmla %z16.s %z17.b %z18.b -> %z16.s
+45939a51 : usmmla z17.s, z18.b, z19.b                : usmmla %z17.s %z18.b %z19.b -> %z17.s
+45959a93 : usmmla z19.s, z20.b, z21.b                : usmmla %z19.s %z20.b %z21.b -> %z19.s
+45979ad5 : usmmla z21.s, z22.b, z23.b                : usmmla %z21.s %z22.b %z23.b -> %z21.s
+45999b17 : usmmla z23.s, z24.b, z25.b                : usmmla %z23.s %z24.b %z25.b -> %z23.s
+459b9b59 : usmmla z25.s, z26.b, z27.b                : usmmla %z25.s %z26.b %z27.b -> %z25.s
+459d9b9b : usmmla z27.s, z28.b, z29.b                : usmmla %z27.s %z28.b %z29.b -> %z27.s
+459f9bff : usmmla z31.s, z31.b, z31.b                : usmmla %z31.s %z31.b %z31.b -> %z31.s
 
 # UUNPKHI <Zd>.<T>, <Zn>.<Tb> (UUNPKHI-Z.Z-_)
 05733800 : uunpkhi z0.h, z0.b                        : uunpkhi %z0.b -> %z0.h
