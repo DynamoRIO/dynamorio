@@ -423,8 +423,7 @@ unit_test_cache_size()
 
     for (int cache_size_kb : TEST_SIZES_KB) {
         int cache_size = cache_size_kb * 1024;
-        bool size_is_po2 = (cache_size_kb & (cache_size_kb - 1)) == 0;
-        int associativity = size_is_po2 ? 2 : 3;
+        int associativity = IS_POWER_OF_2(cache_size_kb) ? 2 : 3;
         // Access a buffer of increasing size, make sure hits + misses are expected.
         for (int buffer_size = cache_size / 2; buffer_size < cache_size * 2;
              buffer_size *= 2) {
@@ -510,26 +509,26 @@ void
 unit_test_cache_bad_configs()
 {
     // Safe values we aren't testing.
-    const int safe_assoc = 1;
-    const int safe_line_size = 32;
-    const int safe_cache_size = 1024;
+    static constexpr int SAFE_ASSOC = 1;
+    static constexpr int SAFE_LINE_SIZE = 32;
+    static constexpr int SAFE_CACHE_SIZE = 1024;
 
     // Setup the cache to test.
     cache_t cache;
-    caching_device_stats_t stats(/*miss_file=*/"", safe_line_size);
+    caching_device_stats_t stats(/*miss_file=*/"", SAFE_LINE_SIZE);
 
     // 0 values are bad for any of these parameters.
     std::cerr << "Testing 0 parameters.\n";
-    assert(!cache.init(0, safe_line_size, safe_cache_size, /*parent=*/nullptr, &stats));
-    assert(!cache.init(safe_assoc, 0, safe_cache_size, /*parent=*/nullptr, &stats));
-    assert(!cache.init(safe_assoc, safe_line_size, 0, /*parent=*/nullptr, &stats));
+    assert(!cache.init(0, SAFE_LINE_SIZE, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
+    assert(!cache.init(SAFE_ASSOC, 0, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
+    assert(!cache.init(SAFE_ASSOC, SAFE_LINE_SIZE, 0, /*parent=*/nullptr, &stats));
 
     // Test other bad line sizes: <4 and/or non-power-of-two.
     std::cerr << "Testing bad line size parameters.\n";
-    assert(!cache.init(safe_assoc, 1, safe_cache_size, /*parent=*/nullptr, &stats));
-    assert(!cache.init(safe_assoc, 2, safe_cache_size, /*parent=*/nullptr, &stats));
-    assert(!cache.init(safe_assoc, 7, safe_cache_size, /*parent=*/nullptr, &stats));
-    assert(!cache.init(safe_assoc, 65, safe_cache_size, /*parent=*/nullptr, &stats));
+    assert(!cache.init(SAFE_ASSOC, 1, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
+    assert(!cache.init(SAFE_ASSOC, 2, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
+    assert(!cache.init(SAFE_ASSOC, 7, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
+    assert(!cache.init(SAFE_ASSOC, 65, SAFE_CACHE_SIZE, /*parent=*/nullptr, &stats));
 
     // Size, associativity, and line_size are related.  The requirement is that
     // size/associativity is a power-of-two, and >= line_size, so try some
@@ -539,10 +538,10 @@ unit_test_cache_bad_configs()
         int assoc;
         int size;
     } bad_combinations[] = {
-        { 3, 1024 }, { 4, 768 }, { 64, 64 }, { 16, 8 * safe_line_size }
+        { 3, 1024 }, { 4, 768 }, { 64, 64 }, { 16, 8 * SAFE_LINE_SIZE }
     };
     for (const auto &combo : bad_combinations) {
-        assert(!cache.init(combo.assoc, safe_line_size, combo.size, /*parent=*/nullptr,
+        assert(!cache.init(combo.assoc, SAFE_LINE_SIZE, combo.size, /*parent=*/nullptr,
                            &stats));
     }
 }
