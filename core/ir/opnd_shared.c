@@ -1395,7 +1395,7 @@ opnd_create_increment_reg(opnd_t opnd, uint increment)
     reg_id_t reg = opnd.value.reg_and_element_size.reg;
     reg_id_t min_reg = DR_REG_INVALID;
     reg_id_t max_reg = DR_REG_INVALID;
-
+#ifdef AARCH64
     if (reg >= DR_REG_W0 && reg <= DR_REG_W30) {
         min_reg = DR_REG_W0;
         max_reg = DR_REG_W30;
@@ -1424,7 +1424,7 @@ opnd_create_increment_reg(opnd_t opnd, uint increment)
         min_reg = DR_REG_P0;
         max_reg = DR_REG_P15;
     }
-
+#endif
     CLIENT_ASSERT(min_reg != DR_REG_INVALID && max_reg != DR_REG_INVALID,
                   "opnd_create_increment_reg: reg not incrementable");
 
