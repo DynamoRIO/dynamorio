@@ -79,15 +79,15 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
     block_size_ = block_size;
     num_blocks_ = num_blocks;
     loaded_blocks_ = 0;
-    blocks_per_set_ = num_blocks_ / associativity;
+    blocks_per_way_ = num_blocks_ / associativity;
     // Make sure num_blocks_ is evenly divisible by associativity
-    if (blocks_per_set_ * associativity_ != num_blocks_)
+    if (blocks_per_way_ * associativity_ != num_blocks_)
         return false;
-    blocks_per_set_mask_ = blocks_per_set_ - 1;
+    blocks_per_way_mask_ = blocks_per_way_ - 1;
     block_size_bits_ = compute_log2(block_size);
     // Non-power-of-two associativities and total cache sizes are allowed, so
     // long as the number blocks per cache way is a power of two.
-    if (block_size_bits_ == -1 || !IS_POWER_OF_2(blocks_per_set_))
+    if (block_size_bits_ == -1 || !IS_POWER_OF_2(blocks_per_way_))
         return false;
     parent_ = parent;
     stats_ = stats;
