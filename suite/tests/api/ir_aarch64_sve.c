@@ -14666,6 +14666,120 @@ TEST_INSTR(prfw_sve_pred)
                                     OPSZ_0));
 }
 
+TEST_INSTR(ld2b_sve_pred)
+{
+
+    /* Testing LD2B    { <Zt1>.B, <Zt2>.B }, <Pg>/Z, [<Xn|SP>, <Xm>] */
+    const char *const expected_0_0[6] = {
+        "ld2b   (%x0,%x0)[64byte] %p0/z -> %z0.b %z1.b",
+        "ld2b   (%x7,%x8)[64byte] %p2/z -> %z5.b %z6.b",
+        "ld2b   (%x12,%x13)[64byte] %p3/z -> %z10.b %z11.b",
+        "ld2b   (%x17,%x18)[64byte] %p5/z -> %z16.b %z17.b",
+        "ld2b   (%x22,%x23)[64byte] %p6/z -> %z21.b %z22.b",
+        "ld2b   (%sp,%x30)[64byte] %p7/z -> %z31.b %z0.b",
+    };
+    TEST_LOOP(ld2b, ld2b_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], false),
+              opnd_create_base_disp_aarch64(Xn_six_offset_2_sp[i], Xn_six_offset_3[i],
+                                            DR_EXTEND_UXTX, 0, 0, 0, OPSZ_64));
+}
+
+TEST_INSTR(ld3b_sve_pred)
+{
+
+    /* Testing LD3B    { <Zt1>.B, <Zt2>.B, <Zt3>.B }, <Pg>/Z, [<Xn|SP>, <Xm>] */
+    const char *const expected_0_0[6] = {
+        "ld3b   (%x0,%x0)[96byte] %p0/z -> %z0.b %z1.b %z2.b",
+        "ld3b   (%x7,%x8)[96byte] %p2/z -> %z5.b %z6.b %z7.b",
+        "ld3b   (%x12,%x13)[96byte] %p3/z -> %z10.b %z11.b %z12.b",
+        "ld3b   (%x17,%x18)[96byte] %p5/z -> %z16.b %z17.b %z18.b",
+        "ld3b   (%x22,%x23)[96byte] %p6/z -> %z21.b %z22.b %z23.b",
+        "ld3b   (%sp,%x30)[96byte] %p7/z -> %z31.b %z0.b %z1.b",
+    };
+    TEST_LOOP(ld3b, ld3b_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], false),
+              opnd_create_base_disp_aarch64(Xn_six_offset_2_sp[i], Xn_six_offset_3[i],
+                                            DR_EXTEND_UXTX, 0, 0, 0, OPSZ_96));
+}
+
+TEST_INSTR(ld4b_sve_pred)
+{
+
+    /* Testing LD4B    { <Zt1>.B, <Zt2>.B, <Zt3>.B, <Zt4>.B }, <Pg>/Z, [<Xn|SP>, <Xm>] */
+    const char *const expected_0_0[6] = {
+        "ld4b   (%x0,%x0)[128byte] %p0/z -> %z0.b %z1.b %z2.b %z3.b",
+        "ld4b   (%x7,%x8)[128byte] %p2/z -> %z5.b %z6.b %z7.b %z8.b",
+        "ld4b   (%x12,%x13)[128byte] %p3/z -> %z10.b %z11.b %z12.b %z13.b",
+        "ld4b   (%x17,%x18)[128byte] %p5/z -> %z16.b %z17.b %z18.b %z19.b",
+        "ld4b   (%x22,%x23)[128byte] %p6/z -> %z21.b %z22.b %z23.b %z24.b",
+        "ld4b   (%sp,%x30)[128byte] %p7/z -> %z31.b %z0.b %z1.b %z2.b",
+    };
+    TEST_LOOP(ld4b, ld4b_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], false),
+              opnd_create_base_disp_aarch64(Xn_six_offset_2_sp[i], Xn_six_offset_3[i],
+                                            DR_EXTEND_UXTX, 0, 0, 0, OPSZ_128));
+}
+
+TEST_INSTR(st2b_sve_pred)
+{
+
+    /* Testing ST2B    { <Zt1>.B, <Zt2>.B }, <Pg>, [<Xn|SP>, <Xm>] */
+    const char *const expected_0_0[6] = {
+        "st2b   %z0.b %z1.b %p0 -> (%x0,%x0)[64byte]",
+        "st2b   %z5.b %z6.b %p2 -> (%x7,%x8)[64byte]",
+        "st2b   %z10.b %z11.b %p3 -> (%x12,%x13)[64byte]",
+        "st2b   %z16.b %z17.b %p5 -> (%x17,%x18)[64byte]",
+        "st2b   %z21.b %z22.b %p6 -> (%x22,%x23)[64byte]",
+        "st2b   %z31.b %z0.b %p7 -> (%sp,%x30)[64byte]",
+    };
+    TEST_LOOP(st2b, st2b_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp_aarch64(Xn_six_offset_2_sp[i], Xn_six_offset_3[i],
+                                            DR_EXTEND_UXTX, 0, 0, 0, OPSZ_64));
+}
+
+TEST_INSTR(st3b_sve_pred)
+{
+
+    /* Testing ST3B    { <Zt1>.B, <Zt2>.B, <Zt3>.B }, <Pg>, [<Xn|SP>, <Xm>] */
+    const char *const expected_0_0[6] = {
+        "st3b   %z0.b %z1.b %z2.b %p0 -> (%x0,%x0)[96byte]",
+        "st3b   %z5.b %z6.b %z7.b %p2 -> (%x7,%x8)[96byte]",
+        "st3b   %z10.b %z11.b %z12.b %p3 -> (%x12,%x13)[96byte]",
+        "st3b   %z16.b %z17.b %z18.b %p5 -> (%x17,%x18)[96byte]",
+        "st3b   %z21.b %z22.b %z23.b %p6 -> (%x22,%x23)[96byte]",
+        "st3b   %z31.b %z0.b %z1.b %p7 -> (%sp,%x30)[96byte]",
+    };
+    TEST_LOOP(st3b, st3b_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp_aarch64(Xn_six_offset_2_sp[i], Xn_six_offset_3[i],
+                                            DR_EXTEND_UXTX, 0, 0, 0, OPSZ_96));
+}
+
+TEST_INSTR(st4b_sve_pred)
+{
+
+    /* Testing ST4B    { <Zt1>.B, <Zt2>.B, <Zt3>.B, <Zt4>.B }, <Pg>, [<Xn|SP>, <Xm>] */
+    const char *const expected_0_0[6] = {
+        "st4b   %z0.b %z1.b %z2.b %z3.b %p0 -> (%x0,%x0)[128byte]",
+        "st4b   %z5.b %z6.b %z7.b %z8.b %p2 -> (%x7,%x8)[128byte]",
+        "st4b   %z10.b %z11.b %z12.b %z13.b %p3 -> (%x12,%x13)[128byte]",
+        "st4b   %z16.b %z17.b %z18.b %z19.b %p5 -> (%x17,%x18)[128byte]",
+        "st4b   %z21.b %z22.b %z23.b %z24.b %p6 -> (%x22,%x23)[128byte]",
+        "st4b   %z31.b %z0.b %z1.b %z2.b %p7 -> (%sp,%x30)[128byte]",
+    };
+    TEST_LOOP(st4b, st4b_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp_aarch64(Xn_six_offset_2_sp[i], Xn_six_offset_3[i],
+                                            DR_EXTEND_UXTX, 0, 0, 0, OPSZ_128));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -15114,6 +15228,13 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(prfd_sve_pred);
     RUN_INSTR_TEST(prfh_sve_pred);
     RUN_INSTR_TEST(prfw_sve_pred);
+
+    RUN_INSTR_TEST(ld2b_sve_pred);
+    RUN_INSTR_TEST(ld3b_sve_pred);
+    RUN_INSTR_TEST(ld4b_sve_pred);
+    RUN_INSTR_TEST(st2b_sve_pred);
+    RUN_INSTR_TEST(st3b_sve_pred);
+    RUN_INSTR_TEST(st4b_sve_pred);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

@@ -3270,6 +3270,15 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
 
 DR_API
 /**
+ * Creates a reg incremented from an existing \p opnd by the \p increment value,
+ * modulo the reg size.
+ * Returns the new reg.
+ */
+opnd_t
+opnd_create_increment_reg(opnd_t opnd, uint increment);
+
+DR_API
+/**
  * Replaces all instances of \p old_reg (or any size variant) in \p *opnd
  * with \p new_reg.  Resizes \p new_reg to match sub-full-size uses of \p old_reg.
  * Returns whether it replaced anything.
