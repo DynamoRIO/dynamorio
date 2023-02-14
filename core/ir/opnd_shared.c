@@ -1424,7 +1424,10 @@ opnd_create_increment_reg(opnd_t opnd, uint increment)
         min_reg = DR_REG_P0;
         max_reg = DR_REG_P15;
     }
+#else
+    ASSERT_NOT_IMPLEMENTED()
 #endif
+
     CLIENT_ASSERT(min_reg != DR_REG_INVALID && max_reg != DR_REG_INVALID,
                   "opnd_create_increment_reg: reg not incrementable");
 

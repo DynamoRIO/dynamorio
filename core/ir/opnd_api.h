@@ -3270,7 +3270,7 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
 
 DR_API
 /**
- * Creates a reg incremented  from an exiting \p opndby the \p increment value,
+ * Creates a reg incremented from an existing \p opnd by the \p increment value,
  * modulo the reg size.
  * Returns the new reg.
  */
