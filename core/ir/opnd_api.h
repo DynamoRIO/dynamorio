@@ -1873,6 +1873,11 @@ struct _opnd_t {
             /* Shift offset amount */
             byte /*uint*/ scaled_value : 3;
             /* Indicates the element size for vector base and index registers.
+             * Only 2 element sizes are used for vector base/index registers in SVE:
+             *     Single (OPSZ_4)
+             *     Double (OPSZ_8)
+             * so we only need one bit to store the value (see ELEMENT_SIZE_* enum in
+             * opnd_shared.c).
              * This is ignored if the base and index registers are scalar registers.
              */
             byte /*enum*/ element_size : 1;
