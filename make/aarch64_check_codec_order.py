@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # **********************************************************
-# Copyright (c) 2022 Arm Limited    All rights reserved.
+# Copyright (c) 2022-2023 Arm Limited    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -101,9 +101,9 @@ def main():
     print('  OK!')
 
     # The Arm AArch64's architecture versions supported by the DynamoRIO codec.
-    # Currently, v8.0 is fully supported, while v8.1, v8.2 and SVE are partially
-    # supported.
-    isa_versions = ['v80', 'v81', 'v82', 'sve']
+    # Currently, v8.0 is fully supported, while v8.1, v8.2, v8.3, v8.6, SVE,
+    # and SVE2 are partially supported.
+    isa_versions = ['v80', 'v81', 'v82', 'v83', 'v86', 'sve', 'sve2']
 
     codecsort_py = os.path.join(src_dir, "codecsort.py")
 
