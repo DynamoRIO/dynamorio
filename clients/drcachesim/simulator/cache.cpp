@@ -40,7 +40,7 @@ cache_t::init(int associativity, int line_size, int total_size, caching_device_t
               bool coherent_cache, int id, snoop_filter_t *snoop_filter,
               const std::vector<caching_device_t *> &children)
 {
-    // Check line_size here to avoid divide-by-0.
+    // Check line_size to avoid divide-by-0.
     if (line_size < 1)
         return false;
     // convert total_size to num_blocks to fit for caching_device_t::init
