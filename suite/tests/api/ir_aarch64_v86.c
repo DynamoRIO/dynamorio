@@ -47,7 +47,6 @@
 
 #include "ir_aarch64.h"
 
-
 int
 main(int argc, char *argv[])
 {
