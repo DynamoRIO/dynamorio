@@ -65,10 +65,11 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
                        int id, snoop_filter_t *snoop_filter,
                        const std::vector<caching_device_t *> &children)
 {
-    if (!IS_POWER_OF_2(associativity) || !IS_POWER_OF_2(block_size) ||
-        !IS_POWER_OF_2(num_blocks) ||
-        // Assuming caching device block size is at least 4 bytes
-        block_size < 4)
+    // Assume cache has nonzero capacity.
+    if (associativity < 1 || num_blocks < 1)
+        return false;
+    // Assume caching device block size is at least 4 bytes.
+    if (!IS_POWER_OF_2(block_size) || block_size < 4)
         return false;
     if (stats == NULL)
         return false; // A stats must be provided for perf: avoid conditional code
@@ -78,11 +79,15 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
     block_size_ = block_size;
     num_blocks_ = num_blocks;
     loaded_blocks_ = 0;
-    blocks_per_set_ = num_blocks_ / associativity;
-    assoc_bits_ = compute_log2(associativity_);
+    blocks_per_way_ = num_blocks_ / associativity;
+    // Make sure num_blocks_ is evenly divisible by associativity
+    if (blocks_per_way_ * associativity_ != num_blocks_)
+        return false;
+    blocks_per_way_mask_ = blocks_per_way_ - 1;
     block_size_bits_ = compute_log2(block_size);
-    blocks_per_set_mask_ = blocks_per_set_ - 1;
-    if (assoc_bits_ == -1 || block_size_bits_ == -1 || !IS_POWER_OF_2(blocks_per_set_))
+    // Non-power-of-two associativities and total cache sizes are allowed, so
+    // long as the number blocks per cache way is a power of two.
+    if (block_size_bits_ == -1 || !IS_POWER_OF_2(blocks_per_way_))
         return false;
     parent_ = parent;
     stats_ = stats;

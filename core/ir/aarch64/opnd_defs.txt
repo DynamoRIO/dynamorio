@@ -247,6 +247,7 @@
 ---------x------------xxxxx-----  wx_sz_5    # W/X register (or WZR/XZR) with size indicated in bit 22
 ---------x-xx-------------------  i3_index_19 # Index value from 22, 20:19
 ---------x-xxxxx----------------  wx_sz_16   # W/X register (or WZR/XZR) with size indicated in bit 22
+---------xx----------------xxxxx  z_size21_bhsd_0  # sve vector reg, elsz depending on size21
 ---------++++xxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
 ---------++++xxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
 ---------++++xxx----------------  immhb_fxp  # encoding of #fbits value in immh:immb fields
@@ -299,7 +300,11 @@
 --------xx-xxxxx----------------  z_size_bhsd_16   # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_size_hsd_16    # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  imm2_tsz_index   # Index encoded in imm2:tsz
--------????xxxxx------xxxxx-----  svemem_gpr_5   # GPR offset and base reg for SVE ld/st
+-------????xxxxx------xxxxx-----  svemem_gpr_shf   # GPR offset and base reg for SVE ld/st, with optional shift
+-------????xxxxx------xxxxx-----  svemem_gprs_bhsdx  # memory reg from Rm and Rn fields transferring x bytes per element
+-------xx------------------xxxxx  z_msz_bhsd_0p1  # z register with element size determined by msz, plus 1
+-------xx------------------xxxxx  z_msz_bhsd_0p2  # z register with element size determined by msz, plus 2
+-------xx------------------xxxxx  z_msz_bhsd_0p3  # z register with element size determined by msz, plus 3
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12
 -x------------------------------  index3     # index of D subreg in Q: 0-1

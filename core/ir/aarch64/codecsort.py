@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # ***********************************************************
-# Copyright (c) 2021-2022 Arm Limited    All rights reserved.
+# Copyright (c) 2021-2023 Arm Limited    All rights reserved.
 # ***********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -132,31 +132,32 @@ def main():
     handle_enums([instr for finstrs in file_instrs.values() for instr in finstrs])
 
     for codec_file, instrs in file_instrs.items():
-        # Scan for some max lengths for formatting
-        instr_length = max(len(i.opcode) for i in instrs)
-        pre_colon = max(
-            len(i.opndtypes.split(":")[0].strip())
-            for i in instrs
-            if ":" in i.opndtypes
-            and len(i.opndtypes.split(":")[0].strip()) < 14)
-
         new_lines = []
 
-        for instr in instrs:
-            new_lines.append(
-                "{pattern}  {nzcv:<3} {enum:<4} {feat:<4} {opcode_pad}{opcode}  {opand_pad}{opand}".format(
-                    enum=instr.enum,
-                    feat=instr.feat,
-                    pattern=instr.pattern,
-                    nzcv=instr.nzcv,
-                    opcode_pad=(instr_length - len(instr.opcode)) * " ",
-                    opcode=instr.opcode,
-                    opand_pad=(pre_colon - len(instr.opndtypes.split(":")[0].strip())) * " ",
-                    opand="{} : {}".format(
-                        instr.opndtypes.split(":")[0].strip(),
-                        instr.opndtypes.split(":")[1].strip()) if ":" in instr.opndtypes
-                    else instr.opndtypes
-                    ).strip())
+        if instrs:
+            # Scan for some max lengths for formatting
+            instr_length = max(len(i.opcode) for i in instrs)
+            pre_colon = max(
+                len(i.opndtypes.split(":")[0].strip())
+                for i in instrs
+                if ":" in i.opndtypes
+                and len(i.opndtypes.split(":")[0].strip()) < 14)
+
+            for instr in instrs:
+                new_lines.append(
+                    "{pattern}  {nzcv:<3} {enum:<4} {feat:<4} {opcode_pad}{opcode}  {opand_pad}{opand}".format(
+                        enum=instr.enum,
+                        feat=instr.feat,
+                        pattern=instr.pattern,
+                        nzcv=instr.nzcv,
+                        opcode_pad=(instr_length - len(instr.opcode)) * " ",
+                        opcode=instr.opcode,
+                        opand_pad=(pre_colon - len(instr.opndtypes.split(":")[0].strip())) * " ",
+                        opand="{} : {}".format(
+                            instr.opndtypes.split(":")[0].strip(),
+                            instr.opndtypes.split(":")[1].strip()) if ":" in instr.opndtypes
+                        else instr.opndtypes
+                        ).strip())
 
         header = []
         with open(codec_file, "r") as lines:

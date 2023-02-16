@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,14 +13,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of ARM Limited nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,30 +30,33 @@
  * DAMAGE.
  */
 
-/* cache_fifo: represents a single hardware cache with FIFO algo.
+/* Define DR_FAST_IR to verify that everything compiles when we call the inline
+ * versions of these routines.
+ */
+#ifndef STANDALONE_DECODER
+#    define DR_FAST_IR 1
+#endif
+
+/* Uses the DR API, using DR as a standalone library, rather than
+ * being a client library working with DR on a target program.
  */
 
-#ifndef _CACHE_FIFO_H_
-#define _CACHE_FIFO_H_ 1
+#include "configure.h"
+#include "dr_api.h"
+#include "tools.h"
 
-#include "cache.h"
+#include "ir_aarch64.h"
 
-class cache_fifo_t : public cache_t {
-public:
-    bool
-    init(int associativity, int line_size, int total_size, caching_device_t *parent,
-         caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
-         bool inclusive = false, bool coherent_cache = false, int id_ = -1,
-         snoop_filter_t *snoop_filter_ = nullptr,
-         const std::vector<caching_device_t *> &children = {}) override;
+int
+main(int argc, char *argv[])
+{
+    bool result = true;
 
-protected:
-    void
-    access_update(int block_idx, int way) override;
-    int
-    replace_which_way(int block_idx) override;
-    int
-    get_next_way_to_replace(const int block_idx) const override;
-};
-
-#endif /* _CACHE_FIFO_H_ */
+    print("All v8.6 tests complete.\n");
+#ifndef STANDALONE_DECODER
+    dr_standalone_exit();
+#endif
+    if (result)
+        return 0;
+    return 1;
+}

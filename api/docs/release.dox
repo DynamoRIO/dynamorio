@@ -200,6 +200,9 @@ Further non-compatibility-affecting changes include:
  - Added opnd_size_to_shift_amount() and opnd_create_base_disp_shift_aarch64()
    for explicitly specifying shift amounts in the creation of operands for
    AArch64 memory addresses.
+ - Added opnd_create_increment_reg() to create a register from an existing
+   register whose register number is incremented by some amount, wrapping
+   at the max register number for that register.
  - Added opnd_create_vector_base_disp_aarch64() and reg_is_z() for creating
    memory address operands that use SVE Z registers with a specified element
    size.
