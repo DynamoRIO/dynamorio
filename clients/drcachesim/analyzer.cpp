@@ -318,7 +318,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                 shard_data[tid].resize(num_tools_);
                 for (int i = 0; i < num_tools_; ++i) {
                     shard_data[tid][i] = tools_[i]->parallel_shard_init_stream(
-                        shard_data.size(), user_worker_data[i], worker->stream);
+                        static_cast<int>(shard_data.size()), user_worker_data[i],
+                        worker->stream);
                 }
             }
         }

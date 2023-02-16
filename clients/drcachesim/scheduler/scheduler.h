@@ -501,7 +501,7 @@ protected:
         // For static schedules we can populate this up front and avoid needing a
         // lock for dynamically finding the next input, keeping things parallel.
         std::vector<memref_tid_t> tids_;
-        ssize_t cur_tids_index_ = 0;
+        int cur_tids_index_ = 0;
     };
 
     scheduler_status_t

@@ -567,7 +567,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
         // These will require locks and central coordination.
         return sched_type_t::STATUS_NOT_IMPLEMENTED;
     }
-    input_info_t *input;
+    input_info_t *input = nullptr;
     if (options_.how_split == STREAM_BY_INPUT_SHARD) {
         memref_tid_t tid = outputs_[output_ordinal].cur_input_tid;
         while (true) {
@@ -579,18 +579,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
                 // lock-free parallel-friendly increment here.
                 ++outputs_[output_ordinal].cur_tids_index_;
                 if (outputs_[output_ordinal].cur_tids_index_ >=
-                    static_cast<ssize_t>(outputs_[output_ordinal].tids_.size())) {
+                    static_cast<int>(outputs_[output_ordinal].tids_.size())) {
                     VPRINT(this, 2, "next_record[%d]: all at eof\n", output_ordinal);
                     return sched_type_t::STATUS_EOF;
                 }
                 tid = outputs_[output_ordinal]
                           .tids_[outputs_[output_ordinal].cur_tids_index_];
                 VPRINT(this, 2,
-                       "next_record[%d]: advancing to index %zd == tid %" PRId64 "\n",
+                       "next_record[%d]: advancing to index %d == tid %" PRId64 "\n",
                        output_ordinal, outputs_[output_ordinal].cur_tids_index_, tid);
             }
             if (inputs_[tid].at_eof || *inputs_[tid].reader == *inputs_[tid].reader_end) {
-                VPRINT(this, 2, "next_record[%d]: index %zd == tid %" PRId64 " at eof\n",
+                VPRINT(this, 2, "next_record[%d]: index %d == tid %" PRId64 " at eof\n",
                        output_ordinal, outputs_[output_ordinal].cur_tids_index_, tid);
                 tid = INVALID_THREAD_ID;
                 inputs_[tid].at_eof = true;
@@ -600,7 +600,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
                     advance_region_of_interest(inputs_[tid]);
                 if (res == sched_type_t::STATUS_EOF) {
                     VPRINT(this, 2,
-                           "next_record[%d]: index %zd == tid %" PRId64 " beyond ROI\n",
+                           "next_record[%d]: index %d == tid %" PRId64 " beyond ROI\n",
                            output_ordinal, outputs_[output_ordinal].cur_tids_index_, tid);
                     tid = INVALID_THREAD_ID;
                     // Loop and pick next thread.
