@@ -5277,11 +5277,8 @@ encode_opnd_z_sz_sd(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
 static inline bool
 decode_opnd_z_sz_sd(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    if (TEST(1u << 22, enc)) {
-        return decode_single_sized(DR_REG_Z0, 0, 5, DOUBLE_REG, enc, opnd);
-    } else {
-        return decode_single_sized(DR_REG_Z0, 0, 5, SINGLE_REG, enc, opnd);
-    }
+    const aarch64_reg_offset element_size = TEST(1u << 22, enc) ? DOUBLE_REG : SINGLE_REG;
+    return decode_single_sized(DR_REG_Z0, DR_REG_Z31, 0, 5, element_size, 0, enc, opnd);
 }
 
 /* dq5_sz: D/Q register at bit position 5; bit 22 selects Q reg */
