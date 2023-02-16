@@ -1386,6 +1386,62 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
     }
 }
 
+opnd_t
+opnd_create_increment_reg(opnd_t opnd, uint increment)
+{
+    opnd_t inc_opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
+    CLIENT_ASSERT(opnd_is_reg(opnd), "opnd_create_increment_reg: not a register");
+
+    reg_id_t reg = opnd.value.reg_and_element_size.reg;
+    reg_id_t min_reg = DR_REG_INVALID;
+    reg_id_t max_reg = DR_REG_INVALID;
+#ifdef AARCH64
+    if (reg >= DR_REG_W0 && reg <= DR_REG_W30) {
+        min_reg = DR_REG_W0;
+        max_reg = DR_REG_W30;
+    } else if (reg >= DR_REG_X0 && reg <= DR_REG_X30) {
+        min_reg = DR_REG_X0;
+        max_reg = DR_REG_X30;
+    } else if (reg >= DR_REG_B0 && reg <= DR_REG_B31) {
+        min_reg = DR_REG_B0;
+        max_reg = DR_REG_B31;
+    } else if (reg >= DR_REG_H0 && reg <= DR_REG_H31) {
+        min_reg = DR_REG_H0;
+        max_reg = DR_REG_H31;
+    } else if (reg >= DR_REG_S0 && reg <= DR_REG_S31) {
+        min_reg = DR_REG_S0;
+        max_reg = DR_REG_S31;
+    } else if (reg >= DR_REG_D0 && reg <= DR_REG_D31) {
+        min_reg = DR_REG_D0;
+        max_reg = DR_REG_D31;
+    } else if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31) {
+        min_reg = DR_REG_Q0;
+        max_reg = DR_REG_Q31;
+    } else if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) {
+        min_reg = DR_REG_Z0;
+        max_reg = DR_REG_Z31;
+    } else if (reg >= DR_REG_P0 && reg <= DR_REG_P15) {
+        min_reg = DR_REG_P0;
+        max_reg = DR_REG_P15;
+    }
+#else
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif
+
+    CLIENT_ASSERT(min_reg != DR_REG_INVALID && max_reg != DR_REG_INVALID,
+                  "opnd_create_increment_reg: reg not incrementable");
+
+    reg_id_t new_reg = (reg - min_reg + increment) % (max_reg - min_reg + 1) + min_reg;
+
+    inc_opnd.kind = REG_kind;
+    inc_opnd.value.reg_and_element_size.reg = new_reg;
+    inc_opnd.value.reg_and_element_size.element_size =
+        opnd.value.reg_and_element_size.element_size;
+    inc_opnd.size = opnd.size; /* indicates full size of reg */
+    inc_opnd.aux.flags = opnd.aux.flags;
+    return inc_opnd;
+}
+
 static reg_id_t
 reg_match_size_and_type(reg_id_t new_reg, opnd_size_t size, reg_id_t old_reg)
 {
