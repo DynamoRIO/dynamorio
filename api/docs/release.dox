@@ -209,6 +209,8 @@ Further non-compatibility-affecting changes include:
  - Added a new #dynamorio::drmemtrace::scheduler_tmpl_t interface providing scheduling
    of drmemtrace offline files onto configurable output streams, meant for use by
    microarchitectural simulators.
+ - Added a #memtrace_stream_t interface for drmemtrace analysis tools to
+   query key attributes of each input trace.
 
 **************************************************
 <hr>

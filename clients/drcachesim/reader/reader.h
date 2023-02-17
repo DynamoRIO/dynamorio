@@ -138,8 +138,6 @@ public:
     uint64_t
     get_record_ordinal() const override
     {
-        if (suppress_ref_count_ >= 0)
-            return 0;
         return cur_ref_count_;
     }
     uint64_t
@@ -176,6 +174,11 @@ public:
     get_page_size() const override
     {
         return page_size_;
+    }
+    bool
+    is_record_synthetic() const override
+    {
+        return suppress_ref_count_ >= 0;
     }
 
 protected:

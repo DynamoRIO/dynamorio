@@ -441,6 +441,9 @@ public:
         uint64_t cache_line_size_ = 0;
         uint64_t chunk_instr_count_ = 0;
         uint64_t page_size_ = 0;
+
+        // Let the outer class update our state.
+        friend class scheduler_tmpl_t<RecordType, ReaderType>;
     };
 
     scheduler_tmpl_t()
@@ -487,6 +490,7 @@ protected:
         std::vector<range_t> regions_of_interest;
         int cur_region = 0;
         bool needs_init = false;
+        bool needs_advance = false;
         bool at_eof = false;
     };
 
@@ -517,10 +521,10 @@ protected:
     get_reader(const std::string &path, int verbosity);
 
     stream_status_t
-    next_record(int output_ordinal, RecordType &record);
+    next_record(int output_ordinal, RecordType &record, input_info_t *&input);
 
     stream_status_t
-    advance_region_of_interest(input_info_t &input);
+    advance_region_of_interest(int output_ordinal, input_info_t &input);
 
     bool
     record_type_has_tid(RecordType record, memref_tid_t &tid);

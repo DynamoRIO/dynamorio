@@ -321,7 +321,7 @@ reader_t::process_input_entry()
             --suppress_ref_count_;
         } else {
             if (suppress_ref_count_ == 0) {
-                // Ensure get_record_ordinal() ignores it.
+                // Ensure is_record_synthetic() ignores it.
                 suppress_ref_count_ = -1;
             }
             ++cur_ref_count_;

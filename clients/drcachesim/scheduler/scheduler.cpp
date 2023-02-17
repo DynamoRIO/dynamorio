@@ -273,13 +273,27 @@ template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &record)
 {
-    sched_type_t::stream_status_t res = scheduler_->next_record(ordinal_, record);
+    input_info_t *input = nullptr;
+    sched_type_t::stream_status_t res = scheduler_->next_record(ordinal_, record, input);
     if (res != sched_type_t::STATUS_OK)
         return res;
+
     // Update our memtrace_stream_t state.
-    ++cur_ref_count_;
+    if (!input->reader->is_record_synthetic())
+        ++cur_ref_count_;
     if (scheduler_->record_type_is_instr(record))
         ++cur_instr_count_;
+    VPRINT(scheduler_, 4,
+           "stream record#=%" PRId64 ", instr#=%" PRId64 " (cur input %" PRId64
+           " record#=%" PRId64 ", instr#=%" PRId64 ")\n",
+           cur_ref_count_, cur_instr_count_, input->tid,
+           input->reader->get_record_ordinal(), input->reader->get_instruction_ordinal());
+
+    // Update our header state.
+    // If we skipped over these, advance_region_of_interest() sets them.
+    // TODO i#5843: Check that all inputs have the same top-level headers here.
+    // A possible except is allowing warmup-phase-filtered traces to be mixed
+    // with regular traces.
     trace_marker_type_t marker_type;
     uintptr_t marker_value;
     if (scheduler_->record_type_is_marker(record, marker_type, marker_value)) {
@@ -331,6 +345,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
     std::vector<input_workload_t> &workload_inputs, int output_count,
     scheduler_options_t options)
 {
+    options_ = options;
+    verbosity_ = options_.verbosity;
     // workload_inputs is not const so we can std::move readers out of it.
     for (auto &workload : workload_inputs) {
         if (workload.struct_size != sizeof(input_workload_t))
@@ -390,8 +406,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
     for (int i = 0; i < output_count; i++) {
         outputs_.emplace_back(this, i, verbosity_);
     }
-    options_ = options;
-    verbosity_ = options_.verbosity;
     if (options_.consider_input_dependencies) {
         // TODO i#5843: Implement dependency analysis and use it to inform input stream
         // preemption.  Probably we would take offline analysis results as an input.
@@ -517,7 +531,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_name(int output_ordinal)
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
-scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(input_info_t &input)
+scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_ordinal,
+                                                                     input_info_t &input)
 {
     uint64_t cur_instr = input.reader->get_instruction_ordinal();
     auto &cur_range = input.regions_of_interest[input.cur_region];
@@ -539,11 +554,38 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(input_info_
         // this skip it all.
         while (!input.queue.empty())
             input.queue.pop();
+        uint64_t input_start_ref = input.reader->get_record_ordinal();
+        uint64_t input_start_instr = input.reader->get_instruction_ordinal();
         input.reader->skip_instructions(cur_range.start_instruction - cur_instr);
         if (*input.reader == *input.reader_end) {
             // Raise error because the input region is out of bounds.
             input.at_eof = true;
             return sched_type_t::STATUS_REGION_INVALID;
+        }
+        auto &stream = outputs_[output_ordinal].stream;
+
+        if (stream.cur_ref_count_ == 0)
+            ++stream.cur_ref_count_; // Account for reader_t::init()'s ++.
+        // Subtract 1 as we'll be adding one in stream_t::next_record().
+        // We don't need this for the instr count as we never skip and
+        // start with an instr: always a timestamp.
+        uint64_t subtract = input.reader->is_record_synthetic() ? 0 : 1;
+        VPRINT(this, 3, "post-skip: adding %" PRId64 " records to %" PRId64 "\n",
+               input.reader->get_record_ordinal() - input_start_ref - subtract,
+               stream.cur_ref_count_);
+        stream.cur_ref_count_ +=
+            input.reader->get_record_ordinal() - input_start_ref - subtract;
+        stream.cur_instr_count_ +=
+            input.reader->get_instruction_ordinal() - input_start_instr;
+        // If we skipped from the start we may not have seen the initial headers:
+        // use the input's cached copies.
+        if (stream.version_ == 0) {
+            stream.version_ = input.reader->get_version();
+            stream.last_timestamp_ = input.reader->get_last_timestamp();
+            stream.filetype_ = input.reader->get_filetype();
+            stream.cache_line_size_ = input.reader->get_cache_line_size();
+            stream.chunk_instr_count_ = input.reader->get_chunk_instr_count();
+            stream.page_size_ = input.reader->get_page_size();
         }
         if (input.cur_region > 0) {
             // We let the user know we've skipped.
@@ -556,7 +598,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(input_info_
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
-                                                      RecordType &record)
+                                                      RecordType &record,
+                                                      input_info_t *&input)
 {
     if (!(options_.how_split == STREAM_BY_INPUT_SHARD &&
           options_.strategy == SCHEDULE_RUN_TO_COMPLETION) &&
@@ -567,7 +610,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
         // These will require locks and central coordination.
         return sched_type_t::STATUS_NOT_IMPLEMENTED;
     }
-    input_info_t *input = nullptr;
     if (options_.how_split == STREAM_BY_INPUT_SHARD) {
         memref_tid_t tid = outputs_[output_ordinal].cur_input_tid;
         while (true) {
@@ -597,7 +639,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
                 // Loop and pick next thread.
             } else if (!inputs_[tid].regions_of_interest.empty()) {
                 sched_type_t::stream_status_t res =
-                    advance_region_of_interest(inputs_[tid]);
+                    advance_region_of_interest(output_ordinal, inputs_[tid]);
                 if (res == sched_type_t::STATUS_EOF) {
                     VPRINT(this, 2,
                            "next_record[%d]: index %d == tid %" PRId64 " beyond ROI\n",
@@ -634,7 +676,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
         input->needs_init = false;
     }
     if (!input->regions_of_interest.empty()) {
-        sched_type_t::stream_status_t res = advance_region_of_interest(*input);
+        sched_type_t::stream_status_t res =
+            advance_region_of_interest(output_ordinal, *input);
         if (res != sched_type_t::STATUS_OK)
             return res;
     }
@@ -642,10 +685,19 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
         record = input->queue.front();
         input->queue.pop();
     } else {
+        // We again have a flag check because reader_t::init() does an initial ++
+        // and so we want to skip that on the first record but perform a ++ prior
+        // to all subsequent records.  We do not want to ++ after reading as that
+        // messes up memtrace_stream_t queries on ordinals while the user examines
+        // the record.
+        if (input->needs_advance)
+            ++(*input->reader);
+        else {
+            input->needs_advance = true;
+        }
         if (*input->reader == *input->reader_end)
             return sched_type_t::STATUS_EOF;
         record = **input->reader;
-        ++(*input->reader);
     }
     VPRINT(this, 4, "next_record[%d]: ", output_ordinal);
     VDO(this, 4, print_record(record););
