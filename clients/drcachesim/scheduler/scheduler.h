@@ -84,11 +84,11 @@ public:
      * path failed.
      */
     enum stream_status_t {
-        STATUS_OK,      /**< Stream is healthy and can continue to advance. */
-        STATUS_EOF,     /**< Stream is at its end. */
-        STATUS_IDLE,    /**< No records at this time. */
-        STATUS_WAIT,    /**< Wait for other streams before advancing can continue. */
-        STATUS_INVALID, /**< Error condition. */
+        STATUS_OK,              /**< Stream is healthy and can continue to advance. */
+        STATUS_EOF,             /**< Stream is at its end. */
+        STATUS_IDLE,            /**< No records at this time. */
+        STATUS_WAIT,            /**< Waiting for other streams to advance. */
+        STATUS_INVALID,         /**< Error condition. */
         STATUS_REGION_INVALID,  /**< Input region is out of bounds. */
         STATUS_NOT_IMPLEMENTED, /**< Feature not implemented. */
     };
@@ -191,8 +191,8 @@ public:
          */
         std::string path;
         /**
-         * An alternative to passing in a path and having the scheduler open the file(s)
-         * there is to directly pass in a reader, reader_end, and a thread id for that
+         * An alternative to passing in a path and having the scheduler open that file(s)
+         * is to directly pass in a reader, reader_end, and a thread id for that
          * reader.  These are only considered if 'path' is empty.  The scheduler will
          * call the init() function for 'reader' at the time of the first access to
          * it through an output stream (supporting IPC readers whose init() blocks).
@@ -254,22 +254,27 @@ public:
         /**
          * Uses a synthetic schedule with pre-emption of an input to be replaced
          * by another input on a given output stream when it uses up its
-         * quantum which is measured using instruction counts.
-         * The quantum size is specified by the `quantum_duration` field of
+         * quantum.  The quantum unit is specified by the 'quantum_unit` and
+         * the size by the `quantum_duration` fields of
          * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.
          */
-        SCHEDULE_BY_INSTRUCTION_QUANTUM,
+        SCHEDULE_BY_QUANTUM,
+    };
+
+    /**
+     * Quantum units used by
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULE_BY_QUANTUM.
+     */
+    enum quantum_unit_t {
+        /** Uses the instruction count as the quantum. */
+        QUANTUM_INSTRUCTIONS,
         /**
-         * Uses a synthetic schedule with pre-emption of an input to be replaced
-         * by another input on a given output stream when it uses up its
-         * quantum which is measured using the user's notion of time.
-         * This notion of time must be supplied by the user by calling
+         * Uses the user's notion of time as the quantum.
+         * This must be supplied by the user by calling
          * dynamorio::drmemtrace::scheduler_tmpl_t::stream_t::report_time()
          * periodically.
-         * The quantum size is specified by the `quantum_duration` field of
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.
          */
-        SCHEDULE_BY_TIME_QUANTUM,
+        QUANTUM_TIME,
     };
 
     /** Flags controlling aspects of the scheduler beyond the core scheduling. */
@@ -311,9 +316,11 @@ public:
         /** The base mode of the scheduler with respect to input streams. */
         stream_type_t how_split = STREAM_BY_SYNTHETIC_CPU;
         /** The scheduling strategy. */
-        schedule_strategy_t strategy = SCHEDULE_BY_INSTRUCTION_QUANTUM;
+        schedule_strategy_t strategy = SCHEDULE_BY_QUANTUM;
         /** Optional flags affecting scheduler behavior. */
         scheduler_flags_t flags = SCHEDULER_DEFAULTS;
+        /** The unit of the schedule time quantum. */
+        quantum_unit_t quantum_unit = QUANTUM_INSTRUCTIONS;
         /**
          * The scheduling quantum duration for preemption.  The units are either
          * instructions or user-controlled time, depending on whether
