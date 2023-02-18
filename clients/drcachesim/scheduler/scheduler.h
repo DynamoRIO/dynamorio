@@ -111,8 +111,9 @@ public:
     };
 
     /**
-     * Specifies details about one set of input trace files, each representing a
-     * software thread.
+     * Specifies details about one set of input trace files from one workload,
+     * each input file representing a single software thread.
+     * It is assumed that there is no thread id duplication within one workload.
      */
     struct input_thread_info_t {
         /** Convenience constructor for common usage. */
@@ -549,6 +550,8 @@ protected:
     const char *output_prefix_ = "[scheduler]";
     std::string error_string_;
     scheduler_options_t options_;
+    // TODO i#5843: We can have dup tids across workloads so we need a different
+    // index here for multi-workload support.
     std::unordered_map<memref_tid_t, input_info_t> inputs_;
     std::vector<output_info_t> outputs_;
 };

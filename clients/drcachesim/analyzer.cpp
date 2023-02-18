@@ -310,17 +310,24 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
             return;
         }
-        memref_tid_t tid;
-        if (record_has_tid(record, tid)) {
-            if (shard_data.find(tid) == shard_data.end()) {
-                VPRINT(this, 1, "Worker %d starting on trace shard %" PRId64 "\n",
-                       worker->index, tid);
-                shard_data[tid].resize(num_tools_);
-                for (int i = 0; i < num_tools_; ++i) {
-                    shard_data[tid][i] = tools_[i]->parallel_shard_init_stream(
-                        static_cast<int>(shard_data.size()), user_worker_data[i],
-                        worker->stream);
-                }
+        memref_tid_t tid = INVALID_THREAD_ID;
+        if (!record_has_tid(record, tid)) {
+            worker->error =
+                "Failed to find tid in trace: " + worker->stream->get_stream_name();
+            return;
+        }
+        if (shard_data.find(tid) == shard_data.end()) {
+            VPRINT(this, 1,
+                   "Worker %d starting on trace shard %" PRId64 " stream is %p\n",
+                   worker->index, tid, worker->stream);
+            shard_data[tid].resize(num_tools_);
+            for (int i = 0; i < num_tools_; ++i) {
+                // We use the tid as the shard index.
+                // TODO i#5843: If we support multi-process/multi-workload inputs
+                // to this parallel model we can hit dup tids!  We'll need a different
+                // shard index solution.
+                shard_data[tid][i] = tools_[i]->parallel_shard_init_stream(
+                    tid, user_worker_data[i], worker->stream);
             }
         }
         for (int i = 0; i < num_tools_; ++i) {
@@ -365,6 +372,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (!parallel_) {
         process_serial(worker_data_[0]);
+        if (!worker_data_[0].error.empty()) {
+            error_string_ = worker_data_[0].error;
+            return false;
+        }
         return true;
     }
     if (worker_count_ <= 0) {

@@ -480,7 +480,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_readers(
     const std::string &path, std::vector<memref_tid_t> &workload_tids)
 {
     if (options_.how_split == STREAM_BY_SYNTHETIC_CPU &&
-        options_.strategy != SCHEDULE_INTERLEAVE_AS_RECORDED) {
+        options_.strategy == SCHEDULE_INTERLEAVE_AS_RECORDED) {
         // TODO i#5843: Move the interleaving-by-timestamp code from
         // file_reader_t into this scheduler.  For now we leverage the
         // file_reader_t code and use a synthetic tid.
