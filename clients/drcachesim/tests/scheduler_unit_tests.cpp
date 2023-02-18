@@ -164,7 +164,7 @@ test_parallel()
             std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i]));
         std::unique_ptr<reader_t> end =
             std::unique_ptr<mock_reader_t>(new mock_reader_t());
-        sched_inputs.emplace_back(std::move(input), std::move(end), tid);
+        sched_inputs.emplace_back(std::move(input), std::move(end));
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::STREAM_BY_INPUT_SHARD,
                                                scheduler_t::SCHEDULE_RUN_TO_COMPLETION);
@@ -204,7 +204,7 @@ test_param_checks()
     regions.emplace_back(0, 2);
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
-    sched_inputs.emplace_back(std::move(input), std::move(end), 1);
+    sched_inputs.emplace_back(std::move(input), std::move(end));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     scheduler_t::scheduler_options_t sched_ops(
         scheduler_t::STREAM_BY_SYNTHETIC_CPU,
@@ -240,7 +240,7 @@ test_regions()
 
     scheduler_t scheduler(/*verbosity=*/4);
     std::vector<scheduler_t::input_workload_t> sched_inputs;
-    sched_inputs.emplace_back(std::move(input), std::move(end), 1);
+    sched_inputs.emplace_back(std::move(input), std::move(end));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     scheduler_t::scheduler_options_t sched_ops(
         scheduler_t::STREAM_BY_SYNTHETIC_CPU,

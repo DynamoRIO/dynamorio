@@ -170,7 +170,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
         }
         sched_inputs[0].reader = std::move(reader);
         sched_inputs[0].reader_end = std::move(reader_end);
-        sched_inputs[0].reader_tid = 1; // Any positive value will do.
     }
     typename sched_type_t::scheduler_options_t sched_ops;
     int output_count;

@@ -125,7 +125,8 @@ public:
         size_t struct_size; /**< Size of the struct for binary-compatible additions. */
         /**
          * Which threads the details in this structure apply to.
-         * If empty, the details apply to all threads in the
+         * If empty, the details apply to all not-yet-mentioned (by other 'tids'
+         * vectors in prior entries for this workload) threads in the
          * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
          */
         std::vector<memref_tid_t> tids;
@@ -162,11 +163,9 @@ public:
         }
         /** Create a workload with a pre-initialized reader. */
         explicit input_workload_t(std::unique_ptr<ReaderType> reader,
-                                  std::unique_ptr<ReaderType> reader_end,
-                                  memref_tid_t reader_tid)
+                                  std::unique_ptr<ReaderType> reader_end)
             : reader(std::move(reader))
             , reader_end(std::move(reader_end))
-            , reader_tid(reader_tid)
         {
         }
         /**
@@ -196,12 +195,14 @@ public:
          * reader.  These are only considered if 'path' is empty.  The scheduler will
          * call the init() function for 'reader' at the time of the first access to
          * it through an output stream (supporting IPC readers whose init() blocks).
+         * There are no tids associated with a workload specified in this way, and
+         * any thread modifiers must leave the
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_thread_info_t::tids
+         * field empty.
          */
         std::unique_ptr<ReaderType> reader;
         /** The end reader for 'reader'. */
         std::unique_ptr<ReaderType> reader_end;
-        /** The thread identifier for 'reader'. */
-        memref_tid_t reader_tid = INVALID_THREAD_ID;
 
         /** Scheduling modifiers for the threads in this workload. */
         std::vector<input_thread_info_t> thread_modifiers;
@@ -322,12 +323,9 @@ public:
         /** The unit of the schedule time quantum. */
         quantum_unit_t quantum_unit = QUANTUM_INSTRUCTIONS;
         /**
-         * The scheduling quantum duration for preemption.  The units are either
-         * instructions or user-controlled time, depending on whether
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULE_BY_INSTRUCTION_QUANTUM
-         * or
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULE_BY_TIME_QUANTUM
-         * is set.
+         * The scheduling quantum duration for preemption.  The units are
+         * specified by
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::quantum_unit.
          */
         uint64_t quantum_duration = 10 * 1000 * 1000;
         /**
@@ -487,9 +485,13 @@ protected:
     typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
 
     struct input_info_t {
+        int index = -1; // Position in inputs_ vector.
         std::unique_ptr<ReaderType> reader;
         std::unique_ptr<ReaderType> reader_end;
-        memref_tid_t tid;
+        // A tid can be duplicated across workloads so we need the pair of
+        // workload index + tid to identify the original input.
+        int workload = -1;
+        memref_tid_t tid = INVALID_THREAD_ID;
         // If non-empty these records should be returned before incrementing
         // the reader.
         std::queue<RecordType> queue;
@@ -497,6 +499,7 @@ protected:
         int priority = 0;
         std::vector<range_t> regions_of_interest;
         int cur_region = 0;
+        bool has_modifier = false;
         bool needs_init = false;
         bool needs_advance = false;
         bool at_eof = false;
@@ -509,18 +512,20 @@ protected:
         {
         }
         stream_t stream;
-        memref_tid_t cur_input_tid = INVALID_THREAD_ID;
+        int cur_input = -1;
         // For static schedules we can populate this up front and avoid needing a
         // lock for dynamically finding the next input, keeping things parallel.
-        std::vector<memref_tid_t> tids_;
-        int cur_tids_index_ = 0;
+        std::vector<int> input_indices;
+        int input_indices_index = 0;
     };
 
     scheduler_status_t
-    open_readers(const std::string &path, std::vector<memref_tid_t> &workload_tids);
+    open_readers(const std::string &path,
+                 std::unordered_map<memref_tid_t, int> &workload_tids);
 
     scheduler_status_t
-    open_reader(const std::string &path, std::vector<memref_tid_t> &workload_tids);
+    open_reader(const std::string &path,
+                std::unordered_map<memref_tid_t, int> &workload_tids);
 
     std::unique_ptr<ReaderType>
     get_default_reader();
@@ -557,9 +562,7 @@ protected:
     const char *output_prefix_ = "[scheduler]";
     std::string error_string_;
     scheduler_options_t options_;
-    // TODO i#5843: We can have dup tids across workloads so we need a different
-    // index here for multi-workload support.
-    std::unordered_map<memref_tid_t, input_info_t> inputs_;
+    std::vector<input_info_t> inputs_;
     std::vector<output_info_t> outputs_;
 };
 

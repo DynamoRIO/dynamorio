@@ -351,15 +351,19 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
     for (auto &workload : workload_inputs) {
         if (workload.struct_size != sizeof(input_workload_t))
             return STATUS_ERROR_INVALID_PARAMETER;
-        std::vector<memref_tid_t> workload_tids;
+        std::unordered_map<memref_tid_t, int> workload_tids;
         if (workload.path.empty()) {
             if (!workload.reader || !workload.reader_end)
                 return STATUS_ERROR_INVALID_PARAMETER;
-            inputs_[workload.reader_tid].reader = std::move(workload.reader);
-            inputs_[workload.reader_tid].reader_end = std::move(workload.reader_end);
-            inputs_[workload.reader_tid].tid = workload.reader_tid;
-            inputs_[workload.reader_tid].needs_init = true;
-            workload_tids.push_back(workload.reader_tid);
+            int index = inputs_.size();
+            inputs_.emplace_back();
+            input_info_t &input = inputs_.back();
+            input.index = index;
+            input.tid = INVALID_THREAD_ID; // Modifies can't specify tid.
+            input.reader = std::move(workload.reader);
+            input.reader_end = std::move(workload.reader_end);
+            input.needs_init = true;
+            workload_tids[input.tid] = input.index;
         } else {
             if (!!workload.reader || !!workload.reader_end)
                 return STATUS_ERROR_INVALID_PARAMETER;
@@ -372,23 +376,31 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             if (modifiers.struct_size != sizeof(input_thread_info_t))
                 return STATUS_ERROR_INVALID_PARAMETER;
             const std::vector<memref_tid_t> *which_tids;
-            if (modifiers.tids.empty())
-                which_tids = &workload_tids;
-            else
+            std::vector<memref_tid_t> workload_tid_vector;
+            if (modifiers.tids.empty()) {
+                // Apply to all tids that have not already been modified.
+                for (const auto entry : workload_tids) {
+                    if (!inputs_[entry.second].has_modifier)
+                        workload_tid_vector.push_back(entry.first);
+                }
+                which_tids = &workload_tid_vector;
+            } else
                 which_tids = &modifiers.tids;
             // We assume the overhead of copying the modifiers for every thread is
             // not high and the simplified code is worthwhile.
             for (memref_tid_t tid : *which_tids) {
-                if (inputs_.find(tid) == inputs_.end())
+                if (workload_tids.find(tid) == workload_tids.end())
                     return STATUS_ERROR_INVALID_PARAMETER;
-                inputs_[tid].tid = tid;
-                inputs_[tid].binding = modifiers.output_binding;
-                if (!inputs_[tid].binding.empty()) {
+                int index = workload_tids[tid];
+                input_info_t &input = inputs_[index];
+                input.has_modifier = true;
+                input.binding = modifiers.output_binding;
+                if (!input.binding.empty()) {
                     // TODO i#5843: Implement bindings.
                     return STATUS_ERROR_NOT_IMPLEMENTED;
                 }
-                inputs_[tid].priority = modifiers.priority;
-                if (inputs_[tid].priority != 0) {
+                input.priority = modifiers.priority;
+                if (input.priority != 0) {
                     // TODO i#5843: Implement priorities.
                     return STATUS_ERROR_NOT_IMPLEMENTED;
                 }
@@ -398,7 +410,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                          range.stop_instruction != 0))
                         return STATUS_ERROR_INVALID_PARAMETER;
                 }
-                inputs_[tid].regions_of_interest = modifiers.regions_of_interest;
+                input.regions_of_interest = modifiers.regions_of_interest;
             }
         }
     }
@@ -417,13 +429,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             return STATUS_ERROR_INVALID_PARAMETER;
         // Assign the inputs up front to avoid locks once we're in parallel mode.
         // We use a simple round-robin static assignment for now.
-        size_t count = 0;
-        for (const auto &entry : inputs_) {
-            size_t index = count % output_count;
-            if (outputs_[index].tids_.empty())
-                outputs_[index].cur_input_tid = entry.first;
-            outputs_[index].tids_.push_back(entry.first);
-            ++count;
+        for (int i = 0; i < static_cast<int>(inputs_.size()); i++) {
+            size_t index = i % output_count;
+            if (outputs_[index].input_indices.empty())
+                outputs_[index].cur_input = i;
+            outputs_[index].input_indices.push_back(i);
         }
     } else if (options_.how_split == STREAM_BY_SYNTHETIC_CPU) {
         // TODO i#5843: Implement scheduling onto synthetic cores.
@@ -441,7 +451,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
-    const std::string &path, std::vector<memref_tid_t> &workload_tids)
+    const std::string &path, std::unordered_map<memref_tid_t, int> &workload_tids)
 {
     if (path.empty() || directory_iterator_t::is_directory(path))
         return STATUS_ERROR_INVALID_PARAMETER;
@@ -450,6 +460,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
         error_string_ += "Failed to open " + path;
         return STATUS_ERROR_FILE_OPEN_FAILED;
     }
+    int index = inputs_.size();
+    inputs_.emplace_back();
+    input_info_t &input = inputs_.back();
+    input.index = index;
     // We need the tid up front.  Rather than assume it's still part of the filename, we
     // read the first record (we generalize to read until we find the first but we
     // expect it to be the first after PR #5739 changed the order file_reader_t passes
@@ -460,7 +474,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
         RecordType record = **reader;
         if (record_type_has_tid(record, tid))
             break;
-        inputs_[tid].queue.push(record);
+        input.queue.push(record);
         ++(*reader);
     }
     if (tid == INVALID_THREAD_ID) {
@@ -468,32 +482,38 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
         return STATUS_ERROR_FILE_READ_FAILED;
     }
     VPRINT(this, 2, "Opened reader for tid %" PRId64 " %s\n", tid, path.c_str());
-    inputs_[tid].reader = std::move(reader);
-    inputs_[tid].reader_end = std::move(reader_end);
-    workload_tids.push_back(tid);
+    input.tid = tid;
+    input.reader = std::move(reader);
+    input.reader_end = std::move(reader_end);
+    workload_tids[tid] = index;
     return sched_type_t::STATUS_SUCCESS;
 }
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::open_readers(
-    const std::string &path, std::vector<memref_tid_t> &workload_tids)
+    const std::string &path, std::unordered_map<memref_tid_t, int> &workload_tids)
 {
     if (options_.how_split == STREAM_BY_SYNTHETIC_CPU &&
         options_.strategy == SCHEDULE_INTERLEAVE_AS_RECORDED) {
         // TODO i#5843: Move the interleaving-by-timestamp code from
         // file_reader_t into this scheduler.  For now we leverage the
-        // file_reader_t code and use a synthetic tid.
+        // file_reader_t code and use a sentinel tid (per-thread scheduling
+        // modifiers are ignored so we would only need tids for error reporting;
+        // we'll get those once we move the code).
         std::unique_ptr<ReaderType> reader = get_reader(path, verbosity_);
         std::unique_ptr<ReaderType> reader_end = get_default_reader();
         if (!reader || !reader_end || !reader->init()) {
             error_string_ += "Failed to open " + path;
             return STATUS_ERROR_FILE_OPEN_FAILED;
         }
-        memref_tid_t tid = 1;
-        inputs_[tid].reader = std::move(reader);
-        inputs_[tid].reader_end = std::move(reader_end);
-        workload_tids.push_back(tid);
+        inputs_.emplace_back();
+        input_info_t &input = inputs_.back();
+        input.index = 0;
+        input.tid = INVALID_THREAD_ID; // See above.
+        input.reader = std::move(reader);
+        input.reader_end = std::move(reader_end);
+        workload_tids[input.tid] = input.index;
         return sched_type_t::STATUS_SUCCESS;
     }
 
@@ -523,10 +543,10 @@ template <typename RecordType, typename ReaderType>
 std::string
 scheduler_tmpl_t<RecordType, ReaderType>::get_input_name(int output_ordinal)
 {
-    memref_tid_t tid = outputs_[output_ordinal].cur_input_tid;
-    if (tid == 0)
+    int index = outputs_[output_ordinal].cur_input;
+    if (index < 0)
         return "";
-    return inputs_[tid].reader->get_stream_name();
+    return inputs_[index].reader->get_stream_name();
 }
 
 template <typename RecordType, typename ReaderType>
@@ -611,40 +631,44 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
         return sched_type_t::STATUS_NOT_IMPLEMENTED;
     }
     if (options_.how_split == STREAM_BY_INPUT_SHARD) {
-        memref_tid_t tid = outputs_[output_ordinal].cur_input_tid;
+        int index = outputs_[output_ordinal].cur_input;
         while (true) {
-            if (tid == INVALID_THREAD_ID) {
+            if (index < 0) {
                 // We're just starting, or done with the prior thread; take the next one
                 // that was pre-allocated to this output (pre-allocated to avoid locks).
                 // Invariant: the same output_ordinal will not be accessed by two
                 // different threads simultaneously in this mode, allowing us to support a
                 // lock-free parallel-friendly increment here.
-                ++outputs_[output_ordinal].cur_tids_index_;
-                if (outputs_[output_ordinal].cur_tids_index_ >=
-                    static_cast<int>(outputs_[output_ordinal].tids_.size())) {
+                ++outputs_[output_ordinal].input_indices_index;
+                if (outputs_[output_ordinal].input_indices_index >=
+                    static_cast<int>(outputs_[output_ordinal].input_indices.size())) {
                     VPRINT(this, 2, "next_record[%d]: all at eof\n", output_ordinal);
                     return sched_type_t::STATUS_EOF;
                 }
-                tid = outputs_[output_ordinal]
-                          .tids_[outputs_[output_ordinal].cur_tids_index_];
+                index = outputs_[output_ordinal]
+                            .input_indices[outputs_[output_ordinal].input_indices_index];
                 VPRINT(this, 2,
-                       "next_record[%d]: advancing to index %d == tid %" PRId64 "\n",
-                       output_ordinal, outputs_[output_ordinal].cur_tids_index_, tid);
+                       "next_record[%d]: advancing to local index %d == input #%d\n",
+                       output_ordinal, outputs_[output_ordinal].input_indices_index,
+                       index);
             }
-            if (inputs_[tid].at_eof || *inputs_[tid].reader == *inputs_[tid].reader_end) {
-                VPRINT(this, 2, "next_record[%d]: index %d == tid %" PRId64 " at eof\n",
-                       output_ordinal, outputs_[output_ordinal].cur_tids_index_, tid);
-                tid = INVALID_THREAD_ID;
-                inputs_[tid].at_eof = true;
+            if (inputs_[index].at_eof ||
+                *inputs_[index].reader == *inputs_[index].reader_end) {
+                VPRINT(this, 2, "next_record[%d]: local index %d == input #%d at eof\n",
+                       output_ordinal, outputs_[output_ordinal].input_indices_index,
+                       index);
+                inputs_[index].at_eof = true;
+                index = -1;
                 // Loop and pick next thread.
-            } else if (!inputs_[tid].regions_of_interest.empty()) {
+            } else if (!inputs_[index].regions_of_interest.empty()) {
                 sched_type_t::stream_status_t res =
-                    advance_region_of_interest(output_ordinal, inputs_[tid]);
+                    advance_region_of_interest(output_ordinal, inputs_[index]);
                 if (res == sched_type_t::STATUS_EOF) {
                     VPRINT(this, 2,
-                           "next_record[%d]: index %d == tid %" PRId64 " beyond ROI\n",
-                           output_ordinal, outputs_[output_ordinal].cur_tids_index_, tid);
-                    tid = INVALID_THREAD_ID;
+                           "next_record[%d]: local index %d == input #%d beyond ROI\n",
+                           output_ordinal, outputs_[output_ordinal].input_indices_index,
+                           index);
+                    index = -1;
                     // Loop and pick next thread.
                 } else if (res != sched_type_t::STATUS_OK)
                     return res;
@@ -653,17 +677,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
             } else
                 break;
         }
-        outputs_[output_ordinal].cur_input_tid = tid;
-        input = &inputs_[tid];
+        outputs_[output_ordinal].cur_input = index;
+        input = &inputs_[index];
     } else {
         // Currently file_reader_t is interleaving for us so we have just one input.
         // TODO i#5843: Move interleaving logic to here (and split it into a separate
         // function).
         if (inputs_.size() > 1)
             return sched_type_t::STATUS_NOT_IMPLEMENTED;
-        for (auto &entry : inputs_) {
-            input = &entry.second;
-        }
+        input = &inputs_[0];
     }
     if (input->needs_init) {
         // We pay the cost of this conditional to support ipc_reader_t::init() which
