@@ -91,6 +91,7 @@ public:
         STATUS_INVALID,         /**< Error condition. */
         STATUS_REGION_INVALID,  /**< Input region is out of bounds. */
         STATUS_NOT_IMPLEMENTED, /**< Feature not implemented. */
+        STATUS_SKIPPED,         /**< Used for internal scheduler purposes. */
     };
 
     /** A bounded sequence of instructions. */
@@ -455,10 +456,6 @@ public:
     scheduler_tmpl_t()
     {
     }
-    scheduler_tmpl_t(int verbosity)
-        : verbosity_(verbosity)
-    {
-    }
     virtual ~scheduler_tmpl_t()
     {
     }
@@ -502,6 +499,7 @@ protected:
         bool has_modifier = false;
         bool needs_init = false;
         bool needs_advance = false;
+        bool needs_roi = true;
         bool at_eof = false;
     };
 
@@ -537,7 +535,11 @@ protected:
     next_record(int output_ordinal, RecordType &record, input_info_t *&input);
 
     stream_status_t
-    advance_region_of_interest(int output_ordinal, input_info_t &input);
+    advance_region_of_interest(int output_ordinal, RecordType &record,
+                               input_info_t &input);
+
+    stream_status_t
+    pick_next_input(int output_ordinal);
 
     bool
     record_type_has_tid(RecordType record, memref_tid_t &tid);
@@ -550,6 +552,9 @@ protected:
 
     RecordType
     create_region_separator_marker(memref_tid_t tid, uintptr_t value);
+
+    RecordType
+    create_thread_exit(memref_tid_t tid);
 
     void
     print_record(const RecordType &record);

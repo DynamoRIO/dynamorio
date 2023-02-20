@@ -82,6 +82,7 @@ public:
     bool
     process_input_entry() override
     {
+        ++cur_ref_count_;
         if (index_ < trace_.size() && type_is_instr(trace_[index_].instr.type))
             ++cur_instr_count_;
         return true;
@@ -103,6 +104,7 @@ public:
     use_prev(trace_entry_t *prev) override
     {
         --index_;
+        queue_.pop();
     }
     bool
     read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
@@ -168,7 +170,8 @@ test_parallel()
     }
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::STREAM_BY_INPUT_SHARD,
                                                scheduler_t::SCHEDULE_RUN_TO_COMPLETION);
-    scheduler_t scheduler(/*verbosity=*/4);
+    sched_ops.verbosity = 4;
+    scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
@@ -238,13 +241,14 @@ test_regions()
     regions.emplace_back(2, 2);
     regions.emplace_back(6, 7);
 
-    scheduler_t scheduler(/*verbosity=*/4);
+    scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(input), std::move(end));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     scheduler_t::scheduler_options_t sched_ops(
         scheduler_t::STREAM_BY_SYNTHETIC_CPU,
         scheduler_t::SCHEDULE_INTERLEAVE_AS_RECORDED);
+    sched_ops.verbosity = 4;
     if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
@@ -277,7 +281,7 @@ test_regions()
         }
         ++ordinal;
     }
-    assert(ordinal == 4);
+    assert(ordinal == 5);
 }
 
 } // namespace

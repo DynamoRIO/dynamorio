@@ -176,7 +176,19 @@ scheduler_tmpl_t<memref_t, reader_t>::create_region_separator_marker(memref_tid_
     record.marker.type = TRACE_TYPE_MARKER;
     record.marker.marker_type = TRACE_MARKER_TYPE_WINDOW_ID;
     record.marker.marker_value = value;
+    // XXX i#5843: We have .pid as 0 for now; worth trying to fill it in?
     record.marker.tid = tid;
+    return record;
+}
+
+template <>
+memref_t
+scheduler_tmpl_t<memref_t, reader_t>::create_thread_exit(memref_tid_t tid)
+{
+    memref_t record = {};
+    record.exit.type = TRACE_TYPE_THREAD_EXIT;
+    // XXX i#5843: We have .pid as 0 for now; worth trying to fill it in?
+    record.exit.tid = tid;
     return record;
 }
 
@@ -254,6 +266,17 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::create_region_separator_marker
     record.type = TRACE_TYPE_MARKER;
     record.size = TRACE_MARKER_TYPE_WINDOW_ID;
     record.addr = value;
+    return record;
+}
+
+template <>
+trace_entry_t
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::create_thread_exit(memref_tid_t tid)
+{
+    trace_entry_t record;
+    record.type = TRACE_TYPE_THREAD_EXIT;
+    record.size = sizeof(tid);
+    record.addr = tid;
     return record;
 }
 
@@ -438,8 +461,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
     } else if (options_.how_split == STREAM_BY_SYNTHETIC_CPU) {
         // TODO i#5843: Implement scheduling onto synthetic cores.
         // Initially we only support analyzer_t's serial mode.
-        if (output_count != 1 || options_.strategy != SCHEDULE_INTERLEAVE_AS_RECORDED)
+        if (options_.strategy != SCHEDULE_INTERLEAVE_AS_RECORDED)
             return STATUS_ERROR_NOT_IMPLEMENTED;
+        // Currently file_reader_t is interleaving for us so we have just one input.
+        // TODO i#5843: Move interleaving logic to scheduler_t.
+        if (output_count != 1 || inputs_.size() != 1)
+            return STATUS_ERROR_NOT_IMPLEMENTED;
+        outputs_[0].cur_input = 0;
     } else if (options_.how_split == STREAM_BY_RECORDED_CPU) {
         // TODO i#5843,i#5694: Implement cpu-oriented iteration.
         return STATUS_ERROR_NOT_IMPLEMENTED;
@@ -552,6 +580,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_name(int output_ordinal)
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_ordinal,
+                                                                     RecordType &record,
                                                                      input_info_t &input)
 {
     uint64_t cur_instr = input.reader->get_instruction_ordinal();
@@ -561,57 +590,120 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_
         VPRINT(this, 2, "at %" PRId64 " instrs: advancing to ROI #%d\n", cur_instr,
                input.cur_region);
         if (input.cur_region >= static_cast<int>(input.regions_of_interest.size())) {
-            input.at_eof = true;
-            return sched_type_t::STATUS_EOF;
+            if (input.at_eof)
+                return sched_type_t::STATUS_EOF;
+            else {
+                // We let the user know we're done.
+                input.queue.push(create_thread_exit(input.tid));
+                input.at_eof = true;
+                return sched_type_t::STATUS_SKIPPED;
+            }
         }
         cur_range = input.regions_of_interest[input.cur_region];
     }
-    if (cur_instr < cur_range.start_instruction) {
-        VPRINT(this, 2, "skipping from %" PRId64 " to %" PRId64 " instrs for ROI\n",
-               cur_instr, cur_range.start_instruction);
-        // We assume the queue contains no instrs (else our query of input.reader's
-        // instr ordinal would include them and so be incorrect) and that we should
-        // this skip it all.
-        while (!input.queue.empty())
-            input.queue.pop();
-        uint64_t input_start_ref = input.reader->get_record_ordinal();
-        uint64_t input_start_instr = input.reader->get_instruction_ordinal();
-        input.reader->skip_instructions(cur_range.start_instruction - cur_instr);
-        if (*input.reader == *input.reader_end) {
-            // Raise error because the input region is out of bounds.
-            input.at_eof = true;
-            return sched_type_t::STATUS_REGION_INVALID;
-        }
-        auto &stream = outputs_[output_ordinal].stream;
 
-        if (stream.cur_ref_count_ == 0)
-            ++stream.cur_ref_count_; // Account for reader_t::init()'s ++.
-        // Subtract 1 as we'll be adding one in stream_t::next_record().
-        // We don't need this for the instr count as we never skip and
-        // start with an instr: always a timestamp.
-        uint64_t subtract = input.reader->is_record_synthetic() ? 0 : 1;
-        VPRINT(this, 3, "post-skip: adding %" PRId64 " records to %" PRId64 "\n",
-               input.reader->get_record_ordinal() - input_start_ref - subtract,
-               stream.cur_ref_count_);
-        stream.cur_ref_count_ +=
-            input.reader->get_record_ordinal() - input_start_ref - subtract;
-        stream.cur_instr_count_ +=
-            input.reader->get_instruction_ordinal() - input_start_instr;
-        // If we skipped from the start we may not have seen the initial headers:
-        // use the input's cached copies.
-        if (stream.version_ == 0) {
-            stream.version_ = input.reader->get_version();
-            stream.last_timestamp_ = input.reader->get_last_timestamp();
-            stream.filetype_ = input.reader->get_filetype();
-            stream.cache_line_size_ = input.reader->get_cache_line_size();
-            stream.chunk_instr_count_ = input.reader->get_chunk_instr_count();
-            stream.page_size_ = input.reader->get_page_size();
-        }
-        if (input.cur_region > 0) {
-            // We let the user know we've skipped.
-            input.queue.push(create_region_separator_marker(input.tid, input.cur_region));
-        }
+    if (cur_instr >= cur_range.start_instruction)
+        return sched_type_t::STATUS_OK;
+
+    VPRINT(this, 2, "skipping from %" PRId64 " to %" PRId64 " instrs for ROI\n",
+           cur_instr, cur_range.start_instruction);
+    // We assume the queue contains no instrs (else our query of input.reader's
+    // instr ordinal would include them and so be incorrect) and that we should
+    // this skip it all.
+    while (!input.queue.empty())
+        input.queue.pop();
+    uint64_t input_start_ref = input.reader->get_record_ordinal();
+    uint64_t input_start_instr = input.reader->get_instruction_ordinal();
+    input.reader->skip_instructions(cur_range.start_instruction - cur_instr);
+    if (*input.reader == *input.reader_end) {
+        // Raise error because the input region is out of bounds.
+        input.at_eof = true;
+        return sched_type_t::STATUS_REGION_INVALID;
     }
+    auto &stream = outputs_[output_ordinal].stream;
+
+    if (stream.cur_ref_count_ == 0)
+        ++stream.cur_ref_count_; // Account for reader_t::init()'s ++.
+    // Subtract 1 as we'll be adding one in stream_t::next_record().
+    uint64_t subtract = input.reader->is_record_synthetic() ? 0 : 1;
+    VPRINT(this, 3, "post-skip: adding %" PRId64 " records to %" PRId64 "\n",
+           input.reader->get_record_ordinal() - input_start_ref - subtract,
+           stream.cur_ref_count_);
+    stream.cur_ref_count_ +=
+        input.reader->get_record_ordinal() - input_start_ref - subtract;
+    // We don't need to subtract 1 for instrs: even though we could be adding one
+    // in stream_t::next_record(), we're either inserting a window id and so we
+    // will not do so, or this is a skip from the start and we'd only be off if
+    // the first record were an instr: and even then our count started at 0 (see
+    // just above where we correct the record count from 0).
+    VPRINT(this, 3, "post-skip: adding %" PRId64 " instrs to %" PRId64 "\n",
+           input.reader->get_instruction_ordinal() - input_start_instr,
+           stream.cur_instr_count_);
+    stream.cur_instr_count_ +=
+        input.reader->get_instruction_ordinal() - input_start_instr;
+    // If we skipped from the start we may not have seen the initial headers:
+    // use the input's cached copies.
+    if (stream.version_ == 0) {
+        stream.version_ = input.reader->get_version();
+        stream.last_timestamp_ = input.reader->get_last_timestamp();
+        stream.filetype_ = input.reader->get_filetype();
+        stream.cache_line_size_ = input.reader->get_cache_line_size();
+        stream.chunk_instr_count_ = input.reader->get_chunk_instr_count();
+        stream.page_size_ = input.reader->get_page_size();
+    }
+    if (input.cur_region > 0) {
+        // We let the user know we've skipped.
+        input.queue.push(create_region_separator_marker(input.tid, input.cur_region));
+    }
+    return sched_type_t::STATUS_SKIPPED;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(int output_ordinal)
+{
+    if (options_.strategy == SCHEDULE_INTERLEAVE_AS_RECORDED) {
+        // TODO i#5843: For now we have a single input; we'll need to change this
+        // once we move the file_reader_t interleaving here.
+        return sched_type_t::STATUS_EOF;
+    }
+    if (options_.how_split != STREAM_BY_INPUT_SHARD) {
+        // TODO i#5843: Implement instr/time quanta.
+        // TODO i#5843: Implement recorded-cpu scheduling.
+        // These will require locks and central coordination.
+        return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    }
+    int index = outputs_[output_ordinal].cur_input;
+    while (true) {
+        if (index < 0) {
+            // We're done with the prior thread; take the next one that was
+            // pre-allocated to this output (pre-allocated to avoid locks).  Invariant:
+            // the same output_ordinal will not be accessed by two different threads
+            // simultaneously in this mode, allowing us to support a lock-free
+            // parallel-friendly increment here.
+            ++outputs_[output_ordinal].input_indices_index;
+            if (outputs_[output_ordinal].input_indices_index >=
+                static_cast<int>(outputs_[output_ordinal].input_indices.size())) {
+                VPRINT(this, 2, "next_record[%d]: all at eof\n", output_ordinal);
+                return sched_type_t::STATUS_EOF;
+            }
+            index = outputs_[output_ordinal]
+                        .input_indices[outputs_[output_ordinal].input_indices_index];
+            VPRINT(this, 2, "next_record[%d]: advancing to local index %d == input #%d\n",
+                   output_ordinal, outputs_[output_ordinal].input_indices_index, index);
+        }
+        if (inputs_[index].at_eof ||
+            *inputs_[index].reader == *inputs_[index].reader_end) {
+            VPRINT(this, 2, "next_record[%d]: local index %d == input #%d at eof\n",
+                   output_ordinal, outputs_[output_ordinal].input_indices_index, index);
+            inputs_[index].at_eof = true;
+            index = -1;
+            // Loop and pick next thread.
+            continue;
+        }
+        break;
+    }
+    outputs_[output_ordinal].cur_input = index;
     return sched_type_t::STATUS_OK;
 }
 
@@ -621,107 +713,63 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
                                                       RecordType &record,
                                                       input_info_t *&input)
 {
-    if (!(options_.how_split == STREAM_BY_INPUT_SHARD &&
-          options_.strategy == SCHEDULE_RUN_TO_COMPLETION) &&
-        !(options_.how_split == STREAM_BY_SYNTHETIC_CPU &&
-          options_.strategy == SCHEDULE_INTERLEAVE_AS_RECORDED)) {
-        // TODO i#5843: Implement instr/time quanta.
-        // TODO i#5843: Implement recorded-cpu scheduling.
-        // These will require locks and central coordination.
-        return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    if (outputs_[output_ordinal].cur_input < 0) {
+        // This happens with more outputs than inputs for SCHEDULE_RUN_TO_COMPLETION.
+        return sched_type_t::STATUS_EOF;
     }
-    if (options_.how_split == STREAM_BY_INPUT_SHARD) {
-        int index = outputs_[output_ordinal].cur_input;
-        while (true) {
-            if (index < 0) {
-                // We're just starting, or done with the prior thread; take the next one
-                // that was pre-allocated to this output (pre-allocated to avoid locks).
-                // Invariant: the same output_ordinal will not be accessed by two
-                // different threads simultaneously in this mode, allowing us to support a
-                // lock-free parallel-friendly increment here.
-                ++outputs_[output_ordinal].input_indices_index;
-                if (outputs_[output_ordinal].input_indices_index >=
-                    static_cast<int>(outputs_[output_ordinal].input_indices.size())) {
-                    VPRINT(this, 2, "next_record[%d]: all at eof\n", output_ordinal);
-                    return sched_type_t::STATUS_EOF;
-                }
-                index = outputs_[output_ordinal]
-                            .input_indices[outputs_[output_ordinal].input_indices_index];
-                VPRINT(this, 2,
-                       "next_record[%d]: advancing to local index %d == input #%d\n",
-                       output_ordinal, outputs_[output_ordinal].input_indices_index,
-                       index);
+    input = &inputs_[outputs_[output_ordinal].cur_input];
+    while (true) {
+        if (input->needs_init) {
+            // We pay the cost of this conditional to support ipc_reader_t::init() which
+            // blocks and must be called right before reading its first record.
+            // The user can't call init() when it accesses the output streams because
+            // it std::moved the reader to us; we can't call it between our own init()
+            // and here as we have no control point in between, and our init() is too
+            // early as the user may have other work after that.
+            input->reader->init();
+            input->needs_init = false;
+        }
+        if (!input->queue.empty()) {
+            record = input->queue.front();
+            input->queue.pop();
+        } else {
+            // We again have a flag check because reader_t::init() does an initial ++
+            // and so we want to skip that on the first record but perform a ++ prior
+            // to all subsequent records.  We do not want to ++ after reading as that
+            // messes up memtrace_stream_t queries on ordinals while the user examines
+            // the record.
+            if (input->needs_advance && !input->at_eof)
+                ++(*input->reader);
+            else {
+                input->needs_advance = true;
             }
-            if (inputs_[index].at_eof ||
-                *inputs_[index].reader == *inputs_[index].reader_end) {
-                VPRINT(this, 2, "next_record[%d]: local index %d == input #%d at eof\n",
-                       output_ordinal, outputs_[output_ordinal].input_indices_index,
-                       index);
-                inputs_[index].at_eof = true;
-                index = -1;
-                // Loop and pick next thread.
-            } else if (!inputs_[index].regions_of_interest.empty()) {
-                sched_type_t::stream_status_t res =
-                    advance_region_of_interest(output_ordinal, inputs_[index]);
-                if (res == sched_type_t::STATUS_EOF) {
-                    VPRINT(this, 2,
-                           "next_record[%d]: local index %d == input #%d beyond ROI\n",
-                           output_ordinal, outputs_[output_ordinal].input_indices_index,
-                           index);
-                    index = -1;
-                    // Loop and pick next thread.
-                } else if (res != sched_type_t::STATUS_OK)
+            if (input->at_eof || *input->reader == *input->reader_end) {
+                sched_type_t::stream_status_t res = pick_next_input(output_ordinal);
+                if (res != sched_type_t::STATUS_OK)
                     return res;
-                else
-                    break;
-            } else
-                break;
+                input = &inputs_[outputs_[output_ordinal].cur_input];
+                continue;
+            } else {
+                record = **input->reader;
+            }
         }
-        outputs_[output_ordinal].cur_input = index;
-        input = &inputs_[index];
-    } else {
-        // Currently file_reader_t is interleaving for us so we have just one input.
-        // TODO i#5843: Move interleaving logic to here (and split it into a separate
-        // function).
-        if (inputs_.size() > 1)
-            return sched_type_t::STATUS_NOT_IMPLEMENTED;
-        input = &inputs_[0];
-    }
-    if (input->needs_init) {
-        // We pay the cost of this conditional to support ipc_reader_t::init() which
-        // blocks and must be called right before reading its first record.
-        // The user can't call init() when it accesses the output streams because
-        // it std::moved the reader to us; we can't call it between our own init()
-        // and here as we have no control point in between, and our init() is too
-        // early as the user may have other work after that.
-        input->reader->init();
-        input->needs_init = false;
-    }
-    if (!input->regions_of_interest.empty()) {
-        sched_type_t::stream_status_t res =
-            advance_region_of_interest(output_ordinal, *input);
-        if (res != sched_type_t::STATUS_OK)
-            return res;
-    }
-    if (!input->queue.empty()) {
-        record = input->queue.front();
-        input->queue.pop();
-    } else {
-        // We again have a flag check because reader_t::init() does an initial ++
-        // and so we want to skip that on the first record but perform a ++ prior
-        // to all subsequent records.  We do not want to ++ after reading as that
-        // messes up memtrace_stream_t queries on ordinals while the user examines
-        // the record.
-        if (input->needs_advance)
-            ++(*input->reader);
-        else {
-            input->needs_advance = true;
+        if (input->needs_roi && !input->regions_of_interest.empty()) {
+            sched_type_t::stream_status_t res =
+                advance_region_of_interest(output_ordinal, record, *input);
+            if (res == sched_type_t::STATUS_SKIPPED) {
+                // We need either the queue or to re-de-ref the reader so we loop,
+                // but we do not want to come back here.
+                input->needs_roi = false;
+                input->needs_advance = false;
+                continue;
+            } else if (res != sched_type_t::STATUS_OK)
+                return res;
+        } else {
+            input->needs_roi = true;
         }
-        if (*input->reader == *input->reader_end)
-            return sched_type_t::STATUS_EOF;
-        record = **input->reader;
+        break;
     }
-    VPRINT(this, 4, "next_record[%d]: ", output_ordinal);
+    VPRINT(this, 4, "next_record[%d]: from %d: ", output_ordinal, input->index);
     VDO(this, 4, print_record(record););
 
     return sched_type_t::STATUS_OK;
