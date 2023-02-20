@@ -144,7 +144,7 @@ changes:
    drmgr_reserve_note_range().
  - Removed the drcachesim external iterator analyzer interface.  Users should instead
    use the new #dynamorio::drmemtrace::scheduler_tmpl_t interface for direct control
-   over iteration.
+   over iteration.  See \ref sec_drcachesim_sched for example code.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.
