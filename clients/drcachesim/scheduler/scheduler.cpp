@@ -579,6 +579,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_name(int output_ordinal)
 }
 
 template <typename RecordType, typename ReaderType>
+bool
+scheduler_tmpl_t<RecordType, ReaderType>::is_record_synthetic(int output_ordinal)
+{
+    int index = outputs_[output_ordinal].cur_input;
+    if (index < 0)
+        return false;
+    return inputs_[index].reader->is_record_synthetic();
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_ordinal,
                                                                      RecordType &record,

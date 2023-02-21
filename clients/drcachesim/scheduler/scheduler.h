@@ -396,8 +396,6 @@ public:
      */
     class stream_t : public memtrace_stream_t {
     public:
-        // TODO i#5843: Add Doxygen comments to all the remaining public elements
-        // below this line.
         stream_t(scheduler_tmpl_t<RecordType, ReaderType> *scheduler, int ordinal,
                  int verbosity = 0)
             : scheduler_(scheduler)
@@ -416,75 +414,135 @@ public:
         // We don’t plan to use range-based for loops or other language features for
         // iterators and our iteration is only forward, so std::iterator's value is
         // diminished.
+        /**
+         * Advances to the next record in the stream.  Returns a status code on whether
+         * and how to continue.
+         */
         virtual stream_status_t
         next_record(RecordType &record);
 
-        // This is unitless: it just needs to be called regularly and consistently.
+        /**
+         * Reports the current time to the scheduler.  This is unitless: it just
+         * needs to be called regularly and consistently.
+         * This is used for
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::QUANTUM_TIME.
+         */
         virtual stream_status_t
         report_time(uint64_t cur_time);
 
-        // These can be "nested"; only one stop_speculation call is needed to resume
-        // the paused stream.
+        /**
+         * Begins a diversion from the regular inputs to a side stream of records
+         * representing speculative execution starting at 'start_address'.
+         * This call can be "nested" but only one stop_speculation call is needed to
+         * resume the paused stream.
+         */
         virtual stream_status_t
         start_speculation(addr_t start_address);
 
-        // Returns STATUS_INVALID if there was no prior start_speculation() call.
+        /**
+         * Stops speculative execution and resumes the regular stream of records
+         * from the point at which the prior start_speculation call was made.
+         * Returns STATUS_INVALID if there was no prior start_speculation() call.
+         */
         virtual stream_status_t
         stop_speculation();
 
         // memtrace_stream_t interface:
 
+        /**
+         * Returns the count of #memref_t records from the start of the trace to this
+         * point. This includes records skipped over and not presented to any tool. It
+         * does not include synthetic records (see is_record_synthetic()).
+         */
         uint64_t
         get_record_ordinal() const override
         {
             return cur_ref_count_;
         }
+        /**
+         * Returns the count of instructions from the start of the trace to this point.
+         * This includes instructions skipped over and not presented to any tool.
+         */
         uint64_t
         get_instruction_ordinal() const override
         {
             return cur_instr_count_;
         }
+        /**
+         * Returns a name for the current input stream feeding this output stream. For
+         * stored offline traces, this is the base name of the trace on disk. For online
+         * traces, this is the name of the pipe.
+         */
         std::string
         get_stream_name() const override
         {
             return scheduler_->get_input_name(ordinal_);
         }
+        /**
+         * Returns the value of the last seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+         */
         uint64_t
         get_last_timestamp() const override
         {
             return last_timestamp_;
         }
+        /**
+         * Returns the #trace_version_t value from the #TRACE_MARKER_TYPE_VERSION record
+         * in the trace header.
+         */
         uint64_t
         get_version() const override
         {
             return version_;
         }
+        /**
+         * Returns the OFFLINE_FILE_TYPE_* bitfields of type #offline_file_type_t
+         * identifying the architecture and other key high-level attributes of the trace
+         * from the #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
+         */
         uint64_t
         get_filetype() const override
         {
             return filetype_;
         }
+        /**
+         * Returns the cache line size from the #TRACE_MARKER_TYPE_CACHE_LINE_SIZE record
+         * in the trace header.
+         */
         uint64_t
         get_cache_line_size() const override
         {
             return cache_line_size_;
         }
+        /**
+         * Returns the chunk instruction count from the
+         * #TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT record in the trace header.
+         */
         uint64_t
         get_chunk_instr_count() const override
         {
             return chunk_instr_count_;
         }
+        /**
+         * Returns the page size from the #TRACE_MARKER_TYPE_PAGE_SIZE record in
+         * the trace header.
+         */
         uint64_t
         get_page_size() const override
         {
             return page_size_;
         }
-
-        // Supplied for better error messages from the client.
-        std::string
-        get_source_file() const
+        /**
+         * Returns whether the current record was synthesized and inserted into the record
+         * stream and was not present in the original stream.  This is true for timestamp
+         * and cpuid headers duplicated after skipping ahead, as well as cpuid markers
+         * inserted for synthetic schedules.  Such records do not cound toward the record
+         * count and get_record_ordinal() will return the value of the prior record.
+         */
+        bool
+        is_record_synthetic() const override
         {
-            return cur_src_path_;
+            return scheduler_->is_record_synthetic(ordinal_);
         }
 
     protected:
@@ -494,7 +552,6 @@ public:
         uint64_t cur_ref_count_ = 0;
         uint64_t cur_instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
-        std::string cur_src_path_;
         // Remember top-level headers for the memtrace_stream_t interface.
         uint64_t version_ = 0;
         uint64_t filetype_ = 0;
@@ -506,6 +563,7 @@ public:
         friend class scheduler_tmpl_t<RecordType, ReaderType>;
     };
 
+    /** Default constructor. */
     scheduler_tmpl_t()
     {
     }
@@ -513,10 +571,17 @@ public:
     {
     }
 
+    /**
+     * Initializes the scheduler for the given inputs, count of output streams, and
+     * options.
+     */
     virtual scheduler_status_t
     init(std::vector<input_workload_t> &workload_inputs, int output_count,
          scheduler_options_t options);
 
+    /**
+     * Returns the 'ordinal'-th output stream.
+     */
     virtual stream_t *
     get_stream(int ordinal)
     {
@@ -525,6 +590,7 @@ public:
         return &outputs_[ordinal].stream;
     }
 
+    /** Returns a string further describing an error code. */
     std::string
     get_error_string()
     {
@@ -631,6 +697,11 @@ protected:
     // the 'output_ordinal'-th output stream.
     std::string
     get_input_name(int output_ordinal);
+
+    // Returns whether the current record for the current input stream scheduled on
+    // the 'output_ordinal'-th output stream is synthetic.
+    bool
+    is_record_synthetic(int output_ordinal);
 
     // This has the same value as scheduler_options_t.verbosity (for use in VPRINT).
     int verbosity_ = 0;
