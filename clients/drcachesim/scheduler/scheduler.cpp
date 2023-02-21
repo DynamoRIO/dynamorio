@@ -652,10 +652,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_
         stream.chunk_instr_count_ = input.reader->get_chunk_instr_count();
         stream.page_size_ = input.reader->get_page_size();
     }
-    if (input.cur_region > 0) {
-        // We let the user know we've skipped.
-        input.queue.push(create_region_separator_marker(input.tid, input.cur_region));
-    }
+    // We let the user know we've skipped.  There's no discontinuity for the
+    // first one but we insert a marker anyway to be consistent.
+    input.queue.push(create_region_separator_marker(input.tid, input.cur_region));
     return sched_type_t::STATUS_SKIPPED;
 }
 

@@ -263,27 +263,32 @@ test_regions()
         assert(status == scheduler_t::STATUS_OK);
         switch (ordinal) {
         case 0:
-            assert(type_is_instr(memref.instr.type));
-            assert(memref.instr.addr == 2);
-            break;
-        case 1:
             assert(memref.marker.type == TRACE_TYPE_MARKER);
             assert(memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID);
             assert(memref.marker.marker_value == 1);
             break;
-        case 2:
+        case 1:
             assert(type_is_instr(memref.instr.type));
-            assert(memref.instr.addr == 6);
+            assert(memref.instr.addr == 2);
+            break;
+        case 2:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID);
+            assert(memref.marker.marker_value == 1);
             break;
         case 3:
             assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 6);
+            break;
+        case 4:
+            assert(type_is_instr(memref.instr.type));
             assert(memref.instr.addr == 7);
             break;
-        default: assert(ordinal == 4); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
+        default: assert(ordinal == 5); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
         }
         ++ordinal;
     }
-    assert(ordinal == 5);
+    assert(ordinal == 6);
 }
 
 } // namespace
