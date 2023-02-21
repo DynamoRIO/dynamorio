@@ -340,7 +340,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                 // to this parallel model we can hit dup tids!  We'll need a different
                 // shard index solution.
                 shard_data[tid][i] = tools_[i]->parallel_shard_init_stream(
-                    tid, user_worker_data[i], worker->stream);
+                    static_cast<int>(tid), user_worker_data[i], worker->stream);
             }
         }
         for (int i = 0; i < num_tools_; ++i) {

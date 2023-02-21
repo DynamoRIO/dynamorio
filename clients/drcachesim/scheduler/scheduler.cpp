@@ -276,7 +276,7 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::create_thread_exit(memref_tid_
     trace_entry_t record;
     record.type = TRACE_TYPE_THREAD_EXIT;
     record.size = sizeof(tid);
-    record.addr = tid;
+    record.addr = static_cast<addr_t>(tid);
     return record;
 }
 
@@ -379,7 +379,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         if (workload.path.empty()) {
             if (!workload.reader || !workload.reader_end)
                 return STATUS_ERROR_INVALID_PARAMETER;
-            int index = inputs_.size();
+            int index = static_cast<int>(inputs_.size());
             inputs_.emplace_back();
             input_info_t &input = inputs_.back();
             input.index = index;
@@ -489,7 +489,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
         error_string_ += "Failed to open " + path;
         return STATUS_ERROR_FILE_OPEN_FAILED;
     }
-    int index = inputs_.size();
+    int index = static_cast<int>(inputs_.size());
     inputs_.emplace_back();
     input_info_t &input = inputs_.back();
     input.index = index;
