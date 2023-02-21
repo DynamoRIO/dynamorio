@@ -139,13 +139,17 @@ protected:
         operator=(const analyzer_worker_data_t &) = delete;
     };
 
-    // Either trace_path must be non-empty, or both reader and reader_end must be set.
+    bool
+    init_scheduler(const std::string &trace_path, int verbosity = 0);
+
     bool
     init_scheduler(
-        const std::string &trace_path,
         std::unique_ptr<ReaderType> reader = std::unique_ptr<ReaderType>(nullptr),
         std::unique_ptr<ReaderType> reader_end = std::unique_ptr<ReaderType>(nullptr),
         int verbosity = 0);
+
+    bool
+    init_scheduler_common(typename sched_type_t::input_workload_t &workload);
 
     // Used for std::thread so we need an rvalue (so no &worker).
     void

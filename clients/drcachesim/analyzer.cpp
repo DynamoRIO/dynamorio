@@ -141,36 +141,53 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t()
 
 template <typename RecordType, typename ReaderType>
 bool
-analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
-    const std::string &trace_path, std::unique_ptr<ReaderType> reader,
-    std::unique_ptr<ReaderType> reader_end, int verbosity)
+analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(const std::string &trace_path,
+                                                        int verbosity)
 {
     verbosity_ = verbosity;
+    if (trace_path.empty()) {
+        ERRMSG("Trace file name is empty\n");
+        return false;
+    }
+    std::vector<typename sched_type_t::range_t> regions;
+    if (skip_instrs_ > 0)
+        regions.emplace_back(skip_instrs_, 0);
+    typename sched_type_t::input_workload_t workload(trace_path, regions);
+    return init_scheduler_common(workload);
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
+    std::unique_ptr<ReaderType> reader, std::unique_ptr<ReaderType> reader_end,
+    int verbosity)
+{
+    verbosity_ = verbosity;
+    if (!reader || !reader_end) {
+        ERRMSG("Readers are empty\n");
+        return false;
+    }
+    std::vector<typename sched_type_t::range_t> regions;
+    if (skip_instrs_ > 0)
+        regions.emplace_back(skip_instrs_, 0);
+    typename sched_type_t::input_workload_t workload(std::move(reader),
+                                                     std::move(reader_end), regions);
+    return init_scheduler_common(workload);
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
+    typename sched_type_t::input_workload_t &workload)
+{
     for (int i = 0; i < num_tools_; ++i) {
         if (parallel_ && !tools_[i]->parallel_shard_supported()) {
             parallel_ = false;
             break;
         }
     }
-    std::vector<typename sched_type_t::input_workload_t> sched_inputs;
-    if (skip_instrs_ > 0) {
-        std::vector<typename sched_type_t::range_t> regions;
-        regions.emplace_back(skip_instrs_, 0);
-        sched_inputs.emplace_back(trace_path, regions);
-    } else {
-        sched_inputs.emplace_back(trace_path);
-    }
-    if (!trace_path.empty()) {
-        if (!!reader || !!reader_end)
-            return false;
-    } else if (trace_path.empty()) {
-        if (!reader || !reader_end) {
-            ERRMSG("Trace file name is empty\n");
-            return false;
-        }
-        sched_inputs[0].reader = std::move(reader);
-        sched_inputs[0].reader_end = std::move(reader_end);
-    }
+    std::vector<typename sched_type_t::input_workload_t> sched_inputs(1);
+    sched_inputs[0] = std::move(workload);
     typename sched_type_t::scheduler_options_t sched_ops;
     int output_count;
     if (parallel_) {

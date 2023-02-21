@@ -129,8 +129,7 @@ analyzer_multi_t::analyzer_multi_t()
     if (!op_indir.get_value().empty()) {
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        if (!init_scheduler(tracedir, std::unique_ptr<reader_t>(nullptr),
-                            std::unique_ptr<reader_t>(nullptr), op_verbose.get_value()))
+        if (!init_scheduler(tracedir, op_verbose.get_value()))
             success_ = false;
     } else if (op_infile.get_value().empty()) {
         // XXX i#3323: Add parallel analysis support for online tools.
@@ -138,14 +137,12 @@ analyzer_multi_t::analyzer_multi_t()
         auto reader = std::unique_ptr<reader_t>(
             new ipc_reader_t(op_ipc_name.get_value().c_str(), op_verbose.get_value()));
         auto end = std::unique_ptr<reader_t>(new ipc_reader_t());
-        if (!init_scheduler("", std::move(reader), std::move(end),
-                            op_verbose.get_value())) {
+        if (!init_scheduler(std::move(reader), std::move(end), op_verbose.get_value())) {
             success_ = false;
         }
     } else {
         // Legacy file.
-        if (!init_scheduler(op_infile.get_value(), std::unique_ptr<reader_t>(nullptr),
-                            std::unique_ptr<reader_t>(nullptr), op_verbose.get_value()))
+        if (!init_scheduler(op_infile.get_value(), op_verbose.get_value()))
             success_ = false;
     }
     if (!init_analysis_tools()) {

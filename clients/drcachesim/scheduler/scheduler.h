@@ -154,19 +154,9 @@ public:
 
     /** Specifies the input workloads to be scheduled. */
     struct input_workload_t {
-        /**
-         * Create a workload coming from a directory of many trace files or from
-         * a single trace file.
-         */
-        explicit input_workload_t(const std::string &trace_path)
-            : path(trace_path)
-        {
-        }
-        /** Create a workload with a pre-initialized reader. */
-        explicit input_workload_t(std::unique_ptr<ReaderType> reader,
-                                  std::unique_ptr<ReaderType> reader_end)
-            : reader(std::move(reader))
-            , reader_end(std::move(reader_end))
+        /** Create an empty workload.  This is not a valid final input. */
+        input_workload_t()
+            : struct_size(sizeof(input_workload_t))
         {
         }
         /**
@@ -174,11 +164,26 @@ public:
          * a single trace file where each trace file uses the given regions of interest.
          */
         input_workload_t(const std::string &trace_path,
-                         std::vector<range_t> regions_of_interest)
+                         std::vector<range_t> regions_of_interest = {})
             : struct_size(sizeof(input_workload_t))
             , path(trace_path)
         {
-            thread_modifiers.push_back(input_thread_info_t(regions_of_interest));
+            if (!regions_of_interest.empty())
+                thread_modifiers.push_back(input_thread_info_t(regions_of_interest));
+        }
+        /**
+         * Create a workload with a pre-initialized reader which uses the given
+         * regions of interest.
+         */
+        input_workload_t(std::unique_ptr<ReaderType> reader,
+                         std::unique_ptr<ReaderType> reader_end,
+                         std::vector<range_t> regions_of_interest = {})
+            : struct_size(sizeof(input_workload_t))
+            , reader(std::move(reader))
+            , reader_end(std::move(reader_end))
+        {
+            if (!regions_of_interest.empty())
+                thread_modifiers.push_back(input_thread_info_t(regions_of_interest));
         }
         /** Size of the struct for binary-compatible additions. */
         size_t struct_size = sizeof(input_workload_t);
