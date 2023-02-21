@@ -67,7 +67,7 @@ template <typename RecordType, typename ReaderType> class scheduler_tmpl_t {
 public:
     /**
      * Status codes used by non-stream member functions.
-     * get_error_string() provides additional information such was which input file
+     * get_error_string() provides additional information such as which input file
      * path failed.
      */
     enum scheduler_status_t {
@@ -80,7 +80,7 @@ public:
 
     /**
      * Status codes used by stream member functions.
-     * get_error_string() provides additional information such was which input file
+     * get_error_string() provides additional information such as which input file
      * path failed.
      */
     enum stream_status_t {
@@ -107,7 +107,7 @@ public:
          * begin at 1, so a 'start_instruction' value of 0 is invalid.
          */
         uint64_t start_instruction;
-        /** The ending point.  A stop value of 0 means the end of the trace. */
+        /** The ending point, inclusive.  A stop value of 0 means the end of the trace. */
         uint64_t stop_instruction;
     };
 
@@ -119,11 +119,11 @@ public:
     struct input_thread_info_t {
         /** Convenience constructor for common usage. */
         explicit input_thread_info_t(std::vector<range_t> regions)
-            : struct_size(sizeof(input_thread_info_t))
-            , regions_of_interest(regions)
+            : regions_of_interest(regions)
         {
         }
-        size_t struct_size; /**< Size of the struct for binary-compatible additions. */
+        /** Size of the struct for binary-compatible additions. */
+        size_t struct_size = sizeof(input_thread_info_t);
         /**
          * Which threads the details in this structure apply to.
          * If empty, the details apply to all not-yet-mentioned (by other 'tids'
@@ -156,7 +156,6 @@ public:
     struct input_workload_t {
         /** Create an empty workload.  This is not a valid final input. */
         input_workload_t()
-            : struct_size(sizeof(input_workload_t))
         {
         }
         /**
@@ -165,8 +164,7 @@ public:
          */
         input_workload_t(const std::string &trace_path,
                          std::vector<range_t> regions_of_interest = {})
-            : struct_size(sizeof(input_workload_t))
-            , path(trace_path)
+            : path(trace_path)
         {
             if (!regions_of_interest.empty())
                 thread_modifiers.push_back(input_thread_info_t(regions_of_interest));
@@ -178,8 +176,7 @@ public:
         input_workload_t(std::unique_ptr<ReaderType> reader,
                          std::unique_ptr<ReaderType> reader_end,
                          std::vector<range_t> regions_of_interest = {})
-            : struct_size(sizeof(input_workload_t))
-            , reader(std::move(reader))
+            : reader(std::move(reader))
             , reader_end(std::move(reader_end))
         {
             if (!regions_of_interest.empty())
@@ -312,9 +309,11 @@ public:
         {
         }
         /** Constructs a set of options with the given type and strategy. */
-        scheduler_options_t(stream_type_t stream_type, schedule_strategy_t strategy)
+        scheduler_options_t(stream_type_t stream_type, schedule_strategy_t strategy,
+                            int verbosity = 0)
             : how_split(stream_type)
             , strategy(strategy)
+            , verbosity(verbosity)
         {
         }
 
@@ -368,6 +367,12 @@ public:
         {
         }
 
+        // We deliberately use a regular function which can return a status for things
+        // like STATUS_IDLE and abandon attempting to follow std::iterator here as ++;*
+        // makes it harder to return multiple different statuses as first-class events.
+        // We don’t plan to use range-based for loops or other language features for
+        // iterators and our iteration is only forward, so std::iterator's value is
+        // diminished.
         virtual stream_status_t
         next_record(RecordType &record);
 

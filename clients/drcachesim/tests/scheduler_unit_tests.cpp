@@ -226,11 +226,17 @@ static void
 test_regions()
 {
     std::vector<memref_t> memrefs = {
-        make_instr(1, 1), make_instr(1, 2), // Region 1 is just this instr.
-        make_instr(1, 3), make_instr(1, 4),
-        make_instr(1, 5), make_instr(1, 6), // Region 2 starts here.
-        make_instr(1, 7),                   // Region 2 ends here.
-        make_instr(1, 8), make_exit(1),
+        /* clang-format off */
+        make_instr(1, 1),
+        make_instr(1, 2), // Region 1 is just this instr.
+        make_instr(1, 3),
+        make_instr(1, 4),
+        make_instr(1, 5),
+        make_instr(1, 6), // Region 2 starts here.
+        make_instr(1, 7), // Region 2 ends here.
+        make_instr(1, 8),
+        make_exit(1),
+        /* clang-format on */
     };
     std::unique_ptr<reader_t> input =
         std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs));
@@ -262,7 +268,7 @@ test_regions()
         switch (ordinal) {
         case 0:
             assert(type_is_instr(memref.instr.type));
-            assert(memref.instr.addr = 2);
+            assert(memref.instr.addr == 2);
             break;
         case 1:
             assert(memref.marker.type == TRACE_TYPE_MARKER);
@@ -271,11 +277,11 @@ test_regions()
             break;
         case 2:
             assert(type_is_instr(memref.instr.type));
-            assert(memref.instr.addr = 6);
+            assert(memref.instr.addr == 6);
             break;
         case 3:
             assert(type_is_instr(memref.instr.type));
-            assert(memref.instr.addr = 7);
+            assert(memref.instr.addr == 7);
             break;
         default: assert(ordinal == 4); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
         }

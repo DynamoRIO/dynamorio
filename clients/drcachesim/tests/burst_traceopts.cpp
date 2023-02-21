@@ -254,25 +254,26 @@ main(int argc, const char *argv[])
     int64 entry_count = 0;
     while (true) {
         memref_t memref_opt;
-        scheduler_t::stream_status_t status = stream_opt->next_record(memref_opt);
-        if (status == scheduler_t::STATUS_EOF)
-            break;
-        assert(status == scheduler_t::STATUS_OK);
         memref_t memref_noopt;
-        status = stream_noopt->next_record(memref_noopt);
-        if (status == scheduler_t::STATUS_EOF)
+        scheduler_t::stream_status_t status_opt = stream_opt->next_record(memref_opt);
+        scheduler_t::stream_status_t status_noopt =
+            stream_noopt->next_record(memref_noopt);
+        if (status_opt == scheduler_t::STATUS_EOF) {
+            assert(status_noopt == scheduler_t::STATUS_EOF);
             break;
-        assert(status == scheduler_t::STATUS_OK);
+        }
+        assert(status_opt == scheduler_t::STATUS_OK &&
+               status_noopt == scheduler_t::STATUS_OK);
         if (memref_opt.marker.type != memref_noopt.marker.type) {
             // Allow a header from a trace buffer filling up at a different
             // point in optimized vs unoptimized.
             while (memref_opt.marker.type == TRACE_TYPE_MARKER) {
-                status = stream_opt->next_record(memref_opt);
-                assert(status == scheduler_t::STATUS_OK);
+                status_opt = stream_opt->next_record(memref_opt);
+                assert(status_opt == scheduler_t::STATUS_OK);
             }
             while (memref_noopt.marker.type == TRACE_TYPE_MARKER) {
-                status = stream_noopt->next_record(memref_noopt);
-                assert(status == scheduler_t::STATUS_OK);
+                status_noopt = stream_noopt->next_record(memref_noopt);
+                assert(status_noopt == scheduler_t::STATUS_OK);
             }
         }
         std::string error =

@@ -47,7 +47,7 @@ reader_t::operator*()
 }
 
 trace_entry_t *
-reader_t::read_next_queue_or_entry()
+reader_t::read_next_entry_or_queue()
 {
     if (!queue_.empty()) {
         local_entry_ = queue_.front();
@@ -63,7 +63,7 @@ reader_t::operator++()
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
         if (bundle_idx_ == 0 /*not in instr bundle*/)
-            input_entry_ = read_next_queue_or_entry();
+            input_entry_ = read_next_entry_or_queue();
         if (input_entry_ == NULL) {
             if (!at_eof_) {
                 ERRMSG("Trace is truncated\n");
@@ -364,7 +364,7 @@ reader_t::skip_instructions(uint64_t instruction_count)
         // too-far instr.
         if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
             local_entry_ = *input_entry_;
-        input_entry_ = read_next_queue_or_entry();
+        input_entry_ = read_next_entry_or_queue();
         if (input_entry_ == nullptr) {
             if (!at_eof_) {
                 ERRMSG("Trace is truncated\n");

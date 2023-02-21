@@ -189,7 +189,7 @@ protected:
     // This first checks the local queue before calling read_next_entry().
     // in timestamp order.
     virtual trace_entry_t *
-    read_next_queue_or_entry();
+    read_next_entry_or_queue();
     // Replaces the just-read record with the prior record, supplied here.
     virtual void
     use_prev(trace_entry_t *prev);
@@ -225,8 +225,11 @@ protected:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
+    // We need to read ahead when skipping to include post-instr records.
+    // We store into this queue records already read from the input but not
+    // yet returned to the iterator.
     std::queue<trace_entry_t> queue_;
-    trace_entry_t local_entry_;
+    trace_entry_t local_entry_; // For use in returning a queue entry.
 
 private:
     struct encoding_info_t {
