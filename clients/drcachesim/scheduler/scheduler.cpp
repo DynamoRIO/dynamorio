@@ -653,8 +653,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_
         stream.page_size_ = input.reader->get_page_size();
     }
     // We let the user know we've skipped.  There's no discontinuity for the
-    // first one but we insert a marker anyway to be consistent.
-    input.queue.push(create_region_separator_marker(input.tid, input.cur_region));
+    // first one so we do not insert a marker there (if we do want to insert one,
+    // we need to update the view tool to handle a window marker as the very
+    // first entry).
+    if (input.cur_region > 0) {
+        input.queue.push(create_region_separator_marker(input.tid, input.cur_region));
+    }
     return sched_type_t::STATUS_SKIPPED;
 }
 
