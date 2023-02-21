@@ -191,6 +191,7 @@ protected:
     virtual trace_entry_t *
     read_next_entry_or_queue();
     // Replaces the just-read record with the prior record, supplied here.
+    // Separated into a virtual method for overriding in test mock readers.
     virtual void
     use_prev(trace_entry_t *prev);
     // This reads the next entry from the single stream of entries

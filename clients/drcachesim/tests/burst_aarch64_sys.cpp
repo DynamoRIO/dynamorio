@@ -235,11 +235,9 @@ main(int argc, const char *argv[])
     int dc_zva_memref_count = 0;
     addr_t last_dc_zva_pc = 0;
     auto *stream = scheduler.get_stream(0);
-    while (true) {
-        memref_t memref;
-        scheduler_t::stream_status_t status = stream->next_record(memref);
-        if (status == scheduler_t::STATUS_EOF)
-            break;
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
         if (memref.marker.type == TRACE_TYPE_MARKER &&
             memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {

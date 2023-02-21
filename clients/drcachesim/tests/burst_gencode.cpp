@@ -295,11 +295,9 @@ look_for_gencode(std::string trace_dir)
     dr_set_isa_mode(dr_context, DR_ISA_ARM_A32, nullptr);
 #endif
     auto *stream = scheduler.get_stream(0);
-    while (true) {
-        memref_t memref;
-        scheduler_t::stream_status_t status = stream->next_record(memref);
-        if (status == scheduler_t::STATUS_EOF)
-            break;
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
         if (memref.marker.type == TRACE_TYPE_MARKER &&
             memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE &&

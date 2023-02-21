@@ -285,7 +285,8 @@ void
 scheduler_tmpl_t<trace_entry_t, record_reader_t>::print_record(
     const trace_entry_t &record)
 {
-    fprintf(stderr, "type=%d\n", record.type);
+    fprintf(stderr, "type=%d size=%d addr=0x%zx\n", record.type, record.size,
+            record.addr);
 }
 
 /***************************************************************************
@@ -441,7 +442,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
     for (int i = 0; i < output_count; i++) {
         outputs_.emplace_back(this, i, verbosity_);
     }
-    if (options_.consider_input_dependencies) {
+    if (options_.dependency_flags != DEPENDENCY_IGNORE) {
         // TODO i#5843: Implement dependency analysis and use it to inform input stream
         // preemption.  Probably we would take offline analysis results as an input.
         return STATUS_ERROR_NOT_IMPLEMENTED;

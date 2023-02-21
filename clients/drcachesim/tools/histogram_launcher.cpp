@@ -135,11 +135,9 @@ _tmain(int argc, const TCHAR *targv[])
                         scheduler.get_error_string().c_str());
         }
         auto *stream = scheduler.get_stream(0);
-        while (true) {
-            memref_t record;
-            scheduler_t::stream_status_t status = stream->next_record(record);
-            if (status == scheduler_t::STATUS_EOF)
-                break;
+        memref_t record;
+        for (scheduler_t::stream_status_t status = stream->next_record(record);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
             if (status != scheduler_t::STATUS_OK)
                 FATAL_ERROR("scheduler failed to advance: %d", status);
             if (!tool1->process_memref(record)) {

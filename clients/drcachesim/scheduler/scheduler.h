@@ -84,10 +84,23 @@ public:
      * path failed.
      */
     enum stream_status_t {
-        STATUS_OK,              /**< Stream is healthy and can continue to advance. */
-        STATUS_EOF,             /**< Stream is at its end. */
-        STATUS_IDLE,            /**< No records at this time. */
-        STATUS_WAIT,            /**< Waiting for other streams to advance. */
+        STATUS_OK,  /**< Stream is healthy and can continue to advance. */
+        STATUS_EOF, /**< Stream is at its end. */
+        /**
+         * Indicates that there is no activity on this stream at this time.
+         * This happens for
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::STREAM_BY_RECORDED_CPU when
+         * the original recorded trace contains idle periods on some cores.
+         */
+        STATUS_IDLE,
+        /**
+         * For dynamic scheduling with cross-stream dependencies, the scheduler may pause
+         * a stream if it gets ahead of another stream it should have a dependence on.
+         * This value is also used for schedules following the recorded timestamps
+         * (#dynamorio::drmemtrace::scheduler_tmpl_t::STREAM_BY_RECORDED_CPU) to
+         * avoid one stream getting ahead of another.
+         */
+        STATUS_WAIT,
         STATUS_INVALID,         /**< Error condition. */
         STATUS_REGION_INVALID,  /**< Input region is out of bounds. */
         STATUS_NOT_IMPLEMENTED, /**< Feature not implemented. */
@@ -220,6 +233,11 @@ public:
          * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULE_RUN_TO_COMPLETION.
          */
         STREAM_BY_INPUT_SHARD,
+        // TODO i#5843: Currently it is up to the user to figure out the original core
+        // count and pass that number in.  It would be convenient to have the scheduler
+        // figure out the output count.  We'd need some way to return that count; I
+        // imagine we could add a new query routine to get it and so not change the
+        // existing interfaces.
         /**
          * Each input stream is assumed to contain markers indicating how it was
          * originally scheduled.  This recorded schedule is replayed.  This requires an
@@ -232,6 +250,8 @@ public:
          * The input streams are scheduling using a new synthetic schedule onto the
          * output streams.  Any input markers indicating how the software threads were
          * originally scheduled during tracing are ignored.
+         * This is not compatible with
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULE_INTERLEAVE_AS_RECORDED.
          */
         STREAM_BY_SYNTHETIC_CPU,
     };
@@ -240,7 +260,8 @@ public:
     enum schedule_strategy_t {
         /**
          * Runs each input stream to completion without interleaving it with other
-         * inputs.  Ignores inter-input dependences.
+         * inputs.  Ignores inter-input dependences.  If an output stream runs out
+         * of inputs it will be empty while other output streams finish.
          */
         SCHEDULE_RUN_TO_COMPLETION,
         /**
@@ -299,6 +320,13 @@ public:
         // TODO i#5843: Add more speculation flags for other strategies.
     };
 
+    /** Flags specifying how inter-input-stream dependencies are handled. */
+    enum dependency_flags_t {
+        /** Ignores all inter-stream dependencies. */
+        DEPENDENCY_IGNORE = 0,
+        // TODO i#5843: Add dependency types and handling.
+    };
+
     /**
      * Collects the parameters specifying how the scheduler should behave, outside
      * of the workload inputs and the output count.
@@ -334,10 +362,10 @@ public:
          */
         uint64_t quantum_duration = 10 * 1000 * 1000;
         /**
-         * Whether input stream inter-dependencies should be considered when preempting
-         * input streams.
+         * Whether and how input stream inter-dependencies should be considered when
+         * preempting input streams.
          */
-        bool consider_input_dependencies = false;
+        dependency_flags_t dependency_flags = DEPENDENCY_IGNORE;
         /**
          * If > 0, diagnostic messages are printed to stderr.  Higher values produce
          * more frequent diagnostics.
@@ -514,8 +542,8 @@ protected:
         // workload index + tid to identify the original input.
         int workload = -1;
         memref_tid_t tid = INVALID_THREAD_ID;
-        // If non-empty these records should be returned before incrementing
-        // the reader.
+        // If non-empty these records should be returned before incrementing the reader.
+        // This is used for read-ahead and inserting synthetic records.
         std::queue<RecordType> queue;
         std::set<int> binding;
         int priority = 0;
@@ -542,48 +570,65 @@ protected:
         int input_indices_index = 0;
     };
 
+    // Opens up all the readers for each file in 'path' which may be a directory.
+    // Returns a map of the thread id of each file to its index in inputs_.
     scheduler_status_t
     open_readers(const std::string &path,
                  std::unordered_map<memref_tid_t, int> &workload_tids);
 
+    // Opens up a single reader for the (non-directory) file in 'path'.
+    // Returns a map of the thread id of the file to its index in inputs_.
     scheduler_status_t
     open_reader(const std::string &path,
                 std::unordered_map<memref_tid_t, int> &workload_tids);
 
+    // Creates a reader for the default file type we support.
     std::unique_ptr<ReaderType>
     get_default_reader();
 
+    // Creates a reader for the specific file type at (non-directory) 'path'.
     std::unique_ptr<ReaderType>
     get_reader(const std::string &path, int verbosity);
 
+    // Advances the 'output_ordinal'-th output stream.
     stream_status_t
     next_record(int output_ordinal, RecordType &record, input_info_t *&input);
 
+    // Skips ahead to the next region of interest if necessary.
     stream_status_t
     advance_region_of_interest(int output_ordinal, RecordType &record,
                                input_info_t &input);
 
+    // Finds the next input stream for the 'output_ordinal'-th output stream.
     stream_status_t
     pick_next_input(int output_ordinal);
 
+    // If the given record has a thread id field, returns true and the value.
     bool
     record_type_has_tid(RecordType record, memref_tid_t &tid);
 
+    // Returns whether the given record is an instruction.
     bool
     record_type_is_instr(RecordType record);
 
+    // If the given record is a marker, returns true and its fields.
     bool
     record_type_is_marker(RecordType record, trace_marker_type_t &type, uintptr_t &value);
 
+    // Creates the marker we insert between regions of interest.
     RecordType
     create_region_separator_marker(memref_tid_t tid, uintptr_t value);
 
+    // Creates a thread exit record.
     RecordType
     create_thread_exit(memref_tid_t tid);
 
+    // Used for diagnostics: prints record fields to stderr.
     void
     print_record(const RecordType &record);
 
+    // Returns the get_stream_name() value for the current input stream scheduled on
+    // the 'output_ordinal'-th output stream.
     std::string
     get_input_name(int output_ordinal);
 

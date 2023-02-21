@@ -179,11 +179,9 @@ test_parallel()
     int count = 0;
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         auto *stream = scheduler.get_stream(i);
-        while (true) {
-            memref_t memref;
-            scheduler_t::stream_status_t status = stream->next_record(memref);
-            if (status == scheduler_t::STATUS_EOF)
-                break;
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
             assert(status == scheduler_t::STATUS_OK);
             ++count;
             // Ensure one input thread is only in one output stream.
@@ -259,11 +257,9 @@ test_regions()
         assert(false);
     int ordinal = 0;
     auto *stream = scheduler.get_stream(0);
-    while (true) {
-        memref_t memref;
-        scheduler_t::stream_status_t status = stream->next_record(memref);
-        if (status == scheduler_t::STATUS_EOF)
-            break;
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
         switch (ordinal) {
         case 0:
