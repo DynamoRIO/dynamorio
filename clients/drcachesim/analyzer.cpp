@@ -191,17 +191,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     typename sched_type_t::scheduler_options_t sched_ops;
     int output_count;
     if (parallel_) {
-        sched_ops.how_split = sched_type_t::STREAM_BY_INPUT_SHARD;
-        sched_ops.strategy = sched_type_t::SCHEDULE_RUN_TO_COMPLETION;
+        sched_ops = sched_type_t::make_scheduler_parallel_ops(verbosity_);
         if (worker_count_ <= 0)
             worker_count_ = std::thread::hardware_concurrency();
     } else {
-        sched_ops.how_split = sched_type_t::STREAM_BY_SYNTHETIC_CPU;
-        sched_ops.strategy = sched_type_t::SCHEDULE_INTERLEAVE_AS_RECORDED;
+        sched_ops = sched_type_t::make_scheduler_serial_ops(verbosity_);
         worker_count_ = 1;
     }
     output_count = worker_count_;
-    sched_ops.verbosity = verbosity_;
     if (scheduler_.init(sched_inputs, output_count, sched_ops) !=
         sched_type_t::STATUS_SUCCESS) {
         ERRMSG("Failed to initialize scheduler: %s\n",

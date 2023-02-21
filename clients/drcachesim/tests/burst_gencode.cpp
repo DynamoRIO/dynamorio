@@ -283,10 +283,8 @@ look_for_gencode(std::string trace_dir)
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(trace_dir);
-    scheduler_t::scheduler_options_t sched_ops(
-        scheduler_t::STREAM_BY_SYNTHETIC_CPU,
-        scheduler_t::SCHEDULE_INTERLEAVE_AS_RECORDED);
-    if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS) {
+    if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_ops()) !=
+        scheduler_t::STATUS_SUCCESS) {
         std::cerr << "Failed to initialize scheduler " << scheduler.get_error_string()
                   << "\n";
     }

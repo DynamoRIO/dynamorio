@@ -227,14 +227,11 @@ main(int argc, const char *argv[])
     // Now compare the two traces using external iterators and a custom tool.
     void *dr_context = dr_standalone_init();
 
-    scheduler_t::scheduler_options_t sched_ops(
-        scheduler_t::STREAM_BY_SYNTHETIC_CPU,
-        scheduler_t::SCHEDULE_INTERLEAVE_AS_RECORDED);
-
     scheduler_t scheduler_opt;
     std::vector<scheduler_t::input_workload_t> sched_opt_inputs;
     sched_opt_inputs.emplace_back(dir_opt);
-    if (scheduler_opt.init(sched_opt_inputs, 1, sched_ops) !=
+    if (scheduler_opt.init(sched_opt_inputs, 1,
+                           scheduler_t::make_scheduler_serial_ops()) !=
         scheduler_t::STATUS_SUCCESS) {
         std::cerr << "Failed to initialize scheduler " << scheduler_opt.get_error_string()
                   << "\n";
@@ -243,7 +240,8 @@ main(int argc, const char *argv[])
     scheduler_t scheduler_noopt;
     std::vector<scheduler_t::input_workload_t> sched_noopt_inputs;
     sched_noopt_inputs.emplace_back(dir_noopt);
-    if (scheduler_noopt.init(sched_noopt_inputs, 1, sched_ops) !=
+    if (scheduler_noopt.init(sched_noopt_inputs, 1,
+                             scheduler_t::make_scheduler_serial_ops()) !=
         scheduler_t::STATUS_SUCCESS) {
         std::cerr << "Failed to initialize scheduler "
                   << scheduler_noopt.get_error_string() << "\n";

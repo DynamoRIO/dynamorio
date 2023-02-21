@@ -345,6 +345,21 @@ public:
         int verbosity = 0;
     };
 
+    /** Constructs options for a parallel run-to-completion schedule. */
+    static scheduler_options_t
+    make_scheduler_parallel_ops(int verbosity = 0)
+    {
+        return scheduler_options_t(sched_type_t::STREAM_BY_INPUT_SHARD,
+                                   sched_type_t::SCHEDULE_RUN_TO_COMPLETION, verbosity);
+    }
+    /** Constructs options for a serial as-recorded schedule. */
+    static scheduler_options_t
+    make_scheduler_serial_ops(int verbosity = 0)
+    {
+        return scheduler_options_t(sched_type_t::STREAM_BY_SYNTHETIC_CPU,
+                                   sched_type_t::SCHEDULE_INTERLEAVE_AS_RECORDED,
+                                   verbosity);
+    }
     /**
      * Represents a stream of RecordType trace records derived from a
      * subset of a set of input recorded traces.  Provides more
