@@ -89,7 +89,7 @@ public:
         /**
          * Indicates that there is no activity on this stream at this time.
          * This happens for
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::STREAM_BY_RECORDED_CPU when
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT when
          * the original recorded trace contains idle periods on some cores.
          */
         STATUS_IDLE,
@@ -97,7 +97,7 @@ public:
          * For dynamic scheduling with cross-stream dependencies, the scheduler may pause
          * a stream if it gets ahead of another stream it should have a dependence on.
          * This value is also used for schedules following the recorded timestamps
-         * (#dynamorio::drmemtrace::scheduler_tmpl_t::STREAM_BY_RECORDED_CPU) to
+         * (#dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS) to
          * avoid one stream getting ahead of another.
          */
         STATUS_WAIT,
@@ -224,15 +224,16 @@ public:
         std::vector<input_thread_info_t> thread_modifiers;
     };
 
-    /** Controls the primary mode of the scheduler regarding the input streams. */
-    enum stream_type_t {
+    /** Controls how inputs are mapped to outputs. */
+    enum mapping_t {
+        // TODO i#5843: Can we get doxygen to link references without the fully-qualified
+        // name?
         /**
-         * Each input stream is mapped without interleaving directly onto a single
-         * output stream (i.e., no input will appear on more than one output),
-         * supporting parallel analysis.  The only strategy supported here is
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULE_RUN_TO_COMPLETION.
+         * Each input stream is mapped to a single output stream (i.e., no input will
+         * appear on more than one output), supporting lock-free parallel analysis when
+         * combined with #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_IGNORE.
          */
-        STREAM_BY_INPUT_SHARD,
+        MAP_TO_CONSISTENT_OUTPUT,
         // TODO i#5843: Currently it is up to the user to figure out the original core
         // count and pass that number in.  It would be convenient to have the scheduler
         // figure out the output count.  We'd need some way to return that count; I
@@ -240,55 +241,33 @@ public:
         // existing interfaces.
         /**
          * Each input stream is assumed to contain markers indicating how it was
-         * originally scheduled.  This recorded schedule is replayed.  This requires an
-         * output stream count equal to the number of cores occupied by the input stream
-         * set.  The only strategy supported here is
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULE_INTERLEAVE_AS_RECORDED.
+         * originally scheduled.  Those markers are honored with respect to which core
+         * number (considered to correspond to output stream ordinal) an input is
+         * scheduled into.  This requires an output stream count equal to the number of
+         * cores occupied by the input stream set.  When combined with
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS, this will
+         * precisely replay the recorded schedule.
          */
-        STREAM_BY_RECORDED_CPU,
+        MAP_TO_RECORDED_OUTPUT,
         /**
          * The input streams are scheduling using a new synthetic schedule onto the
          * output streams.  Any input markers indicating how the software threads were
-         * originally scheduled during tracing are ignored.
-         * This is not compatible with
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULE_INTERLEAVE_AS_RECORDED.
+         * originally mapped to cores during tracing are ignored.
          */
-        STREAM_BY_SYNTHETIC_CPU,
+        MAP_TO_ANY_OUTPUT,
     };
 
-    /** Controls the output of the scheduler. */
-    enum schedule_strategy_t {
-        /**
-         * Runs each input stream to completion without interleaving it with other
-         * inputs.  Ignores inter-input dependences.  If an output stream runs out
-         * of inputs it will be empty while other output streams finish.
-         */
-        SCHEDULE_RUN_TO_COMPLETION,
-        /**
-         * Interleaves and schedules the inputs exactly as they were recorded,
-         * following the markers in the input streams.
-         * This requires an output stream count equal to the number of cores
-         * occupied by the input stream set.
-         * The only stream type supported here is
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::STREAM_BY_RECORDED_CPU.
-         */
-        SCHEDULE_INTERLEAVE_AS_RECORDED,
-        // TODO i#5843: Can we get doxygen to link references without the
-        // fully-qualified name?  These are so long I had to omit the
-        // 'quantum_duration' to stay in the vera++-checked line limit.
-        /**
-         * Uses a synthetic schedule with pre-emption of an input to be replaced
-         * by another input on a given output stream when it uses up its
-         * quantum.  The quantum unit is specified by the 'quantum_unit` and
-         * the size by the `quantum_duration` fields of
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.
-         */
-        SCHEDULE_BY_QUANTUM,
+    /** Flags specifying how inter-input-stream dependencies are handled. */
+    enum inter_input_dependency_t {
+        /** Ignores all inter-input dependencies. */
+        DEPENDENCY_IGNORE,
+        /** Ensures timestamps in the inputs arrive at the outputs in timestamp order. */
+        DEPENDENCY_TIMESTAMPS,
+        // TODO i#5843: Add inferred data dependencies.
     };
 
     /**
-     * Quantum units used by
-     * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULE_BY_QUANTUM.
+     * Quantum units used for replacing one input with another pre-emptively.
      */
     enum quantum_unit_t {
         /** Uses the instruction count as the quantum. */
@@ -320,13 +299,6 @@ public:
         // TODO i#5843: Add more speculation flags for other strategies.
     };
 
-    /** Flags specifying how inter-input-stream dependencies are handled. */
-    enum dependency_flags_t {
-        /** Ignores all inter-stream dependencies. */
-        DEPENDENCY_IGNORE = 0,
-        // TODO i#5843: Add dependency types and handling.
-    };
-
     /**
      * Collects the parameters specifying how the scheduler should behave, outside
      * of the workload inputs and the output count.
@@ -337,20 +309,20 @@ public:
         {
         }
         /** Constructs a set of options with the given type and strategy. */
-        scheduler_options_t(stream_type_t stream_type, schedule_strategy_t strategy,
+        scheduler_options_t(mapping_t mapping, inter_input_dependency_t deps,
                             int verbosity = 0)
-            : how_split(stream_type)
-            , strategy(strategy)
+            : mapping(mapping)
+            , deps(deps)
             , verbosity(verbosity)
         {
         }
 
         /** Size of the struct for binary-compatible additions. */
         size_t struct_size = sizeof(scheduler_options_t);
-        /** The base mode of the scheduler with respect to input streams. */
-        stream_type_t how_split = STREAM_BY_SYNTHETIC_CPU;
-        /** The scheduling strategy. */
-        schedule_strategy_t strategy = SCHEDULE_BY_QUANTUM;
+        /** The mapping of inputs to outputs. */
+        mapping_t mapping = MAP_TO_RECORDED_OUTPUT;
+        /** How inter-input dependencies are handled. */
+        inter_input_dependency_t deps = DEPENDENCY_IGNORE;
         /** Optional flags affecting scheduler behavior. */
         scheduler_flags_t flags = SCHEDULER_DEFAULTS;
         /** The unit of the schedule time quantum. */
@@ -362,32 +334,27 @@ public:
          */
         uint64_t quantum_duration = 10 * 1000 * 1000;
         /**
-         * Whether and how input stream inter-dependencies should be considered when
-         * preempting input streams.
-         */
-        dependency_flags_t dependency_flags = DEPENDENCY_IGNORE;
-        /**
          * If > 0, diagnostic messages are printed to stderr.  Higher values produce
          * more frequent diagnostics.
          */
         int verbosity = 0;
     };
 
-    /** Constructs options for a parallel run-to-completion schedule. */
+    /** Constructs options for a parallel no-inter-input-dependencies schedule. */
     static scheduler_options_t
     make_scheduler_parallel_ops(int verbosity = 0)
     {
-        return scheduler_options_t(sched_type_t::STREAM_BY_INPUT_SHARD,
-                                   sched_type_t::SCHEDULE_RUN_TO_COMPLETION, verbosity);
+        return scheduler_options_t(sched_type_t::MAP_TO_CONSISTENT_OUTPUT,
+                                   sched_type_t::DEPENDENCY_IGNORE, verbosity);
     }
     /** Constructs options for a serial as-recorded schedule. */
     static scheduler_options_t
     make_scheduler_serial_ops(int verbosity = 0)
     {
-        return scheduler_options_t(sched_type_t::STREAM_BY_SYNTHETIC_CPU,
-                                   sched_type_t::SCHEDULE_INTERLEAVE_AS_RECORDED,
-                                   verbosity);
+        return scheduler_options_t(sched_type_t::MAP_TO_RECORDED_OUTPUT,
+                                   sched_type_t::DEPENDENCY_TIMESTAMPS, verbosity);
     }
+
     /**
      * Represents a stream of RecordType trace records derived from a
      * subset of a set of input recorded traces.  Provides more

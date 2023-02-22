@@ -111,7 +111,8 @@ _tmain(int argc, const TCHAR *targv[])
         // We use this launcher to run tests as well:
         tools.push_back(&tool2);
     }
-    analyzer_t analyzer(op_trace_dir.get_value(), &tools[0], (int)tools.size());
+    analyzer_t analyzer(op_trace_dir.get_value(), &tools[0], (int)tools.size(), 0, 0,
+                        op_verbose.get_value());
     if (!analyzer) {
         FATAL_ERROR("failed to initialize analyzer: %s",
                     analyzer.get_error_string().c_str());
@@ -129,8 +130,9 @@ _tmain(int argc, const TCHAR *targv[])
         scheduler_t scheduler;
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(op_trace_dir.get_value());
-        if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_ops()) !=
-            scheduler_t::STATUS_SUCCESS) {
+        if (scheduler.init(sched_inputs, 1,
+                           scheduler_t::make_scheduler_serial_ops(
+                               op_verbose.get_value())) != scheduler_t::STATUS_SUCCESS) {
             FATAL_ERROR("failed to initialize scheduler: %s",
                         scheduler.get_error_string().c_str());
         }

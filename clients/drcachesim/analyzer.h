@@ -103,7 +103,7 @@ public:
      */
     analyzer_tmpl_t(const std::string &trace_path,
                     analysis_tool_tmpl_t<RecordType> **tools, int num_tools,
-                    int worker_count = 0, uint64_t skip_instrs = 0);
+                    int worker_count = 0, uint64_t skip_instrs = 0, int verbosity = 0);
     /** Launches the analysis process. */
     virtual bool
     run();
@@ -174,9 +174,9 @@ protected:
     analysis_tool_tmpl_t<RecordType> **tools_;
     bool parallel_;
     int worker_count_;
-    int verbosity_ = 0;
     const char *output_prefix_ = "[analyzer]";
     uint64_t skip_instrs_ = 0;
+    int verbosity_ = 0;
 
 private:
     bool

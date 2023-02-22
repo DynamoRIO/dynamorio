@@ -442,15 +442,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
     for (int i = 0; i < output_count; i++) {
         outputs_.emplace_back(this, i, verbosity_);
     }
-    if (options_.dependency_flags != DEPENDENCY_IGNORE) {
-        // TODO i#5843: Implement dependency analysis and use it to inform input stream
-        // preemption.  Probably we would take offline analysis results as an input.
-        return STATUS_ERROR_NOT_IMPLEMENTED;
-    }
-    if (options_.how_split == STREAM_BY_INPUT_SHARD) {
-        // This mode is pure parallel with dependencies between threads ignored.
-        if (options_.strategy != SCHEDULE_RUN_TO_COMPLETION)
-            return STATUS_ERROR_INVALID_PARAMETER;
+    if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT) {
         // Assign the inputs up front to avoid locks once we're in parallel mode.
         // We use a simple round-robin static assignment for now.
         for (int i = 0; i < static_cast<int>(inputs_.size()); i++) {
@@ -458,22 +450,22 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             if (outputs_[index].input_indices.empty())
                 outputs_[index].cur_input = i;
             outputs_[index].input_indices.push_back(i);
+            VPRINT(this, 2, "Assigning input #%d to output #%zd\n", i, index);
         }
-    } else if (options_.how_split == STREAM_BY_SYNTHETIC_CPU) {
-        // TODO i#5843: Implement scheduling onto synthetic cores.
+    } else if (options_.mapping == MAP_TO_RECORDED_OUTPUT) {
+        // TODO i#5843,i#5694: Implement cpu-oriented parallel iteration.
         // Initially we only support analyzer_t's serial mode.
-        if (options_.strategy != SCHEDULE_INTERLEAVE_AS_RECORDED)
+        if (options_.deps != DEPENDENCY_TIMESTAMPS)
             return STATUS_ERROR_NOT_IMPLEMENTED;
         // Currently file_reader_t is interleaving for us so we have just one input.
         // TODO i#5843: Move interleaving logic to scheduler_t.
         if (output_count != 1 || inputs_.size() != 1)
             return STATUS_ERROR_NOT_IMPLEMENTED;
         outputs_[0].cur_input = 0;
-    } else if (options_.how_split == STREAM_BY_RECORDED_CPU) {
-        // TODO i#5843,i#5694: Implement cpu-oriented iteration.
+    } else {
+        // TODO i#5843: Implement scheduling onto synthetic cores.
         return STATUS_ERROR_NOT_IMPLEMENTED;
-    } else
-        return STATUS_ERROR_INVALID_PARAMETER;
+    }
     return STATUS_SUCCESS;
 }
 
@@ -523,8 +515,8 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::open_readers(
     const std::string &path, std::unordered_map<memref_tid_t, int> &workload_tids)
 {
-    if (options_.how_split == STREAM_BY_SYNTHETIC_CPU &&
-        options_.strategy == SCHEDULE_INTERLEAVE_AS_RECORDED) {
+    if (options_.mapping == MAP_TO_RECORDED_OUTPUT &&
+        options_.deps == DEPENDENCY_TIMESTAMPS) {
         // TODO i#5843: Move the interleaving-by-timestamp code from
         // file_reader_t into this scheduler.  For now we leverage the
         // file_reader_t code and use a sentinel tid (per-thread scheduling
@@ -676,14 +668,13 @@ template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(int output_ordinal)
 {
-    if (options_.strategy == SCHEDULE_INTERLEAVE_AS_RECORDED) {
+    if (options_.mapping == MAP_TO_RECORDED_OUTPUT) {
         // TODO i#5843: For now we have a single input; we'll need to change this
         // once we move the file_reader_t interleaving here.
         return sched_type_t::STATUS_EOF;
     }
-    if (options_.how_split != STREAM_BY_INPUT_SHARD) {
-        // TODO i#5843: Implement instr/time quanta.
-        // TODO i#5843: Implement recorded-cpu scheduling.
+    if (options_.mapping != MAP_TO_CONSISTENT_OUTPUT) {
+        // TODO i#5843: Implement synthetic scheduling with instr/time quanta.
         // These will require locks and central coordination.
         return sched_type_t::STATUS_NOT_IMPLEMENTED;
     }

@@ -168,11 +168,9 @@ test_parallel()
             std::unique_ptr<mock_reader_t>(new mock_reader_t());
         sched_inputs.emplace_back(std::move(input), std::move(end));
     }
-    scheduler_t::scheduler_options_t sched_ops(scheduler_t::STREAM_BY_INPUT_SHARD,
-                                               scheduler_t::SCHEDULE_RUN_TO_COMPLETION);
-    sched_ops.verbosity = 4;
     scheduler_t scheduler;
-    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS,
+                       scheduler_t::make_scheduler_parallel_ops(/*verbosity=*/4)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     std::unordered_map<memref_tid_t, int> tid2stream;
@@ -207,16 +205,13 @@ test_param_checks()
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(input), std::move(end));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
-    scheduler_t::scheduler_options_t sched_ops(
-        scheduler_t::STREAM_BY_SYNTHETIC_CPU,
-        scheduler_t::SCHEDULE_INTERLEAVE_AS_RECORDED);
-    assert(scheduler.init(sched_inputs, 1, sched_ops) ==
+    assert(scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_ops()) ==
            scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
 
     // Test stop > start.
     sched_inputs[0].thread_modifiers[0].regions_of_interest[0].start_instruction = 2;
     sched_inputs[0].thread_modifiers[0].regions_of_interest[0].stop_instruction = 1;
-    assert(scheduler.init(sched_inputs, 1, sched_ops) ==
+    assert(scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_ops()) ==
            scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
 }
 
@@ -249,11 +244,9 @@ test_regions()
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(input), std::move(end));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
-    scheduler_t::scheduler_options_t sched_ops(
-        scheduler_t::STREAM_BY_SYNTHETIC_CPU,
-        scheduler_t::SCHEDULE_INTERLEAVE_AS_RECORDED);
-    sched_ops.verbosity = 4;
-    if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS)
+    if (scheduler.init(sched_inputs, 1,
+                       scheduler_t::make_scheduler_serial_ops(/*verbosity=*/4)) !=
+        scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
     auto *stream = scheduler.get_stream(0);

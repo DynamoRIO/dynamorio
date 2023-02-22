@@ -216,17 +216,18 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
 template <typename RecordType, typename ReaderType>
 analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
     const std::string &trace_path, analysis_tool_tmpl_t<RecordType> **tools,
-    int num_tools, int worker_count, uint64_t skip_instrs)
+    int num_tools, int worker_count, uint64_t skip_instrs, int verbosity)
     : success_(true)
     , num_tools_(num_tools)
     , tools_(tools)
     , parallel_(true)
     , worker_count_(worker_count)
     , skip_instrs_(skip_instrs)
+    , verbosity_(verbosity)
 {
     // The scheduler will call reader_t::init() for each input file.  We assume
     // that won't block (analyzer_multi_t separates out IPC readers).
-    if (!init_scheduler(trace_path)) {
+    if (!init_scheduler(trace_path, verbosity)) {
         success_ = false;
         error_string_ = "Failed to create scheduler";
         return;
