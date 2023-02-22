@@ -142,6 +142,10 @@ changes:
  - Reduced the value of #DR_NOTE_FIRST_RESERVED.  This is not expected to cause
    problems unless clients are directly choosing high note values without using
    drmgr_reserve_note_range().
+ - Changed the values of the AArch64 DR_REG_Z* constants so that Z registers can be
+   used in base+disp operands in SVE scatter/gather instructions. This breaks binary
+   compatibility for clients built against an older version of opnd_api.h, but source
+   code compatibility is unchanged.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.
@@ -203,6 +207,9 @@ Further non-compatibility-affecting changes include:
  - Added opnd_create_increment_reg() to create a register from an existing
    register whose register number is incremented by some amount, wrapping
    at the max register number for that register.
+ - Added opnd_create_vector_base_disp_aarch64() and reg_is_z() for creating
+   memory address operands that use SVE Z registers with a specified element
+   size.
 
 **************************************************
 <hr>
