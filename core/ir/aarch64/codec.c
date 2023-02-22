@@ -3753,6 +3753,28 @@ encode_opnd_z4_d_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_single_sized(OPSZ_SCALABLE, 16, DOUBLE_REG, 0, opnd, enc_out);
 }
 
+/* q4_16: Q0-15 register at position 16 */
+
+static inline bool
+decode_opnd_q4_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = decode_vreg(QUAD_REG, extract_uint(enc, 16, 4));
+    return true;
+}
+
+static inline bool
+encode_opnd_q4_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    opnd_size_t size = OPSZ_NA;
+    uint r;
+    IF_RETURN_FALSE(!encode_vreg(&size, &r, opnd))
+    IF_RETURN_FALSE(size != OPSZ_16)
+    IF_RETURN_FALSE(r > 15)
+
+    *enc_out = r << 16;
+    return true;
+}
+
 /* sysreg: system register, operand of MRS/MSR */
 
 static inline bool
@@ -4675,6 +4697,26 @@ encode_opnd_x16immvs(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
         return true;
     }
     return false;
+}
+
+/* vindex_S: Index for vector with single. */
+
+static inline bool
+decode_opnd_vindex_S(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const uint value = (extract_uint(enc, 11, 1) << 1) | extract_uint(enc, 21, 1);
+    *opnd = opnd_create_immed_int(value, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_vindex_S(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_immed_int(opnd) || (opnd_get_size(opnd) != OPSZ_2b))
+
+    const uint val = opnd_get_immed_int(opnd);
+    *enc_out = (BITS(val, 1, 1) << 11) | (BITS(val, 0, 0) << 21);
+    return true;
 }
 
 /* vindex_H: Index for vector with half elements (0-7). */

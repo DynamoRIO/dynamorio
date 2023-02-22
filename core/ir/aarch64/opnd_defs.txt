@@ -176,6 +176,7 @@
 ------------xxxx----------------  imm4_16p1  # 4bit imm at 19-16, plus 1
 ------------xxxx----------------  z4_s_16     # Z0-15 register with s size elements at position 16
 ------------xxxx----------------  z4_d_16     # Z0-15 register with d size elements at position 16
+------------xxxx----------------  q4_16       # Q0-15 register at position 16
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------?????----------------  bh_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????----------------  bhs_imm5_sz # Size encoded as least significant bit in imm5
@@ -221,6 +222,7 @@
 ----------?-----???-??xxxxx-----  memvs      # gets size from 21, 15:13 and 11:10
 ----------?xxxxx--?-??----------  x16immvr   # computes immed from 21, 13 and 11:10
 ----------?xxxxx???-??----------  x16immvs   # computes immed from 21, 15:13 and 11:10
+----------x---------x-----------  vindex_S   # Index for vector with single
 ----------xx--------x-----------  vindex_H   # Index for vector with half elements (0-7)
 ----------xxxxxx------xxxxx-----  svemem_gpr_simm6_vl # imm offset and base reg for SVE
 ----------xxxxxx------xxxxx-----  svememx6_b_5    # vector memory reg with 6 bit imm for byte value
