@@ -242,6 +242,7 @@
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single or double
 ---------x----------------------  hs_fsz      # element width of FP vector reg for half or single
+---------x-----------------xxxxx  z_sz_sd    # SVE vector reg, elsz depending on sz
 ---------x------------xxxxx-----  dq5_sz     # as dqx, but depending on the sz bit rather than the Q bit
 ---------x------------xxxxx-----  wx_sz_5    # W/X register (or WZR/XZR) with size indicated in bit 22
 ---------x-xx-------------------  i3_index_19 # Index value from 22, 20:19
@@ -259,6 +260,7 @@
 --------??-??--------------xxxxx  z_tszl19_bhsd_0 # z element register mediated by the tszl and tszh fields
 --------??-??---------xxxxx-----  z_tszl19_bhsd_5 # z element register mediated by the tszl and tszh fields
 --------??-xxxxx----------------  wx_size_16_zr # GPR scalar register, register size, W or X depending on size bits
+--------??-xxxxx----xxxxxxx-----  svemem_vec_vec_idx # SVE memory address [<Zn>.<T>, <Zm>.<T>{, <mod> <amount>}]
 --------??-xxxxxxxx-------------  fpimm8_13  # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
