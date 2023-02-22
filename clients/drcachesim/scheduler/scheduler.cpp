@@ -571,6 +571,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_name(int output_ordinal)
 }
 
 template <typename RecordType, typename ReaderType>
+int
+scheduler_tmpl_t<RecordType, ReaderType>::get_input_ordinal(int output_ordinal)
+{
+    return outputs_[output_ordinal].cur_input;
+}
+
+template <typename RecordType, typename ReaderType>
 bool
 scheduler_tmpl_t<RecordType, ReaderType>::is_record_synthetic(int output_ordinal)
 {

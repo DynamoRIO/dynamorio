@@ -82,12 +82,9 @@ analyzer_t::record_has_tid(memref_t record, memref_tid_t &tid)
 
 template <>
 bool
-analyzer_t::record_is_thread_exit(memref_t record, memref_tid_t &tid)
+analyzer_t::record_is_thread_final(memref_t record)
 {
-    if (record.exit.type != TRACE_TYPE_THREAD_EXIT)
-        return false;
-    tid = record.exit.tid;
-    return true;
+    return record.exit.type == TRACE_TYPE_THREAD_EXIT;
 }
 
 /******************************************************************************
@@ -116,12 +113,9 @@ record_analyzer_t::record_has_tid(trace_entry_t record, memref_tid_t &tid)
 
 template <>
 bool
-record_analyzer_t::record_is_thread_exit(trace_entry_t record, memref_tid_t &tid)
+record_analyzer_t::record_is_thread_final(trace_entry_t record)
 {
-    if (record.type != TRACE_TYPE_THREAD_EXIT)
-        return false;
-    tid = static_cast<memref_tid_t>(record.addr);
-    return true;
+    return record.type == TRACE_TYPE_FOOTER;
 }
 
 /********************************************************************
@@ -309,56 +303,47 @@ void
 analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *worker)
 {
     std::vector<void *> user_worker_data(num_tools_);
-    std::unordered_map<memref_tid_t, std::vector<void *>> shard_data;
+    std::unordered_map<int, std::vector<void *>> shard_data;
 
     for (int i = 0; i < num_tools_; ++i)
         user_worker_data[i] = tools_[i]->parallel_worker_init(worker->index);
-    while (true) {
-        RecordType record;
-        typename sched_type_t::stream_status_t status =
-            worker->stream->next_record(record);
+    RecordType record;
+    for (typename sched_type_t::stream_status_t status =
+             worker->stream->next_record(record);
+         status != sched_type_t::STATUS_EOF;
+         status = worker->stream->next_record(record)) {
         if (status != sched_type_t::STATUS_OK) {
-            if (status != sched_type_t::STATUS_EOF) {
-                worker->error =
-                    "Failed to read from trace: " + worker->stream->get_stream_name();
-            }
-            return;
-        }
-        memref_tid_t tid = INVALID_THREAD_ID;
-        if (!record_has_tid(record, tid)) {
             worker->error =
-                "Failed to find tid in trace: " + worker->stream->get_stream_name();
+                "Failed to read from trace: " + worker->stream->get_stream_name();
             return;
         }
-        if (shard_data.find(tid) == shard_data.end()) {
-            VPRINT(this, 1,
-                   "Worker %d starting on trace shard %" PRId64 " stream is %p\n",
-                   worker->index, tid, worker->stream);
-            shard_data[tid].resize(num_tools_);
+        int shard_index = worker->stream->get_input_stream_ordinal();
+        if (shard_data.find(shard_index) == shard_data.end()) {
+            VPRINT(this, 1, "Worker %d starting on trace shard %d stream is %p\n",
+                   worker->index, shard_index, worker->stream);
+            shard_data[shard_index].resize(num_tools_);
             for (int i = 0; i < num_tools_; ++i) {
-                // We use the tid as the shard index.
-                // TODO i#5843: If we support multi-process/multi-workload inputs
-                // to this parallel model we can hit dup tids!  We'll need a different
-                // shard index solution.
-                shard_data[tid][i] = tools_[i]->parallel_shard_init_stream(
-                    static_cast<int>(tid), user_worker_data[i], worker->stream);
+                shard_data[shard_index][i] = tools_[i]->parallel_shard_init_stream(
+                    shard_index, user_worker_data[i], worker->stream);
             }
         }
         for (int i = 0; i < num_tools_; ++i) {
-            if (!tools_[i]->parallel_shard_memref(shard_data[tid][i], record)) {
-                worker->error = tools_[i]->parallel_shard_error(shard_data[tid][i]);
+            if (!tools_[i]->parallel_shard_memref(shard_data[shard_index][i], record)) {
+                worker->error =
+                    tools_[i]->parallel_shard_error(shard_data[shard_index][i]);
                 VPRINT(this, 1, "Worker %d hit shard memref error %s on trace shard %s\n",
                        worker->index, worker->error.c_str(),
                        worker->stream->get_stream_name().c_str());
                 return;
             }
         }
-        if (record_is_thread_exit(record, tid)) {
+        if (record_is_thread_final(record)) {
             VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index,
                    worker->stream->get_stream_name().c_str());
             for (int i = 0; i < num_tools_; ++i) {
-                if (!tools_[i]->parallel_shard_exit(shard_data[tid][i])) {
-                    worker->error = tools_[i]->parallel_shard_error(shard_data[tid][i]);
+                if (!tools_[i]->parallel_shard_exit(shard_data[shard_index][i])) {
+                    worker->error =
+                        tools_[i]->parallel_shard_error(shard_data[shard_index][i]);
                     VPRINT(this, 1,
                            "Worker %d hit shard exit error %s on trace shard %s\n",
                            worker->index, worker->error.c_str(),

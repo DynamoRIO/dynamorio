@@ -446,6 +446,16 @@ public:
             return scheduler_->get_input_name(ordinal_);
         }
         /**
+         * Returns a name for the current input stream feeding this output stream. For
+         * stored offline traces, this is the base name of the trace on disk. For online
+         * traces, this is the name of the pipe.
+         */
+        int
+        get_input_stream_ordinal()
+        {
+            return scheduler_->get_input_ordinal(ordinal_);
+        }
+        /**
          * Returns the value of the last seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
          */
         uint64_t
@@ -664,6 +674,11 @@ protected:
     // the 'output_ordinal'-th output stream.
     std::string
     get_input_name(int output_ordinal);
+
+    // Returns the input ordinal value for the current input stream scheduled on
+    // the 'output_ordinal'-th output stream.
+    int
+    get_input_ordinal(int output_ordinal);
 
     // Returns whether the current record for the current input stream scheduled on
     // the 'output_ordinal'-th output stream is synthetic.

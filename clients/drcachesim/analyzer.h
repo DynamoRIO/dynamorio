@@ -162,7 +162,7 @@ protected:
     record_has_tid(RecordType record, memref_tid_t &tid);
 
     bool
-    record_is_thread_exit(RecordType record, memref_tid_t &tid);
+    record_is_thread_final(RecordType record);
 
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
