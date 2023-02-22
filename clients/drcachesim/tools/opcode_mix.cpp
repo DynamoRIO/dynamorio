@@ -155,6 +155,11 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     app_pc decode_pc;
     const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
     if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->filetype)) {
+        // TODO(sahil): decode_from_copy
+        // instr_get_target function
+        // opnd_get_pc
+        // drdecode linker error on windows
+        //
         // The trace has instruction encodings inside it.
         decode_pc = const_cast<app_pc>(memref.instr.encoding);
         if (memref.instr.encoding_is_new) {
