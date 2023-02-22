@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <iostream>
 #include <string.h>
+#include "opcode_mix.h"
 
 analysis_tool_t *
 invariant_checker_create(bool offline, unsigned int verbose)
@@ -403,6 +404,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // XXX: If we had instr decoding we could check direct branch targets
             // and look for gaps after branches.
             // TODO(sahil): Add logic in here.
+            //            decode_from_copy()
         }
 #ifdef UNIX
         // Ensure signal handlers return to the interruption point.
