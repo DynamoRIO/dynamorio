@@ -35,3 +35,14 @@
 # generation.
 
 # Instruction definitions:
+
+0001111001100011010000xxxxxxxxxx  n   953  BF16   bfcvt   h0 : s5
+0000111010100001011010xxxxxxxxxx  n   973  BF16  bfcvtn   d0 : q5 s_const_sz
+0100111010100001011010xxxxxxxxxx  n   974  BF16 bfcvtn2   q0 : q5 s_const_sz
+0x101110010xxxxx111111xxxxxxxxxx  n   954  BF16   bfdot  dq0 : dq0 dq5 dq16 h_sz
+0x00111101xxxxxx1111x0xxxxxxxxxx  n   954  BF16   bfdot  dq0 : dq0 dq5 q16 vindex_S h_sz
+00101110110xxxxx111111xxxxxxxxxx  n   955  BF16 bfmlalb   q0 : q0 q5 q16 h_sz
+0000111111xxxxxx1111x0xxxxxxxxxx  n   955  BF16 bfmlalb   q0 : q0 q5 q4_16 vindex_H h_sz
+01101110110xxxxx111111xxxxxxxxxx  n   956  BF16 bfmlalt   q0 : q0 q5 q16 h_sz
+0100111111xxxxxx1111x0xxxxxxxxxx  n   956  BF16 bfmlalt   q0 : q0 q5 q4_16 vindex_H h_sz
+01101110010xxxxx111011xxxxxxxxxx  n   957  BF16  bfmmla   q0 : q0 q5 q16 h_sz

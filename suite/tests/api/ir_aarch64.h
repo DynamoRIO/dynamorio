@@ -173,5 +173,17 @@ const reg_id_t Vdn_h_six_offset_0[6] = { DR_REG_H0,  DR_REG_H5,  DR_REG_H10,
                                          DR_REG_H16, DR_REG_H21, DR_REG_H31 };
 const reg_id_t Vdn_s_six_offset_0[6] = { DR_REG_S0,  DR_REG_S5,  DR_REG_S10,
                                          DR_REG_S16, DR_REG_S21, DR_REG_S31 };
+const reg_id_t Vdn_s_six_offset_1[6] = { DR_REG_S0,  DR_REG_S6,  DR_REG_S11,
+                                         DR_REG_S17, DR_REG_S22, DR_REG_S31 };
 const reg_id_t Vdn_d_six_offset_0[6] = { DR_REG_D0,  DR_REG_D5,  DR_REG_D10,
                                          DR_REG_D16, DR_REG_D21, DR_REG_D31 };
+const reg_id_t Vdn_d_six_offset_1[6] = { DR_REG_D0,  DR_REG_D6,  DR_REG_D11,
+                                         DR_REG_D17, DR_REG_D22, DR_REG_D31 };
+const reg_id_t Vdn_d_six_offset_2[6] = { DR_REG_D0,  DR_REG_D7,  DR_REG_D12,
+                                         DR_REG_D18, DR_REG_D23, DR_REG_D31 };
+const reg_id_t Vdn_q_six_offset_0[6] = { DR_REG_Q0,  DR_REG_Q5,  DR_REG_Q10,
+                                         DR_REG_Q16, DR_REG_Q21, DR_REG_Q31 };
+const reg_id_t Vdn_q_six_offset_1[6] = { DR_REG_Q0,  DR_REG_Q6,  DR_REG_Q11,
+                                         DR_REG_Q17, DR_REG_Q22, DR_REG_Q31 };
+const reg_id_t Vdn_q_six_offset_2[6] = { DR_REG_Q0,  DR_REG_Q7,  DR_REG_Q12,
+                                         DR_REG_Q18, DR_REG_Q23, DR_REG_Q31 };
