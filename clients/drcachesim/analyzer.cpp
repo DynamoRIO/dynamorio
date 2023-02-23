@@ -161,11 +161,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
         ERRMSG("Readers are empty\n");
         return false;
     }
+    std::vector<typename sched_type_t::input_reader_t> readers;
+    // With no modifiers or only_threads the tid doesn't matter.
+    readers.emplace_back(std::move(reader), std::move(reader_end), /*tid=*/1);
     std::vector<typename sched_type_t::range_t> regions;
     if (skip_instrs_ > 0)
         regions.emplace_back(skip_instrs_, 0);
-    typename sched_type_t::input_workload_t workload(std::move(reader),
-                                                     std::move(reader_end), regions);
+    typename sched_type_t::input_workload_t workload(std::move(readers), regions);
     return init_scheduler_common(workload);
 }
 

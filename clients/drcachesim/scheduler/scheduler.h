@@ -165,6 +165,30 @@ public:
         std::vector<range_t> regions_of_interest;
     };
 
+    /** Specifies an input that is already opened by a reader. */
+    struct input_reader_t {
+        /** Creates a reader entry. */
+        input_reader_t(std::unique_ptr<ReaderType> reader,
+                       std::unique_ptr<ReaderType> end, memref_tid_t tid)
+            : reader(std::move(reader))
+            , end(std::move(end))
+            , tid(tid)
+        {
+        }
+        /** The reader for the input stream. */
+        std::unique_ptr<ReaderType> reader;
+        /** The end reader for 'reader'. */
+        std::unique_ptr<ReaderType> end;
+        /**
+         * A unique identifier to distinguish from other readers for this workload.
+         * Typically this will be the thread id but it does not need to be, so long
+         * as it is not 0 (DynamoRIO's INVALID_THREAD_ID sentinel).
+         * This is used to in the 'thread_modifiers' field of 'input_workload_t'
+         * to refer to this input.
+         */
+        memref_tid_t tid;
+    };
+
     /** Specifies the input workloads to be scheduled. */
     struct input_workload_t {
         /** Create an empty workload.  This is not a valid final input. */
@@ -183,14 +207,12 @@ public:
                 thread_modifiers.push_back(input_thread_info_t(regions_of_interest));
         }
         /**
-         * Create a workload with a pre-initialized reader which uses the given
+         * Create a workload with a set of pre-initialized readers which use the given
          * regions of interest.
          */
-        input_workload_t(std::unique_ptr<ReaderType> reader,
-                         std::unique_ptr<ReaderType> reader_end,
+        input_workload_t(std::vector<input_reader_t> readers,
                          std::vector<range_t> regions_of_interest = {})
-            : reader(std::move(reader))
-            , reader_end(std::move(reader_end))
+            : readers(std::move(readers))
         {
             if (!regions_of_interest.empty())
                 thread_modifiers.push_back(input_thread_info_t(regions_of_interest));
@@ -207,18 +229,22 @@ public:
         std::string path;
         /**
          * An alternative to passing in a path and having the scheduler open that file(s)
-         * is to directly pass in a reader, reader_end, and a thread id for that
-         * reader.  These are only considered if 'path' is empty.  The scheduler will
-         * call the init() function for 'reader' at the time of the first access to
-         * it through an output stream (supporting IPC readers whose init() blocks).
-         * There are no tids associated with a workload specified in this way, and
-         * any thread modifiers must leave the
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_thread_info_t::tids
-         * field empty.
+         * is to directly pass in a reader.  This field is only considered if 'path' is
+         * empty.  The scheduler will call the init() function for each reader at the time
+         * of the first access to it through an output stream (supporting IPC readers
+         * whose init() blocks).
          */
-        std::unique_ptr<ReaderType> reader;
-        /** The end reader for 'reader'. */
-        std::unique_ptr<ReaderType> reader_end;
+        std::vector<input_reader_t> readers;
+
+        // TODO i#5843: This is currently ignored for MAP_TO_RECORDED_OUTPUT +
+        // DEPENDENCY_TIMESTAMPS b/c file_reader_t opens the individual files!
+        // TODO i#5843: Add a test of this field.
+        /**
+         * If empty, every trace file in 'path' or every reader in 'readers' becomes
+         * an enabled input.  If non-empty, only those inputs whose thread ids are
+         * in this vector are enabled and the rest are ignored.
+         */
+        std::set<memref_tid_t> only_threads;
 
         /** Scheduling modifiers for the threads in this workload. */
         std::vector<input_thread_info_t> thread_modifiers;
@@ -616,13 +642,13 @@ protected:
     // Opens up all the readers for each file in 'path' which may be a directory.
     // Returns a map of the thread id of each file to its index in inputs_.
     scheduler_status_t
-    open_readers(const std::string &path,
+    open_readers(const std::string &path, const std::set<memref_tid_t> &only_threads,
                  std::unordered_map<memref_tid_t, int> &workload_tids);
 
     // Opens up a single reader for the (non-directory) file in 'path'.
     // Returns a map of the thread id of the file to its index in inputs_.
     scheduler_status_t
-    open_reader(const std::string &path,
+    open_reader(const std::string &path, const std::set<memref_tid_t> &only_threads,
                 std::unordered_map<memref_tid_t, int> &workload_tids);
 
     // Creates a reader for the default file type we support.

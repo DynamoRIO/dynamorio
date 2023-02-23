@@ -162,11 +162,10 @@ test_parallel()
         inputs[i] = input_sequence;
         for (auto &record : inputs[i])
             record.instr.tid = tid;
-        std::unique_ptr<reader_t> input =
-            std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i]));
-        std::unique_ptr<reader_t> end =
-            std::unique_ptr<mock_reader_t>(new mock_reader_t());
-        sched_inputs.emplace_back(std::move(input), std::move(end));
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        sched_inputs.emplace_back(std::move(readers));
     }
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS,
@@ -195,15 +194,15 @@ test_parallel()
 static void
 test_param_checks()
 {
-    std::unique_ptr<reader_t> input =
-        std::unique_ptr<mock_reader_t>(new mock_reader_t(std::vector<memref_t>()));
-    std::unique_ptr<reader_t> end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t()),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
     std::vector<scheduler_t::range_t> regions;
     // Instr counts are 1-based so 0 is an invalid start.
     regions.emplace_back(0, 2);
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
-    sched_inputs.emplace_back(std::move(input), std::move(end));
+    sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     assert(scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_ops()) ==
            scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
@@ -231,9 +230,9 @@ test_regions()
         make_exit(1),
         /* clang-format on */
     };
-    std::unique_ptr<reader_t> input =
-        std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs));
-    std::unique_ptr<reader_t> end = std::unique_ptr<mock_reader_t>(new mock_reader_t());
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
 
     std::vector<scheduler_t::range_t> regions;
     // Instr counts are 1-based.
@@ -242,7 +241,7 @@ test_regions()
 
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
-    sched_inputs.emplace_back(std::move(input), std::move(end));
+    sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     if (scheduler.init(sched_inputs, 1,
                        scheduler_t::make_scheduler_serial_ops(/*verbosity=*/4)) !=

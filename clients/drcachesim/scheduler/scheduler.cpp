@@ -31,18 +31,18 @@
  */
 
 #include "scheduler.h"
-#include "reader/file_reader.h"
+#include "file_reader.h"
 #ifdef HAS_ZLIB
-#    include "reader/compressed_file_reader.h"
+#    include "compressed_file_reader.h"
 #endif
 #ifdef HAS_ZIP
-#    include "reader/zipfile_file_reader.h"
+#    include "zipfile_file_reader.h"
 #endif
 #ifdef HAS_SNAPPY
-#    include "reader/snappy_file_reader.h"
+#    include "snappy_file_reader.h"
 #endif
 #include "directory_iterator.h"
-#include "common/utils.h"
+#include "utils.h"
 
 #undef VPRINT
 #ifdef DEBUG
@@ -377,22 +377,28 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             return STATUS_ERROR_INVALID_PARAMETER;
         std::unordered_map<memref_tid_t, int> workload_tids;
         if (workload.path.empty()) {
-            if (!workload.reader || !workload.reader_end)
+            if (workload.readers.empty())
                 return STATUS_ERROR_INVALID_PARAMETER;
-            int index = static_cast<int>(inputs_.size());
-            inputs_.emplace_back();
-            input_info_t &input = inputs_.back();
-            input.index = index;
-            input.tid = INVALID_THREAD_ID; // Modifies can't specify tid.
-            input.reader = std::move(workload.reader);
-            input.reader_end = std::move(workload.reader_end);
-            input.needs_init = true;
-            workload_tids[input.tid] = input.index;
+            for (auto &reader : workload.readers) {
+                if (!reader.reader || !reader.end)
+                    return STATUS_ERROR_INVALID_PARAMETER;
+                if (workload.only_threads.find(reader.tid) != workload.only_threads.end())
+                    continue;
+                int index = static_cast<int>(inputs_.size());
+                inputs_.emplace_back();
+                input_info_t &input = inputs_.back();
+                input.index = index;
+                input.tid = reader.tid;
+                input.reader = std::move(reader.reader);
+                input.reader_end = std::move(reader.end);
+                input.needs_init = true;
+                workload_tids[input.tid] = input.index;
+            }
         } else {
-            if (!!workload.reader || !!workload.reader_end)
+            if (!workload.readers.empty())
                 return STATUS_ERROR_INVALID_PARAMETER;
             sched_type_t::scheduler_status_t res =
-                open_readers(workload.path, workload_tids);
+                open_readers(workload.path, workload.only_threads, workload_tids);
             if (res != STATUS_SUCCESS)
                 return res;
         }
@@ -472,7 +478,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
-    const std::string &path, std::unordered_map<memref_tid_t, int> &workload_tids)
+    const std::string &path, const std::set<memref_tid_t> &only_threads,
+    std::unordered_map<memref_tid_t, int> &workload_tids)
 {
     if (path.empty() || directory_iterator_t::is_directory(path))
         return STATUS_ERROR_INVALID_PARAMETER;
@@ -502,6 +509,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
         error_string_ = "Failed to read " + path;
         return STATUS_ERROR_FILE_READ_FAILED;
     }
+    if (only_threads.find(tid) != only_threads.end())
+        return sched_type_t::STATUS_SUCCESS;
     VPRINT(this, 2, "Opened reader for tid %" PRId64 " %s\n", tid, path.c_str());
     input.tid = tid;
     input.reader = std::move(reader);
@@ -513,7 +522,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::open_readers(
-    const std::string &path, std::unordered_map<memref_tid_t, int> &workload_tids)
+    const std::string &path, const std::set<memref_tid_t> &only_threads,
+    std::unordered_map<memref_tid_t, int> &workload_tids)
 {
     if (options_.mapping == MAP_TO_RECORDED_OUTPUT &&
         options_.deps == DEPENDENCY_TIMESTAMPS) {
@@ -539,7 +549,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_readers(
     }
 
     if (!directory_iterator_t::is_directory(path))
-        return open_reader(path, workload_tids);
+        return open_reader(path, only_threads, workload_tids);
     directory_iterator_t end;
     directory_iterator_t iter(path);
     if (!iter) {
@@ -553,7 +563,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_readers(
             fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
             continue;
         const std::string file = path + DIRSEP + fname;
-        sched_type_t::scheduler_status_t res = open_reader(file, workload_tids);
+        sched_type_t::scheduler_status_t res =
+            open_reader(file, only_threads, workload_tids);
         if (res != sched_type_t::STATUS_SUCCESS)
             return res;
     }
