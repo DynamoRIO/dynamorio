@@ -167,6 +167,8 @@ public:
 
     /** Specifies an input that is already opened by a reader. */
     struct input_reader_t {
+        /** Creates an empty reader. */
+        input_reader_t() = default;
         /** Creates a reader entry. */
         input_reader_t(std::unique_ptr<ReaderType> reader,
                        std::unique_ptr<ReaderType> end, memref_tid_t tid)
@@ -186,7 +188,7 @@ public:
          * This is used to in the 'thread_modifiers' field of 'input_workload_t'
          * to refer to this input.
          */
-        memref_tid_t tid;
+        memref_tid_t tid = INVALID_THREAD_ID;
     };
 
     /** Specifies the input workloads to be scheduled. */
@@ -248,6 +250,15 @@ public:
 
         /** Scheduling modifiers for the threads in this workload. */
         std::vector<input_thread_info_t> thread_modifiers;
+
+        // Work around a known Visual Studio issue where it complains about deleted copy
+        // constructors for unique_ptr by deleting our copies and defaulting our moves.
+        input_workload_t(const input_workload_t &) = delete;
+        input_workload_t &
+        operator=(const input_workload_t &) = delete;
+        input_workload_t(input_workload_t &&) = default;
+        input_workload_t &
+        operator=(input_workload_t &&) = default;
     };
 
     /** Controls how inputs are mapped to outputs. */
