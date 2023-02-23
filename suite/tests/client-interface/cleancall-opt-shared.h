@@ -286,7 +286,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
             return false;
     }
 #elif defined(AARCH64)
-    size_t vl = proc_has_feature(FEATURE_SVE) ? proc_get_sve_vector_length_bytes() : 16;
+    size_t vl = proc_get_vector_length_bytes();
     for (i = 0; i < proc_num_simd_registers(); i++) {
         if (memcmp(&mc_a->simd[i], &mc_b->simd[i], vl) != 0)
             return false;
@@ -343,8 +343,7 @@ dump_diff_mcontexts(void)
 #elif defined(AARCH64)
         dr_simd_t before_reg = before_mcontext.simd[i];
         dr_simd_t after_reg = after_mcontext.simd[i];
-        size_t mmsz =
-            proc_has_feature(FEATURE_SVE) ? proc_get_sve_vector_length_bytes() : 16;
+        size_t mmsz = proc_get_vector_length_bytes();
         const char *diff_str =
             (memcmp(&before_reg, &after_reg, mmsz) == 0 ? "" : " <- DIFFERS");
         dr_fprintf(STDERR, "xmm%2d before: %08x%08x%08x%08x", i, before_reg.u32[0],

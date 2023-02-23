@@ -80,13 +80,13 @@ dr_get_isa_mode(void *drcontext);
  * running on SVE.
  */
 void
-dr_set_sve_vl(int vl);
+dr_set_sve_vector_length(int vl);
 
 /**
  * Read AArch64 Scalable Vector Extension's vector length, in bits.
  */
 int
-dr_get_sve_vl(void);
+dr_get_sve_vector_length(void);
 
 enum {
 #ifdef X86

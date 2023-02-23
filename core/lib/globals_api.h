@@ -677,10 +677,10 @@ typedef uint64 dr_opmask_t;
  */
 #    ifdef X64
 typedef union ALIGN_VAR(16) _dr_simd_t {
-    byte b;       /**< Bottom  8 bits of Vn, Zn and Pn, (Bn). */
-    ushort h;     /**< Bottom 16 bits of Vn, Zn and Pn, (Hn). */
-    uint s;       /**< Bottom 32 bits of Vn, Zn and Pn, (Sn). */
-    uint64 d;     /**< Bottom 64 bits of Vn, Zn and Pn, (Dn). */
+    byte b;       /**< Byte (8 bit, Bn) scalar element of Vn, Zn, or Pn.        */
+    ushort h;     /**< Halfword (16 bit, Hn) scalar element of Vn, Zn and Pn.   */
+    uint s;       /**< Singleword (32 bit, Sn) scalar element of Vn, Zn and Pn. */
+    uint64 d;     /**< Doubleword (64 bit, Dn) scalar element of Vn, Zn and Pn. */
     uint q[4];    /**< The full 128 bit Vn register, Qn as q[3]:q[2]:q[1]:q[0]. */
     uint u32[16]; /**< The full 512 bit Zn and Pn registers. */
 } dr_simd_t;

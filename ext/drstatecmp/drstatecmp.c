@@ -483,7 +483,7 @@ drstatecmp_check_simd_value
 #elif defined(AARCHXX)
     (void *tag, dr_simd_t *value, dr_simd_t *expected)
 {
-    size_t vl = proc_has_feature(FEATURE_SVE) ? proc_get_sve_vector_length_bytes() : 16;
+    size_t vl = proc_get_vector_length_bytes();
     if (memcmp(value, expected, vl))
         drstatecmp_report_error("SIMD mismatch", tag);
 }

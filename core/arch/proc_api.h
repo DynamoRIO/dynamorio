@@ -495,7 +495,7 @@ DR_API
  * Currently DynamoRIO supports implementations of up to 512 bits.
  */
 uint
-proc_get_sve_vector_length_bytes(void);
+proc_get_vector_length_bytes(void);
 #endif
 
 DR_API

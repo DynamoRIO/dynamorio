@@ -198,9 +198,9 @@ proc_get_architecture(void)
 }
 
 uint
-proc_get_sve_vector_length_bytes(void)
+proc_get_vector_length_bytes(void)
 {
-    return cpu_info.sve_vector_length_bytes;
+    return proc_has_feature(FEATURE_SVE) ? cpu_info.sve_vector_length_bytes : 16;
 }
 #endif
 

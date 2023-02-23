@@ -2623,7 +2623,7 @@ reg_get_size(reg_id_t reg)
         return OPSZ_8;
     if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) {
 #        if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
-        return opnd_size_from_bytes(proc_get_sve_vector_length_bytes());
+        return opnd_size_from_bytes(proc_get_vector_length_bytes());
 #        else
         return OPSZ_SCALABLE;
 #        endif
