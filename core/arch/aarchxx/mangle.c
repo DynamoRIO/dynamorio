@@ -248,7 +248,8 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
 
 static void
 insert_save_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                      bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg, reg_type rtype)
+                      bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
+                      reg_type rtype)
 {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
                                      first_reg, true /* save */, rtype,
@@ -258,7 +259,7 @@ insert_save_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 static void
 insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
-                         int rtype)
+                         reg_type rtype)
 {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
                                      first_reg, false /* restore */, rtype,
@@ -266,7 +267,7 @@ insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 }
 
 static opnd_t
-inline_get_mem_opnd(uint base_reg, bool is_single_reg, int rtype, uint reg_id,
+inline_get_mem_opnd(uint base_reg, bool is_single_reg, reg_type rtype, uint reg_id,
                     callee_info_t *ci)
 {
     return callee_info_slot_opnd(ci, SLOT_REG, reg_id);
@@ -274,7 +275,7 @@ inline_get_mem_opnd(uint base_reg, bool is_single_reg, int rtype, uint reg_id,
 
 void
 insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                             bool *reg_skip, reg_id_t first_reg, int rtype, void *ci)
+                             bool *reg_skip, reg_id_t first_reg, reg_type rtype, void *ci)
 {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, 0, first_reg,
                                      true /* save */, rtype, inline_get_mem_opnd,
@@ -283,7 +284,7 @@ insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 
 void
 insert_restore_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                                bool *reg_skip, reg_id_t first_reg, int rtype,
+                                bool *reg_skip, reg_id_t first_reg, reg_type rtype,
                                 void *ci)
 {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, 0, first_reg,
