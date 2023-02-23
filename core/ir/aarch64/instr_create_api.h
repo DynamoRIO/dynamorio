@@ -4929,6 +4929,165 @@
  */
 #define INSTR_CREATE_xpaci(dc, Rd) instr_create_0dst_1src((dc), OP_xpaci, (Rd))
 
+/**
+ * Creates a BFCVT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFCVT   <Hd>, <Sn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, H (halfword, 16 bits).
+ * \param Rn   The source  register, S (singleword, 32 bits).
+ */
+#define INSTR_CREATE_bfcvt(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_bfcvt, Rd, Rn)
+
+/**
+ * Creates a BFCVTN2 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFCVTN2 <Vd>.8H, <Vn>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register, Q (quadword, 128 bits).
+ * \param Rn   The source vector register, Q (quadword, 128 bits).
+ */
+#define INSTR_CREATE_bfcvtn2_vector(dc, Rd, Rn) \
+    instr_create_1dst_2src(dc, OP_bfcvtn2, Rd, Rn, OPND_CREATE_SINGLE())
+
+/**
+ * Creates a BFCVTN instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFCVTN  <Vd>.4H, <Vn>.4S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination vector register, D (doubleword, 64 bits).
+ * \param Rn   The source vector register, Q (quadword, 128 bits).
+ */
+#define INSTR_CREATE_bfcvtn_vector(dc, Rd, Rn) \
+    instr_create_1dst_2src(dc, OP_bfcvtn, Rd, Rn, OPND_CREATE_SINGLE())
+
+/**
+ * Creates a BFDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFDOT   <Vd>.<Ts>, <Vn>.<Tb>, <Vm>.<Tb>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination vector register. Can be D (doubleword,
+ *             64 bits) or Q (quadword, 128 bits).
+ * \param Rn   The second source vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ * \param Rm   The third source vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ */
+#define INSTR_CREATE_bfdot_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_bfdot, Rd, Rd, Rn, Rm, OPND_CREATE_HALF())
+
+/**
+ * Creates a BFDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFDOT   <Vd>.<Ts>, <Vn>.<Tb>, <Vm>.2H[<index>]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd    The source and destination vector register. Can be D (doubleword,
+ *              64 bits) or Q (quadword, 128 bits).
+ * \param Rn    The second source vector register. Can be D (doubleword, 64 bits)
+ *              or Q (quadword, 128 bits).
+ * \param Rm    The third source vector register, Q (quadword, 128 bits).
+ * \param index The immediate index for Rm, in the range 0-3.
+ */
+#define INSTR_CREATE_bfdot_vector_idx(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_bfdot, Rd, Rd, Rn, Rm, index, OPND_CREATE_HALF())
+
+/**
+ * Creates a BFMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFMLALB <Vd>.4S, <Vn>.8H, <Vm>.8H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination vector register, Q (quadword, 128
+ *             bits).
+ * \param Rn   The second source vector register, Q (quadword, 128 bits).
+ * \param Rm   The third source vector register, Q (quadword, 128 bits).
+ */
+#define INSTR_CREATE_bfmlalb_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_bfmlalb, Rd, Rd, Rn, Rm, OPND_CREATE_HALF())
+
+/**
+ * Creates a BFMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFMLALB <Vd>.4S, <Vn>.8H, <Vm>.H[<index>]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd    The source and destination vector register, Q (quadword, 128
+ *              bits).
+ * \param Rn    The second source vector register, Q (quadword, 128 bits).
+ * \param Rm    The third source vector register, Q (quadword, 128 bits).
+ * \param index The immediate index for Rm, in the range 0-7.
+ */
+#define INSTR_CREATE_bfmlalb_vector_idx(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_bfmlalb, Rd, Rd, Rn, Rm, index, OPND_CREATE_HALF())
+
+/**
+ * Creates a BFMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFMLALT <Vd>.4S, <Vn>.8H, <Vm>.8H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination vector register, Q (quadword, 128
+ *             bits).
+ * \param Rn   The second source vector register, Q (quadword, 128 bits).
+ * \param Rm   The third source vector register, Q (quadword, 128 bits).
+ */
+#define INSTR_CREATE_bfmlalt_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_bfmlalt, Rd, Rd, Rn, Rm, OPND_CREATE_HALF())
+
+/**
+ * Creates a BFMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFMLALT <Vd>.4S, <Vn>.8H, <Vm>.H[<index>]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd    The source and destination vector register, Q (quadword, 128
+ *              bits).
+ * \param Rn    The second source vector register, Q (quadword, 128 bits).
+ * \param Rm    The third source vector register, Q (quadword, 128 bits).
+ * \param index The immediate index for Rm, in the range 0-7.
+ */
+#define INSTR_CREATE_bfmlalt_vector_idx(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_bfmlalt, Rd, Rd, Rn, Rm, index, OPND_CREATE_HALF())
+
+/**
+ * Creates a BFMMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFMMLA  <Vd>.4S, <Vn>.8H, <Vm>.8H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination vector register, Q (quadword, 128
+ *             bits).
+ * \param Rn   The second source vector register, Q (quadword, 128 bits).
+ * \param Rm   The third source vector register, Q (quadword, 128 bits).
+ */
+#define INSTR_CREATE_bfmmla_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_bfmmla, Rd, Rd, Rn, Rm, OPND_CREATE_HALF())
+
 /****************************************************************************
  *                              SVE Instructions                            *
  ****************************************************************************/
@@ -11216,6 +11375,28 @@
  */
 #define INSTR_CREATE_prfw_sve_pred(dc, prfop, Pg, Rn) \
     instr_create_0dst_3src(dc, OP_prfw, prfop, Pg, Rn)
+
+/*
+ * Creates an ADR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ADR     <Zd>.D, [<Zn>.D, <Zm>.D, SXTW <amount>]
+ *    ADR     <Zd>.D, [<Zn>.D, <Zm>.D, UXTW <amount>]
+ *    ADR     <Zd>.<Ts>, [<Zn>.<Ts>, <Zm>.<Ts>, <extend> <amount>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector base register with a register offset,
+ *             constructed with one of:
+ *             opnd_create_vector_base_disp_aarch64(Zn, Zm, OPSZ_8, DR_EXTEND_SXTW,
+ *                                                  0, 0, 0, OPSZ_0, shift_amount)
+ *             opnd_create_vector_base_disp_aarch64(Zn, Zm, OPSZ_8, DR_EXTEND_UXTW,
+ *                                                  0, 0, 0, OPSZ_0, shift_amount)
+ *             opnd_create_vector_base_disp_aarch64(Zn, Zm, elsz, DR_EXTEND_UXTX,
+ *                                                  0, 0, 0, OPSZ_0, shift_amount)
+ */
+#define INSTR_CREATE_adr_sve(dc, Zd, Zn) instr_create_1dst_1src(dc, OP_adr, Zd, Zn)
 
 /*
  * Creates a LD2B instruction.
