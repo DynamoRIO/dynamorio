@@ -14666,6 +14666,224 @@ TEST_INSTR(prfw_sve_pred)
                                     OPSZ_0));
 }
 
+TEST_INSTR(adr_sve)
+{
+    /* Testing ADR     <Zd>.D, [<Zn>.D, <Zm>.D, SXTW <amount>] */
+    const char *const expected_0_0[6] = {
+        "adr    (%z0.d,%z0.d,sxtw) -> %z0.d",    "adr    (%z6.d,%z7.d,sxtw) -> %z5.d",
+        "adr    (%z11.d,%z12.d,sxtw) -> %z10.d", "adr    (%z17.d,%z18.d,sxtw) -> %z16.d",
+        "adr    (%z22.d,%z23.d,sxtw) -> %z21.d", "adr    (%z31.d,%z31.d,sxtw) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_SXTW, false, 0, 0,
+                                                   OPSZ_0, 0));
+
+    const char *const expected_0_1[6] = {
+        "adr    (%z0.d,%z0.d,sxtw #1) -> %z0.d",
+        "adr    (%z6.d,%z7.d,sxtw #1) -> %z5.d",
+        "adr    (%z11.d,%z12.d,sxtw #1) -> %z10.d",
+        "adr    (%z17.d,%z18.d,sxtw #1) -> %z16.d",
+        "adr    (%z22.d,%z23.d,sxtw #1) -> %z21.d",
+        "adr    (%z31.d,%z31.d,sxtw #1) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_SXTW, true, 0, 0,
+                                                   OPSZ_0, 1));
+
+    const char *const expected_0_2[6] = {
+        "adr    (%z0.d,%z0.d,sxtw #2) -> %z0.d",
+        "adr    (%z6.d,%z7.d,sxtw #2) -> %z5.d",
+        "adr    (%z11.d,%z12.d,sxtw #2) -> %z10.d",
+        "adr    (%z17.d,%z18.d,sxtw #2) -> %z16.d",
+        "adr    (%z22.d,%z23.d,sxtw #2) -> %z21.d",
+        "adr    (%z31.d,%z31.d,sxtw #2) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_SXTW, true, 0, 0,
+                                                   OPSZ_0, 2));
+
+    const char *const expected_0_3[6] = {
+        "adr    (%z0.d,%z0.d,sxtw #3) -> %z0.d",
+        "adr    (%z6.d,%z7.d,sxtw #3) -> %z5.d",
+        "adr    (%z11.d,%z12.d,sxtw #3) -> %z10.d",
+        "adr    (%z17.d,%z18.d,sxtw #3) -> %z16.d",
+        "adr    (%z22.d,%z23.d,sxtw #3) -> %z21.d",
+        "adr    (%z31.d,%z31.d,sxtw #3) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_0_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_SXTW, true, 0, 0,
+                                                   OPSZ_0, 3));
+
+    /* Testing ADR     <Zd>.D, [<Zn>.D, <Zm>.D, UXTW <amount>] */
+    const char *const expected_1_0[6] = {
+        "adr    (%z0.d,%z0.d,uxtw) -> %z0.d",    "adr    (%z6.d,%z7.d,uxtw) -> %z5.d",
+        "adr    (%z11.d,%z12.d,uxtw) -> %z10.d", "adr    (%z17.d,%z18.d,uxtw) -> %z16.d",
+        "adr    (%z22.d,%z23.d,uxtw) -> %z21.d", "adr    (%z31.d,%z31.d,uxtw) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_UXTW, false, 0, 0,
+                                                   OPSZ_0, 0));
+
+    const char *const expected_1_1[6] = {
+        "adr    (%z0.d,%z0.d,uxtw #1) -> %z0.d",
+        "adr    (%z6.d,%z7.d,uxtw #1) -> %z5.d",
+        "adr    (%z11.d,%z12.d,uxtw #1) -> %z10.d",
+        "adr    (%z17.d,%z18.d,uxtw #1) -> %z16.d",
+        "adr    (%z22.d,%z23.d,uxtw #1) -> %z21.d",
+        "adr    (%z31.d,%z31.d,uxtw #1) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_1_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_UXTW, true, 0, 0,
+                                                   OPSZ_0, 1));
+
+    const char *const expected_1_2[6] = {
+        "adr    (%z0.d,%z0.d,uxtw #2) -> %z0.d",
+        "adr    (%z6.d,%z7.d,uxtw #2) -> %z5.d",
+        "adr    (%z11.d,%z12.d,uxtw #2) -> %z10.d",
+        "adr    (%z17.d,%z18.d,uxtw #2) -> %z16.d",
+        "adr    (%z22.d,%z23.d,uxtw #2) -> %z21.d",
+        "adr    (%z31.d,%z31.d,uxtw #2) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_1_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_UXTW, true, 0, 0,
+                                                   OPSZ_0, 2));
+
+    const char *const expected_1_3[6] = {
+        "adr    (%z0.d,%z0.d,uxtw #3) -> %z0.d",
+        "adr    (%z6.d,%z7.d,uxtw #3) -> %z5.d",
+        "adr    (%z11.d,%z12.d,uxtw #3) -> %z10.d",
+        "adr    (%z17.d,%z18.d,uxtw #3) -> %z16.d",
+        "adr    (%z22.d,%z23.d,uxtw #3) -> %z21.d",
+        "adr    (%z31.d,%z31.d,uxtw #3) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_1_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_UXTW, true, 0, 0,
+                                                   OPSZ_0, 3));
+
+    /* Testing ADR     <Zd>.<Ts>, [<Zn>.<Ts>, <Zm>.<Ts>, <extend> <amount>] */
+    const char *const expected_2_0[6] = {
+        "adr    (%z0.s,%z0.s) -> %z0.s",    "adr    (%z6.s,%z7.s) -> %z5.s",
+        "adr    (%z11.s,%z12.s) -> %z10.s", "adr    (%z17.s,%z18.s) -> %z16.s",
+        "adr    (%z22.s,%z23.s) -> %z21.s", "adr    (%z31.s,%z31.s) -> %z31.s",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_4, DR_EXTEND_UXTX, false, 0, 0,
+                                                   OPSZ_0, 0));
+
+    const char *const expected_2_1[6] = {
+        "adr    (%z0.s,%z0.s,lsl #1) -> %z0.s",
+        "adr    (%z6.s,%z7.s,lsl #1) -> %z5.s",
+        "adr    (%z11.s,%z12.s,lsl #1) -> %z10.s",
+        "adr    (%z17.s,%z18.s,lsl #1) -> %z16.s",
+        "adr    (%z22.s,%z23.s,lsl #1) -> %z21.s",
+        "adr    (%z31.s,%z31.s,lsl #1) -> %z31.s",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_2_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_4, DR_EXTEND_UXTX, true, 0, 0,
+                                                   OPSZ_0, 1));
+
+    const char *const expected_2_2[6] = {
+        "adr    (%z0.s,%z0.s,lsl #2) -> %z0.s",
+        "adr    (%z6.s,%z7.s,lsl #2) -> %z5.s",
+        "adr    (%z11.s,%z12.s,lsl #2) -> %z10.s",
+        "adr    (%z17.s,%z18.s,lsl #2) -> %z16.s",
+        "adr    (%z22.s,%z23.s,lsl #2) -> %z21.s",
+        "adr    (%z31.s,%z31.s,lsl #2) -> %z31.s",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_2_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_4, DR_EXTEND_UXTX, true, 0, 0,
+                                                   OPSZ_0, 2));
+
+    const char *const expected_2_3[6] = {
+        "adr    (%z0.s,%z0.s,lsl #3) -> %z0.s",
+        "adr    (%z6.s,%z7.s,lsl #3) -> %z5.s",
+        "adr    (%z11.s,%z12.s,lsl #3) -> %z10.s",
+        "adr    (%z17.s,%z18.s,lsl #3) -> %z16.s",
+        "adr    (%z22.s,%z23.s,lsl #3) -> %z21.s",
+        "adr    (%z31.s,%z31.s,lsl #3) -> %z31.s",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_2_3[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_4, DR_EXTEND_UXTX, true, 0, 0,
+                                                   OPSZ_0, 3));
+
+    const char *const expected_2_4[6] = {
+        "adr    (%z0.d,%z0.d) -> %z0.d",    "adr    (%z6.d,%z7.d) -> %z5.d",
+        "adr    (%z11.d,%z12.d) -> %z10.d", "adr    (%z17.d,%z18.d) -> %z16.d",
+        "adr    (%z22.d,%z23.d) -> %z21.d", "adr    (%z31.d,%z31.d) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_2_4[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_UXTX, false, 0, 0,
+                                                   OPSZ_0, 0));
+
+    const char *const expected_2_5[6] = {
+        "adr    (%z0.d,%z0.d,lsl #1) -> %z0.d",
+        "adr    (%z6.d,%z7.d,lsl #1) -> %z5.d",
+        "adr    (%z11.d,%z12.d,lsl #1) -> %z10.d",
+        "adr    (%z17.d,%z18.d,lsl #1) -> %z16.d",
+        "adr    (%z22.d,%z23.d,lsl #1) -> %z21.d",
+        "adr    (%z31.d,%z31.d,lsl #1) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_2_5[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_UXTX, true, 0, 0,
+                                                   OPSZ_0, 1));
+
+    const char *const expected_2_6[6] = {
+        "adr    (%z0.d,%z0.d,lsl #2) -> %z0.d",
+        "adr    (%z6.d,%z7.d,lsl #2) -> %z5.d",
+        "adr    (%z11.d,%z12.d,lsl #2) -> %z10.d",
+        "adr    (%z17.d,%z18.d,lsl #2) -> %z16.d",
+        "adr    (%z22.d,%z23.d,lsl #2) -> %z21.d",
+        "adr    (%z31.d,%z31.d,lsl #2) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_2_6[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_UXTX, true, 0, 0,
+                                                   OPSZ_0, 2));
+
+    const char *const expected_2_7[6] = {
+        "adr    (%z0.d,%z0.d,lsl #3) -> %z0.d",
+        "adr    (%z6.d,%z7.d,lsl #3) -> %z5.d",
+        "adr    (%z11.d,%z12.d,lsl #3) -> %z10.d",
+        "adr    (%z17.d,%z18.d,lsl #3) -> %z16.d",
+        "adr    (%z22.d,%z23.d,lsl #3) -> %z21.d",
+        "adr    (%z31.d,%z31.d,lsl #3) -> %z31.d",
+    };
+    TEST_LOOP(adr, adr_sve, 6, expected_2_7[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_vector_base_disp_aarch64(Zn_six_offset_1[i], Zn_six_offset_2[i],
+                                                   OPSZ_8, DR_EXTEND_UXTX, true, 0, 0,
+                                                   OPSZ_0, 3));
+}
+
 TEST_INSTR(ld2b_sve_pred)
 {
 
@@ -15142,6 +15360,7 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(addpl);
     RUN_INSTR_TEST(addvl);
+    RUN_INSTR_TEST(adr_sve);
     RUN_INSTR_TEST(rdvl);
 
     RUN_INSTR_TEST(fabd_sve);
