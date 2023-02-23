@@ -714,6 +714,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(int output_ordinal)
                         .input_indices[outputs_[output_ordinal].input_indices_index];
             VPRINT(this, 2, "next_record[%d]: advancing to local index %d == input #%d\n",
                    output_ordinal, outputs_[output_ordinal].input_indices_index, index);
+            // reader_t::at_eof_ is true until init() is called.
+            if (inputs_[index].needs_init) {
+                inputs_[index].reader->init();
+                inputs_[index].needs_init = false;
+            }
         }
         if (inputs_[index].at_eof ||
             *inputs_[index].reader == *inputs_[index].reader_end) {
