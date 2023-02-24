@@ -169,7 +169,7 @@ test_parallel()
     }
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS,
-                       scheduler_t::make_scheduler_parallel_ops(/*verbosity=*/4)) !=
+                       scheduler_t::make_scheduler_parallel_options(/*verbosity=*/4)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     std::unordered_map<memref_tid_t, int> tid2stream;
@@ -204,14 +204,16 @@ test_param_checks()
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
-    assert(scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_ops()) ==
-           scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    assert(
+        scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) ==
+        scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
 
     // Test stop > start.
     sched_inputs[0].thread_modifiers[0].regions_of_interest[0].start_instruction = 2;
     sched_inputs[0].thread_modifiers[0].regions_of_interest[0].stop_instruction = 1;
-    assert(scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_ops()) ==
-           scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    assert(
+        scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) ==
+        scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
 }
 
 static void
@@ -244,7 +246,7 @@ test_regions()
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_ops(/*verbosity=*/4)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;

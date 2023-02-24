@@ -231,7 +231,7 @@ main(int argc, const char *argv[])
     std::vector<scheduler_t::input_workload_t> sched_opt_inputs;
     sched_opt_inputs.emplace_back(dir_opt);
     if (scheduler_opt.init(sched_opt_inputs, 1,
-                           scheduler_t::make_scheduler_serial_ops()) !=
+                           scheduler_t::make_scheduler_serial_options()) !=
         scheduler_t::STATUS_SUCCESS) {
         std::cerr << "Failed to initialize scheduler " << scheduler_opt.get_error_string()
                   << "\n";
@@ -241,7 +241,7 @@ main(int argc, const char *argv[])
     std::vector<scheduler_t::input_workload_t> sched_noopt_inputs;
     sched_noopt_inputs.emplace_back(dir_noopt);
     if (scheduler_noopt.init(sched_noopt_inputs, 1,
-                             scheduler_t::make_scheduler_serial_ops()) !=
+                             scheduler_t::make_scheduler_serial_options()) !=
         scheduler_t::STATUS_SUCCESS) {
         std::cerr << "Failed to initialize scheduler "
                   << scheduler_noopt.get_error_string() << "\n";

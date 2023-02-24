@@ -630,7 +630,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_
            cur_instr, cur_range.start_instruction);
     // We assume the queue contains no instrs (else our query of input.reader's
     // instr ordinal would include them and so be incorrect) and that we should
-    // this skip it all.
+    // thus skip it all.
     while (!input.queue.empty())
         input.queue.pop();
     uint64_t input_start_ref = input.reader->get_record_ordinal();
@@ -704,16 +704,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(int output_ordinal)
             // the same output_ordinal will not be accessed by two different threads
             // simultaneously in this mode, allowing us to support a lock-free
             // parallel-friendly increment here.
-            ++outputs_[output_ordinal].input_indices_index;
-            if (outputs_[output_ordinal].input_indices_index >=
+            int indices_index = ++outputs_[output_ordinal].input_indices_index;
+            if (indices_index >=
                 static_cast<int>(outputs_[output_ordinal].input_indices.size())) {
                 VPRINT(this, 2, "next_record[%d]: all at eof\n", output_ordinal);
                 return sched_type_t::STATUS_EOF;
             }
-            index = outputs_[output_ordinal]
-                        .input_indices[outputs_[output_ordinal].input_indices_index];
+            index = outputs_[output_ordinal].input_indices[indices_index];
             VPRINT(this, 2, "next_record[%d]: advancing to local index %d == input #%d\n",
-                   output_ordinal, outputs_[output_ordinal].input_indices_index, index);
+                   output_ordinal, indices_index, index);
             // reader_t::at_eof_ is true until init() is called.
             if (inputs_[index].needs_init) {
                 inputs_[index].reader->init();

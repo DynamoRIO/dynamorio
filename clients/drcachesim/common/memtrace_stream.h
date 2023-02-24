@@ -129,7 +129,7 @@ public:
      * Returns whether the current record was synthesized and inserted into the record
      * stream and was not present in the original stream.  This is true for timestamp
      * and cpuid headers duplicated after skipping ahead, as well as cpuid markers
-     * inserted for synthetic schedules.  Such records do not cound toward the record
+     * inserted for synthetic schedules.  Such records do not count toward the record
      * count and get_record_ordinal() will return the value of the prior record.
      */
     virtual bool

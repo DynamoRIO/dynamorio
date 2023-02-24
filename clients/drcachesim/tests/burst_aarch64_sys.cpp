@@ -224,7 +224,7 @@ main(int argc, const char *argv[])
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(trace_dir);
-    if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_ops()) !=
+    if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) !=
         scheduler_t::STATUS_SUCCESS) {
         std::cerr << "Failed to initialize scheduler " << scheduler.get_error_string()
                   << "\n";

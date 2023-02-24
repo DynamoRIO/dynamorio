@@ -131,7 +131,7 @@ _tmain(int argc, const TCHAR *targv[])
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(op_trace_dir.get_value());
         if (scheduler.init(sched_inputs, 1,
-                           scheduler_t::make_scheduler_serial_ops(
+                           scheduler_t::make_scheduler_serial_options(
                                op_verbose.get_value())) != scheduler_t::STATUS_SUCCESS) {
             FATAL_ERROR("failed to initialize scheduler: %s",
                         scheduler.get_error_string().c_str());

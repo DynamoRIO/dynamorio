@@ -1481,25 +1481,25 @@ serves as an example of how to replace the now-removed old analysis
 tool framework's "external iterator" interface:
 
 \code
-        scheduler_t scheduler;
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        sched_inputs.emplace_back(trace_directory);
-        if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_ops()) !=
-            scheduler_t::STATUS_SUCCESS) {
-            FATAL_ERROR("failed to initialize scheduler: %s",
-                        scheduler.get_error_string().c_str());
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(trace_directory);
+    if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) !=
+        scheduler_t::STATUS_SUCCESS) {
+        FATAL_ERROR("failed to initialize scheduler: %s",
+                    scheduler.get_error_string().c_str());
+    }
+    auto *stream = scheduler.get_stream(0);
+    memref_t record;
+    for (scheduler_t::stream_status_t status = stream->next_record(record);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
+        if (status != scheduler_t::STATUS_OK)
+            FATAL_ERROR("scheduler failed to advance: %d", status);
+        if (!my_tool->process_memref(record)) {
+            FATAL_ERROR("tool failed to process entire trace: %s",
+                        my_tool->get_error_string().c_str());
         }
-        auto *stream = scheduler.get_stream(0);
-        memref_t record;
-        for (scheduler_t::stream_status_t status = stream->next_record(record);
-             status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
-            if (status != scheduler_t::STATUS_OK)
-                FATAL_ERROR("scheduler failed to advance: %d", status);
-            if (!my_tool->process_memref(record)) {
-                FATAL_ERROR("tool failed to process entire trace: %s",
-                            my_tool->get_error_string().c_str());
-            }
-        }
+    }
 \endcode
 
 ****************************************************************************

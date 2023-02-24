@@ -357,7 +357,7 @@ public:
         /** Size of the struct for binary-compatible additions. */
         size_t struct_size = sizeof(scheduler_options_t);
         /** The mapping of inputs to outputs. */
-        mapping_t mapping = MAP_TO_RECORDED_OUTPUT;
+        mapping_t mapping = MAP_TO_ANY_OUTPUT;
         /** How inter-input dependencies are handled. */
         inter_input_dependency_t deps = DEPENDENCY_IGNORE;
         /** Optional flags affecting scheduler behavior. */
@@ -379,14 +379,14 @@ public:
 
     /** Constructs options for a parallel no-inter-input-dependencies schedule. */
     static scheduler_options_t
-    make_scheduler_parallel_ops(int verbosity = 0)
+    make_scheduler_parallel_options(int verbosity = 0)
     {
         return scheduler_options_t(sched_type_t::MAP_TO_CONSISTENT_OUTPUT,
                                    sched_type_t::DEPENDENCY_IGNORE, verbosity);
     }
     /** Constructs options for a serial as-recorded schedule. */
     static scheduler_options_t
-    make_scheduler_serial_ops(int verbosity = 0)
+    make_scheduler_serial_options(int verbosity = 0)
     {
         return scheduler_options_t(sched_type_t::MAP_TO_RECORDED_OUTPUT,
                                    sched_type_t::DEPENDENCY_TIMESTAMPS, verbosity);

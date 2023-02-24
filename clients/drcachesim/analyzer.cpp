@@ -187,11 +187,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     typename sched_type_t::scheduler_options_t sched_ops;
     int output_count;
     if (parallel_) {
-        sched_ops = sched_type_t::make_scheduler_parallel_ops(verbosity_);
+        sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
         if (worker_count_ <= 0)
             worker_count_ = std::thread::hardware_concurrency();
     } else {
-        sched_ops = sched_type_t::make_scheduler_serial_ops(verbosity_);
+        sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
         worker_count_ = 1;
     }
     output_count = worker_count_;
