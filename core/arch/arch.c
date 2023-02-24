@@ -801,6 +801,10 @@ d_r_arch_init(void)
         }
 #endif
     }
+
+    /* Ensure addressing registers fit into base+disp operand base and index fields. */
+    IF_AARCHXX(ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, DR_REG_MAX_ADDRESSING_REG));
+
     mangle_init();
 }
 
