@@ -109,13 +109,13 @@ TEST_INSTR(bfdot_vector)
 TEST_INSTR(bfdot_vector_idx)
 {
     /* Testing BFDOT   <Sd>.<Ts>, <Hn>.<Tb>, <Hm>.2H[<index>] */
-    static const uint index_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    static const uint index_0_0[6] = { 0, 3, 0, 1, 2, 3 };
     const char *const expected_0_0[6] = {
         "bfdot  %d0 %d0 %q0 $0x00 $0x01 -> %d0",
         "bfdot  %d5 %d6 %q7 $0x03 $0x01 -> %d5",
         "bfdot  %d10 %d11 %q12 $0x00 $0x01 -> %d10",
         "bfdot  %d16 %d17 %q18 $0x01 $0x01 -> %d16",
-        "bfdot  %d21 %d22 %q23 $0x01 $0x01 -> %d21",
+        "bfdot  %d21 %d22 %q23 $0x02 $0x01 -> %d21",
         "bfdot  %d31 %d31 %q31 $0x03 $0x01 -> %d31",
     };
     TEST_LOOP(bfdot, bfdot_vector_idx, 6, expected_0_0[i],
@@ -129,7 +129,7 @@ TEST_INSTR(bfdot_vector_idx)
         "bfdot  %q5 %q6 %q7 $0x03 $0x01 -> %q5",
         "bfdot  %q10 %q11 %q12 $0x00 $0x01 -> %q10",
         "bfdot  %q16 %q17 %q18 $0x01 $0x01 -> %q16",
-        "bfdot  %q21 %q22 %q23 $0x01 $0x01 -> %q21",
+        "bfdot  %q21 %q22 %q23 $0x02 $0x01 -> %q21",
         "bfdot  %q31 %q31 %q31 $0x03 $0x01 -> %q31",
     };
     TEST_LOOP(bfdot, bfdot_vector_idx, 6, expected_0_1[i],
@@ -220,6 +220,133 @@ TEST_INSTR(bfmmla_vector)
         opnd_create_reg(Vdn_q_six_offset_1[i]), opnd_create_reg(Vdn_q_six_offset_2[i]));
 }
 
+TEST_INSTR(smmla_vector)
+{
+    /* Testing SMMLA   <Vd>.4S, <Vn>.16B, <Vm>.16B */
+    const char *const expected_0_0[6] = {
+        "smmla  %q0 %q0 %q0 $0x00 -> %q0",     "smmla  %q5 %q6 %q7 $0x00 -> %q5",
+        "smmla  %q10 %q11 %q12 $0x00 -> %q10", "smmla  %q16 %q17 %q18 $0x00 -> %q16",
+        "smmla  %q21 %q22 %q23 $0x00 -> %q21", "smmla  %q31 %q31 %q31 $0x00 -> %q31",
+    };
+    TEST_LOOP(
+        smmla, smmla_vector, 6, expected_0_0[i], opnd_create_reg(Vdn_q_six_offset_0[i]),
+        opnd_create_reg(Vdn_q_six_offset_1[i]), opnd_create_reg(Vdn_q_six_offset_2[i]));
+}
+
+TEST_INSTR(sudot_vector_idx)
+{
+    /* Testing SUDOT   <Vd>.<Ts>, <Vn>.<Tb>, <Vm>.4B[<index>] */
+    static const uint index_0_0[6] = { 0, 3, 0, 1, 2, 3 };
+    const char *const expected_0_0[6] = {
+        "sudot  %d0 %d0 %q0 $0x00 $0x00 -> %d0",
+        "sudot  %d5 %d6 %q7 $0x03 $0x00 -> %d5",
+        "sudot  %d10 %d11 %q12 $0x00 $0x00 -> %d10",
+        "sudot  %d16 %d17 %q18 $0x01 $0x00 -> %d16",
+        "sudot  %d21 %d22 %q23 $0x02 $0x00 -> %d21",
+        "sudot  %d31 %d31 %q31 $0x03 $0x00 -> %d31",
+    };
+    TEST_LOOP(sudot, sudot_vector_idx, 6, expected_0_0[i],
+              opnd_create_reg(Vdn_d_six_offset_0[i]),
+              opnd_create_reg(Vdn_d_six_offset_1[i]),
+              opnd_create_reg(Vdn_q_six_offset_2[i]),
+              opnd_create_immed_uint(index_0_0[i], OPSZ_2b));
+
+    const char *const expected_0_1[6] = {
+        "sudot  %q0 %q0 %q0 $0x00 $0x00 -> %q0",
+        "sudot  %q5 %q6 %q7 $0x03 $0x00 -> %q5",
+        "sudot  %q10 %q11 %q12 $0x00 $0x00 -> %q10",
+        "sudot  %q16 %q17 %q18 $0x01 $0x00 -> %q16",
+        "sudot  %q21 %q22 %q23 $0x02 $0x00 -> %q21",
+        "sudot  %q31 %q31 %q31 $0x03 $0x00 -> %q31",
+    };
+    TEST_LOOP(sudot, sudot_vector_idx, 6, expected_0_1[i],
+              opnd_create_reg(Vdn_q_six_offset_0[i]),
+              opnd_create_reg(Vdn_q_six_offset_1[i]),
+              opnd_create_reg(Vdn_q_six_offset_2[i]),
+              opnd_create_immed_uint(index_0_0[i], OPSZ_2b));
+}
+
+TEST_INSTR(ummla_vector)
+{
+    /* Testing UMMLA   <Vd>.4S, <Vn>.16B, <Vm>.16B */
+    const char *const expected_0_0[6] = {
+        "ummla  %q0 %q0 %q0 $0x00 -> %q0",     "ummla  %q5 %q6 %q7 $0x00 -> %q5",
+        "ummla  %q10 %q11 %q12 $0x00 -> %q10", "ummla  %q16 %q17 %q18 $0x00 -> %q16",
+        "ummla  %q21 %q22 %q23 $0x00 -> %q21", "ummla  %q31 %q31 %q31 $0x00 -> %q31",
+    };
+    TEST_LOOP(
+        ummla, ummla_vector, 6, expected_0_0[i], opnd_create_reg(Vdn_q_six_offset_0[i]),
+        opnd_create_reg(Vdn_q_six_offset_1[i]), opnd_create_reg(Vdn_q_six_offset_2[i]));
+}
+
+TEST_INSTR(usmmla_vector)
+{
+    /* Testing USMMLA  <Vd>.4S, <Vn>.16B, <Vm>.16B */
+    const char *const expected_0_0[6] = {
+        "usmmla %q0 %q0 %q0 $0x00 -> %q0",     "usmmla %q5 %q6 %q7 $0x00 -> %q5",
+        "usmmla %q10 %q11 %q12 $0x00 -> %q10", "usmmla %q16 %q17 %q18 $0x00 -> %q16",
+        "usmmla %q21 %q22 %q23 $0x00 -> %q21", "usmmla %q31 %q31 %q31 $0x00 -> %q31",
+    };
+    TEST_LOOP(
+        usmmla, usmmla_vector, 6, expected_0_0[i], opnd_create_reg(Vdn_q_six_offset_0[i]),
+        opnd_create_reg(Vdn_q_six_offset_1[i]), opnd_create_reg(Vdn_q_six_offset_2[i]));
+}
+
+TEST_INSTR(usdot_vector)
+{
+    /* Testing USDOT   <Vd>.<Ts>, <Vn>.<Tb>, <Vm>.<Tb> */
+    const char *const expected_0_0[6] = {
+        "usdot  %d0 %d0 %d0 $0x00 -> %d0",     "usdot  %d5 %d6 %d7 $0x00 -> %d5",
+        "usdot  %d10 %d11 %d12 $0x00 -> %d10", "usdot  %d16 %d17 %d18 $0x00 -> %d16",
+        "usdot  %d21 %d22 %d23 $0x00 -> %d21", "usdot  %d31 %d31 %d31 $0x00 -> %d31",
+    };
+    TEST_LOOP(
+        usdot, usdot_vector, 6, expected_0_0[i], opnd_create_reg(Vdn_d_six_offset_0[i]),
+        opnd_create_reg(Vdn_d_six_offset_1[i]), opnd_create_reg(Vdn_d_six_offset_2[i]));
+
+    const char *const expected_0_1[6] = {
+        "usdot  %q0 %q0 %q0 $0x00 -> %q0",     "usdot  %q5 %q6 %q7 $0x00 -> %q5",
+        "usdot  %q10 %q11 %q12 $0x00 -> %q10", "usdot  %q16 %q17 %q18 $0x00 -> %q16",
+        "usdot  %q21 %q22 %q23 $0x00 -> %q21", "usdot  %q31 %q31 %q31 $0x00 -> %q31",
+    };
+    TEST_LOOP(
+        usdot, usdot_vector, 6, expected_0_1[i], opnd_create_reg(Vdn_q_six_offset_0[i]),
+        opnd_create_reg(Vdn_q_six_offset_1[i]), opnd_create_reg(Vdn_q_six_offset_2[i]));
+}
+
+TEST_INSTR(usdot_vector_idx)
+{
+    /* Testing USDOT   <Vd>.<Ts>, <Vn>.<Tb>, <Vm>.4B[<index>] */
+    static const uint index_0_0[6] = { 0, 3, 0, 1, 2, 3 };
+    const char *const expected_0_0[6] = {
+        "usdot  %d0 %d0 %q0 $0x00 $0x00 -> %d0",
+        "usdot  %d5 %d6 %q7 $0x03 $0x00 -> %d5",
+        "usdot  %d10 %d11 %q12 $0x00 $0x00 -> %d10",
+        "usdot  %d16 %d17 %q18 $0x01 $0x00 -> %d16",
+        "usdot  %d21 %d22 %q23 $0x02 $0x00 -> %d21",
+        "usdot  %d31 %d31 %q31 $0x03 $0x00 -> %d31",
+    };
+    TEST_LOOP(usdot, usdot_vector_idx, 6, expected_0_0[i],
+              opnd_create_reg(Vdn_d_six_offset_0[i]),
+              opnd_create_reg(Vdn_d_six_offset_1[i]),
+              opnd_create_reg(Vdn_q_six_offset_2[i]),
+              opnd_create_immed_uint(index_0_0[i], OPSZ_2b));
+
+    const char *const expected_0_1[6] = {
+        "usdot  %q0 %q0 %q0 $0x00 $0x00 -> %q0",
+        "usdot  %q5 %q6 %q7 $0x03 $0x00 -> %q5",
+        "usdot  %q10 %q11 %q12 $0x00 $0x00 -> %q10",
+        "usdot  %q16 %q17 %q18 $0x01 $0x00 -> %q16",
+        "usdot  %q21 %q22 %q23 $0x02 $0x00 -> %q21",
+        "usdot  %q31 %q31 %q31 $0x03 $0x00 -> %q31",
+    };
+    TEST_LOOP(usdot, usdot_vector_idx, 6, expected_0_1[i],
+              opnd_create_reg(Vdn_q_six_offset_0[i]),
+              opnd_create_reg(Vdn_q_six_offset_1[i]),
+              opnd_create_reg(Vdn_q_six_offset_2[i]),
+              opnd_create_immed_uint(index_0_0[i], OPSZ_2b));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -242,6 +369,13 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(bfmlalt_vector);
     RUN_INSTR_TEST(bfmlalt_vector_idx);
     RUN_INSTR_TEST(bfmmla_vector);
+
+    RUN_INSTR_TEST(smmla_vector);
+    RUN_INSTR_TEST(sudot_vector_idx);
+    RUN_INSTR_TEST(ummla_vector);
+    RUN_INSTR_TEST(usmmla_vector);
+    RUN_INSTR_TEST(usdot_vector);
+    RUN_INSTR_TEST(usdot_vector_idx);
 
     print("All v8.6 tests complete.\n");
 #ifndef STANDALONE_DECODER

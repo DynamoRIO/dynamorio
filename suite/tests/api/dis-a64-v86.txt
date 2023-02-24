@@ -243,3 +243,159 @@
 6e5bef59 : bfmmla v25.4s, v26.8h, v27.8h             : bfmmla %q25 %q26 %q27 $0x01 -> %q25
 6e5def9b : bfmmla v27.4s, v28.8h, v29.8h             : bfmmla %q27 %q28 %q29 $0x01 -> %q27
 6e5fefff : bfmmla v31.4s, v31.8h, v31.8h             : bfmmla %q31 %q31 %q31 $0x01 -> %q31
+
+# SMMLA   <Vd>.4S, <Vn>.16B, <Vm>.16B (SMMLA-Q.QQ-Vec)
+4e80a400 : smmla v0.4s, v0.16b, v0.16b               : smmla  %q0 %q0 %q0 $0x00 -> %q0
+4e84a462 : smmla v2.4s, v3.16b, v4.16b               : smmla  %q2 %q3 %q4 $0x00 -> %q2
+4e86a4a4 : smmla v4.4s, v5.16b, v6.16b               : smmla  %q4 %q5 %q6 $0x00 -> %q4
+4e88a4e6 : smmla v6.4s, v7.16b, v8.16b               : smmla  %q6 %q7 %q8 $0x00 -> %q6
+4e8aa528 : smmla v8.4s, v9.16b, v10.16b              : smmla  %q8 %q9 %q10 $0x00 -> %q8
+4e8ca56a : smmla v10.4s, v11.16b, v12.16b            : smmla  %q10 %q11 %q12 $0x00 -> %q10
+4e8ea5ac : smmla v12.4s, v13.16b, v14.16b            : smmla  %q12 %q13 %q14 $0x00 -> %q12
+4e90a5ee : smmla v14.4s, v15.16b, v16.16b            : smmla  %q14 %q15 %q16 $0x00 -> %q14
+4e92a630 : smmla v16.4s, v17.16b, v18.16b            : smmla  %q16 %q17 %q18 $0x00 -> %q16
+4e93a651 : smmla v17.4s, v18.16b, v19.16b            : smmla  %q17 %q18 %q19 $0x00 -> %q17
+4e95a693 : smmla v19.4s, v20.16b, v21.16b            : smmla  %q19 %q20 %q21 $0x00 -> %q19
+4e97a6d5 : smmla v21.4s, v22.16b, v23.16b            : smmla  %q21 %q22 %q23 $0x00 -> %q21
+4e99a717 : smmla v23.4s, v24.16b, v25.16b            : smmla  %q23 %q24 %q25 $0x00 -> %q23
+4e9ba759 : smmla v25.4s, v26.16b, v27.16b            : smmla  %q25 %q26 %q27 $0x00 -> %q25
+4e9da79b : smmla v27.4s, v28.16b, v29.16b            : smmla  %q27 %q28 %q29 $0x00 -> %q27
+4e9fa7ff : smmla v31.4s, v31.16b, v31.16b            : smmla  %q31 %q31 %q31 $0x00 -> %q31
+
+# SUDOT   <Vd>.<T>, <Vn>.<Tb>, <Vm>.4B[<imm>] (SUDOT-Q.QQi-asimdelem_L)
+0f00f000 : sudot v0.2s, v0.8b, v0.4b[0]              : sudot  %d0 %d0 %q0 $0x00 $0x00 -> %d0
+0f04f062 : sudot v2.2s, v3.8b, v4.4b[0]              : sudot  %d2 %d3 %q4 $0x00 $0x00 -> %d2
+0f06f0a4 : sudot v4.2s, v5.8b, v6.4b[0]              : sudot  %d4 %d5 %q6 $0x00 $0x00 -> %d4
+0f28f0e6 : sudot v6.2s, v7.8b, v8.4b[1]              : sudot  %d6 %d7 %q8 $0x01 $0x00 -> %d6
+0f2af128 : sudot v8.2s, v9.8b, v10.4b[1]             : sudot  %d8 %d9 %q10 $0x01 $0x00 -> %d8
+0f2cf16a : sudot v10.2s, v11.8b, v12.4b[1]           : sudot  %d10 %d11 %q12 $0x01 $0x00 -> %d10
+0f2ef1ac : sudot v12.2s, v13.8b, v14.4b[1]           : sudot  %d12 %d13 %q14 $0x01 $0x00 -> %d12
+0f30f1ee : sudot v14.2s, v15.8b, v16.4b[1]           : sudot  %d14 %d15 %q16 $0x01 $0x00 -> %d14
+0f12fa30 : sudot v16.2s, v17.8b, v18.4b[2]           : sudot  %d16 %d17 %q18 $0x02 $0x00 -> %d16
+0f13fa51 : sudot v17.2s, v18.8b, v19.4b[2]           : sudot  %d17 %d18 %q19 $0x02 $0x00 -> %d17
+0f15fa93 : sudot v19.2s, v20.8b, v21.4b[2]           : sudot  %d19 %d20 %q21 $0x02 $0x00 -> %d19
+0f17fad5 : sudot v21.2s, v22.8b, v23.4b[2]           : sudot  %d21 %d22 %q23 $0x02 $0x00 -> %d21
+0f19fb17 : sudot v23.2s, v24.8b, v25.4b[2]           : sudot  %d23 %d24 %q25 $0x02 $0x00 -> %d23
+0f1bfb59 : sudot v25.2s, v26.8b, v27.4b[2]           : sudot  %d25 %d26 %q27 $0x02 $0x00 -> %d25
+0f3dfb9b : sudot v27.2s, v28.8b, v29.4b[3]           : sudot  %d27 %d28 %q29 $0x03 $0x00 -> %d27
+0f3ffbff : sudot v31.2s, v31.8b, v31.4b[3]           : sudot  %d31 %d31 %q31 $0x03 $0x00 -> %d31
+4f00f000 : sudot v0.4s, v0.16b, v0.4b[0]             : sudot  %q0 %q0 %q0 $0x00 $0x00 -> %q0
+4f04f062 : sudot v2.4s, v3.16b, v4.4b[0]             : sudot  %q2 %q3 %q4 $0x00 $0x00 -> %q2
+4f06f0a4 : sudot v4.4s, v5.16b, v6.4b[0]             : sudot  %q4 %q5 %q6 $0x00 $0x00 -> %q4
+4f28f0e6 : sudot v6.4s, v7.16b, v8.4b[1]             : sudot  %q6 %q7 %q8 $0x01 $0x00 -> %q6
+4f2af128 : sudot v8.4s, v9.16b, v10.4b[1]            : sudot  %q8 %q9 %q10 $0x01 $0x00 -> %q8
+4f2cf16a : sudot v10.4s, v11.16b, v12.4b[1]          : sudot  %q10 %q11 %q12 $0x01 $0x00 -> %q10
+4f2ef1ac : sudot v12.4s, v13.16b, v14.4b[1]          : sudot  %q12 %q13 %q14 $0x01 $0x00 -> %q12
+4f30f1ee : sudot v14.4s, v15.16b, v16.4b[1]          : sudot  %q14 %q15 %q16 $0x01 $0x00 -> %q14
+4f12fa30 : sudot v16.4s, v17.16b, v18.4b[2]          : sudot  %q16 %q17 %q18 $0x02 $0x00 -> %q16
+4f13fa51 : sudot v17.4s, v18.16b, v19.4b[2]          : sudot  %q17 %q18 %q19 $0x02 $0x00 -> %q17
+4f15fa93 : sudot v19.4s, v20.16b, v21.4b[2]          : sudot  %q19 %q20 %q21 $0x02 $0x00 -> %q19
+4f17fad5 : sudot v21.4s, v22.16b, v23.4b[2]          : sudot  %q21 %q22 %q23 $0x02 $0x00 -> %q21
+4f19fb17 : sudot v23.4s, v24.16b, v25.4b[2]          : sudot  %q23 %q24 %q25 $0x02 $0x00 -> %q23
+4f1bfb59 : sudot v25.4s, v26.16b, v27.4b[2]          : sudot  %q25 %q26 %q27 $0x02 $0x00 -> %q25
+4f3dfb9b : sudot v27.4s, v28.16b, v29.4b[3]          : sudot  %q27 %q28 %q29 $0x03 $0x00 -> %q27
+4f3ffbff : sudot v31.4s, v31.16b, v31.4b[3]          : sudot  %q31 %q31 %q31 $0x03 $0x00 -> %q31
+
+# UMMLA   <Vd>.4S, <Vn>.16B, <Vm>.16B (UMMLA-Q.QQ-Vec)
+6e80a400 : ummla v0.4s, v0.16b, v0.16b               : ummla  %q0 %q0 %q0 $0x00 -> %q0
+6e84a462 : ummla v2.4s, v3.16b, v4.16b               : ummla  %q2 %q3 %q4 $0x00 -> %q2
+6e86a4a4 : ummla v4.4s, v5.16b, v6.16b               : ummla  %q4 %q5 %q6 $0x00 -> %q4
+6e88a4e6 : ummla v6.4s, v7.16b, v8.16b               : ummla  %q6 %q7 %q8 $0x00 -> %q6
+6e8aa528 : ummla v8.4s, v9.16b, v10.16b              : ummla  %q8 %q9 %q10 $0x00 -> %q8
+6e8ca56a : ummla v10.4s, v11.16b, v12.16b            : ummla  %q10 %q11 %q12 $0x00 -> %q10
+6e8ea5ac : ummla v12.4s, v13.16b, v14.16b            : ummla  %q12 %q13 %q14 $0x00 -> %q12
+6e90a5ee : ummla v14.4s, v15.16b, v16.16b            : ummla  %q14 %q15 %q16 $0x00 -> %q14
+6e92a630 : ummla v16.4s, v17.16b, v18.16b            : ummla  %q16 %q17 %q18 $0x00 -> %q16
+6e93a651 : ummla v17.4s, v18.16b, v19.16b            : ummla  %q17 %q18 %q19 $0x00 -> %q17
+6e95a693 : ummla v19.4s, v20.16b, v21.16b            : ummla  %q19 %q20 %q21 $0x00 -> %q19
+6e97a6d5 : ummla v21.4s, v22.16b, v23.16b            : ummla  %q21 %q22 %q23 $0x00 -> %q21
+6e99a717 : ummla v23.4s, v24.16b, v25.16b            : ummla  %q23 %q24 %q25 $0x00 -> %q23
+6e9ba759 : ummla v25.4s, v26.16b, v27.16b            : ummla  %q25 %q26 %q27 $0x00 -> %q25
+6e9da79b : ummla v27.4s, v28.16b, v29.16b            : ummla  %q27 %q28 %q29 $0x00 -> %q27
+6e9fa7ff : ummla v31.4s, v31.16b, v31.16b            : ummla  %q31 %q31 %q31 $0x00 -> %q31
+
+# USDOT   <Vd>.<T>, <Vn>.<Tb>, <Vm>.<Tb> (USDOT-Q.QQ-Vec)
+0e809c00 : usdot v0.2s, v0.8b, v0.8b                 : usdot  %d0 %d0 %d0 $0x00 -> %d0
+0e849c62 : usdot v2.2s, v3.8b, v4.8b                 : usdot  %d2 %d3 %d4 $0x00 -> %d2
+0e869ca4 : usdot v4.2s, v5.8b, v6.8b                 : usdot  %d4 %d5 %d6 $0x00 -> %d4
+0e889ce6 : usdot v6.2s, v7.8b, v8.8b                 : usdot  %d6 %d7 %d8 $0x00 -> %d6
+0e8a9d28 : usdot v8.2s, v9.8b, v10.8b                : usdot  %d8 %d9 %d10 $0x00 -> %d8
+0e8c9d6a : usdot v10.2s, v11.8b, v12.8b              : usdot  %d10 %d11 %d12 $0x00 -> %d10
+0e8e9dac : usdot v12.2s, v13.8b, v14.8b              : usdot  %d12 %d13 %d14 $0x00 -> %d12
+0e909dee : usdot v14.2s, v15.8b, v16.8b              : usdot  %d14 %d15 %d16 $0x00 -> %d14
+0e929e30 : usdot v16.2s, v17.8b, v18.8b              : usdot  %d16 %d17 %d18 $0x00 -> %d16
+0e939e51 : usdot v17.2s, v18.8b, v19.8b              : usdot  %d17 %d18 %d19 $0x00 -> %d17
+0e959e93 : usdot v19.2s, v20.8b, v21.8b              : usdot  %d19 %d20 %d21 $0x00 -> %d19
+0e979ed5 : usdot v21.2s, v22.8b, v23.8b              : usdot  %d21 %d22 %d23 $0x00 -> %d21
+0e999f17 : usdot v23.2s, v24.8b, v25.8b              : usdot  %d23 %d24 %d25 $0x00 -> %d23
+0e9b9f59 : usdot v25.2s, v26.8b, v27.8b              : usdot  %d25 %d26 %d27 $0x00 -> %d25
+0e9d9f9b : usdot v27.2s, v28.8b, v29.8b              : usdot  %d27 %d28 %d29 $0x00 -> %d27
+0e9f9fff : usdot v31.2s, v31.8b, v31.8b              : usdot  %d31 %d31 %d31 $0x00 -> %d31
+4e809c00 : usdot v0.4s, v0.16b, v0.16b               : usdot  %q0 %q0 %q0 $0x00 -> %q0
+4e849c62 : usdot v2.4s, v3.16b, v4.16b               : usdot  %q2 %q3 %q4 $0x00 -> %q2
+4e869ca4 : usdot v4.4s, v5.16b, v6.16b               : usdot  %q4 %q5 %q6 $0x00 -> %q4
+4e889ce6 : usdot v6.4s, v7.16b, v8.16b               : usdot  %q6 %q7 %q8 $0x00 -> %q6
+4e8a9d28 : usdot v8.4s, v9.16b, v10.16b              : usdot  %q8 %q9 %q10 $0x00 -> %q8
+4e8c9d6a : usdot v10.4s, v11.16b, v12.16b            : usdot  %q10 %q11 %q12 $0x00 -> %q10
+4e8e9dac : usdot v12.4s, v13.16b, v14.16b            : usdot  %q12 %q13 %q14 $0x00 -> %q12
+4e909dee : usdot v14.4s, v15.16b, v16.16b            : usdot  %q14 %q15 %q16 $0x00 -> %q14
+4e929e30 : usdot v16.4s, v17.16b, v18.16b            : usdot  %q16 %q17 %q18 $0x00 -> %q16
+4e939e51 : usdot v17.4s, v18.16b, v19.16b            : usdot  %q17 %q18 %q19 $0x00 -> %q17
+4e959e93 : usdot v19.4s, v20.16b, v21.16b            : usdot  %q19 %q20 %q21 $0x00 -> %q19
+4e979ed5 : usdot v21.4s, v22.16b, v23.16b            : usdot  %q21 %q22 %q23 $0x00 -> %q21
+4e999f17 : usdot v23.4s, v24.16b, v25.16b            : usdot  %q23 %q24 %q25 $0x00 -> %q23
+4e9b9f59 : usdot v25.4s, v26.16b, v27.16b            : usdot  %q25 %q26 %q27 $0x00 -> %q25
+4e9d9f9b : usdot v27.4s, v28.16b, v29.16b            : usdot  %q27 %q28 %q29 $0x00 -> %q27
+4e9f9fff : usdot v31.4s, v31.16b, v31.16b            : usdot  %q31 %q31 %q31 $0x00 -> %q31
+
+# USDOT   <Vd>.<T>, <Vn>.<Tb>, <Vm>.4B[<imm>] (USDOT-Q.QQi-asimdelem_L)
+0f80f000 : usdot v0.2s, v0.8b, v0.4b[0]              : usdot  %d0 %d0 %q0 $0x00 $0x00 -> %d0
+0f84f062 : usdot v2.2s, v3.8b, v4.4b[0]              : usdot  %d2 %d3 %q4 $0x00 $0x00 -> %d2
+0f86f0a4 : usdot v4.2s, v5.8b, v6.4b[0]              : usdot  %d4 %d5 %q6 $0x00 $0x00 -> %d4
+0fa8f0e6 : usdot v6.2s, v7.8b, v8.4b[1]              : usdot  %d6 %d7 %q8 $0x01 $0x00 -> %d6
+0faaf128 : usdot v8.2s, v9.8b, v10.4b[1]             : usdot  %d8 %d9 %q10 $0x01 $0x00 -> %d8
+0facf16a : usdot v10.2s, v11.8b, v12.4b[1]           : usdot  %d10 %d11 %q12 $0x01 $0x00 -> %d10
+0faef1ac : usdot v12.2s, v13.8b, v14.4b[1]           : usdot  %d12 %d13 %q14 $0x01 $0x00 -> %d12
+0fb0f1ee : usdot v14.2s, v15.8b, v16.4b[1]           : usdot  %d14 %d15 %q16 $0x01 $0x00 -> %d14
+0f92fa30 : usdot v16.2s, v17.8b, v18.4b[2]           : usdot  %d16 %d17 %q18 $0x02 $0x00 -> %d16
+0f93fa51 : usdot v17.2s, v18.8b, v19.4b[2]           : usdot  %d17 %d18 %q19 $0x02 $0x00 -> %d17
+0f95fa93 : usdot v19.2s, v20.8b, v21.4b[2]           : usdot  %d19 %d20 %q21 $0x02 $0x00 -> %d19
+0f97fad5 : usdot v21.2s, v22.8b, v23.4b[2]           : usdot  %d21 %d22 %q23 $0x02 $0x00 -> %d21
+0f99fb17 : usdot v23.2s, v24.8b, v25.4b[2]           : usdot  %d23 %d24 %q25 $0x02 $0x00 -> %d23
+0f9bfb59 : usdot v25.2s, v26.8b, v27.4b[2]           : usdot  %d25 %d26 %q27 $0x02 $0x00 -> %d25
+0fbdfb9b : usdot v27.2s, v28.8b, v29.4b[3]           : usdot  %d27 %d28 %q29 $0x03 $0x00 -> %d27
+0fbffbff : usdot v31.2s, v31.8b, v31.4b[3]           : usdot  %d31 %d31 %q31 $0x03 $0x00 -> %d31
+4f80f000 : usdot v0.4s, v0.16b, v0.4b[0]             : usdot  %q0 %q0 %q0 $0x00 $0x00 -> %q0
+4f84f062 : usdot v2.4s, v3.16b, v4.4b[0]             : usdot  %q2 %q3 %q4 $0x00 $0x00 -> %q2
+4f86f0a4 : usdot v4.4s, v5.16b, v6.4b[0]             : usdot  %q4 %q5 %q6 $0x00 $0x00 -> %q4
+4fa8f0e6 : usdot v6.4s, v7.16b, v8.4b[1]             : usdot  %q6 %q7 %q8 $0x01 $0x00 -> %q6
+4faaf128 : usdot v8.4s, v9.16b, v10.4b[1]            : usdot  %q8 %q9 %q10 $0x01 $0x00 -> %q8
+4facf16a : usdot v10.4s, v11.16b, v12.4b[1]          : usdot  %q10 %q11 %q12 $0x01 $0x00 -> %q10
+4faef1ac : usdot v12.4s, v13.16b, v14.4b[1]          : usdot  %q12 %q13 %q14 $0x01 $0x00 -> %q12
+4fb0f1ee : usdot v14.4s, v15.16b, v16.4b[1]          : usdot  %q14 %q15 %q16 $0x01 $0x00 -> %q14
+4f92fa30 : usdot v16.4s, v17.16b, v18.4b[2]          : usdot  %q16 %q17 %q18 $0x02 $0x00 -> %q16
+4f93fa51 : usdot v17.4s, v18.16b, v19.4b[2]          : usdot  %q17 %q18 %q19 $0x02 $0x00 -> %q17
+4f95fa93 : usdot v19.4s, v20.16b, v21.4b[2]          : usdot  %q19 %q20 %q21 $0x02 $0x00 -> %q19
+4f97fad5 : usdot v21.4s, v22.16b, v23.4b[2]          : usdot  %q21 %q22 %q23 $0x02 $0x00 -> %q21
+4f99fb17 : usdot v23.4s, v24.16b, v25.4b[2]          : usdot  %q23 %q24 %q25 $0x02 $0x00 -> %q23
+4f9bfb59 : usdot v25.4s, v26.16b, v27.4b[2]          : usdot  %q25 %q26 %q27 $0x02 $0x00 -> %q25
+4fbdfb9b : usdot v27.4s, v28.16b, v29.4b[3]          : usdot  %q27 %q28 %q29 $0x03 $0x00 -> %q27
+4fbffbff : usdot v31.4s, v31.16b, v31.4b[3]          : usdot  %q31 %q31 %q31 $0x03 $0x00 -> %q31
+
+# USMMLA  <Vd>.4S, <Vn>.16B, <Vm>.16B (USMMLA-Q.QQ-Vec)
+4e80ac00 : usmmla v0.4s, v0.16b, v0.16b              : usmmla %q0 %q0 %q0 $0x00 -> %q0
+4e84ac62 : usmmla v2.4s, v3.16b, v4.16b              : usmmla %q2 %q3 %q4 $0x00 -> %q2
+4e86aca4 : usmmla v4.4s, v5.16b, v6.16b              : usmmla %q4 %q5 %q6 $0x00 -> %q4
+4e88ace6 : usmmla v6.4s, v7.16b, v8.16b              : usmmla %q6 %q7 %q8 $0x00 -> %q6
+4e8aad28 : usmmla v8.4s, v9.16b, v10.16b             : usmmla %q8 %q9 %q10 $0x00 -> %q8
+4e8cad6a : usmmla v10.4s, v11.16b, v12.16b           : usmmla %q10 %q11 %q12 $0x00 -> %q10
+4e8eadac : usmmla v12.4s, v13.16b, v14.16b           : usmmla %q12 %q13 %q14 $0x00 -> %q12
+4e90adee : usmmla v14.4s, v15.16b, v16.16b           : usmmla %q14 %q15 %q16 $0x00 -> %q14
+4e92ae30 : usmmla v16.4s, v17.16b, v18.16b           : usmmla %q16 %q17 %q18 $0x00 -> %q16
+4e93ae51 : usmmla v17.4s, v18.16b, v19.16b           : usmmla %q17 %q18 %q19 $0x00 -> %q17
+4e95ae93 : usmmla v19.4s, v20.16b, v21.16b           : usmmla %q19 %q20 %q21 $0x00 -> %q19
+4e97aed5 : usmmla v21.4s, v22.16b, v23.16b           : usmmla %q21 %q22 %q23 $0x00 -> %q21
+4e99af17 : usmmla v23.4s, v24.16b, v25.16b           : usmmla %q23 %q24 %q25 $0x00 -> %q23
+4e9baf59 : usmmla v25.4s, v26.16b, v27.16b           : usmmla %q25 %q26 %q27 $0x00 -> %q25
+4e9daf9b : usmmla v27.4s, v28.16b, v29.16b           : usmmla %q27 %q28 %q29 $0x00 -> %q27
+4e9fafff : usmmla v31.4s, v31.16b, v31.16b           : usmmla %q31 %q31 %q31 $0x00 -> %q31
