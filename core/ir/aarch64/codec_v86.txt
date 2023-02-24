@@ -46,3 +46,9 @@
 01101110110xxxxx111111xxxxxxxxxx  n   956  BF16 bfmlalt   q0 : q0 q5 q16 h_sz
 0100111111xxxxxx1111x0xxxxxxxxxx  n   956  BF16 bfmlalt   q0 : q0 q5 q4_16 vindex_H h_sz
 01101110010xxxxx111011xxxxxxxxxx  n   957  BF16  bfmmla   q0 : q0 q5 q16 h_sz
+01001110100xxxxx101001xxxxxxxxxx  n   958  I8MM   smmla   q0 : q0 q5 q16 b_const_sz
+0x00111100xxxxxx1111x0xxxxxxxxxx  n   959  I8MM   sudot  dq0 : dq0 dq5 q16 vindex_S b_const_sz
+01101110100xxxxx101001xxxxxxxxxx  n   960  I8MM   ummla   q0 : q0 q5 q16 b_const_sz
+0x001110100xxxxx100111xxxxxxxxxx  n   961  I8MM   usdot  dq0 : dq0 dq5 dq16 b_const_sz
+0x00111110xxxxxx1111x0xxxxxxxxxx  n   961  I8MM   usdot  dq0 : dq0 dq5 q16 vindex_S b_const_sz
+01001110100xxxxx101011xxxxxxxxxx  n   962  I8MM  usmmla   q0 : q0 q5 q16 b_const_sz

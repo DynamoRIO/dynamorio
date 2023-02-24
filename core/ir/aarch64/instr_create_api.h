@@ -5088,6 +5088,108 @@
 #define INSTR_CREATE_bfmmla_vector(dc, Rd, Rn, Rm) \
     instr_create_1dst_4src(dc, OP_bfmmla, Rd, Rd, Rn, Rm, OPND_CREATE_HALF())
 
+/**
+ * Creates a SMMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SMMLA   <Vd>.4S, <Vn>.16B, <Vm>.16B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The third source and destination vector register, Q (quadword, 128
+ *             bits).
+ * \param Rn   The first source vector register, Q (quadword, 128 bits).
+ * \param Rm   The second source vector register, Q (quadword, 128 bits).
+ */
+#define INSTR_CREATE_smmla_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_smmla, Rd, Rd, Rn, Rm, OPND_CREATE_BYTE())
+
+/**
+ * Creates a SUDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SUDOT   <Vd>.<Ts>, <Vn>.<Tb>, <Vm>.4B[<index>]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd    The third source and destination vector register. Can be Q (quadword,
+ *              128 bits) or D (doubleword, 64 bits).
+ * \param Rn    The first source vector register. Can be Q (quadword, 128 bits)
+ *              or D (doubleword, 64 bits).
+ * \param Rm    The second source vector register, Q (quadword, 128 bits).
+ * \param index The immediate index for Rm, in the range 0-3.
+ */
+#define INSTR_CREATE_sudot_vector_idx(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_sudot, Rd, Rd, Rn, Rm, index, OPND_CREATE_BYTE())
+
+/**
+ * Creates an UMMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UMMLA   <Vd>.4S, <Vn>.16B, <Vm>.16B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The third source and destination vector register, Q (quadword, 128
+ *             bits).
+ * \param Rn   The first source vector register, Q (quadword, 128 bits).
+ * \param Rm   The second source vector register, Q (quadword, 128 bits).
+ */
+#define INSTR_CREATE_ummla_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_ummla, Rd, Rd, Rn, Rm, OPND_CREATE_BYTE())
+
+/**
+ * Creates an USMMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    USMMLA  <Vd>.4S, <Vn>.16B, <Vm>.16B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The third source and destination vector register, Q (quadword, 128
+ *             bits).
+ * \param Rn   The first source vector register, Q (quadword, 128 bits).
+ * \param Rm   The second source vector register, Q (quadword, 128 bits).
+ */
+#define INSTR_CREATE_usmmla_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_usmmla, Rd, Rd, Rn, Rm, OPND_CREATE_BYTE())
+
+/**
+ * Creates an USDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    USDOT   <Vd>.<Ts>, <Vn>.<Tb>, <Vm>.<Tb>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The third source and destination vector register. Can be D (doubleword,
+ *             64 bits) or Q (quadword, 128 bits).
+ * \param Rn   The first source vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ * \param Rm   The second source vector register. Can be D (doubleword, 64 bits)
+ *             or Q (quadword, 128 bits).
+ */
+#define INSTR_CREATE_usdot_vector(dc, Rd, Rn, Rm) \
+    instr_create_1dst_4src(dc, OP_usdot, Rd, Rd, Rn, Rm, OPND_CREATE_BYTE())
+
+/**
+ * Creates an USDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    USDOT   <Vd>.<Ts>, <Vn>.<Tb>, <Vm>.4B[<index>]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd    The third source and destination vector register. Can be D (doubleword,
+ *              64 bits) or Q (quadword, 128 bits).
+ * \param Rn    The first source vector register. Can be D (doubleword, 64 bits)
+ *              or Q (quadword, 128 bits).
+ * \param Rm    The second source vector register, Q (quadword, 128 bits).
+ * \param index The immediate index for Rm, in the range 0-3.
+ */
+#define INSTR_CREATE_usdot_vector_idx(dc, Rd, Rn, Rm, index) \
+    instr_create_1dst_5src(dc, OP_usdot, Rd, Rd, Rn, Rm, index, OPND_CREATE_BYTE())
+
 /****************************************************************************
  *                              SVE Instructions                            *
  ****************************************************************************/
