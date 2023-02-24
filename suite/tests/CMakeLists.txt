@@ -4099,6 +4099,7 @@ if (BUILD_CLIENTS)
     if (AARCH64)
       torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app
         "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+      set(tool.drcachesim.drstatecmp-fuzz_timeout 180)
     endif ()
     if (NOT WIN32)
       torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}
@@ -4626,6 +4627,7 @@ if (UNIX)
 
     tobuild(linux.sigmask linux/sigmask.c)
     link_with_pthread(linux.sigmask)
+    set(linux.sigmask_timeout 180)
     # Sanity check that this option works.
     torunonly(linux.sigmask-noalarm linux.sigmask linux/sigmask.c
       "-no_reroute_alarm_signals" "")
