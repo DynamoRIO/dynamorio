@@ -74,7 +74,7 @@ typedef struct ALIGN_VAR(16) _icache_op_struct_t {
      * consecutive icache lines (which could wrap around the top of memory).
      */
     void *begin, *end;
-    /* cache the ctr el0 at init */
+    /* Cache the ctr_el0 value at init time. */
     ptr_uint_t cached_ctr_el0;
     /* Some space to spill registers. */
     ptr_uint_t spill[2];
@@ -95,7 +95,7 @@ mangle_arch_init(void)
 #    ifdef DR_HOST_NOT_TARGET
     icache_op_struct.cached_ctr_el0 = 0;
 #    else
-    /* cache the ctr_el0 */
+    /* Cache the ctr_el0 value. */
     ptr_uint_t cache_info;
     asm volatile("mrs\t%0, ctr_el0" : "=r"(cache_info));
     LOG(GLOBAL, LOG_INTERP, 2, "cpu cache info: %x\n", cache_info);
@@ -2993,20 +2993,20 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     } else if (opc == OP_mrs) {
         DEBUG_DECLARE(reg_id_t src_reg = opnd_get_reg(instr_get_src(instr, 0)));
         ASSERT(src_reg == DR_REG_CTR_EL0);
-        ptr_int_t mangle_ctr_el0 = icache_op_struct.cached_ctr_el0;
+        ptr_uint_t mangle_ctr_el0 = icache_op_struct.cached_ctr_el0;
         switch (INTERNAL_OPTION(unsafe_fake_el0_dic)) {
         case 0:
-            /* force set as zero */
+            /* Force set as zero. */
             mangle_ctr_el0 &= ~(0x1l << CTR_DIC_SHIFT);
             break;
         case 1:
-            /* force set as one */
+            /* Force set as one. */
             mangle_ctr_el0 |= 0x1l << CTR_DIC_SHIFT;
             break;
         default: break;
         }
         if (mangle_ctr_el0 != icache_op_struct.cached_ctr_el0) {
-            LOG(THREAD, LOG_INTERP, 2, "mangle ctr_el0 as %x -> %x\n",
+            LOG(THREAD, LOG_INTERP, 2, "mangle ctr_el0 as " PIFX " -> " PIFX "\n",
                 icache_op_struct.cached_ctr_el0, mangle_ctr_el0);
             reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
             if (reg != dr_reg_stolen) {
@@ -3037,10 +3037,9 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 PRE(ilist, instr,
                     instr_create_restore_from_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
             }
-            /* remove origin instr */
+            /* Remove the original instr. */
             instrlist_remove(ilist, instr);
             instr_destroy(dcontext, instr);
-        } else {
             return NULL;
         }
     } else
