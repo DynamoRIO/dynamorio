@@ -947,7 +947,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                                             NULL /*user_data*/);
             } else {
                 LOG(THREAD, LOG_DISPATCH, 2,
-                    "WARNING: skip selfmod region from %llx to %llx, size %d\n", begin,
+                    "WARNING: skip selfmod region from %p to %p, size %d\n", begin,
                     end, end - begin);
             }
         }
