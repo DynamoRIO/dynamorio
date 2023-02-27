@@ -2084,6 +2084,16 @@ instr_create_1dst_5src(void *drcontext, int opcode, opnd_t dst, opnd_t src1, opn
 DR_API
 /**
  * Convenience routine that returns an initialized instr_t allocated on the
+ * thread-local heap with opcode \p opcode, one destination (\p dst),
+ * and six sources (\p src1, \p src2, \p src3, \p src4, \p src5, \p src6).
+ */
+instr_t *
+instr_create_1dst_6src(void *drcontext, int opcode, opnd_t dst, opnd_t src1, opnd_t src2,
+                       opnd_t src3, opnd_t src4, opnd_t src5, opnd_t src6);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, two destinations (\p dst1, \p dst2)
  * and no sources.
  */
