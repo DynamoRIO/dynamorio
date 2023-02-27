@@ -2796,6 +2796,43 @@ encode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, opnd_t opnd,
     return true;
 }
 
+/* imm1_ew_12: 1 bit symbolised imm, representing 90 or 270 */
+
+static inline bool
+decode_opnd_imm1_ew_12(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const uint value = extract_uint(enc, 12, 1) == 0 ? 90 : 270;
+    *opnd = opnd_create_immed_uint(value, OPSZ_2);
+
+    return true;
+}
+
+static inline bool
+encode_opnd_imm1_ew_12(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_immed_int(opnd))
+
+    const uint value = opnd_get_immed_int(opnd);
+    IF_RETURN_FALSE((value != 90) && (value != 270))
+
+    *enc_out = (value == 90 ? 0 : 1) << 12;
+    return true;
+}
+
+/* imm2_nesw_11: 2 bit symbolised imm, representing 0, 90, 180, or 270 */
+
+static inline bool
+decode_opnd_imm2_nesw_11(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_imm2_nesw(enc, 11, opnd);
+}
+
+static inline bool
+encode_opnd_imm2_nesw_11(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_imm2_nesw(11, opnd, enc_out);
+}
+
 /* extam: extend amount, a left shift from 0 to 4 */
 
 static inline bool
@@ -5189,6 +5226,48 @@ encode_opnd_vindex_SD(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     } else {                                             // Double
         if (val < 0 || val >= 2)
             return false;
+        *enc_out = (val & 1) << H; // index=H
+    }
+    return true;
+}
+
+/* vindex_HS_2lane: Index for vector with half or single, using 2 lanes. */
+
+static inline bool
+decode_opnd_vindex_HS_2lane(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const uint sz = extract_uint(enc, 22, 1);
+    const uint H = extract_uint(enc, 11, 1);
+    const uint L = extract_uint(enc, 21, 1);
+    uint bits;
+    if (sz == 1) {              // Half
+        bits = (H << 1) | L;    // index=H:L
+    } else {                    // Single
+        IF_RETURN_FALSE(L != 0)
+        bits = H; // index=H
+    }
+
+    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_vindex_HS_2lane(uint enc, int opcode, byte *pc, opnd_t opnd,
+                            OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    const uint sz = extract_uint(enc, 22, 1);
+    const uint H = 11;
+    const uint L = 21;
+
+    const ptr_int_t val = opnd_get_immed_int(opnd);
+    if (sz == 1) { // Half
+        IF_RETURN_FALSE(val < 0 || val >= 4)
+        *enc_out = ((val & 1) << L) | (((val >> 1) & 1) << H); // index=H:L
+    } else {                                                   // Single
+        IF_RETURN_FALSE(val < 0 || val >= 2)
         *enc_out = (val & 1) << H; // index=H
     }
     return true;
