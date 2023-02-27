@@ -5240,9 +5240,9 @@ decode_opnd_vindex_HS_2lane(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     const uint H = extract_uint(enc, 11, 1);
     const uint L = extract_uint(enc, 21, 1);
     uint bits;
-    if (sz == 1) {              // Half
-        bits = (H << 1) | L;    // index=H:L
-    } else {                    // Single
+    if (sz == 1) {           // Half
+        bits = (H << 1) | L; // index=H:L
+    } else {                 // Single
         IF_RETURN_FALSE(L != 0)
         bits = H; // index=H
     }
