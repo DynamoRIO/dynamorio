@@ -338,10 +338,6 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_MARKER_TYPE_CHUNK_FOOTER:
             std::cerr << "<marker: chunk footer #" << memref.marker.marker_value << ">\n";
             break;
-        case TRACE_MARKER_TYPE_WINDOW_ID:
-            // This was handled before the switch. We don't want to print the raw value in
-            // the default case below.
-            break;
         case TRACE_MARKER_TYPE_FILTER_ENDPOINT:
             std::cerr << "<marker: filter endpoint>\n";
             break;

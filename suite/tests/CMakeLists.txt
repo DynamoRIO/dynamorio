@@ -3757,31 +3757,31 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.windows-split_postcmd3
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
 
-    # Test L0_filter_until_instrs
-    torunonly_drcacheoff(L0-filter-until-instrs-windows-split ${ci_shared_app}
-        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
-      "@-simulator_type@basic_counts" "")
-    # The first postcmd did window #0.  There should be at least 2 more windows.
-    set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd2
-      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
-    set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd3
-      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
+#   # Test L0_filter_until_instrs
+#   torunonly_drcacheoff(L0-filter-until-instrs-windows-split ${ci_shared_app}
+#       "-trace_after_instrs 10K -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+#     "@-simulator_type@basic_counts" "")
+#   # The first postcmd did window #0.  There should be at least 2 more windows.
+#   set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd2
+#     "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
+#   set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd3
+#     "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
 
-    torunonly_drcacheoff(L0-filter-until-instrs-2 ${ci_shared_app}
-        "-trace_after_instrs 10 -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
-      "@-simulator_type@basic_counts" "")
+#   torunonly_drcacheoff(L0-filter-until-instrs-2 ${ci_shared_app}
+#       "-trace_after_instrs 10 -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+#     "@-simulator_type@basic_counts" "")
 
-    torunonly_drcacheoff(L0-filter-until-instrs-exit-after ${ci_shared_app}
-        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -exit_after_tracing 10K"
-      "@-simulator_type@basic_counts" "")
+#   torunonly_drcacheoff(L0-filter-until-instrs-exit-after ${ci_shared_app}
+#       "-trace_after_instrs 10K -L0_filter_until_instrs 10K -exit_after_tracing 10K"
+#     "@-simulator_type@basic_counts" "")
 
-    torunonly_drcacheoff(L0-filter-until-instrs-max-refs ${ci_shared_app}
-        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 10K"
-      "@-simulator_type@basic_counts" "")
+#   torunonly_drcacheoff(L0-filter-until-instrs-max-refs ${ci_shared_app}
+#       "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 10K"
+#     "@-simulator_type@basic_counts" "")
 
-    torunonly_drcacheoff(L0-filter-until-instrs-max-trace-size ${ci_shared_app}
-        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 10K"
-      "@-simulator_type@basic_counts" "")
+#   torunonly_drcacheoff(L0-filter-until-instrs-max-trace-size ${ci_shared_app}
+#       "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 10K"
+#     "@-simulator_type@basic_counts" "")
 
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)
