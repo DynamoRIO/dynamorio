@@ -39,6 +39,7 @@
 
 #include <assert.h>
 #include <iterator>
+#include <queue>
 #include <unordered_map>
 #include <unordered_set>
 // For exporting we avoid "../common" and rely on -I.
@@ -137,8 +138,6 @@ public:
     uint64_t
     get_record_ordinal() const override
     {
-        if (suppress_ref_count_ >= 0)
-            return 0;
         return cur_ref_count_;
     }
     uint64_t
@@ -176,12 +175,25 @@ public:
     {
         return page_size_;
     }
+    bool
+    is_record_synthetic() const override
+    {
+        return suppress_ref_count_ >= 0;
+    }
 
 protected:
     // This reads the next entry from the stream of entries from all threads interleaved
     // in timestamp order.
     virtual trace_entry_t *
     read_next_entry() = 0;
+    // This first checks the local queue before calling read_next_entry().
+    // in timestamp order.
+    virtual trace_entry_t *
+    read_next_entry_or_queue();
+    // Replaces the just-read record with the prior record, supplied here.
+    // Separated into a virtual method for overriding in test mock readers.
+    virtual void
+    use_prev(trace_entry_t *prev);
     // This reads the next entry from the single stream of entries
     // from the specified thread.  If it returns false it will set *eof to distinguish
     // end-of-file from an error.
@@ -214,6 +226,11 @@ protected:
     uint64_t cache_line_size_ = 0;
     uint64_t chunk_instr_count_ = 0;
     uint64_t page_size_ = 0;
+    // We need to read ahead when skipping to include post-instr records.
+    // We store into this queue records already read from the input but not
+    // yet returned to the iterator.
+    std::queue<trace_entry_t> queue_;
+    trace_entry_t local_entry_; // For use in returning a queue entry.
 
 private:
     struct encoding_info_t {

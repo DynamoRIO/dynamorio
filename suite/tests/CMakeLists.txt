@@ -3795,10 +3795,18 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
       torunonly_api(tool.drcacheoff.skip "${drcachesim_path}" "offline-skip" ""
         # Test invariants with global headers after skipping instrs.
-        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        # Here the skip does not find real headers and we expect synthetic.
+        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
         OFF OFF)
       set(tool.drcacheoff.skip_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip_rawtemp ON) # no preprocessor
+      torunonly_api(tool.drcacheoff.skip2 "${drcachesim_path}" "offline-skip2" ""
+        # Test invariants with global headers after skipping instrs.
+        # Here the skip finds real headers and we expect no synthetic.
+        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        OFF OFF)
+      set(tool.drcacheoff.skip2_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.skip2_rawtemp ON) # no preprocessor
 
       # Ensure -cpu_scheduling follows thread migrations.
       # We have a checked-in trace with a migration.
@@ -3926,7 +3934,8 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/reader"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer")
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/scheduler")
       set(tool.drcacheoff.gencode_nodr ON)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
         "" "@-simulator_type@opcode_mix" "")
