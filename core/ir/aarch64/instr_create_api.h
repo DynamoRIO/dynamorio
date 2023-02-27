@@ -5190,6 +5190,71 @@
 #define INSTR_CREATE_usdot_vector_idx(dc, Rd, Rn, Rm, index) \
     instr_create_1dst_5src(dc, OP_usdot, Rd, Rd, Rn, Rm, index, OPND_CREATE_BYTE())
 
+/**
+ * Creates a FCADD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCADD   <Vd>.<Ts>, <Vn>.<Ts>, <Vm>.<Ts>, #<rot>
+ * \endverbatim
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The source and destination vector register. Can be D (doubleword,
+ *                64 bits) or Q (quadword, 128 bits).
+ * \param Rn      The second source vector register. Can be D (doubleword, 64 bits)
+ *                or Q (quadword, 128 bits).
+ * \param Rm      The third source vector register. Can be D (doubleword, 64 bits)
+ *                or Q (quadword, 128 bits).
+ * \param rot     The immediate rot, must be 90 or 270.
+ * \param Rm_elsz The element size for Rm. Can be OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_fcadd_vector(dc, Rd, Rn, Rm, rot, Rm_elsz) \
+    instr_create_1dst_5src(dc, OP_fcadd, Rd, Rd, Rn, Rm, rot, Rm_elsz)
+
+/**
+ * Creates a FCMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMLA   <Vd>.<Ts>, <Vn>.<Ts>, <Vm>.<Ts>, #<rot>
+ * \endverbatim
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The source and destination vector register. Can be D (doubleword,
+ *                64 bits) or Q (quadword, 128 bits).
+ * \param Rn      The second source vector register. Can be D (doubleword, 64 bits)
+ *                or Q (quadword, 128 bits).
+ * \param Rm      The third source vector register. Can be D (doubleword, 64 bits)
+ *                or Q (quadword, 128 bits).
+ * \param rot     The immediate rot, must be 0, 90, 180, or 270.
+ * \param Rm_elsz The element size for Rm. Can be OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_fcmla_vector(dc, Rd, Rn, Rm, rot, Rm_elsz) \
+    instr_create_1dst_5src(dc, OP_fcmla, Rd, Rd, Rn, Rm, rot, Rm_elsz)
+
+/**
+ * Creates a FCMLA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FCMLA   <Vd>.<Ts>, <Vn>.<Ts>, <Vm>.<Tb>[<index>], #<rot>
+ * \endverbatim
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The source and destination vector register. Can be D (doubleword,
+ *                64 bits) or Q (quadword, 128 bits).
+ * \param Rn      The second source vector register. Can be D (doubleword, 64 bits)
+ *                or Q (quadword, 128 bits).
+ * \param Rm      The third source vector register. Can be D (doubleword, 64 bits)
+ *                or Q (quadword, 128 bits).
+ * \param index   The immediate index for Rm.  In the range 0-3 for when Rm_elsz is
+ *                OPND_CREATE_HALF() and Rm is Q, othewise in range 0-1.
+ * \param rot     The immediate rot, must be 0, 90, 180, or 270.
+ * \param Rm_elsz The element size for Rm. Can be OPND_CREATE_HALF() or
+ *                OPND_CREATE_SINGLE()
+ */
+#define INSTR_CREATE_fcmla_vector_idx(dc, Rd, Rn, Rm, index, rot, Rm_elsz) \
+    instr_create_1dst_6src(dc, OP_fcmla, Rd, Rd, Rn, Rm, index, rot, Rm_elsz)
+
 /****************************************************************************
  *                              SVE Instructions                            *
  ****************************************************************************/

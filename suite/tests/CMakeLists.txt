@@ -1878,6 +1878,7 @@ if (NOT ANDROID)
     tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v81 api/ir_aarch64_v81.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v82 api/ir_aarch64_v82.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v83 api/ir_aarch64_v83.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v86 api/ir_aarch64_v86.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve api/ir_aarch64_sve.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve2 api/ir_aarch64_sve2.c "" "" OFF OFF OFF)
@@ -2952,6 +2953,8 @@ elseif (AARCH64)
   add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
   torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF OFF)
+  torunonly_api(api.dis-a64-v83 api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v83.txt" OFF OFF)
   torunonly_api(api.dis-a64-v86 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v86.txt" OFF OFF)
   torunonly_api(api.dis-a64-sve api.dis-a64 api/dis-a64.c ""
@@ -3769,10 +3772,18 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
       torunonly_api(tool.drcacheoff.skip "${drcachesim_path}" "offline-skip" ""
         # Test invariants with global headers after skipping instrs.
-        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        # Here the skip does not find real headers and we expect synthetic.
+        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
         OFF OFF)
       set(tool.drcacheoff.skip_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip_rawtemp ON) # no preprocessor
+      torunonly_api(tool.drcacheoff.skip2 "${drcachesim_path}" "offline-skip2" ""
+        # Test invariants with global headers after skipping instrs.
+        # Here the skip finds real headers and we expect no synthetic.
+        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        OFF OFF)
+      set(tool.drcacheoff.skip2_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.skip2_rawtemp ON) # no preprocessor
 
       # Ensure -cpu_scheduling follows thread migrations.
       # We have a checked-in trace with a migration.
@@ -3900,7 +3911,8 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/reader"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer")
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/scheduler")
       set(tool.drcacheoff.gencode_nodr ON)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
         "" "@-simulator_type@opcode_mix" "")
