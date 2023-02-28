@@ -4102,6 +4102,7 @@ if (BUILD_CLIENTS)
     if (AARCH64)
       torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app
         "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+      set(tool.drcachesim.drstatecmp-fuzz_timeout 180)
     endif ()
     if (NOT WIN32)
       torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}

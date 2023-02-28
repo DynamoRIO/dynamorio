@@ -342,7 +342,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|client.attach_test' => 1, # i#5740
                                    'code_api|client.attach_blocking' => 1, # i#5740
                                    'code_api|tool.drcacheoff.invariant_checker' => 1, # i#5724
-                                   'code_api|tool.drcacheoff.rseq' => 1 # i#5734
+                                   'code_api|tool.drcacheoff.rseq' => 1, # i#5734
+                                   'code_api|tool.drcacheoff.windows-zlib' => 1, # i#5507
                                    );
             if ($is_32) {
                 $issue_no = "#2416";
