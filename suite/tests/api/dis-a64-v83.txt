@@ -1,0 +1,215 @@
+# **********************************************************
+# Copyright (c) 2023 ARM Limited. All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of ARM Limited nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Test data for DynamoRIO's AArch64 v8.3 encoder, decoder and disassembler.
+# See dis-a64-sve.txt for the formatting.
+
+# Tests:
+# FCADD   <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, <imm> (FCADD-Q.QQ-Vec)
+2e40e400 : fcadd v0.4h, v0.4h, v0.4h, #0x5a          : fcadd  %d0 %d0 %d0 $0x005a $0x01 -> %d0
+2e44e462 : fcadd v2.4h, v3.4h, v4.4h, #0x5a          : fcadd  %d2 %d3 %d4 $0x005a $0x01 -> %d2
+2e46e4a4 : fcadd v4.4h, v5.4h, v6.4h, #0x5a          : fcadd  %d4 %d5 %d6 $0x005a $0x01 -> %d4
+2e48e4e6 : fcadd v6.4h, v7.4h, v8.4h, #0x5a          : fcadd  %d6 %d7 %d8 $0x005a $0x01 -> %d6
+2e4ae528 : fcadd v8.4h, v9.4h, v10.4h, #0x5a         : fcadd  %d8 %d9 %d10 $0x005a $0x01 -> %d8
+2e4ce56a : fcadd v10.4h, v11.4h, v12.4h, #0x5a       : fcadd  %d10 %d11 %d12 $0x005a $0x01 -> %d10
+2e4ee5ac : fcadd v12.4h, v13.4h, v14.4h, #0x5a       : fcadd  %d12 %d13 %d14 $0x005a $0x01 -> %d12
+2e50e5ee : fcadd v14.4h, v15.4h, v16.4h, #0x5a       : fcadd  %d14 %d15 %d16 $0x005a $0x01 -> %d14
+2e52e630 : fcadd v16.4h, v17.4h, v18.4h, #0x5a       : fcadd  %d16 %d17 %d18 $0x005a $0x01 -> %d16
+2e53f651 : fcadd v17.4h, v18.4h, v19.4h, #0x10e      : fcadd  %d17 %d18 %d19 $0x010e $0x01 -> %d17
+2e55f693 : fcadd v19.4h, v20.4h, v21.4h, #0x10e      : fcadd  %d19 %d20 %d21 $0x010e $0x01 -> %d19
+2e57f6d5 : fcadd v21.4h, v22.4h, v23.4h, #0x10e      : fcadd  %d21 %d22 %d23 $0x010e $0x01 -> %d21
+2e59f717 : fcadd v23.4h, v24.4h, v25.4h, #0x10e      : fcadd  %d23 %d24 %d25 $0x010e $0x01 -> %d23
+2e5bf759 : fcadd v25.4h, v26.4h, v27.4h, #0x10e      : fcadd  %d25 %d26 %d27 $0x010e $0x01 -> %d25
+2e5df79b : fcadd v27.4h, v28.4h, v29.4h, #0x10e      : fcadd  %d27 %d28 %d29 $0x010e $0x01 -> %d27
+2e5ff7ff : fcadd v31.4h, v31.4h, v31.4h, #0x10e      : fcadd  %d31 %d31 %d31 $0x010e $0x01 -> %d31
+2e80e400 : fcadd v0.2s, v0.2s, v0.2s, #0x5a          : fcadd  %d0 %d0 %d0 $0x005a $0x02 -> %d0
+2e84e462 : fcadd v2.2s, v3.2s, v4.2s, #0x5a          : fcadd  %d2 %d3 %d4 $0x005a $0x02 -> %d2
+2e86e4a4 : fcadd v4.2s, v5.2s, v6.2s, #0x5a          : fcadd  %d4 %d5 %d6 $0x005a $0x02 -> %d4
+2e88e4e6 : fcadd v6.2s, v7.2s, v8.2s, #0x5a          : fcadd  %d6 %d7 %d8 $0x005a $0x02 -> %d6
+2e8ae528 : fcadd v8.2s, v9.2s, v10.2s, #0x5a         : fcadd  %d8 %d9 %d10 $0x005a $0x02 -> %d8
+2e8ce56a : fcadd v10.2s, v11.2s, v12.2s, #0x5a       : fcadd  %d10 %d11 %d12 $0x005a $0x02 -> %d10
+2e8ee5ac : fcadd v12.2s, v13.2s, v14.2s, #0x5a       : fcadd  %d12 %d13 %d14 $0x005a $0x02 -> %d12
+2e90e5ee : fcadd v14.2s, v15.2s, v16.2s, #0x5a       : fcadd  %d14 %d15 %d16 $0x005a $0x02 -> %d14
+2e92e630 : fcadd v16.2s, v17.2s, v18.2s, #0x5a       : fcadd  %d16 %d17 %d18 $0x005a $0x02 -> %d16
+2e93f651 : fcadd v17.2s, v18.2s, v19.2s, #0x10e      : fcadd  %d17 %d18 %d19 $0x010e $0x02 -> %d17
+2e95f693 : fcadd v19.2s, v20.2s, v21.2s, #0x10e      : fcadd  %d19 %d20 %d21 $0x010e $0x02 -> %d19
+2e97f6d5 : fcadd v21.2s, v22.2s, v23.2s, #0x10e      : fcadd  %d21 %d22 %d23 $0x010e $0x02 -> %d21
+2e99f717 : fcadd v23.2s, v24.2s, v25.2s, #0x10e      : fcadd  %d23 %d24 %d25 $0x010e $0x02 -> %d23
+2e9bf759 : fcadd v25.2s, v26.2s, v27.2s, #0x10e      : fcadd  %d25 %d26 %d27 $0x010e $0x02 -> %d25
+2e9df79b : fcadd v27.2s, v28.2s, v29.2s, #0x10e      : fcadd  %d27 %d28 %d29 $0x010e $0x02 -> %d27
+2e9ff7ff : fcadd v31.2s, v31.2s, v31.2s, #0x10e      : fcadd  %d31 %d31 %d31 $0x010e $0x02 -> %d31
+6e40e400 : fcadd v0.8h, v0.8h, v0.8h, #0x5a          : fcadd  %q0 %q0 %q0 $0x005a $0x01 -> %q0
+6e44e462 : fcadd v2.8h, v3.8h, v4.8h, #0x5a          : fcadd  %q2 %q3 %q4 $0x005a $0x01 -> %q2
+6e46e4a4 : fcadd v4.8h, v5.8h, v6.8h, #0x5a          : fcadd  %q4 %q5 %q6 $0x005a $0x01 -> %q4
+6e48e4e6 : fcadd v6.8h, v7.8h, v8.8h, #0x5a          : fcadd  %q6 %q7 %q8 $0x005a $0x01 -> %q6
+6e4ae528 : fcadd v8.8h, v9.8h, v10.8h, #0x5a         : fcadd  %q8 %q9 %q10 $0x005a $0x01 -> %q8
+6e4ce56a : fcadd v10.8h, v11.8h, v12.8h, #0x5a       : fcadd  %q10 %q11 %q12 $0x005a $0x01 -> %q10
+6e4ee5ac : fcadd v12.8h, v13.8h, v14.8h, #0x5a       : fcadd  %q12 %q13 %q14 $0x005a $0x01 -> %q12
+6e50e5ee : fcadd v14.8h, v15.8h, v16.8h, #0x5a       : fcadd  %q14 %q15 %q16 $0x005a $0x01 -> %q14
+6e52e630 : fcadd v16.8h, v17.8h, v18.8h, #0x5a       : fcadd  %q16 %q17 %q18 $0x005a $0x01 -> %q16
+6e53f651 : fcadd v17.8h, v18.8h, v19.8h, #0x10e      : fcadd  %q17 %q18 %q19 $0x010e $0x01 -> %q17
+6e55f693 : fcadd v19.8h, v20.8h, v21.8h, #0x10e      : fcadd  %q19 %q20 %q21 $0x010e $0x01 -> %q19
+6e57f6d5 : fcadd v21.8h, v22.8h, v23.8h, #0x10e      : fcadd  %q21 %q22 %q23 $0x010e $0x01 -> %q21
+6e59f717 : fcadd v23.8h, v24.8h, v25.8h, #0x10e      : fcadd  %q23 %q24 %q25 $0x010e $0x01 -> %q23
+6e5bf759 : fcadd v25.8h, v26.8h, v27.8h, #0x10e      : fcadd  %q25 %q26 %q27 $0x010e $0x01 -> %q25
+6e5df79b : fcadd v27.8h, v28.8h, v29.8h, #0x10e      : fcadd  %q27 %q28 %q29 $0x010e $0x01 -> %q27
+6e5ff7ff : fcadd v31.8h, v31.8h, v31.8h, #0x10e      : fcadd  %q31 %q31 %q31 $0x010e $0x01 -> %q31
+6e80e400 : fcadd v0.4s, v0.4s, v0.4s, #0x5a          : fcadd  %q0 %q0 %q0 $0x005a $0x02 -> %q0
+6e84e462 : fcadd v2.4s, v3.4s, v4.4s, #0x5a          : fcadd  %q2 %q3 %q4 $0x005a $0x02 -> %q2
+6e86e4a4 : fcadd v4.4s, v5.4s, v6.4s, #0x5a          : fcadd  %q4 %q5 %q6 $0x005a $0x02 -> %q4
+6e88e4e6 : fcadd v6.4s, v7.4s, v8.4s, #0x5a          : fcadd  %q6 %q7 %q8 $0x005a $0x02 -> %q6
+6e8ae528 : fcadd v8.4s, v9.4s, v10.4s, #0x5a         : fcadd  %q8 %q9 %q10 $0x005a $0x02 -> %q8
+6e8ce56a : fcadd v10.4s, v11.4s, v12.4s, #0x5a       : fcadd  %q10 %q11 %q12 $0x005a $0x02 -> %q10
+6e8ee5ac : fcadd v12.4s, v13.4s, v14.4s, #0x5a       : fcadd  %q12 %q13 %q14 $0x005a $0x02 -> %q12
+6e90e5ee : fcadd v14.4s, v15.4s, v16.4s, #0x5a       : fcadd  %q14 %q15 %q16 $0x005a $0x02 -> %q14
+6e92e630 : fcadd v16.4s, v17.4s, v18.4s, #0x5a       : fcadd  %q16 %q17 %q18 $0x005a $0x02 -> %q16
+6e93f651 : fcadd v17.4s, v18.4s, v19.4s, #0x10e      : fcadd  %q17 %q18 %q19 $0x010e $0x02 -> %q17
+6e95f693 : fcadd v19.4s, v20.4s, v21.4s, #0x10e      : fcadd  %q19 %q20 %q21 $0x010e $0x02 -> %q19
+6e97f6d5 : fcadd v21.4s, v22.4s, v23.4s, #0x10e      : fcadd  %q21 %q22 %q23 $0x010e $0x02 -> %q21
+6e99f717 : fcadd v23.4s, v24.4s, v25.4s, #0x10e      : fcadd  %q23 %q24 %q25 $0x010e $0x02 -> %q23
+6e9bf759 : fcadd v25.4s, v26.4s, v27.4s, #0x10e      : fcadd  %q25 %q26 %q27 $0x010e $0x02 -> %q25
+6e9df79b : fcadd v27.4s, v28.4s, v29.4s, #0x10e      : fcadd  %q27 %q28 %q29 $0x010e $0x02 -> %q27
+6e9ff7ff : fcadd v31.4s, v31.4s, v31.4s, #0x10e      : fcadd  %q31 %q31 %q31 $0x010e $0x02 -> %q31
+
+# FCMLA   <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, <imm> (FCMLA-Q.QQ-Vec)
+2e40c400 : fcmla v0.4h, v0.4h, v0.4h, #0x0           : fcmla  %d0 %d0 %d0 $0x0000 $0x01 -> %d0
+2e44c462 : fcmla v2.4h, v3.4h, v4.4h, #0x0           : fcmla  %d2 %d3 %d4 $0x0000 $0x01 -> %d2
+2e46c4a4 : fcmla v4.4h, v5.4h, v6.4h, #0x0           : fcmla  %d4 %d5 %d6 $0x0000 $0x01 -> %d4
+2e48cce6 : fcmla v6.4h, v7.4h, v8.4h, #0x5a          : fcmla  %d6 %d7 %d8 $0x005a $0x01 -> %d6
+2e4acd28 : fcmla v8.4h, v9.4h, v10.4h, #0x5a         : fcmla  %d8 %d9 %d10 $0x005a $0x01 -> %d8
+2e4ccd6a : fcmla v10.4h, v11.4h, v12.4h, #0x5a       : fcmla  %d10 %d11 %d12 $0x005a $0x01 -> %d10
+2e4ecdac : fcmla v12.4h, v13.4h, v14.4h, #0x5a       : fcmla  %d12 %d13 %d14 $0x005a $0x01 -> %d12
+2e50cdee : fcmla v14.4h, v15.4h, v16.4h, #0x5a       : fcmla  %d14 %d15 %d16 $0x005a $0x01 -> %d14
+2e52d630 : fcmla v16.4h, v17.4h, v18.4h, #0xb4       : fcmla  %d16 %d17 %d18 $0x00b4 $0x01 -> %d16
+2e53d651 : fcmla v17.4h, v18.4h, v19.4h, #0xb4       : fcmla  %d17 %d18 %d19 $0x00b4 $0x01 -> %d17
+2e55d693 : fcmla v19.4h, v20.4h, v21.4h, #0xb4       : fcmla  %d19 %d20 %d21 $0x00b4 $0x01 -> %d19
+2e57d6d5 : fcmla v21.4h, v22.4h, v23.4h, #0xb4       : fcmla  %d21 %d22 %d23 $0x00b4 $0x01 -> %d21
+2e59d717 : fcmla v23.4h, v24.4h, v25.4h, #0xb4       : fcmla  %d23 %d24 %d25 $0x00b4 $0x01 -> %d23
+2e5bd759 : fcmla v25.4h, v26.4h, v27.4h, #0xb4       : fcmla  %d25 %d26 %d27 $0x00b4 $0x01 -> %d25
+2e5ddf9b : fcmla v27.4h, v28.4h, v29.4h, #0x10e      : fcmla  %d27 %d28 %d29 $0x010e $0x01 -> %d27
+2e5fdfff : fcmla v31.4h, v31.4h, v31.4h, #0x10e      : fcmla  %d31 %d31 %d31 $0x010e $0x01 -> %d31
+2e80c400 : fcmla v0.2s, v0.2s, v0.2s, #0x0           : fcmla  %d0 %d0 %d0 $0x0000 $0x02 -> %d0
+2e84c462 : fcmla v2.2s, v3.2s, v4.2s, #0x0           : fcmla  %d2 %d3 %d4 $0x0000 $0x02 -> %d2
+2e86c4a4 : fcmla v4.2s, v5.2s, v6.2s, #0x0           : fcmla  %d4 %d5 %d6 $0x0000 $0x02 -> %d4
+2e88cce6 : fcmla v6.2s, v7.2s, v8.2s, #0x5a          : fcmla  %d6 %d7 %d8 $0x005a $0x02 -> %d6
+2e8acd28 : fcmla v8.2s, v9.2s, v10.2s, #0x5a         : fcmla  %d8 %d9 %d10 $0x005a $0x02 -> %d8
+2e8ccd6a : fcmla v10.2s, v11.2s, v12.2s, #0x5a       : fcmla  %d10 %d11 %d12 $0x005a $0x02 -> %d10
+2e8ecdac : fcmla v12.2s, v13.2s, v14.2s, #0x5a       : fcmla  %d12 %d13 %d14 $0x005a $0x02 -> %d12
+2e90cdee : fcmla v14.2s, v15.2s, v16.2s, #0x5a       : fcmla  %d14 %d15 %d16 $0x005a $0x02 -> %d14
+2e92d630 : fcmla v16.2s, v17.2s, v18.2s, #0xb4       : fcmla  %d16 %d17 %d18 $0x00b4 $0x02 -> %d16
+2e93d651 : fcmla v17.2s, v18.2s, v19.2s, #0xb4       : fcmla  %d17 %d18 %d19 $0x00b4 $0x02 -> %d17
+2e95d693 : fcmla v19.2s, v20.2s, v21.2s, #0xb4       : fcmla  %d19 %d20 %d21 $0x00b4 $0x02 -> %d19
+2e97d6d5 : fcmla v21.2s, v22.2s, v23.2s, #0xb4       : fcmla  %d21 %d22 %d23 $0x00b4 $0x02 -> %d21
+2e99d717 : fcmla v23.2s, v24.2s, v25.2s, #0xb4       : fcmla  %d23 %d24 %d25 $0x00b4 $0x02 -> %d23
+2e9bd759 : fcmla v25.2s, v26.2s, v27.2s, #0xb4       : fcmla  %d25 %d26 %d27 $0x00b4 $0x02 -> %d25
+2e9ddf9b : fcmla v27.2s, v28.2s, v29.2s, #0x10e      : fcmla  %d27 %d28 %d29 $0x010e $0x02 -> %d27
+2e9fdfff : fcmla v31.2s, v31.2s, v31.2s, #0x10e      : fcmla  %d31 %d31 %d31 $0x010e $0x02 -> %d31
+6e40c400 : fcmla v0.8h, v0.8h, v0.8h, #0x0           : fcmla  %q0 %q0 %q0 $0x0000 $0x01 -> %q0
+6e44c462 : fcmla v2.8h, v3.8h, v4.8h, #0x0           : fcmla  %q2 %q3 %q4 $0x0000 $0x01 -> %q2
+6e46c4a4 : fcmla v4.8h, v5.8h, v6.8h, #0x0           : fcmla  %q4 %q5 %q6 $0x0000 $0x01 -> %q4
+6e48cce6 : fcmla v6.8h, v7.8h, v8.8h, #0x5a          : fcmla  %q6 %q7 %q8 $0x005a $0x01 -> %q6
+6e4acd28 : fcmla v8.8h, v9.8h, v10.8h, #0x5a         : fcmla  %q8 %q9 %q10 $0x005a $0x01 -> %q8
+6e4ccd6a : fcmla v10.8h, v11.8h, v12.8h, #0x5a       : fcmla  %q10 %q11 %q12 $0x005a $0x01 -> %q10
+6e4ecdac : fcmla v12.8h, v13.8h, v14.8h, #0x5a       : fcmla  %q12 %q13 %q14 $0x005a $0x01 -> %q12
+6e50cdee : fcmla v14.8h, v15.8h, v16.8h, #0x5a       : fcmla  %q14 %q15 %q16 $0x005a $0x01 -> %q14
+6e52d630 : fcmla v16.8h, v17.8h, v18.8h, #0xb4       : fcmla  %q16 %q17 %q18 $0x00b4 $0x01 -> %q16
+6e53d651 : fcmla v17.8h, v18.8h, v19.8h, #0xb4       : fcmla  %q17 %q18 %q19 $0x00b4 $0x01 -> %q17
+6e55d693 : fcmla v19.8h, v20.8h, v21.8h, #0xb4       : fcmla  %q19 %q20 %q21 $0x00b4 $0x01 -> %q19
+6e57d6d5 : fcmla v21.8h, v22.8h, v23.8h, #0xb4       : fcmla  %q21 %q22 %q23 $0x00b4 $0x01 -> %q21
+6e59d717 : fcmla v23.8h, v24.8h, v25.8h, #0xb4       : fcmla  %q23 %q24 %q25 $0x00b4 $0x01 -> %q23
+6e5bd759 : fcmla v25.8h, v26.8h, v27.8h, #0xb4       : fcmla  %q25 %q26 %q27 $0x00b4 $0x01 -> %q25
+6e5ddf9b : fcmla v27.8h, v28.8h, v29.8h, #0x10e      : fcmla  %q27 %q28 %q29 $0x010e $0x01 -> %q27
+6e5fdfff : fcmla v31.8h, v31.8h, v31.8h, #0x10e      : fcmla  %q31 %q31 %q31 $0x010e $0x01 -> %q31
+6e80c400 : fcmla v0.4s, v0.4s, v0.4s, #0x0           : fcmla  %q0 %q0 %q0 $0x0000 $0x02 -> %q0
+6e84c462 : fcmla v2.4s, v3.4s, v4.4s, #0x0           : fcmla  %q2 %q3 %q4 $0x0000 $0x02 -> %q2
+6e86c4a4 : fcmla v4.4s, v5.4s, v6.4s, #0x0           : fcmla  %q4 %q5 %q6 $0x0000 $0x02 -> %q4
+6e88cce6 : fcmla v6.4s, v7.4s, v8.4s, #0x5a          : fcmla  %q6 %q7 %q8 $0x005a $0x02 -> %q6
+6e8acd28 : fcmla v8.4s, v9.4s, v10.4s, #0x5a         : fcmla  %q8 %q9 %q10 $0x005a $0x02 -> %q8
+6e8ccd6a : fcmla v10.4s, v11.4s, v12.4s, #0x5a       : fcmla  %q10 %q11 %q12 $0x005a $0x02 -> %q10
+6e8ecdac : fcmla v12.4s, v13.4s, v14.4s, #0x5a       : fcmla  %q12 %q13 %q14 $0x005a $0x02 -> %q12
+6e90cdee : fcmla v14.4s, v15.4s, v16.4s, #0x5a       : fcmla  %q14 %q15 %q16 $0x005a $0x02 -> %q14
+6e92d630 : fcmla v16.4s, v17.4s, v18.4s, #0xb4       : fcmla  %q16 %q17 %q18 $0x00b4 $0x02 -> %q16
+6e93d651 : fcmla v17.4s, v18.4s, v19.4s, #0xb4       : fcmla  %q17 %q18 %q19 $0x00b4 $0x02 -> %q17
+6e95d693 : fcmla v19.4s, v20.4s, v21.4s, #0xb4       : fcmla  %q19 %q20 %q21 $0x00b4 $0x02 -> %q19
+6e97d6d5 : fcmla v21.4s, v22.4s, v23.4s, #0xb4       : fcmla  %q21 %q22 %q23 $0x00b4 $0x02 -> %q21
+6e99d717 : fcmla v23.4s, v24.4s, v25.4s, #0xb4       : fcmla  %q23 %q24 %q25 $0x00b4 $0x02 -> %q23
+6e9bd759 : fcmla v25.4s, v26.4s, v27.4s, #0xb4       : fcmla  %q25 %q26 %q27 $0x00b4 $0x02 -> %q25
+6e9ddf9b : fcmla v27.4s, v28.4s, v29.4s, #0x10e      : fcmla  %q27 %q28 %q29 $0x010e $0x02 -> %q27
+6e9fdfff : fcmla v31.4s, v31.4s, v31.4s, #0x10e      : fcmla  %q31 %q31 %q31 $0x010e $0x02 -> %q31
+
+# FCMLA   <Vd>.<T>, <Vn>.<T>, <Vm>.<Tb>[<imm1>], <imm2> (FCMLA-Q.QQIi-asimdelem_L)
+2f401000 : fcmla v0.4h, v0.4h, v0.h[0], #0x0         : fcmla  %d0 %d0 %d0 $0x00 $0x0000 $0x01 -> %d0
+2f441062 : fcmla v2.4h, v3.4h, v4.h[0], #0x0         : fcmla  %d2 %d3 %d4 $0x00 $0x0000 $0x01 -> %d2
+2f4610a4 : fcmla v4.4h, v5.4h, v6.h[0], #0x0         : fcmla  %d4 %d5 %d6 $0x00 $0x0000 $0x01 -> %d4
+2f4830e6 : fcmla v6.4h, v7.4h, v8.h[0], #0x5a        : fcmla  %d6 %d7 %d8 $0x00 $0x005a $0x01 -> %d6
+2f4a3128 : fcmla v8.4h, v9.4h, v10.h[0], #0x5a       : fcmla  %d8 %d9 %d10 $0x00 $0x005a $0x01 -> %d8
+2f4c316a : fcmla v10.4h, v11.4h, v12.h[0], #0x5a     : fcmla  %d10 %d11 %d12 $0x00 $0x005a $0x01 -> %d10
+2f4e31ac : fcmla v12.4h, v13.4h, v14.h[0], #0x5a     : fcmla  %d12 %d13 %d14 $0x00 $0x005a $0x01 -> %d12
+2f5031ee : fcmla v14.4h, v15.4h, v16.h[0], #0x5a     : fcmla  %d14 %d15 %d16 $0x00 $0x005a $0x01 -> %d14
+2f525230 : fcmla v16.4h, v17.4h, v18.h[0], #0xb4     : fcmla  %d16 %d17 %d18 $0x00 $0x00b4 $0x01 -> %d16
+2f735251 : fcmla v17.4h, v18.4h, v19.h[1], #0xb4     : fcmla  %d17 %d18 %d19 $0x01 $0x00b4 $0x01 -> %d17
+2f755293 : fcmla v19.4h, v20.4h, v21.h[1], #0xb4     : fcmla  %d19 %d20 %d21 $0x01 $0x00b4 $0x01 -> %d19
+2f7752d5 : fcmla v21.4h, v22.4h, v23.h[1], #0xb4     : fcmla  %d21 %d22 %d23 $0x01 $0x00b4 $0x01 -> %d21
+2f795317 : fcmla v23.4h, v24.4h, v25.h[1], #0xb4     : fcmla  %d23 %d24 %d25 $0x01 $0x00b4 $0x01 -> %d23
+2f7b5359 : fcmla v25.4h, v26.4h, v27.h[1], #0xb4     : fcmla  %d25 %d26 %d27 $0x01 $0x00b4 $0x01 -> %d25
+2f7d739b : fcmla v27.4h, v28.4h, v29.h[1], #0x10e    : fcmla  %d27 %d28 %d29 $0x01 $0x010e $0x01 -> %d27
+2f7f73ff : fcmla v31.4h, v31.4h, v31.h[1], #0x10e    : fcmla  %d31 %d31 %d31 $0x01 $0x010e $0x01 -> %d31
+6f401000 : fcmla v0.8h, v0.8h, v0.h[0], #0x0         : fcmla  %q0 %q0 %q0 $0x00 $0x0000 $0x01 -> %q0
+6f441062 : fcmla v2.8h, v3.8h, v4.h[0], #0x0         : fcmla  %q2 %q3 %q4 $0x00 $0x0000 $0x01 -> %q2
+6f4610a4 : fcmla v4.8h, v5.8h, v6.h[0], #0x0         : fcmla  %q4 %q5 %q6 $0x00 $0x0000 $0x01 -> %q4
+6f6830e6 : fcmla v6.8h, v7.8h, v8.h[1], #0x5a        : fcmla  %q6 %q7 %q8 $0x01 $0x005a $0x01 -> %q6
+6f6a3128 : fcmla v8.8h, v9.8h, v10.h[1], #0x5a       : fcmla  %q8 %q9 %q10 $0x01 $0x005a $0x01 -> %q8
+6f6c316a : fcmla v10.8h, v11.8h, v12.h[1], #0x5a     : fcmla  %q10 %q11 %q12 $0x01 $0x005a $0x01 -> %q10
+6f6e31ac : fcmla v12.8h, v13.8h, v14.h[1], #0x5a     : fcmla  %q12 %q13 %q14 $0x01 $0x005a $0x01 -> %q12
+6f7031ee : fcmla v14.8h, v15.8h, v16.h[1], #0x5a     : fcmla  %q14 %q15 %q16 $0x01 $0x005a $0x01 -> %q14
+6f525a30 : fcmla v16.8h, v17.8h, v18.h[2], #0xb4     : fcmla  %q16 %q17 %q18 $0x02 $0x00b4 $0x01 -> %q16
+6f535a51 : fcmla v17.8h, v18.8h, v19.h[2], #0xb4     : fcmla  %q17 %q18 %q19 $0x02 $0x00b4 $0x01 -> %q17
+6f555a93 : fcmla v19.8h, v20.8h, v21.h[2], #0xb4     : fcmla  %q19 %q20 %q21 $0x02 $0x00b4 $0x01 -> %q19
+6f575ad5 : fcmla v21.8h, v22.8h, v23.h[2], #0xb4     : fcmla  %q21 %q22 %q23 $0x02 $0x00b4 $0x01 -> %q21
+6f595b17 : fcmla v23.8h, v24.8h, v25.h[2], #0xb4     : fcmla  %q23 %q24 %q25 $0x02 $0x00b4 $0x01 -> %q23
+6f5b5b59 : fcmla v25.8h, v26.8h, v27.h[2], #0xb4     : fcmla  %q25 %q26 %q27 $0x02 $0x00b4 $0x01 -> %q25
+6f7d7b9b : fcmla v27.8h, v28.8h, v29.h[3], #0x10e    : fcmla  %q27 %q28 %q29 $0x03 $0x010e $0x01 -> %q27
+6f7f7bff : fcmla v31.8h, v31.8h, v31.h[3], #0x10e    : fcmla  %q31 %q31 %q31 $0x03 $0x010e $0x01 -> %q31
+6f801000 : fcmla v0.4s, v0.4s, v0.s[0], #0x0         : fcmla  %q0 %q0 %q0 $0x00 $0x0000 $0x02 -> %q0
+6f841062 : fcmla v2.4s, v3.4s, v4.s[0], #0x0         : fcmla  %q2 %q3 %q4 $0x00 $0x0000 $0x02 -> %q2
+6f8610a4 : fcmla v4.4s, v5.4s, v6.s[0], #0x0         : fcmla  %q4 %q5 %q6 $0x00 $0x0000 $0x02 -> %q4
+6f8830e6 : fcmla v6.4s, v7.4s, v8.s[0], #0x5a        : fcmla  %q6 %q7 %q8 $0x00 $0x005a $0x02 -> %q6
+6f8a3128 : fcmla v8.4s, v9.4s, v10.s[0], #0x5a       : fcmla  %q8 %q9 %q10 $0x00 $0x005a $0x02 -> %q8
+6f8c316a : fcmla v10.4s, v11.4s, v12.s[0], #0x5a     : fcmla  %q10 %q11 %q12 $0x00 $0x005a $0x02 -> %q10
+6f8e31ac : fcmla v12.4s, v13.4s, v14.s[0], #0x5a     : fcmla  %q12 %q13 %q14 $0x00 $0x005a $0x02 -> %q12
+6f9031ee : fcmla v14.4s, v15.4s, v16.s[0], #0x5a     : fcmla  %q14 %q15 %q16 $0x00 $0x005a $0x02 -> %q14
+6f925230 : fcmla v16.4s, v17.4s, v18.s[0], #0xb4     : fcmla  %q16 %q17 %q18 $0x00 $0x00b4 $0x02 -> %q16
+6f935a51 : fcmla v17.4s, v18.4s, v19.s[1], #0xb4     : fcmla  %q17 %q18 %q19 $0x01 $0x00b4 $0x02 -> %q17
+6f955a93 : fcmla v19.4s, v20.4s, v21.s[1], #0xb4     : fcmla  %q19 %q20 %q21 $0x01 $0x00b4 $0x02 -> %q19
+6f975ad5 : fcmla v21.4s, v22.4s, v23.s[1], #0xb4     : fcmla  %q21 %q22 %q23 $0x01 $0x00b4 $0x02 -> %q21
+6f995b17 : fcmla v23.4s, v24.4s, v25.s[1], #0xb4     : fcmla  %q23 %q24 %q25 $0x01 $0x00b4 $0x02 -> %q23
+6f9b5b59 : fcmla v25.4s, v26.4s, v27.s[1], #0xb4     : fcmla  %q25 %q26 %q27 $0x01 $0x00b4 $0x02 -> %q25
+6f9d7b9b : fcmla v27.4s, v28.4s, v29.s[1], #0x10e    : fcmla  %q27 %q28 %q29 $0x01 $0x010e $0x02 -> %q27
+6f9f7bff : fcmla v31.4s, v31.4s, v31.s[1], #0x10e    : fcmla  %q31 %q31 %q31 $0x01 $0x010e $0x02 -> %q31

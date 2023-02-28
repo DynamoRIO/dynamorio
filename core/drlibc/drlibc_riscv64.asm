@@ -53,7 +53,7 @@ GLOBAL_LABEL(dynamorio_syscall:)
         mv      a3,a5
         mv      a4,a6
         mv      a5,a7
-        mv      a0,t0
+        mv      a7,t0
         ecall
         ret
 
