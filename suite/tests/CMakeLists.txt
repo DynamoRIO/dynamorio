@@ -4630,7 +4630,6 @@ if (UNIX)
 
     tobuild(linux.sigmask linux/sigmask.c)
     link_with_pthread(linux.sigmask)
-    set(linux.sigmask_timeout 180)
     # Sanity check that this option works.
     torunonly(linux.sigmask-noalarm linux.sigmask linux/sigmask.c
       "-no_reroute_alarm_signals" "")
