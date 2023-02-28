@@ -46,6 +46,9 @@
 1101011100111111000010xxxxxxxxxx  n   782  PAUTH   blraa  impx30 : x5 x0
 1101011000111111000010xxxxx11111  n   682  PAUTH  blraaz  impx30 : x5
 1101011100011111000010xxxxxxxxxx  n   683  PAUTH    braa         : x5 x0
+0x101110xx0xxxxx111x01xxxxxxxxxx  n   944  BASE   fcadd     dq0 : dq0 dq5 dq16 imm1_ew_12 hs_sz
+0x101110xx0xxxxx110xx1xxxxxxxxxx  n   945  BASE   fcmla     dq0 : dq0 dq5 dq16 imm2_nesw_11 hs_sz
+0x101111xxxxxxxx0xx1x0xxxxxxxxxx  n   945  BASE   fcmla     dq0 : dq0 dq5 dq16 vindex_HS_2lane imm2_nesw_13 hs_sz
 1x11100010111111110000xxxxxxxxxx  n   796  LRCPC   ldapr  wx0_30 : mem0
 0011100010111111110000xxxxxxxxxx  n   797  LRCPC  ldaprb      w0 : mem0
 0111100010111111110000xxxxxxxxxx  n   798  LRCPC  ldaprh      w0 : mem0

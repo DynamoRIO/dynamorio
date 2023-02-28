@@ -221,6 +221,8 @@ Further non-compatibility-affecting changes include:
    microarchitectural simulators.
  - Added a #memtrace_stream_t interface for drmemtrace analysis tools to
    query key attributes of each input trace.
+ - Added instr_create_1dst_6src() convenience function that returns an instr_t
+   with one destination and six sources.
 
 **************************************************
 <hr>
