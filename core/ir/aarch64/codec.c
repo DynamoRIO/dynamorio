@@ -208,16 +208,22 @@ try_encode_int(OUT uint *bits, int len, int scale, ptr_int_t val)
 }
 
 static inline bool
+try_encode_uint(OUT uint *bits, int len, int scale, ptr_int_t val)
+{
+    const ptr_uint_t mask = MASK(len) << scale;
+
+    if (val < 0 || (val & ~mask) != 0)
+        return false;
+
+    *bits = (uint)(val >> scale);
+    return true;
+}
+
+static inline bool
 try_encode_imm(OUT uint *imm, int bits, opnd_t opnd)
 {
-    ptr_int_t value;
-    if (!opnd_is_immed_int(opnd))
-        return false;
-    value = opnd_get_immed_int(opnd);
-    if (!(0 <= value && value < (uint)1 << bits))
-        return false;
-    *imm = value;
-    return true;
+    return opnd_is_immed_int(opnd) &&
+        try_encode_uint(imm, bits, 0, opnd_get_immed_int(opnd));
 }
 
 static inline bool
@@ -975,9 +981,6 @@ extract_tsz_size(uint enc)
 static aarch64_reg_offset
 get_vector_element_reg_offset(opnd_t opnd)
 {
-    if (!opnd_is_element_vector_reg(opnd))
-        return NOT_A_REG;
-
     switch (opnd_get_vector_element_size(opnd)) {
     case OPSZ_1: return BYTE_REG;
     case OPSZ_2: return HALF_REG;
@@ -4447,10 +4450,10 @@ svemem_gprs_per_element_encode(uint bytes_per_element, aarch64_reg_offset elemen
 
     uint rn, rm;
     bool is_x_register;
-    IF_RETURN_FALSE(!encode_reg(&rn, &is_x_register, opnd_get_base(opnd), true) ||
-                    !is_x_register)
-    IF_RETURN_FALSE(!encode_reg(&rm, &is_x_register, opnd_get_index(opnd), false) ||
-                    !is_x_register)
+    if (!encode_reg(&rn, &is_x_register, opnd_get_base(opnd), true) || !is_x_register)
+        return false;
+    if (!encode_reg(&rm, &is_x_register, opnd_get_index(opnd), false) || !is_x_register)
+        return false;
 
     *enc_out = rn << 5 | rm << 16;
     return true;
@@ -4832,16 +4835,18 @@ static inline bool
 encode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
                                 OUT uint *enc_out)
 {
-    IF_RETURN_FALSE(!opnd_is_base_disp(opnd))
     const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL;
-    IF_RETURN_FALSE(opnd_get_size(opnd) != mem_transfer)
+    if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != mem_transfer)
+        return false;
 
     uint imm6;
-    IF_RETURN_FALSE(!try_encode_int(&imm6, 6, 0, opnd_get_disp(opnd)))
+    if (!try_encode_int(&imm6, 6, 0, opnd_get_disp(opnd)))
+        return false;
 
     uint rn;
     bool is_x;
-    IF_RETURN_FALSE(!encode_reg(&rn, &is_x, opnd_get_base(opnd), true) || !is_x)
+    if (!encode_reg(&rn, &is_x, opnd_get_base(opnd), true) || !is_x)
+        return false;
 
     *enc_out = (rn << 5) | (imm6 << 16);
     return true;
@@ -6577,6 +6582,97 @@ encode_opnd_imm2_tsz_index(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint
 
     *enc_out = (imm_value << 22) | (tsz_value << 16);
     return true;
+}
+
+/* SVE memory address [<Zn>.<T>{, #<imm>}] */
+static inline bool
+decode_svemem_vec_imm5(uint enc, aarch64_reg_offset element_size, bool is_prefetch,
+                       OUT opnd_t *opnd)
+{
+    const aarch64_reg_offset msz = BITS(enc, 24, 23);
+    const uint scale = 1 << msz;
+
+    const opnd_size_t mem_transfer = is_prefetch
+        ? OPSZ_0
+        : opnd_size_from_bytes(scale * get_elements_in_sve_vector(element_size));
+
+    const reg_id_t zn = DR_REG_Z0 + extract_uint(enc, 5, 5);
+    ASSERT(reg_is_z(zn));
+
+    const int imm5 = (int)(extract_uint(enc, 16, 5) << msz);
+    switch (msz) {
+    case BYTE_REG: ASSERT(imm5 >= 0 && imm5 <= 31); break;
+    case HALF_REG: ASSERT(imm5 >= 0 && imm5 <= 62 && (imm5 % 2) == 0); break;
+    case SINGLE_REG: ASSERT(imm5 >= 0 && imm5 <= 124 && (imm5 % 4) == 0); break;
+    case DOUBLE_REG: ASSERT(imm5 >= 0 && imm5 <= 248 && (imm5 % 8) == 0); break;
+    default: ASSERT_NOT_REACHED();
+    }
+
+    *opnd = opnd_create_vector_base_disp_aarch64(zn, DR_REG_NULL,
+                                                 get_opnd_size_from_offset(element_size),
+                                                 0, false, imm5, 0, mem_transfer, 0);
+
+    return true;
+}
+
+static inline bool
+encode_svemem_vec_imm5(uint enc, aarch64_reg_offset element_size, bool is_prefetch,
+                       opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_base_disp(opnd) || opnd_get_index(opnd) != DR_REG_NULL ||
+        get_vector_element_reg_offset(opnd) != element_size)
+        return false;
+
+    const reg_id_t zd = opnd_get_base(opnd);
+    if (!reg_is_z(zd))
+        return false;
+    const uint reg_number = zd - DR_REG_Z0;
+
+    const aarch64_reg_offset msz = BITS(enc, 24, 23);
+    const uint scale = 1 << msz;
+
+    const opnd_size_t mem_transfer = is_prefetch
+        ? OPSZ_0
+        : opnd_size_from_bytes(scale * get_elements_in_sve_vector(element_size));
+
+    if (opnd_get_size(opnd) != mem_transfer)
+        return false;
+
+    uint imm5;
+    if (!try_encode_uint(&imm5, 5, msz, opnd_get_disp(opnd)))
+        return false;
+
+    *enc_out |= (imm5 << 16) | (reg_number << 5);
+
+    return true;
+}
+
+/* SVE memory address [<Zn>.S{, #<imm>}] */
+static inline bool
+decode_opnd_svemem_vec_s_imm5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_svemem_vec_imm5(enc, SINGLE_REG, op_is_prefetch(opcode), opnd);
+}
+
+static inline bool
+encode_opnd_svemem_vec_s_imm5(uint enc, int opcode, byte *pc, opnd_t opnd,
+                              OUT uint *enc_out)
+{
+    return encode_svemem_vec_imm5(enc, SINGLE_REG, op_is_prefetch(opcode), opnd, enc_out);
+}
+
+/* SVE memory address [<Zn>.D{, #<imm>}] */
+static inline bool
+decode_opnd_svemem_vec_d_imm5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_svemem_vec_imm5(enc, DOUBLE_REG, op_is_prefetch(opcode), opnd);
+}
+
+static inline bool
+encode_opnd_svemem_vec_d_imm5(uint enc, int opcode, byte *pc, opnd_t opnd,
+                              OUT uint *enc_out)
+{
+    return encode_svemem_vec_imm5(enc, DOUBLE_REG, op_is_prefetch(opcode), opnd, enc_out);
 }
 
 static inline bool
