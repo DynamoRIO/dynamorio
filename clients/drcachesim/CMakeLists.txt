@@ -310,7 +310,6 @@ install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
-# We also use this to link in our invariant_checker sanity checker.
 add_executable(histogram_launcher
   tools/histogram_launcher.cpp
   )
