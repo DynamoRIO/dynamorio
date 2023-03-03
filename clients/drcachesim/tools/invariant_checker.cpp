@@ -403,7 +403,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 "Non-explicit control flow has no marker");
             // XXX: If we had instr decoding we could check direct branch targets
             // and look for gaps after branches.
+        }
 
+        if (shard->prev_instr_.instr.addr != 0 &&
+            type_is_instr_branch(shard->prev_instr_.instr.type)) {
             // TODO(sahil): Figure out how to filter out legacy traces and check for that
             // in this if statement.
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_)) {
