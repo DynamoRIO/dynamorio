@@ -213,6 +213,7 @@
 -----------xxxxx----------------  s16        # S register
 -----------xxxxx------xxxxx-----  svemem_gprs_b1  # memory reg from Rm and Rn fields transferring 1 bytes per element
 -----------xxxxx---xxx----------  imm8_10    # 8 bit imm at pos 10, split across 20:16 and 12:10
+-----------xxxxx-??---xxxxx-----  sveprf_gpr_vec64 # SVE prefetch memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod> <amount>}]
 -----------xxxxxxx--------------  imm7       # 7 bit immediate from 14-20
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
@@ -307,8 +308,10 @@
 --------xx-xxxxx----------------  imm2_tsz_index   # Index encoded in imm2:tsz
 -------??--xxxxx------xxxxx-----  svemem_vec_s_imm5 # SVE memory address [<Zn>.S{, #<imm>}]
 -------??--xxxxx------xxxxx-----  svemem_vec_d_imm5 # SVE memory address [<Zn>.D{, #<imm>}]
+-------??-?xxxxx------xxxxx-----  svemem_gpr_vec64 # SVE memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod>}]
 -------????xxxxx------xxxxx-----  svemem_gpr_shf   # GPR offset and base reg for SVE ld/st, with optional shift
 -------????xxxxx------xxxxx-----  svemem_gprs_bhsdx  # memory reg from Rm and Rn fields transferring x bytes per element
+-------????xxxxx-x----xxxxx-----  svemem_gpr_vec32_st # SVE memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod> <amount>]
 -------xx------------------xxxxx  z_msz_bhsd_0p1  # z register with element size determined by msz, plus 1
 -------xx------------------xxxxx  z_msz_bhsd_0p2  # z register with element size determined by msz, plus 2
 -------xx------------------xxxxx  z_msz_bhsd_0p3  # z register with element size determined by msz, plus 3
@@ -344,6 +347,8 @@
 ??---------xxxxxxxxx--xxxxx-----  mem9       # gets size from 31:30
 ??---------xxxxxxxxx--xxxxx-----  memreg     # register offset, gets size from 31:30
 ??--------xxxxxxxxxxxxxxxxx-----  mem12      # gets size from 31:30
+??-------x-xxxxx-??---xxxxx-----  sveprf_gpr_vec32 # SVE prefetch memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod>{ <amount>}]
+??-----??x?xxxxx------xxxxx-----  svemem_gpr_vec32_ld # SVE memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod> <amount>]
 ??---?----------------xxxxx-----  mem7post   # gets size from 31:30 and 26; post-index
 ??---?----xxxxxxx---------------  mem7off    # gets size from 31:30 and 26
 ??---?----xxxxxxx-----xxxxx-----  mem7       # gets size from 31:30 and 26
