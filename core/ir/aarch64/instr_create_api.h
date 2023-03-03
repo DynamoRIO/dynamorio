@@ -10954,6 +10954,8 @@
  *    LDFF1B  { <Zt>.S }, <Pg>/Z, [<Zn>.S{, #<imm>}]
  *    LDFF1B  { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LDFF1B  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LDFF1B  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
+ *    LDFF1B  { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -10970,6 +10972,13 @@
  *             0, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  */
 #define INSTR_CREATE_ldff1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1b, Zt, Rn, Pg)
@@ -10983,6 +10992,8 @@
  *    LDFF1D  { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LDFF1D  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, LSL #3]
  *    LDFF1D  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LDFF1D  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend> #3]
+ *    LDFF1D  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11001,6 +11012,12 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #3] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 3)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  */
 #define INSTR_CREATE_ldff1d_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1d, Zt, Rn, Pg)
@@ -11017,6 +11034,10 @@
  *    LDFF1H  { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LDFF1H  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, LSL #1]
  *    LDFF1H  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LDFF1H  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend> #1]
+ *    LDFF1H  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
+ *    LDFF1H  { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend> #1]
+ *    LDFF1H  { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11038,6 +11059,18 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #1] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #1] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  */
 #define INSTR_CREATE_ldff1h_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1h, Zt, Rn, Pg)
@@ -11053,6 +11086,8 @@
  *    LDFF1SB { <Zt>.S }, <Pg>/Z, [<Zn>.S{, #<imm>}]
  *    LDFF1SB { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LDFF1SB { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LDFF1SB { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
+ *    LDFF1SB { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11070,6 +11105,12 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  */
 #define INSTR_CREATE_ldff1sb_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1sb, Zt, Rn, Pg)
@@ -11085,6 +11126,10 @@
  *    LDFF1SH { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LDFF1SH { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, LSL #1]
  *    LDFF1SH { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LDFF1SH { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend> #1]
+ *    LDFF1SH { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
+ *    LDFF1SH { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend> #1]
+ *    LDFF1SH { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11106,6 +11151,18 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #1] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #1] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  */
 #define INSTR_CREATE_ldff1sh_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1sh, Zt, Rn, Pg)
@@ -11119,6 +11176,10 @@
  *    LDFF1SW { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LDFF1W  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, LSL #2]
  *    LDFF1W  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LDFF1W  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend> #2]
+ *    LDFF1W  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
+ *    LDFF1W  { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend> #2]
+ *    LDFF1W  { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11137,6 +11198,18 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #2] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 2)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #2] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 2)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 0)
  */
 #define INSTR_CREATE_ldff1sw_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1sw, Zt, Rn, Pg)
@@ -11233,6 +11306,8 @@
  *    LD1B    { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LD1B    { <Zt>.S }, <Pg>/Z, [<Zn>.S{, #<imm>}]
  *    LD1B    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LD1B    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
+ *    LD1B    { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11251,6 +11326,12 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  */
 #define INSTR_CREATE_ld1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ld1b, Zt, Rn, Pg)
@@ -11302,6 +11383,8 @@
  *    LD1SB   { <Zt>.S }, <Pg>/Z, [<Zn>.S{, #<imm>}]
  *    LD1SB   { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LD1SB   { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LD1SB   { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
+ *    LD1SB   { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11320,6 +11403,12 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  */
 #define INSTR_CREATE_ld1sb_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ld1sb, Zt, Rn, Pg)
@@ -11351,6 +11440,8 @@
  *    ST1B    { <Zt>.S }, <Pg>, [<Zn>.S{, #<imm>}]
  *    ST1B    { <Zt>.D }, <Pg>, [<Zn>.D{, #<imm>}]
  *    ST1B    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D]
+ *    ST1B    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D, <extend>]
+ *    ST1B    { <Zt>.S }, <Pg>, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The first source vector register, Z (Scalable).
@@ -11369,6 +11460,12 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  */
 #define INSTR_CREATE_st1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_st1b, Rn, Zt, Pg)
@@ -11615,6 +11712,8 @@
  *    PRFB    <prfop>, <Pg>, [<Zn>.D{, #<imm>}]
  *    PRFB    <prfop>, <Pg>, [<Zn>.S{, #<imm>}]
  *    PRFB    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D]
+ *    PRFB    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend>]
+ *    PRFB    <prfop>, <Pg>, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param prfop The prefetch operation.
@@ -11632,6 +11731,12 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, OPSZ_0, 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, OPSZ_0, 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, OPSZ_0, 0)
  */
 #define INSTR_CREATE_prfb_sve_pred(dc, prfop, Pg, Rn) \
     instr_create_0dst_3src(dc, OP_prfb, prfop, Pg, Rn)
@@ -11645,6 +11750,8 @@
  *    PRFD    <prfop>, <Pg>, [<Zn>.D{, #<imm>}]
  *    PRFD    <prfop>, <Pg>, [<Zn>.S{, #<imm>}]
  *    PRFD    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, LSL #3]
+ *    PRFD    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #3]
+ *    PRFD    <prfop>, <Pg>, [<Xn|SP>, <Zm>.S, <extend> #3]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param prfop The prefetch operation.
@@ -11662,6 +11769,12 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             true, 0, OPSZ_0, 3)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, OPSZ_0, 3)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             true, 0, OPSZ_0, 3)
  */
 #define INSTR_CREATE_prfd_sve_pred(dc, prfop, Pg, Rn) \
     instr_create_0dst_3src(dc, OP_prfd, prfop, Pg, Rn)
@@ -11675,6 +11788,8 @@
  *    PRFH    <prfop>, <Pg>, [<Zn>.D{, #<imm>}]
  *    PRFH    <prfop>, <Pg>, [<Zn>.S{, #<imm>}]
  *    PRFH    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, LSL #1]
+ *    PRFH    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #1]
+ *    PRFH    <prfop>, <Pg>, [<Xn|SP>, <Zm>.S, <extend> #1]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param prfop The prefetch operation.
@@ -11692,6 +11807,12 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             true, 0, OPSZ_0, 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, OPSZ_0, 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             true, 0, OPSZ_0, 1)
  */
 #define INSTR_CREATE_prfh_sve_pred(dc, prfop, Pg, Rn) \
     instr_create_0dst_3src(dc, OP_prfh, prfop, Pg, Rn)
@@ -11705,6 +11826,8 @@
  *    PRFW    <prfop>, <Pg>, [<Zn>.D{, #<imm>}]
  *    PRFW    <prfop>, <Pg>, [<Zn>.S{, #<imm>}]
  *    PRFW    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, LSL #2]
+ *    PRFW    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #2]
+ *    PRFW    <prfop>, <Pg>, [<Xn|SP>, <Zm>.S, <extend> #2]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param prfop The prefetch operation.
@@ -11721,6 +11844,12 @@
  *             0, 0, imm5, 0, OPSZ_0, 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
+ *             true, 0, OPSZ_0, 2)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, OPSZ_0, 2)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
  *             true, 0, OPSZ_0, 2)
  */
 #define INSTR_CREATE_prfw_sve_pred(dc, prfop, Pg, Rn) \
@@ -11871,6 +12000,10 @@
  *    LD1H    { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LD1H    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, LSL #1]
  *    LD1H    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LD1H    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend> #1]
+ *    LD1H    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
+ *    LD1H    { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend> #1]
+ *    LD1H    { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11889,6 +12022,18 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #1] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #1] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  */
 #define INSTR_CREATE_ld1h_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ld1h, Zt, Zn, Pg)
@@ -11902,6 +12047,10 @@
  *    LD1SH   { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LD1SH   { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, LSL #1]
  *    LD1SH   { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LD1SH   { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend> #1]
+ *    LD1SH   { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
+ *    LD1SH   { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend> #1]
+ *    LD1SH   { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11920,6 +12069,18 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #1] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #1] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  */
 #define INSTR_CREATE_ld1sh_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ld1sh, Zt, Zn, Pg)
@@ -11933,6 +12094,10 @@
  *    LD1W    { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LD1W    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, LSL #2]
  *    LD1W    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LD1W    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend> #2]
+ *    LD1W    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
+ *    LD1W    { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend> #2]
+ *    LD1W    { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11951,6 +12116,18 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #2] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 2)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #2] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 2)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 0)
  */
 #define INSTR_CREATE_ld1w_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ld1w, Zt, Zn, Pg)
@@ -11963,6 +12140,8 @@
  *    LD1D    { <Zt>.D }, <Pg>/Z, [<Zn>.D{, #<imm>}]
  *    LD1D    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, LSL #3]
  *    LD1D    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D]
+ *    LD1D    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend> #3]
+ *    LD1D    { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Zm>.D, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The destination vector register, Z (Scalable).
@@ -11977,6 +12156,12 @@
  *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 3)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #3] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 3)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  */
 #define INSTR_CREATE_ld1d_sve_pred(dc, Zt, Pg, Zn) \
@@ -12010,6 +12195,10 @@
  *    ST1H    { <Zt>.D }, <Pg>, [<Zn>.D{, #<imm>}]
  *    ST1H    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D, LSL #1]
  *    ST1H    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D]
+ *    ST1H    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #1]
+ *    ST1H    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D, <extend>]
+ *    ST1H    { <Zt>.S }, <Pg>, [<Xn|SP>, <Zm>.S, <extend> #1]
+ *    ST1H    { <Zt>.S }, <Pg>, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The first source vector register, Z (Scalable).
@@ -12028,6 +12217,18 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #1] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #1] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 1)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  */
 #define INSTR_CREATE_st1h_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_st1h, Zn, Zt, Pg)
@@ -12041,6 +12242,10 @@
  *    ST1W    { <Zt>.D }, <Pg>, [<Zn>.D{, #<imm>}]
  *    ST1W    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D, LSL #2]
  *    ST1W    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D]
+ *    ST1W    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #2]
+ *    ST1W    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D, <extend>]
+ *    ST1W    { <Zt>.S }, <Pg>, [<Xn|SP>, <Zm>.S, <extend> #2]
+ *    ST1W    { <Zt>.S }, <Pg>, [<Xn|SP>, <Zm>.S, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The first source vector register, Z (Scalable).
@@ -12059,6 +12264,18 @@
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #2] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 2)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #2] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 2)
+ *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 0)
  */
 #define INSTR_CREATE_st1w_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_st1w, Zn, Zt, Pg)
@@ -12071,6 +12288,8 @@
  *    ST1D    { <Zt>.D }, <Pg>, [<Zn>.D{, #<imm>}]
  *    ST1D    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D, LSL #3]
  *    ST1D    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D]
+ *    ST1D    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #3]
+ *    ST1D    { <Zt>.D }, <Pg>, [<Xn|SP>, <Zm>.D, <extend>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zt   The first source vector register, Z (Scalable).
@@ -12085,6 +12304,12 @@
  *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 3)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #3] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 3)
+ *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
+ *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  */
 #define INSTR_CREATE_st1d_sve_pred(dc, Zt, Pg, Zn) \

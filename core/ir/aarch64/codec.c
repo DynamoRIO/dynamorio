@@ -6857,6 +6857,48 @@ encode_opnd_svemem_gprs_bhsdx(uint enc, int opcode, byte *pc, opnd_t opnd,
 }
 
 static inline bool
+encode_svemem_gpr_vec_xs(uint enc, uint pos, opnd_t opnd, OUT uint *enc_out)
+{
+    const dr_extend_type_t mod = opnd_get_index_extend(opnd, NULL, NULL);
+
+    uint xs;
+    switch (mod) {
+    case DR_EXTEND_UXTW: xs = 0; break;
+    case DR_EXTEND_SXTW: xs = 1; break;
+    default: return false;
+    }
+
+    *enc_out |= (xs << pos);
+
+    return true;
+}
+
+/* SVE memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod> <amount>] */
+static inline bool
+decode_opnd_svemem_gpr_vec32_st(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const aarch64_reg_offset element_size = TEST(1u << 22, enc) ? SINGLE_REG : DOUBLE_REG;
+    const aarch64_reg_offset msz = BITS(enc, 24, 23);
+    const bool scaled = TEST(1u << 21, enc);
+
+    const dr_extend_type_t mod = TEST(1u << 14, enc) ? DR_EXTEND_SXTW : DR_EXTEND_UXTW;
+
+    return decode_svemem_gpr_vec(enc, element_size, mod, msz, scaled, false, opnd);
+}
+
+static inline bool
+encode_opnd_svemem_gpr_vec32_st(uint enc, int opcode, byte *pc, opnd_t opnd,
+                                OUT uint *enc_out)
+{
+    const aarch64_reg_offset element_size = TEST(1u << 22, enc) ? SINGLE_REG : DOUBLE_REG;
+    const uint msz = BITS(enc, 24, 23);
+    const bool scaled = TEST(1u << 21, enc);
+
+    return encode_svemem_gpr_vec(enc, element_size, msz, scaled, opnd, enc_out) &&
+        encode_svemem_gpr_vec_xs(enc, 14, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_z_msz_bhsd_0p1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_sized_z(0, 23, BYTE_REG, DOUBLE_REG, 1, enc, pc, opnd);
@@ -7412,6 +7454,52 @@ static inline bool
 encode_opnd_mem12(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_mem12_scale(extract_uint(enc, 30, 2), false, opnd, enc_out);
+}
+
+/* SVE prefetch memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod>{ <amount>}] */
+static inline bool
+decode_opnd_sveprf_gpr_vec32(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const aarch64_reg_offset element_size = BITS(enc, 31, 30);
+    const dr_extend_type_t mod = TEST(1u << 22, enc) ? DR_EXTEND_SXTW : DR_EXTEND_UXTW;
+    const aarch64_reg_offset msz = BITS(enc, 14, 13);
+
+    return decode_svemem_gpr_vec(enc, element_size, mod, msz, msz > 0, true, opnd);
+}
+
+static inline bool
+encode_opnd_sveprf_gpr_vec32(uint enc, int opcode, byte *pc, opnd_t opnd,
+                             OUT uint *enc_out)
+{
+    const aarch64_reg_offset element_size = BITS(enc, 31, 30);
+    const aarch64_reg_offset msz = BITS(enc, 14, 13);
+
+    return encode_svemem_gpr_vec(enc, element_size, msz, msz > 0, opnd, enc_out) &&
+        encode_svemem_gpr_vec_xs(enc, 22, opnd, enc_out);
+}
+
+/* SVE memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod> <amount>] */
+static inline bool
+decode_opnd_svemem_gpr_vec32_ld(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const aarch64_reg_offset element_size = BITS(enc, 31, 30);
+    const aarch64_reg_offset msz = BITS(enc, 24, 23);
+    const bool scaled = TEST(1u << 21, enc);
+    const dr_extend_type_t mod = TEST(1u << 22, enc) ? DR_EXTEND_SXTW : DR_EXTEND_UXTW;
+
+    return decode_svemem_gpr_vec(enc, element_size, mod, msz, scaled, false, opnd);
+}
+
+static inline bool
+encode_opnd_svemem_gpr_vec32_ld(uint enc, int opcode, byte *pc, opnd_t opnd,
+                                OUT uint *enc_out)
+{
+    const aarch64_reg_offset element_size = BITS(enc, 31, 30);
+    const aarch64_reg_offset msz = BITS(enc, 24, 23);
+    const bool scaled = TEST(1u << 21, enc);
+
+    return encode_svemem_gpr_vec(enc, element_size, msz, scaled, opnd, enc_out) &&
+        encode_svemem_gpr_vec_xs(enc, 22, opnd, enc_out);
 }
 
 /* mem7post: post-indexed mem7, so offset is zero */
