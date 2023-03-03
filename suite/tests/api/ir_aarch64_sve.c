@@ -13802,7 +13802,6 @@ TEST_INSTR(ldff1b_sve_pred)
               opnd_create_vector_base_disp_aarch64(Xn_six_offset_2_sp[i],
                                                    Zn_six_offset_3[i], OPSZ_8,
                                                    DR_EXTEND_UXTX, 0, 0, 0, OPSZ_4, 0));
-
 }
 
 TEST_INSTR(ldff1d_sve_pred)
@@ -14084,7 +14083,6 @@ TEST_INSTR(ldff1sb_sve_pred)
               opnd_create_vector_base_disp_aarch64(Xn_six_offset_2_sp[i],
                                                    Zn_six_offset_3[i], OPSZ_8,
                                                    DR_EXTEND_UXTX, 0, 0, 0, OPSZ_4, 0));
-
 }
 
 TEST_INSTR(ldff1sh_sve_pred)
