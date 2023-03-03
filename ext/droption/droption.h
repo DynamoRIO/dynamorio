@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -170,6 +170,8 @@ public:
         if (TESTANY(DROPTION_FLAG_SWEEP, flags_))
             sweeper() = this;
     }
+
+    virtual ~droption_parser_t() = default;
 
     // We do not provide a string-parsing routine as we assume a client will
     // use dr_get_option_array() to convert to an argv[] array, or use our
