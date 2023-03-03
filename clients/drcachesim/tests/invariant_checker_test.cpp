@@ -43,6 +43,16 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 
+#ifdef X86
+#    define REG1 DR_REG_XAX
+#    define REG2 DR_REG_XDX
+#elif defined(AARCHXX)
+#    define REG1 DR_REG_R0
+#    define REG2 DR_REG_R1
+#else
+#    error Unsupported arch
+#endif
+
 namespace {
 
 class checker_no_abort_t : public invariant_checker_t {
