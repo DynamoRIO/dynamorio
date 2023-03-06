@@ -189,27 +189,30 @@ check_branch_target_after_branch()
     }
     // Confirm direct branches go to their targets.
     {
-        void *dcontext = GLOBAL_DCONTEXT;
+        //        void *dcontext = GLOBAL_DCONTEXT;
 
-        // Construct a list of instructions to be encoded into a buffer for decoding by
-        // invariant_checker.
-        instrlist_t *ilist = instrlist_create(dcontext);
+        //        // Construct a list of instructions to be encoded into a buffer for
+        //        decoding by
+        //        // invariant_checker.
+        //        instrlist_t *ilist = instrlist_create(dcontext);
 
-        // Doesn't like offsets of 0 so we shift with a nop.
-        instr_t *nop = XINST_CREATE_nop(dcontext);
-        instr_t *move =
-            XINST_CREATE_move(dcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
-        instr_t *jmp = XINST_CREATE_jump(dcontext, opnd_create_instr(move));
-        instr_t *jcc =
-            XINST_CREATE_jump_cond(dcontext, DR_PRED_EQ, opnd_create_instr(jmp));
-        instrlist_append(ilist, nop);
-        instrlist_append(ilist, jcc);
-        instrlist_append(ilist, jmp);
-        instrlist_append(ilist, move);
-        size_t offs_nop = 0;
-        size_t offs_jz = offs_nop + instr_length(dcontext, nop);
-        size_t offs_jmp = offs_jz + instr_length(dcontext, jcc);
-        size_t offs_mov = offs_jmp + instr_length(dcontext, jmp);
+        //        // Doesn't like offsets of 0 so we shift with a nop.
+        //        instr_t *nop = XINST_CREATE_nop(dcontext);
+        //        instr_t *move =
+        //            XINST_CREATE_move(dcontext, opnd_create_reg(REG1),
+        //            opnd_create_reg(REG2));
+        //        instr_t *jmp = XINST_CREATE_jump(dcontext, opnd_create_instr(move));
+        //        instr_t *jcc =
+        //            XINST_CREATE_jump_cond(dcontext, DR_PRED_EQ,
+        //            opnd_create_instr(jmp));
+        //        instrlist_append(ilist, nop);
+        //        instrlist_append(ilist, jcc);
+        //        instrlist_append(ilist, jmp);
+        //        instrlist_append(ilist, move);
+        //        size_t offs_nop = 0;
+        //        size_t offs_jz = offs_nop + instr_length(dcontext, nop);
+        //        size_t offs_jmp = offs_jz + instr_length(dcontext, jcc);
+        //        size_t offs_mov = offs_jmp + instr_length(dcontext, jmp);
     }
     return true;
 }
