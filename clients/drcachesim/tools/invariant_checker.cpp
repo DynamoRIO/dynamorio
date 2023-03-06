@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <iostream>
 #include <string.h>
+#include "opcode_mix.h"
 
 analysis_tool_t *
 invariant_checker_create(bool offline, unsigned int verbose)
@@ -420,10 +421,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             const app_pc next_pc =
                 decode_from_copy(dcontext, decode_pc, trace_pc, &instr);
 
-            //            opnd_t target = instr_get_target(&instr);
-            //            const app_pc target_pc = opnd_get_pc(target);
+            opnd_t target = instr_get_target(&instr);
+            const app_pc target_pc = opnd_get_pc(target);
         }
-
 #ifdef UNIX
         // Ensure signal handlers return to the interruption point.
         if (shard->prev_xfer_marker_.marker.marker_type ==

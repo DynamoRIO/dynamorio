@@ -238,7 +238,6 @@ check_entry(std::vector<trace_entry_t> &entries, int &idx, unsigned short expect
     return true;
 }
 
-// TODO(sahil):
 bool
 test_branch_delays(void *drcontext)
 {

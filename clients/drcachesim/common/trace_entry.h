@@ -124,9 +124,8 @@ typedef enum {
     // Enum value == 10.
     TRACE_TYPE_INSTR, /**< A non-branch instruction. */
     // Particular categories of instructions:
-    TRACE_TYPE_INSTR_DIRECT_JUMP,   /**< A direct unconditional jump instruction. */
-    TRACE_TYPE_INSTR_INDIRECT_JUMP, /**< An indirect jump instruction. */
-    // TODO(sahil): Could go to target or fallthrough.
+    TRACE_TYPE_INSTR_DIRECT_JUMP,      /**< A direct unconditional jump instruction. */
+    TRACE_TYPE_INSTR_INDIRECT_JUMP,    /**< An indirect jump instruction. */
     TRACE_TYPE_INSTR_CONDITIONAL_JUMP, /**< A conditional jump instruction. */
     TRACE_TYPE_INSTR_DIRECT_CALL,      /**< A direct call instruction. */
     TRACE_TYPE_INSTR_INDIRECT_CALL,    /**< An indirect call instruction. */
