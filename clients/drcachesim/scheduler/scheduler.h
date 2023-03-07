@@ -635,7 +635,7 @@ protected:
         bool needs_advance = false;
         bool needs_roi = true;
         bool at_eof = false;
-        uint64_t next_timestamp = 0;
+        uintptr_t next_timestamp = 0;
     };
 
     struct output_info_t {
