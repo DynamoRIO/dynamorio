@@ -175,7 +175,7 @@ scheduler_tmpl_t<memref_t, reader_t>::record_type_is_marker(memref_t record,
 template <>
 bool
 scheduler_tmpl_t<memref_t, reader_t>::record_type_is_timestamp(memref_t record,
-                                                               uint64_t &value)
+                                                               uintptr_t &value)
 {
     if (record.marker.type != TRACE_TYPE_MARKER ||
         record.marker.marker_type != TRACE_MARKER_TYPE_TIMESTAMP)
