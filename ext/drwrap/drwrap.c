@@ -2773,7 +2773,7 @@ drwrap_get_stats(INOUT drwrap_stats_t *stats)
 
 DR_EXPORT
 void
-drwrap_replace_if_retaddr_sentinel(void *drcontext, INOUT app_pc *possibly_sentinel)
+drwrap_get_retaddr_if_sentinel(void *drcontext, INOUT app_pc *possibly_sentinel)
 {
     ASSERT(possibly_sentinel != NULL, "Input cannot be null.");
     if ((app_pc)replace_retaddr_sentinel != *possibly_sentinel)

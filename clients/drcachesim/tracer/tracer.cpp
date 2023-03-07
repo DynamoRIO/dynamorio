@@ -1425,7 +1425,7 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
          * this case by allowing drwrap to replace the address with the
          * correct one.
          */
-        drwrap_replace_if_retaddr_sentinel(drcontext, &mcontext_pc);
+        drwrap_get_retaddr_if_sentinel(drcontext, &mcontext_pc);
         /* Enable post-processing to figure out the ordering of this xfer vs
          * non-memref instrs in the bb, and also to give core simulators the
          * interrupted PC -- primarily for a kernel event arriving right
