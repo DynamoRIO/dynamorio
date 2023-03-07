@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -416,8 +416,10 @@ typedef enum {
      * However, this does violate transparency, and may cause some applications to fail.
      * In particular, detaching on AArchXX requires scanning the stack to find where the
      * return address was stored, which could conceivably replace an integer or
-     * non-pointer value that happens to match the sentinel used.  Use this at your own
-     * risk.
+     * non-pointer value that happens to match the sentinel used. Also, the transparency
+     * violation may be exposed to the client's dr_register_kernel_xfer_event() callback
+     * if it inspects the mcontext PC on the stack; drwrap_get_retaddr_if_sentinel()
+     * may be used to mitigate such cases. Use #DRWRAP_REPLACE_RETADDR at your own risk.
      */
     DRWRAP_REPLACE_RETADDR = 0x04,
 } drwrap_wrap_flags_t;
@@ -886,6 +888,18 @@ DR_EXPORT
  */
 bool
 drwrap_get_stats(INOUT drwrap_stats_t *stats);
+
+DR_EXPORT
+/**
+ * If the provided app_pc (\p possibly_sentinel) is indeed the return address sentinel
+ * used to implement #DRWRAP_REPLACE_RETADDR, this routine replaces it with the actual
+ * return address of the inner-most nested wrapped function. Otherwise, it is a no-op.
+ * This allows mitigation of a transparency violation under the #DRWRAP_REPLACE_RETADDR
+ * strategy where the actual app return address on the stack is replaced with a return
+ * address sentinel.
+ */
+void
+drwrap_get_retaddr_if_sentinel(void *drcontext, INOUT app_pc *possibly_sentinel);
 
 /**@}*/ /* end doxygen group */
 
