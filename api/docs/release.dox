@@ -149,6 +149,9 @@ changes:
  - Removed the drcachesim external iterator analyzer interface.  Users should instead
    use the new #dynamorio::drmemtrace::scheduler_tmpl_t interface for direct control
    over iteration.  See \ref sec_drcachesim_sched for example code.
+ - Refactored the drmemtrace reader and file reader classes to better fit the
+   new scheduler model: now each reader owns just one single stream of records
+   with all multi-stream interleaving owned by the scheduler.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.

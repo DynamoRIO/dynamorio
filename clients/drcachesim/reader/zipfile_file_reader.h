@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,10 @@
 #include "file_reader.h"
 
 struct zipfile_reader_t {
+    zipfile_reader_t()
+        : file(nullptr)
+    {
+    }
     explicit zipfile_reader_t(unzFile file)
         : file(file)
     {
@@ -59,9 +63,7 @@ typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
  * class declaration.
  */
 template <>
-bool
-file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
-                                                          uint64_t instruction_count,
-                                                          OUT bool *eof);
+reader_t &
+file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count);
 
 #endif /* _ZIPFILE_FILE_READER_H_ */

@@ -78,25 +78,16 @@ public:
     {
         online_ = false;
     }
-    explicit file_reader_t(const std::vector<std::string> &path_list, int verbosity = 0)
-        : reader_t(verbosity, "[file_reader]")
-        , input_path_list_(path_list)
-    {
-        online_ = false;
-    }
     virtual ~file_reader_t();
     bool
     init() override
     {
         at_eof_ = false;
-        if (!open_input_files())
+        if (!open_input_file())
             return false;
         ++*this;
         return true;
     }
-
-    virtual bool
-    is_complete();
 
     std::string
     get_stream_name() const override
@@ -107,287 +98,83 @@ public:
         return input_path_.substr(ind + 1);
     }
 
-    reader_t &
-    skip_instructions(uint64_t instruction_count) override
-    {
-        if (instruction_count == 0)
-            return *this;
-        if (input_files_.size() > 1) {
-            // TODO i#5538: For fast thread-interleaved (whether serial here or the
-            // forthcoming per-cpu iteration) we need to read in the schedule file(s)
-            // that raw2trace writes out so that we can compute how far to separately
-            // fast-skip in each interleaved thread by calling the per-thread version.
-            // We'll also need to update the memref pid+tid state since we're not
-            // repeating top headers in every thread after a skip.  For now this is a
-            // slow linear walk.
-            return reader_t::skip_instructions(instruction_count);
-        }
-        // If the user asks to skip from the very start, we still need to find the chunk
-        // count marker and drain the header queue and populate the stream header values.
-        // XXX: We assume the page size is the final header; it is complex to wait for
-        // the timestamp as we don't want to read it yet.
-        while (page_size_ == 0) {
-            input_entry_ = read_next_entry();
-            process_input_entry();
-        }
-        if (!queues_[0].empty())
-            ERRMSG("Failed to drain header queue\n");
-        bool eof = false;
-        if (!skip_thread_instructions(0, instruction_count, &eof) || eof)
-            at_eof_ = true;
-        return *this;
-    }
-
 protected:
-    bool
-    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
-                           OUT bool *eof) override;
+    trace_entry_t *
+    read_next_entry() override;
 
     virtual bool
     open_single_file(const std::string &path);
 
     virtual bool
-    open_input_files()
+    open_input_file()
     {
-        if (!input_path_list_.empty()) {
-            for (const std::string &path : input_path_list_) {
-                if (!open_single_file(path)) {
-                    ERRMSG("Failed to open %s\n", path.c_str());
-                    return false;
-                }
-            }
-        } else if (directory_iterator_t::is_directory(input_path_)) {
-            VPRINT(this, 1, "Iterating directory %s\n", input_path_.c_str());
-            directory_iterator_t end;
-            directory_iterator_t iter(input_path_);
-            if (!iter) {
-                ERRMSG("Failed to list directory %s: %s", input_path_.c_str(),
-                       iter.error_string().c_str());
-                return false;
-            }
-            for (; iter != end; ++iter) {
-                std::string fname = *iter;
-                if (fname == "." || fname == ".." ||
-                    starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
-                    fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
-                    continue;
-                // Skip the auxiliary files.
-                if (fname == DRMEMTRACE_MODULE_LIST_FILENAME ||
-                    fname == DRMEMTRACE_FUNCTION_LIST_FILENAME ||
-                    fname == DRMEMTRACE_ENCODING_FILENAME)
-                    continue;
-                VPRINT(this, 2, "Found file %s\n", fname.c_str());
-                if (!open_single_file(input_path_ + DIRSEP + fname)) {
-                    ERRMSG("Failed to open %s\n", fname.c_str());
-                    return false;
-                }
-            }
-        } else {
-            if (!open_single_file(input_path_)) {
-                ERRMSG("Failed to open %s\n", input_path_.c_str());
-                return false;
-            }
-        }
-        if (input_files_.empty()) {
-            ERRMSG("No thread files found.");
+        if (!open_single_file(input_path_)) {
+            ERRMSG("Failed to open %s\n", input_path_.c_str());
             return false;
         }
 
-        thread_count_ = input_files_.size();
-        queues_.resize(input_files_.size());
-        tids_.resize(input_files_.size());
-        timestamps_.resize(input_files_.size());
-        times_.resize(input_files_.size(), 0);
-        // We can't take the address of a vector<bool> element so we use a raw array.
-        thread_eof_ = new bool[input_files_.size()];
-        memset(thread_eof_, 0, input_files_.size() * sizeof(*thread_eof_));
-
-        // First read the tid and pid entries which precede any timestamps_.
+        // First read the tid and pid entries which precede any timestamps.
         // We hand out the tid to the output on every thread switch, and the pid
         // the very first time for the thread.
-        trace_entry_t header, next, pid = {};
-        for (index_ = 0; index_ < input_files_.size(); ++index_) {
-            if (!read_next_thread_entry(index_, &header, &thread_eof_[index_]) ||
-                header.type != TRACE_TYPE_HEADER) {
-                ERRMSG("Invalid header for input file #%zu\n", index_);
+        trace_entry_t *entry;
+        trace_entry_t header = {}, pid = {}, tid = {};
+        entry = read_next_entry();
+        if (entry == nullptr || entry->type != TRACE_TYPE_HEADER) {
+            ERRMSG("Invalid header\n");
+            return false;
+        }
+        header = *entry;
+        // We can handle the older version 1 as well which simply omits the
+        // early marker with the arch tag, and version 2 which only differs wrt
+        // TRACE_MARKER_TYPE_KERNEL_EVENT..
+        if (entry->addr > TRACE_ENTRY_VERSION) {
+            ERRMSG("Cannot handle version #%zu (expect version <= #%u)\n", entry->addr,
+                   TRACE_ENTRY_VERSION);
+            return false;
+        }
+        // Read the meta entries until we hit the pid.
+        // We want to pass the tid+pid to the reader *before* any markers,
+        // even though 2 markers preced the tid+pid in the file.
+        std::queue<trace_entry_t> marker_queue;
+        while ((entry = read_next_entry()) != nullptr) {
+            if (entry->type == TRACE_TYPE_PID) {
+                // We assume the pid entry is the last, right before the timestamp.
+                pid = *entry;
+                break;
+            } else if (entry->type == TRACE_TYPE_THREAD)
+                tid = *entry;
+            else if (entry->type == TRACE_TYPE_MARKER)
+                marker_queue.push(*entry);
+            else {
+                ERRMSG("Unexpected trace sequence\n");
                 return false;
-            }
-            // We can handle the older version 1 as well which simply omits the
-            // early marker with the arch tag, and version 2 which only differs wrt
-            // TRACE_MARKER_TYPE_KERNEL_EVENT..
-            if (header.addr > TRACE_ENTRY_VERSION) {
-                ERRMSG(
-                    "Cannot handle version #%zu (expect version <= #%u) for input file "
-                    "#%zu\n",
-                    header.addr, TRACE_ENTRY_VERSION, index_);
-                return false;
-            }
-            // Read the meta entries until we hit the pid.
-            // We want to pass the tid+pid to the reader *before* any markers,
-            // even though 2 markers preced the tid+pid in the file.
-            std::queue<trace_entry_t> marker_queue;
-            while (read_next_thread_entry(index_, &next, &thread_eof_[index_])) {
-                if (next.type == TRACE_TYPE_PID) {
-                    // We assume the pid entry is the last, right before the timestamp.
-                    pid = next;
-                    break;
-                } else if (next.type == TRACE_TYPE_THREAD)
-                    tids_[index_] = next;
-                else if (next.type == TRACE_TYPE_MARKER)
-                    marker_queue.push(next);
-                else {
-                    ERRMSG("Unexpected trace sequence for input file #%zu\n", index_);
-                    return false;
-                }
-            }
-            VPRINT(this, 2, "Read thread #%zd header: ver=%zu, pid=%zu, tid=%zu\n",
-                   index_, header.addr, pid.addr, tids_[index_].addr);
-            // The reader expects us to own the header and pass the tid as
-            // the first entry.
-            queues_[index_].push(tids_[index_]);
-            queues_[index_].push(pid);
-            while (!marker_queue.empty()) {
-                queues_[index_].push(marker_queue.front());
-                marker_queue.pop();
             }
         }
-        index_ = input_files_.size();
-
+        VPRINT(this, 2, "Read header: ver=%zu, pid=%zu, tid=%zu\n", header.addr, pid.addr,
+               tid.addr);
+        // The reader expects us to own the header and pass the tid as
+        // the first entry.
+        queue_.push(tid);
+        queue_.push(pid);
+        while (!marker_queue.empty()) {
+            queue_.push(marker_queue.front());
+            marker_queue.pop();
+        }
         return true;
     }
 
-    trace_entry_t *
-    read_next_entry() override
+    // Provided so that instantiations can specialize.
+    reader_t &
+    skip_instructions(uint64_t instruction_count) override
     {
-        // We read the thread files simultaneously in lockstep and merge them into
-        // a single interleaved stream in timestamp order.
-        // When a thread file runs out we leave its times_[] entry as 0 and its file at
-        // eof.
-        while (thread_count_ > 0) {
-            if (index_ >= input_files_.size()) {
-                // Pick the next thread by looking for the smallest timestamp.
-                uint64_t min_time = 0xffffffffffffffff;
-                size_t next_index = 0;
-                for (size_t i = 0; i < times_.size(); ++i) {
-                    if (times_[i] == 0 && !thread_eof_[i]) {
-                        if (!read_next_thread_entry(i, &timestamps_[i],
-                                                    &thread_eof_[i])) {
-                            ERRMSG("Failed to read from input file #%zu\n", i);
-                            return nullptr;
-                        }
-                        if (timestamps_[i].type != TRACE_TYPE_MARKER &&
-                            timestamps_[i].size != TRACE_MARKER_TYPE_TIMESTAMP) {
-                            ERRMSG("Missing timestamp entry in input file #%zu\n", i);
-                            return nullptr;
-                        }
-                        times_[i] = timestamps_[i].addr;
-                        VPRINT(this, 3,
-                               "Thread #%zu timestamp is @0x" ZHEX64_FORMAT_STRING "\n",
-                               i, times_[i]);
-                    }
-                    if (times_[i] != 0 && times_[i] < min_time) {
-                        min_time = times_[i];
-                        next_index = i;
-                    }
-                }
-                VPRINT(this, 2,
-                       "Next thread in timestamp order is #%zu @0x" ZHEX64_FORMAT_STRING
-                       "\n",
-                       next_index, times_[next_index]);
-                index_ = next_index;
-                times_[index_] = 0; // Read from file for this thread's next timestamp.
-                // If the queue is not empty, it should contain the initial tid;pid.
-                if ((queues_[index_].empty() ||
-                     queues_[index_].front().type != TRACE_TYPE_THREAD) &&
-                    // For a single thread (or already-interleaved file) we do not need
-                    // thread entries before each timestamp.
-                    input_files_.size() > 1)
-                    queues_[index_].push(tids_[index_]);
-                queues_[index_].push(timestamps_[index_]);
-            }
-            if (!queues_[index_].empty()) {
-                entry_copy_ = queues_[index_].front();
-                queues_[index_].pop();
-                return &entry_copy_;
-            }
-            VPRINT(this, 4, "About to read thread #%zu\n", index_);
-            if (!read_next_thread_entry(index_, &entry_copy_, &thread_eof_[index_])) {
-                if (thread_eof_[index_]) {
-                    VPRINT(this, 2, "Thread #%zu at eof\n", index_);
-                    --thread_count_;
-                    if (thread_count_ == 0) {
-                        VPRINT(this, 2, "All threads at eof\n");
-                        at_eof_ = true;
-                        break;
-                    }
-                    times_[index_] = 0;
-                    index_ = input_files_.size(); // Request thread scan.
-                    continue;
-                } else {
-                    ERRMSG("Failed to read from input file #%zu\n", index_);
-                    return nullptr;
-                }
-            }
-            if (entry_copy_.type == TRACE_TYPE_MARKER &&
-                entry_copy_.size == TRACE_MARKER_TYPE_TIMESTAMP) {
-                VPRINT(this, 3, "Thread #%zu timestamp 0x" ZHEX64_FORMAT_STRING "\n",
-                       index_, (uint64_t)entry_copy_.addr);
-                times_[index_] = entry_copy_.addr;
-                timestamps_[index_] = entry_copy_;
-                index_ = input_files_.size(); // Request thread scan.
-                continue;
-            }
-            return &entry_copy_;
-        }
-        return nullptr;
-    }
-
-    virtual bool
-    skip_thread_instructions(size_t thread_index, uint64_t instruction_count,
-                             OUT bool *eof)
-    {
-        // TODO i#5538,i#5843: Once we move interleaving code from file_reader_t
-        // into scheduler_t, remove these _thread variants: read_next_thread_entry()
-        // and skip_thread_instructions().  Use reader_t::skip_instructions() here
-        // (don't override).
-
-        // Default implementation for file types that have no fast seeking and must do a
-        // linear walk.
-        // FIXME i#5538,i#5843: This is broken as it goes too far: see how
-        // reader_t::skip_instructions() does it.  We'll fix when we refactor (see
-        // comment at top of function).
-        uint64_t stop_count_ = cur_instr_count_ + instruction_count + 1;
-        while (cur_instr_count_ < stop_count_) {
-            if (!read_next_thread_entry(thread_index, &entry_copy_, eof))
-                return false;
-            // Update core state.
-            input_entry_ = &entry_copy_;
-            process_input_entry();
-            // TODO i#5538: Remember the last timestamp+cpu and insert it; share
-            // code with the zipfile reader.
-        }
-        return true;
+        return reader_t::skip_instructions(instruction_count);
     }
 
     // Protected for access by mock_file_reader_t.
-    std::vector<T> input_files_;
+    T input_file_;
 
 private:
     std::string input_path_;
-    std::vector<std::string> input_path_list_;
-    trace_entry_t entry_copy_;
-    // The current thread we're processing is "index".  If it's set to input_files_.size()
-    // that means we need to pick a new thread.
-    size_t index_;
-    size_t thread_count_;
-    // TODO i#5843: Once we move interleaving code from file_reader_t into scheduler_t
-    // these will all become singleton as one class instance here will have just one
-    // thread.  We can merge queues_ here into the new reader_t::queue_.
-    std::vector<std::queue<trace_entry_t>> queues_;
-    std::vector<trace_entry_t> tids_;
-    std::vector<trace_entry_t> timestamps_;
-    std::vector<uint64_t> times_;
-    bool *thread_eof_ = nullptr;
 };
 
 #endif /* _FILE_READER_H_ */

@@ -90,6 +90,9 @@ public:
     trace_entry_t *
     read_next_entry() override
     {
+        trace_entry_t *entry = read_queue();
+        if (entry != nullptr)
+            return entry;
         // We need this to work just well enough for reader_t::skip_instructions
         // to identify instr entries.
         ++index_;
@@ -105,12 +108,6 @@ public:
     {
         --index_;
         queue_.pop();
-    }
-    bool
-    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
-                           OUT bool *eof) override
-    {
-        return true;
     }
     std::string
     get_stream_name() const override

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -218,32 +218,25 @@ file_reader_t<snappy_reader_t>::open_single_file(const std::string &path)
     if (!*file)
         return false;
     VPRINT(this, 1, "Opened snappy input file %s\n", path.c_str());
-    input_files_.emplace_back(file);
+    input_file_ = snappy_reader_t(file);
     return true;
 }
 
 template <>
-bool
-file_reader_t<snappy_reader_t>::read_next_thread_entry(size_t thread_index,
-                                                       OUT trace_entry_t *entry,
-                                                       OUT bool *eof)
+trace_entry_t *
+file_reader_t<snappy_reader_t>::read_next_entry()
 {
-    int len = input_files_[thread_index].read(sizeof(*entry), entry);
+    trace_entry_t *from_queue = read_queue();
+    if (from_queue != nullptr)
+        return from_queue;
+    int len = input_file_.read(sizeof(entry_copy_), &entry_copy_);
     // Returns less than asked-for for end of file, or –1 for error.
-    if (len < (int)sizeof(*entry)) {
-        *eof = input_files_[thread_index].eof();
-        return false;
+    if (len < (int)sizeof(entry_copy_)) {
+        at_eof_ = input_file_.eof();
+        return nullptr;
     }
-    VPRINT(this, 4, "Read from thread #%zd file: type=%s (%d), size=%d, addr=%zu\n",
-           thread_index, trace_type_names[entry->type], entry->type, entry->size,
-           entry->addr);
-    return true;
-}
-
-template <>
-bool
-file_reader_t<snappy_reader_t>::is_complete()
-{
-    // Not supported, similar to gzip reader.
-    return false;
+    VPRINT(this, 4, "Read from file: type=%s (%d), size=%d, addr=%zu\n",
+           trace_type_names[entry_copy_.type], entry_copy_.type, entry_copy_.size,
+           entry_copy_.addr);
+    return &entry_copy_;
 }
