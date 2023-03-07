@@ -747,7 +747,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(int output_ordinal)
                     if (!inputs_[i].at_eof && inputs_[i].next_timestamp > 0 &&
                         inputs_[i].next_timestamp < min_time) {
                         min_time = inputs_[i].next_timestamp;
-                        index = i;
+                        index = static_cast<int>(i);
                     }
                 }
                 if (index < 0)
