@@ -41,7 +41,7 @@
  */
 
 #include <assert.h>
-#include <queue>
+#include <deque>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -624,7 +624,8 @@ protected:
         memref_tid_t tid = INVALID_THREAD_ID;
         // If non-empty these records should be returned before incrementing the reader.
         // This is used for read-ahead and inserting synthetic records.
-        std::queue<RecordType> queue;
+        // We use a deque so we can iterate over it.
+        std::deque<RecordType> queue;
         std::set<int> binding;
         int priority = 0;
         std::vector<range_t> regions_of_interest;
@@ -634,6 +635,7 @@ protected:
         bool needs_advance = false;
         bool needs_roi = true;
         bool at_eof = false;
+        uint64_t next_timestamp = 0;
     };
 
     struct output_info_t {
@@ -694,6 +696,10 @@ protected:
     // If the given record is a marker, returns true and its fields.
     bool
     record_type_is_marker(RecordType record, trace_marker_type_t &type, uintptr_t &value);
+
+    // If the given record is a timestamp, returns true and its fields.
+    bool
+    record_type_is_timestamp(RecordType record, uintptr_t &value);
 
     // Creates the marker we insert between regions of interest.
     RecordType
