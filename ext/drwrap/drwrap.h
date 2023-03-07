@@ -417,7 +417,7 @@ typedef enum {
      * In particular, detaching on AArchXX requires scanning the stack to find where the
      * return address was stored, which could conceivably replace an integer or
      * non-pointer value that happens to match the sentinel used. Also, the transparency
-     * violation may be exposed to the client's kernel xfer event callback when it
+     * violation may be exposed to the client's kernel xfer event callback if it
      * inspects the mcontext PC on the stack; drwrap_replace_if_retaddr_sentinel() may be
      * used to mitigate such cases. Use #DRWRAP_REPLACE_RETADDR at your own risk.
      */
@@ -895,8 +895,8 @@ DR_EXPORT
  * internal replace_retaddr_sentinel(), this routine replaces it with the actual
  * return address of the inner-most nested wrapped function. Otherwise, it is a no-op.
  * This allows mitigation of a transparency violation under the #DRWRAP_REPLACE_RETADDR
- * strategy which replaces the return address on the stack with the internal
- * replace_retaddr_sentinel().
+ * strategy where the return address on the stack is replaced with the address of the
+ * internal replace_retaddr_sentinel().
  */
 void
 drwrap_replace_if_retaddr_sentinel(void *drcontext, INOUT app_pc *possibly_sentinel);

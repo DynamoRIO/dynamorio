@@ -2779,7 +2779,7 @@ drwrap_replace_if_retaddr_sentinel(void *drcontext, INOUT app_pc *possibly_senti
     if ((app_pc)replace_retaddr_sentinel != *possibly_sentinel)
         return;
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    // If we see the sentinel, we must be inside a wrapped function.
+    /* If we see the sentinel, we must be inside a wrapped function. */
     ASSERT(pt != NULL && pt->wrap_level >= 0, "Invalid drwrap state.");
     *possibly_sentinel = pt->retaddr[pt->wrap_level];
 }
