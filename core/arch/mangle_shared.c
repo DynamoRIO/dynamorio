@@ -188,6 +188,10 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
 {
     uint dstack_offs = 0;
 
+    instr_t *start_label = INSTR_CREATE_label(dcontext);
+    instr_set_note(start_label, (void *)DR_NOTE_CALL_SEQUENCE_START);
+    PRE(ilist, instr, start_label);
+
     if (cci == NULL)
         cci = &default_clean_call_info;
 
@@ -427,6 +431,9 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         PRE(ilist, instr,
             instr_create_restore_from_dcontext(dcontext, REG_XSP, XSP_OFFSET));
     }
+    instr_t *end_label = INSTR_CREATE_label(dcontext);
+    instr_set_note(end_label, (void *)DR_NOTE_CALL_SEQUENCE_END);
+    PRE(ilist, instr, end_label);
 }
 
 bool
@@ -861,10 +868,6 @@ mangle_rseq_create_label(dcontext_t *dcontext, int type, ptr_uint_t data)
 {
     instr_t *label = INSTR_CREATE_label(dcontext);
     instr_set_note(label, (void *)DR_NOTE_RSEQ);
-    /* XXX: The note doesn't surivive encoding, so we also use a flag.  See comment in
-     * instr.h by this flag: maybe we should move a label's note somewhere persistent?
-     */
-    label->flags |= INSTR_RSEQ_ENDPOINT;
     dr_instr_label_data_t *label_data = instr_get_label_data_area(label);
     label_data->data[0] = type;
     label_data->data[1] = data;
@@ -1455,9 +1458,7 @@ mangle_rseq_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
     cache_pc rseq_start = NULL, rseq_end = NULL, rseq_abort = NULL;
     DEBUG_DECLARE(int label_sets_found = 0;)
     for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
-        if (instr_is_label(instr) &&
-            (instr_get_note(instr) == (void *)DR_NOTE_RSEQ ||
-             TEST(INSTR_RSEQ_ENDPOINT, instr->flags))) {
+        if (instr_is_label(instr) && instr_get_note(instr) == (void *)DR_NOTE_RSEQ) {
             dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
             switch (label_data->data[0]) {
             case DR_RSEQ_LABEL_ABORT: rseq_abort = pc; break;
@@ -1781,9 +1782,9 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
 
         if (!instr_is_cti(instr) || instr_is_meta(instr)) {
             if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && instr_is_label(instr)) {
-                /* move the value to the note field (which the client cannot
+                /* Move the value to the offset field (which the client cannot
                  * possibly use at this point) so we don't have to search for
-                 * this label when we hit the ret instr
+                 * this label when we hit the ret instr.
                  */
                 dr_instr_label_data_t *data = instr_get_label_data_area(instr);
                 instr_t *tmp;
@@ -1799,7 +1800,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
                 for (tmp = instr_get_next(instr); tmp != NULL;
                      tmp = instr_get_next(tmp)) {
                     if (tmp == ret) {
-                        tmp->note = (void *)data->data[1]; /* the value to use */
+                        tmp->offset = data->data[1]; /* the value to use */
                         break;
                     }
                 }

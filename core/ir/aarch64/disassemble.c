@@ -75,7 +75,7 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *
 static const char *
 shift_name(dr_shift_type_t shift)
 {
-    static const char *const names[] = { "lsl", "lsr", "asr", "ror" };
+    static const char *const names[] = { "lsl", "lsr", "asr", "ror", "mul" };
     int i = shift;
     return (0 <= i && i < sizeof(names) / sizeof(*names) ? names[i] : "<UNKNOWN SHIFT>");
 }

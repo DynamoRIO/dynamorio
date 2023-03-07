@@ -407,8 +407,8 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126  BASE     fcvtzu            wx0 : d5 s
 0x0011101x1xxxxx110011xxxxxxxxxx  n   144  BASE       fmls            dq0 : dq0 dq5 dq16 sd_sz
 0101111110xxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls             s0 : s0 s5 dq16 vindex_SD sd_sz
 0101111111xxxxxx0101x0xxxxxxxxxx  n   144  BASE       fmls             d0 : d0 d5 dq16 vindex_SD sd_sz
-00011110001xxxxxxxx10000000xxxxx  n   147  BASE       fmov             s0 : fpimm13
-00011110011xxxxxxxx10000000xxxxx  n   147  BASE       fmov             d0 : fpimm13
+00011110001xxxxxxxx10000000xxxxx  n   147  BASE       fmov             s0 : fpimm8_13
+00011110011xxxxxxxx10000000xxxxx  n   147  BASE       fmov             d0 : fpimm8_13
 0001111000100111000000xxxxxxxxxx  n   147  BASE       fmov             s0 : w5
 1001111001100111000000xxxxxxxxxx  n   147  BASE       fmov             d0 : x5
 1001111010101111000000xxxxxxxxxx  n   147  BASE       fmov   q0 vindex_D1 : x5 d_const_sz

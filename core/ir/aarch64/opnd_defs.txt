@@ -65,6 +65,7 @@
 
 --------------------------------  impx30     # implicit X30 operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
+--------------------------------  mul        # implicit MUL
 --------------------------------  h_sz       # element width of FP vector reg, used to
                                              # distinguish FP16 and float/double encs
 --------------------------------  b_const_sz # as above, but for byte width
@@ -74,11 +75,15 @@
 --------------------------------  vindex_D1  # An implicit index, at index 1
 --------------------------------  zero_fp_const # A constant zero operand
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
+----------------------------xxxx  p0         # SVE predicate registers p0-p15
 ----------------------------xxxx  p_b_0      # P register with a byte element size
+----------------------------xxxx  p_h_0      # P register with a halfword element size
+----------------------------xxxx  prfop4     # prefetch operation
 ---------------------------xxxxx  w0         # W register (or WZR)
 ---------------------------xxxxx  w0p0       # even-numbered W register (or WZR)
 ---------------------------xxxxx  w0p1       # ... add 1
 ---------------------------xxxxx  x0         # X register (or XZR)
+---------------------------xxxxx  x0sp       # X register (or SP)
 ---------------------------xxxxx  memx0      # X register used as memref for SYS
 ---------------------------xxxxx  x0p0       # even-numbered X register (or XZR)
 ---------------------------xxxxx  x0p1       # ... add 1
@@ -88,14 +93,21 @@
 ---------------------------xxxxx  d0         # D register
 ---------------------------xxxxx  q0         # Q register
 ---------------------------xxxxx  z0         # Z register
+---------------------------xxxxx  z_b_0      # Z register with b size elements
+---------------------------xxxxx  z_h_0      # Z register with h size elements
+---------------------------xxxxx  z_s_0      # Z register with s size elements
 ---------------------------xxxxx  z_d_0      # Z register with d size elements
 ---------------------------xxxxx  z_q_0      # Z register with q size elements
 ---------------------------xxxxx  q0p1       # Q register, add 1
 ---------------------------xxxxx  q0p2       # Q register, add 2
 ---------------------------xxxxx  q0p3       # Q register, add 3
 ---------------------------xxxxx  prfop      # prefetch operation
+--------------------------x-----  fpimm1_half_one_5 # 1 bit floating-point index, represents 0.5 or 1.0
+--------------------------x-----  fpimm1_zero_one_5 # 1 bit floating-point index, represents 0.0 or 1.0
+--------------------------x-----  fpimm1_half_two_5 # 1 bit floating-point index, represents 0.5 or 2.0
 ------------------------xxx-----  op2        # 3 bit immediate from 5-7
 -----------------------xxxx-----  p_b_5      # P register with a byte element size
+-----------------------xxxx-----  p5         # P register
 -----------------------xxxx-----  p5_zer     # P register, zeroing
 ----------------------xxxxx-----  w5         # W register (or WZR)
 ----------------------xxxxx-----  x5         # X register (or XZR)
@@ -106,13 +118,22 @@
 ----------------------xxxxx-----  d5         # D register
 ----------------------xxxxx-----  q5         # Q register
 ----------------------xxxxx-----  z5         # Z register
+----------------------xxxxx-----  z_b_5      # Z register with b size elements
+----------------------xxxxx-----  z_h_5      # Z register with h size elements
+----------------------xxxxx-----  z_s_5      # Z register with s size elements
 ----------------------xxxxx-----  z_d_5      # Z register with d size elements
 ----------------------xxxxx-----  z_q_5      # Z register with q size elements
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
+----------------------xxxxx-----  pred_constr  # pattern operand
+----------------------xxxxx-----  simm5_5    # Signed 5 bit immediate from 5 - 9
+---------------------xxxxxx-----  simm6_5    # Signed 6 bit immediate from 5 - 10
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
+--------------------xx----------  imm2_nesw_10 # 2 bit symbolised imm, representing 0, 90, 180, or 270
 --------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB, MSR
                                              # CRm field for SYS and SYSL
 -------------------x------------  cmode4_s_sz_msl # MSL bit for 32 bit element shifts
+-------------------x------------  imm1_ew_12   # 1 bit symbolised imm, representing 90 or 270
+-------------------xx-----------  imm2_nesw_11 # 2 bit symbolised imm, representing 0, 90, 180, or 270
 -------------------xxx----------  extam      # extend amount
 -------------------xxx----------  p10_lo     # SVE predicate registers p0-p7
 -------------------xxx----------  p10_zer_lo # SVE predicate registers p0-p7, zeroing
@@ -123,7 +144,10 @@
 ------------------x-------------  shift1     # LSL #0 or #8 depending on bit 13
 ------------------xx------------  imm2idx    # imm from 13-12, used as an index
 ------------------xxxx----------  p10        # SVE predicate registers p0-p15
+------------------xxxx----------  p10_mrg    # SVE predicate registers p0-p15, merging
+------------------xxxx----------  p10_zer    # SVE predicate registers p0-p15, zeroing
 -----------------xx-------------  cmode_s_sz # Vector shift for 32 bit elements
+-----------------xx-------------  imm2_nesw_13 # 2 bit symbolised imm, representing 0, 90, 180, or 270
 -----------------xx-------------  len        # imm2 len
 -----------------xxxx-----------  imm4idx    # imm4 from 11-14
 -----------------xxxxx----------  w10        # W register (or WZR)
@@ -137,18 +161,34 @@
 ----------------xxxx------------  cond       # condition for CCMN, CCMP
 ----------------xxxxxx----------  scale      # encoding of #fbits value in scale field
 ----------------xxxxxxxxxxxxxxxx  imm16_0    # imm16 at position 0
+---------------x----------------  imm1_ew_16 # 1 bit symbolised imm, representing 90 or 270
+--------------?------??????xxxxx  z_imm13_bhsd_0 # sve vector reg, elsz depending on size value encoded within an 13 bit immediate from 5-17
+--------------xxxxxxxxxxxxx-----  imm13_const # Const value within a 13 bit immediate from 5-17
 -------------xxx----------------  imm3       # 3 bit immediate from 16-18
+-------------xxx----------------  z3_b_16    # Z0-7 register with b size elements at position 16
+-------------xxx----------------  z3_h_16    # Z0-7 register with h size elements at position 16
+-------------xxx----------------  z3_s_16    # Z0-7 register with s size elements at position 16
 -------------xxx--------xxx-----  pstate     # Pstate encoded in op1:op2
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
 -------------xxx------xxxxx-----  imm8       # immediate from 16:18 and 5:9
 -------------xxx------xxxxx-----  exp_imm8   # expanded immediate from 16:18 and 5:9
 ------------xxxx----------------  p16_mrg    # merging P register at position 16
 ------------xxxx----------------  p16_zer    # zeroing P register at position 16
+------------xxxx----------------  p_b_16     # P register with a byte element size at position 16
+------------xxxx----------------  imm4_16p1  # 4bit imm at 19-16, plus 1
+------------xxxx----------------  z4_s_16     # Z0-15 register with s size elements at position 16
+------------xxxx----------------  z4_d_16     # Z0-15 register with d size elements at position 16
+------------xxxx----------------  q4_16       # Q0-15 register at position 16
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------?????----------------  bh_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????----------------  bhs_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????----------------  bhsd_imm5_sz # Size encoded as least significant bit in imm5
+-----------?????-----------xxxxx  z_tsz_bhsdq_0   # Z register with size encoded in tsz field
+-----------?????------xxxxx-----  z_tsz_bhsdq_5   # Z register with size encoded in tsz field
 -----------?????------xxxxx-----  wx5_imm5   # reg 5-9 d or q is inferred from bits 16:20
+-----------x--------------------  i1_index_20 # Index value from 20
+-----------xx-------------------  i2_index_19 # Index value from 20:19
+-----------xx-------x-----------  i3_index_11 # Index value from 20:19,11
 -----------xxxxx----------------  imm5       # 5 bit immediate from 16-20
 -----------xxxxx----------------  simm5      # Signed 5 bit immediate from 16-20
 -----------xxxxx----------------  bhs_imm5_sz_s # Size encoded as least significant bit in imm5
@@ -158,16 +198,22 @@
 -----------xxxxx----------------  w16p0      # even-numbered W register (or WZR)
 -----------xxxxx----------------  w16p1      # ... add 1
 -----------xxxxx----------------  x16        # X register (or XZR)
+-----------xxxxx----------------  x16sp      # X register (or SP)
 -----------xxxxx----------------  x16p0      # even-numbered X register (or XZR)
 -----------xxxxx----------------  x16p1      # ... add 1
 -----------xxxxx----------------  d16        # D register
 -----------xxxxx----------------  q16        # Q register
 -----------xxxxx----------------  z16        # Z register
+-----------xxxxx----------------  z_b_16     # Z register with b size elements
+-----------xxxxx----------------  z_h_16     # Z register with h size elements
 -----------xxxxx----------------  z_d_16     # Z register with d size elements
 -----------xxxxx----------------  z_q_16     # Z register with q size elements
 -----------xxxxx----------------  b16        # B register
 -----------xxxxx----------------  h16        # H register
 -----------xxxxx----------------  s16        # S register
+-----------xxxxx------xxxxx-----  svemem_gprs_b1  # memory reg from Rm and Rn fields transferring 1 bytes per element
+-----------xxxxx---xxx----------  imm8_10    # 8 bit imm at pos 10, split across 20:16 and 12:10
+-----------xxxxx-??---xxxxx-----  sveprf_gpr_vec64 # SVE prefetch memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod> <amount>}]
 -----------xxxxxxx--------------  imm7       # 7 bit immediate from 14-20
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
@@ -179,7 +225,14 @@
 ----------?-----???-??xxxxx-----  memvs      # gets size from 21, 15:13 and 11:10
 ----------?xxxxx--?-??----------  x16immvr   # computes immed from 21, 13 and 11:10
 ----------?xxxxx???-??----------  x16immvs   # computes immed from 21, 15:13 and 11:10
+----------x---------x-----------  vindex_S   # Index for vector with single
 ----------xx--------x-----------  vindex_H   # Index for vector with half elements (0-7)
+----------xxxxxx------xxxxx-----  svemem_gpr_simm6_vl # imm offset and base reg for SVE
+----------xxxxxx------xxxxx-----  svememx6_b_5    # vector memory reg with 6 bit imm for byte value
+----------xxxxxx------xxxxx-----  svememx6_h_5    # vector memory reg with 6 bit imm for half value
+----------xxxxxx------xxxxx-----  svememx6_s_5    # vector memory reg with 6 bit imm for single value
+----------xxxxxx------xxxxx-----  svememx6_d_5    # vector memory reg with 6 bit imm for double value
+----------xxxxxx---xxxxxxxx-----  svemem_gpr_simm9_vl # imm offset and base reg for SVE ld/st
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
 ----------xxxxxxxxxxxxxxxxx-----  prf12      # size is 0 bytes (prefetch variant of mem12)
@@ -189,16 +242,32 @@
 ---------????--------------xxxxx  bhsd_immh_reg0   # bhsd register, depending on immh field
 ---------????---------xxxxx-----  hsd_immh_reg5    # hsd register, depending on immh field
 ---------????---------xxxxx-----  bhsd_immh_reg5   # bhsd register, depending on immh field
----------?x---------x-----------  vindex_SD  # Index for vector with single or double
+---------?x---------x-----------  vindex_SD        # Index for vector with single or double
+---------?x---------x-----------  vindex_HS_2lane  # Index for vector with half or single, using 2 lanes
 ---------x----------------------  imm12sh    # shift for ADD/SUB (immediate); '0x'
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single or double
 ---------x----------------------  hs_fsz      # element width of FP vector reg for half or single
+---------x-----------------xxxxx  z_sz_sd    # SVE vector reg, elsz depending on sz
 ---------x------------xxxxx-----  dq5_sz     # as dqx, but depending on the sz bit rather than the Q bit
+---------x------------xxxxx-----  wx_sz_5    # W/X register (or WZR/XZR) with size indicated in bit 22
+---------x-xx-------------------  i3_index_19 # Index value from 22, 20:19
+---------x-xxxxx----------------  wx_sz_16   # W/X register (or WZR/XZR) with size indicated in bit 22
+---------xx----------------xxxxx  z_size21_bhsd_0  # sve vector reg, elsz depending on size21
 ---------++++xxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
 ---------++++xxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
 ---------++++xxx----------------  immhb_fxp  # encoding of #fbits value in immh:immb fields
---------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
+--------??-----------------xxxxx  wx_size_0_zr # GPR scalar register, register size, W or X depending on size bits
+--------??------------??---xxxxx  z_tszl8_bhsd_0 # z element register mediated by the tszl and tszh fields
+--------??------------xxxxx-----  wx_size_5_sp # GPR scalar register, register size, W or X depending on size bits
+--------??------------xxxxx-----  wx_size_5_zr # GPR scalar register, register size, W or X depending on size bits
+--------??------------xxxxx-----  z_tb_bhs_5 # sve vector reg, elsz depending on size Tb
+--------??---------xxxxxxxx-----  fpimm8_5   # floating-point 8 bit imm at pos 5
+--------??-??--------------xxxxx  z_tszl19_bhsd_0 # z element register mediated by the tszl and tszh fields
+--------??-??---------xxxxx-----  z_tszl19_bhsd_5 # z element register mediated by the tszl and tszh fields
+--------??-xxxxx----------------  wx_size_16_zr # GPR scalar register, register size, W or X depending on size bits
+--------??-xxxxx----xxxxxxx-----  svemem_vec_vec_idx # SVE memory address [<Zn>.<T>, <Zm>.<T>{, <mod> <amount>}]
+--------??-xxxxxxxx-------------  fpimm8_13  # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
 --------xx----------------------  bhs_sz     # element width of a vector (8<<bhs_sz)
@@ -209,13 +278,14 @@
 --------xx------------------xxxx  p_size_bhsd_0    # sve predicate vector reg, elsz depending on size
 --------xx------------------xxxx  p_size_bhs_0     # sve predicate vector reg, elsz depending on size
 --------xx------------------xxxx  p_size_hsd_0     # sve predicate vector reg, elsz depending on size
---------xx-----------------xxxxx  float_reg0  # H, S or D register
+--------xx-----------------xxxxx  float_reg0       # H, S or D register
 --------xx-----------------xxxxx  hsd_size_reg0    # hsd register, depending on size opcode
 --------xx-----------------xxxxx  bhsd_size_reg0   # bhsd register, depending on size opcode
 --------xx-----------------xxxxx  z_size_bhsd_0    # sve vector reg, elsz depending on size
+--------xx-----------------xxxxx  z_size_bhs_0     # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_hsd_0     # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_sd_0      # sve vector reg, elsz depending on size
---------xx------------xxxxx-----  float_reg5  # H, S or D register
+--------xx------------xxxxx-----  float_reg5       # H, S or D register
 --------xx------------xxxxx-----  hsd_size_reg5    # hsd register, depending on size opcode
 --------xx------------xxxxx-----  bhsd_size_reg5   # bhsd register, depending on size opcode
 --------xx------------xxxxx-----  p_size_bhsd_5    # sve predicate vector reg, elsz depending on size
@@ -224,12 +294,27 @@
 --------xx------------xxxxx-----  z_size_bhs_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_hsd_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_sd_5      # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  tszl8_imm3_5     # imm constructed from imm3 and some bits of tsz
+--------xx------------xxxxx-----  tszl8_imm3_5p1   # imm constructed from imm3 and some bits of tsz, plus 1
 --------xx-------xxxxx----------  float_reg10 # H, S or D register
 --------xx-xxxxx----------------  float_reg16 # H, S or D register
+--------xx-xxxxx----------------  tszl19_imm3_16   # imm constructed from imm3 and some bits of tsz
+--------xx-xxxxx----------------  tszl19_imm3_16p1 # imm constructed from imm3 and some bits of tsz, plus 1
 --------xx-xxxxx----------------  hsd_size_reg16   # hsd register, depending on size opcode
 --------xx-xxxxx----------------  bhsd_size_reg16  # bhsd register, depending on size opcode
+--------xx-xxxxx----------------  p_size_bhsd_16   # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_size_bhsd_16   # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_size_hsd_16    # sve vector reg, elsz depending on size
+--------xx-xxxxx----------------  imm2_tsz_index   # Index encoded in imm2:tsz
+-------??--xxxxx------xxxxx-----  svemem_vec_s_imm5 # SVE memory address [<Zn>.S{, #<imm>}]
+-------??--xxxxx------xxxxx-----  svemem_vec_d_imm5 # SVE memory address [<Zn>.D{, #<imm>}]
+-------??-?xxxxx------xxxxx-----  svemem_gpr_vec64 # SVE memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod>}]
+-------????xxxxx------xxxxx-----  svemem_gpr_shf   # GPR offset and base reg for SVE ld/st, with optional shift
+-------????xxxxx------xxxxx-----  svemem_gprs_bhsdx  # memory reg from Rm and Rn fields transferring x bytes per element
+-------????xxxxx-x----xxxxx-----  svemem_gpr_vec32_st # SVE memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod> <amount>]
+-------xx------------------xxxxx  z_msz_bhsd_0p1  # z register with element size determined by msz, plus 1
+-------xx------------------xxxxx  z_msz_bhsd_0p2  # z register with element size determined by msz, plus 2
+-------xx------------------xxxxx  z_msz_bhsd_0p3  # z register with element size determined by msz, plus 3
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12
 -x------------------------------  index3     # index of D subreg in Q: 0-1
@@ -262,6 +347,8 @@
 ??---------xxxxxxxxx--xxxxx-----  mem9       # gets size from 31:30
 ??---------xxxxxxxxx--xxxxx-----  memreg     # register offset, gets size from 31:30
 ??--------xxxxxxxxxxxxxxxxx-----  mem12      # gets size from 31:30
+??-------x-xxxxx-??---xxxxx-----  sveprf_gpr_vec32 # SVE prefetch memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod>{ <amount>}]
+??-----??x?xxxxx------xxxxx-----  svemem_gpr_vec32_ld # SVE memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod> <amount>]
 ??---?----------------xxxxx-----  mem7post   # gets size from 31:30 and 26; post-index
 ??---?----xxxxxxx---------------  mem7off    # gets size from 31:30 and 26
 ??---?----xxxxxxx-----xxxxx-----  mem7       # gets size from 31:30 and 26

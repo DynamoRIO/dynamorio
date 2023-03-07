@@ -102,7 +102,7 @@ private:
     std::vector<trace_entry_t> output;
 };
 
-class local_stream_t : public test_memtrace_stream_t {
+class local_stream_t : public default_memtrace_stream_t {
 public:
     uint64_t
     get_last_timestamp() const override

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,11 +34,14 @@
 
 #include <algorithm>
 #include <iostream>
+#include <regex>
+#include <string>
 #include <vector>
 
 #include "../tools/view.h"
 #include "../common/memref.h"
 #include "../tracer/raw2trace.h"
+#include "../reader/file_reader.h"
 #include "memref_gen.h"
 
 #undef ASSERT
@@ -57,6 +60,34 @@
             return false;             \
         }                             \
     } while (0)
+
+// These are for our mock serial reader and must be in the same namespace
+// as file_reader_t's declaration.
+template <> file_reader_t<std::vector<trace_entry_t>>::~file_reader_t()
+{
+}
+
+template <>
+bool
+file_reader_t<std::vector<trace_entry_t>>::is_complete()
+{
+    return false;
+}
+
+template <>
+bool
+file_reader_t<std::vector<trace_entry_t>>::open_single_file(const std::string &path)
+{
+    return true;
+}
+
+template <>
+bool
+file_reader_t<std::vector<trace_entry_t>>::read_next_thread_entry(
+    size_t thread_index, OUT trace_entry_t *entry, OUT bool *eof)
+{
+    return false;
+}
 
 namespace {
 
@@ -120,7 +151,7 @@ public:
 std::string
 run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
 {
-    class local_stream_t : public test_memtrace_stream_t {
+    class local_stream_t : public default_memtrace_stream_t {
     public:
         local_stream_t(view_t &view, const std::vector<memref_t> &memrefs)
             : view_(view)
@@ -271,9 +302,9 @@ test_thread_limit(instrlist_t &ilist, const std::vector<memref_t> &memrefs,
     }
     view_test_t view(drcontext, ilist, thread2_id, 0, 0);
     std::string res = run_test_helper(view, memrefs);
-    // Count the Tnnnn prefixes.
+    // Count the "       nnnn" prefixes (tid column value).
     std::stringstream ss;
-    ss << "T" << thread2_id;
+    ss << std::setw(view.tid_column_width()) << thread2_id;
     std::string prefix = ss.str();
     int found_prefixes = 0;
     size_t pos = 0;
@@ -382,13 +413,243 @@ run_limit_tests(void *drcontext)
     instrlist_clear_and_destroy(drcontext, ilist);
     return res;
 }
+
+/***************************************************************************
+ * Serial reader mock.
+ */
+
+class mock_file_reader_t : public file_reader_t<std::vector<trace_entry_t>> {
+public:
+    mock_file_reader_t()
+    {
+    }
+    mock_file_reader_t(const std::vector<std::vector<trace_entry_t>> &entries)
+        : file_reader_t(std::vector<std::string>(1, "non-empty"))
+    {
+        input_files_ = entries;
+        pos_.resize(input_files_.size(), 0);
+        init();
+    }
+    bool
+    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
+                           OUT bool *eof) override
+    {
+        if (pos_[thread_index] >= input_files_[thread_index].size()) {
+            *eof = true;
+            return false;
+        }
+        *entry = input_files_[thread_index][pos_[thread_index]];
+        ++pos_[thread_index];
+        return true;
+    }
+
+private:
+    std::vector<size_t> pos_;
+};
+
+std::string
+run_serial_test_helper(view_t &view,
+                       const std::vector<std::vector<trace_entry_t>> &entries)
+{
+    class local_stream_t : public default_memtrace_stream_t {
+    public:
+        local_stream_t(view_t &view,
+                       const std::vector<std::vector<trace_entry_t>> &entries)
+            : view_(view)
+            , entries_(entries)
+        {
+        }
+
+        std::string
+        run()
+        {
+            view_.initialize_stream(this);
+            // Capture cerr.
+            std::stringstream capture;
+            std::streambuf *prior = std::cerr.rdbuf(capture.rdbuf());
+            // Run the tool.
+            mock_file_reader_t serial(entries_);
+            mock_file_reader_t end;
+            for (; serial != end; ++serial) {
+                const memref_t memref = *serial;
+                ++ref_count_;
+                if (type_is_instr(memref.instr.type))
+                    ++instr_count_;
+                if (!view_.process_memref(memref))
+                    std::cout << "Hit error: " << view_.get_error_string() << "\n";
+            }
+            // Return the result.
+            std::string res = capture.str();
+            std::cerr.rdbuf(prior);
+            return res;
+        }
+
+        uint64_t
+        get_record_ordinal() const override
+        {
+            return ref_count_;
+        }
+        uint64_t
+        get_instruction_ordinal() const override
+        {
+            return instr_count_;
+        }
+
+    private:
+        view_t &view_;
+        const std::vector<std::vector<trace_entry_t>> &entries_;
+        uint64_t ref_count_ = 0;
+        uint64_t instr_count_ = 0;
+    };
+
+    local_stream_t stream(view, entries);
+    return stream.run();
+}
+
+/***************************************************************************/
+
+bool
+run_single_thread_chunk_test(void *drcontext)
+{
+    const memref_tid_t t1 = 3;
+    std::vector<std::vector<trace_entry_t>> entries = { {
+        { TRACE_TYPE_HEADER, 0, { 0x1 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
+        { TRACE_TYPE_THREAD, 0, { t1 } },
+        { TRACE_TYPE_PID, 0, { t1 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 2 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1002 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 2 } },
+        { TRACE_TYPE_INSTR, 4, { 42 } },
+        { TRACE_TYPE_INSTR, 4, { 42 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER, { 0 } },
+        // We're testing that the reader hides this duplicate timestamp
+        // at the start of a chunk.
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1002 } },
+        { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 3 } },
+        { TRACE_TYPE_INSTR, 4, { 42 } },
+    } };
+    const char *expect = R"DELIM(           1           0:           3 <marker: version 3>
+           2           0:           3 <marker: filetype 0x0>
+           3           0:           3 <marker: cache line size 64>
+           4           0:           3 <marker: chunk instruction count 2>
+           5           0:           3 <marker: timestamp 1002>
+           6           0:           3 <marker: tid 3 on core 2>
+           7           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           8           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           9           2:           3 <marker: chunk footer #0>
+          10           3:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+)DELIM";
+    instrlist_t *ilist_unused = nullptr;
+    view_nomod_test_t view(drcontext, *ilist_unused, 0, 0, 0);
+    std::string res = run_serial_test_helper(view, entries);
+    // Make 64-bit match our 32-bit expect string.
+    res = std::regex_replace(res, std::regex("0x000000000000002a"), "0x0000002a");
+    if (res != expect) {
+        std::cerr << "Output mismatch: got |" << res << "| expected |" << expect << "|\n";
+        return false;
+    }
+    return true;
+}
+
+bool
+run_serial_chunk_test(void *drcontext)
+{
+    // We ensure headers are not omitted incorrectly, which they were
+    // in the first implementation of the reader skipping dup headers:
+    // i#/5538#issuecomment-1407235283
+    const memref_tid_t t1 = 3;
+    const memref_tid_t t2 = 7;
+    std::vector<std::vector<trace_entry_t>> entries = {
+        {
+            { TRACE_TYPE_HEADER, 0, { 0x1 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
+            { TRACE_TYPE_THREAD, 0, { t1 } },
+            { TRACE_TYPE_PID, 0, { t1 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 20 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1001 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 2 } },
+            { TRACE_TYPE_INSTR, 4, { 42 } },
+            { TRACE_TYPE_INSTR, 4, { 42 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1003 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 3 } },
+            { TRACE_TYPE_INSTR, 4, { 42 } },
+        },
+        {
+            { TRACE_TYPE_HEADER, 0, { 0x1 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE, { 0 } },
+            { TRACE_TYPE_THREAD, 0, { t2 } },
+            { TRACE_TYPE_PID, 0, { t2 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, { 64 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT, { 2 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1002 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 2 } },
+            { TRACE_TYPE_INSTR, 4, { 42 } },
+            { TRACE_TYPE_INSTR, 4, { 42 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, { 1004 } },
+            { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID, { 3 } },
+            { TRACE_TYPE_INSTR, 4, { 42 } },
+        }
+    };
+    const char *expect =
+        R"DELIM(           1           0:           3 <marker: version 3>
+           2           0:           3 <marker: filetype 0x0>
+           3           0:           3 <marker: cache line size 64>
+           4           0:           3 <marker: chunk instruction count 20>
+------------------------------------------------------------
+           5           0:           7 <marker: version 3>
+           6           0:           7 <marker: filetype 0x0>
+           7           0:           7 <marker: cache line size 64>
+           8           0:           7 <marker: chunk instruction count 2>
+------------------------------------------------------------
+           9           0:           3 <marker: timestamp 1001>
+          10           0:           3 <marker: tid 3 on core 2>
+          11           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+          12           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+------------------------------------------------------------
+          13           2:           7 <marker: timestamp 1002>
+          14           2:           7 <marker: tid 7 on core 2>
+          15           3:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
+          16           4:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
+------------------------------------------------------------
+          17           4:           3 <marker: timestamp 1003>
+          18           4:           3 <marker: tid 3 on core 3>
+          19           5:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+------------------------------------------------------------
+          20           5:           7 <marker: timestamp 1004>
+          21           5:           7 <marker: tid 7 on core 3>
+          22           6:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
+)DELIM";
+    instrlist_t *ilist_unused = nullptr;
+    view_nomod_test_t view(drcontext, *ilist_unused, 0, 0, 0);
+    std::string res = run_serial_test_helper(view, entries);
+    // Make 64-bit match our 32-bit expect string.
+    res = std::regex_replace(res, std::regex("0x000000000000002a"), "0x0000002a");
+    if (res != expect) {
+        std::cerr << "Output mismatch: got |" << res << "| expected |" << expect << "|\n";
+        return false;
+    }
+    return true;
+}
+
+bool
+run_chunk_tests(void *drcontext)
+{
+    return run_single_thread_chunk_test(drcontext) && run_serial_chunk_test(drcontext);
+}
+
 } // namespace
 
 int
 main(int argc, const char *argv[])
 {
     void *drcontext = dr_standalone_init();
-    if (run_limit_tests(drcontext)) {
+    if (run_limit_tests(drcontext) && run_chunk_tests(drcontext)) {
         std::cerr << "view_test passed\n";
         return 0;
     }

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2022 ARM Limited.    All rights reserved.
 # **********************************************************
@@ -654,7 +654,9 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
         set_target_properties(${test} PROPERTIES COMPILE_FLAGS "${tst_flags}")
       endif ()
     else ()
-      set(${test}_realtest ${ci_shared_app} PARENT_SCOPE)
+      if (NOT DEFINED ${test}_realtest)
+        set(${test}_realtest ${ci_shared_app} PARENT_SCOPE)
+      endif ()
     endif ()
   endif ()
 
@@ -1667,6 +1669,20 @@ function(optimize target)
   endif (UNIX)
 endfunction(optimize)
 
+macro(set_avx_flags target)
+  if (proc_supports_avx512)
+    if (TARGET ${target}) # Support calling on non-exe target.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_AVX512}")
+    endif ()
+    set(${target}_runavx512 1)
+  elseif (proc_supports_avx)
+    if (TARGET ${target}) # Support calling on non-exe target.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_AVX}")
+    endif ()
+    set(${target}_runavx 1)
+  endif ()
+endmacro(set_avx_flags)
+
 ###########################################################################
 
 # We'll want the latest CTest (2.6.4) so we can use the -W parameter
@@ -1862,7 +1878,10 @@ if (NOT ANDROID)
     tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v81 api/ir_aarch64_v81.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_v82 api/ir_aarch64_v82.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v83 api/ir_aarch64_v83.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_v86 api/ir_aarch64_v86.c "" "" OFF OFF OFF)
     tobuild_api(api.ir_sve api/ir_aarch64_sve.c "" "" OFF OFF OFF)
+    tobuild_api(api.ir_sve2 api/ir_aarch64_sve2.c "" "" OFF OFF OFF)
   endif (AARCH64)
 endif ()
 
@@ -1891,7 +1910,7 @@ if (BUILD_CLIENTS)
   # and other code here to support tests being declared locally rather than
   # in one central place.
   if (AARCH64)
-    set(drdisas_args "00000000" "f94017a0" "a9be7bfd" "88")
+    set(drdisas_args "-vl" "256" "00000000" "f94017a0" "a9be7bfd" "e58057a1" "85865e6b" "88")
   elseif (ARM)
     set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
   else ()
@@ -2731,13 +2750,20 @@ if (X86)
     use_DynamoRIO_extension(client.drx-scattergather.dll drmgr)
     use_DynamoRIO_extension(client.drx-scattergather.dll drx)
     use_DynamoRIO_extension(client.drx-scattergather.dll drreg)
-    if (proc_supports_avx512)
-      append_property_string(TARGET client.drx-scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
-      set(client.drx-scattergather_runavx512 1)
-    elseif (proc_supports_avx)
-      append_property_string(TARGET client.drx-scattergather COMPILE_FLAGS "${CFLAGS_AVX}")
-      set(client.drx-scattergather_runavx 1)
-    endif ()
+    set_avx_flags(client.drx-scattergather)
+
+    # Our scattergather drbbdup test uses the same app as the base test.
+    set(client.drx-scattergather-bbdup_realtest client.drx-scattergather)
+    set(client.drx-scattergather-bbdup_expectbase "drx-scattergather")
+    tobuild_ci(client.drx-scattergather-bbdup client-interface/drx-scattergather-bbdup.c
+      "" "" "")
+    target_include_directories(client.drx-scattergather PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+    use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drmgr)
+    use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drx)
+    use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drreg)
+    use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drbbdup)
+    set_avx_flags(client.drx-scattergather-bbdup)
 
     if (X64 AND UNIX)
       if (proc_supports_avx)
@@ -2745,10 +2771,7 @@ if (X86)
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
           "-early_inject" "")
         append_pure_asm_app_link_flags(allasm_scattergather)
-        if (proc_supports_avx512)
-          append_property_string(TARGET allasm_scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
-          set(allasm_scattergather_runavx512 1)
-        endif (proc_supports_avx512)
+        set_avx_flags(allasm_scattergather)
       endif (proc_supports_avx)
       add_exe(allasm_repstr
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
@@ -2930,8 +2953,14 @@ elseif (AARCH64)
   add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
   torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF OFF)
+  torunonly_api(api.dis-a64-v83 api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v83.txt" OFF OFF)
+  torunonly_api(api.dis-a64-v86 api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v86.txt" OFF OFF)
   torunonly_api(api.dis-a64-sve api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve.txt" OFF OFF)
+  torunonly_api(api.dis-a64-sve2 api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-sve2.txt" OFF OFF)
   add_api_exe(api.reenc-a64 api/reenc-a64.c OFF OFF)
   tobuild_api(api.opnd api/opnd-a64.c "" "" OFF OFF OFF)
 elseif (X86)
@@ -2949,19 +2978,13 @@ link_with_pthread(api.startstop)
 tobuild_api(api.detach api/detach.c "" "" OFF OFF OFF)
 link_with_pthread(api.detach)
 if (LINUX AND X64) # Will take extra work to port to 32-bit.
-  tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF OFF)
+  tobuild_api(api.detach_state api/detach_state.c "" "" OFF ON OFF)
   target_include_directories(api.detach_state PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/api)
   link_with_pthread(api.detach_state)
   set_source_files_properties(detach_state.c_asm.asm APPEND_LIST PROPERTIES
     OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/api/detach_state_shared.h")
-  if (proc_supports_avx512)
-    append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX512}")
-    set(api.detach_state_runavx512 1)
-  elseif (proc_supports_avx)
-    append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX}")
-    set(api.detach_state_runavx 1)
-  endif ()
+  set_avx_flags(api.detach_state)
 endif ()
 if (UNIX)
   if (X64) # TODO i#4664: Fix crash in vsyscall hook under native threads.
@@ -3749,10 +3772,18 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
       torunonly_api(tool.drcacheoff.skip "${drcachesim_path}" "offline-skip" ""
         # Test invariants with global headers after skipping instrs.
-        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        # Here the skip does not find real headers and we expect synthetic.
+        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;62;-sim_refs;10"
         OFF OFF)
       set(tool.drcacheoff.skip_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
       set(tool.drcacheoff.skip_rawtemp ON) # no preprocessor
+      torunonly_api(tool.drcacheoff.skip2 "${drcachesim_path}" "offline-skip2" ""
+        # Test invariants with global headers after skipping instrs.
+        # Here the skip finds real headers and we expect no synthetic.
+        "-simulator_type;view;-infile;${zip_path};${test_mode_flag};-skip_instrs;63;-sim_refs;10"
+        OFF OFF)
+      set(tool.drcacheoff.skip2_basedir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+      set(tool.drcacheoff.skip2_rawtemp ON) # no preprocessor
 
       # Ensure -cpu_scheduling follows thread migrations.
       # We have a checked-in trace with a migration.
@@ -3880,7 +3911,8 @@ if (BUILD_CLIENTS)
         "${PROJECT_SOURCE_DIR}/clients/drcachesim"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/reader"
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer")
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tracer"
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/scheduler")
       set(tool.drcacheoff.gencode_nodr ON)
       torunonly_drcacheoff(gencode tool.drcacheoff.gencode
         "" "@-simulator_type@opcode_mix" "")
@@ -4070,6 +4102,7 @@ if (BUILD_CLIENTS)
     if (AARCH64)
       torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app
         "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+      set(tool.drcachesim.drstatecmp-fuzz_timeout 180)
     endif ()
     if (NOT WIN32)
       torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}
@@ -4552,9 +4585,8 @@ if (UNIX)
   # FIXME i#58: port test to MacOS
   if (NOT ARM AND NOT AARCH64 AND NOT APPLE)
     tobuild(linux.sigcontext linux/sigcontext.c)
+    set_avx_flags(linux.sigcontext)
     if (proc_supports_avx512)
-      append_property_string(TARGET linux.sigcontext COMPILE_FLAGS "${CFLAGS_AVX512}")
-      set(linux.sigcontext_runavx512 1)
       if (CLANG)
         append_property_string(TARGET linux.sigcontext COMPILE_FLAGS
           "-mllvm -x86-use-vzeroupper=0")
@@ -4562,9 +4594,6 @@ if (UNIX)
         append_property_string(TARGET linux.sigcontext COMPILE_FLAGS
           "-mno-vzeroupper")
       endif ()
-    elseif (proc_supports_avx)
-      append_property_string(TARGET linux.sigcontext COMPILE_FLAGS "${CFLAGS_AVX}")
-      set(linux.sigcontext_runavx 1)
     endif ()
   endif ()
   if (NOT APPLE)

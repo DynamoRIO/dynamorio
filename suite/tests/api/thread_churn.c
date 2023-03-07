@@ -58,19 +58,79 @@ churn_threads(int count)
     }
 }
 
+static void
+compare_stats(dr_stats_t *a, dr_stats_t *b)
+{
+    /* XXX: Somehow the first run has *more* heap blocks.  2nd and any subsequent
+     * are identical.  Just living with that and requiring a >= b in general.
+     */
+    if (a->peak_vmm_blocks_unreach_heap < b->peak_vmm_blocks_unreach_heap) {
+        print("mismatch unreach_heap : " UINT64_FORMAT_STRING " vs " UINT64_FORMAT_STRING
+              "\n",
+              a->peak_vmm_blocks_unreach_heap, b->peak_vmm_blocks_unreach_heap);
+    }
+    if (a->peak_vmm_blocks_unreach_stack < b->peak_vmm_blocks_unreach_stack) {
+        print("mismatch unreach_stack : " UINT64_FORMAT_STRING " vs " UINT64_FORMAT_STRING
+              "\n",
+              a->peak_vmm_blocks_unreach_stack, b->peak_vmm_blocks_unreach_stack);
+    }
+    if (a->peak_vmm_blocks_unreach_special_heap <
+        b->peak_vmm_blocks_unreach_special_heap) {
+        print("mismatch unreach_special_heap : " UINT64_FORMAT_STRING
+              " vs " UINT64_FORMAT_STRING "\n",
+              a->peak_vmm_blocks_unreach_special_heap,
+              b->peak_vmm_blocks_unreach_special_heap);
+    }
+    if (a->peak_vmm_blocks_unreach_special_mmap <
+        b->peak_vmm_blocks_unreach_special_mmap) {
+        print("mismatch unreach_special_mmap : " UINT64_FORMAT_STRING
+              " vs " UINT64_FORMAT_STRING "\n",
+              a->peak_vmm_blocks_unreach_special_mmap,
+              b->peak_vmm_blocks_unreach_special_mmap);
+    }
+    if (a->peak_vmm_blocks_reach_heap < b->peak_vmm_blocks_reach_heap) {
+        print("mismatch reach_heap : " UINT64_FORMAT_STRING " vs " UINT64_FORMAT_STRING
+              "\n",
+              a->peak_vmm_blocks_reach_heap, b->peak_vmm_blocks_reach_heap);
+    }
+    if (a->peak_vmm_blocks_reach_cache < b->peak_vmm_blocks_reach_cache) {
+        print("mismatch reach_cache : " UINT64_FORMAT_STRING " vs " UINT64_FORMAT_STRING
+              "\n",
+              a->peak_vmm_blocks_reach_cache, b->peak_vmm_blocks_reach_cache);
+    }
+    if (a->peak_vmm_blocks_reach_special_heap < b->peak_vmm_blocks_reach_special_heap) {
+        print("mismatch reach_special_heap : " UINT64_FORMAT_STRING
+              " vs " UINT64_FORMAT_STRING "\n",
+              a->peak_vmm_blocks_reach_special_heap,
+              b->peak_vmm_blocks_reach_special_heap);
+    }
+    if (a->peak_vmm_blocks_reach_special_mmap < b->peak_vmm_blocks_reach_special_mmap) {
+        print("mismatch reach_special_mmap : " UINT64_FORMAT_STRING
+              " vs " UINT64_FORMAT_STRING "\n",
+              a->peak_vmm_blocks_reach_special_mmap,
+              b->peak_vmm_blocks_reach_special_mmap);
+    }
+}
+
 int
 main(int argc, char **argv)
 {
     /* We test thread exit leaks by ensuring memory usage is the same after
-     * both 5 threads and 500 threads.
+     * both 6 threads and 600 threads.  (There is a non-linearity from 5 to 6
+     * due to unit boundaries so we start at 6.)
+     * There is another non-linearity with heap units so we have the global
+     * units not change size.
      */
-    const int count_A = 10;
-    const int count_B = 500;
-#define VERBOSE 0
-#if VERBOSE
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-rstats_to_stderr -stderr_mask 0xc"))
-        print("Failed to set env var!\n");
+    const int count_A = 6;
+    const int count_B = 6;
+    const int count_C = 600;
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+                   "-initial_global_heap_unit_size 256K -stderr_mask 0xc"
+#ifdef VERBOSE
+                   " -rstats_to_stderr "
 #endif
+                   ))
+        print("Failed to set env var!\n");
 
     assert(!dr_app_running_under_dynamorio());
     dr_app_setup_and_start();
@@ -92,22 +152,22 @@ main(int argc, char **argv)
     assert(stats_B.peak_num_threads == 2);
     assert(stats_B.num_threads_created == count_B + 1);
 
-    /* XXX: Somehow the first run has *more* heap blocks.  2nd and any subsequent
-     * are identical.  Just living with that and requiring <=.
-     */
-    assert(stats_B.peak_vmm_blocks_unreach_heap <= stats_A.peak_vmm_blocks_unreach_heap);
-    assert(stats_B.peak_vmm_blocks_unreach_stack <=
-           stats_A.peak_vmm_blocks_unreach_stack);
-    assert(stats_B.peak_vmm_blocks_unreach_special_heap <=
-           stats_A.peak_vmm_blocks_unreach_special_heap);
-    assert(stats_B.peak_vmm_blocks_unreach_special_mmap <=
-           stats_A.peak_vmm_blocks_unreach_special_mmap);
-    assert(stats_B.peak_vmm_blocks_reach_heap <= stats_A.peak_vmm_blocks_reach_heap);
-    assert(stats_B.peak_vmm_blocks_reach_cache <= stats_A.peak_vmm_blocks_reach_cache);
-    assert(stats_B.peak_vmm_blocks_reach_special_heap <=
-           stats_A.peak_vmm_blocks_reach_special_heap);
-    assert(stats_B.peak_vmm_blocks_reach_special_mmap <=
-           stats_A.peak_vmm_blocks_reach_special_mmap);
+    assert(!dr_app_running_under_dynamorio());
+    dr_app_setup_and_start();
+    assert(dr_app_running_under_dynamorio());
+    churn_threads(count_B);
+    dr_stats_t stats_C = { sizeof(dr_stats_t) };
+    dr_app_stop_and_cleanup_with_stats(&stats_C);
+    assert(!dr_app_running_under_dynamorio());
+    assert(stats_C.peak_num_threads == 2);
+    assert(stats_C.num_threads_created == count_B + 1);
+
+    print("A to B\n");
+    compare_stats(&stats_A, &stats_B);
+    print("B to C\n");
+    compare_stats(&stats_B, &stats_C);
+    print("A to C\n");
+    compare_stats(&stats_A, &stats_C);
 
     print("all done\n");
     return 0;

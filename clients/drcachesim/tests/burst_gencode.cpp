@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,13 +41,15 @@
 #include "drmemtrace/drmemtrace.h"
 #include "drmemtrace/raw2trace.h"
 #include "raw2trace_directory.h"
-#include "analyzer.h"
+#include "scheduler.h"
 #include <assert.h>
 #include <fstream>
 #include <iostream>
 #include <string>
 #undef ALIGN_FORWARD // Conflicts with drcachesim utils.h.
 #include "tools.h"   // Included after system headers to avoid printf warning.
+
+using namespace dynamorio::drmemtrace;
 
 namespace {
 
@@ -278,9 +280,13 @@ static int
 look_for_gencode(std::string trace_dir)
 {
     void *dr_context = dr_standalone_init();
-    analyzer_t analyzer(trace_dir);
-    if (!analyzer) {
-        std::cerr << "Failed to initialize: " << analyzer.get_error_string() << "\n";
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(trace_dir);
+    if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) !=
+        scheduler_t::STATUS_SUCCESS) {
+        std::cerr << "Failed to initialize scheduler " << scheduler.get_error_string()
+                  << "\n";
     }
     bool found_magic1 = false, found_magic2 = false;
     bool have_instr_encodings = false;
@@ -288,8 +294,11 @@ look_for_gencode(std::string trace_dir)
     // DR will auto-switch locally to Thumb for LSB=1 but not to ARM so we start as ARM.
     dr_set_isa_mode(dr_context, DR_ISA_ARM_A32, nullptr);
 #endif
-    for (reader_t &iter = analyzer.begin(); iter != analyzer.end(); ++iter) {
-        memref_t memref = *iter;
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
         if (memref.marker.type == TRACE_TYPE_MARKER &&
             memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE &&
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, memref.marker.marker_value)) {

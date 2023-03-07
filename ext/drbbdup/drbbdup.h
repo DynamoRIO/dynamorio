@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2022 Google, Inc.   All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -382,7 +382,9 @@ enum {
     /** Priority of drbbdup's app2app stage. */
     DRMGR_PRIORITY_APP2APP_DRBBDUP = 6500,
     /** Priority of drbbdup's insert stage. */
-    DRMGR_PRIORITY_INSERT_DRBBDUP = -6500
+    DRMGR_PRIORITY_INSERT_DRBBDUP = -6500,
+    /** Priority of drbbdup's restore state event. */
+    DRMGR_PRIORITY_RESTORE_DRBBDUP = -99900,
 };
 
 /**
@@ -394,6 +396,11 @@ enum {
  * Name of drbbdup insert priority.
  */
 #define DRMGR_PRIORITY_INSERT_NAME_DRBBDUP "drbbdup_insert"
+
+/**
+ * Name of drbbdup restore state priority.
+ */
+#define DRMGR_PRIORITY_RESTORE_NAME_DRBBDUP "drbbdup_restore"
 
 DR_EXPORT
 /**

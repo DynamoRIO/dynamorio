@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* TODO i#2985: Test the future drx_expand_scatter_gather() extension using drmgr. */
+/* Tests drx_expand_scatter_gather(). */
 
 #include "dr_api.h"
 #include "client_tools.h"

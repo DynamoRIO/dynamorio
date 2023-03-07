@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -170,9 +170,8 @@ enum {
 #else
     /* Indicates an instruction that's part of the rseq endpoint.  We use this in
      * instrlist_t.flags (sort of the same namespace: INSTR_OUR_MANGLING is used there,
-     * but also EDI_VAL_*) and as a version of DR_NOTE_RSEQ that survives encoding
-     * (seems like we could store notes for labels in another field so they do
-     * in fact survive: a union with instr_t.translation?).
+     * but also EDI_VAL_*); we no longer use it on individual instructions since
+     * the label note field DR_NOTE_RSEQ now survives encoding.
      */
     INSTR_RSEQ_ENDPOINT = 0x01000000,
 #endif

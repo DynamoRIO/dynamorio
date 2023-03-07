@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -532,7 +532,7 @@ instrlist_encode_to_copy(void *drcontext, instrlist_t *ilist, byte *copy_pc,
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *inst;
-    int len = 0;
+    size_t len = 0;
 #ifdef ARM
     /* XXX i#1734: reset encode state to avoid any stale encode state
      * or dangling pointer.
@@ -558,10 +558,10 @@ instrlist_encode_to_copy(void *drcontext, instrlist_t *ilist, byte *copy_pc,
         }
     });
     if (has_instr_jmp_targets || max_pc != NULL) {
-        /* must set note fields first with offset, or compute length */
+        /* Must first compute offset and total length. */
         for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
             if (has_instr_jmp_targets)
-                instr_set_note(inst, (void *)(ptr_int_t)len);
+                inst->offset = len;
             len += instr_length(dcontext, inst);
         }
     }

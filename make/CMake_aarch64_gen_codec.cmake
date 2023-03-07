@@ -43,11 +43,17 @@ set(AARCH64_CODEC_GEN_SRCS
   ${PROJECT_BINARY_DIR}/decode_gen_v80.h
   ${PROJECT_BINARY_DIR}/decode_gen_v81.h
   ${PROJECT_BINARY_DIR}/decode_gen_v82.h
+  ${PROJECT_BINARY_DIR}/decode_gen_v83.h
+  ${PROJECT_BINARY_DIR}/decode_gen_v86.h
   ${PROJECT_BINARY_DIR}/decode_gen_sve.h
+  ${PROJECT_BINARY_DIR}/decode_gen_sve2.h
   ${PROJECT_BINARY_DIR}/encode_gen_v80.h
   ${PROJECT_BINARY_DIR}/encode_gen_v81.h
   ${PROJECT_BINARY_DIR}/encode_gen_v82.h
+  ${PROJECT_BINARY_DIR}/encode_gen_v83.h
+  ${PROJECT_BINARY_DIR}/encode_gen_v86.h
   ${PROJECT_BINARY_DIR}/encode_gen_sve.h
+  ${PROJECT_BINARY_DIR}/encode_gen_sve2.h
   ${PROJECT_BINARY_DIR}/opcode_names.h
 )
 set_source_files_properties(${AARCH64_CODEC_GEN_SRCS} PROPERTIES GENERATED true)
@@ -75,7 +81,10 @@ add_custom_command(
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v80.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v81.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v82.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v83.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_v86.txt
           ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_sve.txt
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec_sve2.txt
   COMMAND ${PYTHON_EXECUTABLE}
   ARGS ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec.py
        ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}

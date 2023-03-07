@@ -243,6 +243,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api,thread_private|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#1807
+                'code_api|client.file_io' => 1, # i#5802
                 );
 
             %ignore_failures_64 = (
@@ -302,6 +303,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'finite_shared_trace_cache,cache_shared_trace_regen|common.nativeexec' => 1, # i#1807
                 # We list this without any "options|" which will match all variations.
                 'common.floatpc_xl8all' => 1, # i#2267
+                'code_api|client.file_io' => 1, # i#5802
                 );
             if ($is_long) {
                 # These are important tests so we only ignore in the long suite,
@@ -327,7 +329,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.drcachesim.delay-simple' => 1, # i#2892
                                    'code_api|tool.drcachesim.invariants' => 1, # i#2892
                                    'code_api|tool.drcacheoff.simple' => 1,
-                                   'code_api|tool.histogram.gzip' => 1);
+                                   'code_api|tool.histogram.gzip' => 1,
+                                   );
             # FIXME i#2417: fix flaky/regressed AArch64 tests
             %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
                                    'code_api|pthreads.pthreads_exit' => 1,
@@ -339,6 +342,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|client.attach_test' => 1, # i#5740
                                    'code_api|client.attach_blocking' => 1, # i#5740
                                    'code_api|tool.drcacheoff.invariant_checker' => 1, # i#5724
+                                   'code_api|tool.drcacheoff.rseq' => 1, # i#5734
+                                   'code_api|tool.drcacheoff.windows-zlib' => 1, # i#5507
                                    );
             if ($is_32) {
                 $issue_no = "#2416";

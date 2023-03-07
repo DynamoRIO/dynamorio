@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -64,6 +64,7 @@ public:
     /**
      * Returns the count of #memref_t records from the start of the trace to this point.
      * This includes records skipped over and not presented to any tool.
+     * It does not include synthetic records (see is_record_synthetic()).
      */
     virtual uint64_t
     get_record_ordinal() const = 0;
@@ -123,20 +124,43 @@ public:
      */
     virtual uint64_t
     get_page_size() const = 0;
+
+    /**
+     * Returns whether the current record was synthesized and inserted into the record
+     * stream and was not present in the original stream.  This is true for timestamp
+     * and cpuid headers duplicated after skipping ahead, as well as cpuid markers
+     * inserted for synthetic schedules.  Such records do not count toward the record
+     * count and get_record_ordinal() will return the value of the prior record.
+     */
+    virtual bool
+    is_record_synthetic() const
+    {
+        return false;
+    }
 };
 
 /**
  * Implementation of memtrace_stream_t useful for mocks in tests.
  */
-class test_memtrace_stream_t : public memtrace_stream_t {
+class default_memtrace_stream_t : public memtrace_stream_t {
 public:
-    virtual ~test_memtrace_stream_t()
+    default_memtrace_stream_t()
+        : record_ordinal_(nullptr)
+    {
+    }
+    default_memtrace_stream_t(uint64_t *record_ordinal)
+        : record_ordinal_(record_ordinal)
+    {
+    }
+    virtual ~default_memtrace_stream_t()
     {
     }
     uint64_t
     get_record_ordinal() const override
     {
-        return 0;
+        if (record_ordinal_ == nullptr)
+            return 0;
+        return *record_ordinal_;
     }
     uint64_t
     get_instruction_ordinal() const override
@@ -178,5 +202,8 @@ public:
     {
         return 0;
     }
+
+private:
+    uint64_t *record_ordinal_;
 };
 #endif /* _MEMTRACE_STREAM_H_ */

@@ -231,12 +231,67 @@ test_opnd_compute_address()
     printf("location: %ld\n", (reg_t)loc);
 }
 
+static void
+test_opnd_invert_immed_int()
+{
+    // 1 bit test
+    opnd_t opnd = opnd_invert_immed_int(opnd_create_immed_int(1, OPSZ_1b));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int(opnd));
+    opnd = opnd_invert_immed_int(opnd_create_immed_int(0, OPSZ_1b));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int(opnd));
+
+    // 3 bit test
+    opnd = opnd_invert_immed_int(opnd_create_immed_int(0b001, OPSZ_3b));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int(opnd));
+    opnd = opnd_invert_immed_int(opnd_create_immed_int(0b101, OPSZ_3b));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int(opnd));
+
+    // 1 byte test
+    opnd = opnd_invert_immed_int(opnd_create_immed_int(0x33, OPSZ_1));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int(opnd));
+    opnd = opnd_invert_immed_int(opnd_create_immed_int(0xf0, OPSZ_1));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int(opnd));
+
+    // 4 byte test
+    opnd = opnd_invert_immed_int(opnd_create_immed_int(0x33333333, OPSZ_4));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int(opnd));
+    opnd = opnd_invert_immed_int(opnd_create_immed_int(0xf0f0f0f0, OPSZ_4));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int(opnd));
+
+// 8 byte test
+#ifdef X64
+    opnd = opnd_invert_immed_int(opnd_create_immed_int(0xf0f0f0f033333333, OPSZ_8));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int(opnd));
+    opnd = opnd_invert_immed_int(opnd_create_immed_int(0x33333333f0f0f0f0, OPSZ_8));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int(opnd));
+#else
+    opnd = opnd_invert_immed_int(opnd_create_immed_int64(0xf0f0f0f033333333, OPSZ_8));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int64(opnd));
+    opnd = opnd_invert_immed_int(opnd_create_immed_int64(0x33333333f0f0f0f0, OPSZ_8));
+    printf("opnd size: %d, value: 0x%lx\n", opnd_size_in_bits(opnd_get_size(opnd)),
+           opnd_get_immed_int64(opnd));
+#endif
+}
+
 int
 main(int argc, char *argv[])
 {
     test_get_size();
 
     test_opnd_compute_address();
+
+    test_opnd_invert_immed_int();
 
     printf("all done\n");
     return 0;

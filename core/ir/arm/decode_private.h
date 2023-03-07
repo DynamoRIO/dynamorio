@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -212,7 +212,7 @@ struct _decode_info_t {
     byte *decorated_pc;
 
     /* For instr_t* target encoding */
-    ptr_int_t cur_note;
+    ptr_int_t cur_offs;
     bool has_instr_opnds;
 
     /* For IT block */
