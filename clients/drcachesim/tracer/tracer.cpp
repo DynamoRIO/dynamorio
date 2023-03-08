@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -1469,6 +1469,16 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
      * for online though.
      */
     if (info->source_mcontext != nullptr) {
+        app_pc mcontext_pc = info->source_mcontext->pc;
+        /* When a signal arrives at the end of functions wrapped using the
+         * DRWRAP_REPLACE_RETADDR drwrap strategy, the mcontext PC on the stack
+         * is the address of the internal replace_retaddr_sentinel() instead
+         * of the actual return address of the wrapped function. For the
+         * kernel xfer marker to contain the correct value, we must handle
+         * this case by allowing drwrap to replace the address with the
+         * correct one.
+         */
+        drwrap_get_retaddr_if_sentinel(drcontext, &mcontext_pc);
         /* Enable post-processing to figure out the ordering of this xfer vs
          * non-memref instrs in the bb, and also to give core simulators the
          * interrupted PC -- primarily for a kernel event arriving right
@@ -1481,7 +1491,7 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
              * the indexed segment.
              */
             uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
-                drcontext, info->source_mcontext->pc, &modidx);
+                drcontext, mcontext_pc, &modidx);
             /* We save space by using the modidx,modoffs format instead of a raw PC.
              * These 49 bits will always fit into the 48-bit value field unless the
              * module index is very large, when it will take two entries, while using
@@ -1500,9 +1510,9 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
             marker_val = raw_pc.combined_value;
         } else
 #endif
-            marker_val = reinterpret_cast<uintptr_t>(info->source_mcontext->pc);
+            marker_val = reinterpret_cast<uintptr_t>(mcontext_pc);
         NOTIFY(3, "%s: source pc " PFX " => modoffs " PIFX "\n", __FUNCTION__,
-               info->source_mcontext->pc, marker_val);
+               mcontext_pc, marker_val);
     }
     if (info->type == DR_XFER_RSEQ_ABORT) {
         BUF_PTR(data->seg_base) += instru->append_marker(

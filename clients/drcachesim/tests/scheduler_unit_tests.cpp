@@ -145,6 +145,89 @@ make_exit(memref_tid_t tid)
     return memref;
 }
 
+static memref_t
+make_version(memref_tid_t tid, int version)
+{
+    memref_t memref;
+    memref.marker.tid = tid;
+    memref.marker.type = TRACE_TYPE_MARKER;
+    memref.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
+    memref.marker.marker_value = version;
+    return memref;
+}
+
+static memref_t
+make_timestamp(memref_tid_t tid, uint64_t timestamp)
+{
+    memref_t memref;
+    memref.marker.tid = tid;
+    memref.marker.type = TRACE_TYPE_MARKER;
+    memref.marker.marker_type = TRACE_MARKER_TYPE_TIMESTAMP;
+    memref.marker.marker_value = timestamp;
+    return memref;
+}
+
+static void
+test_serial()
+{
+    static constexpr memref_tid_t TID_A = 42;
+    static constexpr memref_tid_t TID_B = 99;
+    std::vector<memref_t> refs_A = {
+        /* clang-format off */
+        // Include a header to test the scheduler queuing it.
+        make_version(TID_A, 4),
+        // Each timestamp is followed by an instr whose PC==time.
+        make_timestamp(TID_A, 10),
+        make_instr(TID_A, 10),
+        make_timestamp(TID_A, 30),
+        make_instr(TID_A, 30),
+        make_timestamp(TID_A, 50),
+        make_instr(TID_A, 50),
+        make_exit(TID_A),
+        /* clang-format on */
+    };
+    std::vector<memref_t> refs_B = {
+        /* clang-format off */
+        make_version(TID_B, 4),
+        make_timestamp(TID_B, 20),
+        make_instr(TID_B, 20),
+        make_timestamp(TID_B, 40),
+        make_instr(TID_B, 40),
+        make_timestamp(TID_B, 60),
+        make_instr(TID_B, 60),
+        make_exit(TID_B),
+        /* clang-format on */
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    if (scheduler.init(sched_inputs, 1,
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    uint64_t last_timestamp = 0;
+    memref_tid_t last_timestamp_tid = INVALID_THREAD_ID;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+        if (memref.marker.type == TRACE_TYPE_MARKER &&
+            memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+            assert(memref.marker.marker_value > last_timestamp);
+            last_timestamp = memref.marker.marker_value;
+            // In our test case we have alternating threads.
+            assert(last_timestamp_tid != memref.marker.tid);
+            last_timestamp_tid = memref.marker.tid;
+        }
+    }
+}
+
 static void
 test_parallel()
 {
@@ -245,9 +328,12 @@ test_regions()
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
+    // Since reader_t::skip_instructions() is unfinished and does not repeat timestamps,
+    // we can't use the serial options as it will fail without timestamps.
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
-        scheduler_t::STATUS_SUCCESS)
+                       scheduler_t::scheduler_options_t(
+                           scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+                           /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
     auto *stream = scheduler.get_stream(0);
@@ -280,13 +366,59 @@ test_regions()
     assert(ordinal == 5);
 }
 
+static void
+test_only_threads()
+{
+    static constexpr memref_tid_t TID_A = 42;
+    static constexpr memref_tid_t TID_B = 99;
+    static constexpr memref_tid_t TID_C = 7;
+    std::vector<memref_t> refs_A = {
+        make_instr(TID_A, 50),
+        make_exit(TID_A),
+    };
+    std::vector<memref_t> refs_B = {
+        make_instr(TID_B, 60),
+        make_exit(TID_B),
+    };
+    std::vector<memref_t> refs_C = {
+        make_instr(TID_B, 60),
+        make_exit(TID_B),
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    sched_inputs[0].only_threads.insert(TID_B);
+    if (scheduler.init(sched_inputs, 1,
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    uint64_t last_timestamp = 0;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+        assert(memref.instr.tid == TID_B);
+    }
+}
+
 } // namespace
 
 int
 main(int argc, const char *argv[])
 {
+    test_serial();
     test_parallel();
     test_param_checks();
     test_regions();
+    test_only_threads();
     return 0;
 }
