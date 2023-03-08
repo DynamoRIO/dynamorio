@@ -645,12 +645,17 @@ protected:
         {
         }
         stream_t stream;
+        // This is an index into the inputs_ vector so -1 is an invalid value.
+        // This is set to >=0 for all non-empty outputs during init().
         int cur_input = -1;
         // For static schedules we can populate this up front and avoid needing a
         // lock for dynamically finding the next input, keeping things parallel.
         std::vector<int> input_indices;
         int input_indices_index = 0;
     };
+
+    scheduler_status_t
+    get_initial_timestamps();
 
     // Opens up all the readers for each file in 'path' which may be a directory.
     // Returns a map of the thread id of each file to its index in inputs_.

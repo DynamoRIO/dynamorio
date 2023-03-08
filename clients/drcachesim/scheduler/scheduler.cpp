@@ -415,7 +415,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             for (auto &reader : workload.readers) {
                 if (!reader.reader || !reader.end)
                     return STATUS_ERROR_INVALID_PARAMETER;
-                if (workload.only_threads.find(reader.tid) != workload.only_threads.end())
+                if (!workload.only_threads.empty() &&
+                    workload.only_threads.find(reader.tid) == workload.only_threads.end())
                     continue;
                 int index = static_cast<int>(inputs_.size());
                 inputs_.emplace_back();
@@ -502,31 +503,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         if (inputs_.size() == 1) {
             outputs_[0].cur_input = 0;
         } else {
-            // The old file_reader_t interleaving would ouput the top headers for every
+            // The old file_reader_t interleaving would output the top headers for every
             // thread first and then pick the oldest timestamp once it reached a
             // timestamp. We instead queue those headers so we can start directly with the
             // oldest timestamp's thread.
-            for (auto &input : inputs_) {
-                if (input.next_timestamp > 0)
-                    continue;
-                for (const auto &record : input.queue) {
-                    if (record_type_is_timestamp(record, input.next_timestamp))
-                        break;
-                }
-                if (input.next_timestamp > 0)
-                    continue;
-                if (input.needs_init) {
-                    input.reader->init();
-                    input.needs_init = false;
-                }
-                while (input.reader != input.reader_end) {
-                    RecordType record = **input.reader;
-                    if (record_type_is_timestamp(record, input.next_timestamp))
-                        break;
-                    input.queue.push_back(record);
-                    ++(*input.reader);
-                }
-            }
+            sched_type_t::scheduler_status_t res = get_initial_timestamps();
+            if (res != STATUS_SUCCESS)
+                return res;
         }
     } else {
         // TODO i#5843: Implement scheduling onto synthetic cores.
@@ -536,6 +519,48 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         outputs_[0].cur_input = 0;
     }
     return STATUS_SUCCESS;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::get_initial_timestamps()
+{
+    // Read ahead in each input until we find a timestamp record.
+    // Queue up any skipped records to ensure we present them to the
+    // output stream(s).
+    uint64_t min_time = 0xffffffffffffffff;
+    for (size_t i = 0; i < inputs_.size(); i++) {
+        input_info_t &input = inputs_[i];
+        if (input.next_timestamp <= 0) {
+            for (const auto &record : input.queue) {
+                if (record_type_is_timestamp(record, input.next_timestamp))
+                    break;
+            }
+        }
+        if (input.next_timestamp <= 0) {
+            if (input.needs_init) {
+                input.reader->init();
+                input.needs_init = false;
+            }
+            while (input.reader != input.reader_end) {
+                RecordType record = **input.reader;
+                if (record_type_is_timestamp(record, input.next_timestamp))
+                    break;
+                input.queue.push_back(record);
+                ++(*input.reader);
+            }
+        }
+        if (input.next_timestamp <= 0)
+            return STATUS_ERROR_INVALID_PARAMETER;
+        if (input.next_timestamp < min_time) {
+            min_time = input.next_timestamp;
+            // TODO i#5843: Support more than one input (already checked earlier).
+            outputs_[0].cur_input = static_cast<int>(i);
+        }
+    }
+    if (outputs_[0].cur_input >= 0)
+        return STATUS_SUCCESS;
+    return STATUS_ERROR_INVALID_PARAMETER;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -572,7 +597,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
         error_string_ = "Failed to read " + path;
         return STATUS_ERROR_FILE_READ_FAILED;
     }
-    if (only_threads.find(tid) != only_threads.end())
+    if (!only_threads.empty() && only_threads.find(tid) == only_threads.end())
         return sched_type_t::STATUS_SUCCESS;
     VPRINT(this, 2, "Opened reader for tid %" PRId64 " %s\n", tid, path.c_str());
     input.tid = tid;
@@ -802,13 +827,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
                                                       input_info_t *&input)
 {
     if (outputs_[output_ordinal].cur_input < 0) {
-        if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT) {
-            // This happens with more outputs than inputs.
-            return sched_type_t::STATUS_EOF;
-        }
-        sched_type_t::stream_status_t res = pick_next_input(output_ordinal);
-        if (res != sched_type_t::STATUS_OK)
-            return res;
+        // This happens with more outputs than inputs.  For non-empty outputs we
+        // require cur_input to be set to >=0 during init().
+        return sched_type_t::STATUS_EOF;
     }
     input = &inputs_[outputs_[output_ordinal].cur_input];
     while (true) {
@@ -849,6 +870,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
         if (options_.deps == DEPENDENCY_TIMESTAMPS &&
             record_type_is_timestamp(record, input->next_timestamp)) {
             int cur_input = outputs_[output_ordinal].cur_input;
+            // Mark cur_input invalid to ensure pick_next_input() takes action.
             outputs_[output_ordinal].cur_input = -1;
             sched_type_t::stream_status_t res = pick_next_input(output_ordinal);
             if (res != sched_type_t::STATUS_OK)
