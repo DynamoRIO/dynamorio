@@ -88,6 +88,23 @@ gen_branch(memref_tid_t tid, addr_t pc)
 }
 
 inline memref_t
+gen_branch(memref_tid_t tid, addr_t pc, int encoding)
+{
+    memref_t memref = gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
+    memref.instr.size = 4;
+    memcpy(memref.instr.encoding, &encoding, sizeof(encoding));
+    memref.instr.encoding_is_new = true;
+
+    return memref;
+}
+
+inline memref_t
+gen_branch(memref_tid_t tid, addr_t pc, const std::vector<int> &encoding)
+{
+    return gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
+}
+
+inline memref_t
 gen_marker(memref_tid_t tid, trace_marker_type_t type, uintptr_t val)
 {
     memref_t memref = {};

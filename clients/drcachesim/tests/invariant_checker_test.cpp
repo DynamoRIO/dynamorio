@@ -187,7 +187,8 @@ check_branch_target_after_branch()
 
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-            make_instr(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, 0x71019dbc, 0x540001a1, 1),
+            //            make_instr(TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
+            //            0x71019dbc, { 0x74, 0x0c }, 1),
             // Insert the wrong pc here.
             gen_instr(1, 20)
         };
@@ -195,9 +196,12 @@ check_branch_target_after_branch()
 #else
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-            make_instr(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, 0x71019dbc, 0x540001a1, 1),
+            //            make_instr(TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
+            //            0x71019dbc,
+            //            0x540001a1, 1),
+            gen_branch(1, 0x71019dbc, 0x540001a1),
             // Insert the wrong pc here.
-            gen_instr(1, 20)
+            gen_instr(1, 20),
         };
 
         if (!run_checker(memrefs, true, 1)) {
