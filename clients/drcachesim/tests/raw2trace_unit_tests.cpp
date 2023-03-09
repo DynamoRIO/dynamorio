@@ -256,6 +256,7 @@ test_branch_delays(void *drcontext)
     instrlist_append(ilist, jmp);
     instrlist_append(ilist, move);
     size_t offs_nop = 0;
+    // instr_length does the encoding.
     size_t offs_jz = offs_nop + instr_length(drcontext, nop);
     size_t offs_jmp = offs_jz + instr_length(drcontext, jcc);
     size_t offs_mov = offs_jmp + instr_length(drcontext, jmp);

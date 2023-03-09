@@ -38,6 +38,20 @@
 namespace {
 
 inline memref_t
+make_instr(trace_type_t type, addr_t pc, int encoding, memref_tid_t tid = 0)
+{
+    memref_t memref;
+    memref.instr.pid = 0;
+    memref.instr.tid = tid;
+    memref.instr.type = type;
+    memref.instr.addr = pc;
+    memref.instr.size = 4;
+    memcpy(memref.instr.encoding, &encoding, sizeof(encoding));
+    memref.instr.encoding_is_new = true;
+    return memref;
+}
+
+inline memref_t
 gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
 {
     memref_t memref = {};
