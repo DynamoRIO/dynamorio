@@ -182,10 +182,10 @@ check_branch_target_after_branch()
 
         // Arm encoding.
         // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
-        std::vector<memref_t> memrefs = { gen_branch(1, 71019dbc),
-                                          gen_instr(1, 71019df0) };
-        memrefs[0].instr.encoding_is_new = true;
-        memrefs[0].instr.encoding = "540001a1";
+        //        std::vector<memref_t> memrefs = { gen_branch(1, 71019dbc),
+        //                                          gen_instr(1, 71019df0) };
+        //        memrefs[0].instr.encoding_is_new = true;
+        //        memrefs[0].instr.encoding = "540001a1";
     }
     return true;
 }

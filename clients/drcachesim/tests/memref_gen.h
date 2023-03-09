@@ -34,6 +34,7 @@
 #define _MEMREF_GEN_ 1
 
 #include "../common/memref.h"
+#include <cstring>
 
 namespace {
 

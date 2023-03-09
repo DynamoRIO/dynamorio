@@ -411,18 +411,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // in this if statement.
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_)) {
             }
-            void *dcontext = GLOBAL_DCONTEXT;
+            //            void *dcontext = GLOBAL_DCONTEXT;
 
-            instr_t instr;
-            instr_init(dcontext, &instr);
+            //            instr_t instr;
+            //            instr_init(dcontext, &instr);
 
-            const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
-            const app_pc decode_pc = const_cast<app_pc>(memref.instr.encoding);
-            const app_pc next_pc =
-                decode_from_copy(dcontext, decode_pc, trace_pc, &instr);
+            //            const app_pc trace_pc =
+            //            reinterpret_cast<app_pc>(memref.instr.addr); const app_pc
+            //            decode_pc = const_cast<app_pc>(memref.instr.encoding); const
+            //            app_pc next_pc =
+            //                decode_from_copy(dcontext, decode_pc, trace_pc, &instr);
 
-            opnd_t target = instr_get_target(&instr);
-            const app_pc target_pc = opnd_get_pc(target);
+            //            opnd_t target = instr_get_target(&instr);
+            //            const app_pc target_pc = opnd_get_pc(target);
         }
 #ifdef UNIX
         // Ensure signal handlers return to the interruption point.
