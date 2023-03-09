@@ -535,9 +535,7 @@ public:
             return scheduler_->get_input_name(ordinal_);
         }
         /**
-         * Returns a name for the current input stream feeding this output stream. For
-         * stored offline traces, this is the base name of the trace on disk. For online
-         * traces, this is the name of the pipe.
+         * Returns the ordinal for the current input stream feeding this output stream.
          */
         int
         get_input_stream_ordinal()
@@ -709,6 +707,7 @@ protected:
         int priority = 0;
         std::vector<range_t> regions_of_interest;
         int cur_region = 0;
+        bool in_cur_region = false;
         bool has_modifier = false;
         bool needs_init = false;
         bool needs_advance = false;

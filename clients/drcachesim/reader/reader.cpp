@@ -330,13 +330,7 @@ reader_t::process_input_entry()
     return have_memref;
 }
 
-void
-reader_t::use_prev(trace_entry_t *prev)
-{
-    input_entry_ = prev;
-}
-
-void
+bool
 reader_t::pre_skip_instructions()
 {
     // If the user asks to skip from the very start, we still need to find the chunk
@@ -345,6 +339,13 @@ reader_t::pre_skip_instructions()
     // the timestamp as we don't want to read it yet.
     while (page_size_ == 0) {
         input_entry_ = read_next_entry();
+        if (input_entry_ == nullptr) {
+            at_eof_ = true;
+            return false;
+        }
+        VPRINT(this, 4, "PRE-SKIP: type=%s (%d), size=%d, addr=0x%zx\n",
+               trace_type_names[input_entry_->type], input_entry_->type,
+               input_entry_->size, input_entry_->addr);
         if (input_entry_->type != TRACE_TYPE_MARKER ||
             input_entry_->size == TRACE_MARKER_TYPE_TIMESTAMP) {
             // Likely some mock in a test with no page size header: just move on.
@@ -353,6 +354,7 @@ reader_t::pre_skip_instructions()
         }
         process_input_entry();
     }
+    return true;
 }
 
 reader_t &
@@ -367,7 +369,8 @@ reader_t::skip_instructions(uint64_t instruction_count)
         at_eof_ = true;
         return *this;
     }
-    pre_skip_instructions();
+    if (!pre_skip_instructions())
+        return *this;
     return skip_instructions_with_timestamp(cur_instr_count_ + instruction_count);
 }
 
@@ -384,6 +387,8 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
     trace_entry_t next_instr = {};
     bool prev_was_record_ord = false;
     bool found_real_timestamp = false;
+    VPRINT(this, 4, "Skipping from %" PRIu64 " until we reach %" PRIu64 "\n",
+           cur_instr_count_, stop_count);
     while (cur_instr_count_ < stop_count) { // End condition is never reached.
         // Remember the prior entry to use as the cur entry when we hit the
         // too-far instr if we didn't find a timestamp.
@@ -395,6 +400,8 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
             at_eof_ = true;
             return *this;
         }
+        VPRINT(this, 4, "SKIP: type=%s (%d), size=%d, addr=0x%zx\n",
+               trace_type_names[next->type], next->type, next->size, next->addr);
         // We need to pass up memrefs for the final skipped instr, but we don't
         // want to process_input_entry() on the first unskipped instr so we can
         // insert the timestamp+cpu first.
@@ -456,9 +463,11 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         queue_.push(next_instr);
     } else {
         // We missed the markers somehow.
+        // next_instr is our target instr, so make that the next record.
         VPRINT(this, 1, "Skip failed to find both timestamp and cpu\n");
-        queue_.push(next_instr);
-        use_prev(&entry_copy_);
+        entry_copy_ = next_instr;
+        input_entry_ = &entry_copy_;
+        process_input_entry();
     }
     return *this;
 }

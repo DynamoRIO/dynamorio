@@ -349,7 +349,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
     // Update our header state.
     // If we skipped over these, advance_region_of_interest() sets them.
     // TODO i#5843: Check that all inputs have the same top-level headers here.
-    // A possible except is allowing warmup-phase-filtered traces to be mixed
+    // A possible exception is allowing warmup-phase-filtered traces to be mixed
     // with regular traces.
     trace_marker_type_t marker_type;
     uintptr_t marker_value;
@@ -696,8 +696,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_
 {
     uint64_t cur_instr = input.reader->get_instruction_ordinal();
     auto &cur_range = input.regions_of_interest[input.cur_region];
-    if (cur_range.stop_instruction != 0 && cur_instr > cur_range.stop_instruction) {
+    if (input.in_cur_region && cur_range.stop_instruction != 0 &&
+        cur_instr > cur_range.stop_instruction) {
         ++input.cur_region;
+        input.in_cur_region = false;
         VPRINT(this, 2, "at %" PRId64 " instrs: advancing to ROI #%d\n", cur_instr,
                input.cur_region);
         if (input.cur_region >= static_cast<int>(input.regions_of_interest.size())) {
@@ -713,19 +715,21 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_
         cur_range = input.regions_of_interest[input.cur_region];
     }
 
-    if (cur_instr >= cur_range.start_instruction)
+    // If we're within one and already skipped, just exit to avoid re-requesting a skip
+    // and making no progress (we're on the inserted timetamp + cpuid and our cur instr
+    // count isn't yet the target).
+    if (input.in_cur_region && cur_instr >= cur_range.start_instruction - 1)
         return sched_type_t::STATUS_OK;
 
     VPRINT(this, 2, "skipping from %" PRId64 " to %" PRId64 " instrs for ROI\n",
            cur_instr, cur_range.start_instruction);
+    input.in_cur_region = true;
     // We assume the queue contains no instrs (else our query of input.reader's
     // instr ordinal would include them and so be incorrect) and that we should
     // thus skip it all.
     while (!input.queue.empty())
         input.queue.pop_front();
-    uint64_t input_start_ref = input.reader->get_record_ordinal();
-    uint64_t input_start_instr = input.reader->get_instruction_ordinal();
-    input.reader->skip_instructions(cur_range.start_instruction - cur_instr);
+    input.reader->skip_instructions(cur_range.start_instruction - cur_instr - 1);
     if (*input.reader == *input.reader_end) {
         // Raise error because the input region is out of bounds.
         input.at_eof = true;
@@ -733,25 +737,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_
     }
     auto &stream = outputs_[output_ordinal].stream;
 
-    if (stream.cur_ref_count_ == 0)
-        ++stream.cur_ref_count_; // Account for reader_t::init()'s ++.
-    // Subtract 1 as we'll be adding one in stream_t::next_record().
-    uint64_t subtract = input.reader->is_record_synthetic() ? 0 : 1;
-    VPRINT(this, 3, "post-skip: adding %" PRId64 " records to %" PRId64 "\n",
-           input.reader->get_record_ordinal() - input_start_ref - subtract,
-           stream.cur_ref_count_);
-    stream.cur_ref_count_ +=
-        input.reader->get_record_ordinal() - input_start_ref - subtract;
-    // We don't need to subtract 1 for instrs: even though we could be adding one
-    // in stream_t::next_record(), we're either inserting a window id and so we
-    // will not do so, or this is a skip from the start and we'd only be off if
-    // the first record were an instr: and even then our count started at 0 (see
-    // just above where we correct the record count from 0).
-    VPRINT(this, 3, "post-skip: adding %" PRId64 " instrs to %" PRId64 "\n",
-           input.reader->get_instruction_ordinal() - input_start_instr,
-           stream.cur_instr_count_);
-    stream.cur_instr_count_ +=
-        input.reader->get_instruction_ordinal() - input_start_instr;
+    // We've documented that an output stream's ordinals ignore skips in its input
+    // streams, so we do not need to remember the input's ordinals pre-skip and increase
+    // our output's ordinals commensurately post-skip.
+
     // If we skipped from the start we may not have seen the initial headers:
     // use the input's cached copies.
     if (stream.version_ == 0) {
