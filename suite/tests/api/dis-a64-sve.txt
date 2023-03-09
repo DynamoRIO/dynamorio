@@ -12634,6 +12634,78 @@ a53bdf59 : ld2w {z25.s, z26.s}, p7/Z, [x26, x27, LSL #2] : ld2w   (%x26,%x27,lsl
 a53ddf9b : ld2w {z27.s, z28.s}, p7/Z, [x28, x29, LSL #2] : ld2w   (%x28,%x29,lsl #2)[64byte] %p7/z -> %z27.s %z28.s
 a53edfff : ld2w {z31.s, z0.s}, p7/Z, [sp, x30, LSL #2] : ld2w   (%sp,%x30,lsl #2)[64byte] %p7/z -> %z31.s %z0.s
 
+# LD2B    { <Zt1>.B, <Zt2>.B }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD2B-Z.P.BI-Contiguous)
+a428e000 : ld2b {z0.b, z1.b}, p0/Z, [x0, #-16, MUL VL] : ld2b   -0x10(%x0)[64byte] %p0/z -> %z0.b %z1.b
+a429e482 : ld2b {z2.b, z3.b}, p1/Z, [x4, #-14, MUL VL] : ld2b   -0x0e(%x4)[64byte] %p1/z -> %z2.b %z3.b
+a42ae8c4 : ld2b {z4.b, z5.b}, p2/Z, [x6, #-12, MUL VL] : ld2b   -0x0c(%x6)[64byte] %p2/z -> %z4.b %z5.b
+a42be906 : ld2b {z6.b, z7.b}, p2/Z, [x8, #-10, MUL VL] : ld2b   -0x0a(%x8)[64byte] %p2/z -> %z6.b %z7.b
+a42ced48 : ld2b {z8.b, z9.b}, p3/Z, [x10, #-8, MUL VL] : ld2b   -0x08(%x10)[64byte] %p3/z -> %z8.b %z9.b
+a42ded6a : ld2b {z10.b, z11.b}, p3/Z, [x11, #-6, MUL VL] : ld2b   -0x06(%x11)[64byte] %p3/z -> %z10.b %z11.b
+a42ef1ac : ld2b {z12.b, z13.b}, p4/Z, [x13, #-4, MUL VL] : ld2b   -0x04(%x13)[64byte] %p4/z -> %z12.b %z13.b
+a42ff1ee : ld2b {z14.b, z15.b}, p4/Z, [x15, #-2, MUL VL] : ld2b   -0x02(%x15)[64byte] %p4/z -> %z14.b %z15.b
+a420f630 : ld2b {z16.b, z17.b}, p5/Z, [x17, #0, MUL VL] : ld2b   (%x17)[64byte] %p5/z -> %z16.b %z17.b
+a420f671 : ld2b {z17.b, z18.b}, p5/Z, [x19, #0, MUL VL] : ld2b   (%x19)[64byte] %p5/z -> %z17.b %z18.b
+a421f6b3 : ld2b {z19.b, z20.b}, p5/Z, [x21, #2, MUL VL] : ld2b   +0x02(%x21)[64byte] %p5/z -> %z19.b %z20.b
+a422faf5 : ld2b {z21.b, z22.b}, p6/Z, [x23, #4, MUL VL] : ld2b   +0x04(%x23)[64byte] %p6/z -> %z21.b %z22.b
+a423fb17 : ld2b {z23.b, z24.b}, p6/Z, [x24, #6, MUL VL] : ld2b   +0x06(%x24)[64byte] %p6/z -> %z23.b %z24.b
+a424ff59 : ld2b {z25.b, z26.b}, p7/Z, [x26, #8, MUL VL] : ld2b   +0x08(%x26)[64byte] %p7/z -> %z25.b %z26.b
+a425ff9b : ld2b {z27.b, z28.b}, p7/Z, [x28, #10, MUL VL] : ld2b   +0x0a(%x28)[64byte] %p7/z -> %z27.b %z28.b
+a427ffff : ld2b {z31.b, z0.b}, p7/Z, [sp, #14, MUL VL] : ld2b   +0x0e(%sp)[64byte] %p7/z -> %z31.b %z0.b
+
+# LD2D    { <Zt1>.D, <Zt2>.D }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD2D-Z.P.BI-Contiguous)
+a5a8e000 : ld2d {z0.d, z1.d}, p0/Z, [x0, #-16, MUL VL] : ld2d   -0x10(%x0)[64byte] %p0/z -> %z0.d %z1.d
+a5a9e482 : ld2d {z2.d, z3.d}, p1/Z, [x4, #-14, MUL VL] : ld2d   -0x0e(%x4)[64byte] %p1/z -> %z2.d %z3.d
+a5aae8c4 : ld2d {z4.d, z5.d}, p2/Z, [x6, #-12, MUL VL] : ld2d   -0x0c(%x6)[64byte] %p2/z -> %z4.d %z5.d
+a5abe906 : ld2d {z6.d, z7.d}, p2/Z, [x8, #-10, MUL VL] : ld2d   -0x0a(%x8)[64byte] %p2/z -> %z6.d %z7.d
+a5aced48 : ld2d {z8.d, z9.d}, p3/Z, [x10, #-8, MUL VL] : ld2d   -0x08(%x10)[64byte] %p3/z -> %z8.d %z9.d
+a5aded6a : ld2d {z10.d, z11.d}, p3/Z, [x11, #-6, MUL VL] : ld2d   -0x06(%x11)[64byte] %p3/z -> %z10.d %z11.d
+a5aef1ac : ld2d {z12.d, z13.d}, p4/Z, [x13, #-4, MUL VL] : ld2d   -0x04(%x13)[64byte] %p4/z -> %z12.d %z13.d
+a5aff1ee : ld2d {z14.d, z15.d}, p4/Z, [x15, #-2, MUL VL] : ld2d   -0x02(%x15)[64byte] %p4/z -> %z14.d %z15.d
+a5a0f630 : ld2d {z16.d, z17.d}, p5/Z, [x17, #0, MUL VL] : ld2d   (%x17)[64byte] %p5/z -> %z16.d %z17.d
+a5a0f671 : ld2d {z17.d, z18.d}, p5/Z, [x19, #0, MUL VL] : ld2d   (%x19)[64byte] %p5/z -> %z17.d %z18.d
+a5a1f6b3 : ld2d {z19.d, z20.d}, p5/Z, [x21, #2, MUL VL] : ld2d   +0x02(%x21)[64byte] %p5/z -> %z19.d %z20.d
+a5a2faf5 : ld2d {z21.d, z22.d}, p6/Z, [x23, #4, MUL VL] : ld2d   +0x04(%x23)[64byte] %p6/z -> %z21.d %z22.d
+a5a3fb17 : ld2d {z23.d, z24.d}, p6/Z, [x24, #6, MUL VL] : ld2d   +0x06(%x24)[64byte] %p6/z -> %z23.d %z24.d
+a5a4ff59 : ld2d {z25.d, z26.d}, p7/Z, [x26, #8, MUL VL] : ld2d   +0x08(%x26)[64byte] %p7/z -> %z25.d %z26.d
+a5a5ff9b : ld2d {z27.d, z28.d}, p7/Z, [x28, #10, MUL VL] : ld2d   +0x0a(%x28)[64byte] %p7/z -> %z27.d %z28.d
+a5a7ffff : ld2d {z31.d, z0.d}, p7/Z, [sp, #14, MUL VL] : ld2d   +0x0e(%sp)[64byte] %p7/z -> %z31.d %z0.d
+
+# LD2H    { <Zt1>.H, <Zt2>.H }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD2H-Z.P.BI-Contiguous)
+a4a8e000 : ld2h {z0.h, z1.h}, p0/Z, [x0, #-16, MUL VL] : ld2h   -0x10(%x0)[64byte] %p0/z -> %z0.h %z1.h
+a4a9e482 : ld2h {z2.h, z3.h}, p1/Z, [x4, #-14, MUL VL] : ld2h   -0x0e(%x4)[64byte] %p1/z -> %z2.h %z3.h
+a4aae8c4 : ld2h {z4.h, z5.h}, p2/Z, [x6, #-12, MUL VL] : ld2h   -0x0c(%x6)[64byte] %p2/z -> %z4.h %z5.h
+a4abe906 : ld2h {z6.h, z7.h}, p2/Z, [x8, #-10, MUL VL] : ld2h   -0x0a(%x8)[64byte] %p2/z -> %z6.h %z7.h
+a4aced48 : ld2h {z8.h, z9.h}, p3/Z, [x10, #-8, MUL VL] : ld2h   -0x08(%x10)[64byte] %p3/z -> %z8.h %z9.h
+a4aded6a : ld2h {z10.h, z11.h}, p3/Z, [x11, #-6, MUL VL] : ld2h   -0x06(%x11)[64byte] %p3/z -> %z10.h %z11.h
+a4aef1ac : ld2h {z12.h, z13.h}, p4/Z, [x13, #-4, MUL VL] : ld2h   -0x04(%x13)[64byte] %p4/z -> %z12.h %z13.h
+a4aff1ee : ld2h {z14.h, z15.h}, p4/Z, [x15, #-2, MUL VL] : ld2h   -0x02(%x15)[64byte] %p4/z -> %z14.h %z15.h
+a4a0f630 : ld2h {z16.h, z17.h}, p5/Z, [x17, #0, MUL VL] : ld2h   (%x17)[64byte] %p5/z -> %z16.h %z17.h
+a4a0f671 : ld2h {z17.h, z18.h}, p5/Z, [x19, #0, MUL VL] : ld2h   (%x19)[64byte] %p5/z -> %z17.h %z18.h
+a4a1f6b3 : ld2h {z19.h, z20.h}, p5/Z, [x21, #2, MUL VL] : ld2h   +0x02(%x21)[64byte] %p5/z -> %z19.h %z20.h
+a4a2faf5 : ld2h {z21.h, z22.h}, p6/Z, [x23, #4, MUL VL] : ld2h   +0x04(%x23)[64byte] %p6/z -> %z21.h %z22.h
+a4a3fb17 : ld2h {z23.h, z24.h}, p6/Z, [x24, #6, MUL VL] : ld2h   +0x06(%x24)[64byte] %p6/z -> %z23.h %z24.h
+a4a4ff59 : ld2h {z25.h, z26.h}, p7/Z, [x26, #8, MUL VL] : ld2h   +0x08(%x26)[64byte] %p7/z -> %z25.h %z26.h
+a4a5ff9b : ld2h {z27.h, z28.h}, p7/Z, [x28, #10, MUL VL] : ld2h   +0x0a(%x28)[64byte] %p7/z -> %z27.h %z28.h
+a4a7ffff : ld2h {z31.h, z0.h}, p7/Z, [sp, #14, MUL VL] : ld2h   +0x0e(%sp)[64byte] %p7/z -> %z31.h %z0.h
+
+# LD2W    { <Zt1>.S, <Zt2>.S }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD2W-Z.P.BI-Contiguous)
+a528e000 : ld2w {z0.s, z1.s}, p0/Z, [x0, #-16, MUL VL] : ld2w   -0x10(%x0)[64byte] %p0/z -> %z0.s %z1.s
+a529e482 : ld2w {z2.s, z3.s}, p1/Z, [x4, #-14, MUL VL] : ld2w   -0x0e(%x4)[64byte] %p1/z -> %z2.s %z3.s
+a52ae8c4 : ld2w {z4.s, z5.s}, p2/Z, [x6, #-12, MUL VL] : ld2w   -0x0c(%x6)[64byte] %p2/z -> %z4.s %z5.s
+a52be906 : ld2w {z6.s, z7.s}, p2/Z, [x8, #-10, MUL VL] : ld2w   -0x0a(%x8)[64byte] %p2/z -> %z6.s %z7.s
+a52ced48 : ld2w {z8.s, z9.s}, p3/Z, [x10, #-8, MUL VL] : ld2w   -0x08(%x10)[64byte] %p3/z -> %z8.s %z9.s
+a52ded6a : ld2w {z10.s, z11.s}, p3/Z, [x11, #-6, MUL VL] : ld2w   -0x06(%x11)[64byte] %p3/z -> %z10.s %z11.s
+a52ef1ac : ld2w {z12.s, z13.s}, p4/Z, [x13, #-4, MUL VL] : ld2w   -0x04(%x13)[64byte] %p4/z -> %z12.s %z13.s
+a52ff1ee : ld2w {z14.s, z15.s}, p4/Z, [x15, #-2, MUL VL] : ld2w   -0x02(%x15)[64byte] %p4/z -> %z14.s %z15.s
+a520f630 : ld2w {z16.s, z17.s}, p5/Z, [x17, #0, MUL VL] : ld2w   (%x17)[64byte] %p5/z -> %z16.s %z17.s
+a520f671 : ld2w {z17.s, z18.s}, p5/Z, [x19, #0, MUL VL] : ld2w   (%x19)[64byte] %p5/z -> %z17.s %z18.s
+a521f6b3 : ld2w {z19.s, z20.s}, p5/Z, [x21, #2, MUL VL] : ld2w   +0x02(%x21)[64byte] %p5/z -> %z19.s %z20.s
+a522faf5 : ld2w {z21.s, z22.s}, p6/Z, [x23, #4, MUL VL] : ld2w   +0x04(%x23)[64byte] %p6/z -> %z21.s %z22.s
+a523fb17 : ld2w {z23.s, z24.s}, p6/Z, [x24, #6, MUL VL] : ld2w   +0x06(%x24)[64byte] %p6/z -> %z23.s %z24.s
+a524ff59 : ld2w {z25.s, z26.s}, p7/Z, [x26, #8, MUL VL] : ld2w   +0x08(%x26)[64byte] %p7/z -> %z25.s %z26.s
+a525ff9b : ld2w {z27.s, z28.s}, p7/Z, [x28, #10, MUL VL] : ld2w   +0x0a(%x28)[64byte] %p7/z -> %z27.s %z28.s
+a527ffff : ld2w {z31.s, z0.s}, p7/Z, [sp, #14, MUL VL] : ld2w   +0x0e(%sp)[64byte] %p7/z -> %z31.s %z0.s
+
 # LD3B    { <Zt1>.B, <Zt2>.B, <Zt3>.B }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD3B-Z.P.BR-Contiguous)
 a440c000 : ld3b {z0.b, z1.b, z2.b}, p0/Z, [x0, x0]   : ld3b   (%x0,%x0)[96byte] %p0/z -> %z0.b %z1.b %z2.b
 a445c482 : ld3b {z2.b, z3.b, z4.b}, p1/Z, [x4, x5]   : ld3b   (%x4,%x5)[96byte] %p1/z -> %z2.b %z3.b %z4.b
@@ -12706,6 +12778,78 @@ a55bdf59 : ld3w {z25.s, z26.s, z27.s}, p7/Z, [x26, x27, LSL #2] : ld3w   (%x26,%
 a55ddf9b : ld3w {z27.s, z28.s, z29.s}, p7/Z, [x28, x29, LSL #2] : ld3w   (%x28,%x29,lsl #2)[96byte] %p7/z -> %z27.s %z28.s %z29.s
 a55edfff : ld3w {z31.s, z0.s, z1.s}, p7/Z, [sp, x30, LSL #2] : ld3w   (%sp,%x30,lsl #2)[96byte] %p7/z -> %z31.s %z0.s %z1.s
 
+# LD3B    { <Zt1>.B, <Zt2>.B, <Zt3>.B }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD3B-Z.P.BI-Contiguous)
+a448e000 : ld3b {z0.b, z1.b, z2.b}, p0/Z, [x0, #-24, MUL VL] : ld3b   -0x18(%x0)[96byte] %p0/z -> %z0.b %z1.b %z2.b
+a449e482 : ld3b {z2.b, z3.b, z4.b}, p1/Z, [x4, #-21, MUL VL] : ld3b   -0x15(%x4)[96byte] %p1/z -> %z2.b %z3.b %z4.b
+a44ae8c4 : ld3b {z4.b, z5.b, z6.b}, p2/Z, [x6, #-18, MUL VL] : ld3b   -0x12(%x6)[96byte] %p2/z -> %z4.b %z5.b %z6.b
+a44be906 : ld3b {z6.b, z7.b, z8.b}, p2/Z, [x8, #-15, MUL VL] : ld3b   -0x0f(%x8)[96byte] %p2/z -> %z6.b %z7.b %z8.b
+a44ced48 : ld3b {z8.b, z9.b, z10.b}, p3/Z, [x10, #-12, MUL VL] : ld3b   -0x0c(%x10)[96byte] %p3/z -> %z8.b %z9.b %z10.b
+a44ded6a : ld3b {z10.b, z11.b, z12.b}, p3/Z, [x11, #-9, MUL VL] : ld3b   -0x09(%x11)[96byte] %p3/z -> %z10.b %z11.b %z12.b
+a44ef1ac : ld3b {z12.b, z13.b, z14.b}, p4/Z, [x13, #-6, MUL VL] : ld3b   -0x06(%x13)[96byte] %p4/z -> %z12.b %z13.b %z14.b
+a44ff1ee : ld3b {z14.b, z15.b, z16.b}, p4/Z, [x15, #-3, MUL VL] : ld3b   -0x03(%x15)[96byte] %p4/z -> %z14.b %z15.b %z16.b
+a440f630 : ld3b {z16.b, z17.b, z18.b}, p5/Z, [x17, #0, MUL VL] : ld3b   (%x17)[96byte] %p5/z -> %z16.b %z17.b %z18.b
+a440f671 : ld3b {z17.b, z18.b, z19.b}, p5/Z, [x19, #0, MUL VL] : ld3b   (%x19)[96byte] %p5/z -> %z17.b %z18.b %z19.b
+a441f6b3 : ld3b {z19.b, z20.b, z21.b}, p5/Z, [x21, #3, MUL VL] : ld3b   +0x03(%x21)[96byte] %p5/z -> %z19.b %z20.b %z21.b
+a442faf5 : ld3b {z21.b, z22.b, z23.b}, p6/Z, [x23, #6, MUL VL] : ld3b   +0x06(%x23)[96byte] %p6/z -> %z21.b %z22.b %z23.b
+a443fb17 : ld3b {z23.b, z24.b, z25.b}, p6/Z, [x24, #9, MUL VL] : ld3b   +0x09(%x24)[96byte] %p6/z -> %z23.b %z24.b %z25.b
+a444ff59 : ld3b {z25.b, z26.b, z27.b}, p7/Z, [x26, #12, MUL VL] : ld3b   +0x0c(%x26)[96byte] %p7/z -> %z25.b %z26.b %z27.b
+a445ff9b : ld3b {z27.b, z28.b, z29.b}, p7/Z, [x28, #15, MUL VL] : ld3b   +0x0f(%x28)[96byte] %p7/z -> %z27.b %z28.b %z29.b
+a447ffff : ld3b {z31.b, z0.b, z1.b}, p7/Z, [sp, #21, MUL VL] : ld3b   +0x15(%sp)[96byte] %p7/z -> %z31.b %z0.b %z1.b
+
+# LD3D    { <Zt1>.D, <Zt2>.D, <Zt3>.D }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD3D-Z.P.BI-Contiguous)
+a5c8e000 : ld3d {z0.d, z1.d, z2.d}, p0/Z, [x0, #-24, MUL VL] : ld3d   -0x18(%x0)[96byte] %p0/z -> %z0.d %z1.d %z2.d
+a5c9e482 : ld3d {z2.d, z3.d, z4.d}, p1/Z, [x4, #-21, MUL VL] : ld3d   -0x15(%x4)[96byte] %p1/z -> %z2.d %z3.d %z4.d
+a5cae8c4 : ld3d {z4.d, z5.d, z6.d}, p2/Z, [x6, #-18, MUL VL] : ld3d   -0x12(%x6)[96byte] %p2/z -> %z4.d %z5.d %z6.d
+a5cbe906 : ld3d {z6.d, z7.d, z8.d}, p2/Z, [x8, #-15, MUL VL] : ld3d   -0x0f(%x8)[96byte] %p2/z -> %z6.d %z7.d %z8.d
+a5cced48 : ld3d {z8.d, z9.d, z10.d}, p3/Z, [x10, #-12, MUL VL] : ld3d   -0x0c(%x10)[96byte] %p3/z -> %z8.d %z9.d %z10.d
+a5cded6a : ld3d {z10.d, z11.d, z12.d}, p3/Z, [x11, #-9, MUL VL] : ld3d   -0x09(%x11)[96byte] %p3/z -> %z10.d %z11.d %z12.d
+a5cef1ac : ld3d {z12.d, z13.d, z14.d}, p4/Z, [x13, #-6, MUL VL] : ld3d   -0x06(%x13)[96byte] %p4/z -> %z12.d %z13.d %z14.d
+a5cff1ee : ld3d {z14.d, z15.d, z16.d}, p4/Z, [x15, #-3, MUL VL] : ld3d   -0x03(%x15)[96byte] %p4/z -> %z14.d %z15.d %z16.d
+a5c0f630 : ld3d {z16.d, z17.d, z18.d}, p5/Z, [x17, #0, MUL VL] : ld3d   (%x17)[96byte] %p5/z -> %z16.d %z17.d %z18.d
+a5c0f671 : ld3d {z17.d, z18.d, z19.d}, p5/Z, [x19, #0, MUL VL] : ld3d   (%x19)[96byte] %p5/z -> %z17.d %z18.d %z19.d
+a5c1f6b3 : ld3d {z19.d, z20.d, z21.d}, p5/Z, [x21, #3, MUL VL] : ld3d   +0x03(%x21)[96byte] %p5/z -> %z19.d %z20.d %z21.d
+a5c2faf5 : ld3d {z21.d, z22.d, z23.d}, p6/Z, [x23, #6, MUL VL] : ld3d   +0x06(%x23)[96byte] %p6/z -> %z21.d %z22.d %z23.d
+a5c3fb17 : ld3d {z23.d, z24.d, z25.d}, p6/Z, [x24, #9, MUL VL] : ld3d   +0x09(%x24)[96byte] %p6/z -> %z23.d %z24.d %z25.d
+a5c4ff59 : ld3d {z25.d, z26.d, z27.d}, p7/Z, [x26, #12, MUL VL] : ld3d   +0x0c(%x26)[96byte] %p7/z -> %z25.d %z26.d %z27.d
+a5c5ff9b : ld3d {z27.d, z28.d, z29.d}, p7/Z, [x28, #15, MUL VL] : ld3d   +0x0f(%x28)[96byte] %p7/z -> %z27.d %z28.d %z29.d
+a5c7ffff : ld3d {z31.d, z0.d, z1.d}, p7/Z, [sp, #21, MUL VL] : ld3d   +0x15(%sp)[96byte] %p7/z -> %z31.d %z0.d %z1.d
+
+# LD3H    { <Zt1>.H, <Zt2>.H, <Zt3>.H }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD3H-Z.P.BI-Contiguous)
+a4c8e000 : ld3h {z0.h, z1.h, z2.h}, p0/Z, [x0, #-24, MUL VL] : ld3h   -0x18(%x0)[96byte] %p0/z -> %z0.h %z1.h %z2.h
+a4c9e482 : ld3h {z2.h, z3.h, z4.h}, p1/Z, [x4, #-21, MUL VL] : ld3h   -0x15(%x4)[96byte] %p1/z -> %z2.h %z3.h %z4.h
+a4cae8c4 : ld3h {z4.h, z5.h, z6.h}, p2/Z, [x6, #-18, MUL VL] : ld3h   -0x12(%x6)[96byte] %p2/z -> %z4.h %z5.h %z6.h
+a4cbe906 : ld3h {z6.h, z7.h, z8.h}, p2/Z, [x8, #-15, MUL VL] : ld3h   -0x0f(%x8)[96byte] %p2/z -> %z6.h %z7.h %z8.h
+a4cced48 : ld3h {z8.h, z9.h, z10.h}, p3/Z, [x10, #-12, MUL VL] : ld3h   -0x0c(%x10)[96byte] %p3/z -> %z8.h %z9.h %z10.h
+a4cded6a : ld3h {z10.h, z11.h, z12.h}, p3/Z, [x11, #-9, MUL VL] : ld3h   -0x09(%x11)[96byte] %p3/z -> %z10.h %z11.h %z12.h
+a4cef1ac : ld3h {z12.h, z13.h, z14.h}, p4/Z, [x13, #-6, MUL VL] : ld3h   -0x06(%x13)[96byte] %p4/z -> %z12.h %z13.h %z14.h
+a4cff1ee : ld3h {z14.h, z15.h, z16.h}, p4/Z, [x15, #-3, MUL VL] : ld3h   -0x03(%x15)[96byte] %p4/z -> %z14.h %z15.h %z16.h
+a4c0f630 : ld3h {z16.h, z17.h, z18.h}, p5/Z, [x17, #0, MUL VL] : ld3h   (%x17)[96byte] %p5/z -> %z16.h %z17.h %z18.h
+a4c0f671 : ld3h {z17.h, z18.h, z19.h}, p5/Z, [x19, #0, MUL VL] : ld3h   (%x19)[96byte] %p5/z -> %z17.h %z18.h %z19.h
+a4c1f6b3 : ld3h {z19.h, z20.h, z21.h}, p5/Z, [x21, #3, MUL VL] : ld3h   +0x03(%x21)[96byte] %p5/z -> %z19.h %z20.h %z21.h
+a4c2faf5 : ld3h {z21.h, z22.h, z23.h}, p6/Z, [x23, #6, MUL VL] : ld3h   +0x06(%x23)[96byte] %p6/z -> %z21.h %z22.h %z23.h
+a4c3fb17 : ld3h {z23.h, z24.h, z25.h}, p6/Z, [x24, #9, MUL VL] : ld3h   +0x09(%x24)[96byte] %p6/z -> %z23.h %z24.h %z25.h
+a4c4ff59 : ld3h {z25.h, z26.h, z27.h}, p7/Z, [x26, #12, MUL VL] : ld3h   +0x0c(%x26)[96byte] %p7/z -> %z25.h %z26.h %z27.h
+a4c5ff9b : ld3h {z27.h, z28.h, z29.h}, p7/Z, [x28, #15, MUL VL] : ld3h   +0x0f(%x28)[96byte] %p7/z -> %z27.h %z28.h %z29.h
+a4c7ffff : ld3h {z31.h, z0.h, z1.h}, p7/Z, [sp, #21, MUL VL] : ld3h   +0x15(%sp)[96byte] %p7/z -> %z31.h %z0.h %z1.h
+
+# LD3W    { <Zt1>.S, <Zt2>.S, <Zt3>.S }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD3W-Z.P.BI-Contiguous)
+a548e000 : ld3w {z0.s, z1.s, z2.s}, p0/Z, [x0, #-24, MUL VL] : ld3w   -0x18(%x0)[96byte] %p0/z -> %z0.s %z1.s %z2.s
+a549e482 : ld3w {z2.s, z3.s, z4.s}, p1/Z, [x4, #-21, MUL VL] : ld3w   -0x15(%x4)[96byte] %p1/z -> %z2.s %z3.s %z4.s
+a54ae8c4 : ld3w {z4.s, z5.s, z6.s}, p2/Z, [x6, #-18, MUL VL] : ld3w   -0x12(%x6)[96byte] %p2/z -> %z4.s %z5.s %z6.s
+a54be906 : ld3w {z6.s, z7.s, z8.s}, p2/Z, [x8, #-15, MUL VL] : ld3w   -0x0f(%x8)[96byte] %p2/z -> %z6.s %z7.s %z8.s
+a54ced48 : ld3w {z8.s, z9.s, z10.s}, p3/Z, [x10, #-12, MUL VL] : ld3w   -0x0c(%x10)[96byte] %p3/z -> %z8.s %z9.s %z10.s
+a54ded6a : ld3w {z10.s, z11.s, z12.s}, p3/Z, [x11, #-9, MUL VL] : ld3w   -0x09(%x11)[96byte] %p3/z -> %z10.s %z11.s %z12.s
+a54ef1ac : ld3w {z12.s, z13.s, z14.s}, p4/Z, [x13, #-6, MUL VL] : ld3w   -0x06(%x13)[96byte] %p4/z -> %z12.s %z13.s %z14.s
+a54ff1ee : ld3w {z14.s, z15.s, z16.s}, p4/Z, [x15, #-3, MUL VL] : ld3w   -0x03(%x15)[96byte] %p4/z -> %z14.s %z15.s %z16.s
+a540f630 : ld3w {z16.s, z17.s, z18.s}, p5/Z, [x17, #0, MUL VL] : ld3w   (%x17)[96byte] %p5/z -> %z16.s %z17.s %z18.s
+a540f671 : ld3w {z17.s, z18.s, z19.s}, p5/Z, [x19, #0, MUL VL] : ld3w   (%x19)[96byte] %p5/z -> %z17.s %z18.s %z19.s
+a541f6b3 : ld3w {z19.s, z20.s, z21.s}, p5/Z, [x21, #3, MUL VL] : ld3w   +0x03(%x21)[96byte] %p5/z -> %z19.s %z20.s %z21.s
+a542faf5 : ld3w {z21.s, z22.s, z23.s}, p6/Z, [x23, #6, MUL VL] : ld3w   +0x06(%x23)[96byte] %p6/z -> %z21.s %z22.s %z23.s
+a543fb17 : ld3w {z23.s, z24.s, z25.s}, p6/Z, [x24, #9, MUL VL] : ld3w   +0x09(%x24)[96byte] %p6/z -> %z23.s %z24.s %z25.s
+a544ff59 : ld3w {z25.s, z26.s, z27.s}, p7/Z, [x26, #12, MUL VL] : ld3w   +0x0c(%x26)[96byte] %p7/z -> %z25.s %z26.s %z27.s
+a545ff9b : ld3w {z27.s, z28.s, z29.s}, p7/Z, [x28, #15, MUL VL] : ld3w   +0x0f(%x28)[96byte] %p7/z -> %z27.s %z28.s %z29.s
+a547ffff : ld3w {z31.s, z0.s, z1.s}, p7/Z, [sp, #21, MUL VL] : ld3w   +0x15(%sp)[96byte] %p7/z -> %z31.s %z0.s %z1.s
+
 # LD4B    { <Zt1>.B, <Zt2>.B, <Zt3>.B, <Zt4>.B }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD4B-Z.P.BR-Contiguous)
 a460c000 : ld4b {z0.b, z1.b, z2.b, z3.b}, p0/Z, [x0, x0] : ld4b   (%x0,%x0)[128byte] %p0/z -> %z0.b %z1.b %z2.b %z3.b
 a465c482 : ld4b {z2.b, z3.b, z4.b, z5.b}, p1/Z, [x4, x5] : ld4b   (%x4,%x5)[128byte] %p1/z -> %z2.b %z3.b %z4.b %z5.b
@@ -12777,6 +12921,78 @@ a579db17 : ld4w {z23.s, z24.s, z25.s, z26.s}, p6/Z, [x24, x25, LSL #2] : ld4w   
 a57bdf59 : ld4w {z25.s, z26.s, z27.s, z28.s}, p7/Z, [x26, x27, LSL #2] : ld4w   (%x26,%x27,lsl #2)[128byte] %p7/z -> %z25.s %z26.s %z27.s %z28.s
 a57ddf9b : ld4w {z27.s, z28.s, z29.s, z30.s}, p7/Z, [x28, x29, LSL #2] : ld4w   (%x28,%x29,lsl #2)[128byte] %p7/z -> %z27.s %z28.s %z29.s %z30.s
 a57edfff : ld4w {z31.s, z0.s, z1.s, z2.s}, p7/Z, [sp, x30, LSL #2] : ld4w   (%sp,%x30,lsl #2)[128byte] %p7/z -> %z31.s %z0.s %z1.s %z2.s
+
+# LD4B    { <Zt1>.B, <Zt2>.B, <Zt3>.B, <Zt4>.B }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD4B-Z.P.BI-Contiguous)
+a468e000 : ld4b {z0.b, z1.b, z2.b, z3.b}, p0/Z, [x0, #-32, MUL VL] : ld4b   -0x20(%x0)[128byte] %p0/z -> %z0.b %z1.b %z2.b %z3.b
+a469e482 : ld4b {z2.b, z3.b, z4.b, z5.b}, p1/Z, [x4, #-28, MUL VL] : ld4b   -0x1c(%x4)[128byte] %p1/z -> %z2.b %z3.b %z4.b %z5.b
+a46ae8c4 : ld4b {z4.b, z5.b, z6.b, z7.b}, p2/Z, [x6, #-24, MUL VL] : ld4b   -0x18(%x6)[128byte] %p2/z -> %z4.b %z5.b %z6.b %z7.b
+a46be906 : ld4b {z6.b, z7.b, z8.b, z9.b}, p2/Z, [x8, #-20, MUL VL] : ld4b   -0x14(%x8)[128byte] %p2/z -> %z6.b %z7.b %z8.b %z9.b
+a46ced48 : ld4b {z8.b, z9.b, z10.b, z11.b}, p3/Z, [x10, #-16, MUL VL] : ld4b   -0x10(%x10)[128byte] %p3/z -> %z8.b %z9.b %z10.b %z11.b
+a46ded6a : ld4b {z10.b, z11.b, z12.b, z13.b}, p3/Z, [x11, #-12, MUL VL] : ld4b   -0x0c(%x11)[128byte] %p3/z -> %z10.b %z11.b %z12.b %z13.b
+a46ef1ac : ld4b {z12.b, z13.b, z14.b, z15.b}, p4/Z, [x13, #-8, MUL VL] : ld4b   -0x08(%x13)[128byte] %p4/z -> %z12.b %z13.b %z14.b %z15.b
+a46ff1ee : ld4b {z14.b, z15.b, z16.b, z17.b}, p4/Z, [x15, #-4, MUL VL] : ld4b   -0x04(%x15)[128byte] %p4/z -> %z14.b %z15.b %z16.b %z17.b
+a460f630 : ld4b {z16.b, z17.b, z18.b, z19.b}, p5/Z, [x17, #0, MUL VL] : ld4b   (%x17)[128byte] %p5/z -> %z16.b %z17.b %z18.b %z19.b
+a460f671 : ld4b {z17.b, z18.b, z19.b, z20.b}, p5/Z, [x19, #0, MUL VL] : ld4b   (%x19)[128byte] %p5/z -> %z17.b %z18.b %z19.b %z20.b
+a461f6b3 : ld4b {z19.b, z20.b, z21.b, z22.b}, p5/Z, [x21, #4, MUL VL] : ld4b   +0x04(%x21)[128byte] %p5/z -> %z19.b %z20.b %z21.b %z22.b
+a462faf5 : ld4b {z21.b, z22.b, z23.b, z24.b}, p6/Z, [x23, #8, MUL VL] : ld4b   +0x08(%x23)[128byte] %p6/z -> %z21.b %z22.b %z23.b %z24.b
+a463fb17 : ld4b {z23.b, z24.b, z25.b, z26.b}, p6/Z, [x24, #12, MUL VL] : ld4b   +0x0c(%x24)[128byte] %p6/z -> %z23.b %z24.b %z25.b %z26.b
+a464ff59 : ld4b {z25.b, z26.b, z27.b, z28.b}, p7/Z, [x26, #16, MUL VL] : ld4b   +0x10(%x26)[128byte] %p7/z -> %z25.b %z26.b %z27.b %z28.b
+a465ff9b : ld4b {z27.b, z28.b, z29.b, z30.b}, p7/Z, [x28, #20, MUL VL] : ld4b   +0x14(%x28)[128byte] %p7/z -> %z27.b %z28.b %z29.b %z30.b
+a467ffff : ld4b {z31.b, z0.b, z1.b, z2.b}, p7/Z, [sp, #28, MUL VL] : ld4b   +0x1c(%sp)[128byte] %p7/z -> %z31.b %z0.b %z1.b %z2.b
+
+# LD4D    { <Zt1>.D, <Zt2>.D, <Zt3>.D, <Zt4>.D }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD4D-Z.P.BI-Contiguous)
+a5e8e000 : ld4d {z0.d, z1.d, z2.d, z3.d}, p0/Z, [x0, #-32, MUL VL] : ld4d   -0x20(%x0)[128byte] %p0/z -> %z0.d %z1.d %z2.d %z3.d
+a5e9e482 : ld4d {z2.d, z3.d, z4.d, z5.d}, p1/Z, [x4, #-28, MUL VL] : ld4d   -0x1c(%x4)[128byte] %p1/z -> %z2.d %z3.d %z4.d %z5.d
+a5eae8c4 : ld4d {z4.d, z5.d, z6.d, z7.d}, p2/Z, [x6, #-24, MUL VL] : ld4d   -0x18(%x6)[128byte] %p2/z -> %z4.d %z5.d %z6.d %z7.d
+a5ebe906 : ld4d {z6.d, z7.d, z8.d, z9.d}, p2/Z, [x8, #-20, MUL VL] : ld4d   -0x14(%x8)[128byte] %p2/z -> %z6.d %z7.d %z8.d %z9.d
+a5eced48 : ld4d {z8.d, z9.d, z10.d, z11.d}, p3/Z, [x10, #-16, MUL VL] : ld4d   -0x10(%x10)[128byte] %p3/z -> %z8.d %z9.d %z10.d %z11.d
+a5eded6a : ld4d {z10.d, z11.d, z12.d, z13.d}, p3/Z, [x11, #-12, MUL VL] : ld4d   -0x0c(%x11)[128byte] %p3/z -> %z10.d %z11.d %z12.d %z13.d
+a5eef1ac : ld4d {z12.d, z13.d, z14.d, z15.d}, p4/Z, [x13, #-8, MUL VL] : ld4d   -0x08(%x13)[128byte] %p4/z -> %z12.d %z13.d %z14.d %z15.d
+a5eff1ee : ld4d {z14.d, z15.d, z16.d, z17.d}, p4/Z, [x15, #-4, MUL VL] : ld4d   -0x04(%x15)[128byte] %p4/z -> %z14.d %z15.d %z16.d %z17.d
+a5e0f630 : ld4d {z16.d, z17.d, z18.d, z19.d}, p5/Z, [x17, #0, MUL VL] : ld4d   (%x17)[128byte] %p5/z -> %z16.d %z17.d %z18.d %z19.d
+a5e0f671 : ld4d {z17.d, z18.d, z19.d, z20.d}, p5/Z, [x19, #0, MUL VL] : ld4d   (%x19)[128byte] %p5/z -> %z17.d %z18.d %z19.d %z20.d
+a5e1f6b3 : ld4d {z19.d, z20.d, z21.d, z22.d}, p5/Z, [x21, #4, MUL VL] : ld4d   +0x04(%x21)[128byte] %p5/z -> %z19.d %z20.d %z21.d %z22.d
+a5e2faf5 : ld4d {z21.d, z22.d, z23.d, z24.d}, p6/Z, [x23, #8, MUL VL] : ld4d   +0x08(%x23)[128byte] %p6/z -> %z21.d %z22.d %z23.d %z24.d
+a5e3fb17 : ld4d {z23.d, z24.d, z25.d, z26.d}, p6/Z, [x24, #12, MUL VL] : ld4d   +0x0c(%x24)[128byte] %p6/z -> %z23.d %z24.d %z25.d %z26.d
+a5e4ff59 : ld4d {z25.d, z26.d, z27.d, z28.d}, p7/Z, [x26, #16, MUL VL] : ld4d   +0x10(%x26)[128byte] %p7/z -> %z25.d %z26.d %z27.d %z28.d
+a5e5ff9b : ld4d {z27.d, z28.d, z29.d, z30.d}, p7/Z, [x28, #20, MUL VL] : ld4d   +0x14(%x28)[128byte] %p7/z -> %z27.d %z28.d %z29.d %z30.d
+a5e7ffff : ld4d {z31.d, z0.d, z1.d, z2.d}, p7/Z, [sp, #28, MUL VL] : ld4d   +0x1c(%sp)[128byte] %p7/z -> %z31.d %z0.d %z1.d %z2.d
+
+# LD4H    { <Zt1>.H, <Zt2>.H, <Zt3>.H, <Zt4>.H }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD4H-Z.P.BI-Contiguous)
+a4e8e000 : ld4h {z0.h, z1.h, z2.h, z3.h}, p0/Z, [x0, #-32, MUL VL] : ld4h   -0x20(%x0)[128byte] %p0/z -> %z0.h %z1.h %z2.h %z3.h
+a4e9e482 : ld4h {z2.h, z3.h, z4.h, z5.h}, p1/Z, [x4, #-28, MUL VL] : ld4h   -0x1c(%x4)[128byte] %p1/z -> %z2.h %z3.h %z4.h %z5.h
+a4eae8c4 : ld4h {z4.h, z5.h, z6.h, z7.h}, p2/Z, [x6, #-24, MUL VL] : ld4h   -0x18(%x6)[128byte] %p2/z -> %z4.h %z5.h %z6.h %z7.h
+a4ebe906 : ld4h {z6.h, z7.h, z8.h, z9.h}, p2/Z, [x8, #-20, MUL VL] : ld4h   -0x14(%x8)[128byte] %p2/z -> %z6.h %z7.h %z8.h %z9.h
+a4eced48 : ld4h {z8.h, z9.h, z10.h, z11.h}, p3/Z, [x10, #-16, MUL VL] : ld4h   -0x10(%x10)[128byte] %p3/z -> %z8.h %z9.h %z10.h %z11.h
+a4eded6a : ld4h {z10.h, z11.h, z12.h, z13.h}, p3/Z, [x11, #-12, MUL VL] : ld4h   -0x0c(%x11)[128byte] %p3/z -> %z10.h %z11.h %z12.h %z13.h
+a4eef1ac : ld4h {z12.h, z13.h, z14.h, z15.h}, p4/Z, [x13, #-8, MUL VL] : ld4h   -0x08(%x13)[128byte] %p4/z -> %z12.h %z13.h %z14.h %z15.h
+a4eff1ee : ld4h {z14.h, z15.h, z16.h, z17.h}, p4/Z, [x15, #-4, MUL VL] : ld4h   -0x04(%x15)[128byte] %p4/z -> %z14.h %z15.h %z16.h %z17.h
+a4e0f630 : ld4h {z16.h, z17.h, z18.h, z19.h}, p5/Z, [x17, #0, MUL VL] : ld4h   (%x17)[128byte] %p5/z -> %z16.h %z17.h %z18.h %z19.h
+a4e0f671 : ld4h {z17.h, z18.h, z19.h, z20.h}, p5/Z, [x19, #0, MUL VL] : ld4h   (%x19)[128byte] %p5/z -> %z17.h %z18.h %z19.h %z20.h
+a4e1f6b3 : ld4h {z19.h, z20.h, z21.h, z22.h}, p5/Z, [x21, #4, MUL VL] : ld4h   +0x04(%x21)[128byte] %p5/z -> %z19.h %z20.h %z21.h %z22.h
+a4e2faf5 : ld4h {z21.h, z22.h, z23.h, z24.h}, p6/Z, [x23, #8, MUL VL] : ld4h   +0x08(%x23)[128byte] %p6/z -> %z21.h %z22.h %z23.h %z24.h
+a4e3fb17 : ld4h {z23.h, z24.h, z25.h, z26.h}, p6/Z, [x24, #12, MUL VL] : ld4h   +0x0c(%x24)[128byte] %p6/z -> %z23.h %z24.h %z25.h %z26.h
+a4e4ff59 : ld4h {z25.h, z26.h, z27.h, z28.h}, p7/Z, [x26, #16, MUL VL] : ld4h   +0x10(%x26)[128byte] %p7/z -> %z25.h %z26.h %z27.h %z28.h
+a4e5ff9b : ld4h {z27.h, z28.h, z29.h, z30.h}, p7/Z, [x28, #20, MUL VL] : ld4h   +0x14(%x28)[128byte] %p7/z -> %z27.h %z28.h %z29.h %z30.h
+a4e7ffff : ld4h {z31.h, z0.h, z1.h, z2.h}, p7/Z, [sp, #28, MUL VL] : ld4h   +0x1c(%sp)[128byte] %p7/z -> %z31.h %z0.h %z1.h %z2.h
+
+# LD4W    { <Zt1>.S, <Zt2>.S, <Zt3>.S, <Zt4>.S }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LD4W-Z.P.BI-Contiguous)
+a568e000 : ld4w {z0.s, z1.s, z2.s, z3.s}, p0/Z, [x0, #-32, MUL VL] : ld4w   -0x20(%x0)[128byte] %p0/z -> %z0.s %z1.s %z2.s %z3.s
+a569e482 : ld4w {z2.s, z3.s, z4.s, z5.s}, p1/Z, [x4, #-28, MUL VL] : ld4w   -0x1c(%x4)[128byte] %p1/z -> %z2.s %z3.s %z4.s %z5.s
+a56ae8c4 : ld4w {z4.s, z5.s, z6.s, z7.s}, p2/Z, [x6, #-24, MUL VL] : ld4w   -0x18(%x6)[128byte] %p2/z -> %z4.s %z5.s %z6.s %z7.s
+a56be906 : ld4w {z6.s, z7.s, z8.s, z9.s}, p2/Z, [x8, #-20, MUL VL] : ld4w   -0x14(%x8)[128byte] %p2/z -> %z6.s %z7.s %z8.s %z9.s
+a56ced48 : ld4w {z8.s, z9.s, z10.s, z11.s}, p3/Z, [x10, #-16, MUL VL] : ld4w   -0x10(%x10)[128byte] %p3/z -> %z8.s %z9.s %z10.s %z11.s
+a56ded6a : ld4w {z10.s, z11.s, z12.s, z13.s}, p3/Z, [x11, #-12, MUL VL] : ld4w   -0x0c(%x11)[128byte] %p3/z -> %z10.s %z11.s %z12.s %z13.s
+a56ef1ac : ld4w {z12.s, z13.s, z14.s, z15.s}, p4/Z, [x13, #-8, MUL VL] : ld4w   -0x08(%x13)[128byte] %p4/z -> %z12.s %z13.s %z14.s %z15.s
+a56ff1ee : ld4w {z14.s, z15.s, z16.s, z17.s}, p4/Z, [x15, #-4, MUL VL] : ld4w   -0x04(%x15)[128byte] %p4/z -> %z14.s %z15.s %z16.s %z17.s
+a560f630 : ld4w {z16.s, z17.s, z18.s, z19.s}, p5/Z, [x17, #0, MUL VL] : ld4w   (%x17)[128byte] %p5/z -> %z16.s %z17.s %z18.s %z19.s
+a560f671 : ld4w {z17.s, z18.s, z19.s, z20.s}, p5/Z, [x19, #0, MUL VL] : ld4w   (%x19)[128byte] %p5/z -> %z17.s %z18.s %z19.s %z20.s
+a561f6b3 : ld4w {z19.s, z20.s, z21.s, z22.s}, p5/Z, [x21, #4, MUL VL] : ld4w   +0x04(%x21)[128byte] %p5/z -> %z19.s %z20.s %z21.s %z22.s
+a562faf5 : ld4w {z21.s, z22.s, z23.s, z24.s}, p6/Z, [x23, #8, MUL VL] : ld4w   +0x08(%x23)[128byte] %p6/z -> %z21.s %z22.s %z23.s %z24.s
+a563fb17 : ld4w {z23.s, z24.s, z25.s, z26.s}, p6/Z, [x24, #12, MUL VL] : ld4w   +0x0c(%x24)[128byte] %p6/z -> %z23.s %z24.s %z25.s %z26.s
+a564ff59 : ld4w {z25.s, z26.s, z27.s, z28.s}, p7/Z, [x26, #16, MUL VL] : ld4w   +0x10(%x26)[128byte] %p7/z -> %z25.s %z26.s %z27.s %z28.s
+a565ff9b : ld4w {z27.s, z28.s, z29.s, z30.s}, p7/Z, [x28, #20, MUL VL] : ld4w   +0x14(%x28)[128byte] %p7/z -> %z27.s %z28.s %z29.s %z30.s
+a567ffff : ld4w {z31.s, z0.s, z1.s, z2.s}, p7/Z, [sp, #28, MUL VL] : ld4w   +0x1c(%sp)[128byte] %p7/z -> %z31.s %z0.s %z1.s %z2.s
 
 # LDFF1B  { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, <Xm>}] (LDFF1B-Z.P.BR-U16)
 a4206000 : ldff1b z0.h, p0/Z, [x0, x0]               : ldff1b (%x0,%x0)[16byte] %p0/z -> %z0.h
@@ -14537,6 +14753,78 @@ a519db17 : ldnt1w z23.s, p6/Z, [x24, x25, LSL #2]    : ldnt1w (%x24,%x25,lsl #2)
 a51bdf59 : ldnt1w z25.s, p7/Z, [x26, x27, LSL #2]    : ldnt1w (%x26,%x27,lsl #2)[32byte] %p7/z -> %z25.s
 a51ddf9b : ldnt1w z27.s, p7/Z, [x28, x29, LSL #2]    : ldnt1w (%x28,%x29,lsl #2)[32byte] %p7/z -> %z27.s
 a51edfff : ldnt1w z31.s, p7/Z, [sp, x30, LSL #2]     : ldnt1w (%sp,%x30,lsl #2)[32byte] %p7/z -> %z31.s
+
+# LDNT1B  { <Zt>.B }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LDNT1B-Z.P.BI-Contiguous)
+a408e000 : ldnt1b z0.b, p0/Z, [x0, #-8, MUL VL]      : ldnt1b -0x08(%x0)[32byte] %p0/z -> %z0.b
+a409e482 : ldnt1b z2.b, p1/Z, [x4, #-7, MUL VL]      : ldnt1b -0x07(%x4)[32byte] %p1/z -> %z2.b
+a40ae8c4 : ldnt1b z4.b, p2/Z, [x6, #-6, MUL VL]      : ldnt1b -0x06(%x6)[32byte] %p2/z -> %z4.b
+a40be906 : ldnt1b z6.b, p2/Z, [x8, #-5, MUL VL]      : ldnt1b -0x05(%x8)[32byte] %p2/z -> %z6.b
+a40ced48 : ldnt1b z8.b, p3/Z, [x10, #-4, MUL VL]     : ldnt1b -0x04(%x10)[32byte] %p3/z -> %z8.b
+a40ded6a : ldnt1b z10.b, p3/Z, [x11, #-3, MUL VL]    : ldnt1b -0x03(%x11)[32byte] %p3/z -> %z10.b
+a40ef1ac : ldnt1b z12.b, p4/Z, [x13, #-2, MUL VL]    : ldnt1b -0x02(%x13)[32byte] %p4/z -> %z12.b
+a40ff1ee : ldnt1b z14.b, p4/Z, [x15, #-1, MUL VL]    : ldnt1b -0x01(%x15)[32byte] %p4/z -> %z14.b
+a400f630 : ldnt1b z16.b, p5/Z, [x17, #0, MUL VL]     : ldnt1b (%x17)[32byte] %p5/z -> %z16.b
+a400f671 : ldnt1b z17.b, p5/Z, [x19, #0, MUL VL]     : ldnt1b (%x19)[32byte] %p5/z -> %z17.b
+a401f6b3 : ldnt1b z19.b, p5/Z, [x21, #1, MUL VL]     : ldnt1b +0x01(%x21)[32byte] %p5/z -> %z19.b
+a402faf5 : ldnt1b z21.b, p6/Z, [x23, #2, MUL VL]     : ldnt1b +0x02(%x23)[32byte] %p6/z -> %z21.b
+a403fb17 : ldnt1b z23.b, p6/Z, [x24, #3, MUL VL]     : ldnt1b +0x03(%x24)[32byte] %p6/z -> %z23.b
+a404ff59 : ldnt1b z25.b, p7/Z, [x26, #4, MUL VL]     : ldnt1b +0x04(%x26)[32byte] %p7/z -> %z25.b
+a405ff9b : ldnt1b z27.b, p7/Z, [x28, #5, MUL VL]     : ldnt1b +0x05(%x28)[32byte] %p7/z -> %z27.b
+a407ffff : ldnt1b z31.b, p7/Z, [sp, #7, MUL VL]      : ldnt1b +0x07(%sp)[32byte] %p7/z -> %z31.b
+
+# LDNT1D  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LDNT1D-Z.P.BI-Contiguous)
+a588e000 : ldnt1d z0.d, p0/Z, [x0, #-8, MUL VL]      : ldnt1d -0x08(%x0)[32byte] %p0/z -> %z0.d
+a589e482 : ldnt1d z2.d, p1/Z, [x4, #-7, MUL VL]      : ldnt1d -0x07(%x4)[32byte] %p1/z -> %z2.d
+a58ae8c4 : ldnt1d z4.d, p2/Z, [x6, #-6, MUL VL]      : ldnt1d -0x06(%x6)[32byte] %p2/z -> %z4.d
+a58be906 : ldnt1d z6.d, p2/Z, [x8, #-5, MUL VL]      : ldnt1d -0x05(%x8)[32byte] %p2/z -> %z6.d
+a58ced48 : ldnt1d z8.d, p3/Z, [x10, #-4, MUL VL]     : ldnt1d -0x04(%x10)[32byte] %p3/z -> %z8.d
+a58ded6a : ldnt1d z10.d, p3/Z, [x11, #-3, MUL VL]    : ldnt1d -0x03(%x11)[32byte] %p3/z -> %z10.d
+a58ef1ac : ldnt1d z12.d, p4/Z, [x13, #-2, MUL VL]    : ldnt1d -0x02(%x13)[32byte] %p4/z -> %z12.d
+a58ff1ee : ldnt1d z14.d, p4/Z, [x15, #-1, MUL VL]    : ldnt1d -0x01(%x15)[32byte] %p4/z -> %z14.d
+a580f630 : ldnt1d z16.d, p5/Z, [x17, #0, MUL VL]     : ldnt1d (%x17)[32byte] %p5/z -> %z16.d
+a580f671 : ldnt1d z17.d, p5/Z, [x19, #0, MUL VL]     : ldnt1d (%x19)[32byte] %p5/z -> %z17.d
+a581f6b3 : ldnt1d z19.d, p5/Z, [x21, #1, MUL VL]     : ldnt1d +0x01(%x21)[32byte] %p5/z -> %z19.d
+a582faf5 : ldnt1d z21.d, p6/Z, [x23, #2, MUL VL]     : ldnt1d +0x02(%x23)[32byte] %p6/z -> %z21.d
+a583fb17 : ldnt1d z23.d, p6/Z, [x24, #3, MUL VL]     : ldnt1d +0x03(%x24)[32byte] %p6/z -> %z23.d
+a584ff59 : ldnt1d z25.d, p7/Z, [x26, #4, MUL VL]     : ldnt1d +0x04(%x26)[32byte] %p7/z -> %z25.d
+a585ff9b : ldnt1d z27.d, p7/Z, [x28, #5, MUL VL]     : ldnt1d +0x05(%x28)[32byte] %p7/z -> %z27.d
+a587ffff : ldnt1d z31.d, p7/Z, [sp, #7, MUL VL]      : ldnt1d +0x07(%sp)[32byte] %p7/z -> %z31.d
+
+# LDNT1H  { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LDNT1H-Z.P.BI-Contiguous)
+a488e000 : ldnt1h z0.h, p0/Z, [x0, #-8, MUL VL]      : ldnt1h -0x08(%x0)[32byte] %p0/z -> %z0.h
+a489e482 : ldnt1h z2.h, p1/Z, [x4, #-7, MUL VL]      : ldnt1h -0x07(%x4)[32byte] %p1/z -> %z2.h
+a48ae8c4 : ldnt1h z4.h, p2/Z, [x6, #-6, MUL VL]      : ldnt1h -0x06(%x6)[32byte] %p2/z -> %z4.h
+a48be906 : ldnt1h z6.h, p2/Z, [x8, #-5, MUL VL]      : ldnt1h -0x05(%x8)[32byte] %p2/z -> %z6.h
+a48ced48 : ldnt1h z8.h, p3/Z, [x10, #-4, MUL VL]     : ldnt1h -0x04(%x10)[32byte] %p3/z -> %z8.h
+a48ded6a : ldnt1h z10.h, p3/Z, [x11, #-3, MUL VL]    : ldnt1h -0x03(%x11)[32byte] %p3/z -> %z10.h
+a48ef1ac : ldnt1h z12.h, p4/Z, [x13, #-2, MUL VL]    : ldnt1h -0x02(%x13)[32byte] %p4/z -> %z12.h
+a48ff1ee : ldnt1h z14.h, p4/Z, [x15, #-1, MUL VL]    : ldnt1h -0x01(%x15)[32byte] %p4/z -> %z14.h
+a480f630 : ldnt1h z16.h, p5/Z, [x17, #0, MUL VL]     : ldnt1h (%x17)[32byte] %p5/z -> %z16.h
+a480f671 : ldnt1h z17.h, p5/Z, [x19, #0, MUL VL]     : ldnt1h (%x19)[32byte] %p5/z -> %z17.h
+a481f6b3 : ldnt1h z19.h, p5/Z, [x21, #1, MUL VL]     : ldnt1h +0x01(%x21)[32byte] %p5/z -> %z19.h
+a482faf5 : ldnt1h z21.h, p6/Z, [x23, #2, MUL VL]     : ldnt1h +0x02(%x23)[32byte] %p6/z -> %z21.h
+a483fb17 : ldnt1h z23.h, p6/Z, [x24, #3, MUL VL]     : ldnt1h +0x03(%x24)[32byte] %p6/z -> %z23.h
+a484ff59 : ldnt1h z25.h, p7/Z, [x26, #4, MUL VL]     : ldnt1h +0x04(%x26)[32byte] %p7/z -> %z25.h
+a485ff9b : ldnt1h z27.h, p7/Z, [x28, #5, MUL VL]     : ldnt1h +0x05(%x28)[32byte] %p7/z -> %z27.h
+a487ffff : ldnt1h z31.h, p7/Z, [sp, #7, MUL VL]      : ldnt1h +0x07(%sp)[32byte] %p7/z -> %z31.h
+
+# LDNT1W  { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, #<simm>, MUL VL}] (LDNT1W-Z.P.BI-Contiguous)
+a508e000 : ldnt1w z0.s, p0/Z, [x0, #-8, MUL VL]      : ldnt1w -0x08(%x0)[32byte] %p0/z -> %z0.s
+a509e482 : ldnt1w z2.s, p1/Z, [x4, #-7, MUL VL]      : ldnt1w -0x07(%x4)[32byte] %p1/z -> %z2.s
+a50ae8c4 : ldnt1w z4.s, p2/Z, [x6, #-6, MUL VL]      : ldnt1w -0x06(%x6)[32byte] %p2/z -> %z4.s
+a50be906 : ldnt1w z6.s, p2/Z, [x8, #-5, MUL VL]      : ldnt1w -0x05(%x8)[32byte] %p2/z -> %z6.s
+a50ced48 : ldnt1w z8.s, p3/Z, [x10, #-4, MUL VL]     : ldnt1w -0x04(%x10)[32byte] %p3/z -> %z8.s
+a50ded6a : ldnt1w z10.s, p3/Z, [x11, #-3, MUL VL]    : ldnt1w -0x03(%x11)[32byte] %p3/z -> %z10.s
+a50ef1ac : ldnt1w z12.s, p4/Z, [x13, #-2, MUL VL]    : ldnt1w -0x02(%x13)[32byte] %p4/z -> %z12.s
+a50ff1ee : ldnt1w z14.s, p4/Z, [x15, #-1, MUL VL]    : ldnt1w -0x01(%x15)[32byte] %p4/z -> %z14.s
+a500f630 : ldnt1w z16.s, p5/Z, [x17, #0, MUL VL]     : ldnt1w (%x17)[32byte] %p5/z -> %z16.s
+a500f671 : ldnt1w z17.s, p5/Z, [x19, #0, MUL VL]     : ldnt1w (%x19)[32byte] %p5/z -> %z17.s
+a501f6b3 : ldnt1w z19.s, p5/Z, [x21, #1, MUL VL]     : ldnt1w +0x01(%x21)[32byte] %p5/z -> %z19.s
+a502faf5 : ldnt1w z21.s, p6/Z, [x23, #2, MUL VL]     : ldnt1w +0x02(%x23)[32byte] %p6/z -> %z21.s
+a503fb17 : ldnt1w z23.s, p6/Z, [x24, #3, MUL VL]     : ldnt1w +0x03(%x24)[32byte] %p6/z -> %z23.s
+a504ff59 : ldnt1w z25.s, p7/Z, [x26, #4, MUL VL]     : ldnt1w +0x04(%x26)[32byte] %p7/z -> %z25.s
+a505ff9b : ldnt1w z27.s, p7/Z, [x28, #5, MUL VL]     : ldnt1w +0x05(%x28)[32byte] %p7/z -> %z27.s
+a507ffff : ldnt1w z31.s, p7/Z, [sp, #7, MUL VL]      : ldnt1w +0x07(%sp)[32byte] %p7/z -> %z31.s
 
 # LDR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}]
 858043c0 : ldr z0, [x30]                            : ldr    (%x30)[32byte] -> %z0
@@ -21071,6 +21359,78 @@ e53b7f59 : st2w {z25.s, z26.s}, p7, [x26, x27, LSL #2] : st2w   %z25.s %z26.s %p
 e53d7f9b : st2w {z27.s, z28.s}, p7, [x28, x29, LSL #2] : st2w   %z27.s %z28.s %p7 -> (%x28,%x29,lsl #2)[64byte]
 e53e7fff : st2w {z31.s, z0.s}, p7, [sp, x30, LSL #2] : st2w   %z31.s %z0.s %p7 -> (%sp,%x30,lsl #2)[64byte]
 
+# ST2B    { <Zt1>.B, <Zt2>.B }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST2B-Z.P.BI-Contiguous)
+e438e000 : st2b {z0.b, z1.b}, p0, [x0, #-16, MUL VL] : st2b   %z0.b %z1.b %p0 -> -0x10(%x0)[64byte]
+e439e482 : st2b {z2.b, z3.b}, p1, [x4, #-14, MUL VL] : st2b   %z2.b %z3.b %p1 -> -0x0e(%x4)[64byte]
+e43ae8c4 : st2b {z4.b, z5.b}, p2, [x6, #-12, MUL VL] : st2b   %z4.b %z5.b %p2 -> -0x0c(%x6)[64byte]
+e43be906 : st2b {z6.b, z7.b}, p2, [x8, #-10, MUL VL] : st2b   %z6.b %z7.b %p2 -> -0x0a(%x8)[64byte]
+e43ced48 : st2b {z8.b, z9.b}, p3, [x10, #-8, MUL VL] : st2b   %z8.b %z9.b %p3 -> -0x08(%x10)[64byte]
+e43ded6a : st2b {z10.b, z11.b}, p3, [x11, #-6, MUL VL] : st2b   %z10.b %z11.b %p3 -> -0x06(%x11)[64byte]
+e43ef1ac : st2b {z12.b, z13.b}, p4, [x13, #-4, MUL VL] : st2b   %z12.b %z13.b %p4 -> -0x04(%x13)[64byte]
+e43ff1ee : st2b {z14.b, z15.b}, p4, [x15, #-2, MUL VL] : st2b   %z14.b %z15.b %p4 -> -0x02(%x15)[64byte]
+e430f630 : st2b {z16.b, z17.b}, p5, [x17, #0, MUL VL] : st2b   %z16.b %z17.b %p5 -> (%x17)[64byte]
+e430f671 : st2b {z17.b, z18.b}, p5, [x19, #0, MUL VL] : st2b   %z17.b %z18.b %p5 -> (%x19)[64byte]
+e431f6b3 : st2b {z19.b, z20.b}, p5, [x21, #2, MUL VL] : st2b   %z19.b %z20.b %p5 -> +0x02(%x21)[64byte]
+e432faf5 : st2b {z21.b, z22.b}, p6, [x23, #4, MUL VL] : st2b   %z21.b %z22.b %p6 -> +0x04(%x23)[64byte]
+e433fb17 : st2b {z23.b, z24.b}, p6, [x24, #6, MUL VL] : st2b   %z23.b %z24.b %p6 -> +0x06(%x24)[64byte]
+e434ff59 : st2b {z25.b, z26.b}, p7, [x26, #8, MUL VL] : st2b   %z25.b %z26.b %p7 -> +0x08(%x26)[64byte]
+e435ff9b : st2b {z27.b, z28.b}, p7, [x28, #10, MUL VL] : st2b   %z27.b %z28.b %p7 -> +0x0a(%x28)[64byte]
+e437ffff : st2b {z31.b, z0.b}, p7, [sp, #14, MUL VL] : st2b   %z31.b %z0.b %p7 -> +0x0e(%sp)[64byte]
+
+# ST2D    { <Zt1>.D, <Zt2>.D }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST2D-Z.P.BI-Contiguous)
+e5b8e000 : st2d {z0.d, z1.d}, p0, [x0, #-16, MUL VL] : st2d   %z0.d %z1.d %p0 -> -0x10(%x0)[64byte]
+e5b9e482 : st2d {z2.d, z3.d}, p1, [x4, #-14, MUL VL] : st2d   %z2.d %z3.d %p1 -> -0x0e(%x4)[64byte]
+e5bae8c4 : st2d {z4.d, z5.d}, p2, [x6, #-12, MUL VL] : st2d   %z4.d %z5.d %p2 -> -0x0c(%x6)[64byte]
+e5bbe906 : st2d {z6.d, z7.d}, p2, [x8, #-10, MUL VL] : st2d   %z6.d %z7.d %p2 -> -0x0a(%x8)[64byte]
+e5bced48 : st2d {z8.d, z9.d}, p3, [x10, #-8, MUL VL] : st2d   %z8.d %z9.d %p3 -> -0x08(%x10)[64byte]
+e5bded6a : st2d {z10.d, z11.d}, p3, [x11, #-6, MUL VL] : st2d   %z10.d %z11.d %p3 -> -0x06(%x11)[64byte]
+e5bef1ac : st2d {z12.d, z13.d}, p4, [x13, #-4, MUL VL] : st2d   %z12.d %z13.d %p4 -> -0x04(%x13)[64byte]
+e5bff1ee : st2d {z14.d, z15.d}, p4, [x15, #-2, MUL VL] : st2d   %z14.d %z15.d %p4 -> -0x02(%x15)[64byte]
+e5b0f630 : st2d {z16.d, z17.d}, p5, [x17, #0, MUL VL] : st2d   %z16.d %z17.d %p5 -> (%x17)[64byte]
+e5b0f671 : st2d {z17.d, z18.d}, p5, [x19, #0, MUL VL] : st2d   %z17.d %z18.d %p5 -> (%x19)[64byte]
+e5b1f6b3 : st2d {z19.d, z20.d}, p5, [x21, #2, MUL VL] : st2d   %z19.d %z20.d %p5 -> +0x02(%x21)[64byte]
+e5b2faf5 : st2d {z21.d, z22.d}, p6, [x23, #4, MUL VL] : st2d   %z21.d %z22.d %p6 -> +0x04(%x23)[64byte]
+e5b3fb17 : st2d {z23.d, z24.d}, p6, [x24, #6, MUL VL] : st2d   %z23.d %z24.d %p6 -> +0x06(%x24)[64byte]
+e5b4ff59 : st2d {z25.d, z26.d}, p7, [x26, #8, MUL VL] : st2d   %z25.d %z26.d %p7 -> +0x08(%x26)[64byte]
+e5b5ff9b : st2d {z27.d, z28.d}, p7, [x28, #10, MUL VL] : st2d   %z27.d %z28.d %p7 -> +0x0a(%x28)[64byte]
+e5b7ffff : st2d {z31.d, z0.d}, p7, [sp, #14, MUL VL] : st2d   %z31.d %z0.d %p7 -> +0x0e(%sp)[64byte]
+
+# ST2H    { <Zt1>.H, <Zt2>.H }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST2H-Z.P.BI-Contiguous)
+e4b8e000 : st2h {z0.h, z1.h}, p0, [x0, #-16, MUL VL] : st2h   %z0.h %z1.h %p0 -> -0x10(%x0)[64byte]
+e4b9e482 : st2h {z2.h, z3.h}, p1, [x4, #-14, MUL VL] : st2h   %z2.h %z3.h %p1 -> -0x0e(%x4)[64byte]
+e4bae8c4 : st2h {z4.h, z5.h}, p2, [x6, #-12, MUL VL] : st2h   %z4.h %z5.h %p2 -> -0x0c(%x6)[64byte]
+e4bbe906 : st2h {z6.h, z7.h}, p2, [x8, #-10, MUL VL] : st2h   %z6.h %z7.h %p2 -> -0x0a(%x8)[64byte]
+e4bced48 : st2h {z8.h, z9.h}, p3, [x10, #-8, MUL VL] : st2h   %z8.h %z9.h %p3 -> -0x08(%x10)[64byte]
+e4bded6a : st2h {z10.h, z11.h}, p3, [x11, #-6, MUL VL] : st2h   %z10.h %z11.h %p3 -> -0x06(%x11)[64byte]
+e4bef1ac : st2h {z12.h, z13.h}, p4, [x13, #-4, MUL VL] : st2h   %z12.h %z13.h %p4 -> -0x04(%x13)[64byte]
+e4bff1ee : st2h {z14.h, z15.h}, p4, [x15, #-2, MUL VL] : st2h   %z14.h %z15.h %p4 -> -0x02(%x15)[64byte]
+e4b0f630 : st2h {z16.h, z17.h}, p5, [x17, #0, MUL VL] : st2h   %z16.h %z17.h %p5 -> (%x17)[64byte]
+e4b0f671 : st2h {z17.h, z18.h}, p5, [x19, #0, MUL VL] : st2h   %z17.h %z18.h %p5 -> (%x19)[64byte]
+e4b1f6b3 : st2h {z19.h, z20.h}, p5, [x21, #2, MUL VL] : st2h   %z19.h %z20.h %p5 -> +0x02(%x21)[64byte]
+e4b2faf5 : st2h {z21.h, z22.h}, p6, [x23, #4, MUL VL] : st2h   %z21.h %z22.h %p6 -> +0x04(%x23)[64byte]
+e4b3fb17 : st2h {z23.h, z24.h}, p6, [x24, #6, MUL VL] : st2h   %z23.h %z24.h %p6 -> +0x06(%x24)[64byte]
+e4b4ff59 : st2h {z25.h, z26.h}, p7, [x26, #8, MUL VL] : st2h   %z25.h %z26.h %p7 -> +0x08(%x26)[64byte]
+e4b5ff9b : st2h {z27.h, z28.h}, p7, [x28, #10, MUL VL] : st2h   %z27.h %z28.h %p7 -> +0x0a(%x28)[64byte]
+e4b7ffff : st2h {z31.h, z0.h}, p7, [sp, #14, MUL VL] : st2h   %z31.h %z0.h %p7 -> +0x0e(%sp)[64byte]
+
+# ST2W    { <Zt1>.S, <Zt2>.S }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST2W-Z.P.BI-Contiguous)
+e538e000 : st2w {z0.s, z1.s}, p0, [x0, #-16, MUL VL] : st2w   %z0.s %z1.s %p0 -> -0x10(%x0)[64byte]
+e539e482 : st2w {z2.s, z3.s}, p1, [x4, #-14, MUL VL] : st2w   %z2.s %z3.s %p1 -> -0x0e(%x4)[64byte]
+e53ae8c4 : st2w {z4.s, z5.s}, p2, [x6, #-12, MUL VL] : st2w   %z4.s %z5.s %p2 -> -0x0c(%x6)[64byte]
+e53be906 : st2w {z6.s, z7.s}, p2, [x8, #-10, MUL VL] : st2w   %z6.s %z7.s %p2 -> -0x0a(%x8)[64byte]
+e53ced48 : st2w {z8.s, z9.s}, p3, [x10, #-8, MUL VL] : st2w   %z8.s %z9.s %p3 -> -0x08(%x10)[64byte]
+e53ded6a : st2w {z10.s, z11.s}, p3, [x11, #-6, MUL VL] : st2w   %z10.s %z11.s %p3 -> -0x06(%x11)[64byte]
+e53ef1ac : st2w {z12.s, z13.s}, p4, [x13, #-4, MUL VL] : st2w   %z12.s %z13.s %p4 -> -0x04(%x13)[64byte]
+e53ff1ee : st2w {z14.s, z15.s}, p4, [x15, #-2, MUL VL] : st2w   %z14.s %z15.s %p4 -> -0x02(%x15)[64byte]
+e530f630 : st2w {z16.s, z17.s}, p5, [x17, #0, MUL VL] : st2w   %z16.s %z17.s %p5 -> (%x17)[64byte]
+e530f671 : st2w {z17.s, z18.s}, p5, [x19, #0, MUL VL] : st2w   %z17.s %z18.s %p5 -> (%x19)[64byte]
+e531f6b3 : st2w {z19.s, z20.s}, p5, [x21, #2, MUL VL] : st2w   %z19.s %z20.s %p5 -> +0x02(%x21)[64byte]
+e532faf5 : st2w {z21.s, z22.s}, p6, [x23, #4, MUL VL] : st2w   %z21.s %z22.s %p6 -> +0x04(%x23)[64byte]
+e533fb17 : st2w {z23.s, z24.s}, p6, [x24, #6, MUL VL] : st2w   %z23.s %z24.s %p6 -> +0x06(%x24)[64byte]
+e534ff59 : st2w {z25.s, z26.s}, p7, [x26, #8, MUL VL] : st2w   %z25.s %z26.s %p7 -> +0x08(%x26)[64byte]
+e535ff9b : st2w {z27.s, z28.s}, p7, [x28, #10, MUL VL] : st2w   %z27.s %z28.s %p7 -> +0x0a(%x28)[64byte]
+e537ffff : st2w {z31.s, z0.s}, p7, [sp, #14, MUL VL] : st2w   %z31.s %z0.s %p7 -> +0x0e(%sp)[64byte]
+
 # ST3B    { <Zt1>.B, <Zt2>.B, <Zt3>.B }, <Pg>, [<Xn|SP>, <Xm>] (ST3B-Z.P.BR-Contiguous)
 e4406000 : st3b {z0.b, z1.b, z2.b}, p0, [x0, x0]     : st3b   %z0.b %z1.b %z2.b %p0 -> (%x0,%x0)[96byte]
 e4456482 : st3b {z2.b, z3.b, z4.b}, p1, [x4, x5]     : st3b   %z2.b %z3.b %z4.b %p1 -> (%x4,%x5)[96byte]
@@ -21142,6 +21502,78 @@ e5597b17 : st3w {z23.s, z24.s, z25.s}, p6, [x24, x25, LSL #2] : st3w   %z23.s %z
 e55b7f59 : st3w {z25.s, z26.s, z27.s}, p7, [x26, x27, LSL #2] : st3w   %z25.s %z26.s %z27.s %p7 -> (%x26,%x27,lsl #2)[96byte]
 e55d7f9b : st3w {z27.s, z28.s, z29.s}, p7, [x28, x29, LSL #2] : st3w   %z27.s %z28.s %z29.s %p7 -> (%x28,%x29,lsl #2)[96byte]
 e55e7fff : st3w {z31.s, z0.s, z1.s}, p7, [sp, x30, LSL #2] : st3w   %z31.s %z0.s %z1.s %p7 -> (%sp,%x30,lsl #2)[96byte]
+
+# ST3B    { <Zt1>.B, <Zt2>.B, <Zt3>.B }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST3B-Z.P.BI-Contiguous)
+e458e000 : st3b {z0.b, z1.b, z2.b}, p0, [x0, #-24, MUL VL] : st3b   %z0.b %z1.b %z2.b %p0 -> -0x18(%x0)[96byte]
+e459e482 : st3b {z2.b, z3.b, z4.b}, p1, [x4, #-21, MUL VL] : st3b   %z2.b %z3.b %z4.b %p1 -> -0x15(%x4)[96byte]
+e45ae8c4 : st3b {z4.b, z5.b, z6.b}, p2, [x6, #-18, MUL VL] : st3b   %z4.b %z5.b %z6.b %p2 -> -0x12(%x6)[96byte]
+e45be906 : st3b {z6.b, z7.b, z8.b}, p2, [x8, #-15, MUL VL] : st3b   %z6.b %z7.b %z8.b %p2 -> -0x0f(%x8)[96byte]
+e45ced48 : st3b {z8.b, z9.b, z10.b}, p3, [x10, #-12, MUL VL] : st3b   %z8.b %z9.b %z10.b %p3 -> -0x0c(%x10)[96byte]
+e45ded6a : st3b {z10.b, z11.b, z12.b}, p3, [x11, #-9, MUL VL] : st3b   %z10.b %z11.b %z12.b %p3 -> -0x09(%x11)[96byte]
+e45ef1ac : st3b {z12.b, z13.b, z14.b}, p4, [x13, #-6, MUL VL] : st3b   %z12.b %z13.b %z14.b %p4 -> -0x06(%x13)[96byte]
+e45ff1ee : st3b {z14.b, z15.b, z16.b}, p4, [x15, #-3, MUL VL] : st3b   %z14.b %z15.b %z16.b %p4 -> -0x03(%x15)[96byte]
+e450f630 : st3b {z16.b, z17.b, z18.b}, p5, [x17, #0, MUL VL] : st3b   %z16.b %z17.b %z18.b %p5 -> (%x17)[96byte]
+e450f671 : st3b {z17.b, z18.b, z19.b}, p5, [x19, #0, MUL VL] : st3b   %z17.b %z18.b %z19.b %p5 -> (%x19)[96byte]
+e451f6b3 : st3b {z19.b, z20.b, z21.b}, p5, [x21, #3, MUL VL] : st3b   %z19.b %z20.b %z21.b %p5 -> +0x03(%x21)[96byte]
+e452faf5 : st3b {z21.b, z22.b, z23.b}, p6, [x23, #6, MUL VL] : st3b   %z21.b %z22.b %z23.b %p6 -> +0x06(%x23)[96byte]
+e453fb17 : st3b {z23.b, z24.b, z25.b}, p6, [x24, #9, MUL VL] : st3b   %z23.b %z24.b %z25.b %p6 -> +0x09(%x24)[96byte]
+e454ff59 : st3b {z25.b, z26.b, z27.b}, p7, [x26, #12, MUL VL] : st3b   %z25.b %z26.b %z27.b %p7 -> +0x0c(%x26)[96byte]
+e455ff9b : st3b {z27.b, z28.b, z29.b}, p7, [x28, #15, MUL VL] : st3b   %z27.b %z28.b %z29.b %p7 -> +0x0f(%x28)[96byte]
+e457ffff : st3b {z31.b, z0.b, z1.b}, p7, [sp, #21, MUL VL] : st3b   %z31.b %z0.b %z1.b %p7 -> +0x15(%sp)[96byte]
+
+# ST3D    { <Zt1>.D, <Zt2>.D, <Zt3>.D }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST3D-Z.P.BI-Contiguous)
+e5d8e000 : st3d {z0.d, z1.d, z2.d}, p0, [x0, #-24, MUL VL] : st3d   %z0.d %z1.d %z2.d %p0 -> -0x18(%x0)[96byte]
+e5d9e482 : st3d {z2.d, z3.d, z4.d}, p1, [x4, #-21, MUL VL] : st3d   %z2.d %z3.d %z4.d %p1 -> -0x15(%x4)[96byte]
+e5dae8c4 : st3d {z4.d, z5.d, z6.d}, p2, [x6, #-18, MUL VL] : st3d   %z4.d %z5.d %z6.d %p2 -> -0x12(%x6)[96byte]
+e5dbe906 : st3d {z6.d, z7.d, z8.d}, p2, [x8, #-15, MUL VL] : st3d   %z6.d %z7.d %z8.d %p2 -> -0x0f(%x8)[96byte]
+e5dced48 : st3d {z8.d, z9.d, z10.d}, p3, [x10, #-12, MUL VL] : st3d   %z8.d %z9.d %z10.d %p3 -> -0x0c(%x10)[96byte]
+e5dded6a : st3d {z10.d, z11.d, z12.d}, p3, [x11, #-9, MUL VL] : st3d   %z10.d %z11.d %z12.d %p3 -> -0x09(%x11)[96byte]
+e5def1ac : st3d {z12.d, z13.d, z14.d}, p4, [x13, #-6, MUL VL] : st3d   %z12.d %z13.d %z14.d %p4 -> -0x06(%x13)[96byte]
+e5dff1ee : st3d {z14.d, z15.d, z16.d}, p4, [x15, #-3, MUL VL] : st3d   %z14.d %z15.d %z16.d %p4 -> -0x03(%x15)[96byte]
+e5d0f630 : st3d {z16.d, z17.d, z18.d}, p5, [x17, #0, MUL VL] : st3d   %z16.d %z17.d %z18.d %p5 -> (%x17)[96byte]
+e5d0f671 : st3d {z17.d, z18.d, z19.d}, p5, [x19, #0, MUL VL] : st3d   %z17.d %z18.d %z19.d %p5 -> (%x19)[96byte]
+e5d1f6b3 : st3d {z19.d, z20.d, z21.d}, p5, [x21, #3, MUL VL] : st3d   %z19.d %z20.d %z21.d %p5 -> +0x03(%x21)[96byte]
+e5d2faf5 : st3d {z21.d, z22.d, z23.d}, p6, [x23, #6, MUL VL] : st3d   %z21.d %z22.d %z23.d %p6 -> +0x06(%x23)[96byte]
+e5d3fb17 : st3d {z23.d, z24.d, z25.d}, p6, [x24, #9, MUL VL] : st3d   %z23.d %z24.d %z25.d %p6 -> +0x09(%x24)[96byte]
+e5d4ff59 : st3d {z25.d, z26.d, z27.d}, p7, [x26, #12, MUL VL] : st3d   %z25.d %z26.d %z27.d %p7 -> +0x0c(%x26)[96byte]
+e5d5ff9b : st3d {z27.d, z28.d, z29.d}, p7, [x28, #15, MUL VL] : st3d   %z27.d %z28.d %z29.d %p7 -> +0x0f(%x28)[96byte]
+e5d7ffff : st3d {z31.d, z0.d, z1.d}, p7, [sp, #21, MUL VL] : st3d   %z31.d %z0.d %z1.d %p7 -> +0x15(%sp)[96byte]
+
+# ST3H    { <Zt1>.H, <Zt2>.H, <Zt3>.H }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST3H-Z.P.BI-Contiguous)
+e4d8e000 : st3h {z0.h, z1.h, z2.h}, p0, [x0, #-24, MUL VL] : st3h   %z0.h %z1.h %z2.h %p0 -> -0x18(%x0)[96byte]
+e4d9e482 : st3h {z2.h, z3.h, z4.h}, p1, [x4, #-21, MUL VL] : st3h   %z2.h %z3.h %z4.h %p1 -> -0x15(%x4)[96byte]
+e4dae8c4 : st3h {z4.h, z5.h, z6.h}, p2, [x6, #-18, MUL VL] : st3h   %z4.h %z5.h %z6.h %p2 -> -0x12(%x6)[96byte]
+e4dbe906 : st3h {z6.h, z7.h, z8.h}, p2, [x8, #-15, MUL VL] : st3h   %z6.h %z7.h %z8.h %p2 -> -0x0f(%x8)[96byte]
+e4dced48 : st3h {z8.h, z9.h, z10.h}, p3, [x10, #-12, MUL VL] : st3h   %z8.h %z9.h %z10.h %p3 -> -0x0c(%x10)[96byte]
+e4dded6a : st3h {z10.h, z11.h, z12.h}, p3, [x11, #-9, MUL VL] : st3h   %z10.h %z11.h %z12.h %p3 -> -0x09(%x11)[96byte]
+e4def1ac : st3h {z12.h, z13.h, z14.h}, p4, [x13, #-6, MUL VL] : st3h   %z12.h %z13.h %z14.h %p4 -> -0x06(%x13)[96byte]
+e4dff1ee : st3h {z14.h, z15.h, z16.h}, p4, [x15, #-3, MUL VL] : st3h   %z14.h %z15.h %z16.h %p4 -> -0x03(%x15)[96byte]
+e4d0f630 : st3h {z16.h, z17.h, z18.h}, p5, [x17, #0, MUL VL] : st3h   %z16.h %z17.h %z18.h %p5 -> (%x17)[96byte]
+e4d0f671 : st3h {z17.h, z18.h, z19.h}, p5, [x19, #0, MUL VL] : st3h   %z17.h %z18.h %z19.h %p5 -> (%x19)[96byte]
+e4d1f6b3 : st3h {z19.h, z20.h, z21.h}, p5, [x21, #3, MUL VL] : st3h   %z19.h %z20.h %z21.h %p5 -> +0x03(%x21)[96byte]
+e4d2faf5 : st3h {z21.h, z22.h, z23.h}, p6, [x23, #6, MUL VL] : st3h   %z21.h %z22.h %z23.h %p6 -> +0x06(%x23)[96byte]
+e4d3fb17 : st3h {z23.h, z24.h, z25.h}, p6, [x24, #9, MUL VL] : st3h   %z23.h %z24.h %z25.h %p6 -> +0x09(%x24)[96byte]
+e4d4ff59 : st3h {z25.h, z26.h, z27.h}, p7, [x26, #12, MUL VL] : st3h   %z25.h %z26.h %z27.h %p7 -> +0x0c(%x26)[96byte]
+e4d5ff9b : st3h {z27.h, z28.h, z29.h}, p7, [x28, #15, MUL VL] : st3h   %z27.h %z28.h %z29.h %p7 -> +0x0f(%x28)[96byte]
+e4d7ffff : st3h {z31.h, z0.h, z1.h}, p7, [sp, #21, MUL VL] : st3h   %z31.h %z0.h %z1.h %p7 -> +0x15(%sp)[96byte]
+
+# ST3W    { <Zt1>.S, <Zt2>.S, <Zt3>.S }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST3W-Z.P.BI-Contiguous)
+e558e000 : st3w {z0.s, z1.s, z2.s}, p0, [x0, #-24, MUL VL] : st3w   %z0.s %z1.s %z2.s %p0 -> -0x18(%x0)[96byte]
+e559e482 : st3w {z2.s, z3.s, z4.s}, p1, [x4, #-21, MUL VL] : st3w   %z2.s %z3.s %z4.s %p1 -> -0x15(%x4)[96byte]
+e55ae8c4 : st3w {z4.s, z5.s, z6.s}, p2, [x6, #-18, MUL VL] : st3w   %z4.s %z5.s %z6.s %p2 -> -0x12(%x6)[96byte]
+e55be906 : st3w {z6.s, z7.s, z8.s}, p2, [x8, #-15, MUL VL] : st3w   %z6.s %z7.s %z8.s %p2 -> -0x0f(%x8)[96byte]
+e55ced48 : st3w {z8.s, z9.s, z10.s}, p3, [x10, #-12, MUL VL] : st3w   %z8.s %z9.s %z10.s %p3 -> -0x0c(%x10)[96byte]
+e55ded6a : st3w {z10.s, z11.s, z12.s}, p3, [x11, #-9, MUL VL] : st3w   %z10.s %z11.s %z12.s %p3 -> -0x09(%x11)[96byte]
+e55ef1ac : st3w {z12.s, z13.s, z14.s}, p4, [x13, #-6, MUL VL] : st3w   %z12.s %z13.s %z14.s %p4 -> -0x06(%x13)[96byte]
+e55ff1ee : st3w {z14.s, z15.s, z16.s}, p4, [x15, #-3, MUL VL] : st3w   %z14.s %z15.s %z16.s %p4 -> -0x03(%x15)[96byte]
+e550f630 : st3w {z16.s, z17.s, z18.s}, p5, [x17, #0, MUL VL] : st3w   %z16.s %z17.s %z18.s %p5 -> (%x17)[96byte]
+e550f671 : st3w {z17.s, z18.s, z19.s}, p5, [x19, #0, MUL VL] : st3w   %z17.s %z18.s %z19.s %p5 -> (%x19)[96byte]
+e551f6b3 : st3w {z19.s, z20.s, z21.s}, p5, [x21, #3, MUL VL] : st3w   %z19.s %z20.s %z21.s %p5 -> +0x03(%x21)[96byte]
+e552faf5 : st3w {z21.s, z22.s, z23.s}, p6, [x23, #6, MUL VL] : st3w   %z21.s %z22.s %z23.s %p6 -> +0x06(%x23)[96byte]
+e553fb17 : st3w {z23.s, z24.s, z25.s}, p6, [x24, #9, MUL VL] : st3w   %z23.s %z24.s %z25.s %p6 -> +0x09(%x24)[96byte]
+e554ff59 : st3w {z25.s, z26.s, z27.s}, p7, [x26, #12, MUL VL] : st3w   %z25.s %z26.s %z27.s %p7 -> +0x0c(%x26)[96byte]
+e555ff9b : st3w {z27.s, z28.s, z29.s}, p7, [x28, #15, MUL VL] : st3w   %z27.s %z28.s %z29.s %p7 -> +0x0f(%x28)[96byte]
+e557ffff : st3w {z31.s, z0.s, z1.s}, p7, [sp, #21, MUL VL] : st3w   %z31.s %z0.s %z1.s %p7 -> +0x15(%sp)[96byte]
 
 # ST4B    { <Zt1>.B, <Zt2>.B, <Zt3>.B, <Zt4>.B }, <Pg>, [<Xn|SP>, <Xm>] (ST4B-Z.P.BR-Contiguous)
 e4606000 : st4b {z0.b, z1.b, z2.b, z3.b}, p0, [x0, x0] : st4b   %z0.b %z1.b %z2.b %z3.b %p0 -> (%x0,%x0)[128byte]
@@ -21215,6 +21647,78 @@ e57b7f59 : st4w {z25.s, z26.s, z27.s, z28.s}, p7, [x26, x27, LSL #2] : st4w   %z
 e57d7f9b : st4w {z27.s, z28.s, z29.s, z30.s}, p7, [x28, x29, LSL #2] : st4w   %z27.s %z28.s %z29.s %z30.s %p7 -> (%x28,%x29,lsl #2)[128byte]
 e57e7fff : st4w {z31.s, z0.s, z1.s, z2.s}, p7, [sp, x30, LSL #2] : st4w   %z31.s %z0.s %z1.s %z2.s %p7 -> (%sp,%x30,lsl #2)[128byte]
 
+# ST4B    { <Zt1>.B, <Zt2>.B, <Zt3>.B, <Zt4>.B }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST4B-Z.P.BI-Contiguous)
+e478e000 : st4b {z0.b, z1.b, z2.b, z3.b}, p0, [x0, #-32, MUL VL] : st4b   %z0.b %z1.b %z2.b %z3.b %p0 -> -0x20(%x0)[128byte]
+e479e482 : st4b {z2.b, z3.b, z4.b, z5.b}, p1, [x4, #-28, MUL VL] : st4b   %z2.b %z3.b %z4.b %z5.b %p1 -> -0x1c(%x4)[128byte]
+e47ae8c4 : st4b {z4.b, z5.b, z6.b, z7.b}, p2, [x6, #-24, MUL VL] : st4b   %z4.b %z5.b %z6.b %z7.b %p2 -> -0x18(%x6)[128byte]
+e47be906 : st4b {z6.b, z7.b, z8.b, z9.b}, p2, [x8, #-20, MUL VL] : st4b   %z6.b %z7.b %z8.b %z9.b %p2 -> -0x14(%x8)[128byte]
+e47ced48 : st4b {z8.b, z9.b, z10.b, z11.b}, p3, [x10, #-16, MUL VL] : st4b   %z8.b %z9.b %z10.b %z11.b %p3 -> -0x10(%x10)[128byte]
+e47ded6a : st4b {z10.b, z11.b, z12.b, z13.b}, p3, [x11, #-12, MUL VL] : st4b   %z10.b %z11.b %z12.b %z13.b %p3 -> -0x0c(%x11)[128byte]
+e47ef1ac : st4b {z12.b, z13.b, z14.b, z15.b}, p4, [x13, #-8, MUL VL] : st4b   %z12.b %z13.b %z14.b %z15.b %p4 -> -0x08(%x13)[128byte]
+e47ff1ee : st4b {z14.b, z15.b, z16.b, z17.b}, p4, [x15, #-4, MUL VL] : st4b   %z14.b %z15.b %z16.b %z17.b %p4 -> -0x04(%x15)[128byte]
+e470f630 : st4b {z16.b, z17.b, z18.b, z19.b}, p5, [x17, #0, MUL VL] : st4b   %z16.b %z17.b %z18.b %z19.b %p5 -> (%x17)[128byte]
+e470f671 : st4b {z17.b, z18.b, z19.b, z20.b}, p5, [x19, #0, MUL VL] : st4b   %z17.b %z18.b %z19.b %z20.b %p5 -> (%x19)[128byte]
+e471f6b3 : st4b {z19.b, z20.b, z21.b, z22.b}, p5, [x21, #4, MUL VL] : st4b   %z19.b %z20.b %z21.b %z22.b %p5 -> +0x04(%x21)[128byte]
+e472faf5 : st4b {z21.b, z22.b, z23.b, z24.b}, p6, [x23, #8, MUL VL] : st4b   %z21.b %z22.b %z23.b %z24.b %p6 -> +0x08(%x23)[128byte]
+e473fb17 : st4b {z23.b, z24.b, z25.b, z26.b}, p6, [x24, #12, MUL VL] : st4b   %z23.b %z24.b %z25.b %z26.b %p6 -> +0x0c(%x24)[128byte]
+e474ff59 : st4b {z25.b, z26.b, z27.b, z28.b}, p7, [x26, #16, MUL VL] : st4b   %z25.b %z26.b %z27.b %z28.b %p7 -> +0x10(%x26)[128byte]
+e475ff9b : st4b {z27.b, z28.b, z29.b, z30.b}, p7, [x28, #20, MUL VL] : st4b   %z27.b %z28.b %z29.b %z30.b %p7 -> +0x14(%x28)[128byte]
+e477ffff : st4b {z31.b, z0.b, z1.b, z2.b}, p7, [sp, #28, MUL VL] : st4b   %z31.b %z0.b %z1.b %z2.b %p7 -> +0x1c(%sp)[128byte]
+
+# ST4D    { <Zt1>.D, <Zt2>.D, <Zt3>.D, <Zt4>.D }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST4D-Z.P.BI-Contiguous)
+e5f8e000 : st4d {z0.d, z1.d, z2.d, z3.d}, p0, [x0, #-32, MUL VL] : st4d   %z0.d %z1.d %z2.d %z3.d %p0 -> -0x20(%x0)[128byte]
+e5f9e482 : st4d {z2.d, z3.d, z4.d, z5.d}, p1, [x4, #-28, MUL VL] : st4d   %z2.d %z3.d %z4.d %z5.d %p1 -> -0x1c(%x4)[128byte]
+e5fae8c4 : st4d {z4.d, z5.d, z6.d, z7.d}, p2, [x6, #-24, MUL VL] : st4d   %z4.d %z5.d %z6.d %z7.d %p2 -> -0x18(%x6)[128byte]
+e5fbe906 : st4d {z6.d, z7.d, z8.d, z9.d}, p2, [x8, #-20, MUL VL] : st4d   %z6.d %z7.d %z8.d %z9.d %p2 -> -0x14(%x8)[128byte]
+e5fced48 : st4d {z8.d, z9.d, z10.d, z11.d}, p3, [x10, #-16, MUL VL] : st4d   %z8.d %z9.d %z10.d %z11.d %p3 -> -0x10(%x10)[128byte]
+e5fded6a : st4d {z10.d, z11.d, z12.d, z13.d}, p3, [x11, #-12, MUL VL] : st4d   %z10.d %z11.d %z12.d %z13.d %p3 -> -0x0c(%x11)[128byte]
+e5fef1ac : st4d {z12.d, z13.d, z14.d, z15.d}, p4, [x13, #-8, MUL VL] : st4d   %z12.d %z13.d %z14.d %z15.d %p4 -> -0x08(%x13)[128byte]
+e5fff1ee : st4d {z14.d, z15.d, z16.d, z17.d}, p4, [x15, #-4, MUL VL] : st4d   %z14.d %z15.d %z16.d %z17.d %p4 -> -0x04(%x15)[128byte]
+e5f0f630 : st4d {z16.d, z17.d, z18.d, z19.d}, p5, [x17, #0, MUL VL] : st4d   %z16.d %z17.d %z18.d %z19.d %p5 -> (%x17)[128byte]
+e5f0f671 : st4d {z17.d, z18.d, z19.d, z20.d}, p5, [x19, #0, MUL VL] : st4d   %z17.d %z18.d %z19.d %z20.d %p5 -> (%x19)[128byte]
+e5f1f6b3 : st4d {z19.d, z20.d, z21.d, z22.d}, p5, [x21, #4, MUL VL] : st4d   %z19.d %z20.d %z21.d %z22.d %p5 -> +0x04(%x21)[128byte]
+e5f2faf5 : st4d {z21.d, z22.d, z23.d, z24.d}, p6, [x23, #8, MUL VL] : st4d   %z21.d %z22.d %z23.d %z24.d %p6 -> +0x08(%x23)[128byte]
+e5f3fb17 : st4d {z23.d, z24.d, z25.d, z26.d}, p6, [x24, #12, MUL VL] : st4d   %z23.d %z24.d %z25.d %z26.d %p6 -> +0x0c(%x24)[128byte]
+e5f4ff59 : st4d {z25.d, z26.d, z27.d, z28.d}, p7, [x26, #16, MUL VL] : st4d   %z25.d %z26.d %z27.d %z28.d %p7 -> +0x10(%x26)[128byte]
+e5f5ff9b : st4d {z27.d, z28.d, z29.d, z30.d}, p7, [x28, #20, MUL VL] : st4d   %z27.d %z28.d %z29.d %z30.d %p7 -> +0x14(%x28)[128byte]
+e5f7ffff : st4d {z31.d, z0.d, z1.d, z2.d}, p7, [sp, #28, MUL VL] : st4d   %z31.d %z0.d %z1.d %z2.d %p7 -> +0x1c(%sp)[128byte]
+
+# ST4H    { <Zt1>.H, <Zt2>.H, <Zt3>.H, <Zt4>.H }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST4H-Z.P.BI-Contiguous)
+e4f8e000 : st4h {z0.h, z1.h, z2.h, z3.h}, p0, [x0, #-32, MUL VL] : st4h   %z0.h %z1.h %z2.h %z3.h %p0 -> -0x20(%x0)[128byte]
+e4f9e482 : st4h {z2.h, z3.h, z4.h, z5.h}, p1, [x4, #-28, MUL VL] : st4h   %z2.h %z3.h %z4.h %z5.h %p1 -> -0x1c(%x4)[128byte]
+e4fae8c4 : st4h {z4.h, z5.h, z6.h, z7.h}, p2, [x6, #-24, MUL VL] : st4h   %z4.h %z5.h %z6.h %z7.h %p2 -> -0x18(%x6)[128byte]
+e4fbe906 : st4h {z6.h, z7.h, z8.h, z9.h}, p2, [x8, #-20, MUL VL] : st4h   %z6.h %z7.h %z8.h %z9.h %p2 -> -0x14(%x8)[128byte]
+e4fced48 : st4h {z8.h, z9.h, z10.h, z11.h}, p3, [x10, #-16, MUL VL] : st4h   %z8.h %z9.h %z10.h %z11.h %p3 -> -0x10(%x10)[128byte]
+e4fded6a : st4h {z10.h, z11.h, z12.h, z13.h}, p3, [x11, #-12, MUL VL] : st4h   %z10.h %z11.h %z12.h %z13.h %p3 -> -0x0c(%x11)[128byte]
+e4fef1ac : st4h {z12.h, z13.h, z14.h, z15.h}, p4, [x13, #-8, MUL VL] : st4h   %z12.h %z13.h %z14.h %z15.h %p4 -> -0x08(%x13)[128byte]
+e4fff1ee : st4h {z14.h, z15.h, z16.h, z17.h}, p4, [x15, #-4, MUL VL] : st4h   %z14.h %z15.h %z16.h %z17.h %p4 -> -0x04(%x15)[128byte]
+e4f0f630 : st4h {z16.h, z17.h, z18.h, z19.h}, p5, [x17, #0, MUL VL] : st4h   %z16.h %z17.h %z18.h %z19.h %p5 -> (%x17)[128byte]
+e4f0f671 : st4h {z17.h, z18.h, z19.h, z20.h}, p5, [x19, #0, MUL VL] : st4h   %z17.h %z18.h %z19.h %z20.h %p5 -> (%x19)[128byte]
+e4f1f6b3 : st4h {z19.h, z20.h, z21.h, z22.h}, p5, [x21, #4, MUL VL] : st4h   %z19.h %z20.h %z21.h %z22.h %p5 -> +0x04(%x21)[128byte]
+e4f2faf5 : st4h {z21.h, z22.h, z23.h, z24.h}, p6, [x23, #8, MUL VL] : st4h   %z21.h %z22.h %z23.h %z24.h %p6 -> +0x08(%x23)[128byte]
+e4f3fb17 : st4h {z23.h, z24.h, z25.h, z26.h}, p6, [x24, #12, MUL VL] : st4h   %z23.h %z24.h %z25.h %z26.h %p6 -> +0x0c(%x24)[128byte]
+e4f4ff59 : st4h {z25.h, z26.h, z27.h, z28.h}, p7, [x26, #16, MUL VL] : st4h   %z25.h %z26.h %z27.h %z28.h %p7 -> +0x10(%x26)[128byte]
+e4f5ff9b : st4h {z27.h, z28.h, z29.h, z30.h}, p7, [x28, #20, MUL VL] : st4h   %z27.h %z28.h %z29.h %z30.h %p7 -> +0x14(%x28)[128byte]
+e4f7ffff : st4h {z31.h, z0.h, z1.h, z2.h}, p7, [sp, #28, MUL VL] : st4h   %z31.h %z0.h %z1.h %z2.h %p7 -> +0x1c(%sp)[128byte]
+
+# ST4W    { <Zt1>.S, <Zt2>.S, <Zt3>.S, <Zt4>.S }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (ST4W-Z.P.BI-Contiguous)
+e578e000 : st4w {z0.s, z1.s, z2.s, z3.s}, p0, [x0, #-32, MUL VL] : st4w   %z0.s %z1.s %z2.s %z3.s %p0 -> -0x20(%x0)[128byte]
+e579e482 : st4w {z2.s, z3.s, z4.s, z5.s}, p1, [x4, #-28, MUL VL] : st4w   %z2.s %z3.s %z4.s %z5.s %p1 -> -0x1c(%x4)[128byte]
+e57ae8c4 : st4w {z4.s, z5.s, z6.s, z7.s}, p2, [x6, #-24, MUL VL] : st4w   %z4.s %z5.s %z6.s %z7.s %p2 -> -0x18(%x6)[128byte]
+e57be906 : st4w {z6.s, z7.s, z8.s, z9.s}, p2, [x8, #-20, MUL VL] : st4w   %z6.s %z7.s %z8.s %z9.s %p2 -> -0x14(%x8)[128byte]
+e57ced48 : st4w {z8.s, z9.s, z10.s, z11.s}, p3, [x10, #-16, MUL VL] : st4w   %z8.s %z9.s %z10.s %z11.s %p3 -> -0x10(%x10)[128byte]
+e57ded6a : st4w {z10.s, z11.s, z12.s, z13.s}, p3, [x11, #-12, MUL VL] : st4w   %z10.s %z11.s %z12.s %z13.s %p3 -> -0x0c(%x11)[128byte]
+e57ef1ac : st4w {z12.s, z13.s, z14.s, z15.s}, p4, [x13, #-8, MUL VL] : st4w   %z12.s %z13.s %z14.s %z15.s %p4 -> -0x08(%x13)[128byte]
+e57ff1ee : st4w {z14.s, z15.s, z16.s, z17.s}, p4, [x15, #-4, MUL VL] : st4w   %z14.s %z15.s %z16.s %z17.s %p4 -> -0x04(%x15)[128byte]
+e570f630 : st4w {z16.s, z17.s, z18.s, z19.s}, p5, [x17, #0, MUL VL] : st4w   %z16.s %z17.s %z18.s %z19.s %p5 -> (%x17)[128byte]
+e570f671 : st4w {z17.s, z18.s, z19.s, z20.s}, p5, [x19, #0, MUL VL] : st4w   %z17.s %z18.s %z19.s %z20.s %p5 -> (%x19)[128byte]
+e571f6b3 : st4w {z19.s, z20.s, z21.s, z22.s}, p5, [x21, #4, MUL VL] : st4w   %z19.s %z20.s %z21.s %z22.s %p5 -> +0x04(%x21)[128byte]
+e572faf5 : st4w {z21.s, z22.s, z23.s, z24.s}, p6, [x23, #8, MUL VL] : st4w   %z21.s %z22.s %z23.s %z24.s %p6 -> +0x08(%x23)[128byte]
+e573fb17 : st4w {z23.s, z24.s, z25.s, z26.s}, p6, [x24, #12, MUL VL] : st4w   %z23.s %z24.s %z25.s %z26.s %p6 -> +0x0c(%x24)[128byte]
+e574ff59 : st4w {z25.s, z26.s, z27.s, z28.s}, p7, [x26, #16, MUL VL] : st4w   %z25.s %z26.s %z27.s %z28.s %p7 -> +0x10(%x26)[128byte]
+e575ff9b : st4w {z27.s, z28.s, z29.s, z30.s}, p7, [x28, #20, MUL VL] : st4w   %z27.s %z28.s %z29.s %z30.s %p7 -> +0x14(%x28)[128byte]
+e577ffff : st4w {z31.s, z0.s, z1.s, z2.s}, p7, [sp, #28, MUL VL] : st4w   %z31.s %z0.s %z1.s %z2.s %p7 -> +0x1c(%sp)[128byte]
+
 # STNT1B  { <Zt>.B }, <Pg>, [<Xn|SP>, <Xm>] (STNT1B-Z.P.BR-Contiguous)
 e4006000 : stnt1b z0.b, p0, [x0, x0]                 : stnt1b %z0.b %p0 -> (%x0,%x0)[32byte]
 e4056482 : stnt1b z2.b, p1, [x4, x5]                 : stnt1b %z2.b %p1 -> (%x4,%x5)[32byte]
@@ -21286,6 +21790,78 @@ e5197b17 : stnt1w z23.s, p6, [x24, x25, LSL #2]      : stnt1w %z23.s %p6 -> (%x2
 e51b7f59 : stnt1w z25.s, p7, [x26, x27, LSL #2]      : stnt1w %z25.s %p7 -> (%x26,%x27,lsl #2)[32byte]
 e51d7f9b : stnt1w z27.s, p7, [x28, x29, LSL #2]      : stnt1w %z27.s %p7 -> (%x28,%x29,lsl #2)[32byte]
 e51e7fff : stnt1w z31.s, p7, [sp, x30, LSL #2]       : stnt1w %z31.s %p7 -> (%sp,%x30,lsl #2)[32byte]
+
+# STNT1B  { <Zt>.B }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (STNT1B-Z.P.BI-Contiguous)
+e418e000 : stnt1b z0.b, p0, [x0, #-8, MUL VL]        : stnt1b %z0.b %p0 -> -0x08(%x0)[32byte]
+e419e482 : stnt1b z2.b, p1, [x4, #-7, MUL VL]        : stnt1b %z2.b %p1 -> -0x07(%x4)[32byte]
+e41ae8c4 : stnt1b z4.b, p2, [x6, #-6, MUL VL]        : stnt1b %z4.b %p2 -> -0x06(%x6)[32byte]
+e41be906 : stnt1b z6.b, p2, [x8, #-5, MUL VL]        : stnt1b %z6.b %p2 -> -0x05(%x8)[32byte]
+e41ced48 : stnt1b z8.b, p3, [x10, #-4, MUL VL]       : stnt1b %z8.b %p3 -> -0x04(%x10)[32byte]
+e41ded6a : stnt1b z10.b, p3, [x11, #-3, MUL VL]      : stnt1b %z10.b %p3 -> -0x03(%x11)[32byte]
+e41ef1ac : stnt1b z12.b, p4, [x13, #-2, MUL VL]      : stnt1b %z12.b %p4 -> -0x02(%x13)[32byte]
+e41ff1ee : stnt1b z14.b, p4, [x15, #-1, MUL VL]      : stnt1b %z14.b %p4 -> -0x01(%x15)[32byte]
+e410f630 : stnt1b z16.b, p5, [x17, #0, MUL VL]       : stnt1b %z16.b %p5 -> (%x17)[32byte]
+e410f671 : stnt1b z17.b, p5, [x19, #0, MUL VL]       : stnt1b %z17.b %p5 -> (%x19)[32byte]
+e411f6b3 : stnt1b z19.b, p5, [x21, #1, MUL VL]       : stnt1b %z19.b %p5 -> +0x01(%x21)[32byte]
+e412faf5 : stnt1b z21.b, p6, [x23, #2, MUL VL]       : stnt1b %z21.b %p6 -> +0x02(%x23)[32byte]
+e413fb17 : stnt1b z23.b, p6, [x24, #3, MUL VL]       : stnt1b %z23.b %p6 -> +0x03(%x24)[32byte]
+e414ff59 : stnt1b z25.b, p7, [x26, #4, MUL VL]       : stnt1b %z25.b %p7 -> +0x04(%x26)[32byte]
+e415ff9b : stnt1b z27.b, p7, [x28, #5, MUL VL]       : stnt1b %z27.b %p7 -> +0x05(%x28)[32byte]
+e417ffff : stnt1b z31.b, p7, [sp, #7, MUL VL]        : stnt1b %z31.b %p7 -> +0x07(%sp)[32byte]
+
+# STNT1D  { <Zt>.D }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (STNT1D-Z.P.BI-Contiguous)
+e598e000 : stnt1d z0.d, p0, [x0, #-8, MUL VL]        : stnt1d %z0.d %p0 -> -0x08(%x0)[32byte]
+e599e482 : stnt1d z2.d, p1, [x4, #-7, MUL VL]        : stnt1d %z2.d %p1 -> -0x07(%x4)[32byte]
+e59ae8c4 : stnt1d z4.d, p2, [x6, #-6, MUL VL]        : stnt1d %z4.d %p2 -> -0x06(%x6)[32byte]
+e59be906 : stnt1d z6.d, p2, [x8, #-5, MUL VL]        : stnt1d %z6.d %p2 -> -0x05(%x8)[32byte]
+e59ced48 : stnt1d z8.d, p3, [x10, #-4, MUL VL]       : stnt1d %z8.d %p3 -> -0x04(%x10)[32byte]
+e59ded6a : stnt1d z10.d, p3, [x11, #-3, MUL VL]      : stnt1d %z10.d %p3 -> -0x03(%x11)[32byte]
+e59ef1ac : stnt1d z12.d, p4, [x13, #-2, MUL VL]      : stnt1d %z12.d %p4 -> -0x02(%x13)[32byte]
+e59ff1ee : stnt1d z14.d, p4, [x15, #-1, MUL VL]      : stnt1d %z14.d %p4 -> -0x01(%x15)[32byte]
+e590f630 : stnt1d z16.d, p5, [x17, #0, MUL VL]       : stnt1d %z16.d %p5 -> (%x17)[32byte]
+e590f671 : stnt1d z17.d, p5, [x19, #0, MUL VL]       : stnt1d %z17.d %p5 -> (%x19)[32byte]
+e591f6b3 : stnt1d z19.d, p5, [x21, #1, MUL VL]       : stnt1d %z19.d %p5 -> +0x01(%x21)[32byte]
+e592faf5 : stnt1d z21.d, p6, [x23, #2, MUL VL]       : stnt1d %z21.d %p6 -> +0x02(%x23)[32byte]
+e593fb17 : stnt1d z23.d, p6, [x24, #3, MUL VL]       : stnt1d %z23.d %p6 -> +0x03(%x24)[32byte]
+e594ff59 : stnt1d z25.d, p7, [x26, #4, MUL VL]       : stnt1d %z25.d %p7 -> +0x04(%x26)[32byte]
+e595ff9b : stnt1d z27.d, p7, [x28, #5, MUL VL]       : stnt1d %z27.d %p7 -> +0x05(%x28)[32byte]
+e597ffff : stnt1d z31.d, p7, [sp, #7, MUL VL]        : stnt1d %z31.d %p7 -> +0x07(%sp)[32byte]
+
+# STNT1H  { <Zt>.H }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (STNT1H-Z.P.BI-Contiguous)
+e498e000 : stnt1h z0.h, p0, [x0, #-8, MUL VL]        : stnt1h %z0.h %p0 -> -0x08(%x0)[32byte]
+e499e482 : stnt1h z2.h, p1, [x4, #-7, MUL VL]        : stnt1h %z2.h %p1 -> -0x07(%x4)[32byte]
+e49ae8c4 : stnt1h z4.h, p2, [x6, #-6, MUL VL]        : stnt1h %z4.h %p2 -> -0x06(%x6)[32byte]
+e49be906 : stnt1h z6.h, p2, [x8, #-5, MUL VL]        : stnt1h %z6.h %p2 -> -0x05(%x8)[32byte]
+e49ced48 : stnt1h z8.h, p3, [x10, #-4, MUL VL]       : stnt1h %z8.h %p3 -> -0x04(%x10)[32byte]
+e49ded6a : stnt1h z10.h, p3, [x11, #-3, MUL VL]      : stnt1h %z10.h %p3 -> -0x03(%x11)[32byte]
+e49ef1ac : stnt1h z12.h, p4, [x13, #-2, MUL VL]      : stnt1h %z12.h %p4 -> -0x02(%x13)[32byte]
+e49ff1ee : stnt1h z14.h, p4, [x15, #-1, MUL VL]      : stnt1h %z14.h %p4 -> -0x01(%x15)[32byte]
+e490f630 : stnt1h z16.h, p5, [x17, #0, MUL VL]       : stnt1h %z16.h %p5 -> (%x17)[32byte]
+e490f671 : stnt1h z17.h, p5, [x19, #0, MUL VL]       : stnt1h %z17.h %p5 -> (%x19)[32byte]
+e491f6b3 : stnt1h z19.h, p5, [x21, #1, MUL VL]       : stnt1h %z19.h %p5 -> +0x01(%x21)[32byte]
+e492faf5 : stnt1h z21.h, p6, [x23, #2, MUL VL]       : stnt1h %z21.h %p6 -> +0x02(%x23)[32byte]
+e493fb17 : stnt1h z23.h, p6, [x24, #3, MUL VL]       : stnt1h %z23.h %p6 -> +0x03(%x24)[32byte]
+e494ff59 : stnt1h z25.h, p7, [x26, #4, MUL VL]       : stnt1h %z25.h %p7 -> +0x04(%x26)[32byte]
+e495ff9b : stnt1h z27.h, p7, [x28, #5, MUL VL]       : stnt1h %z27.h %p7 -> +0x05(%x28)[32byte]
+e497ffff : stnt1h z31.h, p7, [sp, #7, MUL VL]        : stnt1h %z31.h %p7 -> +0x07(%sp)[32byte]
+
+# STNT1W  { <Zt>.S }, <Pg>, [<Xn|SP>{, #<simm>, MUL VL}] (STNT1W-Z.P.BI-Contiguous)
+e518e000 : stnt1w z0.s, p0, [x0, #-8, MUL VL]        : stnt1w %z0.s %p0 -> -0x08(%x0)[32byte]
+e519e482 : stnt1w z2.s, p1, [x4, #-7, MUL VL]        : stnt1w %z2.s %p1 -> -0x07(%x4)[32byte]
+e51ae8c4 : stnt1w z4.s, p2, [x6, #-6, MUL VL]        : stnt1w %z4.s %p2 -> -0x06(%x6)[32byte]
+e51be906 : stnt1w z6.s, p2, [x8, #-5, MUL VL]        : stnt1w %z6.s %p2 -> -0x05(%x8)[32byte]
+e51ced48 : stnt1w z8.s, p3, [x10, #-4, MUL VL]       : stnt1w %z8.s %p3 -> -0x04(%x10)[32byte]
+e51ded6a : stnt1w z10.s, p3, [x11, #-3, MUL VL]      : stnt1w %z10.s %p3 -> -0x03(%x11)[32byte]
+e51ef1ac : stnt1w z12.s, p4, [x13, #-2, MUL VL]      : stnt1w %z12.s %p4 -> -0x02(%x13)[32byte]
+e51ff1ee : stnt1w z14.s, p4, [x15, #-1, MUL VL]      : stnt1w %z14.s %p4 -> -0x01(%x15)[32byte]
+e510f630 : stnt1w z16.s, p5, [x17, #0, MUL VL]       : stnt1w %z16.s %p5 -> (%x17)[32byte]
+e510f671 : stnt1w z17.s, p5, [x19, #0, MUL VL]       : stnt1w %z17.s %p5 -> (%x19)[32byte]
+e511f6b3 : stnt1w z19.s, p5, [x21, #1, MUL VL]       : stnt1w %z19.s %p5 -> +0x01(%x21)[32byte]
+e512faf5 : stnt1w z21.s, p6, [x23, #2, MUL VL]       : stnt1w %z21.s %p6 -> +0x02(%x23)[32byte]
+e513fb17 : stnt1w z23.s, p6, [x24, #3, MUL VL]       : stnt1w %z23.s %p6 -> +0x03(%x24)[32byte]
+e514ff59 : stnt1w z25.s, p7, [x26, #4, MUL VL]       : stnt1w %z25.s %p7 -> +0x04(%x26)[32byte]
+e515ff9b : stnt1w z27.s, p7, [x28, #5, MUL VL]       : stnt1w %z27.s %p7 -> +0x05(%x28)[32byte]
+e517ffff : stnt1w z31.s, p7, [sp, #7, MUL VL]        : stnt1w %z31.s %p7 -> +0x07(%sp)[32byte]
 
 # STR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}]
 e58043c0 : str z0, [x30]                            : str    %z0 -> (%x30)[32byte]
