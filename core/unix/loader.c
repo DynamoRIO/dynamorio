@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -731,8 +731,8 @@ privload_os_finalize(privmod_t *privmod)
         SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed glro");
         return;
     }
-#    define GLRO_dl_tls_static_size_OFFS 0x2a8
-#    define GLRO_dl_tls_static_align_OFFS 0x2b0
+#    define GLRO_dl_tls_static_size_OFFS IF_X64_ELSE(0x2a8, 0x31c)
+#    define GLRO_dl_tls_static_align_OFFS IF_X64_ELSE(0x2b0, 0x320)
     size_t val = 4096, written;
     if (!safe_write_ex(glro + GLRO_dl_tls_static_size_OFFS, sizeof(val), &val,
                        &written) ||
