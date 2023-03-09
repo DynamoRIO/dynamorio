@@ -36,9 +36,20 @@
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
+file_reader_t<std::ifstream *>::file_reader_t()
+{
+    input_file_ = nullptr;
+}
+
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
 file_reader_t<std::ifstream *>::~file_reader_t()
 {
-    delete input_file_;
+    if (input_file_ != nullptr) {
+        delete input_file_;
+        input_file_ = nullptr;
+    }
 }
 
 template <>

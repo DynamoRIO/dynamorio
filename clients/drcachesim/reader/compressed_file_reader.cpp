@@ -77,8 +77,10 @@ template <>
 /* clang-format on */
 file_reader_t<gzip_reader_t>::~file_reader_t<gzip_reader_t>()
 {
-    if (input_file_.file != nullptr)
+    if (input_file_.file != nullptr) {
         gzclose(input_file_.file);
+        input_file_.file = nullptr;
+    }
 }
 
 template <>

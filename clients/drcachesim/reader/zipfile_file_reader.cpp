@@ -42,8 +42,10 @@ template <>
 /* clang-format on */
 file_reader_t<zipfile_reader_t>::~file_reader_t<zipfile_reader_t>()
 {
-    if (input_file_.file != nullptr)
+    if (input_file_.file != nullptr) {
         unzClose(input_file_.file);
+        input_file_.file = nullptr;
+    }
 }
 
 template <>
