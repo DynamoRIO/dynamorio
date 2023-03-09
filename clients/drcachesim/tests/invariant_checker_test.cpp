@@ -182,23 +182,21 @@ check_branch_target_after_branch()
 
         // Arm encoding.
         // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
-#ifdef X86
-        //        3e519:       74 0c                   je     3e527 <_start+0xc7>
 
-        std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-            //            make_instr(TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
-            //            0x71019dbc, { 0x74, 0x0c }, 1),
-            // Insert the wrong pc here.
-            gen_instr(1, 20)
-        };
+        // x86 encoding:
+        // 3e519:       74 0c                   je     3e527 <_start+0xc7>
+
+#ifdef X86
+
+        std::vector<memref_t> memrefs = { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE,
+                                                     OFFLINE_FILE_TYPE_ENCODINGS),
+                                          gen_branch(1, 0x71019dbc, { 0x74, 0x0c }),
+                                          // Insert the wrong pc here.
+                                          gen_instr(1, 20) };
 
 #else
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-            //            make_instr(TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
-            //            0x71019dbc,
-            //            0x540001a1, 1),
             gen_branch(1, 0x71019dbc, 0x540001a1),
             // Insert the wrong pc here.
             gen_instr(1, 20),
