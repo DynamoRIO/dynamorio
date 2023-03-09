@@ -187,9 +187,15 @@ check_branch_target_after_branch()
         //        memrefs[0].instr.encoding_is_new = true;
         //        memrefs[0].instr.encoding = "540001a1";
 
+#ifdef X86
+#else
         std::vector<memref_t> memrefs = { make_instr(TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
-                                                     0x71019dbc, 0x540001a1, 1) };
+                                                     0x71019dbc, 0x540001a1, 1),
+                                          // Insert the wrong pc here.
+                                          gen_instr(1, 20) };
+#endif
     }
+
     return true;
 }
 
