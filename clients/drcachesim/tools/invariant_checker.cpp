@@ -405,24 +405,25 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // and look for gaps after branches.
         }
 
+        // TODO(sahil): Only check direct branches.
         if (shard->prev_instr_.instr.addr != 0 &&
             type_is_instr_branch(shard->prev_instr_.instr.type)) {
             // TODO(sahil): Figure out how to filter out legacy traces and check for that
             // in this if statement.
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_)) {
             }
-            //            void *dcontext = GLOBAL_DCONTEXT;
+            void *dcontext = GLOBAL_DCONTEXT;
 
-            //            instr_t instr;
-            //            instr_init(dcontext, &instr);
+            instr_t instr;
+            instr_init(dcontext, &instr);
+            const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
+            const app_pc decode_pc = const_cast<app_pc>(memref.instr.encoding);
+            const app_pc next_pc =
+                decode_from_copy(dcontext, decode_pc, trace_pc, &instr);
 
-            //            const app_pc trace_pc =
-            //            reinterpret_cast<app_pc>(memref.instr.addr); const app_pc
-            //            decode_pc = const_cast<app_pc>(memref.instr.encoding); const
-            //            app_pc next_pc =
-            //                decode_from_copy(dcontext, decode_pc, trace_pc, &instr);
+            // Check that next_pc is not null.
 
-            //            opnd_t target = instr_get_target(&instr);
+            opnd_t target = instr_get_target(&instr);
             //            const app_pc target_pc = opnd_get_pc(target);
         }
 #ifdef UNIX

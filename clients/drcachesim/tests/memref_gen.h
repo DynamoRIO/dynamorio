@@ -38,6 +38,7 @@
 
 namespace {
 
+// TODO(sahil): Rename this.
 inline memref_t
 make_instr(trace_type_t type, addr_t pc, int encoding, memref_tid_t tid = 0)
 {
@@ -75,7 +76,7 @@ gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc, size_t size = 1)
 }
 
 inline memref_t
-gen_instr(memref_tid_t tid, addr_t pc, size_t size = 1)
+gen_instr(memref_tid_t tid, addr_t pc, size_t size = 1, int encoding = 0)
 {
     return gen_instr_type(TRACE_TYPE_INSTR, tid, pc, size);
 }
