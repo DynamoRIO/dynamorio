@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -718,7 +718,8 @@ privload_os_finalize(privmod_t *privmod)
     LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s\n", __FUNCTION__, LIBC_GET_VERSION_NAME);
     const char *ver = (*libc_ver)();
     LOG(GLOBAL, LOG_LOADER, 2, "%s: libc version is |%s|\n", __FUNCTION__, ver);
-    if ((ver[0] == '\0' || ver[0] < '2') || ver[1] != '.' || ver[2] < '3' || ver[3] < '4')
+    if ((ver[0] == '\0' || ver[0] < '2') || ver[1] != '.' || ver[2] < '3' ||
+        (ver[2] == '3' && ver[3] < '4'))
         return;
     if (privmod_ld_linux == NULL) {
         SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed ld");
@@ -731,8 +732,16 @@ privload_os_finalize(privmod_t *privmod)
         SYSLOG_INTERNAL_WARNING("glibc 2.34+ i#5437 workaround failed: missed glro");
         return;
     }
-#    define GLRO_dl_tls_static_size_OFFS 0x2a8
-#    define GLRO_dl_tls_static_align_OFFS 0x2b0
+#    ifdef X64
+    const int GLRO_dl_tls_static_size_OFFS = 0x2a8;
+    const int GLRO_dl_tls_static_align_OFFS = 0x2b0;
+#    else
+    // The offsets changed between 2.35 and 2.36.
+    const int GLRO_dl_tls_static_size_OFFS =
+        (ver[2] == '3' && ver[3] == '5') ? 0x328 : 0x31c;
+    const int GLRO_dl_tls_static_align_OFFS =
+        (ver[2] == '3' && ver[3] == '5') ? 0x32c : 0x320;
+#    endif
     size_t val = 4096, written;
     if (!safe_write_ex(glro + GLRO_dl_tls_static_size_OFFS, sizeof(val), &val,
                        &written) ||
