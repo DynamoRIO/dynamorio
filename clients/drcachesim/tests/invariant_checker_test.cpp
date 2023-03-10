@@ -201,11 +201,11 @@ check_branch_target_after_branch()
             // Insert the wrong pc here.
             gen_instr(1, 20),
         };
+#endif
 
         if (!run_checker(memrefs, true, 1)) {
             return false;
         }
-#endif
     }
 
     return true;
