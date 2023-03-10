@@ -187,21 +187,21 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             // We delay printing until we know the tid.
             if (trace_version_ == -1) {
                 trace_version_ = static_cast<int>(memref.marker.marker_value);
-                version_record_ord_ = memstream->get_record_ordinal();
             } else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
                 error_string_ = std::string("Version mismatch across files");
                 return false;
             }
+            version_record_ord_ = memstream->get_record_ordinal();
             return true; // Do not count toward -sim_refs yet b/c we don't have tid.
         case TRACE_MARKER_TYPE_FILETYPE:
             // We delay printing until we know the tid.
             if (filetype_ == -1) {
                 filetype_ = static_cast<intptr_t>(memref.marker.marker_value);
-                filetype_record_ord_ = memstream->get_record_ordinal();
             } else if (filetype_ != static_cast<intptr_t>(memref.marker.marker_value)) {
                 error_string_ = std::string("Filetype mismatch across files");
                 return false;
             }
+            filetype_record_ord_ = memstream->get_record_ordinal();
             if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
                 !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
                 error_string_ = std::string("Architecture mismatch: trace recorded on ") +
@@ -368,6 +368,9 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_MARKER_TYPE_RECORD_ORDINAL:
             std::cerr << "<marker: record ordinal 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_WINDOW_ID:
+            // Handled above.
             break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -109,39 +109,35 @@ test_skip_initial()
         std::stringstream res_stream(res);
         // Example output for -skip_instrs 49:
         //    Output format:
-        //    <record#> <instr#>: T<tid> <record details>
+        //    <--record#-> <--instr#->: <---tid---> <record details>
         //    ------------------------------------------------------------
-        //            0       49: T3854659 <marker: timestamp 13312570674112282>
-        //            0       49: T3854659 <marker: tid 3854659 on core 3>
-        //           62       50: T3854659 ifetch       2 byte(s) @ 0x0000000000401030 75
+        //              69          49:     3854659 <marker: timestamp 13312570674112282>
+        //              70          49:     3854659 <marker: tid 3854659 on core 3>
+        //              71          50:     3854659 ifetch    2 byte(s) @ 0x0000000401 ...
         //                                   d9                jnz    $0x000000000040100b
         std::string line;
         // First we expect "Output format:"
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "Output format"), "missing header");
-        // Next we expect "<record#> <instr#>: T<tid> <record details>"
+        // Next we expect "<--record#-> <--instr#->: <---tid---> <record details>"
         std::getline(res_stream, line, '\n');
-        CHECK(starts_with(line, "<record#> <instr#>"), "missing 2nd header");
+        CHECK(starts_with(line, "<--record#-> <--instr#->"), "missing 2nd header");
         // Next we expect "------------------------------------------------------------"
         std::getline(res_stream, line, '\n');
         CHECK(starts_with(line, "------"), "missing divider line");
         // Next we expect the timestamp entry with the instruction count before
-        // a colon: "        0       49: T3854659 <marker: timestamp 13312570674112282>"
-        // We expect the count to equal the -skip_instrs value, with a 0 ref count.
+        // a colon: "       69       49: T3854659 <marker: timestamp 13312570674112282>"
+        // We expect the count to equal the -skip_instrs value.
         std::getline(res_stream, line, '\n');
         std::stringstream expect_stream;
         expect_stream << skip_instrs << ":";
-        CHECK(skip_instrs == 0 || line.find(" 0 ") != std::string::npos,
-              "bad ref ordinal");
         CHECK(line.find(expect_stream.str()) != std::string::npos, "bad instr ordinal");
         CHECK(skip_instrs == 0 || line.find("timestamp") != std::string::npos,
               "missing timestamp");
-        // Next we expect the cpuid entry, with a 0 ref count too.
+        // Next we expect the cpuid entry.
         std::getline(res_stream, line, '\n');
         CHECK(skip_instrs == 0 || line.find("on core") != std::string::npos,
               "missing cpuid");
-        CHECK(skip_instrs == 0 || line.find(" 0 ") != std::string::npos,
-              "bad ref ordinal");
         // Next we expect the target instruction fetch.
         std::getline(res_stream, line, '\n');
         CHECK(skip_instrs == 0 || line.find("ifetch") != std::string::npos,

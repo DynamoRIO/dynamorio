@@ -632,22 +632,70 @@ enum {
     DR_REG_WZR, /**< The "wzr" zero pseudo-register. */
 #    else
     /* 32-bit general purpose */
-    DR_REG_R0,                                /**< The "r0" register. */
-    DR_REG_R1,                                /**< The "r1" register. */
-    DR_REG_R2,                                /**< The "r2" register. */
-    DR_REG_R3,                                /**< The "r3" register. */
-    DR_REG_R4,                                /**< The "r4" register. */
-    DR_REG_R5,                                /**< The "r5" register. */
-    DR_REG_R6,                                /**< The "r6" register. */
-    DR_REG_R7,                                /**< The "r7" register. */
-    DR_REG_R8,                                /**< The "r8" register. */
-    DR_REG_R9,                                /**< The "r9" register. */
-    DR_REG_R10,                               /**< The "r10" register. */
-    DR_REG_R11,                               /**< The "r11" register. */
-    DR_REG_R12,                               /**< The "r12" register. */
-    DR_REG_R13,                               /**< The "r13" register. */
-    DR_REG_R14,                               /**< The "r14" register. */
-    DR_REG_R15,                               /**< The "r15" register. */
+    DR_REG_R0,  /**< The "r0" register. */
+    DR_REG_R1,  /**< The "r1" register. */
+    DR_REG_R2,  /**< The "r2" register. */
+    DR_REG_R3,  /**< The "r3" register. */
+    DR_REG_R4,  /**< The "r4" register. */
+    DR_REG_R5,  /**< The "r5" register. */
+    DR_REG_R6,  /**< The "r6" register. */
+    DR_REG_R7,  /**< The "r7" register. */
+    DR_REG_R8,  /**< The "r8" register. */
+    DR_REG_R9,  /**< The "r9" register. */
+    DR_REG_R10, /**< The "r10" register. */
+    DR_REG_R11, /**< The "r11" register. */
+    DR_REG_R12, /**< The "r12" register. */
+    DR_REG_R13, /**< The "r13" register. */
+    DR_REG_R14, /**< The "r14" register. */
+    DR_REG_R15, /**< The "r15" register. */
+#    endif
+
+#    ifdef AARCH64
+    /* SVE vector registers */
+    DR_REG_Z0,  /**< The "z0" register. */
+    DR_REG_Z1,  /**< The "z1" register. */
+    DR_REG_Z2,  /**< The "z2" register. */
+    DR_REG_Z3,  /**< The "z3" register. */
+    DR_REG_Z4,  /**< The "z4" register. */
+    DR_REG_Z5,  /**< The "z5" register. */
+    DR_REG_Z6,  /**< The "z6" register. */
+    DR_REG_Z7,  /**< The "z7" register. */
+    DR_REG_Z8,  /**< The "z8" register. */
+    DR_REG_Z9,  /**< The "z9" register. */
+    DR_REG_Z10, /**< The "z10" register. */
+    DR_REG_Z11, /**< The "z11" register. */
+    DR_REG_Z12, /**< The "z12" register. */
+    DR_REG_Z13, /**< The "z13" register. */
+    DR_REG_Z14, /**< The "z14" register. */
+    DR_REG_Z15, /**< The "z15" register. */
+    DR_REG_Z16, /**< The "z16" register. */
+    DR_REG_Z17, /**< The "z17" register. */
+    DR_REG_Z18, /**< The "z18" register. */
+    DR_REG_Z19, /**< The "z19" register. */
+    DR_REG_Z20, /**< The "z20" register. */
+    DR_REG_Z21, /**< The "z21" register. */
+    DR_REG_Z22, /**< The "z22" register. */
+    DR_REG_Z23, /**< The "z23" register. */
+    DR_REG_Z24, /**< The "z24" register. */
+    DR_REG_Z25, /**< The "z25" register. */
+    DR_REG_Z26, /**< The "z26" register. */
+    DR_REG_Z27, /**< The "z27" register. */
+    DR_REG_Z28, /**< The "z28" register. */
+    DR_REG_Z29, /**< The "z29" register. */
+    DR_REG_Z30, /**< The "z30" register. */
+    DR_REG_Z31, /**< The "z31" register. */
+#    endif
+
+/* All registers that can be used in address operands must be before this point.
+ *
+ * Base+disp operands do not store the full reg_id_t value, only the lower
+ * REG_SPECIFIER_BITS, so any register used in addressing must be less than
+ * 1 << REG_SPECIFIER_BITS. This is checked in d_r_arch_init().
+ */
+#    if defined(AARCH64)
+    DR_REG_MAX_ADDRESSING_REG = DR_REG_Z31,
+#    else
+    DR_REG_MAX_ADDRESSING_REG = DR_REG_R15,
 #    endif
 
     /* 128-bit SIMD registers */
@@ -973,40 +1021,6 @@ enum {
     DR_REG_TPIDRURO, /**< User Read-Only Thread ID Register */
 
 #    ifdef AARCH64
-    /* SVE vector registers */
-    DR_REG_Z0,  /**< The "z0" register. */
-    DR_REG_Z1,  /**< The "z1" register. */
-    DR_REG_Z2,  /**< The "z2" register. */
-    DR_REG_Z3,  /**< The "z3" register. */
-    DR_REG_Z4,  /**< The "z4" register. */
-    DR_REG_Z5,  /**< The "z5" register. */
-    DR_REG_Z6,  /**< The "z6" register. */
-    DR_REG_Z7,  /**< The "z7" register. */
-    DR_REG_Z8,  /**< The "z8" register. */
-    DR_REG_Z9,  /**< The "z9" register. */
-    DR_REG_Z10, /**< The "z10" register. */
-    DR_REG_Z11, /**< The "z11" register. */
-    DR_REG_Z12, /**< The "z12" register. */
-    DR_REG_Z13, /**< The "z13" register. */
-    DR_REG_Z14, /**< The "z14" register. */
-    DR_REG_Z15, /**< The "z15" register. */
-    DR_REG_Z16, /**< The "z16" register. */
-    DR_REG_Z17, /**< The "z17" register. */
-    DR_REG_Z18, /**< The "z18" register. */
-    DR_REG_Z19, /**< The "z19" register. */
-    DR_REG_Z20, /**< The "z20" register. */
-    DR_REG_Z21, /**< The "z21" register. */
-    DR_REG_Z22, /**< The "z22" register. */
-    DR_REG_Z23, /**< The "z23" register. */
-    DR_REG_Z24, /**< The "z24" register. */
-    DR_REG_Z25, /**< The "z25" register. */
-    DR_REG_Z26, /**< The "z26" register. */
-    DR_REG_Z27, /**< The "z27" register. */
-    DR_REG_Z28, /**< The "z28" register. */
-    DR_REG_Z29, /**< The "z29" register. */
-    DR_REG_Z30, /**< The "z30" register. */
-    DR_REG_Z31, /**< The "z31" register. */
-
     /* SVE predicate registers */
     DR_REG_P0,  /**< The "p0" register. */
     DR_REG_P1,  /**< The "p1" register. */
@@ -1854,8 +1868,19 @@ struct _opnd_t {
             byte /*bool*/ pre_index : 1;
             /* Access this using opnd_get_index_extend and opnd_set_index_extend. */
             byte /*dr_extend_type_t*/ extend_type : 3;
-            /* Shift register offset left by amount implied by size of memory operand: */
+            /* Enable shift register offset left */
             byte /*bool*/ scaled : 1;
+            /* Shift offset amount */
+            byte /*uint*/ scaled_value : 3;
+            /* Indicates the element size for vector base and index registers.
+             * Only 2 element sizes are used for vector base/index registers in SVE:
+             *     Single (OPSZ_4)
+             *     Double (OPSZ_8)
+             * so we only need one bit to store the value (see ELEMENT_SIZE_* enum in
+             * opnd_shared.c).
+             * This is ignored if the base and index registers are scalar registers.
+             */
+            byte /*enum*/ element_size : 1;
 #    elif defined(ARM)
             byte /*dr_shift_type_t*/ shift_type : 3;
             byte shift_amount_minus_1 : 5; /* 1..31 so we store (val - 1) */
@@ -2227,6 +2252,13 @@ opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
 #ifdef AARCH64
 DR_API
 /**
+ * Returns the left shift amount from \p size.
+ */
+uint
+opnd_size_to_shift_amount(opnd_size_t size);
+
+DR_API
+/**
  * Returns a memory reference operand that refers to either a base
  * register with a constant displacement:
  * - [base_reg, disp]
@@ -2234,12 +2266,27 @@ DR_API
  * Or a base register plus an optionally extended and shifted index register:
  * - [base_reg, index_reg, extend_type, shift_amount]
  *
- * The shift_amount is zero or, if \p scaled, a value determined by the
- * size of the operand.
+ * If \p scaled is enabled, \p shift determines the shift amount.
  *
  * The resulting operand has data size \p size (must be an OPSZ_ constant).
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
  * Either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * TODO i#3044: WARNING this function may change during SVE development of
+ * DynamoRIO. The function will be considered stable when this warning has been
+ * removed.
+ *
+ * \note AArch64-only.
+ */
+opnd_t
+opnd_create_base_disp_shift_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                                    dr_extend_type_t extend_type, bool scaled, int disp,
+                                    dr_opnd_flags_t flags, opnd_size_t size, uint shift);
+
+DR_API
+/**
+ * Same as opnd_create_base_disp_shift_aarch64 but if \p scaled is true then the extend
+ * amount is calculated from the operand size (otherwise it is zero).
  *
  * \note AArch64-only.
  */
@@ -2247,6 +2294,28 @@ opnd_t
 opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
                               dr_extend_type_t extend_type, bool scaled, int disp,
                               dr_opnd_flags_t flags, opnd_size_t size);
+
+DR_API
+/**
+ * Same as opnd_create_base_disp_shift_aarch64 but creates an operand that uses vector
+ * registers for the base and/or index.
+ * At least one of \p base_reg and \p index_reg should be a vector register.
+ * \p element_size indicates the element size for any vector registers used and must be
+ * one of:
+ *     OPSZ_4 (single, 32-bit)
+ *     OPSZ_8 (double, 64-bit)
+ *
+ * TODO i#3044: WARNING this function may change during SVE development of
+ * DynamoRIO. The function will be considered stable when this warning has been
+ * removed.
+ *
+ * \note AArch64-only.
+ */
+opnd_t
+opnd_create_vector_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                                     opnd_size_t element_size,
+                                     dr_extend_type_t extend_type, bool scaled, int disp,
+                                     dr_opnd_flags_t flags, opnd_size_t size, uint shift);
 #endif
 
 DR_API
@@ -2836,8 +2905,19 @@ DR_API
 /**
  * Assumes \p opnd is a base+disp memory reference.
  * Sets the index register to be extended by \p extend and optionally \p scaled.
- * Returns whether successful. If the offset is scaled the amount it is shifted
- * by is determined by the size of the memory operand.
+ * Returns whether successful. If \p scaled is zero, the offset is not scaled.
+ * \note AArch64-only.
+ */
+bool
+opnd_set_index_extend_value(opnd_t *opnd, dr_extend_type_t extend, bool scaled,
+                            uint scaled_value);
+
+DR_API
+/**
+ * Assumes \p opnd is a base+disp memory reference.
+ * Sets the index register to be extended by \p extend and optionally \p scaled.
+ * Returns whether successful. If \p scaled is zero, the offset is not scaled; otherwise
+ * is calculated from the operand size.
  * \note AArch64-only.
  */
 bool
@@ -3111,6 +3191,16 @@ DR_API
 bool
 reg_is_32bit(reg_id_t reg);
 
+#if defined(AARCH64)
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a Z (SVE scalable vector) register.
+ */
+bool
+reg_is_z(reg_id_t reg);
+#endif
+
 DR_API
 /**
  * Returns true iff \p opnd is a register operand that refers to a 32-bit
@@ -3232,6 +3322,15 @@ DR_API
  */
 bool
 opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
+
+DR_API
+/**
+ * Creates a reg incremented from an existing \p opnd by the \p increment value,
+ * modulo the reg size.
+ * Returns the new reg.
+ */
+opnd_t
+opnd_create_increment_reg(opnd_t opnd, uint increment);
 
 DR_API
 /**

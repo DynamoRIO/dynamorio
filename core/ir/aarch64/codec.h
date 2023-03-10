@@ -70,4 +70,15 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
 #    define OPSZ_SVE_VL_BYTES opnd_size_from_bytes(dr_get_sve_vector_length() / 8)
 #endif
 
+#define RETURN_FALSE                                           \
+    CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \
+    return false;
+
+// Frustratingly vera++ fails if RETURN_FALSE is referenced inside this macro
+#define IF_RETURN_FALSE(condition)                                 \
+    if (condition) {                                               \
+        CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \
+        return false;                                              \
+    }
+
 #endif /* CODEC_H */

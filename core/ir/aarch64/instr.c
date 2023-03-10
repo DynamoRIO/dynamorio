@@ -255,8 +255,15 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
 bool
 instr_is_prefetch(instr_t *instr)
 {
-    int opcode = instr_get_opcode(instr);
-    return opcode == OP_prfm || opcode == OP_prfum;
+    switch (instr_get_opcode(instr)) {
+    case OP_prfm:
+    case OP_prfum:
+    case OP_prfb:
+    case OP_prfh:
+    case OP_prfw:
+    case OP_prfd: return true;
+    default: return false;
+    }
 }
 
 bool
@@ -432,6 +439,12 @@ reg_is_fp(reg_id_t reg)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
     return false;
+}
+
+bool
+reg_is_z(reg_id_t reg)
+{
+    return DR_REG_Z0 <= reg && reg <= DR_REG_Z31;
 }
 
 bool

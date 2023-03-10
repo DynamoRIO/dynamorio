@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -187,6 +187,8 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
         zipfile->cur_buf = zipfile->max_buf;
     }
     // We have to linearly walk the last mile.
+    bool prev_was_record_ord = false;
+    bool found_real_timestamp = false;
     while (cur_instr_count_ < stop_count_) { // End condition is never reached.
         if (!read_next_thread_entry(thread_index, &entry_copy_, eof))
             return false;
@@ -197,16 +199,28 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
             type_is_instr(static_cast<trace_type_t>(entry_copy_.type)))
             break;
         // To examine the produced memrefs we'd have to have the base reader
-        // expose these hidden entries.  It is simpler for use to read the
+        // expose these hidden entries.  It is simpler for us to read the
         // trace_entry_t directly prior to processing by the base class.
         if (entry_copy_.type == TRACE_TYPE_MARKER) {
-            if (entry_copy_.size == TRACE_MARKER_TYPE_RECORD_ORDINAL)
+            if (entry_copy_.size == TRACE_MARKER_TYPE_RECORD_ORDINAL) {
                 cur_ref_count_ = entry_copy_.addr;
-            else if (entry_copy_.size == TRACE_MARKER_TYPE_TIMESTAMP)
+                prev_was_record_ord = true;
+                VPRINT(this, 4, "Found record ordinal marker: new ord %" PRIu64 "\n",
+                       cur_ref_count_);
+            } else if (entry_copy_.size == TRACE_MARKER_TYPE_TIMESTAMP) {
                 timestamp = entry_copy_;
-            else if (entry_copy_.size == TRACE_MARKER_TYPE_CPU_ID)
+                if (prev_was_record_ord)
+                    --cur_ref_count_; // Invisible to ordinals.
+                else
+                    found_real_timestamp = true;
+            } else if (entry_copy_.size == TRACE_MARKER_TYPE_CPU_ID) {
                 cpu = entry_copy_;
-        }
+                if (prev_was_record_ord)
+                    --cur_ref_count_; // Invisible to ordinals.
+            } else
+                prev_was_record_ord = false;
+        } else
+            prev_was_record_ord = false;
         // Update core state.
         input_entry_ = &entry_copy_;
         process_input_entry();
@@ -215,11 +229,24 @@ file_reader_t<zipfile_reader_t>::skip_thread_instructions(size_t thread_index,
         // Insert the two markers.
         trace_entry_t instr = entry_copy_;
         entry_copy_ = timestamp;
-        // These synthetic entries are not real records in the unskipped trace, so we
-        // do not associate record counts with them.
-        suppress_ref_count_ = 2;
+        if (!found_real_timestamp) {
+            // These synthetic entries are not real records in the unskipped trace, so we
+            // do not associate record counts with them.
+            suppress_ref_count_ = 1;
+            if (cpu.type == TRACE_TYPE_MARKER)
+                ++suppress_ref_count_;
+        } else {
+            // These are not invisible but we already counted them in the loop above
+            // so we need to avoid a double-count.
+            VPRINT(this, 4, "Found real timestamp: walking back ord from %" PRIu64 "\n",
+                   cur_ref_count_);
+            --cur_ref_count_;
+            if (cpu.type == TRACE_TYPE_MARKER)
+                --cur_ref_count_;
+        }
         process_input_entry();
-        queues_[thread_index].push(cpu);
+        if (cpu.type == TRACE_TYPE_MARKER)
+            queues_[thread_index].push(cpu);
         queues_[thread_index].push(instr);
     } else {
         // We missed the markers somehow; fall back to just process the instr.

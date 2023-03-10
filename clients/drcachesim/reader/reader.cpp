@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,13 +46,24 @@ reader_t::operator*()
     return cur_ref_;
 }
 
+trace_entry_t *
+reader_t::read_next_entry_or_queue()
+{
+    if (!queue_.empty()) {
+        local_entry_ = queue_.front();
+        queue_.pop();
+        return &local_entry_;
+    }
+    return read_next_entry();
+}
+
 reader_t &
 reader_t::operator++()
 {
     // We bail if we get a partial read, or EOF, or any error.
     while (true) {
         if (bundle_idx_ == 0 /*not in instr bundle*/)
-            input_entry_ = read_next_entry();
+            input_entry_ = read_next_entry_or_queue();
         if (input_entry_ == NULL) {
             if (!at_eof_) {
                 ERRMSG("Trace is truncated\n");
@@ -262,21 +273,19 @@ reader_t::process_input_entry()
         // and use them to start post-seek iteration.
         if (chunk_instr_count_ > 0 &&
             cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP &&
-            cur_instr_count_ / chunk_instr_count_ !=
-                last_timestamp_instr_count_ / chunk_instr_count_) {
+            skip_chunk_header_.find(cur_tid_) != skip_chunk_header_.end()) {
             VPRINT(this, 2, "skipping start-of-chunk dup timestamp\n");
-            skip_next_cpu_ = true;
-        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
-                   skip_next_cpu_) {
+        } else if (chunk_instr_count_ > 0 &&
+                   cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
+                   skip_chunk_header_.find(cur_tid_) != skip_chunk_header_.end()) {
             VPRINT(this, 2, "skipping start-of-chunk dup cpu\n");
-            skip_next_cpu_ = false;
+            skip_chunk_header_.erase(cur_tid_);
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_RECORD_ORDINAL) {
             // Not exposed to tools.
         } else {
             have_memref = true;
         }
         if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
-            last_timestamp_instr_count_ = cur_instr_count_;
             // Today, a skipped memref is just a duplicate of one that we've
             // already seen, so this condition is not really needed. But to
             // be future-proof, we want to avoid looking at timestamps that
@@ -295,6 +304,8 @@ reader_t::process_input_entry()
             page_size_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT)
             chunk_instr_count_ = cur_ref_.marker.marker_value;
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER)
+            skip_chunk_header_.insert(cur_tid_);
         break;
     default:
         ERRMSG("Unknown trace entry type %s (%d)\n", trace_type_names[input_entry_->type],
@@ -305,33 +316,70 @@ reader_t::process_input_entry()
     }
     if (have_memref) {
         if (suppress_ref_count_ > 0) {
-            VPRINT(this, 4, "suppressing %" PRIu64 " ref counts\n", suppress_ref_count_);
+            VPRINT(this, 4, "suppressing %" PRIu64 " ref counts @%" PRIu64 "\n",
+                   suppress_ref_count_, cur_ref_count_);
             --suppress_ref_count_;
         } else {
             if (suppress_ref_count_ == 0) {
-                // Ensure get_record_ordinal() ignores it.
+                // Ensure is_record_synthetic() ignores it.
                 suppress_ref_count_ = -1;
             }
             ++cur_ref_count_;
+            VPRINT(this, 5, "ref count is now @%" PRIu64 "\n", cur_ref_count_);
         }
     }
     return have_memref;
 }
 
+void
+reader_t::use_prev(trace_entry_t *prev)
+{
+    input_entry_ = prev;
+}
+
 reader_t &
 reader_t::skip_instructions(uint64_t instruction_count)
 {
+    if (instruction_count == 0)
+        return *this;
+    // We do not support skipping with instr bundles.
+    if (bundle_idx_ != 0) {
+        ERRMSG("Skipping with instr bundles is not supported.\n");
+        assert(false);
+        at_eof_ = true;
+        return *this;
+    }
     // This base class has no fast seeking and must do a linear walk.
     // We have +1 because we need to skip the memrefs of the final skipped
-    // instr, so we look for the 1st unskipped instr.
-    uint64_t stop_count_ = cur_instr_count_ + instruction_count + 1;
-    while (cur_instr_count_ < stop_count_) {
+    // instr, so we look for the 1st unskipped instr: but we do not want to
+    // process it so we do not use the ++ operator function.
+    uint64_t stop_count = cur_instr_count_ + instruction_count + 1;
+    while (cur_instr_count_ < stop_count) { // End condition is never reached.
         // TODO i#5538: Remember the last timestamp+cpu and insert it; share
         // code with the zipfile reader.
         // TODO i#5538: If skipping from the start, Record all of the header values
         // until the first timestamp and present them as new memtrace_stream_t
         // interfaces.
-        ++(*this);
+        // Remember the prior entry to use as the cur entry when we hit the
+        // too-far instr.
+        if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
+            local_entry_ = *input_entry_;
+        input_entry_ = read_next_entry_or_queue();
+        if (input_entry_ == nullptr) {
+            if (!at_eof_) {
+                ERRMSG("Trace is truncated\n");
+                assert(false);
+                at_eof_ = true;
+            }
+            return *this;
+        }
+        if (cur_instr_count_ + 1 == stop_count &&
+            type_is_instr(static_cast<trace_type_t>(input_entry_->type))) {
+            queue_.push(*input_entry_);
+            use_prev(&local_entry_);
+            break;
+        }
+        process_input_entry();
     }
     return *this;
 }

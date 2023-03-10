@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include <inttypes.h>
 #include <iostream>
 #include <thread>
 #include "analysis_tool.h"
@@ -64,64 +65,26 @@ typedef dynamorio::drmemtrace::record_file_reader_t<std::ifstream>
  */
 
 template <>
-std::unique_ptr<reader_t>
-analyzer_t::get_default_reader()
-{
-    return std::unique_ptr<default_file_reader_t>(new default_file_reader_t());
-}
-
-template <>
-std::unique_ptr<reader_t>
-analyzer_t::get_reader(const std::string &path, int verbosity)
-{
-#if defined(HAS_SNAPPY) || defined(HAS_ZIP)
-#    ifdef HAS_SNAPPY
-    if (ends_with(path, ".sz"))
-        return std::unique_ptr<reader_t>(new snappy_file_reader_t(path, verbosity));
-#    endif
-#    ifdef HAS_ZIP
-    if (ends_with(path, ".zip"))
-        return std::unique_ptr<reader_t>(new zipfile_file_reader_t(path, verbosity));
-#    endif
-    // If path is a directory, and any file in it ends in .sz, return a snappy reader.
-    if (directory_iterator_t::is_directory(path)) {
-        directory_iterator_t end;
-        directory_iterator_t iter(path);
-        if (!iter) {
-            ERRMSG("Failed to list directory %s: %s", path.c_str(),
-                   iter.error_string().c_str());
-            return nullptr;
-        }
-        for (; iter != end; ++iter) {
-            const std::string fname = *iter;
-            if (fname == "." || fname == ".." ||
-                starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
-                fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
-                continue;
-#    ifdef HAS_SNAPPY
-            if (ends_with(*iter, ".sz")) {
-                return std::unique_ptr<reader_t>(
-                    new snappy_file_reader_t(path, verbosity));
-            }
-#    endif
-#    ifdef HAS_ZIP
-            if (ends_with(*iter, ".zip")) {
-                return std::unique_ptr<reader_t>(
-                    new zipfile_file_reader_t(path, verbosity));
-            }
-#    endif
-        }
-    }
-#endif
-    // No snappy/zlib support, or didn't find a .sz/.zip file.
-    return std::unique_ptr<reader_t>(new default_file_reader_t(path, verbosity));
-}
-
-template <>
 bool
 analyzer_t::serial_mode_supported()
 {
     return true;
+}
+
+template <>
+bool
+analyzer_t::record_has_tid(memref_t record, memref_tid_t &tid)
+{
+    // All memref_t records have tids (after PR #5739 changed the reader).
+    tid = record.marker.tid;
+    return true;
+}
+
+template <>
+bool
+analyzer_t::record_is_thread_final(memref_t record)
+{
+    return record.exit.type == TRACE_TYPE_THREAD_EXIT;
 }
 
 /******************************************************************************
@@ -129,30 +92,30 @@ analyzer_t::serial_mode_supported()
  */
 
 template <>
-std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
-record_analyzer_t::get_default_reader()
+bool
+record_analyzer_t::serial_mode_supported()
 {
-    return std::unique_ptr<default_record_file_reader_t>(
-        new default_record_file_reader_t());
-}
-
-template <>
-std::unique_ptr<dynamorio::drmemtrace::record_reader_t>
-record_analyzer_t::get_reader(const std::string &path, int verbosity)
-{
-    // TODO i#5675: Add support for other file formats, particularly
-    // .zip files.
-    return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
-        new default_record_file_reader_t(path, verbosity));
+    // TODO i#5727,i#5843: Once we move serial interleaving from file_reader_t into
+    // the scheduler we can support serial mode for record files as we won't need
+    // to implement interleaving inside record_file_reader_t.
+    return false;
 }
 
 template <>
 bool
-record_analyzer_t::serial_mode_supported()
+record_analyzer_t::record_has_tid(trace_entry_t record, memref_tid_t &tid)
 {
-    // TODO i#5727: Add support in record_file_reader_t to interleave
-    // multiple traces and create a single trace stream.
-    return false;
+    if (record.type != TRACE_TYPE_THREAD)
+        return false;
+    tid = static_cast<memref_tid_t>(record.addr);
+    return true;
+}
+
+template <>
+bool
+record_analyzer_t::record_is_thread_final(trace_entry_t record)
+{
+    return record.type == TRACE_TYPE_FOOTER;
 }
 
 /********************************************************************
@@ -172,83 +135,97 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t()
 
 template <typename RecordType, typename ReaderType>
 bool
-analyzer_tmpl_t<RecordType, ReaderType>::init_file_reader(const std::string &trace_path,
-                                                          int verbosity)
+analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(const std::string &trace_path,
+                                                        int verbosity)
 {
     verbosity_ = verbosity;
     if (trace_path.empty()) {
         ERRMSG("Trace file name is empty\n");
         return false;
     }
+    std::vector<typename sched_type_t::range_t> regions;
+    if (skip_instrs_ > 0)
+        regions.emplace_back(skip_instrs_, 0);
+    typename sched_type_t::input_workload_t workload(trace_path, regions);
+    return init_scheduler_common(workload);
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
+    std::unique_ptr<ReaderType> reader, std::unique_ptr<ReaderType> reader_end,
+    int verbosity)
+{
+    verbosity_ = verbosity;
+    if (!reader || !reader_end) {
+        ERRMSG("Readers are empty\n");
+        return false;
+    }
+    std::vector<typename sched_type_t::input_reader_t> readers;
+    // With no modifiers or only_threads the tid doesn't matter.
+    readers.emplace_back(std::move(reader), std::move(reader_end), /*tid=*/1);
+    std::vector<typename sched_type_t::range_t> regions;
+    if (skip_instrs_ > 0)
+        regions.emplace_back(skip_instrs_, 0);
+    typename sched_type_t::input_workload_t workload(std::move(readers), regions);
+    return init_scheduler_common(workload);
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
+    typename sched_type_t::input_workload_t &workload)
+{
     for (int i = 0; i < num_tools_; ++i) {
         if (parallel_ && !tools_[i]->parallel_shard_supported()) {
             parallel_ = false;
             break;
         }
     }
-    if (parallel_ && directory_iterator_t::is_directory(trace_path)) {
-        directory_iterator_t end;
-        directory_iterator_t iter(trace_path);
-        if (!iter) {
-            ERRMSG("Failed to list directory %s: %s", trace_path.c_str(),
-                   iter.error_string().c_str());
-            return false;
-        }
-        for (; iter != end; ++iter) {
-            const std::string fname = *iter;
-            if (fname == "." || fname == ".." ||
-                starts_with(fname, DRMEMTRACE_SERIAL_SCHEDULE_FILENAME) ||
-                fname == DRMEMTRACE_CPU_SCHEDULE_FILENAME)
-                continue;
-            const std::string path = trace_path + DIRSEP + fname;
-            std::unique_ptr<ReaderType> reader = get_reader(path, verbosity);
-            if (!reader) {
-                return false;
-            }
-            thread_data_.push_back(analyzer_shard_data_t(
-                static_cast<int>(thread_data_.size()), std::move(reader), path));
-            VPRINT(this, 2, "Opened reader for %s\n", path.c_str());
-        }
-        // Like raw2trace, we use a simple round-robin static work assigment.  This
-        // could be improved later with dynamic work queue for better load balancing.
+    std::vector<typename sched_type_t::input_workload_t> sched_inputs(1);
+    sched_inputs[0] = std::move(workload);
+    typename sched_type_t::scheduler_options_t sched_ops;
+    int output_count;
+    if (parallel_) {
+        sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
         if (worker_count_ <= 0)
             worker_count_ = std::thread::hardware_concurrency();
-        worker_tasks_.resize(worker_count_);
-        int worker = 0;
-        for (size_t i = 0; i < thread_data_.size(); ++i) {
-            VPRINT(this, 2, "Worker %d assigned trace shard %zd\n", worker, i);
-            worker_tasks_[worker].push_back(&thread_data_[i]);
-            thread_data_[i].worker = worker;
-            worker = (worker + 1) % worker_count_;
-        }
     } else {
-        parallel_ = false;
-        serial_trace_iter_ = get_reader(trace_path, verbosity);
-        if (!serial_trace_iter_) {
-            return false;
-        }
-        VPRINT(this, 2, "Opened serial reader for %s\n", trace_path.c_str());
+        sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
+        worker_count_ = 1;
     }
-    // It's ok if trace_end_ is a different type from serial_trace_iter_, they
-    // will still compare true if both at EOF.
-    trace_end_ = get_default_reader();
+    output_count = worker_count_;
+    if (scheduler_.init(sched_inputs, output_count, sched_ops) !=
+        sched_type_t::STATUS_SUCCESS) {
+        ERRMSG("Failed to initialize scheduler: %s\n",
+               scheduler_.get_error_string().c_str());
+        return false;
+    }
+
+    for (int i = 0; i < worker_count_; ++i) {
+        worker_data_.push_back(analyzer_worker_data_t(i, scheduler_.get_stream(i)));
+    }
+
     return true;
 }
 
 template <typename RecordType, typename ReaderType>
 analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
     const std::string &trace_path, analysis_tool_tmpl_t<RecordType> **tools,
-    int num_tools, int worker_count, uint64_t skip_instrs)
+    int num_tools, int worker_count, uint64_t skip_instrs, int verbosity)
     : success_(true)
     , num_tools_(num_tools)
     , tools_(tools)
     , parallel_(true)
     , worker_count_(worker_count)
     , skip_instrs_(skip_instrs)
+    , verbosity_(verbosity)
 {
-    if (!init_file_reader(trace_path)) {
+    // The scheduler will call reader_t::init() for each input file.  We assume
+    // that won't block (analyzer_multi_t separates out IPC readers).
+    if (!init_scheduler(trace_path, verbosity)) {
         success_ = false;
-        error_string_ = "Failed to create reader";
+        error_string_ = "Failed to create scheduler";
         return;
     }
     for (int i = 0; i < num_tools; ++i) {
@@ -259,26 +236,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
                 error_string_ += ": " + tools_[i]->get_error_string();
             return;
         }
-        const std::string error = tools_[i]->initialize_stream(serial_trace_iter_.get());
-        if (!error.empty()) {
-            success_ = false;
-            error_string_ = "Tool failed to initialize: " + error;
-            return;
-        }
     }
-}
-
-template <typename RecordType, typename ReaderType>
-analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(const std::string &trace_path)
-    : success_(true)
-    , num_tools_(0)
-    , tools_(NULL)
-    // This external-iterator interface does not support parallel analysis.
-    , parallel_(false)
-    , worker_count_(0)
-{
-    if (!init_file_reader(trace_path))
-        success_ = false;
 }
 
 // Work around clang-format bug: no newline after return type for single-char operator.
@@ -307,85 +265,101 @@ analyzer_tmpl_t<RecordType, ReaderType>::get_error_string()
     return error_string_;
 }
 
-// Used only for serial iteration.
-template <typename RecordType, typename ReaderType>
-bool
-analyzer_tmpl_t<RecordType, ReaderType>::start_reading()
-{
-    if (!serial_mode_supported()) {
-        ERRMSG("Serial mode not supported by this analyzer\n");
-        return false;
-    }
-    if (!serial_trace_iter_->init()) {
-        ERRMSG("Failed to read from trace\n");
-        return false;
-    }
-    return true;
-}
-
 template <typename RecordType, typename ReaderType>
 void
-analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(
-    std::vector<analyzer_shard_data_t *> *tasks)
+analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &worker)
 {
-    if (tasks->empty()) {
-        VPRINT(this, 1, "Worker has no tasks\n");
-        return;
+    std::vector<void *> user_worker_data(num_tools_);
+    std::unordered_map<memref_tid_t, std::vector<void *>> shard_data;
+
+    for (int i = 0; i < num_tools_; ++i) {
+        worker.error = tools_[i]->initialize_stream(worker.stream);
+        if (!worker.error.empty())
+            return;
     }
-    VPRINT(this, 1, "Worker %d assigned %zd task(s)\n", (*tasks)[0]->worker,
-           tasks->size());
-    std::vector<void *> worker_data(num_tools_);
-    for (int i = 0; i < num_tools_; ++i)
-        worker_data[i] = tools_[i]->parallel_worker_init((*tasks)[0]->worker);
-    for (analyzer_shard_data_t *tdata : *tasks) {
-        VPRINT(this, 1, "Worker %d starting on trace shard %d\n", tdata->worker,
-               tdata->index);
-        if (!tdata->iter->init()) {
-            tdata->error = "Failed to read from trace: " + tdata->trace_file;
+    while (true) {
+        RecordType record;
+        typename sched_type_t::stream_status_t status =
+            worker.stream->next_record(record);
+        if (status != sched_type_t::STATUS_OK) {
+            if (status != sched_type_t::STATUS_EOF) {
+                worker.error =
+                    "Failed to read from trace: " + worker.stream->get_stream_name();
+            }
             return;
         }
-        std::vector<void *> shard_data(num_tools_);
         for (int i = 0; i < num_tools_; ++i) {
-            shard_data[i] = tools_[i]->parallel_shard_init_stream(
-                tdata->index, worker_data[i], tdata->iter.get());
-        }
-        VPRINT(this, 1, "shard_data[0] is %p\n", shard_data[0]);
-        if (skip_instrs_ > 0) {
-            // We skip in each thread.
-            // TODO i#5538: Add top-level header data to memtrace_stream_t for
-            // access by tools, since we're skipping it here.  We considered
-            // not skipping until we see the 1st timestamp but the stream access
-            // approach has other benefits and seems cleaner.
-            (*tdata->iter) = (*tdata->iter).skip_instructions(skip_instrs_);
-        }
-        for (; *tdata->iter != *trace_end_; ++(*tdata->iter)) {
-            const RecordType &entry = **tdata->iter;
-            for (int i = 0; i < num_tools_; ++i) {
-                if (!tools_[i]->parallel_shard_memref(shard_data[i], entry)) {
-                    tdata->error = tools_[i]->parallel_shard_error(shard_data[i]);
-                    VPRINT(this, 1,
-                           "Worker %d hit shard memref error %s on trace shard %d\n",
-                           tdata->worker, tdata->error.c_str(), tdata->index);
-                    return;
-                }
-            }
-        }
-        VPRINT(this, 1, "Worker %d finished trace shard %d\n", tdata->worker,
-               tdata->index);
-        for (int i = 0; i < num_tools_; ++i) {
-            if (!tools_[i]->parallel_shard_exit(shard_data[i])) {
-                tdata->error = tools_[i]->parallel_shard_error(shard_data[i]);
-                VPRINT(this, 1, "Worker %d hit shard exit error %s on trace shard %d\n",
-                       tdata->worker, tdata->error.c_str(), tdata->index);
+            if (!tools_[i]->process_memref(record)) {
+                worker.error = tools_[i]->get_error_string();
+                VPRINT(this, 1, "Worker %d hit memref error %s on trace shard %s\n",
+                       worker.index, worker.error.c_str(),
+                       worker.stream->get_stream_name().c_str());
                 return;
             }
         }
     }
+}
+
+template <typename RecordType, typename ReaderType>
+void
+analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *worker)
+{
+    std::vector<void *> user_worker_data(num_tools_);
+    std::unordered_map<int, std::vector<void *>> shard_data;
+
+    for (int i = 0; i < num_tools_; ++i)
+        user_worker_data[i] = tools_[i]->parallel_worker_init(worker->index);
+    RecordType record;
+    for (typename sched_type_t::stream_status_t status =
+             worker->stream->next_record(record);
+         status != sched_type_t::STATUS_EOF;
+         status = worker->stream->next_record(record)) {
+        if (status != sched_type_t::STATUS_OK) {
+            worker->error =
+                "Failed to read from trace: " + worker->stream->get_stream_name();
+            return;
+        }
+        int shard_index = worker->stream->get_input_stream_ordinal();
+        if (shard_data.find(shard_index) == shard_data.end()) {
+            VPRINT(this, 1, "Worker %d starting on trace shard %d stream is %p\n",
+                   worker->index, shard_index, worker->stream);
+            shard_data[shard_index].resize(num_tools_);
+            for (int i = 0; i < num_tools_; ++i) {
+                shard_data[shard_index][i] = tools_[i]->parallel_shard_init_stream(
+                    shard_index, user_worker_data[i], worker->stream);
+            }
+        }
+        for (int i = 0; i < num_tools_; ++i) {
+            if (!tools_[i]->parallel_shard_memref(shard_data[shard_index][i], record)) {
+                worker->error =
+                    tools_[i]->parallel_shard_error(shard_data[shard_index][i]);
+                VPRINT(this, 1, "Worker %d hit shard memref error %s on trace shard %s\n",
+                       worker->index, worker->error.c_str(),
+                       worker->stream->get_stream_name().c_str());
+                return;
+            }
+        }
+        if (record_is_thread_final(record)) {
+            VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index,
+                   worker->stream->get_stream_name().c_str());
+            for (int i = 0; i < num_tools_; ++i) {
+                if (!tools_[i]->parallel_shard_exit(shard_data[shard_index][i])) {
+                    worker->error =
+                        tools_[i]->parallel_shard_error(shard_data[shard_index][i]);
+                    VPRINT(this, 1,
+                           "Worker %d hit shard exit error %s on trace shard %s\n",
+                           worker->index, worker->error.c_str(),
+                           worker->stream->get_stream_name().c_str());
+                    return;
+                }
+            }
+        }
+    }
     for (int i = 0; i < num_tools_; ++i) {
-        const std::string error = tools_[i]->parallel_worker_exit(worker_data[i]);
+        const std::string error = tools_[i]->parallel_worker_exit(user_worker_data[i]);
         if (!error.empty()) {
-            (*tasks)[0]->error = error;
-            VPRINT(this, 1, "Worker %d hit worker exit error %s\n", (*tasks)[0]->worker,
+            worker->error = error;
+            VPRINT(this, 1, "Worker %d hit worker exit error %s\n", worker->index,
                    error.c_str());
             return;
         }
@@ -398,22 +372,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
 {
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (!parallel_) {
-        if (!start_reading())
+        process_serial(worker_data_[0]);
+        if (!worker_data_[0].error.empty()) {
+            error_string_ = worker_data_[0].error;
             return false;
-        if (skip_instrs_ > 0) {
-            // TODO i#5538: Add top-level header data to memtrace_stream_t; see above.
-            (*serial_trace_iter_) = (*serial_trace_iter_).skip_instructions(skip_instrs_);
-        }
-        for (; *serial_trace_iter_ != *trace_end_; ++(*serial_trace_iter_)) {
-            const RecordType entry = **serial_trace_iter_;
-            for (int i = 0; i < num_tools_; ++i) {
-                // We short-circuit and exit on an error to avoid confusion over
-                // the results and avoid wasted continued work.
-                if (!tools_[i]->process_memref(entry)) {
-                    error_string_ = tools_[i]->get_error_string();
-                    return false;
-                }
-            }
         }
         return true;
     }
@@ -421,18 +383,23 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
         error_string_ = "Invalid worker count: must be > 0";
         return false;
     }
+    for (int i = 0; i < num_tools_; ++i) {
+        error_string_ = tools_[i]->initialize_stream(nullptr);
+        if (!error_string_.empty())
+            return false;
+    }
     std::vector<std::thread> threads;
     VPRINT(this, 1, "Creating %d worker threads\n", worker_count_);
     threads.reserve(worker_count_);
     for (int i = 0; i < worker_count_; ++i) {
         threads.emplace_back(
-            std::thread(&analyzer_tmpl_t::process_tasks, this, &worker_tasks_[i]));
+            std::thread(&analyzer_tmpl_t::process_tasks, this, &worker_data_[i]));
     }
     for (std::thread &thread : threads)
         thread.join();
-    for (auto &tdata : thread_data_) {
-        if (!tdata.error.empty()) {
-            error_string_ = tdata.error;
+    for (auto &worker : worker_data_) {
+        if (!worker.error.empty()) {
+            error_string_ = worker.error;
             return false;
         }
     }
@@ -457,24 +424,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
         }
     }
     return true;
-}
-
-// XXX i#3287: Figure out how to support parallel operation with this external
-// iterator interface.
-template <typename RecordType, typename ReaderType>
-ReaderType &
-analyzer_tmpl_t<RecordType, ReaderType>::begin()
-{
-    if (!start_reading())
-        return *trace_end_;
-    return *serial_trace_iter_;
-}
-
-template <typename RecordType, typename ReaderType>
-ReaderType &
-analyzer_tmpl_t<RecordType, ReaderType>::end()
-{
-    return *trace_end_;
 }
 
 template class analyzer_tmpl_t<memref_t, reader_t>;

@@ -314,13 +314,31 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
     }
 }
 
+#if defined(AARCH64)
+/* Possible values of opnd.value.base_disp.element_size. */
+enum {
+    ELEMENT_SIZE_SINGLE = 0,
+    ELEMENT_SIZE_DOUBLE = 1,
+};
+#endif
+
 opnd_size_t
 opnd_get_vector_element_size(opnd_t opnd)
 {
-    if (opnd.kind != REG_kind || !TEST(DR_OPND_IS_VECTOR, opnd.aux.flags))
+    if (!TEST(DR_OPND_IS_VECTOR, opnd.aux.flags))
         return OPSZ_NA;
 
-    return opnd.value.reg_and_element_size.element_size;
+    switch (opnd.kind) {
+    case REG_kind: return opnd.value.reg_and_element_size.element_size;
+#if defined(AARCH64)
+    case BASE_DISP_kind:
+        switch (opnd.value.base_disp.element_size) {
+        case ELEMENT_SIZE_SINGLE: return OPSZ_4;
+        case ELEMENT_SIZE_DOUBLE: return OPSZ_8;
+        }
+#endif
+    default: return OPSZ_NA;
+    }
 }
 
 /* immediate operands */
@@ -756,10 +774,13 @@ opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
 #endif
 
 #ifdef AARCH64
+
 opnd_t
-opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
-                              dr_extend_type_t extend_type, bool scaled, int disp,
-                              dr_opnd_flags_t flags, opnd_size_t size)
+opnd_create_base_disp_aarch64_common(reg_id_t base_reg, reg_id_t index_reg,
+                                     byte element_size, dr_extend_type_t extend_type,
+                                     bool scaled, int disp, dr_opnd_flags_t flags,
+                                     opnd_size_t size, uint shift)
+
 {
     opnd_t opnd;
     opnd.kind = BASE_DISP_kind;
@@ -779,11 +800,57 @@ opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
     opnd.value.base_disp.base_reg = base_reg;
     opnd.value.base_disp.index_reg = index_reg;
     opnd.value.base_disp.pre_index = false;
+    opnd.value.base_disp.element_size = element_size;
     opnd_set_disp_helper(&opnd, disp);
     opnd.aux.flags = flags;
-    if (!opnd_set_index_extend(&opnd, extend_type, scaled))
+    if (!opnd_set_index_extend_value(&opnd, extend_type, scaled, shift))
         CLIENT_ASSERT(false, "opnd_create_base_disp_aarch64: invalid extend type");
     return opnd;
+}
+
+opnd_t
+opnd_create_vector_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                                     opnd_size_t element_size,
+                                     dr_extend_type_t extend_type, bool scaled, int disp,
+                                     dr_opnd_flags_t flags, opnd_size_t size, uint shift)
+{
+    byte internal_element_size = 0;
+    switch (element_size) {
+    case OPSZ_4: internal_element_size = ELEMENT_SIZE_SINGLE; break;
+    case OPSZ_8: internal_element_size = ELEMENT_SIZE_DOUBLE; break;
+    default:
+        CLIENT_ASSERT(false,
+                      "opnd_create_vector_base_disp_aarch64: invalid element size");
+    }
+
+    CLIENT_ASSERT(reg_is_z(base_reg) || reg_is_z(index_reg),
+                  "opnd_create_vector_base_disp_aarch64: at least one of the base "
+                  "register and index register must be a vector register");
+
+    flags |= DR_OPND_IS_VECTOR;
+
+    return opnd_create_base_disp_aarch64_common(base_reg, index_reg,
+                                                internal_element_size, extend_type,
+                                                scaled, disp, flags, size, shift);
+}
+
+opnd_t
+opnd_create_base_disp_shift_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                                    dr_extend_type_t extend_type, bool scaled, int disp,
+                                    dr_opnd_flags_t flags, opnd_size_t size, uint shift)
+{
+    return opnd_create_base_disp_aarch64_common(base_reg, index_reg, 0, extend_type,
+                                                scaled, disp, flags, size, shift);
+}
+
+opnd_t
+opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
+                              dr_extend_type_t extend_type, bool scaled, int disp,
+                              dr_opnd_flags_t flags, opnd_size_t size)
+{
+    const uint shift = scaled ? opnd_size_to_shift_amount(size) : 0;
+    return opnd_create_base_disp_aarch64_common(base_reg, index_reg, 0, extend_type,
+                                                scaled, disp, flags, size, shift);
 }
 #endif
 
@@ -890,8 +957,8 @@ opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount)
 #endif /* ARM */
 
 #ifdef AARCH64
-static uint
-opnd_size_to_extend_amount(opnd_size_t size)
+uint
+opnd_size_to_shift_amount(opnd_size_t size)
 {
     switch (size) {
     default:
@@ -903,6 +970,8 @@ opnd_size_to_extend_amount(opnd_size_t size)
     case OPSZ_0: /* fall-through */
     case OPSZ_8: return 3;
     case OPSZ_16: return 4;
+    case OPSZ_32: return 5;
+    case OPSZ_64: return 6;
     }
 }
 
@@ -918,7 +987,7 @@ opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount)
         extend = opnd.value.base_disp.extend_type;
         scaled_out = opnd.value.base_disp.scaled;
         if (scaled_out)
-            amount_out = opnd_size_to_extend_amount(opnd_get_size(opnd));
+            amount_out = opnd.value.base_disp.scaled_value;
     }
     if (scaled != NULL)
         *scaled = scaled_out;
@@ -928,7 +997,8 @@ opnd_get_index_extend(opnd_t opnd, OUT bool *scaled, OUT uint *amount)
 }
 
 bool
-opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
+opnd_set_index_extend_value(opnd_t *opnd, dr_extend_type_t extend, bool scaled,
+                            uint scaled_value)
 {
     if (!opnd_is_base_disp(*opnd)) {
         CLIENT_ASSERT(false, "opnd_set_index_shift called on invalid opnd type");
@@ -938,9 +1008,21 @@ opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
         CLIENT_ASSERT(false, "opnd index extend: invalid extend type");
         return false;
     }
+    if (scaled_value > 7) {
+        CLIENT_ASSERT(false, "opnd index extend: invalid scaled value");
+        return false;
+    }
     opnd->value.base_disp.extend_type = extend;
     opnd->value.base_disp.scaled = scaled;
+    opnd->value.base_disp.scaled_value = scaled_value;
     return true;
+}
+
+bool
+opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
+{
+    const uint value = scaled ? opnd_size_to_shift_amount(opnd_get_size(*opnd)) : 0;
+    return opnd_set_index_extend_value(opnd, extend, scaled, value);
 }
 #endif /* AARCH64 */
 
@@ -1359,6 +1441,62 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
 
     default: CLIENT_ASSERT(false, "opnd_replace_reg: invalid opnd type"); return false;
     }
+}
+
+opnd_t
+opnd_create_increment_reg(opnd_t opnd, uint increment)
+{
+    opnd_t inc_opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
+    CLIENT_ASSERT(opnd_is_reg(opnd), "opnd_create_increment_reg: not a register");
+
+    reg_id_t reg = opnd.value.reg_and_element_size.reg;
+    reg_id_t min_reg = DR_REG_INVALID;
+    reg_id_t max_reg = DR_REG_INVALID;
+#ifdef AARCH64
+    if (reg >= DR_REG_W0 && reg <= DR_REG_W30) {
+        min_reg = DR_REG_W0;
+        max_reg = DR_REG_W30;
+    } else if (reg >= DR_REG_X0 && reg <= DR_REG_X30) {
+        min_reg = DR_REG_X0;
+        max_reg = DR_REG_X30;
+    } else if (reg >= DR_REG_B0 && reg <= DR_REG_B31) {
+        min_reg = DR_REG_B0;
+        max_reg = DR_REG_B31;
+    } else if (reg >= DR_REG_H0 && reg <= DR_REG_H31) {
+        min_reg = DR_REG_H0;
+        max_reg = DR_REG_H31;
+    } else if (reg >= DR_REG_S0 && reg <= DR_REG_S31) {
+        min_reg = DR_REG_S0;
+        max_reg = DR_REG_S31;
+    } else if (reg >= DR_REG_D0 && reg <= DR_REG_D31) {
+        min_reg = DR_REG_D0;
+        max_reg = DR_REG_D31;
+    } else if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31) {
+        min_reg = DR_REG_Q0;
+        max_reg = DR_REG_Q31;
+    } else if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) {
+        min_reg = DR_REG_Z0;
+        max_reg = DR_REG_Z31;
+    } else if (reg >= DR_REG_P0 && reg <= DR_REG_P15) {
+        min_reg = DR_REG_P0;
+        max_reg = DR_REG_P15;
+    }
+#else
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif
+
+    CLIENT_ASSERT(min_reg != DR_REG_INVALID && max_reg != DR_REG_INVALID,
+                  "opnd_create_increment_reg: reg not incrementable");
+
+    reg_id_t new_reg = (reg - min_reg + increment) % (max_reg - min_reg + 1) + min_reg;
+
+    inc_opnd.kind = REG_kind;
+    inc_opnd.value.reg_and_element_size.reg = new_reg;
+    inc_opnd.value.reg_and_element_size.element_size =
+        opnd.value.reg_and_element_size.element_size;
+    inc_opnd.size = opnd.size; /* indicates full size of reg */
+    inc_opnd.aux.flags = opnd.aux.flags;
+    return inc_opnd;
 }
 
 static reg_id_t

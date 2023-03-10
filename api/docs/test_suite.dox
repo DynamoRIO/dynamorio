@@ -103,7 +103,8 @@ behavior that is good to test:
 ## Building and Running Tests
 
 CMake is used to build the tests.  They are not built by default.  To
-enable them, turn on the BUILD_TESTS CMake variable.  For example:
+enable them, turn on the BUILD_TESTS CMake variable.  For example, from
+a build directory next to the dynamorio source tree:
 ```
   cmake -DBUILD_TESTS=ON ../dynamorio
 ```

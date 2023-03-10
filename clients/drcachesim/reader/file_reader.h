@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -346,8 +346,16 @@ protected:
     skip_thread_instructions(size_t thread_index, uint64_t instruction_count,
                              OUT bool *eof)
     {
+        // TODO i#5538,i#5843: Once we move interleaving code from file_reader_t
+        // into scheduler_t, remove these _thread variants: read_next_thread_entry()
+        // and skip_thread_instructions().  Use reader_t::skip_instructions() here
+        // (don't override).
+
         // Default implementation for file types that have no fast seeking and must do a
         // linear walk.
+        // FIXME i#5538,i#5843: This is broken as it goes too far: see how
+        // reader_t::skip_instructions() does it.  We'll fix when we refactor (see
+        // comment at top of function).
         uint64_t stop_count_ = cur_instr_count_ + instruction_count + 1;
         while (cur_instr_count_ < stop_count_) {
             if (!read_next_thread_entry(thread_index, &entry_copy_, eof))
@@ -361,15 +369,20 @@ protected:
         return true;
     }
 
+    // Protected for access by mock_file_reader_t.
+    std::vector<T> input_files_;
+
 private:
     std::string input_path_;
     std::vector<std::string> input_path_list_;
-    std::vector<T> input_files_;
     trace_entry_t entry_copy_;
     // The current thread we're processing is "index".  If it's set to input_files_.size()
     // that means we need to pick a new thread.
     size_t index_;
     size_t thread_count_;
+    // TODO i#5843: Once we move interleaving code from file_reader_t into scheduler_t
+    // these will all become singleton as one class instance here will have just one
+    // thread.  We can merge queues_ here into the new reader_t::queue_.
     std::vector<std::queue<trace_entry_t>> queues_;
     std::vector<trace_entry_t> tids_;
     std::vector<trace_entry_t> timestamps_;
