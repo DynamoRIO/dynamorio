@@ -329,7 +329,7 @@ struct line_ref_list_t {
             gate_ = gate_->prev;
         }
 
-        // And finally, update tail_
+        // And finally, update tail_.
         tail_ = new_tail;
     }
 

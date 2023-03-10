@@ -38,6 +38,8 @@
 #include "../tools/reuse_distance_create.h"
 #include "../common/memref.h"
 
+namespace {
+
 #define TEST_VERBOSE(N) (test_verbosity >= N)
 unsigned int test_verbosity = 0;
 
@@ -51,7 +53,7 @@ generate_memref(const addr_t addr)
     memref.data.tid = 2;
     memref.data.addr = addr;
     memref.data.size = 4;
-    memref.data.pc = addr;
+    memref.data.pc = 0;
     return memref;
 }
 
@@ -89,12 +91,16 @@ public:
     }
 };
 
-// Helper class to return a non-repeating sequence of addresses.
+// Helper class to return a non-repeating(*) sequence of addresses.
+// (*) Overflow will cause the address to wrap, so technically it
+// can repeat for large enough step sizes or generated address counts.
 class address_generator_t {
 public:
     address_generator_t(addr_t start_addr, int step_size)
         : address_(start_addr)
-        , step_size_(step_size) {};
+        , step_size_(step_size)
+    {
+    }
 
     addr_t
     next_address()
@@ -118,8 +124,9 @@ generate_target_distance_memrefs(int target_distance,
     auto start_addr = address_generator.next_address();
     bool success = reuse_distance.process_memref(generate_memref(start_addr));
     for (int i = 0; success && i < target_distance; ++i) {
-        success &= reuse_distance.process_memref(
-            generate_memref(address_generator.next_address()));
+        success = success &&
+            reuse_distance.process_memref(
+                generate_memref(address_generator.next_address()));
     }
     success &= reuse_distance.process_memref(generate_memref(start_addr));
     return success;
@@ -130,8 +137,7 @@ generate_target_distance_memrefs(int target_distance,
 bool
 find_strings_in_stream(const std::vector<std::string> &expected_strings, std::istream &in)
 {
-    for (int i = 0; i < expected_strings.size(); ++i) {
-        const std::string &expect = expected_strings[i];
+    for (const auto &expect : expected_strings) {
         if (TEST_VERBOSE(1)) {
             std::cerr << "Expect: '" << expect << "'\n";
         }
@@ -152,18 +158,18 @@ find_strings_in_stream(const std::vector<std::string> &expected_strings, std::is
     return true;
 }
 
-// Test basic reuse-distance
+// Test basic reuse-distance.
 void
 simple_reuse_distance_test()
 {
     std::cerr << "simple_reuse_distance_test()\n";
 
-    static const uint32_t LINE_SIZE = 64;
+    constexpr uint32_t LINE_SIZE = 64;
 
-    static const uint32_t TEST_ADDRESS = 0x1000; // Arbitrary.
-    static const uint32_t TEST_DISTANCE_START = 50;
-    static const uint32_t TEST_DISTANCE_END = 2000;
-    static const uint32_t TEST_DISTANCE_INCREMENT = 75;
+    constexpr uint32_t TEST_ADDRESS = 0x1000; // Arbitrary.
+    constexpr uint32_t TEST_DISTANCE_START = 50;
+    constexpr uint32_t TEST_DISTANCE_END = 2000;
+    constexpr uint32_t TEST_DISTANCE_INCREMENT = 75;
 
     // Create a reuse_distance test object.
     reuse_distance_knobs_t knobs;
@@ -214,14 +220,14 @@ void
 reuse_distance_limit_test()
 {
     std::cerr << "reuse_distance_limit_test()\n";
-    static const uint32_t LINE_SIZE = 32;
-    static const uint32_t SKIP_LIST_DISTANCE = 75;
-    static const uint32_t DISTANCE_LIMIT = 500;
+    constexpr uint32_t LINE_SIZE = 32;
+    constexpr uint32_t SKIP_LIST_DISTANCE = 75;
+    constexpr uint32_t DISTANCE_LIMIT = 500;
 
-    static const uint32_t TEST_ADDRESS = 0x2000;
-    static const uint32_t TEST_DISTANCE_START = 150;
-    static const uint32_t TEST_DISTANCE_END = 1000;
-    static const uint32_t TEST_DISTANCE_INCREMENT = 100;
+    constexpr uint32_t TEST_ADDRESS = 0x2000;
+    constexpr uint32_t TEST_DISTANCE_START = 150;
+    constexpr uint32_t TEST_DISTANCE_END = 1000;
+    constexpr uint32_t TEST_DISTANCE_INCREMENT = 100;
 
     // Create the reuse_distance test object.
     reuse_distance_knobs_t knobs;
@@ -357,6 +363,8 @@ print_histogram_mult_1p2_test()
     bool test_passes = find_strings_in_stream(expected_strings, output_string);
     assert(test_passes);
 }
+
+} // namespace
 
 int
 main(int argc, const char *argv[])

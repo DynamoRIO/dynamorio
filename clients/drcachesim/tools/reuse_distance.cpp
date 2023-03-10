@@ -235,6 +235,9 @@ reuse_distance_t::print_shard_results(const shard_data_t *shard)
 {
     std::cerr << std::dec;
     std::cerr << "Total accesses: " << shard->total_refs << "\n";
+    // If no accesses were processed, there's nothing more to report.
+    if (shard->total_refs == 0)
+        return;
     std::cerr << "Unique accesses: " << shard->ref_list->cur_time_ << "\n";
     std::cerr << "Unique cache lines accessed: "
               << shard->cache_map.size() + shard->pruned_addresses.size() << "\n";
@@ -442,10 +445,6 @@ reuse_distance_t::print_results()
             return l.second->total_refs > r.second->total_refs;
         });
         for (const auto &shard : sorted) {
-            if (shard.second->total_refs == 0) {
-                std::cerr << "\nIgnoring shards with no references.\n";
-                break;
-            }
             std::cerr << "\n==================================================\n"
                       << TOOL_NAME << " results for shard " << shard.first << " (thread "
                       << shard.second->tid << "):\n";
