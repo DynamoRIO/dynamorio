@@ -40,6 +40,14 @@
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
+file_reader_t<zipfile_reader_t>::file_reader_t()
+{
+    input_file_.file = nullptr;
+}
+
+/* clang-format off */ /* (make vera++ newline-after-type check happy) */
+template <>
+/* clang-format on */
 file_reader_t<zipfile_reader_t>::~file_reader_t<zipfile_reader_t>()
 {
     if (input_file_.file != nullptr) {

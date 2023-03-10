@@ -68,10 +68,7 @@
  */
 template <typename T> class file_reader_t : public reader_t {
 public:
-    file_reader_t()
-    {
-        online_ = false;
-    }
+    file_reader_t();
     file_reader_t(const std::string &path, int verbosity = 0)
         : reader_t(verbosity, "[file_reader]")
         , input_path_(path)

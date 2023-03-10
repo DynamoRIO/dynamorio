@@ -66,6 +66,10 @@ using namespace dynamorio::drmemtrace;
 
 // These are for our mock serial reader and must be in the same namespace
 // as file_reader_t's declaration.
+template <> file_reader_t<std::vector<trace_entry_t>>::file_reader_t()
+{
+}
+
 template <> file_reader_t<std::vector<trace_entry_t>>::~file_reader_t()
 {
 }
