@@ -57,7 +57,7 @@ struct reuse_distance_knobs_t {
         , distance_limit(0)
         , verify_skip(false)
         , verbose(0)
-        , histogram_bin_multiplier(1.0)
+        , histogram_bin_multiplier(1.00)
     {
     }
     unsigned int line_size;

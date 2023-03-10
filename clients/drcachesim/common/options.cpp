@@ -586,7 +586,7 @@ droption_t<bool> op_reuse_verify_skip(
     "This incurs significant additional overhead.  This option is only available "
     "in debug builds.");
 droption_t<double> op_reuse_histogram_bin_multiplier(
-    DROPTION_SCOPE_FRONTEND, "reuse_histogram_bin_multiplier", 1.05,
+    DROPTION_SCOPE_FRONTEND, "reuse_histogram_bin_multiplier", 1.00,
     "When reporting histograms, grow bins geometrically by this multiplier.",
     "The first histogram bin has a size of 1, meaning it contains the count for "
     "one distance.  Each subsequent bin size is increased by this multiplier. "

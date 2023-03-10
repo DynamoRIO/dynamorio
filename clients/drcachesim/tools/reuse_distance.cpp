@@ -141,7 +141,7 @@ reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             // See if the line we're adding was previously removed.
             if (shard->pruned_addresses.find(tag) != shard->pruned_addresses.end()) {
                 ++shard->pruned_address_hits;
-                shard->pruned_addresses.erase(tag); // It's has been unpruned.
+                shard->pruned_addresses.erase(tag); // It has been unpruned.
             }
             if (shard->distance_limit > 0 &&
                 shard->distance_limit < shard->cache_map.size()) {
