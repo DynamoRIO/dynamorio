@@ -1011,7 +1011,7 @@ get_elements_in_sve_vector(aarch64_reg_offset element_size)
 {
     const uint element_length =
         opnd_size_in_bits(get_opnd_size_from_offset(element_size));
-    return opnd_size_in_bits(OPSZ_SVE_VL) / element_length;
+    return opnd_size_in_bits(OPSZ_SVE_VL_BYTES) / element_length;
 }
 
 /*******************************************************************************
@@ -4904,7 +4904,7 @@ decode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
 {
     const int offset = extract_int(enc, 16, 6);
     const reg_id_t rn = decode_reg(extract_uint(enc, 5, 5), true, true);
-    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL;
+    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL_BYTES;
     *opnd = opnd_create_base_disp(rn, DR_REG_NULL, 0, offset, mem_transfer);
 
     return true;
@@ -4914,7 +4914,7 @@ static inline bool
 encode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
                                 OUT uint *enc_out)
 {
-    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL;
+    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL_BYTES;
     if (!opnd_is_base_disp(opnd) || opnd_get_index(opnd) != DR_REG_NULL ||
         opnd_get_size(opnd) != mem_transfer)
         return false;
