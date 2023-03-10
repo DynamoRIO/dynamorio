@@ -102,8 +102,8 @@ inline memref_t
 gen_branch(memref_tid_t tid, addr_t pc, const std::vector<int> &encoding)
 {
     memref_t memref = gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
-    memref.instr.size = sizeof(encoding);
-    memcpy(memref.instr.encoding, encoding.data(), sizeof(encoding));
+    memref.instr.size = sizeof(int) * encoding.size();
+    memcpy(memref.instr.encoding, encoding.data(), memref.instr.size);
     memref.instr.encoding_is_new = true;
 
     return memref;

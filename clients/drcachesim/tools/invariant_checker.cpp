@@ -423,7 +423,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
             // Check that next_pc is not null.
 
-            opnd_t target = instr_get_target(&instr);
+            //            opnd_t target = instr_get_target(&instr);
             //            const app_pc target_pc = opnd_get_pc(target);
         }
 #ifdef UNIX
