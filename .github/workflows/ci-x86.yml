@@ -283,6 +283,8 @@ jobs:
     - name: Create Build Environment
       run: |
         sudo apt update
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          liblz4-dev g++-multilib libunwind-dev
         sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
         apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386
         mkdir ../extract
