@@ -375,7 +375,8 @@ reuse_distance_t::print_histogram(
             bin_count = 0;
             bin_start = bin_next_start;
             bin_size_float *= bin_multiplier;
-            bin_size = std::floor(bin_size_float); // Favor smaller bin size.
+            // Use floor() to favor smaller bin sizes.
+            bin_size = static_cast<int_least64_t>(std::floor(bin_size_float));
             bin_next_start = bin_start + bin_size;
         }
         bin_count += it->second;
