@@ -124,12 +124,10 @@ generate_target_distance_memrefs(int target_distance,
     auto start_addr = address_generator.next_address();
     bool success = reuse_distance.process_memref(generate_memref(start_addr));
     for (int i = 0; success && i < target_distance; ++i) {
-        success = success &&
-            reuse_distance.process_memref(
-                generate_memref(address_generator.next_address()));
+        success = reuse_distance.process_memref(
+            generate_memref(address_generator.next_address()));
     }
-    success &= reuse_distance.process_memref(generate_memref(start_addr));
-    return success;
+    return success && reuse_distance.process_memref(generate_memref(start_addr));
 }
 
 // Helper routine to verify all items in a vector of expected lines are in an istream,
