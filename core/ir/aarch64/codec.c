@@ -4450,6 +4450,12 @@ svemem_gprs_per_element_encode(uint bytes_per_element, aarch64_reg_offset elemen
     if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != mem_transfer ||
         opnd_get_disp(opnd) != 0)
         return false;
+    uint given_shift;
+    dr_extend_type_t shift_type = opnd_get_index_extend(opnd, NULL, &given_shift);
+    if (shift_type != DR_EXTEND_UXTX)
+        return false;
+    if (shift_amount != given_shift)
+        return false;
 
     uint rn, rm;
     bool is_x_register;
@@ -5549,6 +5555,18 @@ static inline bool
 encode_opnd_wx_sz_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_rn(false, 16, 22, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_size21_hsd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(0, 21, HALF_REG, DOUBLE_REG, 0, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_size21_hsd_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(0, 21, HALF_REG, DOUBLE_REG, 0, opnd, enc_out);
 }
 
 static inline bool
@@ -6802,21 +6820,80 @@ dtype_is_signed(uint dtype)
 /* svemem_gpr: GPR offset and base reg for SVE ld/st */
 
 static inline void
-sizes_from_dtype(const uint enc, aarch64_reg_offset *insz, aarch64_reg_offset *elsz)
+sizes_from_dtype(const uint enc, aarch64_reg_offset *insz, aarch64_reg_offset *elsz,
+                 bool check_signed)
 {
     uint dtype = extract_uint(enc, 21, 4);
-    if (dtype_is_signed(dtype))
+    if (check_signed && dtype_is_signed(dtype))
         dtype = ~dtype;
 
-    *insz = BITS(dtype, 3, 2);
-    *elsz = BITS(dtype, 1, 0);
+    if (insz != NULL)
+        *insz = BITS(dtype, 3, 2);
+    if (elsz != NULL)
+        *elsz = BITS(dtype, 1, 0);
+}
+
+static inline bool
+decode_opnd_svemem_msz_gpr_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    aarch64_reg_offset elsz, dests;
+    sizes_from_dtype(enc, &elsz, &dests, false);
+
+    const uint shift_amount = elsz;
+
+    return svemem_gprs_per_element_decode((1 << elsz) * (dests + 1), elsz, shift_amount,
+                                          enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_svemem_msz_gpr_shf(uint enc, int opcode, byte *pc, opnd_t opnd,
+                               OUT uint *enc_out)
+{
+    aarch64_reg_offset elsz, dests;
+    sizes_from_dtype(enc, &elsz, &dests, false);
+
+    const uint shift_amount = elsz;
+
+    return svemem_gprs_per_element_encode((1 << elsz) * (dests + 1), elsz, shift_amount,
+                                          enc, opcode, pc, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_svemem_msz_stgpr_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    aarch64_reg_offset elsz, dests;
+    sizes_from_dtype(enc, &elsz, &dests, false);
+    if (BITS(enc, 20, 16) == 0b11111)
+        return false;
+
+    const uint shift_amount = elsz;
+
+    return svemem_gprs_per_element_decode((1 << elsz) * (dests + 1), elsz, shift_amount,
+                                          enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_svemem_msz_stgpr_shf(uint enc, int opcode, byte *pc, opnd_t opnd,
+                                 OUT uint *enc_out)
+{
+    aarch64_reg_offset elsz, dests;
+    sizes_from_dtype(enc, &elsz, &dests, false);
+
+    const uint shift_amount = elsz;
+
+    bool success = svemem_gprs_per_element_encode(
+        (1 << elsz) * (dests + 1), elsz, shift_amount, enc, opcode, pc, opnd, enc_out);
+
+    if (BITS(enc, 20, 16) == 0b11111)
+        return false;
+    return success;
 }
 
 static inline bool
 decode_opnd_svemem_gpr_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     aarch64_reg_offset insz, elsz;
-    sizes_from_dtype(enc, &insz, &elsz);
+    sizes_from_dtype(enc, &insz, &elsz, true);
 
     const uint shift_amount = opnd_size_to_shift_amount(get_opnd_size_from_offset(insz));
 
@@ -6828,7 +6905,7 @@ static inline bool
 encode_opnd_svemem_gpr_shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     aarch64_reg_offset insz, elsz;
-    sizes_from_dtype(enc, &insz, &elsz);
+    sizes_from_dtype(enc, &insz, &elsz, true);
 
     const uint shift_amount = opnd_size_to_shift_amount(get_opnd_size_from_offset(insz));
 
@@ -6840,7 +6917,7 @@ static inline bool
 decode_opnd_svemem_gprs_bhsdx(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     aarch64_reg_offset insz, elsz;
-    sizes_from_dtype(enc, &elsz, &insz);
+    sizes_from_dtype(enc, &elsz, &insz, true);
 
     return svemem_gprs_per_element_decode(insz + 1, elsz, 0, enc, opcode, pc, opnd);
 }
@@ -6850,7 +6927,7 @@ encode_opnd_svemem_gprs_bhsdx(uint enc, int opcode, byte *pc, opnd_t opnd,
                               OUT uint *enc_out)
 {
     aarch64_reg_offset insz, elsz;
-    sizes_from_dtype(enc, &elsz, &insz);
+    sizes_from_dtype(enc, &elsz, &insz, true);
 
     return svemem_gprs_per_element_encode(insz + 1, elsz, 0, enc, opcode, pc, opnd,
                                           enc_out);
@@ -6896,6 +6973,18 @@ encode_opnd_svemem_gpr_vec32_st(uint enc, int opcode, byte *pc, opnd_t opnd,
 
     return encode_svemem_gpr_vec(enc, element_size, msz, scaled, opnd, enc_out) &&
         encode_svemem_gpr_vec_xs(enc, 14, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_msz_bhsd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(0, 23, BYTE_REG, DOUBLE_REG, 0, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_msz_bhsd_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(0, 23, BYTE_REG, DOUBLE_REG, 0, opnd, enc_out);
 }
 
 static inline bool
