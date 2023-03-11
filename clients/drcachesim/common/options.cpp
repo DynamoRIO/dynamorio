@@ -573,12 +573,29 @@ droption_t<unsigned int> op_reuse_skip_dist(
     "For performance tuning: distance between skip nodes.",
     "Specifies the distance between nodes in the skip list.  For optimal performance, "
     "set this to a value close to the estimated average reuse distance of the dataset.");
+droption_t<unsigned int> op_reuse_distance_limit(
+    DROPTION_SCOPE_FRONTEND, "reuse_distance_limit", 0,
+    "If nonzero, restricts distance tracking to the specified maximum distance.",
+    "Specifies the maximum length of the access history list used for distance "
+    "calculation.  Setting this limit can significantly improve performance "
+    "and reduce memory consumption for very long traces.");
 droption_t<bool> op_reuse_verify_skip(
     DROPTION_SCOPE_FRONTEND, "reuse_verify_skip", false,
     "Use full list walks to verify the skip list results.",
     "Verifies every skip list-calculated reuse distance with a full list walk. "
     "This incurs significant additional overhead.  This option is only available "
     "in debug builds.");
+droption_t<double> op_reuse_histogram_bin_multiplier(
+    DROPTION_SCOPE_FRONTEND, "reuse_histogram_bin_multiplier", 1.00,
+    "When reporting histograms, grow bins geometrically by this multiplier.",
+    "The first histogram bin has a size of 1, meaning it contains the count for "
+    "one distance.  Each subsequent bin size is increased by this multiplier. "
+    "For multipliers >1.0, this results in geometric growth of bin sizes, with "
+    "multiple distance values being reported for each bin. For large traces, "
+    "a value of 1.05 works well to limit the output to a reasonable number of "
+    "bins.  Note that this option only affects the printing of histograms via "
+    "the -reuse_distance_histogram option; the raw histogram data is always "
+    "collected at full precision.");
 
 #define OP_RECORD_FUNC_ITEM_SEP "&"
 // XXX i#3048: replace function return address with function callstack
