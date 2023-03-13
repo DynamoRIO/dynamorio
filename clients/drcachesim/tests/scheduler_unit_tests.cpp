@@ -367,46 +367,102 @@ test_regions()
 }
 
 static void
-test_only_threads()
+test_only_threads(const char *testdir)
 {
-    static constexpr memref_tid_t TID_A = 42;
-    static constexpr memref_tid_t TID_B = 99;
-    static constexpr memref_tid_t TID_C = 7;
-    std::vector<memref_t> refs_A = {
-        make_instr(TID_A, 50),
-        make_exit(TID_A),
-    };
-    std::vector<memref_t> refs_B = {
-        make_instr(TID_B, 60),
-        make_exit(TID_B),
-    };
-    std::vector<memref_t> refs_C = {
-        make_instr(TID_B, 60),
-        make_exit(TID_B),
-    };
-    std::vector<scheduler_t::input_reader_t> readers;
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
-    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
-                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+    // Test with synthetic streams and readers.
+    {
+        static constexpr memref_tid_t TID_A = 42;
+        static constexpr memref_tid_t TID_B = 99;
+        static constexpr memref_tid_t TID_C = 7;
+        std::vector<memref_t> refs_A = {
+            make_instr(TID_A, 50),
+            make_exit(TID_A),
+        };
+        std::vector<memref_t> refs_B = {
+            make_instr(TID_B, 60),
+            make_exit(TID_B),
+        };
+        std::vector<memref_t> refs_C = {
+            make_instr(TID_B, 60),
+            make_exit(TID_B),
+        };
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
 
-    scheduler_t scheduler;
-    std::vector<scheduler_t::input_workload_t> sched_inputs;
-    sched_inputs.emplace_back(std::move(readers));
-    sched_inputs[0].only_threads.insert(TID_B);
-    if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
-        scheduler_t::STATUS_SUCCESS)
-        assert(false);
-    auto *stream = scheduler.get_stream(0);
-    memref_t memref;
-    uint64_t last_timestamp = 0;
-    for (scheduler_t::stream_status_t status = stream->next_record(memref);
-         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
-        assert(status == scheduler_t::STATUS_OK);
-        assert(memref.instr.tid == TID_B);
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        sched_inputs[0].only_threads.insert(TID_B);
+        if (scheduler.init(sched_inputs, 1,
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            assert(memref.instr.tid == TID_B);
+        }
+    }
+    // Test with real files as that is a separate code path in the scheduler.
+    {
+        std::string trace1 =
+            std::string(testdir) + "/drmemtrace.chase-snappy.x64.tracedir";
+        // This trace has 2 threads: we pick the smallest one.
+        static constexpr memref_tid_t TID_1_A = 23699;
+        std::string trace2 = std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir";
+        // This trace has many threads: we pick 2 of the smallest.
+        static constexpr memref_tid_t TID_2_A = 10507;
+        static constexpr memref_tid_t TID_2_B = 10508;
+        scheduler_t scheduler;
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(trace1);
+        sched_inputs[0].only_threads.insert(TID_1_A);
+        sched_inputs.emplace_back(trace2);
+        sched_inputs[1].only_threads.insert(TID_2_A);
+        sched_inputs[1].only_threads.insert(TID_2_B);
+        if (scheduler.init(sched_inputs, 1,
+                           scheduler_t::make_scheduler_serial_options(/*verbosity=*/1)) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        int max_input_index = 0;
+        std::set<memref_tid_t> tids_seen;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            assert(memref.instr.tid == TID_1_A || memref.instr.tid == TID_2_A ||
+                   memref.instr.tid == TID_2_B);
+            tids_seen.insert(memref.instr.tid);
+            if (stream->get_input_stream_ordinal() > max_input_index)
+                max_input_index = stream->get_input_stream_ordinal();
+        }
+        // Ensure 3 input streams and test input queries.
+        assert(max_input_index == 2);
+        assert(scheduler.get_input_stream_count() == 3);
+        assert(scheduler.get_input_stream_name(0) ==
+               "chase.20190225.185346.23699.memtrace.sz");
+        // These could be in any order (dir listing determines that).
+        assert(scheduler.get_input_stream_name(1) ==
+                   "drmemtrace.threadsig.10507.6178.trace.gz" ||
+               scheduler.get_input_stream_name(1) ==
+                   "drmemtrace.threadsig.10508.1635.trace.gz");
+        assert(scheduler.get_input_stream_name(2) ==
+                   "drmemtrace.threadsig.10507.6178.trace.gz" ||
+               scheduler.get_input_stream_name(2) ==
+                   "drmemtrace.threadsig.10508.1635.trace.gz");
+        // Ensure all tids were seen.
+        assert(tids_seen.size() == 3);
+        assert(tids_seen.find(TID_1_A) != tids_seen.end() &&
+               tids_seen.find(TID_2_A) != tids_seen.end() &&
+               tids_seen.find(TID_2_B) != tids_seen.end());
     }
 }
 
@@ -415,10 +471,12 @@ test_only_threads()
 int
 main(int argc, const char *argv[])
 {
+    // Takes in a path to the tests/ src dir.
+    assert(argc == 2);
     test_serial();
     test_parallel();
     test_param_checks();
     test_regions();
-    test_only_threads();
+    test_only_threads(argv[1]);
     return 0;
 }
