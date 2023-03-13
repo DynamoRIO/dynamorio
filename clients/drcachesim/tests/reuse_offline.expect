@@ -2,10 +2,14 @@ Reuse distance tool aggregated results:
 Total accesses: 229
 Unique accesses: 126
 Unique cache lines accessed: 5
+Distance limit: 0
+Pruned addresses: 0
+Pruned address hits: 0
 
 Reuse distance mean: 1.42
 Reuse distance median: 1
 Reuse distance standard deviation: 1.64
+Reuse distance histogram bin multiplier: 1.00
 Reuse distance histogram:
 Distance       Count  Percent  Cumulative
        0         103   45.98%   45.98%

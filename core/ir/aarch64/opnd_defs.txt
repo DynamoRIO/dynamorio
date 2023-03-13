@@ -253,6 +253,7 @@
 ---------x------------xxxxx-----  wx_sz_5    # W/X register (or WZR/XZR) with size indicated in bit 22
 ---------x-xx-------------------  i3_index_19 # Index value from 22, 20:19
 ---------x-xxxxx----------------  wx_sz_16   # W/X register (or WZR/XZR) with size indicated in bit 22
+---------xx----------------xxxxx  z_size21_hsd_0  # sve vector reg, elsz depending on size21
 ---------xx----------------xxxxx  z_size21_bhsd_0  # sve vector reg, elsz depending on size21
 ---------++++xxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
 ---------++++xxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
@@ -309,9 +310,12 @@
 -------??--xxxxx------xxxxx-----  svemem_vec_s_imm5 # SVE memory address [<Zn>.S{, #<imm>}]
 -------??--xxxxx------xxxxx-----  svemem_vec_d_imm5 # SVE memory address [<Zn>.D{, #<imm>}]
 -------??-?xxxxx------xxxxx-----  svemem_gpr_vec64 # SVE memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod>}]
+-------????xxxxx------xxxxx-----  svemem_msz_gpr_shf # SVE memory address [<Xn|SP>, <Xm>, LSL #x]
+-------????xxxxx------xxxxx-----  svemem_msz_stgpr_shf # SVE memory address [<Xn|SP>, <Xm>, LSL #x]
 -------????xxxxx------xxxxx-----  svemem_gpr_shf   # GPR offset and base reg for SVE ld/st, with optional shift
 -------????xxxxx------xxxxx-----  svemem_gprs_bhsdx  # memory reg from Rm and Rn fields transferring x bytes per element
 -------????xxxxx-x----xxxxx-----  svemem_gpr_vec32_st # SVE memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod> <amount>]
+-------xx------------------xxxxx  z_msz_bhsd_0    # z register with element size determined by msz
 -------xx------------------xxxxx  z_msz_bhsd_0p1  # z register with element size determined by msz, plus 1
 -------xx------------------xxxxx  z_msz_bhsd_0p2  # z register with element size determined by msz, plus 2
 -------xx------------------xxxxx  z_msz_bhsd_0p3  # z register with element size determined by msz, plus 3
