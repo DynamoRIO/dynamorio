@@ -1590,7 +1590,8 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
             }
         }
         drreg_restore_all(drcontext, bb, instr);
-    } else if (drbbdup_is_at_end(instr) && !is_last_special) {
+    } else if (drbbdup_is_at_end(instr) &&
+            (!is_last_special || drbbdup_ilist_has_unending_emulation(bb))) {
         drreg_restore_all(drcontext, bb, instr);
     } else if (drbbdup_is_at_end(instr) || drbbdup_is_exit_jmp_emulation_marker(instr)) {
         /* Ignore instruction: hide drbbdup's own markers and the rest of the end. */
