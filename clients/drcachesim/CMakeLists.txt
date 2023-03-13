@@ -227,8 +227,11 @@ if (liblz4)
   target_link_libraries(drmemtrace_raw2trace lz4)
 endif ()
 
+# XXX: We should link in drmemtrace_analyzer instead of re-building its
+# source files.
 set(drcachesim_srcs
   launcher.cpp
+  scheduler/scheduler.cpp
   analyzer.cpp
   analyzer_multi.cpp
   ${client_and_sim_srcs}
@@ -268,10 +271,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/simulator)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/reader)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tracer)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/scheduler)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_exported_library(drmemtrace_analyzer STATIC
   analyzer.cpp
+  scheduler/scheduler.cpp
   common/trace_entry.cpp
   reader/reader.cpp
   reader/config_reader.cpp
@@ -307,6 +312,7 @@ install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
+install_client_nonDR_header(drmemtrace scheduler/scheduler.h)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
@@ -636,6 +642,13 @@ endif ()
 # Be sure to give the targets qualified test names ("tool.drcache*...").
 
 if (BUILD_TESTS)
+  add_executable(tool.reuse_distance.unit_tests tests/reuse_distance_test.cpp)
+  target_link_libraries(tool.reuse_distance.unit_tests drmemtrace_reuse_distance
+    drmemtrace_static)
+  add_win32_flags(tool.reuse_distance.unit_tests)
+  add_test(NAME tool.reuse_distance.unit_tests
+       COMMAND tool.reuse_distance.unit_tests)
+
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp
     tests/cache_replacement_policy_unit_test.cpp)
   target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
@@ -652,6 +665,13 @@ if (BUILD_TESTS)
   use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drcovlib_static)
   add_test(NAME tool.drcacheoff.raw2trace_unit_tests
     COMMAND tool.drcacheoff.raw2trace_unit_tests)
+
+  add_executable(tool.scheduler.unit_tests tests/scheduler_unit_tests.cpp
+    tests/scheduler_unit_tests.cpp)
+  target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer)
+  add_win32_flags(tool.scheduler.unit_tests)
+  add_test(NAME tool.scheduler.unit_tests
+           COMMAND tool.scheduler.unit_tests)
 
   # XXX i#5675: add tests for other environments. Currently, the repository does not have
   # a checked-in post-processed trace for x86-32 or AArchXX.
@@ -701,7 +721,8 @@ if (BUILD_TESTS)
     add_executable(tool.drcacheoff.view_test tests/view_test.cpp reader/file_reader.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
     add_win32_flags(tool.drcacheoff.view_test)
-    target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace)
+    target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace
+      drmemtrace_analyzer)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drreg_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drcovlib_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)

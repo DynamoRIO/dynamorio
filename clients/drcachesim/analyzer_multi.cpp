@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -129,27 +129,20 @@ analyzer_multi_t::analyzer_multi_t()
     if (!op_indir.get_value().empty()) {
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        if (!init_file_reader(tracedir, op_verbose.get_value()))
+        if (!init_scheduler(tracedir, op_verbose.get_value()))
             success_ = false;
     } else if (op_infile.get_value().empty()) {
         // XXX i#3323: Add parallel analysis support for online tools.
         parallel_ = false;
-        serial_trace_iter_ = std::unique_ptr<reader_t>(
+        auto reader = std::unique_ptr<reader_t>(
             new ipc_reader_t(op_ipc_name.get_value().c_str(), op_verbose.get_value()));
-        trace_end_ = std::unique_ptr<reader_t>(new ipc_reader_t());
-        if (!*serial_trace_iter_) {
+        auto end = std::unique_ptr<reader_t>(new ipc_reader_t());
+        if (!init_scheduler(std::move(reader), std::move(end), op_verbose.get_value())) {
             success_ = false;
-#ifdef UNIX
-            // This is the most likely cause of the error.
-            // XXX: Even better would be to propagate the mkfifo errno here.
-            error_string_ = "try removing stale pipe file " +
-                reinterpret_cast<ipc_reader_t *>(serial_trace_iter_.get())
-                    ->get_stream_name();
-#endif
         }
     } else {
         // Legacy file.
-        if (!init_file_reader(op_infile.get_value(), op_verbose.get_value()))
+        if (!init_scheduler(op_infile.get_value(), op_verbose.get_value()))
             success_ = false;
     }
     if (!init_analysis_tools()) {
@@ -189,6 +182,7 @@ analyzer_multi_t::create_analysis_tools()
         if (op_offline.get_value()) {
             // TODO i#5538: Locate and open the schedule files and pass to the
             // reader(s) for seeking. For now we only read them for this test.
+            // TODO i#5843: Move this code into scheduler_t.
             std::string tracedir =
                 raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
             if (directory_iterator_t::is_directory(tracedir)) {
@@ -244,22 +238,7 @@ analyzer_multi_t::create_analysis_tools()
 bool
 analyzer_multi_t::init_analysis_tools()
 {
-    std::string tool_error = tools_[0]->initialize_stream(serial_trace_iter_.get());
-    if (!tool_error.empty()) {
-        error_string_ = "Tool failed to initialize: " + tool_error;
-        delete tools_[0];
-        tools_[0] = NULL;
-        return false;
-    }
-    if (op_test_mode.get_value()) {
-        tools_[1]->initialize_stream(serial_trace_iter_.get());
-        if (!*tools_[1]) {
-            error_string_ = tools_[1]->get_error_string();
-            delete tools_[1];
-            tools_[1] = NULL;
-            return false;
-        }
-    }
+    // initialize_stream() is now called from analyzer_t::run().
     return true;
 }
 

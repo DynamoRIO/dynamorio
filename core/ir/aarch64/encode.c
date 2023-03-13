@@ -57,6 +57,11 @@ const char *const reg_names[] = {
     "w20", "w21", "w22", "w23", "w24", "w25", "w26", "w27", "w28", "w29",
     "w30", "wsp", "wzr",
 
+    "z0",  "z1",  "z2",  "z3",  "z4",  "z5",  "z6",  "z7",  "z8",  "z9",
+    "z10", "z11", "z12", "z13", "z14", "z15", "z16", "z17", "z18", "z19",
+    "z20", "z21", "z22", "z23", "z24", "z25", "z26", "z27", "z28", "z29",
+    "z30", "z31",
+
     "q0",  "q1",  "q2",  "q3",  "q4",  "q5",  "q6",  "q7",  "q8",  "q9",
     "q10", "q11", "q12", "q13", "q14", "q15", "q16", "q17", "q18", "q19",
     "q20", "q21", "q22", "q23", "q24", "q25", "q26", "q27", "q28", "q29",
@@ -109,11 +114,6 @@ const char *const reg_names[] = {
     "pmevtyper28_el0", "pmevtyper29_el0", "pmevtyper30_el0", "pmccfiltr_el0",
     "spsr_irq", "spsr_abt", "spsr_und", "spsr_fiq", "tpidr_el0", "tpidrro_el0",
 
-    "z0",  "z1",  "z2",  "z3",  "z4",  "z5",  "z6",  "z7",  "z8",  "z9",
-    "z10", "z11", "z12", "z13", "z14", "z15", "z16", "z17", "z18", "z19",
-    "z20", "z21", "z22", "z23", "z24", "z25", "z26", "z27", "z28", "z29",
-    "z30", "z31",
-
     "p0",  "p1",  "p2",  "p3",  "p4",  "p5",  "p6",  "p7",  "p8",  "p9",
     "p10", "p11", "p12", "p13", "p14", "p15",
 
@@ -137,18 +137,19 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
                                       XREGS /* W0-WSP */
 #undef XREGS
 
-#define QREGS                                                                            \
-    DR_REG_Q0, DR_REG_Q1, DR_REG_Q2, DR_REG_Q3, DR_REG_Q4, DR_REG_Q5, DR_REG_Q6,         \
-        DR_REG_Q7, DR_REG_Q8, DR_REG_Q9, DR_REG_Q10, DR_REG_Q11, DR_REG_Q12, DR_REG_Q13, \
-        DR_REG_Q14, DR_REG_Q15, DR_REG_Q16, DR_REG_Q17, DR_REG_Q18, DR_REG_Q19,          \
-        DR_REG_Q20, DR_REG_Q21, DR_REG_Q22, DR_REG_Q23, DR_REG_Q24, DR_REG_Q25,          \
-        DR_REG_Q26, DR_REG_Q27, DR_REG_Q28, DR_REG_Q29, DR_REG_Q30, DR_REG_Q31,
-                                          QREGS                 /* Q0-Q31*/
-                                              QREGS             /* D0-D31 */
-                                                  QREGS         /* S0-S31 */
-                                                      QREGS     /* H0-H31 */
-                                                          QREGS /* B0-B31 */
-#undef QREGS
+#define ZREGS                                                                            \
+    DR_REG_Z0, DR_REG_Z1, DR_REG_Z2, DR_REG_Z3, DR_REG_Z4, DR_REG_Z5, DR_REG_Z6,         \
+        DR_REG_Z7, DR_REG_Z8, DR_REG_Z9, DR_REG_Z10, DR_REG_Z11, DR_REG_Z12, DR_REG_Z13, \
+        DR_REG_Z14, DR_REG_Z15, DR_REG_Z16, DR_REG_Z17, DR_REG_Z18, DR_REG_Z19,          \
+        DR_REG_Z20, DR_REG_Z21, DR_REG_Z22, DR_REG_Z23, DR_REG_Z24, DR_REG_Z25,          \
+        DR_REG_Z26, DR_REG_Z27, DR_REG_Z28, DR_REG_Z29, DR_REG_Z30, DR_REG_Z31,
+                                          ZREGS                     /* Z0-Z31 */
+                                              ZREGS                 /* Q0-Q31*/
+                                                  ZREGS             /* D0-D31 */
+                                                      ZREGS         /* S0-S31 */
+                                                          ZREGS     /* H0-H31 */
+                                                              ZREGS /* B0-B31 */
+#undef ZREGS
 
     DR_REG_NZCV, DR_REG_FPCR, DR_REG_FPSR,
     DR_REG_MDCCSR_EL0, DR_REG_DBGDTR_EL0, DR_REG_DBGDTRRX_EL0, DR_REG_SP_EL0,
@@ -185,7 +186,13 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
     DR_REG_PMEVTYPER26_EL0, DR_REG_PMEVTYPER27_EL0, DR_REG_PMEVTYPER28_EL0,
     DR_REG_PMEVTYPER29_EL0, DR_REG_PMEVTYPER30_EL0, DR_REG_PMCCFILTR_EL0,
     DR_REG_SPSR_IRQ, DR_REG_SPSR_ABT, DR_REG_SPSR_UND, DR_REG_SPSR_FIQ,
-    DR_REG_TPIDR_EL0, DR_REG_TPIDRRO_EL0
+    DR_REG_TPIDR_EL0, DR_REG_TPIDRRO_EL0,
+
+    DR_REG_P0, DR_REG_P1, DR_REG_P2, DR_REG_P3, DR_REG_P4, DR_REG_P5,
+    DR_REG_P6, DR_REG_P7, DR_REG_P8, DR_REG_P9, DR_REG_P10, DR_REG_P11,
+    DR_REG_P12, DR_REG_P13, DR_REG_P14, DR_REG_P15,
+
+    DR_REG_CNTVCT_EL0,
 };
 /* clang-format on */
 

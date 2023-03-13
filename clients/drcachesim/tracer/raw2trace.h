@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -55,6 +55,7 @@
 #include "instru.h"
 #include "archive_ostream.h"
 #include "reader.h"
+#include "utils.h"
 #include <fstream>
 #include "hashtable.h"
 #include <vector>
@@ -607,9 +608,6 @@ struct trace_header_t {
     uint64 timestamp;
     size_t cache_line_size;
 };
-
-// XXX: DR should export this
-#define INVALID_THREAD_ID 0
 
 /* XXX i#4062: We are no longer using this split interface.
  * Should we refactor and merge trace_converter_t into raw2trace_t for simpler code?
@@ -1745,12 +1743,6 @@ public:
     {
         return nullptr;
     };
-    bool
-    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
-                           OUT bool *eof) override
-    {
-        return false;
-    }
     std::string
     get_stream_name() const override
     {
@@ -1759,7 +1751,7 @@ public:
     int
     entry_memref_count(const trace_entry_t *entry)
     {
-        // Mirror file_reader_t::open_input_files().
+        // Mirror file_reader_t::open_input_file().
         // In particular, we need to skip TRACE_TYPE_HEADER and to pass the
         // tid and pid to the reader before the 2 markers in front of them.
         if (!saw_pid_) {

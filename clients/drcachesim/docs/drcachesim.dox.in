@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1464,6 +1464,43 @@ be created using the basic_counts_tool_create(), opcode_mix_tool_create(),
 histogram_tool_create(), reuse_distance_tool_create(), reuse_time_tool_create(),
 view_tool_create(), cache_simulator_create(), tlb_simulator_create(), and
 func_view_create() functions.
+
+\section sec_drcachesim_sched Scheduler
+
+In addition to the analysis tool framework, which targets running
+multiple tools at once either in parallel across all traced threads or
+in a serial fashion, we provide a scheduler which will map inputs to a
+given set of outputs in a specified manner.  This allows a tool such
+as a core simulator, or just a tool wanting its own control over
+advancing the trace stream (unlike the analysis tool framework where
+the framework controls the iteration), to request the next trace
+record for each output on its own.
+
+Here is a simple example of a single-output, serial stream.  This also
+serves as an example of how to replace the now-removed old analysis
+tool framework's "external iterator" interface:
+
+\code
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(trace_directory);
+    if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) !=
+        scheduler_t::STATUS_SUCCESS) {
+        FATAL_ERROR("failed to initialize scheduler: %s",
+                    scheduler.get_error_string().c_str());
+    }
+    auto *stream = scheduler.get_stream(0);
+    memref_t record;
+    for (scheduler_t::stream_status_t status = stream->next_record(record);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
+        if (status != scheduler_t::STATUS_OK)
+            FATAL_ERROR("scheduler failed to advance: %d", status);
+        if (!my_tool->process_memref(record)) {
+            FATAL_ERROR("tool failed to process entire trace: %s",
+                        my_tool->get_error_string().c_str());
+        }
+    }
+\endcode
 
 ****************************************************************************
 \page sec_drcachesim_ops Simulator Parameters

@@ -177,7 +177,13 @@ drmemtrace_analysis_tool_create()
         knobs.distance_threshold = op_reuse_distance_threshold.get_value();
         knobs.report_top = op_report_top.get_value();
         knobs.skip_list_distance = op_reuse_skip_dist.get_value();
+        knobs.distance_limit = op_reuse_distance_limit.get_value();
         knobs.verify_skip = op_reuse_verify_skip.get_value();
+        knobs.histogram_bin_multiplier = op_reuse_histogram_bin_multiplier.get_value();
+        if (knobs.histogram_bin_multiplier < 1.0) {
+            ERRMSG("Usage error: reuse_histogram_bin_multiplier must be >= 1.0\n");
+            return nullptr;
+        }
         knobs.verbose = op_verbose.get_value();
         return reuse_distance_tool_create(knobs);
     } else if (op_simulator_type.get_value() == REUSE_TIME) {

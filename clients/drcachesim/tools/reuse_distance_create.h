@@ -54,8 +54,10 @@ struct reuse_distance_knobs_t {
         , distance_threshold(100)
         , report_top(10)
         , skip_list_distance(500)
+        , distance_limit(0)
         , verify_skip(false)
         , verbose(0)
+        , histogram_bin_multiplier(1.00)
     {
     }
     unsigned int line_size;
@@ -63,8 +65,10 @@ struct reuse_distance_knobs_t {
     unsigned int distance_threshold;
     unsigned int report_top;
     unsigned int skip_list_distance;
+    unsigned int distance_limit;
     bool verify_skip;
     unsigned int verbose;
+    double histogram_bin_multiplier;
 };
 
 /** Creates an analysis tool which computes reuse distance. */
