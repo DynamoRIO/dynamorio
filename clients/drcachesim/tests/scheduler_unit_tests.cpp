@@ -90,6 +90,9 @@ public:
     trace_entry_t *
     read_next_entry() override
     {
+        trace_entry_t *entry = read_queued_entry();
+        if (entry != nullptr)
+            return entry;
         // We need this to work just well enough for reader_t::skip_instructions
         // to identify instr entries.
         ++index_;
@@ -105,12 +108,6 @@ public:
     {
         --index_;
         queue_.pop();
-    }
-    bool
-    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
-                           OUT bool *eof) override
-    {
-        return true;
     }
     std::string
     get_stream_name() const override
@@ -328,8 +325,11 @@ test_regions()
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
-    // Since reader_t::skip_instructions() is unfinished and does not repeat timestamps,
-    // we can't use the serial options as it will fail without timestamps.
+    // TODO(i#5843: We don't have timestamps so we can't use the serial options.
+    // We should make a new test with timestamps but currently that breaks the
+    // existing scheduler region code (because the instr count is still low for
+    // the inserted timestamp so it tries to skip again...): we separate fixing that
+    // and adding a timestamp test as future work.
     if (scheduler.init(sched_inputs, 1,
                        scheduler_t::scheduler_options_t(
                            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
