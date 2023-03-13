@@ -119,16 +119,6 @@ public:
     virtual reader_t &
     skip_instructions(uint64_t instruction_count);
 
-    virtual void
-    pre_skip_instructions();
-
-    // Performs a simple walk until it sees the instruction whose ordinal is
-    // "stop_instruction_count" along with all of its associated records such as
-    // memrefs.  If any timestamp (plus cpuid) is skipped, the most recent skipped
-    // timestamp will be duplicated prior to the target instruction.
-    virtual reader_t &
-    skip_instructions_with_timestamp(uint64_t stop_instruction_count);
-
     // Supplied for subclasses that may fail in their constructors.
     virtual bool
     operator!()
@@ -191,15 +181,15 @@ public:
 protected:
     // This reads the next entry from the single stream of entries (or from the
     // local queue if non-empty).  If it returns false it will set at_eof_ to distinguish
-    // end-of-file from an error.  It should call read_queue() first before reading
-    // a new entry from the input stream.
+    // end-of-file from an error.  It should call read_queued_entry() first before
+    // reading a new entry from the input stream.
     virtual trace_entry_t *
     read_next_entry() = 0;
     // Returns and removes the entry (nullptr if none) from the local queue.
     // This should be called by read_next_entry() prior to reading a new record
     // from the input stream.
     virtual trace_entry_t *
-    read_queue();
+    read_queued_entry();
     // Replaces the just-read record with the prior record, supplied here.
     // Separated into a virtual method for overriding in test mock readers.
     virtual void
@@ -208,6 +198,19 @@ protected:
     // Returns whether a new memref record is now available.
     virtual bool
     process_input_entry();
+
+    // Meant to be called from skip_instructions();
+    // Looks for headers prior to a skip in case it is from the start of the trace.
+    virtual void
+    pre_skip_instructions();
+
+    // Meant to be called from skip_instructions();
+    // Performs a simple walk until it sees the instruction whose ordinal is
+    // "stop_instruction_count" along with all of its associated records such as
+    // memrefs.  If any timestamp (plus cpuid) is skipped, the most recent skipped
+    // timestamp will be duplicated prior to the target instruction.
+    virtual reader_t &
+    skip_instructions_with_timestamp(uint64_t stop_instruction_count);
 
     // Following typical stream iterator convention, the default constructor
     // produces an EOF object.

@@ -123,7 +123,7 @@ protected:
         header = *entry;
         // We can handle the older version 1 as well which simply omits the
         // early marker with the arch tag, and version 2 which only differs wrt
-        // TRACE_MARKER_TYPE_KERNEL_EVENT..
+        // TRACE_MARKER_TYPE_KERNEL_EVENT.
         if (entry->addr > TRACE_ENTRY_VERSION) {
             ERRMSG("Cannot handle version #%zu (expect version <= #%u)\n", entry->addr,
                    TRACE_ENTRY_VERSION);
@@ -131,11 +131,12 @@ protected:
         }
         // Read the meta entries until we hit the pid.
         // We want to pass the tid+pid to the reader *before* any markers,
-        // even though 2 markers preced the tid+pid in the file.
+        // even though markers can precede the tid+pid in the file, in particular
+        // for legacy traces.
         std::queue<trace_entry_t> marker_queue;
         while ((entry = read_next_entry()) != nullptr) {
             if (entry->type == TRACE_TYPE_PID) {
-                // We assume the pid entry is the last, right before the timestamp.
+                // We assume the pid entry is after the tid.
                 pid = *entry;
                 break;
             } else if (entry->type == TRACE_TYPE_THREAD)

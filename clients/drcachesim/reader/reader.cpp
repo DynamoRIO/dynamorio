@@ -47,7 +47,7 @@ reader_t::operator*()
 }
 
 trace_entry_t *
-reader_t::read_queue()
+reader_t::read_queued_entry()
 {
     if (queue_.empty())
         return nullptr;

@@ -90,7 +90,7 @@ public:
     trace_entry_t *
     read_next_entry() override
     {
-        trace_entry_t *entry = read_queue();
+        trace_entry_t *entry = read_queued_entry();
         if (entry != nullptr)
             return entry;
         // We need this to work just well enough for reader_t::skip_instructions

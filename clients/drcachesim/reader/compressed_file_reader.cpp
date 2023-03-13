@@ -107,7 +107,7 @@ template <>
 trace_entry_t *
 file_reader_t<gzip_reader_t>::read_next_entry()
 {
-    trace_entry_t *entry = read_queue();
+    trace_entry_t *entry = read_queued_entry();
     if (entry != nullptr)
         return entry;
     entry = read_next_entry_common(&input_file_, &at_eof_);

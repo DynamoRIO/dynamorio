@@ -92,7 +92,7 @@ ipc_reader_t::~ipc_reader_t()
 trace_entry_t *
 ipc_reader_t::read_next_entry()
 {
-    trace_entry_t *from_queue = read_queue();
+    trace_entry_t *from_queue = read_queued_entry();
     if (from_queue != nullptr)
         return from_queue;
     ++cur_buf_;

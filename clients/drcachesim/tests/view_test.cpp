@@ -433,7 +433,7 @@ public:
     {
         if (at_eof_)
             return nullptr;
-        trace_entry_t *entry = read_queue();
+        trace_entry_t *entry = read_queued_entry();
         if (entry != nullptr)
             return entry;
         if (pos_ >= input_file_.size()) {

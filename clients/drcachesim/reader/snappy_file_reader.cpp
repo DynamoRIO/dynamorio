@@ -226,7 +226,7 @@ template <>
 trace_entry_t *
 file_reader_t<snappy_reader_t>::read_next_entry()
 {
-    trace_entry_t *from_queue = read_queue();
+    trace_entry_t *from_queue = read_queued_entry();
     if (from_queue != nullptr)
         return from_queue;
     int len = input_file_.read(sizeof(entry_copy_), &entry_copy_);
