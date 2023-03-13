@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,21 +38,6 @@
 
 namespace {
 
-// TODO(sahil): Rename this.
-inline memref_t
-make_instr(trace_type_t type, addr_t pc, int encoding, memref_tid_t tid = 0)
-{
-    memref_t memref;
-    memref.instr.pid = 0;
-    memref.instr.tid = tid;
-    memref.instr.type = type;
-    memref.instr.addr = pc;
-    memref.instr.size = 4;
-    memcpy(memref.instr.encoding, &encoding, sizeof(encoding));
-    memref.instr.encoding_is_new = true;
-    return memref;
-}
-
 inline memref_t
 gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
 {
@@ -87,25 +72,25 @@ gen_branch(memref_tid_t tid, addr_t pc)
     return gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
 }
 
+// Variant for aarchxx encodings.
 inline memref_t
-gen_branch(memref_tid_t tid, addr_t pc, int encoding)
+gen_branch_encoded(memref_tid_t tid, addr_t pc, int encoding)
 {
     memref_t memref = gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
     memref.instr.size = 4;
     memcpy(memref.instr.encoding, &encoding, sizeof(encoding));
     memref.instr.encoding_is_new = true;
-
     return memref;
 }
 
+// Variant for x86 encodings.
 inline memref_t
-gen_branch(memref_tid_t tid, addr_t pc, const std::vector<int> &encoding)
+gen_branch_encoded(memref_tid_t tid, addr_t pc, const std::vector<char> &encoding)
 {
     memref_t memref = gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
-    memref.instr.size = sizeof(int) * encoding.size();
-    memcpy(memref.instr.encoding, encoding.data(), memref.instr.size);
+    memref.instr.size = encoding.size();
+    memcpy(memref.instr.encoding, encoding.data(), encoding.size());
     memref.instr.encoding_is_new = true;
-
     return memref;
 }
 

@@ -127,11 +127,9 @@ typedef enum {
     TRACE_TYPE_INSTR_DIRECT_JUMP,      /**< A direct unconditional jump instruction. */
     TRACE_TYPE_INSTR_INDIRECT_JUMP,    /**< An indirect jump instruction. */
     TRACE_TYPE_INSTR_CONDITIONAL_JUMP, /**< A conditional jump instruction. */
-    // Unconditional
-    TRACE_TYPE_INSTR_DIRECT_CALL,   /**< A direct call instruction. */
-    TRACE_TYPE_INSTR_INDIRECT_CALL, /**< An indirect call instruction. */
-    // Indirect
-    TRACE_TYPE_INSTR_RETURN, /**< A return instruction. */
+    TRACE_TYPE_INSTR_DIRECT_CALL,      /**< A direct call instruction. */
+    TRACE_TYPE_INSTR_INDIRECT_CALL,    /**< An indirect call instruction. */
+    TRACE_TYPE_INSTR_RETURN,           /**< A return instruction. */
     // These entries describe a bundle of consecutive instruction fetch
     // memory references.  The trace stream always has a single instr fetch
     // prior to instr bundles which the reader can use to obtain the starting PC.
@@ -451,6 +449,21 @@ static inline bool
 type_is_instr_branch(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_INSTR_DIRECT_JUMP && type <= TRACE_TYPE_INSTR_RETURN);
+}
+
+/** Returns whether the type represents the fetch of a direct branch instruction. */
+static inline bool
+type_is_instr_direct_branch(const trace_type_t type)
+{
+    return type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
+        type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP || type == TRACE_TYPE_INSTR_DIRECT_CALL;
+}
+
+/** Returns whether the type represents the fetch of a direct branch instruction. */
+static inline bool
+type_is_instr_conditional_branch(const trace_type_t type)
+{
+    return type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP;
 }
 
 /** Returns whether the type represents a prefetch request. */

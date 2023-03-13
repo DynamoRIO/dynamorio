@@ -479,6 +479,7 @@ restore_nonclient_flags(drmemtrace_view)
 restore_nonclient_flags(drmemtrace_func_view)
 restore_nonclient_flags(drmemtrace_record_filter)
 restore_nonclient_flags(drmemtrace_analyzer)
+restore_nonclient_flags(drmemtrace_invariant_checker)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
