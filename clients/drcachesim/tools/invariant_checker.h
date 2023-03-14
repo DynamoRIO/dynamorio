@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -120,6 +120,9 @@ protected:
         std::vector<schedule_entry_t> sched_;
         std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_;
         bool skipped_instrs_ = false;
+        // We could move this to per-worker data and still not need a lock
+        // (we don't currently have per-worker data though so leaving it as per-shard).
+        std::unordered_map<addr_t, addr_t> branch_target_cache;
     };
 
     // We provide this for subclasses to run these invariants with custom
