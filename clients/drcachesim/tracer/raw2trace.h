@@ -1765,12 +1765,6 @@ public:
     {
         return nullptr;
     };
-    bool
-    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
-                           OUT bool *eof) override
-    {
-        return false;
-    }
     std::string
     get_stream_name() const override
     {
@@ -1779,7 +1773,7 @@ public:
     int
     entry_memref_count(const trace_entry_t *entry)
     {
-        // Mirror file_reader_t::open_input_files().
+        // Mirror file_reader_t::open_input_file().
         // In particular, we need to skip TRACE_TYPE_HEADER and to pass the
         // tid and pid to the reader before the 2 markers in front of them.
         if (!saw_pid_) {

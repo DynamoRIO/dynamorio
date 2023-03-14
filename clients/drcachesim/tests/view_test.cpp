@@ -42,6 +42,7 @@
 #include "../common/memref.h"
 #include "../tracer/raw2trace.h"
 #include "../reader/file_reader.h"
+#include "../scheduler/scheduler.h"
 #include "memref_gen.h"
 
 #undef ASSERT
@@ -61,17 +62,16 @@
         }                             \
     } while (0)
 
+using namespace dynamorio::drmemtrace;
+
 // These are for our mock serial reader and must be in the same namespace
 // as file_reader_t's declaration.
-template <> file_reader_t<std::vector<trace_entry_t>>::~file_reader_t()
+template <> file_reader_t<std::vector<trace_entry_t>>::file_reader_t()
 {
 }
 
-template <>
-bool
-file_reader_t<std::vector<trace_entry_t>>::is_complete()
+template <> file_reader_t<std::vector<trace_entry_t>>::~file_reader_t()
 {
-    return false;
 }
 
 template <>
@@ -82,11 +82,10 @@ file_reader_t<std::vector<trace_entry_t>>::open_single_file(const std::string &p
 }
 
 template <>
-bool
-file_reader_t<std::vector<trace_entry_t>>::read_next_thread_entry(
-    size_t thread_index, OUT trace_entry_t *entry, OUT bool *eof)
+trace_entry_t *
+file_reader_t<std::vector<trace_entry_t>>::read_next_entry()
 {
-    return false;
+    return nullptr;
 }
 
 namespace {
@@ -415,48 +414,55 @@ run_limit_tests(void *drcontext)
 }
 
 /***************************************************************************
- * Serial reader mock.
+ * File reader mock.
  */
 
 class mock_file_reader_t : public file_reader_t<std::vector<trace_entry_t>> {
 public:
     mock_file_reader_t()
     {
+        at_eof_ = true;
     }
-    mock_file_reader_t(const std::vector<std::vector<trace_entry_t>> &entries)
-        : file_reader_t(std::vector<std::string>(1, "non-empty"))
+    mock_file_reader_t(const std::vector<trace_entry_t> &entries)
     {
-        input_files_ = entries;
-        pos_.resize(input_files_.size(), 0);
-        init();
+        input_file_ = entries;
+        pos_ = 0;
     }
-    bool
-    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
-                           OUT bool *eof) override
+    trace_entry_t *
+    read_next_entry() override
     {
-        if (pos_[thread_index] >= input_files_[thread_index].size()) {
-            *eof = true;
-            return false;
+        if (at_eof_)
+            return nullptr;
+        trace_entry_t *entry = read_queued_entry();
+        if (entry != nullptr)
+            return entry;
+        if (pos_ >= input_file_.size()) {
+            at_eof_ = true;
+            return nullptr;
         }
-        *entry = input_files_[thread_index][pos_[thread_index]];
-        ++pos_[thread_index];
-        return true;
+        entry = &input_file_[pos_];
+        ++pos_;
+        return entry;
     }
 
 private:
-    std::vector<size_t> pos_;
+    size_t pos_;
 };
 
 std::string
 run_serial_test_helper(view_t &view,
-                       const std::vector<std::vector<trace_entry_t>> &entries)
+                       const std::vector<std::vector<trace_entry_t>> &entries,
+                       const std::vector<memref_tid_t> &tids)
+
 {
     class local_stream_t : public default_memtrace_stream_t {
     public:
         local_stream_t(view_t &view,
-                       const std::vector<std::vector<trace_entry_t>> &entries)
+                       const std::vector<std::vector<trace_entry_t>> &entries,
+                       const std::vector<memref_tid_t> &tids)
             : view_(view)
             , entries_(entries)
+            , tids_(tids)
         {
         }
 
@@ -468,10 +474,27 @@ run_serial_test_helper(view_t &view,
             std::stringstream capture;
             std::streambuf *prior = std::cerr.rdbuf(capture.rdbuf());
             // Run the tool.
-            mock_file_reader_t serial(entries_);
-            mock_file_reader_t end;
-            for (; serial != end; ++serial) {
-                const memref_t memref = *serial;
+            std::vector<scheduler_t::input_reader_t> readers;
+            for (size_t i = 0; i < entries_.size(); i++) {
+                readers.emplace_back(
+                    std::unique_ptr<mock_file_reader_t>(
+                        new mock_file_reader_t(entries_[i])),
+                    std::unique_ptr<mock_file_reader_t>(new mock_file_reader_t()),
+                    tids_[i]);
+            }
+            scheduler_t scheduler;
+            std::vector<scheduler_t::input_workload_t> sched_inputs;
+            sched_inputs.emplace_back(std::move(readers));
+            if (scheduler.init(sched_inputs, 1,
+                               scheduler_t::make_scheduler_serial_options()) !=
+                scheduler_t::STATUS_SUCCESS)
+                assert(false);
+            auto *stream = scheduler.get_stream(0);
+            memref_t memref;
+            for (scheduler_t::stream_status_t status = stream->next_record(memref);
+                 status != scheduler_t::STATUS_EOF;
+                 status = stream->next_record(memref)) {
+                assert(status == scheduler_t::STATUS_OK);
                 ++ref_count_;
                 if (type_is_instr(memref.instr.type))
                     ++instr_count_;
@@ -498,11 +521,12 @@ run_serial_test_helper(view_t &view,
     private:
         view_t &view_;
         const std::vector<std::vector<trace_entry_t>> &entries_;
+        const std::vector<memref_tid_t> &tids_;
         uint64_t ref_count_ = 0;
         uint64_t instr_count_ = 0;
     };
 
-    local_stream_t stream(view, entries);
+    local_stream_t stream(view, entries, tids);
     return stream.run();
 }
 
@@ -512,6 +536,7 @@ bool
 run_single_thread_chunk_test(void *drcontext)
 {
     const memref_tid_t t1 = 3;
+    std::vector<memref_tid_t> tids = { t1 };
     std::vector<std::vector<trace_entry_t>> entries = { {
         { TRACE_TYPE_HEADER, 0, { 0x1 } },
         { TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION, { 3 } },
@@ -544,7 +569,7 @@ run_single_thread_chunk_test(void *drcontext)
 )DELIM";
     instrlist_t *ilist_unused = nullptr;
     view_nomod_test_t view(drcontext, *ilist_unused, 0, 0, 0);
-    std::string res = run_serial_test_helper(view, entries);
+    std::string res = run_serial_test_helper(view, entries, tids);
     // Make 64-bit match our 32-bit expect string.
     res = std::regex_replace(res, std::regex("0x000000000000002a"), "0x0000002a");
     if (res != expect) {
@@ -559,9 +584,10 @@ run_serial_chunk_test(void *drcontext)
 {
     // We ensure headers are not omitted incorrectly, which they were
     // in the first implementation of the reader skipping dup headers:
-    // i#/5538#issuecomment-1407235283
+    // i#5538#issuecomment-1407235283
     const memref_tid_t t1 = 3;
     const memref_tid_t t2 = 7;
+    std::vector<memref_tid_t> tids = { t1, t2 };
     std::vector<std::vector<trace_entry_t>> entries = {
         {
             { TRACE_TYPE_HEADER, 0, { 0x1 } },
@@ -601,17 +627,15 @@ run_serial_chunk_test(void *drcontext)
            2           0:           3 <marker: filetype 0x0>
            3           0:           3 <marker: cache line size 64>
            4           0:           3 <marker: chunk instruction count 20>
+           5           0:           3 <marker: timestamp 1001>
+           6           0:           3 <marker: tid 3 on core 2>
+           7           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
+           8           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
 ------------------------------------------------------------
-           5           0:           7 <marker: version 3>
-           6           0:           7 <marker: filetype 0x0>
-           7           0:           7 <marker: cache line size 64>
-           8           0:           7 <marker: chunk instruction count 2>
-------------------------------------------------------------
-           9           0:           3 <marker: timestamp 1001>
-          10           0:           3 <marker: tid 3 on core 2>
-          11           1:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
-          12           2:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
-------------------------------------------------------------
+           9           2:           7 <marker: version 3>
+          10           2:           7 <marker: filetype 0x0>
+          11           2:           7 <marker: cache line size 64>
+          12           2:           7 <marker: chunk instruction count 2>
           13           2:           7 <marker: timestamp 1002>
           14           2:           7 <marker: tid 7 on core 2>
           15           3:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
@@ -627,7 +651,7 @@ run_serial_chunk_test(void *drcontext)
 )DELIM";
     instrlist_t *ilist_unused = nullptr;
     view_nomod_test_t view(drcontext, *ilist_unused, 0, 0, 0);
-    std::string res = run_serial_test_helper(view, entries);
+    std::string res = run_serial_test_helper(view, entries, tids);
     // Make 64-bit match our 32-bit expect string.
     res = std::regex_replace(res, std::regex("0x000000000000002a"), "0x0000002a");
     if (res != expect) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,6 +51,7 @@
 
 class snappy_reader_t : snappy_consts_t {
 public:
+    snappy_reader_t() = default;
     snappy_reader_t(std::ifstream *stream);
 
     // Read 'size' bytes into the 'to'.
