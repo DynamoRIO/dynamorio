@@ -208,7 +208,7 @@ check_sane_control_flow()
 #if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     // XXX: We hardcode encodings here.  If we need many more we should generate them
     // from DR IR.
-    //
+
     // Negative test: branches with encodings which do not go to their targets.
     {
         std::vector<memref_t> memrefs = {
@@ -219,6 +219,8 @@ check_sane_control_flow()
 #    elif defined(ARM_64)
             // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
             gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
             gen_instr(1, 20),
         };
@@ -238,6 +240,8 @@ check_sane_control_flow()
 #    elif defined(ARM_64)
             // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
             gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
             gen_instr(1, 0x71019df0),
         };

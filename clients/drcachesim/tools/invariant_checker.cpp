@@ -396,6 +396,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     decode_from_copy(GLOBAL_DCONTEXT, decode_pc,
                                      reinterpret_cast<app_pc>(trace_pc), &instr);
                 if (next_pc == nullptr || !opnd_is_pc(instr_get_target(&instr))) {
+                    // Neither condition should happen but they could on an invalid
+                    // encoding from raw2trace or the reader so we report an
+                    // invariant rather than asserting.
                     report_if_false(shard, false, "Branch target is not decodeable");
                 } else {
                     have_cond_branch_target = true;

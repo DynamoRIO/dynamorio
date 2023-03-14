@@ -182,7 +182,9 @@ instr_init(void *drcontext, instr_t *instr)
      * single-source-no-dest instrs never hits the heap code so we check here too.
      */
     if (dcontext == GLOBAL_DCONTEXT && !dynamo_heap_initialized) {
-        /* XXX: We have no control point to call standalone_exit(). */
+        /* TODO i#2499: We have no control point currently to call standalone_exit().
+         * We need to develop a solution with atexit() or ELF destructors or sthg.
+         */
         standalone_init();
     }
 #endif

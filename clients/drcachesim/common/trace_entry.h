@@ -459,7 +459,7 @@ type_is_instr_direct_branch(const trace_type_t type)
         type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP || type == TRACE_TYPE_INSTR_DIRECT_CALL;
 }
 
-/** Returns whether the type represents the fetch of a direct branch instruction. */
+/** Returns whether the type represents the fetch of a conditional branch instruction. */
 static inline bool
 type_is_instr_conditional_branch(const trace_type_t type)
 {

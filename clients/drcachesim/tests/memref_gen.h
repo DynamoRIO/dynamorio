@@ -61,7 +61,7 @@ gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc, size_t size = 1)
 }
 
 inline memref_t
-gen_instr(memref_tid_t tid, addr_t pc, size_t size = 1, int encoding = 0)
+gen_instr(memref_tid_t tid, addr_t pc, size_t size = 1)
 {
     return gen_instr_type(TRACE_TYPE_INSTR, tid, pc, size);
 }
@@ -72,6 +72,8 @@ gen_branch(memref_tid_t tid, addr_t pc)
     return gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
 }
 
+// We use these client defines which are the target and so drdecode's target arch.
+#if defined(ARM_64) || defined(ARM_32)
 // Variant for aarchxx encodings.
 inline memref_t
 gen_branch_encoded(memref_tid_t tid, addr_t pc, int encoding)
@@ -82,7 +84,7 @@ gen_branch_encoded(memref_tid_t tid, addr_t pc, int encoding)
     memref.instr.encoding_is_new = true;
     return memref;
 }
-
+#elif defined(X86_64) || defined(X86_32)
 // Variant for x86 encodings.
 inline memref_t
 gen_branch_encoded(memref_tid_t tid, addr_t pc, const std::vector<char> &encoding)
@@ -93,6 +95,8 @@ gen_branch_encoded(memref_tid_t tid, addr_t pc, const std::vector<char> &encodin
     memref.instr.encoding_is_new = true;
     return memref;
 }
+#else
+#endif
 
 inline memref_t
 gen_marker(memref_tid_t tid, trace_marker_type_t type, uintptr_t val)
