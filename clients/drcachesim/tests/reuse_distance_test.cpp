@@ -287,6 +287,32 @@ reuse_distance_limit_test()
     }
 }
 
+// Test print_histogram with empty input vector.
+void
+print_histogram_empty_test()
+{
+    std::cerr << "print_histogram_empty_test()\n";
+
+    // Create a reuse_distance test object.
+    reuse_distance_knobs_t knobs;
+    knobs.verbose = 2;
+    reuse_distance_test_t reuse_distance(knobs);
+
+    // Create an empty histogram vector.
+    std::vector<std::pair<int_least64_t, int_least64_t>> sorted;
+
+    // Make sure print_histogram handles this case without crashing.
+    std::stringstream output_string;
+    reuse_distance.print_histogram(output_string, /*count=*/0, sorted);
+
+    // If the title string is in the output, that's good enough.
+    std::vector<std::string> expected_strings = {
+        "Reuse distance histogram:",
+    };
+    bool test_passes = find_strings_in_stream(expected_strings, output_string);
+    assert(test_passes);
+}
+
 // Test print_histogram with multiplier of 1.0 (no geometric scaling).
 void
 print_histogram_mult_1p0_test()
@@ -367,6 +393,7 @@ print_histogram_mult_1p2_test()
 int
 main(int argc, const char *argv[])
 {
+    print_histogram_empty_test();
     print_histogram_mult_1p0_test();
     print_histogram_mult_1p2_test();
     simple_reuse_distance_test();
