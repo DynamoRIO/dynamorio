@@ -341,7 +341,7 @@ reuse_distance_t::print_histogram(
     }
     out << std::setw(12) << "Count"
         << "  Percent  Cumulative\n";
-    int_least64_t max_distance = sorted.back().first;
+    int_least64_t max_distance = sorted.empty() ? 0 : sorted.back().first;
     double cum_percent = 0;
     int_least64_t bin_count = 0;
     int_least64_t bin_size = 1;
@@ -360,7 +360,8 @@ reuse_distance_t::print_histogram(
                 bin_count += it->second;
                 last_bin = false;
             }
-            double percent = bin_count / static_cast<double>(total_count);
+            double percent =
+                total_count > 0 ? bin_count / static_cast<double>(total_count) : 0.0;
             cum_percent += percent;
             // Don't output empty bins.
             if (bin_count > 0) {
