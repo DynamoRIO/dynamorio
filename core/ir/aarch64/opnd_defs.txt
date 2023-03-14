@@ -225,6 +225,7 @@
 ----------?-----???-??xxxxx-----  memvs      # gets size from 21, 15:13 and 11:10
 ----------?xxxxx--?-??----------  x16immvr   # computes immed from 21, 13 and 11:10
 ----------?xxxxx???-??----------  x16immvs   # computes immed from 21, 15:13 and 11:10
+----------x----------------xxxxx  z_sz21_sd_0  # SVE vector reg, elsz depending on bit 21
 ----------x---------x-----------  vindex_S   # Index for vector with single
 ----------xx--------x-----------  vindex_H   # Index for vector with half elements (0-7)
 ----------xxxxxx------xxxxx-----  svemem_gpr_simm6_vl # imm offset and base reg for SVE
@@ -310,6 +311,7 @@
 -------??--xxxxx------xxxxx-----  svemem_vec_s_imm5 # SVE memory address [<Zn>.S{, #<imm>}]
 -------??--xxxxx------xxxxx-----  svemem_vec_d_imm5 # SVE memory address [<Zn>.D{, #<imm>}]
 -------??-?xxxxx------xxxxx-----  svemem_gpr_vec64 # SVE memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod>}]
+-------????-xxxx------xxxxx-----  svemem_gpr_simm4_vl_1reg # SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}] 1 dest register
 -------????xxxxx------xxxxx-----  svemem_msz_gpr_shf # SVE memory address [<Xn|SP>, <Xm>, LSL #x]
 -------????xxxxx------xxxxx-----  svemem_msz_stgpr_shf # SVE memory address [<Xn|SP>, <Xm>, LSL #x]
 -------????xxxxx------xxxxx-----  svemem_gpr_shf   # GPR offset and base reg for SVE ld/st, with optional shift
