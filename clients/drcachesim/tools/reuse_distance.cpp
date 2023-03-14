@@ -52,11 +52,12 @@ reuse_distance_t::reuse_distance_t(const reuse_distance_knobs_t &knobs)
     : knobs_(knobs)
     , line_size_bits_(compute_log2((int)knobs_.line_size))
 {
-    if (DEBUG_VERBOSE(2)) {
-        std::cerr << "cache line size " << knobs_.line_size << ", "
-                  << "reuse distance threshold " << knobs_.distance_threshold
-                  << ", distance limit " << knobs_.distance_limit << std::endl;
-    }
+    reuse_distance_t::knob_verbose = knobs.verbose;
+    IF_DEBUG_VERBOSE(2,
+                     std::cerr << "cache line size " << knobs_.line_size << ", "
+                               << "reuse distance threshold " << knobs_.distance_threshold
+                               << ", distance limit " << knobs_.distance_limit
+                               << std::endl);
 }
 
 reuse_distance_t::~reuse_distance_t()
@@ -108,7 +109,7 @@ bool
 reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
-    if (DEBUG_VERBOSE(3)) {
+    IF_DEBUG_VERBOSE(3, {
         std::cerr << " ::" << memref.data.pid << "." << memref.data.tid
                   << ":: " << trace_type_names[memref.data.type];
         if (memref.data.type != TRACE_TYPE_THREAD_EXIT) {
@@ -118,7 +119,7 @@ reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref
             std::cerr << (void *)memref.data.addr << " x" << memref.data.size;
         }
         std::cerr << std::endl;
-    }
+    });
     if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
         shard->tid = memref.exit.tid;
         return true;
@@ -166,9 +167,7 @@ reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref
                 shard->dist_map.insert(std::pair<int_least64_t, int_least64_t>(dist, 1));
             else
                 ++dist_it->second;
-            if (DEBUG_VERBOSE(3)) {
-                std::cerr << "Distance is " << std::dec << dist << "\n";
-            }
+            IF_DEBUG_VERBOSE(3, std::cerr << "Distance is " << std::dec << dist << "\n");
         }
     }
     return true;
