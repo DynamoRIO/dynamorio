@@ -181,7 +181,7 @@ instr_init(void *drcontext, instr_t *instr)
      * drdecode use even with full DR linked in (i#2499).  Decoding of simple
      * single-source-no-dest instrs never hits the heap code so we check here too.
      */
-    if (dcontext == GLOBAL_DCONTEXT && !dynamo_initialized) {
+    if (dcontext == GLOBAL_DCONTEXT && !dynamo_heap_initialized) {
         /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
