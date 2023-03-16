@@ -127,7 +127,7 @@ _tmain(int argc, const TCHAR *targv[])
     std::vector<analysis_tool_t *> tools;
     tools.push_back(tool);
 
-    analysis_tool_t * d = new analyzer_example_t();
+    analysis_tool_t *d = new analyzer_example_t();
     tools.push_back(d);
 
     analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());
