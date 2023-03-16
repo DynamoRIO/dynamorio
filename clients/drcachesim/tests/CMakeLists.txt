@@ -52,6 +52,41 @@ if (NOT DynamoRIO_FOUND)
   message(FATAL_ERROR "DynamoRIO package required to build")
 endif()
 
+# OS and ARCH defines needed for dr_api.h
+if (WIN32)
+  set(os_name "win")
+  # Our non-client files assume this is set, yet don't include headers that set it.
+  add_definitions(-DWINDOWS)
+else ()
+  set(os_name "unix")
+  # Ditto.
+  add_definitions(-DUNIX)
+  if (APPLE)
+    add_definitions(-DMACOS)
+  else ()
+    # 'if (LINUX)' added in 3.25 https://cmake.org/cmake/help/latest/variable/LINUX.html
+    add_definitions(-DLINUX)
+  endif ()
+endif ()
+# Ditto here, in particular for options.cpp.
+if (X86)
+  if (X64)
+    add_definitions(-DX86_64)
+  else ()
+    add_definitions(-DX86_32)
+  endif ()
+elseif (AARCHXX)
+  if (X64)
+    add_definitions(-DARM_64)
+  else ()
+    add_definitions(-DARM_32)
+  endif ()
+elseif (RISCV64)
+    add_definitions(-DRISCV_64)
+endif ()
+
+
+
 configure_DynamoRIO_main_headers() # for dr_frontend.h
 
 add_executable(analyzer_separate analyzer_separate.cpp)
