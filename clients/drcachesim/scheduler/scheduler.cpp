@@ -597,9 +597,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::open_reader(
         error_string_ = "Failed to read " + path;
         return STATUS_ERROR_FILE_READ_FAILED;
     }
-    if (!only_threads.empty() && only_threads.find(tid) == only_threads.end())
+    if (!only_threads.empty() && only_threads.find(tid) == only_threads.end()) {
+        inputs_.pop_back();
         return sched_type_t::STATUS_SUCCESS;
-    VPRINT(this, 2, "Opened reader for tid %" PRId64 " %s\n", tid, path.c_str());
+    }
+    VPRINT(this, 1, "Opened reader for tid %" PRId64 " %s\n", tid, path.c_str());
     input.tid = tid;
     input.reader = std::move(reader);
     input.reader_end = std::move(reader_end);
