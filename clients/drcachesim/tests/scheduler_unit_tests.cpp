@@ -412,7 +412,8 @@ test_only_threads(const char *testdir)
     }
     // Test with real files as that is a separate code path in the scheduler.
     // Since 32-bit memref_t is a different size we limit these to 64-bit builds.
-#if defined(X86_64) || defined(ARM_64)
+#if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZLIB) && defined(HAS_SNAPPY)
+
     {
         std::string trace1 =
             std::string(testdir) + "/drmemtrace.chase-snappy.x64.tracedir";
