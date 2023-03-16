@@ -160,6 +160,9 @@ add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
+add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
+
+target_link_libraries(drmemtrace_invariant_checker drdecode)
 
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
@@ -242,9 +245,7 @@ set(drcachesim_srcs
   reader/ipc_reader.cpp
   simulator/analyzer_interface.cpp
   tracer/instru.cpp
-  tracer/instru_online.cpp
-  # We include the invariants analyzer for sanity checks.
-  tools/invariant_checker.cpp)
+  tracer/instru_online.cpp)
 add_executable(drcachesim ${drcachesim_srcs})
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)
@@ -252,7 +253,7 @@ configure_DynamoRIO_standalone(drcachesim)
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_view drmemtrace_func_view
-  drmemtrace_raw2trace directory_iterator)
+  drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker)
 if (libsnappy)
   target_link_libraries(drcachesim snappy)
 endif ()
@@ -315,13 +316,11 @@ install_client_nonDR_header(drmemtrace scheduler/scheduler.h)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
-# We also use this to link in our invariant_checker sanity checker.
 add_executable(histogram_launcher
   tools/histogram_launcher.cpp
-  tools/invariant_checker.cpp
   )
 target_link_libraries(histogram_launcher drmemtrace_analyzer drmemtrace_histogram
-  drfrontendlib)
+  drfrontendlib drmemtrace_invariant_checker)
 use_DynamoRIO_extension(histogram_launcher droption)
 add_dependencies(histogram_launcher api_headers)
 
@@ -486,6 +485,7 @@ restore_nonclient_flags(drmemtrace_view)
 restore_nonclient_flags(drmemtrace_func_view)
 restore_nonclient_flags(drmemtrace_record_filter)
 restore_nonclient_flags(drmemtrace_analyzer)
+restore_nonclient_flags(drmemtrace_invariant_checker)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
@@ -539,6 +539,7 @@ add_win32_flags(drmemtrace_view)
 add_win32_flags(drmemtrace_func_view)
 add_win32_flags(drmemtrace_record_filter)
 add_win32_flags(drmemtrace_analyzer)
+add_win32_flags(drmemtrace_invariant_checker)
 add_win32_flags(directory_iterator)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drcachesim SOURCES)
@@ -711,10 +712,9 @@ if (BUILD_TESTS)
     add_test(NAME tool.drcachesim.miss_analyzer_unit_test
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
 
-    add_executable(tool.drcachesim.invariant_checker_test
-      tools/invariant_checker.cpp tests/invariant_checker_test.cpp)
+    add_executable(tool.drcachesim.invariant_checker_test tests/invariant_checker_test.cpp)
     target_link_libraries(tool.drcachesim.invariant_checker_test
-        drmemtrace_static drmemtrace_analyzer)
+        drmemtrace_static drmemtrace_analyzer drmemtrace_invariant_checker)
     add_win32_flags(tool.drcachesim.invariant_checker_test)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)

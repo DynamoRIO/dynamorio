@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -176,6 +176,18 @@ instr_init(void *drcontext, instr_t *instr)
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
     instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+    /* Just like in global_heap_alloc() we pay the cost of this check to support
+     * drdecode use even with full DR linked in (i#2499).  Decoding of simple
+     * single-source-no-dest instrs never hits the heap code so we check here too.
+     */
+    if (dcontext == GLOBAL_DCONTEXT && !dynamo_heap_initialized) {
+        /* TODO i#2499: We have no control point currently to call standalone_exit().
+         * We need to develop a solution with atexit() or ELF destructors or sthg.
+         */
+        standalone_init();
+    }
+#endif
 }
 
 /* zeroes out the fields of instr */
