@@ -78,24 +78,29 @@ droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
 
 class analyzer_example_t : public analysis_tool_t {
 public:
-    analyzer_example_t() {}
+    analyzer_example_t()
+    {
+    }
     bool
-    process_memref(const memref_t &memref) override {
-      if (type_is_instr(memref.instr.type)) {
-        num_instrs++;
+    process_memref(const memref_t &memref) override
+    {
+        if (type_is_instr(memref.instr.type)) {
+            num_instrs++;
 
-        instr_t instr;
-        instr_init(NULL, &instr);
-        byte *next_pc = decode_from_copy(NULL, (byte *)&memref.instr.encoding[0],
-                (byte*)memref.instr.addr, &instr);
-      }
-      return true;
+            instr_t instr;
+            instr_init(NULL, &instr);
+            byte *next_pc = decode_from_copy(NULL, (byte *)&memref.instr.encoding[0],
+                                             (byte *)memref.instr.addr, &instr);
+        }
+        return true;
     }
     bool
-    print_results() override {
-      std::cerr << "Found " << num_instrs << " instructions\n";
-      return true;
+    print_results() override
+    {
+        std::cerr << "Found " << num_instrs << " instructions\n";
+        return true;
     }
+
 protected:
     int num_instrs = 0;
 };
