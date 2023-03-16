@@ -80,6 +80,14 @@ class analyzer_example_t : public analysis_tool_t {
 public:
     analyzer_example_t()
     {
+        dc = dr_standalone_init();
+        instr = instr_create(dc);
+        instr_init(dc, instr);
+    }
+    ~analyzer_example_t()
+    {
+        instr_destroy(dc, instr);
+        dr_standalone_exit();
     }
     bool
     process_memref(const memref_t &memref) override
@@ -87,10 +95,9 @@ public:
         if (type_is_instr(memref.instr.type)) {
             num_instrs++;
 
-            instr_t instr;
-            instr_init(NULL, &instr);
-            byte *next_pc = decode_from_copy(NULL, (byte *)&memref.instr.encoding[0],
-                                             (byte *)memref.instr.addr, &instr);
+            instr_reset(dc, instr);
+            byte *next_pc = decode_from_copy(dc, (byte *)&memref.instr.encoding[0],
+                                             (byte *)memref.instr.addr, instr);
         }
         return true;
     }
@@ -103,6 +110,8 @@ public:
 
 protected:
     int num_instrs = 0;
+    instr_t *instr;
+    void *dc = NULL;
 };
 
 int
@@ -140,6 +149,7 @@ _tmain(int argc, const TCHAR *targv[])
     }
     analyzer.print_stats();
     delete tool;
+    delete d;
 
     return 0;
 }
