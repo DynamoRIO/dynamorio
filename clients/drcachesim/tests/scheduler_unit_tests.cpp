@@ -411,6 +411,8 @@ test_only_threads(const char *testdir)
         }
     }
     // Test with real files as that is a separate code path in the scheduler.
+    // Since 32-bit memref_t is a different size we limit these to 64-bit builds.
+#if defined(X86_64) || defined(ARM_64)
     {
         std::string trace1 =
             std::string(testdir) + "/drmemtrace.chase-snappy.x64.tracedir";
@@ -464,6 +466,7 @@ test_only_threads(const char *testdir)
                tids_seen.find(TID_2_A) != tids_seen.end() &&
                tids_seen.find(TID_2_B) != tids_seen.end());
     }
+#endif
 }
 
 } // namespace
