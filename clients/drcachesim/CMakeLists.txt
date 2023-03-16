@@ -672,7 +672,8 @@ if (BUILD_TESTS)
   target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer)
   add_win32_flags(tool.scheduler.unit_tests)
   add_test(NAME tool.scheduler.unit_tests
-           COMMAND tool.scheduler.unit_tests)
+    COMMAND tool.scheduler.unit_tests
+    ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
 
   # XXX i#5675: add tests for other environments. Currently, the repository does not have
   # a checked-in post-processed trace for x86-32 or AArchXX.
