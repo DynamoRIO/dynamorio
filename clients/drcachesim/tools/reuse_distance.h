@@ -86,6 +86,8 @@ public:
     parallel_shard_error(void *shard_data) override;
 
     // Global value for use in non-member code.
+    // XXX: Change to an instance variable so multiple instances can have
+    // different verbosities.
     static unsigned int knob_verbose;
 
 protected:

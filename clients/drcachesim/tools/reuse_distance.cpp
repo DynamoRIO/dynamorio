@@ -56,8 +56,7 @@ reuse_distance_t::reuse_distance_t(const reuse_distance_knobs_t &knobs)
     IF_DEBUG_VERBOSE(2,
                      std::cerr << "cache line size " << knobs_.line_size << ", "
                                << "reuse distance threshold " << knobs_.distance_threshold
-                               << ", distance limit " << knobs_.distance_limit
-                               << std::endl);
+                               << ", distance limit " << knobs_.distance_limit << "\n");
 }
 
 reuse_distance_t::~reuse_distance_t()
@@ -118,7 +117,7 @@ reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref
                 std::cerr << (void *)memref.data.pc << " ";
             std::cerr << (void *)memref.data.addr << " x" << memref.data.size;
         }
-        std::cerr << std::endl;
+        std::cerr << "\n";
     });
     if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
         shard->tid = memref.exit.tid;
