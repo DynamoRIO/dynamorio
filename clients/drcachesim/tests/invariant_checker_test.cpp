@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -183,16 +183,6 @@ check_branch_target_after_branch()
 bool
 check_sane_control_flow()
 {
-    // Positive test: branches.
-    {
-        std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),   gen_branch(1, 2),  gen_instr(1, 3), // Not taken.
-            gen_branch(1, 4),  gen_instr(1, 101),                  // Taken.
-            gen_instr(1, 102),
-        };
-        if (!run_checker(memrefs, false))
-            return false;
-    }
     // Negative simple test.
     {
         std::vector<memref_t> memrefs = {
@@ -203,6 +193,64 @@ check_sane_control_flow()
                          "Failed to catch bad control flow"))
             return false;
     }
+    // Positive test: branches with no encodings.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),   gen_branch(1, 2),  gen_instr(1, 3), // Not taken.
+            gen_branch(1, 4),  gen_instr(1, 101),                  // Taken.
+            gen_instr(1, 102),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Tests with encodings:
+    // We use these client defines which are the target and so drdecode's target arch.
+#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
+    // XXX: We hardcode encodings here.  If we need many more we should generate them
+    // from DR IR.
+
+    // Negative test: branches with encodings which do not go to their targets.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#    if defined(X86_64) || defined(X86_32)
+            // 0x74 is "je" with the 2nd byte the offset.
+            gen_branch_encoded(1, 0x71019dbc, { 0x74, 0x32 }),
+#    elif defined(ARM_64)
+            // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
+            gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#    endif
+            gen_instr(1, 20),
+        };
+
+        if (!run_checker(memrefs, true, 1, 3, "Non-explicit control flow has no marker",
+                         "Failed to catch branch not going to its target")) {
+            return false;
+        }
+    }
+    // Positive test: branches with encodings which go to their targets.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#    if defined(X86_64) || defined(X86_32)
+            // 0x74 is "je" with the 2nd byte the offset.
+            gen_branch_encoded(1, 0x71019dbc, { 0x74, 0x32 }),
+#    elif defined(ARM_64)
+            // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
+            gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#    endif
+            gen_instr(1, 0x71019df0),
+        };
+
+        if (!run_checker(memrefs, false, 1)) {
+            return false;
+        }
+    }
+#endif
     // String loop.
     {
         std::vector<memref_t> memrefs = {

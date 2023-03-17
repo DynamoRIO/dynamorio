@@ -4824,6 +4824,34 @@ encode_opnd_x16immvs(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return false;
 }
 
+/* z_sz21_sd_0  # SVE vector reg, element size depending on bit 21. */
+
+static inline bool
+encode_opnd_z_sz21_sd_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint reg_number;
+    opnd_size_t reg_size = OPSZ_SCALABLE;
+    IF_RETURN_FALSE(!opnd_is_reg(opnd) || !is_vreg(&reg_size, &reg_number, opnd))
+
+    uint sz = 0;
+    switch (opnd_get_vector_element_size(opnd)) {
+    case OPSZ_4: sz = 0; break;
+    case OPSZ_8: sz = 1; break;
+    default: return false;
+    }
+
+    *enc_out |= (sz << 21) | (reg_number << 0);
+
+    return true;
+}
+
+static inline bool
+decode_opnd_z_sz21_sd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const aarch64_reg_offset element_size = TEST(1u << 21, enc) ? DOUBLE_REG : SINGLE_REG;
+    return decode_single_sized(DR_REG_Z0, DR_REG_Z31, 0, 5, element_size, 0, enc, opnd);
+}
+
 /* vindex_S: Index for vector with single. */
 
 static inline bool
@@ -5098,6 +5126,63 @@ static inline bool
 encode_opnd_prf12(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_mem12_scale(3, true, opnd, enc_out);
+}
+
+static inline bool
+decode_svemem_gpr_simm4_vl(uint enc, opnd_size_t transfer_size, int scale,
+                           OUT opnd_t *opnd)
+{
+    const int offset = extract_int(enc, 16, 4) * scale;
+    const reg_id_t rn = decode_reg(extract_uint(enc, 5, 5), true, true);
+
+    *opnd = opnd_create_base_disp(rn, DR_REG_NULL, 0, offset, transfer_size);
+
+    return true;
+}
+
+static inline bool
+encode_svemem_gpr_simm4_vl(uint enc, opnd_size_t transfer_size, int scale, opnd_t opnd,
+                           OUT uint *enc_out)
+{
+    if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != transfer_size ||
+        opnd_get_index(opnd) != DR_REG_NULL)
+        return false;
+
+    const int disp = opnd_get_disp(opnd);
+    uint imm4;
+    if ((disp % scale) != 0 || !try_encode_int(&imm4, 4, 0, disp / scale))
+        return false;
+
+    uint rn;
+    bool is_x;
+    if (!encode_reg(&rn, &is_x, opnd_get_base(opnd), true) || !is_x)
+        return false;
+
+    *enc_out = (rn << 5) | (imm4 << 16);
+    return true;
+}
+
+/* SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}] multiple dest registers or nt */
+
+static inline bool
+decode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const uint register_count = BITS(enc, 22, 21) + 1;
+    const opnd_size_t transfer_size =
+        opnd_size_from_bytes((register_count * dr_get_sve_vl()) / 8);
+
+    return decode_svemem_gpr_simm4_vl(enc, transfer_size, register_count, opnd);
+}
+
+static inline bool
+encode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, opnd_t opnd,
+                                     OUT uint *enc_out)
+{
+    const uint register_count = BITS(enc, 22, 21) + 1;
+    const opnd_size_t transfer_size =
+        opnd_size_from_bytes((register_count * dr_get_sve_vl()) / 8);
+
+    return encode_svemem_gpr_simm4_vl(enc, transfer_size, register_count, opnd, enc_out);
 }
 
 /* hsd_immh_sz: The element size of a vector mediated by immh with possible values h, s
@@ -6833,6 +6918,32 @@ sizes_from_dtype(const uint enc, aarch64_reg_offset *insz, aarch64_reg_offset *e
         *elsz = BITS(dtype, 1, 0);
 }
 
+static inline opnd_size_t
+memory_transfer_size_from_dtype(uint enc)
+{
+    aarch64_reg_offset insz, elsz;
+    sizes_from_dtype(enc, &insz, &elsz, true);
+
+    const uint elements = get_elements_in_sve_vector(elsz);
+    return opnd_size_from_bytes((1 << insz) * elements);
+}
+
+/* SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}] 1 dest register */
+
+static inline bool
+decode_opnd_svemem_gpr_simm4_vl_1reg(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_svemem_gpr_simm4_vl(enc, memory_transfer_size_from_dtype(enc), 1, opnd);
+}
+
+static inline bool
+encode_opnd_svemem_gpr_simm4_vl_1reg(uint enc, int opcode, byte *pc, opnd_t opnd,
+                                     OUT uint *enc_out)
+{
+    return encode_svemem_gpr_simm4_vl(enc, memory_transfer_size_from_dtype(enc), 1, opnd,
+                                      enc_out);
+}
+
 static inline bool
 decode_opnd_svemem_msz_gpr_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
@@ -6888,7 +6999,6 @@ encode_opnd_svemem_msz_stgpr_shf(uint enc, int opcode, byte *pc, opnd_t opnd,
         return false;
     return success;
 }
-
 static inline bool
 decode_opnd_svemem_gpr_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {

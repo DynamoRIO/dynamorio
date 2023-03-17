@@ -110,15 +110,12 @@ public:
     virtual reader_t &
     operator++();
 
-    // Skips records until "count" instruction records have been passed.
-    // This will skip top-level headers for a thread; it is up to the caller
-    // to first observe those before skipping, if needed.  For interleaved-thread
-    // iteration, top-level headers in other threads will be skipped as well
-    // (but generally speaking these are identical to the initial thread).
-    // TODO i#5538: Add access to these header values from #memtrace_stream_t
-    // and document it here.
-    // TODO i#5538: Skipping from the middle will not always duplicate the
-    // last timestamp,cpu.
+    // Skips records until "count" instruction records have been passed.  If any
+    // timestamp (plus cpuid) is skipped, the most recent skipped timestamp will be
+    // duplicated prior to the target instruction.  Top-level headers will still be
+    // observed.  This generally should call pre_skip_instructions() to observe the
+    // headers, perform any fast skipping, and then should call
+    // skip_instructions_with_timestamp() to properly duplicate the prior timestamp.
     virtual reader_t &
     skip_instructions(uint64_t instruction_count);
 
@@ -182,28 +179,38 @@ public:
     }
 
 protected:
-    // This reads the next entry from the stream of entries from all threads interleaved
-    // in timestamp order.
+    // This reads the next entry from the single stream of entries (or from the
+    // local queue if non-empty).  If it returns false it will set at_eof_ to distinguish
+    // end-of-file from an error.  It should call read_queued_entry() first before
+    // reading a new entry from the input stream.
     virtual trace_entry_t *
     read_next_entry() = 0;
-    // This first checks the local queue before calling read_next_entry().
-    // in timestamp order.
+    // Returns and removes the entry (nullptr if none) from the local queue.
+    // This should be called by read_next_entry() prior to reading a new record
+    // from the input stream.
     virtual trace_entry_t *
-    read_next_entry_or_queue();
+    read_queued_entry();
     // Replaces the just-read record with the prior record, supplied here.
     // Separated into a virtual method for overriding in test mock readers.
     virtual void
     use_prev(trace_entry_t *prev);
-    // This reads the next entry from the single stream of entries
-    // from the specified thread.  If it returns false it will set *eof to distinguish
-    // end-of-file from an error.
-    virtual bool
-    read_next_thread_entry(size_t thread_index, OUT trace_entry_t *entry,
-                           OUT bool *eof) = 0;
     // This updates internal state for the just-read input_entry_.
     // Returns whether a new memref record is now available.
     virtual bool
     process_input_entry();
+
+    // Meant to be called from skip_instructions();
+    // Looks for headers prior to a skip in case it is from the start of the trace.
+    virtual void
+    pre_skip_instructions();
+
+    // Meant to be called from skip_instructions();
+    // Performs a simple walk until it sees the instruction whose ordinal is
+    // "stop_instruction_count" along with all of its associated records such as
+    // memrefs.  If any timestamp (plus cpuid) is skipped, the most recent skipped
+    // timestamp will be duplicated prior to the target instruction.
+    virtual reader_t &
+    skip_instructions_with_timestamp(uint64_t stop_instruction_count);
 
     // Following typical stream iterator convention, the default constructor
     // produces an EOF object.
@@ -230,7 +237,7 @@ protected:
     // We store into this queue records already read from the input but not
     // yet returned to the iterator.
     std::queue<trace_entry_t> queue_;
-    trace_entry_t local_entry_; // For use in returning a queue entry.
+    trace_entry_t entry_copy_; // For use in returning a queue entry.
 
 private:
     struct encoding_info_t {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,8 @@
 #include "record_file_reader.h"
 
 struct gzip_reader_t {
+    gzip_reader_t()
+        : file(nullptr) {};
     explicit gzip_reader_t(gzFile file)
         : file(file)
     {
