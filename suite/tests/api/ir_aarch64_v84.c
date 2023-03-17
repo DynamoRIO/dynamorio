@@ -231,6 +231,46 @@ TEST_INSTR(stlurh)
         opnd_create_base_disp(Xn_six_offset_1_sp[i], DR_REG_NULL, 0, simm[i], OPSZ_2));
 }
 
+TEST_INSTR(cfinv)
+{
+    /* Testing CFINV */
+    TEST_NO_OPNDS(cfinv, cfinv, "cfinv");
+}
+
+TEST_INSTR(rmif)
+{
+    /* Testing RMIF    <Xn>, #<imm1>, #<imm2> */
+    static const uint imm6_0_0[6] = { 0, 11, 22, 33, 43, 63 };
+    static const uint mask_0_0[6] = { 0, 4, 7, 10, 12, 15 };
+    const char *const expected_0_0[6] = {
+        "rmif   %x0 $0x00 $0x00",  "rmif   %x5 $0x0b $0x04",  "rmif   %x10 $0x16 $0x07",
+        "rmif   %x15 $0x21 $0x0a", "rmif   %x20 $0x2b $0x0c", "rmif   %x30 $0x3f $0x0f",
+    };
+    TEST_LOOP(rmif, rmif, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_immed_uint(imm6_0_0[i], OPSZ_6b),
+              opnd_create_immed_uint(mask_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(setf16)
+{
+    /* Testing SETF16  <Wn> */
+    const char *const expected_0_0[6] = {
+        "setf16 %w0",  "setf16 %w5",  "setf16 %w10",
+        "setf16 %w15", "setf16 %w20", "setf16 %w30",
+    };
+    TEST_LOOP(setf16, setf16, 6, expected_0_0[i], opnd_create_reg(Wn_six_offset_0[i]));
+}
+
+TEST_INSTR(setf8)
+{
+    /* Testing SETF8   <Wn> */
+    const char *const expected_0_0[6] = {
+        "setf8  %w0",  "setf8  %w5",  "setf8  %w10",
+        "setf8  %w15", "setf8  %w20", "setf8  %w30",
+    };
+    TEST_LOOP(setf8, setf8, 6, expected_0_0[i], opnd_create_reg(Wn_six_offset_0[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -253,6 +293,12 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(stlur);
     RUN_INSTR_TEST(stlurb);
     RUN_INSTR_TEST(stlurh);
+
+    /* ARMv4-CondM */
+    RUN_INSTR_TEST(cfinv);
+    RUN_INSTR_TEST(rmif);
+    RUN_INSTR_TEST(setf16);
+    RUN_INSTR_TEST(setf8);
 
     print("All v8.4 tests complete.\n");
 #ifndef STANDALONE_DECODER
