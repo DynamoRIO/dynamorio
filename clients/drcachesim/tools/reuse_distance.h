@@ -39,7 +39,9 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
+#include <vector>
 #include <assert.h>
 #include <iostream>
 #include "analysis_tool.h"
@@ -47,13 +49,18 @@
 #include "memref.h"
 
 // We see noticeable overhead in release build with an if() that directly
-// checks knob_verbose, so for debug-only uses we turn it into something the
-// compiler can remove for better performance without going so far as ifdef-ing
-// big code chunks and impairing readability.
+// checks knob_verbose, so for non-debug uses we eliminate it entirely.
+// Example usage:
+//   IF_DEBUG_VERBOSE(1, std::cerr << "This code was executed.\n")
 #ifdef DEBUG
-#    define DEBUG_VERBOSE(level) (reuse_distance_t::knob_verbose >= (level))
+#    define IF_DEBUG_VERBOSE(level, action)                  \
+        do {                                                 \
+            if (reuse_distance_t::knob_verbose >= (level)) { \
+                action;                                      \
+            }                                                \
+        } while (0)
 #else
-#    define DEBUG_VERBOSE(level) (false)
+#    define IF_DEBUG_VERBOSE(level, action)
 #endif
 
 struct line_ref_t;
@@ -79,6 +86,8 @@ public:
     parallel_shard_error(void *shard_data) override;
 
     // Global value for use in non-member code.
+    // XXX: Change to an instance variable so multiple instances can have
+    // different verbosities.
     static unsigned int knob_verbose;
 
 protected:
@@ -88,8 +97,10 @@ protected:
     // the shards we're given.  This is for simplicity and to give the user a method
     // for computing over different units if for some reason that was desired.
     struct shard_data_t {
-        shard_data_t(uint64_t reuse_threshold, uint64_t skip_dist, bool verify);
+        shard_data_t(uint64_t reuse_threshold, uint64_t skip_dist,
+                     unsigned int distance_limit, bool verify);
         std::unordered_map<addr_t, line_ref_t *> cache_map;
+        std::unordered_set<addr_t> pruned_addresses;
         // This is our reuse distance histogram.
         std::unordered_map<int_least64_t, int_least64_t> dist_map;
         std::unique_ptr<line_ref_list_t> ref_list;
@@ -98,10 +109,25 @@ protected:
         // not the case today so we store the tid.
         memref_tid_t tid;
         std::string error;
+        // Keep a per-shard copy of distance_limit for parallel operation.
+        unsigned int distance_limit = 0;
+        // Track the number of insertions (pruned_address_count) and deletions
+        // (pruned_address_hits) from the pruned_addresses set.
+        uint_least64_t pruned_address_count = 0;
+        uint_least64_t pruned_address_hits = 0;
     };
 
     void
+    print_histogram(std::ostream &out, int_least64_t total_count,
+                    const std::vector<std::pair<int_least64_t, int_least64_t>> &sorted);
+
+    void
     print_shard_results(const shard_data_t *shard);
+
+    // Return a pointer to aggregate results, building them if needed.
+    virtual const shard_data_t *
+    get_aggregated_results();
+    std::unique_ptr<shard_data_t> aggregated_results_;
 
     const reuse_distance_knobs_t knobs_;
     const size_t line_size_bits_;
@@ -159,6 +185,7 @@ struct line_ref_t {
 struct line_ref_list_t {
     line_ref_t *head_;       // the most recently accessed cache line
     line_ref_t *gate_;       // the earliest cache line refs within the threshold
+    line_ref_t *tail_;       // the least recently accessed cache line
     uint64_t cur_time_;      // current time stamp
     uint64_t unique_lines_;  // the total number of unique cache lines accessed
     uint64_t threshold_;     // the reuse distance threshold
@@ -168,6 +195,7 @@ struct line_ref_list_t {
     line_ref_list_t(uint64_t reuse_threshold_, uint64_t skip_dist, bool verify)
         : head_(NULL)
         , gate_(NULL)
+        , tail_(NULL)
         , cur_time_(0)
         , unique_lines_(0)
         , threshold_(reuse_threshold_)
@@ -236,8 +264,7 @@ struct line_ref_list_t {
     void
     add_to_front(line_ref_t *ref)
     {
-        if (DEBUG_VERBOSE(3))
-            std::cerr << "Add tag 0x" << std::hex << ref->tag << "\n";
+        IF_DEBUG_VERBOSE(3, std::cerr << "Add tag 0x" << std::hex << ref->tag << "\n");
         // update head_
         ref->next = head_;
         if (head_ != NULL)
@@ -248,6 +275,8 @@ struct line_ref_list_t {
         // move gate_ forward if necessary
         if (unique_lines_ > threshold_)
             gate_ = gate_->prev;
+        if (tail_ == NULL)
+            tail_ = ref;
         unique_lines_++;
         head_->time_stamp = cur_time_++;
 
@@ -262,8 +291,9 @@ struct line_ref_list_t {
         }
         if (count >= 2 * skip_distance_ - 1) {
             assert(skip != NULL);
-            if (DEBUG_VERBOSE(3))
-                std::cerr << "New skip node for tag 0x" << std::hex << skip->tag << "\n";
+            IF_DEBUG_VERBOSE(3,
+                             std::cerr << "New skip node for tag 0x" << std::hex
+                                       << skip->tag << "\n");
             skip->depth = skip_distance_ - 1;
             if (node != NULL) {
                 assert(node->prev_skip == NULL);
@@ -275,8 +305,37 @@ struct line_ref_list_t {
         // Update skip list depths.
         for (; node != NULL; node = node->next_skip)
             ++node->depth;
-        if (DEBUG_VERBOSE(3))
-            print_list();
+        IF_DEBUG_VERBOSE(3, print_list());
+    }
+
+    // Remove the last entry from the distance list.
+    void
+    prune_tail()
+    {
+        // Make sure the tail pointers are legal.
+        assert(tail_ != NULL);
+        assert(tail_ != head_);
+        assert(tail_->next == NULL);
+        assert(tail_->prev != NULL);
+
+        IF_DEBUG_VERBOSE(3,
+                         std::cerr << "Prune tag 0x" << std::hex << tail_->tag << "\n");
+
+        line_ref_t *new_tail = tail_->prev;
+        new_tail->next = NULL;
+
+        // If there's a prior skip, remove its ptr to tail.
+        if (tail_->depth != -1 && tail_->prev_skip != NULL) {
+            tail_->prev_skip->next_skip = NULL;
+        }
+
+        if (tail_ == gate_) {
+            // move gate_ if tail_ was the gate_.
+            gate_ = gate_->prev;
+        }
+
+        // And finally, update tail_.
+        tail_ = new_tail;
     }
 
     // Move a referenced cache line to the front of the list.
@@ -286,8 +345,8 @@ struct line_ref_list_t {
     int_least64_t
     move_to_front(line_ref_t *ref)
     {
-        if (DEBUG_VERBOSE(3))
-            std::cerr << "Move tag 0x" << std::hex << ref->tag << " to front\n";
+        IF_DEBUG_VERBOSE(
+            3, std::cerr << "Move tag 0x" << std::hex << ref->tag << " to front\n");
         line_ref_t *prev;
         line_ref_t *next;
 
@@ -301,6 +360,9 @@ struct line_ref_list_t {
             // move gate_ if ref is the gate_.
             gate_ = gate_->prev;
         }
+        if (ref == tail_) {
+            tail_ = tail_->prev;
+        }
 
         // Compute reuse distance.
         int_least64_t dist = 0;
@@ -312,20 +374,21 @@ struct line_ref_list_t {
         else
             --dist; // Don't count self.
 
-        if (DEBUG_VERBOSE(0) && verify_skip_) {
-            // Compute reuse distance with a full list walk as a sanity check.
-            // This is a debug-only option, so we guard with DEBUG_VERBOSE(0).
-            // Yes, the option check branch shows noticeable overhead without it.
-            int_least64_t brute_dist = 0;
-            for (prev = head_; prev != ref; prev = prev->next)
-                ++brute_dist;
-            if (brute_dist != dist) {
-                std::cerr << "Mismatch!  Brute=" << brute_dist << " vs skip=" << dist
-                          << "\n";
-                print_list();
-                assert(false);
-            }
-        }
+        IF_DEBUG_VERBOSE(
+            0, if (verify_skip_) {
+                // Compute reuse distance with a full list walk as a sanity check.
+                // This is a debug-only option, so we guard with IF_DEBUG_VERBOSE(0).
+                // Yes, the option check branch shows noticeable overhead without it.
+                int_least64_t brute_dist = 0;
+                for (prev = head_; prev != ref; prev = prev->next)
+                    ++brute_dist;
+                if (brute_dist != dist) {
+                    std::cerr << "Mismatch!  Brute=" << std::dec << brute_dist
+                              << " vs skip=" << dist << "\n";
+                    print_list();
+                    assert(false);
+                }
+            });
 
         // Shift skip nodes between where ref was and head one earlier to
         // maintain spacing.  This means their depths remain the same.
@@ -352,8 +415,7 @@ struct line_ref_list_t {
         head_ = ref;
         head_->time_stamp = cur_time_++;
 
-        if (DEBUG_VERBOSE(3))
-            print_list();
+        IF_DEBUG_VERBOSE(3, print_list());
         // XXX: we should keep a running mean of the distance, and adjust
         // knob_reuse_skip_dist to stay close to the mean, for best performance.
         return dist;

@@ -604,6 +604,24 @@ public:
         return &outputs_[ordinal].stream;
     }
 
+    /** Returns the number of input streams. */
+    virtual int
+    get_input_stream_count()
+    {
+        return static_cast<int>(inputs_.size());
+    }
+
+    /**
+     * Returns the name (from get_stream_name()) of the 'ordinal'-th input stream.
+     */
+    virtual std::string
+    get_input_stream_name(int ordinal)
+    {
+        if (ordinal < 0 || ordinal >= static_cast<int>(inputs_.size()))
+            return nullptr;
+        return inputs_[ordinal].reader->get_stream_name();
+    }
+
     /** Returns a string further describing an error code. */
     std::string
     get_error_string()

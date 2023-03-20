@@ -3530,6 +3530,8 @@ if (BUILD_CLIENTS)
         torunonly_simtool(reuse_time_offline ${ci_shared_app}
           "-indir ${thread_trace_dir} -simulator_type reuse_time" "")
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
+      else ()
+        message(STATUS "zlib not found, skipping multi-thread reuse.")
       endif ()
     endif ()
 

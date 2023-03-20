@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -100,7 +100,7 @@ Type cheat sheet (from trace_type_t enum):
 - 0x19 header
 - 0x16 thread
 - 0x18 pid
-- 0x1c marker: 2=timestamp; 3=cpuid
+- 0x1c marker: 2=timestamp; 3=cpuid; 0xc=version; 9=filetype
 - 0x0a instr (non-cti)
 - 0x0e direct call
 - 0x00 load
