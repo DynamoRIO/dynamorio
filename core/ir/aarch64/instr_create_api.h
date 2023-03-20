@@ -11456,10 +11456,9 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>] variant:
  *             opnd_create_base_disp_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, 0, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
- *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
- *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
+ *             DR_EXTEND_UXTX, 0, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() /
+ * 8)) For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant: opnd_create_base_disp(Rn,
+ * DR_REG_NULL, 0, imm, opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_ldnt1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnt1b, Zt, Rn, Pg)
@@ -11487,8 +11486,8 @@
  *             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vector_length() / (8 * opnd_size_to_bytes(Ts))))
- *             For the  [\<Zn\>.S{, #\<imm\>}] variant:
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / (8 *
+ * opnd_size_to_bytes(Ts)))) For the  [\<Zn\>.S{, #\<imm\>}] variant:
  *             opnd_create_vector_base_disp_aarch64(Zn, DR_REG_NULL, OPSZ_4,
  *             0, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the  [\<Zn\>.D{, #\<imm\>}] variant:
@@ -11522,10 +11521,9 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>] variant:
  *             opnd_create_base_disp_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, 0, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
- *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
- *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
+ *             DR_EXTEND_UXTX, 0, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() /
+ * 8)) For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant: opnd_create_base_disp(Rn,
+ * DR_REG_NULL, 0, imm, opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_stnt1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_stnt1b, Rn, Zt, Pg)
@@ -12429,7 +12427,8 @@
  *             / 8/16), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vector_length() / (8 * opnd_size_to_bytes(Ts))))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / (8 *
+ * opnd_size_to_bytes(Ts))))
  */
 #define INSTR_CREATE_st1w_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_st1w, Zn, Zt, Pg)
@@ -12469,10 +12468,10 @@
  *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 0)
  *             For the  [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 3)
- *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
- *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vector_length() / (8 * opnd_size_to_bytes(Ts))))
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
+ * / 8), 3) For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant: opnd_create_base_disp(Rn,
+ * DR_REG_NULL, 0, imm, opnd_size_from_bytes(dr_get_sve_vector_length() / (8 *
+ * opnd_size_to_bytes(Ts))))
  */
 #define INSTR_CREATE_st1d_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_st1d, Zn, Zt, Pg)
