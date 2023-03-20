@@ -5170,7 +5170,7 @@ decode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, OUT opnd_t 
 {
     const uint register_count = BITS(enc, 22, 21) + 1;
     const opnd_size_t transfer_size =
-        opnd_size_from_bytes((register_count * dr_get_sve_vl()) / 8);
+        opnd_size_from_bytes((register_count * dr_get_sve_vector_length()) / 8);
 
     return decode_svemem_gpr_simm4_vl(enc, transfer_size, register_count, opnd);
 }
@@ -5181,7 +5181,7 @@ encode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, opnd_t opnd
 {
     const uint register_count = BITS(enc, 22, 21) + 1;
     const opnd_size_t transfer_size =
-        opnd_size_from_bytes((register_count * dr_get_sve_vl()) / 8);
+        opnd_size_from_bytes((register_count * dr_get_sve_vector_length()) / 8);
 
     return encode_svemem_gpr_simm4_vl(enc, transfer_size, register_count, opnd, enc_out);
 }
