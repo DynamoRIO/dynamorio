@@ -49,24 +49,27 @@ add_dr_defines()
 # clients drpt2trace and drraw2trace.
 set(drpt2ir_srcs
   pt2ir.cpp
-  pt_mcache.cpp
+  elf_loader.cpp
 )
 add_library(drpt2ir STATIC ${drpt2ir_srcs})
 configure_DynamoRIO_decoder(drpt2ir)
-add_dependencies(drpt2ir ipt ipt-sb ipt-ext api_headers)
-target_link_libraries(drpt2ir ipt ipt-sb ipt-ext)
+add_dependencies(drpt2ir ipt ipt-sb api_headers)
+target_link_libraries(drpt2ir ipt ipt-sb)
+install_client_nonDR_header(drmemtrace elf_loader.h)
 install_client_nonDR_header(drmemtrace pt2ir.h)
 
-# TODO i#5505: Currently, drpt2trace only counts instructions.
-# In the future, we will add support for converting pt trace to memref_t.
-# So we may need to link drdecode to drpt2ir library.
+include_directories(${PROJECT_BINARY_DIR}/clients/include/drmemtrace)
 set(drpt2trace_srcs
   drpt2trace.cpp
 )
+add_definitions(-DBUILD_PT_TRACER)
 add_executable(drpt2trace ${drpt2trace_srcs})
 configure_DynamoRIO_standalone(drpt2trace)
 use_DynamoRIO_extension(drpt2trace droption)
-add_dependencies(drpt2trace drpt2ir)
+add_dependencies(drpt2trace drpt2ir ipt)
 # Add the directory containing libipt.so and libipt-sb.so to the linker search path.
-SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${PROJECT_BINARY_DIR}/third_party/${INSTALL_LIB}'")
-target_link_libraries(drpt2trace drpt2ir)
+set(libipt_install_dir "${PROJECT_BINARY_DIR}/third_party/${INSTALL_LIB}")
+SET(CMAKE_EXE_LINKER_FLAGS
+  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${libipt_install_dir}'"
+)
+target_link_libraries(drpt2trace drpt2ir ipt)

@@ -39,12 +39,6 @@ endif ()
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/third_party/${INSTALL_LIB}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 
-macro(install_third_party_header dest_dir src_header)
-  get_filename_component(file ${src_header} NAME)
-  configure_file(${src_header} ${PROJECT_BINARY_DIR}/third_party/include/${dest_dir}/${file}
-    COPYONLY)
-endmacro()
-
 set(PT_VERSION_MAJOR 2)
 set(PT_VERSION_MINOR 1)
 set(PT_VERSION_PATCH 0)
@@ -121,11 +115,6 @@ configure_file(
   ${PROJECT_BINARY_DIR}/third_party/include/libipt/intel-pt.h
 )
 
-install_third_party_header(libipt ${LIBIPT_ROOT}/internal/include/pt_mapped_section.h)
-install_third_party_header(libipt ${LIBIPT_ROOT}/internal/include/pt_asid.h)
-install_third_party_header(libipt ${LIBIPT_ROOT}/internal/include/pt_image.h)
-install_third_party_header(libipt ${LIBIPT_ROOT}/internal/include/pt_section.h)
-
 include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/libipt/pevent/include
 )
@@ -156,23 +145,3 @@ configure_file(
 
 target_link_libraries(ipt-sb ipt)
 target_link_libraries(ipt-sb pevent)
-
-# The library libipt-ext needs to find headers from the following directories.
-include_directories(
-  ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/include
-)
-install_third_party_header(libipt
-  ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/include/load_elf.h
-)
-
-# XXX: The repository of lipipt contains some functions that are useful
-# for drpt2ir. But they are not built in libipt.so or libipt-sb.so.
-# So we build them as an external library of libipt and link the external
-# library to drpt2ir. In the future we may need to implement
-# these functions in our library.
-set(LIBIPTEXT_FILES
-  ${PROJECT_SOURCE_DIR}/third_party/libipt/ptxed/src/load_elf.c
-)
-add_library(ipt-ext STATIC ${LIBIPTEXT_FILES})
-add_dependencies(ipt-ext ipt)
-target_link_libraries(ipt-ext ipt)

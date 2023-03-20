@@ -190,9 +190,9 @@ private:
      * (1) The per-thread metadata and all syscalls' trace data are stored in one or
      * mutiple PT DATA Buffers(PDB). And all PDBs will be aligned to a fixed size. The PDB
      * format is:
-     * +---+---+-----------------------+
-     * |pid|tid|syscall_pt_entry_t list|
-     * +---+---+-----------------------+
+     * +-----------------------+
+     * |syscall_pt_entry_t list|
+     * +-----------------------+
      *
      * (2) There are three types of PDBs:
      * a. The per-thread metadata PDB's format is:

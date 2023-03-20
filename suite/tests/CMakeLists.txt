@@ -4274,7 +4274,7 @@ endif (BUILD_CLIENTS)
 # We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
 if (BUILD_CLIENTS)
   if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
-    set(drpt2trace_commong "-print_trace"
+    set(drpt2trace_commong "-print_ins"
       "-raw_pt"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
       "-pt_cpu_family" "6"
@@ -4284,6 +4284,7 @@ if (BUILD_CLIENTS)
       "-pt_cpuid_0x15_eax" "2" "-pt_cpuid_0x15_ebx" "308")
     set(drpt2trace_sideband_args ${drpt2trace_commong}
       "-mode" "SIDEBAND"
+      "-raw_pt_format" "PERF"
       "-primary_sb"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/primary.sideband.pevent"
       "-secondary_sb"
@@ -4299,6 +4300,7 @@ if (BUILD_CLIENTS)
       "" "${drpt2trace_sideband_args}" ON OFF)
     set(drpt2trace_elf_args ${drpt2trace_commong}
       "-mode" "ELF"
+      "-raw_pt_format" "PERF"
       "-elf"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/hello")
     torunonly_api(tool.drpt2trace.elf drpt2trace
