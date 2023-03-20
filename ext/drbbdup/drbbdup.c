@@ -665,8 +665,7 @@ drbbdup_is_at_end(instr_t *check_instr)
 }
 
 /* Returns true if at the start of the end of a bb version: if check_instr is
- * the start emulation label for the inserted jump or the exit label.  If there
- * are no emulation labels this is equivalent to drbbdup_is_at_end().
+ * the start emulation label for the inserted jump or the exit label.
  */
 static bool
 drbbdup_is_at_end_initial(instr_t *check_instr)
@@ -1590,11 +1589,14 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
             }
         }
         drreg_restore_all(drcontext, bb, instr);
-    } else if (drbbdup_is_at_end(instr) &&
-               (!is_last_special || drbbdup_ilist_has_unending_emulation(bb))) {
-        drreg_restore_all(drcontext, bb, instr);
-    } else if (drbbdup_is_at_end(instr) || drbbdup_is_exit_jmp_emulation_marker(instr)) {
-        /* Ignore instruction: hide drbbdup's own markers and the rest of the end. */
+    } else if (drbbdup_is_at_end(instr)) {
+        /* i#5906: if the emulation start label is missing we might still need to restore
+         * registers for blocks that don't end in a branch or for rep-expanded blocks. */
+        if (!is_last_special || drbbdup_ilist_has_unending_emulation(bb))
+            drreg_restore_all(drcontext, bb, instr);
+    } else if (drbbdup_is_exit_jmp_emulation_marker(instr)) {
+        /* Ignore instruction: hide drbbdup's own markers and the rest of the end. 
+         * Do not call drreg_restore_all either. */
     } else if (pt->case_index == DRBBDUP_IGNORE_INDEX) {
         /* Ignore instruction. */
         ASSERT(drbbdup_is_special_instr(instr), "ignored instr should be cti or syscall");
