@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,16 @@ reader_t::operator*()
 // clang-format on
 {
     return cur_ref_;
+}
+
+trace_entry_t *
+reader_t::read_queued_entry()
+{
+    if (queue_.empty())
+        return nullptr;
+    entry_copy_ = queue_.front();
+    queue_.pop();
+    return &entry_copy_;
 }
 
 reader_t &
@@ -262,21 +272,19 @@ reader_t::process_input_entry()
         // and use them to start post-seek iteration.
         if (chunk_instr_count_ > 0 &&
             cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP &&
-            cur_instr_count_ / chunk_instr_count_ !=
-                last_timestamp_instr_count_ / chunk_instr_count_) {
+            skip_chunk_header_.find(cur_tid_) != skip_chunk_header_.end()) {
             VPRINT(this, 2, "skipping start-of-chunk dup timestamp\n");
-            skip_next_cpu_ = true;
-        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
-                   skip_next_cpu_) {
+        } else if (chunk_instr_count_ > 0 &&
+                   cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
+                   skip_chunk_header_.find(cur_tid_) != skip_chunk_header_.end()) {
             VPRINT(this, 2, "skipping start-of-chunk dup cpu\n");
-            skip_next_cpu_ = false;
+            skip_chunk_header_.erase(cur_tid_);
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_RECORD_ORDINAL) {
             // Not exposed to tools.
         } else {
             have_memref = true;
         }
         if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
-            last_timestamp_instr_count_ = cur_instr_count_;
             // Today, a skipped memref is just a duplicate of one that we've
             // already seen, so this condition is not really needed. But to
             // be future-proof, we want to avoid looking at timestamps that
@@ -295,6 +303,8 @@ reader_t::process_input_entry()
             page_size_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT)
             chunk_instr_count_ = cur_ref_.marker.marker_value;
+        else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CHUNK_FOOTER)
+            skip_chunk_header_.insert(cur_tid_);
         break;
     default:
         ERRMSG("Unknown trace entry type %s (%d)\n", trace_type_names[input_entry_->type],
@@ -305,33 +315,150 @@ reader_t::process_input_entry()
     }
     if (have_memref) {
         if (suppress_ref_count_ > 0) {
-            VPRINT(this, 4, "suppressing %" PRIu64 " ref counts\n", suppress_ref_count_);
+            VPRINT(this, 4, "suppressing %" PRIu64 " ref counts @%" PRIu64 "\n",
+                   suppress_ref_count_, cur_ref_count_);
             --suppress_ref_count_;
         } else {
             if (suppress_ref_count_ == 0) {
-                // Ensure get_record_ordinal() ignores it.
+                // Ensure is_record_synthetic() ignores it.
                 suppress_ref_count_ = -1;
             }
             ++cur_ref_count_;
+            VPRINT(this, 5, "ref count is now @%" PRIu64 "\n", cur_ref_count_);
         }
     }
     return have_memref;
 }
 
+void
+reader_t::use_prev(trace_entry_t *prev)
+{
+    input_entry_ = prev;
+}
+
+void
+reader_t::pre_skip_instructions()
+{
+    // If the user asks to skip from the very start, we still need to find the chunk
+    // count marker and drain the header queue and populate the stream header values.
+    // XXX: We assume the page size is the final header; it is complex to wait for
+    // the timestamp as we don't want to read it yet.
+    while (page_size_ == 0) {
+        input_entry_ = read_next_entry();
+        if (input_entry_->type != TRACE_TYPE_MARKER ||
+            input_entry_->size == TRACE_MARKER_TYPE_TIMESTAMP) {
+            // Likely some mock in a test with no page size header: just move on.
+            queue_.push(*input_entry_);
+            break;
+        }
+        process_input_entry();
+    }
+}
+
 reader_t &
 reader_t::skip_instructions(uint64_t instruction_count)
 {
+    if (instruction_count == 0)
+        return *this;
+    // We do not support skipping with instr bundles.
+    if (bundle_idx_ != 0) {
+        ERRMSG("Skipping with instr bundles is not supported.\n");
+        assert(false);
+        at_eof_ = true;
+        return *this;
+    }
+    pre_skip_instructions();
+    return skip_instructions_with_timestamp(cur_instr_count_ + instruction_count);
+}
+
+reader_t &
+reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
+{
     // This base class has no fast seeking and must do a linear walk.
     // We have +1 because we need to skip the memrefs of the final skipped
-    // instr, so we look for the 1st unskipped instr.
-    uint64_t stop_count_ = cur_instr_count_ + instruction_count + 1;
-    while (cur_instr_count_ < stop_count_) {
-        // TODO i#5538: Remember the last timestamp+cpu and insert it; share
-        // code with the zipfile reader.
-        // TODO i#5538: If skipping from the start, Record all of the header values
-        // until the first timestamp and present them as new memtrace_stream_t
-        // interfaces.
-        ++(*this);
+    // instr, so we look for the 1st unskipped instr: but we do not want to
+    // process it so we do not use the ++ operator function.
+    uint64_t stop_count = stop_instruction_count + 1;
+    trace_entry_t timestamp = {};
+    trace_entry_t cpu = {};
+    trace_entry_t next_instr = {};
+    bool prev_was_record_ord = false;
+    bool found_real_timestamp = false;
+    while (cur_instr_count_ < stop_count) { // End condition is never reached.
+        // Remember the prior entry to use as the cur entry when we hit the
+        // too-far instr if we didn't find a timestamp.
+        if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
+            entry_copy_ = *input_entry_;
+        trace_entry_t *next = read_next_entry();
+        if (next == nullptr) {
+            VPRINT(this, 1, "Failed to read next entry\n");
+            at_eof_ = true;
+            return *this;
+        }
+        // We need to pass up memrefs for the final skipped instr, but we don't
+        // want to process_input_entry() on the first unskipped instr so we can
+        // insert the timestamp+cpu first.
+        if (cur_instr_count_ + 1 == stop_count &&
+            type_is_instr(static_cast<trace_type_t>(next->type))) {
+            next_instr = *next;
+            break;
+        }
+        // To examine the produced memrefs we'd have to have the base reader
+        // expose these hidden entries.  It is simpler for us to read the
+        // trace_entry_t directly prior to processing by the base class.
+        if (next->type == TRACE_TYPE_MARKER) {
+            if (next->size == TRACE_MARKER_TYPE_RECORD_ORDINAL) {
+                cur_ref_count_ = next->addr;
+                prev_was_record_ord = true;
+                VPRINT(this, 4, "Found record ordinal marker: new ord %" PRIu64 "\n",
+                       cur_ref_count_);
+            } else if (next->size == TRACE_MARKER_TYPE_TIMESTAMP) {
+                timestamp = *next;
+                if (prev_was_record_ord)
+                    --cur_ref_count_; // Invisible to ordinals.
+                else
+                    found_real_timestamp = true;
+            } else if (next->size == TRACE_MARKER_TYPE_CPU_ID) {
+                cpu = *next;
+                if (prev_was_record_ord)
+                    --cur_ref_count_; // Invisible to ordinals.
+            } else
+                prev_was_record_ord = false;
+        } else
+            prev_was_record_ord = false;
+        // Update core state.
+        input_entry_ = next;
+        process_input_entry();
+    }
+    if (timestamp.type == TRACE_TYPE_MARKER && cpu.type == TRACE_TYPE_MARKER) {
+        // Insert the two markers.
+        if (!found_real_timestamp) {
+            VPRINT(this, 4, "Using duplicate timestamp\n");
+            // These synthetic entries are not real records in the unskipped trace, so we
+            // do not associate record counts with them.
+            suppress_ref_count_ = 1;
+            if (cpu.type == TRACE_TYPE_MARKER)
+                ++suppress_ref_count_;
+        } else {
+            // These are not invisible but we already counted them in the loop above
+            // so we need to avoid a double-count.
+            VPRINT(this, 4, "Found real timestamp: walking back ord from %" PRIu64 "\n",
+                   cur_ref_count_);
+            --cur_ref_count_;
+            if (cpu.type == TRACE_TYPE_MARKER)
+                --cur_ref_count_;
+        }
+        entry_copy_ = timestamp;
+        input_entry_ = &entry_copy_;
+        process_input_entry();
+        if (cpu.type == TRACE_TYPE_MARKER)
+            queue_.push(cpu);
+        queue_.push(next_instr);
+    } else {
+        // We missed the markers somehow.
+        VPRINT(this, 1, "Skip failed to find both timestamp and cpu\n");
+        queue_.push(next_instr);
+        use_prev(&entry_copy_);
     }
     return *this;
 }

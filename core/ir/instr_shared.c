@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -176,6 +176,18 @@ instr_init(void *drcontext, instr_t *instr)
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
     instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+    /* Just like in global_heap_alloc() we pay the cost of this check to support
+     * drdecode use even with full DR linked in (i#2499).  Decoding of simple
+     * single-source-no-dest instrs never hits the heap code so we check here too.
+     */
+    if (dcontext == GLOBAL_DCONTEXT && !dynamo_heap_initialized) {
+        /* TODO i#2499: We have no control point currently to call standalone_exit().
+         * We need to develop a solution with atexit() or ELF destructors or sthg.
+         */
+        standalone_init();
+    }
+#endif
 }
 
 /* zeroes out the fields of instr */
@@ -2883,6 +2895,22 @@ instr_create_1dst_5src(void *drcontext, int opcode, opnd_t dst, opnd_t src1, opn
     instr_set_src(in, 2, src3);
     instr_set_src(in, 3, src4);
     instr_set_src(in, 4, src5);
+    return in;
+}
+
+instr_t *
+instr_create_1dst_6src(void *drcontext, int opcode, opnd_t dst, opnd_t src1, opnd_t src2,
+                       opnd_t src3, opnd_t src4, opnd_t src5, opnd_t src6)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    instr_t *in = instr_build(dcontext, opcode, 1, 6);
+    instr_set_dst(in, 0, dst);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    instr_set_src(in, 2, src3);
+    instr_set_src(in, 3, src4);
+    instr_set_src(in, 4, src5);
+    instr_set_src(in, 5, src6);
     return in;
 }
 

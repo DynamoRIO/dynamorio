@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -142,6 +142,16 @@ changes:
  - Reduced the value of #DR_NOTE_FIRST_RESERVED.  This is not expected to cause
    problems unless clients are directly choosing high note values without using
    drmgr_reserve_note_range().
+ - Changed the values of the AArch64 DR_REG_Z* constants so that Z registers can be
+   used in base+disp operands in SVE scatter/gather instructions. This breaks binary
+   compatibility for clients built against an older version of opnd_api.h, but source
+   code compatibility is unchanged.
+ - Removed the drcachesim external iterator analyzer interface.  Users should instead
+   use the new #dynamorio::drmemtrace::scheduler_tmpl_t interface for direct control
+   over iteration.  See \ref sec_drcachesim_sched for example code.
+ - Refactored the drmemtrace reader and file reader classes to better fit the
+   new scheduler model: now each reader owns just one single stream of records
+   with all multi-stream interleaving owned by the scheduler.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.
@@ -197,6 +207,22 @@ Further non-compatibility-affecting changes include:
    headers.
  - Added #record_analyzer_t and #record_analysis_tool_t for analyzing the
    sequence of #trace_entry_t exactly as present in a stored offline trace.
+ - Added opnd_size_to_shift_amount() and opnd_create_base_disp_shift_aarch64()
+   for explicitly specifying shift amounts in the creation of operands for
+   AArch64 memory addresses.
+ - Added opnd_create_increment_reg() to create a register from an existing
+   register whose register number is incremented by some amount, wrapping
+   at the max register number for that register.
+ - Added opnd_create_vector_base_disp_aarch64() and reg_is_z() for creating
+   memory address operands that use SVE Z registers with a specified element
+   size.
+ - Added a new #dynamorio::drmemtrace::scheduler_tmpl_t interface providing scheduling
+   of drmemtrace offline files onto configurable output streams, meant for use by
+   microarchitectural simulators.
+ - Added a #memtrace_stream_t interface for drmemtrace analysis tools to
+   query key attributes of each input trace.
+ - Added instr_create_1dst_6src() convenience function that returns an instr_t
+   with one destination and six sources.
 
 **************************************************
 <hr>

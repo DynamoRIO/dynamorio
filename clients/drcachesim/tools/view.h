@@ -70,6 +70,12 @@ public:
     bool
     print_results() override;
 
+    static constexpr int
+    tid_column_width()
+    {
+        return TID_COLUMN_WIDTH;
+    }
+
 protected:
     struct dcontext_cleanup_last_t {
     public:
@@ -87,8 +93,8 @@ protected:
     inline void
     print_header()
     {
-        std::cerr << std::setw(9) << "Output format:\n<record#> <instr#>"
-                  << ": T<tid> <record details>\n"
+        std::cerr << "Output format:\n"
+                  << "<--record#-> <--instr#->: <---tid---> <record details>\n"
                   << "------------------------------------------------------------\n";
     }
 
@@ -105,9 +111,10 @@ protected:
             stream << "------------------------------------------------------------\n";
         prev_tid_ = memref.instr.tid;
         prev_record_ = record_ord;
-        stream << std::setw(9) << record_ord << std::setw(9)
-               << memstream->get_instruction_ordinal() << ": T" << memref.marker.tid
-               << " ";
+
+        stream << std::setw(RECORD_COLUMN_WIDTH) << record_ord
+               << std::setw(INSTR_COLUMN_WIDTH) << memstream->get_instruction_ordinal()
+               << ": " << std::setw(TID_COLUMN_WIDTH) << memref.marker.tid << " ";
     }
 
     /* We make this the first field so that dr_standalone_exit() is called after
@@ -146,6 +153,11 @@ protected:
     int64_t filetype_record_ord_ = -1;
     bool has_modules_;
     memtrace_stream_t *serial_stream_ = nullptr;
+
+private:
+    static constexpr int RECORD_COLUMN_WIDTH = 12;
+    static constexpr int INSTR_COLUMN_WIDTH = 12;
+    static constexpr int TID_COLUMN_WIDTH = 11;
 };
 
 #endif /* _VIEW_H_ */

@@ -145,37 +145,42 @@ droption_t<unsigned int> op_num_cores(DROPTION_SCOPE_FRONTEND, "cores", 4,
 droption_t<unsigned int> op_line_size(
     DROPTION_SCOPE_FRONTEND, "line_size", 64, "Cache line size",
     "Specifies the cache line size, which is assumed to be identical for L1 and L2 "
-    "caches.  Must be a power of 2.");
+    "caches.  Must be at least 4 and a power of 2.");
 
-droption_t<bytesize_t> op_L1I_size(
-    DROPTION_SCOPE_FRONTEND, "L1I_size", 32 * 1024U, "Instruction cache total size",
-    "Specifies the total size of each L1 instruction cache.  Must be a power of 2 "
-    "and a multiple of -line_size.");
+droption_t<bytesize_t>
+    op_L1I_size(DROPTION_SCOPE_FRONTEND, "L1I_size", 32 * 1024U,
+                "Instruction cache total size",
+                "Specifies the total size of each L1 instruction cache. "
+                "L1I_size/L1I_assoc must be a power of 2 and a multiple of line_size.");
 
 droption_t<bytesize_t>
     op_L1D_size(DROPTION_SCOPE_FRONTEND, "L1D_size", bytesize_t(32 * 1024),
                 "Data cache total size",
-                "Specifies the total size of each L1 data cache.  Must be a power of 2 "
-                "and a multiple of -line_size.");
+                "Specifies the total size of each L1 data cache. "
+                "L1D_size/L1D_assoc must be a power of 2 and a multiple of line_size.");
 
-droption_t<unsigned int> op_L1I_assoc(
-    DROPTION_SCOPE_FRONTEND, "L1I_assoc", 8, "Instruction cache associativity",
-    "Specifies the associativity of each L1 instruction cache.  Must be a power of 2.");
+droption_t<unsigned int>
+    op_L1I_assoc(DROPTION_SCOPE_FRONTEND, "L1I_assoc", 8,
+                 "Instruction cache associativity",
+                 "Specifies the associativity of each L1 instruction cache. "
+                 "L1I_size/L1I_assoc must be a power of 2 and a multiple of line_size.");
 
-droption_t<unsigned int> op_L1D_assoc(
-    DROPTION_SCOPE_FRONTEND, "L1D_assoc", 8, "Data cache associativity",
-    "Specifies the associativity of each L1 data cache.  Must be a power of 2.");
+droption_t<unsigned int>
+    op_L1D_assoc(DROPTION_SCOPE_FRONTEND, "L1D_assoc", 8, "Data cache associativity",
+                 "Specifies the associativity of each L1 data cache. "
+                 "L1D_size/L1D_assoc must be a power of 2 and a multiple of line_size.");
 
 droption_t<bytesize_t> op_LL_size(DROPTION_SCOPE_FRONTEND, "LL_size", 8 * 1024 * 1024,
                                   "Last-level cache total size",
                                   "Specifies the total size of the unified last-level "
-                                  "(L2) cache.  Must be a power of 2 "
-                                  "and a multiple of -line_size.");
+                                  "(L2) cache. "
+                                  "LL_size/LL_assoc must be a power of 2 "
+                                  "and a multiple of line_size.");
 
 droption_t<unsigned int>
     op_LL_assoc(DROPTION_SCOPE_FRONTEND, "LL_assoc", 16, "Last-level cache associativity",
-                "Specifies the associativity of the unified last-level (L2) cache.  "
-                "Must be a power of 2.");
+                "Specifies the associativity of the unified last-level (L2) cache. "
+                "LL_size/LL_assoc must be a power of 2 and a multiple of line_size.");
 
 droption_t<std::string> op_LL_miss_file(
     DROPTION_SCOPE_FRONTEND, "LL_miss_file", "",
@@ -198,7 +203,7 @@ droption_t<bool> op_L0I_filter(
     "Filter out first-level instruction cache hits during tracing",
     "Filters out instruction hits in a 'zero-level' cache during tracing itself, "
     "shrinking the final trace to only contain instructions that miss in this initial "
-    "cache.  This cache is direct-mapped with size equal to -L0I_size.  It uses virtual "
+    "cache.  This cache is direct-mapped with size equal to L0I_size.  It uses virtual "
     "addresses regardless of -use_physical. The dynamic (pre-filtered) per-thread "
     "instruction count is tracked and supplied via a "
     "#TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries and at "
@@ -209,21 +214,21 @@ droption_t<bool> op_L0D_filter(
     "Filter out first-level data cache hits during tracing",
     "Filters out data hits in a 'zero-level' cache during tracing itself, shrinking the "
     "final trace to only contain data accesses that miss in this initial cache.  This "
-    "cache is direct-mapped with size equal to -L0D_size.  It uses virtual addresses "
+    "cache is direct-mapped with size equal to L0D_size.  It uses virtual addresses "
     "regardless of -use_physical. ");
 
 droption_t<bytesize_t> op_L0I_size(
     DROPTION_SCOPE_CLIENT, "L0I_size", 32 * 1024U,
     "If -L0I_filter, filter out instruction hits during tracing",
-    "Specifies the size of the 'zero-level' instruction cache for -L0I_filter.  "
-    "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
+    "Specifies the size of the 'zero-level' instruction cache for L0I_filter.  "
+    "Must be a power of 2 and a multiple of line_size, unless it is set to 0, "
     "which disables instruction fetch entries from appearing in the trace.");
 
 droption_t<bytesize_t> op_L0D_size(
     DROPTION_SCOPE_CLIENT, "L0D_size", 32 * 1024U,
     "If -L0D_filter, filter out data hits during tracing",
-    "Specifies the size of the 'zero-level' data cache for -L0D_filter.  "
-    "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
+    "Specifies the size of the 'zero-level' data cache for L0D_filter.  "
+    "Must be a power of 2 and a multiple of line_size, unless it is set to 0, "
     "which disables data entries from appearing in the trace.");
 
 droption_t<bool> op_instr_only_trace(
@@ -568,12 +573,29 @@ droption_t<unsigned int> op_reuse_skip_dist(
     "For performance tuning: distance between skip nodes.",
     "Specifies the distance between nodes in the skip list.  For optimal performance, "
     "set this to a value close to the estimated average reuse distance of the dataset.");
+droption_t<unsigned int> op_reuse_distance_limit(
+    DROPTION_SCOPE_FRONTEND, "reuse_distance_limit", 0,
+    "If nonzero, restricts distance tracking to the specified maximum distance.",
+    "Specifies the maximum length of the access history list used for distance "
+    "calculation.  Setting this limit can significantly improve performance "
+    "and reduce memory consumption for very long traces.");
 droption_t<bool> op_reuse_verify_skip(
     DROPTION_SCOPE_FRONTEND, "reuse_verify_skip", false,
     "Use full list walks to verify the skip list results.",
     "Verifies every skip list-calculated reuse distance with a full list walk. "
     "This incurs significant additional overhead.  This option is only available "
     "in debug builds.");
+droption_t<double> op_reuse_histogram_bin_multiplier(
+    DROPTION_SCOPE_FRONTEND, "reuse_histogram_bin_multiplier", 1.00,
+    "When reporting histograms, grow bins geometrically by this multiplier.",
+    "The first histogram bin has a size of 1, meaning it contains the count for "
+    "one distance.  Each subsequent bin size is increased by this multiplier. "
+    "For multipliers >1.0, this results in geometric growth of bin sizes, with "
+    "multiple distance values being reported for each bin. For large traces, "
+    "a value of 1.05 works well to limit the output to a reasonable number of "
+    "bins.  Note that this option only affects the printing of histograms via "
+    "the -reuse_distance_histogram option; the raw histogram data is always "
+    "collected at full precision.");
 
 #define OP_RECORD_FUNC_ITEM_SEP "&"
 // XXX i#3048: replace function return address with function callstack
