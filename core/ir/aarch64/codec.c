@@ -810,7 +810,7 @@ encode_fpimm8_half(opnd_t opnd, uint abc_offset, uint defgh_offset, OUT uint *en
      *   abbb cdef gh00 0000
      */
 #ifdef HAVE_HALF_FLOAT
-#    if !defined(BUILD_TESTS)
+#    if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
     CLIENT_ASSERT(proc_has_feature(FEATURE_FP16),
                   "half-precision floating-point not supported on this host");
 #    endif

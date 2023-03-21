@@ -126,6 +126,7 @@ get_processor_specific_info(void)
         cpu_info.sve_vector_length_bytes = vl;
 #            else
         cpu_info.sve_vector_length_bytes = 32;
+        dr_set_sve_vector_length(256);
 #            endif
     } else
         cpu_info.sve_vector_length_bytes = 32;
