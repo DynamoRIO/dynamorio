@@ -209,7 +209,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props, curr_isa, next_is
                         indent_append('    ASSERT(0);')
                 enc_key = fallthrough_instr_id(
                     pattern.opcode, pattern.opcode_bits, pattern.opnd_bits)
-                if enc_key in FALLTHROUGH and patten.opndset == FALLTHROUGH[enc_key].opndset:
+                if enc_key in FALLTHROUGH and pattern.opndset == FALLTHROUGH[enc_key].opndset:
                     indent_append('    %s = true;' % FALLTHROUGH[enc_key].flag_name)
                     FALLTHROUGH[enc_key].decode_clause = \
                         'if ((enc & 0x%08x) == 0x%08x && %s == true)' % \
