@@ -266,6 +266,15 @@ test_parallel()
                 tid2stream[memref.instr.tid] = i;
             else
                 assert(tid2stream[memref.instr.tid] == i);
+            // Ensure the ordinals do not accumulate across inputs.
+            assert(
+                stream->get_record_ordinal() ==
+                scheduler.get_input_stream_interface(stream->get_input_stream_ordinal())
+                    ->get_record_ordinal());
+            assert(
+                stream->get_instruction_ordinal() ==
+                scheduler.get_input_stream_interface(stream->get_input_stream_ordinal())
+                    ->get_instruction_ordinal());
         }
     }
     assert(count == input_sequence.size() * NUM_INPUTS);
@@ -333,6 +342,7 @@ test_regions()
     if (scheduler.init(sched_inputs, 1,
                        scheduler_t::scheduler_options_t(
                            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+                           scheduler_t::SCHEDULER_DEFAULTS,
                            /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
