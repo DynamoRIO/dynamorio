@@ -130,6 +130,8 @@ typedef struct {
     hashtable_t manager_table; /* Maps bbs with book-keeping data (for thread-private
                                   caches only). */
     int case_index; /* Used to keep track of the current case during insertion. */
+    bool inserted_restore_all; /* track if we need to restore regs at the end of the block
+                                */
     void *orig_analysis_data;      /* Analysis data accessible for all cases. */
     void *default_analysis_data;   /* Analysis data specific to default case. */
     void **case_analysis_data;     /* Analysis data specific to cases. */
@@ -665,7 +667,9 @@ drbbdup_is_at_end(instr_t *check_instr)
 }
 
 /* Returns true if at the start of the end of a bb version: if check_instr is
- * the start emulation label for the inserted jump or the exit label.
+ * the start emulation label for the inserted jump or the exit label. This does not return
+ * true for certain types of blocks e.g., blocks that do not end in a branch/syscall or
+ * blocks that have unending emulation like repstr.
  */
 static bool
 drbbdup_is_at_end_initial(instr_t *check_instr)
@@ -1550,6 +1554,7 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
         instr_t *next_bb_label = drbbdup_next_start(end_instr);
         if (next_bb_label == NULL) {
             pt->case_index = DRBBDUP_DEFAULT_INDEX; /* Refer to default. */
+            pt->inserted_restore_all = false;
             drbbdup_insert_dispatch_end(drcontext, tag, bb, next_instr, manager);
         } else {
             /* We have reached the start of a new bb version (not the last one). */
@@ -1567,6 +1572,7 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
             ASSERT(pt->case_index + 1 == i,
                    "the next case considered should be the next increment");
             pt->case_index = i; /* Move on to the next case. */
+            pt->inserted_restore_all = false;
             drbbdup_insert_dispatch(drcontext, bb,
                                     next_instr /* insert after START label. */, manager,
                                     next_bb_label, drbbdup_case);
@@ -1589,10 +1595,11 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
             }
         }
         drreg_restore_all(drcontext, bb, instr);
+        pt->inserted_restore_all = true;
     } else if (drbbdup_is_at_end(instr)) {
         /* i#5906: if the emulation start label is missing we might still need to restore
          * registers for blocks that don't end in a branch or for rep-expanded blocks. */
-        if (!is_last_special || drbbdup_ilist_has_unending_emulation(bb))
+        if (!pt->inserted_restore_all)
             drreg_restore_all(drcontext, bb, instr);
     } else if (drbbdup_is_exit_jmp_emulation_marker(instr)) {
         /* Ignore instruction: hide drbbdup's own markers and the rest of the end.
@@ -1705,6 +1712,7 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     /* Start off with the default case index. */
     if (drmgr_is_first_instr(drcontext, instr)) {
         pt->case_index = DRBBDUP_DEFAULT_INDEX;
+        pt->inserted_restore_all = false;
     }
 
     if (is_thread_private) {
@@ -2076,6 +2084,7 @@ drbbdup_thread_init(void *drcontext)
     }
 
     pt->case_index = 0;
+    pt->inserted_restore_all = false;
     pt->orig_analysis_data = NULL;
     if (opts.non_default_case_limit > 0) {
         pt->case_analysis_data =
