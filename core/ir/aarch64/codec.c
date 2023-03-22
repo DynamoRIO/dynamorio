@@ -1712,7 +1712,44 @@ encode_sized_p(uint pos_start, uint size_start, uint min_size, uint max_size, op
  * previous section.
  */
 
-/* impx30: implicit X30 operand, used by BLR */
+static inline bool
+encode_implicit_register(reg_id_t reg, opnd_t opnd, OUT uint *enc_out)
+{
+    *enc_out = 0;
+    return opnd_is_reg(opnd) && opnd_get_reg(opnd) == reg;
+}
+
+/* impx16: implicit X16 operand */
+
+static inline bool
+decode_opnd_impx16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_X16);
+    return true;
+}
+
+static inline bool
+encode_opnd_impx16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_implicit_register(DR_REG_X16, opnd, enc_out);
+}
+
+/* impx17: implicit X17 operand */
+
+static inline bool
+decode_opnd_impx17(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_X17);
+    return true;
+}
+
+static inline bool
+encode_opnd_impx17(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_implicit_register(DR_REG_X17, opnd, enc_out);
+}
+
+/* impx30: implicit X30 operand */
 
 static inline bool
 decode_opnd_impx30(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -1724,10 +1761,22 @@ decode_opnd_impx30(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_impx30(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (!opnd_is_reg(opnd) || opnd_get_reg(opnd) != DR_REG_X30)
-        return false;
-    *enc_out = 0;
+    return encode_implicit_register(DR_REG_X30, opnd, enc_out);
+}
+
+/* impsp: implicit SP operand */
+
+static inline bool
+decode_opnd_impsp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_reg(DR_REG_SP);
     return true;
+}
+
+static inline bool
+encode_opnd_impsp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_implicit_register(DR_REG_SP, opnd, enc_out);
 }
 
 /* lsl: constant LSL for ADD/MOV, no encoding bits */
