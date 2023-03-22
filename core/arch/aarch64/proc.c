@@ -198,8 +198,7 @@ proc_has_feature(feature_bit_t f)
      * support all features.
      */
 #    if defined(BUILD_TESTS)
-    switch (f)
-    {
+    switch (f) {
     case FEATURE_LSE:
     case FEATURE_RDM:
     case FEATURE_FP16:
@@ -218,8 +217,7 @@ proc_has_feature(feature_bit_t f)
     case FEATURE_LRCPC2:
     case FEATURE_BF16:
     case FEATURE_I8MM:
-    case FEATURE_FlagM:
-        return true;
+    case FEATURE_FlagM: return true;
 
     case FEATURE_AESX:
     case FEATURE_PMULL:
@@ -229,8 +227,7 @@ proc_has_feature(feature_bit_t f)
     case FEATURE_FlagM2:
     case FEATURE_RNG:
     case FEATURE_DPB:
-    case FEATURE_DPB2:
-        break;
+    case FEATURE_DPB2: break;
     }
 #    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;
