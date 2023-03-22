@@ -41,7 +41,10 @@
 
 # Instruction definitions:
 
-110110101100000100011101xxxxxxxx  n   690  PAUTH   autdb         : x5 x0
+1101101011000001000110xxxxxxxxxx  n   1027 PAUTH   autda      x0 : x0 x5sp
+1101101011000001000111xxxxxxxxxx  n   690  PAUTH   autdb      x0 : x0 x5sp
+110110101100000100111011111xxxxx  n   1028 PAUTH  autdza      x0 : x0
+110110101100000100111111111xxxxx  n   1029 PAUTH  autdzb      x0 : x0
 11010101000000110010001111111111  n   681  PAUTH autibsp         :
 1101011100111111000010xxxxxxxxxx  n   782  PAUTH   blraa  impx30 : x5 x0
 1101011000111111000010xxxxx11111  n   682  PAUTH  blraaz  impx30 : x5

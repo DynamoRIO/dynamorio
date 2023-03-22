@@ -32,6 +32,78 @@
 # See dis-a64-sve.txt for the formatting.
 
 # Tests:
+# AUTDA   <Xd>, <Xn|SP> (AUTDA-R.R-auth)
+dac11800 : autda x0, x0                              : autda  %x0 %x0 -> %x0
+dac11862 : autda x2, x3                              : autda  %x2 %x3 -> %x2
+dac118a4 : autda x4, x5                              : autda  %x4 %x5 -> %x4
+dac118e6 : autda x6, x7                              : autda  %x6 %x7 -> %x6
+dac11928 : autda x8, x9                              : autda  %x8 %x9 -> %x8
+dac11949 : autda x9, x10                             : autda  %x9 %x10 -> %x9
+dac1198b : autda x11, x12                            : autda  %x11 %x12 -> %x11
+dac119cd : autda x13, x14                            : autda  %x13 %x14 -> %x13
+dac11a0f : autda x15, x16                            : autda  %x15 %x16 -> %x15
+dac11a51 : autda x17, x18                            : autda  %x17 %x18 -> %x17
+dac11a93 : autda x19, x20                            : autda  %x19 %x20 -> %x19
+dac11ad5 : autda x21, x22                            : autda  %x21 %x22 -> %x21
+dac11af6 : autda x22, x23                            : autda  %x22 %x23 -> %x22
+dac11b38 : autda x24, x25                            : autda  %x24 %x25 -> %x24
+dac11b7a : autda x26, x27                            : autda  %x26 %x27 -> %x26
+dac11bfe : autda x30, sp                             : autda  %x30 %sp -> %x30
+
+# AUTDB   <Xd>, <Xn|SP> (AUTDB-R.R-auth)
+dac11c00 : autdb x0, x0                              : autdb  %x0 %x0 -> %x0
+dac11c62 : autdb x2, x3                              : autdb  %x2 %x3 -> %x2
+dac11ca4 : autdb x4, x5                              : autdb  %x4 %x5 -> %x4
+dac11ce6 : autdb x6, x7                              : autdb  %x6 %x7 -> %x6
+dac11d28 : autdb x8, x9                              : autdb  %x8 %x9 -> %x8
+dac11d49 : autdb x9, x10                             : autdb  %x9 %x10 -> %x9
+dac11d8b : autdb x11, x12                            : autdb  %x11 %x12 -> %x11
+dac11dcd : autdb x13, x14                            : autdb  %x13 %x14 -> %x13
+dac11e0f : autdb x15, x16                            : autdb  %x15 %x16 -> %x15
+dac11e51 : autdb x17, x18                            : autdb  %x17 %x18 -> %x17
+dac11e93 : autdb x19, x20                            : autdb  %x19 %x20 -> %x19
+dac11ed5 : autdb x21, x22                            : autdb  %x21 %x22 -> %x21
+dac11ef6 : autdb x22, x23                            : autdb  %x22 %x23 -> %x22
+dac11f38 : autdb x24, x25                            : autdb  %x24 %x25 -> %x24
+dac11f7a : autdb x26, x27                            : autdb  %x26 %x27 -> %x26
+dac11ffe : autdb x30, sp                             : autdb  %x30 %sp -> %x30
+
+# AUTDZA  <Xd> (AUTDZA-R-auth)
+dac13be0 : autdza x0                                 : autdza %x0 -> %x0
+dac13be2 : autdza x2                                 : autdza %x2 -> %x2
+dac13be4 : autdza x4                                 : autdza %x4 -> %x4
+dac13be6 : autdza x6                                 : autdza %x6 -> %x6
+dac13be8 : autdza x8                                 : autdza %x8 -> %x8
+dac13be9 : autdza x9                                 : autdza %x9 -> %x9
+dac13beb : autdza x11                                : autdza %x11 -> %x11
+dac13bed : autdza x13                                : autdza %x13 -> %x13
+dac13bef : autdza x15                                : autdza %x15 -> %x15
+dac13bf1 : autdza x17                                : autdza %x17 -> %x17
+dac13bf3 : autdza x19                                : autdza %x19 -> %x19
+dac13bf5 : autdza x21                                : autdza %x21 -> %x21
+dac13bf6 : autdza x22                                : autdza %x22 -> %x22
+dac13bf8 : autdza x24                                : autdza %x24 -> %x24
+dac13bfa : autdza x26                                : autdza %x26 -> %x26
+dac13bfe : autdza x30                                : autdza %x30 -> %x30
+
+# AUTDZB  <Xd> (AUTDZB-R-auth)
+dac13fe0 : autdzb x0                                 : autdzb %x0 -> %x0
+dac13fe2 : autdzb x2                                 : autdzb %x2 -> %x2
+dac13fe4 : autdzb x4                                 : autdzb %x4 -> %x4
+dac13fe6 : autdzb x6                                 : autdzb %x6 -> %x6
+dac13fe8 : autdzb x8                                 : autdzb %x8 -> %x8
+dac13fe9 : autdzb x9                                 : autdzb %x9 -> %x9
+dac13feb : autdzb x11                                : autdzb %x11 -> %x11
+dac13fed : autdzb x13                                : autdzb %x13 -> %x13
+dac13fef : autdzb x15                                : autdzb %x15 -> %x15
+dac13ff1 : autdzb x17                                : autdzb %x17 -> %x17
+dac13ff3 : autdzb x19                                : autdzb %x19 -> %x19
+dac13ff5 : autdzb x21                                : autdzb %x21 -> %x21
+dac13ff6 : autdzb x22                                : autdzb %x22 -> %x22
+dac13ff8 : autdzb x24                                : autdzb %x24 -> %x24
+dac13ffa : autdzb x26                                : autdzb %x26 -> %x26
+dac13ffe : autdzb x30                                : autdzb %x30 -> %x30
+
 # FCADD   <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, <imm> (FCADD-Q.QQ-Vec)
 2e40e400 : fcadd v0.4h, v0.4h, v0.4h, #0x5a          : fcadd  %d0 %d0 %d0 $0x005a $0x01 -> %d0
 2e44e462 : fcadd v2.4h, v3.4h, v4.4h, #0x5a          : fcadd  %d2 %d3 %d4 $0x005a $0x01 -> %d2
