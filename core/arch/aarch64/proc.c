@@ -174,6 +174,7 @@ proc_init_arch(void)
         LOG_FEATURE(FEATURE_SPE);
         LOG_FEATURE(FEATURE_PAUTH);
         LOG_FEATURE(FEATURE_LRCPC);
+        LOG_FEATURE(FEATURE_LRCPC2);
 
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ZFR0_EL1 = 0x%016lx\n",
             cpu_info.features.flags_aa64zfr0);
@@ -201,7 +202,8 @@ proc_has_feature(feature_bit_t f)
         f == FEATURE_DotProd || f == FEATURE_SVE || f == FEATURE_LOR ||
         f == FEATURE_FHM || f == FEATURE_SM3 || f == FEATURE_SM4 || f == FEATURE_SHA512 ||
         f == FEATURE_SHA3 || f == FEATURE_RAS || f == FEATURE_SPE || f == FEATURE_PAUTH ||
-        f == FEATURE_LRCPC || f == FEATURE_BF16 || f == FEATURE_I8MM)
+        f == FEATURE_LRCPC || f == FEATURE_LRCPC2 || f == FEATURE_BF16 ||
+        f == FEATURE_I8MM)
         return true;
 #    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;

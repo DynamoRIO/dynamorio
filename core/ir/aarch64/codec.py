@@ -690,11 +690,11 @@ def main():
     output_dir = sys.argv[2]
 
     # The Arm AArch64's architecture versions supported by the DynamoRIO codec.
-    # Currently, v8.0 is fully supported, while v8.1, v8.2, v8.3, v8.6, SVE,
+    # Currently, v8.0 is fully supported, while v8.1, v8.2, v8.3, v8.4, v8.6, SVE,
     # and SVE2 are partially supported. The null terminator element at the end
     # is required by some generator functions to correctly generate links
     # between each version's decode/encode logic.
-    isa_versions = ['v80', 'v81', 'v82', 'v83', 'v86', 'sve', 'sve2', '']
+    isa_versions = ['v80', 'v81', 'v82', 'v83', 'v84', 'v86', 'sve', 'sve2', '']
 
     # Read the instruction operand definitions. Used by the codec when
     # generating code to decode and encode instructions.
