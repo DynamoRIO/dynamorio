@@ -36,6 +36,7 @@
 
 # Instruction definitions:
 
+11010101000000000100^^^^00011111  rw  1023 FlagM    cfinv         :
 1x011001010xxxxxxxxx00xxxxxxxxxx  n   1014 LRCPC2   ldapur  wx0_30 : mem9
 00011001010xxxxxxxxx00xxxxxxxxxx  n   1015 LRCPC2  ldapurb      w0 : mem9
 01011001010xxxxxxxxx00xxxxxxxxxx  n   1016 LRCPC2  ldapurh      w0 : mem9
@@ -44,6 +45,9 @@
 01011001100xxxxxxxxx00xxxxxxxxxx  n   1018 LRCPC2 ldapursh      x0 : mem9
 01011001110xxxxxxxxx00xxxxxxxxxx  n   1018 LRCPC2 ldapursh      w0 : mem9
 10011001100xxxxxxxxx00xxxxxxxxxx  n   1019 LRCPC2 ldapursw      x0 : mem9
+10111010000xxxxxx00001xxxxx0xxxx  w   1024 FlagM     rmif         : x5 imm6_15 nzcv
+0011101000000000010010xxxxx01101  w   1025 FlagM   setf16         : w5
+0011101000000000000010xxxxx01101  w   1026 FlagM    setf8         : w5
 1x011001000xxxxxxxxx00xxxxxxxxxx  n   1020 LRCPC2    stlur    mem9 : wx0_30
 00011001000xxxxxxxxx00xxxxxxxxxx  n   1021 LRCPC2   stlurb    mem9 : w0
 01011001000xxxxxxxxx00xxxxxxxxxx  n   1022 LRCPC2   stlurh    mem9 : w0

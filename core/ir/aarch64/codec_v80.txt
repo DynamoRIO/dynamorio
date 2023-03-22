@@ -676,7 +676,9 @@ x0011011000xxxxx0xxxxxxxxxxxxxxx  n   311  BASE       madd            wx0 : wx5 
 110100101xxxxxxxxxxxxxxxxxxxxxxx  n   317  BASE       movz             x0 : imm16 lsl imm16sh
 110101010011xxxxxxxxxxxxxxxxxxxx  er  318  BASE        mrs             x0 : sysreg
 110101010001xxxxxxxxxxxxxxxxxxxx  ew  319  BASE        msr            msr
-1101010100000xxx0100xxxxxxx11111  ew  319  BASE        msr                : pstate imm4
+11010101000000000100xxxx10111111  ew  319  BASE        msr                : pstate imm4
+11010101000000110100xxxx11011111  ew  319  BASE        msr                : pstate imm4
+11010101000000110100xxxx11111111  ew  319  BASE        msr                : pstate imm4
 x0011011000xxxxx1xxxxxxxxxxxxxxx  n   320  BASE       msub            wx0 : wx5 wx16 wx10
 0x001110xx1xxxxx100111xxxxxxxxxx  n   321  BASE        mul            dq0 : dq5 dq16 bhs_sz
 0x001111xxxxxxxx1000x0xxxxxxxxxx  n   321  BASE        mul            dq0 : dq5 dq16_h_sz vindex_H hs_sz

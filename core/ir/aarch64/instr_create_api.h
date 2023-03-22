@@ -13355,4 +13355,54 @@
  */
 #define INSTR_CREATE_stlurh(dc, Rt, mem) instr_create_1dst_1src(dc, OP_stlurh, mem, Rt)
 
+/**
+ * Creates a CFINV instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CFINV
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_cfinv(dc) instr_create_0dst_0src(dc, OP_cfinv)
+
+/**
+ * Creates a RMIF instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RMIF    <Xn>, #<shift>, #<mask>
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn    The source  register, X (Extended, 64 bits).
+ * \param shift The immediate shift.
+ * \param mask  The immediate mask.
+ */
+#define INSTR_CREATE_rmif(dc, Rn, shift, mask) \
+    instr_create_0dst_3src(dc, OP_rmif, Rn, shift, mask)
+
+/**
+ * Creates a SETF16 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SETF16  <Wn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The source  register, W (Word, 32 bits).
+ */
+#define INSTR_CREATE_setf16(dc, Rn) instr_create_0dst_1src(dc, OP_setf16, Rn)
+
+/**
+ * Creates a SETF8 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SETF8   <Wn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The source  register, W (Word, 32 bits).
+ */
+#define INSTR_CREATE_setf8(dc, Rn) instr_create_0dst_1src(dc, OP_setf8, Rn)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
