@@ -55,9 +55,14 @@
 11010101000000110010001111011111  n   1034 PAUTH    autibz  impx30 : impx30
 110110101100000100110011111xxxxx  n   1035 PAUTH    autiza      x0 : x0
 110110101100000100110111111xxxxx  n   1036 PAUTH    autizb      x0 : x0
-1101011100111111000010xxxxxxxxxx  n   782  PAUTH     blraa  impx30 : x5 x0
+1101011100111111000010xxxxxxxxxx  n   782  PAUTH     blraa  impx30 : x5 x0sp
 1101011000111111000010xxxxx11111  n   682  PAUTH    blraaz  impx30 : x5
-1101011100011111000010xxxxxxxxxx  n   683  PAUTH      braa         : x5 x0
+1101011100111111000011xxxxxxxxxx  n   1037 PAUTH     blrab  impx30 : x5 x0sp
+1101011000111111000011xxxxx11111  n   1038 PAUTH    blrabz  impx30 : x5
+1101011100011111000010xxxxxxxxxx  n   683  PAUTH      braa         : x5 x0sp
+1101011000011111000010xxxxx11111  n   1039 PAUTH     braaz         : x5
+1101011100011111000011xxxxxxxxxx  n   1040 PAUTH      brab         : x5 x0sp
+1101011000011111000011xxxxx11111  n   1041 PAUTH     brabz         : x5
 0x101110xx0xxxxx111x01xxxxxxxxxx  n   944  BASE     fcadd     dq0 : dq0 dq5 dq16 imm1_ew_12 hs_sz
 0x101110xx0xxxxx110xx1xxxxxxxxxx  n   945  BASE     fcmla     dq0 : dq0 dq5 dq16 imm2_nesw_11 hs_sz
 0x101111xxxxxxxx0xx1x0xxxxxxxxxx  n   945  BASE     fcmla     dq0 : dq0 dq5 dq16 vindex_HS_2lane imm2_nesw_13 hs_sz
