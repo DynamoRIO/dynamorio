@@ -478,6 +478,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             }
         }
     }
+
+    if (TESTANY(sched_type_t::SCHEDULER_USE_SINGLE_INPUT_ORDINALS, options_.flags) &&
+        inputs_.size() == 1 && output_count == 1) {
+        options_.flags = static_cast<scheduler_flags_t>(
+            static_cast<int>(options_.flags) |
+            static_cast<int>(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS));
+    }
+
     outputs_.reserve(output_count);
     for (int i = 0; i < output_count; i++) {
         outputs_.emplace_back(this, i, verbosity_);
@@ -668,6 +676,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::is_record_synthetic(int output_ordinal
     if (index < 0)
         return false;
     return inputs_[index].reader->is_record_synthetic();
+}
+
+template <typename RecordType, typename ReaderType>
+memtrace_stream_t *
+scheduler_tmpl_t<RecordType, ReaderType>::get_input_stream(int output_ordinal)
+{
+    if (output_ordinal < 0 || output_ordinal >= static_cast<int>(outputs_.size()))
+        return nullptr;
+    int index = outputs_[output_ordinal].cur_input;
+    if (index < 0)
+        return nullptr;
+    return inputs_[index].reader.get();
 }
 
 template <typename RecordType, typename ReaderType>
