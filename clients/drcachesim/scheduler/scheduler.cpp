@@ -682,6 +682,8 @@ template <typename RecordType, typename ReaderType>
 memtrace_stream_t *
 scheduler_tmpl_t<RecordType, ReaderType>::get_input_stream(int output_ordinal)
 {
+    if (output_ordinal < 0 || output_ordinal >= static_cast<int>(outputs_.size()))
+        return nullptr;
     int index = outputs_[output_ordinal].cur_input;
     if (index < 0)
         return nullptr;
