@@ -13222,4 +13222,187 @@
 #define INSTR_CREATE_ldnf1w_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnf1w, Zt, Rn, Pg)
 
+/**
+ * Creates a LDAPUR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDAPUR <Wt>, [<Xn|SP>{, #<simm>}]
+ *    LDAPUR <Xt>, [<Xn|SP>{, #<simm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, W (Word, 32 bits) or X (Extended, 64 bits).
+ * \param mem  The source memory address operand constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_4)
+ */
+#define INSTR_CREATE_ldapur(dc, Rt, mem) instr_create_1dst_1src(dc, OP_ldapur, Rt, mem)
+
+/**
+ * Creates a LDAPURB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDAPURB <Wt>, [<Xn|SP>{, #<simm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, W (Word, 32 bits).
+ * \param mem  The source memory address operand constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_1)
+ */
+#define INSTR_CREATE_ldapurb(dc, Rt, mem) instr_create_1dst_1src(dc, OP_ldapurb, Rt, mem)
+
+/**
+ * Creates a LDAPURSB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDAPURSB <Wt>, [<Xn|SP>{, #<simm>}]
+ *    LDAPURSB <Xt>, [<Xn|SP>{, #<simm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, W (Word, 32 bits) or X (Extended, 64 bits).
+ * \param mem  The source memory address operand constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_1)
+ */
+#define INSTR_CREATE_ldapursb(dc, Rt, mem) \
+    instr_create_1dst_1src(dc, OP_ldapursb, Rt, mem)
+
+/**
+ * Creates a LDAPURH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDAPURH <Wt>, [<Xn|SP>{, #<simm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, W (Word, 32 bits).
+ * \param mem  The source memory address operand constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_2)
+ */
+#define INSTR_CREATE_ldapurh(dc, Rt, mem) instr_create_1dst_1src(dc, OP_ldapurh, Rt, mem)
+
+/**
+ * Creates a LDAPURSB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDAPURSH <Wt>, [<Xn|SP>{, #<simm>}]
+ *    LDAPURSH <Xt>, [<Xn|SP>{, #<simm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, W (Word, 32 bits) or X (Extended, 64 bits).
+ * \param mem  The source memory address operand constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_2)
+ */
+#define INSTR_CREATE_ldapursh(dc, Rt, mem) \
+    instr_create_1dst_1src(dc, OP_ldapursh, Rt, mem)
+
+/**
+ * Creates a LDAPURSW instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDAPURSW <Xt>, [<Xn|SP>{, #<simm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, X (Extended, 64 bits).
+ * \param mem  The source memory address operand constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_4)
+ */
+#define INSTR_CREATE_ldapursw(dc, Rt, mem) \
+    instr_create_1dst_1src(dc, OP_ldapursw, Rt, mem)
+
+/**
+ * Creates a STLUR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    STLUR  <Wt>, [<Xn|SP>{, #<simm>}]
+ *    STLUR  <Xt>, [<Xn|SP>{, #<simm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source register, W (Word, 32 bits) or X (Extended, 64 bits).
+ * \param mem  The destination memory address operand constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_4)
+ */
+#define INSTR_CREATE_stlur(dc, Rt, mem) instr_create_1dst_1src(dc, OP_stlur, mem, Rt)
+
+/**
+ * Creates a STLURB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    STLURB <Wt>, [<Xn|SP>{, #<simm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source register, W (Word, 32 bits).
+ * \param mem  The destination memory address operand constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_1)
+ */
+#define INSTR_CREATE_stlurb(dc, Rt, mem) instr_create_1dst_1src(dc, OP_stlurb, mem, Rt)
+
+/**
+ * Creates a STLURH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    STLURH <Wt>, [<Xn|SP>{, #<simm>}]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source register, W (Word, 32 bits).
+ * \param mem  The destination memory address operand constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_2)
+ */
+#define INSTR_CREATE_stlurh(dc, Rt, mem) instr_create_1dst_1src(dc, OP_stlurh, mem, Rt)
+
+/**
+ * Creates a CFINV instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    CFINV
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_cfinv(dc) instr_create_0dst_0src(dc, OP_cfinv)
+
+/**
+ * Creates a RMIF instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RMIF    <Xn>, #<shift>, #<mask>
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn    The source  register, X (Extended, 64 bits).
+ * \param shift The immediate shift.
+ * \param mask  The immediate mask.
+ */
+#define INSTR_CREATE_rmif(dc, Rn, shift, mask) \
+    instr_create_0dst_3src(dc, OP_rmif, Rn, shift, mask)
+
+/**
+ * Creates a SETF16 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SETF16  <Wn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The source  register, W (Word, 32 bits).
+ */
+#define INSTR_CREATE_setf16(dc, Rn) instr_create_0dst_1src(dc, OP_setf16, Rn)
+
+/**
+ * Creates a SETF8 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SETF8   <Wn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The source  register, W (Word, 32 bits).
+ */
+#define INSTR_CREATE_setf8(dc, Rn) instr_create_0dst_1src(dc, OP_setf8, Rn)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
