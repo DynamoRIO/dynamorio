@@ -1,0 +1,53 @@
+# **********************************************************
+# Copyright (c) 2023 ARM Limited. All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of ARM Limited nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# This file defines instruction encodings for v8.4 instructions.
+
+# See header comments in codec_v80.txt and opnd_defs.txt to understand how
+# instructions are defined for the purposes of decode and encode code
+# generation.
+
+# Instruction definitions:
+
+11010101000000000100^^^^00011111  rw  1023 FlagM    cfinv         :
+1x011001010xxxxxxxxx00xxxxxxxxxx  n   1014 LRCPC2   ldapur  wx0_30 : mem9
+00011001010xxxxxxxxx00xxxxxxxxxx  n   1015 LRCPC2  ldapurb      w0 : mem9
+01011001010xxxxxxxxx00xxxxxxxxxx  n   1016 LRCPC2  ldapurh      w0 : mem9
+00011001100xxxxxxxxx00xxxxxxxxxx  n   1017 LRCPC2 ldapursb      x0 : mem9
+00011001110xxxxxxxxx00xxxxxxxxxx  n   1017 LRCPC2 ldapursb      w0 : mem9
+01011001100xxxxxxxxx00xxxxxxxxxx  n   1018 LRCPC2 ldapursh      x0 : mem9
+01011001110xxxxxxxxx00xxxxxxxxxx  n   1018 LRCPC2 ldapursh      w0 : mem9
+10011001100xxxxxxxxx00xxxxxxxxxx  n   1019 LRCPC2 ldapursw      x0 : mem9
+10111010000xxxxxx00001xxxxx0xxxx  w   1024 FlagM     rmif         : x5 imm6_15 nzcv
+0011101000000000010010xxxxx01101  w   1025 FlagM   setf16         : w5
+0011101000000000000010xxxxx01101  w   1026 FlagM    setf8         : w5
+1x011001000xxxxxxxxx00xxxxxxxxxx  n   1020 LRCPC2    stlur    mem9 : wx0_30
+00011001000xxxxxxxxx00xxxxxxxxxx  n   1021 LRCPC2   stlurb    mem9 : w0
+01011001000xxxxxxxxx00xxxxxxxxxx  n   1022 LRCPC2   stlurh    mem9 : w0
