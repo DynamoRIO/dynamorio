@@ -82,7 +82,7 @@ private:
 };
 
 static trace_entry_t
-make_instr(addr_t pc)
+make_instr(addr_t pc, memref_tid_t tid = 1)
 {
     trace_entry_t entry;
     entry.type = TRACE_TYPE_INSTR;
@@ -682,6 +682,70 @@ test_real_file_queries_and_filters(const char *testdir)
 #endif
 }
 
+static void
+test_synthetic()
+{
+    std::cerr << "\n----------------\nTesting synthetic\n";
+    static constexpr int NUM_INPUTS = 7;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        memref_tid_t tid = TID_BASE + i;
+        inputs[i].push_back(make_thread(tid));
+        inputs[i].push_back(make_pid(1));
+        for (int j = 0; j < NUM_INSTRS; j++)
+            inputs[i].push_back(make_instr(42 + j * 4, tid));
+        inputs[i].push_back(make_exit(tid));
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/4);
+    sched_ops.quantum_duration = 3;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    // Walk the outputs in lockstep for crude but deterministic concurrency.
+    std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
+    std::vector<bool> eof(NUM_OUTPUTS, false);
+    for (int i = 0; i < NUM_OUTPUTS; i++)
+        outputs[i] = scheduler.get_stream(i);
+    int num_eof = 0;
+    // Record the threads, one char each.
+    std::vector<std::string> sched_as_string(NUM_OUTPUTS);
+    while (num_eof < NUM_OUTPUTS) {
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
+            if (eof[i])
+                continue;
+            memref_t memref;
+            scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
+            if (status == scheduler_t::STATUS_EOF) {
+                ++num_eof;
+                eof[i] = true;
+                continue;
+            }
+            assert(status == scheduler_t::STATUS_OK);
+            sched_as_string[i] += 'A' + (memref.instr.tid - TID_BASE);
+        }
+    }
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // Hardcoding here for the 2 outputs and 7 inputs.
+    // We expect 3 letter sequences (our quantum) alternating every-other as each
+    // core alternates; with an odd number the 2nd core finishes early.
+    assert(sched_as_string[0] == "AAACCCEEEGGGBBBDDDFFFAAAACCCCEEEEGGGG");
+    assert(sched_as_string[1] == "BBBDDDFFFAAACCCEEEGGGBBBBDDDDFFFF");
+}
+
 } // namespace
 
 int
@@ -695,5 +759,6 @@ main(int argc, const char *argv[])
     test_regions();
     test_only_threads();
     test_real_file_queries_and_filters(argv[1]);
+    test_synthetic();
     return 0;
 }

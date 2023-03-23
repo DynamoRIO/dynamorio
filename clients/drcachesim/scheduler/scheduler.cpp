@@ -502,7 +502,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         for (int i = 0; i < static_cast<int>(inputs_.size()); i++) {
             size_t index = i % output_count;
             if (outputs_[index].input_indices.empty())
-                outputs_[index].cur_input = i;
+                set_cur_input(index, i);
             outputs_[index].input_indices.push_back(i);
             VPRINT(this, 2, "Assigning input #%d to output #%zd\n", i, index);
         }
@@ -515,7 +515,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         if (output_count != 1)
             return STATUS_ERROR_NOT_IMPLEMENTED;
         if (inputs_.size() == 1) {
-            outputs_[0].cur_input = 0;
+            set_cur_input(0, 0);
         } else {
             // The old file_reader_t interleaving would output the top headers for every
             // thread first and then pick the oldest timestamp once it reached a
@@ -526,11 +526,25 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                 return res;
         }
     } else {
-        // TODO i#5843: Implement scheduling onto synthetic cores.
-        // For now we only support a single output stream with no deps.
-        if (options_.deps != DEPENDENCY_IGNORE || output_count != 1)
+        // TODO i#5843: Honor deps when scheduling on synthetic cores.
+        if (options_.deps != DEPENDENCY_IGNORE)
             return STATUS_ERROR_NOT_IMPLEMENTED;
-        outputs_[0].cur_input = 0;
+        // TODO i#5843: Implement time-based quanta.
+        if (options_.quantum_unit != QUANTUM_INSTRUCTIONS)
+            return STATUS_ERROR_NOT_IMPLEMENTED;
+        // Assign initial inputs.
+        // TODO i#5843: Once we support core bindings and priorities we'll want
+        // to consider that here.
+        for (int i = 0; i < static_cast<int>(outputs_.size()); i++) {
+            if (i < static_cast<int>(inputs_.size()))
+                set_cur_input(i, i);
+            else
+                set_cur_input(i, -1);
+        }
+        for (int i = static_cast<int>(outputs_.size());
+             i < static_cast<int>(inputs_.size()); i++) {
+            ready_.push(i);
+        }
     }
     return STATUS_SUCCESS;
 }
@@ -568,8 +582,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_timestamps()
             return STATUS_ERROR_INVALID_PARAMETER;
         if (input.next_timestamp < min_time) {
             min_time = input.next_timestamp;
-            // TODO i#5843: Support more than one input (already checked earlier).
-            outputs_[0].cur_input = static_cast<int>(i);
+            // TODO i#5843: Support more than one output (already checked earlier).
+            set_cur_input(0, static_cast<int>(i));
         }
     }
     if (outputs_[0].cur_input >= 0)
@@ -776,19 +790,45 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_
 }
 
 template <typename RecordType, typename ReaderType>
+void
+scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(int output_ordinal,
+                                                        int input_ordinal)
+{
+    assert(output_ordinal >= 0 && output_ordinal < static_cast<int>(outputs_.size()));
+    assert(input_ordinal < static_cast<int>(inputs_.size()));
+    if (outputs_[output_ordinal].cur_input >= 0)
+        ready_.push(outputs_[output_ordinal].cur_input);
+    outputs_[output_ordinal].cur_input = input_ordinal;
+    if (input_ordinal < 0)
+        return;
+    inputs_[input_ordinal].instrs_in_quantum = 0;
+}
+
+template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(int output_ordinal)
 {
-    if (options_.mapping == MAP_TO_ANY_OUTPUT) {
-        // TODO i#5843: Implement synthetic scheduling with instr/time quanta.
-        // These will require locks and central coordination.
-        // For now we only support a single output.
-        return sched_type_t::STATUS_EOF;
-    }
-    int index = outputs_[output_ordinal].cur_input;
+    if (options_.mapping == MAP_TO_ANY_OUTPUT)
+        std::lock_guard<std::mutex> guard(sched_lock_);
+    // We're only called when we should definitely swap so clear the current.
+    int prev_index = outputs_[output_ordinal].cur_input;
+    int index = -1;
+    set_cur_input(output_ordinal, -1);
     while (true) {
         if (index < 0) {
-            if (options_.deps == DEPENDENCY_TIMESTAMPS) {
+            if (options_.mapping == MAP_TO_ANY_OUTPUT) {
+                if (ready_.empty()) {
+                    if (inputs_[prev_index].at_eof)
+                        return sched_type_t::STATUS_EOF;
+                    else
+                        index = prev_index; // Go back to prior.
+                } else {
+                    // TODO i#5843: Add core binding and priority support.
+                    index = ready_.front();
+                    ready_.pop();
+                }
+            } else if (options_.deps == DEPENDENCY_TIMESTAMPS) {
+                // TODO i#5843: This should require a lock for >1 outputs too.
                 uint64_t min_time = 0xffffffffffffffff;
                 for (size_t i = 0; i < inputs_.size(); i++) {
                     if (!inputs_[i].at_eof && inputs_[i].next_timestamp > 0 &&
@@ -838,7 +878,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(int output_ordinal)
         }
         break;
     }
-    outputs_[output_ordinal].cur_input = index;
+    set_cur_input(output_ordinal, index);
     return sched_type_t::STATUS_OK;
 }
 
@@ -889,11 +929,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(int output_ordinal,
                 record = **input->reader;
             }
         }
+        bool need_new_input = false;
+        if (options_.mapping == MAP_TO_ANY_OUTPUT &&
+            options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
+            record_type_is_instr(record)) {
+            // TODO i#5843: We also want to swap on blocking syscalls.
+            ++input->instrs_in_quantum;
+            if (input->instrs_in_quantum > options_.quantum_duration)
+                need_new_input = true;
+        }
         if (options_.deps == DEPENDENCY_TIMESTAMPS &&
-            record_type_is_timestamp(record, input->next_timestamp)) {
+            record_type_is_timestamp(record, input->next_timestamp))
+            need_new_input = true;
+        if (need_new_input) {
             int cur_input = outputs_[output_ordinal].cur_input;
-            // Mark cur_input invalid to ensure pick_next_input() takes action.
-            outputs_[output_ordinal].cur_input = -1;
             sched_type_t::stream_status_t res = pick_next_input(output_ordinal);
             if (res != sched_type_t::STATUS_OK)
                 return res;

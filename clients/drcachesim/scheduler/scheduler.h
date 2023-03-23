@@ -42,6 +42,8 @@
 
 #include <assert.h>
 #include <deque>
+#include <mutex>
+#include <queue>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -721,6 +723,7 @@ protected:
         bool needs_roi = true;
         bool at_eof = false;
         uintptr_t next_timestamp = 0;
+        uint64_t instrs_in_quantum = 0;
     };
 
     struct output_info_t {
@@ -770,6 +773,9 @@ protected:
     stream_status_t
     advance_region_of_interest(int output_ordinal, RecordType &record,
                                input_info_t &input);
+
+    void
+    set_cur_input(int output_ordinal, int input_ordinal);
 
     // Finds the next input stream for the 'output_ordinal'-th output stream.
     stream_status_t
@@ -830,6 +836,12 @@ protected:
     scheduler_options_t options_;
     std::vector<input_info_t> inputs_;
     std::vector<output_info_t> outputs_;
+    // We use a central lock for global scheduling.  We assume the synchronization
+    // cost is outweighed by the simulator's overhead.  This protects concurrent
+    // access to the inputs_, outputs_, and ready_ fields.
+    std::mutex sched_lock_;
+    // Input indices ready to be scheduled.
+    std::queue<int> ready_;
 };
 
 /** See #dynamorio::drmemtrace::scheduler_tmpl_t. */
