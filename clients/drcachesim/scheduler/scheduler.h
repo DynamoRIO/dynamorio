@@ -339,6 +339,9 @@ public:
          * for that output, rather than accumulating across inputs.
          */
         SCHEDULER_USE_INPUT_ORDINALS = 0x4,
+        // This was added for the analyzer view tool on a single trace specified via
+        // a directory where the analyzer isn't listing the dir so it doesn't know
+        // whether to request SCHEDULER_USE_INPUT_ORDINALS.
         /**
          * If there is just one input and just one output stream, this sets
          * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS;
@@ -484,8 +487,8 @@ public:
          *
          * If
          * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS
-         * is set, then this value matches the record ordinal for the current input (and
-         * thus might decrease or not change across records if the input changed).
+         * is set, then this value matches the record ordinal for the current input stream
+         * (and thus might decrease or not change across records if the input changed).
          * Otherwise, if multiple input streams fed into this output stream, this
          * includes the records from all those streams that were presented here: thus,
          * this may be larger than what the current input stream reports (see
@@ -506,11 +509,11 @@ public:
          * Returns the count of instructions from the start of the trace to this point.
          * If
          * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS
-         * is set, then this value matches the record ordinal for the current input (and
-         * thus might decrease or not change across records if the input changed).
-         * Otherwise, if multiple input streams fed into this output stream, this
-         * includes the records from all those streams that were presented here: thus,
-         * this may be larger than what the current input stream reports (see
+         * is set, then this value matches the instruction ordinal for the current input
+         * stream (and thus might decrease or not change across records if the input
+         * changed). Otherwise, if multiple input streams fed into this output stream,
+         * this includes the records from all those streams that were presented here:
+         * thus, this may be larger than what the current input stream reports (see
          * get_input_stream_interface() and get_input_stream_ordinal()).  This does not
          * advance across skipped records in an input stream from a region of interest
          * (see #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if
@@ -665,11 +668,11 @@ public:
 
     /** Returns the #memtrace_stream_t interface for the 'ordinal'-th input stream. */
     virtual memtrace_stream_t *
-    get_input_stream_interface(int ordinal)
+    get_input_stream_interface(int input_ordinal)
     {
-        if (ordinal < 0 || ordinal >= static_cast<int>(inputs_.size()))
+        if (input_ordinal < 0 || input_ordinal >= static_cast<int>(inputs_.size()))
             return nullptr;
-        return inputs_[ordinal].reader.get();
+        return inputs_[input_ordinal].reader.get();
     }
 
     /**
@@ -812,6 +815,8 @@ protected:
     bool
     is_record_synthetic(int output_ordinal);
 
+    // Returns the direct handle to the current input stream interface for the
+    // 'output_ordinal'-th output stream.
     memtrace_stream_t *
     get_input_stream(int output_ordinal);
 
