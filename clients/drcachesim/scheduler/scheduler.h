@@ -160,7 +160,8 @@ public:
          * though the input were constructed by concatenating these ranges together.  A
          * #TRACE_MARKER_TYPE_WINDOW_ID marker is inserted between ranges (with a value
          * equal to the range ordinal) to notify the client of the discontinuity (but
-         * not before the first range).
+         * not before the first range).  These ranges must be non-overlapping and in
+         * increasing order.
          */
         std::vector<range_t> regions_of_interest;
     };
@@ -709,7 +710,10 @@ protected:
         std::set<int> binding;
         int priority = 0;
         std::vector<range_t> regions_of_interest;
+        // Index into regions_of_interest.
         int cur_region = 0;
+        // Whether we have reached the current region proper (or are still on the
+        // preceding inserted timestamp+cpuid).
         bool in_cur_region = false;
         bool has_modifier = false;
         bool needs_init = false;

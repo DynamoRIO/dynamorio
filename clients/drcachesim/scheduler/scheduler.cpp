@@ -468,10 +468,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                     // TODO i#5843: Implement priorities.
                     return STATUS_ERROR_NOT_IMPLEMENTED;
                 }
-                for (const auto &range : modifiers.regions_of_interest) {
+                for (size_t i = 0; i < modifiers.regions_of_interest.size(); i++) {
+                    const auto &range = modifiers.regions_of_interest[i];
                     if (range.start_instruction == 0 ||
                         (range.stop_instruction < range.start_instruction &&
                          range.stop_instruction != 0))
+                        return STATUS_ERROR_INVALID_PARAMETER;
+                    if (i == 0)
+                        continue;
+                    if (range.start_instruction <=
+                        modifiers.regions_of_interest[i - 1].stop_instruction)
                         return STATUS_ERROR_INVALID_PARAMETER;
                 }
                 input.regions_of_interest = modifiers.regions_of_interest;
@@ -697,7 +703,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_
                                                                      input_info_t &input)
 {
     uint64_t cur_instr = input.reader->get_instruction_ordinal();
+    assert(input.cur_region >= 0 &&
+           input.cur_region < static_cast<int>(input.regions_of_interest.size()));
     auto &cur_range = input.regions_of_interest[input.cur_region];
+    // Look for the end of the current range.
     if (input.in_cur_region && cur_range.stop_instruction != 0 &&
         cur_instr > cur_range.stop_instruction) {
         ++input.cur_region;
@@ -725,18 +734,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(int output_
 
     VPRINT(this, 2, "skipping from %" PRId64 " to %" PRId64 " instrs for ROI\n",
            cur_instr, cur_range.start_instruction);
-    input.in_cur_region = true;
     // We assume the queue contains no instrs (else our query of input.reader's
     // instr ordinal would include them and so be incorrect) and that we should
     // thus skip it all.
-    while (!input.queue.empty())
+    while (!input.queue.empty()) {
+        assert(!record_type_is_instr(input.queue.front()));
         input.queue.pop_front();
+    }
     input.reader->skip_instructions(cur_range.start_instruction - cur_instr - 1);
     if (*input.reader == *input.reader_end) {
         // Raise error because the input region is out of bounds.
         input.at_eof = true;
         return sched_type_t::STATUS_REGION_INVALID;
     }
+    input.in_cur_region = true;
     auto &stream = outputs_[output_ordinal].stream;
 
     // We've documented that an output stream's ordinals ignore skips in its input

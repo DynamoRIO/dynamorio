@@ -197,6 +197,7 @@ protected:
 
     // Meant to be called from skip_instructions();
     // Looks for headers prior to a skip in case it is from the start of the trace.
+    // Returns whether the skip can continue (it might fail if at eof).
     virtual bool
     pre_skip_instructions();
 

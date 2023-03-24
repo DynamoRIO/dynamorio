@@ -297,6 +297,21 @@ test_param_checks()
     assert(
         scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) ==
         scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+
+    // Test overlapping regions.
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[0].start_instruction = 2;
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[0].stop_instruction = 10;
+    sched_inputs[0].thread_modifiers[0].regions_of_interest.emplace_back(10, 20);
+    assert(
+        scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) ==
+        scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[0].start_instruction = 2;
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[0].stop_instruction = 10;
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[1].start_instruction = 4;
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[1].stop_instruction = 12;
+    assert(
+        scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) ==
+        scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
 }
 
 // Tests regions without timestamps for a simple, direct test.
@@ -482,10 +497,77 @@ test_regions_timestamps()
 }
 
 static void
+test_regions_start()
+{
+    std::cerr << "\n----------------\nTesting region at start\n";
+    std::vector<trace_entry_t> memrefs = {
+        /* clang-format off */
+        make_thread(1),
+        make_pid(1),
+        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        make_timestamp(10),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        make_instr(1), // Region 1 starts at the start.
+        make_instr(2),
+        make_exit(1),
+        /* clang-format on */
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+
+    std::vector<scheduler_t::range_t> regions;
+    // Instr counts are 1-based.
+    regions.emplace_back(1, 0);
+
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
+    if (scheduler.init(sched_inputs, 1,
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    int ordinal = 0;
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+        switch (ordinal) {
+        case 0:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE);
+            break;
+        case 1:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
+            break;
+        case 2:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
+            break;
+        case 3:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 1);
+            break;
+        case 4:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 2);
+            break;
+        default: assert(ordinal == 5); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
+        }
+        ++ordinal;
+    }
+    assert(ordinal == 6);
+}
+
+static void
 test_regions()
 {
     test_regions_timestamps();
     test_regions_bare();
+    test_regions_start();
 }
 
 static void
