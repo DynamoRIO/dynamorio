@@ -137,7 +137,8 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
     if (instruction_count == 0)
         return *this;
     VPRINT(this, 2, "Skipping %" PRIi64 " instrs\n", instruction_count);
-    pre_skip_instructions();
+    if (!pre_skip_instructions())
+        return *this;
     if (chunk_instr_count_ == 0) {
         VPRINT(this, 1, "Failed to record chunk instr count\n");
         at_eof_ = true;

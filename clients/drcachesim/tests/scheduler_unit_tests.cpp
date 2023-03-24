@@ -45,46 +45,16 @@ namespace {
 class mock_reader_t : public reader_t {
 public:
     mock_reader_t() = default;
-    explicit mock_reader_t(const std::vector<memref_t> &trace)
+    explicit mock_reader_t(const std::vector<trace_entry_t> &trace)
         : trace_(trace)
     {
+        verbosity_ = 4;
     }
     bool
     init() override
     {
-        process_input_entry();
-        return true;
-    }
-    const memref_t &
-    operator*() override
-    {
-        return trace_[index_];
-    }
-    bool
-    operator==(const reader_t &rhs) const override
-    {
-        const auto &mock = reinterpret_cast<const mock_reader_t &>(rhs);
-        return (index_ == trace_.size()) == (mock.index_ == mock.trace_.size());
-    }
-    bool
-    operator!=(const reader_t &rhs) const override
-    {
-        const auto &mock = reinterpret_cast<const mock_reader_t &>(rhs);
-        return (index_ == trace_.size()) != (mock.index_ == mock.trace_.size());
-    }
-    reader_t &
-    operator++() override
-    {
-        ++index_;
-        process_input_entry();
-        return *this;
-    }
-    bool
-    process_input_entry() override
-    {
-        ++cur_ref_count_;
-        if (index_ < trace_.size() && type_is_instr(trace_[index_].instr.type))
-            ++cur_instr_count_;
+        at_eof_ = false;
+        ++*this;
         return true;
     }
     trace_entry_t *
@@ -93,21 +63,12 @@ public:
         trace_entry_t *entry = read_queued_entry();
         if (entry != nullptr)
             return entry;
-        // We need this to work just well enough for reader_t::skip_instructions
-        // to identify instr entries.
         ++index_;
-        if (index_ >= trace_.size())
+        if (index_ >= trace_.size()) {
+            at_eof_ = true;
             return nullptr;
-        trace_entry_.type = trace_[index_].instr.type;
-        trace_entry_.size = trace_[index_].instr.size;
-        trace_entry_.addr = trace_[index_].instr.addr;
-        return &trace_entry_;
-    }
-    void
-    use_prev(trace_entry_t *prev) override
-    {
-        --index_;
-        queue_.pop();
+        }
+        return &trace_[index_];
     }
     std::string
     get_stream_name() const override
@@ -116,82 +77,110 @@ public:
     }
 
 private:
-    std::vector<memref_t> trace_;
-    int index_ = 0;
-    trace_entry_t trace_entry_;
+    std::vector<trace_entry_t> trace_;
+    int index_ = -1;
 };
 
-static memref_t
-make_instr(memref_tid_t tid, addr_t pc)
+static trace_entry_t
+make_instr(addr_t pc)
 {
-    memref_t memref;
-    memref.instr.pid = 0;
-    memref.instr.tid = tid;
-    memref.instr.type = TRACE_TYPE_INSTR;
-    memref.instr.addr = pc;
-    memref.instr.size = 1;
-    return memref;
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_INSTR;
+    entry.size = 1;
+    entry.addr = pc;
+    return entry;
 }
 
-static memref_t
+static trace_entry_t
 make_exit(memref_tid_t tid)
 {
-    memref_t memref;
-    memref.exit.type = TRACE_TYPE_THREAD_EXIT;
-    memref.exit.tid = tid;
-    return memref;
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_THREAD_EXIT;
+    entry.addr = tid;
+    return entry;
 }
 
-static memref_t
-make_version(memref_tid_t tid, int version)
+static trace_entry_t
+make_version(int version)
 {
-    memref_t memref;
-    memref.marker.tid = tid;
-    memref.marker.type = TRACE_TYPE_MARKER;
-    memref.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
-    memref.marker.marker_value = version;
-    return memref;
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_MARKER;
+    entry.size = TRACE_MARKER_TYPE_VERSION;
+    entry.addr = version;
+    return entry;
 }
 
-static memref_t
-make_timestamp(memref_tid_t tid, uint64_t timestamp)
+static trace_entry_t
+make_thread(memref_tid_t tid)
 {
-    memref_t memref;
-    memref.marker.tid = tid;
-    memref.marker.type = TRACE_TYPE_MARKER;
-    memref.marker.marker_type = TRACE_MARKER_TYPE_TIMESTAMP;
-    memref.marker.marker_value = timestamp;
-    return memref;
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_THREAD;
+    entry.addr = tid;
+    return entry;
+}
+
+static trace_entry_t
+make_pid(memref_pid_t pid)
+{
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_PID;
+    entry.addr = pid;
+    return entry;
+}
+
+static trace_entry_t
+make_timestamp(uint64_t timestamp)
+{
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_MARKER;
+    entry.size = TRACE_MARKER_TYPE_TIMESTAMP;
+    entry.addr = timestamp;
+    return entry;
+}
+
+static trace_entry_t
+make_marker(trace_marker_type_t type, uintptr_t value)
+{
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_MARKER;
+    entry.size = type;
+    entry.addr = value;
+    return entry;
 }
 
 static void
 test_serial()
 {
+    std::cerr << "\n----------------\nTesting serial\n";
     static constexpr memref_tid_t TID_A = 42;
     static constexpr memref_tid_t TID_B = 99;
-    std::vector<memref_t> refs_A = {
+    std::vector<trace_entry_t> refs_A = {
         /* clang-format off */
+        make_thread(TID_A),
+        make_pid(1),
         // Include a header to test the scheduler queuing it.
-        make_version(TID_A, 4),
+        make_version(4),
         // Each timestamp is followed by an instr whose PC==time.
-        make_timestamp(TID_A, 10),
-        make_instr(TID_A, 10),
-        make_timestamp(TID_A, 30),
-        make_instr(TID_A, 30),
-        make_timestamp(TID_A, 50),
-        make_instr(TID_A, 50),
+        make_timestamp(10),
+        make_instr(10),
+        make_timestamp(30),
+        make_instr(30),
+        make_timestamp(50),
+        make_instr(50),
         make_exit(TID_A),
         /* clang-format on */
     };
-    std::vector<memref_t> refs_B = {
+    std::vector<trace_entry_t> refs_B = {
         /* clang-format off */
-        make_version(TID_B, 4),
-        make_timestamp(TID_B, 20),
-        make_instr(TID_B, 20),
-        make_timestamp(TID_B, 40),
-        make_instr(TID_B, 40),
-        make_timestamp(TID_B, 60),
-        make_instr(TID_B, 60),
+        make_thread(TID_B),
+        make_pid(1),
+        make_version(4),
+        make_timestamp(20),
+        make_instr(20),
+        make_timestamp(40),
+        make_instr(40),
+        make_timestamp(60),
+        make_instr(60),
         make_exit(TID_B),
         /* clang-format on */
     };
@@ -228,20 +217,24 @@ test_serial()
 static void
 test_parallel()
 {
-    std::vector<memref_t> input_sequence = {
-        make_instr(0, 1),
-        make_instr(0, 2),
-        make_exit(0),
+    std::cerr << "\n----------------\nTesting parallel\n";
+    std::vector<trace_entry_t> input_sequence = {
+        make_thread(1),
+        make_pid(1),
+        make_instr(42),
+        make_exit(1),
     };
     static constexpr int NUM_INPUTS = 3;
     static constexpr int NUM_OUTPUTS = 2;
-    std::vector<memref_t> inputs[NUM_INPUTS];
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     for (int i = 0; i < NUM_INPUTS; i++) {
         memref_tid_t tid = 100 + i;
         inputs[i] = input_sequence;
-        for (auto &record : inputs[i])
-            record.instr.tid = tid;
+        for (auto &record : inputs[i]) {
+            if (record.type == TRACE_TYPE_THREAD || record.type == TRACE_TYPE_THREAD_EXIT)
+                record.addr = tid;
+        }
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
                              std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
@@ -277,7 +270,8 @@ test_parallel()
                     ->get_instruction_ordinal());
         }
     }
-    assert(count == input_sequence.size() * NUM_INPUTS);
+    // We expect just 2 records (instr and exit) for each.
+    assert(count == 2 * NUM_INPUTS);
 }
 
 static void
@@ -303,21 +297,41 @@ test_param_checks()
     assert(
         scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) ==
         scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+
+    // Test overlapping regions.
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[0].start_instruction = 2;
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[0].stop_instruction = 10;
+    sched_inputs[0].thread_modifiers[0].regions_of_interest.emplace_back(10, 20);
+    assert(
+        scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) ==
+        scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[0].start_instruction = 2;
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[0].stop_instruction = 10;
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[1].start_instruction = 4;
+    sched_inputs[0].thread_modifiers[0].regions_of_interest[1].stop_instruction = 12;
+    assert(
+        scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) ==
+        scheduler_t::STATUS_ERROR_INVALID_PARAMETER);
 }
 
+// Tests regions without timestamps for a simple, direct test.
 static void
-test_regions()
+test_regions_bare()
 {
-    std::vector<memref_t> memrefs = {
+    std::cerr << "\n----------------\nTesting bare regions\n";
+    std::vector<trace_entry_t> memrefs = {
         /* clang-format off */
-        make_instr(1, 1),
-        make_instr(1, 2), // Region 1 is just this instr.
-        make_instr(1, 3),
-        make_instr(1, 4),
-        make_instr(1, 5),
-        make_instr(1, 6), // Region 2 starts here.
-        make_instr(1, 7), // Region 2 ends here.
-        make_instr(1, 8),
+        make_thread(1),
+        make_pid(1),
+        make_marker(TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+        make_instr(1),
+        make_instr(2), // Region 1 is just this instr.
+        make_instr(3),
+        make_instr(4),
+        make_instr(5),
+        make_instr(6), // Region 2 starts here.
+        make_instr(7), // Region 2 ends here.
+        make_instr(8),
         make_exit(1),
         /* clang-format on */
     };
@@ -334,11 +348,7 @@ test_regions()
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
-    // TODO(i#5843: We don't have timestamps so we can't use the serial options.
-    // We should make a new test with timestamps but currently that breaks the
-    // existing scheduler region code (because the instr count is still low for
-    // the inserted timestamp so it tries to skip again...): we separate fixing that
-    // and adding a timestamp test as future work.
+    // Without timestmaps we can't use the serial options.
     if (scheduler.init(sched_inputs, 1,
                        scheduler_t::scheduler_options_t(
                            scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
@@ -377,24 +387,215 @@ test_regions()
 }
 
 static void
+test_regions_timestamps()
+{
+    std::cerr << "\n----------------\nTesting regions\n";
+    std::vector<trace_entry_t> memrefs = {
+        /* clang-format off */
+        make_thread(1),
+        make_pid(1),
+        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        make_timestamp(10),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        make_instr(1),
+        make_instr(2), // Region 1 is just this instr.
+        make_instr(3),
+        make_timestamp(20),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 2),
+        make_timestamp(30),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 3),
+        make_instr(4),
+        make_timestamp(40),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 4),
+        make_instr(5),
+        make_instr(6), // Region 2 starts here.
+        make_timestamp(50),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 5),
+        make_instr(7), // Region 2 ends here.
+        make_instr(8),
+        make_exit(1),
+        /* clang-format on */
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+
+    std::vector<scheduler_t::range_t> regions;
+    // Instr counts are 1-based.
+    regions.emplace_back(2, 2);
+    regions.emplace_back(6, 7);
+
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
+    if (scheduler.init(sched_inputs, 1,
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    int ordinal = 0;
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+        switch (ordinal) {
+        case 0:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
+            assert(memref.marker.marker_value == 10);
+            break;
+        case 1:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
+            assert(memref.marker.marker_value == 1);
+            break;
+        case 2:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 2);
+            break;
+        case 3:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID);
+            assert(memref.marker.marker_value == 1);
+            break;
+        case 4:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
+            assert(memref.marker.marker_value == 40);
+            break;
+        case 5:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
+            assert(memref.marker.marker_value == 4);
+            break;
+        case 6:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 6);
+            break;
+        case 7:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
+            assert(memref.marker.marker_value == 50);
+            break;
+        case 8:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
+            assert(memref.marker.marker_value == 5);
+            break;
+        case 9:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 7);
+            break;
+        default:
+            assert(ordinal == 10);
+            assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
+        }
+        ++ordinal;
+    }
+    assert(ordinal == 11);
+}
+
+static void
+test_regions_start()
+{
+    std::cerr << "\n----------------\nTesting region at start\n";
+    std::vector<trace_entry_t> memrefs = {
+        /* clang-format off */
+        make_thread(1),
+        make_pid(1),
+        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        make_timestamp(10),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        make_instr(1), // Region 1 starts at the start.
+        make_instr(2),
+        make_exit(1),
+        /* clang-format on */
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+
+    std::vector<scheduler_t::range_t> regions;
+    // Instr counts are 1-based.
+    regions.emplace_back(1, 0);
+
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
+    if (scheduler.init(sched_inputs, 1,
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    int ordinal = 0;
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+        switch (ordinal) {
+        case 0:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE);
+            break;
+        case 1:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
+            break;
+        case 2:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
+            break;
+        case 3:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 1);
+            break;
+        case 4:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 2);
+            break;
+        default: assert(ordinal == 5); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
+        }
+        ++ordinal;
+    }
+    assert(ordinal == 6);
+}
+
+static void
+test_regions()
+{
+    test_regions_timestamps();
+    test_regions_bare();
+    test_regions_start();
+}
+
+static void
 test_only_threads()
 {
+    std::cerr << "\n----------------\nTesting thread filters\n";
     // Test with synthetic streams and readers.
     // The test_real_file_queries_and_filters() tests real files.
     static constexpr memref_tid_t TID_A = 42;
     static constexpr memref_tid_t TID_B = 99;
     static constexpr memref_tid_t TID_C = 7;
-    std::vector<memref_t> refs_A = {
-        make_instr(TID_A, 50),
+    std::vector<trace_entry_t> refs_A = {
+        make_thread(TID_A),
+        make_pid(1),
+        make_instr(50),
         make_exit(TID_A),
     };
-    std::vector<memref_t> refs_B = {
-        make_instr(TID_B, 60),
+    std::vector<trace_entry_t> refs_B = {
+        make_thread(TID_B),
+        make_pid(1),
+        make_instr(60),
         make_exit(TID_B),
     };
-    std::vector<memref_t> refs_C = {
-        make_instr(TID_B, 60),
-        make_exit(TID_B),
+    std::vector<trace_entry_t> refs_C = {
+        make_thread(TID_C),
+        make_pid(1),
+        make_instr(60),
+        make_exit(TID_C),
     };
     std::vector<scheduler_t::input_reader_t> readers;
     readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
@@ -424,6 +625,7 @@ test_only_threads()
 static void
 test_real_file_queries_and_filters(const char *testdir)
 {
+    std::cerr << "\n----------------\nTesting real files\n";
     // Test with real files as that is a separate code path in the scheduler.
     // Since 32-bit memref_t is a different size we limit these to 64-bit builds.
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZLIB) && defined(HAS_SNAPPY)

@@ -399,4 +399,3 @@
 4e9baf59 : usmmla v25.4s, v26.16b, v27.16b           : usmmla %q25 %q26 %q27 $0x00 -> %q25
 4e9daf9b : usmmla v27.4s, v28.16b, v29.16b           : usmmla %q27 %q28 %q29 $0x00 -> %q27
 4e9fafff : usmmla v31.4s, v31.16b, v31.16b           : usmmla %q31 %q31 %q31 $0x00 -> %q31
-
