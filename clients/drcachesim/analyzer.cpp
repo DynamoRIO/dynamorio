@@ -144,8 +144,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(const std::string &trace
         return false;
     }
     std::vector<typename sched_type_t::range_t> regions;
-    if (skip_instrs_ > 0)
-        regions.emplace_back(skip_instrs_, 0);
+    if (skip_instrs_ > 0) {
+        // TODO i#5843: For serial mode with multiple inputs this is not doing the
+        // right thing: this is skipping in every input stream, while the documented
+        // behavior is supposed to be an output stream skip.  Once we have that
+        // capability in the scheduler we should switch to that.
+        regions.emplace_back(skip_instrs_ + 1, 0);
+    }
     typename sched_type_t::input_workload_t workload(trace_path, regions);
     return init_scheduler_common(workload);
 }
@@ -166,7 +171,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     readers.emplace_back(std::move(reader), std::move(reader_end), /*tid=*/1);
     std::vector<typename sched_type_t::range_t> regions;
     if (skip_instrs_ > 0)
-        regions.emplace_back(skip_instrs_, 0);
+        regions.emplace_back(skip_instrs_ + 1, 0);
     typename sched_type_t::input_workload_t workload(std::move(readers), regions);
     return init_scheduler_common(workload);
 }
