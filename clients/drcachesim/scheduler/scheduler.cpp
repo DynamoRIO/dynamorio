@@ -502,7 +502,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         for (int i = 0; i < static_cast<int>(inputs_.size()); i++) {
             size_t index = i % output_count;
             if (outputs_[index].input_indices.empty())
-                set_cur_input(index, i);
+                set_cur_input(static_cast<int>(index), i);
             outputs_[index].input_indices.push_back(i);
             VPRINT(this, 2, "Assigning input #%d to output #%zd\n", i, index);
         }
