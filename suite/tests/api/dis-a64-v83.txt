@@ -772,3 +772,42 @@ dac127f8 : pacizb x24                                : pacizb %x24 -> %x24
 dac127fa : pacizb x26                                : pacizb %x26 -> %x26
 dac127fe : pacizb x30                                : pacizb %x30 -> %x30
 
+# XPACD   <Xd> (XPACD-R-auth)
+dac147e0 : xpacd x0                                  : xpacd  %x0 -> %x0
+dac147e2 : xpacd x2                                  : xpacd  %x2 -> %x2
+dac147e4 : xpacd x4                                  : xpacd  %x4 -> %x4
+dac147e6 : xpacd x6                                  : xpacd  %x6 -> %x6
+dac147e8 : xpacd x8                                  : xpacd  %x8 -> %x8
+dac147e9 : xpacd x9                                  : xpacd  %x9 -> %x9
+dac147eb : xpacd x11                                 : xpacd  %x11 -> %x11
+dac147ed : xpacd x13                                 : xpacd  %x13 -> %x13
+dac147ef : xpacd x15                                 : xpacd  %x15 -> %x15
+dac147f1 : xpacd x17                                 : xpacd  %x17 -> %x17
+dac147f3 : xpacd x19                                 : xpacd  %x19 -> %x19
+dac147f5 : xpacd x21                                 : xpacd  %x21 -> %x21
+dac147f6 : xpacd x22                                 : xpacd  %x22 -> %x22
+dac147f8 : xpacd x24                                 : xpacd  %x24 -> %x24
+dac147fa : xpacd x26                                 : xpacd  %x26 -> %x26
+dac147fe : xpacd x30                                 : xpacd  %x30 -> %x30
+
+# XPACI   <Xd> (XPACI-R-auth)
+dac143e0 : xpaci x0                                  : xpaci  %x0 -> %x0
+dac143e2 : xpaci x2                                  : xpaci  %x2 -> %x2
+dac143e4 : xpaci x4                                  : xpaci  %x4 -> %x4
+dac143e6 : xpaci x6                                  : xpaci  %x6 -> %x6
+dac143e8 : xpaci x8                                  : xpaci  %x8 -> %x8
+dac143e9 : xpaci x9                                  : xpaci  %x9 -> %x9
+dac143eb : xpaci x11                                 : xpaci  %x11 -> %x11
+dac143ed : xpaci x13                                 : xpaci  %x13 -> %x13
+dac143ef : xpaci x15                                 : xpaci  %x15 -> %x15
+dac143f1 : xpaci x17                                 : xpaci  %x17 -> %x17
+dac143f3 : xpaci x19                                 : xpaci  %x19 -> %x19
+dac143f5 : xpaci x21                                 : xpaci  %x21 -> %x21
+dac143f6 : xpaci x22                                 : xpaci  %x22 -> %x22
+dac143f8 : xpaci x24                                 : xpaci  %x24 -> %x24
+dac143fa : xpaci x26                                 : xpaci  %x26 -> %x26
+dac143fe : xpaci x30                                 : xpaci  %x30 -> %x30
+
+# XPACLRI  (XPACLRI-R-auth)
+d50320ff : xpaclri                                   : xpaclri %x30 -> %x30
+
