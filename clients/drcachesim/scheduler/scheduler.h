@@ -160,7 +160,8 @@ public:
          * though the input were constructed by concatenating these ranges together.  A
          * #TRACE_MARKER_TYPE_WINDOW_ID marker is inserted between ranges (with a value
          * equal to the range ordinal) to notify the client of the discontinuity (but
-         * not before the first range).
+         * not before the first range).  These ranges must be non-overlapping and in
+         * increasing order.
          */
         std::vector<range_t> regions_of_interest;
     };
@@ -333,6 +334,21 @@ public:
          * Specifies that speculation should supply just NOP instructions.
          */
         SCHEDULER_SPECULATE_NOPS = 0x2,
+        /**
+         * Causes the get_record_ordinal() and get_instruction_ordinal() results
+         * for an output stream to equal those values for the current input stream
+         * for that output, rather than accumulating across inputs.
+         */
+        SCHEDULER_USE_INPUT_ORDINALS = 0x4,
+        // This was added for the analyzer view tool on a single trace specified via
+        // a directory where the analyzer isn't listing the dir so it doesn't know
+        // whether to request SCHEDULER_USE_INPUT_ORDINALS.
+        /**
+         * If there is just one input and just one output stream, this sets
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS;
+         * otherwise, it has no effect.
+         */
+        SCHEDULER_USE_SINGLE_INPUT_ORDINALS = 0x8,
         // TODO i#5843: Add more speculation flags for other strategies.
     };
 
@@ -347,9 +363,11 @@ public:
         }
         /** Constructs a set of options with the given type and strategy. */
         scheduler_options_t(mapping_t mapping, inter_input_dependency_t deps,
+                            scheduler_flags_t flags = SCHEDULER_DEFAULTS,
                             int verbosity = 0)
             : mapping(mapping)
             , deps(deps)
+            , flags(flags)
             , verbosity(verbosity)
         {
         }
@@ -377,19 +395,30 @@ public:
         int verbosity = 0;
     };
 
-    /** Constructs options for a parallel no-inter-input-dependencies schedule. */
+    /**
+     * Constructs options for a parallel no-inter-input-dependencies schedule where
+     * the output stream's get_record_ordinal() and get_instruction_ordinal() reflect
+     * just the current input rather than all past inputs on that output.
+     */
     static scheduler_options_t
     make_scheduler_parallel_options(int verbosity = 0)
     {
         return scheduler_options_t(sched_type_t::MAP_TO_CONSISTENT_OUTPUT,
-                                   sched_type_t::DEPENDENCY_IGNORE, verbosity);
+                                   sched_type_t::DEPENDENCY_IGNORE,
+                                   sched_type_t::SCHEDULER_USE_INPUT_ORDINALS, verbosity);
     }
-    /** Constructs options for a serial as-recorded schedule. */
+    /**
+     * Constructs options for a serial as-recorded schedule where
+     * the output stream's get_record_ordinal() and get_instruction_ordinal() honor
+     * skipped records in the input if, and only if, there is a single input and
+     * a single output.
+     */
     static scheduler_options_t
     make_scheduler_serial_options(int verbosity = 0)
     {
-        return scheduler_options_t(sched_type_t::MAP_TO_RECORDED_OUTPUT,
-                                   sched_type_t::DEPENDENCY_TIMESTAMPS, verbosity);
+        return scheduler_options_t(
+            sched_type_t::MAP_TO_RECORDED_OUTPUT, sched_type_t::DEPENDENCY_TIMESTAMPS,
+            sched_type_t::SCHEDULER_USE_SINGLE_INPUT_ORDINALS, verbosity);
     }
 
     /**
@@ -455,21 +484,48 @@ public:
 
         /**
          * Returns the count of #memref_t records from the start of the trace to this
-         * point. This includes records skipped over and not presented to any tool. It
-         * does not include synthetic records (see is_record_synthetic()).
+         * point. It does not include synthetic records (see is_record_synthetic()).
+         *
+         * If
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS
+         * is set, then this value matches the record ordinal for the current input stream
+         * (and thus might decrease or not change across records if the input changed).
+         * Otherwise, if multiple input streams fed into this output stream, this
+         * includes the records from all those streams that were presented here: thus,
+         * this may be larger than what the current input stream reports (see
+         * get_input_stream_interface() and get_input_stream_ordinal()).  This does not
+         * advance across skipped records in an input stream from a region of interest
+         * (see #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if
+         * the output stream skipped ahead.
          */
         uint64_t
         get_record_ordinal() const override
         {
+            if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
+                        scheduler_->options_.flags))
+                return scheduler_->get_input_stream(ordinal_)->get_record_ordinal();
             return cur_ref_count_;
         }
         /**
          * Returns the count of instructions from the start of the trace to this point.
-         * This includes instructions skipped over and not presented to any tool.
+         * If
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS
+         * is set, then this value matches the instruction ordinal for the current input
+         * stream (and thus might decrease or not change across records if the input
+         * changed). Otherwise, if multiple input streams fed into this output stream,
+         * this includes the records from all those streams that were presented here:
+         * thus, this may be larger than what the current input stream reports (see
+         * get_input_stream_interface() and get_input_stream_ordinal()).  This does not
+         * advance across skipped records in an input stream from a region of interest
+         * (see #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if
+         * the output stream skipped ahead.
          */
         uint64_t
         get_instruction_ordinal() const override
         {
+            if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
+                        scheduler_->options_.flags))
+                return scheduler_->get_input_stream(ordinal_)->get_instruction_ordinal();
             return cur_instr_count_;
         }
         /**
@@ -483,9 +539,7 @@ public:
             return scheduler_->get_input_name(ordinal_);
         }
         /**
-         * Returns a name for the current input stream feeding this output stream. For
-         * stored offline traces, this is the base name of the trace on disk. For online
-         * traces, this is the name of the pipe.
+         * Returns the ordinal for the current input stream feeding this output stream.
          */
         int
         get_input_stream_ordinal()
@@ -611,6 +665,15 @@ public:
         return static_cast<int>(inputs_.size());
     }
 
+    /** Returns the #memtrace_stream_t interface for the 'ordinal'-th input stream. */
+    virtual memtrace_stream_t *
+    get_input_stream_interface(int input_ordinal)
+    {
+        if (input_ordinal < 0 || input_ordinal >= static_cast<int>(inputs_.size()))
+            return nullptr;
+        return inputs_[input_ordinal].reader.get();
+    }
+
     /**
      * Returns the name (from get_stream_name()) of the 'ordinal'-th input stream.
      */
@@ -647,7 +710,11 @@ protected:
         std::set<int> binding;
         int priority = 0;
         std::vector<range_t> regions_of_interest;
+        // Index into regions_of_interest.
         int cur_region = 0;
+        // Whether we have reached the current region proper (or are still on the
+        // preceding inserted timestamp+cpuid).
+        bool in_cur_region = false;
         bool has_modifier = false;
         bool needs_init = false;
         bool needs_advance = false;
@@ -750,6 +817,11 @@ protected:
     // the 'output_ordinal'-th output stream is synthetic.
     bool
     is_record_synthetic(int output_ordinal);
+
+    // Returns the direct handle to the current input stream interface for the
+    // 'output_ordinal'-th output stream.
+    memtrace_stream_t *
+    get_input_stream(int output_ordinal);
 
     // This has the same value as scheduler_options_t.verbosity (for use in VPRINT).
     int verbosity_ = 0;
