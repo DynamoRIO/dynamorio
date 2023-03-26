@@ -112,6 +112,9 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      x0, x30
         ldr      x30, [sp], #16
         ret
+# elif defined(RISCV64)
+        /*# FIXME i#3544: Port tests to RISC-V64*/
+        ret
 # else
 #  error NYI
 # endif
@@ -129,6 +132,9 @@ GLOBAL_LABEL(FUNCNAME:)
         bx       lr
 # elif defined(AARCH64)
         ldr      x0, [x29, #8]
+        ret
+# elif defined(RISCV64)
+        /*# FIXME i#3544: Port tests to RISC-V64*/
         ret
 # else
 #  error NYI

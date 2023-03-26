@@ -831,32 +831,33 @@ if (BUILD_TESTS)
       add_win32_flags(tool.drcacheoff.burst_client)
     endif ()
 
-    set(source_abs "${CMAKE_CURRENT_SOURCE_DIR}/tests/burst_traceopts.cpp")
-    set(asm_deps
-      "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
-      "${PROJECT_BINARY_DIR}/configure.h")
-    include_directories(${PROJECT_SOURCE_DIR}/core/arch) # asm_defines.asm
-    add_split_asm_target("${source_abs}" asm_source gen_asm_tgt
-      "_asm" "" "${asm_deps}")
-    add_executable(tool.drcacheoff.burst_traceopts ${source_abs}
-      ${asm_source}
-      # This test includes related unit tests for classes used for trace opts.
-      "${CMAKE_CURRENT_SOURCE_DIR}/tests/reg_id_set_unit_tests.cpp")
-    configure_DynamoRIO_static(tool.drcacheoff.burst_traceopts)
-    if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-      add_dependencies(tool.drcacheoff.burst_traceopts ${gen_asm_tgt})
-    endif ()
-    use_DynamoRIO_static_client(tool.drcacheoff.burst_traceopts drmemtrace_static)
-    target_link_libraries(tool.drcacheoff.burst_traceopts drmemtrace_raw2trace
-      drmemtrace_analyzer)
-    if (WIN32)
-      # Just like for burst_replace, linking everything together takes effort.
-      target_link_libraries(tool.drcacheoff.burst_traceopts ${static_libc})
-    endif ()
-    add_win32_flags(tool.drcacheoff.burst_traceopts)
-    use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_traceopts)
-    use_DynamoRIO_extension(tool.drcacheoff.burst_traceopts drcovlib_static)
-
+    if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+      set(source_abs "${CMAKE_CURRENT_SOURCE_DIR}/tests/burst_traceopts.cpp")
+      set(asm_deps
+        "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
+        "${PROJECT_BINARY_DIR}/configure.h")
+      include_directories(${PROJECT_SOURCE_DIR}/core/arch) # asm_defines.asm
+      add_split_asm_target("${source_abs}" asm_source gen_asm_tgt
+        "_asm" "" "${asm_deps}")
+      add_executable(tool.drcacheoff.burst_traceopts ${source_abs}
+        ${asm_source}
+        # This test includes related unit tests for classes used for trace opts.
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/reg_id_set_unit_tests.cpp")
+      configure_DynamoRIO_static(tool.drcacheoff.burst_traceopts)
+      if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+        add_dependencies(tool.drcacheoff.burst_traceopts ${gen_asm_tgt})
+      endif ()
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_traceopts drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_traceopts drmemtrace_raw2trace
+        drmemtrace_analyzer)
+      if (WIN32)
+        # Just like for burst_replace, linking everything together takes effort.
+        target_link_libraries(tool.drcacheoff.burst_traceopts ${static_libc})
+      endif ()
+      add_win32_flags(tool.drcacheoff.burst_traceopts)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_traceopts)
+      use_DynamoRIO_extension(tool.drcacheoff.burst_traceopts drcovlib_static)
+    endif (NOT RISCV64)
   endif ()
 
   if (X86 AND X64 AND ZIP_FOUND)

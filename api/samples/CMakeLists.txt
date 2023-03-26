@@ -224,21 +224,25 @@ configure_DynamoRIO_global(OFF ON)
 
 # FIXME i#4372: Add functioning tests for samples that go beyond  # NON-PUBLIC
 # sanity checks.                                                  # NON-PUBLIC
-add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
-add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
-add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
+if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+  add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
+  add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
+  add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
+endif()
 if (LINUX)
   CHECK_INCLUDE_FILE("libunwind.h" HAVE_LIBUNWIND_H)
   if (HAVE_LIBUNWIND_H)
     add_sample_client(callstack "callstack.cpp" "drmgr;drwrap;drcallstack;drsyms;droption")
   endif ()
 endif ()
-add_sample_client(div         "div.c"           "drmgr")
-add_sample_client(empty       "empty.c"         "")
-add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
-add_sample_client(memval_simple   "memval_simple.c;utils.c"   "drmgr;drreg;drutil;drx")
-add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drx")
-add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
+if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+  add_sample_client(div         "div.c"           "drmgr")
+  add_sample_client(empty       "empty.c"         "")
+  add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
+  add_sample_client(memval_simple   "memval_simple.c;utils.c"   "drmgr;drreg;drutil;drx")
+  add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drx")
+  add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
+endif()
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(cbr         "cbr.c"           "drmgr")
   add_sample_client(countcalls  "countcalls.c"    "drmgr;drreg")
@@ -265,16 +269,20 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drmgr;drx")
   add_sample_client(hot_bbcount "hot_bbcount.c"         "drmgr;drreg;drbbdup;drx")
 endif (X86)
-add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
-add_sample_client(signal      "signal.c"        "drmgr")
-add_sample_client(syscall     "syscall.c"       "drmgr")
-if (NOT WIN32)
+if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+  add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
+  add_sample_client(signal      "signal.c"        "drmgr")
+  add_sample_client(syscall     "syscall.c"       "drmgr")
+endif()
+if (NOT WIN32 AND NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
   add_sample_client(statecmp    "statecmp.c"      "drmgr;drstatecmp")
-endif (NOT WIN32)
-add_sample_client(inline      "inline.c"        "drmgr;drcontainers")
-add_sample_client(inscount    "inscount.cpp"    "drmgr;droption")
-add_sample_client(opcodes     "opcodes.c"       "drmgr;drreg;drx")
-add_sample_client(stl_test    "stl_test.cpp"    "")
+endif (NOT WIN32 AND NOT RISCV64)
+if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+  add_sample_client(inline      "inline.c"        "drmgr;drcontainers")
+  add_sample_client(inscount    "inscount.cpp"    "drmgr;droption")
+  add_sample_client(opcodes     "opcodes.c"       "drmgr;drreg;drx")
+  add_sample_client(stl_test    "stl_test.cpp"    "")
+endif()
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 

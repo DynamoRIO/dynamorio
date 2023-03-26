@@ -61,6 +61,9 @@
 #elif defined(AARCHXX)
 #    define REG1 DR_REG_R0
 #    define REG2 DR_REG_R1
+#elif defined(RISCV64)
+#    define REG1 DR_REG_A0
+#    define REG2 DR_REG_A1
 #else
 #    error Unsupported arch
 #endif
