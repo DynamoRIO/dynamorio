@@ -57,7 +57,7 @@ main()
     __asm__("       mov    r0, #0        @ exit code");
     __asm__("       svc    0             @ kernel");
     __asm__("aroundexit: bl doexit");
-#elif defined(__riscv)
+#elif defined(__riscv) && __riscv_xlen == 64
     __asm__("j      aroundexit");
     __asm__("doexit:          ");
     __asm__("       li      a7, 93       # exit");
