@@ -152,6 +152,10 @@ changes:
  - Refactored the drmemtrace reader and file reader classes to better fit the
    new scheduler model: now each reader owns just one single stream of records
    with all multi-stream interleaving owned by the scheduler.
+ - Replaced the AArch64 OP_reta with OP_retaa and OP_retab. "reta" is not a real
+   AArch64 instruction and "reta" entries in the AArch64 codec were being used to
+   decode "retaa" and "retab". These instructions will now encode and decode correctly
+   as "retaa" and "retab".
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.

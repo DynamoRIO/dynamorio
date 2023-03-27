@@ -13980,4 +13980,56 @@
     instr_create_1dst_1src(dc, OP_xpaclri, opnd_create_reg(DR_REG_X30), \
                            opnd_create_reg(DR_REG_X30))
 
+/**
+ * Creates an ERETAA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ERETAA
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_eretaa(dc)                                        \
+    instr_create_0dst_2src(dc, OP_eretaa, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates an ERETAB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ERETAB
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_eretab(dc)                                        \
+    instr_create_0dst_2src(dc, OP_eretab, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates a RETAA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RETAA
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_retaa(dc)                                        \
+    instr_create_0dst_2src(dc, OP_retaa, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates a RETAB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RETAB
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_retab(dc)                                        \
+    instr_create_0dst_2src(dc, OP_retab, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_SP))
+
 #endif /* DR_IR_MACROS_AARCH64_H */

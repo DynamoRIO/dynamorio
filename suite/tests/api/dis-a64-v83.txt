@@ -338,6 +338,12 @@ d61f0f1f : brabz x24                                 : brabz  %x24
 d61f0f5f : brabz x26                                 : brabz  %x26
 d61f0fdf : brabz x30                                 : brabz  %x30
 
+# ERETAA   (ERETAA-R-auth)
+d69f0bff : eretaa                                    : eretaa %x30 %sp
+
+# ERETAB   (ERETAB-R-auth)
+d69f0fff : eretab                                    : eretab %x30 %sp
+
 # FCADD   <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, <imm> (FCADD-Q.QQ-Vec)
 2e40e400 : fcadd v0.4h, v0.4h, v0.4h, #0x5a          : fcadd  %d0 %d0 %d0 $0x005a $0x01 -> %d0
 2e44e462 : fcadd v2.4h, v3.4h, v4.4h, #0x5a          : fcadd  %d2 %d3 %d4 $0x005a $0x01 -> %d2
@@ -771,6 +777,12 @@ dac127f6 : pacizb x22                                : pacizb %x22 -> %x22
 dac127f8 : pacizb x24                                : pacizb %x24 -> %x24
 dac127fa : pacizb x26                                : pacizb %x26 -> %x26
 dac127fe : pacizb x30                                : pacizb %x30 -> %x30
+
+# RETAA    (RETAA-R-auth)
+d65f0bff : retaa                                     : retaa  %x30 %sp
+
+# RETAB    (RETAB-R-auth)
+d65f0fff : retab                                     : retab  %x30 %sp
 
 # XPACD   <Xd> (XPACD-R-auth)
 dac147e0 : xpacd x0                                  : xpacd  %x0 -> %x0
