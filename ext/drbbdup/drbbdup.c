@@ -1510,6 +1510,7 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
         ASSERT(end_instr != NULL, "end instruction cannot be NULL");
         instr_t *end_initial = drbbdup_next_end_initial(next_instr);
         ASSERT(end_initial != NULL, "end instruction cannot be NULL");
+        pt->inserted_restore_all = false;
 
         /* Cache first, first nonlabel and last instructions. */
         if (next_instr == end_initial) {
@@ -1554,7 +1555,6 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
         instr_t *next_bb_label = drbbdup_next_start(end_instr);
         if (next_bb_label == NULL) {
             pt->case_index = DRBBDUP_DEFAULT_INDEX; /* Refer to default. */
-            pt->inserted_restore_all = false;
             drbbdup_insert_dispatch_end(drcontext, tag, bb, next_instr, manager);
         } else {
             /* We have reached the start of a new bb version (not the last one). */
@@ -1572,7 +1572,6 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
             ASSERT(pt->case_index + 1 == i,
                    "the next case considered should be the next increment");
             pt->case_index = i; /* Move on to the next case. */
-            pt->inserted_restore_all = false;
             drbbdup_insert_dispatch(drcontext, bb,
                                     next_instr /* insert after START label. */, manager,
                                     next_bb_label, drbbdup_case);
