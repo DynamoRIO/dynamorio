@@ -6809,9 +6809,9 @@ decode_svemem_vec_imm5(uint enc, aarch64_reg_offset element_size, bool is_prefet
     default: ASSERT_NOT_REACHED();
     }
 
-    *opnd = opnd_create_vector_base_disp_aarch64(
-        zn, DR_REG_NULL, get_opnd_size_from_offset(element_size), DR_EXTEND_UXTX, false,
-        imm5, 0, mem_transfer, 0);
+    *opnd = opnd_create_vector_base_disp_aarch64(zn, DR_REG_NULL,
+                                                 get_opnd_size_from_offset(element_size),
+                                                 0, false, imm5, 0, mem_transfer, 0);
 
     return true;
 }
@@ -6822,13 +6822,6 @@ encode_svemem_vec_imm5(uint enc, aarch64_reg_offset element_size, bool is_prefet
 {
     if (!opnd_is_base_disp(opnd) || opnd_get_index(opnd) != DR_REG_NULL ||
         get_vector_element_reg_offset(opnd) != element_size)
-        return false;
-
-    bool index_scaled;
-    uint index_scale_amount;
-    if (opnd_get_index_extend(opnd, &index_scaled, &index_scale_amount) !=
-            DR_EXTEND_UXTX ||
-        index_scaled || index_scale_amount != 0)
         return false;
 
     uint reg_number;
