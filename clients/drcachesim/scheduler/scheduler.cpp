@@ -794,6 +794,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                                                         input_ordinal_t input)
 {
     assert(output >= 0 && output < static_cast<output_ordinal_t>(outputs_.size()));
+    // 'input' might be INVALID_INPUT_ORDINAL.
     assert(input < static_cast<input_ordinal_t>(inputs_.size()));
     if (outputs_[output].cur_input >= 0)
         ready_.push(outputs_[output].cur_input);
@@ -807,8 +808,9 @@ template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t output)
 {
-    if (options_.mapping == MAP_TO_ANY_OUTPUT)
-        std::lock_guard<std::mutex> guard(sched_lock_);
+    bool need_lock = (options_.mapping == MAP_TO_ANY_OUTPUT);
+    auto scoped_lock = need_lock ? std::unique_lock<std::mutex>()
+                                 : std::unique_lock<std::mutex>(sched_lock_);
     // We're only called when we should definitely swap so clear the current.
     int prev_index = outputs_[output].cur_input;
     input_ordinal_t index = INVALID_INPUT_ORDINAL;

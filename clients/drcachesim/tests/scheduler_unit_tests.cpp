@@ -82,7 +82,7 @@ private:
 };
 
 static trace_entry_t
-make_instr(addr_t pc, memref_tid_t tid = 1)
+make_instr(addr_t pc)
 {
     trace_entry_t entry;
     entry.type = TRACE_TYPE_INSTR;
@@ -697,7 +697,7 @@ test_synthetic()
         inputs[i].push_back(make_thread(tid));
         inputs[i].push_back(make_pid(1));
         for (int j = 0; j < NUM_INSTRS; j++)
-            inputs[i].push_back(make_instr(42 + j * 4, tid));
+            inputs[i].push_back(make_instr(42 + j * 4));
         inputs[i].push_back(make_exit(tid));
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
@@ -733,7 +733,8 @@ test_synthetic()
                 continue;
             }
             assert(status == scheduler_t::STATUS_OK);
-            sched_as_string[i] += 'A' + (memref.instr.tid - TID_BASE);
+            if (type_is_instr(memref.instr.type))
+                sched_as_string[i] += 'A' + (memref.instr.tid - TID_BASE);
         }
     }
     for (int i = 0; i < NUM_OUTPUTS; i++) {
@@ -742,8 +743,8 @@ test_synthetic()
     // Hardcoding here for the 2 outputs and 7 inputs.
     // We expect 3 letter sequences (our quantum) alternating every-other as each
     // core alternates; with an odd number the 2nd core finishes early.
-    assert(sched_as_string[0] == "AAACCCEEEGGGBBBDDDFFFAAAACCCCEEEEGGGG");
-    assert(sched_as_string[1] == "BBBDDDFFFAAACCCEEEGGGBBBBDDDDFFFF");
+    assert(sched_as_string[0] == "AAACCCEEEGGGBBBDDDFFFAAACCCEEEGGG");
+    assert(sched_as_string[1] == "BBBDDDFFFAAACCCEEEGGGBBBDDDFFF");
 }
 
 } // namespace
