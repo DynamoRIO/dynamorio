@@ -218,6 +218,50 @@ TEST_INSTR(fcmla_vector_idx)
               opnd_create_immed_uint(rot_0_0[i], OPSZ_2), Rm_elsz);
 }
 
+TEST_INSTR(autda)
+{
+    /* Testing AUTDA   <Xd>, <Xn|SP> */
+    const char *const expected_0_0[6] = {
+        "autda  %x0 %x0 -> %x0",    "autda  %x5 %x6 -> %x5",
+        "autda  %x10 %x11 -> %x10", "autda  %x15 %x16 -> %x15",
+        "autda  %x20 %x21 -> %x20", "autda  %x30 %sp -> %x30",
+    };
+    TEST_LOOP(autda, autda, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
+}
+
+TEST_INSTR(autdb)
+{
+    /* Testing AUTDB   <Xd>, <Xn|SP> */
+    const char *const expected_0_0[6] = {
+        "autdb  %x0 %x0 -> %x0",    "autdb  %x5 %x6 -> %x5",
+        "autdb  %x10 %x11 -> %x10", "autdb  %x15 %x16 -> %x15",
+        "autdb  %x20 %x21 -> %x20", "autdb  %x30 %sp -> %x30",
+    };
+    TEST_LOOP(autdb, autdb, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
+}
+
+TEST_INSTR(autdza)
+{
+    /* Testing AUTDZA  <Xd> */
+    const char *const expected_0_0[6] = {
+        "autdza %x0 -> %x0",   "autdza %x5 -> %x5",   "autdza %x10 -> %x10",
+        "autdza %x15 -> %x15", "autdza %x20 -> %x20", "autdza %x30 -> %x30",
+    };
+    TEST_LOOP(autdza, autdza, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
+TEST_INSTR(autdzb)
+{
+    /* Testing AUTDZB  <Xd> */
+    const char *const expected_0_0[6] = {
+        "autdzb %x0 -> %x0",   "autdzb %x5 -> %x5",   "autdzb %x10 -> %x10",
+        "autdzb %x15 -> %x15", "autdzb %x20 -> %x20", "autdzb %x30 -> %x30",
+    };
+    TEST_LOOP(autdzb, autdzb, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -233,6 +277,12 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(fcadd_vector);
     RUN_INSTR_TEST(fcmla_vector);
     RUN_INSTR_TEST(fcmla_vector_idx);
+
+    /* FEAT_PAuth */
+    RUN_INSTR_TEST(autda);
+    RUN_INSTR_TEST(autdb);
+    RUN_INSTR_TEST(autdza);
+    RUN_INSTR_TEST(autdzb);
 
     print("All v8.3 tests complete.");
 #ifndef STANDALONE_DECODER
