@@ -219,7 +219,9 @@ proc_has_feature(feature_bit_t f)
     case FEATURE_BF16:
     case FEATURE_I8MM:
     case FEATURE_FlagM:
-    case FEATURE_JSCVT: return true;
+    case FEATURE_JSCVT:
+    case FEATURE_DPB:
+    case FEATURE_DPB2: return true;
 
     case FEATURE_AESX:
     case FEATURE_PMULL:
@@ -227,9 +229,7 @@ proc_has_feature(feature_bit_t f)
     case FEATURE_SHA256:
     case FEATURE_CRC32:
     case FEATURE_FlagM2:
-    case FEATURE_RNG:
-    case FEATURE_DPB:
-    case FEATURE_DPB2: break;
+    case FEATURE_RNG: break;
     }
 #    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;
