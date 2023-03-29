@@ -228,7 +228,6 @@ configure_DynamoRIO_global(OFF ON)
 
 # FIXME i#4372: Add functioning tests for samples that go beyond  # NON-PUBLIC
 # sanity checks.                                                  # NON-PUBLIC
-
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
 add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
