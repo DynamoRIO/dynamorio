@@ -1842,7 +1842,7 @@ elseif (RISCV64)
 else ()
   set(sfx "x86")
 endif ()
-if (NOT ANDROID AND NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   # XXX i#1874: get working on Android
   tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF OFF)
   if (AARCH64)
@@ -1890,7 +1890,7 @@ endif ()
 
 # test static decoder library
 if (NOT RISCV64)
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
   tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
 endif (NOT RISCV64)
 if (AARCH64)
@@ -1906,7 +1906,7 @@ if (ARM)
 elseif (AARCH64)
   tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF OFF)
 else ()
-  if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
     tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF OFF)
   endif (NOT RISCV64)
 endif ()
@@ -2004,7 +2004,7 @@ if (X86)
 elseif (AARCHXX)
   set(control_flags "nzcv")
 endif ()
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
 tobuild(common.${control_flags} common/${control_flags}.c)
 endif()
 
@@ -2177,7 +2177,7 @@ configure_file(
 
 include_directories("${PROJECT_BINARY_DIR}/include/annotations")
 include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
   tobuild_ci(client.int64_overrides client-interface/int64_overrides.c "" "" "")
 endif()
@@ -2230,7 +2230,7 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
   tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
 endif (X86)
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.cleancallparams client-interface/cleancallparams.c "" "" "")
   tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
 endif (NOT RISCV64)
@@ -2472,7 +2472,7 @@ if (UNIX)
   if (X86 OR AARCH64) # FIXME i#1551: port asm to AArch32
     tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
   endif (X86 OR AARCH64)
-  if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
     tobuild_ci(client.signal client-interface/signal.c "" "" "")
     link_with_pthread(client.signal)
   endif ()
@@ -2481,7 +2481,7 @@ if (UNIX)
   endif (X86)
   tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
   if (X64 AND NOT RISCV64) # XXX i#3173 Improve testing of emulation API functions
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild_ci(client.emulation_api_simple client-interface/emulation_api_simple.c
       "" "" "")
     use_DynamoRIO_extension(client.emulation_api_simple.dll drmgr)
@@ -2552,7 +2552,7 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
 endif (NOT ARM)
 tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
 if (NOT ARM AND NOT RISCV64) # FIXME i#2094: implement cleancall optimizations on ARM
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c ""
     "-opt_cleancall 1" "")
   if (proc_supports_avx512)
@@ -2609,14 +2609,14 @@ if (AARCH64)
   use_DynamoRIO_extension(client.stolen-reg-index.dll drutil)
 endif ()
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.reg_size_test client-interface/reg_size_test.c "" "" "")
 
   tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
 endif (NOT RISCV64)
 
 if (UNIX AND NOT RISCV64) # The test uses signals.
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.gonative client-interface/gonative.c "" "" "")
   link_with_pthread(client.gonative)
   # Configure for dr_app_running_under_dynamorio().
@@ -2625,7 +2625,7 @@ if (UNIX AND NOT RISCV64) # The test uses signals.
   set_target_properties(client.gonative PROPERTIES SKIP_BUILD_RPATH OFF)
 endif ()
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 
@@ -2641,7 +2641,7 @@ if (proc_supports_pt)
   set(client.drpttracer_SUDO-test_sudo ON)
 endif ()
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
   use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
   use_DynamoRIO_extension(client.drx_buf-test.dll drx)
@@ -2650,7 +2650,7 @@ if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 endif (NOT RISCV64)
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
   use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
   use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
@@ -2683,7 +2683,7 @@ if (X86 AND X64 AND LINUX)
   drbbdup_bb_test(drbbdup-empty-bb-test)
 endif (X86 AND X64 AND LINUX)
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
   use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
   use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
@@ -2730,7 +2730,7 @@ if (UNIX)
   link_with_pthread(client.process-id)
 endif (UNIX)
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
   use_DynamoRIO_extension(client.drreg-test.dll drreg)
@@ -2811,7 +2811,7 @@ if (X86)
   endif()
 endif ()
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
   get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll "${location_suffix}")
   tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
@@ -2830,7 +2830,7 @@ if (NOT ANDROID) # XXX i#1874: get working on Android
   use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
 endif ()
 if (NOT APPLE AND NOT RISCV64) # XXX i#1997: static DR not fully supported on Mac yet
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
   set(client.drwrap-test-detach_no_reg_compat)
   tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
     "" "" OFF ON OFF)
@@ -2838,7 +2838,7 @@ if (NOT APPLE AND NOT RISCV64) # XXX i#1997: static DR not fully supported on Ma
   link_with_pthread(client.drwrap-test-detach)
 endif ()
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_appdll(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c)
   get_target_path_for_execution(drwrap_drreg_libpath client.drwrap-drreg-test.appdll
     "${location_suffix}")
@@ -2871,7 +2871,7 @@ if ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.0")
   endif (dbghelp_path)
 endif ()
 
-if (NOT ANDROID AND NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   # XXX i#1874: get working on Android
   tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
   get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll "${location_suffix}")
@@ -2913,7 +2913,7 @@ if (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
     set(client.drsyms-testgcc_is_cygwin ON)
   endif()
 endif (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
   use_DynamoRIO_extension(client.drutil-test.dll drutil)
   use_DynamoRIO_extension(client.drutil-test.dll drmgr)
@@ -3011,14 +3011,14 @@ elseif (X86)
   endif ()
 endif (ARM)
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_api(api.startstop api/startstop.c "" "" OFF OFF OFF)
   link_with_pthread(api.startstop)
   tobuild_api(api.detach api/detach.c "" "" OFF OFF OFF)
   link_with_pthread(api.detach)
 endif (NOT RISCV64)
 if (LINUX AND X64 AND NOT RISCV64) # Will take extra work to port to 32-bit.
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
   tobuild_api(api.detach_state api/detach_state.c "" "" OFF ON OFF)
   target_include_directories(api.detach_state PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/api)
@@ -3034,7 +3034,7 @@ if (UNIX AND NOT RISCV64)
   endif ()
 endif ()
 if (NOT WIN32 AND NOT RISCV64) # XXX i#2611: fix for Windows
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
   if (X64)
     set(detach_spawn_name api.detach_spawn)
   else ()
@@ -3119,7 +3119,7 @@ endif ()
 # Test DR as a static library
 # XXX i#1996: not fully supported on Android yet
 # XXX i#1997: not fully supported on Mac yet
-# FIXME i#3544: Port tests to RISC-V64
+# TODO i#3544: Port tests to RISC-V 64
 if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
   tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON OFF)
   target_link_libraries(api.static_startstop ${libmath})
@@ -3173,7 +3173,7 @@ if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
   endif ()
 
   if (NOT WIN32 AND NOT RISCV64) # TODO i#4349: Fix re-attach issues to enable.
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF OFF)
     link_with_pthread(api.thread_churn)
   endif ()
@@ -3617,7 +3617,7 @@ if (BUILD_CLIENTS)
     # Test offline traces.
     # XXX: we could exclude the pipe files and build the offline trace
     # support by itself for Android.
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
       get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
       get_target_path_for_execution(drraw2trace_path drraw2trace "${location_suffix}")
@@ -3945,7 +3945,7 @@ if (BUILD_CLIENTS)
 
     if (NOT APPLE AND NOT RISCV64) # XXX i#1997: static DR not fully supported on Mac yet
       # We specify this executable here as it uses tools.h code.
-      # FIXME i#3544: Port tests to RISC-V64
+      # TODO i#3544: Port tests to RISC-V 64
       set(tool.drcacheoff.gencode_no_reg_compat)
       add_api_exe(tool.drcacheoff.gencode
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/burst_gencode.cpp
@@ -3969,7 +3969,7 @@ if (BUILD_CLIENTS)
     # XXX i#1551: startstop API is NYI on ARM
     # XXX i#1997: dynamorio_static is not supported on Mac yet
     # FIXME i#2949: gcc 7.3 fails to link certain configs
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
     if (NOT ARM AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949 AND NOT RISCV64)
       set(tool.drcacheoff.burst_static_nodr ON)
       torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "" "" "")
@@ -4382,7 +4382,7 @@ if (UNIX)
     endif ()
   endmacro()
 
-  if (NOT APPLE AND NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+  if (NOT APPLE AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.clone linux/clone.c)
 
     # A PIE build tests MSR-based TLS instead of GDT-based (i#2089).
@@ -4630,7 +4630,7 @@ if (UNIX)
   endif ()
   # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # FIXME i#58: port test to MacOS
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
   if (NOT ARM AND NOT AARCH64 AND NOT APPLE AND NOT RISCV64)
     tobuild(linux.sigcontext linux/sigcontext.c)
     set_avx_flags(linux.sigcontext)
@@ -4655,7 +4655,7 @@ if (UNIX)
   # i#784: test app behavior on alarm
   tobuild(linux.alarm linux/alarm.c)
   if (NOT APPLE AND NOT ANDROID AND NOT RISCV64) # Test uses Linux-specific timer code.
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
     if (NOT AARCH64) # TODO i#1569: Enable this for AArch64.
       tobuild(linux.signal_race linux/signal_race.c)
       target_link_libraries(linux.signal_race rt)
@@ -4664,7 +4664,7 @@ if (UNIX)
     target_link_libraries(linux.signal_racesys rt)
   endif ()
 
-  if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.bad-signal-stack linux/bad-signal-stack.c)
 
     # i#1145: test re-starting syscalls, both inlined and from dispatch
@@ -4674,7 +4674,7 @@ if (UNIX)
   endif (NOT RISCV64)
 
   if (NOT ANDROID AND NOT RISCV64) # XXX i#1874: get working on Android
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.sigsuspend linux/sigsuspend.c)
     link_with_pthread(linux.sigsuspend)
 
@@ -4701,18 +4701,18 @@ if (UNIX)
   if (NOT RISCV64)
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
     tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
   endif (NOT RISCV64)
 
   if (NOT ANDROID AND NOT RISCV64) # XXX i#1874: get working on Android
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild_ops(linux.readlink linux/readlink.c "-early_inject" "exec")
   endif ()
 
   if (NOT ANDROID AND NOT RISCV64) # FIXME i#1874: failing on Android
     # Test collision with DR's preferred base
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.fib-conflict common/fib.c)
     set_preferred_base_start_and_end(linux.fib-conflict ${preferred_base} OFF)
     # i#1227: test 2-stage loader
@@ -4723,7 +4723,7 @@ if (UNIX)
   # or static DR.
   # XXX i#1874: get working on Android
   if (NOT APPLE AND NOT ANDROID AND NOT RISCV64) # XXX i#1285: implement private loader on MacOS
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
     set(fib_static_ops "-early_inject")
     tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
     append_property_string(TARGET linux.fib-static LINK_FLAGS
@@ -4734,7 +4734,7 @@ if (UNIX)
   endif ()
   # Test position independent executables.
   # FIXME i#1001: fib-pie fails with -early_inject.
-  if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.fib-pie common/fib.c)
     append_property_string(TARGET linux.fib-pie COMPILE_FLAGS "-fPIE")
     append_property_string(TARGET linux.fib-pie LINK_FLAGS "-pie")
@@ -4743,14 +4743,14 @@ if (UNIX)
   # vfork is deprecated on macOS.
   if (NOT APPLE AND NOT RISCV64)
     # FIXME i#125: bugs in these, were disabled in the past
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild_ops(linux.vfork linux/vfork.c "" "${execve-sub-path}")
     #tobuild(linux.vfork-fib linux/vfork-fib.c)
   endif ()
 
   if (NOT RISCV64)
   # runs of other builds with custom DR options
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
     torunonly(linux.thread-reset linux.thread linux/thread.c
       "-enable_reset -reset_at_nth_thread 2" "")
     torunonly(linux.clone-reset linux.clone linux/clone.c
@@ -4818,7 +4818,7 @@ if (UNIX)
   if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) #
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
-    # FIXME i#3544: Port tests to RISC-V64
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.rseq linux/rseq.c)
     # Test the other sections.  Unfortunately we need a separate binary for each.
     tobuild(linux.rseq_table linux/rseq.c)
@@ -5143,7 +5143,7 @@ else (UNIX)
 
 endif (UNIX)
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild(security-common.codemod security-common/codemod.c)
   tochcon(security-common.codemod execmem_exec_t)
   mark_execstack(security-common.codemod)
@@ -5160,7 +5160,7 @@ if (PROGRAM_SHEPHERDING) # relies on being aborted on .B violation
   tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
   tochcon(security-common.jmp_from_trace textrel_shlib_t)
 endif ()
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
 endif (NOT RISCV64)
 if (NOT ARM) # FIXME i#1551: fix bugs on ARM
@@ -5190,7 +5190,7 @@ if (X64 AND NOT AARCH64 AND NOT RISCV64) # FIXME i#1569: get working on AArch64
 
   # Floating DR lib.  We'd have to build a 2nd dynamorio.dll on Windows so
   # we only test on Linux for now.
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
   if (UNIX)
     torunonly(float_DR security-common.selfmod security-common/selfmod.c "" "")
     set(float_DR_env "LD_USE_LOAD_BIAS=0")
@@ -5222,7 +5222,7 @@ if (X64 AND NOT AARCH64 AND NOT RISCV64) # FIXME i#1569: get working on AArch64
     "-heap_in_lower_4GB -reachable_heap" "")
 endif (X64 AND NOT AARCH64 AND NOT RISCV64)
 
-if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
 endif (NOT RISCV64)
 
@@ -5502,7 +5502,7 @@ endif (NOT ANDROID AND AARCHXX)
 set_tests_properties(
   code_api|common.broadfun
   PROPERTIES LABELS UBUNTU_22)
-if (BUILD_SAMPLES AND NOT ANDROID AND NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (BUILD_SAMPLES AND NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   set_tests_properties(
     code_api|sample.bbsize
     PROPERTIES LABELS UBUNTU_22)
@@ -5513,7 +5513,7 @@ if (BUILD_CLIENTS AND NOT ANDROID)
     code_api|tool.drcacheoff.simple
     PROPERTIES LABELS UBUNTU_22)
 endif ()
-if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   set_tests_properties(
     code_api|api.rseq
     code_api|linux.rseq_disable

@@ -704,7 +704,7 @@ if (BUILD_TESTS)
 
   # XXX i#1997: dynamorio_static is not supported on Mac yet
   # FIXME i#2949: gcc 7.3 fails to link certain configs
-  # FIXME i#3544: Port tests to RISC-V64
+  # TODO i#3544: Port tests to RISC-V 64
   if (NOT APPLE AND NOT DISABLE_FOR_BUG_2949 AND NOT RISCV64)
     # Tests for the cache miss analyzer.
     add_executable(tool.drcachesim.miss_analyzer_unit_test tests/cache_miss_analyzer_test.cpp)
@@ -832,7 +832,7 @@ if (BUILD_TESTS)
       add_win32_flags(tool.drcacheoff.burst_client)
     endif ()
 
-    if (NOT RISCV64) # FIXME i#3544: Port tests to RISC-V64
+    if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
       set(source_abs "${CMAKE_CURRENT_SOURCE_DIR}/tests/burst_traceopts.cpp")
       set(asm_deps
         "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
