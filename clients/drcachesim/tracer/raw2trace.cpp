@@ -1135,10 +1135,15 @@ raw2trace_t::append_delayed_branch(void *tls)
     if (tdata->delayed_branch.empty())
         return "";
     if (verbosity_ >= 4) {
-        for (const auto &entry : tdata->delayed_branch) {
+        int instr_count = 0;
+        for (size_t i = 0; i < tdata->delayed_branch.size(); i++) {
+            const auto &entry = tdata->delayed_branch[i];
             if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
-                VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n",
-                       entry.addr, tdata->index);
+                VPRINT(4,
+                       "Appending delayed branch pc=" PIFX " decode=%p for thread %d\n",
+                       entry.addr, tdata->delayed_branch_decode_pcs[instr_count],
+                       tdata->index);
+                ++instr_count;
             } else {
                 VPRINT(4,
                        "Appending delayed branch tagalong entry type %s (%d) for thread "
@@ -1147,12 +1152,13 @@ raw2trace_t::append_delayed_branch(void *tls)
             }
         }
     }
-    std::string error =
-        write(tdata, tdata->delayed_branch.data(),
-              tdata->delayed_branch.data() + tdata->delayed_branch.size());
+    std::string error = write(tdata, tdata->delayed_branch.data(),
+                              tdata->delayed_branch.data() + tdata->delayed_branch.size(),
+                              tdata->delayed_branch_decode_pcs);
     if (!error.empty())
         return error;
     tdata->delayed_branch.clear();
+    tdata->delayed_branch_decode_pcs.clear();
     return "";
 }
 
@@ -1249,16 +1255,124 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     return "";
 }
 
+std::string
+raw2trace_t::append_encoding(void *tls, app_pc pc, size_t instr_length,
+                             trace_entry_t *&buf, trace_entry_t *buf_start)
+{
+    size_t size_left = instr_length;
+    size_t offs = 0;
+#ifdef ARM
+    // Remove any Thumb LSB.
+    pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, pc);
+#endif
+    do {
+        buf->type = TRACE_TYPE_ENCODING;
+        buf->size =
+            static_cast<unsigned short>(std::min(size_left, sizeof(buf->encoding)));
+        memcpy(buf->encoding, pc + offs, buf->size);
+        if (buf->size < sizeof(buf->encoding)) {
+            // We don't have to set the rest to 0 but it is nice.
+            memset(buf->encoding + buf->size, 0, sizeof(buf->encoding) - buf->size);
+        }
+        log(4, "Appended encoding entry for %p sz=%zu 0x%08x...\n", pc, buf->size,
+            *(int *)buf->encoding);
+        offs += buf->size;
+        size_left -= buf->size;
+        ++buf;
+        CHECK(static_cast<size_t>(buf - buf_start) < WRITE_BUFFER_SIZE,
+              "Too many entries for write buffer");
+    } while (size_left > 0);
+    return "";
+}
+
+std::string
+raw2trace_t::insert_post_chunk_encodings(void *tls, const trace_entry_t *instr,
+                                         app_pc decode_pc)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    trace_entry_t encodings[WRITE_BUFFER_SIZE];
+    trace_entry_t *buf = encodings;
+    log(4, "Adding post-chunk-boundary encoding entry for decode=%p app=%p\n", decode_pc,
+        instr->addr);
+    std::string err = append_encoding(tls, decode_pc, instr->size, buf, encodings);
+    if (!err.empty())
+        return err;
+    if (!tdata->out_file->write(reinterpret_cast<const char *>(encodings),
+                                reinterpret_cast<const char *>(buf) -
+                                    reinterpret_cast<const char *>(encodings)))
+        return "Failed to write to output file";
+    return "";
+}
+
 // All writes to out_file go through this function, except new chunk headers
 // and footers (to do so would cause recursion; we assume those do not need
 // extra processing here).
 std::string
-raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *end)
+raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *end,
+                   std::vector<app_pc> decode_pcs)
 {
+    if (end == start)
+        return "Empty buffer passed to write()";
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     if (tdata->out_archive != nullptr) {
-        for (const trace_entry_t *it = start; it < end; ++it) {
+        bool prev_was_encoding = false;
+        int instr_ordinal = -1;
+        const trace_entry_t *it;
+        for (it = start; it < end; ++it) {
             tdata->cur_chunk_ref_count += tdata->memref_counter.entry_memref_count(it);
+            // We wait until we're past the final instr to write, to ensure we
+            // get all its memrefs, by not stopping until we hit an instr or an
+            // encoding.  (We will put function markers for entry in the
+            // prior chunk too: we live with that.)
+            if ((type_is_instr(static_cast<trace_type_t>(it->type)) ||
+                 it->type == TRACE_TYPE_ENCODING) &&
+                tdata->cur_chunk_instr_count >= chunk_instr_count_) {
+                DEBUG_ASSERT(tdata->cur_chunk_instr_count == chunk_instr_count_);
+                if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                            reinterpret_cast<const char *>(it) -
+                                                reinterpret_cast<const char *>(start)))
+                    return "Failed to write to output file";
+                std::string error = open_new_chunk(tdata);
+                if (!error.empty())
+                    return error;
+                start = it;
+                DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
+            }
+            if (type_is_instr(static_cast<trace_type_t>(it->type))) {
+                ++tdata->cur_chunk_instr_count;
+                ++instr_ordinal;
+                if (instr_ordinal >= static_cast<int>(decode_pcs.size()))
+                    return "decode_pcs is missing entries for written instructions";
+            }
+            // Check for missing encodings after possibly opening a new chunk.
+            //
+            // XXX i#5724: Could we add a trace_entry_t-level invariant checker to
+            // identify missing post-chunk encodings?  Or should we have the reader
+            // deliberately clear its encoding history on a chunk boundary, raising
+            // a fatal error on a missing encoding?  For now the only complex case
+            // is these already-generated records which we handle here and have a
+            // unit test covering so those further checks are lower priority.
+            if (type_is_instr(static_cast<trace_type_t>(it->type)) &&
+                !prev_was_encoding &&
+                record_encoding_emitted(tls, decode_pcs[instr_ordinal])) {
+                if (it > start &&
+                    !tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                            reinterpret_cast<const char *>(it) -
+                                                reinterpret_cast<const char *>(start)))
+                    return "Failed to write to output file";
+                std::string err =
+                    insert_post_chunk_encodings(tls, it, decode_pcs[instr_ordinal]);
+                if (!err.empty())
+                    return err;
+                if (!tdata->out_file->write(reinterpret_cast<const char *>(it),
+                                            sizeof(*it)))
+                    return "Failed to write to output file";
+                start = it + 1;
+            }
+            if (it->type == TRACE_TYPE_ENCODING)
+                prev_was_encoding = true;
+            else
+                prev_was_encoding = false;
             if (it->type == TRACE_TYPE_MARKER) {
                 if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
                     tdata->last_timestamp_ = it->addr;
@@ -1271,35 +1385,11 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
                         tdata->tid, tdata->last_timestamp_, tdata->last_cpu_,
                         tdata->cur_chunk_instr_count);
                 }
-                continue;
             }
-            // We wait until we're past the final instr to write, to ensure we
-            // get all its memrefs, by not stopping until we hit an instr or an
-            // encoding.  (We will put function markers for entry in the
-            // prior chunk too: we live with that.)
-            if (!type_is_instr(static_cast<trace_type_t>(it->type)) &&
-                it->type != TRACE_TYPE_ENCODING)
-                continue;
-            if (tdata->cur_chunk_instr_count >= chunk_instr_count_) {
-                DEBUG_ASSERT(tdata->cur_chunk_instr_count == chunk_instr_count_);
-                if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
-                                            reinterpret_cast<const char *>(it) -
-                                                reinterpret_cast<const char *>(start)))
-                    return "Failed to write to output file";
-                std::string error = open_new_chunk(tdata);
-                if (!error.empty())
-                    return error;
-                start = it;
-                DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
-                // TODO i#5724: We need to re-emit encodings for "it" and any further
-                // instrs in this buffer: have a callback passed in which constructs
-                // an encoding from an instr record?
-            }
-            if (type_is_instr(static_cast<trace_type_t>(it->type)))
-                ++tdata->cur_chunk_instr_count;
         }
     }
-    if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
+    if (end > start &&
+        !tdata->out_file->write(reinterpret_cast<const char *>(start),
                                 reinterpret_cast<const char *>(end) -
                                     reinterpret_cast<const char *>(start)))
         return "Failed to write to output file";
@@ -1316,11 +1406,23 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
 
 std::string
 raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
-                                    const trace_entry_t *end)
+                                    const trace_entry_t *end, app_pc decode_pc)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    for (const trace_entry_t *it = start; it < end; ++it)
+    int instr_count = 0;
+    for (const trace_entry_t *it = start; it < end; ++it) {
         tdata->delayed_branch.push_back(*it);
+        if (type_is_instr(static_cast<trace_type_t>(it->type)))
+            ++instr_count;
+    }
+    if (instr_count > 1)
+        return "Only one instruction per delayed branch bundle is supported";
+    if (instr_count == 1) {
+        if (decode_pc == nullptr)
+            return "A delayed instruction must have a valid decode PC";
+        tdata->delayed_branch_decode_pcs.push_back(decode_pc);
+    } else if (decode_pc != nullptr)
+        return "Delayed non-instructions should not have a decode PC";
     return "";
 }
 
