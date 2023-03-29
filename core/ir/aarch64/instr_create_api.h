@@ -13405,4 +13405,56 @@
  */
 #define INSTR_CREATE_setf8(dc, Rn) instr_create_0dst_1src(dc, OP_setf8, Rn)
 
+/**
+ * Creates an AUTDA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTDA   <Xd>, <Xn|SP>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination register, X (Extended, 64
+ *             bits).
+ * \param Rn   The second source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_autda(dc, Rd, Rn) instr_create_1dst_2src(dc, OP_autda, Rd, Rd, Rn)
+
+/**
+ * Creates an AUTDB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTDB   <Xd>, <Xn|SP>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination register, X (Extended, 64
+ *             bits).
+ * \param Rn   The second source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_autdb(dc, Rd, Rn) instr_create_1dst_2src(dc, OP_autdb, Rd, Rd, Rn)
+
+/**
+ * Creates an AUTDZA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTDZA  <Xd>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_autdza(dc, Rd) instr_create_1dst_1src(dc, OP_autdza, Rd, Rd)
+
+/**
+ * Creates an AUTDZB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTDZB  <Xd>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_autdzb(dc, Rd) instr_create_1dst_1src(dc, OP_autdzb, Rd, Rd)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
