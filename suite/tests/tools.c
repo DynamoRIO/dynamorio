@@ -565,7 +565,7 @@ GLOBAL_LABEL(code_self_mod:)
         cbnz     w1, repeat1
         ret
 #elif defined(RISCV64)
-        /*FIXME i#3544: Port tests to RISC-V64*/
+        /* TODO i#3544: Port tests to RISC-V64 */
         ret
 #else
 # error NYI
@@ -604,33 +604,33 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME code_inc
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-#if !defined(RISCV64) /*FIXME i#3544: Port tests to RISC-V64*/
+#if !defined(RISCV64) /* TODO i#3544: Port tests to RISC-V 64 */
         mov      REG_SCRATCH0, ARG1
         INC(REG_SCRATCH0)
         RETURN
-        END_FUNC(FUNCNAME)
 #endif
+        END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
 #define FUNCNAME code_dec
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-#if !defined(RISCV64) /*FIXME i#3544: Port tests to RISC-V64*/
+#if !defined(RISCV64) /* TODO i#3544: Port tests to RISC-V 64 */
         mov      REG_SCRATCH0, ARG1
         DEC(REG_SCRATCH0)
         RETURN
-        END_FUNC(FUNCNAME)
 #endif
+        END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
 #define FUNCNAME dummy
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-#if !defined(RISCV64) /*FIXME i#3544: Port tests to RISC-V64*/
+#if !defined(RISCV64) /* TODO i#3544: Port tests to RISC-V 64 */
         mov      REG_SCRATCH0, HEX(1)
         RETURN
-        END_FUNC(FUNCNAME)
 #endif
+        END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
 #define FUNCNAME call_with_retaddr
@@ -656,7 +656,7 @@ GLOBAL_LABEL(FUNCNAME:)
         ldp      x29, x30, [sp], #16
         ret                          /* Return to possibly modified return address. */
 #elif defined(RISCV64)
-        /* FIXME i#3544: Port tests to RISC-V64*/
+        /* TODO i#3544: Port tests to RISC-V 64 */
         ret
 #else
 # error NYI
@@ -680,7 +680,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      x0, x30             /* Replace first argument with return address. */
         br       x9                  /* Tailcall to function pointer. */
 #elif defined(RISCV64)
-        /*FIXME i#3544: Port tests to RISC-V64*/
+        /* TODO i#3544: Port tests to RISC-V64 */
         ret
 #else
 # error NYI
