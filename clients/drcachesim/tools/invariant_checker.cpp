@@ -410,6 +410,24 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             }
         }
         if (shard->prev_instr_.instr.addr != 0 /*first*/) {
+            instr_t prev_instr, curr_instr;
+            instr_init(GLOBAL_DCONTEXT, &curr_instr);
+            instr_init(GLOBAL_DCONTEXT, &prev_instr);
+            decode_from_copy(
+                GLOBAL_DCONTEXT, const_cast<app_pc>(shard->prev_instr_.instr.encoding),
+                reinterpret_cast<app_pc>(shard->prev_instr_.instr.addr), &prev_instr);
+            decode_from_copy(GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
+                             reinterpret_cast<app_pc>(memref.instr.addr), &curr_instr);
+            if (instr_is_syscall(&prev_instr) && instr_is_syscall(&curr_instr) &&
+                memref.instr.addr == shard->prev_instr_.instr.addr) {
+                shard->saw_double_syscall_instrs_with_same_pc_ = true;
+                report_if_false(shard, false, "Repeated syscall instrs with the same PC");
+            } else
+                shard->saw_double_syscall_instrs_with_same_pc_ = false;
+            instr_free(GLOBAL_DCONTEXT, &prev_instr);
+            instr_free(GLOBAL_DCONTEXT, &curr_instr);
+        }
+        if (shard->prev_instr_.instr.addr != 0 /*first*/) {
             report_if_false(
                 shard, // Filtered.
                 TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
@@ -440,7 +458,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                           TRACE_MARKER_TYPE_KERNEL_XFER)) ||
                     // We expect a gap on a window transition.
                     shard->window_transition_ ||
-                    shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER,
+                    shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER ||
+                    shard->saw_double_syscall_instrs_with_same_pc_,
                 "Non-explicit control flow has no marker");
             // XXX: If we had instr decoding we could check direct branch targets
             // and look for gaps after branches.
