@@ -117,7 +117,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config, IN const uint8_t *init_pt_data,
                init_pt_data_size);
         pt_raw_buffer_data_size_ += init_pt_data_size;
         cur_pt_data_end_offset_ = 0;
-    } else  {
+    } else {
         ERRMSG(ERRMSG_HEADER "Initial PT data is not provided.\n");
         return false;
     }
@@ -309,7 +309,7 @@ pt2ir_t::convert(IN const uint8_t *next_pt_data, IN size_t next_pt_data_size,
             pt_insn_get_sync_offset(pt_instr_decoder_, &pos_offset);
             if (pos_offset > 0) {
                 memcpy(pt_raw_buffer_.get(), pt_raw_buffer_.get() + pos_offset,
-                   pt_raw_buffer_data_size_ - pos_offset);
+                       pt_raw_buffer_data_size_ - pos_offset);
                 pt_raw_buffer_data_size_ -= pos_offset;
                 cur_pt_data_end_offset_ -= pos_offset;
                 status = pt_insn_sync_set(pt_instr_decoder_, 0);
