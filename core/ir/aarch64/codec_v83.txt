@@ -69,7 +69,11 @@
 1x11100010111111110000xxxxxxxxxx  n   796  LRCPC     ldapr  wx0_30 : mem0
 0011100010111111110000xxxxxxxxxx  n   797  LRCPC    ldaprb      w0 : mem0
 0111100010111111110000xxxxxxxxxx  n   798  LRCPC    ldaprh      w0 : mem0
-1101101011000001000010xxxxxxxxxx  n   687  PAUTH     pacda         : x0 x5
+1101101011000001000010xxxxxxxxxx  n   687  PAUTH     pacda      x0 : x0 x5sp
+1101101011000001000011xxxxxxxxxx  n   1042 PAUTH     pacdb      x0 : x0 x5sp
+110110101100000100101011111xxxxx  n   1043 PAUTH    pacdza      x0 : x0
+110110101100000100101111111xxxxx  n   1044 PAUTH    pacdzb      x0 : x0
+10011010110xxxxx001100xxxxxxxxxx  n   1045 PAUTH     pacga      x0 : x5 x16sp
 1101101011000001000000xxxxxxxxxx  n   688  PAUTH     pacia         : x0 x5
 1101101011000001000001xxxxxxxxxx  n   689  PAUTH     pacib         : x0 x5
 11010101000000110010001101111111  n   680  PAUTH   pacibsp         :

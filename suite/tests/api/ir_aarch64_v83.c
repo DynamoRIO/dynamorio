@@ -402,6 +402,64 @@ TEST_INSTR(brabz)
     TEST_LOOP(brabz, brabz, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
 }
 
+TEST_INSTR(pacda)
+{
+
+    /* Testing PACDA   <Xd>, <Xn|SP> */
+    const char *const expected_0_0[6] = {
+        "pacda  %x0 %x0 -> %x0",    "pacda  %x5 %x6 -> %x5",
+        "pacda  %x10 %x11 -> %x10", "pacda  %x15 %x16 -> %x15",
+        "pacda  %x20 %x21 -> %x20", "pacda  %x30 %sp -> %x30",
+    };
+    TEST_LOOP(pacda, pacda, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
+}
+
+TEST_INSTR(pacdb)
+{
+    /* Testing PACDB   <Xd>, <Xn|SP> */
+    const char *const expected_0_0[6] = {
+        "pacdb  %x0 %x0 -> %x0",    "pacdb  %x5 %x6 -> %x5",
+        "pacdb  %x10 %x11 -> %x10", "pacdb  %x15 %x16 -> %x15",
+        "pacdb  %x20 %x21 -> %x20", "pacdb  %x30 %sp -> %x30",
+    };
+    TEST_LOOP(pacdb, pacdb, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
+}
+
+TEST_INSTR(pacdza)
+{
+    /* Testing PACDZA  <Xd> */
+    const char *const expected_0_0[6] = {
+        "pacdza %x0 -> %x0",   "pacdza %x5 -> %x5",   "pacdza %x10 -> %x10",
+        "pacdza %x15 -> %x15", "pacdza %x20 -> %x20", "pacdza %x30 -> %x30",
+    };
+    TEST_LOOP(pacdza, pacdza, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
+TEST_INSTR(pacdzb)
+{
+    /* Testing PACDZB  <Xd> */
+    const char *const expected_0_0[6] = {
+        "pacdzb %x0 -> %x0",   "pacdzb %x5 -> %x5",   "pacdzb %x10 -> %x10",
+        "pacdzb %x15 -> %x15", "pacdzb %x20 -> %x20", "pacdzb %x30 -> %x30",
+    };
+    TEST_LOOP(pacdzb, pacdzb, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
+TEST_INSTR(pacga)
+{
+    /* Testing PACGA   <Xd>, <Xn>, <Xm|SP> */
+    const char *const expected_0_0[6] = {
+        "pacga  %x0 %x0 -> %x0",    "pacga  %x6 %x7 -> %x5",
+        "pacga  %x11 %x12 -> %x10", "pacga  %x16 %x17 -> %x15",
+        "pacga  %x21 %x22 -> %x20", "pacga  %x30 %sp -> %x30",
+    };
+    TEST_LOOP(pacga, pacga, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1[i]),
+              opnd_create_reg(Xn_six_offset_2_sp[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -436,6 +494,11 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(braaz);
     RUN_INSTR_TEST(brab);
     RUN_INSTR_TEST(brabz);
+    RUN_INSTR_TEST(pacda);
+    RUN_INSTR_TEST(pacdb);
+    RUN_INSTR_TEST(pacdza);
+    RUN_INSTR_TEST(pacdzb);
+    RUN_INSTR_TEST(pacga);
 
     print("All v8.3 tests complete.");
 #ifndef STANDALONE_DECODER
