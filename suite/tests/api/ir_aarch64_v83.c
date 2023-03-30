@@ -316,6 +316,92 @@ TEST_INSTR(autizb)
     TEST_LOOP(autizb, autizb, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
 }
 
+TEST_INSTR(blraa)
+{
+    /* Testing BLRAA   <Xn>, <Xm|SP> */
+    const char *const expected_0_0[6] = {
+        "blraa  %x0 %x0 -> %x30",   "blraa  %x5 %x6 -> %x30",
+        "blraa  %x10 %x11 -> %x30", "blraa  %x15 %x16 -> %x30",
+        "blraa  %x20 %x21 -> %x30", "blraa  %x30 %sp -> %x30",
+    };
+    TEST_LOOP(blraa, blraa, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
+}
+
+TEST_INSTR(blraaz)
+{
+    /* Testing BLRAAZ  <Xn> */
+    const char *const expected_0_0[6] = {
+        "blraaz %x0 -> %x30",  "blraaz %x5 -> %x30",  "blraaz %x10 -> %x30",
+        "blraaz %x15 -> %x30", "blraaz %x20 -> %x30", "blraaz %x30 -> %x30",
+    };
+    TEST_LOOP(blraaz, blraaz, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
+TEST_INSTR(blrab)
+{
+    /* Testing BLRAB   <Xn>, <Xm|SP> */
+    const char *const expected_0_0[6] = {
+        "blrab  %x0 %x0 -> %x30",   "blrab  %x5 %x6 -> %x30",
+        "blrab  %x10 %x11 -> %x30", "blrab  %x15 %x16 -> %x30",
+        "blrab  %x20 %x21 -> %x30", "blrab  %x30 %sp -> %x30",
+    };
+    TEST_LOOP(blrab, blrab, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
+}
+
+TEST_INSTR(blrabz)
+{
+    /* Testing BLRABZ  <Xn> */
+    const char *const expected_0_0[6] = {
+        "blrabz %x0 -> %x30",  "blrabz %x5 -> %x30",  "blrabz %x10 -> %x30",
+        "blrabz %x15 -> %x30", "blrabz %x20 -> %x30", "blrabz %x30 -> %x30",
+    };
+    TEST_LOOP(blrabz, blrabz, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
+TEST_INSTR(braa)
+{
+    /* Testing BRAA    <Xn>, <Xm|SP> */
+    const char *const expected_0_0[6] = {
+        "braa   %x0 %x0",   "braa   %x5 %x6",   "braa   %x10 %x11",
+        "braa   %x15 %x16", "braa   %x20 %x21", "braa   %x30 %sp",
+    };
+    TEST_LOOP(braa, braa, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
+}
+
+TEST_INSTR(braaz)
+{
+    /* Testing BRAAZ   <Xn> */
+    const char *const expected_0_0[6] = {
+        "braaz  %x0",  "braaz  %x5",  "braaz  %x10",
+        "braaz  %x15", "braaz  %x20", "braaz  %x30",
+    };
+    TEST_LOOP(braaz, braaz, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
+TEST_INSTR(brab)
+{
+    /* Testing BRAB    <Xn>, <Xm|SP> */
+    const char *const expected_0_0[6] = {
+        "brab   %x0 %x0",   "brab   %x5 %x6",   "brab   %x10 %x11",
+        "brab   %x15 %x16", "brab   %x20 %x21", "brab   %x30 %sp",
+    };
+    TEST_LOOP(brab, brab, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
+}
+
+TEST_INSTR(brabz)
+{
+    /* Testing BRABZ   <Xn> */
+    const char *const expected_0_0[6] = {
+        "brabz  %x0",  "brabz  %x5",  "brabz  %x10",
+        "brabz  %x15", "brabz  %x20", "brabz  %x30",
+    };
+    TEST_LOOP(brabz, brabz, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -342,6 +428,14 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(autib);
     RUN_INSTR_TEST(autiza);
     RUN_INSTR_TEST(autizb);
+    RUN_INSTR_TEST(blraa);
+    RUN_INSTR_TEST(blraaz);
+    RUN_INSTR_TEST(blrab);
+    RUN_INSTR_TEST(blrabz);
+    RUN_INSTR_TEST(braa);
+    RUN_INSTR_TEST(braaz);
+    RUN_INSTR_TEST(brab);
+    RUN_INSTR_TEST(brabz);
 
     print("All v8.3 tests complete.");
 #ifndef STANDALONE_DECODER
