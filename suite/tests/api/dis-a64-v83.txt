@@ -610,3 +610,93 @@ dac12ffe : pacdzb x30                                : pacdzb %x30 -> %x30
 9adc337a : pacga x26, x27, x28                       : pacga  %x27 %x28 -> %x26
 9adf33de : pacga x30, x30, sp                        : pacga  %x30 %sp -> %x30
 
+# PACIA1716  (PACIA1716-R-auth)
+d503211f : pacia1716                                 : pacia1716 %x17 %x16 -> %x17
+
+# PACIA   <Xd>, <Xn|SP> (PACIA-R.R-auth)
+dac10000 : pacia x0, x0                              : pacia  %x0 %x0 -> %x0
+dac10062 : pacia x2, x3                              : pacia  %x2 %x3 -> %x2
+dac100a4 : pacia x4, x5                              : pacia  %x4 %x5 -> %x4
+dac100e6 : pacia x6, x7                              : pacia  %x6 %x7 -> %x6
+dac10128 : pacia x8, x9                              : pacia  %x8 %x9 -> %x8
+dac10149 : pacia x9, x10                             : pacia  %x9 %x10 -> %x9
+dac1018b : pacia x11, x12                            : pacia  %x11 %x12 -> %x11
+dac101cd : pacia x13, x14                            : pacia  %x13 %x14 -> %x13
+dac1020f : pacia x15, x16                            : pacia  %x15 %x16 -> %x15
+dac10251 : pacia x17, x18                            : pacia  %x17 %x18 -> %x17
+dac10293 : pacia x19, x20                            : pacia  %x19 %x20 -> %x19
+dac102d5 : pacia x21, x22                            : pacia  %x21 %x22 -> %x21
+dac102f6 : pacia x22, x23                            : pacia  %x22 %x23 -> %x22
+dac10338 : pacia x24, x25                            : pacia  %x24 %x25 -> %x24
+dac1037a : pacia x26, x27                            : pacia  %x26 %x27 -> %x26
+dac103fe : pacia x30, sp                             : pacia  %x30 %sp -> %x30
+
+# PACIASP  (PACIASP-R-auth)
+d503233f : paciasp                                   : paciasp %x30 %sp -> %x30
+
+# PACIAZ   (PACIAZ-R-auth)
+d503231f : paciaz                                    : paciaz %x30 -> %x30
+
+# PACIB1716  (PACIB1716-R-auth)
+d503215f : pacib1716                                 : pacib1716 %x17 %x16 -> %x17
+
+# PACIB   <Xd>, <Xn|SP> (PACIB-R.R-auth)
+dac10400 : pacib x0, x0                              : pacib  %x0 %x0 -> %x0
+dac10462 : pacib x2, x3                              : pacib  %x2 %x3 -> %x2
+dac104a4 : pacib x4, x5                              : pacib  %x4 %x5 -> %x4
+dac104e6 : pacib x6, x7                              : pacib  %x6 %x7 -> %x6
+dac10528 : pacib x8, x9                              : pacib  %x8 %x9 -> %x8
+dac10549 : pacib x9, x10                             : pacib  %x9 %x10 -> %x9
+dac1058b : pacib x11, x12                            : pacib  %x11 %x12 -> %x11
+dac105cd : pacib x13, x14                            : pacib  %x13 %x14 -> %x13
+dac1060f : pacib x15, x16                            : pacib  %x15 %x16 -> %x15
+dac10651 : pacib x17, x18                            : pacib  %x17 %x18 -> %x17
+dac10693 : pacib x19, x20                            : pacib  %x19 %x20 -> %x19
+dac106d5 : pacib x21, x22                            : pacib  %x21 %x22 -> %x21
+dac106f6 : pacib x22, x23                            : pacib  %x22 %x23 -> %x22
+dac10738 : pacib x24, x25                            : pacib  %x24 %x25 -> %x24
+dac1077a : pacib x26, x27                            : pacib  %x26 %x27 -> %x26
+dac107fe : pacib x30, sp                             : pacib  %x30 %sp -> %x30
+
+# PACIBSP  (PACIBSP-R-auth)
+d503237f : pacibsp                                   : pacibsp %x30 %sp -> %x30
+
+# PACIBZ   (PACIBZ-R-auth)
+d503235f : pacibz                                    : pacibz %x30 -> %x30
+
+# PACIZA  <Xd> (PACIZA-R-auth)
+dac123e0 : paciza x0                                 : paciza %x0 -> %x0
+dac123e2 : paciza x2                                 : paciza %x2 -> %x2
+dac123e4 : paciza x4                                 : paciza %x4 -> %x4
+dac123e6 : paciza x6                                 : paciza %x6 -> %x6
+dac123e8 : paciza x8                                 : paciza %x8 -> %x8
+dac123e9 : paciza x9                                 : paciza %x9 -> %x9
+dac123eb : paciza x11                                : paciza %x11 -> %x11
+dac123ed : paciza x13                                : paciza %x13 -> %x13
+dac123ef : paciza x15                                : paciza %x15 -> %x15
+dac123f1 : paciza x17                                : paciza %x17 -> %x17
+dac123f3 : paciza x19                                : paciza %x19 -> %x19
+dac123f5 : paciza x21                                : paciza %x21 -> %x21
+dac123f6 : paciza x22                                : paciza %x22 -> %x22
+dac123f8 : paciza x24                                : paciza %x24 -> %x24
+dac123fa : paciza x26                                : paciza %x26 -> %x26
+dac123fe : paciza x30                                : paciza %x30 -> %x30
+
+# PACIZB  <Xd> (PACIZB-R-auth)
+dac127e0 : pacizb x0                                 : pacizb %x0 -> %x0
+dac127e2 : pacizb x2                                 : pacizb %x2 -> %x2
+dac127e4 : pacizb x4                                 : pacizb %x4 -> %x4
+dac127e6 : pacizb x6                                 : pacizb %x6 -> %x6
+dac127e8 : pacizb x8                                 : pacizb %x8 -> %x8
+dac127e9 : pacizb x9                                 : pacizb %x9 -> %x9
+dac127eb : pacizb x11                                : pacizb %x11 -> %x11
+dac127ed : pacizb x13                                : pacizb %x13 -> %x13
+dac127ef : pacizb x15                                : pacizb %x15 -> %x15
+dac127f1 : pacizb x17                                : pacizb %x17 -> %x17
+dac127f3 : pacizb x19                                : pacizb %x19 -> %x19
+dac127f5 : pacizb x21                                : pacizb %x21 -> %x21
+dac127f6 : pacizb x22                                : pacizb %x22 -> %x22
+dac127f8 : pacizb x24                                : pacizb %x24 -> %x24
+dac127fa : pacizb x26                                : pacizb %x26 -> %x26
+dac127fe : pacizb x30                                : pacizb %x30 -> %x30
+
