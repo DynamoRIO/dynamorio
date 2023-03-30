@@ -67,6 +67,9 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
       if: ${{ github.event_name == 'pull_request' }}
 
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
     - name: Fetch Sources
       run: git fetch --no-tags --depth=1 origin master
 
