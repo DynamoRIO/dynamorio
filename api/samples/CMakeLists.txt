@@ -37,7 +37,7 @@ endif ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
 
 if (RISCV64) # TODO i#3544: Port tests to RISC-V 64
   return()
-endif(RISCV64)
+endif (RISCV64)
 
 # To match Makefiles and have just one build type per configured build
 # dir, we collapse VS generator configs to a single choice.

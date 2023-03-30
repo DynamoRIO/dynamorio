@@ -2006,7 +2006,7 @@ elseif (AARCHXX)
 endif ()
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild(common.${control_flags} common/${control_flags}.c)
-endif()
+endif ()
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.floatpc common/floatpc.c)
@@ -2180,7 +2180,7 @@ include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
   tobuild_ci(client.int64_overrides client-interface/int64_overrides.c "" "" "")
-endif()
+endif ()
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   set(client.abort_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcode.cmake")
   set(client.abort_code "8")
@@ -4818,7 +4818,7 @@ if (UNIX)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 
-  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) #
+  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     # TODO i#3544: Port tests to RISC-V 64
