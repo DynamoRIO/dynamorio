@@ -1460,8 +1460,11 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
                               instr_get_target(instr)));
     }
-    if (opc == OP_blraaz) {
-        // TODO i#5623: Add the other OP_blra* opcodes and handle them here.
+    switch (opc) {
+    case OP_blraa:
+    case OP_blrab:
+    case OP_blraaz:
+    case OP_blrabz:
         PRE(ilist, instr, INSTR_CREATE_xpaci(dcontext, opnd_create_reg(IBL_TARGET_REG)));
     }
     insert_mov_immed_ptrsz(dcontext, get_call_return_address(dcontext, ilist, instr),
@@ -1527,8 +1530,8 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     int opc = instr_get_opcode(instr);
 #ifdef AARCH64
-    // TODO i#5623: Add the other OP_brra* and OP_reta* opcodes and handle them here.
-    ASSERT(opc == OP_br || opc == OP_ret || opc == OP_reta || opc == OP_braa);
+    ASSERT((instr_branch_type(instr) == (LINK_INDIRECT | LINK_JMP)) ||
+           (instr_branch_type(instr) == (LINK_INDIRECT | LINK_RETURN)));
     PRE(ilist, instr,
         instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
     opnd_t target = instr_get_target(instr);
@@ -1543,8 +1546,13 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG), target));
     }
 
-    if (opc == OP_reta || opc == OP_braa) {
-        // TODO i#5623: Add the other OP_brra* and OP_reta* opcodes and handle them here.
+    switch (opc) {
+    // TODO i#5623: Add the other OP_reta* opcodes and handle them here.
+    case OP_reta:
+    case OP_braa:
+    case OP_brab:
+    case OP_braaz:
+    case OP_brabz:
         PRE(ilist, instr, INSTR_CREATE_xpaci(dcontext, opnd_create_reg(IBL_TARGET_REG)));
     }
 

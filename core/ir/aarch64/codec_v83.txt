@@ -55,20 +55,35 @@
 11010101000000110010001111011111  n   1034 PAUTH    autibz  impx30 : impx30
 110110101100000100110011111xxxxx  n   1035 PAUTH    autiza      x0 : x0
 110110101100000100110111111xxxxx  n   1036 PAUTH    autizb      x0 : x0
-1101011100111111000010xxxxxxxxxx  n   782  PAUTH     blraa  impx30 : x5 x0
+1101011100111111000010xxxxxxxxxx  n   782  PAUTH     blraa  impx30 : x5 x0sp
 1101011000111111000010xxxxx11111  n   682  PAUTH    blraaz  impx30 : x5
-1101011100011111000010xxxxxxxxxx  n   683  PAUTH      braa         : x5 x0
+1101011100111111000011xxxxxxxxxx  n   1037 PAUTH     blrab  impx30 : x5 x0sp
+1101011000111111000011xxxxx11111  n   1038 PAUTH    blrabz  impx30 : x5
+1101011100011111000010xxxxxxxxxx  n   683  PAUTH      braa         : x5 x0sp
+1101011000011111000010xxxxx11111  n   1039 PAUTH     braaz         : x5
+1101011100011111000011xxxxxxxxxx  n   1040 PAUTH      brab         : x5 x0sp
+1101011000011111000011xxxxx11111  n   1041 PAUTH     brabz         : x5
 0x101110xx0xxxxx111x01xxxxxxxxxx  n   944  BASE     fcadd     dq0 : dq0 dq5 dq16 imm1_ew_12 hs_sz
 0x101110xx0xxxxx110xx1xxxxxxxxxx  n   945  BASE     fcmla     dq0 : dq0 dq5 dq16 imm2_nesw_11 hs_sz
 0x101111xxxxxxxx0xx1x0xxxxxxxxxx  n   945  BASE     fcmla     dq0 : dq0 dq5 dq16 vindex_HS_2lane imm2_nesw_13 hs_sz
 1x11100010111111110000xxxxxxxxxx  n   796  LRCPC     ldapr  wx0_30 : mem0
 0011100010111111110000xxxxxxxxxx  n   797  LRCPC    ldaprb      w0 : mem0
 0111100010111111110000xxxxxxxxxx  n   798  LRCPC    ldaprh      w0 : mem0
-1101101011000001000010xxxxxxxxxx  n   687  PAUTH     pacda         : x0 x5
-1101101011000001000000xxxxxxxxxx  n   688  PAUTH     pacia         : x0 x5
-1101101011000001000001xxxxxxxxxx  n   689  PAUTH     pacib         : x0 x5
-11010101000000110010001101111111  n   680  PAUTH   pacibsp         :
-110110101100000100100011111xxxxx  n   684  PAUTH    paciza         : x0
+1101101011000001000010xxxxxxxxxx  n   687  PAUTH     pacda      x0 : x0 x5sp
+1101101011000001000011xxxxxxxxxx  n   1042 PAUTH     pacdb      x0 : x0 x5sp
+110110101100000100101011111xxxxx  n   1043 PAUTH    pacdza      x0 : x0
+110110101100000100101111111xxxxx  n   1044 PAUTH    pacdzb      x0 : x0
+10011010110xxxxx001100xxxxxxxxxx  n   1045 PAUTH     pacga      x0 : x5 x16sp
+1101101011000001000000xxxxxxxxxx  n   688  PAUTH     pacia      x0 : x0 x5sp
+11010101000000110010000100011111  n   1046 PAUTH pacia1716  impx17 : impx17 impx16
+11010101000000110010001100111111  n   1047 PAUTH   paciasp  impx30 : impx30 impsp
+11010101000000110010001100011111  n   1048 PAUTH    paciaz  impx30 : impx30
+1101101011000001000001xxxxxxxxxx  n   689  PAUTH     pacib      x0 : x0 x5sp
+11010101000000110010000101011111  n   1049 PAUTH pacib1716  impx17 : impx17 impx16
+11010101000000110010001101111111  n   680  PAUTH   pacibsp  impx30 : impx30 impsp
+11010101000000110010001101011111  n   1050 PAUTH    pacibz  impx30 : impx30
+110110101100000100100011111xxxxx  n   684  PAUTH    paciza      x0 : x0
+110110101100000100100111111xxxxx  n   1051 PAUTH    pacizb      x0 : x0
 11010110010111110000101111111111  n   679  PAUTH      reta         :
 11010110010111110000111111111111  n   679  PAUTH      reta         :
 110110101100000101000111111xxxxx  n   686  PAUTH     xpacd         : x0
