@@ -757,62 +757,111 @@ typedef enum {
     SYSCALL_PT_ENTRY_TYPE_THREAD,
     SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY,
     SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY,
-    SYSCALL_PT_ENTRY_TYPE_SYSCALL_METADATA_BOUNDARY,
     SYSCALL_PT_ENTRY_TYPE_SYSNUM,
     SYSCALL_PT_ENTRY_TYPE_SYSCALL_ID,
-    SYSCALL_PT_ENTRY_TYPE_SYSCALL_PT_DATA_SIZE,
-    SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_BOUNDARY,
-    SYSCALL_PT_ENTRY_TYPE_MAX = 9
+    SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM,
+    SYSCALL_PT_ENTRY_TYPE_MAX = 6
 } syscall_pt_entry_type_t;
 
 START_PACKED_STRUCTURE
 struct _syscall_pt_entry_t {
     union {
         struct {
-            uint64_t pid : 60;
-            uint64_t type : 4;
+            uint64_t pid : 61;
+            uint64_t type : 3;
         } pid;
         struct {
-            uint64_t tid : 60;
-            uint64_t type : 4;
+            uint64_t tid : 61;
+            uint64_t type : 3;
         } tid;
         union {
             struct {
-                uint64_t data_size : 60;
-                uint64_t type : 4;
+                uint64_t data_size : 61;
+                uint64_t type : 3;
             } pt_metadata_boundary;
             struct {
-                uint64_t data_size : 60;
-                uint64_t type : 4;
-            } syscall_metadata_boundary;
-            struct {
-                uint64_t data_size : 59;
-                uint64_t is_last : 1;
-                uint64_t type : 4;
+                uint64_t data_size : 61;
+                uint64_t type : 3;
             } pt_data_boundary;
         };
-        union {
-            struct {
-                uint64_t sysnum : 60;
-                uint64_t type : 4;
-            } sysnum;
-            struct {
-                uint64_t id : 60;
-                uint64_t type : 4;
-            } syscall_id;
-            struct {
-                uint64_t pt_data_size : 60;
-                uint64_t type : 4;
-            } syscall_pt_data_size;
-            struct {
-                uint64_t args_num : 60;
-                uint64_t type : 4;
-            } syscall_args_boundary;
-        };
+        struct {
+            uint64_t sysnum : 61;
+            uint64_t type : 3;
+        } sysnum;
+        struct {
+            uint64_t id : 61;
+            uint64_t type : 3;
+        } syscall_id;
+        struct {
+            uint64_t args_num : 61;
+            uint64_t type : 3;
+        } syscall_args_num;
         uint64_t combined_value;
     };
 } END_PACKED_STRUCTURE;
 typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
+
+/**
+ * The per-thread metadata and all syscalls' PT data are stored in one PT DATA
+ * Buffer(PDB). The PDB format is:
+ * +----------+----------------------+
+ * |PDB Header|PT_METADATA or PT_DATA|
+ * +----------+----------------------+
+ *
+ * The PDB Header is a list of syscall_pt_entry_t. There are three types of PDB Header:
+ * a. The format of per-thread metadata's PDB header is:
+ * +---+---+--------------------+
+ * |pid|tid|pt_metadata_boundary|
+ * +---+---+--------------------+
+ *
+ * b. The format of syscalls' PT data's PDB header is:
+ * +---+---+----------------+------+----------+---------------------+---------+
+ * |pid|tid|pt_data_boundary|sysnum|syscall_id|syscall_args_boundary|arguments|
+ * +---+---+----------------+------+----------+---------------------+---------+
+ */
+
+/* The header of per-thread metadata buffer contains 3 syscall_pt_entry_t instances:
+ * 1. The first instance is used to store the pid.
+ * 2. The second instance is used to store the tid.
+ * 3. The 3rd instance is used to store the output buffer's type.
+ */
+#    define PT_METADATA_PDB_HEADER_ENTRY_NUM 3
+#    define PT_METADATA_PDB_HEADER_SIZE \
+        (PT_METADATA_PDB_HEADER_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+#    define PT_METADATA_PDB_DATA_OFFSET PT_METADATA_PDB_HEADER_SIZE
+
+/* The header of each syscall's PT data buffer contains 12 syscall_pt_entry_t
+ * instances:
+ * 1. The first instance is used to store the pid.
+ * 2. The second instance is used to store the tid.
+ * 3. The 3rd instance is used to store the output buffer's type.
+ * 4. The 5th instance is used to store the sysnum.
+ * 5. The 5th instance is employed for preserving the sequence of syscalls.
+ * 6. The 6th instance is used to store the number of all input arguments.
+ * 7-12. The remaining instances are used to store the size of each input argument.
+ */
+#    define PT_DATA_PDB_HEADER_ENTRY_NUM 12
+#    define PT_DATA_PDB_HEADER_SIZE \
+        (PT_DATA_PDB_HEADER_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+#    define PT_DATA_PDB_DATA_OFFSET PT_DATA_PDB_HEADER_SIZE
+
+/* The metadata of each syscall is stored in the PDB header. The metadata contains 9
+ * syscall_pt_entry_t instances:
+ * +--------+------------+-----------------------+-------------+
+ * |1.sysnum|2.syscall_id|3.syscall_args_boundary|4-9.arguments|
+ * +--------+------------+-----------------------+-------------+
+ */
+#    define SYSCALL_METADATA_ENTRY_NUM 9
+#    define SYSCALL_METADATA_SIZE \
+        (SYSCALL_METADATA_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+
+#    define PDB_HEADER_PID_IDX 0
+#    define PDB_HEADER_TID_IDX 1
+#    define PDB_HEADER_DATA_BOUNDARY_IDX 2
+#    define PDB_HEADER_SYSNUM_IDX 3
+#    define PDB_HEADER_SYSCALL_SEQ_IDX 4
+#    define PDB_HEADER_NUM_ARGS_IDX 5
+#    define PDB_HEADER_ARG_START_IDX 6
 #endif
 
 /**

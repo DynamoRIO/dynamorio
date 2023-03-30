@@ -310,6 +310,10 @@ pt_perf_event_attr_init(bool user, bool kernel, OUT struct perf_event_attr *attr
         ERRMSG("failed to parse PT's pmu event noretcomp to perf_event_attr.config\n");
         return false;
     }
+    if (!parse_pt_pmu_event_config("psb_period", 0, &config)) {
+        ERRMSG("failed to parse PT's pmu event noretcomp to perf_event_attr.config\n");
+        return false;
+    }
     if (user) {
         if (!parse_pt_pmu_event_config("cyc", 1, &config)) {
             ERRMSG("failed to parse PT's pmu event cyc to perf_event_attr.config\n");

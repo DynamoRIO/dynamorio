@@ -44,6 +44,7 @@
 #include <algorithm>
 #include <iterator>
 #include <memory>
+#include <unistd.h>
 
 #include "droption.h"
 #include "intel-pt.h"
@@ -461,66 +462,90 @@ main(int argc, const char *argv[])
     }
 
     if (op_raw_pt_format.get_value() == "PERF") {
-        config.pt_raw_buffer_size = buffer_size + 52;
-        if (!ptconverter->init(config, shared_iscache.get()->iscache)) {
-            std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
-            return FAILURE;
-        }
+        config.pt_raw_buffer_size = buffer_size;
 
         uint8_t *pt_data = buffer.get();
         size_t pt_data_size = buffer_size;
-        pt2ir_convert_status_t status =
-            ptconverter->convert(pt_data, pt_data_size, drir.get());
+        if (!ptconverter->init(config, pt_data, pt_data_size,
+                               shared_iscache.get()->iscache)) {
+            std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
+            return FAILURE;
+        }
+        pt2ir_convert_status_t status = ptconverter->convert(nullptr, 0, drir.get());
         if (status != PT2IR_CONV_SUCCESS) {
             std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
                       << "[error status: " << status << "]" << std::endl;
             return FAILURE;
         }
     } else if (op_raw_pt_format.get_value() == "DRMEMTRACE") {
-#define MAX_NUM_SYSCALL_PT_ENTRIES 4096
-        if ((buffer_size % (sizeof(syscall_pt_entry_t) * MAX_NUM_SYSCALL_PT_ENTRIES)) !=
-            0) {
-            std::cerr << CLIENT_NAME << ": invalid PT raw trace size." << std::endl;
-            return FAILURE;
-        }
-
-        syscall_pt_entry_t *syscall_pt_entries =
+        syscall_pt_entry_t *pt_metadate_header =
             reinterpret_cast<syscall_pt_entry_t *>(buffer.get());
 
-        if (syscall_pt_entries[2].pt_metadata_boundary.type !=
+        if (pt_metadate_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type !=
             SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY) {
             std::cerr << CLIENT_NAME << ": invalid PT raw trace format." << std::endl;
             return FAILURE;
         }
-        void *metadata_buffer = reinterpret_cast<void *>(syscall_pt_entries + 3);
+
+        void *metadata_buffer =
+            reinterpret_cast<void *>(reinterpret_cast<uint8_t *>(pt_metadate_header) +
+                                     PT_METADATA_PDB_DATA_OFFSET);
         config.init_with_metadata(metadata_buffer);
+#define RING_BUFFER_SIZE_SHIFT 8
         config.pt_raw_buffer_size =
-            sizeof(syscall_pt_entry_t) * (MAX_NUM_SYSCALL_PT_ENTRIES - 3);
-        if (!ptconverter->init(config, shared_iscache.get()->iscache)) {
-            std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
-            return FAILURE;
-        }
+            std::max((1L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE), 1L << 26);
+        bool is_pt2ir_init = false;
 
-        size_t num_pdbs =
-            buffer_size / (sizeof(syscall_pt_entry_t) * MAX_NUM_SYSCALL_PT_ENTRIES);
-        for (size_t i = 1; i < num_pdbs; i++) {
-            syscall_pt_entry_t boundary =
-                syscall_pt_entries[i * MAX_NUM_SYSCALL_PT_ENTRIES + 2];
-            if (boundary.pt_data_boundary.type !=
-                SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY) {
-                continue;
-            }
-
-            uint8_t *pt_data = reinterpret_cast<uint8_t *>(
-                syscall_pt_entries + i * MAX_NUM_SYSCALL_PT_ENTRIES + 3);
-            size_t pt_data_size = boundary.pt_data_boundary.data_size;
-            pt2ir_convert_status_t status =
-                ptconverter->convert(pt_data, pt_data_size, drir.get());
-            if (status != PT2IR_CONV_SUCCESS) {
-                std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
-                          << "[error status: " << status << "]" << std::endl;
+        size_t next_header_offset = PT_METADATA_PDB_HEADER_SIZE +
+            pt_metadate_header[PDB_HEADER_DATA_BOUNDARY_IDX]
+                .pt_metadata_boundary.data_size;
+        size_t last_pt_data_size = 0;
+        while (next_header_offset < buffer_size) {
+            if (next_header_offset + PT_DATA_PDB_HEADER_SIZE > buffer_size) {
+                std::cerr << CLIENT_NAME << ": invalid PT raw trace format." << std::endl;
                 return FAILURE;
             }
+
+            syscall_pt_entry_t *next_pdb_header =
+                reinterpret_cast<syscall_pt_entry_t *>(buffer.get() + next_header_offset);
+            if (next_pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.type !=
+                SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY) {
+                std::cerr << CLIENT_NAME << ": invalid PT raw trace format." << std::endl;
+                return FAILURE;
+            }
+
+            uint64_t pt_data_size =
+                next_pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.data_size -
+                SYSCALL_METADATA_SIZE;
+            uint8_t *pt_data =
+                reinterpret_cast<uint8_t *>(next_pdb_header) + PT_DATA_PDB_DATA_OFFSET;
+            if (!is_pt2ir_init) {
+                if (!ptconverter->init(config, pt_data, pt_data_size,
+                                       shared_iscache.get()->iscache)) {
+                    std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t."
+                              << std::endl;
+                    return FAILURE;
+                }
+                is_pt2ir_init = true;
+            } else {
+                pt2ir_convert_status_t status =
+                    ptconverter->convert(pt_data, pt_data_size, drir.get());
+                if (status != PT2IR_CONV_SUCCESS) {
+                    std::cerr << CLIENT_NAME
+                              << ": failed to convert PT raw trace to DR IR."
+                              << "[error status: " << status << "]" << std::endl;
+                    return FAILURE;
+                }
+            }
+
+            last_pt_data_size = pt_data_size;
+            next_header_offset += PT_DATA_PDB_HEADER_SIZE + pt_data_size;
+        }
+        pt2ir_convert_status_t status = ptconverter->convert(NULL, 0, drir.get());
+        if (status != PT2IR_CONV_SUCCESS) {
+            std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
+                      << "[error status: " << status << "]" << std::endl;
+            return FAILURE;
         }
     } else {
         std::cerr << CLIENT_NAME

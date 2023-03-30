@@ -61,11 +61,12 @@ syscall_pt_trace_t::~syscall_pt_trace_t()
 {
     if (output_file_ != INVALID_FILE) {
         close_file_func_(output_file_);
+        output_file_ = INVALID_FILE;
     }
 }
 
 bool
-syscall_pt_trace_t::init(void *drcontext, char* pt_dir_name,
+syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name,
                          drmemtrace_open_file_func_t open_file_func,
                          drmemtrace_write_file_func_t write_file_func,
                          drmemtrace_close_file_func_t close_file_func)
@@ -77,8 +78,8 @@ syscall_pt_trace_t::init(void *drcontext, char* pt_dir_name,
     pttracer_handle_ = { drcontext, nullptr };
     pttracer_output_buffer_ = { drcontext_, nullptr };
     std::string output_file_name(pt_dir_name);
-    output_file_name += "/" +
-        std::to_string(dr_get_thread_id(drcontext_)) + PT_DATA_FILE_NAME_SUFFIX;
+    output_file_name +=
+        "/" + std::to_string(dr_get_thread_id(drcontext_)) + PT_DATA_FILE_NAME_SUFFIX;
     output_file_ = open_file_func_(output_file_name.c_str(), DR_FILE_WRITE_REQUIRE_NEW);
 #define RING_BUFFER_SIZE_SHIFT 8
 
@@ -94,12 +95,6 @@ syscall_pt_trace_t::init(void *drcontext, char* pt_dir_name,
                                  &pttracer_output_buffer_.data) != DRPTTRACER_SUCCESS) {
         return false;
     }
-
-    /* Initialize the header of output buffer. */
-    output_buffer_[0].pid.type = SYSCALL_PT_ENTRY_TYPE_PID;
-    output_buffer_[0].pid.pid = dr_get_process_id_from_drcontext(drcontext_);
-    output_buffer_[1].tid.type = SYSCALL_PT_ENTRY_TYPE_THREAD;
-    output_buffer_[1].tid.tid = dr_get_thread_id(drcontext_);
 
     /* All syscalls in the same thread share the same pttracer handle. So they shared the
      * same pt_metadata.
@@ -158,20 +153,24 @@ syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
         return false;
     }
 
-    memset(output_buffer_ + 2, 0,
-           sizeof(syscall_pt_entry_t) * (MAX_NUM_SYSCALL_PT_ENTRIES - 2));
-
-    /* Initialize the metadata boundary. */
-    output_buffer_[2].pt_metadata_boundary.type =
+    /* Initialize the header of output buffer. */
+    syscall_pt_entry_t pdb_header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
+    pdb_header[PDB_HEADER_PID_IDX].pid.type = SYSCALL_PT_ENTRY_TYPE_PID;
+    pdb_header[PDB_HEADER_PID_IDX].pid.pid = dr_get_process_id_from_drcontext(drcontext_);
+    pdb_header[PDB_HEADER_TID_IDX].tid.type = SYSCALL_PT_ENTRY_TYPE_THREAD;
+    pdb_header[PDB_HEADER_TID_IDX].tid.tid = dr_get_thread_id(drcontext_);
+    pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.data_size =
+        sizeof(pt_metadata_t);
+    pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type =
         SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY;
-    output_buffer_[2].pt_metadata_boundary.data_size = sizeof(pt_metadata_t);
 
-    /* Append the metadata to buffer. */
-    memcpy(output_buffer_ + 3, &metadata, sizeof(pt_metadata_t));
+    /* Write the buffer header to the output file */
+    if (write_file_func_(output_file_, pdb_header, PT_METADATA_PDB_HEADER_SIZE) == 0) {
+        return false;
+    }
 
-    /* Write the buffer to the ourput file */
-    if (write_file_func_(output_file_, output_buffer_,
-                         MAX_NUM_SYSCALL_PT_ENTRIES * sizeof(syscall_pt_entry_t)) == 0) {
+    /* Write the pt_metadata to the output file */
+    if (write_file_func_(output_file_, &metadata, sizeof(pt_metadata_t)) == 0) {
         return false;
     }
 
@@ -194,25 +193,25 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
         return false;
     }
 
-    memset(output_buffer_ + 2, 0,
-           sizeof(syscall_pt_entry_t) * (MAX_NUM_SYSCALL_PT_ENTRIES - 2));
-
-    /* Initialize the syscall metadata boundary. */
-    output_buffer_[2].syscall_metadata_boundary.type =
-        SYSCALL_PT_ENTRY_TYPE_SYSCALL_METADATA_BOUNDARY;
+    /* Initialize the header of output buffer. */
+    syscall_pt_entry_t pdb_header[PT_DATA_PDB_HEADER_ENTRY_NUM];
+    pdb_header[PDB_HEADER_PID_IDX].pid.type = SYSCALL_PT_ENTRY_TYPE_PID;
+    pdb_header[PDB_HEADER_PID_IDX].pid.pid = dr_get_process_id_from_drcontext(drcontext_);
+    pdb_header[PDB_HEADER_TID_IDX].tid.type = SYSCALL_PT_ENTRY_TYPE_THREAD;
+    pdb_header[PDB_HEADER_TID_IDX].tid.tid = dr_get_thread_id(drcontext_);
+    pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.data_size =
+        SYSCALL_METADATA_SIZE + data->pt_size;
+    pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.type =
+        SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY;
 
     /* Initialize the sysnum. */
-    output_buffer_[3].sysnum.type = SYSCALL_PT_ENTRY_TYPE_SYSNUM;
-    output_buffer_[3].sysnum.sysnum = cur_recording_sysnum_;
+    pdb_header[PDB_HEADER_SYSNUM_IDX].sysnum.type = SYSCALL_PT_ENTRY_TYPE_SYSNUM;
+    pdb_header[PDB_HEADER_SYSNUM_IDX].sysnum.sysnum = cur_recording_sysnum_;
 
     /* Initialize the syscall id. */
-    output_buffer_[4].syscall_id.type = SYSCALL_PT_ENTRY_TYPE_SYSCALL_ID;
-    output_buffer_[4].syscall_id.id = recorded_syscall_count_;
-
-    /* Initialize the PT data size of this syscall. */
-    output_buffer_[5].syscall_pt_data_size.type =
-        SYSCALL_PT_ENTRY_TYPE_SYSCALL_PT_DATA_SIZE;
-    output_buffer_[5].syscall_pt_data_size.pt_data_size = data->pt_size;
+    pdb_header[PDB_HEADER_SYSCALL_SEQ_IDX].syscall_id.type =
+        SYSCALL_PT_ENTRY_TYPE_SYSCALL_ID;
+    pdb_header[PDB_HEADER_SYSCALL_SEQ_IDX].syscall_id.id = recorded_syscall_count_;
 
     /* Initialize the the parameter of current record syscall.
      * TODO i#5505: dynamorio doesn't provide a function to get syscall's
@@ -221,49 +220,18 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
      * should fix this issue by implementing a new function that can get syscall's
      * parameter number.
      */
-    output_buffer_[6].syscall_args_boundary.type =
-        SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_BOUNDARY;
-    output_buffer_[6].syscall_args_boundary.args_num = 0;
+    pdb_header[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.type =
+        SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM;
+    pdb_header[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num = 0;
 
-    output_buffer_[2].syscall_metadata_boundary.data_size =
-        sizeof(syscall_pt_entry_t) * 4 +
-        sizeof(syscall_pt_entry_t) * output_buffer_[6].syscall_args_boundary.args_num;
-
-    /* Write the syscall's metadata to the output file. */
-    if (write_file_func_(output_file_, output_buffer_,
-                         MAX_NUM_SYSCALL_PT_ENTRIES * sizeof(syscall_pt_entry_t)) == 0) {
+    /* Write the buffer header to the output file */
+    if (write_file_func_(output_file_, pdb_header, PT_DATA_PDB_HEADER_SIZE) == 0) {
         return false;
     }
 
-    ssize_t undumped_size = data->pt_size;
-    while (undumped_size > 0) {
-        memset(output_buffer_ + 2, 0,
-               sizeof(syscall_pt_entry_t) * (MAX_NUM_SYSCALL_PT_ENTRIES - 2));
-
-        /* Append undumped PT data to current PT DATA Buffer. */
-        int pt_boundary_idx = 2;
-        size_t cur_dump_size =
-            std::min(undumped_size,
-                     (int64_t)sizeof(syscall_pt_entry_t) *
-                         (MAX_NUM_SYSCALL_PT_ENTRIES - pt_boundary_idx - 1));
-        output_buffer_[pt_boundary_idx].pt_data_boundary.type =
-            SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY;
-        output_buffer_[pt_boundary_idx].pt_data_boundary.data_size = cur_dump_size;
-        char *pt_buffer = (char *)data->pt_buffer + (data->pt_size - undumped_size);
-        memcpy(output_buffer_ + pt_boundary_idx + 1, pt_buffer, cur_dump_size);
-        undumped_size -= cur_dump_size;
-        if (undumped_size <= 0) {
-            output_buffer_[pt_boundary_idx].pt_data_boundary.is_last = 1;
-        } else {
-            output_buffer_[pt_boundary_idx].pt_data_boundary.is_last = 0;
-        }
-
-        /* Write the buffer to the output file. */
-        if (write_file_func_(output_file_, output_buffer_,
-                             MAX_NUM_SYSCALL_PT_ENTRIES * sizeof(syscall_pt_entry_t)) ==
-            0) {
-            return false;
-        }
+    /* Write the syscall's PT data to the output file */
+    if (write_file_func_(output_file_, data->pt_buffer, data->pt_size) == 0) {
+        return false;
     }
     return true;
 }

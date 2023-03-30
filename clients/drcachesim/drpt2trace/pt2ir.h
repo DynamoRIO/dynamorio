@@ -328,8 +328,8 @@ public:
      * sideband session.
      */
     bool
-    init(IN pt2ir_config_t &pt2ir_config,
-         IN struct pt_image_section_cache *shared_iscache);
+    init(IN pt2ir_config_t &pt2ir_config, IN const uint8_t *init_pt_data,
+         IN size_t init_pt_data_size, IN struct pt_image_section_cache *shared_iscache);
 
     /**
      * Returns pt2ir_convert_status_t. If the convertion is successful, the function
@@ -340,7 +340,8 @@ public:
      * instr_t and append it to ilist.
      */
     pt2ir_convert_status_t
-    convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t *drir);
+    convert(IN const uint8_t *next_pt_data, IN size_t next_pt_data_size,
+            INOUT drir_t *drir);
 
 private:
     /* Diagnose converting errors and output diagnostic results.
@@ -349,7 +350,10 @@ private:
     void
     dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip);
 
-    /*  */
+    /* It indicate if the pt2ir (pointer-to-intermediate-representation) has been
+     * initialized, signifying the readiness of the conversion process from PT data to
+     * DR's IR.
+     */
     bool pt2ir_initialized_;
 
     /* Buffer for caching the PT raw trace. */
@@ -364,6 +368,16 @@ private:
 
     /* The libipt sideband session. */
     struct pt_sb_session *pt_sb_session_;
+
+    /* The size of the PT data within the raw buffer. */
+    uint64_t pt_raw_buffer_data_size_;
+
+    /* The offset within the raw buffer of the end of the PT data currently being decoded.
+     */
+    uint64_t cur_pt_data_end_offset_;
+
+    /* The status of the PT decoder after decoding the previous instruction. */
+    int pt_decoder_status_;
 };
 
 #endif /* _PT2IR_H_ */
