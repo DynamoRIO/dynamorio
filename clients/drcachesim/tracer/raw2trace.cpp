@@ -1281,13 +1281,15 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
                 }
                 continue;
             }
-            if (!type_is_instr(static_cast<trace_type_t>(it->type)))
-                continue;
             // We wait until we're past the final instr to write, to ensure we
-            // get all its memrefs.  (We will put function markers for entry in the
+            // get all its memrefs, by not stopping until we hit an instr or an
+            // encoding.  (We will put function markers for entry in the
             // prior chunk too: we live with that.)
-            if (tdata->cur_chunk_instr_count++ >= chunk_instr_count_) {
-                DEBUG_ASSERT(tdata->cur_chunk_instr_count - 1 == chunk_instr_count_);
+            if (!type_is_instr(static_cast<trace_type_t>(it->type)) &&
+                it->type != TRACE_TYPE_ENCODING)
+                continue;
+            if (tdata->cur_chunk_instr_count >= chunk_instr_count_) {
+                DEBUG_ASSERT(tdata->cur_chunk_instr_count == chunk_instr_count_);
                 if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
                                             reinterpret_cast<const char *>(it) -
                                                 reinterpret_cast<const char *>(start)))
@@ -1296,7 +1298,13 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
                 if (!error.empty())
                     return error;
                 start = it;
+                DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
+                // TODO i#5724: We need to re-emit encodings for "it" and any further
+                // instrs in this buffer: have a callback passed in which constructs
+                // an encoding from an instr record?
             }
+            if (type_is_instr(static_cast<trace_type_t>(it->type)))
+                ++tdata->cur_chunk_instr_count;
         }
     }
     if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
