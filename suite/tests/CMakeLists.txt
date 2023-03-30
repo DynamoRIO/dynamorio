@@ -2005,7 +2005,7 @@ elseif (AARCHXX)
   set(control_flags "nzcv")
 endif ()
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
-tobuild(common.${control_flags} common/${control_flags}.c)
+  tobuild(common.${control_flags} common/${control_flags}.c)
 endif()
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
@@ -2811,7 +2811,8 @@ if (X86)
   endif()
 endif ()
 
-if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+if (NOT RISCV64)
+  # TODO i#3544: Port tests to RISC-V 64
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
   get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll "${location_suffix}")
   tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
@@ -3614,10 +3615,10 @@ if (BUILD_CLIENTS)
     endif ()
 
     if (NOT RISCV64)
-    # Test offline traces.
-    # XXX: we could exclude the pipe files and build the offline trace
-    # support by itself for Android.
-    # TODO i#3544: Port tests to RISC-V 64
+      # Test offline traces.
+      # XXX: we could exclude the pipe files and build the offline trace
+      # support by itself for Android.
+      # TODO i#3544: Port tests to RISC-V 64
       get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
       prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
       get_target_path_for_execution(drraw2trace_path drraw2trace "${location_suffix}")
@@ -3625,7 +3626,7 @@ if (BUILD_CLIENTS)
 
       torunonly_drcachesim(opcode_mix ${ci_shared_app}
         "-instr_encodings -simulator_type opcode_mix" "")
-    endif(NOT RISCV64)
+    endif (NOT RISCV64)
     # The sim_atops should start with @ and be in @-as-space format (hence "atops").
     # If the exetgt has drcachesim statically linked in, the _nodr property must be
     # set *before* invoking this macro.
@@ -3852,22 +3853,23 @@ if (BUILD_CLIENTS)
       unset(tool.drcacheoff.basic_counts_rawtemp)
     endif ()
     if (NOT RISCV64)
-    torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
-      "@-simulator_type@opcode_mix" "")
-    # Ensure the tool works without the raw/ subdir.
-    set(tool.drcacheoff.opcode_mix_postcmd
-      "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
-    set(tool.drcacheoff.opcode_mix_postcmd2
-      "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
-    set(tool.drcacheoff.opcode_mix_postcmd3
-      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-simulator_type@opcode_mix")
+      # TODO i#3544: Port tests to RISC-V 64
+      torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
+        "@-simulator_type@opcode_mix" "")
+      # Ensure the tool works without the raw/ subdir.
+      set(tool.drcacheoff.opcode_mix_postcmd
+        "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
+      set(tool.drcacheoff.opcode_mix_postcmd2
+        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
+      set(tool.drcacheoff.opcode_mix_postcmd3
+        "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-simulator_type@opcode_mix")
 
-    torunonly_drcacheoff(view ${ci_shared_app} ""
-      "@-simulator_type@view@-sim_refs@16384" "")
+      torunonly_drcacheoff(view ${ci_shared_app} ""
+        "@-simulator_type@view@-sim_refs@16384" "")
 
-    set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
-    torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
-      "@-simulator_type@func_view" "only_5")
+      set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
+      torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
+        "@-simulator_type@func_view" "only_5")
     endif (NOT RISCV64)
     if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
       # Requires sudo to access pagemap.
@@ -4150,6 +4152,7 @@ if (BUILD_CLIENTS)
     if (AARCH64)
       torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app
         "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+      set(tool.drcachesim.drstatecmp-fuzz_timeout 180)
     endif ()
     if (NOT WIN32)
       torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app}
@@ -4699,9 +4702,9 @@ if (UNIX)
   endif ()
 
   if (NOT RISCV64)
-  # We pass -native_exec_list which causes us to call strcasecmp in libc,
-  # thereby exercising on our ability to copy libc's TLS data.
-  # TODO i#3544: Port tests to RISC-V 64
+    # We pass -native_exec_list which causes us to call strcasecmp in libc,
+    # thereby exercising on our ability to copy libc's TLS data.
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
   endif (NOT RISCV64)
 
@@ -4749,8 +4752,8 @@ if (UNIX)
   endif ()
 
   if (NOT RISCV64)
-  # runs of other builds with custom DR options
-  # TODO i#3544: Port tests to RISC-V 64
+    # runs of other builds with custom DR options
+    # TODO i#3544: Port tests to RISC-V 64
     torunonly(linux.thread-reset linux.thread linux/thread.c
       "-enable_reset -reset_at_nth_thread 2" "")
     torunonly(linux.clone-reset linux.clone linux/clone.c
