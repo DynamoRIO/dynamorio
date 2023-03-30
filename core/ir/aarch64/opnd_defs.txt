@@ -63,7 +63,10 @@
 #   0xx0  32(s) 0,8,16,24
 #   110x  32(s) 8,16 (MSL, shifting ones)
 
+--------------------------------  impx16     # implicit X16 operand
+--------------------------------  impx17     # implicit X17 operand
 --------------------------------  impx30     # implicit X30 operand
+--------------------------------  impsp      # implicit SP operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
 --------------------------------  mul        # implicit MUL
 --------------------------------  h_sz       # element width of FP vector reg, used to

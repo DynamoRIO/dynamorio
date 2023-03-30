@@ -262,6 +262,60 @@ TEST_INSTR(autdzb)
     TEST_LOOP(autdzb, autdzb, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
 }
 
+TEST_INSTR(autia)
+{
+    /* Testing AUTIA   <Xd>, <Xn|SP> */
+    const char *const expected_0_0[6] = {
+        "autia  %x0 %x0 -> %x0",    "autia  %x5 %x6 -> %x5",
+        "autia  %x10 %x11 -> %x10", "autia  %x15 %x16 -> %x15",
+        "autia  %x20 %x21 -> %x20", "autia  %x30 %sp -> %x30",
+    };
+    TEST_LOOP(autia, autia, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
+}
+
+TEST_INSTR(pauth_hints)
+{
+    TEST_NO_OPNDS(autia1716, autia1716, "autia1716 %x17 %x16 -> %x17");
+    TEST_NO_OPNDS(autiasp, autiasp, "autiasp %x30 %sp -> %x30");
+    TEST_NO_OPNDS(autiaz, autiaz, "autiaz %x30 -> %x30");
+    TEST_NO_OPNDS(autib1716, autib1716, "autib1716 %x17 %x16 -> %x17");
+    TEST_NO_OPNDS(autibsp, autibsp, "autibsp %x30 %sp -> %x30");
+    TEST_NO_OPNDS(autibz, autibz, "autibz %x30 -> %x30");
+}
+
+TEST_INSTR(autib)
+{
+    /* Testing AUTIB   <Xd>, <Xn|SP> */
+    const char *const expected_0_0[6] = {
+        "autib  %x0 %x0 -> %x0",    "autib  %x5 %x6 -> %x5",
+        "autib  %x10 %x11 -> %x10", "autib  %x15 %x16 -> %x15",
+        "autib  %x20 %x21 -> %x20", "autib  %x30 %sp -> %x30",
+    };
+    TEST_LOOP(autib, autib, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]));
+}
+
+TEST_INSTR(autiza)
+{
+    /* Testing AUTIZA  <Xd> */
+    const char *const expected_0_0[6] = {
+        "autiza %x0 -> %x0",   "autiza %x5 -> %x5",   "autiza %x10 -> %x10",
+        "autiza %x15 -> %x15", "autiza %x20 -> %x20", "autiza %x30 -> %x30",
+    };
+    TEST_LOOP(autiza, autiza, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
+TEST_INSTR(autizb)
+{
+    /* Testing AUTIZB  <Xd> */
+    const char *const expected_0_0[6] = {
+        "autizb %x0 -> %x0",   "autizb %x5 -> %x5",   "autizb %x10 -> %x10",
+        "autizb %x15 -> %x15", "autizb %x20 -> %x20", "autizb %x30 -> %x30",
+    };
+    TEST_LOOP(autizb, autizb, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -283,6 +337,11 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(autdb);
     RUN_INSTR_TEST(autdza);
     RUN_INSTR_TEST(autdzb);
+    RUN_INSTR_TEST(pauth_hints);
+    RUN_INSTR_TEST(autia);
+    RUN_INSTR_TEST(autib);
+    RUN_INSTR_TEST(autiza);
+    RUN_INSTR_TEST(autizb);
 
     print("All v8.3 tests complete.");
 #ifndef STANDALONE_DECODER

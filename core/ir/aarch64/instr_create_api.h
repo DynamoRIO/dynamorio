@@ -13457,4 +13457,134 @@
  */
 #define INSTR_CREATE_autdzb(dc, Rd) instr_create_1dst_1src(dc, OP_autdzb, Rd, Rd)
 
+/**
+ * Creates an AUTIA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTIA   <Xd>, <Xn|SP>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination  register, X (Extended, 64
+ *             bits).
+ * \param Rn   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_autia(dc, Rd, Rn) instr_create_1dst_2src(dc, OP_autia, Rd, Rd, Rn)
+
+/**
+ * Creates an AUTIA1716 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTIA1716
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_autia1716(dc)                                        \
+    instr_create_1dst_2src(dc, OP_autia1716, opnd_create_reg(DR_REG_X17), \
+                           opnd_create_reg(DR_REG_X17), opnd_create_reg(DR_REG_X16))
+
+/**
+ * Creates an AUTIASP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTIASP
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_autiasp(dc)                                        \
+    instr_create_1dst_2src(dc, OP_autiasp, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates an AUTIAZ instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTIAZ
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_autiaz(dc)                                        \
+    instr_create_1dst_1src(dc, OP_autiaz, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_X30))
+
+/**
+ * Creates an AUTIB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTIB   <Xd>, <Xn|SP>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination  register, X (Extended, 64
+ *             bits).
+ * \param Rn   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_autib(dc, Rd, Rn) instr_create_1dst_2src(dc, OP_autib, Rd, Rd, Rn)
+
+/**
+ * Creates an AUTIB1716 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTIB1716
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_autib1716(dc)                                        \
+    instr_create_1dst_2src(dc, OP_autib1716, opnd_create_reg(DR_REG_X17), \
+                           opnd_create_reg(DR_REG_X17), opnd_create_reg(DR_REG_X16))
+
+/**
+ * Creates an AUTIBSP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTIBSP
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_autibsp(dc)                                        \
+    instr_create_1dst_2src(dc, OP_autibsp, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates an AUTIBZ instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTIBZ
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_autibz(dc)                                        \
+    instr_create_1dst_1src(dc, OP_autibz, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_X30))
+
+/**
+ * Creates an AUTIZA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTIZA  <Xd>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_autiza(dc, Rd) instr_create_1dst_1src(dc, OP_autiza, Rd, Rd)
+
+/**
+ * Creates an AUTIZB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AUTIZB  <Xd>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_autizb(dc, Rd) instr_create_1dst_1src(dc, OP_autizb, Rd, Rd)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
