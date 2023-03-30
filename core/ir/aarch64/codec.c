@@ -1915,7 +1915,6 @@ encode_opnd_zero_fp_const(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint 
 
 /* nzcv: flag bit specifier for conditional compare */
 
-#if 0  /* Currently unused. */
 static inline bool
 decode_opnd_nzcv(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
@@ -1927,7 +1926,6 @@ encode_opnd_nzcv(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(0, 4, false, 0, 0, opnd, enc_out);
 }
-#endif /* Currently unused. */
 
 /* p0: SVE predicate register at bit position 0; P0-P15 */
 
@@ -4579,7 +4577,21 @@ encode_opnd_sveprf_gpr_vec64(uint enc, int opcode, byte *pc, opnd_t opnd,
         encode_svemem_gpr_vec(enc, DOUBLE_REG, msz, msz > 0, opnd, enc_out);
 }
 
-/* imm7: 7-bit immediate from bits 14-20 */
+/* imm6: 6-bit immediate from bits 20:15 */
+
+static inline bool
+decode_opnd_imm6_15(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(15, 6, false, 0, OPSZ_6b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_imm6_15(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(15, 6, false, 0, 0, opnd, enc_out);
+}
+
+/* imm7: 7-bit immediate from bits 20:14 */
 
 static inline bool
 decode_opnd_imm7(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -6797,9 +6809,9 @@ decode_svemem_vec_imm5(uint enc, aarch64_reg_offset element_size, bool is_prefet
     default: ASSERT_NOT_REACHED();
     }
 
-    *opnd = opnd_create_vector_base_disp_aarch64(zn, DR_REG_NULL,
-                                                 get_opnd_size_from_offset(element_size),
-                                                 0, false, imm5, 0, mem_transfer, 0);
+    *opnd = opnd_create_vector_base_disp_aarch64(
+        zn, DR_REG_NULL, get_opnd_size_from_offset(element_size), DR_EXTEND_UXTX, false,
+        imm5, 0, mem_transfer, 0);
 
     return true;
 }
@@ -6810,6 +6822,13 @@ encode_svemem_vec_imm5(uint enc, aarch64_reg_offset element_size, bool is_prefet
 {
     if (!opnd_is_base_disp(opnd) || opnd_get_index(opnd) != DR_REG_NULL ||
         get_vector_element_reg_offset(opnd) != element_size)
+        return false;
+
+    bool index_scaled;
+    uint index_scale_amount;
+    if (opnd_get_index_extend(opnd, &index_scaled, &index_scale_amount) !=
+            DR_EXTEND_UXTX ||
+        index_scaled || index_scale_amount != 0)
         return false;
 
     uint reg_number;
@@ -8335,6 +8354,7 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 #include "decode_gen_sve2.h"
 #include "decode_gen_sve.h"
 #include "decode_gen_v86.h"
+#include "decode_gen_v84.h"
 #include "decode_gen_v83.h"
 #include "decode_gen_v82.h"
 #include "decode_gen_v81.h"
@@ -8342,6 +8362,7 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 #include "encode_gen_sve2.h"
 #include "encode_gen_sve.h"
 #include "encode_gen_v86.h"
+#include "encode_gen_v84.h"
 #include "encode_gen_v83.h"
 #include "encode_gen_v82.h"
 #include "encode_gen_v81.h"

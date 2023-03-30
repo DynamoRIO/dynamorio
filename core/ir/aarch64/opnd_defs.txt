@@ -74,7 +74,7 @@
 --------------------------------  d_const_sz # as above, but for double width
 --------------------------------  vindex_D1  # An implicit index, at index 1
 --------------------------------  zero_fp_const # A constant zero operand
-----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
+----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP, RMIF
 ----------------------------xxxx  p0         # SVE predicate registers p0-p15
 ----------------------------xxxx  p_b_0      # P register with a byte element size
 ----------------------------xxxx  p_h_0      # P register with a halfword element size
@@ -214,7 +214,8 @@
 -----------xxxxx------xxxxx-----  svemem_gprs_b1  # memory reg from Rm and Rn fields transferring 1 bytes per element
 -----------xxxxx---xxx----------  imm8_10    # 8 bit imm at pos 10, split across 20:16 and 12:10
 -----------xxxxx-??---xxxxx-----  sveprf_gpr_vec64 # SVE prefetch memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod> <amount>}]
------------xxxxxxx--------------  imm7       # 7 bit immediate from 14-20
+-----------xxxxxx---------------  imm6_15    # 6 bit immediate from 20:15
+-----------xxxxxxx--------------  imm7       # 7 bit immediate from 20:14
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prf9       # size is 0 bytes (prefetch variant of mem9)

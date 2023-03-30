@@ -56,9 +56,18 @@ def main(dis_a64, rewrite=False):
         tests.append(current_test)
 
     def sort_fn(test):
+        """
+        Produce a unique key for a block of tests that can be used to sort the tests.
+        """
+        # Sort the tests alphabetically by mnemonic.
+        # Some instructions have multiple variants with the same mnemonic so we add the
+        # encoding of the first instruction in the test to the end of the key to make it
+        # unique. This ensures that we have a stable order when adding tests to a file.
         valid_line = next(line for line in test if line and not line.strip().startswith("#"))
-        mnemonic = valid_line.split(":")[1].strip().split()[0]
-        return mnemonic
+        parts = valid_line.split(":")
+        encoding = parts[0].strip()
+        mnemonic = parts[1].strip().split()[0]
+        return mnemonic+encoding
 
     tests.sort(key=sort_fn)
 
