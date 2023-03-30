@@ -1317,8 +1317,7 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
     if (tdata->out_archive != nullptr) {
         bool prev_was_encoding = false;
         int instr_ordinal = -1;
-        const trace_entry_t *it;
-        for (it = start; it < end; ++it) {
+        for (const trace_entry_t *it = start; it < end; ++it) {
             tdata->cur_chunk_ref_count += tdata->memref_counter.entry_memref_count(it);
             // We wait until we're past the final instr to write, to ensure we
             // get all its memrefs, by not stopping until we hit an instr or an
@@ -1352,7 +1351,8 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
             // a fatal error on a missing encoding?  For now the only complex case
             // is these already-generated records which we handle here and have a
             // unit test covering so those further checks are lower priority.
-            if (type_is_instr(static_cast<trace_type_t>(it->type)) &&
+            if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
+                type_is_instr(static_cast<trace_type_t>(it->type)) &&
                 !prev_was_encoding &&
                 record_encoding_emitted(tls, decode_pcs[instr_ordinal])) {
                 if (it > start &&
