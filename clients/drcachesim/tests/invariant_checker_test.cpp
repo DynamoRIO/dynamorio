@@ -461,13 +461,53 @@ check_function_markers()
     return true;
 }
 
+bool
+check_repeated_syscall_with_same_pc()
+{
+      // Negative: syscalls with the same PC.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+#    if defined(X86_64) || defined(X86_32)
+            gen_syscall_encoded(1, 2, { 0x0f, 0x05 } ),
+            gen_syscall_encoded(1, 2, { 0x0f, 0x05 } ),
+#    elif defined(ARM_64)
+            gen_branch_encoded(1, 2, 0x14000e0e),
+            gen_branch_encoded(1, 2, 0x14000e0e),
+#    endif
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+        };
+        if (!run_checker(memrefs, true, 1, 3, "Repeated syscall instrs with the same PC",
+                         "Failed to catch repeated syscall instrs with the same PC"))
+            return false;
+    }
+    // Positive test: syscalls with different PCs.
+    {
+        std::vector<memref_t> memrefs = {
+#    if defined(X86_64) || defined(X86_32)
+            gen_syscall_encoded(1, 2, { 0x0f, 0x05 }),
+            gen_syscall_encoded(1, 4, { 0x0f, 0x05 }),
+#    elif defined(ARM_64)
+            gen_branch_encoded(1, 2, 0x14000e0e),
+            gen_branch_encoded(1, 4, 0x14000e0e),
+#    endif
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 int
 main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
-        check_kernel_xfer() && check_rseq() && check_function_markers()) {
+        check_kernel_xfer() && check_rseq() && check_function_markers() &&
+        check_repeated_syscall_with_same_pc()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
