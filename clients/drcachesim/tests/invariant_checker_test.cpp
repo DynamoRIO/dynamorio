@@ -464,6 +464,7 @@ check_function_markers()
 bool
 check_repeated_syscall_with_same_pc()
 {
+#ifdef UNIX
     // Negative: syscalls with the same PC.
 #if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     {
@@ -509,6 +510,7 @@ check_repeated_syscall_with_same_pc()
             return false;
         }
     }
+#endif
 #endif
     return true;
 }
