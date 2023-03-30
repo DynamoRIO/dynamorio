@@ -152,8 +152,6 @@ x0001010xx0xxxxxxxxxxxxxxxxxxxxx  n   21   BASE        and            wx0 : wx5 
 x11100100xxxxxxxxxxxxxxxxxxxxxxx  w   22   BASE       ands      logic_imm
 x1101010xx0xxxxxxxxxxxxxxxxxxxxx  w   22   BASE       ands            wx0 : wx5 wx16 shift4 imm6
 x0011010110xxxxx001010xxxxxxxxxx  n   23   BASE       asrv            wx0 : wx5 wx16
-11010101000000110010000110011111  n   24   BASE  autia1716                :
-11010101000000110010000111011111  n   25   BASE  autib1716                :
 000101xxxxxxxxxxxxxxxxxxxxxxxxxx  n   26   BASE          b              b
 01010100xxxxxxxxxxxxxxxxxxx0xxxx  r   27   BASE      bcond          bcond
 0011001100xxxxxxxxxxxxxxxxxxxxxx  n   28   BASE        bfm             w0 : w0 w5 immr imms

@@ -104,6 +104,96 @@ dac13ff8 : autdzb x24                                : autdzb %x24 -> %x24
 dac13ffa : autdzb x26                                : autdzb %x26 -> %x26
 dac13ffe : autdzb x30                                : autdzb %x30 -> %x30
 
+# AUTIA1716  (AUTIA1716-R-auth)
+d503219f : autia1716                                 : autia1716 %x17 %x16 -> %x17
+
+# AUTIA   <Xd>, <Xn|SP> (AUTIA-R.R-auth)
+dac11000 : autia x0, x0                              : autia  %x0 %x0 -> %x0
+dac11062 : autia x2, x3                              : autia  %x2 %x3 -> %x2
+dac110a4 : autia x4, x5                              : autia  %x4 %x5 -> %x4
+dac110e6 : autia x6, x7                              : autia  %x6 %x7 -> %x6
+dac11128 : autia x8, x9                              : autia  %x8 %x9 -> %x8
+dac11149 : autia x9, x10                             : autia  %x9 %x10 -> %x9
+dac1118b : autia x11, x12                            : autia  %x11 %x12 -> %x11
+dac111cd : autia x13, x14                            : autia  %x13 %x14 -> %x13
+dac1120f : autia x15, x16                            : autia  %x15 %x16 -> %x15
+dac11251 : autia x17, x18                            : autia  %x17 %x18 -> %x17
+dac11293 : autia x19, x20                            : autia  %x19 %x20 -> %x19
+dac112d5 : autia x21, x22                            : autia  %x21 %x22 -> %x21
+dac112f6 : autia x22, x23                            : autia  %x22 %x23 -> %x22
+dac11338 : autia x24, x25                            : autia  %x24 %x25 -> %x24
+dac1137a : autia x26, x27                            : autia  %x26 %x27 -> %x26
+dac113fe : autia x30, sp                             : autia  %x30 %sp -> %x30
+
+# AUTIASP  (AUTIASP-R-auth)
+d50323bf : autiasp                                   : autiasp %x30 %sp -> %x30
+
+# AUTIAZ   (AUTIAZ-R-auth)
+d503239f : autiaz                                    : autiaz %x30 -> %x30
+
+# AUTIB1716  (AUTIB1716-R-auth)
+d50321df : autib1716                                 : autib1716 %x17 %x16 -> %x17
+
+# AUTIB   <Xd>, <Xn|SP> (AUTIB-R.R-auth)
+dac11400 : autib x0, x0                              : autib  %x0 %x0 -> %x0
+dac11462 : autib x2, x3                              : autib  %x2 %x3 -> %x2
+dac114a4 : autib x4, x5                              : autib  %x4 %x5 -> %x4
+dac114e6 : autib x6, x7                              : autib  %x6 %x7 -> %x6
+dac11528 : autib x8, x9                              : autib  %x8 %x9 -> %x8
+dac11549 : autib x9, x10                             : autib  %x9 %x10 -> %x9
+dac1158b : autib x11, x12                            : autib  %x11 %x12 -> %x11
+dac115cd : autib x13, x14                            : autib  %x13 %x14 -> %x13
+dac1160f : autib x15, x16                            : autib  %x15 %x16 -> %x15
+dac11651 : autib x17, x18                            : autib  %x17 %x18 -> %x17
+dac11693 : autib x19, x20                            : autib  %x19 %x20 -> %x19
+dac116d5 : autib x21, x22                            : autib  %x21 %x22 -> %x21
+dac116f6 : autib x22, x23                            : autib  %x22 %x23 -> %x22
+dac11738 : autib x24, x25                            : autib  %x24 %x25 -> %x24
+dac1177a : autib x26, x27                            : autib  %x26 %x27 -> %x26
+dac117fe : autib x30, sp                             : autib  %x30 %sp -> %x30
+
+# AUTIBSP  (AUTIBSP-R-auth)
+d50323ff : autibsp                                   : autibsp %x30 %sp -> %x30
+
+# AUTIBZ   (AUTIBZ-R-auth)
+d50323df : autibz                                    : autibz %x30 -> %x30
+
+# AUTIZA  <Xd> (AUTIZA-R-auth)
+dac133e0 : autiza x0                                 : autiza %x0 -> %x0
+dac133e2 : autiza x2                                 : autiza %x2 -> %x2
+dac133e4 : autiza x4                                 : autiza %x4 -> %x4
+dac133e6 : autiza x6                                 : autiza %x6 -> %x6
+dac133e8 : autiza x8                                 : autiza %x8 -> %x8
+dac133e9 : autiza x9                                 : autiza %x9 -> %x9
+dac133eb : autiza x11                                : autiza %x11 -> %x11
+dac133ed : autiza x13                                : autiza %x13 -> %x13
+dac133ef : autiza x15                                : autiza %x15 -> %x15
+dac133f1 : autiza x17                                : autiza %x17 -> %x17
+dac133f3 : autiza x19                                : autiza %x19 -> %x19
+dac133f5 : autiza x21                                : autiza %x21 -> %x21
+dac133f6 : autiza x22                                : autiza %x22 -> %x22
+dac133f8 : autiza x24                                : autiza %x24 -> %x24
+dac133fa : autiza x26                                : autiza %x26 -> %x26
+dac133fe : autiza x30                                : autiza %x30 -> %x30
+
+# AUTIZB  <Xd> (AUTIZB-R-auth)
+dac137e0 : autizb x0                                 : autizb %x0 -> %x0
+dac137e2 : autizb x2                                 : autizb %x2 -> %x2
+dac137e4 : autizb x4                                 : autizb %x4 -> %x4
+dac137e6 : autizb x6                                 : autizb %x6 -> %x6
+dac137e8 : autizb x8                                 : autizb %x8 -> %x8
+dac137e9 : autizb x9                                 : autizb %x9 -> %x9
+dac137eb : autizb x11                                : autizb %x11 -> %x11
+dac137ed : autizb x13                                : autizb %x13 -> %x13
+dac137ef : autizb x15                                : autizb %x15 -> %x15
+dac137f1 : autizb x17                                : autizb %x17 -> %x17
+dac137f3 : autizb x19                                : autizb %x19 -> %x19
+dac137f5 : autizb x21                                : autizb %x21 -> %x21
+dac137f6 : autizb x22                                : autizb %x22 -> %x22
+dac137f8 : autizb x24                                : autizb %x24 -> %x24
+dac137fa : autizb x26                                : autizb %x26 -> %x26
+dac137fe : autizb x30                                : autizb %x30 -> %x30
+
 # FCADD   <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, <imm> (FCADD-Q.QQ-Vec)
 2e40e400 : fcadd v0.4h, v0.4h, v0.4h, #0x5a          : fcadd  %d0 %d0 %d0 $0x005a $0x01 -> %d0
 2e44e462 : fcadd v2.4h, v3.4h, v4.4h, #0x5a          : fcadd  %d2 %d3 %d4 $0x005a $0x01 -> %d2
