@@ -1460,8 +1460,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
                               instr_get_target(instr)));
     }
-    switch (opc)
-    {
+    switch (opc) {
     case OP_blraa:
     case OP_blrab:
     case OP_blraaz:
@@ -1547,8 +1546,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG), target));
     }
 
-    switch (opc)
-    {
+    switch (opc) {
     // TODO i#5623: Add the other OP_reta* opcodes and handle them here.
     case OP_reta:
     case OP_braa:
