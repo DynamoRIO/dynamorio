@@ -313,7 +313,6 @@ pt2ir_t::convert(IN const uint8_t *next_pt_data, IN size_t next_pt_data_size,
                 pt_raw_buffer_data_size_ -= pos_offset;
                 cur_pt_data_end_offset_ -= pos_offset;
                 status = pt_insn_sync_set(pt_instr_decoder_, 0);
-                ERRMSG("pt_insn_sync_forward status: %d %d\n", status, -pte_eos);
             }
             if (status < 0) {
                 if (status == -pte_eos) {
@@ -422,7 +421,7 @@ pt2ir_t::convert(IN const uint8_t *next_pt_data, IN size_t next_pt_data_size,
             pt_decoder_status_ = status;
             uint64_t pos = 0;
             pt_insn_get_offset(pt_instr_decoder_, &pos);
-            if (pos >= cur_pt_data_end_offset_) {
+            if (pos > cur_pt_data_end_offset_) {
                 return PT2IR_CONV_SUCCESS;
             }
         }
