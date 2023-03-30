@@ -466,23 +466,23 @@ check_repeated_syscall_with_same_pc()
 {
 #ifdef UNIX
     // Negative: syscalls with the same PC.
-#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
+#    if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     {
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
-#    if defined(X86_64) || defined(X86_32)
+#        if defined(X86_64) || defined(X86_32)
             gen_syscall_encoded(1, 2, { 0x0f, 0x05 }),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_syscall_encoded(1, 2, { 0x0f, 0x05 }),
-#    elif defined(ARM_64)
+#        elif defined(ARM_64)
             gen_syscall_encoded(1, 2, 0xd4000001),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_syscall_encoded(1, 2, 0xd4000001),
-#    else
+#        else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
-#    endif
+#        endif
         };
         if (!run_checker(memrefs, true, 1, 5, "Repeated syscall instrs with the same PC",
                          "Failed to catch repeated syscall instrs with the same PC"))
@@ -492,25 +492,25 @@ check_repeated_syscall_with_same_pc()
     {
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
-#    if defined(X86_64) || defined(X86_32)
+#        if defined(X86_64) || defined(X86_32)
             gen_syscall_encoded(1, 2, { 0x0f, 0x05 }),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_syscall_encoded(1, 4, { 0x0f, 0x05 }),
-#    elif defined(ARM_64)
+#        elif defined(ARM_64)
             gen_syscall_encoded(1, 2, 0xd4000001),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_syscall_encoded(1, 6, 0xd4000001),
-#    else
+#        else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
-#    endif
+#        endif
         };
         if (!run_checker(memrefs, false)) {
             return false;
         }
     }
-#endif
+#    endif
 #endif
     return true;
 }
