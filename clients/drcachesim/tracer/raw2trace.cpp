@@ -1353,7 +1353,8 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
             // unit test covering so those further checks are lower priority.
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
                 type_is_instr(static_cast<trace_type_t>(it->type)) &&
-                !prev_was_encoding &&
+                // We don't want encodings for the PC-only i-filtered entries.
+                it->size > 0 && !prev_was_encoding &&
                 record_encoding_emitted(tls, decode_pcs[instr_ordinal])) {
                 if (it > start &&
                     !tdata->out_file->write(reinterpret_cast<const char *>(start),
