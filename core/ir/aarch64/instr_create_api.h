@@ -13691,4 +13691,199 @@
  */
 #define INSTR_CREATE_brabz(dc, Rn) instr_create_0dst_1src(dc, OP_brabz, Rn)
 
+/**
+ * Creates a PACDA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACDA   <Xd>, <Xn|SP>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination register, X (Extended, 64 bits).
+ * \param Rn   The second source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_pacda(dc, Rd, Rn) instr_create_1dst_2src(dc, OP_pacda, Rd, Rd, Rn)
+
+/**
+ * Creates a PACDB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACDB   <Xd>, <Xn|SP>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination register, X (Extended, 64 bits).
+ * \param Rn   The second source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_pacdb(dc, Rd, Rn) instr_create_1dst_2src(dc, OP_pacdb, Rd, Rd, Rn)
+
+/**
+ * Creates a PACDZA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACDZA  <Xd>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_pacdza(dc, Rd) instr_create_1dst_1src(dc, OP_pacdza, Rd, Rd)
+
+/**
+ * Creates a PACDZB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACDZB  <Xd>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_pacdzb(dc, Rd) instr_create_1dst_1src(dc, OP_pacdzb, Rd, Rd)
+
+/**
+ * Creates a PACGA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACGA   <Xd>, <Xn>, <Xm|SP>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination register, X (Extended, 64 bits).
+ * \param Rn   The first source register, X (Extended, 64 bits).
+ * \param Rm   The second source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_pacga(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_pacga, Rd, Rn, Rm)
+
+/**
+ * Creates a PACIA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACIA   <Xd>, <Xn|SP>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination  register, X (Extended, 64
+ *             bits).
+ * \param Rn   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_pacia(dc, Rd, Rn) instr_create_1dst_2src(dc, OP_pacia, Rd, Rd, Rn)
+
+/**
+ * Creates a PACIA1716 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACIA1716
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_pacia1716(dc)                                        \
+    instr_create_1dst_2src(dc, OP_pacia1716, opnd_create_reg(DR_REG_X17), \
+                           opnd_create_reg(DR_REG_X17), opnd_create_reg(DR_REG_X16))
+
+/**
+ * Creates a PACIASP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACIASP
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_paciasp(dc)                                        \
+    instr_create_1dst_2src(dc, OP_paciasp, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates a PACIAZ instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACIAZ
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_paciaz(dc)                                        \
+    instr_create_1dst_1src(dc, OP_paciaz, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_X30))
+
+/**
+ * Creates a PACIB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACIB   <Xd>, <Xn|SP>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The first source and destination  register, X (Extended, 64
+ *             bits).
+ * \param Rn   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_pacib(dc, Rd, Rn) instr_create_1dst_2src(dc, OP_pacib, Rd, Rd, Rn)
+
+/**
+ * Creates a PACIB1716 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACIB1716
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_pacib1716(dc)                                        \
+    instr_create_1dst_2src(dc, OP_pacib1716, opnd_create_reg(DR_REG_X17), \
+                           opnd_create_reg(DR_REG_X17), opnd_create_reg(DR_REG_X16))
+
+/**
+ * Creates a PACIBSP instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACIBSP
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_pacibsp(dc)                                        \
+    instr_create_1dst_2src(dc, OP_pacibsp, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates a PACIBZ instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACIBZ
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_pacibz(dc)                                        \
+    instr_create_1dst_1src(dc, OP_pacibz, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_X30))
+
+/**
+ * Creates a PACIZA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACIZA  <Xd>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_paciza(dc, Rd) instr_create_1dst_1src(dc, OP_paciza, Rd, Rd)
+
+/**
+ * Creates a PACIZB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PACIZB  <Xd>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_pacizb(dc, Rd) instr_create_1dst_1src(dc, OP_pacizb, Rd, Rd)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
