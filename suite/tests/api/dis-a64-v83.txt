@@ -520,6 +520,78 @@ d61f0fdf : brabz x30                                 : brabz  %x30
 6f9d7b9b : fcmla v27.4s, v28.4s, v29.s[1], #0x10e    : fcmla  %q27 %q28 %q29 $0x01 $0x010e $0x02 -> %q27
 6f9f7bff : fcmla v31.4s, v31.4s, v31.s[1], #0x10e    : fcmla  %q31 %q31 %q31 $0x01 $0x010e $0x02 -> %q31
 
+# LDRAA   <Xt>, [<Xn|SP>, #<simm>] (LDRAA-R.RI-auth_offset)
+f8600400 : ldraa x0, [x0, #-4096]                    : ldraa  -0x1000(%x0)[8byte] -> %x0
+f8640462 : ldraa x2, [x3, #-3584]                    : ldraa  -0x0e00(%x3)[8byte] -> %x2
+f86804a4 : ldraa x4, [x5, #-3072]                    : ldraa  -0x0c00(%x5)[8byte] -> %x4
+f86c04e6 : ldraa x6, [x7, #-2560]                    : ldraa  -0x0a00(%x7)[8byte] -> %x6
+f8700528 : ldraa x8, [x9, #-2048]                    : ldraa  -0x0800(%x9)[8byte] -> %x8
+f8740549 : ldraa x9, [x10, #-1536]                   : ldraa  -0x0600(%x10)[8byte] -> %x9
+f878058b : ldraa x11, [x12, #-1024]                  : ldraa  -0x0400(%x12)[8byte] -> %x11
+f87c05cd : ldraa x13, [x14, #-512]                   : ldraa  -0x0200(%x14)[8byte] -> %x13
+f820060f : ldraa x15, [x16, #0]                      : ldraa  (%x16)[8byte] -> %x15
+f823f651 : ldraa x17, [x18, #504]                    : ldraa  +0x01f8(%x18)[8byte] -> %x17
+f827f693 : ldraa x19, [x20, #1016]                   : ldraa  +0x03f8(%x20)[8byte] -> %x19
+f82bf6d5 : ldraa x21, [x22, #1528]                   : ldraa  +0x05f8(%x22)[8byte] -> %x21
+f82ff6f6 : ldraa x22, [x23, #2040]                   : ldraa  +0x07f8(%x23)[8byte] -> %x22
+f833f738 : ldraa x24, [x25, #2552]                   : ldraa  +0x09f8(%x25)[8byte] -> %x24
+f837f77a : ldraa x26, [x27, #3064]                   : ldraa  +0x0bf8(%x27)[8byte] -> %x26
+f83ff7fe : ldraa x30, [sp, #4088]                    : ldraa  +0x0ff8(%sp)[8byte] -> %x30
+
+# LDRAA   <Xt>, [<Xn|SP>, #<simm>]! (LDRAA-R.RI-auth_immpre)
+f8600c00 : ldraa x0, [x0, #-4096]!                   : ldraa  -0x1000(%x0)[8byte] %x0 $0xfffffffffffff000 -> %x0 %x0
+f8640c62 : ldraa x2, [x3, #-3584]!                   : ldraa  -0x0e00(%x3)[8byte] %x3 $0xfffffffffffff200 -> %x2 %x3
+f8680ca4 : ldraa x4, [x5, #-3072]!                   : ldraa  -0x0c00(%x5)[8byte] %x5 $0xfffffffffffff400 -> %x4 %x5
+f86c0ce6 : ldraa x6, [x7, #-2560]!                   : ldraa  -0x0a00(%x7)[8byte] %x7 $0xfffffffffffff600 -> %x6 %x7
+f8700d28 : ldraa x8, [x9, #-2048]!                   : ldraa  -0x0800(%x9)[8byte] %x9 $0xfffffffffffff800 -> %x8 %x9
+f8740d49 : ldraa x9, [x10, #-1536]!                  : ldraa  -0x0600(%x10)[8byte] %x10 $0xfffffffffffffa00 -> %x9 %x10
+f8780d8b : ldraa x11, [x12, #-1024]!                 : ldraa  -0x0400(%x12)[8byte] %x12 $0xfffffffffffffc00 -> %x11 %x12
+f87c0dcd : ldraa x13, [x14, #-512]!                  : ldraa  -0x0200(%x14)[8byte] %x14 $0xfffffffffffffe00 -> %x13 %x14
+f8200e0f : ldraa x15, [x16, #0]!                     : ldraa  (%x16)[8byte] %x16 $0x0000000000000000 -> %x15 %x16
+f823fe51 : ldraa x17, [x18, #504]!                   : ldraa  +0x01f8(%x18)[8byte] %x18 $0x00000000000001f8 -> %x17 %x18
+f827fe93 : ldraa x19, [x20, #1016]!                  : ldraa  +0x03f8(%x20)[8byte] %x20 $0x00000000000003f8 -> %x19 %x20
+f82bfed5 : ldraa x21, [x22, #1528]!                  : ldraa  +0x05f8(%x22)[8byte] %x22 $0x00000000000005f8 -> %x21 %x22
+f82ffef6 : ldraa x22, [x23, #2040]!                  : ldraa  +0x07f8(%x23)[8byte] %x23 $0x00000000000007f8 -> %x22 %x23
+f833ff38 : ldraa x24, [x25, #2552]!                  : ldraa  +0x09f8(%x25)[8byte] %x25 $0x00000000000009f8 -> %x24 %x25
+f837ff7a : ldraa x26, [x27, #3064]!                  : ldraa  +0x0bf8(%x27)[8byte] %x27 $0x0000000000000bf8 -> %x26 %x27
+f83ffffe : ldraa x30, [sp, #4088]!                   : ldraa  +0x0ff8(%sp)[8byte] %sp $0x0000000000000ff8 -> %x30 %sp
+
+# LDRAB   <Xt>, [<Xn|SP>, #<simm>] (LDRAB-R.RI-auth_offset)
+f8e00400 : ldrab x0, [x0, #-4096]                    : ldrab  -0x1000(%x0)[8byte] -> %x0
+f8e40462 : ldrab x2, [x3, #-3584]                    : ldrab  -0x0e00(%x3)[8byte] -> %x2
+f8e804a4 : ldrab x4, [x5, #-3072]                    : ldrab  -0x0c00(%x5)[8byte] -> %x4
+f8ec04e6 : ldrab x6, [x7, #-2560]                    : ldrab  -0x0a00(%x7)[8byte] -> %x6
+f8f00528 : ldrab x8, [x9, #-2048]                    : ldrab  -0x0800(%x9)[8byte] -> %x8
+f8f40549 : ldrab x9, [x10, #-1536]                   : ldrab  -0x0600(%x10)[8byte] -> %x9
+f8f8058b : ldrab x11, [x12, #-1024]                  : ldrab  -0x0400(%x12)[8byte] -> %x11
+f8fc05cd : ldrab x13, [x14, #-512]                   : ldrab  -0x0200(%x14)[8byte] -> %x13
+f8a0060f : ldrab x15, [x16, #0]                      : ldrab  (%x16)[8byte] -> %x15
+f8a3f651 : ldrab x17, [x18, #504]                    : ldrab  +0x01f8(%x18)[8byte] -> %x17
+f8a7f693 : ldrab x19, [x20, #1016]                   : ldrab  +0x03f8(%x20)[8byte] -> %x19
+f8abf6d5 : ldrab x21, [x22, #1528]                   : ldrab  +0x05f8(%x22)[8byte] -> %x21
+f8aff6f6 : ldrab x22, [x23, #2040]                   : ldrab  +0x07f8(%x23)[8byte] -> %x22
+f8b3f738 : ldrab x24, [x25, #2552]                   : ldrab  +0x09f8(%x25)[8byte] -> %x24
+f8b7f77a : ldrab x26, [x27, #3064]                   : ldrab  +0x0bf8(%x27)[8byte] -> %x26
+f8bff7fe : ldrab x30, [sp, #4088]                    : ldrab  +0x0ff8(%sp)[8byte] -> %x30
+
+# LDRAB   <Xt>, [<Xn|SP>, #<simm>]! (LDRAB-R.RI-auth_immpre)
+f8e00c00 : ldrab x0, [x0, #-4096]!                   : ldrab  -0x1000(%x0)[8byte] %x0 $0xfffffffffffff000 -> %x0 %x0
+f8e40c62 : ldrab x2, [x3, #-3584]!                   : ldrab  -0x0e00(%x3)[8byte] %x3 $0xfffffffffffff200 -> %x2 %x3
+f8e80ca4 : ldrab x4, [x5, #-3072]!                   : ldrab  -0x0c00(%x5)[8byte] %x5 $0xfffffffffffff400 -> %x4 %x5
+f8ec0ce6 : ldrab x6, [x7, #-2560]!                   : ldrab  -0x0a00(%x7)[8byte] %x7 $0xfffffffffffff600 -> %x6 %x7
+f8f00d28 : ldrab x8, [x9, #-2048]!                   : ldrab  -0x0800(%x9)[8byte] %x9 $0xfffffffffffff800 -> %x8 %x9
+f8f40d49 : ldrab x9, [x10, #-1536]!                  : ldrab  -0x0600(%x10)[8byte] %x10 $0xfffffffffffffa00 -> %x9 %x10
+f8f80d8b : ldrab x11, [x12, #-1024]!                 : ldrab  -0x0400(%x12)[8byte] %x12 $0xfffffffffffffc00 -> %x11 %x12
+f8fc0dcd : ldrab x13, [x14, #-512]!                  : ldrab  -0x0200(%x14)[8byte] %x14 $0xfffffffffffffe00 -> %x13 %x14
+f8a00e0f : ldrab x15, [x16, #0]!                     : ldrab  (%x16)[8byte] %x16 $0x0000000000000000 -> %x15 %x16
+f8a3fe51 : ldrab x17, [x18, #504]!                   : ldrab  +0x01f8(%x18)[8byte] %x18 $0x00000000000001f8 -> %x17 %x18
+f8a7fe93 : ldrab x19, [x20, #1016]!                  : ldrab  +0x03f8(%x20)[8byte] %x20 $0x00000000000003f8 -> %x19 %x20
+f8abfed5 : ldrab x21, [x22, #1528]!                  : ldrab  +0x05f8(%x22)[8byte] %x22 $0x00000000000005f8 -> %x21 %x22
+f8affef6 : ldrab x22, [x23, #2040]!                  : ldrab  +0x07f8(%x23)[8byte] %x23 $0x00000000000007f8 -> %x22 %x23
+f8b3ff38 : ldrab x24, [x25, #2552]!                  : ldrab  +0x09f8(%x25)[8byte] %x25 $0x00000000000009f8 -> %x24 %x25
+f8b7ff7a : ldrab x26, [x27, #3064]!                  : ldrab  +0x0bf8(%x27)[8byte] %x27 $0x0000000000000bf8 -> %x26 %x27
+f8bffffe : ldrab x30, [sp, #4088]!                   : ldrab  +0x0ff8(%sp)[8byte] %sp $0x0000000000000ff8 -> %x30 %sp
+
 # PACDA   <Xd>, <Xn|SP> (PACDA-R.R-auth)
 dac10800 : pacda x0, x0                              : pacda  %x0 %x0 -> %x0
 dac10862 : pacda x2, x3                              : pacda  %x2 %x3 -> %x2
