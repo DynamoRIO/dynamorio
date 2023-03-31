@@ -288,6 +288,7 @@ TEST_INSTR(pauth_hints)
     TEST_NO_OPNDS(pacib1716, pacib1716, "pacib1716 %x17 %x16 -> %x17");
     TEST_NO_OPNDS(pacibsp, pacibsp, "pacibsp %x30 %sp -> %x30");
     TEST_NO_OPNDS(pacibz, pacibz, "pacibz %x30 -> %x30");
+    TEST_NO_OPNDS(xpaclri, xpaclri, "xpaclri %x30 -> %x30");
 }
 
 TEST_INSTR(autib)
@@ -567,6 +568,27 @@ TEST_INSTR(ldrab)
         ldrab, ldrab, 6, expected_1_0[i], opnd_create_reg(Xn_six_offset_0[i]),
         opnd_create_base_disp(Xn_six_offset_1_sp[i], DR_REG_NULL, 0, simm[i], OPSZ_8));
 }
+
+TEST_INSTR(xpacd)
+{
+    /* Testing XPACD   <Xd> */
+    const char *const expected_0_0[6] = {
+        "xpacd  %x0 -> %x0",   "xpacd  %x5 -> %x5",   "xpacd  %x10 -> %x10",
+        "xpacd  %x15 -> %x15", "xpacd  %x20 -> %x20", "xpacd  %x30 -> %x30",
+    };
+    TEST_LOOP(xpacd, xpacd, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
+TEST_INSTR(xpaci)
+{
+    /* Testing XPACI   <Xd> */
+    const char *const expected_0_0[6] = {
+        "xpaci  %x0 -> %x0",   "xpaci  %x5 -> %x5",   "xpaci  %x10 -> %x10",
+        "xpaci  %x15 -> %x15", "xpaci  %x20 -> %x20", "xpaci  %x30 -> %x30",
+    };
+    TEST_LOOP(xpaci, xpaci, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -612,6 +634,8 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(pacizb);
     RUN_INSTR_TEST(ldraa);
     RUN_INSTR_TEST(ldrab);
+    RUN_INSTR_TEST(xpacd);
+    RUN_INSTR_TEST(xpaci);
 
     print("All v8.3 tests complete.");
 #ifndef STANDALONE_DECODER
