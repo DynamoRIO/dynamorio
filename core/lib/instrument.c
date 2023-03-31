@@ -1955,6 +1955,14 @@ instrument_module_load_trigger(app_pc pc)
         if (ma != NULL && !TEST(MODULE_LOAD_EVENT, ma->flags)) {
             /* switch to write lock */
             os_get_module_info_unlock();
+
+            /* i#3385: re-initialize dynamic information, because it failed
+             * during the first flat-mmap that loaded the module.
+             */
+            if (!ma->os_data.have_dynamic_info) {
+                os_module_update_dynamic_info(ma->start, ma->end - ma->start, false);
+            }
+
             os_get_module_info_write_lock();
             ma = module_pc_lookup(pc);
             if (ma != NULL && !TEST(MODULE_LOAD_EVENT, ma->flags)) {
