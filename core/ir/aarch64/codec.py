@@ -209,7 +209,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props, curr_isa, next_is
                         indent_append('    ASSERT(0);')
                 enc_key = fallthrough_instr_id(
                     pattern.opcode, pattern.opcode_bits, pattern.opnd_bits)
-                if enc_key in FALLTHROUGH and patten.opndset == FALLTHROUGH[enc_key].opndset:
+                if enc_key in FALLTHROUGH and pattern.opndset == FALLTHROUGH[enc_key].opndset:
                     indent_append('    %s = true;' % FALLTHROUGH[enc_key].flag_name)
                     FALLTHROUGH[enc_key].decode_clause = \
                         'if ((enc & 0x%08x) == 0x%08x && %s == true)' % \
@@ -690,11 +690,11 @@ def main():
     output_dir = sys.argv[2]
 
     # The Arm AArch64's architecture versions supported by the DynamoRIO codec.
-    # Currently, v8.0 is fully supported, while v8.1, v8.2, v8.3, v8.6, SVE,
+    # Currently, v8.0 is fully supported, while v8.1, v8.2, v8.3, v8.4, v8.6, SVE,
     # and SVE2 are partially supported. The null terminator element at the end
     # is required by some generator functions to correctly generate links
     # between each version's decode/encode logic.
-    isa_versions = ['v80', 'v81', 'v82', 'v83', 'v86', 'sve', 'sve2', '']
+    isa_versions = ['v80', 'v81', 'v82', 'v83', 'v84', 'v86', 'sve', 'sve2', '']
 
     # Read the instruction operand definitions. Used by the codec when
     # generating code to decode and encode instructions.

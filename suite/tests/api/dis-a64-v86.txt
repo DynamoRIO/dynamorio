@@ -86,40 +86,6 @@
 4ea16b9b : bfcvtn2 v27.8h, v28.4s                    : bfcvtn2 %q28 $0x02 -> %q27
 4ea16bff : bfcvtn2 v31.8h, v31.4s                    : bfcvtn2 %q31 $0x02 -> %q31
 
-# BFDOT   <Sd>.<T>, <Hn>.<Tb>, <Hm>.<Tb> (BFDOT-Q.QQ-Vec)
-2e40fc00 : bfdot v0.2s, v0.4h, v0.4h                 : bfdot  %d0 %d0 %d0 $0x01 -> %d0
-2e44fc62 : bfdot v2.2s, v3.4h, v4.4h                 : bfdot  %d2 %d3 %d4 $0x01 -> %d2
-2e46fca4 : bfdot v4.2s, v5.4h, v6.4h                 : bfdot  %d4 %d5 %d6 $0x01 -> %d4
-2e48fce6 : bfdot v6.2s, v7.4h, v8.4h                 : bfdot  %d6 %d7 %d8 $0x01 -> %d6
-2e4afd28 : bfdot v8.2s, v9.4h, v10.4h                : bfdot  %d8 %d9 %d10 $0x01 -> %d8
-2e4cfd6a : bfdot v10.2s, v11.4h, v12.4h              : bfdot  %d10 %d11 %d12 $0x01 -> %d10
-2e4efdac : bfdot v12.2s, v13.4h, v14.4h              : bfdot  %d12 %d13 %d14 $0x01 -> %d12
-2e50fdee : bfdot v14.2s, v15.4h, v16.4h              : bfdot  %d14 %d15 %d16 $0x01 -> %d14
-2e52fe30 : bfdot v16.2s, v17.4h, v18.4h              : bfdot  %d16 %d17 %d18 $0x01 -> %d16
-2e53fe51 : bfdot v17.2s, v18.4h, v19.4h              : bfdot  %d17 %d18 %d19 $0x01 -> %d17
-2e55fe93 : bfdot v19.2s, v20.4h, v21.4h              : bfdot  %d19 %d20 %d21 $0x01 -> %d19
-2e57fed5 : bfdot v21.2s, v22.4h, v23.4h              : bfdot  %d21 %d22 %d23 $0x01 -> %d21
-2e59ff17 : bfdot v23.2s, v24.4h, v25.4h              : bfdot  %d23 %d24 %d25 $0x01 -> %d23
-2e5bff59 : bfdot v25.2s, v26.4h, v27.4h              : bfdot  %d25 %d26 %d27 $0x01 -> %d25
-2e5dff9b : bfdot v27.2s, v28.4h, v29.4h              : bfdot  %d27 %d28 %d29 $0x01 -> %d27
-2e5fffff : bfdot v31.2s, v31.4h, v31.4h              : bfdot  %d31 %d31 %d31 $0x01 -> %d31
-6e40fc00 : bfdot v0.4s, v0.8h, v0.8h                 : bfdot  %q0 %q0 %q0 $0x01 -> %q0
-6e44fc62 : bfdot v2.4s, v3.8h, v4.8h                 : bfdot  %q2 %q3 %q4 $0x01 -> %q2
-6e46fca4 : bfdot v4.4s, v5.8h, v6.8h                 : bfdot  %q4 %q5 %q6 $0x01 -> %q4
-6e48fce6 : bfdot v6.4s, v7.8h, v8.8h                 : bfdot  %q6 %q7 %q8 $0x01 -> %q6
-6e4afd28 : bfdot v8.4s, v9.8h, v10.8h                : bfdot  %q8 %q9 %q10 $0x01 -> %q8
-6e4cfd6a : bfdot v10.4s, v11.8h, v12.8h              : bfdot  %q10 %q11 %q12 $0x01 -> %q10
-6e4efdac : bfdot v12.4s, v13.8h, v14.8h              : bfdot  %q12 %q13 %q14 $0x01 -> %q12
-6e50fdee : bfdot v14.4s, v15.8h, v16.8h              : bfdot  %q14 %q15 %q16 $0x01 -> %q14
-6e52fe30 : bfdot v16.4s, v17.8h, v18.8h              : bfdot  %q16 %q17 %q18 $0x01 -> %q16
-6e53fe51 : bfdot v17.4s, v18.8h, v19.8h              : bfdot  %q17 %q18 %q19 $0x01 -> %q17
-6e55fe93 : bfdot v19.4s, v20.8h, v21.8h              : bfdot  %q19 %q20 %q21 $0x01 -> %q19
-6e57fed5 : bfdot v21.4s, v22.8h, v23.8h              : bfdot  %q21 %q22 %q23 $0x01 -> %q21
-6e59ff17 : bfdot v23.4s, v24.8h, v25.8h              : bfdot  %q23 %q24 %q25 $0x01 -> %q23
-6e5bff59 : bfdot v25.4s, v26.8h, v27.8h              : bfdot  %q25 %q26 %q27 $0x01 -> %q25
-6e5dff9b : bfdot v27.4s, v28.8h, v29.8h              : bfdot  %q27 %q28 %q29 $0x01 -> %q27
-6e5fffff : bfdot v31.4s, v31.8h, v31.8h              : bfdot  %q31 %q31 %q31 $0x01 -> %q31
-
 # BFDOT   <Sd>.<T>, <Hn>.<Tb>, <Hm>.2H[<imm>] (BFDOT-Q.QQi-asimdelem_L)
 0f40f000 : bfdot v0.2s, v0.4h, v0.2h[0]              : bfdot  %d0 %d0 %q0 $0x00 $0x01 -> %d0
 0f44f062 : bfdot v2.2s, v3.4h, v4.2h[0]              : bfdot  %d2 %d3 %q4 $0x00 $0x01 -> %d2
@@ -154,23 +120,39 @@
 4f7dfb9b : bfdot v27.4s, v28.8h, v29.2h[3]           : bfdot  %q27 %q28 %q29 $0x03 $0x01 -> %q27
 4f7ffbff : bfdot v31.4s, v31.8h, v31.2h[3]           : bfdot  %q31 %q31 %q31 $0x03 $0x01 -> %q31
 
-# BFMLALB <Sd>.4S, <Hn>.8H, <Hm>.8H (BFMLALB-Q.QQ-Vec)
-2ec0fc00 : bfmlalb v0.4s, v0.8h, v0.8h               : bfmlalb %q0 %q0 %q0 $0x01 -> %q0
-2ec4fc62 : bfmlalb v2.4s, v3.8h, v4.8h               : bfmlalb %q2 %q3 %q4 $0x01 -> %q2
-2ec6fca4 : bfmlalb v4.4s, v5.8h, v6.8h               : bfmlalb %q4 %q5 %q6 $0x01 -> %q4
-2ec8fce6 : bfmlalb v6.4s, v7.8h, v8.8h               : bfmlalb %q6 %q7 %q8 $0x01 -> %q6
-2ecafd28 : bfmlalb v8.4s, v9.8h, v10.8h              : bfmlalb %q8 %q9 %q10 $0x01 -> %q8
-2eccfd6a : bfmlalb v10.4s, v11.8h, v12.8h            : bfmlalb %q10 %q11 %q12 $0x01 -> %q10
-2ecefdac : bfmlalb v12.4s, v13.8h, v14.8h            : bfmlalb %q12 %q13 %q14 $0x01 -> %q12
-2ed0fdee : bfmlalb v14.4s, v15.8h, v16.8h            : bfmlalb %q14 %q15 %q16 $0x01 -> %q14
-2ed2fe30 : bfmlalb v16.4s, v17.8h, v18.8h            : bfmlalb %q16 %q17 %q18 $0x01 -> %q16
-2ed3fe51 : bfmlalb v17.4s, v18.8h, v19.8h            : bfmlalb %q17 %q18 %q19 $0x01 -> %q17
-2ed5fe93 : bfmlalb v19.4s, v20.8h, v21.8h            : bfmlalb %q19 %q20 %q21 $0x01 -> %q19
-2ed7fed5 : bfmlalb v21.4s, v22.8h, v23.8h            : bfmlalb %q21 %q22 %q23 $0x01 -> %q21
-2ed9ff17 : bfmlalb v23.4s, v24.8h, v25.8h            : bfmlalb %q23 %q24 %q25 $0x01 -> %q23
-2edbff59 : bfmlalb v25.4s, v26.8h, v27.8h            : bfmlalb %q25 %q26 %q27 $0x01 -> %q25
-2eddff9b : bfmlalb v27.4s, v28.8h, v29.8h            : bfmlalb %q27 %q28 %q29 $0x01 -> %q27
-2edfffff : bfmlalb v31.4s, v31.8h, v31.8h            : bfmlalb %q31 %q31 %q31 $0x01 -> %q31
+# BFDOT   <Sd>.<T>, <Hn>.<Tb>, <Hm>.<Tb> (BFDOT-Q.QQ-Vec)
+2e40fc00 : bfdot v0.2s, v0.4h, v0.4h                 : bfdot  %d0 %d0 %d0 $0x01 -> %d0
+2e44fc62 : bfdot v2.2s, v3.4h, v4.4h                 : bfdot  %d2 %d3 %d4 $0x01 -> %d2
+2e46fca4 : bfdot v4.2s, v5.4h, v6.4h                 : bfdot  %d4 %d5 %d6 $0x01 -> %d4
+2e48fce6 : bfdot v6.2s, v7.4h, v8.4h                 : bfdot  %d6 %d7 %d8 $0x01 -> %d6
+2e4afd28 : bfdot v8.2s, v9.4h, v10.4h                : bfdot  %d8 %d9 %d10 $0x01 -> %d8
+2e4cfd6a : bfdot v10.2s, v11.4h, v12.4h              : bfdot  %d10 %d11 %d12 $0x01 -> %d10
+2e4efdac : bfdot v12.2s, v13.4h, v14.4h              : bfdot  %d12 %d13 %d14 $0x01 -> %d12
+2e50fdee : bfdot v14.2s, v15.4h, v16.4h              : bfdot  %d14 %d15 %d16 $0x01 -> %d14
+2e52fe30 : bfdot v16.2s, v17.4h, v18.4h              : bfdot  %d16 %d17 %d18 $0x01 -> %d16
+2e53fe51 : bfdot v17.2s, v18.4h, v19.4h              : bfdot  %d17 %d18 %d19 $0x01 -> %d17
+2e55fe93 : bfdot v19.2s, v20.4h, v21.4h              : bfdot  %d19 %d20 %d21 $0x01 -> %d19
+2e57fed5 : bfdot v21.2s, v22.4h, v23.4h              : bfdot  %d21 %d22 %d23 $0x01 -> %d21
+2e59ff17 : bfdot v23.2s, v24.4h, v25.4h              : bfdot  %d23 %d24 %d25 $0x01 -> %d23
+2e5bff59 : bfdot v25.2s, v26.4h, v27.4h              : bfdot  %d25 %d26 %d27 $0x01 -> %d25
+2e5dff9b : bfdot v27.2s, v28.4h, v29.4h              : bfdot  %d27 %d28 %d29 $0x01 -> %d27
+2e5fffff : bfdot v31.2s, v31.4h, v31.4h              : bfdot  %d31 %d31 %d31 $0x01 -> %d31
+6e40fc00 : bfdot v0.4s, v0.8h, v0.8h                 : bfdot  %q0 %q0 %q0 $0x01 -> %q0
+6e44fc62 : bfdot v2.4s, v3.8h, v4.8h                 : bfdot  %q2 %q3 %q4 $0x01 -> %q2
+6e46fca4 : bfdot v4.4s, v5.8h, v6.8h                 : bfdot  %q4 %q5 %q6 $0x01 -> %q4
+6e48fce6 : bfdot v6.4s, v7.8h, v8.8h                 : bfdot  %q6 %q7 %q8 $0x01 -> %q6
+6e4afd28 : bfdot v8.4s, v9.8h, v10.8h                : bfdot  %q8 %q9 %q10 $0x01 -> %q8
+6e4cfd6a : bfdot v10.4s, v11.8h, v12.8h              : bfdot  %q10 %q11 %q12 $0x01 -> %q10
+6e4efdac : bfdot v12.4s, v13.8h, v14.8h              : bfdot  %q12 %q13 %q14 $0x01 -> %q12
+6e50fdee : bfdot v14.4s, v15.8h, v16.8h              : bfdot  %q14 %q15 %q16 $0x01 -> %q14
+6e52fe30 : bfdot v16.4s, v17.8h, v18.8h              : bfdot  %q16 %q17 %q18 $0x01 -> %q16
+6e53fe51 : bfdot v17.4s, v18.8h, v19.8h              : bfdot  %q17 %q18 %q19 $0x01 -> %q17
+6e55fe93 : bfdot v19.4s, v20.8h, v21.8h              : bfdot  %q19 %q20 %q21 $0x01 -> %q19
+6e57fed5 : bfdot v21.4s, v22.8h, v23.8h              : bfdot  %q21 %q22 %q23 $0x01 -> %q21
+6e59ff17 : bfdot v23.4s, v24.8h, v25.8h              : bfdot  %q23 %q24 %q25 $0x01 -> %q23
+6e5bff59 : bfdot v25.4s, v26.8h, v27.8h              : bfdot  %q25 %q26 %q27 $0x01 -> %q25
+6e5dff9b : bfdot v27.4s, v28.8h, v29.8h              : bfdot  %q27 %q28 %q29 $0x01 -> %q27
+6e5fffff : bfdot v31.4s, v31.8h, v31.8h              : bfdot  %q31 %q31 %q31 $0x01 -> %q31
 
 # BFMLALB <Sd>.4S, <Hn>.8H, <Hm>.H[<imm>] (BFMLALB-Q.QQi-asimdelem_L)
 0fc0f000 : bfmlalb v0.4s, v0.8h, v0.h[0]             : bfmlalb %q0 %q0 %q0 $0x00 $0x01 -> %q0
@@ -190,23 +172,23 @@
 0feffb9b : bfmlalb v27.4s, v28.8h, v15.h[6]          : bfmlalb %q27 %q28 %q15 $0x06 $0x01 -> %q27
 0ffffbff : bfmlalb v31.4s, v31.8h, v15.h[7]          : bfmlalb %q31 %q31 %q15 $0x07 $0x01 -> %q31
 
-# BFMLALT <Sd>.4S, <Hn>.8H, <Hm>.8H (BFMLALT-Q.QQ-Vec)
-6ec0fc00 : bfmlalt v0.4s, v0.8h, v0.8h               : bfmlalt %q0 %q0 %q0 $0x01 -> %q0
-6ec4fc62 : bfmlalt v2.4s, v3.8h, v4.8h               : bfmlalt %q2 %q3 %q4 $0x01 -> %q2
-6ec6fca4 : bfmlalt v4.4s, v5.8h, v6.8h               : bfmlalt %q4 %q5 %q6 $0x01 -> %q4
-6ec8fce6 : bfmlalt v6.4s, v7.8h, v8.8h               : bfmlalt %q6 %q7 %q8 $0x01 -> %q6
-6ecafd28 : bfmlalt v8.4s, v9.8h, v10.8h              : bfmlalt %q8 %q9 %q10 $0x01 -> %q8
-6eccfd6a : bfmlalt v10.4s, v11.8h, v12.8h            : bfmlalt %q10 %q11 %q12 $0x01 -> %q10
-6ecefdac : bfmlalt v12.4s, v13.8h, v14.8h            : bfmlalt %q12 %q13 %q14 $0x01 -> %q12
-6ed0fdee : bfmlalt v14.4s, v15.8h, v16.8h            : bfmlalt %q14 %q15 %q16 $0x01 -> %q14
-6ed2fe30 : bfmlalt v16.4s, v17.8h, v18.8h            : bfmlalt %q16 %q17 %q18 $0x01 -> %q16
-6ed3fe51 : bfmlalt v17.4s, v18.8h, v19.8h            : bfmlalt %q17 %q18 %q19 $0x01 -> %q17
-6ed5fe93 : bfmlalt v19.4s, v20.8h, v21.8h            : bfmlalt %q19 %q20 %q21 $0x01 -> %q19
-6ed7fed5 : bfmlalt v21.4s, v22.8h, v23.8h            : bfmlalt %q21 %q22 %q23 $0x01 -> %q21
-6ed9ff17 : bfmlalt v23.4s, v24.8h, v25.8h            : bfmlalt %q23 %q24 %q25 $0x01 -> %q23
-6edbff59 : bfmlalt v25.4s, v26.8h, v27.8h            : bfmlalt %q25 %q26 %q27 $0x01 -> %q25
-6eddff9b : bfmlalt v27.4s, v28.8h, v29.8h            : bfmlalt %q27 %q28 %q29 $0x01 -> %q27
-6edfffff : bfmlalt v31.4s, v31.8h, v31.8h            : bfmlalt %q31 %q31 %q31 $0x01 -> %q31
+# BFMLALB <Sd>.4S, <Hn>.8H, <Hm>.8H (BFMLALB-Q.QQ-Vec)
+2ec0fc00 : bfmlalb v0.4s, v0.8h, v0.8h               : bfmlalb %q0 %q0 %q0 $0x01 -> %q0
+2ec4fc62 : bfmlalb v2.4s, v3.8h, v4.8h               : bfmlalb %q2 %q3 %q4 $0x01 -> %q2
+2ec6fca4 : bfmlalb v4.4s, v5.8h, v6.8h               : bfmlalb %q4 %q5 %q6 $0x01 -> %q4
+2ec8fce6 : bfmlalb v6.4s, v7.8h, v8.8h               : bfmlalb %q6 %q7 %q8 $0x01 -> %q6
+2ecafd28 : bfmlalb v8.4s, v9.8h, v10.8h              : bfmlalb %q8 %q9 %q10 $0x01 -> %q8
+2eccfd6a : bfmlalb v10.4s, v11.8h, v12.8h            : bfmlalb %q10 %q11 %q12 $0x01 -> %q10
+2ecefdac : bfmlalb v12.4s, v13.8h, v14.8h            : bfmlalb %q12 %q13 %q14 $0x01 -> %q12
+2ed0fdee : bfmlalb v14.4s, v15.8h, v16.8h            : bfmlalb %q14 %q15 %q16 $0x01 -> %q14
+2ed2fe30 : bfmlalb v16.4s, v17.8h, v18.8h            : bfmlalb %q16 %q17 %q18 $0x01 -> %q16
+2ed3fe51 : bfmlalb v17.4s, v18.8h, v19.8h            : bfmlalb %q17 %q18 %q19 $0x01 -> %q17
+2ed5fe93 : bfmlalb v19.4s, v20.8h, v21.8h            : bfmlalb %q19 %q20 %q21 $0x01 -> %q19
+2ed7fed5 : bfmlalb v21.4s, v22.8h, v23.8h            : bfmlalb %q21 %q22 %q23 $0x01 -> %q21
+2ed9ff17 : bfmlalb v23.4s, v24.8h, v25.8h            : bfmlalb %q23 %q24 %q25 $0x01 -> %q23
+2edbff59 : bfmlalb v25.4s, v26.8h, v27.8h            : bfmlalb %q25 %q26 %q27 $0x01 -> %q25
+2eddff9b : bfmlalb v27.4s, v28.8h, v29.8h            : bfmlalb %q27 %q28 %q29 $0x01 -> %q27
+2edfffff : bfmlalb v31.4s, v31.8h, v31.8h            : bfmlalb %q31 %q31 %q31 $0x01 -> %q31
 
 # BFMLALT <Sd>.4S, <Hn>.8H, <Hm>.H[<imm>] (BFMLALT-Q.QQi-asimdelem_L)
 4fc0f000 : bfmlalt v0.4s, v0.8h, v0.h[0]             : bfmlalt %q0 %q0 %q0 $0x00 $0x01 -> %q0
@@ -225,6 +207,24 @@
 4feefb59 : bfmlalt v25.4s, v26.8h, v14.h[6]          : bfmlalt %q25 %q26 %q14 $0x06 $0x01 -> %q25
 4feffb9b : bfmlalt v27.4s, v28.8h, v15.h[6]          : bfmlalt %q27 %q28 %q15 $0x06 $0x01 -> %q27
 4ffffbff : bfmlalt v31.4s, v31.8h, v15.h[7]          : bfmlalt %q31 %q31 %q15 $0x07 $0x01 -> %q31
+
+# BFMLALT <Sd>.4S, <Hn>.8H, <Hm>.8H (BFMLALT-Q.QQ-Vec)
+6ec0fc00 : bfmlalt v0.4s, v0.8h, v0.8h               : bfmlalt %q0 %q0 %q0 $0x01 -> %q0
+6ec4fc62 : bfmlalt v2.4s, v3.8h, v4.8h               : bfmlalt %q2 %q3 %q4 $0x01 -> %q2
+6ec6fca4 : bfmlalt v4.4s, v5.8h, v6.8h               : bfmlalt %q4 %q5 %q6 $0x01 -> %q4
+6ec8fce6 : bfmlalt v6.4s, v7.8h, v8.8h               : bfmlalt %q6 %q7 %q8 $0x01 -> %q6
+6ecafd28 : bfmlalt v8.4s, v9.8h, v10.8h              : bfmlalt %q8 %q9 %q10 $0x01 -> %q8
+6eccfd6a : bfmlalt v10.4s, v11.8h, v12.8h            : bfmlalt %q10 %q11 %q12 $0x01 -> %q10
+6ecefdac : bfmlalt v12.4s, v13.8h, v14.8h            : bfmlalt %q12 %q13 %q14 $0x01 -> %q12
+6ed0fdee : bfmlalt v14.4s, v15.8h, v16.8h            : bfmlalt %q14 %q15 %q16 $0x01 -> %q14
+6ed2fe30 : bfmlalt v16.4s, v17.8h, v18.8h            : bfmlalt %q16 %q17 %q18 $0x01 -> %q16
+6ed3fe51 : bfmlalt v17.4s, v18.8h, v19.8h            : bfmlalt %q17 %q18 %q19 $0x01 -> %q17
+6ed5fe93 : bfmlalt v19.4s, v20.8h, v21.8h            : bfmlalt %q19 %q20 %q21 $0x01 -> %q19
+6ed7fed5 : bfmlalt v21.4s, v22.8h, v23.8h            : bfmlalt %q21 %q22 %q23 $0x01 -> %q21
+6ed9ff17 : bfmlalt v23.4s, v24.8h, v25.8h            : bfmlalt %q23 %q24 %q25 $0x01 -> %q23
+6edbff59 : bfmlalt v25.4s, v26.8h, v27.8h            : bfmlalt %q25 %q26 %q27 $0x01 -> %q25
+6eddff9b : bfmlalt v27.4s, v28.8h, v29.8h            : bfmlalt %q27 %q28 %q29 $0x01 -> %q27
+6edfffff : bfmlalt v31.4s, v31.8h, v31.8h            : bfmlalt %q31 %q31 %q31 $0x01 -> %q31
 
 # BFMMLA  <Sd>.4S, <Hn>.8H, <Hm>.8H (BFMMLA-Q.QQ-Vec)
 6e40ec00 : bfmmla v0.4s, v0.8h, v0.8h                : bfmmla %q0 %q0 %q0 $0x01 -> %q0

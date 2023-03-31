@@ -347,12 +347,13 @@ typedef enum {
     FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),      /**< Half-precision FP (AArch64) */
     FEATURE_RAS = DEF_FEAT(AA64PFR0, 7, 1, 0),       /**< RAS extension (AArch64) */
     FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 0),       /**< Scalable Vectors (AArch64) */
-    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 0),   /**< Limited order regions (AArch64) */
-    FEATURE_SPE = DEF_FEAT(AA64DFR0, 8, 1, 0),    /**< Profiling extension (AArch64) */
-    FEATURE_PAUTH = DEF_FEAT(AA64ISAR1, 2, 1, 0), /**< PAuth extension (AArch64) */
-    FEATURE_LRCPC = DEF_FEAT(AA64ISAR1, 5, 1, 0), /**< LDAPR, LDAPRB, LDAPRH (AArch64) */
-    FEATURE_BF16 = DEF_FEAT(AA64ZFR0, 5, 1, 0),   /**< SVE BFloat16 */
-    FEATURE_I8MM = DEF_FEAT(AA64ZFR0, 11, 1, 0),  /**< SVE Int8 matrix multiplication */
+    FEATURE_LOR = DEF_FEAT(AA64MMFR1, 4, 1, 0),    /**< Limited order regions (AArch64) */
+    FEATURE_SPE = DEF_FEAT(AA64DFR0, 8, 1, 0),     /**< Profiling extension (AArch64) */
+    FEATURE_PAUTH = DEF_FEAT(AA64ISAR1, 2, 1, 0),  /**< PAuth extension (AArch64) */
+    FEATURE_LRCPC = DEF_FEAT(AA64ISAR1, 5, 1, 0),  /**< LDAPR, LDAPRB, LDAPRH (AArch64) */
+    FEATURE_LRCPC2 = DEF_FEAT(AA64ISAR1, 5, 2, 0), /**< LDAPUR*, STLUR* (AArch64) */
+    FEATURE_BF16 = DEF_FEAT(AA64ZFR0, 5, 1, 0),    /**< SVE BFloat16 */
+    FEATURE_I8MM = DEF_FEAT(AA64ZFR0, 11, 1, 0),   /**< SVE Int8 matrix multiplication */
 } feature_bit_t;
 #endif
 #ifdef RISCV64

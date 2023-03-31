@@ -190,10 +190,6 @@ protected:
     // from the input stream.
     virtual trace_entry_t *
     read_queued_entry();
-    // Replaces the just-read record with the prior record, supplied here.
-    // Separated into a virtual method for overriding in test mock readers.
-    virtual void
-    use_prev(trace_entry_t *prev);
     // This updates internal state for the just-read input_entry_.
     // Returns whether a new memref record is now available.
     virtual bool
@@ -201,7 +197,8 @@ protected:
 
     // Meant to be called from skip_instructions();
     // Looks for headers prior to a skip in case it is from the start of the trace.
-    virtual void
+    // Returns whether the skip can continue (it might fail if at eof).
+    virtual bool
     pre_skip_instructions();
 
     // Meant to be called from skip_instructions();

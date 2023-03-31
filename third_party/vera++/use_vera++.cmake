@@ -113,6 +113,7 @@ function(add_vera_targets_for_dynamorio)
         NOT s MATCHES "/third_party/" AND
         # Somehow on Travis vera checks build-dir files.
         NOT s MATCHES "/build_" AND
+        NOT s MATCHES ${CMAKE_CURRENT_BINARY_DIR} AND
         NOT s MATCHES "/install/" AND
         # We check out drmemory for package builds.
         NOT s MATCHES "/drmemory/")

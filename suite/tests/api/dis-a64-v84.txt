@@ -1,0 +1,533 @@
+# **********************************************************
+# Copyright (c) 2023 ARM Limited. All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of ARM Limited nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Test data for DynamoRIO's AArch64 v8.4 encoder, decoder and disassembler.
+# See dis-a64-sve.txt for the formatting.
+
+# Tests:
+# CFINV    (CFINV--flags)
+d5004f1f : cfinv                                     : cfinv
+
+# LDAPUR    <Wt>, [<Xn|SP>{, #<simm>}]
+99500020 : ldapur w0, [x1, #-256]                    : ldapur -0x0100(%x1)[4byte] -> %w0
+99510041 : ldapur w1, [x2, #-240]                    : ldapur -0xf0(%x2)[4byte] -> %w1
+99521062 : ldapur w2, [x3, #-223]                    : ldapur -0xdf(%x3)[4byte] -> %w2
+99531083 : ldapur w3, [x4, #-207]                    : ldapur -0xcf(%x4)[4byte] -> %w3
+995420a4 : ldapur w4, [x5, #-190]                    : ldapur -0xbe(%x5)[4byte] -> %w4
+995520c5 : ldapur w5, [x6, #-174]                    : ldapur -0xae(%x6)[4byte] -> %w5
+995630e6 : ldapur w6, [x7, #-157]                    : ldapur -0x9d(%x7)[4byte] -> %w6
+99573107 : ldapur w7, [x8, #-141]                    : ldapur -0x8d(%x8)[4byte] -> %w7
+99584128 : ldapur w8, [x9, #-124]                    : ldapur -0x7c(%x9)[4byte] -> %w8
+99594149 : ldapur w9, [x10, #-108]                   : ldapur -0x6c(%x10)[4byte] -> %w9
+995a516a : ldapur w10, [x11, #-91]                   : ldapur -0x5b(%x11)[4byte] -> %w10
+995b518b : ldapur w11, [x12, #-75]                   : ldapur -0x4b(%x12)[4byte] -> %w11
+995c61ac : ldapur w12, [x13, #-58]                   : ldapur -0x3a(%x13)[4byte] -> %w12
+995d61cd : ldapur w13, [x14, #-42]                   : ldapur -0x2a(%x14)[4byte] -> %w13
+995e71ee : ldapur w14, [x15, #-25]                   : ldapur -0x19(%x15)[4byte] -> %w14
+995f720f : ldapur w15, [x16, #-9]                    : ldapur -0x09(%x16)[4byte] -> %w15
+99400230 : ldapur w16, [x17]                         : ldapur (%x17)[4byte] -> %w16
+99418251 : ldapur w17, [x18, #24]                    : ldapur +0x18(%x18)[4byte] -> %w17
+99429272 : ldapur w18, [x19, #41]                    : ldapur +0x29(%x19)[4byte] -> %w18
+99439293 : ldapur w19, [x20, #57]                    : ldapur +0x39(%x20)[4byte] -> %w19
+9944a2b4 : ldapur w20, [x21, #74]                    : ldapur +0x4a(%x21)[4byte] -> %w20
+9945a2d5 : ldapur w21, [x22, #90]                    : ldapur +0x5a(%x22)[4byte] -> %w21
+9946b2f6 : ldapur w22, [x23, #107]                   : ldapur +0x6b(%x23)[4byte] -> %w22
+9947b317 : ldapur w23, [x24, #123]                   : ldapur +0x7b(%x24)[4byte] -> %w23
+9948c338 : ldapur w24, [x25, #140]                   : ldapur +0x8c(%x25)[4byte] -> %w24
+9949c359 : ldapur w25, [x26, #156]                   : ldapur +0x9c(%x26)[4byte] -> %w25
+994ad37a : ldapur w26, [x27, #173]                   : ldapur +0xad(%x27)[4byte] -> %w26
+994bd39b : ldapur w27, [x28, #189]                   : ldapur +0xbd(%x28)[4byte] -> %w27
+994ce3bc : ldapur w28, [x29, #206]                   : ldapur +0xce(%x29)[4byte] -> %w28
+994de3dd : ldapur w29, [x30, #222]                   : ldapur +0xde(%x30)[4byte] -> %w29
+994ef3fe : ldapur w30, [sp, #239]                    : ldapur +0xef(%sp)[4byte] -> %w30
+994ff01f : ldapur wzr, [x0, #255]                    : ldapur +0xff(%x0)[4byte] -> %wzr
+
+# LDAPURB   <Wt>, [<Xn|SP>{, #<simm>}]
+19500020 : ldapurb w0, [x1, #-256]                   : ldapurb -0x0100(%x1)[1byte] -> %w0
+19510041 : ldapurb w1, [x2, #-240]                   : ldapurb -0xf0(%x2)[1byte] -> %w1
+19521062 : ldapurb w2, [x3, #-223]                   : ldapurb -0xdf(%x3)[1byte] -> %w2
+19531083 : ldapurb w3, [x4, #-207]                   : ldapurb -0xcf(%x4)[1byte] -> %w3
+195420a4 : ldapurb w4, [x5, #-190]                   : ldapurb -0xbe(%x5)[1byte] -> %w4
+195520c5 : ldapurb w5, [x6, #-174]                   : ldapurb -0xae(%x6)[1byte] -> %w5
+195630e6 : ldapurb w6, [x7, #-157]                   : ldapurb -0x9d(%x7)[1byte] -> %w6
+19573107 : ldapurb w7, [x8, #-141]                   : ldapurb -0x8d(%x8)[1byte] -> %w7
+19584128 : ldapurb w8, [x9, #-124]                   : ldapurb -0x7c(%x9)[1byte] -> %w8
+19594149 : ldapurb w9, [x10, #-108]                  : ldapurb -0x6c(%x10)[1byte] -> %w9
+195a516a : ldapurb w10, [x11, #-91]                  : ldapurb -0x5b(%x11)[1byte] -> %w10
+195b518b : ldapurb w11, [x12, #-75]                  : ldapurb -0x4b(%x12)[1byte] -> %w11
+195c61ac : ldapurb w12, [x13, #-58]                  : ldapurb -0x3a(%x13)[1byte] -> %w12
+195d61cd : ldapurb w13, [x14, #-42]                  : ldapurb -0x2a(%x14)[1byte] -> %w13
+195e71ee : ldapurb w14, [x15, #-25]                  : ldapurb -0x19(%x15)[1byte] -> %w14
+195f720f : ldapurb w15, [x16, #-9]                   : ldapurb -0x09(%x16)[1byte] -> %w15
+19400230 : ldapurb w16, [x17]                        : ldapurb (%x17)[1byte] -> %w16
+19418251 : ldapurb w17, [x18, #24]                   : ldapurb +0x18(%x18)[1byte] -> %w17
+19429272 : ldapurb w18, [x19, #41]                   : ldapurb +0x29(%x19)[1byte] -> %w18
+19439293 : ldapurb w19, [x20, #57]                   : ldapurb +0x39(%x20)[1byte] -> %w19
+1944a2b4 : ldapurb w20, [x21, #74]                   : ldapurb +0x4a(%x21)[1byte] -> %w20
+1945a2d5 : ldapurb w21, [x22, #90]                   : ldapurb +0x5a(%x22)[1byte] -> %w21
+1946b2f6 : ldapurb w22, [x23, #107]                  : ldapurb +0x6b(%x23)[1byte] -> %w22
+1947b317 : ldapurb w23, [x24, #123]                  : ldapurb +0x7b(%x24)[1byte] -> %w23
+1948c338 : ldapurb w24, [x25, #140]                  : ldapurb +0x8c(%x25)[1byte] -> %w24
+1949c359 : ldapurb w25, [x26, #156]                  : ldapurb +0x9c(%x26)[1byte] -> %w25
+194ad37a : ldapurb w26, [x27, #173]                  : ldapurb +0xad(%x27)[1byte] -> %w26
+194bd39b : ldapurb w27, [x28, #189]                  : ldapurb +0xbd(%x28)[1byte] -> %w27
+194ce3bc : ldapurb w28, [x29, #206]                  : ldapurb +0xce(%x29)[1byte] -> %w28
+194de3dd : ldapurb w29, [x30, #222]                  : ldapurb +0xde(%x30)[1byte] -> %w29
+194ef3fe : ldapurb w30, [sp, #239]                   : ldapurb +0xef(%sp)[1byte] -> %w30
+194ff01f : ldapurb wzr, [x0, #255]                   : ldapurb +0xff(%x0)[1byte] -> %wzr
+
+# LDAPUR    <Xt>, [<Xn|SP>{, #<simm>}]
+d9500020 : ldapur x0, [x1, #-256]                    : ldapur -0x0100(%x1)[8byte] -> %x0
+d9510041 : ldapur x1, [x2, #-240]                    : ldapur -0xf0(%x2)[8byte] -> %x1
+d9521062 : ldapur x2, [x3, #-223]                    : ldapur -0xdf(%x3)[8byte] -> %x2
+d9531083 : ldapur x3, [x4, #-207]                    : ldapur -0xcf(%x4)[8byte] -> %x3
+d95420a4 : ldapur x4, [x5, #-190]                    : ldapur -0xbe(%x5)[8byte] -> %x4
+d95520c5 : ldapur x5, [x6, #-174]                    : ldapur -0xae(%x6)[8byte] -> %x5
+d95630e6 : ldapur x6, [x7, #-157]                    : ldapur -0x9d(%x7)[8byte] -> %x6
+d9573107 : ldapur x7, [x8, #-141]                    : ldapur -0x8d(%x8)[8byte] -> %x7
+d9584128 : ldapur x8, [x9, #-124]                    : ldapur -0x7c(%x9)[8byte] -> %x8
+d9594149 : ldapur x9, [x10, #-108]                   : ldapur -0x6c(%x10)[8byte] -> %x9
+d95a516a : ldapur x10, [x11, #-91]                   : ldapur -0x5b(%x11)[8byte] -> %x10
+d95b518b : ldapur x11, [x12, #-75]                   : ldapur -0x4b(%x12)[8byte] -> %x11
+d95c61ac : ldapur x12, [x13, #-58]                   : ldapur -0x3a(%x13)[8byte] -> %x12
+d95d61cd : ldapur x13, [x14, #-42]                   : ldapur -0x2a(%x14)[8byte] -> %x13
+d95e71ee : ldapur x14, [x15, #-25]                   : ldapur -0x19(%x15)[8byte] -> %x14
+d95f720f : ldapur x15, [x16, #-9]                    : ldapur -0x09(%x16)[8byte] -> %x15
+d9400230 : ldapur x16, [x17]                         : ldapur (%x17)[8byte] -> %x16
+d9418251 : ldapur x17, [x18, #24]                    : ldapur +0x18(%x18)[8byte] -> %x17
+d9429272 : ldapur x18, [x19, #41]                    : ldapur +0x29(%x19)[8byte] -> %x18
+d9439293 : ldapur x19, [x20, #57]                    : ldapur +0x39(%x20)[8byte] -> %x19
+d944a2b4 : ldapur x20, [x21, #74]                    : ldapur +0x4a(%x21)[8byte] -> %x20
+d945a2d5 : ldapur x21, [x22, #90]                    : ldapur +0x5a(%x22)[8byte] -> %x21
+d946b2f6 : ldapur x22, [x23, #107]                   : ldapur +0x6b(%x23)[8byte] -> %x22
+d947b317 : ldapur x23, [x24, #123]                   : ldapur +0x7b(%x24)[8byte] -> %x23
+d948c338 : ldapur x24, [x25, #140]                   : ldapur +0x8c(%x25)[8byte] -> %x24
+d949c359 : ldapur x25, [x26, #156]                   : ldapur +0x9c(%x26)[8byte] -> %x25
+d94ad37a : ldapur x26, [x27, #173]                   : ldapur +0xad(%x27)[8byte] -> %x26
+d94bd39b : ldapur x27, [x28, #189]                   : ldapur +0xbd(%x28)[8byte] -> %x27
+d94ce3bc : ldapur x28, [x29, #206]                   : ldapur +0xce(%x29)[8byte] -> %x28
+d94de3dd : ldapur x29, [x30, #222]                   : ldapur +0xde(%x30)[8byte] -> %x29
+d94ef3fe : ldapur x30, [sp, #239]                    : ldapur +0xef(%sp)[8byte] -> %x30
+d94ff01f : ldapur xzr, [x0, #255]                    : ldapur +0xff(%x0)[8byte] -> %xzr
+
+# LDAPURH   <Wt>, [<Xn|SP>{, #<simm>}]
+59500020 : ldapurh w0, [x1, #-256]                   : ldapurh -0x0100(%x1)[2byte] -> %w0
+59510041 : ldapurh w1, [x2, #-240]                   : ldapurh -0xf0(%x2)[2byte] -> %w1
+59521062 : ldapurh w2, [x3, #-223]                   : ldapurh -0xdf(%x3)[2byte] -> %w2
+59531083 : ldapurh w3, [x4, #-207]                   : ldapurh -0xcf(%x4)[2byte] -> %w3
+595420a4 : ldapurh w4, [x5, #-190]                   : ldapurh -0xbe(%x5)[2byte] -> %w4
+595520c5 : ldapurh w5, [x6, #-174]                   : ldapurh -0xae(%x6)[2byte] -> %w5
+595630e6 : ldapurh w6, [x7, #-157]                   : ldapurh -0x9d(%x7)[2byte] -> %w6
+59573107 : ldapurh w7, [x8, #-141]                   : ldapurh -0x8d(%x8)[2byte] -> %w7
+59584128 : ldapurh w8, [x9, #-124]                   : ldapurh -0x7c(%x9)[2byte] -> %w8
+59594149 : ldapurh w9, [x10, #-108]                  : ldapurh -0x6c(%x10)[2byte] -> %w9
+595a516a : ldapurh w10, [x11, #-91]                  : ldapurh -0x5b(%x11)[2byte] -> %w10
+595b518b : ldapurh w11, [x12, #-75]                  : ldapurh -0x4b(%x12)[2byte] -> %w11
+595c61ac : ldapurh w12, [x13, #-58]                  : ldapurh -0x3a(%x13)[2byte] -> %w12
+595d61cd : ldapurh w13, [x14, #-42]                  : ldapurh -0x2a(%x14)[2byte] -> %w13
+595e71ee : ldapurh w14, [x15, #-25]                  : ldapurh -0x19(%x15)[2byte] -> %w14
+595f720f : ldapurh w15, [x16, #-9]                   : ldapurh -0x09(%x16)[2byte] -> %w15
+59400230 : ldapurh w16, [x17]                        : ldapurh (%x17)[2byte] -> %w16
+59418251 : ldapurh w17, [x18, #24]                   : ldapurh +0x18(%x18)[2byte] -> %w17
+59429272 : ldapurh w18, [x19, #41]                   : ldapurh +0x29(%x19)[2byte] -> %w18
+59439293 : ldapurh w19, [x20, #57]                   : ldapurh +0x39(%x20)[2byte] -> %w19
+5944a2b4 : ldapurh w20, [x21, #74]                   : ldapurh +0x4a(%x21)[2byte] -> %w20
+5945a2d5 : ldapurh w21, [x22, #90]                   : ldapurh +0x5a(%x22)[2byte] -> %w21
+5946b2f6 : ldapurh w22, [x23, #107]                  : ldapurh +0x6b(%x23)[2byte] -> %w22
+5947b317 : ldapurh w23, [x24, #123]                  : ldapurh +0x7b(%x24)[2byte] -> %w23
+5948c338 : ldapurh w24, [x25, #140]                  : ldapurh +0x8c(%x25)[2byte] -> %w24
+5949c359 : ldapurh w25, [x26, #156]                  : ldapurh +0x9c(%x26)[2byte] -> %w25
+594ad37a : ldapurh w26, [x27, #173]                  : ldapurh +0xad(%x27)[2byte] -> %w26
+594bd39b : ldapurh w27, [x28, #189]                  : ldapurh +0xbd(%x28)[2byte] -> %w27
+594ce3bc : ldapurh w28, [x29, #206]                  : ldapurh +0xce(%x29)[2byte] -> %w28
+594de3dd : ldapurh w29, [x30, #222]                  : ldapurh +0xde(%x30)[2byte] -> %w29
+594ef3fe : ldapurh w30, [sp, #239]                   : ldapurh +0xef(%sp)[2byte] -> %w30
+594ff01f : ldapurh wzr, [x0, #255]                   : ldapurh +0xff(%x0)[2byte] -> %wzr
+
+# LDAPURSB  <Xt>, [<Xn|SP>{, #<simm>}]
+19900020 : ldapursb x0, [x1, #-256]                  : ldapursb -0x0100(%x1)[1byte] -> %x0
+19910041 : ldapursb x1, [x2, #-240]                  : ldapursb -0xf0(%x2)[1byte] -> %x1
+19921062 : ldapursb x2, [x3, #-223]                  : ldapursb -0xdf(%x3)[1byte] -> %x2
+19931083 : ldapursb x3, [x4, #-207]                  : ldapursb -0xcf(%x4)[1byte] -> %x3
+199420a4 : ldapursb x4, [x5, #-190]                  : ldapursb -0xbe(%x5)[1byte] -> %x4
+199520c5 : ldapursb x5, [x6, #-174]                  : ldapursb -0xae(%x6)[1byte] -> %x5
+199630e6 : ldapursb x6, [x7, #-157]                  : ldapursb -0x9d(%x7)[1byte] -> %x6
+19973107 : ldapursb x7, [x8, #-141]                  : ldapursb -0x8d(%x8)[1byte] -> %x7
+19984128 : ldapursb x8, [x9, #-124]                  : ldapursb -0x7c(%x9)[1byte] -> %x8
+19994149 : ldapursb x9, [x10, #-108]                 : ldapursb -0x6c(%x10)[1byte] -> %x9
+199a516a : ldapursb x10, [x11, #-91]                 : ldapursb -0x5b(%x11)[1byte] -> %x10
+199b518b : ldapursb x11, [x12, #-75]                 : ldapursb -0x4b(%x12)[1byte] -> %x11
+199c61ac : ldapursb x12, [x13, #-58]                 : ldapursb -0x3a(%x13)[1byte] -> %x12
+199d61cd : ldapursb x13, [x14, #-42]                 : ldapursb -0x2a(%x14)[1byte] -> %x13
+199e71ee : ldapursb x14, [x15, #-25]                 : ldapursb -0x19(%x15)[1byte] -> %x14
+199f720f : ldapursb x15, [x16, #-9]                  : ldapursb -0x09(%x16)[1byte] -> %x15
+19800230 : ldapursb x16, [x17]                       : ldapursb (%x17)[1byte] -> %x16
+19818251 : ldapursb x17, [x18, #24]                  : ldapursb +0x18(%x18)[1byte] -> %x17
+19829272 : ldapursb x18, [x19, #41]                  : ldapursb +0x29(%x19)[1byte] -> %x18
+19839293 : ldapursb x19, [x20, #57]                  : ldapursb +0x39(%x20)[1byte] -> %x19
+1984a2b4 : ldapursb x20, [x21, #74]                  : ldapursb +0x4a(%x21)[1byte] -> %x20
+1985a2d5 : ldapursb x21, [x22, #90]                  : ldapursb +0x5a(%x22)[1byte] -> %x21
+1986b2f6 : ldapursb x22, [x23, #107]                 : ldapursb +0x6b(%x23)[1byte] -> %x22
+1987b317 : ldapursb x23, [x24, #123]                 : ldapursb +0x7b(%x24)[1byte] -> %x23
+1988c338 : ldapursb x24, [x25, #140]                 : ldapursb +0x8c(%x25)[1byte] -> %x24
+1989c359 : ldapursb x25, [x26, #156]                 : ldapursb +0x9c(%x26)[1byte] -> %x25
+198ad37a : ldapursb x26, [x27, #173]                 : ldapursb +0xad(%x27)[1byte] -> %x26
+198bd39b : ldapursb x27, [x28, #189]                 : ldapursb +0xbd(%x28)[1byte] -> %x27
+198ce3bc : ldapursb x28, [x29, #206]                 : ldapursb +0xce(%x29)[1byte] -> %x28
+198de3dd : ldapursb x29, [x30, #222]                 : ldapursb +0xde(%x30)[1byte] -> %x29
+198ef3fe : ldapursb x30, [sp, #239]                  : ldapursb +0xef(%sp)[1byte] -> %x30
+198ff01f : ldapursb xzr, [x0, #255]                  : ldapursb +0xff(%x0)[1byte] -> %xzr
+
+# LDAPURSB  <Wt>, [<Xn|SP>{, #<simm>}]
+19d00020 : ldapursb w0, [x1, #-256]                  : ldapursb -0x0100(%x1)[1byte] -> %w0
+19d10041 : ldapursb w1, [x2, #-240]                  : ldapursb -0xf0(%x2)[1byte] -> %w1
+19d21062 : ldapursb w2, [x3, #-223]                  : ldapursb -0xdf(%x3)[1byte] -> %w2
+19d31083 : ldapursb w3, [x4, #-207]                  : ldapursb -0xcf(%x4)[1byte] -> %w3
+19d420a4 : ldapursb w4, [x5, #-190]                  : ldapursb -0xbe(%x5)[1byte] -> %w4
+19d520c5 : ldapursb w5, [x6, #-174]                  : ldapursb -0xae(%x6)[1byte] -> %w5
+19d630e6 : ldapursb w6, [x7, #-157]                  : ldapursb -0x9d(%x7)[1byte] -> %w6
+19d73107 : ldapursb w7, [x8, #-141]                  : ldapursb -0x8d(%x8)[1byte] -> %w7
+19d84128 : ldapursb w8, [x9, #-124]                  : ldapursb -0x7c(%x9)[1byte] -> %w8
+19d94149 : ldapursb w9, [x10, #-108]                 : ldapursb -0x6c(%x10)[1byte] -> %w9
+19da516a : ldapursb w10, [x11, #-91]                 : ldapursb -0x5b(%x11)[1byte] -> %w10
+19db518b : ldapursb w11, [x12, #-75]                 : ldapursb -0x4b(%x12)[1byte] -> %w11
+19dc61ac : ldapursb w12, [x13, #-58]                 : ldapursb -0x3a(%x13)[1byte] -> %w12
+19dd61cd : ldapursb w13, [x14, #-42]                 : ldapursb -0x2a(%x14)[1byte] -> %w13
+19de71ee : ldapursb w14, [x15, #-25]                 : ldapursb -0x19(%x15)[1byte] -> %w14
+19df720f : ldapursb w15, [x16, #-9]                  : ldapursb -0x09(%x16)[1byte] -> %w15
+19c00230 : ldapursb w16, [x17]                       : ldapursb (%x17)[1byte] -> %w16
+19c18251 : ldapursb w17, [x18, #24]                  : ldapursb +0x18(%x18)[1byte] -> %w17
+19c29272 : ldapursb w18, [x19, #41]                  : ldapursb +0x29(%x19)[1byte] -> %w18
+19c39293 : ldapursb w19, [x20, #57]                  : ldapursb +0x39(%x20)[1byte] -> %w19
+19c4a2b4 : ldapursb w20, [x21, #74]                  : ldapursb +0x4a(%x21)[1byte] -> %w20
+19c5a2d5 : ldapursb w21, [x22, #90]                  : ldapursb +0x5a(%x22)[1byte] -> %w21
+19c6b2f6 : ldapursb w22, [x23, #107]                 : ldapursb +0x6b(%x23)[1byte] -> %w22
+19c7b317 : ldapursb w23, [x24, #123]                 : ldapursb +0x7b(%x24)[1byte] -> %w23
+19c8c338 : ldapursb w24, [x25, #140]                 : ldapursb +0x8c(%x25)[1byte] -> %w24
+19c9c359 : ldapursb w25, [x26, #156]                 : ldapursb +0x9c(%x26)[1byte] -> %w25
+19cad37a : ldapursb w26, [x27, #173]                 : ldapursb +0xad(%x27)[1byte] -> %w26
+19cbd39b : ldapursb w27, [x28, #189]                 : ldapursb +0xbd(%x28)[1byte] -> %w27
+19cce3bc : ldapursb w28, [x29, #206]                 : ldapursb +0xce(%x29)[1byte] -> %w28
+19cde3dd : ldapursb w29, [x30, #222]                 : ldapursb +0xde(%x30)[1byte] -> %w29
+19cef3fe : ldapursb w30, [sp, #239]                  : ldapursb +0xef(%sp)[1byte] -> %w30
+19cff01f : ldapursb wzr, [x0, #255]                  : ldapursb +0xff(%x0)[1byte] -> %wzr
+
+# LDAPURSH  <Xt>, [<Xn|SP>{, #<simm>}]
+59900020 : ldapursh x0, [x1, #-256]                  : ldapursh -0x0100(%x1)[2byte] -> %x0
+59910041 : ldapursh x1, [x2, #-240]                  : ldapursh -0xf0(%x2)[2byte] -> %x1
+59921062 : ldapursh x2, [x3, #-223]                  : ldapursh -0xdf(%x3)[2byte] -> %x2
+59931083 : ldapursh x3, [x4, #-207]                  : ldapursh -0xcf(%x4)[2byte] -> %x3
+599420a4 : ldapursh x4, [x5, #-190]                  : ldapursh -0xbe(%x5)[2byte] -> %x4
+599520c5 : ldapursh x5, [x6, #-174]                  : ldapursh -0xae(%x6)[2byte] -> %x5
+599630e6 : ldapursh x6, [x7, #-157]                  : ldapursh -0x9d(%x7)[2byte] -> %x6
+59973107 : ldapursh x7, [x8, #-141]                  : ldapursh -0x8d(%x8)[2byte] -> %x7
+59984128 : ldapursh x8, [x9, #-124]                  : ldapursh -0x7c(%x9)[2byte] -> %x8
+59994149 : ldapursh x9, [x10, #-108]                 : ldapursh -0x6c(%x10)[2byte] -> %x9
+599a516a : ldapursh x10, [x11, #-91]                 : ldapursh -0x5b(%x11)[2byte] -> %x10
+599b518b : ldapursh x11, [x12, #-75]                 : ldapursh -0x4b(%x12)[2byte] -> %x11
+599c61ac : ldapursh x12, [x13, #-58]                 : ldapursh -0x3a(%x13)[2byte] -> %x12
+599d61cd : ldapursh x13, [x14, #-42]                 : ldapursh -0x2a(%x14)[2byte] -> %x13
+599e71ee : ldapursh x14, [x15, #-25]                 : ldapursh -0x19(%x15)[2byte] -> %x14
+599f720f : ldapursh x15, [x16, #-9]                  : ldapursh -0x09(%x16)[2byte] -> %x15
+59800230 : ldapursh x16, [x17]                       : ldapursh (%x17)[2byte] -> %x16
+59818251 : ldapursh x17, [x18, #24]                  : ldapursh +0x18(%x18)[2byte] -> %x17
+59829272 : ldapursh x18, [x19, #41]                  : ldapursh +0x29(%x19)[2byte] -> %x18
+59839293 : ldapursh x19, [x20, #57]                  : ldapursh +0x39(%x20)[2byte] -> %x19
+5984a2b4 : ldapursh x20, [x21, #74]                  : ldapursh +0x4a(%x21)[2byte] -> %x20
+5985a2d5 : ldapursh x21, [x22, #90]                  : ldapursh +0x5a(%x22)[2byte] -> %x21
+5986b2f6 : ldapursh x22, [x23, #107]                 : ldapursh +0x6b(%x23)[2byte] -> %x22
+5987b317 : ldapursh x23, [x24, #123]                 : ldapursh +0x7b(%x24)[2byte] -> %x23
+5988c338 : ldapursh x24, [x25, #140]                 : ldapursh +0x8c(%x25)[2byte] -> %x24
+5989c359 : ldapursh x25, [x26, #156]                 : ldapursh +0x9c(%x26)[2byte] -> %x25
+598ad37a : ldapursh x26, [x27, #173]                 : ldapursh +0xad(%x27)[2byte] -> %x26
+598bd39b : ldapursh x27, [x28, #189]                 : ldapursh +0xbd(%x28)[2byte] -> %x27
+598ce3bc : ldapursh x28, [x29, #206]                 : ldapursh +0xce(%x29)[2byte] -> %x28
+598de3dd : ldapursh x29, [x30, #222]                 : ldapursh +0xde(%x30)[2byte] -> %x29
+598ef3fe : ldapursh x30, [sp, #239]                  : ldapursh +0xef(%sp)[2byte] -> %x30
+598ff01f : ldapursh xzr, [x0, #255]                  : ldapursh +0xff(%x0)[2byte] -> %xzr
+
+# LDAPURSH  <Wt>, [<Xn|SP>{, #<simm>}]
+59d00020 : ldapursh w0, [x1, #-256]                  : ldapursh -0x0100(%x1)[2byte] -> %w0
+59d10041 : ldapursh w1, [x2, #-240]                  : ldapursh -0xf0(%x2)[2byte] -> %w1
+59d21062 : ldapursh w2, [x3, #-223]                  : ldapursh -0xdf(%x3)[2byte] -> %w2
+59d31083 : ldapursh w3, [x4, #-207]                  : ldapursh -0xcf(%x4)[2byte] -> %w3
+59d420a4 : ldapursh w4, [x5, #-190]                  : ldapursh -0xbe(%x5)[2byte] -> %w4
+59d520c5 : ldapursh w5, [x6, #-174]                  : ldapursh -0xae(%x6)[2byte] -> %w5
+59d630e6 : ldapursh w6, [x7, #-157]                  : ldapursh -0x9d(%x7)[2byte] -> %w6
+59d73107 : ldapursh w7, [x8, #-141]                  : ldapursh -0x8d(%x8)[2byte] -> %w7
+59d84128 : ldapursh w8, [x9, #-124]                  : ldapursh -0x7c(%x9)[2byte] -> %w8
+59d94149 : ldapursh w9, [x10, #-108]                 : ldapursh -0x6c(%x10)[2byte] -> %w9
+59da516a : ldapursh w10, [x11, #-91]                 : ldapursh -0x5b(%x11)[2byte] -> %w10
+59db518b : ldapursh w11, [x12, #-75]                 : ldapursh -0x4b(%x12)[2byte] -> %w11
+59dc61ac : ldapursh w12, [x13, #-58]                 : ldapursh -0x3a(%x13)[2byte] -> %w12
+59dd61cd : ldapursh w13, [x14, #-42]                 : ldapursh -0x2a(%x14)[2byte] -> %w13
+59de71ee : ldapursh w14, [x15, #-25]                 : ldapursh -0x19(%x15)[2byte] -> %w14
+59df720f : ldapursh w15, [x16, #-9]                  : ldapursh -0x09(%x16)[2byte] -> %w15
+59c00230 : ldapursh w16, [x17]                       : ldapursh (%x17)[2byte] -> %w16
+59c18251 : ldapursh w17, [x18, #24]                  : ldapursh +0x18(%x18)[2byte] -> %w17
+59c29272 : ldapursh w18, [x19, #41]                  : ldapursh +0x29(%x19)[2byte] -> %w18
+59c39293 : ldapursh w19, [x20, #57]                  : ldapursh +0x39(%x20)[2byte] -> %w19
+59c4a2b4 : ldapursh w20, [x21, #74]                  : ldapursh +0x4a(%x21)[2byte] -> %w20
+59c5a2d5 : ldapursh w21, [x22, #90]                  : ldapursh +0x5a(%x22)[2byte] -> %w21
+59c6b2f6 : ldapursh w22, [x23, #107]                 : ldapursh +0x6b(%x23)[2byte] -> %w22
+59c7b317 : ldapursh w23, [x24, #123]                 : ldapursh +0x7b(%x24)[2byte] -> %w23
+59c8c338 : ldapursh w24, [x25, #140]                 : ldapursh +0x8c(%x25)[2byte] -> %w24
+59c9c359 : ldapursh w25, [x26, #156]                 : ldapursh +0x9c(%x26)[2byte] -> %w25
+59cad37a : ldapursh w26, [x27, #173]                 : ldapursh +0xad(%x27)[2byte] -> %w26
+59cbd39b : ldapursh w27, [x28, #189]                 : ldapursh +0xbd(%x28)[2byte] -> %w27
+59cce3bc : ldapursh w28, [x29, #206]                 : ldapursh +0xce(%x29)[2byte] -> %w28
+59cde3dd : ldapursh w29, [x30, #222]                 : ldapursh +0xde(%x30)[2byte] -> %w29
+59cef3fe : ldapursh w30, [sp, #239]                  : ldapursh +0xef(%sp)[2byte] -> %w30
+59cff01f : ldapursh wzr, [x0, #255]                  : ldapursh +0xff(%x0)[2byte] -> %wzr
+
+# LDAPURSW  <Xt>, [<Xn|SP>{, #<simm>}]
+99900020 : ldapursw x0, [x1, #-256]                  : ldapursw -0x0100(%x1)[4byte] -> %x0
+99910041 : ldapursw x1, [x2, #-240]                  : ldapursw -0xf0(%x2)[4byte] -> %x1
+99921062 : ldapursw x2, [x3, #-223]                  : ldapursw -0xdf(%x3)[4byte] -> %x2
+99931083 : ldapursw x3, [x4, #-207]                  : ldapursw -0xcf(%x4)[4byte] -> %x3
+999420a4 : ldapursw x4, [x5, #-190]                  : ldapursw -0xbe(%x5)[4byte] -> %x4
+999520c5 : ldapursw x5, [x6, #-174]                  : ldapursw -0xae(%x6)[4byte] -> %x5
+999630e6 : ldapursw x6, [x7, #-157]                  : ldapursw -0x9d(%x7)[4byte] -> %x6
+99973107 : ldapursw x7, [x8, #-141]                  : ldapursw -0x8d(%x8)[4byte] -> %x7
+99984128 : ldapursw x8, [x9, #-124]                  : ldapursw -0x7c(%x9)[4byte] -> %x8
+99994149 : ldapursw x9, [x10, #-108]                 : ldapursw -0x6c(%x10)[4byte] -> %x9
+999a516a : ldapursw x10, [x11, #-91]                 : ldapursw -0x5b(%x11)[4byte] -> %x10
+999b518b : ldapursw x11, [x12, #-75]                 : ldapursw -0x4b(%x12)[4byte] -> %x11
+999c61ac : ldapursw x12, [x13, #-58]                 : ldapursw -0x3a(%x13)[4byte] -> %x12
+999d61cd : ldapursw x13, [x14, #-42]                 : ldapursw -0x2a(%x14)[4byte] -> %x13
+999e71ee : ldapursw x14, [x15, #-25]                 : ldapursw -0x19(%x15)[4byte] -> %x14
+999f720f : ldapursw x15, [x16, #-9]                  : ldapursw -0x09(%x16)[4byte] -> %x15
+99800230 : ldapursw x16, [x17]                       : ldapursw (%x17)[4byte] -> %x16
+99818251 : ldapursw x17, [x18, #24]                  : ldapursw +0x18(%x18)[4byte] -> %x17
+99829272 : ldapursw x18, [x19, #41]                  : ldapursw +0x29(%x19)[4byte] -> %x18
+99839293 : ldapursw x19, [x20, #57]                  : ldapursw +0x39(%x20)[4byte] -> %x19
+9984a2b4 : ldapursw x20, [x21, #74]                  : ldapursw +0x4a(%x21)[4byte] -> %x20
+9985a2d5 : ldapursw x21, [x22, #90]                  : ldapursw +0x5a(%x22)[4byte] -> %x21
+9986b2f6 : ldapursw x22, [x23, #107]                 : ldapursw +0x6b(%x23)[4byte] -> %x22
+9987b317 : ldapursw x23, [x24, #123]                 : ldapursw +0x7b(%x24)[4byte] -> %x23
+9988c338 : ldapursw x24, [x25, #140]                 : ldapursw +0x8c(%x25)[4byte] -> %x24
+9989c359 : ldapursw x25, [x26, #156]                 : ldapursw +0x9c(%x26)[4byte] -> %x25
+998ad37a : ldapursw x26, [x27, #173]                 : ldapursw +0xad(%x27)[4byte] -> %x26
+998bd39b : ldapursw x27, [x28, #189]                 : ldapursw +0xbd(%x28)[4byte] -> %x27
+998ce3bc : ldapursw x28, [x29, #206]                 : ldapursw +0xce(%x29)[4byte] -> %x28
+998de3dd : ldapursw x29, [x30, #222]                 : ldapursw +0xde(%x30)[4byte] -> %x29
+998ef3fe : ldapursw x30, [sp, #239]                  : ldapursw +0xef(%sp)[4byte] -> %x30
+998ff01f : ldapursw xzr, [x0, #255]                  : ldapursw +0xff(%x0)[4byte] -> %xzr
+
+# RMIF    <Xn>, #<imm1>, #<imm2> (RMIF-RII-flags)
+ba000400 : rmif x0, #0x0, #0x0                       : rmif   %x0 $0x00 $0x00
+ba020441 : rmif x2, #0x4, #0x1                       : rmif   %x2 $0x04 $0x01
+ba040482 : rmif x4, #0x8, #0x2                       : rmif   %x4 $0x08 $0x02
+ba0604c3 : rmif x6, #0xc, #0x3                       : rmif   %x6 $0x0c $0x03
+ba080504 : rmif x8, #0x10, #0x4                      : rmif   %x8 $0x10 $0x04
+ba0a0525 : rmif x9, #0x14, #0x5                      : rmif   %x9 $0x14 $0x05
+ba0c0566 : rmif x11, #0x18, #0x6                     : rmif   %x11 $0x18 $0x06
+ba0e05a7 : rmif x13, #0x1c, #0x7                     : rmif   %x13 $0x1c $0x07
+ba1005e8 : rmif x15, #0x20, #0x8                     : rmif   %x15 $0x20 $0x08
+ba118628 : rmif x17, #0x23, #0x8                     : rmif   %x17 $0x23 $0x08
+ba138669 : rmif x19, #0x27, #0x9                     : rmif   %x19 $0x27 $0x09
+ba1586aa : rmif x21, #0x2b, #0xa                     : rmif   %x21 $0x2b $0x0a
+ba1786cb : rmif x22, #0x2f, #0xb                     : rmif   %x22 $0x2f $0x0b
+ba19870c : rmif x24, #0x33, #0xc                     : rmif   %x24 $0x33 $0x0c
+ba1b874d : rmif x26, #0x37, #0xd                     : rmif   %x26 $0x37 $0x0d
+ba1f87cf : rmif x30, #0x3f, #0xf                     : rmif   %x30 $0x3f $0x0f
+
+# SETF16  <Wn> (SETF16-R-flags)
+3a00480d : setf16 w0                                 : setf16 %w0
+3a00484d : setf16 w2                                 : setf16 %w2
+3a00488d : setf16 w4                                 : setf16 %w4
+3a0048cd : setf16 w6                                 : setf16 %w6
+3a00490d : setf16 w8                                 : setf16 %w8
+3a00492d : setf16 w9                                 : setf16 %w9
+3a00496d : setf16 w11                                : setf16 %w11
+3a0049ad : setf16 w13                                : setf16 %w13
+3a0049ed : setf16 w15                                : setf16 %w15
+3a004a2d : setf16 w17                                : setf16 %w17
+3a004a6d : setf16 w19                                : setf16 %w19
+3a004aad : setf16 w21                                : setf16 %w21
+3a004acd : setf16 w22                                : setf16 %w22
+3a004b0d : setf16 w24                                : setf16 %w24
+3a004b4d : setf16 w26                                : setf16 %w26
+3a004bcd : setf16 w30                                : setf16 %w30
+
+# SETF8   <Wn> (SETF8-R-flags)
+3a00080d : setf8 w0                                  : setf8  %w0
+3a00084d : setf8 w2                                  : setf8  %w2
+3a00088d : setf8 w4                                  : setf8  %w4
+3a0008cd : setf8 w6                                  : setf8  %w6
+3a00090d : setf8 w8                                  : setf8  %w8
+3a00092d : setf8 w9                                  : setf8  %w9
+3a00096d : setf8 w11                                 : setf8  %w11
+3a0009ad : setf8 w13                                 : setf8  %w13
+3a0009ed : setf8 w15                                 : setf8  %w15
+3a000a2d : setf8 w17                                 : setf8  %w17
+3a000a6d : setf8 w19                                 : setf8  %w19
+3a000aad : setf8 w21                                 : setf8  %w21
+3a000acd : setf8 w22                                 : setf8  %w22
+3a000b0d : setf8 w24                                 : setf8  %w24
+3a000b4d : setf8 w26                                 : setf8  %w26
+3a000bcd : setf8 w30                                 : setf8  %w30
+
+# STLUR     <Wt>, [<Xn|SP>{, #<simm>}]
+99100020 : stlur w0, [x1, #-256]                     : stlur  %w0 -> -0x0100(%x1)[4byte]
+99110041 : stlur w1, [x2, #-240]                     : stlur  %w1 -> -0xf0(%x2)[4byte]
+99121062 : stlur w2, [x3, #-223]                     : stlur  %w2 -> -0xdf(%x3)[4byte]
+99131083 : stlur w3, [x4, #-207]                     : stlur  %w3 -> -0xcf(%x4)[4byte]
+991420a4 : stlur w4, [x5, #-190]                     : stlur  %w4 -> -0xbe(%x5)[4byte]
+991520c5 : stlur w5, [x6, #-174]                     : stlur  %w5 -> -0xae(%x6)[4byte]
+991630e6 : stlur w6, [x7, #-157]                     : stlur  %w6 -> -0x9d(%x7)[4byte]
+99173107 : stlur w7, [x8, #-141]                     : stlur  %w7 -> -0x8d(%x8)[4byte]
+99184128 : stlur w8, [x9, #-124]                     : stlur  %w8 -> -0x7c(%x9)[4byte]
+99194149 : stlur w9, [x10, #-108]                    : stlur  %w9 -> -0x6c(%x10)[4byte]
+991a516a : stlur w10, [x11, #-91]                    : stlur  %w10 -> -0x5b(%x11)[4byte]
+991b518b : stlur w11, [x12, #-75]                    : stlur  %w11 -> -0x4b(%x12)[4byte]
+991c61ac : stlur w12, [x13, #-58]                    : stlur  %w12 -> -0x3a(%x13)[4byte]
+991d61cd : stlur w13, [x14, #-42]                    : stlur  %w13 -> -0x2a(%x14)[4byte]
+991e71ee : stlur w14, [x15, #-25]                    : stlur  %w14 -> -0x19(%x15)[4byte]
+991f720f : stlur w15, [x16, #-9]                     : stlur  %w15 -> -0x09(%x16)[4byte]
+99000230 : stlur w16, [x17]                          : stlur  %w16 -> (%x17)[4byte]
+99018251 : stlur w17, [x18, #24]                     : stlur  %w17 -> +0x18(%x18)[4byte]
+99029272 : stlur w18, [x19, #41]                     : stlur  %w18 -> +0x29(%x19)[4byte]
+99039293 : stlur w19, [x20, #57]                     : stlur  %w19 -> +0x39(%x20)[4byte]
+9904a2b4 : stlur w20, [x21, #74]                     : stlur  %w20 -> +0x4a(%x21)[4byte]
+9905a2d5 : stlur w21, [x22, #90]                     : stlur  %w21 -> +0x5a(%x22)[4byte]
+9906b2f6 : stlur w22, [x23, #107]                    : stlur  %w22 -> +0x6b(%x23)[4byte]
+9907b317 : stlur w23, [x24, #123]                    : stlur  %w23 -> +0x7b(%x24)[4byte]
+9908c338 : stlur w24, [x25, #140]                    : stlur  %w24 -> +0x8c(%x25)[4byte]
+9909c359 : stlur w25, [x26, #156]                    : stlur  %w25 -> +0x9c(%x26)[4byte]
+990ad37a : stlur w26, [x27, #173]                    : stlur  %w26 -> +0xad(%x27)[4byte]
+990bd39b : stlur w27, [x28, #189]                    : stlur  %w27 -> +0xbd(%x28)[4byte]
+990ce3bc : stlur w28, [x29, #206]                    : stlur  %w28 -> +0xce(%x29)[4byte]
+990de3dd : stlur w29, [x30, #222]                    : stlur  %w29 -> +0xde(%x30)[4byte]
+990ef3fe : stlur w30, [sp, #239]                     : stlur  %w30 -> +0xef(%sp)[4byte]
+990ff01f : stlur wzr, [x0, #255]                     : stlur  %wzr -> +0xff(%x0)[4byte]
+
+# STLURB    <Wt>, [<Xn|SP>{, #<simm>}]
+19100020 : stlurb w0, [x1, #-256]                    : stlurb %w0 -> -0x0100(%x1)[1byte]
+19110041 : stlurb w1, [x2, #-240]                    : stlurb %w1 -> -0xf0(%x2)[1byte]
+19121062 : stlurb w2, [x3, #-223]                    : stlurb %w2 -> -0xdf(%x3)[1byte]
+19131083 : stlurb w3, [x4, #-207]                    : stlurb %w3 -> -0xcf(%x4)[1byte]
+191420a4 : stlurb w4, [x5, #-190]                    : stlurb %w4 -> -0xbe(%x5)[1byte]
+191520c5 : stlurb w5, [x6, #-174]                    : stlurb %w5 -> -0xae(%x6)[1byte]
+191630e6 : stlurb w6, [x7, #-157]                    : stlurb %w6 -> -0x9d(%x7)[1byte]
+19173107 : stlurb w7, [x8, #-141]                    : stlurb %w7 -> -0x8d(%x8)[1byte]
+19184128 : stlurb w8, [x9, #-124]                    : stlurb %w8 -> -0x7c(%x9)[1byte]
+19194149 : stlurb w9, [x10, #-108]                   : stlurb %w9 -> -0x6c(%x10)[1byte]
+191a516a : stlurb w10, [x11, #-91]                   : stlurb %w10 -> -0x5b(%x11)[1byte]
+191b518b : stlurb w11, [x12, #-75]                   : stlurb %w11 -> -0x4b(%x12)[1byte]
+191c61ac : stlurb w12, [x13, #-58]                   : stlurb %w12 -> -0x3a(%x13)[1byte]
+191d61cd : stlurb w13, [x14, #-42]                   : stlurb %w13 -> -0x2a(%x14)[1byte]
+191e71ee : stlurb w14, [x15, #-25]                   : stlurb %w14 -> -0x19(%x15)[1byte]
+191f720f : stlurb w15, [x16, #-9]                    : stlurb %w15 -> -0x09(%x16)[1byte]
+19000230 : stlurb w16, [x17]                         : stlurb %w16 -> (%x17)[1byte]
+19018251 : stlurb w17, [x18, #24]                    : stlurb %w17 -> +0x18(%x18)[1byte]
+19029272 : stlurb w18, [x19, #41]                    : stlurb %w18 -> +0x29(%x19)[1byte]
+19039293 : stlurb w19, [x20, #57]                    : stlurb %w19 -> +0x39(%x20)[1byte]
+1904a2b4 : stlurb w20, [x21, #74]                    : stlurb %w20 -> +0x4a(%x21)[1byte]
+1905a2d5 : stlurb w21, [x22, #90]                    : stlurb %w21 -> +0x5a(%x22)[1byte]
+1906b2f6 : stlurb w22, [x23, #107]                   : stlurb %w22 -> +0x6b(%x23)[1byte]
+1907b317 : stlurb w23, [x24, #123]                   : stlurb %w23 -> +0x7b(%x24)[1byte]
+1908c338 : stlurb w24, [x25, #140]                   : stlurb %w24 -> +0x8c(%x25)[1byte]
+1909c359 : stlurb w25, [x26, #156]                   : stlurb %w25 -> +0x9c(%x26)[1byte]
+190ad37a : stlurb w26, [x27, #173]                   : stlurb %w26 -> +0xad(%x27)[1byte]
+190bd39b : stlurb w27, [x28, #189]                   : stlurb %w27 -> +0xbd(%x28)[1byte]
+190ce3bc : stlurb w28, [x29, #206]                   : stlurb %w28 -> +0xce(%x29)[1byte]
+190de3dd : stlurb w29, [x30, #222]                   : stlurb %w29 -> +0xde(%x30)[1byte]
+190ef3fe : stlurb w30, [sp, #239]                    : stlurb %w30 -> +0xef(%sp)[1byte]
+190ff01f : stlurb wzr, [x0, #255]                    : stlurb %wzr -> +0xff(%x0)[1byte]
+
+# STLUR     <Xt>, [<Xn|SP>{, #<simm>}]
+d9100020 : stlur x0, [x1, #-256]                     : stlur  %x0 -> -0x0100(%x1)[8byte]
+d9110041 : stlur x1, [x2, #-240]                     : stlur  %x1 -> -0xf0(%x2)[8byte]
+d9121062 : stlur x2, [x3, #-223]                     : stlur  %x2 -> -0xdf(%x3)[8byte]
+d9131083 : stlur x3, [x4, #-207]                     : stlur  %x3 -> -0xcf(%x4)[8byte]
+d91420a4 : stlur x4, [x5, #-190]                     : stlur  %x4 -> -0xbe(%x5)[8byte]
+d91520c5 : stlur x5, [x6, #-174]                     : stlur  %x5 -> -0xae(%x6)[8byte]
+d91630e6 : stlur x6, [x7, #-157]                     : stlur  %x6 -> -0x9d(%x7)[8byte]
+d9173107 : stlur x7, [x8, #-141]                     : stlur  %x7 -> -0x8d(%x8)[8byte]
+d9184128 : stlur x8, [x9, #-124]                     : stlur  %x8 -> -0x7c(%x9)[8byte]
+d9194149 : stlur x9, [x10, #-108]                    : stlur  %x9 -> -0x6c(%x10)[8byte]
+d91a516a : stlur x10, [x11, #-91]                    : stlur  %x10 -> -0x5b(%x11)[8byte]
+d91b518b : stlur x11, [x12, #-75]                    : stlur  %x11 -> -0x4b(%x12)[8byte]
+d91c61ac : stlur x12, [x13, #-58]                    : stlur  %x12 -> -0x3a(%x13)[8byte]
+d91d61cd : stlur x13, [x14, #-42]                    : stlur  %x13 -> -0x2a(%x14)[8byte]
+d91e71ee : stlur x14, [x15, #-25]                    : stlur  %x14 -> -0x19(%x15)[8byte]
+d91f720f : stlur x15, [x16, #-9]                     : stlur  %x15 -> -0x09(%x16)[8byte]
+d9000230 : stlur x16, [x17]                          : stlur  %x16 -> (%x17)[8byte]
+d9018251 : stlur x17, [x18, #24]                     : stlur  %x17 -> +0x18(%x18)[8byte]
+d9029272 : stlur x18, [x19, #41]                     : stlur  %x18 -> +0x29(%x19)[8byte]
+d9039293 : stlur x19, [x20, #57]                     : stlur  %x19 -> +0x39(%x20)[8byte]
+d904a2b4 : stlur x20, [x21, #74]                     : stlur  %x20 -> +0x4a(%x21)[8byte]
+d905a2d5 : stlur x21, [x22, #90]                     : stlur  %x21 -> +0x5a(%x22)[8byte]
+d906b2f6 : stlur x22, [x23, #107]                    : stlur  %x22 -> +0x6b(%x23)[8byte]
+d907b317 : stlur x23, [x24, #123]                    : stlur  %x23 -> +0x7b(%x24)[8byte]
+d908c338 : stlur x24, [x25, #140]                    : stlur  %x24 -> +0x8c(%x25)[8byte]
+d909c359 : stlur x25, [x26, #156]                    : stlur  %x25 -> +0x9c(%x26)[8byte]
+d90ad37a : stlur x26, [x27, #173]                    : stlur  %x26 -> +0xad(%x27)[8byte]
+d90bd39b : stlur x27, [x28, #189]                    : stlur  %x27 -> +0xbd(%x28)[8byte]
+d90ce3bc : stlur x28, [x29, #206]                    : stlur  %x28 -> +0xce(%x29)[8byte]
+d90de3dd : stlur x29, [x30, #222]                    : stlur  %x29 -> +0xde(%x30)[8byte]
+d90ef3fe : stlur x30, [sp, #239]                     : stlur  %x30 -> +0xef(%sp)[8byte]
+d90ff01f : stlur xzr, [x0, #255]                     : stlur  %xzr -> +0xff(%x0)[8byte]
+
+# STLURH    <Wt>, [<Xn|SP>{, #<simm>}]
+59100020 : stlurh w0, [x1, #-256]                    : stlurh %w0 -> -0x0100(%x1)[2byte]
+59110041 : stlurh w1, [x2, #-240]                    : stlurh %w1 -> -0xf0(%x2)[2byte]
+59121062 : stlurh w2, [x3, #-223]                    : stlurh %w2 -> -0xdf(%x3)[2byte]
+59131083 : stlurh w3, [x4, #-207]                    : stlurh %w3 -> -0xcf(%x4)[2byte]
+591420a4 : stlurh w4, [x5, #-190]                    : stlurh %w4 -> -0xbe(%x5)[2byte]
+591520c5 : stlurh w5, [x6, #-174]                    : stlurh %w5 -> -0xae(%x6)[2byte]
+591630e6 : stlurh w6, [x7, #-157]                    : stlurh %w6 -> -0x9d(%x7)[2byte]
+59173107 : stlurh w7, [x8, #-141]                    : stlurh %w7 -> -0x8d(%x8)[2byte]
+59184128 : stlurh w8, [x9, #-124]                    : stlurh %w8 -> -0x7c(%x9)[2byte]
+59194149 : stlurh w9, [x10, #-108]                   : stlurh %w9 -> -0x6c(%x10)[2byte]
+591a516a : stlurh w10, [x11, #-91]                   : stlurh %w10 -> -0x5b(%x11)[2byte]
+591b518b : stlurh w11, [x12, #-75]                   : stlurh %w11 -> -0x4b(%x12)[2byte]
+591c61ac : stlurh w12, [x13, #-58]                   : stlurh %w12 -> -0x3a(%x13)[2byte]
+591d61cd : stlurh w13, [x14, #-42]                   : stlurh %w13 -> -0x2a(%x14)[2byte]
+591e71ee : stlurh w14, [x15, #-25]                   : stlurh %w14 -> -0x19(%x15)[2byte]
+591f720f : stlurh w15, [x16, #-9]                    : stlurh %w15 -> -0x09(%x16)[2byte]
+59000230 : stlurh w16, [x17]                         : stlurh %w16 -> (%x17)[2byte]
+59018251 : stlurh w17, [x18, #24]                    : stlurh %w17 -> +0x18(%x18)[2byte]
+59029272 : stlurh w18, [x19, #41]                    : stlurh %w18 -> +0x29(%x19)[2byte]
+59039293 : stlurh w19, [x20, #57]                    : stlurh %w19 -> +0x39(%x20)[2byte]
+5904a2b4 : stlurh w20, [x21, #74]                    : stlurh %w20 -> +0x4a(%x21)[2byte]
+5905a2d5 : stlurh w21, [x22, #90]                    : stlurh %w21 -> +0x5a(%x22)[2byte]
+5906b2f6 : stlurh w22, [x23, #107]                   : stlurh %w22 -> +0x6b(%x23)[2byte]
+5907b317 : stlurh w23, [x24, #123]                   : stlurh %w23 -> +0x7b(%x24)[2byte]
+5908c338 : stlurh w24, [x25, #140]                   : stlurh %w24 -> +0x8c(%x25)[2byte]
+5909c359 : stlurh w25, [x26, #156]                   : stlurh %w25 -> +0x9c(%x26)[2byte]
+590ad37a : stlurh w26, [x27, #173]                   : stlurh %w26 -> +0xad(%x27)[2byte]
+590bd39b : stlurh w27, [x28, #189]                   : stlurh %w27 -> +0xbd(%x28)[2byte]
+590ce3bc : stlurh w28, [x29, #206]                   : stlurh %w28 -> +0xce(%x29)[2byte]
+590de3dd : stlurh w29, [x30, #222]                   : stlurh %w29 -> +0xde(%x30)[2byte]
+590ef3fe : stlurh w30, [sp, #239]                    : stlurh %w30 -> +0xef(%sp)[2byte]
+590ff01f : stlurh wzr, [x0, #255]                    : stlurh %wzr -> +0xff(%x0)[2byte]
+

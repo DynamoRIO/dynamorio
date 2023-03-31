@@ -203,6 +203,7 @@ proc_init_arch(void)
         LOG_FEATURE(FEATURE_SPE);
         LOG_FEATURE(FEATURE_PAUTH);
         LOG_FEATURE(FEATURE_LRCPC);
+        LOG_FEATURE(FEATURE_LRCPC2);
 
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64ZFR0_EL1 = 0x%016lx\n",
             cpu_info.features.flags_aa64zfr0);
@@ -227,12 +228,37 @@ proc_has_feature(feature_bit_t f)
      * support all features.
      */
 #    if defined(BUILD_TESTS)
-    if (f == FEATURE_LSE || f == FEATURE_RDM || f == FEATURE_FP16 ||
-        f == FEATURE_DotProd || f == FEATURE_SVE || f == FEATURE_LOR ||
-        f == FEATURE_FHM || f == FEATURE_SM3 || f == FEATURE_SM4 || f == FEATURE_SHA512 ||
-        f == FEATURE_SHA3 || f == FEATURE_RAS || f == FEATURE_SPE || f == FEATURE_PAUTH ||
-        f == FEATURE_LRCPC || f == FEATURE_BF16 || f == FEATURE_I8MM)
-        return true;
+    switch (f) {
+    case FEATURE_LSE:
+    case FEATURE_RDM:
+    case FEATURE_FP16:
+    case FEATURE_DotProd:
+    case FEATURE_SVE:
+    case FEATURE_LOR:
+    case FEATURE_FHM:
+    case FEATURE_SM3:
+    case FEATURE_SM4:
+    case FEATURE_SHA512:
+    case FEATURE_SHA3:
+    case FEATURE_RAS:
+    case FEATURE_SPE:
+    case FEATURE_PAUTH:
+    case FEATURE_LRCPC:
+    case FEATURE_LRCPC2:
+    case FEATURE_BF16:
+    case FEATURE_I8MM:
+    case FEATURE_FlagM: return true;
+
+    case FEATURE_AESX:
+    case FEATURE_PMULL:
+    case FEATURE_SHA1:
+    case FEATURE_SHA256:
+    case FEATURE_CRC32:
+    case FEATURE_FlagM2:
+    case FEATURE_RNG:
+    case FEATURE_DPB:
+    case FEATURE_DPB2: break;
+    }
 #    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;
     uint64 freg_val = 0;

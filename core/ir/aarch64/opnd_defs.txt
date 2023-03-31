@@ -63,7 +63,10 @@
 #   0xx0  32(s) 0,8,16,24
 #   110x  32(s) 8,16 (MSL, shifting ones)
 
+--------------------------------  impx16     # implicit X16 operand
+--------------------------------  impx17     # implicit X17 operand
 --------------------------------  impx30     # implicit X30 operand
+--------------------------------  impsp      # implicit SP operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
 --------------------------------  mul        # implicit MUL
 --------------------------------  h_sz       # element width of FP vector reg, used to
@@ -74,7 +77,7 @@
 --------------------------------  d_const_sz # as above, but for double width
 --------------------------------  vindex_D1  # An implicit index, at index 1
 --------------------------------  zero_fp_const # A constant zero operand
-----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
+----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP, RMIF
 ----------------------------xxxx  p0         # SVE predicate registers p0-p15
 ----------------------------xxxx  p_b_0      # P register with a byte element size
 ----------------------------xxxx  p_h_0      # P register with a halfword element size
@@ -214,7 +217,8 @@
 -----------xxxxx------xxxxx-----  svemem_gprs_b1  # memory reg from Rm and Rn fields transferring 1 bytes per element
 -----------xxxxx---xxx----------  imm8_10    # 8 bit imm at pos 10, split across 20:16 and 12:10
 -----------xxxxx-??---xxxxx-----  sveprf_gpr_vec64 # SVE prefetch memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod> <amount>}]
------------xxxxxxx--------------  imm7       # 7 bit immediate from 14-20
+-----------xxxxxx---------------  imm6_15    # 6 bit immediate from 20:15
+-----------xxxxxxx--------------  imm7       # 7 bit immediate from 20:14
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prf9       # size is 0 bytes (prefetch variant of mem9)
@@ -256,6 +260,7 @@
 ---------x------------xxxxx-----  wx_sz_5    # W/X register (or WZR/XZR) with size indicated in bit 22
 ---------x-xx-------------------  i3_index_19 # Index value from 22, 20:19
 ---------x-xxxxx----------------  wx_sz_16   # W/X register (or WZR/XZR) with size indicated in bit 22
+---------x-xxxxxxxxx------------  mem_s_imm9_off # The offset part of memory address reg+offset mem_s_imm9
 ---------xx----------------xxxxx  z_size21_hsd_0  # sve vector reg, elsz depending on size21
 ---------xx----------------xxxxx  z_size21_bhsd_0  # sve vector reg, elsz depending on size21
 ---------++++xxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
@@ -357,6 +362,7 @@
 ??---------xxxxxxxxx--xxxxx-----  memreg     # register offset, gets size from 31:30
 ??--------xxxxxxxxxxxxxxxxx-----  mem12      # gets size from 31:30
 ??-------x-xxxxx-??---xxxxx-----  sveprf_gpr_vec32 # SVE prefetch memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod>{ <amount>}]
+??-------x-xxxxxxxxx?-xxxxx-----  mem_s_imm9 # Memory address reg+offset S:imm9, gets size from 31:30
 ??-----??x?xxxxx------xxxxx-----  svemem_gpr_vec32_ld # SVE memory address (32-bit offset) [<Xn|SP>, <Zm>.<T>, <mod> <amount>]
 ??---?----------------xxxxx-----  mem7post   # gets size from 31:30 and 26; post-index
 ??---?----xxxxxxx---------------  mem7off    # gets size from 31:30 and 26
