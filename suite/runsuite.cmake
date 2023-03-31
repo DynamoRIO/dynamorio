@@ -563,7 +563,7 @@ if (ARCH_IS_X86 AND UNIX)
   endif ()
   set(ARCH_IS_X86 OFF)
   # TODO i#3544: Port tests to RISCV and build them in the workflow.
-  set(build_tests "BUILD_TESTS:BOOL=OFF")
+  set(build_tests "BUILD_TESTS:BOOL=ON")
 
   testbuild_ex("riscv64-debug-internal" ON "
     DEBUG:BOOL=ON
@@ -574,7 +574,6 @@ if (ARCH_IS_X86 AND UNIX)
   testbuild_ex("riscv64-release-external" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
-    ${build_tests}
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-riscv64.cmake
     " OFF ${arg_package} "")
 
