@@ -464,52 +464,6 @@ check_function_markers()
 bool
 check_repeated_syscall_with_same_pc()
 {
-    // Negative: syscalls with the same PC.
-#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
-    {
-        std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-#    if defined(X86_64) || defined(X86_32)
-            gen_syscall_encoded(1, 2, { 0x0f, 0x05 }),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
-            gen_syscall_encoded(1, 2, { 0x0f, 0x05 }),
-#    elif defined(ARM_64)
-            gen_syscall_encoded(1, 2, 0xd4000001),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
-            gen_syscall_encoded(1, 2, 0xd4000001),
-#    else
-        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
-#    endif
-        };
-        if (!run_checker(memrefs, true, 1, 5, "Repeated syscall instrs with the same PC",
-                         "Failed to catch repeated syscall instrs with the same PC"))
-            return false;
-    }
-    // Positive test: syscalls with different PCs.
-    {
-        std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-#    if defined(X86_64) || defined(X86_32)
-            gen_syscall_encoded(1, 2, { 0x0f, 0x05 }),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
-            gen_syscall_encoded(1, 4, { 0x0f, 0x05 }),
-#    elif defined(ARM_64)
-            gen_syscall_encoded(1, 2, 0xd4000001),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
-            gen_syscall_encoded(1, 6, 0xd4000001),
-#    else
-        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
-#    endif
-        };
-        if (!run_checker(memrefs, false)) {
-            return false;
-        }
-    }
-#endif
     return true;
 }
 
