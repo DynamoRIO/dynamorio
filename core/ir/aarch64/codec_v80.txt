@@ -152,8 +152,6 @@ x0001010xx0xxxxxxxxxxxxxxxxxxxxx  n   21   BASE        and            wx0 : wx5 
 x11100100xxxxxxxxxxxxxxxxxxxxxxx  w   22   BASE       ands      logic_imm
 x1101010xx0xxxxxxxxxxxxxxxxxxxxx  w   22   BASE       ands            wx0 : wx5 wx16 shift4 imm6
 x0011010110xxxxx001010xxxxxxxxxx  n   23   BASE       asrv            wx0 : wx5 wx16
-11010101000000110010000110011111  n   24   BASE  autia1716                :
-11010101000000110010000111011111  n   25   BASE  autib1716                :
 000101xxxxxxxxxxxxxxxxxxxxxxxxxx  n   26   BASE          b              b
 01010100xxxxxxxxxxxxxxxxxxx0xxxx  r   27   BASE      bcond          bcond
 0011001100xxxxxxxxxxxxxxxxxxxxxx  n   28   BASE        bfm             w0 : w0 w5 immr imms
@@ -1210,7 +1208,6 @@ x0011010110xxxxx000010xxxxxxxxxx  n   511  BASE       udiv            wx0 : wx5 
 0x001110xx0xxxxx010110xxxxxxxxxx  n   558  BASE       uzp2            dq0 : dq5 dq16 bhsd_sz
 11010101000000110010000001011111  n   559  BASE        wfe                :
 11010101000000110010000001111111  n   560  BASE        wfi                :
-11010101000000110010000011111111  n   561  BASE    xpaclri                :
 00001110xx100001001010xxxxxxxxxx  n   562  BASE        xtn             d0 : d5 bhsd_sz
 01001110xx100001001010xxxxxxxxxx  n   563  BASE       xtn2             q0 : q5 bhsd_sz
 11010101000000110010000000111111  n   564  BASE      yield                :
