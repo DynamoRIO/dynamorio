@@ -4923,13 +4923,6 @@
     instr_create_1dst_5src(dc, OP_udot, Rd, Rd, Rn, Rm, index, OPND_CREATE_BYTE())
 
 /**
- * Creates an XPACI instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      Register with PAC bits to remove.
- */
-#define INSTR_CREATE_xpaci(dc, Rd) instr_create_0dst_1src((dc), OP_xpaci, (Rd))
-
-/**
  * Creates a BFCVT instruction.
  *
  * This macro is used to encode the forms:
@@ -13949,5 +13942,42 @@
  */
 #define INSTR_CREATE_ldrab_imm(dc, Rt, Xn, Rn, simm) \
     instr_create_2dst_3src(dc, OP_ldrab, Rt, Xn, Rn, Xn, simm)
+
+/**
+ * Creates a XPACD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    XPACD   <Xd>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_xpacd(dc, Rd) instr_create_1dst_1src(dc, OP_xpacd, Rd, Rd)
+
+/**
+ * Creates a XPACI instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    XPACI   <Xd>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The source and destination register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_xpaci(dc, Rd) instr_create_1dst_1src(dc, OP_xpaci, Rd, Rd)
+
+/**
+ * Creates a XPACLRI instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    XPACLRI
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_xpaclri(dc)                                        \
+    instr_create_1dst_1src(dc, OP_xpaclri, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_X30))
 
 #endif /* DR_IR_MACROS_AARCH64_H */
