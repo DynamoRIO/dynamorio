@@ -1340,10 +1340,14 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
                 ++tdata->cur_chunk_instr_count;
                 ++instr_ordinal;
-                if (instr_ordinal >= static_cast<int>(decode_pcs.size()))
+                if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
+                    // We don't want encodings for the PC-only i-filtered entries.
+                    it->size > 0 && instr_ordinal >= static_cast<int>(decode_pcs.size()))
                     return "decode_pcs is missing entries for written instructions";
             }
             // Check for missing encodings after possibly opening a new chunk.
+            // There can be multiple delayed branches in the same buffer here
+            // so multiple could appear on the other side of a new chunk.
             //
             // XXX i#5724: Could we add a trace_entry_t-level invariant checker to
             // identify missing post-chunk encodings?  Or should we have the reader
@@ -1356,6 +1360,7 @@ raw2trace_t::write(void *tls, const trace_entry_t *start, const trace_entry_t *e
                 // We don't want encodings for the PC-only i-filtered entries.
                 it->size > 0 && !prev_was_encoding &&
                 record_encoding_emitted(tls, decode_pcs[instr_ordinal])) {
+                // Write any data we were waiting until post-loop to write.
                 if (it > start &&
                     !tdata->out_file->write(reinterpret_cast<const char *>(start),
                                             reinterpret_cast<const char *>(it) -
