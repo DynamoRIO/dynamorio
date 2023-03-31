@@ -510,6 +510,63 @@ TEST_INSTR(pacizb)
     TEST_LOOP(pacizb, pacizb, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
 }
 
+TEST_INSTR(ldraa)
+{
+    /* Testing LDRAA   <Xt>, [<Xn|SP>, #<simm>]! */
+    static const int simm[6] = { -4096, -2720, -1352, 16, 1376, 4088 };
+    const char *const expected_0_0[6] = {
+        "ldraa  -0x1000(%x0)[8byte] %x0 $0xfffffffffffff000 -> %x0 %x0",
+        "ldraa  -0x0aa0(%x6)[8byte] %x6 $0xfffffffffffff560 -> %x5 %x6",
+        "ldraa  -0x0548(%x11)[8byte] %x11 $0xfffffffffffffab8 -> %x10 %x11",
+        "ldraa  +0x10(%x16)[8byte] %x16 $0x0000000000000010 -> %x15 %x16",
+        "ldraa  +0x0560(%x21)[8byte] %x21 $0x0000000000000560 -> %x20 %x21",
+        "ldraa  +0x0ff8(%sp)[8byte] %sp $0x0000000000000ff8 -> %x30 %sp",
+    };
+    TEST_LOOP(
+        ldraa, ldraa_imm, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+        opnd_create_reg(Xn_six_offset_1_sp[i]),
+        opnd_create_base_disp(Xn_six_offset_1_sp[i], DR_REG_NULL, 0, simm[i], OPSZ_8),
+        opnd_create_immed_uint(simm[i], OPSZ_PTR));
+
+    /* Testing LDRAA   <Xt>, [<Xn|SP>, #<simm>] */
+    const char *const expected_1_0[6] = {
+        "ldraa  -0x1000(%x0)[8byte] -> %x0",   "ldraa  -0x0aa0(%x6)[8byte] -> %x5",
+        "ldraa  -0x0548(%x11)[8byte] -> %x10", "ldraa  +0x10(%x16)[8byte] -> %x15",
+        "ldraa  +0x0560(%x21)[8byte] -> %x20", "ldraa  +0x0ff8(%sp)[8byte] -> %x30",
+    };
+    TEST_LOOP(
+        ldraa, ldraa, 6, expected_1_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+        opnd_create_base_disp(Xn_six_offset_1_sp[i], DR_REG_NULL, 0, simm[i], OPSZ_8));
+}
+
+TEST_INSTR(ldrab)
+{
+    /* Testing LDRAB   <Xt>, [<Xn|SP>, #<simm>]! */
+    static const int simm[6] = { -4096, -2720, -1352, 16, 1376, 4088 };
+    const char *const expected_0_0[6] = {
+        "ldrab  -0x1000(%x0)[8byte] %x0 $0xfffffffffffff000 -> %x0 %x0",
+        "ldrab  -0x0aa0(%x6)[8byte] %x6 $0xfffffffffffff560 -> %x5 %x6",
+        "ldrab  -0x0548(%x11)[8byte] %x11 $0xfffffffffffffab8 -> %x10 %x11",
+        "ldrab  +0x10(%x16)[8byte] %x16 $0x0000000000000010 -> %x15 %x16",
+        "ldrab  +0x0560(%x21)[8byte] %x21 $0x0000000000000560 -> %x20 %x21",
+        "ldrab  +0x0ff8(%sp)[8byte] %sp $0x0000000000000ff8 -> %x30 %sp",
+    };
+    TEST_LOOP(
+        ldrab, ldrab_imm, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+        opnd_create_reg(Xn_six_offset_1_sp[i]),
+        opnd_create_base_disp(Xn_six_offset_1_sp[i], DR_REG_NULL, 0, simm[i], OPSZ_8),
+        opnd_create_immed_uint(simm[i], OPSZ_PTR));
+
+    /* Testing LDRAB   <Xt>, [<Xn|SP>, #<simm>] */
+    const char *const expected_1_0[6] = {
+        "ldrab  -0x1000(%x0)[8byte] -> %x0",   "ldrab  -0x0aa0(%x6)[8byte] -> %x5",
+        "ldrab  -0x0548(%x11)[8byte] -> %x10", "ldrab  +0x10(%x16)[8byte] -> %x15",
+        "ldrab  +0x0560(%x21)[8byte] -> %x20", "ldrab  +0x0ff8(%sp)[8byte] -> %x30",
+    };
+    TEST_LOOP(
+        ldrab, ldrab, 6, expected_1_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+        opnd_create_base_disp(Xn_six_offset_1_sp[i], DR_REG_NULL, 0, simm[i], OPSZ_8));
+}
 int
 main(int argc, char *argv[])
 {
@@ -553,6 +610,8 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(pacib);
     RUN_INSTR_TEST(paciza);
     RUN_INSTR_TEST(pacizb);
+    RUN_INSTR_TEST(ldraa);
+    RUN_INSTR_TEST(ldrab);
 
     print("All v8.3 tests complete.");
 #ifndef STANDALONE_DECODER

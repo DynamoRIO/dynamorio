@@ -13886,4 +13886,68 @@
  */
 #define INSTR_CREATE_pacizb(dc, Rd) instr_create_1dst_1src(dc, OP_pacizb, Rd, Rd)
 
+/**
+ * Creates a LDRAA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDRAA   <Xt>, [<Xn|SP>, #<simm>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_8)
+ */
+#define INSTR_CREATE_ldraa(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_ldraa, Rt, Rn)
+
+/**
+ * Creates a LDRAA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDRAA   <Xt>, [<Xn|SP>, #<simm>]!
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, X (Extended, 64 bits).
+ * \param Xn   The base register.
+ * \param Rn   The base register with an immediate offset, constructed with the function:
+ *             opnd_create_base_disp(Xn, DR_REG_NULL, 0, simm, OPSZ_8)
+ * \param simm The immediate offset.
+ */
+#define INSTR_CREATE_ldraa_imm(dc, Rt, Xn, Rn, simm) \
+    instr_create_2dst_3src(dc, OP_ldraa, Rt, Xn, Rn, Xn, simm)
+
+/**
+ * Creates a LDRAB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDRAB   <Xt>, [<Xn|SP>, #<simm>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_8)
+ */
+#define INSTR_CREATE_ldrab(dc, Rt, Rn) instr_create_1dst_1src(dc, OP_ldrab, Rt, Rn)
+
+/**
+ * Creates a LDRAB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LDRAB   <Xt>, [<Xn|SP>, #<simm>]!
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The destination register, X (Extended, 64 bits).
+ * \param Xn   The base register.
+ * \param Rn   The base register with an immediate offset, constructed with the function:
+ *             opnd_create_base_disp(Xn, DR_REG_NULL, 0, simm, OPSZ_8)
+ * \param simm The immediate offset.
+ */
+#define INSTR_CREATE_ldrab_imm(dc, Rt, Xn, Rn, simm) \
+    instr_create_2dst_3src(dc, OP_ldrab, Rt, Xn, Rn, Xn, simm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
