@@ -1025,17 +1025,9 @@ test_duplicate_syscalls(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // The move1 instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#ifdef X86_32
-        // An extra encoding entry is needed.
-        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#endif
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         // The sys instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#ifdef X86_32
-        // An extra encoding entry is needed.
-        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#endif
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         // Prev block ends.
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
