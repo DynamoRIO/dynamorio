@@ -50,6 +50,7 @@
 #define BASIC_COUNTS "basic_counts"
 #define OPCODE_MIX "opcode_mix"
 #define VIEW "view"
+#define MISSING_INSTRUCTIONS "missing_instructions"
 #define FUNC_VIEW "func_view"
 #define INVARIANT_CHECKER "invariant_checker"
 #define CACHE_TYPE_INSTRUCTION "instruction"

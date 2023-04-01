@@ -159,6 +159,7 @@ add_exported_library(drmemtrace_reuse_time STATIC tools/reuse_time.cpp)
 add_exported_library(drmemtrace_basic_counts STATIC tools/basic_counts.cpp)
 add_exported_library(drmemtrace_opcode_mix STATIC tools/opcode_mix.cpp)
 add_exported_library(drmemtrace_view STATIC tools/view.cpp)
+add_exported_library(drmemtrace_missing_instructions STATIC tools/missing_instructions.cpp)
 add_exported_library(drmemtrace_func_view STATIC tools/func_view.cpp)
 add_exported_library(drmemtrace_invariant_checker STATIC tools/invariant_checker.cpp)
 
@@ -166,6 +167,7 @@ target_link_libraries(drmemtrace_invariant_checker drdecode)
 
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
+configure_DynamoRIO_standalone(drmemtrace_missing_instructions)
 
 # We combine the cache and TLB simulators as they share code already.
 add_exported_library(drmemtrace_simulator STATIC
@@ -252,7 +254,7 @@ configure_DynamoRIO_standalone(drcachesim)
 # Link in our tools:
 target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
-  drmemtrace_opcode_mix drmemtrace_view drmemtrace_func_view
+  drmemtrace_opcode_mix drmemtrace_view drmemtrace_missing_instructions drmemtrace_func_view
   drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker)
 if (libsnappy)
   target_link_libraries(drcachesim snappy)
@@ -310,6 +312,7 @@ install_client_nonDR_header(drmemtrace simulator/cache_simulator.h)
 install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tools/view_create.h)
+install_client_nonDR_header(drmemtrace tools/missing_instructions_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 install_client_nonDR_header(drmemtrace scheduler/scheduler.h)
@@ -482,6 +485,7 @@ restore_nonclient_flags(drmemtrace_reuse_time)
 restore_nonclient_flags(drmemtrace_basic_counts)
 restore_nonclient_flags(drmemtrace_opcode_mix)
 restore_nonclient_flags(drmemtrace_view)
+restore_nonclient_flags(drmemtrace_missing_instructions)
 restore_nonclient_flags(drmemtrace_func_view)
 restore_nonclient_flags(drmemtrace_record_filter)
 restore_nonclient_flags(drmemtrace_analyzer)
@@ -536,6 +540,7 @@ add_win32_flags(drmemtrace_reuse_time)
 add_win32_flags(drmemtrace_basic_counts)
 add_win32_flags(drmemtrace_opcode_mix)
 add_win32_flags(drmemtrace_view)
+add_win32_flags(drmemtrace_missing_instructions)
 add_win32_flags(drmemtrace_func_view)
 add_win32_flags(drmemtrace_record_filter)
 add_win32_flags(drmemtrace_analyzer)
@@ -546,7 +551,7 @@ if (WIN32 AND DEBUG)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)
   # The client, and our standalone DR users, had /MT added so we need to override.
   # XXX: solve this by avoiding the /MT in the first place!
-  foreach (src ${client_and_sim_srcs} ${sim_srcs} ${raw2trace_srcs} tools/opcode_mix.cpp tools/view.cpp)
+  foreach (src ${client_and_sim_srcs} ${sim_srcs} ${raw2trace_srcs} tools/opcode_mix.cpp tools/view.cpp tools/missing_instructions.cpp)
     get_property(cur SOURCE ${src} PROPERTY COMPILE_FLAGS)
     string(REPLACE "/MT " "" cur ${cur}) # Avoid override warning.
     set_source_files_properties(${src} COMPILE_FLAGS "${cur} /MTd")

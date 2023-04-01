@@ -30,6 +30,8 @@
  * DAMAGE.
  */
 
+#include <iostream>
+
 #include "../analysis_tool_interface.h"
 #include "../analysis_tool.h"
 #include "../common/options.h"
@@ -46,6 +48,7 @@
 #include "../tools/basic_counts_create.h"
 #include "../tools/opcode_mix_create.h"
 #include "../tools/view_create.h"
+#include "../tools/missing_instructions_create.h"
 #include "../tools/func_view_create.h"
 #include "../tools/invariant_checker_create.h"
 #include "../tracer/raw2trace.h"
@@ -207,6 +210,16 @@ drmemtrace_analysis_tool_create()
                                 op_skip_refs.get_value(), op_sim_refs.get_value(),
                                 op_view_syntax.get_value(), op_verbose.get_value(),
                                 op_alt_module_dir.get_value());
+    } else if (op_simulator_type.get_value() == MISSING_INSTRUCTIONS) {
+
+      cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
+      return missing_instructions_tool_create(*knobs);
+      // std::string module_file_path = get_module_file_path();
+      // // The module file is optional so we don't check for emptiness.
+      // return missing_instructions_tool_create(module_file_path, op_only_thread.get_value(),
+      //                         op_skip_refs.get_value(), op_sim_refs.get_value(),
+      //                         op_view_syntax.get_value(), op_verbose.get_value(),
+                              // op_alt_module_dir.get_value());
     } else if (op_simulator_type.get_value() == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
             op_funclist_file.get_value(), DRMEMTRACE_FUNCTION_LIST_FILENAME);
@@ -218,6 +231,7 @@ drmemtrace_analysis_tool_create()
                                      op_verbose.get_value());
     } else if (op_simulator_type.get_value() == INVARIANT_CHECKER) {
         return invariant_checker_create(op_offline.get_value(), op_verbose.get_value());
+
     } else {
         ERRMSG("Usage error: unsupported analyzer type. "
                "Please choose " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " HISTOGRAM

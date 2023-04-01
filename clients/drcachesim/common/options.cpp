@@ -430,7 +430,7 @@ droption_t<std::string>
 droption_t<std::string>
     op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
                       "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB
-                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " VIEW
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " VIEW ", " MISSING_INSTRUCTIONS
                       ", " FUNC_VIEW ", " BASIC_COUNTS ", or " INVARIANT_CHECKER ").",
                       "Specifies the type of the simulator. "
                       "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
