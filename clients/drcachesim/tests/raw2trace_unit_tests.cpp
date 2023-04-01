@@ -938,7 +938,7 @@ test_duplicate_syscalls(void *drcontext)
 #ifdef X86
     instr_t *sys = INSTR_CREATE_syscall(drcontext);
 #elif defined(AARCHXX)
-    instr_t *sys = INSTR_CREATE_svc(drcontext, 1);
+    instr_t *sys = INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
 #else
     instr_t *sys = INSTR_CREATE_ecall(drcontext);
 #endif
