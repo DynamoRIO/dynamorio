@@ -925,6 +925,133 @@ test_chunk_encodings(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
+bool
+test_duplicate_syscalls(void *drcontext)
+{
+    // Our synthetic test first constructs a list of instructions to be encoded into
+    // a buffer for decoding by raw2trace.
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+#ifdef X86
+    instr_t *sys = INSTR_CREATE_syscall(drcontext);
+#elif defined(AARCHXX)
+    instr_t *sys = INSTR_CREATE_svc(drcontext, 1);
+#else
+    instr_t *sys = INSTR_CREATE_ecall(drcontext);
+#endif
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, sys);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_sys = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_sys + instr_length(drcontext, sys);
+
+    // Now we synthesize our raw trace itself, including a valid header sequence.
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    // Repeat the syscall that was the second instr in the size-2 block above,
+    // in its own separate block. This is the signature of the duplicate
+    // system call invariant error seen in i#5934.
+    raw.push_back(make_block(offs_sys, 1));
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    // We need an istream so we use istringstream.
+    std::ostringstream raw_out;
+    for (const auto &entry : raw) {
+        std::string as_string(reinterpret_cast<const char *>(&entry),
+                              reinterpret_cast<const char *>(&entry + 1));
+        raw_out << as_string;
+    }
+    std::istringstream raw_in(raw_out.str());
+    std::vector<std::istream *> input;
+    input.push_back(&raw_in);
+    // We need an ostream to capture out.
+    std::ostringstream result_stream;
+    std::vector<std::ostream *> output;
+    output.push_back(&result_stream);
+
+    // Run raw2trace with our subclass supplying our decodings.
+    raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
+    std::string error = raw2trace.do_conversion();
+    CHECK(error.empty(), error);
+    instrlist_clear_and_destroy(drcontext, ilist);
+
+    // Now check the results.
+    std::string result = result_stream.str();
+    char *start = &result[0];
+    char *end = start + result.size();
+    CHECK(result.size() % sizeof(trace_entry_t) == 0,
+          "output is not a multiple of trace_entry_t");
+    std::vector<trace_entry_t> entries;
+    while (start < end) {
+        entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
+        start += sizeof(trace_entry_t);
+    }
+    int idx = 0;
+    for (const auto &entry : entries) {
+        std::cout << idx << " type: " << entry.type << " size: " << entry.size
+                  << " val: " << entry.addr << "\n";
+        ++idx;
+    }
+    idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move1 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        // The sys instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        // Prev block ends.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // No duplicate sys instr.
+        // We keep the extraneous timestamp+cpu markers above.
+        // Prev block ends.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -932,7 +1059,7 @@ main(int argc, const char *argv[])
     void *drcontext = dr_standalone_init();
     if (!test_branch_delays(drcontext) || !test_marker_placement(drcontext) ||
         !test_marker_delays(drcontext) || !test_chunk_boundaries(drcontext) ||
-        !test_chunk_encodings(drcontext))
+        !test_chunk_encodings(drcontext) || !test_duplicate_syscalls(drcontext))
         return 1;
     return 0;
 }
