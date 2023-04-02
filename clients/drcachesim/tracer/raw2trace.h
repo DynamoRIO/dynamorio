@@ -649,18 +649,21 @@ struct trace_header_t {
  *  get_write_buffer() may reuse the same buffer after write() or write_delayed_branches()
  * is called.</LI>
  *
- * <LI>std::string write(void *tls, const trace_entry_t *start, const trace_entry_t *end)
+ * <LI>std::string write(void *tls, const trace_entry_t *start, const trace_entry_t *end,
+ *                       std::vector<app_pc> decode_pcs = {})
  *
  * Writes the converted traces between start and end, where end is past the last
  * item to write. Both start and end are assumed to be pointers inside a buffer
- * returned by get_write_buffer().</LI>
+ * returned by get_write_buffer().  decode_pcs is only needed if there is more
+ * than one instruction in the buffer; in that case it must contain one entry per
+ * instruction.</LI>
  *
  * <LI>std::string write_delayed_branches(void *tls, const trace_entry_t *start,
- * const trace_entry_t *end)
+ * const trace_entry_t *end, app_pc decode_pc)
  *
  * Similar to write(), but treat the provided traces as delayed branches: if they
  * are the last values in a record, they belong to the next record of the same
- * thread.</LI>
+ * thread.  The start..end sequence must contain one instruction.</LI>
  *
  * <LI>bool delayed_branches_exist(void *tls)
  *
@@ -752,6 +755,11 @@ struct trace_header_t {
  *
  * Returns the trace file type (a combination of OFFLINE_FILE_TYPE* constants).
  * </LI>
+ *
+ * <LI>std::string append_encoding(void *tls, app_pc pc, size_t instr_length,
+ *                                 trace_entry_t *&buf, trace_entry_t *buf_start)
+ *
+ * Writes encoding entries for pc..pc+instr_length to buf.
  * </UL>
  */
 template <typename T> class trace_converter_t {
@@ -1258,6 +1266,7 @@ private:
         for (uint i = 0; i < instr_count; ++i) {
             trace_entry_t *buf_start = impl()->get_write_buffer(tls);
             trace_entry_t *buf = buf_start;
+            app_pc saved_decode_pc = decode_pc;
             app_pc orig_pc = modmap_().get_orig_pc_from_map_pc(
                 decode_pc, in_entry->pc.modidx, in_entry->pc.modoffs);
             // To avoid repeatedly decoding the same instruction on every one of its
@@ -1281,7 +1290,8 @@ private:
                     return error;
             }
             if (!skip_icache && impl()->record_encoding_emitted(tls, decode_pc)) {
-                error = append_encoding(instr, buf, buf_start, decode_pc);
+                error = impl()->append_encoding(tls, decode_pc, instr->length(), buf,
+                                                buf_start);
                 if (!error.empty())
                     return error;
             }
@@ -1394,12 +1404,14 @@ private:
                 // timestamp of the branch, which we live with. To avoid marker
                 // misplacement (e.g. in the middle of a basic block), we also
                 // delay markers.
-                impl()->log(4, "Delaying %d entries\n", buf - buf_start);
-                error = impl()->write_delayed_branches(tls, buf_start, buf);
+                impl()->log(4, "Delaying %d entries for decode=" PIFX "\n",
+                            buf - buf_start, saved_decode_pc);
+                error =
+                    impl()->write_delayed_branches(tls, buf_start, buf, saved_decode_pc);
                 if (!error.empty())
                     return error;
             } else {
-                error = impl()->write(tls, buf_start, buf);
+                error = impl()->write(tls, buf_start, buf, { saved_decode_pc });
                 if (!error.empty())
                     return error;
             }
@@ -1407,36 +1419,6 @@ private:
                 break;
         }
         *handled = true;
-        return "";
-    }
-
-    std::string
-    append_encoding(const instr_summary_t *instr, trace_entry_t *&buf,
-                    trace_entry_t *buf_start, app_pc pc)
-    {
-        size_t size_left = instr->length();
-        size_t offs = 0;
-#ifdef ARM
-        // Remove any Thumb LSB.
-        pc = dr_app_pc_as_load_target(DR_ISA_ARM_THUMB, pc);
-#endif
-        do {
-            buf->type = TRACE_TYPE_ENCODING;
-            buf->size =
-                static_cast<unsigned short>(std::min(size_left, sizeof(buf->encoding)));
-            memcpy(buf->encoding, pc + offs, buf->size);
-            if (buf->size < sizeof(buf->encoding)) {
-                // We don't have to set the rest to 0 but it is nice.
-                memset(buf->encoding + buf->size, 0, sizeof(buf->encoding) - buf->size);
-            }
-            impl()->log(4, "Appended encoding entry for %p sz=%zu 0x%08x...\n", pc,
-                        buf->size, *(int *)buf->encoding);
-            offs += buf->size;
-            size_left -= buf->size;
-            ++buf;
-            DR_CHECK(static_cast<size_t>(buf - buf_start) < WRITE_BUFFER_SIZE,
-                     "Too many entries for write buffer");
-        } while (size_left > 0);
         return "";
     }
 
@@ -1979,6 +1961,9 @@ protected:
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
         std::vector<trace_entry_t> delayed_branch;
+        // Records the decode pcs for delayed_branch instructions for re-inserting
+        // encodings across a chunk boundary.
+        std::vector<app_pc> delayed_branch_decode_pcs;
 
         // Current trace conversion state.
         bool saw_header;
@@ -2052,10 +2037,17 @@ private:
     trace_entry_t *
     get_write_buffer(void *tls);
     std::string
-    write(void *tls, const trace_entry_t *start, const trace_entry_t *end);
+    write(void *tls, const trace_entry_t *start, const trace_entry_t *end,
+          std::vector<app_pc> decode_pcs = {});
     std::string
     write_delayed_branches(void *tls, const trace_entry_t *start,
-                           const trace_entry_t *end);
+                           const trace_entry_t *end, app_pc decode_pc = nullptr);
+    std::string
+    append_encoding(void *tls, app_pc pc, size_t instr_length, trace_entry_t *&buf,
+                    trace_entry_t *buf_start);
+    std::string
+    insert_post_chunk_encodings(void *tls, const trace_entry_t *instr, app_pc decode_pc);
+
     bool
     delayed_branches_exist(void *tls);
     bool
