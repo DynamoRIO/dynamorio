@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright () 2016-2022 Google, Inc.  All rights reserved.
+# Copyright () 2016-2023 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -341,7 +341,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
                                    'code_api|client.attach_test' => 1, # i#5740
                                    'code_api|client.attach_blocking' => 1, # i#5740
-                                   'code_api|tool.drcacheoff.invariant_checker' => 1, # i#5724
                                    'code_api|tool.drcacheoff.rseq' => 1, # i#5734
                                    'code_api|tool.drcacheoff.windows-zlib' => 1, # i#5507
                                    );

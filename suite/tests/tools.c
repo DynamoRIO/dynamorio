@@ -564,6 +564,9 @@ GLOBAL_LABEL(code_self_mod:)
         sub      w1, w1, #1
         cbnz     w1, repeat1
         ret
+#elif defined(RISCV64)
+        /* TODO i#3544: Port tests to RISC-V64 */
+        ret
 #else
 # error NYI
 #endif
@@ -597,31 +600,36 @@ GLOBAL_LABEL(FUNCNAME:)
 #endif
         END_FUNC(FUNCNAME)
 
-
 #undef FUNCNAME
 #define FUNCNAME code_inc
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+#if !defined(RISCV64) /* TODO i#3544: Port tests to RISC-V 64 */
         mov      REG_SCRATCH0, ARG1
         INC(REG_SCRATCH0)
         RETURN
+#endif
         END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
 #define FUNCNAME code_dec
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+#if !defined(RISCV64) /* TODO i#3544: Port tests to RISC-V 64 */
         mov      REG_SCRATCH0, ARG1
         DEC(REG_SCRATCH0)
         RETURN
+#endif
         END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
 #define FUNCNAME dummy
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+#if !defined(RISCV64) /* TODO i#3544: Port tests to RISC-V 64 */
         mov      REG_SCRATCH0, HEX(1)
         RETURN
+#endif
         END_FUNC(FUNCNAME)
 
 #undef FUNCNAME
@@ -647,6 +655,9 @@ GLOBAL_LABEL(FUNCNAME:)
         blr      x30                 /* Call function, with &retaddr as arg1. */
         ldp      x29, x30, [sp], #16
         ret                          /* Return to possibly modified return address. */
+#elif defined(RISCV64)
+        /* TODO i#3544: Port tests to RISC-V 64 */
+        ret
 #else
 # error NYI
 #endif
@@ -668,6 +679,9 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      x9, x0              /* Move function pointer to scratch register. */
         mov      x0, x30             /* Replace first argument with return address. */
         br       x9                  /* Tailcall to function pointer. */
+#elif defined(RISCV64)
+        /* TODO i#3544: Port tests to RISC-V64 */
+        ret
 #else
 # error NYI
 #endif
