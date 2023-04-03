@@ -289,6 +289,10 @@ TEST_INSTR(pauth_hints)
     TEST_NO_OPNDS(pacibsp, pacibsp, "pacibsp %x30 %sp -> %x30");
     TEST_NO_OPNDS(pacibz, pacibz, "pacibz %x30 -> %x30");
     TEST_NO_OPNDS(xpaclri, xpaclri, "xpaclri %x30 -> %x30");
+    TEST_NO_OPNDS(eretaa, eretaa, "eretaa %x30 %sp");
+    TEST_NO_OPNDS(eretab, eretab, "eretab %x30 %sp");
+    TEST_NO_OPNDS(retaa, retaa, "retaa  %x30 %sp");
+    TEST_NO_OPNDS(retab, retab, "retab  %x30 %sp");
 }
 
 TEST_INSTR(autib)
