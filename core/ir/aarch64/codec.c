@@ -5878,21 +5878,6 @@ extract_tsz_offset(uint enc, uint tszh_pos, uint tszl_pos)
     return offset;
 }
 
-static inline aarch64_reg_offset
-extract_tsz3_offset(uint enc, uint tszh_pos, uint tszl_pos)
-{
-    int offset;
-
-    ASSERT(tszh_pos < 30);
-    uint tsz = (extract_uint(enc, tszh_pos, 1) << 2) | extract_uint(enc, tszl_pos, 2);
-
-    if (!highest_bit_set(tsz, 0, 3, &offset))
-        return NOT_A_REG;
-
-    ASSERT(offset < 4);
-    return offset;
-}
-
 static inline bool
 decode_opnd_z_wtszl19p1_bhsd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {

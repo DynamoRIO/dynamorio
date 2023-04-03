@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -329,17 +329,22 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 #    define NOP_NOP_NOP asm("nop\n nop\n nop\n")
 #    ifdef X86
 #        ifdef MACOS
-#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call _" #tgt)
+#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call _" #            tgt)
 #        else
-#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
+#            define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #            tgt)
 #        endif
 #    elif defined(AARCHXX)
 /* Make sure to mark LR/X30 as clobbered to avoid functions like
  * client-interface/call-retarget.c:main() being interpreted as a leaf
  * function that does not need the link register preserved.
  */
-#        define NOP_NOP_CALL(tgt) \
-            asm("nop\n nop\n bl " #tgt : : : IF_ARM_ELSE("lr", "x30"))
+#        ifdef MACOS
+#            define NOP_NOP_CALL(tgt) \
+                asm("nop\n nop\n bl _" #tgt : : : IF_ARM_ELSE("lr", "x30"))
+#        else
+#            define NOP_NOP_CALL(tgt) \
+                asm("nop\n nop\n bl " #tgt : : : IF_ARM_ELSE("lr", "x30"))
+#        endif
 #    endif
 #endif
 
