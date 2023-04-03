@@ -1036,6 +1036,8 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         desc->packed_ |= kIsFlushMask;
     if (instr_is_cti(instr))
         desc->packed_ |= kIsCtiMask;
+    // XXX i#5949: This has some OS-specific behavior that should be preserved
+    // even when decoding a trace collected on a different platform.
     if (instr_is_syscall(instr))
         desc->packed_ |= kIsSyscallMask;
 

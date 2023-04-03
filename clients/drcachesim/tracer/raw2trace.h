@@ -1284,12 +1284,14 @@ private:
             // TODO i#5934: This is a workaround for the trace invariant error triggered
             // by consecutive duplicate system call instructions. Remove this when the
             // error is fixed in the drmemtrace tracer.
-            if (instr->is_syscall() && impl()->get_last_pc_if_syscall(tls) == pc &&
+            if (instr->is_syscall() && impl()->get_last_pc_if_syscall(tls) == orig_pc &&
                 instr_count == 1) {
                 impl()->add_to_statistic(tls, RAW2TRACE_STAT_DUPLICATE_SYSCALL, 1);
                 impl()->log(
                     3, "Found block with duplicate system call instruction. Skipping.");
                 // Since this instr is in its own block, we're done.
+                // Note that this will result in a pair of timestamp+cpu markers without
+                // anything before the next timestamp+cpu pair.
                 break;
             }
 
@@ -1314,7 +1316,7 @@ private:
             } else
                 impl()->set_prev_instr_rep_string(tls, false);
             if (instr->is_syscall())
-                impl()->set_last_pc_if_syscall(tls, pc);
+                impl()->set_last_pc_if_syscall(tls, orig_pc);
             else
                 impl()->set_last_pc_if_syscall(tls, 0);
             buf->size = (ushort)(skip_icache ? 0 : instr->length());
@@ -1942,7 +1944,6 @@ protected:
             , last_decode_modidx(0)
             , last_decode_modoffs(0)
             , last_block_summary(nullptr)
-            , last_pc_if_syscall_(0)
         {
         }
         // Support subclasses extending this struct.
@@ -1993,7 +1994,7 @@ protected:
         uint64 chunk_count_ = 0;
         uint64 last_timestamp_ = 0;
         uint last_cpu_ = 0;
-        app_pc last_pc_if_syscall_;
+        app_pc last_pc_if_syscall_ = 0;
 
         std::set<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
