@@ -936,7 +936,7 @@ test_duplicate_syscalls(void *drcontext)
     instr_t *move1 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
-    // complexities (xref create_syscall_instr());
+    // complexities (xref create_syscall_instr()).
 #ifdef X86
     instr_t *sys = INSTR_CREATE_syscall(drcontext);
 #elif defined(AARCHXX)
