@@ -944,7 +944,7 @@ test_duplicate_syscalls(void *drcontext)
 #elif defined(RISCV64)
     instr_t *sys = INSTR_CREATE_ecall(drcontext);
 #else
-    #error Unsupported architecture.
+#    error Unsupported architecture.
 #endif
     instr_t *move2 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
