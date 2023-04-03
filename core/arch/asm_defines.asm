@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -106,20 +106,25 @@
 
 # if defined(MACOS) && defined(AARCH64)
 
-#  define DECLARE_FUNC(symbol) \
+/* The Mac assembler isn't resolving macro args so we have to force it to
+ * support FUNCNAME used in many files.
+ */
+#  define DECLARE_FUNC(symbol) DECLARE_FUNC_EVAL(symbol)
+#  define DECLARE_FUNC_EVAL(symbol) \
 .p2align 2 @N@ \
 .globl _##symbol @N@ \
-.private_extern _##symbol @N@ \
+.private_extern _##symbol @N@
 
 #  define DECLARE_EXPORTED_FUNC(symbol) \
 .p2align 2 @N@ \
-.globl _##symbol @N@ \
+.globl _##symbol @N@
 
 #  define DECLARE_GLOBAL(symbol) \
 .globl _##symbol @N@\
 .private_extern _##symbol
 
-#  define GLOBAL_LABEL(label) _##label
+#  define GLOBAL_LABEL(label) GLOBAL_LABEL_EVAL(label)
+#  define GLOBAL_LABEL_EVAL(label) _##label
 #  define GLOBAL_REF(label) _##label
 
 #  define AARCH64_ADRP_GOT(sym, reg) \
@@ -128,7 +133,7 @@ add reg, reg, sym@PAGEOFF
 
 #  define AARCH64_ADRP_GOT_LDR(sym, reg) \
 adrp reg, sym@PAGE @N@ \
-add  reg, reg, sym@PAGEOFF
+ldr  reg, [reg, sym@PAGEOFF]
 
 # else
 

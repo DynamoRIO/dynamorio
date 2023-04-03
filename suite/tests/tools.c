@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -704,7 +704,7 @@ GLOBAL_LABEL(FUNCNAME:)
         pop      {r7}
         bx       lr
 # else
-        b        clear_icache
+        b        GLOBAL_REF(clear_icache)
 # endif
         END_FUNC(FUNCNAME)
 #endif

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2022 Arm Limited   All rights reserved.
  * **********************************************************/
 
@@ -63,7 +64,7 @@ main(int argc, char *argv[])
 /* clang-format off */
 START_FILE
 #define FUNCNAME indexed_mem_test
-        DECLARE_EXPORTED_FUNC(FUNCNAME)
+        DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 
         stp      x0, x1, [sp, #-16]!

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -5508,7 +5508,7 @@ test_opnd(void *dc)
      */
 }
 
-static uint
+static void
 test_mov_instr_addr_encoding(void *dc, instr_t *instr, uint opcode, uint target_off,
                              uint right_shift_amt, uint mask)
 {
@@ -5526,7 +5526,7 @@ test_mov_instr_addr_encoding(void *dc, instr_t *instr, uint opcode, uint target_
     ASSERT(instr_get_opcode(decin) == opcode);
 
     uint src_op = opcode == OP_movz ? 0 : 1;
-    uint expected_imm = ((ptr_int_t)buf + target_off >> right_shift_amt) & mask;
+    uint expected_imm = (((ptr_int_t)buf + target_off) >> right_shift_amt) & mask;
     ASSERT(opnd_get_immed_int(instr_get_src(decin, src_op)) == expected_imm);
 
     instr_destroy(dc, instr);
