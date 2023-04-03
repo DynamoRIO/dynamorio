@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -61,6 +61,9 @@
 #elif defined(AARCHXX)
 #    define REG1 DR_REG_R0
 #    define REG2 DR_REG_R1
+#elif defined(RISCV64)
+#    define REG1 DR_REG_A0
+#    define REG2 DR_REG_A1
 #else
 #    error Unsupported arch
 #endif
@@ -659,7 +662,7 @@ test_chunk_boundaries(void *drcontext)
     // raw2trace doesn't like offsets of 0 so we shift with a nop.
     instr_t *nop = XINST_CREATE_nop(drcontext);
     // Test i#5724 where a chunk boundary between consecutive branches results
-    // in an incorrect count and a missing encoding entry.
+    // in an incorrect count.
     instr_t *move1 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *move2 =
@@ -784,13 +787,152 @@ test_chunk_boundaries(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
+bool
+test_chunk_encodings(void *drcontext)
+{
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    // Test i#5724 where a chunk boundary between consecutive branches results
+    // in a missing encoding entry.
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *jmp2 = XINST_CREATE_jump(drcontext, opnd_create_instr(move2));
+    instr_t *jmp1 = XINST_CREATE_jump(drcontext, opnd_create_instr(jmp2));
+    instrlist_append(ilist, nop);
+    // Block 1.
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, jmp1);
+    // Block 2.
+    instrlist_append(ilist, jmp2);
+    // Block 3.
+    instrlist_append(ilist, move2);
+
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jmp1 = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_jmp2 = offs_jmp1 + instr_length(drcontext, jmp1);
+    size_t offs_move2 = offs_jmp2 + instr_length(drcontext, jmp2);
+
+    // Now we synthesize our raw trace itself, including a valid header sequence.
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_block(offs_jmp2, 1));
+    raw.push_back(make_block(offs_move2, 1));
+    // Repeat the jmp,jmp to test re-emitting encodings in new chunks.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_block(offs_jmp2, 1));
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+    // We need an istream so we use istringstream.
+    std::ostringstream raw_out;
+    for (const auto &entry : raw) {
+        std::string as_string(reinterpret_cast<const char *>(&entry),
+                              reinterpret_cast<const char *>(&entry + 1));
+        raw_out << as_string;
+    }
+    std::istringstream raw_in(raw_out.str());
+    std::vector<std::istream *> input;
+    input.push_back(&raw_in);
+    // We need an archive_ostream to enable chunking.
+    archive_ostream_test_t result_stream;
+    std::vector<archive_ostream_t *> output;
+    output.push_back(&result_stream);
+
+    // Run raw2trace with our subclass supplying our decodings.
+    // Use a chunk instr count of 6 to split the 2nd set of 2 jumps.
+    raw2trace_test_t raw2trace(input, output, *ilist, drcontext, 6);
+    std::string error = raw2trace.do_conversion();
+    CHECK(error.empty(), error);
+    instrlist_clear_and_destroy(drcontext, ilist);
+
+    // Now check the results.
+    std::string result = result_stream.str();
+    char *start = &result[0];
+    char *end = start + result.size();
+    CHECK(result.size() % sizeof(trace_entry_t) == 0,
+          "output is not a multiple of trace_entry_t");
+    std::vector<trace_entry_t> entries;
+    while (start < end) {
+        entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
+        start += sizeof(trace_entry_t);
+    }
+    int idx = 0;
+    for (const auto &entry : entries) {
+        std::cout << idx << " type: " << entry.type << " size: " << entry.size
+                  << " val: " << entry.addr << "\n";
+        ++idx;
+    }
+    idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // Block 1.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
+        // Block 2.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
+        // Block 3.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        // Now we have repeated instrs which do not need encodings, except in new chunks.
+        // Block 1.
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        // Chunk splits pair of jumps.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // Block 2.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1) &&
+        // Block 3.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
 int
 main(int argc, const char *argv[])
 {
 
     void *drcontext = dr_standalone_init();
     if (!test_branch_delays(drcontext) || !test_marker_placement(drcontext) ||
-        !test_marker_delays(drcontext) || !test_chunk_boundaries(drcontext))
+        !test_marker_delays(drcontext) || !test_chunk_boundaries(drcontext) ||
+        !test_chunk_encodings(drcontext))
         return 1;
     return 0;
 }
