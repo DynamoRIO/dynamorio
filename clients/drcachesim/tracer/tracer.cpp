@@ -1055,6 +1055,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             FATAL("Fatal error: failed to reserve aflags\n");
     }
 
+    bool needs_instru = false;
+    if (instr_is_label(instr) && instr_get_note(instr) == (void *)DR_NOTE_RSEQ_ENTRY) {
+        needs_instru = true;
+    }
+
     // Use emulation-aware queries to accurately trace rep string and
     // scatter-gather expansions.  Getting this wrong can result in significantly
     // incorrect ifetch stats (i#2011).
@@ -1065,6 +1070,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          !(instr_reads_memory(instr_operands) || instr_writes_memory(instr_operands))) &&
         // Ensure we reach the code below for post-strex instru.
         ud->strex == NULL &&
+        // Do not skip misc cases that need instrumentation.
+        !needs_instru &&
         // Avoid dropping trailing bundled instrs or missing the block-final clean call.
         !is_last_instr(drcontext, instr))
         return flags;
@@ -1178,6 +1185,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                    instr_get_dst(ud->strex, 0), 0, true,
                                    instr_get_predicate(ud->strex));
         ud->strex = NULL;
+    }
+
+    if (instr_is_label(instr) && instr_get_note(instr) == (void *)DR_NOTE_RSEQ_ENTRY) {
+        adjust =
+            instru->instrument_rseq_entry(drcontext, bb, where, instr, reg_ptr, adjust);
     }
 
     /* Instruction entry for instr fetch trace.  This does double-duty by

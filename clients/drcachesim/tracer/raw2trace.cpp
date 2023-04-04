@@ -570,6 +570,17 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
             if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
                 log(4, "Signal/exception between bbs\n");
+                if (tdata->rseq_past_end_) {
+                    err = adjust_and_emit_rseq_buffer(tdata, marker_val);
+                    if (!err.empty())
+                        return err;
+                }
+            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
+                log(4, "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
+                    marker_val);
+                tdata->rseq_ever_saw_entry_ = true;
+                tdata->rseq_buffering_enabled_ = true;
+                tdata->rseq_end_pc_ = marker_val;
             }
             // If there is currently a delayed branch that has not been emitted yet,
             // delay most markers since intra-block markers can cause issues with
@@ -908,6 +919,8 @@ raw2trace_t::do_conversion()
                 return error;
             count_elided_ += thread_data_[i]->count_elided;
             count_duplicate_syscall_ += thread_data_[i]->count_duplicate_syscall;
+            count_rseq_abort_ += thread_data_[i]->count_rseq_abort;
+            count_rseq_side_exit_ += thread_data_[i]->count_rseq_side_exit;
         }
     } else {
         // The files can be converted concurrently.
@@ -925,6 +938,8 @@ raw2trace_t::do_conversion()
                 return tdata->error;
             count_elided_ += tdata->count_elided;
             count_duplicate_syscall_ += tdata->count_duplicate_syscall;
+            count_rseq_abort_ += tdata->count_rseq_abort;
+            count_rseq_side_exit_ += tdata->count_rseq_side_exit;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -934,6 +949,9 @@ raw2trace_t::do_conversion()
            count_duplicate_syscall_);
     VPRINT(1, "Reconstructed " UINT64_FORMAT_STRING " elided addresses.\n",
            count_elided_);
+    VPRINT(1, "Adjusted " UINT64_FORMAT_STRING " rseq aborts.\n", count_rseq_abort_);
+    VPRINT(1, "Adjusted " UINT64_FORMAT_STRING " rseq side exits.\n",
+           count_rseq_side_exit_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
@@ -1217,17 +1235,6 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         DR_CHECK(pc > decode_pc, "error advancing inside block");
         DR_CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
-        if (!instr->is_cti()) {
-            // Write out delayed branches now that we have a target.
-            error = append_delayed_branch(tdata);
-            if (!error.empty())
-                return error;
-        }
-        if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
-            error = append_encoding(tdata, decode_pc, instr->length(), buf, buf_start);
-            if (!error.empty())
-                return error;
-        }
         // TODO i#5934: This is a workaround for the trace invariant error triggered
         // by consecutive duplicate system call instructions. Remove this when the
         // error is fixed in the drmemtrace tracer.
@@ -1239,6 +1246,40 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // Note that this will result in a pair of timestamp+cpu markers without
             // anything before the next timestamp+cpu pair.
             break;
+        }
+        if (!instr->is_cti()) {
+            // Write out delayed branches now that we have a target.
+            error = append_delayed_branch(tdata);
+            if (!error.empty())
+                return error;
+        }
+        if (tdata->rseq_buffering_enabled_) {
+            if (tdata->rseq_past_end_) {
+                error =
+                    adjust_and_emit_rseq_buffer(tdata, reinterpret_cast<addr_t>(orig_pc));
+                if (!error.empty())
+                    return error;
+            } else {
+                if (instr->is_cti()) {
+                    log(4, "Remembering rseq branch %p -> %p\n", orig_pc,
+                        instr->branch_target_pc());
+                    tdata->rseq_branch_targets_.emplace_back(
+                        orig_pc, instr->branch_target_pc(), tdata->rseq_buffer_.size());
+                }
+                if (reinterpret_cast<addr_t>(orig_pc) + instr->length() ==
+                    tdata->rseq_end_pc_) {
+                    log(4, "Hit rseq endpoint 0x%zx @ %p\n", tdata->rseq_end_pc_,
+                        orig_pc);
+                    tdata->rseq_commit_pc_ = reinterpret_cast<addr_t>(orig_pc);
+                    tdata->rseq_past_end_ = true;
+                    tdata->rseq_commit_idx_ = tdata->rseq_buffer_.size();
+                }
+            }
+        }
+        if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
+            error = append_encoding(tdata, decode_pc, instr->length(), buf, buf_start);
+            if (!error.empty())
+                return error;
         }
 
         // XXX i#1729: make bundles via lazy accum until hit memref/end, if
@@ -1269,6 +1310,15 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         ++buf;
         log(4, "Appended instr fetch for original %p\n", orig_pc);
         decode_pc = pc;
+        if (tdata->rseq_past_end_) {
+            // In case handle_kernel_interrupt_and_markers() calls
+            // adjust_and_emit_rseq_buffer() we need to have written this instr to the
+            // rseq buffer.
+            error = write(tdata, buf_start, buf, { saved_decode_pc });
+            if (!error.empty())
+                return error;
+            buf = buf_start;
+        }
         // Check for a signal *after* the instruction.  The trace is recording
         // instruction *fetches*, not instruction retirement, and we want to
         // include a faulting instruction before its raised signal.
@@ -1358,7 +1408,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             error = write_delayed_branches(tdata, buf_start, buf, saved_decode_pc);
             if (!error.empty())
                 return error;
-        } else {
+        } else if (buf > buf_start) {
             error = write(tdata, buf_start, buf, { saved_decode_pc });
             if (!error.empty())
                 return error;
@@ -1406,14 +1456,23 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
         std::string err = get_marker_value(tdata, &in_entry, &marker_val);
         if (!err.empty())
             return err;
-        if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+        if (tdata->rseq_ever_saw_entry_ &&
             in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+            // An abort always ends a block.
+        } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                   // Support legacy traces before we added TRACE_MARKER_TYPE_RSEQ_ENTRY.
+                   // We identify them by not seeing an entry before an abort.
+                   // We won't fix up rseq aborts with timestamps (i#5954) nor rseq
+                   // side exits (i#5953) for such traces but we can at least fix
+                   // up typical aborts.
+                   (!tdata->rseq_ever_saw_entry_ &&
+                    in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT)) {
             // A signal/exception marker in the next entry could be at any point
             // among non-memref instrs, or it could be after this bb.
             // We check the stored PC.
             int version = get_version(tdata);
             bool at_interrupted_pc = false;
-            bool rseq_rollback = false;
+            bool legacy_rseq_rollback = false;
             if (version < OFFLINE_FILE_VERSION_KERNEL_INT_PC) {
                 // We have only the offs, so we can't handle differing modules for
                 // the source and target for legacy traces.
@@ -1423,23 +1482,28 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
                 if (marker_val == cur_pc)
                     at_interrupted_pc = true;
             }
-            if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT ||
-                (version < OFFLINE_FILE_VERSION_KERNEL_INT_PC && marker_val == 0)) {
+            if (!tdata->rseq_ever_saw_entry_ &&
+                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 // For the older version, we will not get here for Windows
                 // callbacks, the other event with a 0 modoffs, because they are
                 // always between bbs.  (Unfortunately there's no simple way to
                 // assert or check that here or in the tracer.)
-                rseq_rollback = true;
+                legacy_rseq_rollback = true;
             }
             log(4,
                 "Checking whether reached signal/exception %p vs "
                 "cur 0x" HEX64_FORMAT_STRING "\n",
                 marker_val, cur_pc);
-            if (marker_val == 0 || at_interrupted_pc || rseq_rollback) {
+            if (marker_val == 0 || at_interrupted_pc || legacy_rseq_rollback) {
                 log(4, "Signal/exception interrupted the bb @ %p\n", cur_pc);
+                if (tdata->rseq_past_end_) {
+                    err = adjust_and_emit_rseq_buffer(tdata, cur_pc);
+                    if (!err.empty())
+                        return err;
+                }
                 append = true;
                 *interrupted = true;
-                if (rseq_rollback) {
+                if (legacy_rseq_rollback) {
                     // This happens on rseq native aborts, where the trace instru
                     // includes the rseq committing store before the native rseq
                     // execution hits the native abort.  Pretend the native abort
@@ -1448,6 +1512,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
                     // there should be no (other) intra-bb markers not for the store.
                     log(4, "Rolling back %d entries for rseq abort\n",
                         *buf_in - buf_start);
+                    add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
                     // If we recorded and emitted an encoding we would not emit
                     // it next time and be missing the encoding so we must clear
                     // the cache for that entry.  This will only happen once
@@ -1691,6 +1756,197 @@ raw2trace_t::rollback_last_encoding(raw2trace_thread_data_t *tdata)
     tdata->last_encoding_emitted = nullptr;
 }
 
+std::string
+raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
+                                  int remove_start_rough_idx,
+                                  // This is inclusive.
+                                  int remove_end_rough_idx)
+{
+    // First, advance to encoding/instruction boundaries.
+    int remove_start = remove_start_rough_idx;
+    while (
+        remove_start < static_cast<int>(tdata->rseq_buffer_.size()) &&
+        tdata->rseq_buffer_[remove_start].type != TRACE_TYPE_ENCODING &&
+        !type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_start].type)))
+        ++remove_start;
+    int remove_end = remove_end_rough_idx;
+    while (
+        remove_end < static_cast<int>(tdata->rseq_buffer_.size()) &&
+        (tdata->rseq_buffer_[remove_end].type == TRACE_TYPE_ENCODING ||
+         type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_end].type)) ||
+         type_is_data(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_end].type))))
+        ++remove_end;
+    log(4, "rseq rollback: advanced rough %d-%d to %d-%d\n", remove_start_rough_idx,
+        remove_end_rough_idx, remove_start, remove_end);
+    // Now find the corresponding decode_pc start index.
+    // XXX: Should we merge the decode_pc field into the rseq_buffer_ to simplify
+    // this, and then pull it out for write() (or have write() pull it out or
+    // write every entry singly)?
+    int decode_start = 0;
+    for (int i = 0; i < remove_start; i++) {
+        if (type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[i].type)))
+            ++decode_start;
+    }
+    // Now walk to the end, erasing from the encoding cache to ensure it's emitted next
+    // time.
+    int decode_end = decode_start;
+    for (int i = remove_start; i < remove_end; i++) {
+        if (tdata->rseq_buffer_[i].type == TRACE_TYPE_ENCODING) {
+            log(4, "Erasing cached encoding for %p\n",
+                tdata->rseq_decode_pcs_[decode_end]);
+            tdata->encoding_emitted.erase(tdata->rseq_decode_pcs_[decode_end]);
+        }
+        if (type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[i].type)))
+            ++decode_end;
+    }
+    log(4, "Rolling back %d entries for rseq: %d-%d\n", remove_end - remove_start,
+        remove_start, remove_end);
+    tdata->rseq_buffer_.erase(tdata->rseq_buffer_.begin() + remove_start,
+                              tdata->rseq_buffer_.begin() + remove_end);
+    tdata->rseq_decode_pcs_.erase(tdata->rseq_decode_pcs_.begin() + decode_start,
+                                  tdata->rseq_decode_pcs_.begin() + decode_end);
+    return "";
+}
+
+std::string
+raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc)
+{
+    log(4, "--- Rseq region exited at %p ---\n", next_pc);
+    if (verbosity_ >= 4) {
+        log(4, "Rseq buffer contents:\n");
+        for (int i = 0; i < static_cast<int>(tdata->rseq_buffer_.size()); i++) {
+            log(4, "  #%2d: type=%d, size=%d, addr=0x%zx\n", i,
+                tdata->rseq_buffer_[i].type, tdata->rseq_buffer_[i].size,
+                tdata->rseq_buffer_[i].addr);
+        }
+    }
+    // We need this in the outer scope for use by write() below.
+    byte encoding[MAX_ENCODING_LENGTH];
+
+    if (next_pc == tdata->rseq_end_pc_) {
+        // Normal fall-through of the committing store: nothing to roll back.  We give
+        // up on distinguishing a side exit whose target is the end PC fall-through from
+        // a completion.
+        log(4, "Rseq completed normally\n");
+    }
+    // We actually won't see the handler PC as the rseq abort event has the
+    // commit PC and we have it call here and don't wait for a subsequent
+    // instr (or signal interruption) to find the handler PC; so here it's
+    // not really the "next_pc" but the "exit_pc".
+    else if (next_pc == tdata->rseq_commit_pc_) {
+        // An abort.  It could have aborted earlier but we have no way of knowing
+        // so we do the simplest thing and only roll back the committing store.
+        log(4, "Rseq aborted\n");
+        add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
+        if (tdata->rseq_commit_idx_ < 0)
+            return "Failed to identify rseq commit index";
+        std::string error =
+            rollback_rseq_buffer(tdata, tdata->rseq_commit_idx_, tdata->rseq_commit_idx_);
+        if (!error.empty())
+            return error;
+    } else {
+        log(4, "Rseq exited on the side: searching for where\n");
+        add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_SIDE_EXIT, 1);
+        bool found_direct = false;
+        bool found_skip = false;
+        branch_info_t info;
+        for (const auto &branch : tdata->rseq_branch_targets_) {
+            if (reinterpret_cast<addr_t>(branch.target_pc) == next_pc) {
+                info = branch;
+                found_direct = true;
+                // We do not break as we want the last such branch for a shorter
+                // rollback.
+            }
+        }
+        if (!found_direct) {
+            // An indirect branch exit that we traced is impossible so the
+            // only option left is a conditional that jumped over the exit.
+            for (const auto &branch : tdata->rseq_branch_targets_) {
+                if (branch.target_pc > branch.pc &&
+                    reinterpret_cast<addr_t>(branch.target_pc) < tdata->rseq_end_pc_) {
+                    // A forward branch that remains inside the region.
+                    // We've skipped over something: likely a direct jump exiting
+                    // the region.
+                    info = branch;
+                    found_skip = true;
+                    break;
+                }
+            }
+        }
+        if (!found_direct && !found_skip) {
+            log(4, "Failed to find rseq side exit\n");
+            return "Failed to find rseq side exit";
+        }
+        log(4, "Found rseq%s side exit: %p -> %p idx=%d\n", found_skip ? " skipped" : "",
+            info.pc, info.target_pc, info.buf_idx);
+        int post_branch = info.buf_idx;
+        while (post_branch < static_cast<int>(tdata->rseq_buffer_.size()) &&
+               tdata->rseq_buffer_[post_branch].type == TRACE_TYPE_ENCODING)
+            ++post_branch;
+        DEBUG_ASSERT(type_is_instr(
+            static_cast<trace_type_t>(tdata->rseq_buffer_[post_branch].type)));
+        int branch_size = tdata->rseq_buffer_[post_branch].size;
+        ++post_branch; // Now skip instr entry itself.
+        std::string error =
+            rollback_rseq_buffer(tdata, post_branch, tdata->rseq_commit_idx_);
+        if (!error.empty())
+            return error;
+        if (found_skip) {
+            // Append a synthetic jump.  This may not match the actual exit instruction:
+            // there could have been several non-branches before the exit branch; the
+            // exit could be indirect; etc.  But this is the best we can readily do.
+            instr_t *instr = XINST_CREATE_jump(
+                dcontext_, opnd_create_pc(reinterpret_cast<app_pc>(next_pc)));
+            byte *enc_next =
+                instr_encode_to_copy(dcontext_, instr, encoding, info.pc + branch_size);
+            instr_destroy(dcontext_, instr);
+            if (enc_next == nullptr)
+                return "Failed to encode synthetic rseq exit jump";
+            trace_entry_t jump;
+            jump.type = TRACE_TYPE_INSTR_DIRECT_JUMP;
+            jump.addr = reinterpret_cast<addr_t>(info.pc) + branch_size;
+            jump.size = enc_next - encoding;
+            trace_entry_t toadd[WRITE_BUFFER_SIZE];
+            bool exists =
+                !record_encoding_emitted(tdata, reinterpret_cast<app_pc>(jump.addr));
+            trace_entry_t *buf = toadd;
+            error = append_encoding(tdata, encoding, jump.size, buf, toadd);
+            if (!error.empty())
+                return error;
+            if (exists) {
+                // Uh-oh, we've already seen this PC!  We don't cache the actual
+                // encoding though so we can't try to use the real instrutions;
+                // we don't bail because this seems like it could easily happen;
+                // instead we pretend the code changed, and we throw the jump
+                // encoding out so it will change back if we see this PC again.
+                rollback_last_encoding(tdata);
+            }
+            for (trace_entry_t *e = toadd; e < buf; e++)
+                tdata->rseq_buffer_.push_back(*e);
+            tdata->rseq_buffer_.push_back(jump);
+            tdata->rseq_decode_pcs_.push_back(encoding);
+            log(4, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
+        }
+    }
+
+    tdata->rseq_buffering_enabled_ = false;
+
+    log(4, "Writing out rseq buffer: %zd entries\n", tdata->rseq_buffer_.size());
+    std::string error = write(tdata, &tdata->rseq_buffer_[0],
+                              &tdata->rseq_buffer_.back() + 1, tdata->rseq_decode_pcs_);
+    if (!error.empty())
+        return error;
+
+    tdata->rseq_past_end_ = false;
+    tdata->rseq_commit_pc_ = 0;
+    tdata->rseq_buffer_.clear();
+    tdata->rseq_commit_idx_ = -1;
+    tdata->rseq_branch_targets_.clear();
+    tdata->rseq_decode_pcs_.clear();
+
+    return "";
+}
+
 raw2trace_t::block_summary_t *
 raw2trace_t::lookup_block_summary(raw2trace_thread_data_t *tdata, uint64 modidx,
                                   uint64 modoffs, app_pc block_start)
@@ -1848,8 +2104,10 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         dr_fprintf(STDERR, "<caching for start=" PFX "> ", block_start);
         dr_print_instr(dcontext, STDERR, instr, "");
     }
-    desc->next_pc_ = *pc;
-    DEBUG_ASSERT(desc->next_pc_ > desc->pc_);
+    DEBUG_ASSERT(*pc > desc->pc_);
+    desc->length_ = *pc - desc->pc_;
+    DEBUG_ASSERT(*pc - desc->pc_ == instr_length(dcontext, instr));
+
     desc->packed_ = 0;
 
     bool is_prefetch = instr_is_prefetch(instr);
@@ -1865,8 +2123,11 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         desc->packed_ |= kIsPrefetchMask;
     if (instru_t::instr_is_flush(instr))
         desc->packed_ |= kIsFlushMask;
-    if (instr_is_cti(instr))
+    if (instr_is_cti(instr)) {
         desc->packed_ |= kIsCtiMask;
+        if (instr_is_ubr(instr) || instr_is_cbr(instr))
+            desc->branch_target_pc_ = opnd_get_pc(instr_get_target(instr));
+    }
     // XXX i#5949: This has some OS-specific behavior that should be preserved
     // even when decoding a trace collected on a different platform.
     if (instr_is_syscall(instr))
@@ -1885,7 +2146,6 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
     desc->type_ = instru_t::instr_to_instr_type(instr);
     desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;
     desc->flush_type_ = is_flush ? instru_t::instr_to_flush_type(instr) : 0;
-    desc->length_ = static_cast<byte>(instr_length(dcontext, instr));
 
     if (reads_memory || writes_memory) {
         for (int i = 0, e = instr_num_srcs(instr); i < e; ++i) {
@@ -2146,6 +2406,13 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
 {
     if (end == start)
         return "Empty buffer passed to write()";
+    if (tdata->rseq_buffering_enabled_) {
+        for (const trace_entry_t *it = start; it < end; ++it)
+            tdata->rseq_buffer_.push_back(*it);
+        tdata->rseq_decode_pcs_.insert(tdata->rseq_decode_pcs_.end(), decode_pcs.begin(),
+                                       decode_pcs.end());
+        return "";
+    }
     if (tdata->out_archive != nullptr) {
         bool prev_was_encoding = false;
         int instr_ordinal = -1;
@@ -2544,6 +2811,8 @@ raw2trace_t::add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statisti
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: tdata->count_elided += value; break;
     case RAW2TRACE_STAT_DUPLICATE_SYSCALL: tdata->count_duplicate_syscall += value; break;
+    case RAW2TRACE_STAT_RSEQ_ABORT: tdata->count_rseq_abort += value; break;
+    case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: tdata->count_rseq_side_exit += value; break;
     default: DR_ASSERT(false);
     }
 }
@@ -2554,6 +2823,8 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided_;
     case RAW2TRACE_STAT_DUPLICATE_SYSCALL: return count_duplicate_syscall_;
+    case RAW2TRACE_STAT_RSEQ_ABORT: return count_rseq_abort_; break;
+    case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: return count_rseq_side_exit_; break;
     default: DR_ASSERT(false); return 0;
     }
 }

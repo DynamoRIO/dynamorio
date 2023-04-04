@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -424,6 +424,13 @@ typedef enum {
      * warmup part of the trace ends.
      */
     TRACE_MARKER_TYPE_FILTER_ENDPOINT,
+
+    /**
+     * Indicates the start of an "rseq" (Linux restartable sequence) region.  The marker
+     * value holds the end PC of the region (this is the PC after the committing store).
+     */
+    TRACE_MARKER_TYPE_RSEQ_ENTRY,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -482,6 +489,16 @@ type_has_address(const trace_type_t type)
 {
     return type_is_instr(type) || type == TRACE_TYPE_INSTR_NO_FETCH ||
         type == TRACE_TYPE_INSTR_MAYBE_FETCH || type_is_prefetch(type) ||
+        type == TRACE_TYPE_READ || type == TRACE_TYPE_WRITE ||
+        type == TRACE_TYPE_INSTR_FLUSH || type == TRACE_TYPE_INSTR_FLUSH_END ||
+        type == TRACE_TYPE_DATA_FLUSH || type == TRACE_TYPE_DATA_FLUSH_END;
+}
+
+/** Returns whether the type represents an operand of an instruction. */
+static inline bool
+type_is_data(const trace_type_t type)
+{
+    return type == TRACE_TYPE_INSTR_MAYBE_FETCH || type_is_prefetch(type) ||
         type == TRACE_TYPE_READ || type == TRACE_TYPE_WRITE ||
         type == TRACE_TYPE_INSTR_FLUSH || type == TRACE_TYPE_INSTR_FLUSH_END ||
         type == TRACE_TYPE_DATA_FLUSH || type == TRACE_TYPE_DATA_FLUSH_END;

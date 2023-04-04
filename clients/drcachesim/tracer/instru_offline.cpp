@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -776,6 +776,34 @@ offline_instru_t::instrument_instr_encoding(void *drcontext, void *tag, void *bb
     // We emit non-module-code or modified-module-code encodings separately in
     // record_instr_encodings().  Encodings for static code are added in the
     // post-processor.
+    return adjust;
+}
+
+int
+offline_instru_t::instrument_rseq_entry(void *drcontext, instrlist_t *ilist,
+                                        instr_t *where, instr_t *rseq_label,
+                                        reg_id_t reg_ptr, int adjust)
+{
+    dr_instr_label_data_t *data = instr_get_label_data_area(rseq_label);
+    reg_id_t reg_tmp;
+    drreg_status_t res =
+        drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
+    // We may need 2 entries for our marker.  We write the entry
+    // marker with payload data[0]==rseq end.  We don't need data[1]==rseq handler
+    // in raw2trace so we do not bother to emit a marker for it.
+    offline_entry_t entries[2];
+    int size =
+        append_marker((byte *)entries, TRACE_MARKER_TYPE_RSEQ_ENTRY, data->data[0]);
+    DR_ASSERT(size % sizeof(offline_entry_t) == 0);
+    size /= sizeof(offline_entry_t);
+    DR_ASSERT(size <= static_cast<int>(sizeof(entries)));
+    for (int i = 0; i < size; i++) {
+        adjust += insert_save_entry(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
+                                    &entries[i]);
+    }
+    res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
+    DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return adjust;
 }
 

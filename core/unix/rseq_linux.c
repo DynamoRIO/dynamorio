@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -46,6 +46,7 @@
 #include "rseq_linux.h"
 #include "../fragment.h"
 #include "decode.h"
+#include "instr_create_shared.h"
 #include "instrument.h"
 #include <stddef.h>
 #include "include/syscall.h"
@@ -866,4 +867,20 @@ rseq_process_native_abort(dcontext_t *dcontext)
     }
     if (source_mc != NULL)
         HEAP_TYPE_FREE(dcontext, source_mc, priv_mcontext_t, ACCT_CLIENT, PROTECTED);
+}
+
+void
+rseq_insert_start_label(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist)
+{
+    app_pc start, end, handler;
+    if (!rseq_get_region_info(tag, &start, &end, &handler, NULL, NULL) || tag != start) {
+        ASSERT_NOT_REACHED(); /* Caller must ensure tag is the start. */
+        return;
+    }
+    instr_t *label = INSTR_CREATE_label(dcontext);
+    instr_set_note(label, (void *)DR_NOTE_RSEQ_ENTRY);
+    dr_instr_label_data_t *data = instr_get_label_data_area(label);
+    data->data[0] = (ptr_uint_t)end;
+    data->data[1] = (ptr_uint_t)handler;
+    instrlist_meta_preinsert(ilist, instrlist_first(ilist), label);
 }
