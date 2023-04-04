@@ -14032,4 +14032,17 @@
     instr_create_0dst_2src(dc, OP_retab, opnd_create_reg(DR_REG_X30), \
                            opnd_create_reg(DR_REG_SP))
 
+/**
+ * Creates a FJCVTZS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FJCVTZS <Wd>, <Dn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination register, W (Word, 32 bits).
+ * \param Rn   The source register, D (doubleword, 64 bits).
+ */
+#define INSTR_CREATE_fjcvtzs(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_fjcvtzs, Rd, Rn)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
