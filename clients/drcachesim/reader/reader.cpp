@@ -395,8 +395,9 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         if (input_entry_ != nullptr) // Only at start: and we checked for skipping 0.
             entry_copy_ = *input_entry_;
         trace_entry_t *next = read_next_entry();
-        if (next == nullptr) {
-            VPRINT(this, 1, "Failed to read next entry\n");
+        if (next == nullptr || next->type == TRACE_TYPE_FOOTER) {
+            VPRINT(this, 1,
+                   next == nullptr ? "Failed to read next entry\n" : "Hit EOF\n");
             at_eof_ = true;
             return *this;
         }
