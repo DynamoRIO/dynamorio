@@ -52,6 +52,9 @@ public:
     // XXX: Once we update our toolchains to guarantee C++17 support we could use
     // std::optional here.
 
+    bool
+    get_opcode(const memref_t &memref);
+  
     missing_instructions_t(const cache_simulator_knobs_t &knobs);
     // missing_instructions_t(const std::string &module_file_path, memref_tid_t thread, uint64_t skip_refs,
            // uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
@@ -80,18 +83,18 @@ public:
 //         return TID_COLUMN_WIDTH;
 //     }
 
-// protected:
-//     struct dcontext_cleanup_last_t {
-//     public:
-//         ~dcontext_cleanup_last_t()
-//         {
-//             if (dcontext != nullptr)
-//                 dr_standalone_exit();
-//         }
-//         void *dcontext = nullptr;
-//     };
+protected:
+    struct dcontext_cleanup_last_t {
+    public:
+        ~dcontext_cleanup_last_t()
+        {
+            if (dcontext != nullptr)
+                dr_standalone_exit();
+        }
+        void *dcontext = nullptr;
+    };
 
-//     bool
+    // bool
 //     should_skip(memtrace_stream_t *memstream, const memref_t &memref);
 
 //     inline void
@@ -124,7 +127,7 @@ public:
 //     /* We make this the first field so that dr_standalone_exit() is called after
 //      * destroying the other fields which may use DR heap.
 //      */
-//     dcontext_cleanup_last_t dcontext_;
+    dcontext_cleanup_last_t dcontext_;
 
 //     // These are all optional and unused for OFFLINE_FILE_TYPE_ENCODINGS.
 //     // XXX: Once we update our toolchains to guarantee C++17 support we could use

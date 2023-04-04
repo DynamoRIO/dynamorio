@@ -1,0 +1,13 @@
+To generate the data:
+* Begin by creating traces directory
+  mkdir traces
+* Make sure you have matmult in the current directory
+  ?????
+* Following instructions and build dynamorio
+  ?????
+* Run DR to generate a trace
+  ./build/bin64/drrun -t drcachesim -LL_size 1024k -cores 1 -offline -outdir traces -- matmult 20
+* Use the new simulator to generate data
+  ./run.sh traces/name-of-the-trace-directory
+* The final output is in file called output
+  ls output
