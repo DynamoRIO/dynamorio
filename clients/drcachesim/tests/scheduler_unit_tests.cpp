@@ -592,7 +592,8 @@ test_regions_too_far()
                          std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
 
     std::vector<scheduler_t::range_t> regions;
-    regions.emplace_back(4, 0);
+    // Start beyond the last instruction.
+    regions.emplace_back(3, 0);
 
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
