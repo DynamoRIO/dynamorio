@@ -82,6 +82,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
             checker.process_memref(memref);
         }
         if (expect_error) {
+
             if (checker.errors.size() != 1 || checker.errors[0] != expected_message ||
                 checker.error_tids[0] != error_tid ||
                 checker.error_refs[0] != error_refs) {
@@ -189,7 +190,7 @@ check_sane_control_flow()
             gen_instr(1, 1),
             gen_instr(1, 3),
         };
-        if (!run_checker(memrefs, true, 1, 2, "Non-explicit control flow has no marker",
+        if (!run_checker(memrefs, true, 1, 2, "Direct branch target PC discontinuity",
                          "Failed to catch bad control flow"))
             return false;
     }
@@ -225,7 +226,7 @@ check_sane_control_flow()
             gen_instr(1, 20),
         };
 
-        if (!run_checker(memrefs, true, 1, 3, "Non-explicit control flow has no marker",
+        if (!run_checker(memrefs, true, 1, 3, "Direct branch target PC discontinuity",
                          "Failed to catch branch not going to its target")) {
             return false;
         }

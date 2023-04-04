@@ -410,38 +410,50 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             }
         }
         if (shard->prev_instr_.instr.addr != 0 /*first*/) {
-            report_if_false(
-                shard, // Filtered.
+
+            bool branch_condition =
+                (type_is_instr_branch(shard->prev_instr_.instr.type) &&
+                 !type_is_instr_direct_branch(shard->prev_instr_.instr.type)) ||
+                // Conditional fall-through hits the regular case above.
+                (type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
+                 (!have_cond_branch_target || memref.instr.addr == cond_branch_target));
+
+            bool condition =
                 TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                         shard->file_type_) ||
-                    // Regular fall-through.
-                    (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
-                     memref.instr.addr) ||
-                    // Indirect branches we cannot check.
-                    (type_is_instr_branch(shard->prev_instr_.instr.type) &&
-                     !type_is_instr_direct_branch(shard->prev_instr_.instr.type)) ||
-                    // Conditional fall-through hits the regular case above.
-                    (type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
-                     (!have_cond_branch_target ||
-                      memref.instr.addr == cond_branch_target)) ||
-                    // String loop.
-                    (shard->prev_instr_.instr.addr == memref.instr.addr &&
-                     (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
-                      // Online incorrectly marks the 1st string instr across a thread
-                      // switch as fetched.
-                      // TODO i#4915, #4948: Eliminate non-fetched and remove the
-                      // underlying instrs altogether, which would fix this for us.
-                      (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
-                    // Kernel-mediated, but we can't tell if we had a thread swap.
-                    (shard->prev_xfer_marker_.instr.tid != 0 &&
-                     (shard->prev_xfer_marker_.marker.marker_type ==
-                          TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                      shard->prev_xfer_marker_.marker.marker_type ==
-                          TRACE_MARKER_TYPE_KERNEL_XFER)) ||
-                    // We expect a gap on a window transition.
-                    shard->window_transition_ ||
-                    shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER,
-                "Non-explicit control flow has no marker");
+                // Regular fall-through.
+                (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
+                 memref.instr.addr) ||
+                // String loop.
+                (shard->prev_instr_.instr.addr == memref.instr.addr &&
+                 (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
+                  // Online incorrectly marks the 1st string instr across a thread
+                  // switch as fetched.
+                  // TODO i#4915, #4948: Eliminate non-fetched and remove the
+                  // underlying instrs altogether, which would fix this for us.
+                  (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
+                // Kernel-mediated, but we can't tell if we had a thread swap.
+                (shard->prev_xfer_marker_.instr.tid != 0 &&
+                 (shard->prev_xfer_marker_.marker.marker_type ==
+                      TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                  shard->prev_xfer_marker_.marker.marker_type ==
+                      TRACE_MARKER_TYPE_KERNEL_XFER)) ||
+                // We expect a gap on a window transition.
+                shard->window_transition_ ||
+                shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
+
+            // TODO(sahil): Clean up this logic.
+            if (!condition) {
+                if (!branch_condition) {
+                    report_if_false(shard, branch_condition,
+                                    "Direct branch target PC discontinuity");
+                } else {
+                    report_if_false(shard, // Filtered.
+                                    condition || branch_condition,
+                                    "Non-explicit control flow has no marker");
+                }
+            }
+
             // XXX: If we had instr decoding we could check direct branch targets
             // and look for gaps after branches.
         }
