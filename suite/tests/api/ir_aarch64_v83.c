@@ -593,6 +593,17 @@ TEST_INSTR(xpaci)
     TEST_LOOP(xpaci, xpaci, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
 }
 
+TEST_INSTR(fjcvtzs)
+{
+    /* Testing FJCVTZS <Wd>, <Dn> */
+    const char *const expected_0_0[6] = {
+        "fjcvtzs %d0 -> %w0",   "fjcvtzs %d6 -> %w5",   "fjcvtzs %d11 -> %w10",
+        "fjcvtzs %d17 -> %w15", "fjcvtzs %d22 -> %w20", "fjcvtzs %d31 -> %w30",
+    };
+    TEST_LOOP(fjcvtzs, fjcvtzs, 6, expected_0_0[i], opnd_create_reg(Wn_six_offset_0[i]),
+              opnd_create_reg(Vdn_d_six_offset_1[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -640,6 +651,9 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(ldrab);
     RUN_INSTR_TEST(xpacd);
     RUN_INSTR_TEST(xpaci);
+
+    /* FEAT_JSCVT */
+    RUN_INSTR_TEST(fjcvtzs);
 
     print("All v8.3 tests complete.");
 #ifndef STANDALONE_DECODER
