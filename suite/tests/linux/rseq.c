@@ -122,14 +122,27 @@ register_rseq()
          * fallback that does a wider search, it would be good to keep the
          * expected offset in sync with glibc changes.
          */
-#    ifdef X86
-#        ifdef X64
-        assert(__rseq_offset == 2464);
+#    if __GLIBC__ == 2 && __GLIBC_MINOR__ >= 36
+#        ifdef X86
+#            ifdef X64
+        assert(__rseq_offset == 2336);
+#            else
+        assert(__rseq_offset == 1184);
+#            endif
 #        else
-        assert(__rseq_offset == 1312);
+        /* Did not change on glibc 2.36. */
+        assert(__rseq_offset == -32);
 #        endif
 #    else
+#        ifdef X86
+#            ifdef X64
+        assert(__rseq_offset == 2464);
+#            else
+        assert(__rseq_offset == 1312);
+#            endif
+#        else
         assert(__rseq_offset == -32);
+#        endif
 #    endif
         /* Already registered by glibc. Verify that it's there. */
         struct rseq *reg_rseq = __builtin_thread_pointer() + __rseq_offset;

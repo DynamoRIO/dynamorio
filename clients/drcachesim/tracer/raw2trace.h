@@ -98,6 +98,7 @@
 
 typedef enum {
     RAW2TRACE_STAT_COUNT_ELIDED,
+    RAW2TRACE_STAT_DUPLICATE_SYSCALL
 } raw2trace_statistic_t;
 
 struct module_t {
@@ -278,6 +279,11 @@ private:
     {
         return TESTANY(kIsScatterOrGatherMask, packed_);
     }
+    bool
+    is_syscall() const
+    {
+        return TESTANY(kIsSyscallMask, packed_);
+    }
 
     const memref_summary_t &
     mem_src_at(size_t pos) const
@@ -312,6 +318,8 @@ private:
     static const int kIsAarch64DcZvaMask = 0x0020;
 
     static const int kIsScatterOrGatherMask = 0x0040;
+
+    static const int kIsSyscallMask = 0x0080;
 
     instr_summary_t(const instr_summary_t &other) = delete;
     instr_summary_t &
@@ -1295,6 +1303,20 @@ private:
                 if (!error.empty())
                     return error;
             }
+            // TODO i#5934: This is a workaround for the trace invariant error triggered
+            // by consecutive duplicate system call instructions. Remove this when the
+            // error is fixed in the drmemtrace tracer.
+            if (instr->is_syscall() && impl()->get_last_pc_if_syscall(tls) == orig_pc &&
+                instr_count == 1) {
+                impl()->add_to_statistic(tls, RAW2TRACE_STAT_DUPLICATE_SYSCALL, 1);
+                impl()->log(
+                    3, "Found block with duplicate system call instruction. Skipping.");
+                // Since this instr is in its own block, we're done.
+                // Note that this will result in a pair of timestamp+cpu markers without
+                // anything before the next timestamp+cpu pair.
+                break;
+            }
+
             // XXX i#1729: make bundles via lazy accum until hit memref/end, if
             // we don't need encodings.
             buf->type = instr->type();
@@ -1315,6 +1337,10 @@ private:
                 }
             } else
                 impl()->set_prev_instr_rep_string(tls, false);
+            if (instr->is_syscall())
+                impl()->set_last_pc_if_syscall(tls, orig_pc);
+            else
+                impl()->set_last_pc_if_syscall(tls, 0);
             buf->size = (ushort)(skip_icache ? 0 : instr->length());
             buf->addr = (addr_t)orig_pc;
             ++buf;
@@ -1982,6 +2008,7 @@ protected:
 
         // Statistics on the processing.
         uint64 count_elided = 0;
+        uint64 count_duplicate_syscall = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -1989,6 +2016,7 @@ protected:
         uint64 chunk_count_ = 0;
         uint64 last_timestamp_ = 0;
         uint last_cpu_ = 0;
+        app_pc last_pc_if_syscall_ = 0;
 
         std::set<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
@@ -2017,6 +2045,7 @@ protected:
     open_new_chunk(raw2trace_thread_data_t *tdata);
 
     uint64 count_elided_ = 0;
+    uint64 count_duplicate_syscall_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 
@@ -2076,6 +2105,10 @@ private:
                             int instr_count, int index, app_pc pc, app_pc orig,
                             bool write, int memop_index, bool use_remembered_base,
                             bool remember_base);
+    void
+    set_last_pc_if_syscall(void *tls, app_pc value);
+    app_pc
+    get_last_pc_if_syscall(void *tls);
     void
     set_prev_instr_rep_string(void *tls, bool value);
     bool
