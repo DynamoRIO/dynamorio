@@ -502,6 +502,7 @@ check_repeated_syscall_with_same_pc()
     // Positive test: syscalls with different PCs.
     {
         std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
             encoded_instr,
 #    if defined(X86_64) || defined(X86_32)
             gen_syscall_encoded(1, ADDR_ONE),
@@ -512,7 +513,7 @@ check_repeated_syscall_with_same_pc()
             gen_syscall_encoded(1, ADDR_ONE),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
-            gen_syscall_encoded(1, ADDR_TWO),
+            gen_syscall_encoded(1, ADDR_TWO + 2),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
