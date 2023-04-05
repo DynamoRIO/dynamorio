@@ -218,6 +218,8 @@ x1011010100xxxxxxxxx01xxxxxxxxxx  r   81   BASE      csneg            wx0 : wx5 
 110101010000101101111110001xxxxx  n   570  BASE   dc_civac                : memx0
 110101010000100001111010010xxxxx  n   571  BASE     dc_csw                : x0
 110101010000101101111010001xxxxx  n   572  BASE    dc_cvac                : memx0
+110101010000101101111101001xxxxx  n   1058 DPB2   dc_cvadp                : memx0
+110101010000101101111100001xxxxx  n   1059 DPB     dc_cvap                : memx0
 110101010000101101111011001xxxxx  n   573  BASE    dc_cvau                : memx0
 110101010000100001110110010xxxxx  n   574  BASE     dc_isw                : x0
 110101010000100001110110001xxxxx  n   575  BASE    dc_ivac                : memx0
