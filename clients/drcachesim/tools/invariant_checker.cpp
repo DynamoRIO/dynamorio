@@ -411,14 +411,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         if (shard->prev_instr_.instr.addr != 0 /*first*/) {
 
-            bool branch_target_condition =
-                (type_is_instr_branch(shard->prev_instr_.instr.type) &&
-                 !type_is_instr_direct_branch(shard->prev_instr_.instr.type)) ||
-                // Conditional fall-through hits the regular case above.
-                (type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
-                 (!have_cond_branch_target || memref.instr.addr == cond_branch_target));
-
-            bool control_flow_condition =
+            // Condition for PC discontinuities.
+            const bool control_flow_condition =
                 TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                         shard->file_type_) ||
                 // Regular fall-through.
@@ -442,20 +436,23 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->window_transition_ ||
                 shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
-            // TODO(sahil): Clean up this logic.
+            // Using decoding Check for gaps after branches.
+            const bool branch_target_condition =
+                (type_is_instr_branch(shard->prev_instr_.instr.type) &&
+                 !type_is_instr_direct_branch(shard->prev_instr_.instr.type)) ||
+                // Conditional fall-through hits the regular case above.
+                (type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
+                 (!have_cond_branch_target || memref.instr.addr == cond_branch_target));
+
             if (!control_flow_condition) {
                 if (!branch_target_condition) {
-                    report_if_false(shard, branch_target_condition,
+                    report_if_false(shard, false,
                                     "Direct branch target PC discontinuity");
                 } else {
-                    report_if_false(shard, // Filtered.
-                                    control_flow_condition || branch_target_condition,
+                    report_if_false(shard, false,
                                     "Non-explicit control flow has no marker");
                 }
             }
-
-            // XXX: If we had instr decoding we could check direct branch targets
-            // and look for gaps after branches.
         }
 
 #ifdef UNIX
