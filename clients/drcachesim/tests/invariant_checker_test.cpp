@@ -486,7 +486,7 @@ check_repeated_syscall_with_same_pc()
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_syscall_encoded(1, ADDR_ONE),
 #    elif defined(ARM_64)
-            gen_syscall_encoded(1, ADDR_ONE)
+            gen_syscall_encoded(1, ADDR_ONE),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_syscall_encoded(1, ADDR_ONE)
