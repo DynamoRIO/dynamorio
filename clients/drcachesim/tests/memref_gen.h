@@ -86,8 +86,9 @@ gen_branch_encoded(memref_tid_t tid, addr_t pc, int encoding)
 }
 
 inline memref_t
-gen_syscall_encoded(memref_tid_t tid, addr_t pc, int encoding)
+gen_syscall_encoded(memref_tid_t tid, addr_t pc)
 {
+    constexpr int encoding = 0xd4000001;
     memref_t memref = gen_instr_type(TRACE_TYPE_INSTR, tid, pc);
     memref.instr.size = 4;
     memcpy(memref.instr.encoding, &encoding, sizeof(encoding));
@@ -97,8 +98,9 @@ gen_syscall_encoded(memref_tid_t tid, addr_t pc, int encoding)
 
 #elif defined(X86_64) || defined(X86_32)
 inline memref_t
-gen_syscall_encoded(memref_tid_t tid, addr_t pc, const std::vector<char> &encoding)
+gen_syscall_encoded(memref_tid_t tid, addr_t pc)
 {
+    const std::vector<char>encoding = { 0x0f, 0x05 };
     memref_t memref = gen_instr_type(TRACE_TYPE_INSTR, tid, pc);
     memref.instr.size = encoding.size();
     memcpy(memref.instr.encoding, encoding.data(), encoding.size());

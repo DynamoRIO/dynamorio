@@ -376,53 +376,58 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // by markers.
         bool have_cond_branch_target = false;
         addr_t cond_branch_target = 0;
+        bool saw_repeated_syscall_instrs_with_same_pc = false;
         if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
-            type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
             // We do not bother to support legacy traces without encodings.
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_)) {
             addr_t trace_pc = shard->prev_instr_.instr.addr;
-            if (shard->prev_instr_.instr.encoding_is_new)
-                shard->branch_target_cache.erase(trace_pc);
-            auto cached = shard->branch_target_cache.find(trace_pc);
-            if (cached != shard->branch_target_cache.end()) {
-                have_cond_branch_target = true;
-                cond_branch_target = cached->second;
-            } else {
-                instr_t instr;
-                instr_init(GLOBAL_DCONTEXT, &instr);
-                const app_pc decode_pc =
-                    const_cast<app_pc>(shard->prev_instr_.instr.encoding);
-                const app_pc next_pc =
-                    decode_from_copy(GLOBAL_DCONTEXT, decode_pc,
-                                     reinterpret_cast<app_pc>(trace_pc), &instr);
-                if (next_pc == nullptr || !opnd_is_pc(instr_get_target(&instr))) {
-                    // Neither condition should happen but they could on an invalid
-                    // encoding from raw2trace or the reader so we report an
-                    // invariant rather than asserting.
-                    report_if_false(shard, false, "Branch target is not decodeable");
-                } else {
+            instr_t instr;
+            instr_init(GLOBAL_DCONTEXT, &instr);
+            const app_pc decode_pc =
+                const_cast<app_pc>(shard->prev_instr_.instr.encoding);
+            const app_pc next_pc = decode_from_copy(
+                GLOBAL_DCONTEXT, decode_pc, reinterpret_cast<app_pc>(trace_pc), &instr);
+            if (type_is_instr_direct_branch(shard->prev_instr_.instr.type)) {
+                if (shard->prev_instr_.instr.encoding_is_new)
+                    shard->branch_target_cache.erase(trace_pc);
+                auto cached = shard->branch_target_cache.find(trace_pc);
+                if (cached != shard->branch_target_cache.end()) {
                     have_cond_branch_target = true;
-                    cond_branch_target =
-                        reinterpret_cast<addr_t>(opnd_get_pc(instr_get_target(&instr)));
-                    shard->branch_target_cache[trace_pc] = cond_branch_target;
+                    cond_branch_target = cached->second;
+                } else {
+                    if (next_pc == nullptr || !opnd_is_pc(instr_get_target(&instr))) {
+                        // Neither condition should happen but they could on an invalid
+                        // encoding from raw2trace or the reader so we report an
+                        // invariant rather than asserting.
+                        report_if_false(shard, false, "Branch target is not decodeable");
+                    } else {
+                        have_cond_branch_target = true;
+                        cond_branch_target = reinterpret_cast<addr_t>(
+                            opnd_get_pc(instr_get_target(&instr)));
+                        shard->branch_target_cache[trace_pc] = cond_branch_target;
+                    }
                 }
-                instr_free(GLOBAL_DCONTEXT, &instr);
+            } else {
+                instr_t cur_instr;
+                instr_init(GLOBAL_DCONTEXT, &cur_instr);
+                app_pc curr_pc = decode_from_copy(
+                    GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
+                    reinterpret_cast<app_pc>(memref.instr.addr), &cur_instr);
+                if (curr_pc != nullptr && next_pc != nullptr) {
+                    if (instr_is_syscall(&instr) && instr_is_syscall(&cur_instr) &&
+                        memref.instr.addr == shard->prev_instr_.instr.addr) {
+                        // Set this flag so that repeated syscalls are not
+                        // double reporeted as other PC discontinuity below.
+                        saw_repeated_syscall_instrs_with_same_pc = true;
+                        report_if_false(shard, false,
+                                        "Repeated syscall instrs with the same PC");
+                    }
+                }
+                instr_free(GLOBAL_DCONTEXT, &cur_instr);
             }
+            instr_free(GLOBAL_DCONTEXT, &instr);
         }
-        bool saw_double_syscall_instrs_with_same_pc = false;
-        if (shard->prev_instr_.instr.addr != 0 /*first*/) {
-            instr_t curr_instr;
-            instr_init(GLOBAL_DCONTEXT, &curr_instr);
-            decode_from_copy(GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
-                             reinterpret_cast<app_pc>(memref.instr.addr), &curr_instr);
-            if (shard->prev_instr_was_syscall_ && instr_is_syscall(&curr_instr) &&
-                memref.instr.addr == shard->prev_instr_.instr.addr) {
-                saw_double_syscall_instrs_with_same_pc = true;
-                report_if_false(shard, false, "Repeated syscall instrs with the same PC");
-            }
-            shard->prev_instr_was_syscall_ = instr_is_syscall(&curr_instr);
-            instr_free(GLOBAL_DCONTEXT, &curr_instr);
-        }
+
         if (shard->prev_instr_.instr.addr != 0 /*first*/) {
             report_if_false(
                 shard, // Filtered.
@@ -455,7 +460,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     // We expect a gap on a window transition.
                     shard->window_transition_ ||
                     shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER ||
-                    saw_double_syscall_instrs_with_same_pc,
+                    saw_repeated_syscall_instrs_with_same_pc,
                 "Non-explicit control flow has no marker");
             // XXX: If we had instr decoding we could check direct branch targets
             // and look for gaps after branches.

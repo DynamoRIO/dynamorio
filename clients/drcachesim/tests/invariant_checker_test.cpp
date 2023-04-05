@@ -464,6 +464,64 @@ check_function_markers()
 bool
 check_repeated_syscall_with_same_pc()
 {
+    constexpr addr_t ADDR_ONE = 0x7fcf3b9dd9e9;
+    constexpr addr_t ADDR_TWO = 0x7fcf3b9dd9eb;
+    const std::vector<char> encoding = { 0x01 };
+    // TODO i#5949: Add generic function for creating encoded instrs.
+    memref_t encoded_instr =
+        gen_instr_type(TRACE_TYPE_INSTR, 1 /*tid*/, 0 /*pc*/, 1 /*size*/);
+    encoded_instr.instr.type = TRACE_TYPE_INSTR;
+    memcpy(encoded_instr.instr.encoding, &encoding, sizeof(encoding));
+    encoded_instr.instr.encoding_is_new = true;
+
+    // Negative: syscalls with the same PC.
+#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+            encoded_instr,
+#    if defined(X86_64) || defined(X86_32)
+            gen_syscall_encoded(1, ADDR_ONE),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_syscall_encoded(1, ADDR_ONE),
+#    elif defined(ARM_64)
+            gen_syscall_encoded(1, ADDR_ONE)
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_syscall_encoded(1, ADDR_ONE)
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#    endif
+        };
+        if (!run_checker(memrefs, true, 1, 6, "Repeated syscall instrs with the same PC",
+                         "Failed to catch repeated syscall instrs with the same PC"))
+            return false;
+    }
+
+    // Positive test: syscalls with different PCs.
+    {
+        std::vector<memref_t> memrefs = {
+            encoded_instr,
+#    if defined(X86_64) || defined(X86_32)
+            gen_syscall_encoded(1, ADDR_ONE),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_syscall_encoded(1, ADDR_TWO),
+#    elif defined(ARM_64)
+            gen_syscall_encoded(1, ADDR_ONE),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_syscall_encoded(1, ADDR_TWO),
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#    endif
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+#endif
     return true;
 }
 
