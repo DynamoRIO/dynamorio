@@ -411,6 +411,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         if (shard->prev_instr_.instr.addr != 0 /*first*/) {
 
+            // TODO(sahil): Cases for which this is not an invariant. If all of these are
+            // false, then it is an invariant.
+
             // Condition for PC discontinuities.
             const bool control_flow_condition =
                 TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
@@ -436,7 +439,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->window_transition_ ||
                 shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
-            // Using decoding Check for gaps after branches.
+            // Using decoding, check for gaps after branches.
             const bool branch_target_condition =
                 (type_is_instr_branch(shard->prev_instr_.instr.type) &&
                  !type_is_instr_direct_branch(shard->prev_instr_.instr.type)) ||
