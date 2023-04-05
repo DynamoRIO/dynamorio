@@ -338,6 +338,12 @@ d61f0f1f : brabz x24                                 : brabz  %x24
 d61f0f5f : brabz x26                                 : brabz  %x26
 d61f0fdf : brabz x30                                 : brabz  %x30
 
+# ERETAA   (ERETAA-R-auth)
+d69f0bff : eretaa                                    : eretaa %x30 %sp
+
+# ERETAB   (ERETAB-R-auth)
+d69f0fff : eretab                                    : eretab %x30 %sp
+
 # FCADD   <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, <imm> (FCADD-Q.QQ-Vec)
 2e40e400 : fcadd v0.4h, v0.4h, v0.4h, #0x5a          : fcadd  %d0 %d0 %d0 $0x005a $0x01 -> %d0
 2e44e462 : fcadd v2.4h, v3.4h, v4.4h, #0x5a          : fcadd  %d2 %d3 %d4 $0x005a $0x01 -> %d2
@@ -519,6 +525,24 @@ d61f0fdf : brabz x30                                 : brabz  %x30
 6f9b5b59 : fcmla v25.4s, v26.4s, v27.s[1], #0xb4     : fcmla  %q25 %q26 %q27 $0x01 $0x00b4 $0x02 -> %q25
 6f9d7b9b : fcmla v27.4s, v28.4s, v29.s[1], #0x10e    : fcmla  %q27 %q28 %q29 $0x01 $0x010e $0x02 -> %q27
 6f9f7bff : fcmla v31.4s, v31.4s, v31.s[1], #0x10e    : fcmla  %q31 %q31 %q31 $0x01 $0x010e $0x02 -> %q31
+
+# FJCVTZS <Wd>, <Dn> (FJCVTZS-R.V-32H_float2int)
+1e7e0000 : fjcvtzs w0, d0                            : fjcvtzs %d0 -> %w0
+1e7e0062 : fjcvtzs w2, d3                            : fjcvtzs %d3 -> %w2
+1e7e00a4 : fjcvtzs w4, d5                            : fjcvtzs %d5 -> %w4
+1e7e00e6 : fjcvtzs w6, d7                            : fjcvtzs %d7 -> %w6
+1e7e0128 : fjcvtzs w8, d9                            : fjcvtzs %d9 -> %w8
+1e7e0169 : fjcvtzs w9, d11                           : fjcvtzs %d11 -> %w9
+1e7e01ab : fjcvtzs w11, d13                          : fjcvtzs %d13 -> %w11
+1e7e01ed : fjcvtzs w13, d15                          : fjcvtzs %d15 -> %w13
+1e7e022f : fjcvtzs w15, d17                          : fjcvtzs %d17 -> %w15
+1e7e0251 : fjcvtzs w17, d18                          : fjcvtzs %d18 -> %w17
+1e7e0293 : fjcvtzs w19, d20                          : fjcvtzs %d20 -> %w19
+1e7e02d5 : fjcvtzs w21, d22                          : fjcvtzs %d22 -> %w21
+1e7e0316 : fjcvtzs w22, d24                          : fjcvtzs %d24 -> %w22
+1e7e0358 : fjcvtzs w24, d26                          : fjcvtzs %d26 -> %w24
+1e7e039a : fjcvtzs w26, d28                          : fjcvtzs %d28 -> %w26
+1e7e03fe : fjcvtzs w30, d31                          : fjcvtzs %d31 -> %w30
 
 # LDRAA   <Xt>, [<Xn|SP>, #<simm>] (LDRAA-R.RI-auth_offset)
 f8600400 : ldraa x0, [x0, #-4096]                    : ldraa  -0x1000(%x0)[8byte] -> %x0
@@ -771,6 +795,12 @@ dac127f6 : pacizb x22                                : pacizb %x22 -> %x22
 dac127f8 : pacizb x24                                : pacizb %x24 -> %x24
 dac127fa : pacizb x26                                : pacizb %x26 -> %x26
 dac127fe : pacizb x30                                : pacizb %x30 -> %x30
+
+# RETAA    (RETAA-R-auth)
+d65f0bff : retaa                                     : retaa  %x30 %sp
+
+# RETAB    (RETAB-R-auth)
+d65f0fff : retab                                     : retab  %x30 %sp
 
 # XPACD   <Xd> (XPACD-R-auth)
 dac147e0 : xpacd x0                                  : xpacd  %x0 -> %x0

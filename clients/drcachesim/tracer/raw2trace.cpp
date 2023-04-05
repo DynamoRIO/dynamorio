@@ -764,6 +764,7 @@ raw2trace_t::do_conversion()
             if (!error.empty())
                 return error;
             count_elided_ += thread_data_[i]->count_elided;
+            count_duplicate_syscall_ += thread_data_[i]->count_duplicate_syscall;
         }
     } else {
         // The files can be converted concurrently.
@@ -780,11 +781,14 @@ raw2trace_t::do_conversion()
             if (!tdata->error.empty())
                 return tdata->error;
             count_elided_ += tdata->count_elided;
+            count_duplicate_syscall_ += tdata->count_duplicate_syscall;
         }
     }
     error = aggregate_and_write_schedule_files();
     if (!error.empty())
         return error;
+    VPRINT(1, "Omitted " UINT64_FORMAT_STRING " duplicate system calls.\n",
+           count_duplicate_syscall_);
     VPRINT(1, "Reconstructed " UINT64_FORMAT_STRING " elided addresses.\n",
            count_elided_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
@@ -1032,6 +1036,10 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         desc->packed_ |= kIsFlushMask;
     if (instr_is_cti(instr))
         desc->packed_ |= kIsCtiMask;
+    // XXX i#5949: This has some OS-specific behavior that should be preserved
+    // even when decoding a trace collected on a different platform.
+    if (instr_is_syscall(instr))
+        desc->packed_ |= kIsSyscallMask;
 
 #ifdef AARCH64
     bool is_dc_zva = instru_t::is_aarch64_dc_zva_instr(instr);
@@ -1488,6 +1496,20 @@ raw2trace_t::log_instruction(uint level, app_pc decode_pc, app_pc orig_pc)
 }
 
 void
+raw2trace_t::set_last_pc_if_syscall(void *tls, app_pc value)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    tdata->last_pc_if_syscall_ = value;
+}
+
+app_pc
+raw2trace_t::get_last_pc_if_syscall(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return tdata->last_pc_if_syscall_;
+}
+
+void
 raw2trace_t::set_prev_instr_rep_string(void *tls, bool value)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
@@ -1704,6 +1726,7 @@ raw2trace_t::add_to_statistic(void *tls, raw2trace_statistic_t stat, int value)
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: tdata->count_elided += value; break;
+    case RAW2TRACE_STAT_DUPLICATE_SYSCALL: tdata->count_duplicate_syscall += value; break;
     default: DR_ASSERT(false);
     }
 }
@@ -1713,6 +1736,7 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
 {
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided_;
+    case RAW2TRACE_STAT_DUPLICATE_SYSCALL: return count_duplicate_syscall_;
     default: DR_ASSERT(false); return 0;
     }
 }

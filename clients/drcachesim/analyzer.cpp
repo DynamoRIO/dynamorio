@@ -288,8 +288,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
             worker.stream->next_record(record);
         if (status != sched_type_t::STATUS_OK) {
             if (status != sched_type_t::STATUS_EOF) {
-                worker.error =
-                    "Failed to read from trace: " + worker.stream->get_stream_name();
+                if (status == sched_type_t::STATUS_REGION_INVALID) {
+                    worker.error =
+                        "Too-far -skip_instrs for: " + worker.stream->get_stream_name();
+                } else {
+                    worker.error =
+                        "Failed to read from trace: " + worker.stream->get_stream_name();
+                }
             }
             return;
         }
@@ -320,8 +325,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
          status != sched_type_t::STATUS_EOF;
          status = worker->stream->next_record(record)) {
         if (status != sched_type_t::STATUS_OK) {
-            worker->error =
-                "Failed to read from trace: " + worker->stream->get_stream_name();
+            if (status == sched_type_t::STATUS_REGION_INVALID) {
+                worker->error =
+                    "Too-far -skip_instrs for: " + worker->stream->get_stream_name();
+            } else {
+                worker->error =
+                    "Failed to read from trace: " + worker->stream->get_stream_name();
+            }
             return;
         }
         int shard_index = worker->stream->get_input_stream_ordinal();
