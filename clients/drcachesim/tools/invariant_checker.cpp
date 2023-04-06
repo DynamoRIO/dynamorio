@@ -411,9 +411,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         if (shard->prev_instr_.instr.addr != 0 /*first*/) {
 
-            // Check for valid control flow. This value will be false if there is an
-            // invariant.
-            const bool valid_control_flow =
+            const bool invariant_condition =
                 TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                         shard->file_type_) ||
                 // Regular fall-through.
@@ -437,28 +435,27 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->window_transition_ ||
                 shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
-            if (!valid_control_flow) {
-                // Check if the invariant is due to a branch target mismatch.
+            if (!invariant_condition) {
+
+                // If the type is a branch instruction and there is a branch target
+                // mismatch, report the invariant violation.
                 if (type_is_instr_branch(shard->prev_instr_.instr.type)) {
 
-                    // Using decoding, check for gaps after branches.
-                    const bool valid_branch_target =
+                    report_if_false(
+                        shard,
                         // Regular fall-through.
                         (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
                          memref.instr.addr) ||
-                        // Indirect branches we cannot check.
-                        (type_is_instr_branch(shard->prev_instr_.instr.type) &&
-                         !type_is_instr_direct_branch(shard->prev_instr_.instr.type)) ||
-                        // Conditional fall-through hits the regular case above.
-                        (type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
-                         (!have_cond_branch_target ||
-                          memref.instr.addr == cond_branch_target));
+                            // Indirect branches we cannot check.
+                            (type_is_instr_branch(shard->prev_instr_.instr.type) &&
+                             !type_is_instr_direct_branch(
+                                 shard->prev_instr_.instr.type)) ||
+                            // Conditional fall-through hits the regular case above.
+                            (type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
+                             (!have_cond_branch_target ||
+                              memref.instr.addr == cond_branch_target)),
+                        "Direct branch does not go to the correct target");
 
-                    if (!valid_branch_target) {
-                        report_if_false(
-                            shard, false,
-                            "Direct branch does not go to the correct target");
-                    }
                 } else {
                     report_if_false(shard, false,
                                     "Non-explicit control flow has no marker");
