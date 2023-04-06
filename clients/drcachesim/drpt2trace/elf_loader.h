@@ -32,8 +32,8 @@
 
 /**
  * @file elf_loader.h
- * @brief ELF file loader. Registe the ELF section into the instance of pt_image or the
- * instance of pt_image_section_cache.
+ * @brief ELF file loader. Add the ELF section to the pt_image instance or the
+ * pt_image_section_cache instance.
  */
 
 #ifndef _ELF_LOADER_H_
@@ -63,16 +63,33 @@ public:
     {
     }
 
+    /**
+     * Load the ELF file into the pt_image instance or the pt_image_section_cache
+     * instance.
+     * @param name The name of the ELF file.
+     * @param base The base address of the ELF file.
+     * @param iscache The pt_image_section_cache instance.
+     * @param image The pt_image instance.
+     * @return true if the ELF file is loaded successfully.
+     */
     static bool
     load(IN const char *name, IN uint64_t base,
          INOUT struct pt_image_section_cache *iscache, INOUT struct pt_image *image);
 
 private:
+    /* The template function for loading the ELF file into either the pt_image instance or
+     * the pt_image_section_cache.
+     * This function supports loading ELF files in both 32-bit and 64-bit formats,
+     * utilizing the defined Elf_Ehdr, Elf_Half, and Elf_Phdr types.
+     */
     template <typename Elf_Ehdr, typename Elf_Half, typename Elf_Phdr>
     static bool
-    load_elf(IN std::istream &f, IN const char *name, IN uint64_t base,
+    load_elf(IN std::ifstream &f, IN const char *name, IN uint64_t base,
              INOUT struct pt_image_section_cache *iscache, INOUT struct pt_image *image);
 
+    /* Load a single section into either the pt_image instance or the
+     * pt_image_section_cache instance.
+     */
     static bool
     load_section(IN const char *name, IN uint64_t offset, IN uint64_t size,
                  IN uint64_t vaddr, INOUT struct pt_image_section_cache *iscache,

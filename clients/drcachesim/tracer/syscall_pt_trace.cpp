@@ -199,8 +199,6 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
     pdb_header[PDB_HEADER_PID_IDX].pid.pid = dr_get_process_id_from_drcontext(drcontext_);
     pdb_header[PDB_HEADER_TID_IDX].tid.type = SYSCALL_PT_ENTRY_TYPE_THREAD;
     pdb_header[PDB_HEADER_TID_IDX].tid.tid = dr_get_thread_id(drcontext_);
-    pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.data_size =
-        SYSCALL_METADATA_SIZE + data->pt_size;
     pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.type =
         SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY;
 
@@ -209,9 +207,9 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
     pdb_header[PDB_HEADER_SYSNUM_IDX].sysnum.sysnum = cur_recording_sysnum_;
 
     /* Initialize the syscall id. */
-    pdb_header[PDB_HEADER_SYSCALL_SEQ_IDX].syscall_id.type =
-        SYSCALL_PT_ENTRY_TYPE_SYSCALL_ID;
-    pdb_header[PDB_HEADER_SYSCALL_SEQ_IDX].syscall_id.id = recorded_syscall_count_;
+    pdb_header[PDB_HEADER_SYSCALL_SEQ_IDX].syscall_idx.type =
+        SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX;
+    pdb_header[PDB_HEADER_SYSCALL_SEQ_IDX].syscall_idx.idx = recorded_syscall_count_;
 
     /* Initialize the the parameter of current record syscall.
      * TODO i#5505: dynamorio doesn't provide a function to get syscall's
@@ -223,6 +221,12 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
     pdb_header[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.type =
         SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM;
     pdb_header[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num = 0;
+
+    /* Initialize the size of the PDB data. */
+    pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.data_size =
+        SYSCALL_METADATA_SIZE +
+        pdb_header[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num * sizeof(uint64_t) +
+        data->pt_size;
 
     /* Write the buffer header to the output file */
     if (write_file_func_(output_file_, pdb_header, PT_DATA_PDB_HEADER_SIZE) == 0) {

@@ -74,10 +74,13 @@ elf_loader_t::load(IN const char *name, IN uint64_t base,
 
 template <typename Elf_Ehdr, typename Elf_Half, typename Elf_Phdr>
 bool
-elf_loader_t::load_elf(IN std::istream &f, IN const char *name, IN uint64_t base,
+elf_loader_t::load_elf(IN std::ifstream &f, IN const char *name, IN uint64_t base,
                        INOUT struct pt_image_section_cache *iscache,
                        INOUT struct pt_image *image)
 {
+    if (!f.is_open()) {
+        ERRMSG(ERRMSG_HEADER "Failed to load ELF: invalid arguments to load_elf.\n");
+    }
     f.seekg(0, std::ios::beg);
 
     /* Read the ELF header. */
