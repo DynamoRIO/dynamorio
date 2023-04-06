@@ -412,6 +412,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (shard->prev_instr_.instr.addr != 0 /*first*/) {
 
             const bool invariant_condition =
+                // Filtered.
                 TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                         shard->file_type_) ||
                 // Regular fall-through.
