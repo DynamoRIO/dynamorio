@@ -411,11 +411,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         if (shard->prev_instr_.instr.addr != 0 /*first*/) {
 
-            // TODO(sahil): Cases for which this is not an invariant. If all of these are
-            // false, then it is an invariant.
-
-            // Condition for PC discontinuities.
-            const bool control_flow_condition =
+            // Check for valid control flow. This value will be false if there is an
+            // invariant.
+            const bool valid_control_flow =
                 TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                         shard->file_type_) ||
                 // Regular fall-through.
@@ -439,11 +437,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->window_transition_ ||
                 shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
-            if (!control_flow_condition) {
-
+            if (!valid_control_flow) {
+                // Check if the invariant is due to a branch target mismatch.
                 if (type_is_instr_branch(shard->prev_instr_.instr.type)) {
+
                     // Using decoding, check for gaps after branches.
-                    const bool branch_target_condition =
+                    const bool valid_branch_target =
                         // Regular fall-through.
                         (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
                          memref.instr.addr) ||
@@ -455,7 +454,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                          (!have_cond_branch_target ||
                           memref.instr.addr == cond_branch_target));
 
-                    if (!branch_target_condition) {
+                    if (!valid_branch_target) {
                         report_if_false(shard, false,
                                         "Direct branch target PC discontinuity");
                     }
