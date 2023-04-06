@@ -410,8 +410,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             }
         }
         if (shard->prev_instr_.instr.addr != 0 /*first*/) {
-
-            const bool invariant_condition =
+            // Check for all valid transitions except taken branches. We consider taken
+            // branches later so that we can provide a different message for those
+            // invariant violations.
+            const bool valid_nonbranch_flow =
                 // Filtered.
                 TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                         shard->file_type_) ||
@@ -436,12 +438,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->window_transition_ ||
                 shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
-            if (!invariant_condition) {
-
+            if (!valid_nonbranch_flow) {
                 // If the type is a branch instruction and there is a branch target
                 // mismatch, report the invariant violation.
                 if (type_is_instr_branch(shard->prev_instr_.instr.type)) {
-
                     report_if_false(
                         shard,
                         // Regular fall-through.
@@ -456,7 +456,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                              (!have_cond_branch_target ||
                               memref.instr.addr == cond_branch_target)),
                         "Direct branch does not go to the correct target");
-
                 } else {
                     report_if_false(shard, false,
                                     "Non-explicit control flow has no marker");

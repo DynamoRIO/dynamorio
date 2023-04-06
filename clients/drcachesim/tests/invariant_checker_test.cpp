@@ -82,7 +82,6 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
             checker.process_memref(memref);
         }
         if (expect_error) {
-
             if (checker.errors.size() != 1 || checker.errors[0] != expected_message ||
                 checker.error_tids[0] != error_tid ||
                 checker.error_refs[0] != error_refs) {
