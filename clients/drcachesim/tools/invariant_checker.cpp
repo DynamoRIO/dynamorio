@@ -444,13 +444,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 if (type_is_instr_branch(shard->prev_instr_.instr.type)) {
                     report_if_false(
                         shard,
-                        // Regular fall-through.
-                        (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
-                         memref.instr.addr) ||
-                            // Indirect branches we cannot check.
-                            (type_is_instr_branch(shard->prev_instr_.instr.type) &&
-                             !type_is_instr_direct_branch(
-                                 shard->prev_instr_.instr.type)) ||
+                        // Indirect branches we cannot check.
+                        (type_is_instr_branch(shard->prev_instr_.instr.type) &&
+                         !type_is_instr_direct_branch(shard->prev_instr_.instr.type)) ||
                             // Conditional fall-through hits the regular case above.
                             (type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
                              (!have_cond_branch_target ||
