@@ -455,8 +455,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                           memref.instr.addr == cond_branch_target));
 
                     if (!valid_branch_target) {
-                        report_if_false(shard, false,
-                                        "Direct branch target PC discontinuity");
+                        report_if_false(
+                            shard, false,
+                            "Direct branch does not go to the correct target");
                     }
                 } else {
                     report_if_false(shard, false,
