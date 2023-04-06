@@ -1956,8 +1956,10 @@ instrument_module_load_trigger(app_pc pc)
             /* switch to write lock */
             os_get_module_info_unlock();
 
-            /* i#3385: re-initialize dynamic information, because it failed
-             * during the first flat-mmap that loaded the module.
+            /* i#3385: re-try to initialize dynamic information, because
+             * it failed during the first flat-mmap that loaded the module.
+             * We doesn't perfrom this if there are no clients, assuming
+             * DynamoRIO doesn't use os_module_data_t information itself.
              */
             if (!ma->os_data.have_dynamic_info) {
                 os_module_update_dynamic_info(ma->start, ma->end - ma->start, false);
