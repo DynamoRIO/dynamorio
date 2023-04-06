@@ -447,9 +447,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         // Indirect branches we cannot check.
                         !type_is_instr_direct_branch(shard->prev_instr_.instr.type) ||
                             // Conditional fall-through hits the regular case above.
-                            (type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
-                             (!have_cond_branch_target ||
-                              memref.instr.addr == cond_branch_target)),
+                            !have_cond_branch_target ||
+                            memref.instr.addr == cond_branch_target,
                         "Direct branch does not go to the correct target");
                 } else {
                     report_if_false(shard, false,
