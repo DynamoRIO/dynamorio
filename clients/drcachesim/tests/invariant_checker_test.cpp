@@ -190,7 +190,7 @@ check_sane_control_flow()
             gen_instr(1, 1),
             gen_instr(1, 3),
         };
-        if (!run_checker(memrefs, true, 1, 2, "Direct branch target PC discontinuity",
+        if (!run_checker(memrefs, true, 1, 2, "Non-explicit control flow has no marker",
                          "Failed to catch bad control flow"))
             return false;
     }
