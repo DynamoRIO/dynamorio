@@ -273,6 +273,14 @@ check_sane_control_flow()
         if (!run_checker(memrefs, false))
             return false;
     }
+    // TODO(sahil): New test.
+    {
+        std::vector<memref_t> memrefs = { gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER) };
+
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
     return true;
 }
 

@@ -447,6 +447,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
 
 #ifdef UNIX
+        // TODO(sahil): Find the PC discontinuities reported incorrectly from this check.
+        // TODO(sahil): Add a test for these.
+
         // Ensure signal handlers return to the interruption point.
         if (shard->prev_xfer_marker_.marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
