@@ -276,7 +276,7 @@ check_entry(std::vector<trace_entry_t> &entries, int &idx, unsigned short expect
 
 // Takes ownership of ilist and destroys it.
 bool
-run_raw2trace(void *drcontext, std::vector<offline_entry_t> raw, instrlist_t *ilist,
+run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist_t *ilist,
               std::vector<trace_entry_t> &entries, int chunk_instr_count = 0)
 {
     // We need an istream so we use istringstream.
