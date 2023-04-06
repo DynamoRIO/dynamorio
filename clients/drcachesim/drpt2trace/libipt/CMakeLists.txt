@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2023 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -63,6 +63,7 @@ add_definitions(
   -DFEATURE_SIDEBAND
   -DFEATURE_ELF
   -DFEATURE_PEVENT
+  -DFEATURE_THREADS
 )
 
 include_directories(
