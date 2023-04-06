@@ -441,6 +441,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
             // Using decoding, check for gaps after branches.
             const bool branch_target_condition =
+                // Regular fall-through.
+                (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
+                 memref.instr.addr) ||
+                // Indirect branches we cannot check.
                 (type_is_instr_branch(shard->prev_instr_.instr.type) &&
                  !type_is_instr_direct_branch(shard->prev_instr_.instr.type)) ||
                 // Conditional fall-through hits the regular case above.
