@@ -273,9 +273,16 @@ check_sane_control_flow()
         if (!run_checker(memrefs, false))
             return false;
     }
-    // TODO(sahil): New test.
+    // TODO(sahil): Comment explaining test case.
     {
-        std::vector<memref_t> memrefs = { gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER) };
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(1, 101),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            // Should be a PC discontinuity here, expected PC is 2.
+            gen_instr(1, 3),
+        };
 
         if (!run_checker(memrefs, false)) {
             return false;
