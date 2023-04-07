@@ -280,11 +280,14 @@ check_sane_control_flow()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 101),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            // Should be a PC discontinuity here, expected PC is 2.
+            // Thos will trigger a PC discontinuity invariant violation. The expected PC
+            // is 2.
             gen_instr(1, 3),
         };
 
-        if (!run_checker(memrefs, false)) {
+        if (!run_checker(memrefs, true, 1, 5, "Non-explicit control flow has no marker",
+                         "Failed to catch PC continuity for an instruction followed by "
+                         "kernel xfer marker")) {
             return false;
         }
     }
