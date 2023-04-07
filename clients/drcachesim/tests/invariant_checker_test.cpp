@@ -273,7 +273,7 @@ check_sane_control_flow()
         if (!run_checker(memrefs, false))
             return false;
     }
-    // TODO(sahil): Comment explaining test case.
+    // PC discontinuity when there is a kernel xfer in between instructions.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
