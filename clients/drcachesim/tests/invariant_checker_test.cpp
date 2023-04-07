@@ -478,6 +478,7 @@ check_repeated_syscall_with_same_pc()
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(1, ADDR_ONE, { 0x0f, 0x05 }),
 #    elif defined(ARM_64)
+            gen_instr_encoded(1 /*tid*/, 0 /*pc*/, 0x01),
             gen_instr_encoded(1, ADDR_ONE, 0xd4000001),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
@@ -503,10 +504,10 @@ check_repeated_syscall_with_same_pc()
             gen_instr_encoded(1, ADDR_TWO, { 0x0f, 0x05 }),
 #    elif defined(ARM_64)
             gen_instr_encoded(1 /*tid*/, 0 /*pc*/, 0x01),
-            gen_instr_encoded(1, ADDR_ONE, 0xd4000001),
+            gen_instr_encoded(1, ADDR_ONE, 0xd4000001, 2),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
-            gen_instr_encoded(1, ADDR_TWO + 2, 0xd4000001),
+            gen_instr_encoded(1, ADDR_TWO, 0xd4000001, 2),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
