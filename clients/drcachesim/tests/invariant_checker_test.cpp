@@ -280,7 +280,7 @@ check_sane_control_flow()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 101),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            // Thos will trigger a PC discontinuity invariant violation. The expected PC
+            // This will trigger a PC discontinuity invariant violation. The expected PC
             // is 2.
             gen_instr(1, 3),
         };
