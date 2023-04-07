@@ -409,52 +409,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 instr_free(GLOBAL_DCONTEXT, &instr);
             }
         }
-        if (shard->prev_instr_.instr.addr != 0 /*first*/) {
-            // Check for all valid transitions except taken branches. We consider taken
-            // branches later so that we can provide a different message for those
-            // invariant violations.
-            const bool valid_nonbranch_flow =
-                // Filtered.
-                TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                        shard->file_type_) ||
-                // Regular fall-through.
-                (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
-                 memref.instr.addr) ||
-                // String loop.
-                (shard->prev_instr_.instr.addr == memref.instr.addr &&
-                 (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
-                  // Online incorrectly marks the 1st string instr across a thread
-                  // switch as fetched.
-                  // TODO i#4915, #4948: Eliminate non-fetched and remove the
-                  // underlying instrs altogether, which would fix this for us.
-                  (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
-                // Kernel-mediated, but we can't tell if we had a thread swap.
-                (shard->prev_xfer_marker_.instr.tid != 0 &&
-                 (shard->prev_xfer_marker_.marker.marker_type ==
-                      TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                  shard->prev_xfer_marker_.marker.marker_type ==
-                      TRACE_MARKER_TYPE_KERNEL_XFER)) ||
-                // We expect a gap on a window transition.
-                shard->window_transition_ ||
-                shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
-            if (!valid_nonbranch_flow) {
-                // If the type is a branch instruction and there is a branch target
-                // mismatch, report the invariant violation.
-                if (type_is_instr_branch(shard->prev_instr_.instr.type)) {
-                    report_if_false(
-                        shard,
-                        // Indirect branches we cannot check.
-                        !type_is_instr_direct_branch(shard->prev_instr_.instr.type) ||
-                            // Conditional fall-through hits the regular case above.
-                            !have_cond_branch_target ||
-                            memref.instr.addr == cond_branch_target,
-                        "Direct branch does not go to the correct target");
-                } else {
-                    report_if_false(shard, false,
-                                    "Non-explicit control flow has no marker");
-                }
-            }
+        // Check if we have any invariant violations caused by PC discontinuities.
+        std::string invariant_violation_msg = pc_discontinuity_error_msg(
+            shard_data, memref, have_cond_branch_target, cond_branch_target);
+        if (!invariant_violation_msg.empty()) {
+            report_if_false(shard, false, invariant_violation_msg);
         }
 
 #ifdef UNIX
@@ -671,4 +631,63 @@ invariant_checker_t::print_results()
     check_schedule_data();
     std::cerr << "Trace invariant checks passed\n";
     return true;
+}
+
+std::string
+invariant_checker_t::pc_discontinuity_error_msg(void *shard_data, const memref_t &memref,
+                                                bool have_cond_branch_target,
+                                                addr_t cond_branch_target)
+{
+    per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+    std::string error_msg = "";
+
+    if (shard->prev_instr_.instr.addr != 0 /*first*/) {
+        // Check for all valid transitions except taken branches. We consider taken
+        // branches later so that we can provide a different message for those
+        // invariant violations.
+        const bool valid_nonbranch_flow =
+            // Filtered.
+            TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                    shard->file_type_) ||
+            // Regular fall-through.
+            (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
+             memref.instr.addr) ||
+            // String loop.
+            (shard->prev_instr_.instr.addr == memref.instr.addr &&
+             (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
+              // Online incorrectly marks the 1st string instr across a thread
+              // switch as fetched.
+              // TODO i#4915, #4948: Eliminate non-fetched and remove the
+              // underlying instrs altogether, which would fix this for us.
+              (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
+            // Kernel-mediated, but we can't tell if we had a thread swap.
+            (shard->prev_xfer_marker_.instr.tid != 0 &&
+             (shard->prev_xfer_marker_.marker.marker_type ==
+                  TRACE_MARKER_TYPE_KERNEL_EVENT ||
+              shard->prev_xfer_marker_.marker.marker_type ==
+                  TRACE_MARKER_TYPE_KERNEL_XFER)) ||
+            // We expect a gap on a window transition.
+            shard->window_transition_ ||
+            shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
+
+        if (!valid_nonbranch_flow) {
+            // Check if the type is a branch instruction and there is a branch target
+            // mismatch.
+            if (type_is_instr_branch(shard->prev_instr_.instr.type)) {
+                error_msg =
+                    ( // Indirect branches we cannot check.
+                        !type_is_instr_direct_branch(shard->prev_instr_.instr.type) ||
+                        // Conditional fall-through hits the regular case above.
+                        !have_cond_branch_target ||
+                        memref.instr.addr == cond_branch_target)
+                    ? ""
+                    : "Direct branch does not go to the correct target";
+
+            } else {
+                error_msg = "Non-explicit control flow has no marker";
+            }
+        }
+    }
+
+    return error_msg;
 }

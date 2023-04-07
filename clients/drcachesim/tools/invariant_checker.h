@@ -133,6 +133,12 @@ protected:
     virtual void
     check_schedule_data();
 
+    // Check for invariant violations caused by PC discontinuities. Return an error string
+    // for such violations.
+    std::string
+    pc_discontinuity_error_msg(void *shard_data, const memref_t &memref,
+                               bool have_cond_branch_target, addr_t cond_branch_target);
+
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
