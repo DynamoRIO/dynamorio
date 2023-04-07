@@ -412,9 +412,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // Check if we have any invariant violations caused by PC discontinuities.
         std::string invariant_violation_msg = pc_discontinuity_error_msg(
             shard_data, memref, have_cond_branch_target, cond_branch_target);
-        if (!invariant_violation_msg.empty()) {
-            report_if_false(shard, false, invariant_violation_msg);
-        }
+        report_if_false(shard, invariant_violation_msg.empty(), invariant_violation_msg);
 
 #ifdef UNIX
         // Ensure signal handlers return to the interruption point.
