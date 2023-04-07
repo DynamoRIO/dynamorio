@@ -68,31 +68,6 @@
 #    error Unsupported arch
 #endif
 
-// Subclasses module_mapper_t and replaces the module loading with a
-// buffer of encoded instr_t.
-class module_mapper_test_t : public module_mapper_t {
-public:
-    module_mapper_test_t(instrlist_t &instrs, void *drcontext)
-        : module_mapper_t(nullptr)
-    {
-        byte *pc = instrlist_encode(drcontext, &instrs, decode_buf_, true);
-        ASSERT(pc != nullptr, "encoding failed");
-        ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE, "decode buffer overflow");
-    }
-
-protected:
-    void
-    read_and_map_modules() override
-    {
-        modvec_.push_back(module_t("fake_exe", 0, decode_buf_, 0, MAX_DECODE_SIZE,
-                                   MAX_DECODE_SIZE, true));
-    }
-
-private:
-    static const int MAX_DECODE_SIZE = 1024;
-    byte decode_buf_[MAX_DECODE_SIZE];
-};
-
 // Subclasses raw2trace_t and replaces the module_mapper_t with our own version.
 class raw2trace_test_t : public raw2trace_t {
 public:
@@ -105,8 +80,8 @@ public:
                       // debugging and viewing of what's going on.
                       4)
     {
-        module_mapper_ =
-            std::unique_ptr<module_mapper_t>(new module_mapper_test_t(instrs, drcontext));
+        module_mapper_ = std::unique_ptr<module_mapper_t>(
+            new test_module_mapper_t(&instrs, drcontext));
         set_modmap_(module_mapper_.get());
     }
     raw2trace_test_t(const std::vector<std::istream *> &input,
@@ -118,8 +93,8 @@ public:
                       // debugging and viewing of what's going on.
                       4, /*worker_count=*/-1, /*alt_module_dir=*/"", chunk_instr_count)
     {
-        module_mapper_ =
-            std::unique_ptr<module_mapper_t>(new module_mapper_test_t(instrs, drcontext));
+        module_mapper_ = std::unique_ptr<module_mapper_t>(
+            new test_module_mapper_t(&instrs, drcontext));
         set_modmap_(module_mapper_.get());
     }
 };
