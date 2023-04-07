@@ -466,6 +466,7 @@ check_repeated_syscall_with_same_pc()
 {
     constexpr addr_t ADDR_ONE = 0x7fcf3b9dd9e9;
     constexpr addr_t ADDR_TWO = 0x7fcf3b9dd9eb;
+    constexpr addr_t ADDR_THREE = 0x7fcf3b9dd9ed;
     // Negative: syscalls with the same PC.
 #if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     {
@@ -477,17 +478,19 @@ check_repeated_syscall_with_same_pc()
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(1, ADDR_ONE, { 0x0f, 0x05 }),
+            gen_instr_encoded(1 /*tid*/, ADDR_TWO /*pc*/, { 0x01 }),
 #    elif defined(ARM_64)
             gen_instr_encoded(1 /*tid*/, 0 /*pc*/, 0x01),
             gen_instr_encoded(1, ADDR_ONE, 0xd4000001),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(1, ADDR_ONE, 0xd4000001),
+            gen_instr_encoded(1 /*tid*/, ADDR_TWO /*pc*/, 0x01),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
         };
-        if (!run_checker(memrefs, true, 1, 6, "Repeated syscall instrs with the same PC",
+        if (!run_checker(memrefs, true, 1, 7, "Repeated syscall instrs with the same PC",
                          "Failed to catch repeated syscall instrs with the same PC"))
             return false;
     }
@@ -502,12 +505,14 @@ check_repeated_syscall_with_same_pc()
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(1, ADDR_TWO, { 0x0f, 0x05 }),
+            gen_instr_encoded(1 /*tid*/, ADDR_THREE /*pc*/, { 0x01 }),
 #    elif defined(ARM_64)
             gen_instr_encoded(1 /*tid*/, 0 /*pc*/, 0x01),
             gen_instr_encoded(1, ADDR_ONE, 0xd4000001, 2),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(1, ADDR_TWO, 0xd4000001, 2),
+            gen_instr_encoded(1 /*tid*/, ADDR_THREE /*pc*/, 0x01),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif

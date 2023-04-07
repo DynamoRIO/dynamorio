@@ -83,6 +83,9 @@ protected:
             last_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
         }
         memtrace_stream_t *stream = nullptr;
+
+        addr_t prev_instr_addr_ = 0;
+        bool prev_instr_was_syscall_ = false;
         memref_t prev_entry_ = {};
         memref_t prev_instr_ = {};
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.

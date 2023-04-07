@@ -408,14 +408,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     }
                 }
             } else {
-                instr_t cur_instr;
-                instr_init(GLOBAL_DCONTEXT, &cur_instr);
-                app_pc curr_pc = decode_from_copy(
-                    GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
-                    reinterpret_cast<app_pc>(memref.instr.addr), &cur_instr);
-                if (curr_pc != nullptr && next_pc != nullptr) {
-                    if (instr_is_syscall(&instr) && instr_is_syscall(&cur_instr) &&
-                        memref.instr.addr == shard->prev_instr_.instr.addr) {
+                if (next_pc != nullptr) {
+                    if (instr_is_syscall(&instr) &&
+                        shard->prev_instr_addr_ == shard->prev_instr_.instr.addr &&
+                        shard->prev_instr_was_syscall_) {
+                        std::cerr << "Saw double syscall\n";
                         // Set this flag so that repeated syscalls are not
                         // double reporeted as other PC discontinuity below.
                         saw_repeated_syscall_instrs_with_same_pc = true;
@@ -423,8 +420,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                         "Repeated syscall instrs with the same PC");
                     }
                 }
-                instr_free(GLOBAL_DCONTEXT, &cur_instr);
             }
+            shard->prev_instr_addr_ = shard->prev_instr_.instr.addr;
+            shard->prev_instr_was_syscall_ = instr_is_syscall(&instr);
             instr_free(GLOBAL_DCONTEXT, &instr);
         }
 
@@ -460,7 +458,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     // We expect a gap on a window transition.
                     shard->window_transition_ ||
                     shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER ||
-                    saw_repeated_syscall_instrs_with_same_pc,
+                    saw_repeated_syscall_instrs_with_same_pc ||
+                    shard->prev_instr_was_syscall_,
                 "Non-explicit control flow has no marker");
             // XXX: If we had instr decoding we could check direct branch targets
             // and look for gaps after branches.
