@@ -679,7 +679,6 @@ invariant_checker_t::pc_discontinuity_error_msg(void *shard_data, const memref_t
                         memref.instr.addr == cond_branch_target)
                     ? ""
                     : "Direct branch does not go to the correct target";
-
             } else {
                 error_msg = "Non-explicit control flow has no marker";
             }
