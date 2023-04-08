@@ -530,7 +530,8 @@ int
 main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
-        check_kernel_xfer() && check_rseq() && check_function_markers()) {
+        check_kernel_xfer() && check_rseq() && check_function_markers() &&
+        check_repeated_syscall_with_same_pc()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
