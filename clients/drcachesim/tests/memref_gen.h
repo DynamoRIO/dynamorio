@@ -96,10 +96,9 @@ gen_branch_encoded(memref_tid_t tid, addr_t pc, int encoding)
 
 #elif defined(X86_64) || defined(X86_32)
 inline memref_t
-gen_instr_encoded(addr_t pc, const std::vector<char> encoding, memref_tid_t tid = 1,
-                  size_t size = 1)
+gen_instr_encoded(addr_t pc, const std::vector<char> encoding, memref_tid_t tid = 1)
 {
-    memref_t memref = gen_instr_type(TRACE_TYPE_INSTR, tid, pc, size);
+    memref_t memref = gen_instr_type(TRACE_TYPE_INSTR, tid, pc, encoding.size());
     memref.instr.size = encoding.size();
     memcpy(memref.instr.encoding, encoding.data(), encoding.size());
     memref.instr.encoding_is_new = true;
