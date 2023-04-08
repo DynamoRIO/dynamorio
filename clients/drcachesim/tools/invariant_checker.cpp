@@ -415,10 +415,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         bool saw_repeated_syscall_instrs_with_same_pc = false;
         if (shard->prev_instr_.instr.addr != 0 /*first*/) {
             if (next_pc != nullptr) {
-                if (instr_is_syscall(&cur_instr_decoded))
-                    std::cerr << "Curr instr decoded is syscall\n";
-                if (instr_is_syscall(shard->prev_instr_decoded_))
-                    std::cerr << "Prev instr decoded is syscall\n";
                 if (instr_is_syscall(&cur_instr_decoded) &&
                     memref.instr.addr == shard->prev_instr_.instr.addr &&
                     instr_is_syscall(shard->prev_instr_decoded_)) {
