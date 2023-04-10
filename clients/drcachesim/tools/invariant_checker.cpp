@@ -671,14 +671,15 @@ invariant_checker_t::check_for_pc_discontinuity(per_shard_t *shard,
             // Check if the type is a branch instruction and there is a branch target
             // mismatch.
             if (type_is_instr_branch(shard->prev_instr_.instr.type)) {
-                error_msg =
-                    ( // Indirect branches we cannot check.
-                        !type_is_instr_direct_branch(shard->prev_instr_.instr.type) ||
-                        // Conditional fall-through hits the regular case above.
-                        !have_cond_branch_target ||
-                        memref.instr.addr == cond_branch_target)
-                    ? ""
-                    : "Direct branch does not go to the correct target";
+                const bool valid_branch_flow =
+                    // Indirect branches we cannot check.
+                    !type_is_instr_direct_branch(shard->prev_instr_.instr.type) ||
+                    // Conditional fall-through hits the regular case above.
+                    !have_cond_branch_target || memref.instr.addr == cond_branch_target;
+
+                if (!valid_branch_flow) {
+                    error_msg = "Direct branch does not go to the correct target";
+                }
             } else {
                 error_msg = "Non-explicit control flow has no marker";
             }
