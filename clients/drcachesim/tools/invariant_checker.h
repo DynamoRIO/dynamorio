@@ -136,8 +136,7 @@ protected:
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
     std::string
-    check_for_pc_discontinuity(per_shard_t *shard, const memref_t &memref,
-                               bool have_cond_branch_target, addr_t cond_branch_target);
+    check_for_pc_discontinuity(per_shard_t *shard, const memref_t &memref);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;

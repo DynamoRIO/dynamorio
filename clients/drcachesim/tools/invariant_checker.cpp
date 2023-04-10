@@ -374,45 +374,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
         // by markers.
-        bool have_cond_branch_target = false;
-        addr_t cond_branch_target = 0;
-        if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
-            type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
-            // We do not bother to support legacy traces without encodings.
-            TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_)) {
-            addr_t trace_pc = shard->prev_instr_.instr.addr;
-            if (shard->prev_instr_.instr.encoding_is_new)
-                shard->branch_target_cache.erase(trace_pc);
-            auto cached = shard->branch_target_cache.find(trace_pc);
-            if (cached != shard->branch_target_cache.end()) {
-                have_cond_branch_target = true;
-                cond_branch_target = cached->second;
-            } else {
-                instr_t instr;
-                instr_init(GLOBAL_DCONTEXT, &instr);
-                const app_pc decode_pc =
-                    const_cast<app_pc>(shard->prev_instr_.instr.encoding);
-                const app_pc next_pc =
-                    decode_from_copy(GLOBAL_DCONTEXT, decode_pc,
-                                     reinterpret_cast<app_pc>(trace_pc), &instr);
-                if (next_pc == nullptr || !opnd_is_pc(instr_get_target(&instr))) {
-                    // Neither condition should happen but they could on an invalid
-                    // encoding from raw2trace or the reader so we report an
-                    // invariant rather than asserting.
-                    report_if_false(shard, false, "Branch target is not decodeable");
-                } else {
-                    have_cond_branch_target = true;
-                    cond_branch_target =
-                        reinterpret_cast<addr_t>(opnd_get_pc(instr_get_target(&instr)));
-                    shard->branch_target_cache[trace_pc] = cond_branch_target;
-                }
-                instr_free(GLOBAL_DCONTEXT, &instr);
-            }
-        }
-        // Check if we have any invariant violations caused by PC discontinuities.
-        std::string invariant_violation_msg = check_for_pc_discontinuity(
-            shard, memref, have_cond_branch_target, cond_branch_target);
-        report_if_false(shard, invariant_violation_msg.empty(), invariant_violation_msg);
+        const std::string non_explicit_flow_violation_msg =
+            check_for_pc_discontinuity(shard, memref);
+        report_if_false(shard, non_explicit_flow_violation_msg.empty(),
+                        non_explicit_flow_violation_msg);
 
 #ifdef UNIX
         // Ensure signal handlers return to the interruption point.
@@ -632,11 +597,44 @@ invariant_checker_t::print_results()
 
 std::string
 invariant_checker_t::check_for_pc_discontinuity(per_shard_t *shard,
-                                                const memref_t &memref,
-                                                bool have_cond_branch_target,
-                                                addr_t cond_branch_target)
+                                                const memref_t &memref)
 {
     std::string error_msg = "";
+    bool have_cond_branch_target = false;
+    addr_t cond_branch_target = 0;
+
+    if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
+        type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
+        // We do not bother to support legacy traces without encodings.
+        TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_)) {
+        addr_t trace_pc = shard->prev_instr_.instr.addr;
+        if (shard->prev_instr_.instr.encoding_is_new)
+            shard->branch_target_cache.erase(trace_pc);
+        auto cached = shard->branch_target_cache.find(trace_pc);
+        if (cached != shard->branch_target_cache.end()) {
+            have_cond_branch_target = true;
+            cond_branch_target = cached->second;
+        } else {
+            instr_t instr;
+            instr_init(GLOBAL_DCONTEXT, &instr);
+            const app_pc decode_pc =
+                const_cast<app_pc>(shard->prev_instr_.instr.encoding);
+            const app_pc next_pc = decode_from_copy(
+                GLOBAL_DCONTEXT, decode_pc, reinterpret_cast<app_pc>(trace_pc), &instr);
+            if (next_pc == nullptr || !opnd_is_pc(instr_get_target(&instr))) {
+                // Neither condition should happen but they could on an invalid
+                // encoding from raw2trace or the reader so we report an
+                // invariant rather than asserting.
+                report_if_false(shard, false, "Branch target is not decodeable");
+            } else {
+                have_cond_branch_target = true;
+                cond_branch_target =
+                    reinterpret_cast<addr_t>(opnd_get_pc(instr_get_target(&instr)));
+                shard->branch_target_cache[trace_pc] = cond_branch_target;
+            }
+            instr_free(GLOBAL_DCONTEXT, &instr);
+        }
+    }
 
     if (shard->prev_instr_.instr.addr != 0 /*first*/) {
         // Check for all valid transitions except taken branches. We consider taken
