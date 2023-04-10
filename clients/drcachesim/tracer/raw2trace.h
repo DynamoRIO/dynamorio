@@ -608,6 +608,37 @@ protected:
 };
 
 /**
+ * Subclasses module_mapper_t and replaces the module loading with a buffer
+ * of encoded instr_t. Useful for tests where we want to mock the module
+ * files with an in-memory buffer of instrs.
+ */
+class test_module_mapper_t : public module_mapper_t {
+public:
+    test_module_mapper_t(instrlist_t *instrs, void *drcontext)
+        : module_mapper_t(nullptr)
+    {
+        byte *pc = instrlist_encode(drcontext, instrs, decode_buf_, true);
+        DR_ASSERT(pc != nullptr);
+        DR_ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE);
+        // Clear do_module_parsing error; we can't cleanly make virtual b/c it's
+        // called from the constructor.
+        last_error_ = "";
+    }
+
+protected:
+    void
+    read_and_map_modules() override
+    {
+        modvec_.push_back(module_t("fake_exe", 0, decode_buf_, 0, MAX_DECODE_SIZE,
+                                   MAX_DECODE_SIZE, true));
+    }
+
+private:
+    static const int MAX_DECODE_SIZE = 1024;
+    byte decode_buf_[MAX_DECODE_SIZE];
+};
+
+/**
  * Header of raw trace.
  */
 struct trace_header_t {
