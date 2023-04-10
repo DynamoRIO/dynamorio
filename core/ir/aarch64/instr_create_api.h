@@ -14045,4 +14045,28 @@
  */
 #define INSTR_CREATE_fjcvtzs(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_fjcvtzs, Rd, Rn)
 
+/**
+ * Creates a DC CVAP instruction.
+ *
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             No alignment restrictions apply to this VA.
+ */
+#define INSTR_CREATE_dc_cvap(dc, Rn)                                                    \
+    instr_create_0dst_1src(dc, OP_dc_cvap,                                              \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_sys))
+
+/**
+ * Creates a DC CVADP instruction.
+ *
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             No alignment restrictions apply to this VA.
+ */
+#define INSTR_CREATE_dc_cvadp(dc, Rn)                                                   \
+    instr_create_0dst_1src(dc, OP_dc_cvadp,                                             \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_sys))
+
 #endif /* DR_IR_MACROS_AARCH64_H */
