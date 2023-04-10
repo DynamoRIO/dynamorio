@@ -339,9 +339,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
-        std::unique_ptr<instr_t> cur_instr_decoded(new instr_t());
+        std::unique_ptr<instr_t> cur_instr_decoded = nullptr;
         app_pc next_pc = nullptr;
         if (expect_encoding) {
+            cur_instr_decoded = std::unique_ptr<instr_t>(new instr_t);
             instr_init(GLOBAL_DCONTEXT, cur_instr_decoded.get());
             const app_pc decode_pc = const_cast<app_pc>(memref.instr.encoding);
             next_pc = decode_from_copy(GLOBAL_DCONTEXT, decode_pc,
