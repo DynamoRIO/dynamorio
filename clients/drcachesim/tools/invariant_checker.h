@@ -136,7 +136,7 @@ protected:
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
     std::string
-    pc_discontinuity_error_msg(void *shard_data, const memref_t &memref,
+    check_for_pc_discontinuity(void *shard_data, const memref_t &memref,
                                bool have_cond_branch_target, addr_t cond_branch_target);
 
     // The keys here are int for parallel, tid for serial.

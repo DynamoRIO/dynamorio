@@ -410,7 +410,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             }
         }
         // Check if we have any invariant violations caused by PC discontinuities.
-        std::string invariant_violation_msg = pc_discontinuity_error_msg(
+        std::string invariant_violation_msg = check_for_pc_discontinuity(
             shard_data, memref, have_cond_branch_target, cond_branch_target);
         report_if_false(shard, invariant_violation_msg.empty(), invariant_violation_msg);
 
@@ -631,7 +631,7 @@ invariant_checker_t::print_results()
 }
 
 std::string
-invariant_checker_t::pc_discontinuity_error_msg(void *shard_data, const memref_t &memref,
+invariant_checker_t::check_for_pc_discontinuity(void *shard_data, const memref_t &memref,
                                                 bool have_cond_branch_target,
                                                 addr_t cond_branch_target)
 {
