@@ -341,7 +341,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         std::unique_ptr<instr_t> cur_instr_decoded(new instr_t());
         app_pc next_pc = nullptr;
-        if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_)) {
+        if (expect_encoding) {
             instr_init(GLOBAL_DCONTEXT, cur_instr_decoded.get());
             const app_pc decode_pc = const_cast<app_pc>(memref.instr.encoding);
             next_pc = decode_from_copy(GLOBAL_DCONTEXT, decode_pc,
@@ -349,7 +349,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                        cur_instr_decoded.get());
             if (next_pc == nullptr) {
                 instr_free(GLOBAL_DCONTEXT, cur_instr_decoded.get());
-                cur_instr_decoded = nullptr;
+                cur_instr_decoded.reset(nullptr);
             }
         }
         if (knob_verbose_ >= 3) {
