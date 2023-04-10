@@ -339,14 +339,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
-        addr_t trace_pc = memref.instr.addr;
         std::unique_ptr<instr_t> cur_instr_decoded(new instr_t());
         app_pc next_pc = nullptr;
         if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_)) {
             instr_init(GLOBAL_DCONTEXT, cur_instr_decoded.get());
             const app_pc decode_pc = const_cast<app_pc>(memref.instr.encoding);
             next_pc = decode_from_copy(GLOBAL_DCONTEXT, decode_pc,
-                                       reinterpret_cast<app_pc>(trace_pc),
+                                       reinterpret_cast<app_pc>(memref.instr.addr),
                                        cur_instr_decoded.get());
             if (next_pc == nullptr) {
                 instr_free(GLOBAL_DCONTEXT, cur_instr_decoded.get());
@@ -391,17 +390,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // by markers.
         bool have_cond_branch_target = false;
         addr_t cond_branch_target = 0;
-        if (type_is_instr_direct_branch(memref.instr.type) && expect_encoding) {
+        if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
+            type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
+            expect_encoding) {
             // We do not bother to support legacy traces without encodings.
-            if (memref.instr.encoding_is_new)
-                shard->branch_target_cache.erase(trace_pc);
-            auto cached = shard->branch_target_cache.find(trace_pc);
+            if (shard->prev_instr_.instr.encoding_is_new)
+                shard->branch_target_cache.erase(shard->prev_instr_.instr.addr);
+            auto cached = shard->branch_target_cache.find(shard->prev_instr_.instr.addr);
             if (cached != shard->branch_target_cache.end()) {
                 have_cond_branch_target = true;
                 cond_branch_target = cached->second;
             } else {
-                if (cur_instr_decoded == nullptr ||
-                    !opnd_is_pc(instr_get_target(cur_instr_decoded.get()))) {
+                if (shard->prev_instr_decoded_ == nullptr ||
+                    !opnd_is_pc(instr_get_target(shard->prev_instr_decoded_.get()))) {
                     // Neither condition should happen but they could on an invalid
                     // encoding from raw2trace or the reader so we report an
                     // invariant rather than asserting.
@@ -409,17 +410,18 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 } else {
                     have_cond_branch_target = true;
                     cond_branch_target = reinterpret_cast<addr_t>(
-                        opnd_get_pc(instr_get_target(cur_instr_decoded.get())));
-                    shard->branch_target_cache[trace_pc] = cond_branch_target;
+                        opnd_get_pc(instr_get_target(shard->prev_instr_decoded_.get())));
+                    shard->branch_target_cache[shard->prev_instr_.instr.addr] =
+                        cond_branch_target;
                 }
             }
         }
         bool saw_repeated_syscall_instrs_with_same_pc = false;
-        if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
+        if (cur_instr_decoded != nullptr && shard->prev_instr_decoded_ != nullptr &&
+            shard->prev_instr_.instr.addr != 0 /*first*/ &&
             instr_is_syscall(cur_instr_decoded.get()) &&
             memref.instr.addr == shard->prev_instr_.instr.addr &&
-            instr_is_syscall(shard->prev_instr_decoded_) &&
-            cur_instr_decoded != nullptr && shard->prev_instr_decoded_ != nullptr) {
+            instr_is_syscall(shard->prev_instr_decoded_.get())) {
             // Set this flag so that repeated syscalls are not
             // double reporeted as other PC discontinuity below.
             saw_repeated_syscall_instrs_with_same_pc = true;
@@ -502,7 +504,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #endif
         shard->prev_instr_ = memref;
         if (cur_instr_decoded != nullptr) {
-            shard->prev_instr_decoded_ = cur_instr_decoded.get();
+            shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
         }
         shard->saw_kernel_xfer_after_prev_instr_ = false;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an

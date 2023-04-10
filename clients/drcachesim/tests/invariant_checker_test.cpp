@@ -215,10 +215,8 @@ check_sane_control_flow()
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
             // 0x74 is "je" with the 2nd byte the offset.
-            gen_instr_encoded(0x71019dba, { 0x20 }),
             gen_branch_encoded(1, 0x71019dbc, { 0x74, 0x32 }),
 #    elif defined(ARM_64)
-            gen_instr_encoded(0x71019db9, 0x20),
             // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
             gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
 #    else
@@ -473,13 +471,11 @@ check_repeated_syscall_with_same_pc()
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
-            gen_instr_encoded(0, { 0x01 }),
             gen_instr_encoded(ADDR_ONE, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR_ONE, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
 #    elif defined(ARM_64)
-            gen_instr_encoded(0, 0x01),
             gen_instr_encoded(ADDR_ONE,
                               0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
@@ -490,7 +486,7 @@ check_repeated_syscall_with_same_pc()
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
         };
-        if (!run_checker(memrefs, true, 1, 6, "Repeated syscall instrs with the same PC",
+        if (!run_checker(memrefs, true, 1, 5, "Repeated syscall instrs with the same PC",
                          "Failed to catch repeated syscall instrs with the same PC"))
             return false;
     }
@@ -500,16 +496,14 @@ check_repeated_syscall_with_same_pc()
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
-            gen_instr_encoded(0, { 0x01 }),
             gen_instr_encoded(ADDR_ONE, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR_ONE + 2,
                               { 0x0f, 0x05 }), // 0x7fcf3b9dd9eb: 0f 05    syscall
 #    elif defined(ARM_64)
-            gen_instr_encoded(0, 0x01),
             gen_instr_encoded(ADDR_ONE, 0xd4000001,
-                              2), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+                              2),          // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR_ONE + 4, 0xd4000001,

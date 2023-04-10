@@ -87,7 +87,7 @@ protected:
 
         memref_t prev_entry_ = {};
         memref_t prev_instr_ = {};
-        instr_t *prev_instr_decoded_ = nullptr;
+        std::unique_ptr<instr_t> prev_instr_decoded_ = nullptr;
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         addr_t last_retaddr_ = 0;
