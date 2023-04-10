@@ -285,9 +285,10 @@ check_sane_control_flow()
             gen_instr(1, 3),
         };
 
-        if (!run_checker(memrefs, true, 1, 5, "Non-explicit control flow has no marker",
-                         "Failed to catch PC continuity for an instruction followed by "
-                         "kernel xfer marker")) {
+        if (!run_checker(
+                memrefs, true, 1, 5, "Non-explicit control flow has no marker",
+                "Failed to catch PC discontinuity for an instruction followed by "
+                "kernel xfer marker")) {
             return false;
         }
     }
