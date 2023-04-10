@@ -85,8 +85,6 @@ protected:
         }
         memtrace_stream_t *stream = nullptr;
 
-        addr_t prev_instr_addr_ = 0;
-        bool prev_instr_was_syscall_ = false;
         memref_t prev_entry_ = {};
         memref_t prev_instr_ = {};
         instr_t *prev_instr_decoded_ = nullptr;

@@ -215,8 +215,10 @@ check_sane_control_flow()
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
             // 0x74 is "je" with the 2nd byte the offset.
+            gen_instr_encoded(0x71019dba, { 0x20 }),
             gen_branch_encoded(1, 0x71019dbc, { 0x74, 0x32 }),
 #    elif defined(ARM_64)
+            gen_instr_encoded(0x71019db9, 0x20),
             // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
             gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
 #    else
