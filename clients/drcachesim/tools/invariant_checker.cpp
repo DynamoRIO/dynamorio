@@ -384,9 +384,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (shard->prev_xfer_marker_.marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
 
-            // TODO(sahil): Add logic to this OR statement that will evaluate to true when
-            // there is a PC discontinuity. We do not want this invariant to be violated
-            // for that. We want the PC discontinuity invariant triggered instead.
+            // TODO(sahil):
+
+            // A) Add our regular PC transition check to the pre-signal instruction fetch
+            // transition to the signal marker value for the interrupted PC
+
+            // B) Change the signal check to compare the handler return point to the
+            // marker value, not to the pre-signal instruction fetch
+
             const bool condition = check_for_pc_discontinuity(shard, memref).empty() ||
                 ((memref.instr.addr == shard->prev_xfer_int_pc_.top() ||
                   // DR hands us a different address for sysenter than the
