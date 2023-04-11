@@ -340,14 +340,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         std::unique_ptr<instr_t> cur_instr_decoded = nullptr;
-        app_pc next_pc = nullptr;
         if (expect_encoding) {
-            cur_instr_decoded = std::unique_ptr<instr_t>(new instr_t);
+            cur_instr_decoded.reset(new instr_t);
             instr_init(GLOBAL_DCONTEXT, cur_instr_decoded.get());
-            const app_pc decode_pc = const_cast<app_pc>(memref.instr.encoding);
-            next_pc = decode_from_copy(GLOBAL_DCONTEXT, decode_pc,
-                                       reinterpret_cast<app_pc>(memref.instr.addr),
-                                       cur_instr_decoded.get());
+            app_pc next_pc = nullptr;
+            next_pc = decode_from_copy(
+                GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
+                reinterpret_cast<app_pc>(memref.instr.addr), cur_instr_decoded.get());
             if (next_pc == nullptr) {
                 instr_free(GLOBAL_DCONTEXT, cur_instr_decoded.get());
                 cur_instr_decoded.reset(nullptr);
@@ -505,6 +504,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #endif
         shard->prev_instr_ = memref;
         if (cur_instr_decoded != nullptr) {
+            if (shard->prev_instr_decoded_ != nullptr)
+                instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
             shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
         }
         shard->saw_kernel_xfer_after_prev_instr_ = false;
