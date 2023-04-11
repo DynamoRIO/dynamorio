@@ -2106,7 +2106,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         dr_print_instr(dcontext, STDERR, instr, "");
     }
     DEBUG_ASSERT(*pc > desc->pc_);
-    desc->length_ = static_cast<unsigned short>(*pc - desc->pc_);
+    desc->length_ = static_cast<byte>(*pc - desc->pc_);
     DEBUG_ASSERT(*pc - desc->pc_ == instr_length(dcontext, instr));
 
     desc->packed_ = 0;
