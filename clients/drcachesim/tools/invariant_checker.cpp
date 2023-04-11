@@ -392,7 +392,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // B) Change the signal check to compare the handler return point to the
             // marker value, not to the pre-signal instruction fetch
 
-            const bool condition = check_for_pc_discontinuity(shard, memref).empty() ||
+            const bool condition =
                 ((memref.instr.addr == shard->prev_xfer_int_pc_.top() ||
                   // DR hands us a different address for sysenter than the
                   // resumption point.
