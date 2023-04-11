@@ -344,6 +344,7 @@ typedef enum {
     FEATURE_RNG = DEF_FEAT(AA64ISAR0, 15, 1, 0),     /**< RNDR, RNDRRS (AArch64) */
     FEATURE_DPB = DEF_FEAT(AA64ISAR1, 0, 1, 0),      /**< DC CVAP (AArch64) */
     FEATURE_DPB2 = DEF_FEAT(AA64ISAR1, 0, 2, 0),     /**< DC CVAP, DC CVADP (AArch64) */
+    FEATURE_JSCVT = DEF_FEAT(AA64ISAR1, 3, 1, 0),    /**< FJCVTZS (AArch64) */
     FEATURE_FP16 = DEF_FEAT(AA64PFR0, 4, 1, 1),      /**< Half-precision FP (AArch64) */
     FEATURE_RAS = DEF_FEAT(AA64PFR0, 7, 1, 0),       /**< RAS extension (AArch64) */
     FEATURE_SVE = DEF_FEAT(AA64PFR0, 8, 1, 0),       /**< Scalable Vectors (AArch64) */

@@ -1593,8 +1593,8 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 
     switch (opc) {
-    // TODO i#5623: Add the other OP_reta* opcodes and handle them here.
-    case OP_reta:
+    case OP_retaa:
+    case OP_retab:
     case OP_braa:
     case OP_brab:
     case OP_braaz:

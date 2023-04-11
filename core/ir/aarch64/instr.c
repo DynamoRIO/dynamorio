@@ -91,7 +91,8 @@ instr_branch_type(instr_t *cti_instr)
     case OP_braaz:
     case OP_brabz: return LINK_INDIRECT | LINK_JMP;
     case OP_ret:
-    case OP_reta: return LINK_INDIRECT | LINK_RETURN;
+    case OP_retaa:
+    case OP_retab: return LINK_INDIRECT | LINK_RETURN;
     }
     CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
@@ -157,8 +158,7 @@ bool
 instr_is_return(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    // TODO i#5623: Add the other OP_brra* and OP_reta* opcodes.
-    return (opc == OP_ret || opc == OP_reta);
+    return (opc == OP_ret || opc == OP_retaa || opc == OP_retab);
 }
 
 bool
@@ -174,7 +174,6 @@ bool
 instr_is_mbr_arch(instr_t *instr)
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
-    // TODO i#5623: Add the other OP_reta* opcodes.
     switch (opc) {
     case OP_blr:
     case OP_br:
@@ -187,7 +186,8 @@ instr_is_mbr_arch(instr_t *instr)
     case OP_blraaz:
     case OP_blrabz:
     case OP_ret:
-    case OP_reta: return true;
+    case OP_retaa:
+    case OP_retab: return true;
     default: return false;
     }
 }

@@ -101,6 +101,14 @@ make_exit(memref_tid_t tid)
 }
 
 static trace_entry_t
+make_footer()
+{
+    trace_entry_t entry;
+    entry.type = TRACE_TYPE_FOOTER;
+    return entry;
+}
+
+static trace_entry_t
 make_version(int version)
 {
     trace_entry_t entry;
@@ -563,11 +571,52 @@ test_regions_start()
 }
 
 static void
+test_regions_too_far()
+{
+    std::cerr << "\n----------------\nTesting region going too far\n";
+    std::vector<trace_entry_t> memrefs = {
+        /* clang-format off */
+        make_thread(1),
+        make_pid(1),
+        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        make_timestamp(10),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        make_instr(1),
+        make_instr(2),
+        make_exit(1),
+        make_footer(),
+        /* clang-format on */
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+
+    std::vector<scheduler_t::range_t> regions;
+    // Start beyond the last instruction.
+    regions.emplace_back(3, 0);
+
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
+    if (scheduler.init(sched_inputs, 1,
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    int ordinal = 0;
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    scheduler_t::stream_status_t status = stream->next_record(memref);
+    assert(status == scheduler_t::STATUS_REGION_INVALID);
+}
+
+static void
 test_regions()
 {
     test_regions_timestamps();
     test_regions_bare();
     test_regions_start();
+    test_regions_too_far();
 }
 
 static void

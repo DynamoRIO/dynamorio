@@ -1837,10 +1837,12 @@ if (ARM)
   set(sfx "arm")
 elseif (AARCH64)
   set(sfx "aarch64")
+elseif (RISCV64)
+  set(sfx "riscv64")
 else ()
   set(sfx "x86")
 endif ()
-if (NOT ANDROID)
+if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   # XXX i#1874: get working on Android
   tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF OFF)
   if (AARCH64)
@@ -1887,7 +1889,10 @@ if (NOT ANDROID)
 endif ()
 
 # test static decoder library
-tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
+if (NOT RISCV64)
+  # TODO i#3544: Port tests to RISC-V 64
+  tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
+endif (NOT RISCV64)
 if (AARCH64)
   # The ir_aarch64.expect file is too large for CMake's regexes.
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
@@ -1901,7 +1906,9 @@ if (ARM)
 elseif (AARCH64)
   tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF OFF)
 else ()
-  tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF OFF)
+  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+    tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF OFF)
+  endif (NOT RISCV64)
 endif ()
 
 if (BUILD_CLIENTS)
@@ -1997,7 +2004,9 @@ if (X86)
 elseif (AARCHXX)
   set(control_flags "nzcv")
 endif ()
-tobuild(common.${control_flags} common/${control_flags}.c)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild(common.${control_flags} common/${control_flags}.c)
+endif ()
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.floatpc common/floatpc.c)
@@ -2168,9 +2177,10 @@ configure_file(
 
 include_directories("${PROJECT_BINARY_DIR}/include/annotations")
 include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
-
-tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
-tobuild_ci(client.int64_overrides client-interface/int64_overrides.c "" "" "")
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
+  tobuild_ci(client.int64_overrides client-interface/int64_overrides.c "" "" "")
+endif ()
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   set(client.abort_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcode.cmake")
   set(client.abort_code "8")
@@ -2220,8 +2230,10 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
   tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
 endif (X86)
-tobuild_ci(client.cleancallparams client-interface/cleancallparams.c "" "" "")
-tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_ci(client.cleancallparams client-interface/cleancallparams.c "" "" "")
+  tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
+endif (NOT RISCV64)
 if (NOT WIN32) # FIXME i#1717: add Windows client C++ EH support
   if (NOT ANDROID) # XXX i#1874: get working on Android
     tobuild_ci(client.exception client-interface/exception.cpp "" "" "")
@@ -2460,13 +2472,16 @@ if (UNIX)
   if (X86 OR AARCH64) # FIXME i#1551: port asm to AArch32
     tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
   endif (X86 OR AARCH64)
-  tobuild_ci(client.signal client-interface/signal.c "" "" "")
-  link_with_pthread(client.signal)
+  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+    tobuild_ci(client.signal client-interface/signal.c "" "" "")
+    link_with_pthread(client.signal)
+  endif ()
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
   endif (X86)
   tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
-  if (X64) # XXX i#3173 Improve testing of emulation API functions
+  if (X64 AND NOT RISCV64) # XXX i#3173 Improve testing of emulation API functions
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild_ci(client.emulation_api_simple client-interface/emulation_api_simple.c
       "" "" "")
     use_DynamoRIO_extension(client.emulation_api_simple.dll drmgr)
@@ -2536,7 +2551,8 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   endif (NOT AARCH64)
 endif (NOT ARM)
 tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
-if (NOT ARM) # FIXME i#2094: implement cleancall optimizations on ARM
+if (NOT ARM AND NOT RISCV64) # FIXME i#2094: implement cleancall optimizations on ARM
+  # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c ""
     "-opt_cleancall 1" "")
   if (proc_supports_avx512)
@@ -2553,7 +2569,7 @@ if (NOT ARM) # FIXME i#2094: implement cleancall optimizations on ARM
   if (CMAKE_COMPILER_IS_CLANG)
     optimize(client.inline.dll)
   endif ()
-endif (NOT ARM)
+endif (NOT ARM AND NOT RISCV64)
 if (NOT ANDROID) # XXX i#1874: get working on Android
   tobuild_ci(client.null_instrument client-interface/null_instrument.c "" "" "")
   tobuild_appdll(client.null_instrument client-interface/null_instrument.c)
@@ -2593,11 +2609,14 @@ if (AARCH64)
   use_DynamoRIO_extension(client.stolen-reg-index.dll drutil)
 endif ()
 
-tobuild_ci(client.reg_size_test client-interface/reg_size_test.c "" "" "")
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_ci(client.reg_size_test client-interface/reg_size_test.c "" "" "")
 
-tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
+  tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
+endif (NOT RISCV64)
 
-if (UNIX) # The test uses signals.
+if (UNIX AND NOT RISCV64) # The test uses signals.
+  # TODO i#3544: Port tests to RISC-V 64
   tobuild_ci(client.gonative client-interface/gonative.c "" "" "")
   link_with_pthread(client.gonative)
   # Configure for dr_app_running_under_dynamorio().
@@ -2606,12 +2625,14 @@ if (UNIX) # The test uses signals.
   set_target_properties(client.gonative PROPERTIES SKIP_BUILD_RPATH OFF)
 endif ()
 
-tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
-use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
+  use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 
-tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdll_path}")
-use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
-link_with_pthread(client.drmgr-test)
+  tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdll_path}")
+  use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
+  link_with_pthread(client.drmgr-test)
+endif (NOT RISCV64)
 
 if (proc_supports_pt)
   tobuild_ci(client.drpttracer_SUDO-test client-interface/drpttracer_SUDO-test.c "" "" "")
@@ -2620,16 +2641,20 @@ if (proc_supports_pt)
   set(client.drpttracer_SUDO-test_sudo ON)
 endif ()
 
-tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
-use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
-use_DynamoRIO_extension(client.drx_buf-test.dll drx)
-link_with_pthread(client.drx_buf-test)
-target_include_directories(client.drx_buf-test PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
+  use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
+  use_DynamoRIO_extension(client.drx_buf-test.dll drx)
+  link_with_pthread(client.drx_buf-test)
+  target_include_directories(client.drx_buf-test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+endif (NOT RISCV64)
 
-tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
-use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
+  use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
+  use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
+endif (NOT RISCV64)
 
 # XXX i#1884: The thread-private option is not yet available for ARM.
 if (X86)
@@ -2658,36 +2683,38 @@ if (X86 AND X64 AND LINUX)
   drbbdup_bb_test(drbbdup-empty-bb-test)
 endif (X86 AND X64 AND LINUX)
 
-tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
-use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
+  use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
+  use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
 
-tobuild_ci(client.drbbdup-no-dup-test client-interface/drbbdup-no-dup-test.c "" "" "")
-use_DynamoRIO_extension(client.drbbdup-no-dup-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-no-dup-test.dll drbbdup)
+  tobuild_ci(client.drbbdup-no-dup-test client-interface/drbbdup-no-dup-test.c "" "" "")
+  use_DynamoRIO_extension(client.drbbdup-no-dup-test.dll drmgr)
+  use_DynamoRIO_extension(client.drbbdup-no-dup-test.dll drbbdup)
 
-tobuild_ci(client.drbbdup-nonzero-test client-interface/drbbdup-nonzero-test.c "" "" "")
-use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drbbdup)
+  tobuild_ci(client.drbbdup-nonzero-test client-interface/drbbdup-nonzero-test.c "" "" "")
+  use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drmgr)
+  use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drbbdup)
 
-tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
-use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drbbdup)
+  tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
+  use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
+  use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drbbdup)
 
-tobuild_appdll(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c)
-get_target_path_for_execution(bbdupwrap_libpath
-  client.drbbdup-drwrap-test.appdll "${location_suffix}")
-tobuild_ci(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c "" ""
-  "${bbdupwrap_libpath}")
-use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drbbdup)
-use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drwrap)
+  tobuild_appdll(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c)
+  get_target_path_for_execution(bbdupwrap_libpath
+    client.drbbdup-drwrap-test.appdll "${location_suffix}")
+  tobuild_ci(client.drbbdup-drwrap-test client-interface/drbbdup-drwrap-test.c "" ""
+    "${bbdupwrap_libpath}")
+  use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drmgr)
+  use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drbbdup)
+  use_DynamoRIO_extension(client.drbbdup-drwrap-test.dll drwrap)
 
-tobuild_ci(client.drbbdup-emul-test client-interface/drbbdup-emul-test.c "" "" "")
-use_DynamoRIO_extension(client.drbbdup-emul-test.dll drmgr)
-use_DynamoRIO_extension(client.drbbdup-emul-test.dll drutil)
-use_DynamoRIO_extension(client.drbbdup-emul-test.dll drbbdup)
-use_DynamoRIO_extension(client.drbbdup-emul-test.dll drreg)
+  tobuild_ci(client.drbbdup-emul-test client-interface/drbbdup-emul-test.c "" "" "")
+  use_DynamoRIO_extension(client.drbbdup-emul-test.dll drmgr)
+  use_DynamoRIO_extension(client.drbbdup-emul-test.dll drutil)
+  use_DynamoRIO_extension(client.drbbdup-emul-test.dll drbbdup)
+  use_DynamoRIO_extension(client.drbbdup-emul-test.dll drreg)
+endif (NOT RISCV64)
 
 if (ARM)
   tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")
@@ -2703,44 +2730,46 @@ if (UNIX)
   link_with_pthread(client.process-id)
 endif (UNIX)
 
-tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
-use_DynamoRIO_extension(client.drreg-test.dll drmgr)
-use_DynamoRIO_extension(client.drreg-test.dll drreg)
-use_DynamoRIO_extension(client.drreg-test.dll drx)
-target_include_directories(client.drreg-test PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
+  use_DynamoRIO_extension(client.drreg-test.dll drmgr)
+  use_DynamoRIO_extension(client.drreg-test.dll drreg)
+  use_DynamoRIO_extension(client.drreg-test.dll drx)
+  target_include_directories(client.drreg-test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
-tobuild_ci(client.drreg-end-restore client-interface/drreg-end-restore.c "" "" "")
-use_DynamoRIO_extension(client.drreg-end-restore.dll drmgr)
-use_DynamoRIO_extension(client.drreg-end-restore.dll drreg)
+  tobuild_ci(client.drreg-end-restore client-interface/drreg-end-restore.c "" "" "")
+  use_DynamoRIO_extension(client.drreg-end-restore.dll drmgr)
+  use_DynamoRIO_extension(client.drreg-end-restore.dll drreg)
 
-tobuild_ci(client.drreg-flow client-interface/drreg-flow.c "" "" "")
-use_DynamoRIO_extension(client.drreg-flow.dll drmgr)
-use_DynamoRIO_extension(client.drreg-flow.dll drreg)
-use_DynamoRIO_extension(client.drreg-flow.dll drutil)
+  tobuild_ci(client.drreg-flow client-interface/drreg-flow.c "" "" "")
+  use_DynamoRIO_extension(client.drreg-flow.dll drmgr)
+  use_DynamoRIO_extension(client.drreg-flow.dll drreg)
+  use_DynamoRIO_extension(client.drreg-flow.dll drutil)
 
-tobuild_ci(client.drreg-cross client-interface/drreg-cross.c "" "" "")
-use_DynamoRIO_extension(client.drreg-cross.dll drmgr)
-use_DynamoRIO_extension(client.drreg-cross.dll drreg)
-use_DynamoRIO_extension(client.drreg-cross.dll drutil)
+  tobuild_ci(client.drreg-cross client-interface/drreg-cross.c "" "" "")
+  use_DynamoRIO_extension(client.drreg-cross.dll drmgr)
+  use_DynamoRIO_extension(client.drreg-cross.dll drreg)
+  use_DynamoRIO_extension(client.drreg-cross.dll drutil)
 
-tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
-use_DynamoRIO_extension(client.drx-test.dll drx)
+  tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
+  use_DynamoRIO_extension(client.drx-test.dll drx)
 
-tobuild_ci(client.drxmgr-test client-interface/drxmgr-test.c "" "" "")
-use_DynamoRIO_extension(client.drxmgr-test.dll drmgr)
-use_DynamoRIO_extension(client.drxmgr-test.dll drx)
-use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
+  tobuild_ci(client.drxmgr-test client-interface/drxmgr-test.c "" "" "")
+  use_DynamoRIO_extension(client.drxmgr-test.dll drmgr)
+  use_DynamoRIO_extension(client.drxmgr-test.dll drx)
+  use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
 
-# Declare reset params due to i#1674 and i#3912
-tobuild_ci(client.low_on_memory client-interface/low_on_memory.c ""
-    "-enable_reset -reset_at_vmm_percent_free_limit 10 -vm_size 4M" "")
-use_DynamoRIO_extension(client.low_on_memory.dll drmgr)
-use_DynamoRIO_extension(client.low_on_memory.dll drwrap)
+  # Declare reset params due to i#1674 and i#3912
+  tobuild_ci(client.low_on_memory client-interface/low_on_memory.c ""
+      "-enable_reset -reset_at_vmm_percent_free_limit 10 -vm_size 4M" "")
+  use_DynamoRIO_extension(client.low_on_memory.dll drmgr)
+  use_DynamoRIO_extension(client.low_on_memory.dll drwrap)
 
-tobuild_ci(client.tls client-interface/tls.c "" "" "")
-link_with_pthread(client.tls)
-use_DynamoRIO_extension(client.tls.dll drmgr)
+  tobuild_ci(client.tls client-interface/tls.c "" "" "")
+  link_with_pthread(client.tls)
+  use_DynamoRIO_extension(client.tls.dll drmgr)
+endif (NOT RISCV64)
 
 if (X86)
   if (NOT MACOS)
@@ -2782,11 +2811,16 @@ if (X86)
   endif()
 endif ()
 
-tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
-get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll "${location_suffix}")
-tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
-use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
-tochcon(client.drwrap-test.appdll textrel_shlib_t)
+if (NOT RISCV64)
+  # TODO i#3544: Port tests to RISC-V 64
+  tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
+  get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll
+    "${location_suffix}")
+  tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
+  use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
+  tochcon(client.drwrap-test.appdll textrel_shlib_t)
+endif (NOT RISCV64)
+
 if (WIN32)
   # export from asm code
   append_link_flags(client.drwrap-test.appdll
@@ -2797,7 +2831,8 @@ if (NOT ANDROID) # XXX i#1874: get working on Android
     "" "" "")
   use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
 endif ()
-if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+if (NOT APPLE AND NOT RISCV64) # XXX i#1997: static DR not fully supported on Mac yet
+  # TODO i#3544: Port tests to RISC-V 64
   set(client.drwrap-test-detach_no_reg_compat)
   tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
     "" "" OFF ON OFF)
@@ -2805,14 +2840,16 @@ if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
   link_with_pthread(client.drwrap-test-detach)
 endif ()
 
-tobuild_appdll(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c)
-get_target_path_for_execution(drwrap_drreg_libpath client.drwrap-drreg-test.appdll
-  "${location_suffix}")
-tobuild_ci(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c "" ""
-  "${drwrap_drreg_libpath}")
-use_DynamoRIO_extension(client.drwrap-drreg-test.dll drwrap)
-use_DynamoRIO_extension(client.drwrap-drreg-test.dll drreg)
-use_DynamoRIO_extension(client.drwrap-drreg-test.dll drmgr)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_appdll(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c)
+  get_target_path_for_execution(drwrap_drreg_libpath client.drwrap-drreg-test.appdll
+    "${location_suffix}")
+  tobuild_ci(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c "" ""
+    "${drwrap_drreg_libpath}")
+  use_DynamoRIO_extension(client.drwrap-drreg-test.dll drwrap)
+  use_DynamoRIO_extension(client.drwrap-drreg-test.dll drreg)
+  use_DynamoRIO_extension(client.drwrap-drreg-test.dll drmgr)
+endif (NOT RISCV64)
 
 if (AARCH64)
   # Create a fuzzing application for stress-testing via drstatecmp.
@@ -2836,7 +2873,7 @@ if ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.0")
   endif (dbghelp_path)
 endif ()
 
-if (NOT ANDROID)
+if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   # XXX i#1874: get working on Android
   tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
   get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll "${location_suffix}")
@@ -2878,17 +2915,17 @@ if (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
     set(client.drsyms-testgcc_is_cygwin ON)
   endif()
 endif (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
+  use_DynamoRIO_extension(client.drutil-test.dll drutil)
+  use_DynamoRIO_extension(client.drutil-test.dll drmgr)
+  link_with_pthread(client.drutil-test)
 
-tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
-use_DynamoRIO_extension(client.drutil-test.dll drutil)
-use_DynamoRIO_extension(client.drutil-test.dll drmgr)
-link_with_pthread(client.drutil-test)
-
-tobuild_ci(client.drmodtrack-test client-interface/drmodtrack-test.cpp "" "" "")
-use_DynamoRIO_extension(client.drmodtrack-test.dll drcovlib)
-use_DynamoRIO_extension(client.drmodtrack-test.dll drx)
-use_DynamoRIO_extension(client.drmodtrack-test.dll drmgr)
-
+  tobuild_ci(client.drmodtrack-test client-interface/drmodtrack-test.cpp "" "" "")
+  use_DynamoRIO_extension(client.drmodtrack-test.dll drcovlib)
+  use_DynamoRIO_extension(client.drmodtrack-test.dll drx)
+  use_DynamoRIO_extension(client.drmodtrack-test.dll drmgr)
+endif (NOT RISCV64)
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   # We need to load w/ the same base so the test passes
   set(DynamoRIO_SET_PREFERRED_BASE ON)
@@ -2954,6 +2991,8 @@ elseif (AARCH64)
   add_api_exe(api.dis-a64 api/dis-a64.c OFF OFF)
   torunonly_api(api.dis-a64 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64.txt" OFF OFF)
+  torunonly_api(api.dis-a64-v82 api.dis-a64 api/dis-a64.c ""
+    "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v82.txt" OFF OFF)
   torunonly_api(api.dis-a64-v83 api.dis-a64 api/dis-a64.c ""
     "-q;${CMAKE_CURRENT_SOURCE_DIR}/api/dis-a64-v83.txt" OFF OFF)
   torunonly_api(api.dis-a64-v84 api.dis-a64 api/dis-a64.c ""
@@ -2976,11 +3015,14 @@ elseif (X86)
   endif ()
 endif (ARM)
 
-tobuild_api(api.startstop api/startstop.c "" "" OFF OFF OFF)
-link_with_pthread(api.startstop)
-tobuild_api(api.detach api/detach.c "" "" OFF OFF OFF)
-link_with_pthread(api.detach)
-if (LINUX AND X64) # Will take extra work to port to 32-bit.
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild_api(api.startstop api/startstop.c "" "" OFF OFF OFF)
+  link_with_pthread(api.startstop)
+  tobuild_api(api.detach api/detach.c "" "" OFF OFF OFF)
+  link_with_pthread(api.detach)
+endif (NOT RISCV64)
+if (LINUX AND X64 AND NOT RISCV64) # Will take extra work to port to 32-bit.
+  # TODO i#3544: Port tests to RISC-V 64
   tobuild_api(api.detach_state api/detach_state.c "" "" OFF ON OFF)
   target_include_directories(api.detach_state PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/api)
@@ -2989,13 +3031,14 @@ if (LINUX AND X64) # Will take extra work to port to 32-bit.
     OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/api/detach_state_shared.h")
   set_avx_flags(api.detach_state)
 endif ()
-if (UNIX)
+if (UNIX AND NOT RISCV64)
   if (X64) # TODO i#4664: Fix crash in vsyscall hook under native threads.
     tobuild_api(api.detach_signal api/detach_signal.cpp "" "" OFF OFF OFF)
     link_with_pthread(api.detach_signal)
   endif ()
 endif ()
-if (NOT WIN32) # XXX i#2611: fix for Windows
+if (NOT WIN32 AND NOT RISCV64) # XXX i#2611: fix for Windows
+  # TODO i#3544: Port tests to RISC-V 64
   if (X64)
     set(detach_spawn_name api.detach_spawn)
   else ()
@@ -3080,7 +3123,8 @@ endif ()
 # Test DR as a static library
 # XXX i#1996: not fully supported on Android yet
 # XXX i#1997: not fully supported on Mac yet
-if (NOT ANDROID AND NOT APPLE)
+# TODO i#3544: Port tests to RISC-V 64
+if (NOT ANDROID AND NOT APPLE AND NOT RISCV64)
   tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON OFF)
   target_link_libraries(api.static_startstop ${libmath})
   tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON OFF)
@@ -3132,7 +3176,8 @@ if (NOT ANDROID AND NOT APPLE)
        api/static_maps_mixup.c "" "" OFF ON OFF)
   endif ()
 
-  if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
+  if (NOT WIN32 AND NOT RISCV64) # TODO i#4349: Fix re-attach issues to enable.
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF OFF)
     link_with_pthread(api.thread_churn)
   endif ()
@@ -3533,8 +3578,6 @@ if (BUILD_CLIENTS)
         torunonly_simtool(reuse_time_offline ${ci_shared_app}
           "-indir ${thread_trace_dir} -simulator_type reuse_time" "")
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
-      else ()
-        message(STATUS "zlib not found, skipping multi-thread reuse.")
       endif ()
     endif ()
 
@@ -3574,17 +3617,19 @@ if (BUILD_CLIENTS)
       endif ()
     endif ()
 
-    # Test offline traces.
-    # XXX: we could exclude the pipe files and build the offline trace
-    # support by itself for Android.
-    get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
-    prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
-    get_target_path_for_execution(drraw2trace_path drraw2trace "${location_suffix}")
-    prefix_cmd_if_necessary(drraw2trace_path ON ${drraw2trace_path})
+    if (NOT RISCV64)
+      # Test offline traces.
+      # XXX: we could exclude the pipe files and build the offline trace
+      # support by itself for Android.
+      # TODO i#3544: Port tests to RISC-V 64
+      get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
+      prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+      get_target_path_for_execution(drraw2trace_path drraw2trace "${location_suffix}")
+      prefix_cmd_if_necessary(drraw2trace_path ON ${drraw2trace_path})
 
-    torunonly_drcachesim(opcode_mix ${ci_shared_app}
-      "-instr_encodings -simulator_type opcode_mix" "")
-
+      torunonly_drcachesim(opcode_mix ${ci_shared_app}
+        "-instr_encodings -simulator_type opcode_mix" "")
+    endif (NOT RISCV64)
     # The sim_atops should start with @ and be in @-as-space format (hence "atops").
     # If the exetgt has drcachesim statically linked in, the _nodr property must be
     # set *before* invoking this macro.
@@ -3810,24 +3855,25 @@ if (BUILD_CLIENTS)
         "@-simulator_type@basic_counts" "")
       unset(tool.drcacheoff.basic_counts_rawtemp)
     endif ()
+    if (NOT RISCV64)
+      # TODO i#3544: Port tests to RISC-V 64
+      torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
+        "@-simulator_type@opcode_mix" "")
+      # Ensure the tool works without the raw/ subdir.
+      set(tool.drcacheoff.opcode_mix_postcmd
+        "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
+      set(tool.drcacheoff.opcode_mix_postcmd2
+        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
+      set(tool.drcacheoff.opcode_mix_postcmd3
+        "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-simulator_type@opcode_mix")
 
-    torunonly_drcacheoff(opcode_mix ${ci_shared_app} ""
-      "@-simulator_type@opcode_mix" "")
-    # Ensure the tool works without the raw/ subdir.
-    set(tool.drcacheoff.opcode_mix_postcmd
-      "firstglob@${drraw2trace_path}@-indir@${dir_prefix}.*.dir")
-    set(tool.drcacheoff.opcode_mix_postcmd2
-      "foreach@${CMAKE_COMMAND}@-E@remove_directory@${dir_prefix}.*.dir/raw")
-    set(tool.drcacheoff.opcode_mix_postcmd3
-      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir@-simulator_type@opcode_mix")
+      torunonly_drcacheoff(view ${ci_shared_app} ""
+        "@-simulator_type@view@-sim_refs@16384" "")
 
-    torunonly_drcacheoff(view ${ci_shared_app} ""
-      "@-simulator_type@view@-sim_refs@16384" "")
-
-    set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
-    torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
-      "@-simulator_type@func_view" "only_5")
-
+      set(tool.drcacheoff.func_view_full_run ON) # Fails on Windows if truncated.
+      torunonly_drcacheoff(func_view common.fib "-record_function fib|1"
+        "@-simulator_type@func_view" "only_5")
+    endif (NOT RISCV64)
     if (DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
       # Requires sudo to access pagemap.
       # XXX: Should we not enable this outside of the Github suite where we know
@@ -3902,8 +3948,9 @@ if (BUILD_CLIENTS)
         "@-simulator_type@basic_counts" "")
     endif ()
 
-    if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+    if (NOT APPLE AND NOT RISCV64) # XXX i#1997: static DR not fully supported on Mac yet
       # We specify this executable here as it uses tools.h code.
+      # TODO i#3544: Port tests to RISC-V 64
       set(tool.drcacheoff.gencode_no_reg_compat)
       add_api_exe(tool.drcacheoff.gencode
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/burst_gencode.cpp
@@ -3927,7 +3974,8 @@ if (BUILD_CLIENTS)
     # XXX i#1551: startstop API is NYI on ARM
     # XXX i#1997: dynamorio_static is not supported on Mac yet
     # FIXME i#2949: gcc 7.3 fails to link certain configs
-    if (NOT ARM AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
+    # TODO i#3544: Port tests to RISC-V 64
+    if (NOT ARM AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949 AND NOT RISCV64)
       set(tool.drcacheoff.burst_static_nodr ON)
       torunonly_drcacheoff(burst_static tool.drcacheoff.burst_static "" "" "")
 
@@ -3984,7 +4032,7 @@ if (BUILD_CLIENTS)
           "-L0_filter -L0I_size 0 -subdir_prefix tool.drcacheoff.burst_threadL0filter")
         set(tool.drcacheoff.burst_threadL0filter_nodr ON)
 
-        if (X86 AND NOT APPPLE) # This test is x86-specific.
+        if (X86 AND NOT APPPLE AND NOT RISCV64) # This test is x86-specific.
           # Test that raw2trace doesn't do more IO than it should.
           get_target_path_for_execution(raw2trace_io_path tool.drcacheoff.raw2trace_io
             "${location_suffix}")
@@ -4340,7 +4388,7 @@ if (UNIX)
     endif ()
   endmacro()
 
-  if (NOT APPLE)
+  if (NOT APPLE AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.clone linux/clone.c)
 
     # A PIE build tests MSR-based TLS instead of GDT-based (i#2089).
@@ -4588,7 +4636,8 @@ if (UNIX)
   endif ()
   # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # FIXME i#58: port test to MacOS
-  if (NOT ARM AND NOT AARCH64 AND NOT APPLE)
+  # TODO i#3544: Port tests to RISC-V 64
+  if (NOT ARM AND NOT AARCH64 AND NOT APPLE AND NOT RISCV64)
     tobuild(linux.sigcontext linux/sigcontext.c)
     set_avx_flags(linux.sigcontext)
     if (proc_supports_avx512)
@@ -4611,7 +4660,8 @@ if (UNIX)
   endif ()
   # i#784: test app behavior on alarm
   tobuild(linux.alarm linux/alarm.c)
-  if (NOT APPLE AND NOT ANDROID) # Test uses Linux-specific timer code.
+  if (NOT APPLE AND NOT ANDROID AND NOT RISCV64) # Test uses Linux-specific timer code.
+    # TODO i#3544: Port tests to RISC-V 64
     if (NOT AARCH64) # TODO i#1569: Enable this for AArch64.
       tobuild(linux.signal_race linux/signal_race.c)
       target_link_libraries(linux.signal_race rt)
@@ -4619,14 +4669,18 @@ if (UNIX)
     tobuild(linux.signal_racesys linux/signal_racesys.c)
     target_link_libraries(linux.signal_racesys rt)
   endif ()
-  tobuild(linux.bad-signal-stack linux/bad-signal-stack.c)
 
-  # i#1145: test re-starting syscalls, both inlined and from dispatch
-  tobuild(linux.eintr linux/eintr.c)
-  link_with_pthread(linux.eintr)
-  torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
+  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+    tobuild(linux.bad-signal-stack linux/bad-signal-stack.c)
 
-  if (NOT ANDROID) # XXX i#1874: get working on Android
+    # i#1145: test re-starting syscalls, both inlined and from dispatch
+    tobuild(linux.eintr linux/eintr.c)
+    link_with_pthread(linux.eintr)
+    torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
+  endif (NOT RISCV64)
+
+  if (NOT ANDROID AND NOT RISCV64) # XXX i#1874: get working on Android
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.sigsuspend linux/sigsuspend.c)
     link_with_pthread(linux.sigsuspend)
 
@@ -4650,16 +4704,21 @@ if (UNIX)
     endif ()
   endif ()
 
-  # We pass -native_exec_list which causes us to call strcasecmp in libc,
-  # thereby exercising on our ability to copy libc's TLS data.
-  tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
+  if (NOT RISCV64)
+    # We pass -native_exec_list which causes us to call strcasecmp in libc,
+    # thereby exercising on our ability to copy libc's TLS data.
+    # TODO i#3544: Port tests to RISC-V 64
+    tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
+  endif (NOT RISCV64)
 
-  if (NOT ANDROID) # XXX i#1874: get working on Android
+  if (NOT ANDROID AND NOT RISCV64) # XXX i#1874: get working on Android
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild_ops(linux.readlink linux/readlink.c "-early_inject" "exec")
   endif ()
 
-  if (NOT ANDROID) # FIXME i#1874: failing on Android
+  if (NOT ANDROID AND NOT RISCV64) # FIXME i#1874: failing on Android
     # Test collision with DR's preferred base
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.fib-conflict common/fib.c)
     set_preferred_base_start_and_end(linux.fib-conflict ${preferred_base} OFF)
     # i#1227: test 2-stage loader
@@ -4669,7 +4728,8 @@ if (UNIX)
   # Test fully static executables, which we only support with early injection
   # or static DR.
   # XXX i#1874: get working on Android
-  if (NOT APPLE AND NOT ANDROID) # XXX i#1285: implement private loader on MacOS
+  if (NOT APPLE AND NOT ANDROID AND NOT RISCV64) # XXX i#1285: implement private loader on MacOS
+    # TODO i#3544: Port tests to RISC-V 64
     set(fib_static_ops "-early_inject")
     tobuild_ops(linux.fib-static common/fib.c "${fib_static_ops}" "")
     append_property_string(TARGET linux.fib-static LINK_FLAGS
@@ -4680,22 +4740,28 @@ if (UNIX)
   endif ()
   # Test position independent executables.
   # FIXME i#1001: fib-pie fails with -early_inject.
-  tobuild(linux.fib-pie common/fib.c)
-  append_property_string(TARGET linux.fib-pie COMPILE_FLAGS "-fPIE")
-  append_property_string(TARGET linux.fib-pie LINK_FLAGS "-pie")
+  if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+    tobuild(linux.fib-pie common/fib.c)
+    append_property_string(TARGET linux.fib-pie COMPILE_FLAGS "-fPIE")
+    append_property_string(TARGET linux.fib-pie LINK_FLAGS "-pie")
+  endif (NOT RISCV64)
 
   # vfork is deprecated on macOS.
-  if (NOT APPLE)
+  if (NOT APPLE AND NOT RISCV64)
     # FIXME i#125: bugs in these, were disabled in the past
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild_ops(linux.vfork linux/vfork.c "" "${execve-sub-path}")
     #tobuild(linux.vfork-fib linux/vfork-fib.c)
   endif ()
 
-  # runs of other builds with custom DR options
-  torunonly(linux.thread-reset linux.thread linux/thread.c
-    "-enable_reset -reset_at_nth_thread 2" "")
-  torunonly(linux.clone-reset linux.clone linux/clone.c
-    "-enable_reset -reset_at_nth_thread 2" "")
+  if (NOT RISCV64)
+    # runs of other builds with custom DR options
+    # TODO i#3544: Port tests to RISC-V 64
+    torunonly(linux.thread-reset linux.thread linux/thread.c
+      "-enable_reset -reset_at_nth_thread 2" "")
+    torunonly(linux.clone-reset linux.clone linux/clone.c
+      "-enable_reset -reset_at_nth_thread 2" "")
+  endif (NOT RISCV64)
   if (AARCHXX)
     # Test our diagnostic option -steal_reg_at_reset, which is also a stress
     # test of reset and register stealing.
@@ -4755,9 +4821,10 @@ if (UNIX)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 
-  if (LINUX AND X64 AND HAVE_RSEQ)
+  if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
+    # TODO i#3544: Port tests to RISC-V 64
     tobuild(linux.rseq linux/rseq.c)
     # Test the other sections.  Unfortunately we need a separate binary for each.
     tobuild(linux.rseq_table linux/rseq.c)
@@ -5082,9 +5149,11 @@ else (UNIX)
 
 endif (UNIX)
 
-tobuild(security-common.codemod security-common/codemod.c)
-tochcon(security-common.codemod execmem_exec_t)
-mark_execstack(security-common.codemod)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild(security-common.codemod security-common/codemod.c)
+  tochcon(security-common.codemod execmem_exec_t)
+  mark_execstack(security-common.codemod)
+endif (NOT RISCV64)
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # FIXME i#1308, i#2216: fails non-deterministically on Travis
   set(decode_bad_stack_name security-common.decode-bad-stack_FLAKY)
@@ -5097,7 +5166,9 @@ if (PROGRAM_SHEPHERDING) # relies on being aborted on .B violation
   tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
   tochcon(security-common.jmp_from_trace textrel_shlib_t)
 endif ()
-tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
+endif (NOT RISCV64)
 if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   # FIXME i#1423: somehow when built with VS2013 x64 you can't catch a fault on
   # jumping to an invalid address!  For now we disable for VS2013 x64.
@@ -5120,11 +5191,12 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild(security-common.vbjmp-rac-test security-common/vbjmp-rac-test.c)
   endif ()
 endif (X86)
-if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
+if (X64 AND NOT AARCH64 AND NOT RISCV64) # FIXME i#1569: get working on AArch64
   # Reachability tests
 
   # Floating DR lib.  We'd have to build a 2nd dynamorio.dll on Windows so
   # we only test on Linux for now.
+  # TODO i#3544: Port tests to RISC-V 64
   if (UNIX)
     torunonly(float_DR security-common.selfmod security-common/selfmod.c "" "")
     set(float_DR_env "LD_USE_LOAD_BIAS=0")
@@ -5154,9 +5226,11 @@ if (X64 AND NOT AARCH64) # FIXME i#1569: get working on AArch64
   endif (UNIX)
   torunonly(low4GB security-common.selfmod security-common/selfmod.c
     "-heap_in_lower_4GB -reachable_heap" "")
-endif (X64 AND NOT AARCH64)
+endif (X64 AND NOT AARCH64 AND NOT RISCV64)
 
-tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
+if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  tobuild("security-common.TestAllocWE" security-common/TestAllocWE.c)
+endif (NOT RISCV64)
 
 # XXX i#1874: get working on Android
 # FIXME i#1569: get working on AArch64
@@ -5434,7 +5508,7 @@ endif (NOT ANDROID AND AARCHXX)
 set_tests_properties(
   code_api|common.broadfun
   PROPERTIES LABELS UBUNTU_22)
-if (BUILD_SAMPLES AND NOT ANDROID)
+if (BUILD_SAMPLES AND NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   set_tests_properties(
     code_api|sample.bbsize
     PROPERTIES LABELS UBUNTU_22)
@@ -5445,7 +5519,7 @@ if (BUILD_CLIENTS AND NOT ANDROID)
     code_api|tool.drcacheoff.simple
     PROPERTIES LABELS UBUNTU_22)
 endif ()
-if (LINUX AND X64 AND HAVE_RSEQ)
+if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   set_tests_properties(
     code_api|api.rseq
     code_api|linux.rseq_disable

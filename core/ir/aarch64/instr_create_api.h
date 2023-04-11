@@ -13979,4 +13979,93 @@
     instr_create_1dst_1src(dc, OP_xpaclri, opnd_create_reg(DR_REG_X30), \
                            opnd_create_reg(DR_REG_X30))
 
+/**
+ * Creates an ERETAA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ERETAA
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_eretaa(dc)                                        \
+    instr_create_0dst_2src(dc, OP_eretaa, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates an ERETAB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ERETAB
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_eretab(dc)                                        \
+    instr_create_0dst_2src(dc, OP_eretab, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates a RETAA instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RETAA
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_retaa(dc)                                        \
+    instr_create_0dst_2src(dc, OP_retaa, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates a RETAB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RETAB
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_retab(dc)                                        \
+    instr_create_0dst_2src(dc, OP_retab, opnd_create_reg(DR_REG_X30), \
+                           opnd_create_reg(DR_REG_SP))
+
+/**
+ * Creates a FJCVTZS instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FJCVTZS <Wd>, <Dn>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination register, W (Word, 32 bits).
+ * \param Rn   The source register, D (doubleword, 64 bits).
+ */
+#define INSTR_CREATE_fjcvtzs(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_fjcvtzs, Rd, Rn)
+
+/**
+ * Creates a DC CVAP instruction.
+ *
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             No alignment restrictions apply to this VA.
+ */
+#define INSTR_CREATE_dc_cvap(dc, Rn)                                                    \
+    instr_create_0dst_1src(dc, OP_dc_cvap,                                              \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_sys))
+
+/**
+ * Creates a DC CVADP instruction.
+ *
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             No alignment restrictions apply to this VA.
+ */
+#define INSTR_CREATE_dc_cvadp(dc, Rn)                                                   \
+    instr_create_0dst_1src(dc, OP_dc_cvadp,                                             \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_sys))
+
 #endif /* DR_IR_MACROS_AARCH64_H */

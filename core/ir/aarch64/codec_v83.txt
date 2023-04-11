@@ -32,13 +32,6 @@
 # instructions are defined for the purposes of decode and encode code
 # generation.
 
-# TODO i#5623: Add the complete set of pointer authentication instructions,
-# along with whatever else is in v8.3.  For now we only include
-# instructions needed for initial M1 support.
-
-# TODO i#5623: Add the INSTR_CREATE_ macros for the opcodes below and
-# add tests for these.
-
 # Instruction definitions:
 
 1101101011000001000110xxxxxxxxxx  n   1027 PAUTH     autda       x0 : x0 x5sp
@@ -63,9 +56,12 @@
 1101011000011111000010xxxxx11111  n   1039 PAUTH     braaz          : x5
 1101011100011111000011xxxxxxxxxx  n   1040 PAUTH      brab          : x5 x0sp
 1101011000011111000011xxxxx11111  n   1041 PAUTH     brabz          : x5
+11010110100111110000101111111111  n   1054 PAUTH    eretaa          : impx30 impsp
+11010110100111110000111111111111  n   1055 PAUTH    eretab          : impx30 impsp
 0x101110xx0xxxxx111x01xxxxxxxxxx  n   944  BASE     fcadd      dq0 : dq0 dq5 dq16 imm1_ew_12 hs_sz
 0x101110xx0xxxxx110xx1xxxxxxxxxx  n   945  BASE     fcmla      dq0 : dq0 dq5 dq16 imm2_nesw_11 hs_sz
 0x101111xxxxxxxx0xx1x0xxxxxxxxxx  n   945  BASE     fcmla      dq0 : dq0 dq5 dq16 vindex_HS_2lane imm2_nesw_13 hs_sz
+0001111001111110000000xxxxxxxxxx  n   1057 JSCVT   fjcvtzs       w0 : d5
 1x11100010111111110000xxxxxxxxxx  n   796  LRCPC     ldapr   wx0_30 : mem0
 0011100010111111110000xxxxxxxxxx  n   797  LRCPC    ldaprb       w0 : mem0
 0111100010111111110000xxxxxxxxxx  n   798  LRCPC    ldaprh       w0 : mem0
@@ -88,8 +84,8 @@
 11010101000000110010001101011111  n   1050 PAUTH    pacibz   impx30 : impx30
 110110101100000100100011111xxxxx  n   684  PAUTH    paciza       x0 : x0
 110110101100000100100111111xxxxx  n   1051 PAUTH    pacizb       x0 : x0
-11010110010111110000101111111111  n   679  PAUTH      reta          :
-11010110010111110000111111111111  n   679  PAUTH      reta          :
+11010110010111110000101111111111  n   679  PAUTH     retaa          : impx30 impsp
+11010110010111110000111111111111  n   1056 PAUTH     retab          : impx30 impsp
 110110101100000101000111111xxxxx  n   686  PAUTH     xpacd       x0 : x0
 110110101100000101000011111xxxxx  n   685  PAUTH     xpaci       x0 : x0
 11010101000000110010000011111111  n   561  PAUTH   xpaclri   impx30 : impx30

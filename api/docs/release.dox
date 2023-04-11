@@ -152,6 +152,10 @@ changes:
  - Refactored the drmemtrace reader and file reader classes to better fit the
    new scheduler model: now each reader owns just one single stream of records
    with all multi-stream interleaving owned by the scheduler.
+ - Replaced the AArch64 OP_reta with OP_retaa and OP_retab. "reta" is not a real
+   AArch64 instruction and "reta" entries in the AArch64 codec were being used to
+   decode "retaa" and "retab". These instructions will now encode and decode correctly
+   as "retaa" and "retab".
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.
@@ -686,7 +690,7 @@ Further non-compatibility-affecting changes include:
      #raw2trace_t for writing trace metadata: process/thread ids, timestamps, etc.
    - Added #trace_metadata_reader_t, a set of utilities for checking and validating
      thread start successions of offline entries in a raw data file.
-   - Added #trace_converter_t, an extensibility mechanism for raw trace conversion.
+   - Added trace_converter_t, an extensibility mechanism for raw trace conversion.
  - Added drmemtrace_get_timestamp_from_offline_trace(), an API for fetching the timestamp
    from the beginning of a raw trace bundle (regardless of whether it is a thread start
    or just a subsequent bundle).
