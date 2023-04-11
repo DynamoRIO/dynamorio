@@ -1272,7 +1272,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                         orig_pc);
                     tdata->rseq_commit_pc_ = reinterpret_cast<addr_t>(orig_pc);
                     tdata->rseq_past_end_ = true;
-                    tdata->rseq_commit_idx_ = tdata->rseq_buffer_.size();
+                    tdata->rseq_commit_idx_ =
+                        static_cast<int>(tdata->rseq_buffer_.size());
                 }
             }
         }
@@ -1497,7 +1498,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
             if (marker_val == 0 || at_interrupted_pc || legacy_rseq_rollback) {
                 log(4, "Signal/exception interrupted the bb @ %p\n", cur_pc);
                 if (tdata->rseq_past_end_) {
-                    err = adjust_and_emit_rseq_buffer(tdata, cur_pc);
+                    err = adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc));
                     if (!err.empty())
                         return err;
                 }
@@ -1905,7 +1906,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
             trace_entry_t jump;
             jump.type = TRACE_TYPE_INSTR_DIRECT_JUMP;
             jump.addr = reinterpret_cast<addr_t>(info.pc) + branch_size;
-            jump.size = enc_next - encoding;
+            jump.size = static_cast<unsigned short>(enc_next - encoding);
             trace_entry_t toadd[WRITE_BUFFER_SIZE];
             bool exists =
                 !record_encoding_emitted(tdata, reinterpret_cast<app_pc>(jump.addr));
@@ -2105,7 +2106,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         dr_print_instr(dcontext, STDERR, instr, "");
     }
     DEBUG_ASSERT(*pc > desc->pc_);
-    desc->length_ = *pc - desc->pc_;
+    desc->length_ = static_cast<unsigned short>(*pc - desc->pc_);
     DEBUG_ASSERT(*pc - desc->pc_ == instr_length(dcontext, instr));
 
     desc->packed_ = 0;
