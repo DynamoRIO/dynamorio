@@ -1264,7 +1264,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                     log(4, "Remembering rseq branch %p -> %p\n", orig_pc,
                         instr->branch_target_pc());
                     tdata->rseq_branch_targets_.emplace_back(
-                        orig_pc, instr->branch_target_pc(), tdata->rseq_buffer_.size());
+                        orig_pc, instr->branch_target_pc(),
+                        static_cast<int>(tdata->rseq_buffer_.size()));
                 }
                 if (reinterpret_cast<addr_t>(orig_pc) + instr->length() ==
                     tdata->rseq_end_pc_) {
@@ -1898,6 +1899,8 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
             // exit could be indirect; etc.  But this is the best we can readily do.
             instr_t *instr = XINST_CREATE_jump(
                 dcontext_, opnd_create_pc(reinterpret_cast<app_pc>(next_pc)));
+            log(1, "synthetic jump copy_pc=%p final_pc=%p\n", encoding,
+                info.pc + branch_size); // NOCHECK
             byte *enc_next =
                 instr_encode_to_copy(dcontext_, instr, encoding, info.pc + branch_size);
             instr_destroy(dcontext_, instr);
@@ -1926,7 +1929,8 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
                 tdata->rseq_buffer_.push_back(*e);
             tdata->rseq_buffer_.push_back(jump);
             tdata->rseq_decode_pcs_.push_back(encoding);
-            log(4, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
+            log(1 /*NOCHECK 4*/, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr,
+                next_pc);
         }
     }
 
