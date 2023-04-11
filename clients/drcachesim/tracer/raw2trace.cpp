@@ -1265,6 +1265,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                         instr->branch_target_pc());
                     tdata->rseq_branch_targets_.emplace_back(
                         orig_pc, instr->branch_target_pc(),
+                        // The branch may be delayed so this index may point to
+                        // markers that will precede the branch.
                         static_cast<int>(tdata->rseq_buffer_.size()));
                 }
                 if (reinterpret_cast<addr_t>(orig_pc) + instr->length() ==
@@ -1879,13 +1881,17 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
             log(4, "Failed to find rseq side exit\n");
             return "Failed to find rseq side exit";
         }
-        log(4, "Found rseq%s side exit: %p -> %p idx=%d\n", found_skip ? " skipped" : "",
-            info.pc, info.target_pc, info.buf_idx);
+        log(4, "Found rseq%s side exit: %p -> %p idx=%d tid=%d\n",
+            found_skip ? " skipped" : "", info.pc, info.target_pc, info.buf_idx,
+            tdata->tid);
+        // Walk forward to the branch itself: there may be markers (since delayed) or
+        // encoding records in between.
         int post_branch = info.buf_idx;
         while (post_branch < static_cast<int>(tdata->rseq_buffer_.size()) &&
-               tdata->rseq_buffer_[post_branch].type == TRACE_TYPE_ENCODING)
+               !type_is_instr(
+                   static_cast<trace_type_t>(tdata->rseq_buffer_[post_branch].type)))
             ++post_branch;
-        DEBUG_ASSERT(type_is_instr(
+        DEBUG_ASSERT(type_is_instr_branch(
             static_cast<trace_type_t>(tdata->rseq_buffer_[post_branch].type)));
         int branch_size = tdata->rseq_buffer_[post_branch].size;
         ++post_branch; // Now skip instr entry itself.
@@ -1899,8 +1905,6 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
             // exit could be indirect; etc.  But this is the best we can readily do.
             instr_t *instr = XINST_CREATE_jump(
                 dcontext_, opnd_create_pc(reinterpret_cast<app_pc>(next_pc)));
-            log(1, "synthetic jump copy_pc=%p final_pc=%p\n", encoding,
-                info.pc + branch_size); // NOCHECK
             byte *enc_next =
                 instr_encode_to_copy(dcontext_, instr, encoding, info.pc + branch_size);
             instr_destroy(dcontext_, instr);
@@ -1929,8 +1933,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
                 tdata->rseq_buffer_.push_back(*e);
             tdata->rseq_buffer_.push_back(jump);
             tdata->rseq_decode_pcs_.push_back(encoding);
-            log(1 /*NOCHECK 4*/, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr,
-                next_pc);
+            log(4, "Appended synthetic jump 0x%zx -> 0x%zx\n", jump.addr, next_pc);
         }
     }
 
@@ -2305,7 +2308,8 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     if (tdata->out_archive == nullptr)
         return "Archive file was not specified";
 
-    log(1, "Creating new chunk #" INT64_FORMAT_STRING "\n", tdata->chunk_count_);
+    log(1, "Creating new chunk #" INT64_FORMAT_STRING " for thread %d\n",
+        tdata->chunk_count_, tdata->tid);
 
     if (tdata->chunk_count_ != 0) {
         // We emit a chunk footer so we can identify truncation.
