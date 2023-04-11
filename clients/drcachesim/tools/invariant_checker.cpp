@@ -387,7 +387,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // TODO(sahil): Add logic to this OR statement that will evaluate to true when
             // there is a PC discontinuity. We do not want this invariant to be violated
             // for that. We want the PC discontinuity invariant triggered instead.
-            const bool condition =
+            const bool condition = check_for_pc_discontinuity(shard, memref).empty() ||
                 ((memref.instr.addr == shard->prev_xfer_int_pc_.top() ||
                   // DR hands us a different address for sysenter than the
                   // resumption point.
