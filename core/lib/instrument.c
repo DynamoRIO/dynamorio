@@ -1960,6 +1960,9 @@ instrument_module_load_trigger(app_pc pc)
              * it failed during the first flat-mmap that loaded the module.
              * We don't perform this if there are no clients, assuming
              * DynamoRIO doesn't use os_module_data_t information itself.
+             *
+             * XXX: add a regression test later. See PR #5947 for how to
+             * reproduce this situation.
              */
             if (!ma->os_data.have_dynamic_info) {
                 os_module_update_dynamic_info(ma->start, ma->end - ma->start, false);
