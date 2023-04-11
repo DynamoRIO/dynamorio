@@ -158,6 +158,7 @@ proc_init_arch(void)
             cpu_info.features.flags_aa64isar1);
         LOG_FEATURE(FEATURE_DPB);
         LOG_FEATURE(FEATURE_DPB2);
+        LOG_FEATURE(FEATURE_JSCVT);
 
         LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64PFR0_EL1 = 0x%016lx\n",
             cpu_info.features.flags_aa64pfr0);
@@ -217,7 +218,10 @@ proc_has_feature(feature_bit_t f)
     case FEATURE_LRCPC2:
     case FEATURE_BF16:
     case FEATURE_I8MM:
-    case FEATURE_FlagM: return true;
+    case FEATURE_FlagM:
+    case FEATURE_JSCVT:
+    case FEATURE_DPB:
+    case FEATURE_DPB2: return true;
 
     case FEATURE_AESX:
     case FEATURE_PMULL:
@@ -225,9 +229,7 @@ proc_has_feature(feature_bit_t f)
     case FEATURE_SHA256:
     case FEATURE_CRC32:
     case FEATURE_FlagM2:
-    case FEATURE_RNG:
-    case FEATURE_DPB:
-    case FEATURE_DPB2: break;
+    case FEATURE_RNG: break;
     }
 #    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;

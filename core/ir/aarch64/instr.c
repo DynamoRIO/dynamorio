@@ -80,13 +80,19 @@ instr_branch_type(instr_t *cti_instr)
     case OP_tbnz:
     case OP_tbz: return LINK_DIRECT | LINK_JMP;
     case OP_bl: return LINK_DIRECT | LINK_CALL;
-    // TODO i#5623: Add the other OP_blra*, OP_brra*, and OP_reta* opcodes.
+    case OP_blraa:
+    case OP_blrab:
     case OP_blraaz:
+    case OP_blrabz:
     case OP_blr: return LINK_INDIRECT | LINK_CALL;
     case OP_br:
-    case OP_braa: return LINK_INDIRECT | LINK_JMP;
+    case OP_braa:
+    case OP_brab:
+    case OP_braaz:
+    case OP_brabz: return LINK_INDIRECT | LINK_JMP;
     case OP_ret:
-    case OP_reta: return LINK_INDIRECT | LINK_RETURN;
+    case OP_retaa:
+    case OP_retab: return LINK_INDIRECT | LINK_RETURN;
     }
     CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;
@@ -109,8 +115,15 @@ bool
 instr_is_call_arch(instr_t *instr)
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
-    // TODO i#5623: Add the other OP_blra* opcodes.
-    return (opc == OP_bl || opc == OP_blr || opc == OP_blraaz);
+    switch (opc) {
+    case OP_bl:
+    case OP_blr:
+    case OP_blraa:
+    case OP_blrab:
+    case OP_blraaz:
+    case OP_blrabz: return true;
+    default: return false;
+    }
 }
 
 bool
@@ -131,16 +144,21 @@ bool
 instr_is_call_indirect(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    // TODO i#5623: Add the other OP_blra* opcodes.
-    return (opc == OP_blr || opc == OP_blraaz);
+    switch (opc) {
+    case OP_blr:
+    case OP_blraa:
+    case OP_blrab:
+    case OP_blraaz:
+    case OP_blrabz: return true;
+    default: return false;
+    }
 }
 
 bool
 instr_is_return(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    // TODO i#5623: Add the other OP_brra* and OP_reta* opcodes.
-    return (opc == OP_ret || opc == OP_reta);
+    return (opc == OP_ret || opc == OP_retaa || opc == OP_retab);
 }
 
 bool
@@ -156,9 +174,22 @@ bool
 instr_is_mbr_arch(instr_t *instr)
 {
     int opc = instr->opcode; /* caller ensures opcode is valid */
-    // TODO i#5623: Add the other OP_blra*, OP_brra*, and OP_reta* opcodes.
-    return (opc == OP_blr || opc == OP_blraaz || opc == OP_br || opc == OP_braa ||
-            opc == OP_ret || opc == OP_reta);
+    switch (opc) {
+    case OP_blr:
+    case OP_br:
+    case OP_braa:
+    case OP_brab:
+    case OP_braaz:
+    case OP_brabz:
+    case OP_blraa:
+    case OP_blrab:
+    case OP_blraaz:
+    case OP_blrabz:
+    case OP_ret:
+    case OP_retaa:
+    case OP_retab: return true;
+    default: return false;
+    }
 }
 
 bool

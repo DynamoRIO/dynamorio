@@ -225,7 +225,8 @@ check_sane_control_flow()
             gen_instr(1, 20),
         };
 
-        if (!run_checker(memrefs, true, 1, 3, "Non-explicit control flow has no marker",
+        if (!run_checker(memrefs, true, 1, 3,
+                         "Direct branch does not go to the correct target",
                          "Failed to catch branch not going to its target")) {
             return false;
         }

@@ -427,43 +427,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             saw_repeated_syscall_instrs_with_same_pc = true;
             report_if_false(shard, false, "Repeated syscall instrs with the same PC");
         }
-        if (shard->prev_instr_.instr.addr != 0 /*first*/) {
-            report_if_false(
-                shard, // Filtered.
-                TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                        shard->file_type_) ||
-                    // Regular fall-through.
-                    (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
-                     memref.instr.addr) ||
-                    // Indirect branches we cannot check.
-                    (type_is_instr_branch(shard->prev_instr_.instr.type) &&
-                     !type_is_instr_direct_branch(shard->prev_instr_.instr.type)) ||
-                    // Conditional fall-through hits the regular case above.
-                    (type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
-                     (!have_cond_branch_target ||
-                      memref.instr.addr == cond_branch_target)) ||
-                    // String loop.
-                    (shard->prev_instr_.instr.addr == memref.instr.addr &&
-                     (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
-                      // Online incorrectly marks the 1st string instr across a thread
-                      // switch as fetched.
-                      // TODO i#4915, #4948: Eliminate non-fetched and remove the
-                      // underlying instrs altogether, which would fix this for us.
-                      (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
-                    // Kernel-mediated, but we can't tell if we had a thread swap.
-                    (shard->prev_xfer_marker_.instr.tid != 0 &&
-                     (shard->prev_xfer_marker_.marker.marker_type ==
-                          TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                      shard->prev_xfer_marker_.marker.marker_type ==
-                          TRACE_MARKER_TYPE_KERNEL_XFER)) ||
-                    // We expect a gap on a window transition.
-                    shard->window_transition_ ||
-                    shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER ||
-                    saw_repeated_syscall_instrs_with_same_pc,
-                "Non-explicit control flow has no marker");
-            // XXX: If we had instr decoding we could check direct branch targets
-            // and look for gaps after branches.
-        }
+        const std::string non_explicit_flow_violation_msg = check_for_pc_discontinuity(
+            shard, memref, saw_repeated_syscall_instrs_with_same_pc,
+            have_cond_branch_target, cond_branch_target);
+        report_if_false(shard, non_explicit_flow_violation_msg.empty(),
+                        non_explicit_flow_violation_msg);
 
 #ifdef UNIX
         // Ensure signal handlers return to the interruption point.
@@ -684,4 +652,63 @@ invariant_checker_t::print_results()
     check_schedule_data();
     std::cerr << "Trace invariant checks passed\n";
     return true;
+}
+
+std::string
+invariant_checker_t::check_for_pc_discontinuity(
+    per_shard_t *shard, const memref_t &memref,
+    const bool saw_repeated_syscall_instrs_with_same_pc,
+    const bool have_cond_branch_target, const addr_t cond_branch_target)
+{
+    std::string error_msg = "";
+    if (shard->prev_instr_.instr.addr != 0 /*first*/) {
+        // Check for all valid transitions except taken branches. We consider taken
+        // branches later so that we can provide a different message for those
+        // invariant violations.
+        const bool valid_nonbranch_flow =
+            // Filtered.
+            TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                    shard->file_type_) ||
+            // Regular fall-through.
+            (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
+             memref.instr.addr) ||
+            // String loop.
+            (shard->prev_instr_.instr.addr == memref.instr.addr &&
+             (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
+              // Online incorrectly marks the 1st string instr across a thread
+              // switch as fetched.
+              // TODO i#4915, #4948: Eliminate non-fetched and remove the
+              // underlying instrs altogether, which would fix this for us.
+              (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
+            // Kernel-mediated, but we can't tell if we had a thread swap.
+            (shard->prev_xfer_marker_.instr.tid != 0 &&
+             (shard->prev_xfer_marker_.marker.marker_type ==
+                  TRACE_MARKER_TYPE_KERNEL_EVENT ||
+              shard->prev_xfer_marker_.marker.marker_type ==
+                  TRACE_MARKER_TYPE_KERNEL_XFER)) ||
+            // We expect a gap on a window transition.
+            shard->window_transition_ ||
+            shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER ||
+            saw_repeated_syscall_instrs_with_same_pc;
+
+        if (!valid_nonbranch_flow) {
+            // Check if the type is a branch instruction and there is a branch target
+            // mismatch.
+            if (type_is_instr_branch(shard->prev_instr_.instr.type)) {
+                const bool valid_branch_flow =
+                    // Indirect branches we cannot check.
+                    !type_is_instr_direct_branch(shard->prev_instr_.instr.type) ||
+                    // Conditional fall-through hits the regular case above.
+                    !have_cond_branch_target || memref.instr.addr == cond_branch_target;
+
+                if (!valid_branch_flow) {
+                    error_msg = "Direct branch does not go to the correct target";
+                }
+            } else {
+                error_msg = "Non-explicit control flow has no marker";
+            }
+        }
+    }
+
+    return error_msg;
 }

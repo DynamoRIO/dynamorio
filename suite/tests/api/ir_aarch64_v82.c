@@ -5553,6 +5553,24 @@ TEST_INSTR(frsqrts)
               opnd_create_reg(Rn_1_1[i]), opnd_create_reg(Rm_1_1[i]));
 }
 
+TEST_INSTR(dc_cvap)
+{
+    const char *expected[6] = {
+        "dc_cvap (%x0)[1byte]",  "dc_cvap (%x5)[1byte]",  "dc_cvap (%x10)[1byte]",
+        "dc_cvap (%x15)[1byte]", "dc_cvap (%x20)[1byte]", "dc_cvap (%x30)[1byte]",
+    };
+    TEST_LOOP(dc_cvap, dc_cvap, 6, expected[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
+TEST_INSTR(dc_cvadp)
+{
+    const char *expected[6] = {
+        "dc_cvadp (%x0)[1byte]",  "dc_cvadp (%x5)[1byte]",  "dc_cvadp (%x10)[1byte]",
+        "dc_cvadp (%x15)[1byte]", "dc_cvadp (%x20)[1byte]", "dc_cvadp (%x30)[1byte]",
+    };
+    TEST_LOOP(dc_cvadp, dc_cvadp, 6, expected[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -5701,6 +5719,9 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(frsqrte);
     RUN_INSTR_TEST(frsqrts_vector);
     RUN_INSTR_TEST(frsqrts);
+
+    RUN_INSTR_TEST(dc_cvap);
+    RUN_INSTR_TEST(dc_cvadp);
 
     print("All v8.2 tests complete.\n");
 #ifndef STANDALONE_DECODER

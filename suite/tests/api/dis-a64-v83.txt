@@ -104,6 +104,246 @@ dac13ff8 : autdzb x24                                : autdzb %x24 -> %x24
 dac13ffa : autdzb x26                                : autdzb %x26 -> %x26
 dac13ffe : autdzb x30                                : autdzb %x30 -> %x30
 
+# AUTIA1716  (AUTIA1716-R-auth)
+d503219f : autia1716                                 : autia1716 %x17 %x16 -> %x17
+
+# AUTIA   <Xd>, <Xn|SP> (AUTIA-R.R-auth)
+dac11000 : autia x0, x0                              : autia  %x0 %x0 -> %x0
+dac11062 : autia x2, x3                              : autia  %x2 %x3 -> %x2
+dac110a4 : autia x4, x5                              : autia  %x4 %x5 -> %x4
+dac110e6 : autia x6, x7                              : autia  %x6 %x7 -> %x6
+dac11128 : autia x8, x9                              : autia  %x8 %x9 -> %x8
+dac11149 : autia x9, x10                             : autia  %x9 %x10 -> %x9
+dac1118b : autia x11, x12                            : autia  %x11 %x12 -> %x11
+dac111cd : autia x13, x14                            : autia  %x13 %x14 -> %x13
+dac1120f : autia x15, x16                            : autia  %x15 %x16 -> %x15
+dac11251 : autia x17, x18                            : autia  %x17 %x18 -> %x17
+dac11293 : autia x19, x20                            : autia  %x19 %x20 -> %x19
+dac112d5 : autia x21, x22                            : autia  %x21 %x22 -> %x21
+dac112f6 : autia x22, x23                            : autia  %x22 %x23 -> %x22
+dac11338 : autia x24, x25                            : autia  %x24 %x25 -> %x24
+dac1137a : autia x26, x27                            : autia  %x26 %x27 -> %x26
+dac113fe : autia x30, sp                             : autia  %x30 %sp -> %x30
+
+# AUTIASP  (AUTIASP-R-auth)
+d50323bf : autiasp                                   : autiasp %x30 %sp -> %x30
+
+# AUTIAZ   (AUTIAZ-R-auth)
+d503239f : autiaz                                    : autiaz %x30 -> %x30
+
+# AUTIB1716  (AUTIB1716-R-auth)
+d50321df : autib1716                                 : autib1716 %x17 %x16 -> %x17
+
+# AUTIB   <Xd>, <Xn|SP> (AUTIB-R.R-auth)
+dac11400 : autib x0, x0                              : autib  %x0 %x0 -> %x0
+dac11462 : autib x2, x3                              : autib  %x2 %x3 -> %x2
+dac114a4 : autib x4, x5                              : autib  %x4 %x5 -> %x4
+dac114e6 : autib x6, x7                              : autib  %x6 %x7 -> %x6
+dac11528 : autib x8, x9                              : autib  %x8 %x9 -> %x8
+dac11549 : autib x9, x10                             : autib  %x9 %x10 -> %x9
+dac1158b : autib x11, x12                            : autib  %x11 %x12 -> %x11
+dac115cd : autib x13, x14                            : autib  %x13 %x14 -> %x13
+dac1160f : autib x15, x16                            : autib  %x15 %x16 -> %x15
+dac11651 : autib x17, x18                            : autib  %x17 %x18 -> %x17
+dac11693 : autib x19, x20                            : autib  %x19 %x20 -> %x19
+dac116d5 : autib x21, x22                            : autib  %x21 %x22 -> %x21
+dac116f6 : autib x22, x23                            : autib  %x22 %x23 -> %x22
+dac11738 : autib x24, x25                            : autib  %x24 %x25 -> %x24
+dac1177a : autib x26, x27                            : autib  %x26 %x27 -> %x26
+dac117fe : autib x30, sp                             : autib  %x30 %sp -> %x30
+
+# AUTIBSP  (AUTIBSP-R-auth)
+d50323ff : autibsp                                   : autibsp %x30 %sp -> %x30
+
+# AUTIBZ   (AUTIBZ-R-auth)
+d50323df : autibz                                    : autibz %x30 -> %x30
+
+# AUTIZA  <Xd> (AUTIZA-R-auth)
+dac133e0 : autiza x0                                 : autiza %x0 -> %x0
+dac133e2 : autiza x2                                 : autiza %x2 -> %x2
+dac133e4 : autiza x4                                 : autiza %x4 -> %x4
+dac133e6 : autiza x6                                 : autiza %x6 -> %x6
+dac133e8 : autiza x8                                 : autiza %x8 -> %x8
+dac133e9 : autiza x9                                 : autiza %x9 -> %x9
+dac133eb : autiza x11                                : autiza %x11 -> %x11
+dac133ed : autiza x13                                : autiza %x13 -> %x13
+dac133ef : autiza x15                                : autiza %x15 -> %x15
+dac133f1 : autiza x17                                : autiza %x17 -> %x17
+dac133f3 : autiza x19                                : autiza %x19 -> %x19
+dac133f5 : autiza x21                                : autiza %x21 -> %x21
+dac133f6 : autiza x22                                : autiza %x22 -> %x22
+dac133f8 : autiza x24                                : autiza %x24 -> %x24
+dac133fa : autiza x26                                : autiza %x26 -> %x26
+dac133fe : autiza x30                                : autiza %x30 -> %x30
+
+# AUTIZB  <Xd> (AUTIZB-R-auth)
+dac137e0 : autizb x0                                 : autizb %x0 -> %x0
+dac137e2 : autizb x2                                 : autizb %x2 -> %x2
+dac137e4 : autizb x4                                 : autizb %x4 -> %x4
+dac137e6 : autizb x6                                 : autizb %x6 -> %x6
+dac137e8 : autizb x8                                 : autizb %x8 -> %x8
+dac137e9 : autizb x9                                 : autizb %x9 -> %x9
+dac137eb : autizb x11                                : autizb %x11 -> %x11
+dac137ed : autizb x13                                : autizb %x13 -> %x13
+dac137ef : autizb x15                                : autizb %x15 -> %x15
+dac137f1 : autizb x17                                : autizb %x17 -> %x17
+dac137f3 : autizb x19                                : autizb %x19 -> %x19
+dac137f5 : autizb x21                                : autizb %x21 -> %x21
+dac137f6 : autizb x22                                : autizb %x22 -> %x22
+dac137f8 : autizb x24                                : autizb %x24 -> %x24
+dac137fa : autizb x26                                : autizb %x26 -> %x26
+dac137fe : autizb x30                                : autizb %x30 -> %x30
+
+# BLRAA   <Xn>, <Xm|SP> (BLRAA-R.R-auth)
+d73f0800 : blraa x0, x0                              : blraa  %x0 %x0 -> %x30
+d73f0843 : blraa x2, x3                              : blraa  %x2 %x3 -> %x30
+d73f0885 : blraa x4, x5                              : blraa  %x4 %x5 -> %x30
+d73f08c7 : blraa x6, x7                              : blraa  %x6 %x7 -> %x30
+d73f0909 : blraa x8, x9                              : blraa  %x8 %x9 -> %x30
+d73f092a : blraa x9, x10                             : blraa  %x9 %x10 -> %x30
+d73f096c : blraa x11, x12                            : blraa  %x11 %x12 -> %x30
+d73f09ae : blraa x13, x14                            : blraa  %x13 %x14 -> %x30
+d73f09f0 : blraa x15, x16                            : blraa  %x15 %x16 -> %x30
+d73f0a32 : blraa x17, x18                            : blraa  %x17 %x18 -> %x30
+d73f0a74 : blraa x19, x20                            : blraa  %x19 %x20 -> %x30
+d73f0ab6 : blraa x21, x22                            : blraa  %x21 %x22 -> %x30
+d73f0ad7 : blraa x22, x23                            : blraa  %x22 %x23 -> %x30
+d73f0b19 : blraa x24, x25                            : blraa  %x24 %x25 -> %x30
+d73f0b5b : blraa x26, x27                            : blraa  %x26 %x27 -> %x30
+d73f0bdf : blraa x30, sp                             : blraa  %x30 %sp -> %x30
+
+# BLRAAZ  <Xn> (BLRAAZ-R.R-auth)
+d63f081f : blraaz x0                                 : blraaz %x0 -> %x30
+d63f085f : blraaz x2                                 : blraaz %x2 -> %x30
+d63f089f : blraaz x4                                 : blraaz %x4 -> %x30
+d63f08df : blraaz x6                                 : blraaz %x6 -> %x30
+d63f091f : blraaz x8                                 : blraaz %x8 -> %x30
+d63f093f : blraaz x9                                 : blraaz %x9 -> %x30
+d63f097f : blraaz x11                                : blraaz %x11 -> %x30
+d63f09bf : blraaz x13                                : blraaz %x13 -> %x30
+d63f09ff : blraaz x15                                : blraaz %x15 -> %x30
+d63f0a3f : blraaz x17                                : blraaz %x17 -> %x30
+d63f0a7f : blraaz x19                                : blraaz %x19 -> %x30
+d63f0abf : blraaz x21                                : blraaz %x21 -> %x30
+d63f0adf : blraaz x22                                : blraaz %x22 -> %x30
+d63f0b1f : blraaz x24                                : blraaz %x24 -> %x30
+d63f0b5f : blraaz x26                                : blraaz %x26 -> %x30
+d63f0bdf : blraaz x30                                : blraaz %x30 -> %x30
+
+# BLRAB   <Xn>, <Xm|SP> (BLRAB-R.R-auth)
+d73f0c00 : blrab x0, x0                              : blrab  %x0 %x0 -> %x30
+d73f0c43 : blrab x2, x3                              : blrab  %x2 %x3 -> %x30
+d73f0c85 : blrab x4, x5                              : blrab  %x4 %x5 -> %x30
+d73f0cc7 : blrab x6, x7                              : blrab  %x6 %x7 -> %x30
+d73f0d09 : blrab x8, x9                              : blrab  %x8 %x9 -> %x30
+d73f0d2a : blrab x9, x10                             : blrab  %x9 %x10 -> %x30
+d73f0d6c : blrab x11, x12                            : blrab  %x11 %x12 -> %x30
+d73f0dae : blrab x13, x14                            : blrab  %x13 %x14 -> %x30
+d73f0df0 : blrab x15, x16                            : blrab  %x15 %x16 -> %x30
+d73f0e32 : blrab x17, x18                            : blrab  %x17 %x18 -> %x30
+d73f0e74 : blrab x19, x20                            : blrab  %x19 %x20 -> %x30
+d73f0eb6 : blrab x21, x22                            : blrab  %x21 %x22 -> %x30
+d73f0ed7 : blrab x22, x23                            : blrab  %x22 %x23 -> %x30
+d73f0f19 : blrab x24, x25                            : blrab  %x24 %x25 -> %x30
+d73f0f5b : blrab x26, x27                            : blrab  %x26 %x27 -> %x30
+d73f0fdf : blrab x30, sp                             : blrab  %x30 %sp -> %x30
+
+# BLRABZ  <Xn> (BLRABZ-R.R-auth)
+d63f0c1f : blrabz x0                                 : blrabz %x0 -> %x30
+d63f0c5f : blrabz x2                                 : blrabz %x2 -> %x30
+d63f0c9f : blrabz x4                                 : blrabz %x4 -> %x30
+d63f0cdf : blrabz x6                                 : blrabz %x6 -> %x30
+d63f0d1f : blrabz x8                                 : blrabz %x8 -> %x30
+d63f0d3f : blrabz x9                                 : blrabz %x9 -> %x30
+d63f0d7f : blrabz x11                                : blrabz %x11 -> %x30
+d63f0dbf : blrabz x13                                : blrabz %x13 -> %x30
+d63f0dff : blrabz x15                                : blrabz %x15 -> %x30
+d63f0e3f : blrabz x17                                : blrabz %x17 -> %x30
+d63f0e7f : blrabz x19                                : blrabz %x19 -> %x30
+d63f0ebf : blrabz x21                                : blrabz %x21 -> %x30
+d63f0edf : blrabz x22                                : blrabz %x22 -> %x30
+d63f0f1f : blrabz x24                                : blrabz %x24 -> %x30
+d63f0f5f : blrabz x26                                : blrabz %x26 -> %x30
+d63f0fdf : blrabz x30                                : blrabz %x30 -> %x30
+
+# BRAA    <Xn>, <Xm|SP> (BRAA-R.R-auth)
+d71f0800 : braa x0, x0                               : braa   %x0 %x0
+d71f0843 : braa x2, x3                               : braa   %x2 %x3
+d71f0885 : braa x4, x5                               : braa   %x4 %x5
+d71f08c7 : braa x6, x7                               : braa   %x6 %x7
+d71f0909 : braa x8, x9                               : braa   %x8 %x9
+d71f092a : braa x9, x10                              : braa   %x9 %x10
+d71f096c : braa x11, x12                             : braa   %x11 %x12
+d71f09ae : braa x13, x14                             : braa   %x13 %x14
+d71f09f0 : braa x15, x16                             : braa   %x15 %x16
+d71f0a32 : braa x17, x18                             : braa   %x17 %x18
+d71f0a74 : braa x19, x20                             : braa   %x19 %x20
+d71f0ab6 : braa x21, x22                             : braa   %x21 %x22
+d71f0ad7 : braa x22, x23                             : braa   %x22 %x23
+d71f0b19 : braa x24, x25                             : braa   %x24 %x25
+d71f0b5b : braa x26, x27                             : braa   %x26 %x27
+d71f0bdf : braa x30, sp                              : braa   %x30 %sp
+
+# BRAAZ   <Xn> (BRAAZ-R.R-auth)
+d61f081f : braaz x0                                  : braaz  %x0
+d61f085f : braaz x2                                  : braaz  %x2
+d61f089f : braaz x4                                  : braaz  %x4
+d61f08df : braaz x6                                  : braaz  %x6
+d61f091f : braaz x8                                  : braaz  %x8
+d61f093f : braaz x9                                  : braaz  %x9
+d61f097f : braaz x11                                 : braaz  %x11
+d61f09bf : braaz x13                                 : braaz  %x13
+d61f09ff : braaz x15                                 : braaz  %x15
+d61f0a3f : braaz x17                                 : braaz  %x17
+d61f0a7f : braaz x19                                 : braaz  %x19
+d61f0abf : braaz x21                                 : braaz  %x21
+d61f0adf : braaz x22                                 : braaz  %x22
+d61f0b1f : braaz x24                                 : braaz  %x24
+d61f0b5f : braaz x26                                 : braaz  %x26
+d61f0bdf : braaz x30                                 : braaz  %x30
+
+# BRAB    <Xn>, <Xm|SP> (BRAB-R.R-auth)
+d71f0c00 : brab x0, x0                               : brab   %x0 %x0
+d71f0c43 : brab x2, x3                               : brab   %x2 %x3
+d71f0c85 : brab x4, x5                               : brab   %x4 %x5
+d71f0cc7 : brab x6, x7                               : brab   %x6 %x7
+d71f0d09 : brab x8, x9                               : brab   %x8 %x9
+d71f0d2a : brab x9, x10                              : brab   %x9 %x10
+d71f0d6c : brab x11, x12                             : brab   %x11 %x12
+d71f0dae : brab x13, x14                             : brab   %x13 %x14
+d71f0df0 : brab x15, x16                             : brab   %x15 %x16
+d71f0e32 : brab x17, x18                             : brab   %x17 %x18
+d71f0e74 : brab x19, x20                             : brab   %x19 %x20
+d71f0eb6 : brab x21, x22                             : brab   %x21 %x22
+d71f0ed7 : brab x22, x23                             : brab   %x22 %x23
+d71f0f19 : brab x24, x25                             : brab   %x24 %x25
+d71f0f5b : brab x26, x27                             : brab   %x26 %x27
+d71f0fdf : brab x30, sp                              : brab   %x30 %sp
+
+# BRABZ   <Xn> (BRABZ-R.R-auth)
+d61f0c1f : brabz x0                                  : brabz  %x0
+d61f0c5f : brabz x2                                  : brabz  %x2
+d61f0c9f : brabz x4                                  : brabz  %x4
+d61f0cdf : brabz x6                                  : brabz  %x6
+d61f0d1f : brabz x8                                  : brabz  %x8
+d61f0d3f : brabz x9                                  : brabz  %x9
+d61f0d7f : brabz x11                                 : brabz  %x11
+d61f0dbf : brabz x13                                 : brabz  %x13
+d61f0dff : brabz x15                                 : brabz  %x15
+d61f0e3f : brabz x17                                 : brabz  %x17
+d61f0e7f : brabz x19                                 : brabz  %x19
+d61f0ebf : brabz x21                                 : brabz  %x21
+d61f0edf : brabz x22                                 : brabz  %x22
+d61f0f1f : brabz x24                                 : brabz  %x24
+d61f0f5f : brabz x26                                 : brabz  %x26
+d61f0fdf : brabz x30                                 : brabz  %x30
+
+# ERETAA   (ERETAA-R-auth)
+d69f0bff : eretaa                                    : eretaa %x30 %sp
+
+# ERETAB   (ERETAB-R-auth)
+d69f0fff : eretab                                    : eretab %x30 %sp
+
 # FCADD   <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, <imm> (FCADD-Q.QQ-Vec)
 2e40e400 : fcadd v0.4h, v0.4h, v0.4h, #0x5a          : fcadd  %d0 %d0 %d0 $0x005a $0x01 -> %d0
 2e44e462 : fcadd v2.4h, v3.4h, v4.4h, #0x5a          : fcadd  %d2 %d3 %d4 $0x005a $0x01 -> %d2
@@ -285,3 +525,319 @@ dac13ffe : autdzb x30                                : autdzb %x30 -> %x30
 6f9b5b59 : fcmla v25.4s, v26.4s, v27.s[1], #0xb4     : fcmla  %q25 %q26 %q27 $0x01 $0x00b4 $0x02 -> %q25
 6f9d7b9b : fcmla v27.4s, v28.4s, v29.s[1], #0x10e    : fcmla  %q27 %q28 %q29 $0x01 $0x010e $0x02 -> %q27
 6f9f7bff : fcmla v31.4s, v31.4s, v31.s[1], #0x10e    : fcmla  %q31 %q31 %q31 $0x01 $0x010e $0x02 -> %q31
+
+# FJCVTZS <Wd>, <Dn> (FJCVTZS-R.V-32H_float2int)
+1e7e0000 : fjcvtzs w0, d0                            : fjcvtzs %d0 -> %w0
+1e7e0062 : fjcvtzs w2, d3                            : fjcvtzs %d3 -> %w2
+1e7e00a4 : fjcvtzs w4, d5                            : fjcvtzs %d5 -> %w4
+1e7e00e6 : fjcvtzs w6, d7                            : fjcvtzs %d7 -> %w6
+1e7e0128 : fjcvtzs w8, d9                            : fjcvtzs %d9 -> %w8
+1e7e0169 : fjcvtzs w9, d11                           : fjcvtzs %d11 -> %w9
+1e7e01ab : fjcvtzs w11, d13                          : fjcvtzs %d13 -> %w11
+1e7e01ed : fjcvtzs w13, d15                          : fjcvtzs %d15 -> %w13
+1e7e022f : fjcvtzs w15, d17                          : fjcvtzs %d17 -> %w15
+1e7e0251 : fjcvtzs w17, d18                          : fjcvtzs %d18 -> %w17
+1e7e0293 : fjcvtzs w19, d20                          : fjcvtzs %d20 -> %w19
+1e7e02d5 : fjcvtzs w21, d22                          : fjcvtzs %d22 -> %w21
+1e7e0316 : fjcvtzs w22, d24                          : fjcvtzs %d24 -> %w22
+1e7e0358 : fjcvtzs w24, d26                          : fjcvtzs %d26 -> %w24
+1e7e039a : fjcvtzs w26, d28                          : fjcvtzs %d28 -> %w26
+1e7e03fe : fjcvtzs w30, d31                          : fjcvtzs %d31 -> %w30
+
+# LDRAA   <Xt>, [<Xn|SP>, #<simm>] (LDRAA-R.RI-auth_offset)
+f8600400 : ldraa x0, [x0, #-4096]                    : ldraa  -0x1000(%x0)[8byte] -> %x0
+f8640462 : ldraa x2, [x3, #-3584]                    : ldraa  -0x0e00(%x3)[8byte] -> %x2
+f86804a4 : ldraa x4, [x5, #-3072]                    : ldraa  -0x0c00(%x5)[8byte] -> %x4
+f86c04e6 : ldraa x6, [x7, #-2560]                    : ldraa  -0x0a00(%x7)[8byte] -> %x6
+f8700528 : ldraa x8, [x9, #-2048]                    : ldraa  -0x0800(%x9)[8byte] -> %x8
+f8740549 : ldraa x9, [x10, #-1536]                   : ldraa  -0x0600(%x10)[8byte] -> %x9
+f878058b : ldraa x11, [x12, #-1024]                  : ldraa  -0x0400(%x12)[8byte] -> %x11
+f87c05cd : ldraa x13, [x14, #-512]                   : ldraa  -0x0200(%x14)[8byte] -> %x13
+f820060f : ldraa x15, [x16, #0]                      : ldraa  (%x16)[8byte] -> %x15
+f823f651 : ldraa x17, [x18, #504]                    : ldraa  +0x01f8(%x18)[8byte] -> %x17
+f827f693 : ldraa x19, [x20, #1016]                   : ldraa  +0x03f8(%x20)[8byte] -> %x19
+f82bf6d5 : ldraa x21, [x22, #1528]                   : ldraa  +0x05f8(%x22)[8byte] -> %x21
+f82ff6f6 : ldraa x22, [x23, #2040]                   : ldraa  +0x07f8(%x23)[8byte] -> %x22
+f833f738 : ldraa x24, [x25, #2552]                   : ldraa  +0x09f8(%x25)[8byte] -> %x24
+f837f77a : ldraa x26, [x27, #3064]                   : ldraa  +0x0bf8(%x27)[8byte] -> %x26
+f83ff7fe : ldraa x30, [sp, #4088]                    : ldraa  +0x0ff8(%sp)[8byte] -> %x30
+
+# LDRAA   <Xt>, [<Xn|SP>, #<simm>]! (LDRAA-R.RI-auth_immpre)
+f8600c00 : ldraa x0, [x0, #-4096]!                   : ldraa  -0x1000(%x0)[8byte] %x0 $0xfffffffffffff000 -> %x0 %x0
+f8640c62 : ldraa x2, [x3, #-3584]!                   : ldraa  -0x0e00(%x3)[8byte] %x3 $0xfffffffffffff200 -> %x2 %x3
+f8680ca4 : ldraa x4, [x5, #-3072]!                   : ldraa  -0x0c00(%x5)[8byte] %x5 $0xfffffffffffff400 -> %x4 %x5
+f86c0ce6 : ldraa x6, [x7, #-2560]!                   : ldraa  -0x0a00(%x7)[8byte] %x7 $0xfffffffffffff600 -> %x6 %x7
+f8700d28 : ldraa x8, [x9, #-2048]!                   : ldraa  -0x0800(%x9)[8byte] %x9 $0xfffffffffffff800 -> %x8 %x9
+f8740d49 : ldraa x9, [x10, #-1536]!                  : ldraa  -0x0600(%x10)[8byte] %x10 $0xfffffffffffffa00 -> %x9 %x10
+f8780d8b : ldraa x11, [x12, #-1024]!                 : ldraa  -0x0400(%x12)[8byte] %x12 $0xfffffffffffffc00 -> %x11 %x12
+f87c0dcd : ldraa x13, [x14, #-512]!                  : ldraa  -0x0200(%x14)[8byte] %x14 $0xfffffffffffffe00 -> %x13 %x14
+f8200e0f : ldraa x15, [x16, #0]!                     : ldraa  (%x16)[8byte] %x16 $0x0000000000000000 -> %x15 %x16
+f823fe51 : ldraa x17, [x18, #504]!                   : ldraa  +0x01f8(%x18)[8byte] %x18 $0x00000000000001f8 -> %x17 %x18
+f827fe93 : ldraa x19, [x20, #1016]!                  : ldraa  +0x03f8(%x20)[8byte] %x20 $0x00000000000003f8 -> %x19 %x20
+f82bfed5 : ldraa x21, [x22, #1528]!                  : ldraa  +0x05f8(%x22)[8byte] %x22 $0x00000000000005f8 -> %x21 %x22
+f82ffef6 : ldraa x22, [x23, #2040]!                  : ldraa  +0x07f8(%x23)[8byte] %x23 $0x00000000000007f8 -> %x22 %x23
+f833ff38 : ldraa x24, [x25, #2552]!                  : ldraa  +0x09f8(%x25)[8byte] %x25 $0x00000000000009f8 -> %x24 %x25
+f837ff7a : ldraa x26, [x27, #3064]!                  : ldraa  +0x0bf8(%x27)[8byte] %x27 $0x0000000000000bf8 -> %x26 %x27
+f83ffffe : ldraa x30, [sp, #4088]!                   : ldraa  +0x0ff8(%sp)[8byte] %sp $0x0000000000000ff8 -> %x30 %sp
+
+# LDRAB   <Xt>, [<Xn|SP>, #<simm>] (LDRAB-R.RI-auth_offset)
+f8e00400 : ldrab x0, [x0, #-4096]                    : ldrab  -0x1000(%x0)[8byte] -> %x0
+f8e40462 : ldrab x2, [x3, #-3584]                    : ldrab  -0x0e00(%x3)[8byte] -> %x2
+f8e804a4 : ldrab x4, [x5, #-3072]                    : ldrab  -0x0c00(%x5)[8byte] -> %x4
+f8ec04e6 : ldrab x6, [x7, #-2560]                    : ldrab  -0x0a00(%x7)[8byte] -> %x6
+f8f00528 : ldrab x8, [x9, #-2048]                    : ldrab  -0x0800(%x9)[8byte] -> %x8
+f8f40549 : ldrab x9, [x10, #-1536]                   : ldrab  -0x0600(%x10)[8byte] -> %x9
+f8f8058b : ldrab x11, [x12, #-1024]                  : ldrab  -0x0400(%x12)[8byte] -> %x11
+f8fc05cd : ldrab x13, [x14, #-512]                   : ldrab  -0x0200(%x14)[8byte] -> %x13
+f8a0060f : ldrab x15, [x16, #0]                      : ldrab  (%x16)[8byte] -> %x15
+f8a3f651 : ldrab x17, [x18, #504]                    : ldrab  +0x01f8(%x18)[8byte] -> %x17
+f8a7f693 : ldrab x19, [x20, #1016]                   : ldrab  +0x03f8(%x20)[8byte] -> %x19
+f8abf6d5 : ldrab x21, [x22, #1528]                   : ldrab  +0x05f8(%x22)[8byte] -> %x21
+f8aff6f6 : ldrab x22, [x23, #2040]                   : ldrab  +0x07f8(%x23)[8byte] -> %x22
+f8b3f738 : ldrab x24, [x25, #2552]                   : ldrab  +0x09f8(%x25)[8byte] -> %x24
+f8b7f77a : ldrab x26, [x27, #3064]                   : ldrab  +0x0bf8(%x27)[8byte] -> %x26
+f8bff7fe : ldrab x30, [sp, #4088]                    : ldrab  +0x0ff8(%sp)[8byte] -> %x30
+
+# LDRAB   <Xt>, [<Xn|SP>, #<simm>]! (LDRAB-R.RI-auth_immpre)
+f8e00c00 : ldrab x0, [x0, #-4096]!                   : ldrab  -0x1000(%x0)[8byte] %x0 $0xfffffffffffff000 -> %x0 %x0
+f8e40c62 : ldrab x2, [x3, #-3584]!                   : ldrab  -0x0e00(%x3)[8byte] %x3 $0xfffffffffffff200 -> %x2 %x3
+f8e80ca4 : ldrab x4, [x5, #-3072]!                   : ldrab  -0x0c00(%x5)[8byte] %x5 $0xfffffffffffff400 -> %x4 %x5
+f8ec0ce6 : ldrab x6, [x7, #-2560]!                   : ldrab  -0x0a00(%x7)[8byte] %x7 $0xfffffffffffff600 -> %x6 %x7
+f8f00d28 : ldrab x8, [x9, #-2048]!                   : ldrab  -0x0800(%x9)[8byte] %x9 $0xfffffffffffff800 -> %x8 %x9
+f8f40d49 : ldrab x9, [x10, #-1536]!                  : ldrab  -0x0600(%x10)[8byte] %x10 $0xfffffffffffffa00 -> %x9 %x10
+f8f80d8b : ldrab x11, [x12, #-1024]!                 : ldrab  -0x0400(%x12)[8byte] %x12 $0xfffffffffffffc00 -> %x11 %x12
+f8fc0dcd : ldrab x13, [x14, #-512]!                  : ldrab  -0x0200(%x14)[8byte] %x14 $0xfffffffffffffe00 -> %x13 %x14
+f8a00e0f : ldrab x15, [x16, #0]!                     : ldrab  (%x16)[8byte] %x16 $0x0000000000000000 -> %x15 %x16
+f8a3fe51 : ldrab x17, [x18, #504]!                   : ldrab  +0x01f8(%x18)[8byte] %x18 $0x00000000000001f8 -> %x17 %x18
+f8a7fe93 : ldrab x19, [x20, #1016]!                  : ldrab  +0x03f8(%x20)[8byte] %x20 $0x00000000000003f8 -> %x19 %x20
+f8abfed5 : ldrab x21, [x22, #1528]!                  : ldrab  +0x05f8(%x22)[8byte] %x22 $0x00000000000005f8 -> %x21 %x22
+f8affef6 : ldrab x22, [x23, #2040]!                  : ldrab  +0x07f8(%x23)[8byte] %x23 $0x00000000000007f8 -> %x22 %x23
+f8b3ff38 : ldrab x24, [x25, #2552]!                  : ldrab  +0x09f8(%x25)[8byte] %x25 $0x00000000000009f8 -> %x24 %x25
+f8b7ff7a : ldrab x26, [x27, #3064]!                  : ldrab  +0x0bf8(%x27)[8byte] %x27 $0x0000000000000bf8 -> %x26 %x27
+f8bffffe : ldrab x30, [sp, #4088]!                   : ldrab  +0x0ff8(%sp)[8byte] %sp $0x0000000000000ff8 -> %x30 %sp
+
+# PACDA   <Xd>, <Xn|SP> (PACDA-R.R-auth)
+dac10800 : pacda x0, x0                              : pacda  %x0 %x0 -> %x0
+dac10862 : pacda x2, x3                              : pacda  %x2 %x3 -> %x2
+dac108a4 : pacda x4, x5                              : pacda  %x4 %x5 -> %x4
+dac108e6 : pacda x6, x7                              : pacda  %x6 %x7 -> %x6
+dac10928 : pacda x8, x9                              : pacda  %x8 %x9 -> %x8
+dac10949 : pacda x9, x10                             : pacda  %x9 %x10 -> %x9
+dac1098b : pacda x11, x12                            : pacda  %x11 %x12 -> %x11
+dac109cd : pacda x13, x14                            : pacda  %x13 %x14 -> %x13
+dac10a0f : pacda x15, x16                            : pacda  %x15 %x16 -> %x15
+dac10a51 : pacda x17, x18                            : pacda  %x17 %x18 -> %x17
+dac10a93 : pacda x19, x20                            : pacda  %x19 %x20 -> %x19
+dac10ad5 : pacda x21, x22                            : pacda  %x21 %x22 -> %x21
+dac10af6 : pacda x22, x23                            : pacda  %x22 %x23 -> %x22
+dac10b38 : pacda x24, x25                            : pacda  %x24 %x25 -> %x24
+dac10b7a : pacda x26, x27                            : pacda  %x26 %x27 -> %x26
+dac10bfe : pacda x30, sp                             : pacda  %x30 %sp -> %x30
+
+# PACDB   <Xd>, <Xn|SP> (PACDB-R.R-auth)
+dac10c00 : pacdb x0, x0                              : pacdb  %x0 %x0 -> %x0
+dac10c62 : pacdb x2, x3                              : pacdb  %x2 %x3 -> %x2
+dac10ca4 : pacdb x4, x5                              : pacdb  %x4 %x5 -> %x4
+dac10ce6 : pacdb x6, x7                              : pacdb  %x6 %x7 -> %x6
+dac10d28 : pacdb x8, x9                              : pacdb  %x8 %x9 -> %x8
+dac10d49 : pacdb x9, x10                             : pacdb  %x9 %x10 -> %x9
+dac10d8b : pacdb x11, x12                            : pacdb  %x11 %x12 -> %x11
+dac10dcd : pacdb x13, x14                            : pacdb  %x13 %x14 -> %x13
+dac10e0f : pacdb x15, x16                            : pacdb  %x15 %x16 -> %x15
+dac10e51 : pacdb x17, x18                            : pacdb  %x17 %x18 -> %x17
+dac10e93 : pacdb x19, x20                            : pacdb  %x19 %x20 -> %x19
+dac10ed5 : pacdb x21, x22                            : pacdb  %x21 %x22 -> %x21
+dac10ef6 : pacdb x22, x23                            : pacdb  %x22 %x23 -> %x22
+dac10f38 : pacdb x24, x25                            : pacdb  %x24 %x25 -> %x24
+dac10f7a : pacdb x26, x27                            : pacdb  %x26 %x27 -> %x26
+dac10ffe : pacdb x30, sp                             : pacdb  %x30 %sp -> %x30
+
+# PACDZA  <Xd> (PACDZA-R-auth)
+dac12be0 : pacdza x0                                 : pacdza %x0 -> %x0
+dac12be2 : pacdza x2                                 : pacdza %x2 -> %x2
+dac12be4 : pacdza x4                                 : pacdza %x4 -> %x4
+dac12be6 : pacdza x6                                 : pacdza %x6 -> %x6
+dac12be8 : pacdza x8                                 : pacdza %x8 -> %x8
+dac12be9 : pacdza x9                                 : pacdza %x9 -> %x9
+dac12beb : pacdza x11                                : pacdza %x11 -> %x11
+dac12bed : pacdza x13                                : pacdza %x13 -> %x13
+dac12bef : pacdza x15                                : pacdza %x15 -> %x15
+dac12bf1 : pacdza x17                                : pacdza %x17 -> %x17
+dac12bf3 : pacdza x19                                : pacdza %x19 -> %x19
+dac12bf5 : pacdza x21                                : pacdza %x21 -> %x21
+dac12bf6 : pacdza x22                                : pacdza %x22 -> %x22
+dac12bf8 : pacdza x24                                : pacdza %x24 -> %x24
+dac12bfa : pacdza x26                                : pacdza %x26 -> %x26
+dac12bfe : pacdza x30                                : pacdza %x30 -> %x30
+
+# PACDZB  <Xd> (PACDZB-R-auth)
+dac12fe0 : pacdzb x0                                 : pacdzb %x0 -> %x0
+dac12fe2 : pacdzb x2                                 : pacdzb %x2 -> %x2
+dac12fe4 : pacdzb x4                                 : pacdzb %x4 -> %x4
+dac12fe6 : pacdzb x6                                 : pacdzb %x6 -> %x6
+dac12fe8 : pacdzb x8                                 : pacdzb %x8 -> %x8
+dac12fe9 : pacdzb x9                                 : pacdzb %x9 -> %x9
+dac12feb : pacdzb x11                                : pacdzb %x11 -> %x11
+dac12fed : pacdzb x13                                : pacdzb %x13 -> %x13
+dac12fef : pacdzb x15                                : pacdzb %x15 -> %x15
+dac12ff1 : pacdzb x17                                : pacdzb %x17 -> %x17
+dac12ff3 : pacdzb x19                                : pacdzb %x19 -> %x19
+dac12ff5 : pacdzb x21                                : pacdzb %x21 -> %x21
+dac12ff6 : pacdzb x22                                : pacdzb %x22 -> %x22
+dac12ff8 : pacdzb x24                                : pacdzb %x24 -> %x24
+dac12ffa : pacdzb x26                                : pacdzb %x26 -> %x26
+dac12ffe : pacdzb x30                                : pacdzb %x30 -> %x30
+
+# PACGA   <Xd>, <Xn>, <Xm|SP> (PACGA-R.RR-auth)
+9ac03000 : pacga x0, x0, x0                          : pacga  %x0 %x0 -> %x0
+9ac43062 : pacga x2, x3, x4                          : pacga  %x3 %x4 -> %x2
+9ac630a4 : pacga x4, x5, x6                          : pacga  %x5 %x6 -> %x4
+9ac830e6 : pacga x6, x7, x8                          : pacga  %x7 %x8 -> %x6
+9aca3128 : pacga x8, x9, x10                         : pacga  %x9 %x10 -> %x8
+9acb3149 : pacga x9, x10, x11                        : pacga  %x10 %x11 -> %x9
+9acd318b : pacga x11, x12, x13                       : pacga  %x12 %x13 -> %x11
+9acf31cd : pacga x13, x14, x15                       : pacga  %x14 %x15 -> %x13
+9ad1320f : pacga x15, x16, x17                       : pacga  %x16 %x17 -> %x15
+9ad33251 : pacga x17, x18, x19                       : pacga  %x18 %x19 -> %x17
+9ad53293 : pacga x19, x20, x21                       : pacga  %x20 %x21 -> %x19
+9ad732d5 : pacga x21, x22, x23                       : pacga  %x22 %x23 -> %x21
+9ad832f6 : pacga x22, x23, x24                       : pacga  %x23 %x24 -> %x22
+9ada3338 : pacga x24, x25, x26                       : pacga  %x25 %x26 -> %x24
+9adc337a : pacga x26, x27, x28                       : pacga  %x27 %x28 -> %x26
+9adf33de : pacga x30, x30, sp                        : pacga  %x30 %sp -> %x30
+
+# PACIA1716  (PACIA1716-R-auth)
+d503211f : pacia1716                                 : pacia1716 %x17 %x16 -> %x17
+
+# PACIA   <Xd>, <Xn|SP> (PACIA-R.R-auth)
+dac10000 : pacia x0, x0                              : pacia  %x0 %x0 -> %x0
+dac10062 : pacia x2, x3                              : pacia  %x2 %x3 -> %x2
+dac100a4 : pacia x4, x5                              : pacia  %x4 %x5 -> %x4
+dac100e6 : pacia x6, x7                              : pacia  %x6 %x7 -> %x6
+dac10128 : pacia x8, x9                              : pacia  %x8 %x9 -> %x8
+dac10149 : pacia x9, x10                             : pacia  %x9 %x10 -> %x9
+dac1018b : pacia x11, x12                            : pacia  %x11 %x12 -> %x11
+dac101cd : pacia x13, x14                            : pacia  %x13 %x14 -> %x13
+dac1020f : pacia x15, x16                            : pacia  %x15 %x16 -> %x15
+dac10251 : pacia x17, x18                            : pacia  %x17 %x18 -> %x17
+dac10293 : pacia x19, x20                            : pacia  %x19 %x20 -> %x19
+dac102d5 : pacia x21, x22                            : pacia  %x21 %x22 -> %x21
+dac102f6 : pacia x22, x23                            : pacia  %x22 %x23 -> %x22
+dac10338 : pacia x24, x25                            : pacia  %x24 %x25 -> %x24
+dac1037a : pacia x26, x27                            : pacia  %x26 %x27 -> %x26
+dac103fe : pacia x30, sp                             : pacia  %x30 %sp -> %x30
+
+# PACIASP  (PACIASP-R-auth)
+d503233f : paciasp                                   : paciasp %x30 %sp -> %x30
+
+# PACIAZ   (PACIAZ-R-auth)
+d503231f : paciaz                                    : paciaz %x30 -> %x30
+
+# PACIB1716  (PACIB1716-R-auth)
+d503215f : pacib1716                                 : pacib1716 %x17 %x16 -> %x17
+
+# PACIB   <Xd>, <Xn|SP> (PACIB-R.R-auth)
+dac10400 : pacib x0, x0                              : pacib  %x0 %x0 -> %x0
+dac10462 : pacib x2, x3                              : pacib  %x2 %x3 -> %x2
+dac104a4 : pacib x4, x5                              : pacib  %x4 %x5 -> %x4
+dac104e6 : pacib x6, x7                              : pacib  %x6 %x7 -> %x6
+dac10528 : pacib x8, x9                              : pacib  %x8 %x9 -> %x8
+dac10549 : pacib x9, x10                             : pacib  %x9 %x10 -> %x9
+dac1058b : pacib x11, x12                            : pacib  %x11 %x12 -> %x11
+dac105cd : pacib x13, x14                            : pacib  %x13 %x14 -> %x13
+dac1060f : pacib x15, x16                            : pacib  %x15 %x16 -> %x15
+dac10651 : pacib x17, x18                            : pacib  %x17 %x18 -> %x17
+dac10693 : pacib x19, x20                            : pacib  %x19 %x20 -> %x19
+dac106d5 : pacib x21, x22                            : pacib  %x21 %x22 -> %x21
+dac106f6 : pacib x22, x23                            : pacib  %x22 %x23 -> %x22
+dac10738 : pacib x24, x25                            : pacib  %x24 %x25 -> %x24
+dac1077a : pacib x26, x27                            : pacib  %x26 %x27 -> %x26
+dac107fe : pacib x30, sp                             : pacib  %x30 %sp -> %x30
+
+# PACIBSP  (PACIBSP-R-auth)
+d503237f : pacibsp                                   : pacibsp %x30 %sp -> %x30
+
+# PACIBZ   (PACIBZ-R-auth)
+d503235f : pacibz                                    : pacibz %x30 -> %x30
+
+# PACIZA  <Xd> (PACIZA-R-auth)
+dac123e0 : paciza x0                                 : paciza %x0 -> %x0
+dac123e2 : paciza x2                                 : paciza %x2 -> %x2
+dac123e4 : paciza x4                                 : paciza %x4 -> %x4
+dac123e6 : paciza x6                                 : paciza %x6 -> %x6
+dac123e8 : paciza x8                                 : paciza %x8 -> %x8
+dac123e9 : paciza x9                                 : paciza %x9 -> %x9
+dac123eb : paciza x11                                : paciza %x11 -> %x11
+dac123ed : paciza x13                                : paciza %x13 -> %x13
+dac123ef : paciza x15                                : paciza %x15 -> %x15
+dac123f1 : paciza x17                                : paciza %x17 -> %x17
+dac123f3 : paciza x19                                : paciza %x19 -> %x19
+dac123f5 : paciza x21                                : paciza %x21 -> %x21
+dac123f6 : paciza x22                                : paciza %x22 -> %x22
+dac123f8 : paciza x24                                : paciza %x24 -> %x24
+dac123fa : paciza x26                                : paciza %x26 -> %x26
+dac123fe : paciza x30                                : paciza %x30 -> %x30
+
+# PACIZB  <Xd> (PACIZB-R-auth)
+dac127e0 : pacizb x0                                 : pacizb %x0 -> %x0
+dac127e2 : pacizb x2                                 : pacizb %x2 -> %x2
+dac127e4 : pacizb x4                                 : pacizb %x4 -> %x4
+dac127e6 : pacizb x6                                 : pacizb %x6 -> %x6
+dac127e8 : pacizb x8                                 : pacizb %x8 -> %x8
+dac127e9 : pacizb x9                                 : pacizb %x9 -> %x9
+dac127eb : pacizb x11                                : pacizb %x11 -> %x11
+dac127ed : pacizb x13                                : pacizb %x13 -> %x13
+dac127ef : pacizb x15                                : pacizb %x15 -> %x15
+dac127f1 : pacizb x17                                : pacizb %x17 -> %x17
+dac127f3 : pacizb x19                                : pacizb %x19 -> %x19
+dac127f5 : pacizb x21                                : pacizb %x21 -> %x21
+dac127f6 : pacizb x22                                : pacizb %x22 -> %x22
+dac127f8 : pacizb x24                                : pacizb %x24 -> %x24
+dac127fa : pacizb x26                                : pacizb %x26 -> %x26
+dac127fe : pacizb x30                                : pacizb %x30 -> %x30
+
+# RETAA    (RETAA-R-auth)
+d65f0bff : retaa                                     : retaa  %x30 %sp
+
+# RETAB    (RETAB-R-auth)
+d65f0fff : retab                                     : retab  %x30 %sp
+
+# XPACD   <Xd> (XPACD-R-auth)
+dac147e0 : xpacd x0                                  : xpacd  %x0 -> %x0
+dac147e2 : xpacd x2                                  : xpacd  %x2 -> %x2
+dac147e4 : xpacd x4                                  : xpacd  %x4 -> %x4
+dac147e6 : xpacd x6                                  : xpacd  %x6 -> %x6
+dac147e8 : xpacd x8                                  : xpacd  %x8 -> %x8
+dac147e9 : xpacd x9                                  : xpacd  %x9 -> %x9
+dac147eb : xpacd x11                                 : xpacd  %x11 -> %x11
+dac147ed : xpacd x13                                 : xpacd  %x13 -> %x13
+dac147ef : xpacd x15                                 : xpacd  %x15 -> %x15
+dac147f1 : xpacd x17                                 : xpacd  %x17 -> %x17
+dac147f3 : xpacd x19                                 : xpacd  %x19 -> %x19
+dac147f5 : xpacd x21                                 : xpacd  %x21 -> %x21
+dac147f6 : xpacd x22                                 : xpacd  %x22 -> %x22
+dac147f8 : xpacd x24                                 : xpacd  %x24 -> %x24
+dac147fa : xpacd x26                                 : xpacd  %x26 -> %x26
+dac147fe : xpacd x30                                 : xpacd  %x30 -> %x30
+
+# XPACI   <Xd> (XPACI-R-auth)
+dac143e0 : xpaci x0                                  : xpaci  %x0 -> %x0
+dac143e2 : xpaci x2                                  : xpaci  %x2 -> %x2
+dac143e4 : xpaci x4                                  : xpaci  %x4 -> %x4
+dac143e6 : xpaci x6                                  : xpaci  %x6 -> %x6
+dac143e8 : xpaci x8                                  : xpaci  %x8 -> %x8
+dac143e9 : xpaci x9                                  : xpaci  %x9 -> %x9
+dac143eb : xpaci x11                                 : xpaci  %x11 -> %x11
+dac143ed : xpaci x13                                 : xpaci  %x13 -> %x13
+dac143ef : xpaci x15                                 : xpaci  %x15 -> %x15
+dac143f1 : xpaci x17                                 : xpaci  %x17 -> %x17
+dac143f3 : xpaci x19                                 : xpaci  %x19 -> %x19
+dac143f5 : xpaci x21                                 : xpaci  %x21 -> %x21
+dac143f6 : xpaci x22                                 : xpaci  %x22 -> %x22
+dac143f8 : xpaci x24                                 : xpaci  %x24 -> %x24
+dac143fa : xpaci x26                                 : xpaci  %x26 -> %x26
+dac143fe : xpaci x30                                 : xpaci  %x30 -> %x30
+
+# XPACLRI  (XPACLRI-R-auth)
+d50320ff : xpaclri                                   : xpaclri %x30 -> %x30
+
