@@ -84,7 +84,6 @@ protected:
             last_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
         }
         memtrace_stream_t *stream = nullptr;
-
         memref_t prev_entry_ = {};
         memref_t prev_instr_ = {};
         std::unique_ptr<instr_t> prev_instr_decoded_ = nullptr;
