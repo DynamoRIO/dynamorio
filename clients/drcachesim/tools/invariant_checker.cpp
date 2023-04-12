@@ -392,33 +392,38 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // B) Change the signal check to compare the handler return point to the
             // marker value, not to the pre-signal instruction fetch
 
-            const bool condition =
-                ((memref.instr.addr == shard->prev_xfer_int_pc_.top() ||
-                  // DR hands us a different address for sysenter than the
-                  // resumption point.
-                  shard->pre_signal_instr_.top().instr.type ==
-                      TRACE_TYPE_INSTR_SYSENTER) &&
-                 (
-                     // Skip pre_signal_instr_ check if there was no such instr.
-                     shard->pre_signal_instr_.top().instr.addr == 0 ||
-                     memref.instr.addr == shard->pre_signal_instr_.top().instr.addr ||
-                     // Asynch will go to the subsequent instr.
-                     memref.instr.addr ==
-                         shard->pre_signal_instr_.top().instr.addr +
-                             shard->pre_signal_instr_.top().instr.size ||
-                     // Too hard to figure out branch targets.  We have the
-                     // prev_xfer_int_pc_ though.
-                     type_is_instr_branch(shard->pre_signal_instr_.top().instr.type) ||
-                     shard->pre_signal_instr_.top().instr.type ==
-                         TRACE_TYPE_INSTR_SYSENTER)) ||
-                // Nested signal.  XXX: This only works for our annotated test
-                // signal_invariants where we know shard->app_handler_pc_.
-                memref.instr.addr == shard->app_handler_pc_ ||
-                // Marker for rseq abort handler.  Not as unique as a prefetch, but
-                // we need an instruction and not a data type.
-                memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP;
+            if (non_explicit_flow_violation_msg.empty()) {
+                const bool condition =
+                    ((memref.instr.addr == shard->prev_xfer_int_pc_.top() ||
+                      // DR hands us a different address for sysenter than the
+                      // resumption point.
+                      shard->pre_signal_instr_.top().instr.type ==
+                          TRACE_TYPE_INSTR_SYSENTER) &&
+                     (
+                         // Skip pre_signal_instr_ check if there was no such instr.
+                         shard->pre_signal_instr_.top().instr.addr == 0 ||
+                         memref.instr.addr == shard->pre_signal_instr_.top().instr.addr ||
+                         // Asynch will go to the subsequent instr.
+                         memref.instr.addr ==
+                             shard->pre_signal_instr_.top().instr.addr +
+                                 shard->pre_signal_instr_.top().instr.size ||
+                         // Too hard to figure out branch targets.  We have the
+                         // prev_xfer_int_pc_ though.
+                         type_is_instr_branch(
+                             shard->pre_signal_instr_.top().instr.type) ||
+                         shard->pre_signal_instr_.top().instr.type ==
+                             TRACE_TYPE_INSTR_SYSENTER)) ||
+                    // Nested signal.  XXX: This only works for our annotated test
+                    // signal_invariants where we know shard->app_handler_pc_.
+                    memref.instr.addr == shard->app_handler_pc_ ||
+                    // Marker for rseq abort handler.  Not as unique as a prefetch, but
+                    // we need an instruction and not a data type.
+                    memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP;
 
-            report_if_false(shard, condition, "Signal handler return point incorrect");
+                report_if_false(shard, condition,
+                                "Signal handler return point incorrect");
+            }
+
             // We assume paired signal entry-exit (so no longjmp and no rseq
             // inside signal handlers).
             shard->prev_xfer_int_pc_.pop();
@@ -668,8 +673,9 @@ invariant_checker_t::check_for_pc_discontinuity(per_shard_t *shard,
             (shard->prev_xfer_marker_.instr.tid != 0 &&
              (shard->prev_xfer_marker_.marker.marker_type ==
                   TRACE_MARKER_TYPE_KERNEL_EVENT ||
-              shard->prev_xfer_marker_.marker.marker_type ==
-                  TRACE_MARKER_TYPE_KERNEL_XFER)) ||
+              (shard->prev_xfer_marker_.marker.marker_type ==
+                   TRACE_MARKER_TYPE_KERNEL_XFER &&
+               shard->prev_xfer_int_pc_.top() == memref.instr.addr))) ||
             // We expect a gap on a window transition.
             shard->window_transition_ ||
             shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
