@@ -227,6 +227,8 @@ Further non-compatibility-affecting changes include:
    query key attributes of each input trace.
  - Added instr_create_1dst_6src() convenience function that returns an instr_t
    with one destination and six sources.
+ - Added a new label to help in handling "rseq" (Linux restartable sequence) regions:
+   #DR_NOTE_RSEQ_ENTRY.
 
 **************************************************
 <hr>
