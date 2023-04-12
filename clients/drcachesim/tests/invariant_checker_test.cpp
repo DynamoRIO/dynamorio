@@ -216,13 +216,14 @@ check_sane_control_flow()
 #    if defined(X86_64) || defined(X86_32)
             // 0x74 is "je" with the 2nd byte the offset.
             gen_branch_encoded(1, 0x71019dbc, { 0x74, 0x32 }),
+            gen_instr_encoded(0x71019ded, { 0x01 }),
 #    elif defined(ARM_64)
             // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
             gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
+            gen_instr_encoded(0x71019ded, 0x01),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
-            gen_instr(1, 20),
         };
 
         if (!run_checker(memrefs, true, 1, 3,

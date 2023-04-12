@@ -340,16 +340,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         std::unique_ptr<instr_t> cur_instr_decoded = nullptr;
-        if (expect_encoding && memref.instr.encoding_is_new) {
+        if (expect_encoding) {
             cur_instr_decoded.reset(new instr_t);
             instr_init(GLOBAL_DCONTEXT, cur_instr_decoded.get());
-            app_pc next_pc = nullptr;
-            next_pc = decode_from_copy(
+            app_pc next_pc = decode_from_copy(
                 GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
                 reinterpret_cast<app_pc>(memref.instr.addr), cur_instr_decoded.get());
             if (next_pc == nullptr) {
                 instr_free(GLOBAL_DCONTEXT, cur_instr_decoded.get());
                 cur_instr_decoded.reset(nullptr);
+                instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
+                shard->prev_instr_decoded_.reset(nullptr);
             }
         }
         if (knob_verbose_ >= 3) {
@@ -386,50 +387,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                     TRACE_MARKER_TYPE_KERNEL_EVENT,
                             "Branch target not immediately after branch");
         }
-        // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
-        // by markers.
-        bool have_cond_branch_target = false;
-        addr_t cond_branch_target = 0;
-        if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
-            type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
-            expect_encoding) {
-            // We do not bother to support legacy traces without encodings.
-            if (shard->prev_instr_.instr.encoding_is_new)
-                shard->branch_target_cache.erase(shard->prev_instr_.instr.addr);
-            auto cached = shard->branch_target_cache.find(shard->prev_instr_.instr.addr);
-            if (cached != shard->branch_target_cache.end()) {
-                have_cond_branch_target = true;
-                cond_branch_target = cached->second;
-            } else {
-                if (shard->prev_instr_decoded_ == nullptr ||
-                    !opnd_is_pc(instr_get_target(shard->prev_instr_decoded_.get()))) {
-                    // Neither condition should happen but they could on an invalid
-                    // encoding from raw2trace or the reader so we report an
-                    // invariant rather than asserting.
-                    report_if_false(shard, false, "Branch target is not decodeable");
-                } else {
-                    have_cond_branch_target = true;
-                    cond_branch_target = reinterpret_cast<addr_t>(
-                        opnd_get_pc(instr_get_target(shard->prev_instr_decoded_.get())));
-                    shard->branch_target_cache[shard->prev_instr_.instr.addr] =
-                        cond_branch_target;
-                }
-            }
-        }
-        bool saw_repeated_syscall_instrs_with_same_pc = false;
-        if (cur_instr_decoded != nullptr && shard->prev_instr_decoded_ != nullptr &&
-            shard->prev_instr_.instr.addr != 0 /*first*/ &&
-            instr_is_syscall(cur_instr_decoded.get()) &&
-            memref.instr.addr == shard->prev_instr_.instr.addr &&
-            instr_is_syscall(shard->prev_instr_decoded_.get())) {
-            // Set this flag so that repeated syscalls are not
-            // double reporeted as other PC discontinuity below.
-            saw_repeated_syscall_instrs_with_same_pc = true;
-            report_if_false(shard, false, "Repeated syscall instrs with the same PC");
-        }
-        const std::string non_explicit_flow_violation_msg = check_for_pc_discontinuity(
-            shard, memref, saw_repeated_syscall_instrs_with_same_pc,
-            have_cond_branch_target, cond_branch_target);
+        const std::string non_explicit_flow_violation_msg =
+            check_for_pc_discontinuity(shard, memref, cur_instr_decoded, expect_encoding);
         report_if_false(shard, non_explicit_flow_violation_msg.empty(),
                         non_explicit_flow_violation_msg);
 
@@ -657,10 +616,49 @@ invariant_checker_t::print_results()
 std::string
 invariant_checker_t::check_for_pc_discontinuity(
     per_shard_t *shard, const memref_t &memref,
-    const bool saw_repeated_syscall_instrs_with_same_pc,
-    const bool have_cond_branch_target, const addr_t cond_branch_target)
+    const std::unique_ptr<instr_t> &cur_instr_decoded, const bool expect_encoding)
 {
     std::string error_msg = "";
+    // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
+    // by markers.
+    bool have_cond_branch_target = false;
+    addr_t cond_branch_target = 0;
+    if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
+        // We do not bother to support legacy traces without encodings.
+        expect_encoding && type_is_instr_direct_branch(shard->prev_instr_.instr.type)) {
+        if (shard->prev_instr_.instr.encoding_is_new)
+            shard->branch_target_cache.erase(shard->prev_instr_.instr.addr);
+        auto cached = shard->branch_target_cache.find(shard->prev_instr_.instr.addr);
+        if (cached != shard->branch_target_cache.end()) {
+            have_cond_branch_target = true;
+            cond_branch_target = cached->second;
+        } else {
+            if (shard->prev_instr_decoded_ == nullptr ||
+                !opnd_is_pc(instr_get_target(shard->prev_instr_decoded_.get()))) {
+                // Neither condition should happen but they could on an invalid
+                // encoding from raw2trace or the reader so we report an
+                // invariant rather than asserting.
+                error_msg = "Branch target is not decodeable";
+            } else {
+                have_cond_branch_target = true;
+                cond_branch_target = reinterpret_cast<addr_t>(
+                    opnd_get_pc(instr_get_target(shard->prev_instr_decoded_.get())));
+                shard->branch_target_cache[shard->prev_instr_.instr.addr] =
+                    cond_branch_target;
+            }
+        }
+    }
+    bool saw_repeated_syscall_instrs_with_same_pc = false;
+    if (cur_instr_decoded != nullptr && shard->prev_instr_decoded_ != nullptr &&
+        shard->prev_instr_.instr.addr != 0 /*first*/ &&
+        instr_is_syscall(cur_instr_decoded.get()) &&
+        memref.instr.addr == shard->prev_instr_.instr.addr &&
+        instr_is_syscall(shard->prev_instr_decoded_.get())) {
+        // Set this flag so that repeated syscalls are not
+        // double reporeted as other PC discontinuity below.
+        saw_repeated_syscall_instrs_with_same_pc = true;
+        error_msg = "Repeated syscall instrs with the same PC";
+    }
     if (shard->prev_instr_.instr.addr != 0 /*first*/) {
         // Check for all valid transitions except taken branches. We consider taken
         // branches later so that we can provide a different message for those

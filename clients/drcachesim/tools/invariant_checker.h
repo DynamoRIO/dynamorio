@@ -140,9 +140,8 @@ protected:
     // for such violations.
     std::string
     check_for_pc_discontinuity(per_shard_t *shard, const memref_t &memref,
-                               const bool saw_repeated_syscall_instrs_with_same_pc,
-                               const bool have_cond_branch_target,
-                               const addr_t cond_branch_target);
+                               const std::unique_ptr<instr_t> &cur_instr_decoded,
+                               const bool expect_encoding);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
