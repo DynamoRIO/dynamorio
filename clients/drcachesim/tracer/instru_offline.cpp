@@ -790,11 +790,14 @@ offline_instru_t::instrument_rseq_entry(void *drcontext, instrlist_t *ilist,
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     // We may need 2 entries for our marker.  We write the entry
-    // marker with payload data[0]==rseq end.  We don't need data[1]==rseq handler
-    // in raw2trace so we do not bother to emit a marker for it.
+    // marker with payload data[0]==rseq end.
+    // TODO i#4041: We don't need data[1]==rseq handler in raw2trace now, but
+    // we will need it once we udpate i#4041, so at that point we'll need to
+    // emit a new marker here for that.
+    static constexpr int RSEQ_LABEL_END_PC_INDEX = 0;
     offline_entry_t entries[2];
-    int size =
-        append_marker((byte *)entries, TRACE_MARKER_TYPE_RSEQ_ENTRY, data->data[0]);
+    int size = append_marker((byte *)entries, TRACE_MARKER_TYPE_RSEQ_ENTRY,
+                             data->data[RSEQ_LABEL_END_PC_INDEX]);
     DR_ASSERT(size % sizeof(offline_entry_t) == 0);
     size /= sizeof(offline_entry_t);
     DR_ASSERT(size <= static_cast<int>(sizeof(entries)));

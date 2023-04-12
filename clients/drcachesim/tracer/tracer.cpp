@@ -1056,7 +1056,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     }
 
     bool needs_instru = false;
-    if (instr_is_label(instr) && instr_get_note(instr) == (void *)DR_NOTE_RSEQ_ENTRY) {
+    bool instr_is_rseq_entry_label =
+        instr_is_label(instr) && instr_get_note(instr) == (void *)DR_NOTE_RSEQ_ENTRY;
+    if (instr_is_rseq_entry_label) {
         needs_instru = true;
     }
 
@@ -1187,7 +1189,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         ud->strex = NULL;
     }
 
-    if (instr_is_label(instr) && instr_get_note(instr) == (void *)DR_NOTE_RSEQ_ENTRY) {
+    if (instr_is_rseq_entry_label) {
         adjust =
             instru->instrument_rseq_entry(drcontext, bb, where, instr, reg_ptr, adjust);
     }

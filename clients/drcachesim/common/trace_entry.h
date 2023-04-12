@@ -425,6 +425,11 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_FILTER_ENDPOINT,
 
+    // We use one marker at the start whose data is the end, instead of a separate
+    // marker at the end PC, as this seems easier for users to process as they can plan
+    // ahead. Also, when the rseq aborted, if we had the marker at the committing store
+    // the user would then not know where it was supposed to be as it would not be
+    // present.
     /**
      * Indicates the start of an "rseq" (Linux restartable sequence) region.  The marker
      * value holds the end PC of the region (this is the PC after the committing store).
@@ -483,7 +488,10 @@ type_is_prefetch(const trace_type_t type)
         type == TRACE_TYPE_HARDWARE_PREFETCH;
 }
 
-/** Returns whether the type contains an address. */
+/**
+ * Returns whether the type contains an address.  This includes both instruction
+ * fetches and instruction operands.
+ */
 static inline bool
 type_has_address(const trace_type_t type)
 {
@@ -494,7 +502,11 @@ type_has_address(const trace_type_t type)
         type == TRACE_TYPE_DATA_FLUSH || type == TRACE_TYPE_DATA_FLUSH_END;
 }
 
-/** Returns whether the type represents an operand of an instruction. */
+/**
+ * Returns whether the type represents an address operand of an instruction.
+ * This is a subset of type_has_address() as type_has_address() includes
+ * instruction fetches.
+ */
 static inline bool
 type_is_data(const trace_type_t type)
 {

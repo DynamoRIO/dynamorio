@@ -570,6 +570,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
             if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
                 log(4, "Signal/exception between bbs\n");
+                // An rseq abort due to a signal has no rseq event but only a kernel
+                // event; thus we look for aborts on a signal in an rseq region.
                 if (tdata->rseq_past_end_) {
                     err = adjust_and_emit_rseq_buffer(tdata, marker_val);
                     if (!err.empty())
@@ -1266,7 +1268,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                     tdata->rseq_branch_targets_.emplace_back(
                         orig_pc, instr->branch_target_pc(),
                         // The branch may be delayed so this index may point to
-                        // markers that will precede the branch.
+                        // markers that will precede the branch.  The using code
+                        // will walk it forward to the branch.
                         static_cast<int>(tdata->rseq_buffer_.size()));
                 }
                 if (reinterpret_cast<addr_t>(orig_pc) + instr->length() ==
@@ -1923,7 +1926,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
                 return error;
             if (exists) {
                 // Uh-oh, we've already seen this PC!  We don't cache the actual
-                // encoding though so we can't try to use the real instrutions;
+                // encoding though so we can't try to use the real instructions;
                 // we don't bail because this seems like it could easily happen;
                 // instead we pretend the code changed, and we throw the jump
                 // encoding out so it will change back if we see this PC again.
