@@ -318,6 +318,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: rseq region abort handler is 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
+        case TRACE_MARKER_TYPE_RSEQ_ENTRY:
+            std::cerr << "<marker: rseq entry with end at 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
         case TRACE_MARKER_TYPE_KERNEL_XFER:
             if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
                 // Legacy traces just have the module offset.
