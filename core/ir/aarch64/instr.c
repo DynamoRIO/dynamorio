@@ -388,6 +388,14 @@ instr_predicate_is_cond(dr_pred_type_t pred)
     return pred != DR_PRED_NONE && pred != DR_PRED_AL && pred != DR_PRED_NV;
 }
 
+/* Segmenting not available on AArch64
+ */
+bool
+reg_is_segment(reg_id_t reg)
+{
+    return false;
+}
+
 bool
 reg_is_gpr(reg_id_t reg)
 {

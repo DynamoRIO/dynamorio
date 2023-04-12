@@ -162,6 +162,198 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 #endif
 }
 
+#ifdef AARCH64
+/* TODO optimisation: check if this needs to be done more thoroughly
+ * via encoding scheme
+ */
+bool
+is_mem_imm_invalid(int64 disp)
+{
+    return (disp = -256 || disp > 255);
+}
+
+/* Idea is to add or subtract a mem addresses disp,
+ * into its base register, in the case the range is too far
+ * for the instruction without the use of a another index register.
+ */
+void
+mem_access_fixer(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t mem, bool before)
+{
+    // If it has an index reg we dont have a disp?
+    if (opnd_get_index(mem) != DR_REG_NULL)
+        return;
+
+    reg_id_t mem_base_reg = opnd_get_base(mem);
+
+    int64 disp = opnd_get_disp(mem);
+
+    bool disp_invalid = is_mem_imm_invalid(disp);
+
+    if (disp_invalid) {
+        uint shifted = 0;
+        uint missed = 0;
+        uint shift_amount = 0;
+        for (int i = 0; i < 6; i++) {
+            int mask = i < 5 ? 0xfff : 0xf;
+            if (((disp >> (12 * i)) & mask) != 0) {
+                shift_amount += 12 * missed;
+
+                if (shift_amount > 0) {
+                    PRE(bb, inst,
+                        INSTR_CREATE_ror_imm(drcontext, opnd_create_reg(mem_base_reg),
+                                             opnd_create_reg(mem_base_reg),
+                                             OPND_CREATE_INT8(shift_amount)));
+                }
+                shifted += shift_amount;
+                shift_amount = 12;
+                missed = 0;
+
+                if (before) {
+                    PRE(bb, inst,
+                        INSTR_CREATE_add(drcontext, opnd_create_reg(mem_base_reg),
+                                         opnd_create_reg(mem_base_reg),
+                                         OPND_CREATE_INT16((disp >> 12 * i) & mask)));
+                } else {
+                    PRE(bb, inst,
+                        INSTR_CREATE_sub(drcontext, opnd_create_reg(mem_base_reg),
+                                         opnd_create_reg(mem_base_reg),
+                                         OPND_CREATE_INT16((disp >> 12 * i) & mask)));
+                }
+            } else {
+                missed++;
+            }
+        }
+        if (shifted > 0 && 64 - shifted > 0) {
+            PRE(bb, inst,
+                INSTR_CREATE_ror_imm(drcontext, opnd_create_reg(mem_base_reg),
+                                     opnd_create_reg(mem_base_reg),
+                                     OPND_CREATE_INT8(64 - shifted)));
+        }
+    }
+}
+
+/* Instruments the store of a memory reference to a register,
+ * with operand size detection and overcomes a displacement being
+ * too far for to be encoded in a single instruction,
+ * without the use of a another index register.
+ */
+void
+mov_str_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst, opnd_t src)
+{
+
+    if (!opnd_is_memory_reference(dst) || !opnd_is_reg(src)) {
+        ASSERT_NOT_IMPLEMENTED(
+            "can only store to a memory address from a register on aarch64");
+    }
+
+    opnd_t src_tmp = opnd_create_reg(reg_to_pointer_sized(opnd_get_reg(src)));
+
+    opnd_t dst_tmp = dst;
+
+    mem_access_fixer(drcontext, bb, inst, dst, true);
+
+    if (is_mem_imm_invalid(opnd_get_disp(dst))) {
+        dst_tmp = opnd_create_base_disp_aarch64(opnd_get_base(dst), DR_REG_NULL, 0, false,
+                                                0, 0, opnd_get_size(dst));
+    }
+
+    instr_t *str_instr;
+
+    if (opnd_get_size(dst) == OPSZ_4) {
+        str_instr = INSTR_CREATE_str(
+            drcontext, dst_tmp, opnd_create_reg(reg_64_to_32(opnd_get_reg(src_tmp))));
+    } else if (opnd_get_size(dst) == OPSZ_2) {
+        str_instr = INSTR_CREATE_strh(
+            drcontext, dst_tmp, opnd_create_reg(reg_64_to_32(opnd_get_reg(src_tmp))));
+    } else if (opnd_get_size(dst) == OPSZ_1) {
+        str_instr = INSTR_CREATE_strb(
+            drcontext, dst_tmp, opnd_create_reg(reg_64_to_32(opnd_get_reg(src_tmp))));
+    } else
+        str_instr = INSTR_CREATE_str(drcontext, dst_tmp, src_tmp);
+
+    PRE(bb, inst, str_instr);
+
+    mem_access_fixer(drcontext, bb, inst, dst, false);
+}
+
+/* Instruments the load of a memory reference to a register,
+ * with operand size detection and overcomes a displacement being
+ * too far for to be encoded in a single instruction,
+ * without the use of a another index register.
+ */
+void
+mov_ldr_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst, opnd_t src)
+{
+    if (!opnd_is_memory_reference(src) || !opnd_is_reg(dst))
+        ASSERT_NOT_IMPLEMENTED("Can only load from a memory address into a register");
+
+    dst = opnd_create_reg(reg_to_pointer_sized(opnd_get_reg(dst)));
+
+    if (opnd_is_instr(src)) {
+        ASSERT_NOT_IMPLEMENTED(
+            "saving an instruction address to a register not available, yet.");
+    }
+
+    if (opnd_is_reg(dst) && (opnd_is_immed(src))) {
+        instrlist_insert_mov_immed_ptrsz(drcontext, opnd_get_immed_int(src), dst, bb,
+                                         inst, NULL, NULL);
+        return;
+    }
+
+    opnd_t src_tmp = src;
+
+    mem_access_fixer(drcontext, bb, inst, src, true);
+
+    if (is_mem_imm_invalid(opnd_get_disp(src))) {
+        src_tmp = opnd_create_base_disp_aarch64(opnd_get_base(src), DR_REG_NULL, 0, false,
+                                                0, 0, opnd_get_size(src));
+    }
+
+    instr_t *ldr_instr;
+
+    if (opnd_get_size(src) == OPSZ_4) {
+        ldr_instr = INSTR_CREATE_ldr(
+            drcontext, opnd_create_reg(reg_64_to_32(opnd_get_reg(dst))), src_tmp);
+    } else if (opnd_get_size(src) == OPSZ_2) {
+        ldr_instr = INSTR_CREATE_ldrh(
+            drcontext, opnd_create_reg(reg_64_to_32(opnd_get_reg(dst))), src_tmp);
+    } else if (opnd_get_size(src) == OPSZ_1) {
+        ldr_instr = INSTR_CREATE_ldrb(
+            drcontext, opnd_create_reg(reg_64_to_32(opnd_get_reg(dst))), src_tmp);
+    } else
+        ldr_instr = INSTR_CREATE_ldr(drcontext, dst, src_tmp);
+
+    PRE(bb, inst, ldr_instr);
+
+    mem_access_fixer(drcontext, bb, inst, src, false);
+}
+
+/* Instruments a branch to a specific value, allowing for the value
+ * operand to be supplied inside a register, immidiate,
+ */
+void
+branch_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst)
+{
+    // Clobbering r20 further work needed to unreserve from branch?
+    reg_id_t tmp = DR_REG_R20;
+    if (opnd_is_reg(dst)) {
+        PRE(bb, inst, INSTR_CREATE_br(drcontext, dst));
+    } else if (opnd_is_immed(dst) || opnd_is_instr(dst)) {
+        instrlist_insert_mov_immed_ptrsz(drcontext, opnd_get_immed_int(dst),
+                                         opnd_create_reg(tmp), bb, inst, NULL, NULL);
+        PRE(bb, inst, INSTR_CREATE_br(drcontext, opnd_create_reg(tmp)));
+    } else if (opnd_is_pc(dst)) {
+        // must be less than 128MB away..
+        PRE(bb, inst, INSTR_CREATE_b(drcontext, dst));
+    } else if (opnd_is_memory_reference(dst)) {
+        mov_ldr_aarch64(drcontext, bb, inst, opnd_create_reg(tmp), dst);
+        PRE(bb, inst, INSTR_CREATE_blr(drcontext, opnd_create_reg(tmp)));
+    } else {
+        ASSERT_NOT_IMPLEMENTED("unkown branch type");
+    }
+}
+#endif
+
 /* Keep this in sync with patch_mov_immed_arch(). */
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,

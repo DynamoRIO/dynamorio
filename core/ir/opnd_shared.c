@@ -2211,7 +2211,8 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
         *(reg_t *)val = regval;
     }
 #else
-    CLIENT_ASSERT(false, "NYI i#1551");
+    reg_t regval = reg_get_value(reg, mc);
+    *(reg_t *)val = regval;
 #endif
     return true;
 }

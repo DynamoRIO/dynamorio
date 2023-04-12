@@ -996,6 +996,34 @@ bool
 dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src);
 #endif
 
+#ifdef AARCH64
+// TODO: rename functions. The INSTR_CREATE_XXX macros dont seem sufficient.
+/* Instruments the store of a memory reference to a register,
+ * with operand size detection and overcomes a displacement being
+ * too far for to be encoded in a single instruction,
+ * without the use of a another index register.
+ */
+DR_API
+void
+mov_str_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst, opnd_t src);
+
+/* Instruments the load of a memory reference to a register,
+ * with operand size detection and overcomes a displacement being
+ * too far for to be encoded in a single instruction,
+ * without the use of a another index register.
+ */
+DR_API
+void
+mov_ldr_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst, opnd_t src);
+
+/* Instruments a branch to a specific value, allowing for the value
+ * operand to be supplied inside a register, immidiate,
+ */
+DR_API
+void
+branch_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst);
+#endif
+
 DR_API
 /**
  * Create meta instructions for storing pointer-size integer \p val to \p dst,
