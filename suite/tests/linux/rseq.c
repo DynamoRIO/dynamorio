@@ -1135,25 +1135,22 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
         /* The interrupted context should be identical, including the pc now
          * that DR passes the abort handler PC just like the kernel does.
          */
-        assert(info->source_mcontext->pc == mc.pc);
 #    ifdef X86
-        assert(info->source_mcontext->xax == mc.xax);
-        assert(info->source_mcontext->xcx == mc.xcx);
-        assert(info->source_mcontext->xdx == mc.xdx);
-        assert(info->source_mcontext->xbx == mc.xbx);
-        assert(info->source_mcontext->xsi == mc.xsi);
-        assert(info->source_mcontext->xdi == mc.xdi);
-        assert(info->source_mcontext->xbp == mc.xbp);
-        assert(info->source_mcontext->xsp == mc.xsp);
+        /* This compares the GPR's plus flags and PC. */
+        assert(memcmp(&info->source_mcontext->xdi, &mc.xdi,
+                      (byte *)&mc.padding - (byte *)&mc.xdi) == 0);
 #    elif defined(AARCH64)
+        assert(info->source_mcontext->pc == mc.pc);
         assert(memcmp(&info->source_mcontext->r0, &mc.r0, sizeof(mc.r0) * 32) == 0);
 #    else
 #        error Unsupported arch
 #    endif
 #    ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
-        /* Check that the interrupted PC for the true abort case is the handler. */
-        assert(!in_rseq_migration_test ||
-               info->source_mcontext->pc == (app_pc)test_rseq_native_abort_handler);
+        /* Check that the interrupted PC for the true abort case is the handler.
+         * We could check this for every test if we wrote the expected handler
+         * into a global or something: does not seem worth the extra code.
+         */
+        assert(info->source_mcontext->pc == (app_pc)test_rseq_native_abort_handler);
 #    endif
     }
 }

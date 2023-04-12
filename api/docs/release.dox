@@ -157,7 +157,8 @@ changes:
    decode "retaa" and "retab". These instructions will now encode and decode correctly
    as "retaa" and "retab".
  - Changed the interrupted PC for #DR_XFER_RSEQ_ABORT and a signal generated during
-   an rseq region to be the abort handler rather than the committing store.
+   an rseq region to be the abort handler rather than the committing store,
+   matching the kernel behavior.
  - Added a #DR_XFER_RSEQ_ABORT event for a signal generated during an rseq region.
 
 Further non-compatibility-affecting changes include:
