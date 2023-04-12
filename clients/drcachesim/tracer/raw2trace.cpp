@@ -568,10 +568,13 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 return err;
             buf += trace_metadata_writer_t::write_marker(
                 buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
-            if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 log(4, "Signal/exception between bbs\n");
                 if (tdata->rseq_past_end_) {
-                    err = adjust_and_emit_rseq_buffer(tdata, marker_val);
+                    err = adjust_and_emit_rseq_buffer(tdata, marker_val,
+                                                      in_entry->extended.valueB ==
+                                                          TRACE_MARKER_TYPE_RSEQ_ABORT);
                     if (!err.empty())
                         return err;
                 }
@@ -581,6 +584,9 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 tdata->rseq_ever_saw_entry_ = true;
                 tdata->rseq_buffering_enabled_ = true;
                 tdata->rseq_end_pc_ = marker_val;
+            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_HANDLER) {
+                log(4, "Rseq handler is 0x%zx\n", marker_val);
+                tdata->rseq_handler_pc_ = marker_val;
             }
             // If there is currently a delayed branch that has not been emitted yet,
             // delay most markers since intra-block markers can cause issues with
@@ -1483,7 +1489,11 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
                 if (marker_val == cur_offs)
                     at_interrupted_pc = true;
             } else {
-                if (marker_val == cur_pc)
+                if (marker_val == cur_pc ||
+                    // Rseq abort events now give us the handler PC as the interrupted PC.
+                    // We insert the signal at the commit PC as we have no further info.
+                    (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT &&
+                     tdata->rseq_buffering_enabled_ && cur_pc == tdata->rseq_commit_pc_))
                     at_interrupted_pc = true;
             }
             if (!tdata->rseq_ever_saw_entry_ &&
@@ -1501,7 +1511,9 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
             if (marker_val == 0 || at_interrupted_pc || legacy_rseq_rollback) {
                 log(4, "Signal/exception interrupted the bb @ %p\n", cur_pc);
                 if (tdata->rseq_past_end_) {
-                    err = adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc));
+                    err = adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
+                                                      in_entry->extended.valueB ==
+                                                          TRACE_MARKER_TYPE_RSEQ_ABORT);
                     if (!err.empty())
                         return err;
                 }
@@ -1813,7 +1825,8 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
 }
 
 std::string
-raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc)
+raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc,
+                                         bool at_abort_marker)
 {
     log(4, "--- Rseq region exited at %p ---\n", next_pc);
     if (verbosity_ >= 4) {
@@ -1832,12 +1845,11 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
         // up on distinguishing a side exit whose target is the end PC fall-through from
         // a completion.
         log(4, "Rseq completed normally\n");
-    }
-    // We actually won't see the handler PC as the rseq abort event has the
-    // commit PC and we have it call here and don't wait for a subsequent
-    // instr (or signal interruption) to find the handler PC; so here it's
-    // not really the "next_pc" but the "exit_pc".
-    else if (next_pc == tdata->rseq_commit_pc_) {
+    } else if ((at_abort_marker && next_pc == tdata->rseq_handler_pc_) ||
+               // Old traces have the commit PC instead of the handler in the abort and
+               // signal events (so not really the "next_pc" but the "exit_pc") and
+               // don't have abort events on a signal aborting an rseq region.
+               next_pc == tdata->rseq_commit_pc_) {
         // An abort.  It could have aborted earlier but we have no way of knowing
         // so we do the simplest thing and only roll back the committing store.
         log(4, "Rseq aborted\n");
@@ -1947,6 +1959,8 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
 
     tdata->rseq_past_end_ = false;
     tdata->rseq_commit_pc_ = 0;
+    tdata->rseq_end_pc_ = 0;
+    tdata->rseq_handler_pc_ = 0;
     tdata->rseq_buffer_.clear();
     tdata->rseq_commit_idx_ = -1;
     tdata->rseq_branch_targets_.clear();
@@ -2515,6 +2529,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         if (!error.empty())
             return error;
     }
+    log(4, "Chunk instr count is now " UINT64_FORMAT_STRING "\n",
+        tdata->cur_chunk_instr_count);
     return "";
 }
 

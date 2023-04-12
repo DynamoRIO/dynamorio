@@ -802,6 +802,14 @@ offline_instru_t::instrument_rseq_entry(void *drcontext, instrlist_t *ilist,
         adjust += insert_save_entry(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
                                     &entries[i]);
     }
+    size = append_marker((byte *)entries, TRACE_MARKER_TYPE_RSEQ_HANDLER, data->data[1]);
+    DR_ASSERT(size % sizeof(offline_entry_t) == 0);
+    size /= sizeof(offline_entry_t);
+    DR_ASSERT(size <= static_cast<int>(sizeof(entries)));
+    for (int i = 0; i < size; i++) {
+        adjust += insert_save_entry(drcontext, ilist, where, reg_ptr, reg_tmp, adjust,
+                                    &entries[i]);
+    }
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     return adjust;

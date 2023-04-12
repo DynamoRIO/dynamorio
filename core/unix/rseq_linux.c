@@ -852,12 +852,14 @@ rseq_process_native_abort(dcontext_t *dcontext)
                              (void **)&info)) {
         /* An artifact of our run-twice solution is that clients have already seen
          * the whole sequence when any abort anywhere in the native execution occurs.
-         * We thus give the source PC as the final instr in the region, and use the
-         * target context as the rest of the context.
+         * We leave it up to the client to roll back at least the final instr.
+         * Since we don't know the interrupted PC (the kernel doesn't tell us), we
+         * do what the kernel does and present the abort handler as the PC.
+         * We similarly use the target context for the rest of the context.
          */
         source_mc = HEAP_TYPE_ALLOC(dcontext, priv_mcontext_t, ACCT_CLIENT, PROTECTED);
         *source_mc = *get_mcontext(dcontext);
-        source_mc->pc = info->final_instr_pc;
+        source_mc->pc = info->handler;
     }
     get_mcontext(dcontext)->pc = dcontext->next_tag;
     if (instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, osc_empty, NULL, source_mc,

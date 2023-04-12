@@ -948,6 +948,7 @@ protected:
         bool rseq_past_end_ = false;
         addr_t rseq_commit_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
+        addr_t rseq_handler_pc_ = 0;
         std::vector<trace_entry_t> rseq_buffer_;
         int rseq_commit_idx_ = -1; // Index into rseq_buffer_.
         std::vector<branch_info_t> rseq_branch_targets_;
@@ -1157,7 +1158,8 @@ private:
     // Writes out the buffered entries for an rseq region, after rolling back to
     // a side exit or abort if necessary.
     std::string
-    adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc);
+    adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc,
+                                bool at_abort_marker = false);
 
     // Removes entries from tdata->rseq_buffer_ between and including the instructions
     // starting at or after remove_start_rough_idx and before or equal to
