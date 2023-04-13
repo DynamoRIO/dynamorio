@@ -604,7 +604,9 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             APP(ilist,
                 INSTR_CREATE_ldr(
                     dcontext, opnd_create_reg(DR_REG_Z0 + i),
-                    opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0, i, OPSZ_32)));
+                    opnd_create_base_disp(
+                        DR_REG_X1, DR_REG_NULL, 0, i,
+                        opnd_size_from_bytes(dr_get_sve_vector_length() / 8))));
         }
         /* TODO i#5365: Restore SVE predicate registers as well. */
     }
@@ -774,7 +776,9 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             APP(ilist,
                 INSTR_CREATE_str(
                     dcontext,
-                    opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0, i, OPSZ_32),
+                    opnd_create_base_disp(
+                        DR_REG_X1, DR_REG_NULL, 0, i,
+                        opnd_size_from_bytes(dr_get_sve_vector_length() / 8)),
                     opnd_create_reg(DR_REG_Z0 + i)));
         }
         /* TODO i#5365: Save SVE predicate registers as well. */
