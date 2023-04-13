@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -869,6 +869,13 @@ enum {
      */
     DR_NOTE_CALL_SEQUENCE_START,
     DR_NOTE_CALL_SEQUENCE_END,
+    /**
+     * Placed at the top of a basic block, this identifies the entry to an "rseq" (Linux
+     * restartable sequence) region.  The first two label data fields (see
+     * instr_get_label_data_area()) are filled in with this rseq region's end PC
+     * and its abort handler PC, in that order.
+     */
+    DR_NOTE_RSEQ_ENTRY,
 };
 
 /**

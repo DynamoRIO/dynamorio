@@ -1055,6 +1055,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             FATAL("Fatal error: failed to reserve aflags\n");
     }
 
+    bool needs_instru = false;
+    bool instr_is_rseq_entry_label =
+        instr_is_label(instr) && instr_get_note(instr) == (void *)DR_NOTE_RSEQ_ENTRY;
+    if (instr_is_rseq_entry_label) {
+        needs_instru = true;
+    }
+
     // Use emulation-aware queries to accurately trace rep string and
     // scatter-gather expansions.  Getting this wrong can result in significantly
     // incorrect ifetch stats (i#2011).
@@ -1065,6 +1072,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          !(instr_reads_memory(instr_operands) || instr_writes_memory(instr_operands))) &&
         // Ensure we reach the code below for post-strex instru.
         ud->strex == NULL &&
+        // Do not skip misc cases that need instrumentation.
+        !needs_instru &&
         // Avoid dropping trailing bundled instrs or missing the block-final clean call.
         !is_last_instr(drcontext, instr))
         return flags;
@@ -1178,6 +1187,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                    instr_get_dst(ud->strex, 0), 0, true,
                                    instr_get_predicate(ud->strex));
         ud->strex = NULL;
+    }
+
+    if (instr_is_rseq_entry_label) {
+        adjust =
+            instru->instrument_rseq_entry(drcontext, bb, where, instr, reg_ptr, adjust);
     }
 
     /* Instruction entry for instr fetch trace.  This does double-duty by
@@ -1411,9 +1425,9 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     /* TODO i#3937: We need something similar to what raw2trace does with this info
      * for online too, to place signals inside instr bundles.
      */
-    /* XXX i#4041: For rseq abort, offline post-processing rolls back the committing
-     * store so the abort happens at a reasonable point.  We don't have a solution
-     * for online though.
+    /* XXX i#4041,i#5954: For rseq abort, offline post-processing rolls back the
+     * committing store so the abort happens at a reasonable point.  We don't have a
+     * solution for online though.
      */
     if (info->source_mcontext != nullptr) {
         app_pc mcontext_pc = info->source_mcontext->pc;
@@ -1451,14 +1465,16 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
             // kernel_interrupted_raw_pc_t scheme and pay the cost of 2 entries to
             // store the absolute PC: this is only on rare events after all.
             // This will require a version bump.
+            DR_ASSERT(modoffs != 0 && "non-module rseq code not supported");
             kernel_interrupted_raw_pc_t raw_pc = {};
             raw_pc.pc.modidx = modidx;
             raw_pc.pc.modoffs = modoffs;
             marker_val = raw_pc.combined_value;
+            NOTIFY(4, "%s: modidx=%d modoffs= " PIFX "\n", __FUNCTION__, modidx, modoffs);
         } else
 #endif
             marker_val = reinterpret_cast<uintptr_t>(mcontext_pc);
-        NOTIFY(3, "%s: source pc " PFX " => modoffs " PIFX "\n", __FUNCTION__,
+        NOTIFY(3, "%s: source pc " PFX " => marker val " PIFX "\n", __FUNCTION__,
                mcontext_pc, marker_val);
     }
     if (info->type == DR_XFER_RSEQ_ABORT) {
