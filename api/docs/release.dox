@@ -156,6 +156,10 @@ changes:
    AArch64 instruction and "reta" entries in the AArch64 codec were being used to
    decode "retaa" and "retab". These instructions will now encode and decode correctly
    as "retaa" and "retab".
+ - Changed the interrupted PC for #DR_XFER_RSEQ_ABORT and a signal generated during
+   an rseq region to be the abort handler rather than the committing store,
+   matching the kernel behavior.
+ - Added a #DR_XFER_RSEQ_ABORT event for a signal generated during an rseq region.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.
@@ -227,6 +231,8 @@ Further non-compatibility-affecting changes include:
    query key attributes of each input trace.
  - Added instr_create_1dst_6src() convenience function that returns an instr_t
    with one destination and six sources.
+ - Added a new label to help in handling "rseq" (Linux restartable sequence) regions:
+   #DR_NOTE_RSEQ_ENTRY.
 
 **************************************************
 <hr>
@@ -690,7 +696,7 @@ Further non-compatibility-affecting changes include:
      #raw2trace_t for writing trace metadata: process/thread ids, timestamps, etc.
    - Added #trace_metadata_reader_t, a set of utilities for checking and validating
      thread start successions of offline entries in a raw data file.
-   - Added #trace_converter_t, an extensibility mechanism for raw trace conversion.
+   - Added trace_converter_t, an extensibility mechanism for raw trace conversion.
  - Added drmemtrace_get_timestamp_from_offline_trace(), an API for fetching the timestamp
    from the beginning of a raw trace bundle (regardless of whether it is a thread start
    or just a subsequent bundle).

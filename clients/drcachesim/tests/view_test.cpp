@@ -90,41 +90,14 @@ file_reader_t<std::vector<trace_entry_t>>::read_next_entry()
 
 namespace {
 
-// Subclasses module_mapper_t and replaces the module loading with a buffer
-// of encoded instr_t.
-class module_mapper_test_t : public module_mapper_t {
-public:
-    module_mapper_test_t(void *drcontext, instrlist_t &instrs)
-        : module_mapper_t(nullptr)
-    {
-        byte *pc = instrlist_encode(drcontext, &instrs, decode_buf_, true);
-        ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE, "decode buffer overflow");
-        // Clear do_module_parsing error; we can't cleanly make virtual b/c it's
-        // called from the constructor.
-        last_error_ = "";
-    }
-
-protected:
-    void
-    read_and_map_modules(void) override
-    {
-        modvec_.push_back(module_t("fake_exe", 0, decode_buf_, 0, MAX_DECODE_SIZE,
-                                   MAX_DECODE_SIZE, true));
-    }
-
-private:
-    static const int MAX_DECODE_SIZE = 1024;
-    byte decode_buf_[MAX_DECODE_SIZE];
-};
-
 class view_test_t : public view_t {
 public:
     view_test_t(void *drcontext, instrlist_t &instrs, memref_tid_t thread,
                 uint64_t skip_refs, uint64_t sim_refs)
         : view_t("", thread, skip_refs, sim_refs, "", 0)
     {
-        module_mapper_ =
-            std::unique_ptr<module_mapper_t>(new module_mapper_test_t(drcontext, instrs));
+        module_mapper_ = std::unique_ptr<module_mapper_t>(
+            new test_module_mapper_t(&instrs, drcontext));
     }
 
     std::string

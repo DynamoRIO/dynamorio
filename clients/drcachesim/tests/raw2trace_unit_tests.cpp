@@ -68,31 +68,6 @@
 #    error Unsupported arch
 #endif
 
-// Subclasses module_mapper_t and replaces the module loading with a
-// buffer of encoded instr_t.
-class module_mapper_test_t : public module_mapper_t {
-public:
-    module_mapper_test_t(instrlist_t &instrs, void *drcontext)
-        : module_mapper_t(nullptr)
-    {
-        byte *pc = instrlist_encode(drcontext, &instrs, decode_buf_, true);
-        ASSERT(pc != nullptr, "encoding failed");
-        ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE, "decode buffer overflow");
-    }
-
-protected:
-    void
-    read_and_map_modules() override
-    {
-        modvec_.push_back(module_t("fake_exe", 0, decode_buf_, 0, MAX_DECODE_SIZE,
-                                   MAX_DECODE_SIZE, true));
-    }
-
-private:
-    static const int MAX_DECODE_SIZE = 1024;
-    byte decode_buf_[MAX_DECODE_SIZE];
-};
-
 // Subclasses raw2trace_t and replaces the module_mapper_t with our own version.
 class raw2trace_test_t : public raw2trace_t {
 public:
@@ -105,8 +80,8 @@ public:
                       // debugging and viewing of what's going on.
                       4)
     {
-        module_mapper_ =
-            std::unique_ptr<module_mapper_t>(new module_mapper_test_t(instrs, drcontext));
+        module_mapper_ = std::unique_ptr<module_mapper_t>(
+            new test_module_mapper_t(&instrs, drcontext));
         set_modmap_(module_mapper_.get());
     }
     raw2trace_test_t(const std::vector<std::istream *> &input,
@@ -118,8 +93,8 @@ public:
                       // debugging and viewing of what's going on.
                       4, /*worker_count=*/-1, /*alt_module_dir=*/"", chunk_instr_count)
     {
-        module_mapper_ =
-            std::unique_ptr<module_mapper_t>(new module_mapper_test_t(instrs, drcontext));
+        module_mapper_ = std::unique_ptr<module_mapper_t>(
+            new test_module_mapper_t(&instrs, drcontext));
         set_modmap_(module_mapper_.get());
     }
 };
@@ -207,7 +182,7 @@ make_block(uint64_t offs, uint64_t instr_count)
 }
 
 offline_entry_t
-make_load(uint64_t addr)
+make_memref(uint64_t addr)
 {
     offline_entry_t entry;
     entry.addr.type = OFFLINE_TYPE_MEMREF;
@@ -260,23 +235,88 @@ make_marker(uint64_t type, int64_t value)
 
 bool
 check_entry(std::vector<trace_entry_t> &entries, int &idx, unsigned short expected_type,
-            int expected_size)
+            int expected_size, addr_t expected_addr = 0)
 {
     if (expected_type != entries[idx].type ||
         (expected_size > 0 &&
-         static_cast<unsigned short>(expected_size) != entries[idx].size)) {
+         static_cast<unsigned short>(expected_size) != entries[idx].size) ||
+        (expected_addr > 0 && expected_addr != entries[idx].addr)) {
         std::cerr << "Entry " << idx << " has type " << entries[idx].type << " and size "
-                  << entries[idx].size << " != expected type " << expected_type
-                  << " and expected size " << expected_size << "\n";
+                  << entries[idx].size << " and addr " << entries[idx].addr
+                  << " != expected type " << expected_type << " and expected size "
+                  << expected_size << " and expected addr " << expected_addr << "\n";
         return false;
     }
     ++idx;
     return true;
 }
 
+// Takes ownership of ilist and destroys it.
+bool
+run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist_t *ilist,
+              std::vector<trace_entry_t> &entries, int chunk_instr_count = 0)
+{
+    // We need an istream so we use istringstream.
+    std::ostringstream raw_out;
+    for (const auto &entry : raw) {
+        std::string as_string(reinterpret_cast<const char *>(&entry),
+                              reinterpret_cast<const char *>(&entry + 1));
+        raw_out << as_string;
+    }
+    std::istringstream raw_in(raw_out.str());
+    std::vector<std::istream *> input;
+    input.push_back(&raw_in);
+
+    std::string result;
+
+    if (chunk_instr_count > 0) {
+        // We need an archive_ostream to enable chunking.
+        archive_ostream_test_t result_stream;
+        std::vector<archive_ostream_t *> output;
+        output.push_back(&result_stream);
+
+        // Run raw2trace with our subclass supplying our decodings.
+        // Pass in our chunk instr count.
+        raw2trace_test_t raw2trace(input, output, *ilist, drcontext, chunk_instr_count);
+        std::string error = raw2trace.do_conversion();
+        CHECK(error.empty(), error);
+        result = result_stream.str();
+    } else {
+        // We need an ostream to capture out.
+        std::ostringstream result_stream;
+        std::vector<std::ostream *> output;
+        output.push_back(&result_stream);
+
+        // Run raw2trace with our subclass supplying our decodings.
+        raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
+        std::string error = raw2trace.do_conversion();
+        CHECK(error.empty(), error);
+        result = result_stream.str();
+    }
+    instrlist_clear_and_destroy(drcontext, ilist);
+
+    // Now check the results.
+    char *start = &result[0];
+    char *end = start + result.size();
+    CHECK(result.size() % sizeof(trace_entry_t) == 0,
+          "output is not a multiple of trace_entry_t");
+    while (start < end) {
+        entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
+        start += sizeof(trace_entry_t);
+    }
+    int idx = 0;
+    for (const auto &entry : entries) {
+        std::cerr << idx << " type: " << entry.type << " size: " << entry.size
+                  << " val: " << entry.addr << "\n";
+        ++idx;
+    }
+    return true;
+}
+
 bool
 test_branch_delays(void *drcontext)
 {
+    std::cerr << "\n===============\nTesting branch delays\n";
     // Our synthetic test first constructs a list of instructions to be encoded into
     // a buffer for decoding by raw2trace.
     instrlist_t *ilist = instrlist_create(drcontext);
@@ -307,41 +347,10 @@ test_branch_delays(void *drcontext)
     raw.push_back(make_block(offs_jmp, 1));
     raw.push_back(make_block(offs_mov, 1));
     raw.push_back(make_exit());
-    // We need an istream so we use istringstream.
-    std::ostringstream raw_out;
-    for (const auto &entry : raw) {
-        std::string as_string(reinterpret_cast<const char *>(&entry),
-                              reinterpret_cast<const char *>(&entry + 1));
-        raw_out << as_string;
-    }
-    std::istringstream raw_in(raw_out.str());
-    std::vector<std::istream *> input;
-    input.push_back(&raw_in);
-    // We need an ostream to capture out.
-    std::ostringstream result_stream;
-    std::vector<std::ostream *> output;
-    output.push_back(&result_stream);
 
-    // Run raw2trace with our subclass supplying our decodings.
-    raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
-    std::string error = raw2trace.do_conversion();
-    CHECK(error.empty(), error);
-    instrlist_clear_and_destroy(drcontext, ilist);
-
-    // Now check the results.
-    std::string result = result_stream.str();
-    char *start = &result[0];
-    char *end = start + result.size();
-    CHECK(result.size() % sizeof(trace_entry_t) == 0,
-          "output is not a multiple of trace_entry_t");
     std::vector<trace_entry_t> entries;
-    while (start < end) {
-        entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
-        start += sizeof(trace_entry_t);
-    }
-    for (const auto &entry : entries) {
-        std::cout << "type: " << entry.type << " size: " << entry.size << "\n";
-    }
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
     int idx = 0;
     return (
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
@@ -376,6 +385,7 @@ test_branch_delays(void *drcontext)
 bool
 test_marker_placement(void *drcontext)
 {
+    std::cerr << "\n===============\nTesting marker placement\n";
     // Our synthetic test first constructs a list of instructions to be encoded into
     // a buffer for decoding by raw2trace.
     instrlist_t *ilist = instrlist_create(drcontext);
@@ -392,8 +402,11 @@ test_marker_placement(void *drcontext)
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
 #ifdef AARCH64
     // XXX i#5628: opnd_create_mem_instr is not supported yet on AArch64.
-    instr_t *load1 = INSTR_CREATE_ldr(drcontext, opnd_create_reg(REG1),
-                                      OPND_CREATE_ABSMEM(move2, OPSZ_PTR));
+    instr_t *load1 =
+        INSTR_CREATE_ldr(drcontext, opnd_create_reg(REG1),
+                         // Our addresses are 0-based so we pick a low value that a
+                         // PC-relative offset can reach.
+                         OPND_CREATE_ABSMEM(reinterpret_cast<void *>(1024ULL), OPSZ_PTR));
 #else
     instr_t *load1 = XINST_CREATE_load(drcontext, opnd_create_reg(REG1),
                                        opnd_create_mem_instr(move1, 0, OPSZ_PTR));
@@ -427,41 +440,10 @@ test_marker_placement(void *drcontext)
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_RETADDR, 4));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 2));
     raw.push_back(make_exit());
-    // We need an istream so we use istringstream.
-    std::ostringstream raw_out;
-    for (const auto &entry : raw) {
-        std::string as_string(reinterpret_cast<const char *>(&entry),
-                              reinterpret_cast<const char *>(&entry + 1));
-        raw_out << as_string;
-    }
-    std::istringstream raw_in(raw_out.str());
-    std::vector<std::istream *> input;
-    input.push_back(&raw_in);
-    // We need an ostream to capture out.
-    std::ostringstream result_stream;
-    std::vector<std::ostream *> output;
-    output.push_back(&result_stream);
 
-    // Run raw2trace with our subclass supplying our decodings.
-    raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
-    std::string error = raw2trace.do_conversion();
-    CHECK(error.empty(), error);
-    instrlist_clear_and_destroy(drcontext, ilist);
-
-    // Now check the results.
-    std::string result = result_stream.str();
-    char *start = &result[0];
-    char *end = start + result.size();
-    CHECK(result.size() % sizeof(trace_entry_t) == 0,
-          "output is not a multiple of trace_entry_t");
     std::vector<trace_entry_t> entries;
-    while (start < end) {
-        entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
-        start += sizeof(trace_entry_t);
-    }
-    for (const auto &entry : entries) {
-        std::cout << "type: " << entry.type << " size: " << entry.size << "\n";
-    }
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
     int idx = 0;
     return (
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
@@ -498,6 +480,7 @@ test_marker_placement(void *drcontext)
 bool
 test_marker_delays(void *drcontext)
 {
+    std::cerr << "\n===============\nTesting marker delays\n";
     // Our synthetic test first constructs a list of instructions to be encoded into
     // a buffer for decoding by raw2trace.
     instrlist_t *ilist = instrlist_create(drcontext);
@@ -569,41 +552,10 @@ test_marker_delays(void *drcontext)
     raw.push_back(make_marker(TRACE_MARKER_TYPE_FUNC_ID, 0));
     raw.push_back(make_window_id(1));
     raw.push_back(make_exit());
-    // We need an istream so we use istringstream.
-    std::ostringstream raw_out;
-    for (const auto &entry : raw) {
-        std::string as_string(reinterpret_cast<const char *>(&entry),
-                              reinterpret_cast<const char *>(&entry + 1));
-        raw_out << as_string;
-    }
-    std::istringstream raw_in(raw_out.str());
-    std::vector<std::istream *> input;
-    input.push_back(&raw_in);
-    // We need an ostream to capture out.
-    std::ostringstream result_stream;
-    std::vector<std::ostream *> output;
-    output.push_back(&result_stream);
 
-    // Run raw2trace with our subclass supplying our decodings.
-    raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
-    std::string error = raw2trace.do_conversion();
-    CHECK(error.empty(), error);
-    instrlist_clear_and_destroy(drcontext, ilist);
-
-    // Now check the results.
-    std::string result = result_stream.str();
-    char *start = &result[0];
-    char *end = start + result.size();
-    CHECK(result.size() % sizeof(trace_entry_t) == 0,
-          "output is not a multiple of trace_entry_t");
     std::vector<trace_entry_t> entries;
-    while (start < end) {
-        entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
-        start += sizeof(trace_entry_t);
-    }
-    for (const auto &entry : entries) {
-        std::cout << "type: " << entry.type << " size: " << entry.size << "\n";
-    }
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
     int idx = 0;
     return (
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
@@ -658,6 +610,7 @@ test_marker_delays(void *drcontext)
 bool
 test_chunk_boundaries(void *drcontext)
 {
+    std::cerr << "\n===============\nTesting chunk bounds\n";
     instrlist_t *ilist = instrlist_create(drcontext);
     // raw2trace doesn't like offsets of 0 so we shift with a nop.
     instr_t *nop = XINST_CREATE_nop(drcontext);
@@ -701,46 +654,12 @@ test_chunk_boundaries(void *drcontext)
     // TODO i#5724: Add repeats of the same instrs to test re-emitting encodings
     // in new chunks.
     raw.push_back(make_exit());
-    // We need an istream so we use istringstream.
-    std::ostringstream raw_out;
-    for (const auto &entry : raw) {
-        std::string as_string(reinterpret_cast<const char *>(&entry),
-                              reinterpret_cast<const char *>(&entry + 1));
-        raw_out << as_string;
-    }
-    std::istringstream raw_in(raw_out.str());
-    std::vector<std::istream *> input;
-    input.push_back(&raw_in);
-    // We need an archive_ostream to enable chunking.
-    archive_ostream_test_t result_stream;
-    std::vector<archive_ostream_t *> output;
-    output.push_back(&result_stream);
 
-    // Run raw2trace with our subclass supplying our decodings.
-    // Use a chunk instr count of 2 to split the 2 jumps.
-    raw2trace_test_t raw2trace(input, output, *ilist, drcontext, 2);
-    std::string error = raw2trace.do_conversion();
-    CHECK(error.empty(), error);
-    instrlist_clear_and_destroy(drcontext, ilist);
-
-    // Now check the results.
-    std::string result = result_stream.str();
-    char *start = &result[0];
-    char *end = start + result.size();
-    CHECK(result.size() % sizeof(trace_entry_t) == 0,
-          "output is not a multiple of trace_entry_t");
     std::vector<trace_entry_t> entries;
-    while (start < end) {
-        entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
-        start += sizeof(trace_entry_t);
-    }
+    // Use a chunk instr count of 2 to split the 2 jumps.
+    if (!run_raw2trace(drcontext, raw, ilist, entries, 2))
+        return false;
     int idx = 0;
-    for (const auto &entry : entries) {
-        std::cout << idx << " type: " << entry.type << " size: " << entry.size
-                  << " val: " << entry.addr << "\n";
-        ++idx;
-    }
-    idx = 0;
     return (
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
@@ -790,6 +709,7 @@ test_chunk_boundaries(void *drcontext)
 bool
 test_chunk_encodings(void *drcontext)
 {
+    std::cerr << "\n===============\nTesting chunk encoding\n";
     instrlist_t *ilist = instrlist_create(drcontext);
     // raw2trace doesn't like offsets of 0 so we shift with a nop.
     instr_t *nop = XINST_CREATE_nop(drcontext);
@@ -832,46 +752,12 @@ test_chunk_encodings(void *drcontext)
     raw.push_back(make_block(offs_jmp2, 1));
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
-    // We need an istream so we use istringstream.
-    std::ostringstream raw_out;
-    for (const auto &entry : raw) {
-        std::string as_string(reinterpret_cast<const char *>(&entry),
-                              reinterpret_cast<const char *>(&entry + 1));
-        raw_out << as_string;
-    }
-    std::istringstream raw_in(raw_out.str());
-    std::vector<std::istream *> input;
-    input.push_back(&raw_in);
-    // We need an archive_ostream to enable chunking.
-    archive_ostream_test_t result_stream;
-    std::vector<archive_ostream_t *> output;
-    output.push_back(&result_stream);
 
-    // Run raw2trace with our subclass supplying our decodings.
-    // Use a chunk instr count of 6 to split the 2nd set of 2 jumps.
-    raw2trace_test_t raw2trace(input, output, *ilist, drcontext, 6);
-    std::string error = raw2trace.do_conversion();
-    CHECK(error.empty(), error);
-    instrlist_clear_and_destroy(drcontext, ilist);
-
-    // Now check the results.
-    std::string result = result_stream.str();
-    char *start = &result[0];
-    char *end = start + result.size();
-    CHECK(result.size() % sizeof(trace_entry_t) == 0,
-          "output is not a multiple of trace_entry_t");
     std::vector<trace_entry_t> entries;
-    while (start < end) {
-        entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
-        start += sizeof(trace_entry_t);
-    }
+    // Use a chunk instr count of 6 to split the 2nd set of 2 jumps.
+    if (!run_raw2trace(drcontext, raw, ilist, entries, 6))
+        return false;
     int idx = 0;
-    for (const auto &entry : entries) {
-        std::cout << idx << " type: " << entry.type << " size: " << entry.size
-                  << " val: " << entry.addr << "\n";
-        ++idx;
-    }
-    idx = 0;
     return (
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
@@ -928,6 +814,7 @@ test_chunk_encodings(void *drcontext)
 bool
 test_duplicate_syscalls(void *drcontext)
 {
+    std::cerr << "\n===============\nTesting dup syscalls\n";
     // Our synthetic test first constructs a list of instructions to be encoded into
     // a buffer for decoding by raw2trace.
     instrlist_t *ilist = instrlist_create(drcontext);
@@ -977,45 +864,10 @@ test_duplicate_syscalls(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
-    // We need an istream so we use istringstream.
-    std::ostringstream raw_out;
-    for (const auto &entry : raw) {
-        std::string as_string(reinterpret_cast<const char *>(&entry),
-                              reinterpret_cast<const char *>(&entry + 1));
-        raw_out << as_string;
-    }
-    std::istringstream raw_in(raw_out.str());
-    std::vector<std::istream *> input;
-    input.push_back(&raw_in);
-    // We need an ostream to capture out.
-    std::ostringstream result_stream;
-    std::vector<std::ostream *> output;
-    output.push_back(&result_stream);
-
-    // Run raw2trace with our subclass supplying our decodings.
-    raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
-    std::string error = raw2trace.do_conversion();
-    CHECK(error.empty(), error);
-    instrlist_clear_and_destroy(drcontext, ilist);
-
-    // Now check the results.
-    std::string result = result_stream.str();
-    char *start = &result[0];
-    char *end = start + result.size();
-    CHECK(result.size() % sizeof(trace_entry_t) == 0,
-          "output is not a multiple of trace_entry_t");
     std::vector<trace_entry_t> entries;
-    while (start < end) {
-        entries.push_back(*reinterpret_cast<trace_entry_t *>(start));
-        start += sizeof(trace_entry_t);
-    }
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
     int idx = 0;
-    for (const auto &entry : entries) {
-        std::cout << idx << " type: " << entry.type << " size: " << entry.size
-                  << " val: " << entry.addr << "\n";
-        ++idx;
-    }
-    idx = 0;
     return (
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
@@ -1048,6 +900,711 @@ test_duplicate_syscalls(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
+bool
+test_rseq_fallthrough(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting rseq fallthrough\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    // The end of our rseq sequence, ending in a committing store.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    // No abort or side exit: we just fall through.
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        // The move1 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        // The committing store.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
+        check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+/* Tests rseq rollback without the new entry marker. */
+bool
+test_rseq_rollback_legacy(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting legacy rseq rollback\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    // The end of our rseq sequence, ending in a committing store.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_store));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_store));
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move1 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        // The committing store should not be here.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ABORT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+bool
+test_rseq_rollback(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting rseq rollback\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    // The end of our rseq sequence, ending in a committing store.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_move2));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_move2));
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        // The move1 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        // The committing store should not be here.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ABORT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+/* Tests i#5954 where a timestamp preceds the abort marker. */
+bool
+test_rseq_rollback_with_timestamps(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting rseq rollback with timestamps\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    // The end of our rseq sequence, ending in a committing store.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_move2));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_move2));
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        // The move1 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        // The committing store should not be here.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ABORT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+/* Tests a rollback combined with a signal for the fault that caused the abort. */
+bool
+test_rseq_rollback_with_signal(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting rseq rollback with signal\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+    size_t offs_end = offs_move2 + instr_length(drcontext, move2);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    // The end of our rseq sequence, ending in a committing store.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    // The abort is after the revert-and-re-fix of i#4041 where the marker value
+    // is the handler PC and not the committing store.
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_end));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_end));
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_end));
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        // The move1 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        // The committing store should not be here.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ABORT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+/* Tests rollback i#5954 where a chunk boundary splits an rseq region. */
+bool
+test_rseq_rollback_with_chunks(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting rseq rollback with chunks\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    // One completed rseq region to cache encodings.
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_block(offs_move2, 1));
+    // A second one which should not need encodings.
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_block(offs_move2, 1));
+    // Now a third split by a chunk boundary.
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_move2));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_move2));
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    // 6 instrs puts a new chunk at the start of the 3rd region.
+    if (!run_raw2trace(drcontext, raw, ilist, entries, 6))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // First sequence, with encodings.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
+        check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        // Second sequence, without encodings.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
+        check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        // Third aborted sequence in new chunk with encodings.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ABORT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+/* Tests a typical rseq side exit (i#5953).
+ *
+ * XXX: We could test even more variants, like having multiple potential
+ * exits.
+ */
+bool
+test_rseq_side_exit(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting rseq side exit\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move3));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, move3);
+    size_t offs_nop = 0;
+    size_t offs_jcc = offs_nop + instr_length(drcontext, nop);
+    size_t offs_move1 = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+    size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    // Side exit is here; not taken in instrumented execution.
+    raw.push_back(make_block(offs_jcc, 1));
+    // The end of our rseq sequence, ending in a committing store.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    // A discontinuity as we continue with the side exit target.
+    raw.push_back(make_block(offs_move3, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        // The jcc instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_CONDITIONAL_JUMP, -1, offs_jcc) &&
+        // The move2 + committing store should be gone.
+        // We should go straight to the move3 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move3) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+/* Tests an rseq side exit with an arriving signal (i#5953). */
+bool
+test_rseq_side_exit_signal(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting rseq side exit with signal\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move3));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, move3);
+    size_t offs_nop = 0;
+    size_t offs_jcc = offs_nop + instr_length(drcontext, nop);
+    size_t offs_move1 = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+    size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    // Side exit is here; not taken in instrumented execution.
+    raw.push_back(make_block(offs_jcc, 1));
+    // The end of our rseq sequence, ending in a committing store.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    // A discontinuity as we continue with the side exit target.
+    // But, a signal arrived (whose interruption must be that target).
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_move3));
+    raw.push_back(make_block(offs_move1, 1));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_XFER, offs_store));
+    raw.push_back(make_block(offs_move3, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        // The jcc instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_CONDITIONAL_JUMP, -1, offs_jcc) &&
+        // The move2 + committing store should be gone.
+        // We should go straight to the signal and then the move3 instr.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_XFER) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move3) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+/* Tests an inverted rseq side exit (i#5953). */
+bool
+test_rseq_side_exit_inverted(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting inverted rseq side exit\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    // Our conditional jumps over the jump which is the exit.
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move1));
+    instr_t *jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(move3));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, jmp);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, move3);
+    size_t offs_nop = 0;
+    size_t offs_jcc = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jmp = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_move1 = offs_jmp + instr_length(drcontext, jmp);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+    size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    // The jcc is taken and we don't see the side exit in instrumented execution.
+    raw.push_back(make_block(offs_jcc, 1));
+    // The end of our rseq sequence, ending in a committing store.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    // A discontinuity as we continue with the side exit target.
+    raw.push_back(make_block(offs_move3, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        // The jcc instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_CONDITIONAL_JUMP, -1, offs_jcc) &&
+        // The jmp which raw2trace has to synthesize.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1, offs_jmp) &&
+        // The move2 + committing store should be gone.
+        // We should go straight to the move3 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move3) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -1055,7 +1612,14 @@ main(int argc, const char *argv[])
     void *drcontext = dr_standalone_init();
     if (!test_branch_delays(drcontext) || !test_marker_placement(drcontext) ||
         !test_marker_delays(drcontext) || !test_chunk_boundaries(drcontext) ||
-        !test_chunk_encodings(drcontext) || !test_duplicate_syscalls(drcontext))
+        !test_chunk_encodings(drcontext) || !test_duplicate_syscalls(drcontext) ||
+        !test_rseq_fallthrough(drcontext) || !test_rseq_rollback_legacy(drcontext) ||
+        !test_rseq_rollback(drcontext) ||
+        !test_rseq_rollback_with_timestamps(drcontext) ||
+        !test_rseq_rollback_with_signal(drcontext) ||
+        !test_rseq_rollback_with_chunks(drcontext) || !test_rseq_side_exit(drcontext) ||
+        !test_rseq_side_exit_signal(drcontext) ||
+        !test_rseq_side_exit_inverted(drcontext))
         return 1;
     return 0;
 }

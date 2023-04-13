@@ -1,7 +1,14 @@
+kernel_xfer_event: type 10
 kernel_xfer_event: type 0
 kernel_xfer_event: type 1
+kernel_xfer_event: type 10
 kernel_xfer_event: type 0
 kernel_xfer_event: type 1
+kernel_xfer_event: type 10
+kernel_xfer_event: type 0
+kernel_xfer_event: type 1
+kernel_xfer_event: type 10
+kernel_xfer_event: type 10
 kernel_xfer_event: type 0
 kernel_xfer_event: type 1
 kernel_xfer_event: type 10
