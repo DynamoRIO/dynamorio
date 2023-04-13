@@ -309,7 +309,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                  * in case we screwed up somewhere or module is
                  * malformed/only partially mapped.
                  *
-                 * i#3385: strlen failes here in case when .dynstr is
+                 * i#3385: strlen fails here in case when .dynstr is
                  * placed in the end of segment (thus soname is not mapped
                  * at the moment). We'll try to re-init module data again
                  * in instrument_module_load_trigger() at first execution.
