@@ -1157,7 +1157,8 @@ private:
     // Writes out the buffered entries for an rseq region, after rolling back to
     // a side exit or abort if necessary.
     std::string
-    adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc);
+    adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc,
+                                addr_t abort_handler_pc = 0);
 
     // Removes entries from tdata->rseq_buffer_ between and including the instructions
     // starting at or after remove_start_rough_idx and before or equal to

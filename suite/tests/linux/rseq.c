@@ -103,7 +103,7 @@ static __thread volatile struct rseq rseq_tls;
 static __thread volatile struct rseq fill_up_tls[128];
 
 extern void
-test_rseq_native_abort_pre_commit();
+test_rseq_native_abort_handler();
 
 #ifdef RSEQ_TEST_ATTACH
 static atomic_int exit_requested;
@@ -111,6 +111,7 @@ static void *thread_ready;
 #endif
 
 static volatile int sigill_count;
+static volatile bool in_rseq_migration_test;
 
 static bool
 register_rseq()
@@ -660,6 +661,7 @@ test_rseq_native_abort(void)
 {
     volatile struct rseq *reg_rseq = get_my_rseq();
 #ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
+    in_rseq_migration_test = true;
     int restarts = 0;
 #    ifdef X86
     __asm__ __volatile__(
@@ -698,8 +700,6 @@ test_rseq_native_abort(void)
         "leaq sched_mask_2(%%rip), %%rdx\n\t"
         "mov %[sysnum_setaffinity], %%eax\n\t"
         "syscall\n\t"
-        ".global test_rseq_native_abort_pre_commit\n\t"
-        "test_rseq_native_abort_pre_commit:\n\t"
         "11:\n\t"
         "nop\n\t"
 
@@ -711,6 +711,8 @@ test_rseq_native_abort(void)
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
+        ".global test_rseq_native_abort_handler\n\t"
+        "test_rseq_native_abort_handler:\n\t"
         "addl $1, %[restarts]\n\t"
         "jmp 2b\n\t"
 
@@ -768,8 +770,6 @@ test_rseq_native_abort(void)
         "add x2, x2, :lo12:sched_mask_2\n\t"
         "mov w8, #%[sysnum_setaffinity]\n\t"
         "svc #0\n\t"
-        ".global test_rseq_native_abort_pre_commit\n\t"
-        "test_rseq_native_abort_pre_commit:\n\t"
         "11:\n\t"
         "nop\n\t"
 
@@ -781,6 +781,8 @@ test_rseq_native_abort(void)
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
+        ".global test_rseq_native_abort_handler\n\t"
+        "test_rseq_native_abort_handler:\n\t"
         "ldr x1, %[restarts]\n\t"
         "add x1, x1, #1\n\t"
         "str x1, %[restarts]\n\t"
@@ -804,6 +806,7 @@ test_rseq_native_abort(void)
 #    else
 #        error Unsupported arch
 #    endif
+    in_rseq_migration_test = false;
     /* This is expected to fail on a native run where restarts will be 0. */
     assert(restarts > 0);
 #endif /* DEBUG */
@@ -1107,10 +1110,11 @@ static void
 kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
     static bool skip_print;
+    static int count;
     if (!skip_print)
         dr_fprintf(STDERR, "%s: type %d\n", __FUNCTION__, info->type);
     /* Avoid tons of prints for the trace loop in main(). */
-    if (info->type == DR_XFER_RSEQ_ABORT)
+    if (++count > 13)
         skip_print = true;
     dr_mcontext_t mc = { sizeof(mc) };
     mc.flags = DR_MC_CONTROL;
@@ -1123,28 +1127,30 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
     assert(ok);
     /* All transfer cases in this test should have source info. */
     assert(info->source_mcontext != NULL);
-    if (info->type == DR_XFER_RSEQ_ABORT) {
-        /* The interrupted context should be identical except the pc. */
-        assert(info->source_mcontext->pc != mc.pc);
+    /* For a migration, the context should be identical.
+     * For a signal it won't be as signal handler arguments will be set in
+     * registers and a sigaltstack may be set.
+     */
+    if (info->type == DR_XFER_RSEQ_ABORT && in_rseq_migration_test) {
+        /* The interrupted context should be identical, including the pc now
+         * that DR passes the abort handler PC just like the kernel does.
+         */
 #    ifdef X86
-        assert(info->source_mcontext->xax == mc.xax);
-        assert(info->source_mcontext->xcx == mc.xcx);
-        assert(info->source_mcontext->xdx == mc.xdx);
-        assert(info->source_mcontext->xbx == mc.xbx);
-        assert(info->source_mcontext->xsi == mc.xsi);
-        assert(info->source_mcontext->xdi == mc.xdi);
-        assert(info->source_mcontext->xbp == mc.xbp);
-        assert(info->source_mcontext->xsp == mc.xsp);
+        /* This compares the GPR's plus flags and PC. */
+        assert(memcmp(&info->source_mcontext->xdi, &mc.xdi,
+                      (byte *)&mc.padding - (byte *)&mc.xdi) == 0);
 #    elif defined(AARCH64)
+        assert(info->source_mcontext->pc == mc.pc);
         assert(memcmp(&info->source_mcontext->r0, &mc.r0, sizeof(mc.r0) * 32) == 0);
 #    else
 #        error Unsupported arch
 #    endif
 #    ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
-        /* Check that the interrupted PC for the true abort case is *prior* to the
-         * committing store.
+        /* Check that the interrupted PC for the true abort case is the handler.
+         * We could check this for every test if we wrote the expected handler
+         * into a global or something: does not seem worth the extra code.
          */
-        assert(info->source_mcontext->pc == (app_pc)test_rseq_native_abort_pre_commit);
+        assert(info->source_mcontext->pc == (app_pc)test_rseq_native_abort_handler);
 #    endif
     }
 }

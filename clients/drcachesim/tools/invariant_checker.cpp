@@ -160,7 +160,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(
                 shard,
                 (memref.marker.type == TRACE_TYPE_MARKER &&
-                 memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) ||
+                 (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                  memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
                     // TODO i#3937: Online instr bundles currently violate this.
                     !knob_offline_,
                 "Interruption marker mis-placed");
@@ -660,7 +661,9 @@ invariant_checker_t::check_for_pc_discontinuity(per_shard_t *shard,
              (shard->prev_xfer_marker_.marker.marker_type ==
                   TRACE_MARKER_TYPE_KERNEL_EVENT ||
               shard->prev_xfer_marker_.marker.marker_type ==
-                  TRACE_MARKER_TYPE_KERNEL_XFER)) ||
+                  TRACE_MARKER_TYPE_KERNEL_XFER ||
+              shard->prev_xfer_marker_.marker.marker_type ==
+                  TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
             // We expect a gap on a window transition.
             shard->window_transition_ ||
             shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;

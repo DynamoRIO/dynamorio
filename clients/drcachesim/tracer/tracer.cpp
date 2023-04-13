@@ -1425,9 +1425,9 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     /* TODO i#3937: We need something similar to what raw2trace does with this info
      * for online too, to place signals inside instr bundles.
      */
-    /* XXX i#4041: For rseq abort, offline post-processing rolls back the committing
-     * store so the abort happens at a reasonable point.  We don't have a solution
-     * for online though.
+    /* XXX i#4041,i#5954: For rseq abort, offline post-processing rolls back the
+     * committing store so the abort happens at a reasonable point.  We don't have a
+     * solution for online though.
      */
     if (info->source_mcontext != nullptr) {
         app_pc mcontext_pc = info->source_mcontext->pc;
@@ -1465,14 +1465,16 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
             // kernel_interrupted_raw_pc_t scheme and pay the cost of 2 entries to
             // store the absolute PC: this is only on rare events after all.
             // This will require a version bump.
+            DR_ASSERT(modoffs != 0 && "non-module rseq code not supported");
             kernel_interrupted_raw_pc_t raw_pc = {};
             raw_pc.pc.modidx = modidx;
             raw_pc.pc.modoffs = modoffs;
             marker_val = raw_pc.combined_value;
+            NOTIFY(4, "%s: modidx=%d modoffs= " PIFX "\n", __FUNCTION__, modidx, modoffs);
         } else
 #endif
             marker_val = reinterpret_cast<uintptr_t>(mcontext_pc);
-        NOTIFY(3, "%s: source pc " PFX " => modoffs " PIFX "\n", __FUNCTION__,
+        NOTIFY(3, "%s: source pc " PFX " => marker val " PIFX "\n", __FUNCTION__,
                mcontext_pc, marker_val);
     }
     if (info->type == DR_XFER_RSEQ_ABORT) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4010,14 +4010,15 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
         sig_full_cxt_t sc_full;
         sig_full_initialize(&sc_full, uc);
         sc->SC_XIP = (ptr_uint_t)next_pc;
-        /* i#4041: Provide the actually-interrupted mid-rseq PC to this event. */
-        ptr_uint_t official_xl8 = sc_interrupted->SC_XIP;
-        sc_interrupted->SC_XIP =
-            (ptr_uint_t)translate_last_direct_translation(dcontext, (app_pc)official_xl8);
+        if (translate_last_in_rseq(dcontext)) {
+            if (instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, sc_interrupted_full,
+                                       NULL, NULL, next_pc, sc->SC_XSP, sc_full, NULL,
+                                       sig))
+                next_pc = (app_pc)sc->SC_XIP;
+        }
         if (instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_interrupted_full,
                                    NULL, NULL, next_pc, sc->SC_XSP, sc_full, NULL, sig))
             next_pc = (app_pc)sc->SC_XIP;
-        sc_interrupted->SC_XIP = official_xl8;
     }
     dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
 
@@ -6410,14 +6411,13 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         info->sighand->action[sig]->handler = (handler_t)SIG_DFL;
     }
     sig_full_cxt_t sc_full = { sc, NULL /*not provided*/ };
-    /* i#4041: Provide the actually-interrupted mid-rseq PC to this event. */
-    ptr_uint_t official_xl8 = sc->SC_XIP;
-    sc->SC_XIP =
-        (ptr_uint_t)translate_last_direct_translation(dcontext, (app_pc)official_xl8);
+    if (translate_last_in_rseq(dcontext)) {
+        instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, sc_full, NULL, NULL,
+                               mcontext->pc, mcontext->xsp, osc_empty, mcontext, sig);
+    }
     instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_full, NULL, NULL,
                            mcontext->pc, mcontext->xsp, osc_empty, mcontext, sig);
     dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
-    sc->SC_XIP = official_xl8;
     info->in_app_handler = true;
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset xsp to " PFX "\n", xsp);
