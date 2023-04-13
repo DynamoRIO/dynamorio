@@ -1473,17 +1473,9 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
         std::string err = get_marker_value(tdata, &in_entry, &marker_val);
         if (!err.empty())
             return err;
-        if (tdata->rseq_ever_saw_entry_ &&
+        // An abort always ends a block.
+        if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
             in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
-            // An abort always ends a block.
-        } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                   // Support legacy traces before we added TRACE_MARKER_TYPE_RSEQ_ENTRY.
-                   // We identify them by not seeing an entry before an abort.
-                   // We won't fix up rseq aborts with timestamps (i#5954) nor rseq
-                   // side exits (i#5953) for such traces but we can at least fix
-                   // up typical aborts.
-                   (!tdata->rseq_ever_saw_entry_ &&
-                    in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT)) {
             // A signal/exception marker in the next entry could be at any point
             // among non-memref instrs, or it could be after this bb.
             // We check the stored PC.
@@ -1496,13 +1488,13 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
                 if (marker_val == cur_offs)
                     at_interrupted_pc = true;
             } else {
-                if (marker_val == cur_pc ||
-                    // Rseq abort events now give us the handler PC as the interrupted PC.
-                    // We insert the signal at the commit PC as we have no further info.
-                    (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT &&
-                     tdata->rseq_buffering_enabled_ && cur_pc == tdata->rseq_commit_pc_))
+                if (marker_val == cur_pc)
                     at_interrupted_pc = true;
             }
+            // Support legacy traces before we added TRACE_MARKER_TYPE_RSEQ_ENTRY.  We
+            // identify them by not seeing an entry before an abort.  We won't fix up
+            // rseq aborts with timestamps (i#5954) nor rseq side exits (i#5953) for
+            // such traces but we can at least fix up typical aborts.
             if (!tdata->rseq_ever_saw_entry_ &&
                 in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 // For the older version, we will not get here for Windows
@@ -1518,12 +1510,12 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
             if (marker_val == 0 || at_interrupted_pc || legacy_rseq_rollback) {
                 log(4, "Signal/exception interrupted the bb @ %p\n", cur_pc);
                 if (tdata->rseq_past_end_) {
-                    addr_t rseq_handler_pc =
+                    addr_t rseq_abort_pc =
                         in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT
                         ? marker_val
                         : 0;
                     err = adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
-                                                      rseq_handler_pc);
+                                                      rseq_abort_pc);
                     if (!err.empty())
                         return err;
                 }
@@ -1836,7 +1828,7 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
 
 std::string
 raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc,
-                                         addr_t abort_handler_pc)
+                                         addr_t abort_pc)
 {
     // Filtered instructions can't be adjusted.
     if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
@@ -1854,7 +1846,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
     // We need this in the outer scope for use by write() below.
     byte encoding[MAX_ENCODING_LENGTH];
 
-    if ((abort_handler_pc != 0 && next_pc == abort_handler_pc) ||
+    if ((abort_pc != 0 && next_pc == abort_pc) ||
         // Old traces have the commit PC instead of the handler in the abort and
         // signal events (so not really the "next_pc" but the "exit_pc") and
         // don't have abort events on a signal aborting an rseq region.

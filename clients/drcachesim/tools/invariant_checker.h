@@ -123,6 +123,7 @@ protected:
         // We could move this to per-worker data and still not need a lock
         // (we don't currently have per-worker data though so leaving it as per-shard).
         std::unordered_map<addr_t, addr_t> branch_target_cache;
+        addr_t rseq_end_pc_ = 0;
     };
 
     // We provide this for subclasses to run these invariants with custom
