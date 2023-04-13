@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -593,7 +593,7 @@ send_nudge_signal(process_id_t pid, uint action_mask, client_id_t client_id,
 bool
 at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret_imm);
 
-/* rseq.c */
+/* rseq_linux.c */
 #ifdef LINUX
 extern vm_area_vector_t *d_r_rseq_areas;
 
@@ -628,6 +628,9 @@ rseq_shared_fragment_flushtime_update(dcontext_t *dcontext);
 
 void
 rseq_process_native_abort(dcontext_t *dcontext);
+
+void
+rseq_insert_start_label(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist);
 
 #endif
 

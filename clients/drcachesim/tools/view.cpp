@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -307,8 +307,12 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             }
             break;
         case TRACE_MARKER_TYPE_RSEQ_ABORT:
-            std::cerr << "<marker: rseq abort from 0x" << std::hex
-                      << memref.marker.marker_value << std::dec << " to handler>\n";
+            std::cerr << "<marker: rseq abort xfer to handler 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << "\n";
+            break;
+        case TRACE_MARKER_TYPE_RSEQ_ENTRY:
+            std::cerr << "<marker: rseq entry with end at 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
             break;
         case TRACE_MARKER_TYPE_KERNEL_XFER:
             if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {

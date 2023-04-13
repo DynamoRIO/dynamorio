@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -138,6 +138,12 @@
 #define FRAG_TEMP_PRIVATE 0x2000000
 
 #define FRAG_TRACE_OUTPUT 0x4000000
+/* Used only during block building, which means there is no conflict with
+ * FRAG_TRACE_OUTPUT.
+ */
+#ifdef LINUX
+#    define FRAG_STARTS_RSEQ_REGION 0x4000000
+#endif
 
 #define FRAG_CBR_FALLTHROUGH_SHORT 0x8000000
 
