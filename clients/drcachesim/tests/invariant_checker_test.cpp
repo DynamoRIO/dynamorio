@@ -489,7 +489,7 @@ check_duplicate_syscall_with_same_pc()
 #    endif
         };
         if (!run_checker(memrefs, true, 1, 5, "Duplicate syscall instrs with the same PC",
-                         "Failed to catch double syscall instrs with the same PC"))
+                         "Failed to catch duplicate syscall instrs with the same PC"))
             return false;
     }
 

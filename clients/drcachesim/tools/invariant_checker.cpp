@@ -619,12 +619,13 @@ invariant_checker_t::check_for_pc_discontinuity(
     std::string error_msg = "";
     bool have_cond_branch_target = false;
     addr_t cond_branch_target = 0;
-    if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
+    const addr_t prev_instr_trace_pc = shard->prev_instr_.instr.addr;
+    if (prev_instr_trace_pc != 0 /*first*/ &&
         // We do not bother to support legacy traces without encodings.
         expect_encoding && type_is_instr_direct_branch(shard->prev_instr_.instr.type)) {
         if (shard->prev_instr_.instr.encoding_is_new)
-            shard->branch_target_cache.erase(shard->prev_instr_.instr.addr);
-        auto cached = shard->branch_target_cache.find(shard->prev_instr_.instr.addr);
+            shard->branch_target_cache.erase(prev_instr_trace_pc);
+        auto cached = shard->branch_target_cache.find(prev_instr_trace_pc);
         if (cached != shard->branch_target_cache.end()) {
             have_cond_branch_target = true;
             cond_branch_target = cached->second;
@@ -639,12 +640,11 @@ invariant_checker_t::check_for_pc_discontinuity(
                 have_cond_branch_target = true;
                 cond_branch_target = reinterpret_cast<addr_t>(
                     opnd_get_pc(instr_get_target(shard->prev_instr_decoded_.get())));
-                shard->branch_target_cache[shard->prev_instr_.instr.addr] =
-                    cond_branch_target;
+                shard->branch_target_cache[prev_instr_trace_pc] = cond_branch_target;
             }
         }
     }
-    if (shard->prev_instr_.instr.addr != 0 /*first*/) {
+    if (prev_instr_trace_pc != 0 /*first*/) {
         // Check for all valid transitions except taken branches. We consider taken
         // branches later so that we can provide a different message for those
         // invariant violations.
@@ -653,10 +653,9 @@ invariant_checker_t::check_for_pc_discontinuity(
             TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                     shard->file_type_) ||
             // Regular fall-through.
-            (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
-             memref.instr.addr) ||
+            (prev_instr_trace_pc + shard->prev_instr_.instr.size == memref.instr.addr) ||
             // String loop.
-            (shard->prev_instr_.instr.addr == memref.instr.addr &&
+            (prev_instr_trace_pc == memref.instr.addr &&
              (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
               // Online incorrectly marks the 1st string instr across a thread
               // switch as fetched.
@@ -688,9 +687,8 @@ invariant_checker_t::check_for_pc_discontinuity(
                 }
             } else if (cur_instr_decoded != nullptr &&
                        shard->prev_instr_decoded_ != nullptr &&
-                       shard->prev_instr_.instr.addr != 0 /*first*/ &&
                        instr_is_syscall(cur_instr_decoded.get()) &&
-                       memref.instr.addr == shard->prev_instr_.instr.addr &&
+                       memref.instr.addr == prev_instr_trace_pc &&
                        instr_is_syscall(shard->prev_instr_decoded_.get())) {
                 error_msg = "Duplicate syscall instrs with the same PC";
             } else {

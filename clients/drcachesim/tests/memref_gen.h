@@ -99,7 +99,6 @@ inline memref_t
 gen_instr_encoded(addr_t pc, const std::vector<char> &encoding, memref_tid_t tid = 1)
 {
     memref_t memref = gen_instr_type(TRACE_TYPE_INSTR, tid, pc, encoding.size());
-    memref.instr.size = encoding.size();
     memcpy(memref.instr.encoding, encoding.data(), encoding.size());
     memref.instr.encoding_is_new = true;
     return memref;
