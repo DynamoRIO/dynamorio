@@ -206,11 +206,20 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Rseq marker not immediately prior to kernel marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
+        shard->rseq_end_pc_ = memref.marker.marker_value;
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
         // Check that the rseq final instruction was not executed: that raw2trace
-        // rolled it back.
+        // rolled it back, unless it was a fault in the instrumented execution in which
+        // case the marker value will point to it.
         report_if_false(shard,
-                        memref.marker.marker_value != shard->prev_instr_.instr.addr,
+                        shard->rseq_end_pc_ == 0 ||
+                            shard->prev_instr_.instr.addr +
+                                    shard->prev_instr_.instr.size !=
+                                shard->rseq_end_pc_ ||
+                            shard->prev_instr_.instr.addr == memref.marker.marker_value,
                         "Rseq post-abort instruction not rolled back");
     }
 #endif
@@ -409,7 +418,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     memref.instr.addr == shard->app_handler_pc_ ||
                     // Marker for rseq abort handler.  Not as unique as a prefetch, but
                     // we need an instruction and not a data type.
-                    memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP,
+                    memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
+                    // Instruction-filtered can easily skip the return point.
+                    TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                            shard->file_type_),
                 "Signal handler return point incorrect");
             // We assume paired signal entry-exit (so no longjmp and no rseq
             // inside signal handlers).
