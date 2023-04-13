@@ -438,12 +438,6 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_RSEQ_ENTRY,
 
-    /**
-     * Indicates the PC of the abort handler for the following rseq region.  Always
-     * follows #TRACE_MARKER_TYPE_RSEQ_ENTRY.
-     */
-    TRACE_MARKER_TYPE_RSEQ_HANDLER,
-
     // ...
     // These values are reserved for future built-in marker types.
     // ...

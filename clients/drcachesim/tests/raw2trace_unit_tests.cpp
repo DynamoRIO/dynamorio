@@ -1066,8 +1066,8 @@ test_rseq_rollback(void *drcontext)
     // The end of our rseq sequence, ending in a committing store.
     raw.push_back(make_block(offs_move1, 2));
     raw.push_back(make_memref(42));
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_store));
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_store));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_move2));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_move2));
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
@@ -1136,8 +1136,8 @@ test_rseq_rollback_with_timestamps(void *drcontext)
     raw.push_back(make_memref(42));
     raw.push_back(make_timestamp());
     raw.push_back(make_core());
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_store));
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_store));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_move2));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_move2));
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
@@ -1204,7 +1204,6 @@ test_rseq_rollback_with_signal(void *drcontext)
     raw.push_back(make_timestamp());
     raw.push_back(make_core());
     raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_HANDLER, offs_end));
     // The end of our rseq sequence, ending in a committing store.
     raw.push_back(make_block(offs_move1, 2));
     raw.push_back(make_memref(42));
@@ -1234,7 +1233,6 @@ test_rseq_rollback_with_signal(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_HANDLER) &&
         // The move1 instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
@@ -1295,8 +1293,8 @@ test_rseq_rollback_with_chunks(void *drcontext)
     raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
     raw.push_back(make_block(offs_move1, 2));
     raw.push_back(make_memref(42));
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_store));
-    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_store));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ABORT, offs_move2));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_move2));
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
