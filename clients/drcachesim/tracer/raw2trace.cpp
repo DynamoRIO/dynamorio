@@ -583,11 +583,14 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 if (!err.empty())
                     return err;
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
-                log(4, "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
-                    marker_val);
-                tdata->rseq_ever_saw_entry_ = true;
-                tdata->rseq_buffering_enabled_ = true;
-                tdata->rseq_end_pc_ = marker_val;
+                if (tdata->rseq_want_rollback_) {
+                    log(4,
+                        "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
+                        marker_val);
+                    tdata->rseq_ever_saw_entry_ = true;
+                    tdata->rseq_buffering_enabled_ = true;
+                    tdata->rseq_end_pc_ = marker_val;
+                }
             }
             // If there is currently a delayed branch that has not been emitted yet,
             // delay most markers since intra-block markers can cause issues with
@@ -727,6 +730,10 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     thread_id_t tid = header.tid;
     tdata->tid = tid;
     tdata->cache_line_size = header.cache_line_size;
+    // We can't adjust filtered instructions, so we disable buffering.
+    if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                 get_file_type(tdata)))
+        tdata->rseq_want_rollback_ = true;
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
@@ -1468,17 +1475,9 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
         std::string err = get_marker_value(tdata, &in_entry, &marker_val);
         if (!err.empty())
             return err;
-        if (tdata->rseq_ever_saw_entry_ &&
+        // An abort always ends a block.
+        if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
             in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
-            // An abort always ends a block.
-        } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                   // Support legacy traces before we added TRACE_MARKER_TYPE_RSEQ_ENTRY.
-                   // We identify them by not seeing an entry before an abort.
-                   // We won't fix up rseq aborts with timestamps (i#5954) nor rseq
-                   // side exits (i#5953) for such traces but we can at least fix
-                   // up typical aborts.
-                   (!tdata->rseq_ever_saw_entry_ &&
-                    in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT)) {
             // A signal/exception marker in the next entry could be at any point
             // among non-memref instrs, or it could be after this bb.
             // We check the stored PC.
@@ -1491,13 +1490,13 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
                 if (marker_val == cur_offs)
                     at_interrupted_pc = true;
             } else {
-                if (marker_val == cur_pc ||
-                    // Rseq abort events now give us the handler PC as the interrupted PC.
-                    // We insert the signal at the commit PC as we have no further info.
-                    (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT &&
-                     tdata->rseq_buffering_enabled_ && cur_pc == tdata->rseq_commit_pc_))
+                if (marker_val == cur_pc)
                     at_interrupted_pc = true;
             }
+            // Support legacy traces before we added TRACE_MARKER_TYPE_RSEQ_ENTRY.  We
+            // identify them by not seeing an entry before an abort.  We won't fix up
+            // rseq aborts with timestamps (i#5954) nor rseq side exits (i#5953) for
+            // such traces but we can at least fix up typical aborts.
             if (!tdata->rseq_ever_saw_entry_ &&
                 in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 // For the older version, we will not get here for Windows
@@ -1513,12 +1512,12 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
             if (marker_val == 0 || at_interrupted_pc || legacy_rseq_rollback) {
                 log(4, "Signal/exception interrupted the bb @ %p\n", cur_pc);
                 if (tdata->rseq_past_end_) {
-                    addr_t rseq_handler_pc =
+                    addr_t rseq_abort_pc =
                         in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT
                         ? marker_val
                         : 0;
                     err = adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
-                                                      rseq_handler_pc);
+                                                      rseq_abort_pc);
                     if (!err.empty())
                         return err;
                 }
@@ -1831,8 +1830,10 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
 
 std::string
 raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc,
-                                         addr_t abort_handler_pc)
+                                         addr_t abort_pc)
 {
+    if (!tdata->rseq_want_rollback_)
+        return "";
     log(4, "--- Rseq region exited at %p ---\n", next_pc);
     if (verbosity_ >= 4) {
         log(4, "Rseq buffer contents:\n");
@@ -1845,7 +1846,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
     // We need this in the outer scope for use by write() below.
     byte encoding[MAX_ENCODING_LENGTH];
 
-    if ((abort_handler_pc != 0 && next_pc == abort_handler_pc) ||
+    if ((abort_pc != 0 && next_pc == abort_pc) ||
         // Old traces have the commit PC instead of the handler in the abort and
         // signal events (so not really the "next_pc" but the "exit_pc") and
         // don't have abort events on a signal aborting an rseq region.
@@ -2463,7 +2464,9 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 start = it;
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
             }
-            if (type_is_instr(static_cast<trace_type_t>(it->type))) {
+            if (type_is_instr(static_cast<trace_type_t>(it->type)) &&
+                // Do not count PC-only i-filtered instrs.
+                it->size > 0) {
                 ++tdata->cur_chunk_instr_count;
                 ++instr_ordinal;
                 if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
