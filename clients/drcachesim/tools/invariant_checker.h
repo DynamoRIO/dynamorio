@@ -37,6 +37,7 @@
 #define _INVARIANT_CHECKER_H_ 1
 
 #include "analysis_tool.h"
+#include "dr_api.h"
 #include "memref.h"
 #include <memory>
 #include <mutex>
@@ -85,6 +86,7 @@ protected:
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
         memref_t prev_instr_ = {};
+        std::unique_ptr<instr_t> prev_instr_decoded_ = nullptr;
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         addr_t last_retaddr_ = 0;
@@ -123,6 +125,7 @@ protected:
         // We could move this to per-worker data and still not need a lock
         // (we don't currently have per-worker data though so leaving it as per-shard).
         std::unordered_map<addr_t, addr_t> branch_target_cache;
+        addr_t rseq_end_pc_ = 0;
     };
 
     // We provide this for subclasses to run these invariants with custom
@@ -136,7 +139,9 @@ protected:
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
     std::string
-    check_for_pc_discontinuity(per_shard_t *shard, const memref_t &memref);
+    check_for_pc_discontinuity(per_shard_t *shard, const memref_t &memref,
+                               const std::unique_ptr<instr_t> &cur_instr_decoded,
+                               const bool expect_encoding);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;

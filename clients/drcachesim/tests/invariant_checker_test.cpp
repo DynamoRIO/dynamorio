@@ -216,13 +216,14 @@ check_sane_control_flow()
 #    if defined(X86_64) || defined(X86_32)
             // 0x74 is "je" with the 2nd byte the offset.
             gen_branch_encoded(1, 0x71019dbc, { 0x74, 0x32 }),
+            gen_instr_encoded(0x71019ded, { 0x01 }),
 #    elif defined(ARM_64)
             // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
             gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
+            gen_instr_encoded(0x71019ded, 0x01),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
-            gen_instr(1, 20),
         };
 
         if (!run_checker(memrefs, true, 1, 3,
@@ -368,11 +369,27 @@ check_rseq()
     // Roll back rseq final instr.
     {
         std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
+            gen_instr(1, 1),
+            // Rolled back instr at pc=2 size=1.
+            // Point to the abort handler.
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 4),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(1, 4),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
             gen_instr(1, 1),
             gen_instr(1, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 1),
-            gen_instr(1, 1),
+            // A fault in the instrumented execution.
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(1, 4),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -380,13 +397,14 @@ check_rseq()
     // Fail to roll back rseq final instr.
     {
         std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
             gen_instr(1, 1),
             gen_instr(1, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 4),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(1, 4),
         };
-        if (!run_checker(memrefs, true, 1, 3,
+        if (!run_checker(memrefs, true, 1, 4,
                          "Rseq post-abort instruction not rolled back",
                          "Failed to catch bad rseq abort"))
             return false;
@@ -481,13 +499,72 @@ check_function_markers()
     return true;
 }
 
+bool
+check_duplicate_syscall_with_same_pc()
+{
+    constexpr addr_t ADDR = 0x7fcf3b9dd9e9;
+    // Negative: syscalls with the same PC.
+#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#    if defined(X86_64) || defined(X86_32)
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+#    elif defined(ARM_64)
+            gen_instr_encoded(ADDR,
+                              0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_instr_encoded(ADDR,
+                              0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#    endif
+        };
+        if (!run_checker(memrefs, true, 1, 5, "Duplicate syscall instrs with the same PC",
+                         "Failed to catch duplicate syscall instrs with the same PC"))
+            return false;
+    }
+
+    // Positive test: syscalls with different PCs.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#    if defined(X86_64) || defined(X86_32)
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_instr_encoded(ADDR + 2, { 0x0f, 0x05 }), // 0x7fcf3b9dd9eb: 0f 05 syscall
+#    elif defined(ARM_64)
+            gen_instr_encoded(ADDR, 0xd4000001,
+                              2), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_instr_encoded(ADDR + 4, 0xd4000001,
+                              2), // 0x7fcf3b9dd9eb: 0xd4000001 svc #0x0
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#    endif
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+#endif
+    return true;
+}
+
 } // namespace
 
 int
 main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
-        check_kernel_xfer() && check_rseq() && check_function_markers()) {
+        check_kernel_xfer() && check_rseq() && check_function_markers() &&
+        check_duplicate_syscall_with_same_pc()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

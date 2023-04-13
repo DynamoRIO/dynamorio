@@ -3940,6 +3940,15 @@ if (BUILD_CLIENTS)
         # drbbdup + rseq combo (i#5658, i#5659).
         "-trace_after_instrs 5K"
         "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+      # Test filtering.
+      torunonly_drcacheoff(rseq-filter linux.rseq
+        "-trace_after_instrs 5K -L0_filter"
+        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+      set(tool.drcacheoff.rseq-filter_expectbase "offline-rseq")
+      torunonly_drcacheoff(rseq-dfilter linux.rseq
+        "-trace_after_instrs 5K -L0D_filter"
+        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+      set(tool.drcacheoff.rseq-dfilter_expectbase "offline-rseq")
     endif ()
 
     if (AARCH64)

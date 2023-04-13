@@ -998,7 +998,9 @@ typedef enum {
     DR_XFER_SET_CONTEXT_THREAD, /**< NtSetContextThread system call. */
     DR_XFER_CLIENT_REDIRECT,    /**< dr_redirect_execution() or #DR_SIGNAL_REDIRECT. */
     /**
-     * A Linux restartable sequence was aborted.  The interrupted PC always points
+     * A Linux restartable sequence was aborted.  The interrupted PC for a signal in
+     * the execution instrumentation points to the precise interrupted
+     * instruction; but for an abort in the native exeuction, the PC always points
      * to the abort handler, rather than the precise instruction that was aborted.
      * This aligns with kernel behavior: the interrupted PC is not saved anywhere.
      */
