@@ -583,9 +583,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 if (!err.empty())
                     return err;
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
-                // We can't adjust filtered instructions, so we disable buffering.
-                if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                             get_file_type(tdata))) {
+                if (tdata->rseq_want_rollback_) {
                     log(4,
                         "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
                         marker_val);
@@ -732,6 +730,10 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     thread_id_t tid = header.tid;
     tdata->tid = tid;
     tdata->cache_line_size = header.cache_line_size;
+    // We can't adjust filtered instructions, so we disable buffering.
+    if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                 get_file_type(tdata)))
+        tdata->rseq_want_rollback_ = true;
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
@@ -1830,9 +1832,7 @@ std::string
 raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc,
                                          addr_t abort_pc)
 {
-    // Filtered instructions can't be adjusted.
-    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                get_file_type(tdata)))
+    if (!tdata->rseq_want_rollback_)
         return "";
     log(4, "--- Rseq region exited at %p ---\n", next_pc);
     if (verbosity_ >= 4) {

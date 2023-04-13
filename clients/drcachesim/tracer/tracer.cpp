@@ -1058,7 +1058,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     bool need_rseq_instru = instr_is_label(instr) &&
         instr_get_note(instr) == (void *)DR_NOTE_RSEQ_ENTRY &&
         // For filtered instructions we can't adjust rseq regions as we do not have
-        // the fill instrution sequence so we reduce overhead by not outputting the
+        // the fill instruction sequence so we reduce overhead by not outputting the
         // entry markers.
         !op_L0I_filter.get_value();
 

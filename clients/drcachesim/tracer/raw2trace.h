@@ -943,6 +943,7 @@ protected:
         std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
 
         // State for rolling back rseq aborts and side exits.
+        bool rseq_want_rollback_ = false;
         bool rseq_ever_saw_entry_ = false;
         bool rseq_buffering_enabled_ = false;
         bool rseq_past_end_ = false;
