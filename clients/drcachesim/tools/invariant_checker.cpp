@@ -372,15 +372,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // interleaved stream.  Here we look for headers indicating where an interleaved
         // stream *could* switch threads, so we're stricter than necessary.
         if (knob_offline_ && type_is_instr_branch(shard->prev_instr_.instr.type)) {
-            report_if_false(shard,
-                            !shard->saw_timestamp_but_no_instr_ ||
-                                // The invariant is relaxed for a signal.
-                                // prev_xfer_marker_ is cleared on an instr, so if set to
-                                // non-sentinel it means it is immediately prior, in
-                                // between prev_instr_ and memref.
-                                shard->prev_xfer_marker_.marker.marker_type ==
-                                    TRACE_MARKER_TYPE_KERNEL_EVENT,
-                            "Branch target not immediately after branch");
+            report_if_false(
+                shard,
+                !shard->saw_timestamp_but_no_instr_ ||
+                    // The invariant is relaxed for a signal.
+                    // prev_xfer_marker_ is cleared on an instr, so if set to
+                    // non-sentinel it means it is immediately prior, in
+                    // between prev_instr_ and memref.
+                    shard->prev_xfer_marker_.marker.marker_type ==
+                        TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                    // Instruction-filtered are exempted.
+                    TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                            shard->file_type_),
+                "Branch target not immediately after branch");
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
         // by markers.
