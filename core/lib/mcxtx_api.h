@@ -137,6 +137,7 @@
      */
     dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
     /* TODO i#5365: SVE predicate registers. */
+    dr_simd_t svep[MCXT_NUM_SVEP_SLOTS];
 #elif defined(X86)
     /* Our inlined ibl uses eax-edx, so we place them together to fit
      * on the same 32-byte cache line; yet we also want to simplify

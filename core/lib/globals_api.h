@@ -696,6 +696,7 @@ typedef union _dr_simd_t {
             32 /**< Number of 128-bit SIMD Vn/Zn slots in dr_mcontext_t \
                 */
                /* TODO i#5365: Predicate registers slots. */
+#        define MCXT_NUM_SVEP_SLOTS 16 /**< Number of SIMD Pn slots in dr_mcontext_t */
 #    else
 #        define MCXT_NUM_SIMD_SLOTS                                  \
             16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \

@@ -38,6 +38,8 @@
 
 static int num_simd_saved;
 static int num_simd_registers;
+// TODO i#5365: Machine context slots for 16 predicate registers.
+static int num_svep_registers;
 static int num_opmask_registers;
 
 #ifndef DR_HOST_NOT_TARGET
@@ -149,6 +151,7 @@ proc_init_arch(void)
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
     // TODO i#5365: Machine context slots for 16 predicate registers.
+    num_svep_registers = MCXT_NUM_SVEP_SLOTS;
     num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
 
     /* When DR_HOST_NOT_TARGET, get_cache_line_size returns false and does

@@ -609,6 +609,20 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                         opnd_size_from_bytes(proc_get_vector_length_bytes()))));
         }
         /* TODO i#5365: Restore SVE predicate registers as well. */
+        /* add x1, x(dcxt), #(off) */
+        APP(ilist,
+            XINST_CREATE_add_2src(dcontext, opnd_create_reg(DR_REG_X1),
+                                  opnd_create_reg(REG_DCXT),
+                                  OPND_CREATE_INTPTR(offsetof(priv_mcontext_t, svep))));
+        for (i = 0; i < 16; i++) {
+            /* ldr p(i), [x1, #(i mul vl)] */
+            APP(ilist,
+                INSTR_CREATE_ldr(
+                    dcontext, opnd_create_reg(DR_REG_P0 + i),
+                    opnd_create_base_disp(
+                        DR_REG_X1, DR_REG_NULL, 0, i,
+                        opnd_size_from_bytes(proc_get_vector_length_bytes()))));
+        }
     }
 }
 
@@ -782,6 +796,21 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                     opnd_create_reg(DR_REG_Z0 + i)));
         }
         /* TODO i#5365: Save SVE predicate registers as well. */
+        /* add x1, x(dcxt), #(off) */
+        APP(ilist,
+            XINST_CREATE_add_2src(dcontext, opnd_create_reg(DR_REG_X1),
+                                  opnd_create_reg(REG_DCXT),
+                                  OPND_CREATE_INTPTR(offsetof(priv_mcontext_t, svep))));
+        for (i = 0; i < 16; i++) {
+            /* str p(i), [x1, #(i mul vl)] */
+            APP(ilist,
+                INSTR_CREATE_str(
+                    dcontext,
+                    opnd_create_base_disp(
+                        DR_REG_X1, DR_REG_NULL, 0, i,
+                        opnd_size_from_bytes(proc_get_vector_length_bytes())),
+                    opnd_create_reg(DR_REG_P0 + i)));
+        }
     }
 }
 
