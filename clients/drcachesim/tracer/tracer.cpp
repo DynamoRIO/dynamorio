@@ -1055,12 +1055,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             FATAL("Fatal error: failed to reserve aflags\n");
     }
 
-    bool needs_instru = false;
-    bool instr_is_rseq_entry_label =
-        instr_is_label(instr) && instr_get_note(instr) == (void *)DR_NOTE_RSEQ_ENTRY;
-    if (instr_is_rseq_entry_label) {
-        needs_instru = true;
-    }
+    bool need_rseq_instru = instr_is_label(instr) &&
+        instr_get_note(instr) == (void *)DR_NOTE_RSEQ_ENTRY &&
+        // For filtered instructions we can't adjust rseq regions as we do not have
+        // the fill instrution sequence so we reduce overhead by not outputting the
+        // entry markers.
+        !op_L0I_filter.get_value();
 
     // Use emulation-aware queries to accurately trace rep string and
     // scatter-gather expansions.  Getting this wrong can result in significantly
@@ -1073,7 +1073,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         // Ensure we reach the code below for post-strex instru.
         ud->strex == NULL &&
         // Do not skip misc cases that need instrumentation.
-        !needs_instru &&
+        !need_rseq_instru &&
         // Avoid dropping trailing bundled instrs or missing the block-final clean call.
         !is_last_instr(drcontext, instr))
         return flags;
@@ -1189,9 +1189,17 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         ud->strex = NULL;
     }
 
-    if (instr_is_rseq_entry_label) {
+    if (need_rseq_instru) {
+        DR_ASSERT(!op_L0I_filter.get_value()); // Excluded from need_rseq_instru.
+        if (op_L0D_filter.get_value())
+            insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
         adjust =
             instru->instrument_rseq_entry(drcontext, bb, where, instr, reg_ptr, adjust);
+        if (op_L0D_filter.get_value()) {
+            // When filtering we can't combine buf_ptr adjustments.
+            insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust);
+            adjust = 0;
+        }
     }
 
     /* Instruction entry for instr fetch trace.  This does double-duty by

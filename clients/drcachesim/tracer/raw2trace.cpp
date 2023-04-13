@@ -583,11 +583,16 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 if (!err.empty())
                     return err;
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
-                log(4, "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
-                    marker_val);
-                tdata->rseq_ever_saw_entry_ = true;
-                tdata->rseq_buffering_enabled_ = true;
-                tdata->rseq_end_pc_ = marker_val;
+                // We can't adjust filtered instructions, so we disable buffering.
+                if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                             get_file_type(tdata))) {
+                    log(4,
+                        "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
+                        marker_val);
+                    tdata->rseq_ever_saw_entry_ = true;
+                    tdata->rseq_buffering_enabled_ = true;
+                    tdata->rseq_end_pc_ = marker_val;
+                }
             }
             // If there is currently a delayed branch that has not been emitted yet,
             // delay most markers since intra-block markers can cause issues with
@@ -1833,6 +1838,10 @@ std::string
 raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc,
                                          addr_t abort_handler_pc)
 {
+    // Filtered instructions can't be adjusted.
+    if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                get_file_type(tdata)))
+        return "";
     log(4, "--- Rseq region exited at %p ---\n", next_pc);
     if (verbosity_ >= 4) {
         log(4, "Rseq buffer contents:\n");
@@ -2463,7 +2472,9 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 start = it;
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
             }
-            if (type_is_instr(static_cast<trace_type_t>(it->type))) {
+            if (type_is_instr(static_cast<trace_type_t>(it->type)) &&
+                // Do not count PC-only i-filtered instrs.
+                it->size > 0) {
                 ++tdata->cur_chunk_instr_count;
                 ++instr_ordinal;
                 if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&

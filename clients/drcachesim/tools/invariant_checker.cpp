@@ -409,7 +409,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     memref.instr.addr == shard->app_handler_pc_ ||
                     // Marker for rseq abort handler.  Not as unique as a prefetch, but
                     // we need an instruction and not a data type.
-                    memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP,
+                    memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
+                    // Instruction-filtered can easily skip the return point.
+                    TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                            shard->file_type_),
                 "Signal handler return point incorrect");
             // We assume paired signal entry-exit (so no longjmp and no rseq
             // inside signal handlers).
