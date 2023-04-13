@@ -419,8 +419,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // B) Change the signal check to compare the handler return point to the
             // marker value, not to the pre-signal instruction fetch
 
-            report_if_false(
-                shard,
+            const bool condition =
                 ((memref.instr.addr == shard->prev_xfer_int_pc_.top() ||
                   // DR hands us a different address for sysenter than the
                   // resumption point.
@@ -439,16 +438,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                      type_is_instr_branch(shard->pre_signal_instr_.top().instr.type) ||
                      shard->pre_signal_instr_.top().instr.type ==
                          TRACE_TYPE_INSTR_SYSENTER)) ||
-                    // Nested signal.  XXX: This only works for our annotated test
-                    // signal_invariants where we know shard->app_handler_pc_.
-                    memref.instr.addr == shard->app_handler_pc_ ||
-                    // Marker for rseq abort handler.  Not as unique as a prefetch, but
-                    // we need an instruction and not a data type.
-                    memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
-                    // Instruction-filtered can easily skip the return point.
-                    TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                            shard->file_type_),
-                "Signal handler return point incorrect");
+                // Nested signal.  XXX: This only works for our annotated test
+                // signal_invariants where we know shard->app_handler_pc_.
+                memref.instr.addr == shard->app_handler_pc_ ||
+                // Marker for rseq abort handler.  Not as unique as a prefetch, but
+                // we need an instruction and not a data type.
+                memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
+                // Instruction-filtered can easily skip the return point.
+                TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                        shard->file_type_);
+
+            report_if_false(shard, condition, "Signal handler return point incorrect");
             // We assume paired signal entry-exit (so no longjmp and no rseq
             // inside signal handlers).
             shard->prev_xfer_int_pc_.pop();
