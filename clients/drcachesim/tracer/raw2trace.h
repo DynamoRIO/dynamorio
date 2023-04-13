@@ -98,7 +98,9 @@
 
 typedef enum {
     RAW2TRACE_STAT_COUNT_ELIDED,
-    RAW2TRACE_STAT_DUPLICATE_SYSCALL
+    RAW2TRACE_STAT_DUPLICATE_SYSCALL,
+    RAW2TRACE_STAT_RSEQ_ABORT,
+    RAW2TRACE_STAT_RSEQ_SIDE_EXIT,
 } raw2trace_statistic_t;
 
 struct module_t {
@@ -183,7 +185,7 @@ struct instr_summary_t final {
     app_pc
     next_pc() const
     {
-        return next_pc_;
+        return pc_ + length_;
     }
     /** Get the pc of the start of this instrucion. */
     app_pc
@@ -305,6 +307,12 @@ private:
     {
         return mem_srcs_and_dests_.size() - num_mem_srcs_;
     }
+    // Returns 0 for indirect branches or non-branches.
+    app_pc
+    branch_target_pc() const
+    {
+        return branch_target_pc_;
+    }
 
     static const int kReadsMemMask = 0x0001;
     static const int kWritesMemMask = 0x0002;
@@ -333,7 +341,7 @@ private:
     uint16_t prefetch_type_ = 0;
     uint16_t flush_type_ = 0;
     byte length_ = 0;
-    app_pc next_pc_ = 0;
+    app_pc branch_target_pc_ = 0;
 
     // Squash srcs and dests to save memory usage. We may want to
     // bulk-allocate pages of instr_summary_t objects, instead
@@ -617,7 +625,9 @@ public:
     test_module_mapper_t(instrlist_t *instrs, void *drcontext)
         : module_mapper_t(nullptr)
     {
-        byte *pc = instrlist_encode(drcontext, instrs, decode_buf_, true);
+        // We encode for 0-based addresses for simpler tests with low values.
+        byte *pc = instrlist_encode_to_copy(drcontext, instrs, decode_buf_, nullptr,
+                                            nullptr, true);
         DR_ASSERT(pc != nullptr);
         DR_ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE);
         // Clear do_module_parsing error; we can't cleanly make virtual b/c it's
@@ -835,6 +845,24 @@ protected:
         std::vector<instr_summary_t> instrs;
     };
 
+    struct branch_info_t {
+        branch_info_t(app_pc pc, app_pc target, int idx)
+            : pc(pc)
+            , target_pc(target)
+            , buf_idx(idx)
+        {
+        }
+        branch_info_t()
+            : pc(0)
+            , target_pc(0)
+            , buf_idx(-1)
+        {
+        }
+        app_pc pc;
+        app_pc target_pc;
+        int buf_idx; // Index into rseq_buffer_.
+    };
+
     // Per-traced-thread data is stored here and accessed without locks by having each
     // traced thread processed by only one processing thread.
     struct raw2trace_thread_data_t {
@@ -897,6 +925,8 @@ protected:
         // Statistics on the processing.
         uint64 count_elided = 0;
         uint64 count_duplicate_syscall = 0;
+        uint64 count_rseq_abort = 0;
+        uint64 count_rseq_side_exit = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -911,6 +941,17 @@ protected:
 
         std::vector<schedule_entry_t> sched;
         std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
+
+        // State for rolling back rseq aborts and side exits.
+        bool rseq_ever_saw_entry_ = false;
+        bool rseq_buffering_enabled_ = false;
+        bool rseq_past_end_ = false;
+        addr_t rseq_commit_pc_ = 0;
+        addr_t rseq_end_pc_ = 0;
+        std::vector<trace_entry_t> rseq_buffer_;
+        int rseq_commit_idx_ = -1; // Index into rseq_buffer_.
+        std::vector<branch_info_t> rseq_branch_targets_;
+        std::vector<app_pc> rseq_decode_pcs_;
     };
 
     /**
@@ -1049,6 +1090,8 @@ protected:
 
     uint64 count_elided_ = 0;
     uint64 count_duplicate_syscall_ = 0;
+    uint64 count_rseq_abort_ = 0;
+    uint64 count_rseq_side_exit_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 
@@ -1110,6 +1153,21 @@ private:
     // and only after record_encoding_emitted() returns true.
     void
     rollback_last_encoding(raw2trace_thread_data_t *tdata);
+
+    // Writes out the buffered entries for an rseq region, after rolling back to
+    // a side exit or abort if necessary.
+    std::string
+    adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc,
+                                addr_t abort_handler_pc = 0);
+
+    // Removes entries from tdata->rseq_buffer_ between and including the instructions
+    // starting at or after remove_start_rough_idx and before or equal to
+    // remove_end_rough_idx.  These "rough" indices can be on the encoding or instr
+    // fetch to include that instruction.
+    std::string
+    rollback_rseq_buffer(raw2trace_thread_data_t *tdata, int remove_start_rough_idx,
+                         // This is inclusive.
+                         int remove_end_rough_idx);
 
     // Returns whether an #instr_summary_t representation of the instruction at pc inside
     // the block that begins at block_start_pc in the specified module exists.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2747,11 +2747,20 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         return true;
     }
 
+    /* DrMem#1735: pass app pc, not selfmod copy pc */
+    app_pc tag = bb->pretend_pc == NULL ? bb->start_pc : bb->pretend_pc;
+
+#ifdef LINUX
+    if (TEST(FRAG_STARTS_RSEQ_REGION, bb->flags)) {
+        rseq_insert_start_label(dcontext, tag, bb->ilist);
+        /* This is a temporary flag, as it overlaps with another used later. */
+        bb->flags &= ~FRAG_STARTS_RSEQ_REGION;
+    }
+#endif
+
     /* Call the bb creation callback(s) */
-    if (!instrument_basic_block(dcontext,
-                                /* DrMem#1735: pass app pc, not selfmod copy pc */
-                                (bb->pretend_pc == NULL ? bb->start_pc : bb->pretend_pc),
-                                bb->ilist, bb->for_trace, !bb->app_interp, &emitflags)) {
+    if (!instrument_basic_block(dcontext, tag, bb->ilist, bb->for_trace, !bb->app_interp,
+                                &emitflags)) {
         /* although no callback was called we must process syscalls/ints (PR 307284) */
     }
     if (bb->for_cache && TEST(DR_EMIT_GO_NATIVE, emitflags)) {

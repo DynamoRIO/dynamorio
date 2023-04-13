@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1353,7 +1353,10 @@ This run-twice approach is subject to the following limitations:
   region whose values are then read afterward, must be general-purpose registers.
 - The instrumented execution of the rseq region may not perfectly reflect
   the native behavior of the application.  The instrumentation will never see
-  an abort anywhere but just prior to the committing store.
+  an abort anywhere but just prior to the committing store.  The native execution
+  might take a different conditional branch direction than the instrumented
+  execution, leading to discrepancies in recorded instruction sequences (drmemtrace
+  does try to fix these up in post-processing using the #DR_NOTE_RSEQ_ENTRY label).
   Additionally, memory addresses may be wrong if they are based on
   the live (as opposed to cached at the rseq region entrance) underlying cpuid
   and a migration occurred mid-region.  These are minor and

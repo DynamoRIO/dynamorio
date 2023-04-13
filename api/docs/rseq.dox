@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -262,11 +262,7 @@ We want to test both running to completion and a restart, so I have our tests us
 
 # Future Work
 
-Adding AArchxx support is future work: the patch_mov_immed_ptrsz(), the writes to the rseq struct in TLS, and the rseq tests are currently x86-only.
-
 We do not yet perfectly handle a midpoint exit during the instrumentation execution: we need to invoke the native version as well, for sequences where state changes prior to the exit are examined post-exit.  We may want to leverage the `__rseq_exit_point_array` section for this.
-
-We do not yet handle indirect branch exits out of a sequence.
 
 We are currently ignoring the flags which indicate which triggers (out of preempt, signal, and migrate) should cause the abort handler to be called.  We blindly run a second time even if the preempt and migrate bits are not set, which the application may not expect without a signal arriving or may expect to only happen in a fatal error condition.
 

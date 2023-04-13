@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -734,27 +734,22 @@ translate_restore_special_cases(dcontext_t *dcontext, app_pc pc)
         LOG(THREAD_GET, LOG_INTERP, 2,
             "recreate_app: moving " PFX " inside rseq region to handler " PFX "\n", pc,
             handler);
-        /* Remember the original for translate_last_direct_translation. */
-        dcontext->client_data->last_special_xl8 = pc;
+        /* Remember whether this was in an rseq region. */
+        dcontext->client_data->last_xl8_in_rseq = true;
         return handler;
     }
-    dcontext->client_data->last_special_xl8 = NULL;
+    dcontext->client_data->last_xl8_in_rseq = false;
 #endif
     return pc;
 }
 
-app_pc
-translate_last_direct_translation(dcontext_t *dcontext, app_pc pc)
+bool
+translate_last_in_rseq(dcontext_t *dcontext)
 {
 #ifdef LINUX
-    app_pc handler;
-    if (dcontext->client_data->last_special_xl8 != NULL &&
-        rseq_get_region_info(dcontext->client_data->last_special_xl8, NULL, NULL,
-                             &handler, NULL, NULL) &&
-        pc == handler)
-        return dcontext->client_data->last_special_xl8;
+    return dcontext->client_data->last_xl8_in_rseq;
 #endif
-    return pc;
+    return false;
 }
 
 /* Returns a success code, but makes a best effort regardless.
