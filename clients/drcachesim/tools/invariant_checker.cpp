@@ -349,8 +349,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (next_pc == nullptr) {
                 instr_free(GLOBAL_DCONTEXT, cur_instr_decoded.get());
                 cur_instr_decoded.reset(nullptr);
-                instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
-                shard->prev_instr_decoded_.reset(nullptr);
             }
         }
         if (knob_verbose_ >= 3) {
@@ -387,6 +385,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                     TRACE_MARKER_TYPE_KERNEL_EVENT,
                             "Branch target not immediately after branch");
         }
+        // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
+        // by markers.
         const std::string non_explicit_flow_violation_msg =
             check_for_pc_discontinuity(shard, memref, cur_instr_decoded, expect_encoding);
         report_if_false(shard, non_explicit_flow_violation_msg.empty(),
@@ -430,11 +430,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
 #endif
         shard->prev_instr_ = memref;
-        if (cur_instr_decoded != nullptr) {
-            if (shard->prev_instr_decoded_ != nullptr)
-                instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
-            shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
-        }
+        if (shard->prev_instr_decoded_ != nullptr)
+            instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
+        shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
         shard->saw_kernel_xfer_after_prev_instr_ = false;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
@@ -619,8 +617,6 @@ invariant_checker_t::check_for_pc_discontinuity(
     const std::unique_ptr<instr_t> &cur_instr_decoded, const bool expect_encoding)
 {
     std::string error_msg = "";
-    // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
-    // by markers.
     bool have_cond_branch_target = false;
     addr_t cond_branch_target = 0;
     if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
@@ -638,7 +634,7 @@ invariant_checker_t::check_for_pc_discontinuity(
                 // Neither condition should happen but they could on an invalid
                 // encoding from raw2trace or the reader so we report an
                 // invariant rather than asserting.
-                error_msg = "Branch target is not decodeable";
+                report_if_false(shard, false, "Branch target is not decodeable");
             } else {
                 have_cond_branch_target = true;
                 cond_branch_target = reinterpret_cast<addr_t>(
@@ -647,17 +643,6 @@ invariant_checker_t::check_for_pc_discontinuity(
                     cond_branch_target;
             }
         }
-    }
-    bool saw_repeated_syscall_instrs_with_same_pc = false;
-    if (cur_instr_decoded != nullptr && shard->prev_instr_decoded_ != nullptr &&
-        shard->prev_instr_.instr.addr != 0 /*first*/ &&
-        instr_is_syscall(cur_instr_decoded.get()) &&
-        memref.instr.addr == shard->prev_instr_.instr.addr &&
-        instr_is_syscall(shard->prev_instr_decoded_.get())) {
-        // Set this flag so that repeated syscalls are not
-        // double reporeted as other PC discontinuity below.
-        saw_repeated_syscall_instrs_with_same_pc = true;
-        error_msg = "Repeated syscall instrs with the same PC";
     }
     if (shard->prev_instr_.instr.addr != 0 /*first*/) {
         // Check for all valid transitions except taken branches. We consider taken
@@ -686,8 +671,7 @@ invariant_checker_t::check_for_pc_discontinuity(
                   TRACE_MARKER_TYPE_KERNEL_XFER)) ||
             // We expect a gap on a window transition.
             shard->window_transition_ ||
-            shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER ||
-            saw_repeated_syscall_instrs_with_same_pc;
+            shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
         if (!valid_nonbranch_flow) {
             // Check if the type is a branch instruction and there is a branch target
@@ -702,6 +686,13 @@ invariant_checker_t::check_for_pc_discontinuity(
                 if (!valid_branch_flow) {
                     error_msg = "Direct branch does not go to the correct target";
                 }
+            } else if (cur_instr_decoded != nullptr &&
+                       shard->prev_instr_decoded_ != nullptr &&
+                       shard->prev_instr_.instr.addr != 0 /*first*/ &&
+                       instr_is_syscall(cur_instr_decoded.get()) &&
+                       memref.instr.addr == shard->prev_instr_.instr.addr &&
+                       instr_is_syscall(shard->prev_instr_decoded_.get())) {
+                error_msg = "Double syscall instrs with the same PC";
             } else {
                 error_msg = "Non-explicit control flow has no marker";
             }
