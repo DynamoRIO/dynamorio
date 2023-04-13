@@ -692,7 +692,7 @@ invariant_checker_t::check_for_pc_discontinuity(
                        instr_is_syscall(cur_instr_decoded.get()) &&
                        memref.instr.addr == shard->prev_instr_.instr.addr &&
                        instr_is_syscall(shard->prev_instr_decoded_.get())) {
-                error_msg = "Double syscall instrs with the same PC";
+                error_msg = "Duplicate syscall instrs with the same PC";
             } else {
                 error_msg = "Non-explicit control flow has no marker";
             }

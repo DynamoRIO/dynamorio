@@ -464,7 +464,7 @@ check_function_markers()
 }
 
 bool
-check_double_syscall_with_same_pc()
+check_duplicate_syscall_with_same_pc()
 {
     constexpr addr_t ADDR = 0x7fcf3b9dd9e9;
     // Negative: syscalls with the same PC.
@@ -488,7 +488,7 @@ check_double_syscall_with_same_pc()
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
         };
-        if (!run_checker(memrefs, true, 1, 5, "Double syscall instrs with the same PC",
+        if (!run_checker(memrefs, true, 1, 5, "Duplicate syscall instrs with the same PC",
                          "Failed to catch double syscall instrs with the same PC"))
             return false;
     }
@@ -528,7 +528,7 @@ main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
-        check_double_syscall_with_same_pc()) {
+        check_duplicate_syscall_with_same_pc()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
