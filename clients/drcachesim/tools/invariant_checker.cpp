@@ -561,6 +561,11 @@ invariant_checker_t::process_memref(const memref_t &memref)
     if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         // TODO(sahil): Insert breakpoint in here and check PC transitions.
         std::cout << "Debugging kernel event logic" << std::endl;
+
+        // Get the martker value of the previous instruction (compare this for PC
+        // discontinuity.
+        const int marker_value = per_shard->prev_instr_.marker.marker_value;
+        std::cout << "Marker value: " << marker_value << std::endl;
     }
 
     if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), memref)) {
