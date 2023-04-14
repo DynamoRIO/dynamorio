@@ -568,7 +568,7 @@ check_rseq_side_exit_discontinuity()
 #    endif
         };
         if (!run_checker(memrefs, true, 1, 4, "PC discontinuity due to rseq side exit",
-                         "Failed to catch PC discontinuity from Rseq side exit")) {
+                         "Failed to catch PC discontinuity from rseq side exit")) {
             return false;
         }
     }
@@ -588,7 +588,7 @@ check_rseq_side_exit_discontinuity()
             gen_branch_encoded(1, ADDR_ONE, 0x540001a1),
             // eba4ad8:     b8206ac1        str     w1, [x22, x0]
             gen_instr_encoded(ADDR_ONE + 4, 0xb8206ac1),
-            // eba4ada:     92800013     mov    x19, #0xffffffffffffffff
+            // eba4ada:     92800013     mov    x19, #0x1
             gen_instr_encoded(ADDR_ONE + 8, 0x92800013),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
