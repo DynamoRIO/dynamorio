@@ -344,6 +344,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             (shard->prev_entry_.marker.marker_value & 0xfff),
                         "Physical addr bottom 12 bits do not match virtual");
     }
+
+    // TODO(sahil): Add comment about what invariant we are checking for here.
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        // Check for PC transition over here.
+        std::cout << "reached here" << std::endl;
+    }
+
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
@@ -406,12 +414,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         non_explicit_flow_violation_msg);
 
 #ifdef UNIX
-
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-            // Check for PC transition over here.
-            std::cout << "reached here" << std::endl;
-        }
-
         // Ensure signal handlers return to the interruption point.
         if (shard->prev_xfer_marker_.marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
