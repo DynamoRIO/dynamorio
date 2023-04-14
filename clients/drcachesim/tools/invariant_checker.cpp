@@ -355,8 +355,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         const int current_marker_val = memref.marker.marker_value;
         std::cout << "Marker val: " << current_marker_val << std::endl;
 
-        const int prev_pc = shard->prev_instr_.data.pc;
-        std::cout << "previous pc: " << prev_pc << std::endl;
+        const int prev_instr_pc = shard->prev_instr_.data.pc;
+        std::cout << "previous pc: " << prev_instr_pc << std::endl;
+
+        // TODO(sahil): Check that the PC or marker values are not zero. Skip if they are.
+        if (prev_instr_pc != 0) {
+            std::cout << "Check for PC discontinuity" << std::endl;
+        }
     }
 
     if (type_is_instr(memref.instr.type) ||
