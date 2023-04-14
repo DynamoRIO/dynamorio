@@ -734,22 +734,27 @@ translate_restore_special_cases(dcontext_t *dcontext, app_pc pc)
         LOG(THREAD_GET, LOG_INTERP, 2,
             "recreate_app: moving " PFX " inside rseq region to handler " PFX "\n", pc,
             handler);
-        /* Remember whether this was in an rseq region. */
-        dcontext->client_data->last_xl8_in_rseq = true;
+        /* Remember the original for translate_last_direct_translation. */
+        dcontext->client_data->last_special_xl8 = pc;
         return handler;
     }
-    dcontext->client_data->last_xl8_in_rseq = false;
+    dcontext->client_data->last_special_xl8 = NULL;
 #endif
     return pc;
 }
 
-bool
-translate_last_in_rseq(dcontext_t *dcontext)
+app_pc
+translate_last_direct_translation(dcontext_t *dcontext, app_pc pc)
 {
 #ifdef LINUX
-    return dcontext->client_data->last_xl8_in_rseq;
+    app_pc handler;
+    if (dcontext->client_data->last_special_xl8 != NULL &&
+        rseq_get_region_info(dcontext->client_data->last_special_xl8, NULL, NULL,
+                             &handler, NULL, NULL) &&
+        pc == handler)
+        return dcontext->client_data->last_special_xl8;
 #endif
-    return false;
+    return pc;
 }
 
 /* Returns a success code, but makes a best effort regardless.

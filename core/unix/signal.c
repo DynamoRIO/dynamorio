@@ -4016,11 +4016,18 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
         sig_full_cxt_t sc_full;
         sig_full_initialize(&sc_full, uc);
         sc->SC_XIP = (ptr_uint_t)next_pc;
-        if (translate_last_in_rseq(dcontext)) {
+        /* i#4041: Provide the actually-interrupted mid-rseq PC to the rseq event. */
+        ptr_uint_t official_xl8 = sc_interrupted->SC_XIP;
+        ptr_uint_t rseq_xl8 =
+            (ptr_uint_t)translate_last_direct_translation(dcontext, (app_pc)official_xl8);
+        if (rseq_xl8 != official_xl8) {
+            sc_interrupted->SC_XIP = rseq_xl8;
             if (instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, sc_interrupted_full,
                                        NULL, NULL, next_pc, sc->SC_XSP, sc_full, NULL,
                                        sig))
                 next_pc = (app_pc)sc->SC_XIP;
+            /* The signal event has the abort handler, like the kernel passes. */
+            sc_interrupted->SC_XIP = official_xl8;
         }
         if (instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_interrupted_full,
                                    NULL, NULL, next_pc, sc->SC_XSP, sc_full, NULL, sig))
@@ -6417,9 +6424,16 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         info->sighand->action[sig]->handler = (handler_t)SIG_DFL;
     }
     sig_full_cxt_t sc_full = { sc, NULL /*not provided*/ };
-    if (translate_last_in_rseq(dcontext)) {
+    /* i#4041: Provide the actually-interrupted mid-rseq PC to the rseq event. */
+    ptr_uint_t official_xl8 = sc->SC_XIP;
+    ptr_uint_t rseq_xl8 =
+        (ptr_uint_t)translate_last_direct_translation(dcontext, (app_pc)official_xl8);
+    if (rseq_xl8 != official_xl8) {
+        sc->SC_XIP = rseq_xl8;
         instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, sc_full, NULL, NULL,
                                mcontext->pc, mcontext->xsp, osc_empty, mcontext, sig);
+        /* The signal event has the abort handler, like the kernel passes. */
+        sc->SC_XIP = official_xl8;
     }
     instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_full, NULL, NULL,
                            mcontext->pc, mcontext->xsp, osc_empty, mcontext, sig);

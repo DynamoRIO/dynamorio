@@ -113,7 +113,10 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
 bool
 at_syscall_translation(dcontext_t *dcontext, app_pc pc);
 
-bool
-translate_last_in_rseq(dcontext_t *dcontext);
+/* Returns the direct translation when given the "official" translation.
+ * Some special cases like rseq sequences obfuscate the interrupted PC: i#4041.
+ */
+app_pc
+translate_last_direct_translation(dcontext_t *dcontext, app_pc pc);
 
 #endif /* _TRANSLATE_H_ */

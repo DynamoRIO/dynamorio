@@ -348,7 +348,9 @@ typedef enum {
     /**
      * Serves to further identify #TRACE_MARKER_TYPE_KERNEL_EVENT as a
      * restartable sequence abort handler.  This will always be immediately followed
-     * by #TRACE_MARKER_TYPE_KERNEL_EVENT.  The marker value holds the continuation
+     * by #TRACE_MARKER_TYPE_KERNEL_EVENT.  The marker value for a signal that
+     * interrupted the instrumented execution is the precise interrupted PC, but
+     * for all other cases the value holds the continuation
      * program counter, which is the restartable sequence abort handler.  (The precise
      * interrupted point inside the sequence is not provided by the kernel.)
      */
