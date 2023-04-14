@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-#include "dr_api.h"
 #include "invariant_checker.h"
 #include "invariant_checker_create.h"
 #include <algorithm>
