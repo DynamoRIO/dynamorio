@@ -349,8 +349,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         // Check for PC transition over here.
-        std::cout << "reached here" << std::endl;
-
         const int marker_value = shard->prev_instr_.marker.marker_value;
         std::cout << "Marker value: " << marker_value << std::endl;
     }
