@@ -528,9 +528,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #endif
     shard->prev_entry_ = memref;
     if (type_is_instr_branch(shard->prev_entry_.instr.type))
-        shard->last_local_branch_ =
-            std::unique_ptr<memref_t>(new memref_t(shard->prev_entry_));
-
+        shard->last_local_branch_.reset(new memref_t(shard->prev_entry_));
     return true;
 }
 
