@@ -349,8 +349,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         // Check for PC transition over here.
-        const int marker_value = shard->prev_instr_.marker.marker_value;
-        std::cout << "Marker value: " << marker_value << std::endl;
+        //        const int marker_value = shard->prev_instr_.marker.marker_value;
+        //        std::cout << "Marker value: " << marker_value << std::endl;
+
+        const int current_marker_val = memref.marker.marker_value;
+        std::cout << "Marker val: " << current_marker_val << std::endl;
+
+        const int prev_pc = shard->prev_instr_.data.pc;
+        std::cout << "previous pc: " << prev_pc << std::endl;
     }
 
     if (type_is_instr(memref.instr.type) ||
