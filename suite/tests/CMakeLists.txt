@@ -3578,6 +3578,10 @@ if (BUILD_CLIENTS)
         torunonly_simtool(reuse_time_offline ${ci_shared_app}
           "-indir ${thread_trace_dir} -simulator_type reuse_time" "")
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(counts_only_thread ${ci_shared_app}
+          "-indir ${thread_trace_dir} -simulator_type basic_counts -only_thread 10506" "")
+        set(tool.counts_only_thread_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 
