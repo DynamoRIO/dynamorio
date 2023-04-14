@@ -538,6 +538,70 @@ check_duplicate_syscall_with_same_pc()
     return true;
 }
 
+bool
+check_rseq_side_exit_discontinuity()
+{
+#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
+    constexpr addr_t ADDR_ONE = 0xeba4ad4;
+    constexpr addr_t ADDR_TWO = 0xeba4ae4;
+    // Negative test: branches that do not go to their targets due to rseq side
+    // exit.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#    if defined(X86_64) || defined(X86_32)
+            // eba4ad4:     74 32        je     11a9ff29
+            gen_branch_encoded(1, ADDR_ONE, { 0x74, 0x32 }),
+            // eba4ad8:     0f 11 40 10         movups %xmm0,0x10(%rax)
+            gen_instr_encoded(ADDR_ONE + 2, { 0x0f, 0x11, 0x40, 0x10 }),
+            // eba4ae4:     24 01        and    $0x1,%al
+            gen_instr_encoded(ADDR_TWO, { 0x24, 0x01 })
+#    elif defined(ARM_64)
+            // eba4ad4:     540001a1     b.ne   71019df0
+            gen_branch_encoded(1, ADDR_ONE, 0x540001a1),
+            // eba4ad8:     b8206ac1        str     w1, [x22, x0]
+            gen_instr_encoded(ADDR_ONE + 4, 0xb8206ac1),
+            // eba4ae4:     92800013     mov    x19, #0x1
+            gen_instr_encoded(ADDR_TWO, 0x92800013),
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#    endif
+        };
+        if (!run_checker(memrefs, true, 1, 4, "PC discontinuity due to rseq side exit",
+                         "Failed to catch PC discontinuity from Rseq side exit")) {
+            return false;
+        }
+    }
+    // Positive test: branches that go to their targets.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#    if defined(X86_64) || defined(X86_32)
+            // eba4ad4:     74 32        je     11a9ff29
+            gen_branch_encoded(1, ADDR_ONE, { 0x74, 0x32 }),
+            // eba4ad8:     0f 11 40 10         movups %xmm0,0x10(%rax)
+            gen_instr_encoded(ADDR_ONE + 2, { 0x0f, 0x11, 0x40, 0x10 }),
+            // eba4ada:     24 01        and    $0x1,%al
+            gen_instr_encoded(ADDR_ONE + 6, { 0x24, 0x01 })
+#    elif defined(ARM_64)
+            // eba4ad4:     540001a1     b.ne   71019df0
+            gen_branch_encoded(1, ADDR_ONE, 0x540001a1),
+            // eba4ad8:     b8206ac1        str     w1, [x22, x0]
+            gen_instr_encoded(ADDR_ONE + 4, 0xb8206ac1),
+            // eba4ada:     92800013     mov    x19, #0xffffffffffffffff
+            gen_instr_encoded(ADDR_ONE + 8, 0x92800013),
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#    endif
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+#endif
+    return true;
+}
+
 } // namespace
 
 int
@@ -545,7 +609,7 @@ main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
-        check_duplicate_syscall_with_same_pc()) {
+        check_duplicate_syscall_with_same_pc() && check_rseq_side_exit_discontinuity()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
