@@ -80,11 +80,6 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         checker_no_abort_t checker(true /*offline*/);
         for (const auto &memref : memrefs) {
             checker.process_memref(memref);
-
-            if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-                // TODO(sahil): Insert breakpoint in here and check PC transitions.
-                std::cout << "Debuggin kernel event logic" << std::endl;
-            }
         }
         if (expect_error) {
             if (checker.errors.size() != 1 || checker.errors[0] != expected_message ||

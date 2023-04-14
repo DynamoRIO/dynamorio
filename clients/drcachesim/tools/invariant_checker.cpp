@@ -557,6 +557,12 @@ invariant_checker_t::process_memref(const memref_t &memref)
         shard_map_[memref.data.tid] = std::move(per_shard_unique);
     } else
         per_shard = lookup->second.get();
+
+    if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        // TODO(sahil): Insert breakpoint in here and check PC transitions.
+        std::cout << "Debugging kernel event logic" << std::endl;
+    }
+
     if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), memref)) {
         error_string_ = per_shard->error_;
         return false;
