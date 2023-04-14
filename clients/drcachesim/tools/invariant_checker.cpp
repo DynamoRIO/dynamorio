@@ -350,6 +350,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         // Check for PC transition over here.
         std::cout << "reached here" << std::endl;
+
+        const int marker_value = shard->prev_instr_.marker.marker_value;
+        std::cout << "Marker value: " << marker_value << std::endl;
     }
 
     if (type_is_instr(memref.instr.type) ||
@@ -559,17 +562,6 @@ invariant_checker_t::process_memref(const memref_t &memref)
         shard_map_[memref.data.tid] = std::move(per_shard_unique);
     } else
         per_shard = lookup->second.get();
-
-    if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-        // TODO(sahil): Insert breakpoint in here and check PC transitions.
-        std::cout << "Debugging kernel event logic" << std::endl;
-
-        // Get the martker value of the previous instruction (compare this for PC
-        // discontinuity.
-        const int marker_value = per_shard->prev_instr_.marker.marker_value;
-        std::cout << "Marker value: " << marker_value << std::endl;
-    }
-
     if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), memref)) {
         error_string_ = per_shard->error_;
         return false;
