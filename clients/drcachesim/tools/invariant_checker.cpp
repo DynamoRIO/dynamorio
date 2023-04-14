@@ -406,6 +406,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         non_explicit_flow_violation_msg);
 
 #ifdef UNIX
+
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            // Check for PC transition over here.
+            std::cout << "reached here" << std::endl;
+        }
+
         // Ensure signal handlers return to the interruption point.
         if (shard->prev_xfer_marker_.marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
