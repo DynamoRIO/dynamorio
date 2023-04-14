@@ -737,8 +737,10 @@
 00000101xx1xxxxx001100xxxxxxxxxx  n   490  SVE      tbl  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
 00000101xx10xxxx0101000xxxx0xxxx  n   494  SVE     trn1  p_size_bhsd_0 : p_size_bhsd_5 p_size_bhsd_16
 00000101xx1xxxxx011100xxxxxxxxxx  n   494  SVE     trn1  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
+00000101101xxxxx000110xxxxxxxxxx  n   494  F64MM   trn1          z_q_0 : z_q_5 z_q_16
 00000101xx10xxxx0101010xxxx0xxxx  n   495  SVE     trn2  p_size_bhsd_0 : p_size_bhsd_5 p_size_bhsd_16
 00000101xx1xxxxx011101xxxxxxxxxx  n   495  SVE     trn2  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
+00000101101xxxxx000111xxxxxxxxxx  n   495  F64MM   trn2          z_q_0 : z_q_5 z_q_16
 00000100xx001101000xxxxxxxxxxxxx  n   499  SVE     uabd  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00000100xx000001001xxxxxxxxxxxxx  n   921  SVE    uaddv             d0 : p10_lo z_size_bhsd_5
 0110010101010011101xxxxxxxxxxxxx  n   510  SVE    ucvtf          z_h_0 : p10_mrg_lo z_h_5

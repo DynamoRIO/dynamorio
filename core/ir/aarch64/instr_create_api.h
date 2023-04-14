@@ -14069,4 +14069,33 @@
                            opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
                                                          0, false, 0, 0, OPSZ_sys))
 
+/**
+ * Creates a TRN1 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    TRN1    <Zd>.Q, <Zn>.Q, <Zm>.Q
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_trn1_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_trn1, Zd, Zn, Zm)
+
+/**
+ * Creates a TRN2 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    TRN2    <Zd>.Q, <Zn>.Q, <Zm>.Q
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_trn2_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_trn2, Zd, Zn, Zm)
 #endif /* DR_IR_MACROS_AARCH64_H */
