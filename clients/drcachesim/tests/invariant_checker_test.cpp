@@ -559,7 +559,7 @@ check_rseq_side_exit_discontinuity()
 #    elif defined(ARM_64)
             // eba4ad4:     540001a1     b.ne   71019df0
             gen_branch_encoded(1, ADDR_ONE, 0x540001a1),
-            // eba4ad8:     b8206ac1        str     w1, [x22, x0]
+            // eba4ad8:     b8206ac1     str    w1, [x22, x0]
             gen_instr_encoded(ADDR_ONE + 4, 0xb8206ac1),
             // eba4ae4:     92800013     mov    x19, #0x1
             gen_instr_encoded(ADDR_TWO, 0x92800013),
