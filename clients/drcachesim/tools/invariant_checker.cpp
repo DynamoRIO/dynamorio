@@ -663,6 +663,23 @@ invariant_checker_t::check_for_pc_discontinuity(
     per_shard_t *shard, const memref_t &memref,
     const std::unique_ptr<instr_t> &cur_instr_decoded, const bool expect_encoding)
 {
+
+    // TODO(sahil): Start remove.
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+
+        const int current_marker_val = memref.marker.marker_value;
+        const int prev_instr_trace_pc = shard->prev_instr_.instr.addr;
+        std::cout << current_marker_val << "  " << prev_instr_trace_pc << std::endl;
+
+        std::cout << "Check for PC discontinuity" << std::endl;
+        const std::string pc_discontinuity_error_string =
+            check_for_pc_discontinuity(shard, memref, nullptr, false);
+        report_if_false(shard, pc_discontinuity_error_string.empty(),
+                        pc_discontinuity_error_string);
+    }
+    // TODO(sahil): End remove.
+
     std::string error_msg = "";
     bool have_cond_branch_target = false;
     addr_t cond_branch_target = 0;
