@@ -663,16 +663,19 @@ invariant_checker_t::check_for_pc_discontinuity(
     per_shard_t *shard, const memref_t &memref,
     const std::unique_ptr<instr_t> &cur_instr_decoded, const bool expect_encoding)
 {
+    std::string error_msg = "";
+    bool have_cond_branch_target = false;
+    addr_t cond_branch_target = 0;
+    const addr_t prev_instr_trace_pc = shard->prev_instr_.instr.addr;
+    const bool memref_is_kernel_event_marker =
+        (memref.marker.type == TRACE_TYPE_MARKER &&
+         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT);
+    const addr_t current_marker_val =
+        memref_is_kernel_event_marker ? memref.marker.marker_value : 0;
 
     // TODO(sahil): Start remove.
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-
-        const int current_marker_val = memref.marker.marker_value;
-        const int prev_instr_trace_pc = shard->prev_instr_.instr.addr;
-        std::cout << current_marker_val << "  " << prev_instr_trace_pc << std::endl;
-
-        std::cout << "Check for PC discontinuity" << std::endl;
+    if (memref_is_kernel_event_marker) {
+        std::cout << "current_marker_val: " << current_marker_val << std::endl;
         const std::string pc_discontinuity_error_string =
             check_for_pc_discontinuity(shard, memref, nullptr, false);
         report_if_false(shard, pc_discontinuity_error_string.empty(),
@@ -680,10 +683,6 @@ invariant_checker_t::check_for_pc_discontinuity(
     }
     // TODO(sahil): End remove.
 
-    std::string error_msg = "";
-    bool have_cond_branch_target = false;
-    addr_t cond_branch_target = 0;
-    const addr_t prev_instr_trace_pc = shard->prev_instr_.instr.addr;
     if (prev_instr_trace_pc != 0 /*first*/ &&
         // We do not bother to support legacy traces without encodings.
         expect_encoding && type_is_instr_direct_branch(shard->prev_instr_.instr.type)) {
