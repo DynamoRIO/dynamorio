@@ -875,7 +875,7 @@ test_rseq_asynch_signal(void)
 #    elif defined(AARCH64)
     __asm__ __volatile__(
         /* clang-format off */ /* (avoid indenting next few lines) */
-        RSEQ_ADD_TABLE_ENTRY(abort, 2f, 3f, 4f)
+        RSEQ_ADD_TABLE_ENTRY(asynch_signal, 2f, 3f, 4f)
         /* clang-format on */
 
         "6:\n\t"
@@ -922,8 +922,7 @@ test_rseq_asynch_signal(void)
         /* clang-format on */
 
         : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts)
-        : [cpu_mask_size] "i"(sizeof(cpu_set_t)),
-          [sysnum_setaffinity] "i"(SYS_sched_setaffinity)
+        : [signum_alarm] "i"(SIGALRM), [sysnum_kill] "i"(SYS_kill)
         : "x0", "x1", "x2", "x8", "q0", "q1", "memory");
 #    else
 #        error Unsupported arch
@@ -1105,7 +1104,7 @@ test_rseq_instru_side_exit(void)
 #elif defined(AARCH64)
     __asm__ __volatile__(
         /* clang-format off */ /* (avoid indenting next few lines) */
-        RSEQ_ADD_TABLE_ENTRY(side, 2f, 3f, 4f)
+        RSEQ_ADD_TABLE_ENTRY(side_instru, 2f, 3f, 4f)
         /* clang-format on */
 
         "6:\n\t"
