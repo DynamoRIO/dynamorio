@@ -726,10 +726,6 @@ invariant_checker_t::check_for_pc_discontinuity(
             // The logic for signal xfer.
             (false);
 
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-            std::cout << "temp" << std::endl;
-        }
-
         if (!valid_nonbranch_flow) {
             // Check if the type is a branch instruction and there is a branch target
             // mismatch.
