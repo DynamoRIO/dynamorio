@@ -670,12 +670,12 @@ invariant_checker_t::check_for_pc_discontinuity(
     const bool memref_is_kernel_event_marker =
         (memref.marker.type == TRACE_TYPE_MARKER &&
          memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT);
-    const addr_t current_marker_val =
-        memref_is_kernel_event_marker ? memref.marker.marker_value : 0;
+    const addr_t current_memref_addr =
+        memref_is_kernel_event_marker ? memref.marker.marker_value : memref.instr.addr;
 
     // TODO(sahil): Start remove.
     if (memref_is_kernel_event_marker) {
-        std::cout << "current_marker_val: " << current_marker_val << std::endl;
+        std::cout << "current_marker_val: " << current_memref_addr << std::endl;
         const std::string pc_discontinuity_error_string =
             check_for_pc_discontinuity(shard, memref, nullptr, false);
         report_if_false(shard, pc_discontinuity_error_string.empty(),
