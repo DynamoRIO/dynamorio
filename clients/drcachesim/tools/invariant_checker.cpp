@@ -722,9 +722,7 @@ invariant_checker_t::check_for_pc_discontinuity(
                   TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
             // We expect a gap on a window transition.
             shard->window_transition_ ||
-            shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER ||
-            // The logic for signal xfer.
-            (false);
+            shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
         if (!valid_nonbranch_flow) {
             // Check if the type is a branch instruction and there is a branch target
