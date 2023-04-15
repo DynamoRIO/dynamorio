@@ -354,25 +354,21 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     // TODO(sahil): Add comment about what invariant we are checking for here.
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-        // Check for PC transition over here.
-        //        const int marker_value = shard->prev_instr_.marker.marker_value;
-        //        std::cout << "Marker value: " << marker_value << std::endl;
 
         const int current_marker_val = memref.marker.marker_value;
         std::cout << "Marker val: " << current_marker_val << std::endl;
         const int prev_instr_trace_pc = shard->prev_instr_.instr.addr;
         std::cout << "previous pc: " << prev_instr_trace_pc << std::endl;
 
-        // Check that the PC or marker values are not zero. Skip if they are.
+        // Check that the PC or marker values are not zero.
+        // TODO(sahil): Check if this edge case is handled by the function. Add a test
+        // case to verify it.
         if (prev_instr_trace_pc != 0) {
             std::cout << "Check for PC discontinuity" << std::endl;
             const std::string pc_discontinuity_error_string =
                 check_for_pc_discontinuity(shard, memref, nullptr, false);
-
-            if (!pc_discontinuity_error_string.empty()) {
-                std::cout << "error msg" << std::endl;
-                std::cout << pc_discontinuity_error_string << std::endl;
-            }
+            report_if_false(shard, pc_discontinuity_error_string.empty(),
+                            pc_discontinuity_error_string);
         }
     }
 
@@ -523,6 +519,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                       << std::hex << memref.marker.marker_value << std::dec << "\n";
         }
 #ifdef UNIX
+        // TODO(sahil): Add this check earlier?
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)
             shard->prev_xfer_int_pc_.push(memref.marker.marker_value);
         report_if_false(shard, memref.marker.marker_value != 0,

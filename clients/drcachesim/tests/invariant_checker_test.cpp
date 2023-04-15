@@ -278,12 +278,8 @@ check_sane_control_flow()
     // PC discontinuity when there is a kernel xfer in between instructions.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 101),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            // This will trigger a PC discontinuity invariant violation. The expected PC
-            // is 2.
+            gen_instr(1, 1),   gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(1, 101), gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(1, 3),
         };
 
