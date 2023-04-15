@@ -345,6 +345,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Physical addr bottom 12 bits do not match virtual");
     }
 
+    // A) Add our regular PC transition check to the pre-signal instruction fetch
+    // transition to the signal marker value for the interrupted PC
+
+    // B) Change the signal check to compare the handler return point to the
+    // marker value, not to the pre-signal instruction fetch
+
     // TODO(sahil): Add comment about what invariant we are checking for here.
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
@@ -354,20 +360,27 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
         const int current_marker_val = memref.marker.marker_value;
         std::cout << "Marker val: " << current_marker_val << std::endl;
-
         const int prev_instr_trace_pc = shard->prev_instr_.instr.addr;
         std::cout << "previous pc: " << prev_instr_trace_pc << std::endl;
 
-        // TODO(sahil): Check that the PC or marker values are not zero. Skip if they are.
+        // Check that the PC or marker values are not zero. Skip if they are.
         if (prev_instr_trace_pc != 0) {
             std::cout << "Check for PC discontinuity" << std::endl;
+            const std::string pc_discontinuity_error_string =
+                check_for_pc_discontinuity(shard, memref, nullptr, false);
+
+            if (!pc_discontinuity_error_string.empty()) {
+                std::cout << "error msg" << std::endl;
+                std::cout << pc_discontinuity_error_string << std::endl;
+            }
         }
     }
 
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
-        bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
+        const bool expect_encoding =
+            TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         std::unique_ptr<instr_t> cur_instr_decoded = nullptr;
         if (expect_encoding) {
             cur_instr_decoded.reset(new instr_t);
@@ -429,14 +442,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // Ensure signal handlers return to the interruption point.
         if (shard->prev_xfer_marker_.marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
-
-            // TODO(sahil):
-
-            // A) Add our regular PC transition check to the pre-signal instruction fetch
-            // transition to the signal marker value for the interrupted PC
-
-            // B) Change the signal check to compare the handler return point to the
-            // marker value, not to the pre-signal instruction fetch
 
             const bool condition =
                 ((memref.instr.addr == shard->prev_xfer_int_pc_.top() ||
