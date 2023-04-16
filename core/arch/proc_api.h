@@ -355,6 +355,7 @@ typedef enum {
     FEATURE_LRCPC2 = DEF_FEAT(AA64ISAR1, 5, 2, 0), /**< LDAPUR*, STLUR* (AArch64) */
     FEATURE_BF16 = DEF_FEAT(AA64ZFR0, 5, 1, 0),    /**< SVE BFloat16 */
     FEATURE_I8MM = DEF_FEAT(AA64ZFR0, 11, 1, 0),   /**< SVE Int8 matrix multiplication */
+    FEATURE_F64MM = DEF_FEAT(AA64ZFR0, 14, 1, 0),  /**< SVE FP64 matrix multiplication */
 } feature_bit_t;
 #endif
 #ifdef RISCV64

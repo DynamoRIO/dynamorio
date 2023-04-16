@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -203,10 +203,9 @@ drmemtrace_analysis_tool_create()
     } else if (op_simulator_type.get_value() == VIEW) {
         std::string module_file_path = get_module_file_path();
         // The module file is optional so we don't check for emptiness.
-        return view_tool_create(module_file_path, op_only_thread.get_value(),
-                                op_skip_refs.get_value(), op_sim_refs.get_value(),
-                                op_view_syntax.get_value(), op_verbose.get_value(),
-                                op_alt_module_dir.get_value());
+        return view_tool_create(module_file_path, op_skip_refs.get_value(),
+                                op_sim_refs.get_value(), op_view_syntax.get_value(),
+                                op_verbose.get_value(), op_alt_module_dir.get_value());
     } else if (op_simulator_type.get_value() == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
             op_funclist_file.get_value(), DRMEMTRACE_FUNCTION_LIST_FILENAME);

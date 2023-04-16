@@ -213,6 +213,7 @@ proc_init_arch(void)
             cpu_info.features.flags_aa64zfr0);
         LOG_FEATURE(FEATURE_BF16);
         LOG_FEATURE(FEATURE_I8MM);
+        LOG_FEATURE(FEATURE_F64MM);
     });
 #    endif
 #endif
@@ -251,6 +252,7 @@ proc_has_feature(feature_bit_t f)
     case FEATURE_LRCPC2:
     case FEATURE_BF16:
     case FEATURE_I8MM:
+    case FEATURE_F64MM:
     case FEATURE_FlagM:
     case FEATURE_JSCVT:
     case FEATURE_DPB:
