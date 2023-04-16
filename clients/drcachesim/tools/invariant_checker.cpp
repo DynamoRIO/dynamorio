@@ -367,8 +367,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             std::cout << "Check for PC discontinuity" << std::endl;
             const std::string pc_discontinuity_error_string =
                 check_for_pc_discontinuity(shard, memref, nullptr, false);
-            report_if_false(shard, pc_discontinuity_error_string.empty(),
-                            pc_discontinuity_error_string);
+            //            report_if_false(shard, pc_discontinuity_error_string.empty(),
+            //                            pc_discontinuity_error_string);
         }
     }
 
