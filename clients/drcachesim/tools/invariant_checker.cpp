@@ -355,20 +355,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
 
-        const int current_marker_val = memref.marker.marker_value;
-        std::cout << "Marker val: " << current_marker_val << std::endl;
         const int prev_instr_trace_pc = shard->prev_instr_.instr.addr;
-        std::cout << "previous pc: " << prev_instr_trace_pc << std::endl;
 
         // Check that the PC or marker values are not zero.
         // TODO(sahil): Check if this edge case is handled by the function. Add a test
         // case to verify it.
         if (prev_instr_trace_pc != 0) {
-            std::cout << "Check for PC discontinuity" << std::endl;
             const std::string pc_discontinuity_error_string =
                 check_for_pc_discontinuity(shard, memref, nullptr, false);
-            //            report_if_false(shard, pc_discontinuity_error_string.empty(),
-            //                            pc_discontinuity_error_string);
+            report_if_false(shard, pc_discontinuity_error_string.empty(),
+                            pc_discontinuity_error_string);
         }
     }
 
@@ -673,12 +669,6 @@ invariant_checker_t::check_for_pc_discontinuity(
     const addr_t current_memref_addr =
         memref_is_kernel_event_marker ? memref.marker.marker_value : memref.instr.addr;
 
-    // TODO(sahil): Start remove.
-    if (memref_is_kernel_event_marker) {
-        std::cout << "marker_val: " << current_memref_addr << std::endl;
-    }
-    // TODO(sahil): End remove.
-
     if (prev_instr_trace_pc != 0 /*first*/ &&
         // We do not bother to support legacy traces without encodings.
         expect_encoding && type_is_instr_direct_branch(shard->prev_instr_.instr.type)) {
@@ -712,9 +702,10 @@ invariant_checker_t::check_for_pc_discontinuity(
             TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                     shard->file_type_) ||
             // Regular fall-through.
-            (prev_instr_trace_pc + shard->prev_instr_.instr.size == memref.instr.addr) ||
+            (prev_instr_trace_pc + shard->prev_instr_.instr.size ==
+             current_memref_addr) ||
             // String loop.
-            (prev_instr_trace_pc == memref.instr.addr &&
+            (prev_instr_trace_pc == current_memref_addr &&
              (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
               // Online incorrectly marks the 1st string instr across a thread
               // switch as fetched.
@@ -741,7 +732,7 @@ invariant_checker_t::check_for_pc_discontinuity(
                     // Indirect branches we cannot check.
                     !type_is_instr_direct_branch(shard->prev_instr_.instr.type) ||
                     // Conditional fall-through hits the regular case above.
-                    !have_cond_branch_target || memref.instr.addr == cond_branch_target;
+                    !have_cond_branch_target || current_memref_addr == cond_branch_target;
 
                 if (!valid_branch_flow) {
                     error_msg = "Direct branch does not go to the correct target";
@@ -749,7 +740,7 @@ invariant_checker_t::check_for_pc_discontinuity(
             } else if (cur_instr_decoded != nullptr &&
                        shard->prev_instr_decoded_ != nullptr &&
                        instr_is_syscall(cur_instr_decoded.get()) &&
-                       memref.instr.addr == prev_instr_trace_pc &&
+                       current_memref_addr == prev_instr_trace_pc &&
                        instr_is_syscall(shard->prev_instr_decoded_.get())) {
                 error_msg = "Duplicate syscall instrs with the same PC";
             } else {
