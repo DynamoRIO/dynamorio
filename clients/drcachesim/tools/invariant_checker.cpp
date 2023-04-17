@@ -384,8 +384,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
         // All TRACE_MARKER_TYPE_RSEQ_ABORT markers are followd by
-        // TRACE_MARKER_TYPE_KERNEL_EVENT, we only want to check for PC discontinuities
-        // for cases where we do not see an RSEQ abort.
+        // TRACE_MARKER_TYPE_KERNEL_EVENT. We only want to consider the
+        // TRACE_MARKER_TYPE_KERNEL_EVENT markers that do not occur directly after an RSEQ
+        // abort marker.
         !(shard->prev_entry_.data.type == TRACE_TYPE_MARKER &&
           shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) {
         const std::string pc_discontinuity_error_string =
