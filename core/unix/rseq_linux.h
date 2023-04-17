@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -44,6 +44,8 @@
 #ifndef LINUX
 #    error Rseq is a Linux-only feature
 #endif
+
+/* Routines exported outside of unix/ are in os_exports.h. */
 
 void
 d_r_rseq_init(void);

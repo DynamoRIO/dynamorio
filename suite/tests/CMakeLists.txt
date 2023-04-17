@@ -3578,6 +3578,10 @@ if (BUILD_CLIENTS)
         torunonly_simtool(reuse_time_offline ${ci_shared_app}
           "-indir ${thread_trace_dir} -simulator_type reuse_time" "")
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
+
+        torunonly_simtool(counts_only_thread ${ci_shared_app}
+          "-indir ${thread_trace_dir} -simulator_type basic_counts -only_thread 10506" "")
+        set(tool.counts_only_thread_rawtemp ON) # no preprocessor
       endif ()
     endif ()
 
@@ -3940,6 +3944,15 @@ if (BUILD_CLIENTS)
         # drbbdup + rseq combo (i#5658, i#5659).
         "-trace_after_instrs 5K"
         "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+      # Test filtering.
+      torunonly_drcacheoff(rseq-filter linux.rseq
+        "-trace_after_instrs 5K -L0_filter"
+        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+      set(tool.drcacheoff.rseq-filter_expectbase "offline-rseq")
+      torunonly_drcacheoff(rseq-dfilter linux.rseq
+        "-trace_after_instrs 5K -L0D_filter"
+        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
+      set(tool.drcacheoff.rseq-dfilter_expectbase "offline-rseq")
     endif ()
 
     if (AARCH64)

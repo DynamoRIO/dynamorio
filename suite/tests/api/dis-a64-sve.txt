@@ -22711,6 +22711,24 @@ e5ac57df : str z31, [x30, #-155, mul vl]            : str    %z31 -> -0x9b(%x30)
 05fd739b : trn1 z27.d, z28.d, z29.d                  : trn1   %z28.d %z29.d -> %z27.d
 05ff73ff : trn1 z31.d, z31.d, z31.d                  : trn1   %z31.d %z31.d -> %z31.d
 
+# TRN1    <Zd>.Q, <Zn>.Q, <Zm>.Q (TRN1-Z.ZZ-Q)
+05a01800 : trn1 z0.q, z0.q, z0.q                     : trn1   %z0.q %z0.q -> %z0.q
+05a41862 : trn1 z2.q, z3.q, z4.q                     : trn1   %z3.q %z4.q -> %z2.q
+05a618a4 : trn1 z4.q, z5.q, z6.q                     : trn1   %z5.q %z6.q -> %z4.q
+05a818e6 : trn1 z6.q, z7.q, z8.q                     : trn1   %z7.q %z8.q -> %z6.q
+05aa1928 : trn1 z8.q, z9.q, z10.q                    : trn1   %z9.q %z10.q -> %z8.q
+05ac196a : trn1 z10.q, z11.q, z12.q                  : trn1   %z11.q %z12.q -> %z10.q
+05ae19ac : trn1 z12.q, z13.q, z14.q                  : trn1   %z13.q %z14.q -> %z12.q
+05b019ee : trn1 z14.q, z15.q, z16.q                  : trn1   %z15.q %z16.q -> %z14.q
+05b21a30 : trn1 z16.q, z17.q, z18.q                  : trn1   %z17.q %z18.q -> %z16.q
+05b31a51 : trn1 z17.q, z18.q, z19.q                  : trn1   %z18.q %z19.q -> %z17.q
+05b51a93 : trn1 z19.q, z20.q, z21.q                  : trn1   %z20.q %z21.q -> %z19.q
+05b71ad5 : trn1 z21.q, z22.q, z23.q                  : trn1   %z22.q %z23.q -> %z21.q
+05b91b17 : trn1 z23.q, z24.q, z25.q                  : trn1   %z24.q %z25.q -> %z23.q
+05bb1b59 : trn1 z25.q, z26.q, z27.q                  : trn1   %z26.q %z27.q -> %z25.q
+05bd1b9b : trn1 z27.q, z28.q, z29.q                  : trn1   %z28.q %z29.q -> %z27.q
+05bf1bff : trn1 z31.q, z31.q, z31.q                  : trn1   %z31.q %z31.q -> %z31.q
+
 # TRN2    <Pd>.<T>, <Pn>.<T>, <Pm>.<T> (TRN2-P.PP-_)
 05205400 : trn2 p0.b, p0.b, p0.b                     : trn2   %p0.b %p0.b -> %p0.b
 05235441 : trn2 p1.b, p2.b, p3.b                     : trn2   %p2.b %p3.b -> %p1.b
@@ -22842,6 +22860,24 @@ e5ac57df : str z31, [x30, #-155, mul vl]            : str    %z31 -> -0x9b(%x30)
 05fb7759 : trn2 z25.d, z26.d, z27.d                  : trn2   %z26.d %z27.d -> %z25.d
 05fd779b : trn2 z27.d, z28.d, z29.d                  : trn2   %z28.d %z29.d -> %z27.d
 05ff77ff : trn2 z31.d, z31.d, z31.d                  : trn2   %z31.d %z31.d -> %z31.d
+
+# TRN2    <Zd>.Q, <Zn>.Q, <Zm>.Q (TRN2-Z.ZZ-Q)
+05a01c00 : trn2 z0.q, z0.q, z0.q                     : trn2   %z0.q %z0.q -> %z0.q
+05a41c62 : trn2 z2.q, z3.q, z4.q                     : trn2   %z3.q %z4.q -> %z2.q
+05a61ca4 : trn2 z4.q, z5.q, z6.q                     : trn2   %z5.q %z6.q -> %z4.q
+05a81ce6 : trn2 z6.q, z7.q, z8.q                     : trn2   %z7.q %z8.q -> %z6.q
+05aa1d28 : trn2 z8.q, z9.q, z10.q                    : trn2   %z9.q %z10.q -> %z8.q
+05ac1d6a : trn2 z10.q, z11.q, z12.q                  : trn2   %z11.q %z12.q -> %z10.q
+05ae1dac : trn2 z12.q, z13.q, z14.q                  : trn2   %z13.q %z14.q -> %z12.q
+05b01dee : trn2 z14.q, z15.q, z16.q                  : trn2   %z15.q %z16.q -> %z14.q
+05b21e30 : trn2 z16.q, z17.q, z18.q                  : trn2   %z17.q %z18.q -> %z16.q
+05b31e51 : trn2 z17.q, z18.q, z19.q                  : trn2   %z18.q %z19.q -> %z17.q
+05b51e93 : trn2 z19.q, z20.q, z21.q                  : trn2   %z20.q %z21.q -> %z19.q
+05b71ed5 : trn2 z21.q, z22.q, z23.q                  : trn2   %z22.q %z23.q -> %z21.q
+05b91f17 : trn2 z23.q, z24.q, z25.q                  : trn2   %z24.q %z25.q -> %z23.q
+05bb1f59 : trn2 z25.q, z26.q, z27.q                  : trn2   %z26.q %z27.q -> %z25.q
+05bd1f9b : trn2 z27.q, z28.q, z29.q                  : trn2   %z28.q %z29.q -> %z27.q
+05bf1fff : trn2 z31.q, z31.q, z31.q                  : trn2   %z31.q %z31.q -> %z31.q
 
 # UABD    <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (UABD-Z.P.ZZ-_)
 040d0000 : uabd z0.b, p0/M, z0.b, z0.b               : uabd   %p0/m %z0.b %z0.b -> %z0.b

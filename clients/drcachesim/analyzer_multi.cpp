@@ -129,7 +129,7 @@ analyzer_multi_t::analyzer_multi_t()
     if (!op_indir.get_value().empty()) {
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        if (!init_scheduler(tracedir, op_verbose.get_value()))
+        if (!init_scheduler(tracedir, op_only_thread.get_value(), op_verbose.get_value()))
             success_ = false;
     } else if (op_infile.get_value().empty()) {
         // XXX i#3323: Add parallel analysis support for online tools.

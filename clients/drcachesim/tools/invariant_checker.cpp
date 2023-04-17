@@ -160,7 +160,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(
                 shard,
                 (memref.marker.type == TRACE_TYPE_MARKER &&
-                 memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) ||
+                 (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                  memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
                     // TODO i#3937: Online instr bundles currently violate this.
                     !knob_offline_,
                 "Interruption marker mis-placed");
@@ -205,11 +206,20 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Rseq marker not immediately prior to kernel marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
+        shard->rseq_end_pc_ = memref.marker.marker_value;
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
         // Check that the rseq final instruction was not executed: that raw2trace
-        // rolled it back.
+        // rolled it back, unless it was a fault in the instrumented execution in which
+        // case the marker value will point to it.
         report_if_false(shard,
-                        memref.marker.marker_value != shard->prev_instr_.instr.addr,
+                        shard->rseq_end_pc_ == 0 ||
+                            shard->prev_instr_.instr.addr +
+                                    shard->prev_instr_.instr.size !=
+                                shard->rseq_end_pc_ ||
+                            shard->prev_instr_.instr.addr == memref.marker.marker_value,
                         "Rseq post-abort instruction not rolled back");
     }
 #endif
@@ -338,6 +348,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
+        std::unique_ptr<instr_t> cur_instr_decoded = nullptr;
+        if (expect_encoding) {
+            cur_instr_decoded.reset(new instr_t);
+            instr_init(GLOBAL_DCONTEXT, cur_instr_decoded.get());
+            app_pc next_pc = decode_from_copy(
+                GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
+                reinterpret_cast<app_pc>(memref.instr.addr), cur_instr_decoded.get());
+            if (next_pc == nullptr) {
+                instr_free(GLOBAL_DCONTEXT, cur_instr_decoded.get());
+                cur_instr_decoded.reset(nullptr);
+            }
+        }
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                       << " @" << (void *)memref.instr.addr
@@ -362,89 +385,26 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // interleaved stream.  Here we look for headers indicating where an interleaved
         // stream *could* switch threads, so we're stricter than necessary.
         if (knob_offline_ && type_is_instr_branch(shard->prev_instr_.instr.type)) {
-            report_if_false(shard,
-                            !shard->saw_timestamp_but_no_instr_ ||
-                                // The invariant is relaxed for a signal.
-                                // prev_xfer_marker_ is cleared on an instr, so if set to
-                                // non-sentinel it means it is immediately prior, in
-                                // between prev_instr_ and memref.
-                                shard->prev_xfer_marker_.marker.marker_type ==
-                                    TRACE_MARKER_TYPE_KERNEL_EVENT,
-                            "Branch target not immediately after branch");
+            report_if_false(
+                shard,
+                !shard->saw_timestamp_but_no_instr_ ||
+                    // The invariant is relaxed for a signal.
+                    // prev_xfer_marker_ is cleared on an instr, so if set to
+                    // non-sentinel it means it is immediately prior, in
+                    // between prev_instr_ and memref.
+                    shard->prev_xfer_marker_.marker.marker_type ==
+                        TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                    // Instruction-filtered are exempted.
+                    TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                            shard->file_type_),
+                "Branch target not immediately after branch");
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
         // by markers.
-        bool have_cond_branch_target = false;
-        addr_t cond_branch_target = 0;
-        if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
-            type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
-            // We do not bother to support legacy traces without encodings.
-            TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_)) {
-            addr_t trace_pc = shard->prev_instr_.instr.addr;
-            if (shard->prev_instr_.instr.encoding_is_new)
-                shard->branch_target_cache.erase(trace_pc);
-            auto cached = shard->branch_target_cache.find(trace_pc);
-            if (cached != shard->branch_target_cache.end()) {
-                have_cond_branch_target = true;
-                cond_branch_target = cached->second;
-            } else {
-                instr_t instr;
-                instr_init(GLOBAL_DCONTEXT, &instr);
-                const app_pc decode_pc =
-                    const_cast<app_pc>(shard->prev_instr_.instr.encoding);
-                const app_pc next_pc =
-                    decode_from_copy(GLOBAL_DCONTEXT, decode_pc,
-                                     reinterpret_cast<app_pc>(trace_pc), &instr);
-                if (next_pc == nullptr || !opnd_is_pc(instr_get_target(&instr))) {
-                    // Neither condition should happen but they could on an invalid
-                    // encoding from raw2trace or the reader so we report an
-                    // invariant rather than asserting.
-                    report_if_false(shard, false, "Branch target is not decodeable");
-                } else {
-                    have_cond_branch_target = true;
-                    cond_branch_target =
-                        reinterpret_cast<addr_t>(opnd_get_pc(instr_get_target(&instr)));
-                    shard->branch_target_cache[trace_pc] = cond_branch_target;
-                }
-                instr_free(GLOBAL_DCONTEXT, &instr);
-            }
-        }
-        if (shard->prev_instr_.instr.addr != 0 /*first*/) {
-            report_if_false(
-                shard, // Filtered.
-                TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                        shard->file_type_) ||
-                    // Regular fall-through.
-                    (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
-                     memref.instr.addr) ||
-                    // Indirect branches we cannot check.
-                    (type_is_instr_branch(shard->prev_instr_.instr.type) &&
-                     !type_is_instr_direct_branch(shard->prev_instr_.instr.type)) ||
-                    // Conditional fall-through hits the regular case above.
-                    (type_is_instr_direct_branch(shard->prev_instr_.instr.type) &&
-                     (!have_cond_branch_target ||
-                      memref.instr.addr == cond_branch_target)) ||
-                    // String loop.
-                    (shard->prev_instr_.instr.addr == memref.instr.addr &&
-                     (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
-                      // Online incorrectly marks the 1st string instr across a thread
-                      // switch as fetched.
-                      // TODO i#4915, #4948: Eliminate non-fetched and remove the
-                      // underlying instrs altogether, which would fix this for us.
-                      (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
-                    // Kernel-mediated, but we can't tell if we had a thread swap.
-                    (shard->prev_xfer_marker_.instr.tid != 0 &&
-                     (shard->prev_xfer_marker_.marker.marker_type ==
-                          TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                      shard->prev_xfer_marker_.marker.marker_type ==
-                          TRACE_MARKER_TYPE_KERNEL_XFER)) ||
-                    // We expect a gap on a window transition.
-                    shard->window_transition_ ||
-                    shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER,
-                "Non-explicit control flow has no marker");
-            // XXX: If we had instr decoding we could check direct branch targets
-            // and look for gaps after branches.
-        }
+        const std::string non_explicit_flow_violation_msg =
+            check_for_pc_discontinuity(shard, memref, cur_instr_decoded, expect_encoding);
+        report_if_false(shard, non_explicit_flow_violation_msg.empty(),
+                        non_explicit_flow_violation_msg);
 
 #ifdef UNIX
         // Ensure signal handlers return to the interruption point.
@@ -475,7 +435,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     memref.instr.addr == shard->app_handler_pc_ ||
                     // Marker for rseq abort handler.  Not as unique as a prefetch, but
                     // we need an instruction and not a data type.
-                    memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP,
+                    memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
+                    // Instruction-filtered can easily skip the return point.
+                    TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                            shard->file_type_),
                 "Signal handler return point incorrect");
             // We assume paired signal entry-exit (so no longjmp and no rseq
             // inside signal handlers).
@@ -484,6 +447,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
 #endif
         shard->prev_instr_ = memref;
+        if (shard->prev_instr_decoded_ != nullptr)
+            instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
+        shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
         shard->saw_kernel_xfer_after_prev_instr_ = false;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
@@ -660,4 +626,95 @@ invariant_checker_t::print_results()
     check_schedule_data();
     std::cerr << "Trace invariant checks passed\n";
     return true;
+}
+
+std::string
+invariant_checker_t::check_for_pc_discontinuity(
+    per_shard_t *shard, const memref_t &memref,
+    const std::unique_ptr<instr_t> &cur_instr_decoded, const bool expect_encoding)
+{
+    std::string error_msg = "";
+    bool have_cond_branch_target = false;
+    addr_t cond_branch_target = 0;
+    const addr_t prev_instr_trace_pc = shard->prev_instr_.instr.addr;
+    if (prev_instr_trace_pc != 0 /*first*/ &&
+        // We do not bother to support legacy traces without encodings.
+        expect_encoding && type_is_instr_direct_branch(shard->prev_instr_.instr.type)) {
+        if (shard->prev_instr_.instr.encoding_is_new)
+            shard->branch_target_cache.erase(prev_instr_trace_pc);
+        auto cached = shard->branch_target_cache.find(prev_instr_trace_pc);
+        if (cached != shard->branch_target_cache.end()) {
+            have_cond_branch_target = true;
+            cond_branch_target = cached->second;
+        } else {
+            if (shard->prev_instr_decoded_ == nullptr ||
+                !opnd_is_pc(instr_get_target(shard->prev_instr_decoded_.get()))) {
+                // Neither condition should happen but they could on an invalid
+                // encoding from raw2trace or the reader so we report an
+                // invariant rather than asserting.
+                report_if_false(shard, false, "Branch target is not decodeable");
+            } else {
+                have_cond_branch_target = true;
+                cond_branch_target = reinterpret_cast<addr_t>(
+                    opnd_get_pc(instr_get_target(shard->prev_instr_decoded_.get())));
+                shard->branch_target_cache[prev_instr_trace_pc] = cond_branch_target;
+            }
+        }
+    }
+    if (prev_instr_trace_pc != 0 /*first*/) {
+        // Check for all valid transitions except taken branches. We consider taken
+        // branches later so that we can provide a different message for those
+        // invariant violations.
+        const bool valid_nonbranch_flow =
+            // Filtered.
+            TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                    shard->file_type_) ||
+            // Regular fall-through.
+            (prev_instr_trace_pc + shard->prev_instr_.instr.size == memref.instr.addr) ||
+            // String loop.
+            (prev_instr_trace_pc == memref.instr.addr &&
+             (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
+              // Online incorrectly marks the 1st string instr across a thread
+              // switch as fetched.
+              // TODO i#4915, #4948: Eliminate non-fetched and remove the
+              // underlying instrs altogether, which would fix this for us.
+              (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
+            // Kernel-mediated, but we can't tell if we had a thread swap.
+            (shard->prev_xfer_marker_.instr.tid != 0 &&
+             (shard->prev_xfer_marker_.marker.marker_type ==
+                  TRACE_MARKER_TYPE_KERNEL_EVENT ||
+              shard->prev_xfer_marker_.marker.marker_type ==
+                  TRACE_MARKER_TYPE_KERNEL_XFER ||
+              shard->prev_xfer_marker_.marker.marker_type ==
+                  TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
+            // We expect a gap on a window transition.
+            shard->window_transition_ ||
+            shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
+
+        if (!valid_nonbranch_flow) {
+            // Check if the type is a branch instruction and there is a branch target
+            // mismatch.
+            if (type_is_instr_branch(shard->prev_instr_.instr.type)) {
+                const bool valid_branch_flow =
+                    // Indirect branches we cannot check.
+                    !type_is_instr_direct_branch(shard->prev_instr_.instr.type) ||
+                    // Conditional fall-through hits the regular case above.
+                    !have_cond_branch_target || memref.instr.addr == cond_branch_target;
+
+                if (!valid_branch_flow) {
+                    error_msg = "Direct branch does not go to the correct target";
+                }
+            } else if (cur_instr_decoded != nullptr &&
+                       shard->prev_instr_decoded_ != nullptr &&
+                       instr_is_syscall(cur_instr_decoded.get()) &&
+                       memref.instr.addr == prev_instr_trace_pc &&
+                       instr_is_syscall(shard->prev_instr_decoded_.get())) {
+                error_msg = "Duplicate syscall instrs with the same PC";
+            } else {
+                error_msg = "Non-explicit control flow has no marker";
+            }
+        }
+    }
+
+    return error_msg;
 }

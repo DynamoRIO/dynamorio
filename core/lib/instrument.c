@@ -1955,6 +1955,19 @@ instrument_module_load_trigger(app_pc pc)
         if (ma != NULL && !TEST(MODULE_LOAD_EVENT, ma->flags)) {
             /* switch to write lock */
             os_get_module_info_unlock();
+#ifdef LINUX
+            /* i#3385: re-try to initialize dynamic information, because
+             * it failed during the first flat-mmap that loaded the module.
+             * We don't perform this if there are no clients, assuming
+             * DynamoRIO doesn't use os_module_data_t information itself.
+             *
+             * XXX: add a regression test later. See PR #5947 for how to
+             * reproduce this situation.
+             */
+            if (!ma->os_data.have_dynamic_info) {
+                os_module_update_dynamic_info(ma->start, ma->end - ma->start, false);
+            }
+#endif
             os_get_module_info_write_lock();
             ma = module_pc_lookup(pc);
             if (ma != NULL && !TEST(MODULE_LOAD_EVENT, ma->flags)) {

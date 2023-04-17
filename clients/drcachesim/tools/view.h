@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,8 +49,8 @@ public:
     // OFFLINE_FILE_TYPE_ENCODINGS.
     // XXX: Once we update our toolchains to guarantee C++17 support we could use
     // std::optional here.
-    view_t(const std::string &module_file_path, memref_tid_t thread, uint64_t skip_refs,
-           uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
+    view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
+           const std::string &syntax, unsigned int verbose,
            const std::string &alt_module_dir = "");
     std::string
     initialize_stream(memtrace_stream_t *serial_stream) override;
@@ -132,7 +132,6 @@ protected:
     unsigned int knob_verbose_;
     int trace_version_;
     static const std::string TOOL_NAME;
-    memref_tid_t knob_thread_;
     uint64_t knob_skip_refs_;
     uint64_t skip_refs_left_;
     uint64_t knob_sim_refs_;
