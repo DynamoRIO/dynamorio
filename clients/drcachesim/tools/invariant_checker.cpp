@@ -231,7 +231,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(shard,
                             memref.marker.type != TRACE_TYPE_MARKER ||
                                 memref.marker.marker_type !=
-                                    TRACE_MARKER_TYPE_KERNEL_EVENT,
+                                    TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                                // Side exit.
+                                type_is_instr_branch(shard->prev_instr_.instr.type),
                             "Signal in rseq region should have abort marker");
         }
     }
