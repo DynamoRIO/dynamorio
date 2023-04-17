@@ -374,12 +374,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Physical addr bottom 12 bits do not match virtual");
     }
 
-    // A) Add our regular PC transition check to the pre-signal instruction fetch
-    // transition to the signal marker value for the interrupted PC
-
-    // B) Change the signal check to compare the handler return point to the
-    // marker value, not to the pre-signal instruction fetch
-
     // TODO(sahil): Add comment about what invariant we are checking for here.
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
