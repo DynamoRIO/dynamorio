@@ -648,16 +648,16 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
         DR_CHECK(reinterpret_cast<trace_entry_t *>(buf) == buf_base,
                  "We shouldn't have buffered anything before calling "
                  "append_bb_entries");
-            if (saw_filter_endpoint_) {
-                // The file type needs to be updated during the switch to correctly
-                // process the entries that follow after. This does not affect the
-                // written-out type.
-                int file_type = get_file_type(tdata);
-                file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
-                               OFFLINE_FILE_TYPE_DFILTERED);
-                file_type |= OFFLINE_FILE_TYPE_DEFAULT;
-                set_file_type(tdata, (offline_file_type_t)file_type);
-            }
+        if (saw_filter_endpoint_) {
+            // The file type needs to be updated during the switch to correctly
+            // process the entries that follow after. This does not affect the
+            // written-out type.
+            int file_type = get_file_type(tdata);
+            file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                           OFFLINE_FILE_TYPE_DFILTERED);
+            file_type |= OFFLINE_FILE_TYPE_DEFAULT;
+            set_file_type(tdata, (offline_file_type_t)file_type);
+        }
         std::string result = append_bb_entries(tdata, in_entry, last_bb_handled);
         if (!result.empty())
             return result;
