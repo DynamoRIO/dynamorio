@@ -354,18 +354,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     // TODO(sahil): Add comment about what invariant we are checking for here.
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-
-        const int prev_instr_trace_pc = shard->prev_instr_.instr.addr;
-
-        // Check that the PC or marker values are not zero.
-        // TODO(sahil): Check if this edge case is handled by the function. Add a test
-        // case to verify it.
-        if (prev_instr_trace_pc != 0) {
-            const std::string pc_discontinuity_error_string =
-                check_for_pc_discontinuity(shard, memref, nullptr, false);
-            report_if_false(shard, pc_discontinuity_error_string.empty(),
-                            pc_discontinuity_error_string);
-        }
+        const std::string pc_discontinuity_error_string =
+            check_for_pc_discontinuity(shard, memref, nullptr, false);
+        report_if_false(shard, pc_discontinuity_error_string.empty(),
+                        pc_discontinuity_error_string);
     }
 
     if (type_is_instr(memref.instr.type) ||
