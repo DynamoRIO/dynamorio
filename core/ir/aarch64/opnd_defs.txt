@@ -241,6 +241,8 @@
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
 ----------xxxxxxxxxxxxxxxxx-----  prf12      # size is 0 bytes (prefetch variant of mem12)
+---------??-xxxx------xxxxx-----  svemem_ssz_gpr_simm4 # SVE memory operand [<Xn|SP>{, #<imm>}],
+                                                       # gets memory size from bits 22:21
 ---------??-xxxx------xxxxx-----  svemem_gpr_simm4_vl_xreg # SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}]
                                                            # multiple src/dest registers or single non-temporals
 ---------????-------------------  hsd_immh_sz  # encoding of vector element size in immh field
@@ -320,6 +322,7 @@
 -------??-?xxxxx------xxxxx-----  svemem_gpr_vec64 # SVE memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod>}]
 -------????-xxxx------xxxxx-----  svemem_gpr_simm4_vl_1reg # SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}]
                                                            # 1 src/dest register
+-------????xxxxx------xxxxx-----  svemem_ssz_gpr_shf # SVE memory operand [<Xn|SP>, <Xm>, LSL #x]
 -------????xxxxx------xxxxx-----  svemem_msz_gpr_shf # SVE memory address [<Xn|SP>, <Xm>, LSL #x]
 -------????xxxxx------xxxxx-----  svemem_msz_stgpr_shf # SVE memory address [<Xn|SP>, <Xm>, LSL #x]
 -------????xxxxx------xxxxx-----  svemem_gpr_shf   # GPR offset and base reg for SVE ld/st, with optional shift
