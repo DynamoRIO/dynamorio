@@ -578,16 +578,26 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                         return err;
                 }
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
-                log(4, "Rseq abort\n");
+                log(4, "Rseq abort %d\n", tdata->rseq_past_end_);
                 err = adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val);
                 if (!err.empty())
                     return err;
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
                 if (tdata->rseq_want_rollback_) {
+                    if (tdata->rseq_buffering_enabled_) {
+                        // Our rollback schemes do the minimal rollback: for a side
+                        // exit, taking the last branch.  This means we don't need the
+                        // prior iterations in the buffer.
+                        log(4, "Rseq was already buffered: assuming loop; emitting\n");
+                        err = adjust_and_emit_rseq_buffer(tdata, marker_val);
+                        if (!err.empty())
+                            return err;
+                    }
                     log(4,
                         "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
                         marker_val);
-                    tdata->rseq_ever_saw_entry_ = true;
+                    if (!tdata->rseq_ever_saw_entry_)
+                        tdata->rseq_ever_saw_entry_ = true;
                     tdata->rseq_buffering_enabled_ = true;
                     tdata->rseq_end_pc_ = marker_val;
                 }
@@ -1268,9 +1278,15 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 return error;
         }
         if (tdata->rseq_buffering_enabled_) {
+            addr_t instr_pc = reinterpret_cast<addr_t>(orig_pc);
             if (tdata->rseq_past_end_) {
-                error =
-                    adjust_and_emit_rseq_buffer(tdata, reinterpret_cast<addr_t>(orig_pc));
+                error = adjust_and_emit_rseq_buffer(tdata, instr_pc);
+                if (!error.empty())
+                    return error;
+            } else if (instr_pc < tdata->rseq_start_pc_ ||
+                       instr_pc >= tdata->rseq_end_pc_) {
+                log(4, "Hit exit to 0x%zx during instrumented rseq run\n", orig_pc);
+                error = adjust_and_emit_rseq_buffer(tdata, instr_pc);
                 if (!error.empty())
                     return error;
             } else {
@@ -1284,11 +1300,13 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                         // will walk it forward to the branch.
                         static_cast<int>(tdata->rseq_buffer_.size()));
                 }
-                if (reinterpret_cast<addr_t>(orig_pc) + instr->length() ==
-                    tdata->rseq_end_pc_) {
+                if (tdata->rseq_start_pc_ == 0) {
+                    tdata->rseq_start_pc_ = instr_pc;
+                }
+                if (instr_pc + instr->length() == tdata->rseq_end_pc_) {
                     log(4, "Hit rseq endpoint 0x%zx @ %p\n", tdata->rseq_end_pc_,
                         orig_pc);
-                    tdata->rseq_commit_pc_ = reinterpret_cast<addr_t>(orig_pc);
+                    tdata->rseq_commit_pc_ = instr_pc;
                     tdata->rseq_past_end_ = true;
                     tdata->rseq_commit_idx_ =
                         static_cast<int>(tdata->rseq_buffer_.size());
@@ -1855,17 +1873,34 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
         // so we do the simplest thing and only roll back the committing store.
         log(4, "Rseq aborted\n");
         add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
-        if (tdata->rseq_commit_idx_ < 0)
-            return "Failed to identify rseq commit index";
-        std::string error =
-            rollback_rseq_buffer(tdata, tdata->rseq_commit_idx_, tdata->rseq_commit_idx_);
-        if (!error.empty())
-            return error;
+        if (tdata->rseq_commit_idx_ < 0) {
+            if (tdata->rseq_buffer_.empty()) {
+                // This is a graceful failure: we consider this a bug to
+                // have an extra abort marker but we do not want to make it
+                // fatal if the buffer is empty as we can continue.
+                // XXX: Add an invariant check for this.
+                log(1, "Extra abort marker found");
+                return "";
+            }
+            // Else this is an abort in the instrumented run, such as a
+            // fault or signal, so no rollback is needed.
+        } else {
+            std::string error = rollback_rseq_buffer(tdata, tdata->rseq_commit_idx_,
+                                                     tdata->rseq_commit_idx_);
+            if (!error.empty())
+                return error;
+        }
     } else if (next_pc == tdata->rseq_end_pc_) {
         // Normal fall-through of the committing store: nothing to roll back.  We give
         // up on distinguishing a side exit whose target is the end PC fall-through from
         // a completion.
         log(4, "Rseq completed normally\n");
+    } else if (!tdata->rseq_past_end_ &&
+               (next_pc < tdata->rseq_start_pc_ || next_pc >= tdata->rseq_end_pc_)) {
+        // The instrumented execution took a side exit.
+        DEBUG_ASSERT(tdata->rseq_commit_pc_ == 0);
+        DEBUG_ASSERT(abort_pc == 0);
+        log(4, "Rseq instrumented side exit\n");
     } else {
         log(4, "Rseq exited on the side: searching for where\n");
         add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_SIDE_EXIT, 1);
@@ -1965,6 +2000,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
 
     tdata->rseq_past_end_ = false;
     tdata->rseq_commit_pc_ = 0;
+    tdata->rseq_start_pc_ = 0;
     tdata->rseq_end_pc_ = 0;
     tdata->rseq_buffer_.clear();
     tdata->rseq_commit_idx_ = -1;
@@ -2437,6 +2473,12 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
     if (tdata->rseq_buffering_enabled_) {
         for (const trace_entry_t *it = start; it < end; ++it)
             tdata->rseq_buffer_.push_back(*it);
+        // Look for a runaway buffer which indicates a bug.
+        // There are rseq regions with loops but they should be relatively short.
+        static constexpr int MAX_REASONABLE_RSEQ_LENGTH = 4096;
+        if (tdata->rseq_buffer_.size() > MAX_REASONABLE_RSEQ_LENGTH) {
+            return "Runaway rseq buffer indicates an rseq exit was missed";
+        }
         tdata->rseq_decode_pcs_.insert(tdata->rseq_decode_pcs_.end(), decode_pcs.begin(),
                                        decode_pcs.end());
         return "";

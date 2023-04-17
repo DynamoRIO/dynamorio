@@ -948,6 +948,7 @@ protected:
         bool rseq_buffering_enabled_ = false;
         bool rseq_past_end_ = false;
         addr_t rseq_commit_pc_ = 0;
+        addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
         std::vector<trace_entry_t> rseq_buffer_;
         int rseq_commit_idx_ = -1; // Index into rseq_buffer_.

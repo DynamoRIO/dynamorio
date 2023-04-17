@@ -869,6 +869,15 @@ rseq_process_native_abort(dcontext_t *dcontext)
     }
     if (source_mc != NULL)
         HEAP_TYPE_FREE(dcontext, source_mc, priv_mcontext_t, ACCT_CLIENT, PROTECTED);
+    /* Make sure we do not raise a duplicate abort if we had a pending signal that
+     * caused the abort.  (It might be better to instead suppress this abort-exit
+     * event and present the signal as causing the abort but that is more complex
+     * to implement so we pretend the signal came in after the abort.)
+     * XXX: We saw a double abort and assume it is from some signal+abort
+     * combination but we failed to reproduce it in our linux.rseq tests cases
+     * so we do not have proof that this is solving anything here.
+     */
+    translate_clear_last_direct_translation(dcontext);
 }
 
 void
