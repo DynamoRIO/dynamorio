@@ -90,41 +90,14 @@ file_reader_t<std::vector<trace_entry_t>>::read_next_entry()
 
 namespace {
 
-// Subclasses module_mapper_t and replaces the module loading with a buffer
-// of encoded instr_t.
-class module_mapper_test_t : public module_mapper_t {
-public:
-    module_mapper_test_t(void *drcontext, instrlist_t &instrs)
-        : module_mapper_t(nullptr)
-    {
-        byte *pc = instrlist_encode(drcontext, &instrs, decode_buf_, true);
-        ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE, "decode buffer overflow");
-        // Clear do_module_parsing error; we can't cleanly make virtual b/c it's
-        // called from the constructor.
-        last_error_ = "";
-    }
-
-protected:
-    void
-    read_and_map_modules(void) override
-    {
-        modvec_.push_back(module_t("fake_exe", 0, decode_buf_, 0, MAX_DECODE_SIZE,
-                                   MAX_DECODE_SIZE, true));
-    }
-
-private:
-    static const int MAX_DECODE_SIZE = 1024;
-    byte decode_buf_[MAX_DECODE_SIZE];
-};
-
 class view_test_t : public view_t {
 public:
-    view_test_t(void *drcontext, instrlist_t &instrs, memref_tid_t thread,
-                uint64_t skip_refs, uint64_t sim_refs)
-        : view_t("", thread, skip_refs, sim_refs, "", 0)
+    view_test_t(void *drcontext, instrlist_t &instrs, uint64_t skip_refs,
+                uint64_t sim_refs)
+        : view_t("", skip_refs, sim_refs, "", 0)
     {
-        module_mapper_ =
-            std::unique_ptr<module_mapper_t>(new module_mapper_test_t(drcontext, instrs));
+        module_mapper_ = std::unique_ptr<module_mapper_t>(
+            new test_module_mapper_t(&instrs, drcontext));
     }
 
     std::string
@@ -140,9 +113,9 @@ public:
 
 class view_nomod_test_t : public view_t {
 public:
-    view_nomod_test_t(void *drcontext, instrlist_t &instrs, memref_tid_t thread,
-                      uint64_t skip_refs, uint64_t sim_refs)
-        : view_t("", thread, skip_refs, sim_refs, "", 0)
+    view_nomod_test_t(void *drcontext, instrlist_t &instrs, uint64_t skip_refs,
+                      uint64_t sim_refs)
+        : view_t("", skip_refs, sim_refs, "", 0)
     {
     }
 };
@@ -204,7 +177,7 @@ run_test_helper(view_t &view, const std::vector<memref_t> &memrefs)
 bool
 test_no_limit(void *drcontext, instrlist_t &ilist, const std::vector<memref_t> &memrefs)
 {
-    view_test_t view(drcontext, ilist, 0, 0, 0);
+    view_test_t view(drcontext, ilist, 0, 0);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != static_cast<int>(memrefs.size())) {
         std::cerr << "Incorrect line count\n";
@@ -226,7 +199,7 @@ test_num_memrefs(void *drcontext, instrlist_t &ilist,
 {
     ASSERT(static_cast<size_t>(num_memrefs) < memrefs.size(),
            "need more memrefs to limit");
-    view_test_t view(drcontext, ilist, 0, 0, num_memrefs);
+    view_test_t view(drcontext, ilist, 0, num_memrefs);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != num_memrefs) {
         std::cerr << "Incorrect num_memrefs count: expect " << num_memrefs
@@ -255,7 +228,7 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
     }
     ASSERT(static_cast<size_t>(num_memrefs + skip_memrefs) <= memrefs.size(),
            "need more memrefs to skip");
-    view_test_t view(drcontext, ilist, 0, skip_memrefs, num_memrefs);
+    view_test_t view(drcontext, ilist, skip_memrefs, num_memrefs);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != num_memrefs) {
         std::cerr << "Incorrect skipped_memrefs count: expect " << num_memrefs
@@ -291,41 +264,9 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
 }
 
 bool
-test_thread_limit(instrlist_t &ilist, const std::vector<memref_t> &memrefs,
-                  void *drcontext, int thread2_id)
-{
-    int thread2_count = 0;
-    for (const auto &memref : memrefs) {
-        if (memref.data.tid == thread2_id)
-            ++thread2_count;
-    }
-    view_test_t view(drcontext, ilist, thread2_id, 0, 0);
-    std::string res = run_test_helper(view, memrefs);
-    // Count the "       nnnn" prefixes (tid column value).
-    std::stringstream ss;
-    ss << std::setw(view.tid_column_width()) << thread2_id;
-    std::string prefix = ss.str();
-    int found_prefixes = 0;
-    size_t pos = 0;
-    while (pos != std::string::npos) {
-        pos = res.find(prefix, pos);
-        if (pos != std::string::npos) {
-            ++found_prefixes;
-            ++pos;
-        }
-    }
-    if (std::count(res.begin(), res.end(), '\n') != thread2_count ||
-        found_prefixes != thread2_count) {
-        std::cerr << "Incorrect thread2 count\n";
-        return false;
-    }
-    return true;
-}
-
-bool
 test_no_modules(void *drcontext, instrlist_t &ilist, const std::vector<memref_t> &memrefs)
 {
-    view_nomod_test_t view(drcontext, ilist, 0, 0, 0);
+    view_nomod_test_t view(drcontext, ilist, 0, 0);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != static_cast<int>(memrefs.size())) {
         std::cerr << "Incorrect line count\n";
@@ -385,29 +326,6 @@ run_limit_tests(void *drcontext)
 
     // Ensure missing modules are fine.
     res = test_no_modules(drcontext, *ilist, memrefs) && res;
-
-    const memref_tid_t t2 = 21;
-    std::vector<memref_t> thread_memrefs = {
-        gen_marker(t1, TRACE_MARKER_TYPE_VERSION, 3),
-        gen_marker(t1, TRACE_MARKER_TYPE_FILETYPE, 0),
-        gen_marker(t1, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
-        gen_instr(t1, offs_nop1),
-        gen_data(t1, true, 0x42, 4),
-        gen_branch(t1, offs_jz),
-        gen_branch(t1, offs_nop2),
-        gen_data(t1, true, 0x42, 4),
-        gen_marker(t2, TRACE_MARKER_TYPE_VERSION, 3),
-        gen_marker(t2, TRACE_MARKER_TYPE_FILETYPE, 0),
-        gen_marker(t2, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
-        gen_marker(t2, TRACE_MARKER_TYPE_TIMESTAMP, 101),
-        gen_marker(t2, TRACE_MARKER_TYPE_CPU_ID, 3),
-        gen_instr(t2, offs_nop1),
-        gen_data(t2, true, 0x42, 4),
-        gen_branch(t2, offs_jz),
-        gen_branch(t2, offs_nop2),
-        gen_data(t2, true, 0x42, 4),
-    };
-    res = test_thread_limit(*ilist, thread_memrefs, drcontext, t2) && res;
 
     instrlist_clear_and_destroy(drcontext, ilist);
     return res;
@@ -568,7 +486,7 @@ run_single_thread_chunk_test(void *drcontext)
           10           3:           3 ifetch       4 byte(s) @ 0x0000002a non-branch
 )DELIM";
     instrlist_t *ilist_unused = nullptr;
-    view_nomod_test_t view(drcontext, *ilist_unused, 0, 0, 0);
+    view_nomod_test_t view(drcontext, *ilist_unused, 0, 0);
     std::string res = run_serial_test_helper(view, entries, tids);
     // Make 64-bit match our 32-bit expect string.
     res = std::regex_replace(res, std::regex("0x000000000000002a"), "0x0000002a");
@@ -650,7 +568,7 @@ run_serial_chunk_test(void *drcontext)
           22           6:           7 ifetch       4 byte(s) @ 0x0000002a non-branch
 )DELIM";
     instrlist_t *ilist_unused = nullptr;
-    view_nomod_test_t view(drcontext, *ilist_unused, 0, 0, 0);
+    view_nomod_test_t view(drcontext, *ilist_unused, 0, 0);
     std::string res = run_serial_test_helper(view, entries, tids);
     // Make 64-bit match our 32-bit expect string.
     res = std::regex_replace(res, std::regex("0x000000000000002a"), "0x0000002a");

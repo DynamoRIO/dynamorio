@@ -442,6 +442,16 @@ online_instru_t::instrument_instr_encoding(void *drcontext, void *tag, void *bb_
 }
 
 int
+online_instru_t::instrument_rseq_entry(void *drcontext, instrlist_t *ilist,
+                                       instr_t *where, instr_t *rseq_label,
+                                       reg_id_t reg_ptr, int adjust)
+{
+    // TODO i#5953: Design a way to roll back records already sent to the analyzer.
+    // For now we live with discontinuities with online mode.
+    return adjust;
+}
+
+int
 online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                                     reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
                                     int num_delay_instrs)

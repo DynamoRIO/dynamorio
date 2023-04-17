@@ -1,0 +1,102 @@
+# **********************************************************
+# Copyright (c) 2023 ARM Limited. All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of ARM Limited nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL ARM LIMITED OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Test data for DynamoRIO's AArch64 v8.2 encoder, decoder and disassembler.
+# See dis-a64-sve.txt for the formatting.
+
+# Tests:
+# DC CVAP, <Xt>
+d50b7c20 : dc cvap, x0                    : dc_cvap (%x0)[1byte]
+d50b7c21 : dc cvap, x1                    : dc_cvap (%x1)[1byte]
+d50b7c22 : dc cvap, x2                    : dc_cvap (%x2)[1byte]
+d50b7c23 : dc cvap, x3                    : dc_cvap (%x3)[1byte]
+d50b7c24 : dc cvap, x4                    : dc_cvap (%x4)[1byte]
+d50b7c25 : dc cvap, x5                    : dc_cvap (%x5)[1byte]
+d50b7c26 : dc cvap, x6                    : dc_cvap (%x6)[1byte]
+d50b7c27 : dc cvap, x7                    : dc_cvap (%x7)[1byte]
+d50b7c28 : dc cvap, x8                    : dc_cvap (%x8)[1byte]
+d50b7c29 : dc cvap, x9                    : dc_cvap (%x9)[1byte]
+d50b7c2a : dc cvap, x10                   : dc_cvap (%x10)[1byte]
+d50b7c2b : dc cvap, x11                   : dc_cvap (%x11)[1byte]
+d50b7c2c : dc cvap, x12                   : dc_cvap (%x12)[1byte]
+d50b7c2d : dc cvap, x13                   : dc_cvap (%x13)[1byte]
+d50b7c2e : dc cvap, x14                   : dc_cvap (%x14)[1byte]
+d50b7c2f : dc cvap, x15                   : dc_cvap (%x15)[1byte]
+d50b7c30 : dc cvap, x16                   : dc_cvap (%x16)[1byte]
+d50b7c31 : dc cvap, x17                   : dc_cvap (%x17)[1byte]
+d50b7c32 : dc cvap, x18                   : dc_cvap (%x18)[1byte]
+d50b7c33 : dc cvap, x19                   : dc_cvap (%x19)[1byte]
+d50b7c34 : dc cvap, x20                   : dc_cvap (%x20)[1byte]
+d50b7c35 : dc cvap, x21                   : dc_cvap (%x21)[1byte]
+d50b7c36 : dc cvap, x22                   : dc_cvap (%x22)[1byte]
+d50b7c37 : dc cvap, x23                   : dc_cvap (%x23)[1byte]
+d50b7c38 : dc cvap, x24                   : dc_cvap (%x24)[1byte]
+d50b7c39 : dc cvap, x25                   : dc_cvap (%x25)[1byte]
+d50b7c3a : dc cvap, x26                   : dc_cvap (%x26)[1byte]
+d50b7c3b : dc cvap, x27                   : dc_cvap (%x27)[1byte]
+d50b7c3c : dc cvap, x28                   : dc_cvap (%x28)[1byte]
+d50b7c3d : dc cvap, x29                   : dc_cvap (%x29)[1byte]
+d50b7c3e : dc cvap, x30                   : dc_cvap (%x30)[1byte]
+d50b7c3f : dc cvap, xzr                   : dc_cvap (%xzr)[1byte]
+
+# DC CVADP, <Xt>
+d50b7d20 : dc cvadp, x0                   : dc_cvadp (%x0)[1byte]
+d50b7d21 : dc cvadp, x1                   : dc_cvadp (%x1)[1byte]
+d50b7d22 : dc cvadp, x2                   : dc_cvadp (%x2)[1byte]
+d50b7d23 : dc cvadp, x3                   : dc_cvadp (%x3)[1byte]
+d50b7d24 : dc cvadp, x4                   : dc_cvadp (%x4)[1byte]
+d50b7d25 : dc cvadp, x5                   : dc_cvadp (%x5)[1byte]
+d50b7d26 : dc cvadp, x6                   : dc_cvadp (%x6)[1byte]
+d50b7d27 : dc cvadp, x7                   : dc_cvadp (%x7)[1byte]
+d50b7d28 : dc cvadp, x8                   : dc_cvadp (%x8)[1byte]
+d50b7d29 : dc cvadp, x9                   : dc_cvadp (%x9)[1byte]
+d50b7d2a : dc cvadp, x10                  : dc_cvadp (%x10)[1byte]
+d50b7d2b : dc cvadp, x11                  : dc_cvadp (%x11)[1byte]
+d50b7d2c : dc cvadp, x12                  : dc_cvadp (%x12)[1byte]
+d50b7d2d : dc cvadp, x13                  : dc_cvadp (%x13)[1byte]
+d50b7d2e : dc cvadp, x14                  : dc_cvadp (%x14)[1byte]
+d50b7d2f : dc cvadp, x15                  : dc_cvadp (%x15)[1byte]
+d50b7d30 : dc cvadp, x16                  : dc_cvadp (%x16)[1byte]
+d50b7d31 : dc cvadp, x17                  : dc_cvadp (%x17)[1byte]
+d50b7d32 : dc cvadp, x18                  : dc_cvadp (%x18)[1byte]
+d50b7d33 : dc cvadp, x19                  : dc_cvadp (%x19)[1byte]
+d50b7d34 : dc cvadp, x20                  : dc_cvadp (%x20)[1byte]
+d50b7d35 : dc cvadp, x21                  : dc_cvadp (%x21)[1byte]
+d50b7d36 : dc cvadp, x22                  : dc_cvadp (%x22)[1byte]
+d50b7d37 : dc cvadp, x23                  : dc_cvadp (%x23)[1byte]
+d50b7d38 : dc cvadp, x24                  : dc_cvadp (%x24)[1byte]
+d50b7d39 : dc cvadp, x25                  : dc_cvadp (%x25)[1byte]
+d50b7d3a : dc cvadp, x26                  : dc_cvadp (%x26)[1byte]
+d50b7d3b : dc cvadp, x27                  : dc_cvadp (%x27)[1byte]
+d50b7d3c : dc cvadp, x28                  : dc_cvadp (%x28)[1byte]
+d50b7d3d : dc cvadp, x29                  : dc_cvadp (%x29)[1byte]
+d50b7d3e : dc cvadp, x30                  : dc_cvadp (%x30)[1byte]
+d50b7d3f : dc cvadp, xzr                  : dc_cvadp (%xzr)[1byte]
+

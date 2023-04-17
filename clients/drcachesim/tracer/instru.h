@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -252,6 +252,9 @@ public:
     instrument_instr_encoding(void *drcontext, void *tag, void *bb_field,
                               instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
                               int adjust, instr_t *app) = 0;
+    virtual int
+    instrument_rseq_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
+                          instr_t *rseq_label, reg_id_t reg_ptr, int adjust) = 0;
 
     virtual void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
@@ -368,6 +371,9 @@ public:
     instrument_instr_encoding(void *drcontext, void *tag, void *bb_field,
                               instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
                               int adjust, instr_t *app) override;
+    int
+    instrument_rseq_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
+                          instr_t *rseq_label, reg_id_t reg_ptr, int adjust) override;
 
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
@@ -453,6 +459,9 @@ public:
     instrument_instr_encoding(void *drcontext, void *tag, void *bb_field,
                               instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
                               int adjust, instr_t *app) override;
+    int
+    instrument_rseq_entry(void *drcontext, instrlist_t *ilist, instr_t *where,
+                          instr_t *rseq_label, reg_id_t reg_ptr, int adjust) override;
 
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
