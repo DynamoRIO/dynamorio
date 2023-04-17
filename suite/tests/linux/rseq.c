@@ -823,6 +823,7 @@ test_rseq_asynch_signal(void)
     volatile struct rseq *reg_rseq = get_my_rseq();
 #ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
     int restarts = 0;
+    int commits = 0;
 #    ifdef X86
     __asm__ __volatile__(
         /* clang-format off */ /* (avoid indenting next few lines) */
@@ -851,7 +852,7 @@ test_rseq_asynch_signal(void)
         "mov %[sysnum_kill], %%eax\n\t"
         "syscall\n\t"
         "11:\n\t"
-        "nop\n\t"
+        "addl $1, %[commits]\n\t"
 
         /* Post-commit. */
         "3:\n\t"
@@ -869,7 +870,8 @@ test_rseq_asynch_signal(void)
         "movq $0, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts)
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts),
+          [commits] "=m"(commits)
         : [signum_alarm] "i"(SIGALRM), [sysnum_kill] "i"(SYS_kill)
         : "rax", "rcx", "rdx", "rsi", "rdi", "xmm0", "xmm1", "memory");
 #    elif defined(AARCH64)
@@ -901,7 +903,9 @@ test_rseq_asynch_signal(void)
         "mov w8, #%[sysnum_kill]\n\t"
         "svc #0\n\t"
         "11:\n\t"
-        "nop\n\t"
+        "ldr x0, %[commits]\n\t"
+        "add x0, x0, #1\n\t"
+        "str x0, %[commits]\n\t"
 
         /* Post-commit. */
         "3:\n\t"
@@ -921,7 +925,8 @@ test_rseq_asynch_signal(void)
         "str xzr, %[rseq_cs]\n\t"
         /* clang-format on */
 
-        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts)
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts),
+          [commits] "=m"(commits)
         : [signum_alarm] "i"(SIGALRM), [sysnum_kill] "i"(SYS_kill)
         : "x0", "x1", "x2", "x8", "q0", "q1", "memory");
 #    else
@@ -929,6 +934,7 @@ test_rseq_asynch_signal(void)
 #    endif
     /* This is expected to fail on a native run where restarts will be 0. */
     assert(restarts > 0);
+    assert(commits == 0);
 #endif /* DEBUG */
 }
 
@@ -1076,8 +1082,8 @@ test_rseq_instru_side_exit(void)
         "paddq %%xmm1,%%xmm0\n\t"
         "movq %%xmm0, %%rax\n\t"
         /* Take a side exit in the 1st run == instrumented run. */
-        "cmp $2, %%rax\n\t"
-        "jne 5f\n\t"
+        "cmp $1, %%rax\n\t"
+        "je 5f\n\t"
         "7:\n\t"
         "addl $1, %[commits]\n\t"
 
@@ -1124,8 +1130,8 @@ test_rseq_instru_side_exit(void)
         "add d0, d0, d1\n\t"
         "mov x0, v0.D[0]\n\t"
         /* Take a side exit in the 1st run == instrumented run. */
-        "cmp x0, #2\n\t"
-        "b.ne 5f\n\t"
+        "cmp x0, #1\n\t"
+        "b.eq 5f\n\t"
         "7:\n\t"
         "ldr x0, %[commits]\n\t"
         "add x0, x0, #1\n\t"

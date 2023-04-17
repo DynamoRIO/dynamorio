@@ -585,6 +585,9 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
                 if (tdata->rseq_want_rollback_) {
                     if (tdata->rseq_buffering_enabled_) {
+                        // Our rollback schemes do the minimal rollback: for a side
+                        // exit, taking the last branch.  This means we don't need the
+                        // prior iterations in the buffer.
                         log(4, "Rseq was already buffered: assuming loop; emitting\n");
                         err = adjust_and_emit_rseq_buffer(tdata, marker_val);
                         if (!err.empty())
@@ -1282,7 +1285,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                     return error;
             } else if (instr_pc < tdata->rseq_start_pc_ ||
                        instr_pc >= tdata->rseq_end_pc_) {
-                log(4, "Hit rseq instrumented exit to 0x%zx\n", orig_pc);
+                log(4, "Hit exit to 0x%zx during instrumented rseq run\n", orig_pc);
                 error = adjust_and_emit_rseq_buffer(tdata, instr_pc);
                 if (!error.empty())
                     return error;
