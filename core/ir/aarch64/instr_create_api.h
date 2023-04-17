@@ -5255,56 +5255,64 @@
 /* -------- SVE bitwise logical operations (predicated) ---------------- */
 
 /**
- * Creates an ORR scalable vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Zd      The output SVE vector register.
- * \param Pg      Predicate register for predicated instruction, P0-P7.
- * \param Zd_     The first input SVE vector register. Must match Zd.
- * \param Zm      The second input SVE vector register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
- *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates an ORR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    ORR     <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
  */
-#define INSTR_CREATE_orr_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
-    instr_create_1dst_4src(dc, OP_orr, Zd, Pg, Zd_, Zm, width)
+#define INSTR_CREATE_orr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_orr, Zdn, Pg, Zdn, Zm)
 
 /**
- * Creates an EOR scalable vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Zd      The output SVE vector register.
- * \param Pg      Predicate register for predicated instruction, P0-P7.
- * \param Zd_     The first input SVE vector register. Must match Zd.
- * \param Zm      The second input SVE vector register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
- *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates an EOR instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    EOR     <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
  */
-#define INSTR_CREATE_eor_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
-    instr_create_1dst_4src(dc, OP_eor, Zd, Pg, Zd_, Zm, width)
+#define INSTR_CREATE_eor_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_eor, Zdn, Pg, Zdn, Zm)
 
 /**
- * Creates an AND scalable vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Zd      The output SVE vector register.
- * \param Pg      Predicate register for predicated instruction, P0-P7.
- * \param Zd_     The first input SVE vector register. Must match Zd.
- * \param Zm      The second input SVE vector register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
- *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates an AND instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AND     <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
  */
-#define INSTR_CREATE_and_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
-    instr_create_1dst_4src(dc, OP_and, Zd, Pg, Zd_, Zm, width)
+#define INSTR_CREATE_and_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_and, Zdn, Pg, Zdn, Zm)
 
 /**
- * Creates a BIC scalable vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Zd      The output SVE vector register.
- * \param Pg      Predicate register for predicated instruction, P0-P7.
- * \param Zd_     The first input SVE vector register. Must match Zd.
- * \param Zm      The second input SVE vector register.
- * \param width   The vector element width. Use either OPND_CREATE_BYTE(),
- *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * Creates a BIC instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BIC     <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
  */
-#define INSTR_CREATE_bic_sve_pred(dc, Zd, Pg, Zd_, Zm, width) \
-    instr_create_1dst_4src(dc, OP_bic, Zd, Pg, Zd_, Zm, width)
+#define INSTR_CREATE_bic_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_bic, Zdn, Pg, Zdn, Zm)
 
 /**
  * Creates a ZIP2 instruction.
