@@ -362,7 +362,6 @@ bool
 check_rseq()
 {
 #ifdef UNIX
-    // TODO(sahil): Check if these tests have PC discontinuities.
     // Roll back rseq final instr.
     {
         std::vector<memref_t> memrefs = {
