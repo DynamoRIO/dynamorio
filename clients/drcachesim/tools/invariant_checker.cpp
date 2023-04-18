@@ -109,6 +109,9 @@ invariant_checker_t::parallel_shard_init(int shard_index, void *worker_data)
 bool
 invariant_checker_t::parallel_shard_exit(void *shard_data)
 {
+    per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+    if (shard->prev_instr_decoded_.get() != nullptr)
+        instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
     return true;
 }
 
