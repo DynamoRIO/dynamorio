@@ -3820,7 +3820,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
         }
-        /* TODO i#5365: SVE predicate registers dump. */
+        /* TODO i#5365: SVE predicate registers and FFR dump. */
     }
 #endif
 

@@ -682,7 +682,7 @@ typedef union ALIGN_VAR(16) _dr_simd_t {
     uint s;       /**< Singleword (32 bit, Sn) scalar element of Vn, Zn and Pn. */
     uint64 d;     /**< Doubleword (64 bit, Dn) scalar element of Vn, Zn and Pn. */
     uint q[4];    /**< The full 128 bit Vn register, Qn as q[3]:q[2]:q[1]:q[0]. */
-    uint u32[16]; /**< The full 512 bit Zn and Pn registers. */
+    uint u32[16]; /**< The full 512 bit Zn, Pn and FFR registers. */
 } dr_simd_t;
 #    else
 typedef union _dr_simd_t {
@@ -695,8 +695,8 @@ typedef union _dr_simd_t {
 #        define MCXT_NUM_SIMD_SLOTS                                     \
             32 /**< Number of 128-bit SIMD Vn/Zn slots in dr_mcontext_t \
                 */
-               /* TODO i#5365: Predicate registers slots. */
 #        define MCXT_NUM_SVEP_SLOTS 16 /**< Number of SIMD Pn slots in dr_mcontext_t */
+         /* TODO i#5365: FFR register slot. Do we need it? It's a single regiater. */
 #    else
 #        define MCXT_NUM_SIMD_SLOTS                                  \
             16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \

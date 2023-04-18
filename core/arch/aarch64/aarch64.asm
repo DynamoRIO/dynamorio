@@ -47,7 +47,7 @@ START_FILE
 #endif
 
 /* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
-#define PRIV_MCONTEXT_SIZE 3360
+#define PRIV_MCONTEXT_SIZE 3424
 
 /* offsetof(spill_state_t, r0) */
 #define spill_state_r0_OFFSET 0
@@ -69,7 +69,7 @@ START_FILE
 /* offsetof(priv_mcontext_t, simd) */
 #define simd_OFFSET (16 * ARG_SZ*2 + 32)
 /* offsetof(dcontext_t, dstack) */
-#define dstack_OFFSET     0xd68
+#define dstack_OFFSET     0xda8
 /* offsetof(dcontext_t, is_exiting) */
 #define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
 /* offsetof(struct tlsdesc_t, arg) */
