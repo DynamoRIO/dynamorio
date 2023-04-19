@@ -549,7 +549,7 @@ check_duplicate_syscall_with_same_pc()
             gen_instr_encoded(ADDR + 2, { 0x0f, 0x05 }), // 0x7fcf3b9dd9eb: 0f 05 syscall
 #    elif defined(ARM_64)
             gen_instr_encoded(ADDR, 0xd4000001,
-                              2),          // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+                              2), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR + 4, 0xd4000001,
