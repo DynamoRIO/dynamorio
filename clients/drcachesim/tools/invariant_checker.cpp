@@ -454,20 +454,21 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // Ensure signal handlers return to the interruption point.
         if (shard->prev_xfer_marker_.marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
-            // We popped some values in last_xfer_int_pc_ and
-            // last_pre_signal_instr_ on the last TRACE_MARKER_TYPE_KERNEL_XFER
-            // marker.
+            // We use the values popped from the signal-related stacks at the last
+            // TRACE_MARKER_TYPE_KERNEL_XFER marker.
             report_if_false(
                 shard,
-                ((memref.instr.addr == shard->last_xfer_int_pc_ ||
-                  // Skip this check because we missed the TRACE_MARKER_TYPE_KERNEL_EVENT.
-                  shard->last_xfer_int_pc_ == 0 ||
-                  // DR hands us a different address for sysenter than the
-                  // resumption point.
-                  shard->last_pre_signal_instr_.instr.type ==
-                      TRACE_TYPE_INSTR_SYSENTER) &&
+                ((
+                     // XXX: we may need to skip this check if we miss the
+                     // TRACE_MARKER_TYPE_KERNEL_EVENT marker because the trace started
+                     // inside the app signal handler.
+                     memref.instr.addr == shard->last_xfer_int_pc_ ||
+                     // DR hands us a different address for sysenter than the
+                     // resumption point.
+                     shard->last_pre_signal_instr_.instr.type ==
+                         TRACE_TYPE_INSTR_SYSENTER) &&
                  (
-                     // Skip pre_signal_instr_ check if there was no such instr.
+                     // Skip pre-signal instr check if there was no such instr.
                      shard->last_pre_signal_instr_.instr.addr == 0 ||
                      // Skip pre_signal_instr_ check for signals that caused an rseq
                      // abort. In this case, control is transferred directly to the abort
@@ -494,9 +495,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->file_type_),
                 "Signal handler return point incorrect");
         }
-        // If there was no instruction between two nested signals, we do not want to
-        // record any pre-signal instr for the second signal. So, we cannot perform this
-        // book-keeping using prev_instr_ on a TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+        // It is a little inefficient to replace the top instr on the stack everytime.
+        // But we cannot perform this book-keeping using prev_instr_ on a
+        // TRACE_MARKER_TYPE_KERNEL_EVENT marker. If there was no instruction between
+        // two nested signals, we do not want to record any pre-signal instr for the
+        // second signal.
         replace_top<memref_t>(shard->pre_signal_instr_, memref);
 #endif
         shard->prev_instr_ = memref;
@@ -546,9 +549,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
             // We assume paired signal entry-exit (so no longjmp and no rseq
-            // inside signal handlers). Also, we must have seen a prior
-            // TRACE_MARKER_TYPE_KERNEL_EVENT. This is an invariant because traces
-            // do not start already in a signal handler.
+            // inside signal handlers).
             if (shard->prev_xfer_int_pc_.empty() ||
                 shard->pre_signal_instr_.size() == 1 ||
                 shard->prev_xfer_abort_was_rseq_.empty()) {
@@ -566,7 +567,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // - for nested signals without any intervening instr
                 // - if there's a signal at the very beginning of the trace
                 // In both these cases the empty instr implies that it should not
-                // be used for the pre_signal_instr check above.
+                // be used for the pre-signal instr check.
                 shard->last_pre_signal_instr_ = shard->pre_signal_instr_.top();
                 shard->last_xfer_abort_was_rseq = shard->prev_xfer_abort_was_rseq_.top();
                 shard->prev_xfer_abort_was_rseq_.pop();
@@ -593,6 +594,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->window_transition_ = true;
         shard->last_window_ = memref.marker.marker_value;
     }
+
 #ifdef UNIX
     shard->prev_prev_entry_ = shard->prev_entry_;
 #endif
