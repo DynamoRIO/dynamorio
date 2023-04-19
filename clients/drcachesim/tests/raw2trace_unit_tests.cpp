@@ -1100,7 +1100,7 @@ test_rseq_rollback(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
-/* Tests i#5954 where a timestamp preceds the abort marker. */
+/* Tests i#5954 where a timestamp precedes the abort marker. */
 bool
 test_rseq_rollback_with_timestamps(void *drcontext)
 {
@@ -1161,8 +1161,7 @@ test_rseq_rollback_with_timestamps(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
         // The committing store should not be here.
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The timestamp+cpuid also get removed in case the prior instr is a branch.
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ABORT) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT) &&
         // The move2 instr.
@@ -1605,6 +1604,100 @@ test_rseq_side_exit_inverted(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
+/* Tests an inverted rseq side exit with a timestamp (i#5986). */
+bool
+test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting inverted rseq side exit with timestamp\n";
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move3 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    // Our conditional jumps over the jump which is the exit.
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move1));
+    instr_t *jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(move3));
+    instr_t *store =
+        XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0), opnd_create_reg(REG1));
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, jmp);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move2);
+    instrlist_append(ilist, move3);
+    size_t offs_nop = 0;
+    size_t offs_jcc = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jmp = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_move1 = offs_jmp + instr_length(drcontext, jmp);
+    size_t offs_store = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_store + instr_length(drcontext, store);
+    size_t offs_move3 = offs_move2 + instr_length(drcontext, move2);
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    // The jcc is taken and we don't see the side exit in instrumented execution.
+    raw.push_back(make_block(offs_jcc, 1));
+    // The end of our rseq sequence, ending in a committing store.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    // A timestamp is added after the store due to filling our buffer.
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    // A discontinuity as we continue with the side exit target.
+    raw.push_back(make_block(offs_move3, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        // The jcc instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_CONDITIONAL_JUMP, -1, offs_jcc) &&
+        // The jmp which raw2trace has to synthesize.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1, offs_jmp) &&
+        // The move2 + committing store should be gone.
+        // The timestamp+cpu should be rolled back along with the instructions.
+        // We should go straight to the move3 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move3) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -1619,7 +1712,8 @@ main(int argc, const char *argv[])
         !test_rseq_rollback_with_signal(drcontext) ||
         !test_rseq_rollback_with_chunks(drcontext) || !test_rseq_side_exit(drcontext) ||
         !test_rseq_side_exit_signal(drcontext) ||
-        !test_rseq_side_exit_inverted(drcontext))
+        !test_rseq_side_exit_inverted(drcontext) ||
+        !test_rseq_side_exit_inverted_with_timestamp(drcontext))
         return 1;
     return 0;
 }
