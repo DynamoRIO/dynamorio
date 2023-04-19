@@ -381,10 +381,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         std::unique_ptr<instr_autoclean_t> cur_instr_decoded = nullptr;
         if (expect_encoding) {
             cur_instr_decoded.reset(new instr_autoclean_t(GLOBAL_DCONTEXT));
-            app_pc next_pc = decode_from_copy(GLOBAL_DCONTEXT,
-                                              const_cast<app_pc>(memref.instr.encoding),
-                                              reinterpret_cast<app_pc>(memref.instr.addr),
-                                              cur_instr_decoded->data);
+            app_pc next_pc = decode_from_copy(
+                GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
+                reinterpret_cast<app_pc>(memref.instr.addr), cur_instr_decoded->data);
             if (next_pc == nullptr) {
                 cur_instr_decoded.reset(nullptr);
             }
