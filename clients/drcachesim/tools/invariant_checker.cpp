@@ -109,9 +109,6 @@ invariant_checker_t::parallel_shard_init(int shard_index, void *worker_data)
 bool
 invariant_checker_t::parallel_shard_exit(void *shard_data)
 {
-    per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
-    if (shard->prev_instr_decoded_.get() != nullptr)
-        instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
     return true;
 }
 
@@ -381,15 +378,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
-        std::unique_ptr<instr_t> cur_instr_decoded = nullptr;
+        std::unique_ptr<instr_autoclean_t> cur_instr_decoded(
+            new instr_autoclean_t(GLOBAL_DCONTEXT, nullptr));
         if (expect_encoding) {
-            cur_instr_decoded.reset(new instr_t);
-            instr_init(GLOBAL_DCONTEXT, cur_instr_decoded.get());
-            app_pc next_pc = decode_from_copy(
-                GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
-                reinterpret_cast<app_pc>(memref.instr.addr), cur_instr_decoded.get());
+            cur_instr_decoded.get()->data = instr_create(GLOBAL_DCONTEXT);
+            app_pc next_pc = decode_from_copy(GLOBAL_DCONTEXT,
+                                              const_cast<app_pc>(memref.instr.encoding),
+                                              reinterpret_cast<app_pc>(memref.instr.addr),
+                                              cur_instr_decoded.get()->data);
             if (next_pc == nullptr) {
-                instr_free(GLOBAL_DCONTEXT, cur_instr_decoded.get());
+                instr_free(GLOBAL_DCONTEXT, cur_instr_decoded.get()->data);
                 cur_instr_decoded.reset(nullptr);
             }
         }
@@ -481,7 +479,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->prev_instr_ = memref;
         if (shard->prev_instr_decoded_ != nullptr)
             instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
-        shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
+        if (cur_instr_decoded.get()->data != nullptr)
+            shard->prev_instr_decoded_.reset(new instr_t(*cur_instr_decoded.get()->data));
         shard->saw_kernel_xfer_after_prev_instr_ = false;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
@@ -663,7 +662,8 @@ invariant_checker_t::print_results()
 std::string
 invariant_checker_t::check_for_pc_discontinuity(
     per_shard_t *shard, const memref_t &memref,
-    const std::unique_ptr<instr_t> &cur_instr_decoded, const bool expect_encoding)
+    const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded,
+    const bool expect_encoding)
 {
     std::string error_msg = "";
     bool have_cond_branch_target = false;
@@ -738,7 +738,7 @@ invariant_checker_t::check_for_pc_discontinuity(
                 }
             } else if (cur_instr_decoded != nullptr &&
                        shard->prev_instr_decoded_ != nullptr &&
-                       instr_is_syscall(cur_instr_decoded.get()) &&
+                       instr_is_syscall(cur_instr_decoded.get()->data) &&
                        memref.instr.addr == prev_instr_trace_pc &&
                        instr_is_syscall(shard->prev_instr_decoded_.get())) {
                 error_msg = "Duplicate syscall instrs with the same PC";

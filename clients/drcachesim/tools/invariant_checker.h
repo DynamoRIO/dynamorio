@@ -45,6 +45,33 @@
 #include <unordered_map>
 #include <vector>
 
+/* The auto cleanup wrapper of instr_t.
+ * This can ensure the instance of instr_t is cleaned up when it is out of scope.
+ */
+struct instr_autoclean_t {
+public:
+    instr_autoclean_t(void *drcontext, instr_t *data)
+        : drcontext(drcontext)
+        , data(data)
+    {
+    }
+    ~instr_autoclean_t()
+    {
+#ifdef DEBUG
+        if (drcontext == nullptr) {
+            std::cerr << "instr_autoclean_t: invalid drcontext" << std::endl;
+            exit(1);
+        }
+#endif
+        if (data != nullptr) {
+            instr_destroy(drcontext, data);
+            data = nullptr;
+        }
+    }
+    void *drcontext = nullptr;
+    instr_t *data = nullptr;
+};
+
 class invariant_checker_t : public analysis_tool_t {
 public:
     invariant_checker_t(bool offline = true, unsigned int verbose = 0,
@@ -142,9 +169,10 @@ protected:
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
     std::string
-    check_for_pc_discontinuity(per_shard_t *shard, const memref_t &memref,
-                               const std::unique_ptr<instr_t> &cur_instr_decoded,
-                               const bool expect_encoding);
+    check_for_pc_discontinuity(
+        per_shard_t *shard, const memref_t &memref,
+        const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded,
+        const bool expect_encoding);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
