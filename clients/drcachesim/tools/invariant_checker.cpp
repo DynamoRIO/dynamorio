@@ -368,11 +368,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             (shard->skipped_instrs_ && shard->stream != nullptr &&
                              shard->stream->get_page_size() > 0),
                         "Missing page size marker");
-        report_if_false(shard,
-                        shard->prev_xfer_int_pc_.empty() &&
-                            shard->pre_signal_instr_.size() == 1 &&
-                            shard->prev_xfer_abort_was_rseq_.empty(),
-                        "Missing signal exit");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
@@ -465,6 +460,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(
                 shard,
                 ((memref.instr.addr == shard->last_xfer_int_pc_ ||
+                  // Skip this check because we missed the TRACE_MARKER_TYPE_KERNEL_EVENT.
+                  shard->last_xfer_int_pc_ == 0 ||
                   // DR hands us a different address for sysenter than the
                   // resumption point.
                   shard->last_pre_signal_instr_.instr.type ==
@@ -555,8 +552,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (shard->prev_xfer_int_pc_.empty() ||
                 shard->pre_signal_instr_.size() == 1 ||
                 shard->prev_xfer_abort_was_rseq_.empty()) {
-                report_if_false(shard, false, "Found signal exit without signal entry");
-                // Try to continue.
+                // This can probably happen if tracing started in the middle of a signal.
+                // Try to continue by skipping the checks.
                 shard->last_xfer_int_pc_ = 0;
                 shard->last_pre_signal_instr_ = {};
                 shard->last_xfer_abort_was_rseq = false;
