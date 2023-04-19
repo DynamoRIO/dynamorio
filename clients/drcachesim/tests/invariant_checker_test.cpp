@@ -289,6 +289,8 @@ check_kernel_xfer()
     // Return to recorded interruption point.
     {
         std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(1, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
             gen_instr(1, 1),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 101),
@@ -296,6 +298,7 @@ check_kernel_xfer()
             // requires it and the view tool prints it.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(1, 2),
+            gen_exit(1),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -368,6 +371,30 @@ check_kernel_xfer()
         };
         if (!run_checker(memrefs, true, 1, 5, "Signal handler return point incorrect",
                          "Failed to catch bad signal handler return"))
+            return false;
+    }
+    // Missing TRACE_MARKER_TYPE_KERNEL_XFER marker.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(1, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(1, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(1, 101),
+            gen_exit(1),
+        };
+        if (!run_checker(memrefs, true, 1, 6, "Missing signal exit",
+                         "Failed to catch missing signal exit"))
+            return false;
+    }
+    // Missing TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 2),
+        };
+        if (!run_checker(memrefs, true, 1, 2, "Found signal exit without signal entry",
+                         "Failed to catch missing signal entry"))
             return false;
     }
 #endif

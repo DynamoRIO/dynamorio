@@ -93,9 +93,11 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
 {
     auto per_shard = std::unique_ptr<per_shard_t>(new per_shard_t);
     per_shard->stream = shard_stream;
+#ifdef UNIX
     // For the outer-most scope, like other nested signal scopes, we start with an
     // empty memref_t to denote absence of any pre-signal instr.
     per_shard->pre_signal_instr_.push({});
+#endif
     void *res = reinterpret_cast<void *>(per_shard.get());
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_map_[shard_index] = std::move(per_shard);
@@ -113,8 +115,6 @@ invariant_checker_t::parallel_shard_init(int shard_index, void *worker_data)
 bool
 invariant_checker_t::parallel_shard_exit(void *shard_data)
 {
-    per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
-    assert(shard->pre_signal_instr_.size() == 1);
     return true;
 }
 
@@ -368,6 +368,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             (shard->skipped_instrs_ && shard->stream != nullptr &&
                              shard->stream->get_page_size() > 0),
                         "Missing page size marker");
+        report_if_false(shard,
+                        shard->prev_xfer_int_pc_.empty() &&
+                            shard->pre_signal_instr_.size() == 1 &&
+                            shard->prev_xfer_abort_was_rseq_.empty(),
+                        "Missing signal exit");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
@@ -492,12 +497,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->file_type_),
                 "Signal handler return point incorrect");
         }
-#endif
-        shard->prev_instr_ = memref;
         // If there was no instruction between two nested signals, we do not want to
         // record any pre-signal instr for the second signal. So, we cannot perform this
         // book-keeping using prev_instr_ on a TRACE_MARKER_TYPE_KERNEL_EVENT marker.
-        replace_top<memref_t>(shard->pre_signal_instr_, shard->prev_instr_);
+        replace_top<memref_t>(shard->pre_signal_instr_, memref);
+#endif
+        shard->prev_instr_ = memref;
         if (shard->prev_instr_decoded_ != nullptr)
             instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
         shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
@@ -591,7 +596,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->window_transition_ = true;
         shard->last_window_ = memref.marker.marker_value;
     }
-
 #ifdef UNIX
     shard->prev_prev_entry_ = shard->prev_entry_;
 #endif
@@ -609,9 +613,11 @@ invariant_checker_t::process_memref(const memref_t &memref)
         auto per_shard_unique = std::unique_ptr<per_shard_t>(new per_shard_t);
         per_shard = per_shard_unique.get();
         per_shard->stream = serial_stream_;
+#ifdef UNIX
         // For the outer-most scope, like other nested signal scopes, we start with an
         // empty memref_t to denote absence of any pre-signal instr.
         per_shard->pre_signal_instr_.push({});
+#endif
         shard_map_[memref.data.tid] = std::move(per_shard_unique);
     } else
         per_shard = lookup->second.get();
