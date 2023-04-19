@@ -89,8 +89,9 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 return false;
             }
         } else if (!checker.errors.empty()) {
-            for (const auto &error : checker.errors) {
-                std::cerr << "Unexpected error: " << error << "\n";
+            for (int i = 0; i < checker.errors.size(); ++i) {
+                std::cerr << "Unexpected error: " << checker.errors[i]
+                          << " at ref: " << checker.error_refs[i] << "\n";
             }
             return false;
         }
@@ -328,6 +329,33 @@ check_kernel_xfer()
         if (!run_checker(memrefs, false))
             return false;
     }
+    // Multiple nested signals without any intervening instr between the nested
+    // signals.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(1, 101),
+            // First nested signal.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            // XXX: This marker value is actually not guaranteed, yet the checker
+            // requires it and the view tool prints it.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // No intervening instr here.
+            // Second nested signal.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            // XXX: This marker value is actually not guaranteed, yet the checker
+            // requires it and the view tool prints it.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(1, 102),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
     // Fail to return to recorded interruption point.
     {
         std::vector<memref_t> memrefs = {
@@ -521,7 +549,7 @@ check_duplicate_syscall_with_same_pc()
             gen_instr_encoded(ADDR + 2, { 0x0f, 0x05 }), // 0x7fcf3b9dd9eb: 0f 05 syscall
 #    elif defined(ARM_64)
             gen_instr_encoded(ADDR, 0xd4000001,
-                              2), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+                              2),          // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR + 4, 0xd4000001,

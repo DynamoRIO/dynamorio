@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <iostream>
 #include <string.h>
+#include <cassert>
 
 analysis_tool_t *
 invariant_checker_create(bool offline, unsigned int verbose)
@@ -439,25 +440,28 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // Ensure signal handlers return to the interruption point.
         if (shard->prev_xfer_marker_.marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
+            // We popped some values in last_xfer_int_pc_ and
+            // last_pre_signal_instr_ on the last TRACE_MARKER_TYPE_KERNEL_XFER
+            // marker.
             report_if_false(
                 shard,
-                ((memref.instr.addr == shard->prev_xfer_int_pc_.top() ||
+                ((memref.instr.addr == shard->last_xfer_int_pc_ ||
                   // DR hands us a different address for sysenter than the
                   // resumption point.
-                  shard->pre_signal_instr_.top().instr.type ==
+                  shard->last_pre_signal_instr_.instr.type ==
                       TRACE_TYPE_INSTR_SYSENTER) &&
                  (
                      // Skip pre_signal_instr_ check if there was no such instr.
-                     shard->pre_signal_instr_.top().instr.addr == 0 ||
-                     memref.instr.addr == shard->pre_signal_instr_.top().instr.addr ||
+                     shard->last_pre_signal_instr_.instr.addr == 0 ||
+                     memref.instr.addr == shard->last_pre_signal_instr_.instr.addr ||
                      // Asynch will go to the subsequent instr.
                      memref.instr.addr ==
-                         shard->pre_signal_instr_.top().instr.addr +
-                             shard->pre_signal_instr_.top().instr.size ||
+                         shard->last_pre_signal_instr_.instr.addr +
+                             shard->last_pre_signal_instr_.instr.size ||
                      // Too hard to figure out branch targets.  We have the
-                     // prev_xfer_int_pc_ though.
-                     type_is_instr_branch(shard->pre_signal_instr_.top().instr.type) ||
-                     shard->pre_signal_instr_.top().instr.type ==
+                     // last_xfer_int_pc_ though.
+                     type_is_instr_branch(shard->last_pre_signal_instr_.instr.type) ||
+                     shard->last_pre_signal_instr_.instr.type ==
                          TRACE_TYPE_INSTR_SYSENTER)) ||
                     // Nested signal.  XXX: This only works for our annotated test
                     // signal_invariants where we know shard->app_handler_pc_.
@@ -469,17 +473,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                             shard->file_type_),
                 "Signal handler return point incorrect");
-            // We assume paired signal entry-exit (so no longjmp and no rseq
-            // inside signal handlers).
-            shard->prev_xfer_int_pc_.pop();
-            shard->pre_signal_instr_.pop();
         }
 #endif
         shard->prev_instr_ = memref;
+        shard->prev_instr_at_depth_[shard->cur_signal_depth_] = memref;
         if (shard->prev_instr_decoded_ != nullptr)
             instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
         shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
-        shard->saw_kernel_xfer_after_prev_instr_ = false;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
         // prior (i#3937).
@@ -519,27 +519,41 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                       << std::hex << memref.marker.marker_value << std::dec << "\n";
         }
 #ifdef UNIX
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)
-            shard->prev_xfer_int_pc_.push(memref.marker.marker_value);
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
-            // XXX: Handle the back-to-back signals case where the second
-            // signal arrives just after the return from the first without
-            // any intervening instrs. The return point of the second one
-            // would be the pc in the kernel xfer marker of the first.
-            shard->prev_xfer_marker_.marker.marker_type !=
-                TRACE_MARKER_TYPE_KERNEL_XFER) {
-            if (shard->saw_kernel_xfer_after_prev_instr_) {
-                // We have nested signals without an intervening app instr.
-                // Push an empty instr to mean that this shouldn't be used.
-                shard->pre_signal_instr_.push({});
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
+            shard->prev_instr_at_depth_[shard->cur_signal_depth_] = {};
+            --shard->cur_signal_depth_;
+            assert(shard->cur_signal_depth_ >= 0);
+            // We assume paired signal entry-exit (so no longjmp and no rseq
+            // inside signal handlers). Also, we must have seen a prior
+            // TRACE_MARKER_TYPE_KERNEL_EVENT. This is an invariant because traces
+            // do not start already in a signal handler.
+            if (shard->prev_xfer_int_pc_.empty() || shard->pre_signal_instr_.empty()) {
+                report_if_false(shard, false, "Found signal exit without signal entry");
+                // Try to continue.
+                shard->last_xfer_int_pc_ = 0;
+                shard->last_pre_signal_instr_ = {};
             } else {
-                shard->saw_kernel_xfer_after_prev_instr_ = true;
-                // If there was a kernel xfer marker at the very beginning
-                // of the trace, we may still push an empty instr here.
-                shard->pre_signal_instr_.push(shard->prev_instr_);
+                shard->last_xfer_int_pc_ = shard->prev_xfer_int_pc_.top();
+                shard->prev_xfer_int_pc_.pop();
+                shard->last_pre_signal_instr_ = shard->pre_signal_instr_.top();
+                shard->pre_signal_instr_.pop();
             }
+        }
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            ++shard->cur_signal_depth_;
+            assert(shard->cur_signal_depth_ < MAX_SIGNAL_DEPTH);
+            shard->prev_instr_at_depth_[shard->cur_signal_depth_] = {};
+            shard->prev_xfer_int_pc_.push(memref.marker.marker_value);
+            // The last instr in the context immediately outer to this signal may
+            // be {} in some cases:
+            // - for nested signals without any intervening instr
+            // - if there's a signal at the very beginning of the trace
+            // In both these cases the empty instr implies that it should not
+            // be used for the pre_signal_instr check above.
+            shard->pre_signal_instr_.push(
+                shard->prev_instr_at_depth_[shard->cur_signal_depth_ - 1]);
         }
 #endif
         shard->prev_xfer_marker_ = memref;
