@@ -86,26 +86,26 @@ protected:
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
         memref_t prev_instr_ = {};
-
-#define MAX_SIGNAL_DEPTH 100
-        memref_t prev_instr_at_depth_[MAX_SIGNAL_DEPTH] = {};
-        int cur_signal_depth_ = 0;
-
         std::unique_ptr<instr_t> prev_instr_decoded_ = nullptr;
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         addr_t last_retaddr_ = 0;
 #ifdef UNIX
+        // We keep track of some state per nested signal depth.
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
         std::stack<addr_t> prev_xfer_int_pc_;
-        // Last addr_t popped from prev_xfer_int_pc_. We need to save this as it
-        // is required after prev_xfer_int_pc_ is popped at the xfer marker.
-        addr_t last_xfer_int_pc_ = 0;
-        memref_t prev_prev_entry_ = {};
         std::stack<memref_t> pre_signal_instr_;
-        // Last memref_t popped from pre_signal_instr_. We need to save this as it
-        // is required after pre_signal_instr_ is popped at the xfer marker.
+        std::stack<bool> prev_xfer_abort_was_rseq_;
+
+        // When we see a TRACE_MARKER_TYPE_KERNEL_XFER we pop the last entry from
+        // the above stacks into the following. This is required because some of
+        // our signal-related checks happen after the above stacks are popped at
+        // the TRACE_MARKER_TYPE_KERNEL_XFER marker.
+        addr_t last_xfer_int_pc_ = 0;
         memref_t last_pre_signal_instr_ = {};
+        bool last_xfer_abort_was_rseq = false;
+
+        memref_t prev_prev_entry_ = {};
         // These are only available via annotations in signal_invariants.cpp.
         int instrs_until_interrupt_ = -1;
         int memrefs_until_interrupt_ = -1;

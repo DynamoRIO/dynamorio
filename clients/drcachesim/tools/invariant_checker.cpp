@@ -93,6 +93,9 @@ invariant_checker_t::parallel_shard_init_stream(int shard_index, void *worker_da
 {
     auto per_shard = std::unique_ptr<per_shard_t>(new per_shard_t);
     per_shard->stream = shard_stream;
+    // For the outer-most scope, like other nested signal scopes, we start with an
+    // empty memref_t to denote absence of any pre-signal instr.
+    per_shard->pre_signal_instr_.push({});
     void *res = reinterpret_cast<void *>(per_shard.get());
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
     shard_map_[shard_index] = std::move(per_shard);
@@ -110,6 +113,8 @@ invariant_checker_t::parallel_shard_init(int shard_index, void *worker_data)
 bool
 invariant_checker_t::parallel_shard_exit(void *shard_data)
 {
+    per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+    assert(shard->pre_signal_instr_.size() == 1);
     return true;
 }
 
@@ -118,6 +123,15 @@ invariant_checker_t::parallel_shard_error(void *shard_data)
 {
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
     return shard->error_;
+}
+
+template <typename T>
+static void
+replace_top(std::stack<T> &stack, const T &elem)
+{
+    assert(!stack.empty());
+    stack.pop();
+    stack.push(elem);
 }
 
 bool
@@ -453,6 +467,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                  (
                      // Skip pre_signal_instr_ check if there was no such instr.
                      shard->last_pre_signal_instr_.instr.addr == 0 ||
+                     // Skip pre_signal_instr_ check for signals that caused an rseq
+                     // abort. In this case, control is transferred directly to the abort
+                     // handler, verified using last_xfer_int_pc_ above.
+                     shard->last_xfer_abort_was_rseq ||
                      memref.instr.addr == shard->last_pre_signal_instr_.instr.addr ||
                      // Asynch will go to the subsequent instr.
                      memref.instr.addr ==
@@ -476,7 +494,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
 #endif
         shard->prev_instr_ = memref;
-        shard->prev_instr_at_depth_[shard->cur_signal_depth_] = memref;
+        // If there was no instruction between two nested signals, we do not want to
+        // record any pre-signal instr for the second signal. So, we cannot perform this
+        // book-keeping using prev_instr_ on a TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+        replace_top<memref_t>(shard->pre_signal_instr_, shard->prev_instr_);
         if (shard->prev_instr_decoded_ != nullptr)
             instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
         shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
@@ -522,38 +543,43 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
-            shard->prev_instr_at_depth_[shard->cur_signal_depth_] = {};
-            --shard->cur_signal_depth_;
-            assert(shard->cur_signal_depth_ >= 0);
             // We assume paired signal entry-exit (so no longjmp and no rseq
             // inside signal handlers). Also, we must have seen a prior
             // TRACE_MARKER_TYPE_KERNEL_EVENT. This is an invariant because traces
             // do not start already in a signal handler.
-            if (shard->prev_xfer_int_pc_.empty() || shard->pre_signal_instr_.empty()) {
+            if (shard->prev_xfer_int_pc_.empty() ||
+                shard->pre_signal_instr_.size() == 1 ||
+                shard->prev_xfer_abort_was_rseq_.empty()) {
                 report_if_false(shard, false, "Found signal exit without signal entry");
                 // Try to continue.
                 shard->last_xfer_int_pc_ = 0;
                 shard->last_pre_signal_instr_ = {};
+                shard->last_xfer_abort_was_rseq = false;
             } else {
                 shard->last_xfer_int_pc_ = shard->prev_xfer_int_pc_.top();
                 shard->prev_xfer_int_pc_.pop();
-                shard->last_pre_signal_instr_ = shard->pre_signal_instr_.top();
                 shard->pre_signal_instr_.pop();
+                // The last instr in the context immediately outer to this signal may
+                // be {} in some cases:
+                // - for nested signals without any intervening instr
+                // - if there's a signal at the very beginning of the trace
+                // In both these cases the empty instr implies that it should not
+                // be used for the pre_signal_instr check above.
+                shard->last_pre_signal_instr_ = shard->pre_signal_instr_.top();
+                shard->last_xfer_abort_was_rseq = shard->prev_xfer_abort_was_rseq_.top();
+                shard->prev_xfer_abort_was_rseq_.pop();
             }
         }
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-            ++shard->cur_signal_depth_;
-            assert(shard->cur_signal_depth_ < MAX_SIGNAL_DEPTH);
-            shard->prev_instr_at_depth_[shard->cur_signal_depth_] = {};
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
+            // If preceded by an RSEQ abort marker, this is not really a signal.
+            shard->prev_entry_.marker.marker_type != TRACE_MARKER_TYPE_RSEQ_ABORT) {
+            // We start with an empty memref_t to denote absence of any pre-signal instr.
+            shard->pre_signal_instr_.push({});
             shard->prev_xfer_int_pc_.push(memref.marker.marker_value);
-            // The last instr in the context immediately outer to this signal may
-            // be {} in some cases:
-            // - for nested signals without any intervening instr
-            // - if there's a signal at the very beginning of the trace
-            // In both these cases the empty instr implies that it should not
-            // be used for the pre_signal_instr check above.
-            shard->pre_signal_instr_.push(
-                shard->prev_instr_at_depth_[shard->cur_signal_depth_ - 1]);
+            shard->prev_xfer_abort_was_rseq_.push(
+                shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
+                shard->prev_prev_entry_.marker.marker_type ==
+                    TRACE_MARKER_TYPE_RSEQ_ABORT);
         }
 #endif
         shard->prev_xfer_marker_ = memref;
@@ -583,6 +609,9 @@ invariant_checker_t::process_memref(const memref_t &memref)
         auto per_shard_unique = std::unique_ptr<per_shard_t>(new per_shard_t);
         per_shard = per_shard_unique.get();
         per_shard->stream = serial_stream_;
+        // For the outer-most scope, like other nested signal scopes, we start with an
+        // empty memref_t to denote absence of any pre-signal instr.
+        per_shard->pre_signal_instr_.push({});
         shard_map_[memref.data.tid] = std::move(per_shard_unique);
     } else
         per_shard = lookup->second.get();
