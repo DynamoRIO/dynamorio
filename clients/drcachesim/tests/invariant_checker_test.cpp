@@ -554,6 +554,8 @@ check_rseq_side_exit_discontinuity()
             gen_branch_encoded(1, ADDR_ONE, { 0x74, 0x32 }),
             // eba4ad8:     0f 11 40 10         movups %xmm0,0x10(%rax)
             gen_instr_encoded(ADDR_ONE + 2, { 0x0f, 0x11, 0x40, 0x10 }),
+            // Memref for the above memory-accessing instr.
+            gen_data(1, false, ADDR_ONE + 2, 4),
             // eba4ae4:     24 01        and    $0x1,%al
             gen_instr_encoded(ADDR_TWO, { 0x24, 0x01 })
 #    elif defined(ARM_64)
@@ -561,13 +563,15 @@ check_rseq_side_exit_discontinuity()
             gen_branch_encoded(1, ADDR_ONE, 0x540001a1),
             // eba4ad8:     b8206ac1     str    w1, [x22, x0]
             gen_instr_encoded(ADDR_ONE + 4, 0xb8206ac1),
+            // Memref for the above memory-accessing instr.
+            gen_data(1, false, ADDR_ONE + 4, 4),
             // eba4ae4:     92800013     mov    x19, #0x1
             gen_instr_encoded(ADDR_TWO, 0x92800013),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
         };
-        if (!run_checker(memrefs, true, 1, 4, "PC discontinuity due to rseq side exit",
+        if (!run_checker(memrefs, true, 1, 5, "PC discontinuity due to rseq side exit",
                          "Failed to catch PC discontinuity from rseq side exit")) {
             return false;
         }
@@ -581,6 +585,8 @@ check_rseq_side_exit_discontinuity()
             gen_branch_encoded(1, ADDR_ONE, { 0x74, 0x32 }),
             // eba4ad8:     0f 11 40 10         movups %xmm0,0x10(%rax)
             gen_instr_encoded(ADDR_ONE + 2, { 0x0f, 0x11, 0x40, 0x10 }),
+            // Memref for the above memory-accessing instr.
+            gen_data(1, false, ADDR_ONE + 2, 4),
             // eba4ada:     24 01        and    $0x1,%al
             gen_instr_encoded(ADDR_ONE + 6, { 0x24, 0x01 })
 #    elif defined(ARM_64)
@@ -588,6 +594,8 @@ check_rseq_side_exit_discontinuity()
             gen_branch_encoded(1, ADDR_ONE, 0x540001a1),
             // eba4ad8:     b8206ac1        str     w1, [x22, x0]
             gen_instr_encoded(ADDR_ONE + 4, 0xb8206ac1),
+            // Memref for the above memory-accessing instr.
+            gen_data(1, false, ADDR_ONE + 4, 4),
             // eba4ada:     92800013     mov    x19, #0x1
             gen_instr_encoded(ADDR_ONE + 8, 0x92800013),
 #    else

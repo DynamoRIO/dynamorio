@@ -528,7 +528,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #endif
     shard->prev_entry_ = memref;
     if (type_is_instr_branch(shard->prev_entry_.instr.type))
-        shard->last_local_branch_.reset(new memref_t(shard->prev_entry_));
+        shard->last_local_branch_ = shard->prev_entry_;
     return true;
 }
 
@@ -714,7 +714,7 @@ invariant_checker_t::check_for_pc_discontinuity(
             } else if (shard->prev_instr_decoded_ != nullptr &&
                        instr_writes_memory(shard->prev_instr_decoded_.get()) &&
                        type_is_instr_conditional_branch(
-                           shard->last_local_branch_.get()->instr.type)) {
+                           shard->last_local_branch_.instr.type)) {
                 error_msg = "PC discontinuity due to rseq side exit";
             } else {
                 error_msg = "Non-explicit control flow has no marker";
