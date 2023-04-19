@@ -95,7 +95,7 @@ protected:
         std::stack<addr_t> prev_xfer_int_pc_;
         memref_t prev_prev_entry_ = {};
         std::stack<memref_t> pre_signal_instr_;
-        // These are only available via annotations in signal_invariants.cpp.
+        // These are only available via annotations in signal_invariants.c.
         int instrs_until_interrupt_ = -1;
         int memrefs_until_interrupt_ = -1;
 #endif
