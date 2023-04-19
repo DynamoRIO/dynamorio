@@ -38,6 +38,7 @@
 
 #include "analysis_tool.h"
 #include "dr_api.h"
+#include <iostream>
 #include "memref.h"
 #include <memory>
 #include <mutex>
