@@ -1657,6 +1657,12 @@ test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
     raw.push_back(make_core());
     // A discontinuity as we continue with the side exit target.
     raw.push_back(make_block(offs_move3, 1));
+    // Test a completed rseq to ensure we add encodings to move1+store.
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_RSEQ_ENTRY, offs_move2));
+    raw.push_back(make_block(offs_jcc, 1));
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_memref(42));
+    raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
     std::vector<trace_entry_t> entries;
@@ -1689,11 +1695,21 @@ test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #endif
         check_entry(entries, idx, TRACE_TYPE_INSTR_DIRECT_JUMP, -1, offs_jmp) &&
-        // The move2 + committing store should be gone.
+        // The move1 + committing store should be gone.
         // The timestamp+cpu should be rolled back along with the instructions.
         // We should go straight to the move3 instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move3) &&
+        // Our completed rseq execution should have encodings for move1+store.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RSEQ_ENTRY) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_CONDITIONAL_JUMP, -1, offs_jcc) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
+        check_entry(entries, idx, TRACE_TYPE_WRITE, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_move2) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
