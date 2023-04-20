@@ -535,7 +535,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->instr_count_);
     }
 
+#ifdef UNIX
     bool saw_rseq_abort = false;
+#endif
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         // Ignore timestamp, etc. markers which show up at signal delivery boundaries
         // b/c the tracer does a buffer flush there.
@@ -598,6 +600,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->last_window_ = memref.marker.marker_value;
     }
 
+#ifdef UNIX
     if (saw_rseq_abort) {
         shard->saw_rseq_abort_ = true;
     } else if (!(memref.marker.type == TRACE_TYPE_MARKER &&
@@ -605,7 +608,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                   memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID))) {
         shard->saw_rseq_abort_ = false;
     }
-#ifdef UNIX
     shard->prev_prev_entry_ = shard->prev_entry_;
 #endif
     shard->prev_entry_ = memref;
