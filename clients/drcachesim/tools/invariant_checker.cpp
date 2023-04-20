@@ -595,10 +595,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->last_window_ = memref.marker.marker_value;
     }
 
+    if (!(memref.marker.type == TRACE_TYPE_MARKER &&
+          (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP ||
+           memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID))) {
+        // Ignore timestamp and cpu markers to simplify pattern detection.
+        // These markers come up whenever the trace buffer fills up. Generally
+        // they can be ignored for the invariant checks.
 #ifdef UNIX
-    shard->prev_prev_entry_ = shard->prev_entry_;
+        shard->prev_prev_entry_ = shard->prev_entry_;
 #endif
-    shard->prev_entry_ = memref;
+        shard->prev_entry_ = memref;
+    }
 
     return true;
 }
