@@ -35,8 +35,8 @@
 #include "invariant_checker_create.h"
 #include <algorithm>
 #include <iostream>
-#include <string.h>
 #include <cassert>
+#include <string.h>
 
 analysis_tool_t *
 invariant_checker_create(bool offline, unsigned int verbose)
@@ -456,35 +456,36 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             TRACE_MARKER_TYPE_KERNEL_XFER) {
             // We use the values popped from the signal-related stacks at the last
             // TRACE_MARKER_TYPE_KERNEL_XFER marker.
+            bool kernel_event_marker_equality =
+                // Skip this check if we did not see the corresponding
+                // kernel_event marker in the trace because the trace
+                // started mid-signal.
+                shard->last_xfer_int_pc_ == 0 ||
+                // Regular check for equality with kernel event marker pc.
+                memref.instr.addr == shard->last_xfer_int_pc_ ||
+                // DR hands us a different address for sysenter than the
+                // resumption point.
+                shard->last_pre_signal_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
+            bool pre_signal_flow_continuity = (
+                // Skip pre-signal instr check if there was no such instr.
+                shard->last_pre_signal_instr_.instr.addr == 0 ||
+                // Skip pre_signal_instr_ check for signals that caused an rseq
+                // abort. In this case, control is transferred directly to the abort
+                // handler, verified using last_xfer_int_pc_ above.
+                shard->last_xfer_aborted_rseq_ ||
+                // Pre-signal instr continued after signal.
+                memref.instr.addr == shard->last_pre_signal_instr_.instr.addr ||
+                // Asynch will go to the subsequent instr.
+                memref.instr.addr ==
+                    shard->last_pre_signal_instr_.instr.addr +
+                        shard->last_pre_signal_instr_.instr.size ||
+                // Too hard to figure out branch targets.  We have the
+                // last_xfer_int_pc_ though.
+                type_is_instr_branch(shard->last_pre_signal_instr_.instr.type) ||
+                shard->last_pre_signal_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER);
             report_if_false(
                 shard,
-                ((
-                     // Skip this check if we did not see the corresponding
-                     // kernel_event marker in the trace because the trace
-                     // started mid-signal.
-                     shard->last_xfer_int_pc_ == 0 ||
-                     memref.instr.addr == shard->last_xfer_int_pc_ ||
-                     // DR hands us a different address for sysenter than the
-                     // resumption point.
-                     shard->last_pre_signal_instr_.instr.type ==
-                         TRACE_TYPE_INSTR_SYSENTER) &&
-                 (
-                     // Skip pre-signal instr check if there was no such instr.
-                     shard->last_pre_signal_instr_.instr.addr == 0 ||
-                     // Skip pre_signal_instr_ check for signals that caused an rseq
-                     // abort. In this case, control is transferred directly to the abort
-                     // handler, verified using last_xfer_int_pc_ above.
-                     shard->last_xfer_aborted_rseq_ ||
-                     memref.instr.addr == shard->last_pre_signal_instr_.instr.addr ||
-                     // Asynch will go to the subsequent instr.
-                     memref.instr.addr ==
-                         shard->last_pre_signal_instr_.instr.addr +
-                             shard->last_pre_signal_instr_.instr.size ||
-                     // Too hard to figure out branch targets.  We have the
-                     // last_xfer_int_pc_ though.
-                     type_is_instr_branch(shard->last_pre_signal_instr_.instr.type) ||
-                     shard->last_pre_signal_instr_.instr.type ==
-                         TRACE_TYPE_INSTR_SYSENTER)) ||
+                (kernel_event_marker_equality && pre_signal_flow_continuity) ||
                     // Nested signal.  XXX: This only works for our annotated test
                     // signal_invariants where we know shard->app_handler_pc_.
                     memref.instr.addr == shard->app_handler_pc_ ||
@@ -498,9 +499,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         // It is a little inefficient to replace the top instr on the stack everytime.
         // But we cannot perform this book-keeping using prev_instr_ on a
-        // TRACE_MARKER_TYPE_KERNEL_EVENT marker. If there was no instruction between
+        // TRACE_MARKER_TYPE_KERNEL_EVENT marker. E.g. if there was no instruction between
         // two nested signals, we do not want to record any pre-signal instr for the
-        // second signal.
+        // second signal; also, if there was no instruction between two consecutive
+        // signals (at the same nesting depth), the pre-signal instr for the second signal
+        // should be whatever instruction was last *in that nesting depth* prior to the
+        // first signal.
         replace_top<memref_t>(shard->pre_signal_instr_, memref);
 #endif
         shard->prev_instr_ = memref;
@@ -588,7 +592,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
             // If preceded by an RSEQ abort marker, this is not really a signal.
-            if (shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+            if (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+                shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 saw_rseq_abort = true;
             } else {
                 // We start with an empty memref_t to denote absence of any pre-signal

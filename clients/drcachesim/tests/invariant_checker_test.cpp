@@ -331,26 +331,39 @@ check_kernel_xfer()
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Multiple nested signals without any intervening instr between the nested
-    // signals.
+    // Nested signals without any intervening instr or initial instr.
+    {
+        std::vector<memref_t> memrefs = {
+            // No initial instr. Should skip pre-signal instr check on return.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            // No intervening instr here. Should skip pre-signal instr check on
+            // return.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 101),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(1, 101),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Consecutive signals (that are nested at the same depth) without any
+    // intervening instr between them.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 101),
-            // First nested signal.
+            // First signal.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
             gen_instr(1, 201),
-            // XXX: This marker value is actually not guaranteed, yet the checker
-            // requires it and the view tool prints it.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             // No intervening instr here. Should use instr at pc = 101 for
             // pre-signal instr check on return.
-            // Second nested signal.
+            // Second signal.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
             gen_instr(1, 201),
-            // XXX: This marker value is actually not guaranteed, yet the checker
-            // requires it and the view tool prints it.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             gen_instr(1, 102),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
@@ -364,8 +377,6 @@ check_kernel_xfer()
         std::vector<memref_t> memrefs = {
             // Already inside the first signal.
             gen_instr(1, 11),
-            // XXX: This marker value is actually not guaranteed, yet the checker
-            // requires it and the view tool prints it.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 12),
             // Should skip the pre-signal instr check and the kernel_event marker
             // equality check, since we did not see the beginning of the signal in
@@ -381,17 +392,13 @@ check_kernel_xfer()
         std::vector<memref_t> memrefs = {
             // Already inside the first signal.
             gen_instr(1, 11),
-            // XXX: This marker value is actually not guaranteed, yet the checker
-            // requires it and the view tool prints it.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 12),
             // No intervening instr here. Should skip pre-signal instr check on
             // return; this is a special case as it would require *removing* the
-            // pc = 1 instr from pre_signal_instr_ as it was not in this newly
+            // pc = 11 instr from pre_signal_instr_ as it was not in this newly
             // discovered outermost scope.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 21),
-            // XXX: This marker value is actually not guaranteed, yet the checker
-            // requires it and the view tool prints it.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 22),
             gen_instr(1, 2),
         };
