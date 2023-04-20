@@ -557,11 +557,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (shard->prev_xfer_int_pc_.empty() ||
                 shard->pre_signal_instr_.size() == 1 ||
                 shard->prev_xfer_aborted_rseq_.empty()) {
-                // This can probably happen if tracing started in the middle of a signal.
+                // If one is true, all should be so.
+                assert(shard->prev_xfer_int_pc_.empty() &&
+                       shard->pre_signal_instr_.size() == 1 &&
+                       shard->prev_xfer_aborted_rseq_.empty());
+                // This can happen if tracing started in the middle of a signal.
                 // Try to continue by skipping the checks.
                 shard->last_xfer_int_pc_ = 0;
                 shard->last_pre_signal_instr_ = {};
                 shard->last_xfer_aborted_rseq_ = false;
+                // Now that we know there's an outer context that we didn't see before,
+                // forget the last instr we saw in what was incorrectly assumed previously
+                // to be the outer-most context.
+                replace_top<memref_t>(shard->pre_signal_instr_, {});
             } else {
                 shard->last_xfer_int_pc_ = shard->prev_xfer_int_pc_.top();
                 shard->prev_xfer_int_pc_.pop();
