@@ -724,7 +724,6 @@ invariant_checker_t::check_for_pc_discontinuity(
             // Regular fall-through.
             (prev_instr_trace_pc + shard->prev_instr_.instr.size ==
              current_memref_addr) ||
-            // TODO(sahil): Make this cleaner.
             // String loop.
             (prev_instr_trace_pc == current_memref_addr &&
              (memref_is_kernel_event_marker ||
