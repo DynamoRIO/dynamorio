@@ -38,6 +38,7 @@ on:
   push:
     branches:
       - master
+      - DEBUGINFRA-315
   pull_request:
     types: [opened, reopened, synchronize]
   merge_group:
@@ -69,11 +70,10 @@ jobs:
         run: git fetch --no-tags --depth=1 origin master
 
       - name: Create build directory
-        working-directory: ${{ github.workspace }}
         run: mkdir build
 
       - name: Run Suite
-        working-directory: ${{ github.workspace }}/build
+        working-directory: build
         run: ../suite/runsuite_wrapper.pl travis
         env:
           CI_TRIGGER: ${{ github.event_name }}
