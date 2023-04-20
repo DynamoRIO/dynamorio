@@ -1800,19 +1800,27 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
                                   // This is inclusive.
                                   int remove_end_rough_idx)
 {
-    // First, advance to encoding/instruction boundaries.
+    // First, advance to encoding/instruction boundaries, but include any timestamp
+    // in what's being removed to avoid violating branch invariants (i#5986).
+    // XXX: We could try to look for a prior branch and keep the timestamp if there
+    // is none but it's not worth that complexity.
     int remove_start = remove_start_rough_idx;
-    while (
-        remove_start < static_cast<int>(tdata->rseq_buffer_.size()) &&
-        tdata->rseq_buffer_[remove_start].type != TRACE_TYPE_ENCODING &&
-        !type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_start].type)))
+    while (remove_start < static_cast<int>(tdata->rseq_buffer_.size()) &&
+           tdata->rseq_buffer_[remove_start].type != TRACE_TYPE_ENCODING &&
+           !type_is_instr(
+               static_cast<trace_type_t>(tdata->rseq_buffer_[remove_start].type)) &&
+           (tdata->rseq_buffer_[remove_start].type != TRACE_TYPE_MARKER ||
+            tdata->rseq_buffer_[remove_start].size != TRACE_MARKER_TYPE_TIMESTAMP))
         ++remove_start;
     int remove_end = remove_end_rough_idx;
     while (
         remove_end < static_cast<int>(tdata->rseq_buffer_.size()) &&
         (tdata->rseq_buffer_[remove_end].type == TRACE_TYPE_ENCODING ||
          type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_end].type)) ||
-         type_is_data(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_end].type))))
+         type_is_data(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_end].type)) ||
+         (tdata->rseq_buffer_[remove_end].type == TRACE_TYPE_MARKER &&
+          (tdata->rseq_buffer_[remove_end].size == TRACE_MARKER_TYPE_TIMESTAMP ||
+           tdata->rseq_buffer_[remove_end].size == TRACE_MARKER_TYPE_CPU_ID))))
         ++remove_end;
     log(4, "rseq rollback: advanced rough %d-%d to %d-%d\n", remove_start_rough_idx,
         remove_end_rough_idx, remove_start, remove_end);
