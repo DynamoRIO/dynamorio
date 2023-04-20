@@ -7084,7 +7084,7 @@ decode_opnd_svemem_ssz_gpr_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 
 static inline bool
 encode_opnd_svemem_ssz_gpr_shf(uint enc, int opcode, byte *pc, opnd_t opnd,
-                            OUT uint *enc_out)
+                               OUT uint *enc_out)
 {
     opnd_size_t mem_transfer;
     if (!decode_ssz(enc, &mem_transfer))
