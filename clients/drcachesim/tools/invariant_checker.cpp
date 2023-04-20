@@ -473,7 +473,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                      // Skip pre_signal_instr_ check for signals that caused an rseq
                      // abort. In this case, control is transferred directly to the abort
                      // handler, verified using last_xfer_int_pc_ above.
-                     shard->last_xfer_abort_was_rseq ||
+                     shard->last_xfer_aborted_rseq_ ||
                      memref.instr.addr == shard->last_pre_signal_instr_.instr.addr ||
                      // Asynch will go to the subsequent instr.
                      memref.instr.addr ==
@@ -534,6 +534,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->tid_, shard->last_timestamp_, memref.marker.marker_value,
             shard->instr_count_);
     }
+
+    bool saw_rseq_abort = false;
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         // Ignore timestamp, etc. markers which show up at signal delivery boundaries
         // b/c the tracer does a buffer flush there.
@@ -552,12 +554,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             // inside signal handlers).
             if (shard->prev_xfer_int_pc_.empty() ||
                 shard->pre_signal_instr_.size() == 1 ||
-                shard->prev_xfer_abort_was_rseq_.empty()) {
+                shard->prev_xfer_aborted_rseq_.empty()) {
                 // This can probably happen if tracing started in the middle of a signal.
                 // Try to continue by skipping the checks.
                 shard->last_xfer_int_pc_ = 0;
                 shard->last_pre_signal_instr_ = {};
-                shard->last_xfer_abort_was_rseq = false;
+                shard->last_xfer_aborted_rseq_ = false;
             } else {
                 shard->last_xfer_int_pc_ = shard->prev_xfer_int_pc_.top();
                 shard->prev_xfer_int_pc_.pop();
@@ -569,20 +571,21 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // In both these cases the empty instr implies that it should not
                 // be used for the pre-signal instr check.
                 shard->last_pre_signal_instr_ = shard->pre_signal_instr_.top();
-                shard->last_xfer_abort_was_rseq = shard->prev_xfer_abort_was_rseq_.top();
-                shard->prev_xfer_abort_was_rseq_.pop();
+                shard->last_xfer_aborted_rseq_ = shard->prev_xfer_aborted_rseq_.top();
+                shard->prev_xfer_aborted_rseq_.pop();
             }
         }
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
             // If preceded by an RSEQ abort marker, this is not really a signal.
-            shard->prev_entry_.marker.marker_type != TRACE_MARKER_TYPE_RSEQ_ABORT) {
-            // We start with an empty memref_t to denote absence of any pre-signal instr.
-            shard->pre_signal_instr_.push({});
-            shard->prev_xfer_int_pc_.push(memref.marker.marker_value);
-            shard->prev_xfer_abort_was_rseq_.push(
-                shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
-                shard->prev_prev_entry_.marker.marker_type ==
-                    TRACE_MARKER_TYPE_RSEQ_ABORT);
+            if (shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+                saw_rseq_abort = true;
+            } else {
+                // We start with an empty memref_t to denote absence of any pre-signal
+                // instr.
+                shard->pre_signal_instr_.push({});
+                shard->prev_xfer_int_pc_.push(memref.marker.marker_value);
+                shard->prev_xfer_aborted_rseq_.push(shard->saw_rseq_abort_);
+            }
         }
 #endif
         shard->prev_xfer_marker_ = memref;
@@ -595,17 +598,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->last_window_ = memref.marker.marker_value;
     }
 
-    if (!(memref.marker.type == TRACE_TYPE_MARKER &&
-          (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP ||
-           memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID))) {
-        // Ignore timestamp and cpu markers to simplify pattern detection.
-        // These markers come up whenever the trace buffer fills up. Generally
-        // they can be ignored for the invariant checks.
-#ifdef UNIX
-        shard->prev_prev_entry_ = shard->prev_entry_;
-#endif
-        shard->prev_entry_ = memref;
+    if (saw_rseq_abort) {
+        shard->saw_rseq_abort_ = true;
+    } else if (!(memref.marker.type == TRACE_TYPE_MARKER &&
+                 (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP ||
+                  memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID))) {
+        shard->saw_rseq_abort_ = false;
     }
+#ifdef UNIX
+    shard->prev_prev_entry_ = shard->prev_entry_;
+#endif
+    shard->prev_entry_ = memref;
 
     return true;
 }

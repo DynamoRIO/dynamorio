@@ -95,7 +95,7 @@ protected:
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
         std::stack<addr_t> prev_xfer_int_pc_;
         std::stack<memref_t> pre_signal_instr_;
-        std::stack<bool> prev_xfer_abort_was_rseq_;
+        std::stack<bool> prev_xfer_aborted_rseq_;
 
         // When we see a TRACE_MARKER_TYPE_KERNEL_XFER we pop the last entry from
         // the above stacks into the following. This is required because some of
@@ -103,8 +103,9 @@ protected:
         // the TRACE_MARKER_TYPE_KERNEL_XFER marker.
         addr_t last_xfer_int_pc_ = 0;
         memref_t last_pre_signal_instr_ = {};
-        bool last_xfer_abort_was_rseq = false;
+        bool last_xfer_aborted_rseq_ = false;
 
+        bool saw_rseq_abort_ = false;
         memref_t prev_prev_entry_ = {};
         // These are only available via annotations in signal_invariants.cpp.
         int instrs_until_interrupt_ = -1;
