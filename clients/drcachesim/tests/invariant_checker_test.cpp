@@ -385,7 +385,9 @@ check_kernel_xfer()
             // requires it and the view tool prints it.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 12),
             // No intervening instr here. Should skip pre-signal instr check on
-            // return.
+            // return; this is a special case as it would require *removing* the
+            // pc = 1 instr from pre_signal_instr_ as it was not in this newly
+            // discovered outermost scope.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 21),
             // XXX: This marker value is actually not guaranteed, yet the checker
