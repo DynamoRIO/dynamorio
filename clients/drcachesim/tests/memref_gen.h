@@ -33,10 +33,19 @@
 #ifndef _MEMREF_GEN_
 #define _MEMREF_GEN_ 1
 
+#include <assert.h>
+#include "dr_api.h"
 #include "../common/memref.h"
 #include <cstring>
 
 namespace {
+
+constexpr addr_t BASE_ADDR = 0xeba4ad4;
+
+struct memref_instr_t {
+    memref_t memref;
+    instr_t *instr;
+};
 
 inline memref_t
 gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
@@ -61,13 +70,14 @@ gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc, size_t size = 1)
 }
 
 inline memref_t
-gen_instr(memref_tid_t tid, addr_t pc, size_t size = 1)
+gen_instr(memref_tid_t tid, addr_t pc = 1, size_t size = 1,
+          trace_type_t type = TRACE_TYPE_INSTR)
 {
-    return gen_instr_type(TRACE_TYPE_INSTR, tid, pc, size);
+    return gen_instr_type(type, tid, pc, size);
 }
 
 inline memref_t
-gen_branch(memref_tid_t tid, addr_t pc)
+gen_branch(memref_tid_t tid, addr_t pc = 1)
 {
     return gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
 }
@@ -104,6 +114,23 @@ gen_instr_encoded(addr_t pc, const std::vector<char> &encoding, memref_tid_t tid
     return memref;
 }
 
+inline memref_t
+gen_instr_encoded_with_ir(void *drcontext, instr_t *instr, addr_t addr,
+                          trace_type_t type = TRACE_TYPE_INSTR, memref_tid_t tid = 1)
+{
+    byte *pc;
+    byte buf[MAX_ENCODING_LENGTH];
+    pc = instr_encode(drcontext, instr, buf);
+    memref_t memref = {};
+    memref.instr.type = type;
+    memref.instr.tid = tid;
+    memref.instr.addr = addr;
+    memref.instr.size = instr_length(GLOBAL_DCONTEXT, instr);
+    memcpy(memref.instr.encoding, buf, sizeof(buf));
+    memref.instr.encoding_is_new = true;
+    return memref;
+}
+
 // Variant for x86 encodings.
 inline memref_t
 gen_branch_encoded(memref_tid_t tid, addr_t pc, const std::vector<char> &encoding)
@@ -135,6 +162,34 @@ gen_exit(memref_tid_t tid)
     memref.instr.type = TRACE_TYPE_THREAD_EXIT;
     memref.instr.tid = tid;
     return memref;
+}
+
+inline std::vector<memref_t>
+get_memrefs_from_ir(instrlist_t *ilist, std::vector<memref_instr_t> &memref_instr_vec,
+                    const addr_t base_addr = BASE_ADDR)
+{
+    static const int MAX_DECODE_SIZE = 1024;
+    byte decode_buf[MAX_DECODE_SIZE];
+    byte *pc =
+        instrlist_encode_to_copy(GLOBAL_DCONTEXT, ilist, decode_buf,
+                                 reinterpret_cast<app_pc>(base_addr), nullptr, true);
+    assert(pc != nullptr);
+    std::vector<memref_t> memrefs = {};
+    memrefs.push_back(
+        gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS));
+    for (auto pair : memref_instr_vec) {
+        if (pair.instr != nullptr && type_is_instr(pair.memref.instr.type)) {
+            pair.memref.instr.addr = instr_get_offset(pair.instr) + base_addr;
+            pair.memref.instr.size = instr_length(GLOBAL_DCONTEXT, pair.instr);
+            byte buf[MAX_ENCODING_LENGTH];
+            byte *next_pc = instr_encode(GLOBAL_DCONTEXT, pair.instr, buf);
+            assert(next_pc != nullptr);
+            memcpy(pair.memref.instr.encoding, buf, sizeof(buf));
+            pair.memref.instr.encoding_is_new = true;
+        }
+        memrefs.push_back(pair.memref);
+    }
+    return memrefs;
 }
 
 } // namespace

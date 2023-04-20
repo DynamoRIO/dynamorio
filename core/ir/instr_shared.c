@@ -495,6 +495,16 @@ instr_get_app_pc(instr_t *instr)
     return instr_get_translation(instr);
 }
 
+DR_API
+/**
+ * Get the relative offset of \p instr in an encoded instruction list.
+*/
+size_t
+instr_get_offset(instr_t *instr)
+{
+    return instr->offset;
+}
+
 /* Returns true iff instr's opcode is valid.  If the opcode is not
  * OP_INVALID or OP_UNDECODED it is assumed to be valid.  However, calling
  * instr_get_opcode() will attempt to decode an OP_UNDECODED opcode, hence the

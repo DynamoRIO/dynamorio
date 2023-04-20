@@ -692,6 +692,13 @@ DR_API
 int
 instr_get_opcode(instr_t *instr);
 
+/**
+ * Get the relative offset of \p instr in an encoded instruction list.
+*/
+DR_API
+size_t
+instr_get_offset(instr_t *instr);
+
 DR_API
 /** Assumes \p opcode is an OP_ constant and sets it to be instr's opcode. */
 void
