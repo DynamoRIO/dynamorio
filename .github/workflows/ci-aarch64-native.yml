@@ -9,7 +9,7 @@ on:
 
 jobs:
   Explore-GitHub-Actions:
-    runs-on: dynamorio
+    runs-on: [self-hosted, linux, ARM64]
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
       - run: echo "🐧 This job is now running on a ${{ runner.os }} server"
