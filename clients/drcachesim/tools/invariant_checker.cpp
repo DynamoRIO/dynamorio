@@ -75,6 +75,10 @@ invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
         std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
                   << shard->stream->get_record_ordinal() << ": " << invariant_name
                   << "\n";
+        // TODO(sahil): Debug error caused by this.
+        // bin64/drrun -stderr_mask 12 -t drcachesim -indir drmemtrace.*signal*
+        // -simulator_type view -test_mode -test_mode_name kernel_xfer_app -skip_refs
+        // 155130 -sim_refs 2>&1 | less
         //        abort();
     }
 }
