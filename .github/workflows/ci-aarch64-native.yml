@@ -31,3 +31,4 @@ jobs:
       - name: Run Suite
         working-directory: ${{ github.workspace }}/build
         run: ../suite/runsuite_wrapper.pl travis
+
