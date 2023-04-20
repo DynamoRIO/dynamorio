@@ -54,16 +54,14 @@ public:
     instr_autoclean_t(void *drcontext)
         : drcontext(drcontext)
     {
-        data = instr_create(drcontext);
-    }
-    ~instr_autoclean_t()
-    {
-#ifdef DEBUG
         if (drcontext == nullptr) {
             std::cerr << "instr_autoclean_t: invalid drcontext" << std::endl;
             exit(1);
         }
-#endif
+        data = instr_create(drcontext);
+    }
+    ~instr_autoclean_t()
+    {
         if (data != nullptr) {
             instr_destroy(drcontext, data);
             data = nullptr;

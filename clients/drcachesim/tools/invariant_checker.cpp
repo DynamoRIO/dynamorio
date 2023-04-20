@@ -732,7 +732,7 @@ invariant_checker_t::check_for_pc_discontinuity(
                 }
             } else if (cur_instr_decoded != nullptr &&
                        shard->prev_instr_decoded_ != nullptr &&
-                       instr_is_syscall(cur_instr_decoded.get()->data) &&
+                       instr_is_syscall(cur_instr_decoded->data) &&
                        memref.instr.addr == prev_instr_trace_pc &&
                        instr_is_syscall(shard->prev_instr_decoded_->data)) {
                 error_msg = "Duplicate syscall instrs with the same PC";
