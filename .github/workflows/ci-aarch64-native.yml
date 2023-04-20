@@ -76,7 +76,6 @@ jobs:
         working-directory: build
         run: ../suite/runsuite_wrapper.pl travis
         env:
-          CI_TRIGGER: ${{ github.event_name }}
           CI_BRANCH: ${{ github.ref }}
 
       - name: Send failure mail to dynamorio-devs
