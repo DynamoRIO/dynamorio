@@ -625,8 +625,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     // want to ignore such an intervening timestamp+cpu marker pair when
     // checking whether a signal caused an RSEQ abort.
     else if (!(memref.marker.type == TRACE_TYPE_MARKER &&
-                 (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP ||
-                  memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID))) {
+               (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP ||
+                memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID))) {
         shard->saw_rseq_abort_ = false;
     }
     shard->prev_prev_entry_ = shard->prev_entry_;
