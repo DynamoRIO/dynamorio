@@ -6247,6 +6247,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
          */
         mcontext_to_ucontext(uc, mcontext);
     }
+
     /* Sigreturn needs the target ISA mode to be set in the T bit in cpsr.
      * Since we came from d_r_dispatch, the post-signal target's mode is in dcontext.
      */
@@ -6289,6 +6290,15 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     if (!info->sigpending[sig]->use_sigcontext) {
         /* for the pc we want the app pc not the cache pc */
         sc->SC_XIP = (ptr_uint_t)dcontext->next_tag;
+        /* Point at the rseq abort handler if in an rseq region. */
+        ptr_uint_t special_xl8 =
+            (ptr_uint_t)translate_restore_special_cases(dcontext, (app_pc)sc->SC_XIP);
+        if (special_xl8 != sc->SC_XIP) {
+            dcontext->next_tag = (app_pc)special_xl8;
+            sc->SC_XIP = special_xl8;
+            LOG(THREAD, LOG_ASYNCH, 3, "set next PC to special xl8 %p\n",
+                dcontext->next_tag);
+        }
         LOG(THREAD, LOG_ASYNCH, 3, "\tset frame's eip to " PFX "\n", sc->SC_XIP);
     }
 

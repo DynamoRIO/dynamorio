@@ -207,7 +207,35 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
+        shard->in_rseq_region_ = true;
+        shard->rseq_start_pc_ = 0;
         shard->rseq_end_pc_ = memref.marker.marker_value;
+    } else if (shard->in_rseq_region_) {
+        if (type_is_instr(memref.instr.type)) {
+            if (shard->rseq_start_pc_ == 0)
+                shard->rseq_start_pc_ = memref.instr.addr;
+            if (memref.instr.addr + memref.instr.size == shard->rseq_end_pc_) {
+                // Completed normally.
+                shard->in_rseq_region_ = false;
+            } else if (memref.instr.addr >= shard->rseq_start_pc_ &&
+                       memref.instr.addr < shard->rseq_end_pc_) {
+                // Still in the region.
+            } else {
+                // We should see an abort marker or a side exit if we leave the region.
+                report_if_false(shard,
+                                type_is_instr_branch(shard->prev_instr_.instr.type),
+                                "Rseq region exit requires marker, branch, or commit");
+                shard->in_rseq_region_ = false;
+            }
+        } else {
+            report_if_false(shard,
+                            memref.marker.type != TRACE_TYPE_MARKER ||
+                                memref.marker.marker_type !=
+                                    TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                                // Side exit.
+                                type_is_instr_branch(shard->prev_instr_.instr.type),
+                            "Signal in rseq region should have abort marker");
+        }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
@@ -221,6 +249,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                 shard->rseq_end_pc_ ||
                             shard->prev_instr_.instr.addr == memref.marker.marker_value,
                         "Rseq post-abort instruction not rolled back");
+        shard->in_rseq_region_ = false;
     }
 #endif
 
