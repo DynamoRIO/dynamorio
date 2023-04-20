@@ -39,6 +39,7 @@
 static int num_simd_saved;
 static int num_simd_registers;
 static int num_svep_registers;
+static int num_ffr_registers;
 static int num_opmask_registers;
 
 #ifndef DR_HOST_NOT_TARGET
@@ -150,6 +151,7 @@ proc_init_arch(void)
     num_simd_saved = MCXT_NUM_SIMD_SLOTS;
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
     num_svep_registers = MCXT_NUM_SVEP_SLOTS;
+    num_ffr_registers = MCXT_NUM_FFR_SLOTS;
     num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
 
     /* When DR_HOST_NOT_TARGET, get_cache_line_size returns false and does
@@ -350,7 +352,8 @@ DR_API
 int
 proc_num_simd_registers(void)
 {
-    return num_simd_registers;
+    return num_simd_registers +
+        (proc_has_feature(FEATURE_SVE) ? (num_svep_registers + num_ffr_registers) : 0);
 }
 
 DR_API

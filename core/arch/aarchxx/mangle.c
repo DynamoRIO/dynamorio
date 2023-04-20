@@ -318,7 +318,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 #endif
     if (cci == NULL)
         cci = &default_clean_call_info;
-    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    ASSERT(proc_num_simd_registers() ==
+           (MCXT_NUM_SIMD_SLOTS +
+            (proc_has_feature(FEATURE_SVE) ? (MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
+                                           : 0)));
     if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
         /* FIXME i#1551: once we add skipping of regs, need to keep shape here.
          * Also, num_opmask_skip is not applicable to ARM/AArch64.
@@ -447,7 +450,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 
     dstack_offs += (proc_num_simd_registers() * sizeof(dr_simd_t));
-    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    ASSERT(proc_num_simd_registers() ==
+           (MCXT_NUM_SIMD_SLOTS +
+            (proc_has_feature(FEATURE_SVE) ? (MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
+                                           : 0)));
 
     /* Restore the registers we used. */
     /* ldp x0, x1, [sp] */
@@ -470,7 +476,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                             SIMD_REG_LIST_0_15));
 
     dstack_offs += proc_num_simd_registers() * sizeof(dr_simd_t);
-    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    ASSERT(proc_num_simd_registers() ==
+           (MCXT_NUM_SIMD_SLOTS + proc_has_feature(FEATURE_SVE)
+                ? (MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
+                : 0));
 
     /* pc and aflags */
     if (cci->skip_save_flags) {
@@ -563,7 +572,10 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 
     current_offs = get_clean_call_switch_stack_size() -
         proc_num_simd_registers() * sizeof(dr_simd_t);
-    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    ASSERT(proc_num_simd_registers() ==
+           (MCXT_NUM_SIMD_SLOTS +
+            (proc_has_feature(FEATURE_SVE) ? (MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
+                                           : 0)));
 
     /* add x0, x0, current_offs */
     PRE(ilist, instr,

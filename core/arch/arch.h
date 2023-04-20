@@ -434,7 +434,7 @@ typedef struct _clean_call_info_t {
     bool skip_save_flags;
     bool skip_clear_flags;
     int num_simd_skip;
-    bool simd_skip[MCXT_NUM_SIMD_SLOTS];
+    bool simd_skip[MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS];
 #ifdef X86
     int num_opmask_skip;
     bool opmask_skip[MCXT_NUM_OPMASK_SLOTS];

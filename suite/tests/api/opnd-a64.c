@@ -59,10 +59,12 @@ test_get_size()
 
     // Check sizes of FP/SIMD regs.
     for (int i = 0; i < proc_num_simd_registers(); i++) {
-        ASSERT(reg_get_size((reg_id_t)DR_REG_H0 + i) == OPSZ_2);
-        ASSERT(reg_get_size((reg_id_t)DR_REG_S0 + i) == OPSZ_4);
-        ASSERT(reg_get_size((reg_id_t)DR_REG_D0 + i) == OPSZ_8);
-        ASSERT(reg_get_size((reg_id_t)DR_REG_Q0 + i) == OPSZ_16);
+        if (i < MCXT_NUM_SIMD_SLOTS) {
+            ASSERT(reg_get_size((reg_id_t)DR_REG_H0 + i) == OPSZ_2);
+            ASSERT(reg_get_size((reg_id_t)DR_REG_S0 + i) == OPSZ_4);
+            ASSERT(reg_get_size((reg_id_t)DR_REG_D0 + i) == OPSZ_8);
+            ASSERT(reg_get_size((reg_id_t)DR_REG_Q0 + i) == OPSZ_16);
+        }
     }
 
     opnd_size_t opsz_vl = OPSZ_NA;
