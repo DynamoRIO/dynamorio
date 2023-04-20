@@ -683,6 +683,8 @@ invariant_checker_t::check_for_pc_discontinuity(
     bool have_cond_branch_target = false;
     addr_t cond_branch_target = 0;
     const addr_t prev_instr_trace_pc = shard->prev_instr_.instr.addr;
+    // Identify whether the current memref is a marker or an instruction. These will be
+    // handled slightly differently.
     const bool memref_is_kernel_event_marker =
         (memref.marker.type == TRACE_TYPE_MARKER &&
          memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT);
