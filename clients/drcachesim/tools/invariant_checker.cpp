@@ -459,9 +459,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(
                 shard,
                 ((
-                     // XXX: we may need to skip this check if we miss the
-                     // TRACE_MARKER_TYPE_KERNEL_EVENT marker because the trace started
-                     // inside the app signal handler.
+                     // Skip this check if we did not see the corresponding
+                     // kernel_event marker in the trace because the trace
+                     // started mid-signal.
+                     shard->last_xfer_int_pc_ == 0 ||
                      memref.instr.addr == shard->last_xfer_int_pc_ ||
                      // DR hands us a different address for sysenter than the
                      // resumption point.

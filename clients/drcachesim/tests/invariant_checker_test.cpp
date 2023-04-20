@@ -359,6 +359,22 @@ check_kernel_xfer()
         if (!run_checker(memrefs, false))
             return false;
     }
+    // Trace starts in a signal.
+    {
+        std::vector<memref_t> memrefs = {
+            // Already inside the first signal.
+            gen_instr(1, 11),
+            // XXX: This marker value is actually not guaranteed, yet the checker
+            // requires it and the view tool prints it.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 12),
+            // Should skip the pre-signal instr check and the kernel_event marker
+            // equality check, since we did not see the beginning of the signal in
+            // the trace.
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
     // Trace starts in a signal with a back-to-back signal without any intervening
     // instr after we return from the first one.
     {
