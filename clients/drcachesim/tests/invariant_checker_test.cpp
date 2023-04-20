@@ -422,6 +422,8 @@ check_rseq()
             gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 2),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(1, 10),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 11),
             gen_instr(1, 4),
         };
         if (!run_checker(memrefs, false))
