@@ -617,7 +617,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #ifdef UNIX
     if (saw_rseq_abort) {
         shard->saw_rseq_abort_ = true;
-    } else if (!(memref.marker.type == TRACE_TYPE_MARKER &&
+    }
+    // If a signal caused an rseq abort, the signal's KERNEL_EVENT marker
+    // will be preceded by the RSEQ_ABORT-KERNEL_EVENT marker pair. There may
+    // be a buffer switch (denoted by the timestamp+cpu pair) between the
+    // RSEQ_ABORT-KERNEL_EVENT pair and the signal's KERNEL_EVENT marker.
+    else if (!(memref.marker.type == TRACE_TYPE_MARKER &&
                  (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP ||
                   memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID))) {
         shard->saw_rseq_abort_ = false;
