@@ -16,6 +16,14 @@ jobs:
         with:
           submodules: true
 
+      # We also need origin/master for pre-commit source file checks in runsuite.cmake.
+      # But fetching multiple branches isn't supported yet: actions/checkout#214
+      # Pending PR that adds this support actions/checkout#155
+      # TODO i#4549: When necessary support is available, remove/replace the
+      # workaround here and from every job in other Github Actions CI workflows.
+      - name: Fetch master
+        run: git fetch --no-tags --depth=1 origin master
+
       - name: Create build directory
         working-directory: ${{ github.workspace }}
         run: mkdir build
