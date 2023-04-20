@@ -375,7 +375,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
 
     // TODO(sahil): Add comment about what invariant we are checking for here.
-    if (knob_offline_ && memref.marker.type == TRACE_TYPE_MARKER &&
+    if ( // TODO i#3937: We need to exclude this check for "kernel_xfer_app" when running
+         // online.
+        (knob_test_name_ != "kernel_xfer_app" || knob_offline_) &&
+        memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
         // All TRACE_MARKER_TYPE_RSEQ_ABORT markers are followd by
         // TRACE_MARKER_TYPE_KERNEL_EVENT. We only want to consider the
