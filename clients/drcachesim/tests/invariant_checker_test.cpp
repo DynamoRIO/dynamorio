@@ -275,21 +275,32 @@ check_sane_control_flow()
         if (!run_checker(memrefs, false))
             return false;
     }
-    // PC discontinuity when there is a kernel xfer in between instructions.
+    // PC discontinuity from instr to kernel_xfer event marker value.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),   gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 101), gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(1, 3),
+            gen_instr(1, 2),
+        };
+
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
         };
 
         if (!run_checker(
-                memrefs, true, 1, 5, "Signal handler return point incorrect",
+                memrefs, true, 1, 2, "Non-explicit control flow has no marker",
                 "Failed to catch PC discontinuity for an instruction followed by "
                 "kernel xfer marker")) {
             return false;
         }
     }
+
     return true;
 }
 
