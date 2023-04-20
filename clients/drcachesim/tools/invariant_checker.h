@@ -91,19 +91,24 @@ protected:
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         addr_t last_retaddr_ = 0;
 #ifdef UNIX
+        struct signal_context {
+            addr_t xfer_int_pc;
+            memref_t pre_signal_instr;
+            bool xfer_aborted_rseq;
+        };
         // We keep track of some state per nested signal depth.
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
-        std::stack<addr_t> prev_xfer_int_pc_;
-        std::stack<memref_t> pre_signal_instr_;
-        std::stack<bool> prev_xfer_aborted_rseq_;
+        std::stack<signal_context> signal_stack_;
 
-        // When we see a TRACE_MARKER_TYPE_KERNEL_XFER we pop the last entry from
-        // the above stacks into the following. This is required because some of
-        // our signal-related checks happen after the above stacks are popped at
-        // the TRACE_MARKER_TYPE_KERNEL_XFER marker.
-        addr_t last_xfer_int_pc_ = 0;
-        memref_t last_pre_signal_instr_ = {};
-        bool last_xfer_aborted_rseq_ = false;
+        // When we see a TRACE_MARKER_TYPE_KERNEL_XFER we pop the top entry from
+        // the above stack into the following. This is required because some of
+        // our signal-related checks happen after the above stack is already popped
+        // at the TRACE_MARKER_TYPE_KERNEL_XFER marker.
+        signal_context last_signal_context_ = { 0, {}, false };
+
+        // For the outer-most scope, like other nested signal scopes, we start with an
+        // empty memref_t to denote absence of any pre-signal instr.
+        memref_t last_instr_in_cur_context_ = {};
 
         bool saw_rseq_abort_ = false;
         memref_t prev_prev_entry_ = {};
