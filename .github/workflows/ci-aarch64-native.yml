@@ -23,6 +23,3 @@ jobs:
       - name: Run Suite
         working-directory: ${{ github.workspace }}/build
         run: ../suite/runsuite_wrapper.pl travis
-        env:
-          CI_TRIGGER: ${{ github.event_name }}
-          CI_BRANCH: ${{ github.ref }}
