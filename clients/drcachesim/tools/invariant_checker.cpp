@@ -373,7 +373,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             (shard->prev_entry_.marker.marker_value & 0xfff),
                         "Physical addr bottom 12 bits do not match virtual");
     }
-
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
@@ -515,7 +514,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                       << "marker type " << memref.marker.marker_type << " value 0x"
                       << std::hex << memref.marker.marker_value << std::dec << "\n";
         }
-
         if (memref.marker.type == TRACE_TYPE_MARKER &&
             memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
             // TODO i#3937: We need to exclude this check for "kernel_xfer_app" when
@@ -532,7 +530,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(shard, pc_discontinuity_error_string.empty(),
                             pc_discontinuity_error_string);
         }
-
 #ifdef UNIX
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)
             shard->prev_xfer_int_pc_.push(memref.marker.marker_value);
