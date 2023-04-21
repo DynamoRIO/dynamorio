@@ -824,7 +824,10 @@ invariant_checker_t::check_for_pc_discontinuity(
                        instr_is_syscall(shard->prev_instr_decoded_->data)) {
                 error_msg = "Duplicate syscall instrs with the same PC";
             } else {
-                error_msg = "Non-explicit control flow has no marker";
+                // If we reach this block, we know there is a PC discontinuity.
+                error_msg = memref_is_kernel_event_marker
+                    ? "Discontinuity between instruction and kernel event marker"
+                    : "Non-explicit control flow has no marker";
             }
         }
     }
