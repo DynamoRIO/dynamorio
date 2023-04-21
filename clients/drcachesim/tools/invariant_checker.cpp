@@ -542,21 +542,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                       << std::hex << memref.marker.marker_value << std::dec << "\n";
         }
 #ifdef UNIX
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
-            // TODO i#3937: We need to exclude this check for "kernel_xfer_app" when
-            // running online.
-            (knob_test_name_ != "kernel_xfer_app" || knob_offline_) &&
-            // All TRACE_MARKER_TYPE_RSEQ_ABORT markers are followd by
-            // TRACE_MARKER_TYPE_KERNEL_EVENT. We only want to consider the
-            // TRACE_MARKER_TYPE_KERNEL_EVENT markers that do not occur directly after
-            // an RSEQ abort marker.
-            !(shard->prev_entry_.data.type == TRACE_TYPE_MARKER &&
-              shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) {
-            const std::string pc_discontinuity_error_string =
-                check_for_pc_discontinuity(shard, memref, nullptr, false);
-            report_if_false(shard, pc_discontinuity_error_string.empty(),
-                            pc_discontinuity_error_string);
-        }
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
@@ -592,6 +577,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 saw_rseq_abort = true;
             } else {
+                // TODO i#3937: We need to exclude this check for "kernel_xfer_app" when
+                // running online.
+                if (knob_test_name_ != "kernel_xfer_app" || knob_offline_) {
+                    const std::string pc_discontinuity_error_string =
+                        check_for_pc_discontinuity(shard, memref, nullptr, false);
+                    report_if_false(shard, pc_discontinuity_error_string.empty(),
+                                    pc_discontinuity_error_string);
+                }
+
                 shard->signal_stack_.push({ memref.marker.marker_value,
                                             shard->last_instr_in_cur_context_,
                                             shard->saw_rseq_abort_ });
