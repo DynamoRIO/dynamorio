@@ -374,24 +374,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Physical addr bottom 12 bits do not match virtual");
     }
 
-    // TODO(sahil): Add comment about what invariant we are checking for here.
-    if ( // TODO i#3937: We need to exclude this check for "kernel_xfer_app" when running
-         // online.
-        (knob_test_name_ != "kernel_xfer_app" || knob_offline_) &&
-        memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
-        // All TRACE_MARKER_TYPE_RSEQ_ABORT markers are followd by
-        // TRACE_MARKER_TYPE_KERNEL_EVENT. We only want to consider the
-        // TRACE_MARKER_TYPE_KERNEL_EVENT markers that do not occur directly after an RSEQ
-        // abort marker.
-        !(shard->prev_entry_.data.type == TRACE_TYPE_MARKER &&
-          shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) {
-        const std::string pc_discontinuity_error_string =
-            check_for_pc_discontinuity(shard, memref, nullptr, false);
-        report_if_false(shard, pc_discontinuity_error_string.empty(),
-                        pc_discontinuity_error_string);
-    }
-
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
@@ -533,8 +515,25 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                       << "marker type " << memref.marker.marker_type << " value 0x"
                       << std::hex << memref.marker.marker_value << std::dec << "\n";
         }
+
+        if (memref.marker.type == TRACE_TYPE_MARKER &&
+            memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
+            // TODO i#3937: We need to exclude this check for "kernel_xfer_app" when
+            // running online.
+            (knob_test_name_ != "kernel_xfer_app" || knob_offline_) &&
+            // All TRACE_MARKER_TYPE_RSEQ_ABORT markers are followd by
+            // TRACE_MARKER_TYPE_KERNEL_EVENT. We only want to consider the
+            // TRACE_MARKER_TYPE_KERNEL_EVENT markers that do not occur directly after
+            // an RSEQ abort marker.
+            !(shard->prev_entry_.data.type == TRACE_TYPE_MARKER &&
+              shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) {
+            const std::string pc_discontinuity_error_string =
+                check_for_pc_discontinuity(shard, memref, nullptr, false);
+            report_if_false(shard, pc_discontinuity_error_string.empty(),
+                            pc_discontinuity_error_string);
+        }
+
 #ifdef UNIX
-        // TODO(sahil): Add this check earlier?
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)
             shard->prev_xfer_int_pc_.push(memref.marker.marker_value);
         report_if_false(shard, memref.marker.marker_value != 0,
