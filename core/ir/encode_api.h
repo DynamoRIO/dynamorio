@@ -175,7 +175,7 @@ DR_API
  * Uses the x86/x64 mode stored in each instr, not the mode of the current thread.
  * In order for instr_t operands to be encoded properly,
  * \p has_instr_jmp_targets must be true.  If \p has_instr_jmp_targets is true,
- * the note field of each instr_t in ilist will be overwritten, and if any
+ * the offset field of each instr_t in ilist will be overwritten, and if any
  * instr_t targets are not in \p ilist, they must have their offset fields set with
  * their offsets relative to pc.
  * x86 instructions can occupy up to 17 bytes each, so the caller should ensure
