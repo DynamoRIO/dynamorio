@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2104,6 +2104,7 @@ instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
     if (kernel_xfer_callbacks.num == 0) {
         return false;
     }
+    LOG(THREAD, LOG_INTERP, 3, "%s: type=%d\n", __FUNCTION__, type);
     dr_kernel_xfer_info_t info;
     info.type = type;
     info.source_mcontext = NULL;

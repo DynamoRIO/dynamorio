@@ -38,12 +38,38 @@
 
 #include "analysis_tool.h"
 #include "dr_api.h"
+#include <iostream>
 #include "memref.h"
 #include <memory>
 #include <mutex>
 #include <stack>
 #include <unordered_map>
 #include <vector>
+
+/* The auto cleanup wrapper of instr_t.
+ * This can ensure the instance of instr_t is cleaned up when it is out of scope.
+ */
+struct instr_autoclean_t {
+public:
+    instr_autoclean_t(void *drcontext)
+        : drcontext(drcontext)
+    {
+        if (drcontext == nullptr) {
+            std::cerr << "instr_autoclean_t: invalid drcontext" << std::endl;
+            exit(1);
+        }
+        data = instr_create(drcontext);
+    }
+    ~instr_autoclean_t()
+    {
+        if (data != nullptr) {
+            instr_destroy(drcontext, data);
+            data = nullptr;
+        }
+    }
+    void *drcontext = nullptr;
+    instr_t *data = nullptr;
+};
 
 class invariant_checker_t : public analysis_tool_t {
 public:
@@ -86,7 +112,7 @@ protected:
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
         memref_t prev_instr_ = {};
-        std::unique_ptr<instr_t> prev_instr_decoded_ = nullptr;
+        std::unique_ptr<instr_autoclean_t> prev_instr_decoded_ = nullptr;
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         addr_t last_retaddr_ = 0;
@@ -125,6 +151,9 @@ protected:
         // We could move this to per-worker data and still not need a lock
         // (we don't currently have per-worker data though so leaving it as per-shard).
         std::unordered_map<addr_t, addr_t> branch_target_cache;
+        // Rseq region state.
+        bool in_rseq_region_ = false;
+        addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
     };
 
@@ -139,9 +168,10 @@ protected:
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
     std::string
-    check_for_pc_discontinuity(per_shard_t *shard, const memref_t &memref,
-                               const std::unique_ptr<instr_t> &cur_instr_decoded,
-                               const bool expect_encoding);
+    check_for_pc_discontinuity(
+        per_shard_t *shard, const memref_t &memref,
+        const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded,
+        const bool expect_encoding);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
