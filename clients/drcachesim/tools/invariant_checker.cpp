@@ -207,7 +207,35 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
+        shard->in_rseq_region_ = true;
+        shard->rseq_start_pc_ = 0;
         shard->rseq_end_pc_ = memref.marker.marker_value;
+    } else if (shard->in_rseq_region_) {
+        if (type_is_instr(memref.instr.type)) {
+            if (shard->rseq_start_pc_ == 0)
+                shard->rseq_start_pc_ = memref.instr.addr;
+            if (memref.instr.addr + memref.instr.size == shard->rseq_end_pc_) {
+                // Completed normally.
+                shard->in_rseq_region_ = false;
+            } else if (memref.instr.addr >= shard->rseq_start_pc_ &&
+                       memref.instr.addr < shard->rseq_end_pc_) {
+                // Still in the region.
+            } else {
+                // We should see an abort marker or a side exit if we leave the region.
+                report_if_false(shard,
+                                type_is_instr_branch(shard->prev_instr_.instr.type),
+                                "Rseq region exit requires marker, branch, or commit");
+                shard->in_rseq_region_ = false;
+            }
+        } else {
+            report_if_false(shard,
+                            memref.marker.type != TRACE_TYPE_MARKER ||
+                                memref.marker.marker_type !=
+                                    TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                                // Side exit.
+                                type_is_instr_branch(shard->prev_instr_.instr.type),
+                            "Signal in rseq region should have abort marker");
+        }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
@@ -221,6 +249,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                 shard->rseq_end_pc_ ||
                             shard->prev_instr_.instr.addr == memref.marker.marker_value,
                         "Rseq post-abort instruction not rolled back");
+        shard->in_rseq_region_ = false;
     }
 #endif
 
@@ -349,15 +378,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
-        std::unique_ptr<instr_t> cur_instr_decoded = nullptr;
+        std::unique_ptr<instr_autoclean_t> cur_instr_decoded = nullptr;
         if (expect_encoding) {
-            cur_instr_decoded.reset(new instr_t);
-            instr_init(GLOBAL_DCONTEXT, cur_instr_decoded.get());
+            cur_instr_decoded.reset(new instr_autoclean_t(GLOBAL_DCONTEXT));
             app_pc next_pc = decode_from_copy(
                 GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
-                reinterpret_cast<app_pc>(memref.instr.addr), cur_instr_decoded.get());
+                reinterpret_cast<app_pc>(memref.instr.addr), cur_instr_decoded->data);
             if (next_pc == nullptr) {
-                instr_free(GLOBAL_DCONTEXT, cur_instr_decoded.get());
                 cur_instr_decoded.reset(nullptr);
             }
         }
@@ -447,8 +474,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         }
 #endif
         shard->prev_instr_ = memref;
-        if (shard->prev_instr_decoded_ != nullptr)
-            instr_free(GLOBAL_DCONTEXT, shard->prev_instr_decoded_.get());
         shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
         shard->saw_kernel_xfer_after_prev_instr_ = false;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
@@ -631,7 +656,8 @@ invariant_checker_t::print_results()
 std::string
 invariant_checker_t::check_for_pc_discontinuity(
     per_shard_t *shard, const memref_t &memref,
-    const std::unique_ptr<instr_t> &cur_instr_decoded, const bool expect_encoding)
+    const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded,
+    const bool expect_encoding)
 {
     std::string error_msg = "";
     bool have_cond_branch_target = false;
@@ -648,7 +674,7 @@ invariant_checker_t::check_for_pc_discontinuity(
             cond_branch_target = cached->second;
         } else {
             if (shard->prev_instr_decoded_ == nullptr ||
-                !opnd_is_pc(instr_get_target(shard->prev_instr_decoded_.get()))) {
+                !opnd_is_pc(instr_get_target(shard->prev_instr_decoded_->data))) {
                 // Neither condition should happen but they could on an invalid
                 // encoding from raw2trace or the reader so we report an
                 // invariant rather than asserting.
@@ -656,7 +682,7 @@ invariant_checker_t::check_for_pc_discontinuity(
             } else {
                 have_cond_branch_target = true;
                 cond_branch_target = reinterpret_cast<addr_t>(
-                    opnd_get_pc(instr_get_target(shard->prev_instr_decoded_.get())));
+                    opnd_get_pc(instr_get_target(shard->prev_instr_decoded_->data)));
                 shard->branch_target_cache[prev_instr_trace_pc] = cond_branch_target;
             }
         }
@@ -706,9 +732,9 @@ invariant_checker_t::check_for_pc_discontinuity(
                 }
             } else if (cur_instr_decoded != nullptr &&
                        shard->prev_instr_decoded_ != nullptr &&
-                       instr_is_syscall(cur_instr_decoded.get()) &&
+                       instr_is_syscall(cur_instr_decoded->data) &&
                        memref.instr.addr == prev_instr_trace_pc &&
-                       instr_is_syscall(shard->prev_instr_decoded_.get())) {
+                       instr_is_syscall(shard->prev_instr_decoded_->data)) {
                 error_msg = "Duplicate syscall instrs with the same PC";
             } else {
                 error_msg = "Non-explicit control flow has no marker";
