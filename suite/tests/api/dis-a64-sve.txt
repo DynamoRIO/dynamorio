@@ -11453,22 +11453,148 @@ a43d1f9b : ld1rob z27.b, p7/Z, [x28, x29]            : ld1rob (%x28,%x29)[32byte
 a43e1fff : ld1rob z31.b, p7/Z, [sp, x30]             : ld1rob (%sp,%x30)[32byte] %p7/z -> %z31.b
 
 # LD1RQB  { <Zt>.B }, <Pg>/Z, [<Xn|SP>, <Xm>] (LD1RQB-Z.P.BR-Contiguous)
-a4000000 : ld1rqb z0.b, p0/Z, [x0, x0]               : ld1rqb (%x0,%x0)[32byte] %p0/z -> %z0.b
-a4050482 : ld1rqb z2.b, p1/Z, [x4, x5]               : ld1rqb (%x4,%x5)[32byte] %p1/z -> %z2.b
-a40708c4 : ld1rqb z4.b, p2/Z, [x6, x7]               : ld1rqb (%x6,%x7)[32byte] %p2/z -> %z4.b
-a4090906 : ld1rqb z6.b, p2/Z, [x8, x9]               : ld1rqb (%x8,%x9)[32byte] %p2/z -> %z6.b
-a40b0d48 : ld1rqb z8.b, p3/Z, [x10, x11]             : ld1rqb (%x10,%x11)[32byte] %p3/z -> %z8.b
-a40c0d6a : ld1rqb z10.b, p3/Z, [x11, x12]            : ld1rqb (%x11,%x12)[32byte] %p3/z -> %z10.b
-a40e11ac : ld1rqb z12.b, p4/Z, [x13, x14]            : ld1rqb (%x13,%x14)[32byte] %p4/z -> %z12.b
-a41011ee : ld1rqb z14.b, p4/Z, [x15, x16]            : ld1rqb (%x15,%x16)[32byte] %p4/z -> %z14.b
-a4121630 : ld1rqb z16.b, p5/Z, [x17, x18]            : ld1rqb (%x17,%x18)[32byte] %p5/z -> %z16.b
-a4141671 : ld1rqb z17.b, p5/Z, [x19, x20]            : ld1rqb (%x19,%x20)[32byte] %p5/z -> %z17.b
-a41616b3 : ld1rqb z19.b, p5/Z, [x21, x22]            : ld1rqb (%x21,%x22)[32byte] %p5/z -> %z19.b
-a4181af5 : ld1rqb z21.b, p6/Z, [x23, x24]            : ld1rqb (%x23,%x24)[32byte] %p6/z -> %z21.b
-a4191b17 : ld1rqb z23.b, p6/Z, [x24, x25]            : ld1rqb (%x24,%x25)[32byte] %p6/z -> %z23.b
-a41b1f59 : ld1rqb z25.b, p7/Z, [x26, x27]            : ld1rqb (%x26,%x27)[32byte] %p7/z -> %z25.b
-a41d1f9b : ld1rqb z27.b, p7/Z, [x28, x29]            : ld1rqb (%x28,%x29)[32byte] %p7/z -> %z27.b
-a41e1fff : ld1rqb z31.b, p7/Z, [sp, x30]             : ld1rqb (%sp,%x30)[32byte] %p7/z -> %z31.b
+a4000000 : ld1rqb z0.b, p0/Z, [x0, x0]               : ld1rqb (%x0,%x0)[16byte] %p0/z -> %z0.b
+a4050482 : ld1rqb z2.b, p1/Z, [x4, x5]               : ld1rqb (%x4,%x5)[16byte] %p1/z -> %z2.b
+a40708c4 : ld1rqb z4.b, p2/Z, [x6, x7]               : ld1rqb (%x6,%x7)[16byte] %p2/z -> %z4.b
+a4090906 : ld1rqb z6.b, p2/Z, [x8, x9]               : ld1rqb (%x8,%x9)[16byte] %p2/z -> %z6.b
+a40b0d48 : ld1rqb z8.b, p3/Z, [x10, x11]             : ld1rqb (%x10,%x11)[16byte] %p3/z -> %z8.b
+a40c0d6a : ld1rqb z10.b, p3/Z, [x11, x12]            : ld1rqb (%x11,%x12)[16byte] %p3/z -> %z10.b
+a40e11ac : ld1rqb z12.b, p4/Z, [x13, x14]            : ld1rqb (%x13,%x14)[16byte] %p4/z -> %z12.b
+a41011ee : ld1rqb z14.b, p4/Z, [x15, x16]            : ld1rqb (%x15,%x16)[16byte] %p4/z -> %z14.b
+a4121630 : ld1rqb z16.b, p5/Z, [x17, x18]            : ld1rqb (%x17,%x18)[16byte] %p5/z -> %z16.b
+a4141671 : ld1rqb z17.b, p5/Z, [x19, x20]            : ld1rqb (%x19,%x20)[16byte] %p5/z -> %z17.b
+a41616b3 : ld1rqb z19.b, p5/Z, [x21, x22]            : ld1rqb (%x21,%x22)[16byte] %p5/z -> %z19.b
+a4181af5 : ld1rqb z21.b, p6/Z, [x23, x24]            : ld1rqb (%x23,%x24)[16byte] %p6/z -> %z21.b
+a4191b17 : ld1rqb z23.b, p6/Z, [x24, x25]            : ld1rqb (%x24,%x25)[16byte] %p6/z -> %z23.b
+a41b1f59 : ld1rqb z25.b, p7/Z, [x26, x27]            : ld1rqb (%x26,%x27)[16byte] %p7/z -> %z25.b
+a41d1f9b : ld1rqb z27.b, p7/Z, [x28, x29]            : ld1rqb (%x28,%x29)[16byte] %p7/z -> %z27.b
+a41e1fff : ld1rqb z31.b, p7/Z, [sp, x30]             : ld1rqb (%sp,%x30)[16byte] %p7/z -> %z31.b
+
+# LD1RQB  { <Zt>.B }, <Pg>/Z, [<Xn|SP>{, #<simm>}] (LD1RQB-Z.P.BI-U8)
+a4082000 : ld1rqb z0.b, p0/Z, [x0, #-128]            : ld1rqb -0x80(%x0)[16byte] %p0/z -> %z0.b
+a4092482 : ld1rqb z2.b, p1/Z, [x4, #-112]            : ld1rqb -0x70(%x4)[16byte] %p1/z -> %z2.b
+a40a28c4 : ld1rqb z4.b, p2/Z, [x6, #-96]             : ld1rqb -0x60(%x6)[16byte] %p2/z -> %z4.b
+a40b2906 : ld1rqb z6.b, p2/Z, [x8, #-80]             : ld1rqb -0x50(%x8)[16byte] %p2/z -> %z6.b
+a40c2d48 : ld1rqb z8.b, p3/Z, [x10, #-64]            : ld1rqb -0x40(%x10)[16byte] %p3/z -> %z8.b
+a40d2d6a : ld1rqb z10.b, p3/Z, [x11, #-48]           : ld1rqb -0x30(%x11)[16byte] %p3/z -> %z10.b
+a40e31ac : ld1rqb z12.b, p4/Z, [x13, #-32]           : ld1rqb -0x20(%x13)[16byte] %p4/z -> %z12.b
+a40f31ee : ld1rqb z14.b, p4/Z, [x15, #-16]           : ld1rqb -0x10(%x15)[16byte] %p4/z -> %z14.b
+a4003630 : ld1rqb z16.b, p5/Z, [x17, #0]             : ld1rqb (%x17)[16byte] %p5/z -> %z16.b
+a4003671 : ld1rqb z17.b, p5/Z, [x19, #0]             : ld1rqb (%x19)[16byte] %p5/z -> %z17.b
+a40136b3 : ld1rqb z19.b, p5/Z, [x21, #16]            : ld1rqb +0x10(%x21)[16byte] %p5/z -> %z19.b
+a4023af5 : ld1rqb z21.b, p6/Z, [x23, #32]            : ld1rqb +0x20(%x23)[16byte] %p6/z -> %z21.b
+a4033b17 : ld1rqb z23.b, p6/Z, [x24, #48]            : ld1rqb +0x30(%x24)[16byte] %p6/z -> %z23.b
+a4043f59 : ld1rqb z25.b, p7/Z, [x26, #64]            : ld1rqb +0x40(%x26)[16byte] %p7/z -> %z25.b
+a4053f9b : ld1rqb z27.b, p7/Z, [x28, #80]            : ld1rqb +0x50(%x28)[16byte] %p7/z -> %z27.b
+a4073fff : ld1rqb z31.b, p7/Z, [sp, #112]            : ld1rqb +0x70(%sp)[16byte] %p7/z -> %z31.b
+
+# LD1RQD  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Xm>, LSL #3] (LD1RQD-Z.P.BR-Contiguous)
+a5800000 : ld1rqd z0.d, p0/Z, [x0, x0, lsl #3]       : ld1rqd (%x0,%x0,lsl #3)[16byte] %p0/z -> %z0.d
+a5850482 : ld1rqd z2.d, p1/Z, [x4, x5, lsl #3]       : ld1rqd (%x4,%x5,lsl #3)[16byte] %p1/z -> %z2.d
+a58708c4 : ld1rqd z4.d, p2/Z, [x6, x7, lsl #3]       : ld1rqd (%x6,%x7,lsl #3)[16byte] %p2/z -> %z4.d
+a5890906 : ld1rqd z6.d, p2/Z, [x8, x9, lsl #3]       : ld1rqd (%x8,%x9,lsl #3)[16byte] %p2/z -> %z6.d
+a58b0d48 : ld1rqd z8.d, p3/Z, [x10, x11, lsl #3]     : ld1rqd (%x10,%x11,lsl #3)[16byte] %p3/z -> %z8.d
+a58c0d6a : ld1rqd z10.d, p3/Z, [x11, x12, lsl #3]    : ld1rqd (%x11,%x12,lsl #3)[16byte] %p3/z -> %z10.d
+a58e11ac : ld1rqd z12.d, p4/Z, [x13, x14, lsl #3]    : ld1rqd (%x13,%x14,lsl #3)[16byte] %p4/z -> %z12.d
+a59011ee : ld1rqd z14.d, p4/Z, [x15, x16, lsl #3]    : ld1rqd (%x15,%x16,lsl #3)[16byte] %p4/z -> %z14.d
+a5921630 : ld1rqd z16.d, p5/Z, [x17, x18, lsl #3]    : ld1rqd (%x17,%x18,lsl #3)[16byte] %p5/z -> %z16.d
+a5941671 : ld1rqd z17.d, p5/Z, [x19, x20, lsl #3]    : ld1rqd (%x19,%x20,lsl #3)[16byte] %p5/z -> %z17.d
+a59616b3 : ld1rqd z19.d, p5/Z, [x21, x22, lsl #3]    : ld1rqd (%x21,%x22,lsl #3)[16byte] %p5/z -> %z19.d
+a5981af5 : ld1rqd z21.d, p6/Z, [x23, x24, lsl #3]    : ld1rqd (%x23,%x24,lsl #3)[16byte] %p6/z -> %z21.d
+a5991b17 : ld1rqd z23.d, p6/Z, [x24, x25, lsl #3]    : ld1rqd (%x24,%x25,lsl #3)[16byte] %p6/z -> %z23.d
+a59b1f59 : ld1rqd z25.d, p7/Z, [x26, x27, lsl #3]    : ld1rqd (%x26,%x27,lsl #3)[16byte] %p7/z -> %z25.d
+a59d1f9b : ld1rqd z27.d, p7/Z, [x28, x29, lsl #3]    : ld1rqd (%x28,%x29,lsl #3)[16byte] %p7/z -> %z27.d
+a59e1fff : ld1rqd z31.d, p7/Z, [sp, x30, lsl #3]     : ld1rqd (%sp,%x30,lsl #3)[16byte] %p7/z -> %z31.d
+
+# LD1RQD  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<simm>}] (LD1RQD-Z.P.BI-U64)
+a5882000 : ld1rqd z0.d, p0/Z, [x0, #-128]            : ld1rqd -0x80(%x0)[16byte] %p0/z -> %z0.d
+a5892482 : ld1rqd z2.d, p1/Z, [x4, #-112]            : ld1rqd -0x70(%x4)[16byte] %p1/z -> %z2.d
+a58a28c4 : ld1rqd z4.d, p2/Z, [x6, #-96]             : ld1rqd -0x60(%x6)[16byte] %p2/z -> %z4.d
+a58b2906 : ld1rqd z6.d, p2/Z, [x8, #-80]             : ld1rqd -0x50(%x8)[16byte] %p2/z -> %z6.d
+a58c2d48 : ld1rqd z8.d, p3/Z, [x10, #-64]            : ld1rqd -0x40(%x10)[16byte] %p3/z -> %z8.d
+a58d2d6a : ld1rqd z10.d, p3/Z, [x11, #-48]           : ld1rqd -0x30(%x11)[16byte] %p3/z -> %z10.d
+a58e31ac : ld1rqd z12.d, p4/Z, [x13, #-32]           : ld1rqd -0x20(%x13)[16byte] %p4/z -> %z12.d
+a58f31ee : ld1rqd z14.d, p4/Z, [x15, #-16]           : ld1rqd -0x10(%x15)[16byte] %p4/z -> %z14.d
+a5803630 : ld1rqd z16.d, p5/Z, [x17, #0]             : ld1rqd (%x17)[16byte] %p5/z -> %z16.d
+a5803671 : ld1rqd z17.d, p5/Z, [x19, #0]             : ld1rqd (%x19)[16byte] %p5/z -> %z17.d
+a58136b3 : ld1rqd z19.d, p5/Z, [x21, #16]            : ld1rqd +0x10(%x21)[16byte] %p5/z -> %z19.d
+a5823af5 : ld1rqd z21.d, p6/Z, [x23, #32]            : ld1rqd +0x20(%x23)[16byte] %p6/z -> %z21.d
+a5833b17 : ld1rqd z23.d, p6/Z, [x24, #48]            : ld1rqd +0x30(%x24)[16byte] %p6/z -> %z23.d
+a5843f59 : ld1rqd z25.d, p7/Z, [x26, #64]            : ld1rqd +0x40(%x26)[16byte] %p7/z -> %z25.d
+a5853f9b : ld1rqd z27.d, p7/Z, [x28, #80]            : ld1rqd +0x50(%x28)[16byte] %p7/z -> %z27.d
+a5873fff : ld1rqd z31.d, p7/Z, [sp, #112]            : ld1rqd +0x70(%sp)[16byte] %p7/z -> %z31.d
+
+# LD1RQH  { <Zt>.H }, <Pg>/Z, [<Xn|SP>, <Xm>, LSL #1] (LD1RQH-Z.P.BR-Contiguous)
+a4800000 : ld1rqh z0.h, p0/Z, [x0, x01, LSL #1]       : ld1rqh (%x0,%x0,lsl #1)[16byte] %p0/z -> %z0.h
+a4850482 : ld1rqh z2.h, p1/Z, [x4, x51, LSL #1]       : ld1rqh (%x4,%x5,lsl #1)[16byte] %p1/z -> %z2.h
+a48708c4 : ld1rqh z4.h, p2/Z, [x6, x71, LSL #1]       : ld1rqh (%x6,%x7,lsl #1)[16byte] %p2/z -> %z4.h
+a4890906 : ld1rqh z6.h, p2/Z, [x8, x91, LSL #1]       : ld1rqh (%x8,%x9,lsl #1)[16byte] %p2/z -> %z6.h
+a48b0d48 : ld1rqh z8.h, p3/Z, [x10, x111, LSL #1]     : ld1rqh (%x10,%x11,lsl #1)[16byte] %p3/z -> %z8.h
+a48c0d6a : ld1rqh z10.h, p3/Z, [x11, x121, LSL #1]    : ld1rqh (%x11,%x12,lsl #1)[16byte] %p3/z -> %z10.h
+a48e11ac : ld1rqh z12.h, p4/Z, [x13, x141, LSL #1]    : ld1rqh (%x13,%x14,lsl #1)[16byte] %p4/z -> %z12.h
+a49011ee : ld1rqh z14.h, p4/Z, [x15, x161, LSL #1]    : ld1rqh (%x15,%x16,lsl #1)[16byte] %p4/z -> %z14.h
+a4921630 : ld1rqh z16.h, p5/Z, [x17, x181, LSL #1]    : ld1rqh (%x17,%x18,lsl #1)[16byte] %p5/z -> %z16.h
+a4941671 : ld1rqh z17.h, p5/Z, [x19, x201, LSL #1]    : ld1rqh (%x19,%x20,lsl #1)[16byte] %p5/z -> %z17.h
+a49616b3 : ld1rqh z19.h, p5/Z, [x21, x221, LSL #1]    : ld1rqh (%x21,%x22,lsl #1)[16byte] %p5/z -> %z19.h
+a4981af5 : ld1rqh z21.h, p6/Z, [x23, x241, LSL #1]    : ld1rqh (%x23,%x24,lsl #1)[16byte] %p6/z -> %z21.h
+a4991b17 : ld1rqh z23.h, p6/Z, [x24, x251, LSL #1]    : ld1rqh (%x24,%x25,lsl #1)[16byte] %p6/z -> %z23.h
+a49b1f59 : ld1rqh z25.h, p7/Z, [x26, x271, LSL #1]    : ld1rqh (%x26,%x27,lsl #1)[16byte] %p7/z -> %z25.h
+a49d1f9b : ld1rqh z27.h, p7/Z, [x28, x291, LSL #1]    : ld1rqh (%x28,%x29,lsl #1)[16byte] %p7/z -> %z27.h
+a49e1fff : ld1rqh z31.h, p7/Z, [sp, x301, LSL #1]     : ld1rqh (%sp,%x30,lsl #1)[16byte] %p7/z -> %z31.h
+
+# LD1RQH  { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, #<simm>}] (LD1RQH-Z.P.BI-U16)
+a4882000 : ld1rqh z0.h, p0/Z, [x0, #-128]            : ld1rqh -0x80(%x0)[16byte] %p0/z -> %z0.h
+a4892482 : ld1rqh z2.h, p1/Z, [x4, #-112]            : ld1rqh -0x70(%x4)[16byte] %p1/z -> %z2.h
+a48a28c4 : ld1rqh z4.h, p2/Z, [x6, #-96]             : ld1rqh -0x60(%x6)[16byte] %p2/z -> %z4.h
+a48b2906 : ld1rqh z6.h, p2/Z, [x8, #-80]             : ld1rqh -0x50(%x8)[16byte] %p2/z -> %z6.h
+a48c2d48 : ld1rqh z8.h, p3/Z, [x10, #-64]            : ld1rqh -0x40(%x10)[16byte] %p3/z -> %z8.h
+a48d2d6a : ld1rqh z10.h, p3/Z, [x11, #-48]           : ld1rqh -0x30(%x11)[16byte] %p3/z -> %z10.h
+a48e31ac : ld1rqh z12.h, p4/Z, [x13, #-32]           : ld1rqh -0x20(%x13)[16byte] %p4/z -> %z12.h
+a48f31ee : ld1rqh z14.h, p4/Z, [x15, #-16]           : ld1rqh -0x10(%x15)[16byte] %p4/z -> %z14.h
+a4803630 : ld1rqh z16.h, p5/Z, [x17, #0]             : ld1rqh (%x17)[16byte] %p5/z -> %z16.h
+a4803671 : ld1rqh z17.h, p5/Z, [x19, #0]             : ld1rqh (%x19)[16byte] %p5/z -> %z17.h
+a48136b3 : ld1rqh z19.h, p5/Z, [x21, #16]            : ld1rqh +0x10(%x21)[16byte] %p5/z -> %z19.h
+a4823af5 : ld1rqh z21.h, p6/Z, [x23, #32]            : ld1rqh +0x20(%x23)[16byte] %p6/z -> %z21.h
+a4833b17 : ld1rqh z23.h, p6/Z, [x24, #48]            : ld1rqh +0x30(%x24)[16byte] %p6/z -> %z23.h
+a4843f59 : ld1rqh z25.h, p7/Z, [x26, #64]            : ld1rqh +0x40(%x26)[16byte] %p7/z -> %z25.h
+a4853f9b : ld1rqh z27.h, p7/Z, [x28, #80]            : ld1rqh +0x50(%x28)[16byte] %p7/z -> %z27.h
+a4873fff : ld1rqh z31.h, p7/Z, [sp, #112]            : ld1rqh +0x70(%sp)[16byte] %p7/z -> %z31.h
+
+# LD1RQW  { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Xm>, LSL #2] (LD1RQW-Z.P.BR-Contiguous)
+a5000000 : ld1rqw z0.s, p0/Z, [x0, x0, LSL #2]       : ld1rqw (%x0,%x0,lsl #2)[16byte] %p0/z -> %z0.s
+a5050482 : ld1rqw z2.s, p1/Z, [x4, x5, LSL #2]       : ld1rqw (%x4,%x5,lsl #2)[16byte] %p1/z -> %z2.s
+a50708c4 : ld1rqw z4.s, p2/Z, [x6, x7, LSL #2]       : ld1rqw (%x6,%x7,lsl #2)[16byte] %p2/z -> %z4.s
+a5090906 : ld1rqw z6.s, p2/Z, [x8, x9, LSL #2]       : ld1rqw (%x8,%x9,lsl #2)[16byte] %p2/z -> %z6.s
+a50b0d48 : ld1rqw z8.s, p3/Z, [x10, x11, LSL #2]     : ld1rqw (%x10,%x11,lsl #2)[16byte] %p3/z -> %z8.s
+a50c0d6a : ld1rqw z10.s, p3/Z, [x11, x12, LSL #2]    : ld1rqw (%x11,%x12,lsl #2)[16byte] %p3/z -> %z10.s
+a50e11ac : ld1rqw z12.s, p4/Z, [x13, x14, LSL #2]    : ld1rqw (%x13,%x14,lsl #2)[16byte] %p4/z -> %z12.s
+a51011ee : ld1rqw z14.s, p4/Z, [x15, x16, LSL #2]    : ld1rqw (%x15,%x16,lsl #2)[16byte] %p4/z -> %z14.s
+a5121630 : ld1rqw z16.s, p5/Z, [x17, x18, LSL #2]    : ld1rqw (%x17,%x18,lsl #2)[16byte] %p5/z -> %z16.s
+a5141671 : ld1rqw z17.s, p5/Z, [x19, x20, LSL #2]    : ld1rqw (%x19,%x20,lsl #2)[16byte] %p5/z -> %z17.s
+a51616b3 : ld1rqw z19.s, p5/Z, [x21, x22, LSL #2]    : ld1rqw (%x21,%x22,lsl #2)[16byte] %p5/z -> %z19.s
+a5181af5 : ld1rqw z21.s, p6/Z, [x23, x24, LSL #2]    : ld1rqw (%x23,%x24,lsl #2)[16byte] %p6/z -> %z21.s
+a5191b17 : ld1rqw z23.s, p6/Z, [x24, x25, LSL #2]    : ld1rqw (%x24,%x25,lsl #2)[16byte] %p6/z -> %z23.s
+a51b1f59 : ld1rqw z25.s, p7/Z, [x26, x27, LSL #2]    : ld1rqw (%x26,%x27,lsl #2)[16byte] %p7/z -> %z25.s
+a51d1f9b : ld1rqw z27.s, p7/Z, [x28, x29, LSL #2]    : ld1rqw (%x28,%x29,lsl #2)[16byte] %p7/z -> %z27.s
+a51e1fff : ld1rqw z31.s, p7/Z, [sp, x30, LSL #2]     : ld1rqw (%sp,%x30,lsl #2)[16byte] %p7/z -> %z31.s
+
+# LD1RQW  { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, #<simm>}] (LD1RQW-Z.P.BI-U32)
+a5082000 : ld1rqw z0.s, p0/Z, [x0, #-128]            : ld1rqw -0x80(%x0)[16byte] %p0/z -> %z0.s
+a5092482 : ld1rqw z2.s, p1/Z, [x4, #-112]            : ld1rqw -0x70(%x4)[16byte] %p1/z -> %z2.s
+a50a28c4 : ld1rqw z4.s, p2/Z, [x6, #-96]             : ld1rqw -0x60(%x6)[16byte] %p2/z -> %z4.s
+a50b2906 : ld1rqw z6.s, p2/Z, [x8, #-80]             : ld1rqw -0x50(%x8)[16byte] %p2/z -> %z6.s
+a50c2d48 : ld1rqw z8.s, p3/Z, [x10, #-64]            : ld1rqw -0x40(%x10)[16byte] %p3/z -> %z8.s
+a50d2d6a : ld1rqw z10.s, p3/Z, [x11, #-48]           : ld1rqw -0x30(%x11)[16byte] %p3/z -> %z10.s
+a50e31ac : ld1rqw z12.s, p4/Z, [x13, #-32]           : ld1rqw -0x20(%x13)[16byte] %p4/z -> %z12.s
+a50f31ee : ld1rqw z14.s, p4/Z, [x15, #-16]           : ld1rqw -0x10(%x15)[16byte] %p4/z -> %z14.s
+a5003630 : ld1rqw z16.s, p5/Z, [x17, #0]             : ld1rqw (%x17)[16byte] %p5/z -> %z16.s
+a5003671 : ld1rqw z17.s, p5/Z, [x19, #0]             : ld1rqw (%x19)[16byte] %p5/z -> %z17.s
+a50136b3 : ld1rqw z19.s, p5/Z, [x21, #16]            : ld1rqw +0x10(%x21)[16byte] %p5/z -> %z19.s
+a5023af5 : ld1rqw z21.s, p6/Z, [x23, #32]            : ld1rqw +0x20(%x23)[16byte] %p6/z -> %z21.s
+a5033b17 : ld1rqw z23.s, p6/Z, [x24, #48]            : ld1rqw +0x30(%x24)[16byte] %p6/z -> %z23.s
+a5043f59 : ld1rqw z25.s, p7/Z, [x26, #64]            : ld1rqw +0x40(%x26)[16byte] %p7/z -> %z25.s
+a5053f9b : ld1rqw z27.s, p7/Z, [x28, #80]            : ld1rqw +0x50(%x28)[16byte] %p7/z -> %z27.s
+a5073fff : ld1rqw z31.s, p7/Z, [sp, #112]            : ld1rqw +0x70(%sp)[16byte] %p7/z -> %z31.s
 
 # LD1RSB  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<pimm>}] (LD1RSB-Z.P.BI-S64)
 85c08000 : ld1rsb z0.d, p0/Z, [x0, #0]               : ld1rsb (%x0)[1byte] %p0/z -> %z0.d
