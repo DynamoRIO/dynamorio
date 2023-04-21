@@ -725,12 +725,12 @@ invariant_checker_t::check_for_pc_discontinuity(
             // String loop.
             (prev_instr_trace_pc == current_memref_addr &&
              (memref_is_kernel_event_marker ||
-              (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
-               // Online incorrectly marks the 1st string instr across a thread
-               // switch as fetched.
-               // TODO i#4915, #4948: Eliminate non-fetched and remove the
-               // underlying instrs altogether, which would fix this for us.
-               (!knob_offline_ && shard->saw_timestamp_but_no_instr_)))) ||
+              memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
+              // Online incorrectly marks the 1st string instr across a thread
+              // switch as fetched.
+              // TODO i#4915, #4948: Eliminate non-fetched and remove the
+              // underlying instrs altogether, which would fix this for us.
+              (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
             // Kernel-mediated, but we can't tell if we had a thread swap.
             (shard->prev_xfer_marker_.instr.tid != 0 &&
              (shard->prev_xfer_marker_.marker.marker_type ==
