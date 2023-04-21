@@ -359,9 +359,38 @@ check_kernel_xfer()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
             gen_instr(1, 201),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // Second signal.
             // No intervening instr here. Should use instr at pc = 101 for
             // pre-signal instr check on return.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(1, 102),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Consecutive signals (that are nested at the same depth) without any
+    // intervening instr between them, and no instr before the first of them
+    // and its outer signal.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+            // Outer signal.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            // First signal.
+            // No intervening instr here. Should skip pre-signal instr check
+            // on return.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             // Second signal.
+            // No intervening instr here. Since there's no pre-signal instr
+            // for the first signal as well, we did not see any instr at this
+            // signal-depth. So the pre-signal check should be skipped on return
+            // of this signal too.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
             gen_instr(1, 201),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),

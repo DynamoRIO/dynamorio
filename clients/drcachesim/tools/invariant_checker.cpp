@@ -440,7 +440,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // Ensure signal handlers return to the interruption point.
         if (shard->prev_xfer_marker_.marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
-            // We use the values popped from the signal-related stacks at the last
+            // For the following checks, we use the values popped from the
+            // signal_stack_ into last_signal_context_ at the last
             // TRACE_MARKER_TYPE_KERNEL_XFER marker.
             bool kernel_event_marker_equality =
                 // Skip this check if we did not see the corresponding
@@ -453,8 +454,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // resumption point.
                 shard->last_signal_context_.pre_signal_instr.instr.type ==
                     TRACE_TYPE_INSTR_SYSENTER;
-            bool pre_signal_flow_continuity = (
-                // Skip pre-signal instr check if there was no such instr.
+            bool pre_signal_flow_continuity =
+                // Skip pre-signal instr check if there was no such instr. May
+                // happen for nested signals without any intervening instr, and
+                // if the signal arrived before the first instr in the trace.
                 shard->last_signal_context_.pre_signal_instr.instr.addr == 0 ||
                 // Skip pre_signal_instr_ check for signals that caused an rseq
                 // abort. In this case, control is transferred directly to the abort
@@ -472,7 +475,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 type_is_instr_branch(
                     shard->last_signal_context_.pre_signal_instr.instr.type) ||
                 shard->last_signal_context_.pre_signal_instr.instr.type ==
-                    TRACE_TYPE_INSTR_SYSENTER);
+                    TRACE_TYPE_INSTR_SYSENTER;
             report_if_false(
                 shard,
                 (kernel_event_marker_equality && pre_signal_flow_continuity) ||
@@ -487,14 +490,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->file_type_),
                 "Signal handler return point incorrect");
         }
-        // It is a little inefficient to replace the top instr on the stack everytime.
-        // But we cannot perform this book-keeping using prev_instr_ on a
-        // TRACE_MARKER_TYPE_KERNEL_EVENT marker. E.g. if there was no instruction between
-        // two nested signals, we do not want to record any pre-signal instr for the
-        // second signal; also, if there was no instruction between two consecutive
-        // signals (at the same nesting depth), the pre-signal instr for the second signal
-        // should be whatever instruction was last *in that nesting depth* prior to the
-        // first signal.
+        // last_instr_in_cur_context_ is recorded as the pre-signal instr when we see a
+        // TRACE_MARKER_TYPE_KERNEL_EVENT marker. Note that we cannot perform this
+        // book-keeping using prev_instr_ on the TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+        // E.g. if there was no instr between two nested signals, we do not want to
+        // record any pre-signal instr for the second signal.
         shard->last_instr_in_cur_context_ = memref;
 #endif
         shard->prev_instr_ = memref;
@@ -557,14 +557,18 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // discovered.
                 shard->last_instr_in_cur_context_ = {};
             } else {
-                // The last instr in the context immediately outer to this signal may
-                // be {} in some cases:
+                // The pre_signal_instr for this signal may be {} in some cases:
                 // - for nested signals without any intervening instr
                 // - if there's a signal at the very beginning of the trace
                 // In both these cases the empty instr implies that it should not
                 // be used for the pre-signal instr check.
                 shard->last_signal_context_ = shard->signal_stack_.top();
                 shard->signal_stack_.pop();
+                // In the case where there's no instr between two consecutive signals
+                // (at the same nesting depth), the pre-signal instr for the second
+                // signal should be same as the pre-signal instr for the first one.
+                // Here we restore last_instr_in_cur_context_ to the last instr we
+                // saw *in the same nesting depth* before the first signal.
                 shard->last_instr_in_cur_context_ =
                     shard->last_signal_context_.pre_signal_instr;
             }
@@ -578,6 +582,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->signal_stack_.push({ memref.marker.marker_value,
                                             shard->last_instr_in_cur_context_,
                                             shard->saw_rseq_abort_ });
+                // XXX: if last_instr_in_cur_context_ is {} currently, it means this is
+                // either a signal that arrived before the first instr in the trace, or
+                // it's a nested signal without any intervening instr after its
+                // outer-scope signal. For the latter case, we can check if the
+                // TRACE_MARKER_TYPE_KERNEL_EVENT marker value is equal for both signals.
+
                 // We start with an empty memref_t to denote absence of any pre-signal
                 // instr for any subsequent nested signals.
                 shard->last_instr_in_cur_context_ = {};
