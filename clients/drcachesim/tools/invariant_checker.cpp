@@ -541,8 +541,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                       << "marker type " << memref.marker.marker_type << " value 0x"
                       << std::hex << memref.marker.marker_value << std::dec << "\n";
         }
-        if (memref.marker.type == TRACE_TYPE_MARKER &&
-            memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
+#ifdef UNIX
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
             // TODO i#3937: We need to exclude this check for "kernel_xfer_app" when
             // running online.
             (knob_test_name_ != "kernel_xfer_app" || knob_offline_) &&
@@ -557,7 +557,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(shard, pc_discontinuity_error_string.empty(),
                             pc_discontinuity_error_string);
         }
-#ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {

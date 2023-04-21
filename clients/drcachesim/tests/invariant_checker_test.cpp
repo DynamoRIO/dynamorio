@@ -276,6 +276,7 @@ check_sane_control_flow()
         if (!run_checker(memrefs, false))
             return false;
     }
+#ifdef UNIX
     // Positive test (PC discontinuity): Transition from instr to kernel_xfer event
     // marker.
     {
@@ -303,6 +304,7 @@ check_sane_control_flow()
             return false;
         }
     }
+#endif
 
     return true;
 }
