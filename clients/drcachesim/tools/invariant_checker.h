@@ -141,7 +141,7 @@ protected:
 
         bool saw_rseq_abort_ = false;
         memref_t prev_prev_entry_ = {};
-        // These are only available via annotations in signal_invariants.cpp.
+        // These are only available via annotations in signal_invariants.c.
         int instrs_until_interrupt_ = -1;
         int memrefs_until_interrupt_ = -1;
 #endif
