@@ -11368,6 +11368,7 @@
  *
  * This macro is used to encode the forms:
  * \verbatim
+ *    LD1RQB  { <Zt>.B }, <Pg>/Z, [<Xn|SP>{, #<imm>}]
  *    LD1RQB  { <Zt>.B }, <Pg>/Z, [<Xn|SP>, <Xm>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
@@ -11375,11 +11376,84 @@
  * \param Pg   The governing predicate register, P (Predicate).
  * \param Rn   The first source base register with a register offset,
  *             constructed with the function:
- *             opnd_create_base_disp_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_1)
+ *             For the [\<Xn|SP\>{, #\<imm\>}] variant:
+ *             opnd_create_base_disp_aarch64(
+ *                 Xn, DR_REG_NULL, DR_EXTEND_UXTX, false, 0, 0, OPSZ_16)
+ *             For the [\<Xn|SP\>, \<Xm\>] variant:
+ *             opnd_create_base_disp_shift_aarch64(
+ *                 Xn, Xm, DR_EXTEND_UXTX, false, 0, 0, OPSZ_16, 0)
  */
 #define INSTR_CREATE_ld1rqb_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ld1rqb, Zt, Rn, Pg)
+
+/**
+ * Creates a LD1RQH instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD1RQH  { <Zt>.H }, <Pg>/Z, [<Xn|SP>{, #<imm>}]
+ *    LD1RQH  { <Zt>.H }, <Pg>/Z, [<Xn|SP>, <Xm>, LSL #1]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with a register offset,
+ *             constructed with the function:
+ *             For the [\<Xn|SP\>{, #\<imm\>}] variant:
+ *             opnd_create_base_disp_aarch64(
+ *                 Xn, DR_REG_NULL, DR_EXTEND_UXTX, false, 0, 0, OPSZ_16)
+ *             For the [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
+ *             opnd_create_base_disp_shift_aarch64(
+ *                 Xn, Xm, DR_EXTEND_UXTX, true, 0, 0, OPSZ_16, 1)
+ */
+#define INSTR_CREATE_ld1rqh_sve_pred(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ld1rqh, Zt, Rn, Pg)
+
+/**
+ * Creates a LD1RQW instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD1RQW  { <Zt>.S }, <Pg>/Z, [<Xn|SP>{, #<imm>}]
+ *    LD1RQW  { <Zt>.S }, <Pg>/Z, [<Xn|SP>, <Xm>, LSL #2]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with a register offset,
+ *             constructed with the function:
+ *             For the [\<Xn|SP\>{, #\<imm\>}] variant:
+ *             opnd_create_base_disp_aarch64(
+ *                 Xn, DR_REG_NULL, DR_EXTEND_UXTX, false, 0, 0, OPSZ_16)
+ *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
+ *             opnd_create_base_disp_shift_aarch64(
+ *                 Xn, Xm, DR_EXTEND_UXTX, true, 0, 0, OPSZ_16, 2)
+ */
+#define INSTR_CREATE_ld1rqw_sve_pred(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ld1rqw, Zt, Rn, Pg)
+
+/**
+ * Creates a LD1RQD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    LD1RQD  { <Zt>.D }, <Pg>/Z, [<Xn|SP>{, #<imm>}]
+ *    LD1RQD  { <Zt>.D }, <Pg>/Z, [<Xn|SP>, <Xm>, LSL #3]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Rn   The first source base register with a register offset,
+ *             constructed with the function:
+ *             For the [\<Xn|SP\>{, #\<imm\>}] variant:
+ *             opnd_create_base_disp_aarch64(
+ *                 Xn, DR_REG_NULL, DR_EXTEND_UXTX, false, 0, 0, OPSZ_16)
+ *             For the [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
+ *             opnd_create_base_disp_shift_aarch64(
+ *                 Xn, Xm, DR_EXTEND_UXTX, true, 0, 0, OPSZ_16, 3)
+ */
+#define INSTR_CREATE_ld1rqd_sve_pred(dc, Zt, Pg, Rn) \
+    instr_create_1dst_2src(dc, OP_ld1rqd, Zt, Rn, Pg)
 
 /**
  * Creates a LD1SB instruction.
@@ -14098,4 +14172,5 @@
  */
 #define INSTR_CREATE_trn2_sve(dc, Zd, Zn, Zm) \
     instr_create_1dst_2src(dc, OP_trn2, Zd, Zn, Zm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
