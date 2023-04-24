@@ -14173,4 +14173,71 @@
 #define INSTR_CREATE_trn2_sve(dc, Zd, Zn, Zm) \
     instr_create_1dst_2src(dc, OP_trn2, Zd, Zn, Zm)
 
+/**
+ * Creates a SDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SDOT    <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_sdot_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_sdot, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SDOT    <Zda>.D, <Zn>.H, <Zm>.H[<index>]
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ * \param index The immediate index for Zm.
+ *              In the range 0-1 for the 64-bit (D) variant or 0-3 for the
+ *              32-bit (S) variant.
+ */
+#define INSTR_CREATE_sdot_sve_idx(dc, Zda, Zn, Zm, index) \
+    instr_create_1dst_4src(dc, OP_sdot, Zda, Zda, Zn, Zm, index)
+
+/**
+ * Creates an UDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UDOT    <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda  The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_udot_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_udot, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates an UDOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    UDOT    <Zda>.D, <Zn>.H, <Zm>.H[<index>]
+ *    UDOT    <Zda>.S, <Zn>.B, <Zm>.B[<index>]
+ * \endverbatim
+ * \param dc    The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z (Scalable).
+ * \param Zn    The second source vector register, Z (Scalable).
+ * \param Zm    The third source vector register, Z (Scalable).
+ * \param index The immediate index for Zm.
+ *              In the range 0-1 for the 64-bit (D) variant or 0-3 for the
+ *              32-bit (S) variant.
+ */
+#define INSTR_CREATE_udot_sve_idx(dc, Zda, Zn, Zm, index) \
+    instr_create_1dst_4src(dc, OP_udot, Zda, Zda, Zn, Zm, index)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
