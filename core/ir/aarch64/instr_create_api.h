@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc. All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2023 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
@@ -811,7 +811,8 @@
 #define INSTR_CREATE_dc_ivac(dc, Rn)                                                    \
     instr_create_0dst_1src(dc, OP_dc_ivac,                                              \
                            opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
-                                                         0, false, 0, 0, OPSZ_sys))
+                                                         DR_EXTEND_DEFAULT, false, 0,   \
+                                                         DR_OPND_DEFAULT, OPSZ_sys))
 
 /**
  * Creates a DC ZVA instruction to Zero data cache by Virtual Address.
