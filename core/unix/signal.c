@@ -623,6 +623,13 @@ d_r_signal_init(void)
     IF_LINUX(signalfd_init());
     signal_arch_init();
 
+    /* Do not usurp the app's signal handling when in standalone mode.
+     * XXX i#1409: Refactoring and better separating general utilities from
+     * managed mode operations would make things cleaner.
+     */
+    if (standalone_library)
+        return;
+
     /* Set up a handler for safe_read (or other fault detection) during
      * DR init before thread is initialized.  We must do this *after* signal_arch_init()
      * and other key init in case a native signal arrives right after we install
