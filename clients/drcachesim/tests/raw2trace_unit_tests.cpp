@@ -1782,6 +1782,10 @@ test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
 bool
 test_xfer_modoffs(void *drcontext)
 {
+#ifndef X64
+    // Modoffs was only ever used for X64.
+    return true;
+#endif
     std::cerr << "\n===============\nTesting legacy kernel xfer values\n";
     std::vector<test_multi_module_mapper_t::bounds_t> modules = {
         { 100, 150 },
@@ -1819,7 +1823,8 @@ test_xfer_modoffs(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
-                    modules[interrupt.pc.modidx].start + interrupt.pc.modoffs) &&
+                    reinterpret_cast<addr_t>(modules[interrupt.pc.modidx].start +
+                                             interrupt.pc.modoffs)) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }

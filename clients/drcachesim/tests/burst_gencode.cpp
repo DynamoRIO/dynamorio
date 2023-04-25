@@ -159,7 +159,7 @@ private:
         // privileged instruction to SIGILL for us.
         instrlist_append(ilist, INSTR_CREATE_dc_ivac(dc, opnd_create_reg(base)));
 #    else
-        instrlist_append(ilist, INSTR_CREATE_udf(dc));
+        instrlist_append(ilist, INSTR_CREATE_udf(dc, OPND_CREATE_INT(0)));
 #    endif
 #endif
 
@@ -286,7 +286,9 @@ post_process()
 static std::string
 gather_trace()
 {
+#ifdef LINUX
     intercept_signal(SIGILL, handle_signal, false);
+#endif
 
     if (!my_setenv("DYNAMORIO_OPTIONS",
 #if defined(LINUX) && defined(X64)
