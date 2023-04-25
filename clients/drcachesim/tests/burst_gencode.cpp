@@ -69,8 +69,10 @@ static constexpr int UD2A_LENGTH = 4;
 void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
-    if (signal != SIGILL)
+    if (signal != SIGILL) {
+        std::cerr << "Unexpected signal " << signal << "\n";
         return;
+    }
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     sc->SC_XIP += UD2A_LENGTH;
     return;

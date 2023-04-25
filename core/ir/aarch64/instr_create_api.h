@@ -812,7 +812,7 @@
     instr_create_0dst_1src(dc, OP_dc_ivac,                                              \
                            opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
                                                          DR_EXTEND_DEFAULT, false, 0,   \
-                                                         DR_OPND_NONE, OPSZ_sys))
+                                                         DR_OPND_DEFAULT, OPSZ_sys))
 
 /**
  * Creates a DC ZVA instruction to Zero data cache by Virtual Address.

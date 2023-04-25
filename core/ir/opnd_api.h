@@ -1717,8 +1717,8 @@ typedef enum _dr_pred_constr_type_t {
  * displacement before it is added to or subtracted from the base register.
  */
 typedef enum _dr_opnd_flags_t {
-    /** Default (empty flags. */
-    DR_OPND_NONE = 0x00,
+    /** Default (no additional flags). */
+    DR_OPND_DEFAULT = 0x00,
     /** This register's value is negated prior to use in the containing instruction. */
     DR_OPND_NEGATED = 0x01,
     /**

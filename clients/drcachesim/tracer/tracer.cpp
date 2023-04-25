@@ -1452,8 +1452,9 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
          * non-memref instrs in the bb, and also to give core simulators the
          * interrupted PC -- primarily for a kernel event arriving right
          * after a branch to give a core simulator the branch target.
-         * For non-module code we don't have the block id so we are limited
-         * to the absolute PC which should be sufficient for all normal cases.
+         * For non-module code we don't have the block id but the absolute PC
+         * unambiguously points to the most recently executed encoding at
+         * that PC, even if another thread modifies it right after the signal.
          */
         marker_val = reinterpret_cast<uintptr_t>(mcontext_pc);
         NOTIFY(3, "%s: source pc " PFX " => marker val " PIFX "\n", __FUNCTION__,
