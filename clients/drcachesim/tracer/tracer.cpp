@@ -1452,36 +1452,10 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
          * non-memref instrs in the bb, and also to give core simulators the
          * interrupted PC -- primarily for a kernel event arriving right
          * after a branch to give a core simulator the branch target.
+         * For non-module code we don't have the block id so we are limited
+         * to the absolute PC which should be sufficient for all normal cases.
          */
-#ifdef X64 /* For 32-bit we can fit the abs pc but not modix:modoffs. */
-        if (op_offline.get_value()) {
-            uint modidx;
-            /* Just like PC entries, this is the offset from the base, not from
-             * the indexed segment.
-             */
-            uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
-                drcontext, mcontext_pc, &modidx);
-            /* We save space by using the modidx,modoffs format instead of a raw PC.
-             * These 49 bits will always fit into the 48-bit value field unless the
-             * module index is very large, when it will take two entries, while using
-             * an absolute PC here might always take two entries for some modules.
-             * We'll turn this into an absolute PC in the final trace.
-             */
-            // TODO i#2062: For non-module code we don't have the block id.
-            // Plus, PC_MODIDX_INVALID is the highest value and so will always take
-            // 2 entries.  The simplest solution is to abandon this whole
-            // kernel_interrupted_raw_pc_t scheme and pay the cost of 2 entries to
-            // store the absolute PC: this is only on rare events after all.
-            // This will require a version bump.
-            DR_ASSERT(modoffs != 0 && "non-module rseq code not supported");
-            kernel_interrupted_raw_pc_t raw_pc = {};
-            raw_pc.pc.modidx = modidx;
-            raw_pc.pc.modoffs = modoffs;
-            marker_val = raw_pc.combined_value;
-            NOTIFY(4, "%s: modidx=%d modoffs= " PIFX "\n", __FUNCTION__, modidx, modoffs);
-        } else
-#endif
-            marker_val = reinterpret_cast<uintptr_t>(mcontext_pc);
+        marker_val = reinterpret_cast<uintptr_t>(mcontext_pc);
         NOTIFY(3, "%s: source pc " PFX " => marker val " PIFX "\n", __FUNCTION__,
                mcontext_pc, marker_val);
     }

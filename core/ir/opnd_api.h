@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1656,14 +1656,15 @@ typedef enum _dr_shift_type_t {
  * instruction.
  */
 typedef enum _dr_extend_type_t {
-    DR_EXTEND_UXTB = 0, /**< Unsigned extend byte. */
-    DR_EXTEND_UXTH,     /**< Unsigned extend halfword. */
-    DR_EXTEND_UXTW,     /**< Unsigned extend word. */
-    DR_EXTEND_UXTX,     /**< Unsigned extend doubleword (a no-op). */
-    DR_EXTEND_SXTB,     /**< Signed extend byte. */
-    DR_EXTEND_SXTH,     /**< Signed extend halfword. */
-    DR_EXTEND_SXTW,     /**< Signed extend word. */
-    DR_EXTEND_SXTX,     /**< Signed extend doubleword (a no-op). */
+    DR_EXTEND_DEFAULT = 0, /**< Default value. */
+    DR_EXTEND_UXTB = 0,    /**< Unsigned extend byte. */
+    DR_EXTEND_UXTH,        /**< Unsigned extend halfword. */
+    DR_EXTEND_UXTW,        /**< Unsigned extend word. */
+    DR_EXTEND_UXTX,        /**< Unsigned extend doubleword (a no-op). */
+    DR_EXTEND_SXTB,        /**< Signed extend byte. */
+    DR_EXTEND_SXTH,        /**< Signed extend halfword. */
+    DR_EXTEND_SXTW,        /**< Signed extend word. */
+    DR_EXTEND_SXTX,        /**< Signed extend doubleword (a no-op). */
 } dr_extend_type_t;
 
 /**
@@ -1716,6 +1717,8 @@ typedef enum _dr_pred_constr_type_t {
  * displacement before it is added to or subtracted from the base register.
  */
 typedef enum _dr_opnd_flags_t {
+    /** Default (empty flags. */
+    DR_OPND_NONE = 0x00,
     /** This register's value is negated prior to use in the containing instruction. */
     DR_OPND_NEGATED = 0x01,
     /**
