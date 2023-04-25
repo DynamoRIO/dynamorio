@@ -1823,8 +1823,8 @@ test_xfer_modoffs(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
-                    reinterpret_cast<addr_t>(modules[interrupt.pc.modidx].start +
-                                             interrupt.pc.modoffs)) &&
+                    static_cast<addr_t>(modules[interrupt.pc.modidx].start +
+                                        interrupt.pc.modoffs)) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
