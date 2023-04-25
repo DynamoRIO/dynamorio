@@ -8436,6 +8436,56 @@
 65fe7fbb : fnmls z27.d, p7/M, z29.d, z30.d           : fnmls  %z27.d %p7/m %z29.d %z30.d -> %z27.d
 65ff7fff : fnmls z31.d, p7/M, z31.d, z31.d           : fnmls  %z31.d %p7/m %z31.d %z31.d -> %z31.d
 
+# FNMSB   <Zdn>.<T>, <Pg>/M, <Zm>.<T>, <Za>.<T> (FNMSB-Z.P.ZZZ-_)
+6560e000 : fnmsb z0.h, p0/M, z0.h, z0.h              : fnmsb  %z0.h %p0/m %z0.h %z0.h -> %z0.h
+6565e482 : fnmsb z2.h, p1/M, z4.h, z5.h              : fnmsb  %z2.h %p1/m %z4.h %z5.h -> %z2.h
+6567e8c4 : fnmsb z4.h, p2/M, z6.h, z7.h              : fnmsb  %z4.h %p2/m %z6.h %z7.h -> %z4.h
+6569e906 : fnmsb z6.h, p2/M, z8.h, z9.h              : fnmsb  %z6.h %p2/m %z8.h %z9.h -> %z6.h
+656bed48 : fnmsb z8.h, p3/M, z10.h, z11.h            : fnmsb  %z8.h %p3/m %z10.h %z11.h -> %z8.h
+656ded8a : fnmsb z10.h, p3/M, z12.h, z13.h           : fnmsb  %z10.h %p3/m %z12.h %z13.h -> %z10.h
+656ff1cc : fnmsb z12.h, p4/M, z14.h, z15.h           : fnmsb  %z12.h %p4/m %z14.h %z15.h -> %z12.h
+6571f20e : fnmsb z14.h, p4/M, z16.h, z17.h           : fnmsb  %z14.h %p4/m %z16.h %z17.h -> %z14.h
+6573f650 : fnmsb z16.h, p5/M, z18.h, z19.h           : fnmsb  %z16.h %p5/m %z18.h %z19.h -> %z16.h
+6574f671 : fnmsb z17.h, p5/M, z19.h, z20.h           : fnmsb  %z17.h %p5/m %z19.h %z20.h -> %z17.h
+6576f6b3 : fnmsb z19.h, p5/M, z21.h, z22.h           : fnmsb  %z19.h %p5/m %z21.h %z22.h -> %z19.h
+6578faf5 : fnmsb z21.h, p6/M, z23.h, z24.h           : fnmsb  %z21.h %p6/m %z23.h %z24.h -> %z21.h
+657afb37 : fnmsb z23.h, p6/M, z25.h, z26.h           : fnmsb  %z23.h %p6/m %z25.h %z26.h -> %z23.h
+657cff79 : fnmsb z25.h, p7/M, z27.h, z28.h           : fnmsb  %z25.h %p7/m %z27.h %z28.h -> %z25.h
+657effbb : fnmsb z27.h, p7/M, z29.h, z30.h           : fnmsb  %z27.h %p7/m %z29.h %z30.h -> %z27.h
+657fffff : fnmsb z31.h, p7/M, z31.h, z31.h           : fnmsb  %z31.h %p7/m %z31.h %z31.h -> %z31.h
+65a0e000 : fnmsb z0.s, p0/M, z0.s, z0.s              : fnmsb  %z0.s %p0/m %z0.s %z0.s -> %z0.s
+65a5e482 : fnmsb z2.s, p1/M, z4.s, z5.s              : fnmsb  %z2.s %p1/m %z4.s %z5.s -> %z2.s
+65a7e8c4 : fnmsb z4.s, p2/M, z6.s, z7.s              : fnmsb  %z4.s %p2/m %z6.s %z7.s -> %z4.s
+65a9e906 : fnmsb z6.s, p2/M, z8.s, z9.s              : fnmsb  %z6.s %p2/m %z8.s %z9.s -> %z6.s
+65abed48 : fnmsb z8.s, p3/M, z10.s, z11.s            : fnmsb  %z8.s %p3/m %z10.s %z11.s -> %z8.s
+65aded8a : fnmsb z10.s, p3/M, z12.s, z13.s           : fnmsb  %z10.s %p3/m %z12.s %z13.s -> %z10.s
+65aff1cc : fnmsb z12.s, p4/M, z14.s, z15.s           : fnmsb  %z12.s %p4/m %z14.s %z15.s -> %z12.s
+65b1f20e : fnmsb z14.s, p4/M, z16.s, z17.s           : fnmsb  %z14.s %p4/m %z16.s %z17.s -> %z14.s
+65b3f650 : fnmsb z16.s, p5/M, z18.s, z19.s           : fnmsb  %z16.s %p5/m %z18.s %z19.s -> %z16.s
+65b4f671 : fnmsb z17.s, p5/M, z19.s, z20.s           : fnmsb  %z17.s %p5/m %z19.s %z20.s -> %z17.s
+65b6f6b3 : fnmsb z19.s, p5/M, z21.s, z22.s           : fnmsb  %z19.s %p5/m %z21.s %z22.s -> %z19.s
+65b8faf5 : fnmsb z21.s, p6/M, z23.s, z24.s           : fnmsb  %z21.s %p6/m %z23.s %z24.s -> %z21.s
+65bafb37 : fnmsb z23.s, p6/M, z25.s, z26.s           : fnmsb  %z23.s %p6/m %z25.s %z26.s -> %z23.s
+65bcff79 : fnmsb z25.s, p7/M, z27.s, z28.s           : fnmsb  %z25.s %p7/m %z27.s %z28.s -> %z25.s
+65beffbb : fnmsb z27.s, p7/M, z29.s, z30.s           : fnmsb  %z27.s %p7/m %z29.s %z30.s -> %z27.s
+65bfffff : fnmsb z31.s, p7/M, z31.s, z31.s           : fnmsb  %z31.s %p7/m %z31.s %z31.s -> %z31.s
+65e0e000 : fnmsb z0.d, p0/M, z0.d, z0.d              : fnmsb  %z0.d %p0/m %z0.d %z0.d -> %z0.d
+65e5e482 : fnmsb z2.d, p1/M, z4.d, z5.d              : fnmsb  %z2.d %p1/m %z4.d %z5.d -> %z2.d
+65e7e8c4 : fnmsb z4.d, p2/M, z6.d, z7.d              : fnmsb  %z4.d %p2/m %z6.d %z7.d -> %z4.d
+65e9e906 : fnmsb z6.d, p2/M, z8.d, z9.d              : fnmsb  %z6.d %p2/m %z8.d %z9.d -> %z6.d
+65ebed48 : fnmsb z8.d, p3/M, z10.d, z11.d            : fnmsb  %z8.d %p3/m %z10.d %z11.d -> %z8.d
+65eded8a : fnmsb z10.d, p3/M, z12.d, z13.d           : fnmsb  %z10.d %p3/m %z12.d %z13.d -> %z10.d
+65eff1cc : fnmsb z12.d, p4/M, z14.d, z15.d           : fnmsb  %z12.d %p4/m %z14.d %z15.d -> %z12.d
+65f1f20e : fnmsb z14.d, p4/M, z16.d, z17.d           : fnmsb  %z14.d %p4/m %z16.d %z17.d -> %z14.d
+65f3f650 : fnmsb z16.d, p5/M, z18.d, z19.d           : fnmsb  %z16.d %p5/m %z18.d %z19.d -> %z16.d
+65f4f671 : fnmsb z17.d, p5/M, z19.d, z20.d           : fnmsb  %z17.d %p5/m %z19.d %z20.d -> %z17.d
+65f6f6b3 : fnmsb z19.d, p5/M, z21.d, z22.d           : fnmsb  %z19.d %p5/m %z21.d %z22.d -> %z19.d
+65f8faf5 : fnmsb z21.d, p6/M, z23.d, z24.d           : fnmsb  %z21.d %p6/m %z23.d %z24.d -> %z21.d
+65fafb37 : fnmsb z23.d, p6/M, z25.d, z26.d           : fnmsb  %z23.d %p6/m %z25.d %z26.d -> %z23.d
+65fcff79 : fnmsb z25.d, p7/M, z27.d, z28.d           : fnmsb  %z25.d %p7/m %z27.d %z28.d -> %z25.d
+65feffbb : fnmsb z27.d, p7/M, z29.d, z30.d           : fnmsb  %z27.d %p7/m %z29.d %z30.d -> %z27.d
+65ffffff : fnmsb z31.d, p7/M, z31.d, z31.d           : fnmsb  %z31.d %p7/m %z31.d %z31.d -> %z31.d
+
 # FRECPE  <Zd>.<T>, <Zn>.<T> (FRECPE-Z.Z-_)
 654e3000 : frecpe z0.h, z0.h                         : frecpe %z0.h -> %z0.h
 654e3062 : frecpe z2.h, z3.h                         : frecpe %z3.h -> %z2.h
