@@ -1621,15 +1621,15 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
         return "TRACE_MARKER_TYPE_SPLIT_VALUE unexpected for 32-bit";
 #endif
     }
-#ifdef X64 // 32-bit has the absolute pc as the raw marker value.
+#ifdef X64 // 32-bit always had the absolute pc as the raw marker value.
     if ((*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
         (*entry)->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT ||
         (*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER) {
-        if (get_version(tdata) >= OFFLINE_FILE_VERSION_KERNEL_INT_PC) {
+        if (get_version(tdata) >= OFFLINE_FILE_VERSION_KERNEL_INT_PC &&
+            get_version(tdata) < OFFLINE_FILE_VERSION_XFER_ABS_PC) {
             // We convert the idx:offs to an absolute PC.
-            // TODO i#2062: For non-module code we don't have the block id and so
-            // cannot use this format.  We should probably just abandon this and
-            // always store the absolute PC.
+            // This doesn't work for non-module-code and is thus only present in
+            // legacy traces.
             kernel_interrupted_raw_pc_t raw_pc;
             raw_pc.combined_value = marker_val;
             DR_ASSERT(raw_pc.pc.modidx != PC_MODIDX_INVALID);
@@ -1641,7 +1641,7 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
                 marker_val, raw_pc.pc.modidx, modvec_()[raw_pc.pc.modidx].orig_seg_base,
                 pc);
             marker_val = reinterpret_cast<uintptr_t>(pc);
-        } // Else we've already marked as TRACE_ENTRY_VERSION_NO_KERNEL_PC.
+        } // For really old, we've already marked as TRACE_ENTRY_VERSION_NO_KERNEL_PC.
     }
 #endif
     *value = marker_val;

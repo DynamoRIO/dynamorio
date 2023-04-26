@@ -68,6 +68,43 @@
 #    error Unsupported arch
 #endif
 
+// Module mapper for testing different module bounds but without encodings.
+class test_multi_module_mapper_t : public module_mapper_t {
+public:
+    struct bounds_t {
+        bounds_t(addr_t start, addr_t end)
+            : start(start)
+            , end(end)
+        {
+        }
+        addr_t start;
+        addr_t end;
+    };
+    test_multi_module_mapper_t(const std::vector<bounds_t> &modules)
+        : module_mapper_t(nullptr)
+        , bounds_(modules)
+    {
+        // Clear do_module_parsing error; we can't cleanly make virtual b/c it's
+        // called from the constructor.
+        last_error_ = "";
+    }
+
+protected:
+    void
+    read_and_map_modules() override
+    {
+        for (size_t i = 0; i < bounds_.size(); i++) {
+            modvec_.push_back(module_t("fake_module",
+                                       reinterpret_cast<app_pc>(bounds_[i].start),
+                                       nullptr, 0, bounds_[i].end - bounds_[i].start,
+                                       bounds_[i].end - bounds_[i].start, true));
+        }
+    }
+
+private:
+    std::vector<bounds_t> bounds_;
+};
+
 // Subclasses raw2trace_t and replaces the module_mapper_t with our own version.
 class raw2trace_test_t : public raw2trace_t {
 public:
@@ -97,6 +134,20 @@ public:
             new test_module_mapper_t(&instrs, drcontext));
         set_modmap_(module_mapper_.get());
     }
+    raw2trace_test_t(const std::vector<std::istream *> &input,
+                     const std::vector<std::ostream *> &output,
+                     const std::vector<test_multi_module_mapper_t::bounds_t> &modules,
+                     void *drcontext)
+        : raw2trace_t(nullptr, input, output, {}, INVALID_FILE, nullptr, nullptr,
+                      drcontext,
+                      // The sequences are small so we print everything for easier
+                      // debugging and viewing of what's going on.
+                      4)
+    {
+        module_mapper_ =
+            std::unique_ptr<module_mapper_t>(new test_multi_module_mapper_t(modules));
+        set_modmap_(module_mapper_.get());
+    }
 };
 
 class archive_ostream_test_t : public archive_ostream_t {
@@ -120,13 +171,13 @@ public:
 };
 
 offline_entry_t
-make_header()
+make_header(int version = OFFLINE_FILE_VERSION)
 {
     offline_entry_t entry;
     entry.extended.type = OFFLINE_TYPE_EXTENDED;
     entry.extended.ext = OFFLINE_EXT_TYPE_HEADER;
     entry.extended.valueA = OFFLINE_FILE_TYPE_DEFAULT;
-    entry.extended.valueB = OFFLINE_FILE_VERSION;
+    entry.extended.valueB = version;
     return entry;
 }
 
@@ -254,7 +305,8 @@ check_entry(std::vector<trace_entry_t> &entries, int &idx, unsigned short expect
 // Takes ownership of ilist and destroys it.
 bool
 run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist_t *ilist,
-              std::vector<trace_entry_t> &entries, int chunk_instr_count = 0)
+              std::vector<trace_entry_t> &entries, int chunk_instr_count = 0,
+              const std::vector<test_multi_module_mapper_t::bounds_t> &modules = {})
 {
     // We need an istream so we use istringstream.
     std::ostringstream raw_out;
@@ -281,7 +333,7 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         std::string error = raw2trace.do_conversion();
         CHECK(error.empty(), error);
         result = result_stream.str();
-    } else {
+    } else if (modules.empty()) {
         // We need an ostream to capture out.
         std::ostringstream result_stream;
         std::vector<std::ostream *> output;
@@ -292,8 +344,20 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         std::string error = raw2trace.do_conversion();
         CHECK(error.empty(), error);
         result = result_stream.str();
+    } else {
+        // We need an ostream to capture out.
+        std::ostringstream result_stream;
+        std::vector<std::ostream *> output;
+        output.push_back(&result_stream);
+
+        // Run raw2trace with our subclass supplying module bounds.
+        raw2trace_test_t raw2trace(input, output, modules, drcontext);
+        std::string error = raw2trace.do_conversion();
+        CHECK(error.empty(), error);
+        result = result_stream.str();
     }
-    instrlist_clear_and_destroy(drcontext, ilist);
+    if (ilist != nullptr)
+        instrlist_clear_and_destroy(drcontext, ilist);
 
     // Now check the results.
     char *start = &result[0];
@@ -1714,6 +1778,100 @@ test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }
 
+/* Tests pre-OFFLINE_FILE_VERSION_XFER_ABS_PC (module offset) handling. */
+bool
+test_xfer_modoffs(void *drcontext)
+{
+#ifndef X64
+    // Modoffs was only ever used for X64.
+    return true;
+#else
+    std::cerr << "\n===============\nTesting legacy kernel xfer values\n";
+    std::vector<test_multi_module_mapper_t::bounds_t> modules = {
+        { 100, 150 },
+        { 400, 450 },
+    };
+
+    kernel_interrupted_raw_pc_t interrupt;
+    interrupt.pc.modidx = 1;
+    interrupt.pc.modoffs = 42;
+
+    std::vector<offline_entry_t> raw;
+    // Version is < OFFLINE_FILE_VERSION_XFER_ABS_PC.
+    raw.push_back(make_header(OFFLINE_FILE_VERSION_ENCODINGS));
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, interrupt.combined_value));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, nullptr, entries, 0, modules))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                    static_cast<addr_t>(modules[interrupt.pc.modidx].start +
+                                        interrupt.pc.modoffs)) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+#endif
+}
+
+/* Tests >=OFFLINE_FILE_VERSION_XFER_ABS_PC (absolute PC) handling. */
+bool
+test_xfer_absolute(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting legacy kernel xfer values\n";
+    std::vector<test_multi_module_mapper_t::bounds_t> modules = {
+        { 100, 150 },
+        { 400, 450 },
+    };
+    constexpr addr_t INT_PC = 442;
+
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header(OFFLINE_FILE_VERSION_XFER_ABS_PC));
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp());
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, INT_PC));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, nullptr, entries, 0, modules))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                    INT_PC) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -1729,7 +1887,8 @@ main(int argc, const char *argv[])
         !test_rseq_rollback_with_chunks(drcontext) || !test_rseq_side_exit(drcontext) ||
         !test_rseq_side_exit_signal(drcontext) ||
         !test_rseq_side_exit_inverted(drcontext) ||
-        !test_rseq_side_exit_inverted_with_timestamp(drcontext))
+        !test_rseq_side_exit_inverted_with_timestamp(drcontext) ||
+        !test_xfer_modoffs(drcontext) || !test_xfer_absolute(drcontext))
         return 1;
     return 0;
 }
