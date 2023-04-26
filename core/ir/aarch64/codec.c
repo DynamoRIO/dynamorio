@@ -3531,7 +3531,7 @@ encode_opnd_imm3(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_z3_b_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_single_sized(DR_REG_Z0, DR_REG_Z27, 16, 3, BYTE_REG, 0, enc, opnd);
+    return decode_single_sized(DR_REG_Z0, DR_REG_Z7, 16, 3, BYTE_REG, 0, enc, opnd);
 }
 
 static inline bool
@@ -3548,7 +3548,7 @@ encode_opnd_z3_b_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
 static inline bool
 decode_opnd_z3_h_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_single_sized(DR_REG_Z0, DR_REG_Z27, 16, 3, HALF_REG, 0, enc, opnd);
+    return decode_single_sized(DR_REG_Z0, DR_REG_Z7, 16, 3, HALF_REG, 0, enc, opnd);
 }
 
 static inline bool
@@ -3565,7 +3565,7 @@ encode_opnd_z3_h_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
 static inline bool
 decode_opnd_z3_s_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_single_sized(DR_REG_Z0, DR_REG_Z27, 16, 3, SINGLE_REG, 0, enc, opnd);
+    return decode_single_sized(DR_REG_Z0, DR_REG_Z7, 16, 3, SINGLE_REG, 0, enc, opnd);
 }
 
 static inline bool
@@ -3847,7 +3847,7 @@ encode_opnd_z4_s_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
 static inline bool
 decode_opnd_z4_d_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_single_sized(DR_REG_Z0, DR_REG_Z31, 16, 4, DOUBLE_REG, 0, enc, opnd);
+    return decode_single_sized(DR_REG_Z0, DR_REG_Z15, 16, 4, DOUBLE_REG, 0, enc, opnd);
 }
 
 static inline bool
