@@ -248,12 +248,6 @@ typedef enum {
      * A restartable sequence abort handler is further identified by a prior
      * marker of type #TRACE_MARKER_TYPE_RSEQ_ABORT.
      */
-    /* Non-exported information since limited to raw offline traces:
-     * For raw offline traces, the value is in the form of the module index and offset
-     * (from the base, not the indexed segment) of type kernel_interrupted_raw_pc_t.
-     * For raw offline traces, a value of 0 can be assumed to target the start of a
-     * block and so there is no loss of accuracy when post-processing.
-     */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
      * The subsequent instruction is the target of a system call that changes the
@@ -633,7 +627,8 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_KERNEL_INT_PC 4
 #define OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP 5
 #define OFFLINE_FILE_VERSION_ENCODINGS 6
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ENCODINGS
+#define OFFLINE_FILE_VERSION_XFER_ABS_PC 7
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_XFER_ABS_PC
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
@@ -729,7 +724,8 @@ struct _offline_entry_t {
 } END_PACKED_STRUCTURE;
 typedef struct _offline_entry_t offline_entry_t;
 
-// This is the raw marker value for TRACE_MARKER_TYPE_KERNEL_*.
+// This is the raw marker value for TRACE_MARKER_TYPE_KERNEL_*
+// for legacy raw traces prior to OFFLINE_FILE_VERSION_XFER_ABS_PC.
 // It occupies 49 bits and so may require two raw entries.
 typedef union {
     struct {

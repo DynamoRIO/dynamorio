@@ -18408,6 +18408,76 @@ c51fffef : prfw 15, p7, [z31.d, #124]                : prfw   $0x0f %p7 +0x7c(%z
 04d61fbb : sdivr z27.d, p7/M, z27.d, z29.d           : sdivr  %p7/m %z27.d %z29.d -> %z27.d
 04d61fff : sdivr z31.d, p7/M, z31.d, z31.d           : sdivr  %p7/m %z31.d %z31.d -> %z31.d
 
+# SDOT    <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SDOT-Z.ZZZ-_)
+44800000 : sdot z0.s, z0.b, z0.b                     : sdot   %z0.s %z0.b %z0.b -> %z0.s
+44840062 : sdot z2.s, z3.b, z4.b                     : sdot   %z2.s %z3.b %z4.b -> %z2.s
+448600a4 : sdot z4.s, z5.b, z6.b                     : sdot   %z4.s %z5.b %z6.b -> %z4.s
+448800e6 : sdot z6.s, z7.b, z8.b                     : sdot   %z6.s %z7.b %z8.b -> %z6.s
+448a0128 : sdot z8.s, z9.b, z10.b                    : sdot   %z8.s %z9.b %z10.b -> %z8.s
+448c016a : sdot z10.s, z11.b, z12.b                  : sdot   %z10.s %z11.b %z12.b -> %z10.s
+448e01ac : sdot z12.s, z13.b, z14.b                  : sdot   %z12.s %z13.b %z14.b -> %z12.s
+449001ee : sdot z14.s, z15.b, z16.b                  : sdot   %z14.s %z15.b %z16.b -> %z14.s
+44920230 : sdot z16.s, z17.b, z18.b                  : sdot   %z16.s %z17.b %z18.b -> %z16.s
+44930251 : sdot z17.s, z18.b, z19.b                  : sdot   %z17.s %z18.b %z19.b -> %z17.s
+44950293 : sdot z19.s, z20.b, z21.b                  : sdot   %z19.s %z20.b %z21.b -> %z19.s
+449702d5 : sdot z21.s, z22.b, z23.b                  : sdot   %z21.s %z22.b %z23.b -> %z21.s
+44990317 : sdot z23.s, z24.b, z25.b                  : sdot   %z23.s %z24.b %z25.b -> %z23.s
+449b0359 : sdot z25.s, z26.b, z27.b                  : sdot   %z25.s %z26.b %z27.b -> %z25.s
+449d039b : sdot z27.s, z28.b, z29.b                  : sdot   %z27.s %z28.b %z29.b -> %z27.s
+449f03ff : sdot z31.s, z31.b, z31.b                  : sdot   %z31.s %z31.b %z31.b -> %z31.s
+44c00000 : sdot z0.d, z0.h, z0.h                     : sdot   %z0.d %z0.h %z0.h -> %z0.d
+44c40062 : sdot z2.d, z3.h, z4.h                     : sdot   %z2.d %z3.h %z4.h -> %z2.d
+44c600a4 : sdot z4.d, z5.h, z6.h                     : sdot   %z4.d %z5.h %z6.h -> %z4.d
+44c800e6 : sdot z6.d, z7.h, z8.h                     : sdot   %z6.d %z7.h %z8.h -> %z6.d
+44ca0128 : sdot z8.d, z9.h, z10.h                    : sdot   %z8.d %z9.h %z10.h -> %z8.d
+44cc016a : sdot z10.d, z11.h, z12.h                  : sdot   %z10.d %z11.h %z12.h -> %z10.d
+44ce01ac : sdot z12.d, z13.h, z14.h                  : sdot   %z12.d %z13.h %z14.h -> %z12.d
+44d001ee : sdot z14.d, z15.h, z16.h                  : sdot   %z14.d %z15.h %z16.h -> %z14.d
+44d20230 : sdot z16.d, z17.h, z18.h                  : sdot   %z16.d %z17.h %z18.h -> %z16.d
+44d30251 : sdot z17.d, z18.h, z19.h                  : sdot   %z17.d %z18.h %z19.h -> %z17.d
+44d50293 : sdot z19.d, z20.h, z21.h                  : sdot   %z19.d %z20.h %z21.h -> %z19.d
+44d702d5 : sdot z21.d, z22.h, z23.h                  : sdot   %z21.d %z22.h %z23.h -> %z21.d
+44d90317 : sdot z23.d, z24.h, z25.h                  : sdot   %z23.d %z24.h %z25.h -> %z23.d
+44db0359 : sdot z25.d, z26.h, z27.h                  : sdot   %z25.d %z26.h %z27.h -> %z25.d
+44dd039b : sdot z27.d, z28.h, z29.h                  : sdot   %z27.d %z28.h %z29.h -> %z27.d
+44df03ff : sdot z31.d, z31.h, z31.h                  : sdot   %z31.d %z31.h %z31.h -> %z31.d
+
+# SDOT    <Zda>.S, <Zn>.B, <Zm>.B[<imm>] (SDOT-Z.ZZZi-S)
+44a00000 : sdot z0.s, z0.b, z0.b[0]                  : sdot   %z0.s %z0.b %z0.b $0x00 -> %z0.s
+44a20062 : sdot z2.s, z3.b, z2.b[0]                  : sdot   %z2.s %z3.b %z2.b $0x00 -> %z2.s
+44a300a4 : sdot z4.s, z5.b, z3.b[0]                  : sdot   %z4.s %z5.b %z3.b $0x00 -> %z4.s
+44ab00e6 : sdot z6.s, z7.b, z3.b[1]                  : sdot   %z6.s %z7.b %z3.b $0x01 -> %z6.s
+44ac0128 : sdot z8.s, z9.b, z4.b[1]                  : sdot   %z8.s %z9.b %z4.b $0x01 -> %z8.s
+44ac016a : sdot z10.s, z11.b, z4.b[1]                : sdot   %z10.s %z11.b %z4.b $0x01 -> %z10.s
+44ad01ac : sdot z12.s, z13.b, z5.b[1]                : sdot   %z12.s %z13.b %z5.b $0x01 -> %z12.s
+44ad01ee : sdot z14.s, z15.b, z5.b[1]                : sdot   %z14.s %z15.b %z5.b $0x01 -> %z14.s
+44b60230 : sdot z16.s, z17.b, z6.b[2]                : sdot   %z16.s %z17.b %z6.b $0x02 -> %z16.s
+44b60251 : sdot z17.s, z18.b, z6.b[2]                : sdot   %z17.s %z18.b %z6.b $0x02 -> %z17.s
+44b60293 : sdot z19.s, z20.b, z6.b[2]                : sdot   %z19.s %z20.b %z6.b $0x02 -> %z19.s
+44b702d5 : sdot z21.s, z22.b, z7.b[2]                : sdot   %z21.s %z22.b %z7.b $0x02 -> %z21.s
+44b70317 : sdot z23.s, z24.b, z7.b[2]                : sdot   %z23.s %z24.b %z7.b $0x02 -> %z23.s
+44b00359 : sdot z25.s, z26.b, z0.b[2]                : sdot   %z25.s %z26.b %z0.b $0x02 -> %z25.s
+44b8039b : sdot z27.s, z28.b, z0.b[3]                : sdot   %z27.s %z28.b %z0.b $0x03 -> %z27.s
+44bf03ff : sdot z31.s, z31.b, z7.b[3]                : sdot   %z31.s %z31.b %z7.b $0x03 -> %z31.s
+
+# SDOT    <Zda>.D, <Zn>.H, <Zm>.H[<imm>] (SDOT-Z.ZZZi-D)
+44e00000 : sdot z0.d, z0.h, z0.h[0]                  : sdot   %z0.d %z0.h %z0.h $0x00 -> %z0.d
+44e30062 : sdot z2.d, z3.h, z3.h[0]                  : sdot   %z2.d %z3.h %z3.h $0x00 -> %z2.d
+44e400a4 : sdot z4.d, z5.h, z4.h[0]                  : sdot   %z4.d %z5.h %z4.h $0x00 -> %z4.d
+44e500e6 : sdot z6.d, z7.h, z5.h[0]                  : sdot   %z6.d %z7.h %z5.h $0x00 -> %z6.d
+44e60128 : sdot z8.d, z9.h, z6.h[0]                  : sdot   %z8.d %z9.h %z6.h $0x00 -> %z8.d
+44e7016a : sdot z10.d, z11.h, z7.h[0]                : sdot   %z10.d %z11.h %z7.h $0x00 -> %z10.d
+44e801ac : sdot z12.d, z13.h, z8.h[0]                : sdot   %z12.d %z13.h %z8.h $0x00 -> %z12.d
+44e901ee : sdot z14.d, z15.h, z9.h[0]                : sdot   %z14.d %z15.h %z9.h $0x00 -> %z14.d
+44ea0230 : sdot z16.d, z17.h, z10.h[0]               : sdot   %z16.d %z17.h %z10.h $0x00 -> %z16.d
+44fa0251 : sdot z17.d, z18.h, z10.h[1]               : sdot   %z17.d %z18.h %z10.h $0x01 -> %z17.d
+44fb0293 : sdot z19.d, z20.h, z11.h[1]               : sdot   %z19.d %z20.h %z11.h $0x01 -> %z19.d
+44fc02d5 : sdot z21.d, z22.h, z12.h[1]               : sdot   %z21.d %z22.h %z12.h $0x01 -> %z21.d
+44fd0317 : sdot z23.d, z24.h, z13.h[1]               : sdot   %z23.d %z24.h %z13.h $0x01 -> %z23.d
+44fe0359 : sdot z25.d, z26.h, z14.h[1]               : sdot   %z25.d %z26.h %z14.h $0x01 -> %z25.d
+44ff039b : sdot z27.d, z28.h, z15.h[1]               : sdot   %z27.d %z28.h %z15.h $0x01 -> %z27.d
+44ff03ff : sdot z31.d, z31.h, z15.h[1]               : sdot   %z31.d %z31.h %z15.h $0x01 -> %z31.d
+
 # SEL     <Zd>.<T>, <Pv>, <Zn>.<T>, <Zm>.<T> (SEL-Z.P.ZZ-_)
 0520c000 : sel z0.b, p0, z0.b, z0.b                  : sel    %p0 %z0.b %z0.b -> %z0.b
 0525c882 : sel z2.b, p2, z4.b, z5.b                  : sel    %p2 %z4.b %z5.b -> %z2.b
@@ -23330,6 +23400,76 @@ e5ac57df : str z31, [x30, #-155, mul vl]            : str    %z31 -> -0x9b(%x30)
 04d71f79 : udivr z25.d, p7/M, z25.d, z27.d           : udivr  %p7/m %z25.d %z27.d -> %z25.d
 04d71fbb : udivr z27.d, p7/M, z27.d, z29.d           : udivr  %p7/m %z27.d %z29.d -> %z27.d
 04d71fff : udivr z31.d, p7/M, z31.d, z31.d           : udivr  %p7/m %z31.d %z31.d -> %z31.d
+
+# UDOT    <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (UDOT-Z.ZZZ-_)
+44800400 : udot z0.s, z0.b, z0.b                     : udot   %z0.s %z0.b %z0.b -> %z0.s
+44840462 : udot z2.s, z3.b, z4.b                     : udot   %z2.s %z3.b %z4.b -> %z2.s
+448604a4 : udot z4.s, z5.b, z6.b                     : udot   %z4.s %z5.b %z6.b -> %z4.s
+448804e6 : udot z6.s, z7.b, z8.b                     : udot   %z6.s %z7.b %z8.b -> %z6.s
+448a0528 : udot z8.s, z9.b, z10.b                    : udot   %z8.s %z9.b %z10.b -> %z8.s
+448c056a : udot z10.s, z11.b, z12.b                  : udot   %z10.s %z11.b %z12.b -> %z10.s
+448e05ac : udot z12.s, z13.b, z14.b                  : udot   %z12.s %z13.b %z14.b -> %z12.s
+449005ee : udot z14.s, z15.b, z16.b                  : udot   %z14.s %z15.b %z16.b -> %z14.s
+44920630 : udot z16.s, z17.b, z18.b                  : udot   %z16.s %z17.b %z18.b -> %z16.s
+44930651 : udot z17.s, z18.b, z19.b                  : udot   %z17.s %z18.b %z19.b -> %z17.s
+44950693 : udot z19.s, z20.b, z21.b                  : udot   %z19.s %z20.b %z21.b -> %z19.s
+449706d5 : udot z21.s, z22.b, z23.b                  : udot   %z21.s %z22.b %z23.b -> %z21.s
+44990717 : udot z23.s, z24.b, z25.b                  : udot   %z23.s %z24.b %z25.b -> %z23.s
+449b0759 : udot z25.s, z26.b, z27.b                  : udot   %z25.s %z26.b %z27.b -> %z25.s
+449d079b : udot z27.s, z28.b, z29.b                  : udot   %z27.s %z28.b %z29.b -> %z27.s
+449f07ff : udot z31.s, z31.b, z31.b                  : udot   %z31.s %z31.b %z31.b -> %z31.s
+44c00400 : udot z0.d, z0.h, z0.h                     : udot   %z0.d %z0.h %z0.h -> %z0.d
+44c40462 : udot z2.d, z3.h, z4.h                     : udot   %z2.d %z3.h %z4.h -> %z2.d
+44c604a4 : udot z4.d, z5.h, z6.h                     : udot   %z4.d %z5.h %z6.h -> %z4.d
+44c804e6 : udot z6.d, z7.h, z8.h                     : udot   %z6.d %z7.h %z8.h -> %z6.d
+44ca0528 : udot z8.d, z9.h, z10.h                    : udot   %z8.d %z9.h %z10.h -> %z8.d
+44cc056a : udot z10.d, z11.h, z12.h                  : udot   %z10.d %z11.h %z12.h -> %z10.d
+44ce05ac : udot z12.d, z13.h, z14.h                  : udot   %z12.d %z13.h %z14.h -> %z12.d
+44d005ee : udot z14.d, z15.h, z16.h                  : udot   %z14.d %z15.h %z16.h -> %z14.d
+44d20630 : udot z16.d, z17.h, z18.h                  : udot   %z16.d %z17.h %z18.h -> %z16.d
+44d30651 : udot z17.d, z18.h, z19.h                  : udot   %z17.d %z18.h %z19.h -> %z17.d
+44d50693 : udot z19.d, z20.h, z21.h                  : udot   %z19.d %z20.h %z21.h -> %z19.d
+44d706d5 : udot z21.d, z22.h, z23.h                  : udot   %z21.d %z22.h %z23.h -> %z21.d
+44d90717 : udot z23.d, z24.h, z25.h                  : udot   %z23.d %z24.h %z25.h -> %z23.d
+44db0759 : udot z25.d, z26.h, z27.h                  : udot   %z25.d %z26.h %z27.h -> %z25.d
+44dd079b : udot z27.d, z28.h, z29.h                  : udot   %z27.d %z28.h %z29.h -> %z27.d
+44df07ff : udot z31.d, z31.h, z31.h                  : udot   %z31.d %z31.h %z31.h -> %z31.d
+
+# UDOT    <Zda>.S, <Zn>.B, <Zm>.B[<imm>] (UDOT-Z.ZZZi-S)
+44a00400 : udot z0.s, z0.b, z0.b[0]                  : udot   %z0.s %z0.b %z0.b $0x00 -> %z0.s
+44a20462 : udot z2.s, z3.b, z2.b[0]                  : udot   %z2.s %z3.b %z2.b $0x00 -> %z2.s
+44a304a4 : udot z4.s, z5.b, z3.b[0]                  : udot   %z4.s %z5.b %z3.b $0x00 -> %z4.s
+44ab04e6 : udot z6.s, z7.b, z3.b[1]                  : udot   %z6.s %z7.b %z3.b $0x01 -> %z6.s
+44ac0528 : udot z8.s, z9.b, z4.b[1]                  : udot   %z8.s %z9.b %z4.b $0x01 -> %z8.s
+44ac056a : udot z10.s, z11.b, z4.b[1]                : udot   %z10.s %z11.b %z4.b $0x01 -> %z10.s
+44ad05ac : udot z12.s, z13.b, z5.b[1]                : udot   %z12.s %z13.b %z5.b $0x01 -> %z12.s
+44ad05ee : udot z14.s, z15.b, z5.b[1]                : udot   %z14.s %z15.b %z5.b $0x01 -> %z14.s
+44b60630 : udot z16.s, z17.b, z6.b[2]                : udot   %z16.s %z17.b %z6.b $0x02 -> %z16.s
+44b60651 : udot z17.s, z18.b, z6.b[2]                : udot   %z17.s %z18.b %z6.b $0x02 -> %z17.s
+44b60693 : udot z19.s, z20.b, z6.b[2]                : udot   %z19.s %z20.b %z6.b $0x02 -> %z19.s
+44b706d5 : udot z21.s, z22.b, z7.b[2]                : udot   %z21.s %z22.b %z7.b $0x02 -> %z21.s
+44b70717 : udot z23.s, z24.b, z7.b[2]                : udot   %z23.s %z24.b %z7.b $0x02 -> %z23.s
+44b00759 : udot z25.s, z26.b, z0.b[2]                : udot   %z25.s %z26.b %z0.b $0x02 -> %z25.s
+44b8079b : udot z27.s, z28.b, z0.b[3]                : udot   %z27.s %z28.b %z0.b $0x03 -> %z27.s
+44bf07ff : udot z31.s, z31.b, z7.b[3]                : udot   %z31.s %z31.b %z7.b $0x03 -> %z31.s
+
+# UDOT    <Zda>.D, <Zn>.H, <Zm>.H[<imm>] (UDOT-Z.ZZZi-D)
+44e00400 : udot z0.d, z0.h, z0.h[0]                  : udot   %z0.d %z0.h %z0.h $0x00 -> %z0.d
+44e30462 : udot z2.d, z3.h, z3.h[0]                  : udot   %z2.d %z3.h %z3.h $0x00 -> %z2.d
+44e404a4 : udot z4.d, z5.h, z4.h[0]                  : udot   %z4.d %z5.h %z4.h $0x00 -> %z4.d
+44e504e6 : udot z6.d, z7.h, z5.h[0]                  : udot   %z6.d %z7.h %z5.h $0x00 -> %z6.d
+44e60528 : udot z8.d, z9.h, z6.h[0]                  : udot   %z8.d %z9.h %z6.h $0x00 -> %z8.d
+44e7056a : udot z10.d, z11.h, z7.h[0]                : udot   %z10.d %z11.h %z7.h $0x00 -> %z10.d
+44e805ac : udot z12.d, z13.h, z8.h[0]                : udot   %z12.d %z13.h %z8.h $0x00 -> %z12.d
+44e905ee : udot z14.d, z15.h, z9.h[0]                : udot   %z14.d %z15.h %z9.h $0x00 -> %z14.d
+44ea0630 : udot z16.d, z17.h, z10.h[0]               : udot   %z16.d %z17.h %z10.h $0x00 -> %z16.d
+44fa0651 : udot z17.d, z18.h, z10.h[1]               : udot   %z17.d %z18.h %z10.h $0x01 -> %z17.d
+44fb0693 : udot z19.d, z20.h, z11.h[1]               : udot   %z19.d %z20.h %z11.h $0x01 -> %z19.d
+44fc06d5 : udot z21.d, z22.h, z12.h[1]               : udot   %z21.d %z22.h %z12.h $0x01 -> %z21.d
+44fd0717 : udot z23.d, z24.h, z13.h[1]               : udot   %z23.d %z24.h %z13.h $0x01 -> %z23.d
+44fe0759 : udot z25.d, z26.h, z14.h[1]               : udot   %z25.d %z26.h %z14.h $0x01 -> %z25.d
+44ff079b : udot z27.d, z28.h, z15.h[1]               : udot   %z27.d %z28.h %z15.h $0x01 -> %z27.d
+44ff07ff : udot z31.d, z31.h, z15.h[1]               : udot   %z31.d %z31.h %z15.h $0x01 -> %z31.d
 
 # UMAX    <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (UMAX-Z.P.ZZ-_)
 04090000 : umax z0.b, p0/M, z0.b, z0.b               : umax   %p0/m %z0.b %z0.b -> %z0.b
