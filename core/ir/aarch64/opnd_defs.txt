@@ -320,6 +320,7 @@
 --------xx-xxxxx----------------  imm2_tsz_index   # Index encoded in imm2:tsz
 -------??--xxxxx------xxxxx-----  svemem_vec_s_imm5 # SVE memory address [<Zn>.S{, #<imm>}]
 -------??--xxxxx------xxxxx-----  svemem_vec_d_imm5 # SVE memory address [<Zn>.D{, #<imm>}]
+-------??--xxxxx------xxxxx-----  sveprf_gpr_shf   # SVE memory address [<Xn|SP>, <Xm>, LSL #x] for prefetch operations
 -------??-?xxxxx------xxxxx-----  svemem_gpr_vec64 # SVE memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod>}]
 -------????-xxxx------xxxxx-----  svemem_gpr_simm4_vl_1reg # SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}]
                                                            # 1 src/dest register

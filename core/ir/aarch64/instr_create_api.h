@@ -11823,6 +11823,7 @@
  *    PRFB    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D]
  *    PRFB    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend>]
  *    PRFB    <prfop>, <Pg>, [<Xn|SP>, <Zm>.S, <extend>]
+ *    PRFB    <prfop>, <Pg>, [<Xn|SP>, <Xm>]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param prfop The prefetch operation.
@@ -11846,6 +11847,9 @@
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
  *             0, 0, OPSZ_0, 0)
+ *             For the [\<Xn|SP\>, \<Xm\>] variant:
+ *             opnd_create_base_disp_shift_aarch64(Xn, Xm,
+ *             DR_EXTEND_UXTX, false, 0, 0, OPSZ_0, 0)
  */
 #define INSTR_CREATE_prfb_sve_pred(dc, prfop, Pg, Rn) \
     instr_create_0dst_3src(dc, OP_prfb, prfop, Pg, Rn)
@@ -11861,6 +11865,7 @@
  *    PRFD    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, LSL #3]
  *    PRFD    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #3]
  *    PRFD    <prfop>, <Pg>, [<Xn|SP>, <Zm>.S, <extend> #3]
+ *    PRFD    <prfop>, <Pg>, [<Xn|SP>, <Xm>, LSL #3]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param prfop The prefetch operation.
@@ -11884,6 +11889,9 @@
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
  *             true, 0, OPSZ_0, 3)
+ *             For the [\<Xn|SP\>, \<Xm\>] variant:
+ *             opnd_create_base_disp_shift_aarch64(Xn, Xm,
+ *             DR_EXTEND_UXTX, true, 0, 0, OPSZ_0, 3)
  */
 #define INSTR_CREATE_prfd_sve_pred(dc, prfop, Pg, Rn) \
     instr_create_0dst_3src(dc, OP_prfd, prfop, Pg, Rn)
@@ -11899,6 +11907,7 @@
  *    PRFH    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, LSL #1]
  *    PRFH    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #1]
  *    PRFH    <prfop>, <Pg>, [<Xn|SP>, <Zm>.S, <extend> #1]
+ *    PRFH    <prfop>, <Pg>, [<Xn|SP>, <Xm>, LSL #1]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param prfop The prefetch operation.
@@ -11922,6 +11931,9 @@
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
  *             true, 0, OPSZ_0, 1)
+ *             For the [\<Xn|SP\>, \<Xm\>] variant:
+ *             opnd_create_base_disp_shift_aarch64(Xn, Xm,
+ *             DR_EXTEND_UXTX, true, 0, 0, OPSZ_0, 1)
  */
 #define INSTR_CREATE_prfh_sve_pred(dc, prfop, Pg, Rn) \
     instr_create_0dst_3src(dc, OP_prfh, prfop, Pg, Rn)
@@ -11937,6 +11949,7 @@
  *    PRFW    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, LSL #2]
  *    PRFW    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #2]
  *    PRFW    <prfop>, <Pg>, [<Xn|SP>, <Zm>.S, <extend> #2]
+ *    PRFW    <prfop>, <Pg>, [<Xn|SP>, <Xm>, LSL #2]
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param prfop The prefetch operation.
@@ -11960,6 +11973,9 @@
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
  *             true, 0, OPSZ_0, 2)
+ *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
+ *             opnd_create_base_disp_shift_aarch64(Xn, Xm,
+ *             DR_EXTEND_UXTX, true, 0, 0, OPSZ_0, 2)
  */
 #define INSTR_CREATE_prfw_sve_pred(dc, prfop, Pg, Rn) \
     instr_create_0dst_3src(dc, OP_prfw, prfop, Pg, Rn)
