@@ -82,10 +82,10 @@ private:
 };
 
 static trace_entry_t
-make_instr(addr_t pc)
+make_instr(addr_t pc, trace_type_t type = TRACE_TYPE_INSTR)
 {
     trace_entry_t entry;
-    entry.type = TRACE_TYPE_INSTR;
+    entry.type = type;
     entry.size = 1;
     entry.addr = pc;
     return entry;
@@ -796,6 +796,126 @@ test_synthetic()
     assert(sched_as_string[1] == "BBBDDDFFFAAACCCEEEGGGBBBDDDFFF");
 }
 
+static void
+test_speculation()
+{
+    std::cerr << "\n----------------\nTesting speculation\n";
+    std::vector<trace_entry_t> memrefs = {
+        /* clang-format off */
+        make_thread(1),
+        make_pid(1),
+        make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+        make_timestamp(10),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        // Conditional branch.
+        make_instr(1, TRACE_TYPE_INSTR_CONDITIONAL_JUMP),
+        // It fell through in the trace.
+        make_instr(2),
+        // Another conditional branch.
+        make_instr(3, TRACE_TYPE_INSTR_CONDITIONAL_JUMP),
+        // It fell through in the trace.
+        make_instr(4),
+        make_instr(5),
+        make_exit(1),
+        /* clang-format on */
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    scheduler_t::scheduler_options_t sched_ops =
+        scheduler_t::make_scheduler_serial_options(/*verbosity=*/4);
+    sched_ops.flags = static_cast<scheduler_t::scheduler_flags_t>(
+        static_cast<int>(sched_ops.flags) |
+        static_cast<int>(scheduler_t::SCHEDULER_SPECULATE_NOPS));
+    if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    int ordinal = 0;
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+        switch (ordinal) {
+        case 0:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE);
+            break;
+        case 1:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
+            break;
+        case 2:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
+            break;
+        case 3:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 1);
+            break;
+        case 4:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 2);
+            // We realize now that we mispredicted that the branch would be taken.
+            // We ask to queue this record for post-speculation.
+            stream->start_speculation(100, true);
+            break;
+        case 5:
+            // We should now see nops from the speculator.
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 100);
+            break;
+        case 6:
+            // Another nop before we abandon this path.
+            assert(type_is_instr(memref.instr.type));
+#ifdef AARCH64
+            assert(memref.instr.addr == 104);
+#elif defined(X86_64) || defined(X86_32)
+            assert(memref.instr.addr == 101);
+#elif defined(ARM)
+            assert(memref.instr.addr == 102 || memref.instr.addr == 104);
+#endif
+            stream->stop_speculation();
+            break;
+        case 7:
+            // Back to the trace, to the queued record
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 2);
+            break;
+        case 8:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 3);
+            break;
+        case 9:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 4);
+            // We realize now that we mispredicted that the branch would be taken.
+            // This time we do *not* ask to queue this record for post-speculation.
+            stream->start_speculation(200, false);
+            break;
+        case 10:
+            // We should now see nops from the speculator.
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 200);
+            stream->stop_speculation();
+            break;
+        case 11:
+            // Back to the trace, but skipping what we already read.
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 5);
+            break;
+        default:
+            assert(ordinal == 12);
+            assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
+        }
+        ++ordinal;
+    }
+    assert(ordinal == 13);
+}
+
 } // namespace
 
 int
@@ -810,5 +930,6 @@ main(int argc, const char *argv[])
     test_only_threads();
     test_real_file_queries_and_filters(argv[1]);
     test_synthetic();
+    test_speculation();
     return 0;
 }

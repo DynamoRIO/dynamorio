@@ -232,6 +232,7 @@ endif ()
 set(drcachesim_srcs
   launcher.cpp
   scheduler/scheduler.cpp
+  scheduler/speculator.cpp
   analyzer.cpp
   analyzer_multi.cpp
   ${client_and_sim_srcs}
@@ -277,6 +278,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 add_exported_library(drmemtrace_analyzer STATIC
   analyzer.cpp
   scheduler/scheduler.cpp
+  scheduler/speculator.cpp
   common/trace_entry.cpp
   reader/reader.cpp
   reader/config_reader.cpp

@@ -51,6 +51,7 @@
 #include "memtrace_stream.h"
 #include "reader.h"
 #include "record_file_reader.h"
+#include "speculator.h"
 #include "utils.h"
 
 namespace dynamorio {
@@ -480,16 +481,28 @@ public:
         /**
          * Begins a diversion from the regular inputs to a side stream of records
          * representing speculative execution starting at 'start_address'.
+         *
+         * Because the instruction record after a branch typically needs to be read
+         * before knowing whether a simulator is on the wrong path or not, this routine
+         * supports putting back the current record so that it will be re-provided as
+         * the first record after stop_speculation(), if "queue_current_record" is true.
+         * The "queue_current_record" parameter is ignored if speculation is already in
+         * effect.
+         *
          * This call can be "nested" but only one stop_speculation call is needed to
          * resume the paused stream.
          */
         virtual stream_status_t
-        start_speculation(addr_t start_address);
+        start_speculation(addr_t start_address, bool queue_current_record);
 
         /**
-         * Stops speculative execution and resumes the regular stream of records
-         * from the point at which the prior start_speculation call was made.
-         * Returns STATUS_INVALID if there was no prior start_speculation() call.
+         * Stops speculative execution and resumes the regular stream of records from
+         * the point at which the most distant prior start_speculation() call without an
+         * intervening stop_speculation() call was made (either repeating the current
+         * record at that time, if "true" was passed for "queue_current_record" to
+         * start_speculation(), or continuing on the subsequent record if "false" was
+         * passed).  Returns #dynamorio::drmemtrace::scheduler_tmpl_t::STATUS_INVALID if
+         * there was no prior start_speculation() call.
          */
         virtual stream_status_t
         stop_speculation();
@@ -708,6 +721,7 @@ public:
 
 protected:
     typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
+    typedef speculator_tmpl_t<RecordType> spec_type_t;
 
     struct input_info_t {
         int index = -1; // Position in inputs_ vector.
@@ -740,8 +754,11 @@ protected:
 
     struct output_info_t {
         output_info_t(scheduler_tmpl_t<RecordType, ReaderType> *scheduler,
-                      output_ordinal_t ordinal, int verbosity = 0)
+                      output_ordinal_t ordinal,
+                      typename spec_type_t::speculator_flags_t speculator_flags,
+                      int verbosity = 0)
             : stream(scheduler, ordinal, verbosity)
+            , speculator(speculator_flags, verbosity)
         {
         }
         stream_t stream;
@@ -752,6 +769,11 @@ protected:
         // lock for dynamically finding the next input, keeping things parallel.
         std::vector<input_ordinal_t> input_indices;
         int input_indices_index = 0;
+        // Speculation support.
+        bool speculating = false;
+        speculator_tmpl_t<RecordType> speculator;
+        addr_t speculate_pc = 0;
+        RecordType last_record;
     };
 
     scheduler_status_t
@@ -840,6 +862,13 @@ protected:
     // 'output_ordinal'-th output stream.
     memtrace_stream_t *
     get_input_stream(output_ordinal_t output);
+
+    stream_status_t
+    start_speculation(output_ordinal_t output, addr_t start_address,
+                      bool queue_current_record);
+
+    stream_status_t
+    stop_speculation(output_ordinal_t output);
 
     // This has the same value as scheduler_options_t.verbosity (for use in VPRINT).
     int verbosity_ = 0;
