@@ -136,6 +136,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t()
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(const std::string &trace_path,
+                                                        memref_tid_t only_thread,
                                                         int verbosity)
 {
     verbosity_ = verbosity;
@@ -152,6 +153,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(const std::string &trace
         regions.emplace_back(skip_instrs_ + 1, 0);
     }
     typename sched_type_t::input_workload_t workload(trace_path, regions);
+    if (only_thread != INVALID_THREAD_ID) {
+        workload.only_threads.insert(only_thread);
+    }
     return init_scheduler_common(workload);
 }
 

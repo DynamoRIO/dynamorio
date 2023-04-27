@@ -725,7 +725,7 @@ translate_restore_clean_call(dcontext_t *tdcontext, translate_walk_t *walk)
      */
 }
 
-static app_pc
+app_pc
 translate_restore_special_cases(dcontext_t *dcontext, app_pc pc)
 {
 #ifdef LINUX
@@ -755,6 +755,14 @@ translate_last_direct_translation(dcontext_t *dcontext, app_pc pc)
         return dcontext->client_data->last_special_xl8;
 #endif
     return pc;
+}
+
+void
+translate_clear_last_direct_translation(dcontext_t *dcontext)
+{
+#ifdef LINUX
+    dcontext->client_data->last_special_xl8 = NULL;
+#endif
 }
 
 /* Returns a success code, but makes a best effort regardless.

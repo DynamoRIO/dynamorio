@@ -140,7 +140,8 @@ protected:
     };
 
     bool
-    init_scheduler(const std::string &trace_path, int verbosity = 0);
+    init_scheduler(const std::string &trace_path,
+                   memref_tid_t only_thread = INVALID_THREAD_ID, int verbosity = 0);
 
     bool
     init_scheduler(

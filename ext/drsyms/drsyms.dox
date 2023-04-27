@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -85,6 +85,16 @@ The \p drsyms library on Linux and Mac uses bundled copies of \p libelf, \p libd
 and \p libelftc built from the
 <a href="http://elftoolchain.sourceforge.net">elftoolchain</a> project and
 requires no setup.
+
+\subsection sec_drsyms_unsupported_dwarfv5 DWARFv5 not supported yet
+
+The <a href="http://elftoolchain.sourceforge.net">elftoolchain</a> project does
+not support DWARFv5 yet (<a href="https://sourceforge.net/p/elftoolchain/tickets/611">ticket</a>).
+As a result, drsyms is not able to read line information output by some compiler
+varsions (<a href="https://github.com/DynamoRIO/dynamorio/issues/5926">i#5926</a>);
+e.g. this is the default behavior of g++-11. Possible workarounds are to use
+a different compiler version that outputs DWARF version 2 to 4,  or set
+"-gdwarf-4" in the g++/gcc invocation to explicitly select the DWARFv4 format.
 
 \section sec_drsyms_paths Search Paths
 
