@@ -16353,6 +16353,19 @@ TEST_INSTR(prfb_sve_pred)
               opnd_create_vector_base_disp_aarch64(
                   Xn_six_offset_2_sp[i], Zn_six_offset_3[i], OPSZ_4, DR_EXTEND_SXTW,
                   false, 0, 0, OPSZ_0, 0));
+
+    /* Testing PRFB    <prfop>, <Pg>, [<Xn|SP>, <Xm>] */
+    const char *const expected_5_0[6] = {
+        "prfb   $0x00 %p0 (%x0,%x0)",   "prfb   $0x02 %p2 (%x7,%x8)",
+        "prfb   $0x05 %p3 (%x12,%x13)", "prfb   $0x08 %p5 (%x17,%x18)",
+        "prfb   $0x0a %p6 (%x22,%x23)", "prfb   $0x0f %p7 (%sp,%x30)",
+    };
+    TEST_LOOP(prfb, prfb_sve_pred, 6, expected_5_0[i],
+              opnd_create_immed_uint(prfop[i], OPSZ_4b),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp_shift_aarch64(Xn_six_offset_2_sp[i],
+                                                  Xn_six_offset_3[i], DR_EXTEND_UXTX,
+                                                  false, 0, 0, OPSZ_0, 0));
 }
 
 TEST_INSTR(prfd_sve_pred)
@@ -16473,6 +16486,19 @@ TEST_INSTR(prfd_sve_pred)
               opnd_create_vector_base_disp_aarch64(
                   Xn_six_offset_2_sp[i], Zn_six_offset_3[i], OPSZ_4, DR_EXTEND_SXTW, true,
                   0, 0, OPSZ_0, 3));
+
+    /* Testing PRFD    <prfop>, <Pg>, [<Xn|SP>, <Xm>, LSL #3] */
+    const char *const expected_5_0[6] = {
+        "prfd   $0x00 %p0 (%x0,%x0,lsl #3)",   "prfd   $0x02 %p2 (%x7,%x8,lsl #3)",
+        "prfd   $0x05 %p3 (%x12,%x13,lsl #3)", "prfd   $0x08 %p5 (%x17,%x18,lsl #3)",
+        "prfd   $0x0a %p6 (%x22,%x23,lsl #3)", "prfd   $0x0f %p7 (%sp,%x30,lsl #3)",
+    };
+    TEST_LOOP(prfd, prfd_sve_pred, 6, expected_5_0[i],
+              opnd_create_immed_uint(prfop[i], OPSZ_4b),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp_shift_aarch64(Xn_six_offset_2_sp[i],
+                                                  Xn_six_offset_3[i], DR_EXTEND_UXTX,
+                                                  true, 0, 0, OPSZ_0, 3));
 }
 
 TEST_INSTR(prfh_sve_pred)
@@ -16594,6 +16620,19 @@ TEST_INSTR(prfh_sve_pred)
               opnd_create_vector_base_disp_aarch64(
                   Xn_six_offset_2_sp[i], Zn_six_offset_3[i], OPSZ_4, DR_EXTEND_SXTW, true,
                   0, 0, OPSZ_0, 1));
+
+    /* Testing PRFH    <prfop>, <Pg>, [<Xn|SP>, <Xm>, LSL #1] */
+    const char *const expected_5_0[6] = {
+        "prfh   $0x00 %p0 (%x0,%x0,lsl #1)",   "prfh   $0x02 %p2 (%x7,%x8,lsl #1)",
+        "prfh   $0x05 %p3 (%x12,%x13,lsl #1)", "prfh   $0x08 %p5 (%x17,%x18,lsl #1)",
+        "prfh   $0x0a %p6 (%x22,%x23,lsl #1)", "prfh   $0x0f %p7 (%sp,%x30,lsl #1)",
+    };
+    TEST_LOOP(prfh, prfh_sve_pred, 6, expected_5_0[i],
+              opnd_create_immed_uint(prfop[i], OPSZ_4b),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp_shift_aarch64(Xn_six_offset_2_sp[i],
+                                                  Xn_six_offset_3[i], DR_EXTEND_UXTX,
+                                                  true, 0, 0, OPSZ_0, 1));
 }
 
 TEST_INSTR(prfw_sve_pred)
@@ -16715,6 +16754,19 @@ TEST_INSTR(prfw_sve_pred)
               opnd_create_vector_base_disp_aarch64(
                   Xn_six_offset_2_sp[i], Zn_six_offset_3[i], OPSZ_4, DR_EXTEND_SXTW, true,
                   0, 0, OPSZ_0, 2));
+
+    /* Testing PRFW    <prfop>, <Pg>, [<Xn|SP>, <Xm>, LSL #2] */
+    const char *const expected_5_0[6] = {
+        "prfw   $0x00 %p0 (%x0,%x0,lsl #2)",   "prfw   $0x02 %p2 (%x7,%x8,lsl #2)",
+        "prfw   $0x05 %p3 (%x12,%x13,lsl #2)", "prfw   $0x08 %p5 (%x17,%x18,lsl #2)",
+        "prfw   $0x0a %p6 (%x22,%x23,lsl #2)", "prfw   $0x0f %p7 (%sp,%x30,lsl #2)",
+    };
+    TEST_LOOP(prfw, prfw_sve_pred, 6, expected_5_0[i],
+              opnd_create_immed_uint(prfop[i], OPSZ_4b),
+              opnd_create_reg(Pn_half_six_offset_0[i]),
+              opnd_create_base_disp_shift_aarch64(Xn_six_offset_2_sp[i],
+                                                  Xn_six_offset_3[i], DR_EXTEND_UXTX,
+                                                  true, 0, 0, OPSZ_0, 2));
 }
 
 TEST_INSTR(adr_sve)

@@ -558,24 +558,28 @@
 11000100011xxxxx100xxxxxxxx0xxxx  n   963  SVE     prfb                : prfop4 p10_lo sveprf_gpr_vec64
 110001000x1xxxxx000xxxxxxxx0xxxx  n   963  SVE     prfb                : prfop4 p10_lo sveprf_gpr_vec32
 100001000x1xxxxx000xxxxxxxx0xxxx  n   963  SVE     prfb                : prfop4 p10_lo sveprf_gpr_vec32
+10000100000xxxxx110xxxxxxxx0xxxx  n   963  SVE     prfb                : prfop4 p10_lo sveprf_gpr_shf
 1000010111xxxxxx011xxxxxxxx0xxxx  n   964  SVE     prfd                : prfop4 p10_lo svemem_gpr_simm6_vl
 10000101100xxxxx111xxxxxxxx0xxxx  n   964  SVE     prfd                : prfop4 p10_lo svemem_vec_s_imm5
 11000101100xxxxx111xxxxxxxx0xxxx  n   964  SVE     prfd                : prfop4 p10_lo svemem_vec_d_imm5
 11000100011xxxxx111xxxxxxxx0xxxx  n   964  SVE     prfd                : prfop4 p10_lo sveprf_gpr_vec64
 110001000x1xxxxx011xxxxxxxx0xxxx  n   964  SVE     prfd                : prfop4 p10_lo sveprf_gpr_vec32
 100001000x1xxxxx011xxxxxxxx0xxxx  n   964  SVE     prfd                : prfop4 p10_lo sveprf_gpr_vec32
+10000101100xxxxx110xxxxxxxx0xxxx  n   964  SVE     prfd                : prfop4 p10_lo sveprf_gpr_shf
 1000010111xxxxxx001xxxxxxxx0xxxx  n   965  SVE     prfh                : prfop4 p10_lo svemem_gpr_simm6_vl
 10000100100xxxxx111xxxxxxxx0xxxx  n   965  SVE     prfh                : prfop4 p10_lo svemem_vec_s_imm5
 11000100100xxxxx111xxxxxxxx0xxxx  n   965  SVE     prfh                : prfop4 p10_lo svemem_vec_d_imm5
 11000100011xxxxx101xxxxxxxx0xxxx  n   965  SVE     prfh                : prfop4 p10_lo sveprf_gpr_vec64
 110001000x1xxxxx001xxxxxxxx0xxxx  n   965  SVE     prfh                : prfop4 p10_lo sveprf_gpr_vec32
 100001000x1xxxxx001xxxxxxxx0xxxx  n   965  SVE     prfh                : prfop4 p10_lo sveprf_gpr_vec32
+10000100100xxxxx110xxxxxxxx0xxxx  n   965  SVE     prfh                : prfop4 p10_lo sveprf_gpr_shf
 1000010111xxxxxx010xxxxxxxx0xxxx  n   966  SVE     prfw                : prfop4 p10_lo svemem_gpr_simm6_vl
 10000101000xxxxx111xxxxxxxx0xxxx  n   966  SVE     prfw                : prfop4 p10_lo svemem_vec_s_imm5
 11000101000xxxxx111xxxxxxxx0xxxx  n   966  SVE     prfw                : prfop4 p10_lo svemem_vec_d_imm5
 11000100011xxxxx110xxxxxxxx0xxxx  n   966  SVE     prfw                : prfop4 p10_lo sveprf_gpr_vec64
 110001000x1xxxxx010xxxxxxxx0xxxx  n   966  SVE     prfw                : prfop4 p10_lo sveprf_gpr_vec32
 100001000x1xxxxx010xxxxxxxx0xxxx  n   966  SVE     prfw                : prfop4 p10_lo sveprf_gpr_vec32
+10000101000xxxxx110xxxxxxxx0xxxx  n   966  SVE     prfw                : prfop4 p10_lo sveprf_gpr_shf
 001001010101000011xxxx0xxxx00000  w   786  SVE    ptest                : p10 p_b_5
 00100101xx011000111000xxxxx0xxxx  n   897  SVE    ptrue  p_size_bhsd_0 : pred_constr
 00100101xx011001111000xxxxx0xxxx  w   898  SVE   ptrues  p_size_bhsd_0 : pred_constr

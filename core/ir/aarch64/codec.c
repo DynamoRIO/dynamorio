@@ -7004,6 +7004,25 @@ encode_opnd_svemem_vec_d_imm5(uint enc, int opcode, byte *pc, opnd_t opnd,
     return encode_svemem_vec_imm5(enc, DOUBLE_REG, op_is_prefetch(opcode), opnd, enc_out);
 }
 
+/* sveprf_gpr_shf: SVE memory address [<Xn|SP>, <Xm>, LSL #x] for prefetch operations */
+
+static inline bool
+decode_opnd_sveprf_gpr_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const uint shift_amount = BITS(enc, 24, 23);
+
+    return svemem_gprs_per_element_decode(OPSZ_0, shift_amount, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_sveprf_gpr_shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    const uint shift_amount = BITS(enc, 24, 23);
+
+    return svemem_gprs_per_element_encode(OPSZ_0, shift_amount, enc, opcode, pc, opnd,
+                                          enc_out);
+}
+
 /* SVE memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod>}] */
 static inline bool
 decode_opnd_svemem_gpr_vec64(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
