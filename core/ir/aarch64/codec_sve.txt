@@ -602,6 +602,10 @@
 0110010111010100101xxxxxxxxxxxxx  n   362  SVE    scvtf          z_s_0 : p10_mrg_lo z_d_5
 00000100xx010100000xxxxxxxxxxxxx  n   363  SVE     sdiv    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
 00000100xx010110000xxxxxxxxxxxxx  n   794  SVE    sdivr    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
+01000100110xxxxx000000xxxxxxxxxx  n   364  SVE     sdot          z_d_0 : z_d_0 z_h_5 z_h_16
+01000100100xxxxx000000xxxxxxxxxx  n   364  SVE     sdot          z_s_0 : z_s_0 z_b_5 z_b_16
+01000100111xxxxx000000xxxxxxxxxx  n   364  SVE     sdot          z_d_0 : z_d_0 z_h_5 z4_h_16 i1_index_20
+01000100101xxxxx000000xxxxxxxxxx  n   364  SVE     sdot          z_s_0 : z_s_0 z_b_5 z3_b_16 i2_index_19
 001001010000xxxx01xxxx1xxxx1xxxx  n   896  SVE      sel          p_b_0 : p10 p_b_5 p_b_16
 00000101xx1xxxxx11xxxxxxxxxxxxxx  n   896  SVE      sel  z_size_bhsd_0 : p10 z_size_bhsd_5 z_size_bhsd_16
 00100101001011001001000000000000  n   819  SVE   setffr                :
@@ -759,6 +763,10 @@
 0110010111010101101xxxxxxxxxxxxx  n   510  SVE    ucvtf          z_s_0 : p10_mrg_lo z_d_5
 00000100xx010101000xxxxxxxxxxxxx  n   511  SVE     udiv    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
 00000100xx010111000xxxxxxxxxxxxx  n   795  SVE    udivr    z_size_sd_0 : p10_mrg_lo z_size_sd_0 z_size_sd_5
+01000100110xxxxx000001xxxxxxxxxx  n   512  SVE     udot          z_d_0 : z_d_0 z_h_5 z_h_16
+01000100100xxxxx000001xxxxxxxxxx  n   512  SVE     udot          z_s_0 : z_s_0 z_b_5 z_b_16
+01000100111xxxxx000001xxxxxxxxxx  n   512  SVE     udot          z_d_0 : z_d_0 z_h_5 z4_h_16 i1_index_20
+01000100101xxxxx000001xxxxxxxxxx  n   512  SVE     udot          z_s_0 : z_s_0 z_b_5 z3_b_16 i2_index_19
 00000100xx001001000xxxxxxxxxxxxx  n   516  SVE     umax  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 00100101xx101001110xxxxxxxxxxxxx  n   516  SVE     umax  z_size_bhsd_0 : z_size_bhsd_0 imm8_5
 0000010000001001001xxxxxxxxxxxxx  n   518  SVE    umaxv             b0 : p10_lo z_size_bhsd_5
