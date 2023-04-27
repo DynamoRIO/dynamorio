@@ -43,6 +43,9 @@
 #include "raw2trace_directory.h"
 #include "scheduler.h"
 #include <assert.h>
+#ifdef LINUX
+#    include <signal.h>
+#endif
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -56,6 +59,25 @@ namespace {
 /***************************************************************************
  * Code generation.
  */
+
+#ifdef LINUX
+#    ifdef X86
+static constexpr int UD2A_LENGTH = 2;
+#    else
+static constexpr int UD2A_LENGTH = 4;
+#    endif
+void
+handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal != SIGILL) {
+        std::cerr << "Unexpected signal " << signal << "\n";
+        return;
+    }
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+    sc->SC_XIP += UD2A_LENGTH;
+    return;
+}
+#endif
 
 class code_generator_t {
 public:
@@ -129,6 +151,20 @@ private:
         instrlist_append(ilist,
                          XINST_CREATE_store(dc, OPND_CREATE_MEMPTR(base, -ptrsz),
                                             opnd_create_reg(base)));
+
+#ifdef LINUX
+        // Test a signal in non-module code.
+#    ifdef X86
+        instrlist_append(ilist, INSTR_CREATE_ud2a(dc));
+#    elif defined(AARCH64)
+        // TODO i#4562: creating UDF is not yet supported so we create a
+        // privileged instruction to SIGILL for us.
+        instrlist_append(ilist, INSTR_CREATE_dc_ivac(dc, opnd_create_reg(base)));
+#    else
+        instrlist_append(ilist, INSTR_CREATE_udf(dc, OPND_CREATE_INT(0)));
+#    endif
+#endif
+
 #ifdef ARM
         // XXX: Maybe XINST_CREATE_return should create "bx lr" like we need here
         // instead of the pop into pc which assumes the entry pushed lr?
@@ -252,6 +288,10 @@ post_process()
 static std::string
 gather_trace()
 {
+#ifdef LINUX
+    intercept_signal(SIGILL, handle_signal, false);
+#endif
+
     if (!my_setenv("DYNAMORIO_OPTIONS",
 #if defined(LINUX) && defined(X64)
                    // We pass -satisfy_w_xor_x to further stress that option

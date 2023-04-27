@@ -20075,6 +20075,132 @@ TEST_INSTR(trn2_sve)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_16));
 }
 
+TEST_INSTR(sdot_sve)
+{
+    /* Testing SDOT    <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb> */
+    const char *const expected_0_0[6] = {
+        "sdot   %z0.s %z0.b %z0.b -> %z0.s",     "sdot   %z5.s %z6.b %z7.b -> %z5.s",
+        "sdot   %z10.s %z11.b %z12.b -> %z10.s", "sdot   %z16.s %z17.b %z18.b -> %z16.s",
+        "sdot   %z21.s %z22.b %z23.b -> %z21.s", "sdot   %z31.s %z31.b %z31.b -> %z31.s",
+    };
+    TEST_LOOP(sdot, sdot_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_1));
+
+    const char *const expected_0_1[6] = {
+        "sdot   %z0.d %z0.h %z0.h -> %z0.d",     "sdot   %z5.d %z6.h %z7.h -> %z5.d",
+        "sdot   %z10.d %z11.h %z12.h -> %z10.d", "sdot   %z16.d %z17.h %z18.h -> %z16.d",
+        "sdot   %z21.d %z22.h %z23.h -> %z21.d", "sdot   %z31.d %z31.h %z31.h -> %z31.d",
+    };
+    TEST_LOOP(sdot, sdot_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+}
+
+TEST_INSTR(sdot_sve_idx)
+{
+    /* Testing SDOT    <Zda>.D, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    const char *const expected_0_0[6] = {
+        "sdot   %z0.d %z0.h %z0.h $0x00 -> %z0.d",
+        "sdot   %z5.d %z6.h %z4.h $0x01 -> %z5.d",
+        "sdot   %z10.d %z11.h %z7.h $0x01 -> %z10.d",
+        "sdot   %z16.d %z17.h %z10.h $0x01 -> %z16.d",
+        "sdot   %z21.d %z22.h %z12.h $0x00 -> %z21.d",
+        "sdot   %z31.d %z31.h %z15.h $0x01 -> %z31.d",
+    };
+    TEST_LOOP(sdot, sdot_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b));
+
+    /* Testing SDOT    <Zda>.S, <Zn>.B, <Zm>.B[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_1_0[6] = {
+        "sdot   %z0.s %z0.b %z0.b $0x00 -> %z0.s",
+        "sdot   %z5.s %z6.b %z3.b $0x03 -> %z5.s",
+        "sdot   %z10.s %z11.b %z4.b $0x00 -> %z10.s",
+        "sdot   %z16.s %z17.b %z6.b $0x01 -> %z16.s",
+        "sdot   %z21.s %z22.b %z7.b $0x01 -> %z21.s",
+        "sdot   %z31.s %z31.b %z7.b $0x03 -> %z31.s",
+    };
+    TEST_LOOP(sdot, sdot_sve_idx, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_1),
+              opnd_create_immed_uint(i2_1_0[i], OPSZ_2b));
+}
+
+TEST_INSTR(udot_sve)
+{
+    /* Testing UDOT    <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb> */
+    const char *const expected_0_0[6] = {
+        "udot   %z0.s %z0.b %z0.b -> %z0.s",     "udot   %z5.s %z6.b %z7.b -> %z5.s",
+        "udot   %z10.s %z11.b %z12.b -> %z10.s", "udot   %z16.s %z17.b %z18.b -> %z16.s",
+        "udot   %z21.s %z22.b %z23.b -> %z21.s", "udot   %z31.s %z31.b %z31.b -> %z31.s",
+    };
+    TEST_LOOP(udot, udot_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_1));
+
+    const char *const expected_0_1[6] = {
+        "udot   %z0.d %z0.h %z0.h -> %z0.d",     "udot   %z5.d %z6.h %z7.h -> %z5.d",
+        "udot   %z10.d %z11.h %z12.h -> %z10.d", "udot   %z16.d %z17.h %z18.h -> %z16.d",
+        "udot   %z21.d %z22.h %z23.h -> %z21.d", "udot   %z31.d %z31.h %z31.h -> %z31.d",
+    };
+    TEST_LOOP(udot, udot_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2));
+}
+
+TEST_INSTR(udot_sve_idx)
+{
+    /* Testing UDOT    <Zda>.D, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    const char *const expected_0_0[6] = {
+        "udot   %z0.d %z0.h %z0.h $0x00 -> %z0.d",
+        "udot   %z5.d %z6.h %z4.h $0x01 -> %z5.d",
+        "udot   %z10.d %z11.h %z7.h $0x01 -> %z10.d",
+        "udot   %z16.d %z17.h %z10.h $0x01 -> %z16.d",
+        "udot   %z21.d %z22.h %z12.h $0x00 -> %z21.d",
+        "udot   %z31.d %z31.h %z15.h $0x01 -> %z31.d",
+    };
+    TEST_LOOP(udot, udot_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b));
+
+    /* Testing UDOT    <Zda>.S, <Zn>.B, <Zm>.B[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_1_0[6] = {
+        "udot   %z0.s %z0.b %z0.b $0x00 -> %z0.s",
+        "udot   %z5.s %z6.b %z3.b $0x03 -> %z5.s",
+        "udot   %z10.s %z11.b %z4.b $0x00 -> %z10.s",
+        "udot   %z16.s %z17.b %z6.b $0x01 -> %z16.s",
+        "udot   %z21.s %z22.b %z7.b $0x01 -> %z21.s",
+        "udot   %z31.s %z31.b %z7.b $0x03 -> %z31.s",
+    };
+    TEST_LOOP(udot, udot_sve_idx, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_1),
+              opnd_create_immed_uint(i2_1_0[i], OPSZ_2b));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -20579,6 +20705,11 @@ main(int argc, char *argv[])
 
     RUN_INSTR_TEST(trn1_sve);
     RUN_INSTR_TEST(trn2_sve);
+
+    RUN_INSTR_TEST(sdot_sve);
+    RUN_INSTR_TEST(sdot_sve_idx);
+    RUN_INSTR_TEST(udot_sve);
+    RUN_INSTR_TEST(udot_sve_idx);
 
     print("All sve tests complete.\n");
 #ifndef STANDALONE_DECODER

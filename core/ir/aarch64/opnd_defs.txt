@@ -179,6 +179,7 @@
 ------------xxxx----------------  p16_zer    # zeroing P register at position 16
 ------------xxxx----------------  p_b_16     # P register with a byte element size at position 16
 ------------xxxx----------------  imm4_16p1  # 4bit imm at 19-16, plus 1
+------------xxxx----------------  z4_h_16     # Z0-15 register with h size elements at position 16
 ------------xxxx----------------  z4_s_16     # Z0-15 register with s size elements at position 16
 ------------xxxx----------------  z4_d_16     # Z0-15 register with d size elements at position 16
 ------------xxxx----------------  q4_16       # Q0-15 register at position 16
