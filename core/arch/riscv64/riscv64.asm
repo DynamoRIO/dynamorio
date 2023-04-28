@@ -59,7 +59,25 @@ GLOBAL_LABEL(cpuid_supported:)
  */
         DECLARE_FUNC(call_switch_stack)
 GLOBAL_LABEL(call_switch_stack:)
-/* FIXME i#3544: Not implemented */
+        addi    sp, sp, -24 /* Init the stack */
+        sd      ra, 16 (sp)
+        sd      s0, 8 (sp)
+        sd      s1, 0 (sp)
+        /* Check mutex_to_free. */
+        beqz     ARG4, call_dispatch_alt_stack_no_free
+        /* Release the mutex. */
+        addi     ARG4,x0,0
+call_dispatch_alt_stack_no_free:
+        mv       s0, ARG5
+        addi     t0, sp, 0    /* Save the current stack to temporary register */
+        addi     sp, ARG2, 0 /* Move the stack */
+        jr       ARG3
+        addi     sp, t0, 0
+        beqz     s0, GLOBAL_LABEL(unexpected_return)
+        ld       s1, 0 (sp)
+        ld       s2, 8 (sp)
+        ld       ra, 16 (sp)
+        addi     sp, sp, 24 /* Recover the stack */
         ret
         END_FUNC(call_switch_stack)
 
@@ -138,7 +156,10 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         /* void atomic_add(int *adr, int val) */
         DECLARE_FUNC(atomic_add)
 GLOBAL_LABEL(atomic_add:)
-/* FIXME i#3544: Not implemented */
+1:      lr.d       a2, (a0)
+        add        a2, a2, a1
+        sc.d       a3, a2, (a0)
+        bnez       a3, 1b
         ret
         END_FUNC(atomic_add)
 
@@ -240,13 +261,16 @@ GLOBAL_LABEL(dynamorio_clone:)
 
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-/* FIXME i#3544: Not implemented */
+        li        SYSNUM_REG, SYS_rt_sigreturn
+        ecall
         jal       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
 
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-/* FIXME i#3544: Not implemented */
+        li        a0, 0 /* exit code */
+        li        SYSNUM_REG, SYS_exit /* SYS_exit number */
+        ecall
         jal       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
 
