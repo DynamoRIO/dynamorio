@@ -70,10 +70,9 @@ gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc, size_t size = 1)
 }
 
 inline memref_t
-gen_instr(memref_tid_t tid, addr_t pc = 1, size_t size = 1,
-          trace_type_t type = TRACE_TYPE_INSTR)
+gen_instr(memref_tid_t tid, addr_t pc = 1, size_t size = 1)
 {
-    return gen_instr_type(type, tid, pc, size);
+    return gen_instr_type(TRACE_TYPE_INSTR, tid, pc, size);
 }
 
 inline memref_t
@@ -110,23 +109,6 @@ gen_instr_encoded(addr_t pc, const std::vector<char> &encoding, memref_tid_t tid
 {
     memref_t memref = gen_instr_type(TRACE_TYPE_INSTR, tid, pc, encoding.size());
     memcpy(memref.instr.encoding, encoding.data(), encoding.size());
-    memref.instr.encoding_is_new = true;
-    return memref;
-}
-
-inline memref_t
-gen_instr_encoded_with_ir(void *drcontext, instr_t *instr, addr_t addr,
-                          trace_type_t type = TRACE_TYPE_INSTR, memref_tid_t tid = 1)
-{
-    byte *pc;
-    byte buf[MAX_ENCODING_LENGTH];
-    pc = instr_encode(drcontext, instr, buf);
-    memref_t memref = {};
-    memref.instr.type = type;
-    memref.instr.tid = tid;
-    memref.instr.addr = addr;
-    memref.instr.size = instr_length(GLOBAL_DCONTEXT, instr);
-    memcpy(memref.instr.encoding, buf, sizeof(buf));
     memref.instr.encoding_is_new = true;
     return memref;
 }
