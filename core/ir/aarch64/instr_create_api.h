@@ -10404,6 +10404,22 @@
     instr_create_1dst_4src(dc, OP_fnmls, Zda, Zda, Pg, Zn, Zm)
 
 /**
+ * Creates a FNMSB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FNMSB   <Zdn>.<Ts>, <Pg>/M, <Zm>.<Ts>, <Za>.<Ts>
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn  The source and destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register, Z (Scalable).
+ * \param Za   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_fnmsb_sve_pred(dc, Zdn, Pg, Zm, Za) \
+    instr_create_1dst_4src(dc, OP_fnmsb, Zdn, Zdn, Pg, Zm, Za)
+
+/**
  * Creates a FRECPE instruction.
  *
  * This macro is used to encode the forms:

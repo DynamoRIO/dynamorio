@@ -254,6 +254,7 @@
 01100101xx1xxxxx110xxxxxxxxxxxxx  n   928  SVE    fnmad   z_size_hsd_0 : z_size_hsd_0 p10_mrg_lo z_size_hsd_5 z_size_hsd_16
 01100101xx1xxxxx010xxxxxxxxxxxxx  n   929  SVE    fnmla   z_size_hsd_0 : z_size_hsd_0 p10_mrg_lo z_size_hsd_5 z_size_hsd_16
 01100101xx1xxxxx011xxxxxxxxxxxxx  n   930  SVE    fnmls   z_size_hsd_0 : z_size_hsd_0 p10_mrg_lo z_size_hsd_5 z_size_hsd_16
+01100101xx1xxxxx111xxxxxxxxxxxxx  n   1063 SVE    fnmsb   z_size_hsd_0 : z_size_hsd_0 p10_mrg_lo z_size_hsd_5 z_size_hsd_16
 01100101xx001110001100xxxxxxxxxx  n   155  SVE   frecpe   z_size_hsd_0 : z_size_hsd_5
 01100101xx0xxxxx000110xxxxxxxxxx  n   156  SVE   frecps   z_size_hsd_0 : z_size_hsd_5 z_size_hsd_16
 01100101xx001100101xxxxxxxxxxxxx  n   157  SVE   frecpx   z_size_hsd_0 : p10_mrg_lo z_size_hsd_5
