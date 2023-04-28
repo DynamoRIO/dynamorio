@@ -116,6 +116,7 @@ const char *const reg_names[] = {
 
     "p0",  "p1",  "p2",  "p3",  "p4",  "p5",  "p6",  "p7",  "p8",  "p9",
     "p10", "p11", "p12", "p13", "p14", "p15",
+    "ffr",
 
     "cntvct_el0",
 };
@@ -191,6 +192,7 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
     DR_REG_P0, DR_REG_P1, DR_REG_P2, DR_REG_P3, DR_REG_P4, DR_REG_P5,
     DR_REG_P6, DR_REG_P7, DR_REG_P8, DR_REG_P9, DR_REG_P10, DR_REG_P11,
     DR_REG_P12, DR_REG_P13, DR_REG_P14, DR_REG_P15,
+    DR_REG_FFR,
 
     DR_REG_CNTVCT_EL0,
 };

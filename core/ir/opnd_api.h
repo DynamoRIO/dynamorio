@@ -1038,6 +1038,8 @@ enum {
     DR_REG_P13, /**< The "p13" register. */
     DR_REG_P14, /**< The "p14" register. */
     DR_REG_P15, /**< The "p15" register. */
+
+    DR_REG_FFR, /**< The SVE First-Fault Register. */
 #    endif
 
 #    ifdef AARCH64

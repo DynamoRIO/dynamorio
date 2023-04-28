@@ -12397,6 +12397,52 @@ TEST_INSTR(fnmls_sve)
               opnd_create_reg_element_vector(Zn_six_offset_3[i], OPSZ_8));
 }
 
+TEST_INSTR(fnmsb_sve_pred)
+{
+    /* Testing FNMSB   <Zdn>.<Ts>, <Pg>/M, <Zm>.<Ts>, <Za>.<Ts> */
+    const char *const expected_0_0[6] = {
+        "fnmsb  %z0.h %p0/m %z0.h %z0.h -> %z0.h",
+        "fnmsb  %z5.h %p2/m %z7.h %z8.h -> %z5.h",
+        "fnmsb  %z10.h %p3/m %z12.h %z13.h -> %z10.h",
+        "fnmsb  %z16.h %p5/m %z18.h %z19.h -> %z16.h",
+        "fnmsb  %z21.h %p6/m %z23.h %z24.h -> %z21.h",
+        "fnmsb  %z31.h %p7/m %z31.h %z31.h -> %z31.h",
+    };
+    TEST_LOOP(fnmsb, fnmsb_sve_pred, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_3[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "fnmsb  %z0.s %p0/m %z0.s %z0.s -> %z0.s",
+        "fnmsb  %z5.s %p2/m %z7.s %z8.s -> %z5.s",
+        "fnmsb  %z10.s %p3/m %z12.s %z13.s -> %z10.s",
+        "fnmsb  %z16.s %p5/m %z18.s %z19.s -> %z16.s",
+        "fnmsb  %z21.s %p6/m %z23.s %z24.s -> %z21.s",
+        "fnmsb  %z31.s %p7/m %z31.s %z31.s -> %z31.s",
+    };
+    TEST_LOOP(fnmsb, fnmsb_sve_pred, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_3[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "fnmsb  %z0.d %p0/m %z0.d %z0.d -> %z0.d",
+        "fnmsb  %z5.d %p2/m %z7.d %z8.d -> %z5.d",
+        "fnmsb  %z10.d %p3/m %z12.d %z13.d -> %z10.d",
+        "fnmsb  %z16.d %p5/m %z18.d %z19.d -> %z16.d",
+        "fnmsb  %z21.d %p6/m %z23.d %z24.d -> %z21.d",
+        "fnmsb  %z31.d %p7/m %z31.d %z31.d -> %z31.d",
+    };
+    TEST_LOOP(fnmsb, fnmsb_sve_pred, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_3[i], OPSZ_8));
+}
+
 TEST_INSTR(frecpe_sve)
 {
     /* Testing FRECPE  <Zd>.<Ts>, <Zn>.<Ts> */
@@ -20628,6 +20674,7 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(fnmad_sve);
     RUN_INSTR_TEST(fnmla_sve);
     RUN_INSTR_TEST(fnmls_sve);
+    RUN_INSTR_TEST(fnmsb_sve_pred);
     RUN_INSTR_TEST(frecpe_sve);
     RUN_INSTR_TEST(frecps_sve);
     RUN_INSTR_TEST(frecpx_sve_pred);
