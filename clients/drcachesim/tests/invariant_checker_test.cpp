@@ -679,14 +679,12 @@ check_rseq_side_exit_discontinuity()
     instrlist_append(ilist, move1);
     instrlist_append(ilist, move2);
 
-
     // Create a std::vector<memref_instr_t>.
-    std::vector<memref_instr_t> memref_instr_vec = {
-        { gen_branch(1), jmp },
-        { gen_instr(1), store },
-        { gen_data(1, false, 42, 4), nullptr },
-        { gen_instr(1), move2 }
-    };
+    std::vector<memref_instr_t> memref_instr_vec = { { gen_branch(1), jmp },
+                                                     { gen_instr(1), store },
+                                                     { gen_data(1, false, 42, 4),
+                                                       nullptr },
+                                                     { gen_instr(1), move2 } };
 
     auto memrefs = get_memrefs_from_ir(ilist, memref_instr_vec);
     if (!run_checker(memrefs, true, 1, 5, "PC discontinuity due to rseq side exit",
