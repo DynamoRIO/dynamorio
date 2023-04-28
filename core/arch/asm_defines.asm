@@ -563,6 +563,7 @@ ASSUME fs:_DATA @N@\
 # define ARG6 REG_R15
 # define ARG7 REG_R16
 # define ARG8 REG_R17
+# define SYSNUM_REG REG_R17
 /* Arguments are passed on stack right-to-left. */
 # define ARG9  0(REG_SP) /* no ret addr */
 # define ARG10 ARG_SZ(REG_SP)
