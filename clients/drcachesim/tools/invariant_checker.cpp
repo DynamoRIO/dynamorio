@@ -806,7 +806,7 @@ invariant_checker_t::check_for_pc_discontinuity(
                        instr_is_syscall(shard->prev_instr_decoded_->data)) {
                 error_msg = "Duplicate syscall instrs with the same PC";
             } else if (shard->prev_instr_decoded_ != nullptr &&
-                       instr_writes_memory(shard->prev_instr_decoded_.get()) &&
+                       instr_writes_memory(shard->prev_instr_decoded_->data) &&
                        type_is_instr_conditional_branch(
                            shard->last_local_branch_.instr.type)) {
                 error_msg = "PC discontinuity due to rseq side exit";
