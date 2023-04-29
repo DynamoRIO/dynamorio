@@ -631,23 +631,6 @@ fnmsub %d15 %d23 %d2 -> %d4
 fnmsub %s15 %s23 %s2 -> %s4
 fnmsub %h15 %h23 %h2 -> %h4
 test_floatdp3 complete
-orr    %p7 %z2 %z13 $0x00 -> %z2
-orr    %p7 %z2 %z13 $0x01 -> %z2
-orr    %p7 %z2 %z13 $0x02 -> %z2
-orr    %p7 %z2 %z13 $0x03 -> %z2
-eor    %p4 %z29 %z2 $0x00 -> %z29
-eor    %p4 %z29 %z2 $0x01 -> %z29
-eor    %p4 %z29 %z2 $0x02 -> %z29
-eor    %p4 %z29 %z2 $0x03 -> %z29
-and    %p1 %z31 %z23 $0x00 -> %z31
-and    %p1 %z31 %z23 $0x01 -> %z31
-and    %p1 %z31 %z23 $0x02 -> %z31
-and    %p1 %z31 %z23 $0x03 -> %z31
-bic    %p2 %z2 %z24 $0x00 -> %z2
-bic    %p2 %z2 %z24 $0x01 -> %z2
-bic    %p2 %z2 %z24 $0x02 -> %z2
-bic    %p2 %z2 %z24 $0x03 -> %z2
-test_sve_int_bin_pred_log complete
 saddl  %d13 %d18 $0x00 -> %q18
 saddl  %d13 %d18 $0x01 -> %q18
 saddl  %d13 %d18 $0x02 -> %q18
