@@ -4473,95 +4473,6 @@ test_floatdp3(void *dc)
 }
 
 static void
-test_sve_int_bin_pred_log(void *dc)
-{
-    byte *pc;
-    instr_t *instr;
-
-    /* SVE bitwise logical operations (predicated) */
-
-    instr = INSTR_CREATE_orr_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P7),
-        opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z13), OPND_CREATE_BYTE());
-    test_instr_encoding(dc, OP_orr, instr);
-
-    instr = INSTR_CREATE_orr_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P7),
-        opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z13), OPND_CREATE_HALF());
-    test_instr_encoding(dc, OP_orr, instr);
-
-    instr = INSTR_CREATE_orr_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P7),
-        opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z13), OPND_CREATE_SINGLE());
-    test_instr_encoding(dc, OP_orr, instr);
-
-    instr = INSTR_CREATE_orr_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P7),
-        opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z13), OPND_CREATE_DOUBLE());
-    test_instr_encoding(dc, OP_orr, instr);
-
-    instr = INSTR_CREATE_eor_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_P4),
-        opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_Z2), OPND_CREATE_BYTE());
-    test_instr_encoding(dc, OP_eor, instr);
-
-    instr = INSTR_CREATE_eor_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_P4),
-        opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_Z2), OPND_CREATE_HALF());
-    test_instr_encoding(dc, OP_eor, instr);
-
-    instr = INSTR_CREATE_eor_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_P4),
-        opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_Z2), OPND_CREATE_SINGLE());
-    test_instr_encoding(dc, OP_eor, instr);
-
-    instr = INSTR_CREATE_eor_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_P4),
-        opnd_create_reg(DR_REG_Z29), opnd_create_reg(DR_REG_Z2), OPND_CREATE_DOUBLE());
-    test_instr_encoding(dc, OP_eor, instr);
-
-    instr = INSTR_CREATE_and_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_P1),
-        opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_Z23), OPND_CREATE_BYTE());
-    test_instr_encoding(dc, OP_and, instr);
-
-    instr = INSTR_CREATE_and_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_P1),
-        opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_Z23), OPND_CREATE_HALF());
-    test_instr_encoding(dc, OP_and, instr);
-
-    instr = INSTR_CREATE_and_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_P1),
-        opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_Z23), OPND_CREATE_SINGLE());
-    test_instr_encoding(dc, OP_and, instr);
-
-    instr = INSTR_CREATE_and_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_P1),
-        opnd_create_reg(DR_REG_Z31), opnd_create_reg(DR_REG_Z23), OPND_CREATE_DOUBLE());
-    test_instr_encoding(dc, OP_and, instr);
-
-    instr = INSTR_CREATE_bic_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P2),
-        opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z24), OPND_CREATE_BYTE());
-    test_instr_encoding(dc, OP_bic, instr);
-
-    instr = INSTR_CREATE_bic_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P2),
-        opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z24), OPND_CREATE_HALF());
-    test_instr_encoding(dc, OP_bic, instr);
-
-    instr = INSTR_CREATE_bic_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P2),
-        opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z24), OPND_CREATE_SINGLE());
-    test_instr_encoding(dc, OP_bic, instr);
-
-    instr = INSTR_CREATE_bic_sve_pred(
-        dc, opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_P2),
-        opnd_create_reg(DR_REG_Z2), opnd_create_reg(DR_REG_Z24), OPND_CREATE_DOUBLE());
-    test_instr_encoding(dc, OP_bic, instr);
-}
-
-static void
 test_asimddiff(void *dc)
 {
     byte *pc;
@@ -7098,9 +7009,6 @@ main(int argc, char *argv[])
 
     test_floatdp3(dcontext);
     print("test_floatdp3 complete\n");
-
-    test_sve_int_bin_pred_log(dcontext);
-    print("test_sve_int_bin_pred_log complete\n");
 
     test_asimddiff(dcontext);
     print("test_asimddiff complete\n");

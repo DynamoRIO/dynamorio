@@ -162,6 +162,10 @@ changes:
    the actual interrupted PC); changed the interrupted PC for #DR_XFER_SIGNAL_DELIVERY
    for a signal generated during an rseq region to be the abort handler, matching the
    kernel behavior.
+ - Changed the arguments and decode behavior of the INSTR_CREATE_orr_sve_pred(),
+   INSTR_CREATE_eor_sve_pred(), INSTR_CREATE_and_sve_pred() and
+   INSTR_CREATE_bic_sve_pred() to use the new vector element registers and to
+   correctly encode the predicate mode.
 
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
