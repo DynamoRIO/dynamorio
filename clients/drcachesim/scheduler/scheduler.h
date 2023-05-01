@@ -502,7 +502,8 @@ public:
          * record at that time, if "true" was passed for "queue_current_record" to
          * start_speculation(), or continuing on the subsequent record if "false" was
          * passed).  Returns #dynamorio::drmemtrace::scheduler_tmpl_t::STATUS_INVALID if
-         * there was no prior start_speculation() call.
+         * there was no prior start_speculation() call or if stop_speculation() was
+         * already called since the last start.
          */
         virtual stream_status_t
         stop_speculation();

@@ -674,6 +674,7 @@ if (BUILD_TESTS)
     tests/scheduler_unit_tests.cpp)
   target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer)
   add_win32_flags(tool.scheduler.unit_tests)
+  configure_DynamoRIO_standalone(tool.scheduler.unit_tests)
   add_test(NAME tool.scheduler.unit_tests
     COMMAND tool.scheduler.unit_tests
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)

@@ -35,6 +35,7 @@
 #include <iostream>
 #include <vector>
 
+#include "dr_api.h"
 #include "scheduler.h"
 
 using namespace dynamorio::drmemtrace;
@@ -64,7 +65,7 @@ public:
         if (entry != nullptr)
             return entry;
         ++index_;
-        if (index_ >= trace_.size()) {
+        if (index_ >= static_cast<int>(trace_.size())) {
             at_eof_ = true;
             return nullptr;
         }
@@ -154,6 +155,19 @@ make_marker(trace_marker_type_t type, uintptr_t value)
     entry.size = type;
     entry.addr = value;
     return entry;
+}
+
+static bool
+memref_is_nop_instr(memref_t &record)
+{
+    if (!type_is_instr(record.instr.type))
+        return false;
+    instr_noalloc_t noalloc;
+    instr_noalloc_init(GLOBAL_DCONTEXT, &noalloc);
+    instr_t *instr = instr_from_noalloc(&noalloc);
+    app_pc pc =
+        decode(GLOBAL_DCONTEXT, reinterpret_cast<app_pc>(record.instr.encoding), instr);
+    return pc != nullptr && instr_is_nop(instr);
 }
 
 static void
@@ -603,7 +617,6 @@ test_regions_too_far()
                        scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
-    int ordinal = 0;
     auto *stream = scheduler.get_stream(0);
     memref_t memref;
     scheduler_t::stream_status_t status = stream->next_record(memref);
@@ -867,10 +880,12 @@ test_speculation()
             // We should now see nops from the speculator.
             assert(type_is_instr(memref.instr.type));
             assert(memref.instr.addr == 100);
+            assert(memref_is_nop_instr(memref));
             break;
         case 6:
             // Another nop before we abandon this path.
             assert(type_is_instr(memref.instr.type));
+            assert(memref_is_nop_instr(memref));
 #ifdef AARCH64
             assert(memref.instr.addr == 104);
 #elif defined(X86_64) || defined(X86_32)
@@ -899,21 +914,29 @@ test_speculation()
         case 10:
             // We should now see nops from the speculator.
             assert(type_is_instr(memref.instr.type));
+            assert(memref_is_nop_instr(memref));
             assert(memref.instr.addr == 200);
-            stream->stop_speculation();
+            // Test a nested start_speculation().
+            stream->start_speculation(300, false);
             break;
         case 11:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref_is_nop_instr(memref));
+            assert(memref.instr.addr == 300);
+            stream->stop_speculation();
+            break;
+        case 12:
             // Back to the trace, but skipping what we already read.
             assert(type_is_instr(memref.instr.type));
             assert(memref.instr.addr == 5);
             break;
         default:
-            assert(ordinal == 12);
+            assert(ordinal == 13);
             assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
         }
         ++ordinal;
     }
-    assert(ordinal == 13);
+    assert(ordinal == 14);
 }
 
 } // namespace
@@ -923,6 +946,9 @@ main(int argc, const char *argv[])
 {
     // Takes in a path to the tests/ src dir.
     assert(argc == 2);
+    // Avoid races with lazy drdecode init (b/279350357).
+    dr_standalone_init();
+
     test_serial();
     test_parallel();
     test_param_checks();
@@ -931,5 +957,7 @@ main(int argc, const char *argv[])
     test_real_file_queries_and_filters(argv[1]);
     test_synthetic();
     test_speculation();
+
+    dr_standalone_exit();
     return 0;
 }

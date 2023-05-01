@@ -912,6 +912,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         if (!error_string_.empty())
             return sched_type_t::STATUS_INVALID;
         // Leave the cur input where it is: the ordinals will remain unchanged.
+        // Also avoid the context switch checks below as we cannot switch in the
+        // middle of speculating (we also don't count speculated instructions toward
+        // QUANTUM_INSTRUCTIONS).
         return sched_type_t::STATUS_OK;
     }
     while (true) {
