@@ -315,6 +315,7 @@ install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 install_client_nonDR_header(drmemtrace scheduler/scheduler.h)
+install_client_nonDR_header(drmemtrace scheduler/speculator.h)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.

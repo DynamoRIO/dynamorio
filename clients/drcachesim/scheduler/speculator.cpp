@@ -82,15 +82,15 @@ speculator_tmpl_t<memref_t>::next_record(addr_t &pc, memref_t &memref)
 
     int encoding;
     int len;
-#ifdef AARCH64
-    static constexpr int NOP_ENCODING = 0xd503201f;
-    encoding = NOP_ENCODING;
-    len = 4;
-#elif defined(X86_64) || defined(X86_32)
+#if defined(X86_64) || defined(X86_32)
     static constexpr int NOP_ENCODING = 0x90;
     encoding = NOP_ENCODING;
     len = 1;
-#elif defined(ARM)
+#elif defined(ARM_64)
+    static constexpr int NOP_ENCODING = 0xd503201f;
+    encoding = NOP_ENCODING;
+    len = 4;
+#elif defined(ARM_32)
     static constexpr int NOP_ENCODING_ARM = 0xe320f000;
     static constexpr int NOP_ENCODING_THUMB = 0xbf00;
     static constexpr int LEN_ARM = 4;
