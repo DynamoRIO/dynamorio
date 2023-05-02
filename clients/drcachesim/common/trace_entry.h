@@ -508,10 +508,10 @@ type_has_address(const trace_type_t type)
 static inline bool
 type_is_data(const trace_type_t type)
 {
-    return type == TRACE_TYPE_INSTR_MAYBE_FETCH || type_is_prefetch(type) ||
-        type == TRACE_TYPE_READ || type == TRACE_TYPE_WRITE ||
-        type == TRACE_TYPE_INSTR_FLUSH || type == TRACE_TYPE_INSTR_FLUSH_END ||
-        type == TRACE_TYPE_DATA_FLUSH || type == TRACE_TYPE_DATA_FLUSH_END;
+    return type_is_prefetch(type) || type == TRACE_TYPE_READ ||
+        type == TRACE_TYPE_WRITE || type == TRACE_TYPE_INSTR_FLUSH ||
+        type == TRACE_TYPE_INSTR_FLUSH_END || type == TRACE_TYPE_DATA_FLUSH ||
+        type == TRACE_TYPE_DATA_FLUSH_END;
 }
 
 static inline bool
