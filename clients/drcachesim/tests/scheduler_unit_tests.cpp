@@ -97,7 +97,7 @@ make_exit(memref_tid_t tid)
 {
     trace_entry_t entry;
     entry.type = TRACE_TYPE_THREAD_EXIT;
-    entry.addr = tid;
+    entry.addr = static_cast<addr_t>(tid);
     return entry;
 }
 
@@ -124,7 +124,7 @@ make_thread(memref_tid_t tid)
 {
     trace_entry_t entry;
     entry.type = TRACE_TYPE_THREAD;
-    entry.addr = tid;
+    entry.addr = static_cast<addr_t>(tid);
     return entry;
 }
 
@@ -133,7 +133,7 @@ make_pid(memref_pid_t pid)
 {
     trace_entry_t entry;
     entry.type = TRACE_TYPE_PID;
-    entry.addr = pid;
+    entry.addr = static_cast<addr_t>(pid);
     return entry;
 }
 
@@ -143,7 +143,7 @@ make_timestamp(uint64_t timestamp)
     trace_entry_t entry;
     entry.type = TRACE_TYPE_MARKER;
     entry.size = TRACE_MARKER_TYPE_TIMESTAMP;
-    entry.addr = timestamp;
+    entry.addr = static_cast<addr_t>(timestamp);
     return entry;
 }
 
@@ -255,7 +255,7 @@ test_parallel()
         inputs[i] = input_sequence;
         for (auto &record : inputs[i]) {
             if (record.type == TRACE_TYPE_THREAD || record.type == TRACE_TYPE_THREAD_EXIT)
-                record.addr = tid;
+                record.addr = static_cast<addr_t>(tid);
         }
         std::vector<scheduler_t::input_reader_t> readers;
         readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
@@ -795,9 +795,10 @@ test_synthetic()
                 continue;
             }
             assert(status == scheduler_t::STATUS_OK);
-            if (type_is_instr(memref.instr.type))
+            if (type_is_instr(memref.instr.type)) {
                 sched_as_string[i] +=
                     'A' + static_cast<char>(memref.instr.tid - TID_BASE);
+            }
         }
     }
     for (int i = 0; i < NUM_OUTPUTS; i++) {
