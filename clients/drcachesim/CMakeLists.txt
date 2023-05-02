@@ -672,7 +672,9 @@ if (BUILD_TESTS)
 
   add_executable(tool.scheduler.unit_tests tests/scheduler_unit_tests.cpp
     tests/scheduler_unit_tests.cpp)
-  target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer)
+  # We hit dup symbol errors on Windows so we need libc earlier before DR:
+  _DR_get_static_libc_list(static_libc)
+  target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer ${static_libc})
   add_win32_flags(tool.scheduler.unit_tests)
   configure_DynamoRIO_standalone(tool.scheduler.unit_tests)
   add_test(NAME tool.scheduler.unit_tests
