@@ -103,7 +103,8 @@ public:
      */
     analyzer_tmpl_t(const std::string &trace_path,
                     analysis_tool_tmpl_t<RecordType> **tools, int num_tools,
-                    int worker_count = 0, uint64_t skip_instrs = 0, int verbosity = 0);
+                    int worker_count = 0, uint64_t skip_instrs = 0,
+                    uint64_t quantum_microseconds = 0, int verbosity = 0);
     /** Launches the analysis process. */
     virtual bool
     run();
@@ -120,18 +121,21 @@ protected:
         analyzer_worker_data_t(int index, typename sched_type_t::stream_t *stream)
             : index(index)
             , stream(stream)
+            , cur_quantum_index(0)
         {
         }
         analyzer_worker_data_t(analyzer_worker_data_t &&src)
         {
             index = src.index;
             stream = src.stream;
+            cur_quantum_index = src.cur_quantum_index;
             error = std::move(src.error);
         }
 
         int index;
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
         std::string error;
+        int cur_quantum_index;
 
     private:
         analyzer_worker_data_t(const analyzer_worker_data_t &) = delete;
@@ -165,6 +169,16 @@ protected:
     bool
     record_is_thread_final(RecordType record);
 
+    // Invoked when the given quantum finishes during serial analysis of the
+    // trace.
+    virtual bool
+    process_quantum(int quantum_id, analyzer_worker_data_t *worker);
+
+    // Invoked when the given quantum finishes in the given shard during
+    // parallel analysis of the trace.
+    virtual bool
+    process_shard_quantum(int shard_id, int quantum_id, analyzer_worker_data_t *worker);
+
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
     std::string error_string_;
@@ -177,11 +191,14 @@ protected:
     int worker_count_;
     const char *output_prefix_ = "[analyzer]";
     uint64_t skip_instrs_ = 0;
+    uint64_t quantum_microseconds_ = 0;
     int verbosity_ = 0;
 
 private:
     bool
     serial_mode_supported();
+
+    std::unordered_map<int, std::vector<void *>> shard_data_;
 };
 
 /** See #analyzer_tmpl_t. */

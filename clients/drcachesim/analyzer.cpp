@@ -221,13 +221,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
 template <typename RecordType, typename ReaderType>
 analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
     const std::string &trace_path, analysis_tool_tmpl_t<RecordType> **tools,
-    int num_tools, int worker_count, uint64_t skip_instrs, int verbosity)
+    int num_tools, int worker_count, uint64_t skip_instrs, uint64_t quantum_microseconds,
+    int verbosity)
     : success_(true)
     , num_tools_(num_tools)
     , tools_(tools)
     , parallel_(true)
     , worker_count_(worker_count)
     , skip_instrs_(skip_instrs)
+    , quantum_microseconds_(quantum_microseconds)
     , verbosity_(verbosity)
 {
     // The scheduler will call reader_t::init() for each input file.  We assume
@@ -279,7 +281,6 @@ void
 analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &worker)
 {
     std::vector<void *> user_worker_data(num_tools_);
-    std::unordered_map<memref_tid_t, std::vector<void *>> shard_data;
 
     for (int i = 0; i < num_tools_; ++i) {
         worker.error = tools_[i]->initialize_stream(worker.stream);
@@ -288,6 +289,17 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
     }
     while (true) {
         RecordType record;
+        if (quantum_microseconds_ != 0) {
+            int next_quantum_index = (worker.stream->get_last_timestamp() -
+                                      worker.stream->get_first_timestamp()) /
+                quantum_microseconds_;
+            if (next_quantum_index != worker.cur_quantum_index) {
+                assert(next_quantum_index > worker.cur_quantum_index);
+                if (!process_quantum(worker.cur_quantum_index, &worker))
+                    return;
+                worker.cur_quantum_index = next_quantum_index;
+            }
+        }
         typename sched_type_t::stream_status_t status =
             worker.stream->next_record(record);
         if (status != sched_type_t::STATUS_OK) {
@@ -300,6 +312,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                         "Failed to read from trace: " + worker.stream->get_stream_name();
                 }
             }
+            if (quantum_microseconds_ != 0 &&
+                !process_quantum(worker.cur_quantum_index, &worker))
+                return;
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
@@ -319,7 +334,6 @@ void
 analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *worker)
 {
     std::vector<void *> user_worker_data(num_tools_);
-    std::unordered_map<int, std::vector<void *>> shard_data;
 
     for (int i = 0; i < num_tools_; ++i)
         user_worker_data[i] = tools_[i]->parallel_worker_init(worker->index);
@@ -339,19 +353,32 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             return;
         }
         int shard_index = worker->stream->get_input_stream_ordinal();
-        if (shard_data.find(shard_index) == shard_data.end()) {
+        if (shard_data_.find(shard_index) == shard_data_.end()) {
             VPRINT(this, 1, "Worker %d starting on trace shard %d stream is %p\n",
                    worker->index, shard_index, worker->stream);
-            shard_data[shard_index].resize(num_tools_);
+            shard_data_[shard_index].resize(num_tools_);
             for (int i = 0; i < num_tools_; ++i) {
-                shard_data[shard_index][i] = tools_[i]->parallel_shard_init_stream(
+                shard_data_[shard_index][i] = tools_[i]->parallel_shard_init_stream(
                     shard_index, user_worker_data[i], worker->stream);
+            }
+            worker->cur_quantum_index = 0;
+        }
+        if (quantum_microseconds_ != 0) {
+            int next_quantum_index = (worker->stream->get_last_timestamp() -
+                                      worker->stream->get_first_timestamp()) /
+                quantum_microseconds_;
+            if (next_quantum_index != worker->cur_quantum_index) {
+                assert(next_quantum_index > worker->cur_quantum_index);
+                if (!process_shard_quantum(shard_index, worker->cur_quantum_index,
+                                           worker))
+                    return;
+                worker->cur_quantum_index = next_quantum_index;
             }
         }
         for (int i = 0; i < num_tools_; ++i) {
-            if (!tools_[i]->parallel_shard_memref(shard_data[shard_index][i], record)) {
+            if (!tools_[i]->parallel_shard_memref(shard_data_[shard_index][i], record)) {
                 worker->error =
-                    tools_[i]->parallel_shard_error(shard_data[shard_index][i]);
+                    tools_[i]->parallel_shard_error(shard_data_[shard_index][i]);
                 VPRINT(this, 1, "Worker %d hit shard memref error %s on trace shard %s\n",
                        worker->index, worker->error.c_str(),
                        worker->stream->get_stream_name().c_str());
@@ -361,10 +388,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
         if (record_is_thread_final(record)) {
             VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index,
                    worker->stream->get_stream_name().c_str());
+            if (quantum_microseconds_ != 0 &&
+                !process_shard_quantum(shard_index, worker->cur_quantum_index, worker))
+                return;
             for (int i = 0; i < num_tools_; ++i) {
-                if (!tools_[i]->parallel_shard_exit(shard_data[shard_index][i])) {
+                if (!tools_[i]->parallel_shard_exit(shard_data_[shard_index][i])) {
                     worker->error =
-                        tools_[i]->parallel_shard_error(shard_data[shard_index][i]);
+                        tools_[i]->parallel_shard_error(shard_data_[shard_index][i]);
                     VPRINT(this, 1,
                            "Worker %d hit shard exit error %s on trace shard %s\n",
                            worker->index, worker->error.c_str(),
@@ -440,6 +470,42 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
             // Separate tool output.
             std::cerr << "\n=========================================================="
                          "=================\n";
+        }
+    }
+    return true;
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+analyzer_tmpl_t<RecordType, ReaderType>::process_quantum(int quantum_id,
+                                                         analyzer_worker_data_t *worker)
+{
+    for (int i = 0; i < num_tools_; ++i) {
+        if (!tools_[i]->notify_quantum_end(quantum_id)) {
+            worker->error = tools_[i]->get_error_string();
+            VPRINT(this, 1, "Worker %d hit process_quantum error %s on trace shard %s\n",
+                   worker->index, worker->error.c_str(),
+                   worker->stream->get_stream_name().c_str());
+            return false;
+        }
+    }
+    return true;
+}
+
+template <typename RecordType, typename ReaderType>
+bool
+analyzer_tmpl_t<RecordType, ReaderType>::process_shard_quantum(
+    int shard_id, int quantum_id, analyzer_worker_data_t *worker)
+{
+    for (int i = 0; i < num_tools_; ++i) {
+        if (!tools_[i]->parallel_shard_quantum_end(shard_data_[shard_id][i],
+                                                   quantum_id)) {
+            worker->error = tools_[i]->get_error_string();
+            VPRINT(this, 1,
+                   "Worker %d hit process_shard_quantum error %s on trace shard %s\n",
+                   worker->index, worker->error.c_str(),
+                   worker->stream->get_stream_name().c_str());
+            return false;
         }
     }
     return true;

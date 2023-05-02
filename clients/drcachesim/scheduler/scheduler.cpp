@@ -355,7 +355,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
     uintptr_t marker_value;
     if (scheduler_->record_type_is_marker(record, marker_type, marker_value)) {
         switch (marker_type) {
-        case TRACE_MARKER_TYPE_TIMESTAMP: last_timestamp_ = marker_value; break;
+        case TRACE_MARKER_TYPE_TIMESTAMP:
+            last_timestamp_ = marker_value;
+            if (first_timestamp_ == 0)
+                first_timestamp_ = last_timestamp_;
+            break;
+
         case TRACE_MARKER_TYPE_VERSION: version_ = marker_value; break;
         case TRACE_MARKER_TYPE_FILETYPE: filetype_ = marker_value; break;
         case TRACE_MARKER_TYPE_CACHE_LINE_SIZE: cache_line_size_ = marker_value; break;
@@ -782,7 +787,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
     // use the input's cached copies.
     if (stream.version_ == 0) {
         stream.version_ = input.reader->get_version();
-        stream.last_timestamp_ = input.reader->get_last_timestamp();
+        stream.first_timestamp_ = input.reader->get_first_timestamp();
         stream.filetype_ = input.reader->get_filetype();
         stream.cache_line_size_ = input.reader->get_cache_line_size();
         stream.chunk_instr_count_ = input.reader->get_chunk_instr_count();

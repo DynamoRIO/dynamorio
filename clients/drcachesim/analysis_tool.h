@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -156,6 +156,14 @@ public:
      */
     virtual bool
     print_results() = 0;
+    /**
+     * Notifies the analysis tool that the given trace \p quantum_id has ended.
+     */
+    virtual bool
+    notify_quantum_end(int quantum_id)
+    {
+        return true;
+    }
 
     /**
      * Returns whether this tool supports analyzing trace shards concurrently, or
@@ -252,6 +260,15 @@ public:
     parallel_shard_error(void *shard_data)
     {
         return "";
+    }
+    /**
+     * Notifies the analysis tool that the given trace \p quantum_id in the
+     * shard represented by the given \p shard_data has ended.
+     */
+    virtual bool
+    parallel_shard_quantum_end(void *shard_data, int quantum_id)
+    {
+        return true;
     }
 
 protected:

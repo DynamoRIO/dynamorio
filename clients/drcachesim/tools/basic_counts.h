@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,6 +49,8 @@ public:
     bool
     print_results() override;
     bool
+    notify_quantum_end(int quantum_id) override;
+    bool
     parallel_shard_supported() override;
     void *
     parallel_shard_init(int shard_index, void *worker_data) override;
@@ -58,6 +60,8 @@ public:
     parallel_shard_memref(void *shard_data, const memref_t &memref) override;
     std::string
     parallel_shard_error(void *shard_data) override;
+    bool
+    parallel_shard_quantum_end(void *shard_data, int quantum_id) override;
 
     // i#3068: We use the following struct to also export the counters.
     struct counters_t {
@@ -143,6 +147,7 @@ protected:
         memref_tid_t tid = 0;
         // A vector to support windows.
         std::vector<counters_t> counters;
+        counters_t last_counters_snapshot;
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;

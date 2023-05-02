@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -94,6 +94,7 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
     if (type_is_instr(memref.instr.type)) {
+        per_shard->tid = memref.instr.tid;
         ++counters->instrs;
         counters->unique_pc_addrs.insert(memref.instr.addr);
         // The encoding entries aren't exposed at the memref_t level, but
@@ -166,8 +167,6 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             default: ++counters->other_markers; break;
             }
         }
-    } else if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
-        per_shard->tid = memref.exit.tid;
     } else if (memref.data.type == TRACE_TYPE_INSTR_FLUSH) {
         counters->icache_flushes++;
     } else if (memref.data.type == TRACE_TYPE_DATA_FLUSH) {
@@ -293,4 +292,38 @@ basic_counts_t::get_total_counts()
         }
     }
     return total;
+}
+
+bool
+basic_counts_t::parallel_shard_quantum_end(void *shard_data, int quantum_id)
+{
+    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    counters_t shard_total;
+    for (const auto &ctr : per_shard->counters) {
+        shard_total += ctr;
+    }
+    std::cerr << "Saw " << shard_total.instrs - per_shard->last_counters_snapshot.instrs
+              << " instrs in quantum " << quantum_id << " of TID " << per_shard->tid
+              << "\n";
+    per_shard->last_counters_snapshot = shard_total;
+    return true;
+}
+
+bool
+basic_counts_t::notify_quantum_end(int quantum_id)
+{
+    counters_t total;
+    counters_t last_snapshot;
+    for (const auto &shard : shard_map_) {
+        counters_t shard_total;
+        for (const auto &ctr : shard.second->counters) {
+            shard_total += ctr;
+        }
+        total += shard_total;
+        last_snapshot += shard.second->last_counters_snapshot;
+        shard.second->last_counters_snapshot = shard_total;
+    }
+    std::cerr << "Saw " << total.instrs - last_snapshot.instrs << " instrs in quantum "
+              << quantum_id << "\n";
+    return true;
 }

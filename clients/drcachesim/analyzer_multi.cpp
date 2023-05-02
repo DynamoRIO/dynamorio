@@ -53,6 +53,7 @@ analyzer_multi_t::analyzer_multi_t()
 {
     worker_count_ = op_jobs.get_value();
     skip_instrs_ = op_skip_instrs.get_value();
+    quantum_microseconds_ = op_quantum_microseconds.get_value();
     // Initial measurements show it's sometimes faster to keep the parallel model
     // of using single-file readers but use them sequentially, as opposed to
     // the every-file interleaving reader, but the user can specify -jobs 1, so

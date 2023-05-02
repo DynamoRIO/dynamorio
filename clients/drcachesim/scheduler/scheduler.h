@@ -583,6 +583,14 @@ public:
             return last_timestamp_;
         }
         /**
+         * Returns the value of the first seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+         */
+        uint64_t
+        get_first_timestamp() const override
+        {
+            return first_timestamp_;
+        }
+        /**
          * Returns the #trace_version_t value from the #TRACE_MARKER_TYPE_VERSION record
          * in the trace header.
          */
@@ -648,6 +656,7 @@ public:
         uint64_t cur_ref_count_ = 0;
         uint64_t cur_instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
+        uint64_t first_timestamp_ = 0;
         // Remember top-level headers for the memtrace_stream_t interface.
         uint64_t version_ = 0;
         uint64_t filetype_ = 0;
@@ -709,7 +718,7 @@ public:
     get_input_stream_name(input_ordinal_t input)
     {
         if (input < 0 || input >= static_cast<input_ordinal_t>(inputs_.size()))
-            return nullptr;
+            return "";
         return inputs_[input].reader->get_stream_name();
     }
 
