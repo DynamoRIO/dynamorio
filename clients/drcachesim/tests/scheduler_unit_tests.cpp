@@ -86,7 +86,7 @@ static trace_entry_t
 make_instr(addr_t pc, trace_type_t type = TRACE_TYPE_INSTR)
 {
     trace_entry_t entry;
-    entry.type = type;
+    entry.type = static_cast<unsigned short>(type);
     entry.size = 1;
     entry.addr = pc;
     return entry;
@@ -152,7 +152,7 @@ make_marker(trace_marker_type_t type, uintptr_t value)
 {
     trace_entry_t entry;
     entry.type = TRACE_TYPE_MARKER;
-    entry.size = type;
+    entry.size = static_cast<unsigned short>(type);
     entry.addr = value;
     return entry;
 }
@@ -796,7 +796,8 @@ test_synthetic()
             }
             assert(status == scheduler_t::STATUS_OK);
             if (type_is_instr(memref.instr.type))
-                sched_as_string[i] += 'A' + (memref.instr.tid - TID_BASE);
+                sched_as_string[i] +=
+                    'A' + static_cast<char>(memref.instr.tid - TID_BASE);
         }
     }
     for (int i = 0; i < NUM_OUTPUTS; i++) {
