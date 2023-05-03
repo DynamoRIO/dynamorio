@@ -33,7 +33,7 @@
 #ifndef _MEMREF_GEN_
 #define _MEMREF_GEN_ 1
 
-#include "../common/memref.h"
+#include "memref.h"
 #include "dr_api.h"
 #include <assert.h>
 #include <cstring>
