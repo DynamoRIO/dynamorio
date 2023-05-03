@@ -2714,6 +2714,12 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.drbbdup-emul-test.dll drutil)
   use_DynamoRIO_extension(client.drbbdup-emul-test.dll drbbdup)
   use_DynamoRIO_extension(client.drbbdup-emul-test.dll drreg)
+
+  tobuild_ci(client.drbbdup-emul-reg-clobber-test client-interface/drbbdup-emul-reg-clobber-test.c "" "" "")
+  use_DynamoRIO_extension(client.drbbdup-emul-reg-clobber-test.dll drmgr)
+  use_DynamoRIO_extension(client.drbbdup-emul-reg-clobber-test.dll drutil)
+  use_DynamoRIO_extension(client.drbbdup-emul-reg-clobber-test.dll drbbdup)
+  use_DynamoRIO_extension(client.drbbdup-emul-reg-clobber-test.dll drreg)
 endif (NOT RISCV64)
 
 if (ARM)
