@@ -93,6 +93,31 @@ public:
             }
             return *this;
         }
+        counters_t &
+        operator-=(const counters_t &rhs)
+        {
+            instrs -= rhs.instrs;
+            instrs_nofetch -= rhs.instrs_nofetch;
+            prefetches -= rhs.prefetches;
+            loads -= rhs.loads;
+            stores -= rhs.stores;
+            sched_markers -= rhs.sched_markers;
+            xfer_markers -= rhs.xfer_markers;
+            func_id_markers -= rhs.func_id_markers;
+            func_retaddr_markers -= rhs.func_retaddr_markers;
+            func_arg_markers -= rhs.func_arg_markers;
+            func_retval_markers -= rhs.func_retval_markers;
+            phys_addr_markers -= rhs.phys_addr_markers;
+            phys_unavail_markers -= rhs.phys_unavail_markers;
+            other_markers -= rhs.other_markers;
+            icache_flushes -= rhs.icache_flushes;
+            dcache_flushes -= rhs.dcache_flushes;
+            encodings -= rhs.encodings;
+            for (const uint64_t addr : rhs.unique_pc_addrs) {
+                unique_pc_addrs.erase(addr);
+            }
+            return *this;
+        }
         bool
         operator==(const counters_t &rhs)
         {
