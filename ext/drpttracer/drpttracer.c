@@ -617,13 +617,13 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
     if (handle->tracing_mode == DRPTTRACER_TRACING_ONLY_USER ||
         handle->tracing_mode == DRPTTRACER_TRACING_USER_AND_KERNEL) {
         /* Check if the sideband data in the perf data ring buffer is overwritten. */
-        uint64_t sd_size = handle->header->data_head - handle->header->data_tail;
-        if (sd_size > handle->header->aux_size) {
+        uint64_t sideband_size = handle->header->data_head - handle->header->data_tail;
+        if (sideband_size > handle->header->aux_size) {
             ERRMSG(
                 "the size of sideband data(" UINT64_FORMAT_STRING
                 ") is bigger than the size of sideband data buffer(" UINT64_FORMAT_STRING
                 ")\n",
-                sd_size, handle->header->data_size);
+                sideband_size, handle->header->data_size);
             ASSERT(false, "the buffer is full and the new sideband data is overwritten");
             return DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA;
         }
@@ -631,7 +631,7 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
         read_ring_buf_status_t read_sd_status = read_ring_buf_to_buf(
             drcontext, (uint8_t *)handle->base + handle->header->data_offset,
             handle->header->data_size, handle->header->data_head,
-            handle->header->data_tail, &output->sd_buffer, &output->sd_size);
+            handle->header->data_tail, &output->sideband_buffer, &output->sideband_size);
         if (read_sd_status != READ_RING_BUFFER_SUCCESS) {
             ERRMSG("failed to read data from ring buffer(errno:%d) \n", read_sd_status);
             ASSERT(false, "failed to read sideband data from the ring buffer");
@@ -641,7 +641,7 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
         /* Even when tracing only kernel instructions, there is some sideband data.
          * Because we don't need this data in future processes, we discard it.
          */
-        output->sd_size = 0;
+        output->sideband_size = 0;
     }
 
     /* Reset the ring buffers' tail offset.
@@ -671,6 +671,12 @@ drpttracer_get_pt_metadata(IN void *tracer_handle, OUT pt_metadata_t *pt_metadat
     }
 
     *pt_metadata = pt_shared_metadata;
+
+    /* When perf_event_open is invoked, it stores the time_shift, time_mult, and time_zero
+     * values in the perf_event_mmap_page structure. We store the perf_event_mmap_page
+     * instance in the tracer_handle, allowing us to read the time_shift, time_mult, and
+     * time_zero values from the trace handle's header.
+     */
     pt_metadata->time_shift = handle->header->time_shift;
     pt_metadata->time_mult = handle->header->time_mult;
     pt_metadata->time_zero = handle->header->time_zero;
@@ -707,19 +713,20 @@ drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
     }
     (*output)->pt_size = 0;
     if (sd_buf_size_shift != 0) {
-        (*output)->sd_buffer_size = 1 << sd_buf_size_shift;
-        (*output)->sd_buffer = dr_thread_alloc(drcontext, (*output)->sd_buffer_size);
-        if ((*output)->sd_buffer == NULL) {
-            ASSERT(false, "failed to allocate memory for sd_buffer of output");
+        (*output)->sideband_buffer_size = 1 << sd_buf_size_shift;
+        (*output)->sideband_buffer =
+            dr_thread_alloc(drcontext, (*output)->sideband_buffer_size);
+        if ((*output)->sideband_buffer == NULL) {
+            ASSERT(false, "failed to allocate memory for sideband_buffer of output");
             dr_thread_free(drcontext, (*output)->pt_buffer, (*output)->pt_buffer_size);
             dr_thread_free(drcontext, *output, sizeof(drpttracer_output_t));
             return DRPTTRACER_ERROR_FAILED_TO_ALLOCATE_OUTPUT_BUFFER;
         }
     } else {
-        (*output)->sd_buffer_size = 0;
-        (*output)->sd_buffer = NULL;
+        (*output)->sideband_buffer_size = 0;
+        (*output)->sideband_buffer = NULL;
     }
-    (*output)->sd_size = 0;
+    (*output)->sideband_size = 0;
     return DRPTTRACER_SUCCESS;
 }
 
@@ -734,8 +741,8 @@ drpttracer_destroy_output(IN void *drcontext, IN drpttracer_output_t *output)
     if (output->pt_buffer != NULL) {
         dr_thread_free(drcontext, output->pt_buffer, output->pt_buffer_size);
     }
-    if (output->sd_buffer != NULL) {
-        dr_thread_free(drcontext, output->sd_buffer, output->sd_buffer_size);
+    if (output->sideband_buffer != NULL) {
+        dr_thread_free(drcontext, output->sideband_buffer, output->sideband_buffer_size);
     }
     dr_thread_free(drcontext, output, sizeof(drpttracer_output_t));
     return DRPTTRACER_SUCCESS;

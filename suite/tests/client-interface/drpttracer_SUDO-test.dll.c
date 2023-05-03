@@ -194,7 +194,7 @@ stop_tracing_and_check_trace(void *drcontext, void *trace_handle)
     CHECK(ok, "drpttracer_create_output failed");
     CHECK(output->pt_buffer != NULL,
           "drpttracer_create_output failed to create PT output buffer");
-    CHECK(output->sd_buffer == NULL,
+    CHECK(output->sideband_buffer == NULL,
           "drpttracer_create_output created sideband data output buffer");
 
     ok = drpttracer_stop_tracing(drcontext, trace_handle, output) == DRPTTRACER_SUCCESS;
@@ -204,7 +204,7 @@ stop_tracing_and_check_trace(void *drcontext, void *trace_handle)
      * version.
      */
     CHECK(output->pt_size != 0, "PT trace data size is 0");
-    CHECK(output->sd_size == 0, "PT's sideband data size is not 0");
+    CHECK(output->sideband_size == 0, "PT's sideband data size is not 0");
 
     ok = drpttracer_destroy_output(drcontext, output) == DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_destroy_output failed");

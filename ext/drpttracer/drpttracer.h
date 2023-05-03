@@ -103,14 +103,17 @@ typedef struct _pt_metadata_t {
  * This data struct is used by drpttracer to store PT trace, and sideband data. These data
  * can be dumped into different files by the client. These files can be the inputs of
  * pt2ir_t, which decodes the PT data into Dynamorio's IR.
+ * \note This buffer can be shared across different tracing sessions. Thus, we allocate a
+ * buffer with the maximum trace size. The #pt_size and #sideband_size variables indicate
+ * the valid data size within the buffer.
  */
 typedef struct _drpttracer_output_t {
-    void *pt_buffer;       /**< The buffer of PT trace. */
-    size_t pt_buffer_size; /**< The size of PT trace's buffer. */
-    size_t pt_size;        /**< The size of vaild PT trace stored in PT buffer. */
-    void *sd_buffer;       /**< The PT sideband data's buffer. */
-    size_t sd_buffer_size; /**< The size of PT sideband data's buffer. */
-    size_t sd_size;        /**< The size of vaild PT sideband data stored in PT buffer. */
+    void *pt_buffer;             /**< The buffer of PT trace. */
+    size_t pt_buffer_size;       /**< The size of PT trace's buffer. */
+    size_t pt_size;              /**< The size of vaild PT trace stored in PT buffer. */
+    void *sideband_buffer;       /**< The PT sideband data's buffer. */
+    size_t sideband_buffer_size; /**< The size of PT sideband data's buffer. */
+    size_t sideband_size; /**< The size of vaild PT sideband data stored in PT buffer. */
 } drpttracer_output_t;
 
 /***************************************************************************

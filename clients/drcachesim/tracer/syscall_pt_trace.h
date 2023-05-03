@@ -162,6 +162,11 @@ private:
     /* The shared file close function. */
     drmemtrace_close_file_func_t close_file_func_;
 
+    /* Indicates whether the syscall_pt_trace instance has been initialized. The init
+     * function should be called only once per thread.
+     */
+    bool is_initialized_;
+
     /* The pttracer handle held by this instance. */
     drpttracer_handle_autoclean_t pttracer_handle_;
 

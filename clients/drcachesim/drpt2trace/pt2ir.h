@@ -324,21 +324,27 @@ public:
     ~pt2ir_t();
 
     /**
-     * Returns true if the instance is successfully initialized. Returns false on failure.
-     * \note Parse struct #pt2ir_config_t and initialize the PT instruction decoder, the
-     * sideband session.
+     * Initialize the PT instruction decoder and the sideband session.
+     * @param pt2ir_config The configuration of PT raw trace.
+     * @param shared_iscache The shared image section cache. \note The pt2ir_t instance is
+     * designed to work with a single thread, while the image is shared among all threads.
+     * Therefore, a shared image section cache must be provided.
+     * @return true if the instance is successfully initialized.
      */
     bool
     init(IN pt2ir_config_t &pt2ir_config,
          IN struct pt_image_section_cache *shared_iscache);
 
     /**
-     * Returns pt2ir_convert_status_t. If the convertion is successful, the function
-     * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
-     * error code.
-     * \note The convert function performs two processes: (1) decode the PT raw trace into
+     * The convert function performs two processes: (1) decode the PT raw trace into
      * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
      * instr_t and append it to ilist inside the drir object.
+     * @param pt_data The PT raw trace.
+     * @param pt_data_size The size of PT raw trace.
+     * @param drir The drir object.
+     * @return pt2ir_convert_status_t. If the convertion is successful, the function
+     * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
+     * error code.
      */
     pt2ir_convert_status_t
     convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir);

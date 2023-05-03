@@ -48,7 +48,6 @@
 
 pt2ir_t::pt2ir_t()
     : pt2ir_initialized_(false)
-    , pt_raw_buffer_(std::unique_ptr<uint8_t[]>(nullptr))
     , pt_raw_buffer_size_(0)
     , pt_instr_decoder_(nullptr)
     , pt_sb_iscache_(nullptr)
@@ -118,6 +117,10 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
             return false;
         }
     }
+
+    /* The following code initializes sideband decoders. However, decoding DRMEMTRACE
+     * format kernel traces does not require sideband decoders.
+     */
 
     /* Init the sideband image section cache and session. */
     pt_sb_iscache_ = pt_iscache_alloc(nullptr);
@@ -235,10 +238,13 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
         return PT2IR_CONV_ERROR_RAW_TRACE_TOO_LARGE;
     }
 
-    /* Append the PT data to the raw buffer. */
-    memcpy(pt_raw_buffer_.get() + pt_raw_buffer_data_size_, pt_data, pt_data_size);
-    pt_raw_buffer_data_size_ += pt_data_size;
-    bool is_first_sync = true;
+    /* Reset the raw buffer and copy the new data to the buffer. */
+    memset(pt_raw_buffer_.get(), 0, pt_raw_buffer_size_);
+    memcpy(pt_raw_buffer_.get(), pt_data, pt_data_size);
+    pt_raw_buffer_data_size_ = pt_data_size;
+
+    /* This flag indicates whether manual synchronization is required. */
+    bool manual_sync = true;
 
     /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
      * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
@@ -249,21 +255,27 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
         memset(&insn, 0, sizeof(insn));
         int status = 0;
 
-        /* Sync decoder to the first Packet Stream Boundary (PSB) packet, and then decode
-         * instructions. If there is no PSB packet, the decoder will be synced to the end
-         * of the trace. If an error occurs, we will call dx_decoding_error to print the
-         * error information. What are PSB packets? Below answer is quoted from Intel 64
-         * and IA-32 Architectures Software Developer’s Manual 32.1.1.1 Packet Summary
-         * “Packet Stream Boundary (PSB) packets: PSB packets act as ‘heartbeats’ that are
-         * generated at regular intervals (e.g., every 4K trace packet bytes). These
-         * packets allow the packet decoder to find the packet boundaries within the
-         * output data stream; a PSB packet should be the first packet that a decoder
-         * looks for when beginning to decode a trace.”
+        /* Before decoding a new stream of data, the decoder must reset the decode
+         * position to the start of the buffer. Since Libipt does not provide an API to
+         * reset the decode position, pt_insn_sync_set() is used for manual
+         * synchronization.
          */
-        if (is_first_sync == true) {
+        if (manual_sync == true) {
             status = pt_insn_sync_set(pt_instr_decoder_, 0);
-            is_first_sync = false;
+            manual_sync = false;
         } else {
+            /* Sync decoder to next Packet Stream Boundary (PSB) packet, and then
+             * decode instructions. If there is no PSB packet, the decoder will be synced
+             * to the end of the trace. If an error occurs, we will call dx_decoding_error
+             * to print the error information. What are PSB packets? Below answer is
+             * quoted from Intel 64 and IA-32 Architectures Software Developer’s
+             * Manual 32.1.1.1 Packet Summary “Packet Stream Boundary (PSB) packets: PSB
+             * packets act as ‘heartbeats’ that are generated at regular intervals (e.g.,
+             * every 4K trace packet bytes). These packets allow the packet decoder to
+             * find the packet boundaries within the output data stream; a PSB packet
+             * should be the first packet that a decoder looks for when beginning to
+             * decode a trace.”
+             */
             status = pt_insn_sync_forward(pt_instr_decoder_);
         }
 
@@ -331,13 +343,15 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
             instr_init(drir.get_drcontext(), instr);
             instr_set_isa_mode(instr,
                                insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
-            decode(drir.get_drcontext(), insn.raw, instr);
+            bool instr_valid = false;
+            if (decode(drir.get_drcontext(), insn.raw, instr) != nullptr)
+                instr_valid = true;
             instr_set_translation(instr, (app_pc)insn.ip);
             instr_allocate_raw_bits(drir.get_drcontext(), instr, insn.size);
             /* TODO i#2103: Currently, the PT raw data may contain 'STAC' and 'CLAC'
              * instructions that are not supported by Dynamorio.
              */
-            if (!instr_valid(instr)) {
+            if (!instr_valid) {
                 /* The decode() function will not correctly identify the raw bits for
                  * invalid instruction. So we need to set the raw bits of instr manually.
                  */
