@@ -146,6 +146,11 @@ gen_exit(memref_tid_t tid)
     return memref;
 }
 
+/* Returns a vector of encoded memref_t.
+ * The caller has to set tid + pid fields of the memref_t in memref_instr_t
+ * structs but not the other fields. Also note that all operand records have to
+ * be filled in for each memref when constructing memref_instr_vec.
+ */
 inline std::vector<memref_t>
 get_memrefs_from_ir(instrlist_t *ilist, std::vector<memref_instr_t> &memref_instr_vec,
                     const addr_t base_addr = BASE_ADDR)
@@ -155,18 +160,19 @@ get_memrefs_from_ir(instrlist_t *ilist, std::vector<memref_instr_t> &memref_inst
     byte *pc =
         instrlist_encode_to_copy(GLOBAL_DCONTEXT, ilist, decode_buf,
                                  reinterpret_cast<app_pc>(base_addr), nullptr, true);
+    assert(sizeof(decode_buf) / sizeof(decode_buf[0]) <= MAX_DECODE_SIZE);
     assert(pc != nullptr);
     std::vector<memref_t> memrefs = {};
     memrefs.push_back(
         gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS));
     for (auto pair : memref_instr_vec) {
         if (pair.instr != nullptr && type_is_instr(pair.memref.instr.type)) {
-            pair.memref.instr.addr = instr_get_offset(pair.instr) + base_addr;
-            pair.memref.instr.size = instr_length(GLOBAL_DCONTEXT, pair.instr);
-            byte buf[MAX_ENCODING_LENGTH];
-            byte *next_pc = instr_encode(GLOBAL_DCONTEXT, pair.instr, buf);
-            assert(next_pc != nullptr);
-            memcpy(pair.memref.instr.encoding, buf, sizeof(buf));
+            const size_t offset = instr_get_offset(pair.instr);
+            const int instr_size = instr_length(GLOBAL_DCONTEXT, pair.instr);
+            assert(instr_size <= MAX_ENCODING_LENGTH);
+            pair.memref.instr.addr = offset + base_addr;
+            pair.memref.instr.size = instr_size;
+            memcpy(pair.memref.instr.encoding, &decode_buf[offset], instr_size);
             pair.memref.instr.encoding_is_new = true;
         }
         memrefs.push_back(pair.memref);
