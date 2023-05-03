@@ -380,16 +380,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::report_time(uint64_t cur_tim
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::start_speculation(
-    addr_t start_address)
+    addr_t start_address, bool queue_current_record)
 {
-    return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    return scheduler_->start_speculation(ordinal_, start_address, queue_current_record);
 }
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::stop_speculation()
 {
-    return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    return scheduler_->stop_speculation(ordinal_);
 }
 
 /***************************************************************************
@@ -492,9 +492,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             static_cast<int>(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS));
     }
 
+    // TODO i#5843: Once the speculator supports more options, change the
+    // default.  For now we hardcode nops as the only supported option.
+    options_.flags = static_cast<scheduler_flags_t>(
+        static_cast<int>(options_.flags) |
+        static_cast<int>(sched_type_t::SCHEDULER_SPECULATE_NOPS));
+
     outputs_.reserve(output_count);
     for (int i = 0; i < output_count; i++) {
-        outputs_.emplace_back(this, i, verbosity_);
+        outputs_.emplace_back(this, i,
+                              TESTANY(SCHEDULER_SPECULATE_NOPS, options_.flags)
+                                  ? spec_type_t::USE_NOPS
+                                  // TODO i#5843: Add more flags for other options.
+                                  : spec_type_t::LAST_FROM_TRACE,
+                              verbosity_);
     }
     if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT) {
         // Assign the inputs up front to avoid locks once we're in parallel mode.
@@ -895,6 +906,17 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         return sched_type_t::STATUS_EOF;
     }
     input = &inputs_[outputs_[output].cur_input];
+    if (outputs_[output].speculating) {
+        error_string_ = outputs_[output].speculator.next_record(
+            outputs_[output].speculate_pc, record);
+        if (!error_string_.empty())
+            return sched_type_t::STATUS_INVALID;
+        // Leave the cur input where it is: the ordinals will remain unchanged.
+        // Also avoid the context switch checks below as we cannot switch in the
+        // middle of speculating (we also don't count speculated instructions toward
+        // QUANTUM_INSTRUCTIONS).
+        return sched_type_t::STATUS_OK;
+    }
     while (true) {
         if (input->needs_init) {
             // We pay the cost of this conditional to support ipc_reader_t::init() which
@@ -972,6 +994,31 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     VPRINT(this, 4, "next_record[%d]: from %d: ", output, input->index);
     VDO(this, 4, print_record(record););
 
+    outputs_[output].last_record = record;
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::start_speculation(output_ordinal_t output,
+                                                            addr_t start_address,
+                                                            bool queue_current_record)
+{
+    if (!outputs_[output].speculating && queue_current_record) {
+        inputs_[outputs_[output].cur_input].queue.push_back(outputs_[output].last_record);
+    }
+    outputs_[output].speculating = true;
+    outputs_[output].speculate_pc = start_address;
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::stop_speculation(output_ordinal_t output)
+{
+    if (!outputs_[output].speculating)
+        return sched_type_t::STATUS_INVALID;
+    outputs_[output].speculating = false;
     return sched_type_t::STATUS_OK;
 }
 
