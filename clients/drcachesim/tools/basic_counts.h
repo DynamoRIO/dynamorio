@@ -147,7 +147,7 @@ protected:
         memref_tid_t tid = 0;
         // A vector to support windows.
         std::vector<counters_t> counters;
-        counters_t last_counters_snapshot;
+        counters_t last_quantum_counters_snapshot;
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;

@@ -172,12 +172,13 @@ protected:
     // Invoked when the given quantum finishes during serial analysis of the
     // trace.
     virtual bool
-    process_quantum(int quantum_id, analyzer_worker_data_t *worker);
+    process_quantum(uint64_t quantum_id, analyzer_worker_data_t *worker);
 
     // Invoked when the given quantum finishes in the given shard during
     // parallel analysis of the trace.
     virtual bool
-    process_shard_quantum(int shard_id, int quantum_id, analyzer_worker_data_t *worker);
+    process_shard_quantum(int shard_id, uint64_t quantum_id,
+                          analyzer_worker_data_t *worker);
 
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;

@@ -302,10 +302,11 @@ basic_counts_t::parallel_shard_quantum_end(void *shard_data, uint64_t quantum_id
     for (const auto &ctr : per_shard->counters) {
         shard_total += ctr;
     }
-    std::cerr << "Saw " << shard_total.instrs - per_shard->last_counters_snapshot.instrs
+    std::cerr << "Saw "
+              << shard_total.instrs - per_shard->last_quantum_counters_snapshot.instrs
               << " instrs in quantum " << quantum_id << " of TID " << per_shard->tid
               << "\n";
-    per_shard->last_counters_snapshot = shard_total;
+    per_shard->last_quantum_counters_snapshot = shard_total;
     return true;
 }
 
@@ -320,8 +321,8 @@ basic_counts_t::notify_quantum_end(uint64_t quantum_id)
             shard_total += ctr;
         }
         total += shard_total;
-        last_snapshot += shard.second->last_counters_snapshot;
-        shard.second->last_counters_snapshot = shard_total;
+        last_snapshot += shard.second->last_quantum_counters_snapshot;
+        shard.second->last_quantum_counters_snapshot = shard_total;
     }
     std::cerr << "Saw " << total.instrs - last_snapshot.instrs << " instrs in quantum "
               << quantum_id << "\n";

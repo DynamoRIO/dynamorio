@@ -489,9 +489,9 @@ droption_t<std::string> op_tracer_ops(
 
 droption_t<int> op_quantum_microseconds(
     DROPTION_SCOPE_FRONTEND, "quantum_microseconds", 0,
-    "Enable periodic heartbeats for every quantum of given microseconds.",
-    "Length of each desired quantum defined in microseconds. If set, "
-    "analysis tools receive a callback every given microseconds.");
+    "Enable periodic heartbeats for every quantum of given microseconds in the trace.",
+    "Desired length of each quantum defined in microseconds of trace time. If set, "
+    "analysis tools receive a callback when each quantum ends.");
 
 droption_t<int>
     op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,

@@ -57,7 +57,7 @@
 // elements when next_record is invoked.
 class test_stream_t : public scheduler_t::stream_t {
 public:
-    test_stream_t(std::vector<memref_t> refs)
+    test_stream_t(const std::vector<memref_t> &refs)
         : stream_t(nullptr, 0, 0)
         , refs_(refs)
         , at_(0)
@@ -194,7 +194,7 @@ test_non_zero_quantum(bool parallel)
         // 0th quantum ends here.
         gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 101), gen_instr(1, 4),
         // 1st quantum ends here.
-        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 500),
+        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 490),
         // 4th quantum ends here.
         gen_exit(1)
     };
@@ -218,13 +218,13 @@ test_non_zero_quantum(bool parallel)
         std::make_pair(0, 6), std::make_pair(1, 8), std::make_pair(4, 10)
     };
     if (parallel) {
-        CHECK(test_analysis_tool->serial_quantum_ends.size() == 0,
+        CHECK(test_analysis_tool->serial_quantum_ends.empty(),
               "The serial API notify_quantum_end should not be invoked for parallel "
               "analysis");
         CHECK(test_analysis_tool->parallel_quantum_ends == expected_quantum_ends,
               "parallel_shard_quantum_end invoked at unexpected times.");
     } else {
-        CHECK(test_analysis_tool->parallel_quantum_ends.size() == 0,
+        CHECK(test_analysis_tool->parallel_quantum_ends.empty(),
               "The parallel API parallel_shard_quantum_end should not be invoked for "
               "serial analysis");
         CHECK(test_analysis_tool->serial_quantum_ends == expected_quantum_ends,

@@ -477,15 +477,17 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
 
 template <typename RecordType, typename ReaderType>
 bool
-analyzer_tmpl_t<RecordType, ReaderType>::process_quantum(int quantum_id,
+analyzer_tmpl_t<RecordType, ReaderType>::process_quantum(uint64_t quantum_id,
                                                          analyzer_worker_data_t *worker)
 {
     for (int i = 0; i < num_tools_; ++i) {
         if (!tools_[i]->notify_quantum_end(quantum_id)) {
             worker->error = tools_[i]->get_error_string();
-            VPRINT(this, 1, "Worker %d hit process_quantum error %s on trace shard %s\n",
+            VPRINT(this, 1,
+                   "Worker %d hit process_quantum error %s on trace shard %s at quantum "
+                   "%ld\n",
                    worker->index, worker->error.c_str(),
-                   worker->stream->get_stream_name().c_str());
+                   worker->stream->get_stream_name().c_str(), quantum_id);
             return false;
         }
     }
@@ -495,16 +497,17 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_quantum(int quantum_id,
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::process_shard_quantum(
-    int shard_id, int quantum_id, analyzer_worker_data_t *worker)
+    int shard_id, uint64_t quantum_id, analyzer_worker_data_t *worker)
 {
     for (int i = 0; i < num_tools_; ++i) {
         if (!tools_[i]->parallel_shard_quantum_end(shard_data_[shard_id][i],
                                                    quantum_id)) {
             worker->error = tools_[i]->get_error_string();
             VPRINT(this, 1,
-                   "Worker %d hit process_shard_quantum error %s on trace shard %s\n",
+                   "Worker %d hit process_shard_quantum error %s on trace shard %s at "
+                   "quantum %ld\n",
                    worker->index, worker->error.c_str(),
-                   worker->stream->get_stream_name().c_str());
+                   worker->stream->get_stream_name().c_str(), quantum_id);
             return false;
         }
     }

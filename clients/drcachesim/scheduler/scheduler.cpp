@@ -787,6 +787,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
     // use the input's cached copies.
     if (stream.version_ == 0) {
         stream.version_ = input.reader->get_version();
+        stream.last_timestamp_ = input.reader->get_last_timestamp();
         stream.first_timestamp_ = input.reader->get_first_timestamp();
         stream.filetype_ = input.reader->get_filetype();
         stream.cache_line_size_ = input.reader->get_cache_line_size();
