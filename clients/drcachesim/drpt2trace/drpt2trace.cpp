@@ -66,7 +66,7 @@
 /* A collection of options. */
 static droption_t<bool> op_help(DROPTION_SCOPE_FRONTEND, "help", false,
                                 "Print this message", "Prints the usage message.");
-static droption_t<bool> op_print_ins(DROPTION_SCOPE_FRONTEND, "print_ins", false,
+static droption_t<bool> op_print_instrs(DROPTION_SCOPE_FRONTEND, "print_instrs", false,
                                      "Print instructions.",
                                      "Print the disassemble code of the trace.");
 static droption_t<std::string> op_mode(
@@ -255,7 +255,7 @@ print_results(IN drir_t &drir)
         return;
     }
 
-    if (op_print_ins.specified()) {
+    if (op_print_instrs.specified()) {
         /* Print the disassemble code of the trace. */
         instrlist_disassemble(drir.get_drcontext(), 0, drir.get_ilist(), STDOUT);
     }

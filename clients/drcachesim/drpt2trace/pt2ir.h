@@ -338,7 +338,7 @@ public:
      * error code.
      * \note The convert function performs two processes: (1) decode the PT raw trace into
      * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
-     * instr_t and append it to drir's instruction list.
+     * instr_t and append it to ilist inside the drir object.
      */
     pt2ir_convert_status_t
     convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir);
@@ -350,9 +350,8 @@ private:
     void
     dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip);
 
-    /* It indicate if the pt2ir (pointer-to-intermediate-representation) has been
-     * initialized, signifying the readiness of the conversion process from PT data to
-     * DR's IR.
+    /* It indicate if the instance of pt2ir_t has been initialized, signifying the
+     * readiness of the conversion process from PT data to DR's IR.
      */
     bool pt2ir_initialized_;
 

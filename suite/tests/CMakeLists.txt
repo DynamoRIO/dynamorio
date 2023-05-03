@@ -4239,6 +4239,9 @@ if (BUILD_CLIENTS)
   if (proc_supports_pt)
     if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
       get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
+      # TODO i#5505: This test collects a PT trace using drmemtrace, and then decodes
+      # using pt2trace. When we have the raw2trace support this should decode using
+      # raw2trace.
       macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args)
         set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
         torunonly_ci(${testname_full} ${exetgt} drcachesim
@@ -4359,7 +4362,7 @@ endif (BUILD_CLIENTS)
 # We use the libipt/script/perf-get-opts.bash script to get the options for drpt2trace's tests.
 if (BUILD_CLIENTS)
   if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
-    set(drpt2trace_commong "-print_ins"
+    set(drpt2trace_commong "-print_instrs"
       "-raw_pt"
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/drpt2trace/test_simple.raw/pt.bin"
       "-pt_cpu_family" "6"
