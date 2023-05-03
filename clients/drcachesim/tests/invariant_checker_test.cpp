@@ -43,6 +43,8 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 
+using namespace dynamorio::drmemtrace;
+
 namespace {
 
 #ifdef X86

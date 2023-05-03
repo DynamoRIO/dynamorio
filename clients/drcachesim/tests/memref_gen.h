@@ -38,7 +38,8 @@
 #include <assert.h>
 #include <cstring>
 
-namespace {
+namespace dynamorio {
+namespace drmemtrace {
 
 constexpr addr_t BASE_ADDR = 0xeba4ad4;
 
@@ -180,6 +181,7 @@ get_memrefs_from_ir(instrlist_t *ilist, std::vector<memref_instr_t> &memref_inst
     return memrefs;
 }
 
-} // namespace
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _MEMREF_GEN_ */
