@@ -66,18 +66,18 @@ GLOBAL_LABEL(call_switch_stack:)
         /* Check mutex_to_free. */
         beqz     ARG4, call_dispatch_alt_stack_no_free
         /* Release the mutex. */
-        addi     ARG4,x0,0
+        addi     ARG4, x0, 0
 call_dispatch_alt_stack_no_free:
         mv       s0, ARG5
         addi     t0, sp, 0    /* Save the current stack to temporary register */
-        addi     sp, ARG2, 0 /* Move the stack */
+        addi     sp, ARG2, 0  /* Move the stack */
         jr       ARG3
         addi     sp, t0, 0
         beqz     s0, GLOBAL_LABEL(unexpected_return)
         ld       s1, 0 (sp)
         ld       s2, 8 (sp)
         ld       ra, 16 (sp)
-        addi     sp, sp, 24 /* Recover the stack */
+        addi     sp, sp, 24   /* Recover the stack */
         ret
         END_FUNC(call_switch_stack)
 
