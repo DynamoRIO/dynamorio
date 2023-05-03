@@ -104,7 +104,7 @@ typedef struct _pt_metadata_t {
  * can be dumped into different files by the client. These files can be the inputs of
  * pt2ir_t, which decodes the PT data into Dynamorio's IR.
  * \note This buffer can be shared across different tracing sessions. Thus, we allocate a
- * buffer with the maximum trace size. The #pt_size and #sideband_size variables indicate
+ * buffer with the maximum trace size. The pt_size and sideband_size variables indicate
  * the valid data size within the buffer.
  */
 typedef struct _drpttracer_output_t {
