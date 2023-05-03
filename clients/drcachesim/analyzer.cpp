@@ -485,7 +485,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_quantum(uint64_t quantum_id,
             worker->error = tools_[i]->get_error_string();
             VPRINT(this, 1,
                    "Worker %d hit process_quantum error %s on trace shard %s at quantum "
-                   "%ld\n",
+                   "%" PRId64 "\n",
                    worker->index, worker->error.c_str(),
                    worker->stream->get_stream_name().c_str(), quantum_id);
             return false;
@@ -505,7 +505,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_quantum(
             worker->error = tools_[i]->get_error_string();
             VPRINT(this, 1,
                    "Worker %d hit process_shard_quantum error %s on trace shard %s at "
-                   "quantum %ld\n",
+                   "quantum %" PRId64 "\n",
                    worker->index, worker->error.c_str(),
                    worker->stream->get_stream_name().c_str(), quantum_id);
             return false;
