@@ -353,13 +353,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             return;
         }
         int shard_index = worker->stream->get_input_stream_ordinal();
-        if (shard_data_.find(shard_index) == shard_data_.end()) {
+        if (worker->shard_data.find(shard_index) == worker->shard_data.end()) {
             VPRINT(this, 1, "Worker %d starting on trace shard %d stream is %p\n",
                    worker->index, shard_index, worker->stream);
-            shard_data_[shard_index].resize(num_tools_);
+            worker->shard_data[shard_index].resize(num_tools_);
             for (int i = 0; i < num_tools_; ++i) {
-                shard_data_[shard_index][i] = tools_[i]->parallel_shard_init_stream(
-                    shard_index, user_worker_data[i], worker->stream);
+                worker->shard_data[shard_index][i] =
+                    tools_[i]->parallel_shard_init_stream(
+                        shard_index, user_worker_data[i], worker->stream);
             }
             worker->cur_quantum_index = 0;
         }
@@ -376,9 +377,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
         }
         for (int i = 0; i < num_tools_; ++i) {
-            if (!tools_[i]->parallel_shard_memref(shard_data_[shard_index][i], record)) {
+            if (!tools_[i]->parallel_shard_memref(worker->shard_data[shard_index][i],
+                                                  record)) {
                 worker->error =
-                    tools_[i]->parallel_shard_error(shard_data_[shard_index][i]);
+                    tools_[i]->parallel_shard_error(worker->shard_data[shard_index][i]);
                 VPRINT(this, 1, "Worker %d hit shard memref error %s on trace shard %s\n",
                        worker->index, worker->error.c_str(),
                        worker->stream->get_stream_name().c_str());
@@ -392,9 +394,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                 !process_shard_quantum(shard_index, worker->cur_quantum_index, worker))
                 return;
             for (int i = 0; i < num_tools_; ++i) {
-                if (!tools_[i]->parallel_shard_exit(shard_data_[shard_index][i])) {
-                    worker->error =
-                        tools_[i]->parallel_shard_error(shard_data_[shard_index][i]);
+                if (!tools_[i]->parallel_shard_exit(worker->shard_data[shard_index][i])) {
+                    worker->error = tools_[i]->parallel_shard_error(
+                        worker->shard_data[shard_index][i]);
                     VPRINT(this, 1,
                            "Worker %d hit shard exit error %s on trace shard %s\n",
                            worker->index, worker->error.c_str(),
@@ -500,7 +502,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_quantum(
     int shard_id, uint64_t quantum_id, analyzer_worker_data_t *worker)
 {
     for (int i = 0; i < num_tools_; ++i) {
-        if (!tools_[i]->parallel_shard_quantum_end(shard_data_[shard_id][i],
+        if (!tools_[i]->parallel_shard_quantum_end(worker->shard_data[shard_id][i],
                                                    quantum_id)) {
             worker->error = tools_[i]->get_error_string();
             VPRINT(this, 1,

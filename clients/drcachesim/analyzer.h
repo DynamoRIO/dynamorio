@@ -122,6 +122,7 @@ protected:
             : index(index)
             , stream(stream)
             , cur_quantum_index(0)
+            , shard_data()
         {
         }
         analyzer_worker_data_t(analyzer_worker_data_t &&src)
@@ -129,6 +130,7 @@ protected:
             index = src.index;
             stream = src.stream;
             cur_quantum_index = src.cur_quantum_index;
+            shard_data = std::move(src.shard_data);
             error = std::move(src.error);
         }
 
@@ -136,6 +138,7 @@ protected:
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
         std::string error;
         uint64_t cur_quantum_index;
+        std::unordered_map<int, std::vector<void *>> shard_data;
 
     private:
         analyzer_worker_data_t(const analyzer_worker_data_t &) = delete;
@@ -198,8 +201,6 @@ protected:
 private:
     bool
     serial_mode_supported();
-
-    std::unordered_map<int, std::vector<void *>> shard_data_;
 };
 
 /** See #analyzer_tmpl_t. */
