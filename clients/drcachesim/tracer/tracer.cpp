@@ -1055,6 +1055,13 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             FATAL("Fatal error: failed to reserve aflags\n");
     }
 
+    bool need_rseq_instru = instr_is_label(instr) &&
+        instr_get_note(instr) == (void *)DR_NOTE_RSEQ_ENTRY &&
+        // For filtered instructions we can't adjust rseq regions as we do not have
+        // the fill instruction sequence so we reduce overhead by not outputting the
+        // entry markers.
+        !op_L0I_filter.get_value();
+
     // Use emulation-aware queries to accurately trace rep string and
     // scatter-gather expansions.  Getting this wrong can result in significantly
     // incorrect ifetch stats (i#2011).
@@ -1065,6 +1072,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          !(instr_reads_memory(instr_operands) || instr_writes_memory(instr_operands))) &&
         // Ensure we reach the code below for post-strex instru.
         ud->strex == NULL &&
+        // Do not skip misc cases that need instrumentation.
+        !need_rseq_instru &&
         // Avoid dropping trailing bundled instrs or missing the block-final clean call.
         !is_last_instr(drcontext, instr))
         return flags;
@@ -1178,6 +1187,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                                    instr_get_dst(ud->strex, 0), 0, true,
                                    instr_get_predicate(ud->strex));
         ud->strex = NULL;
+    }
+
+    if (need_rseq_instru) {
+        DR_ASSERT(!op_L0I_filter.get_value()); // Excluded from need_rseq_instru.
+        if (op_L0D_filter.get_value())
+            insert_load_buf_ptr(drcontext, bb, where, reg_ptr);
+        adjust =
+            instru->instrument_rseq_entry(drcontext, bb, where, instr, reg_ptr, adjust);
+        if (op_L0D_filter.get_value()) {
+            // When filtering we can't combine buf_ptr adjustments.
+            insert_update_buf_ptr(drcontext, bb, where, reg_ptr, DR_PRED_NONE, adjust);
+            adjust = 0;
+        }
     }
 
     /* Instruction entry for instr fetch trace.  This does double-duty by
@@ -1411,9 +1433,9 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     /* TODO i#3937: We need something similar to what raw2trace does with this info
      * for online too, to place signals inside instr bundles.
      */
-    /* XXX i#4041: For rseq abort, offline post-processing rolls back the committing
-     * store so the abort happens at a reasonable point.  We don't have a solution
-     * for online though.
+    /* XXX i#4041,i#5954: For rseq abort, offline post-processing rolls back the
+     * committing store so the abort happens at a reasonable point.  We don't have a
+     * solution for online though.
      */
     if (info->source_mcontext != nullptr) {
         app_pc mcontext_pc = info->source_mcontext->pc;
@@ -1430,35 +1452,12 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
          * non-memref instrs in the bb, and also to give core simulators the
          * interrupted PC -- primarily for a kernel event arriving right
          * after a branch to give a core simulator the branch target.
+         * For non-module code we don't have the block id but the absolute PC
+         * unambiguously points to the most recently executed encoding at
+         * that PC, even if another thread modifies it right after the signal.
          */
-#ifdef X64 /* For 32-bit we can fit the abs pc but not modix:modoffs. */
-        if (op_offline.get_value()) {
-            uint modidx;
-            /* Just like PC entries, this is the offset from the base, not from
-             * the indexed segment.
-             */
-            uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
-                drcontext, mcontext_pc, &modidx);
-            /* We save space by using the modidx,modoffs format instead of a raw PC.
-             * These 49 bits will always fit into the 48-bit value field unless the
-             * module index is very large, when it will take two entries, while using
-             * an absolute PC here might always take two entries for some modules.
-             * We'll turn this into an absolute PC in the final trace.
-             */
-            // TODO i#2062: For non-module code we don't have the block id.
-            // Plus, PC_MODIDX_INVALID is the highest value and so will always take
-            // 2 entries.  The simplest solution is to abandon this whole
-            // kernel_interrupted_raw_pc_t scheme and pay the cost of 2 entries to
-            // store the absolute PC: this is only on rare events after all.
-            // This will require a version bump.
-            kernel_interrupted_raw_pc_t raw_pc = {};
-            raw_pc.pc.modidx = modidx;
-            raw_pc.pc.modoffs = modoffs;
-            marker_val = raw_pc.combined_value;
-        } else
-#endif
-            marker_val = reinterpret_cast<uintptr_t>(mcontext_pc);
-        NOTIFY(3, "%s: source pc " PFX " => modoffs " PIFX "\n", __FUNCTION__,
+        marker_val = reinterpret_cast<uintptr_t>(mcontext_pc);
+        NOTIFY(3, "%s: source pc " PFX " => marker val " PIFX "\n", __FUNCTION__,
                mcontext_pc, marker_val);
     }
     if (info->type == DR_XFER_RSEQ_ABORT) {

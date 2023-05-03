@@ -156,6 +156,16 @@ changes:
    AArch64 instruction and "reta" entries in the AArch64 codec were being used to
    decode "retaa" and "retab". These instructions will now encode and decode correctly
    as "retaa" and "retab".
+ - Added a #DR_XFER_RSEQ_ABORT event for a signal generated during an rseq region.
+ - Changed the interrupted PC for #DR_XFER_RSEQ_ABORT for native execution aborts to be
+   the abort handler (a signal during the instrumented execution will continue to have
+   the actual interrupted PC); changed the interrupted PC for #DR_XFER_SIGNAL_DELIVERY
+   for a signal generated during an rseq region to be the abort handler, matching the
+   kernel behavior.
+ - Changed the arguments and decode behavior of the INSTR_CREATE_orr_sve_pred(),
+   INSTR_CREATE_eor_sve_pred(), INSTR_CREATE_and_sve_pred() and
+   INSTR_CREATE_bic_sve_pred() to use the new vector element registers and to
+   correctly encode the predicate mode.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.
@@ -227,6 +237,8 @@ Further non-compatibility-affecting changes include:
    query key attributes of each input trace.
  - Added instr_create_1dst_6src() convenience function that returns an instr_t
    with one destination and six sources.
+ - Added a new label to help in handling "rseq" (Linux restartable sequence) regions:
+   #DR_NOTE_RSEQ_ENTRY.
 
 **************************************************
 <hr>

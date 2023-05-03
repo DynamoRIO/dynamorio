@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -8273,6 +8273,8 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                                      NULL)) {
                 if (rseq_start > tag)
                     entered_rseq = true;
+                else if (tag == rseq_start)
+                    *flags |= FRAG_STARTS_RSEQ_REGION;
             } else {
                 app_pc prev_end;
                 if (vmvector_lookup_prev_next(d_r_rseq_areas, pc, NULL, &prev_end,

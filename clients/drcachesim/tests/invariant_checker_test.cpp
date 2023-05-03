@@ -89,8 +89,9 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 return false;
             }
         } else if (!checker.errors.empty()) {
-            for (const auto &error : checker.errors) {
-                std::cerr << "Unexpected error: " << error << "\n";
+            for (int i = 0; i < checker.errors.size(); ++i) {
+                std::cerr << "Unexpected error: " << checker.errors[i]
+                          << " at ref: " << checker.error_refs[i] << "\n";
             }
             return false;
         }
@@ -216,13 +217,14 @@ check_sane_control_flow()
 #    if defined(X86_64) || defined(X86_32)
             // 0x74 is "je" with the 2nd byte the offset.
             gen_branch_encoded(1, 0x71019dbc, { 0x74, 0x32 }),
+            gen_instr_encoded(0x71019ded, { 0x01 }),
 #    elif defined(ARM_64)
             // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
             gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
+            gen_instr_encoded(0x71019ded, 0x01),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
-            gen_instr(1, 20),
         };
 
         if (!run_checker(memrefs, true, 1, 3,
@@ -298,7 +300,8 @@ check_kernel_xfer()
     // Signal before any instr in the trace.
     {
         std::vector<memref_t> memrefs = {
-            // No instr in the beginning here.
+            // No instr in the beginning here. Should skip pre-signal instr check
+            // on return.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 101),
             // XXX: This marker value is actually not guaranteed, yet the checker
@@ -314,7 +317,8 @@ check_kernel_xfer()
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            // No intervening instr here.
+            // No intervening instr here. Should skip pre-signal instr check on
+            // return.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 101),
             gen_instr(1, 201),
             // XXX: This marker value is actually not guaranteed, yet the checker
@@ -322,6 +326,109 @@ check_kernel_xfer()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             gen_instr(1, 101),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Nested signals without any intervening instr or initial instr.
+    {
+        std::vector<memref_t> memrefs = {
+            // No initial instr. Should skip pre-signal instr check on return.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            // No intervening instr here. Should skip pre-signal instr check on
+            // return.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 101),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(1, 101),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Consecutive signals (that are nested at the same depth) without any
+    // intervening instr between them.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(1, 101),
+            // First signal.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // Second signal.
+            // No intervening instr here. Should use instr at pc = 101 for
+            // pre-signal instr check on return.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(1, 102),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Consecutive signals (that are nested at the same depth) without any
+    // intervening instr between them, and no instr before the first of them
+    // and its outer signal.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+            // Outer signal.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            // First signal.
+            // No intervening instr here. Should skip pre-signal instr check
+            // on return.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // Second signal.
+            // No intervening instr here. Since there's no pre-signal instr
+            // for the first signal as well, we did not see any instr at this
+            // signal-depth. So the pre-signal check should be skipped on return
+            // of this signal too.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(1, 102),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Trace starts in a signal.
+    {
+        std::vector<memref_t> memrefs = {
+            // Already inside the first signal.
+            gen_instr(1, 11),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 12),
+            // Should skip the pre-signal instr check and the kernel_event marker
+            // equality check, since we did not see the beginning of the signal in
+            // the trace.
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Trace starts in a signal with a back-to-back signal without any intervening
+    // instr after we return from the first one.
+    {
+        std::vector<memref_t> memrefs = {
+            // Already inside the first signal.
+            gen_instr(1, 11),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 12),
+            // No intervening instr here. Should skip pre-signal instr check on
+            // return; this is a special case as it would require *removing* the
+            // pc = 11 instr from pre_signal_instr_ as it was not in this newly
+            // discovered outermost scope.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(1, 21),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 22),
             gen_instr(1, 2),
         };
         if (!run_checker(memrefs, false))
@@ -349,11 +456,29 @@ check_rseq()
     // Roll back rseq final instr.
     {
         std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
+            gen_instr(1, 1),
+            // Rolled back instr at pc=2 size=1.
+            // Point to the abort handler.
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 4),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(1, 4),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
             gen_instr(1, 1),
             gen_instr(1, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 1),
-            gen_instr(1, 1),
+            // A fault in the instrumented execution.
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(1, 10),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 11),
+            gen_instr(1, 4),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -361,13 +486,14 @@ check_rseq()
     // Fail to roll back rseq final instr.
     {
         std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
             gen_instr(1, 1),
             gen_instr(1, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 4),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(1, 4),
         };
-        if (!run_checker(memrefs, true, 1, 3,
+        if (!run_checker(memrefs, true, 1, 4,
                          "Rseq post-abort instruction not rolled back",
                          "Failed to catch bad rseq abort"))
             return false;
@@ -462,13 +588,72 @@ check_function_markers()
     return true;
 }
 
+bool
+check_duplicate_syscall_with_same_pc()
+{
+    constexpr addr_t ADDR = 0x7fcf3b9dd9e9;
+    // Negative: syscalls with the same PC.
+#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#    if defined(X86_64) || defined(X86_32)
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+#    elif defined(ARM_64)
+            gen_instr_encoded(ADDR,
+                              0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_instr_encoded(ADDR,
+                              0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#    endif
+        };
+        if (!run_checker(memrefs, true, 1, 5, "Duplicate syscall instrs with the same PC",
+                         "Failed to catch duplicate syscall instrs with the same PC"))
+            return false;
+    }
+
+    // Positive test: syscalls with different PCs.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#    if defined(X86_64) || defined(X86_32)
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_instr_encoded(ADDR + 2, { 0x0f, 0x05 }), // 0x7fcf3b9dd9eb: 0f 05 syscall
+#    elif defined(ARM_64)
+            gen_instr_encoded(ADDR, 0xd4000001,
+                              2), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_instr_encoded(ADDR + 4, 0xd4000001,
+                              2), // 0x7fcf3b9dd9eb: 0xd4000001 svc #0x0
+#    else
+        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#    endif
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+#endif
+    return true;
+}
+
 } // namespace
 
 int
 main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
-        check_kernel_xfer() && check_rseq() && check_function_markers()) {
+        check_kernel_xfer() && check_rseq() && check_function_markers() &&
+        check_duplicate_syscall_with_same_pc()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

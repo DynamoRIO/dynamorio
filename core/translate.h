@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -113,10 +113,19 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
 bool
 at_syscall_translation(dcontext_t *dcontext, app_pc pc);
 
+/* Returns a replacement pc if it is a special case such as in an rseq region;
+ * else returns pc.
+ */
+app_pc
+translate_restore_special_cases(dcontext_t *dcontext, app_pc pc);
+
 /* Returns the direct translation when given the "official" translation.
  * Some special cases like rseq sequences obfuscate the interrupted PC: i#4041.
  */
 app_pc
 translate_last_direct_translation(dcontext_t *dcontext, app_pc pc);
+
+void
+translate_clear_last_direct_translation(dcontext_t *dcontext);
 
 #endif /* _TRANSLATE_H_ */

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -46,6 +46,7 @@
 #include "rseq_linux.h"
 #include "../fragment.h"
 #include "decode.h"
+#include "instr_create_shared.h"
 #include "instrument.h"
 #include <stddef.h>
 #include "include/syscall.h"
@@ -851,12 +852,14 @@ rseq_process_native_abort(dcontext_t *dcontext)
                              (void **)&info)) {
         /* An artifact of our run-twice solution is that clients have already seen
          * the whole sequence when any abort anywhere in the native execution occurs.
-         * We thus give the source PC as the final instr in the region, and use the
-         * target context as the rest of the context.
+         * We leave it up to the client to roll back at least the final instr.
+         * Since we don't know the interrupted PC (the kernel doesn't tell us), we
+         * do what the kernel does and present the abort handler as the PC.
+         * We similarly use the target context for the rest of the context.
          */
         source_mc = HEAP_TYPE_ALLOC(dcontext, priv_mcontext_t, ACCT_CLIENT, PROTECTED);
         *source_mc = *get_mcontext(dcontext);
-        source_mc->pc = info->final_instr_pc;
+        source_mc->pc = info->handler;
     }
     get_mcontext(dcontext)->pc = dcontext->next_tag;
     if (instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, osc_empty, NULL, source_mc,
@@ -866,4 +869,29 @@ rseq_process_native_abort(dcontext_t *dcontext)
     }
     if (source_mc != NULL)
         HEAP_TYPE_FREE(dcontext, source_mc, priv_mcontext_t, ACCT_CLIENT, PROTECTED);
+    /* Make sure we do not raise a duplicate abort if we had a pending signal that
+     * caused the abort.  (It might be better to instead suppress this abort-exit
+     * event and present the signal as causing the abort but that is more complex
+     * to implement so we pretend the signal came in after the abort.)
+     * XXX: We saw a double abort and assume it is from some signal+abort
+     * combination but we failed to reproduce it in our linux.rseq tests cases
+     * so we do not have proof that this is solving anything here.
+     */
+    translate_clear_last_direct_translation(dcontext);
+}
+
+void
+rseq_insert_start_label(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist)
+{
+    app_pc start, end, handler;
+    if (!rseq_get_region_info(tag, &start, &end, &handler, NULL, NULL) || tag != start) {
+        ASSERT_NOT_REACHED(); /* Caller must ensure tag is the start. */
+        return;
+    }
+    instr_t *label = INSTR_CREATE_label(dcontext);
+    instr_set_note(label, (void *)DR_NOTE_RSEQ_ENTRY);
+    dr_instr_label_data_t *data = instr_get_label_data_area(label);
+    data->data[0] = (ptr_uint_t)end;
+    data->data[1] = (ptr_uint_t)handler;
+    instrlist_meta_preinsert(ilist, instrlist_first(ilist), label);
 }

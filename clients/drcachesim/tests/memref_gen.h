@@ -76,6 +76,15 @@ gen_branch(memref_tid_t tid, addr_t pc)
 #if defined(ARM_64) || defined(ARM_32)
 // Variant for aarchxx encodings.
 inline memref_t
+gen_instr_encoded(addr_t pc, int encoding, memref_tid_t tid = 1)
+{
+    memref_t memref = gen_instr_type(TRACE_TYPE_INSTR, tid, pc, 4);
+    memcpy(memref.instr.encoding, &encoding, sizeof(encoding));
+    memref.instr.encoding_is_new = true;
+    return memref;
+}
+
+inline memref_t
 gen_branch_encoded(memref_tid_t tid, addr_t pc, int encoding)
 {
     memref_t memref = gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
@@ -84,7 +93,17 @@ gen_branch_encoded(memref_tid_t tid, addr_t pc, int encoding)
     memref.instr.encoding_is_new = true;
     return memref;
 }
+
 #elif defined(X86_64) || defined(X86_32)
+inline memref_t
+gen_instr_encoded(addr_t pc, const std::vector<char> &encoding, memref_tid_t tid = 1)
+{
+    memref_t memref = gen_instr_type(TRACE_TYPE_INSTR, tid, pc, encoding.size());
+    memcpy(memref.instr.encoding, encoding.data(), encoding.size());
+    memref.instr.encoding_is_new = true;
+    return memref;
+}
+
 // Variant for x86 encodings.
 inline memref_t
 gen_branch_encoded(memref_tid_t tid, addr_t pc, const std::vector<char> &encoding)

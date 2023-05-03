@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -103,7 +103,7 @@ static __thread volatile struct rseq rseq_tls;
 static __thread volatile struct rseq fill_up_tls[128];
 
 extern void
-test_rseq_native_abort_pre_commit();
+test_rseq_native_abort_handler();
 
 #ifdef RSEQ_TEST_ATTACH
 static atomic_int exit_requested;
@@ -111,6 +111,7 @@ static void *thread_ready;
 #endif
 
 static volatile int sigill_count;
+static volatile bool in_rseq_migration_test;
 
 static bool
 register_rseq()
@@ -660,6 +661,7 @@ test_rseq_native_abort(void)
 {
     volatile struct rseq *reg_rseq = get_my_rseq();
 #ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
+    in_rseq_migration_test = true;
     int restarts = 0;
 #    ifdef X86
     __asm__ __volatile__(
@@ -698,8 +700,6 @@ test_rseq_native_abort(void)
         "leaq sched_mask_2(%%rip), %%rdx\n\t"
         "mov %[sysnum_setaffinity], %%eax\n\t"
         "syscall\n\t"
-        ".global test_rseq_native_abort_pre_commit\n\t"
-        "test_rseq_native_abort_pre_commit:\n\t"
         "11:\n\t"
         "nop\n\t"
 
@@ -711,6 +711,8 @@ test_rseq_native_abort(void)
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
+        ".global test_rseq_native_abort_handler\n\t"
+        "test_rseq_native_abort_handler:\n\t"
         "addl $1, %[restarts]\n\t"
         "jmp 2b\n\t"
 
@@ -768,8 +770,6 @@ test_rseq_native_abort(void)
         "add x2, x2, :lo12:sched_mask_2\n\t"
         "mov w8, #%[sysnum_setaffinity]\n\t"
         "svc #0\n\t"
-        ".global test_rseq_native_abort_pre_commit\n\t"
-        "test_rseq_native_abort_pre_commit:\n\t"
         "11:\n\t"
         "nop\n\t"
 
@@ -781,6 +781,8 @@ test_rseq_native_abort(void)
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
+        ".global test_rseq_native_abort_handler\n\t"
+        "test_rseq_native_abort_handler:\n\t"
         "ldr x1, %[restarts]\n\t"
         "add x1, x1, #1\n\t"
         "str x1, %[restarts]\n\t"
@@ -804,9 +806,364 @@ test_rseq_native_abort(void)
 #    else
 #        error Unsupported arch
 #    endif
+    in_rseq_migration_test = false;
     /* This is expected to fail on a native run where restarts will be 0. */
     assert(restarts > 0);
 #endif /* DEBUG */
+}
+
+/* Tests that DR handles an asynch signal in the native code in the final rseq
+ * fragment.  We use a system call, which is officially disallowed.  We have special
+ * exceptions in the code which look for the test name "linux.rseq" and are limited to
+ * DEBUG.
+ */
+static void
+test_rseq_asynch_signal(void)
+{
+    volatile struct rseq *reg_rseq = get_my_rseq();
+#ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
+    int restarts = 0;
+    int commits = 0;
+#    ifdef X86
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(asynch_signal, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "leaq rseq_cs_abort(%%rip), %%rax\n\t"
+        "movq %%rax, %[rseq_cs]\n\t"
+        "pxor %%xmm0, %%xmm0\n\t"
+        "mov $1,%%rcx\n\t"
+        "movq %%rcx, %%xmm1\n\t"
+
+        /* Restartable sequence. */
+        "2:\n\t"
+        /* Increase xmm0 every time.  DR (currently) won't restore xmm inputs
+         * to rseq sequences, nor does it detect that it needs to.
+         */
+        "paddq %%xmm1,%%xmm0\n\t"
+        "movq %%xmm0, %%rax\n\t"
+        /* We raise the signal on the instrumented run and never come back. */
+        /* Send ourselves a SIGALRM. */
+        "mov $0, %%rdi\n\t"
+        "mov %[signum_alarm], %%rsi\n\t"
+        "mov %[sysnum_kill], %%eax\n\t"
+        "syscall\n\t"
+        "11:\n\t"
+        "addl $1, %[commits]\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "jmp 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "addl $1, %[restarts]\n\t"
+        "jmp 5f\n\t"
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "movq $0, %[rseq_cs]\n\t"
+        /* clang-format on */
+
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts),
+          [commits] "=m"(commits)
+        : [signum_alarm] "i"(SIGALRM), [sysnum_kill] "i"(SYS_kill)
+        : "rax", "rcx", "rdx", "rsi", "rdi", "xmm0", "xmm1", "memory");
+#    elif defined(AARCH64)
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(asynch_signal, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "adrp x0, rseq_cs_abort\n\t"
+        "add x0, x0, :lo12:rseq_cs_abort\n\t"
+        "str x0, %[rseq_cs]\n\t"
+        "eor v0.16b, v0.16b, v0.16b\n\t"
+        "mov x1, #1\n\t"
+        "mov v1.D[0], x1\n\t"
+
+        /* Restartable sequence. */
+        "2:\n\t"
+        /* Increase xmm0 every time.  DR (currently) won't restore xmm inputs
+         * to rseq sequences, nor does it detect that it needs to.
+         */
+        "add d0, d0, d1\n\t"
+        "mov x0, v0.D[0]\n\t"
+        /* We raise the signal on the instrumented run and never come back. */
+        /* Send ourselves a SIGALRM. */
+        "mov x0, #0\n\t"
+        "mov w1, #%[signum_alarm]\n\t"
+        "mov w8, #%[sysnum_kill]\n\t"
+        "svc #0\n\t"
+        "11:\n\t"
+        "ldr x0, %[commits]\n\t"
+        "add x0, x0, #1\n\t"
+        "str x0, %[commits]\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "b 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "ldr x1, %[restarts]\n\t"
+        "add x1, x1, #1\n\t"
+        "str x1, %[restarts]\n\t"
+        "b 5f\n\t"
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "str xzr, %[rseq_cs]\n\t"
+        /* clang-format on */
+
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts),
+          [commits] "=m"(commits)
+        : [signum_alarm] "i"(SIGALRM), [sysnum_kill] "i"(SYS_kill)
+        : "x0", "x1", "x2", "x8", "q0", "q1", "memory");
+#    else
+#        error Unsupported arch
+#    endif
+    /* This is expected to fail on a native run where restarts will be 0. */
+    assert(restarts > 0);
+    assert(commits == 0);
+#endif /* DEBUG */
+}
+
+/* Tests that DR and drmemtrace handle a side exit in the native sequence. */
+static void
+test_rseq_side_exit(void)
+{
+    volatile struct rseq *reg_rseq = get_my_rseq();
+    int restarts = 0;
+    int commits = 0;
+#ifdef X86
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(side, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "leaq rseq_cs_side(%%rip), %%rax\n\t"
+        "movq %%rax, %[rseq_cs]\n\t"
+        "pxor %%xmm0, %%xmm0\n\t"
+        "mov $1,%%rax\n\t"
+        "movq %%rax, %%xmm1\n\t"
+
+        /* Restartable sequence. */
+        "2:\n\t"
+        /* Increase xmm0 every time.  DR (currently) won't restore xmm inputs
+         * to rseq sequences, nor does it detect that it needs to.
+         */
+        "paddq %%xmm1,%%xmm0\n\t"
+        "movq %%xmm0, %%rax\n\t"
+        /* Take an inverted side exit in the 2nd run == native run. */
+        "cmp $2, %%rax\n\t"
+        "jne 7f\n\t"
+        "jmp 5f\n\t"
+        "7:\n\t"
+        "addl $1, %[commits]\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "jmp 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "addl $1, %[restarts]\n\t"
+        "jmp 2b\n\t"
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "movq $0, %[rseq_cs]\n\t"
+        /* clang-format on */
+
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts),
+          [commits] "=m"(commits)
+        :
+        : "rax", "xmm0", "xmm1", "memory");
+#elif defined(AARCH64)
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(side, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "adrp x0, rseq_cs_side\n\t"
+        "add x0, x0, :lo12:rseq_cs_side\n\t"
+        "str x0, %[rseq_cs]\n\t"
+        "eor v0.16b, v0.16b, v0.16b\n\t"
+        "mov x0, #1\n\t"
+        "mov v1.D[0], x0\n\t"
+
+        /* Restartable sequence. */
+        "2:\n\t"
+        /* Increase xmm0 every time.  DR (currently) won't restore xmm inputs
+         * to rseq sequences, nor does it detect that it needs to.
+         */
+        "add d0, d0, d1\n\t"
+        "mov x0, v0.D[0]\n\t"
+        /* Take an inverted side exit in the 2nd run == native run. */
+        "cmp x0, #2\n\t"
+        "b.ne 7f\n\t"
+        "b 5f\n\t"
+        "7:\n\t"
+        "ldr x0, %[commits]\n\t"
+        "add x0, x0, #1\n\t"
+        "str x0, %[commits]\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "b 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "ldr x1, %[restarts]\n\t"
+        "add x1, x1, #1\n\t"
+        "str x1, %[restarts]\n\t"
+        "b 2b\n\t"
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "str xzr, %[rseq_cs]\n\t"
+        /* clang-format on */
+
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts),
+          [commits] "=m"(commits)
+        :
+        : "x0", "q0", "q1", "memory");
+#else
+#    error Unsupported arch
+#endif
+    assert(restarts == 0);
+    assert(commits == 0);
+}
+
+/* Tests that DR and drmemtrace handle a side exit in the instrumented sequence. */
+static void
+test_rseq_instru_side_exit(void)
+{
+    volatile struct rseq *reg_rseq = get_my_rseq();
+    int restarts = 0;
+    int commits = 0;
+#ifdef X86
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(side_instru, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "leaq rseq_cs_side(%%rip), %%rax\n\t"
+        "movq %%rax, %[rseq_cs]\n\t"
+        "pxor %%xmm0, %%xmm0\n\t"
+        "mov $1,%%rax\n\t"
+        "movq %%rax, %%xmm1\n\t"
+
+        /* Restartable sequence. */
+        "2:\n\t"
+        /* Increase xmm0 every time.  DR (currently) won't restore xmm inputs
+         * to rseq sequences, nor does it detect that it needs to.
+         */
+        "paddq %%xmm1,%%xmm0\n\t"
+        "movq %%xmm0, %%rax\n\t"
+        /* Take a side exit in the 1st run == instrumented run. */
+        "cmp $1, %%rax\n\t"
+        "je 5f\n\t"
+        "7:\n\t"
+        "addl $1, %[commits]\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "jmp 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "addl $1, %[restarts]\n\t"
+        "jmp 2b\n\t"
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "movq $0, %[rseq_cs]\n\t"
+        /* clang-format on */
+
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts),
+          [commits] "=m"(commits)
+        :
+        : "rax", "xmm0", "xmm1", "memory");
+#elif defined(AARCH64)
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(side_instru, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "adrp x0, rseq_cs_side\n\t"
+        "add x0, x0, :lo12:rseq_cs_side\n\t"
+        "str x0, %[rseq_cs]\n\t"
+        "eor v0.16b, v0.16b, v0.16b\n\t"
+        "mov x0, #1\n\t"
+        "mov v1.D[0], x0\n\t"
+
+        /* Restartable sequence. */
+        "2:\n\t"
+        /* Increase xmm0 every time.  DR (currently) won't restore xmm inputs
+         * to rseq sequences, nor does it detect that it needs to.
+         */
+        "add d0, d0, d1\n\t"
+        "mov x0, v0.D[0]\n\t"
+        /* Take a side exit in the 1st run == instrumented run. */
+        "cmp x0, #1\n\t"
+        "b.eq 5f\n\t"
+        "7:\n\t"
+        "ldr x0, %[commits]\n\t"
+        "add x0, x0, #1\n\t"
+        "str x0, %[commits]\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "b 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "ldr x1, %[restarts]\n\t"
+        "add x1, x1, #1\n\t"
+        "str x1, %[restarts]\n\t"
+        "b 2b\n\t"
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "str xzr, %[rseq_cs]\n\t"
+        /* clang-format on */
+
+        : [rseq_cs] "=m"(reg_rseq->rseq_cs), [restarts] "=m"(restarts),
+          [commits] "=m"(commits)
+        :
+        : "x0", "q0", "q1", "memory");
+#else
+#    error Unsupported arch
+#endif
+    assert(restarts == 0);
+    assert(commits == 0);
 }
 
 #ifdef AARCH64
@@ -992,10 +1349,11 @@ static void
 kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
     static bool skip_print;
+    static int count;
     if (!skip_print)
         dr_fprintf(STDERR, "%s: type %d\n", __FUNCTION__, info->type);
     /* Avoid tons of prints for the trace loop in main(). */
-    if (info->type == DR_XFER_RSEQ_ABORT)
+    if (++count > 13)
         skip_print = true;
     dr_mcontext_t mc = { sizeof(mc) };
     mc.flags = DR_MC_CONTROL;
@@ -1008,28 +1366,30 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
     assert(ok);
     /* All transfer cases in this test should have source info. */
     assert(info->source_mcontext != NULL);
-    if (info->type == DR_XFER_RSEQ_ABORT) {
-        /* The interrupted context should be identical except the pc. */
-        assert(info->source_mcontext->pc != mc.pc);
+    /* For a migration, the context should be identical.
+     * For a signal it won't be as signal handler arguments will be set in
+     * registers and a sigaltstack may be set.
+     */
+    if (info->type == DR_XFER_RSEQ_ABORT && in_rseq_migration_test) {
+        /* The interrupted context should be identical, including the pc now
+         * that DR passes the abort handler PC just like the kernel does.
+         */
 #    ifdef X86
-        assert(info->source_mcontext->xax == mc.xax);
-        assert(info->source_mcontext->xcx == mc.xcx);
-        assert(info->source_mcontext->xdx == mc.xdx);
-        assert(info->source_mcontext->xbx == mc.xbx);
-        assert(info->source_mcontext->xsi == mc.xsi);
-        assert(info->source_mcontext->xdi == mc.xdi);
-        assert(info->source_mcontext->xbp == mc.xbp);
-        assert(info->source_mcontext->xsp == mc.xsp);
+        /* This compares the GPR's plus flags and PC. */
+        assert(memcmp(&info->source_mcontext->xdi, &mc.xdi,
+                      (byte *)&mc.padding - (byte *)&mc.xdi) == 0);
 #    elif defined(AARCH64)
+        assert(info->source_mcontext->pc == mc.pc);
         assert(memcmp(&info->source_mcontext->r0, &mc.r0, sizeof(mc.r0) * 32) == 0);
 #    else
 #        error Unsupported arch
 #    endif
 #    ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
-        /* Check that the interrupted PC for the true abort case is *prior* to the
-         * committing store.
+        /* Check that the interrupted PC for the true abort case is the handler.
+         * We could check this for every test if we wrote the expected handler
+         * into a global or something: does not seem worth the extra code.
          */
-        assert(info->source_mcontext->pc == (app_pc)test_rseq_native_abort_pre_commit);
+        assert(info->source_mcontext->pc == (app_pc)test_rseq_native_abort_handler);
 #    endif
     }
 }
@@ -1047,6 +1407,7 @@ int
 main()
 {
     intercept_signal(SIGILL, signal_handler, false);
+    intercept_signal(SIGALRM, signal_handler, false);
     if (register_rseq()) {
 #ifdef RSEQ_TEST_ATTACH
         /* Set -offline to avoid trying to open a pipe to a missing reader. */
@@ -1069,6 +1430,12 @@ main()
         test_rseq_native_fault();
         /* Test a non-fault abort in the native run. */
         test_rseq_native_abort();
+        /* Test a (non-fault) signal. */
+        test_rseq_asynch_signal();
+        /* Test a side exit in the native run. */
+        test_rseq_side_exit();
+        /* Test a side exit in the instrumented run. */
+        test_rseq_instru_side_exit();
         /* Test a trace. */
         int i;
         for (i = 0; i < 200; i++)

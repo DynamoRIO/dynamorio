@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -622,6 +622,13 @@ d_r_signal_init(void)
 
     IF_LINUX(signalfd_init());
     signal_arch_init();
+
+    /* Do not usurp the app's signal handling when in standalone mode.
+     * XXX i#1409: Refactoring and better separating general utilities from
+     * managed mode operations would make things cleaner.
+     */
+    if (standalone_library)
+        return;
 
     /* Set up a handler for safe_read (or other fault detection) during
      * DR init before thread is initialized.  We must do this *after* signal_arch_init()
@@ -4010,14 +4017,22 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
         sig_full_cxt_t sc_full;
         sig_full_initialize(&sc_full, uc);
         sc->SC_XIP = (ptr_uint_t)next_pc;
-        /* i#4041: Provide the actually-interrupted mid-rseq PC to this event. */
+        /* i#4041: Provide the actually-interrupted mid-rseq PC to the rseq event. */
         ptr_uint_t official_xl8 = sc_interrupted->SC_XIP;
-        sc_interrupted->SC_XIP =
+        ptr_uint_t rseq_xl8 =
             (ptr_uint_t)translate_last_direct_translation(dcontext, (app_pc)official_xl8);
+        if (rseq_xl8 != official_xl8) {
+            sc_interrupted->SC_XIP = rseq_xl8;
+            if (instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, sc_interrupted_full,
+                                       NULL, NULL, next_pc, sc->SC_XSP, sc_full, NULL,
+                                       sig))
+                next_pc = (app_pc)sc->SC_XIP;
+            /* The signal event has the abort handler, like the kernel passes. */
+            sc_interrupted->SC_XIP = official_xl8;
+        }
         if (instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_interrupted_full,
                                    NULL, NULL, next_pc, sc->SC_XSP, sc_full, NULL, sig))
             next_pc = (app_pc)sc->SC_XIP;
-        sc_interrupted->SC_XIP = official_xl8;
     }
     dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
 
@@ -6233,6 +6248,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
          */
         mcontext_to_ucontext(uc, mcontext);
     }
+
     /* Sigreturn needs the target ISA mode to be set in the T bit in cpsr.
      * Since we came from d_r_dispatch, the post-signal target's mode is in dcontext.
      */
@@ -6275,6 +6291,15 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     if (!info->sigpending[sig]->use_sigcontext) {
         /* for the pc we want the app pc not the cache pc */
         sc->SC_XIP = (ptr_uint_t)dcontext->next_tag;
+        /* Point at the rseq abort handler if in an rseq region. */
+        ptr_uint_t special_xl8 =
+            (ptr_uint_t)translate_restore_special_cases(dcontext, (app_pc)sc->SC_XIP);
+        if (special_xl8 != sc->SC_XIP) {
+            dcontext->next_tag = (app_pc)special_xl8;
+            sc->SC_XIP = special_xl8;
+            LOG(THREAD, LOG_ASYNCH, 3, "set next PC to special xl8 %p\n",
+                dcontext->next_tag);
+        }
         LOG(THREAD, LOG_ASYNCH, 3, "\tset frame's eip to " PFX "\n", sc->SC_XIP);
     }
 
@@ -6410,14 +6435,20 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         info->sighand->action[sig]->handler = (handler_t)SIG_DFL;
     }
     sig_full_cxt_t sc_full = { sc, NULL /*not provided*/ };
-    /* i#4041: Provide the actually-interrupted mid-rseq PC to this event. */
+    /* i#4041: Provide the actually-interrupted mid-rseq PC to the rseq event. */
     ptr_uint_t official_xl8 = sc->SC_XIP;
-    sc->SC_XIP =
+    ptr_uint_t rseq_xl8 =
         (ptr_uint_t)translate_last_direct_translation(dcontext, (app_pc)official_xl8);
+    if (rseq_xl8 != official_xl8) {
+        sc->SC_XIP = rseq_xl8;
+        instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, sc_full, NULL, NULL,
+                               mcontext->pc, mcontext->xsp, osc_empty, mcontext, sig);
+        /* The signal event has the abort handler, like the kernel passes. */
+        sc->SC_XIP = official_xl8;
+    }
     instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_full, NULL, NULL,
                            mcontext->pc, mcontext->xsp, osc_empty, mcontext, sig);
     dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
-    sc->SC_XIP = official_xl8;
     info->in_app_handler = true;
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset xsp to " PFX "\n", xsp);
