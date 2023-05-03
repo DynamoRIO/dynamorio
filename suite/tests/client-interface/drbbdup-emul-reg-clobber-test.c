@@ -85,6 +85,9 @@ main(int argc, char **argv)
 
 #        endif
 #    endif
+#else
+    // XXX: not implemented on non-X86 platforms currently.
+    uint32_t x = 0xabcdabcd;
 #endif
     print("x=%x\n", x);
     print("Hello, world!\n");
