@@ -41,8 +41,6 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-constexpr addr_t BASE_ADDR = 0xeba4ad4;
-
 struct memref_instr_t {
     memref_t memref;
     instr_t *instr;
@@ -154,7 +152,7 @@ gen_exit(memref_tid_t tid)
  */
 inline std::vector<memref_t>
 get_memrefs_from_ir(instrlist_t *ilist, std::vector<memref_instr_t> &memref_instr_vec,
-                    const addr_t base_addr = BASE_ADDR)
+                    addr_t base_addr)
 {
     static const int MAX_DECODE_SIZE = 1024;
     byte decode_buf[MAX_DECODE_SIZE];

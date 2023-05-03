@@ -687,7 +687,8 @@ check_rseq_side_exit_discontinuity()
                                                      { gen_instr(1), move2 } };
 
     // TODO i#6023: Use this IR based encoder in other tests as well.
-    auto memrefs = get_memrefs_from_ir(ilist, memref_instr_vec);
+    static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+    auto memrefs = get_memrefs_from_ir(ilist, memref_instr_vec, BASE_ADDR);
     if (!run_checker(memrefs, true, 1, 5, "PC discontinuity due to rseq side exit",
                      "Failed to catch PC discontinuity from rseq side exit")) {
         return false;
