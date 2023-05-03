@@ -444,7 +444,7 @@ drpttracer_exit(void)
 DR_EXPORT
 drpttracer_status_t
 drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
-                         IN uint pt_size_shift, IN uint sd_size_shift,
+                         IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle)
 {
     if (tracer_handle == NULL) {
@@ -452,8 +452,8 @@ drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracin
         return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
 
-    if (pt_size_shift == 0 || sd_size_shift == 0) {
-        ASSERT(false, "pt_size_shift and sd_size_shift must be greater than 0\n");
+    if (pt_size_shift == 0 || sideband_size_shift == 0) {
+        ASSERT(false, "pt_size_shift and sideband_size_shift must be greater than 0\n");
         return DRPTTRACER_ERROR_INVALID_PARAMETER;
     }
 
@@ -478,7 +478,7 @@ drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracin
     }
 
     /* Mmap the perf event file. */
-    uint64_t base_size = (uint64_t)((1UL << sd_size_shift) + 1) * dr_page_size();
+    uint64_t base_size = (uint64_t)((1UL << sideband_size_shift) + 1) * dr_page_size();
     uint64_t base_mmap_size = base_size;
     void *base =
         dr_map_file(fd, &base_mmap_size, 0, NULL, DR_MEMPROT_READ | DR_MEMPROT_WRITE, 0);
@@ -625,7 +625,7 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
                 ")\n",
                 sd_size, handle->header->data_size);
             ASSERT(false, "the buffer is full and the new sideband data is overwritten");
-            return DRPTTRACER_ERROR_OVERWRITTEN_SB_DATA;
+            return DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA;
         }
         /* Copy pttracer's sideband data to current tracing's output container. */
         read_ring_buf_status_t read_sd_status = read_ring_buf_to_buf(
@@ -635,7 +635,7 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
         if (read_sd_status != READ_RING_BUFFER_SUCCESS) {
             ERRMSG("failed to read data from ring buffer(errno:%d) \n", read_sd_status);
             ASSERT(false, "failed to read sideband data from the ring buffer");
-            return DRPTTRACER_ERROR_FAILED_TO_READ_SB_DATA;
+            return DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBANBD_DATA;
         }
     } else {
         /* Even when tracing only kernel instructions, there is some sideband data.

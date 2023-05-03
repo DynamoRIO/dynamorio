@@ -167,9 +167,9 @@ typedef enum {
     /** Operation failed: failed to read PT data from PT ring buffer. */
     DRPTTRACER_ERROR_FAILED_TO_READ_PT_DATA,
     /** Operation failed: overwritten sideband data. */
-    DRPTTRACER_ERROR_OVERWRITTEN_SB_DATA,
+    DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA,
     /** Operation failed: failed to read SIDEBAND data from perf data ring buffer. */
-    DRPTTRACER_ERROR_FAILED_TO_READ_SB_DATA,
+    DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBANBD_DATA,
 } drpttracer_status_t;
 
 /**
@@ -197,12 +197,12 @@ DR_EXPORT
  * \param[in] drcontext  The context of DynamoRIO.
  * \param[in] tracing_mode  The tracing mode.
  * \param[in] pt_size_shift  The size shift of PT trace's ring buffer.
- * \param[in] sd_size_shift  The size shift of sideband data's ring buffer.
+ * \param[in] sideband_size_shift  The size shift of sideband data's ring buffer.
  * \param[out] tracer_handle  The pttracer handle.
  *
  * \note The size offset is used to control the size of the buffer allocated by the perf:
  *       sizeof(PT trace's buffer) = 2 ^ pt_size_shift * PAGE_SIZE.
- *       sizeof(Sideband data's buffer) = 2 ^ sd_size_shift * PAGE_SIZE.
+ *       sizeof(Sideband data's buffer) = 2 ^ sideband_size_shift * PAGE_SIZE.
  * Additionally, perf sets the buffer size to 4MiB by default. Therefore, when the client
  * uses drpttracer to trace, it is best to set the trace and sideband buffer larger than
  * 4Mib.
@@ -211,7 +211,7 @@ DR_EXPORT
  * Insufficient buffer size will lead to lost data, which may cause issues in pt2ir_t
  * decoding. If we detect an overflow, drpttracer_stop_tracing() will return an error code
  * #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE or
- * #DRPTTRACER_ERROR_OVERWRITTEN_SB_DATA.
+ * #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA.
  *
  * \note Each thread corresponds to a trace handle. When calling
  * drpttracer_create_handle(), the client will get a tracer_handle. The client can start
@@ -227,7 +227,7 @@ DR_EXPORT
  */
 drpttracer_status_t
 drpttracer_create_handle(IN void *drcontext, IN drpttracer_tracing_mode_t tracing_mode,
-                         IN uint pt_size_shift, IN uint sd_size_shift,
+                         IN uint pt_size_shift, IN uint sideband_size_shift,
                          OUT void **tracer_handle);
 
 DR_EXPORT
@@ -241,7 +241,7 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_destroy_handle(IN void *drcontext, IN void *tracer_handle);
+drpttracer_destroy_handle(IN void *drcontext, INOUT void *tracer_handle);
 
 DR_EXPORT
 /**
@@ -271,7 +271,7 @@ DR_EXPORT
  * \note If the buffer size that was set in drpttracer_start_tracing() is not enough,
  * this function will return an error status code:
  *  - Return #DRPTTRACER_ERROR_OVERWRITTEN_PT_TRACE if the PT trace is overwritten.
- *  - Return #DRPTTRACER_ERROR_OVERWRITTEN_SB_DATA if the sideband data is
+ *  - Return #DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA if the sideband data is
  * overwritten.
  *
  * \note The client can dump the output data to files. After online tracing is done,
@@ -288,7 +288,7 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
 
 DR_EXPORT
 /**
- * Get the PT metadata of the current pttracer handle.
+ * Get the PT metadata of the given pttracer handle.
  *
  * \param[in] tracer_handle The pttracer handle.
  * \param[out] pt_metadata  The PT metadata of the current pttracer handle.

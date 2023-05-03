@@ -827,7 +827,7 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
  * |PDB Header|PDB Data|
  * +----------+--------+
  *
- * The PDB Header is a list of syscall_pt_entry_t. There are three types of PDB Header:
+ * The PDB Header is a list of syscall_pt_entry_t. There are two types of PDB Header:
  * a. The format of per-thread metadata's PDB header is:
  * +---+---+--------------------+
  * |pid|tid|pt_metadata_boundary|
@@ -875,12 +875,28 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
 #    define SYSCALL_METADATA_SIZE \
         (SYSCALL_METADATA_ENTRY_NUM * sizeof(syscall_pt_entry_t))
 
-#    define PDB_HEADER_PID_IDX 0
-#    define PDB_HEADER_TID_IDX 1
-#    define PDB_HEADER_DATA_BOUNDARY_IDX 2
-#    define PDB_HEADER_SYSNUM_IDX 3
-#    define PDB_HEADER_SYSCALL_SEQ_IDX 4
-#    define PDB_HEADER_NUM_ARGS_IDX 5
+typedef enum {
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
+    PDB_HEADER_PID_IDX = 0,
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD in the PDB header.
+     */
+    PDB_HEADER_TID_IDX = 1,
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY in the
+     * PDB header.
+     */
+    PDB_HEADER_DATA_BOUNDARY_IDX = 2,
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSNUM in the PDB header.
+     */
+    PDB_HEADER_SYSNUM_IDX = 3,
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX in the PDB
+     * header.
+     */
+    PDB_HEADER_SYSCALL_IDX = 4,
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM in the
+     * PDB header.
+     */
+    PDB_HEADER_NUM_ARGS_IDX = 5
+} pdb_header_entry_idx_t;
 #endif
 
 /**

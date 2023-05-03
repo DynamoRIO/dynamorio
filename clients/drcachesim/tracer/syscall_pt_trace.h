@@ -165,9 +165,9 @@ private:
     /* The pttracer handle held by this instance. */
     drpttracer_handle_autoclean_t pttracer_handle_;
 
-    /* The pttracer output data held by every instance. The output buffer is a shared
-     * buffer that stores PT trace data for each system call. The buffer will be updated
-     * when stop_syscall_pt_trace() is invoked.
+    /* The pttracer output data held by every instance. The output buffer stores PT trace
+     * data for each system call. The buffer will be updated when stop_syscall_pt_trace()
+     * is invoked.
      */
     drpttracer_output_autoclean_t pttracer_output_buffer_;
 
@@ -176,6 +176,9 @@ private:
 
     /* The sysnum of current recording syscall. */
     int cur_recording_sysnum_;
+
+    /* Flag to indicate if metadata is being dumped. */
+    bool is_dumping_metadata_;
 
     /* The drcontext.
      * We need ensure pass the same context to all drpttracer's APIs.

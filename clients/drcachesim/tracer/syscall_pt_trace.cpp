@@ -43,6 +43,7 @@
 #endif
 
 #define PT_DATA_FILE_NAME_SUFFIX ".pt"
+#define RING_BUFFER_SIZE_SHIFT 8
 
 syscall_pt_trace_t::syscall_pt_trace_t()
     : open_file_func_(nullptr)
@@ -52,6 +53,7 @@ syscall_pt_trace_t::syscall_pt_trace_t()
     , pttracer_output_buffer_ { GLOBAL_DCONTEXT, nullptr }
     , recorded_syscall_count_(0)
     , cur_recording_sysnum_(-1)
+    , is_dumping_metadata_(false)
     , drcontext_(nullptr)
     , output_file_(INVALID_FILE)
 {
@@ -81,29 +83,9 @@ syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name,
     output_file_name +=
         "/" + std::to_string(dr_get_thread_id(drcontext_)) + PT_DATA_FILE_NAME_SUFFIX;
     output_file_ = open_file_func_(output_file_name.c_str(), DR_FILE_WRITE_REQUIRE_NEW);
-#define RING_BUFFER_SIZE_SHIFT 8
 
-    /* To reduce the overhead caused by pttracer initialization, we shared the same
-     * pttracer handle for all syscalls per thread.
-     */
-    if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
-                                 RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
-                                 &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
-        return false;
-    }
     if (drpttracer_create_output(drcontext_, RING_BUFFER_SIZE_SHIFT, 0,
                                  &pttracer_output_buffer_.data) != DRPTTRACER_SUCCESS) {
-        return false;
-    }
-
-    /* All syscalls in the same thread share the same pttracer handle. So they shared the
-     * same pt_metadata.
-     */
-    pt_metadata_t pt_metadata;
-    if (drpttracer_get_pt_metadata(pttracer_handle_.handle, &pt_metadata)) {
-        return false;
-    }
-    if (!metadata_dump(pt_metadata)) {
         return false;
     }
 
@@ -114,7 +96,34 @@ bool
 syscall_pt_trace_t::start_syscall_pt_trace(IN int sysnum)
 {
     ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
-    ASSERT(pttracer_handle_.handle == nullptr, "pttracer_handle_.handle isn't nullptr");
+
+    /* Create a new pttracer handle for every syscall.
+     * TODO i#5505: To reduce the overhead caused by pttracer initialization, we need to
+     * share the same pttracer handle for all syscalls per thread.
+     */
+    pttracer_handle_.reset();
+    if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
+                                 RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
+                                 &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
+        return false;
+    }
+
+    /* All syscalls within a single thread share the same pttracer configuration, and
+     * thus, the same pt_metadata. Metadata is dumped at the beginning of the output
+     * file and occurs only once.
+     */
+    if (!is_dumping_metadata_) {
+        pt_metadata_t pt_metadata;
+        if (drpttracer_get_pt_metadata(pttracer_handle_.handle, &pt_metadata)) {
+            return false;
+        }
+        if (!metadata_dump(pt_metadata)) {
+            return false;
+        }
+        is_dumping_metadata_ = true;
+    }
+
+    /* Start tracing the current syscall. */
     if (drpttracer_start_tracing(drcontext_, pttracer_handle_.handle) !=
         DRPTTRACER_SUCCESS) {
         return false;
@@ -207,11 +216,11 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
     pdb_header[PDB_HEADER_SYSNUM_IDX].sysnum.sysnum = cur_recording_sysnum_;
 
     /* Initialize the syscall id. */
-    pdb_header[PDB_HEADER_SYSCALL_SEQ_IDX].syscall_idx.type =
+    pdb_header[PDB_HEADER_SYSCALL_IDX].syscall_idx.type =
         SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX;
-    pdb_header[PDB_HEADER_SYSCALL_SEQ_IDX].syscall_idx.idx = recorded_syscall_count_;
+    pdb_header[PDB_HEADER_SYSCALL_IDX].syscall_idx.idx = recorded_syscall_count_;
 
-    /* Initialize the the parameter of current record syscall.
+    /* Initialize the parameter of current recorded syscall.
      * TODO i#5505: dynamorio doesn't provide a function to get syscall's
      * parameter number. So currently we can't get and dump any syscall's
      * parameters. And we dump the parameter number with a fixed value 0. We

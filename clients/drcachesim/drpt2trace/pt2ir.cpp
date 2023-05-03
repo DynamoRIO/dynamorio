@@ -54,8 +54,6 @@ pt2ir_t::pt2ir_t()
     , pt_sb_iscache_(nullptr)
     , pt_sb_session_(nullptr)
     , pt_raw_buffer_data_size_(0)
-    , cur_pt_data_end_offset_(0)
-    , pt_decoder_status_(pts_eos)
 {
 }
 
@@ -71,8 +69,7 @@ pt2ir_t::~pt2ir_t()
 }
 
 bool
-pt2ir_t::init(IN pt2ir_config_t &pt2ir_config, IN const uint8_t *init_pt_data,
-              IN size_t init_pt_data_size,
+pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
               IN struct pt_image_section_cache *shared_iscache)
 {
     if (pt2ir_initialized_) {
@@ -106,22 +103,6 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config, IN const uint8_t *init_pt_data,
     pt_raw_buffer_ = std::unique_ptr<uint8_t[]>(new uint8_t[pt_raw_buffer_size_]);
     pt_config.begin = pt_raw_buffer_.get();
     pt_config.end = pt_raw_buffer_.get() + pt_raw_buffer_size_;
-    if (init_pt_data != nullptr && init_pt_data_size > 0) {
-        if (init_pt_data_size > pt_raw_buffer_size_) {
-            ERRMSG(ERRMSG_HEADER
-                   "Initial PT data size(%zu) is larger than the buffer size(%zu).\n",
-                   init_pt_data_size, pt_raw_buffer_size_);
-            return false;
-        }
-        memcpy(pt_raw_buffer_.get() + pt_raw_buffer_data_size_, init_pt_data,
-               init_pt_data_size);
-        pt_raw_buffer_data_size_ += init_pt_data_size;
-        cur_pt_data_end_offset_ = 0;
-    } else {
-        ERRMSG(ERRMSG_HEADER "Initial PT data is not provided.\n");
-        return false;
-    }
-
     pt_instr_decoder_ = pt_insn_alloc_decoder(&pt_config);
     if (pt_instr_decoder_ == nullptr) {
         ERRMSG(ERRMSG_HEADER "Failed to create libipt instruction decoder.\n");
@@ -240,36 +221,24 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config, IN const uint8_t *init_pt_data,
 }
 
 pt2ir_convert_status_t
-pt2ir_t::convert(IN const uint8_t *next_pt_data, IN size_t next_pt_data_size,
-                 INOUT drir_t *drir)
+pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir)
 {
     if (!pt2ir_initialized_) {
         return PT2IR_CONV_ERROR_NOT_INITIALIZED;
     }
 
-    if (drir == nullptr) {
+    if (pt_data == nullptr || pt_data_size <= 0) {
         return PT2IR_CONV_ERROR_INVALID_INPUT;
     }
 
-    if (pt_raw_buffer_data_size_ + next_pt_data_size > pt_raw_buffer_size_) {
+    if (pt_raw_buffer_data_size_ + pt_data_size > pt_raw_buffer_size_) {
         return PT2IR_CONV_ERROR_RAW_TRACE_TOO_LARGE;
     }
 
     /* Append the PT data to the raw buffer. */
-    cur_pt_data_end_offset_ = pt_raw_buffer_data_size_;
-    if (next_pt_data != nullptr && next_pt_data_size > 0) {
-        memcpy(pt_raw_buffer_.get() + pt_raw_buffer_data_size_, next_pt_data,
-               next_pt_data_size);
-        pt_raw_buffer_data_size_ += next_pt_data_size;
-    }
-
-    /* Verify whether it is necessary to synchronize with the current PT data. */
-    bool need_sync = true;
-    int status = 0;
-    if ((pt_decoder_status_ & pts_eos) == 0) {
-        status = pt_decoder_status_;
-        need_sync = false;
-    }
+    memcpy(pt_raw_buffer_.get() + pt_raw_buffer_data_size_, pt_data, pt_data_size);
+    pt_raw_buffer_data_size_ += pt_data_size;
+    bool is_first_sync = true;
 
     /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
      * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
@@ -278,63 +247,32 @@ pt2ir_t::convert(IN const uint8_t *next_pt_data, IN size_t next_pt_data_size,
     for (;;) {
         struct pt_insn insn;
         memset(&insn, 0, sizeof(insn));
+        int status = 0;
 
         /* Sync decoder to the first Packet Stream Boundary (PSB) packet, and then decode
          * instructions. If there is no PSB packet, the decoder will be synced to the end
          * of the trace. If an error occurs, we will call dx_decoding_error to print the
-         * error information.
-         * What are PSB packets? Below answer is quoted from Intel 64 and IA-32
-         * Architectures Software Developer’s Manual 32.1.1.1 Packet Summary
-         * "Packet Stream Boundary (PSB) packets: PSB packets act as 'heartbeats' that are
+         * error information. What are PSB packets? Below answer is quoted from Intel 64
+         * and IA-32 Architectures Software Developer’s Manual 32.1.1.1 Packet Summary
+         * “Packet Stream Boundary (PSB) packets: PSB packets act as ‘heartbeats’ that are
          * generated at regular intervals (e.g., every 4K trace packet bytes). These
          * packets allow the packet decoder to find the packet boundaries within the
          * output data stream; a PSB packet should be the first packet that a decoder
-         * looks for when beginning to decode a trace."
+         * looks for when beginning to decode a trace.”
          */
-        if (need_sync) {
+        if (is_first_sync == true) {
+            status = pt_insn_sync_set(pt_instr_decoder_, 0);
+            is_first_sync = false;
+        } else {
             status = pt_insn_sync_forward(pt_instr_decoder_);
-            if (status < 0) {
-                if (status == -pte_eos) {
-                    pt_decoder_status_ = status;
-                    break;
-                }
-                dx_decoding_error(status, "sync error", insn.ip);
-                return PT2IR_CONV_ERROR_SYNC_PACKET;
-            }
-
-            /* After decoding the previous PSB-wrapped packet, all data following the next
-             * PSB will be moved to the top of the buffer.
-             */
-            uint64_t pos_offset = 0;
-            pt_insn_get_sync_offset(pt_instr_decoder_, &pos_offset);
-            if (pos_offset > 0) {
-                memcpy(pt_raw_buffer_.get(), pt_raw_buffer_.get() + pos_offset,
-                       pt_raw_buffer_data_size_ - pos_offset);
-                pt_raw_buffer_data_size_ -= pos_offset;
-                cur_pt_data_end_offset_ -= pos_offset;
-                status = pt_insn_sync_set(pt_instr_decoder_, 0);
-            }
-            if (status < 0) {
-                if (status == -pte_eos) {
-                    pt_decoder_status_ = status;
-                    break;
-                }
-                dx_decoding_error(status, "sync error", insn.ip);
-                return PT2IR_CONV_ERROR_SYNC_PACKET;
-            }
-            pt_decoder_status_ = status;
-
-            /* Verify if the current position belongs to the current PT data; if not,
-             * terminate the conversion process.
-             */
-            uint64_t cur_pos = 0;
-            pt_insn_get_offset(pt_instr_decoder_, &cur_pos);
-            if (cur_pos >= cur_pt_data_end_offset_) {
-                return PT2IR_CONV_SUCCESS;
-            }
         }
-        need_sync = true;
 
+        if (status < 0) {
+            if (status == -pte_eos)
+                break;
+            dx_decoding_error(status, "sync error", insn.ip);
+            return PT2IR_CONV_ERROR_SYNC_PACKET;
+        }
         /* Decode the raw trace data surround by PSB. */
         for (;;) {
             int nextstatus = status;
@@ -389,14 +327,13 @@ pt2ir_t::convert(IN const uint8_t *next_pt_data, IN size_t next_pt_data_size,
             }
 
             /* Use drdecode to decode insn(pt_insn) to instr_t. */
-            void *drcontext = drir->get_drcontext();
-            instr_t *instr = instr_create(drcontext);
-            instr_init(drcontext, instr);
+            instr_t *instr = instr_create(drir.get_drcontext());
+            instr_init(drir.get_drcontext(), instr);
             instr_set_isa_mode(instr,
                                insn.mode == ptem_32bit ? DR_ISA_IA32 : DR_ISA_AMD64);
-            decode(drcontext, insn.raw, instr);
+            decode(drir.get_drcontext(), insn.raw, instr);
             instr_set_translation(instr, (app_pc)insn.ip);
-            instr_allocate_raw_bits(drcontext, instr, insn.size);
+            instr_allocate_raw_bits(drir.get_drcontext(), instr, insn.size);
             /* TODO i#2103: Currently, the PT raw data may contain 'STAC' and 'CLAC'
              * instructions that are not supported by Dynamorio.
              */
@@ -404,9 +341,9 @@ pt2ir_t::convert(IN const uint8_t *next_pt_data, IN size_t next_pt_data_size,
                 /* The decode() function will not correctly identify the raw bits for
                  * invalid instruction. So we need to set the raw bits of instr manually.
                  */
-                instr_free_raw_bits(drcontext, instr);
+                instr_free_raw_bits(drir.get_drcontext(), instr);
                 instr_set_raw_bits(instr, insn.raw, insn.size);
-                instr_allocate_raw_bits(drcontext, instr, insn.size);
+                instr_allocate_raw_bits(drir.get_drcontext(), instr, insn.size);
 #ifdef DEBUG
                 /* Print the invalid instruction‘s PC and raw bytes in DEBUG mode. */
                 dr_fprintf(STDOUT, "<INVALID> <raw " PFX "-" PFX " ==", (app_pc)insn.ip,
@@ -417,13 +354,7 @@ pt2ir_t::convert(IN const uint8_t *next_pt_data, IN size_t next_pt_data_size,
                 dr_fprintf(STDOUT, ">\n");
 #endif
             }
-            drir->append(instr);
-            pt_decoder_status_ = status;
-            uint64_t pos = 0;
-            pt_insn_get_offset(pt_instr_decoder_, &pos);
-            if (pos > cur_pt_data_end_offset_) {
-                return PT2IR_CONV_SUCCESS;
-            }
+            drir.append(instr);
         }
     }
     return PT2IR_CONV_SUCCESS;

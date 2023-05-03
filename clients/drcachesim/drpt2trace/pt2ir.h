@@ -68,6 +68,7 @@ struct pt_image_section_cache;
 struct pt_sb_pevent_config;
 struct pt_sb_session;
 struct pt_insn_decoder;
+struct pt_packet_decoder;
 
 /**
  * The type of pt2ir_t::convert() return value.
@@ -328,8 +329,8 @@ public:
      * sideband session.
      */
     bool
-    init(IN pt2ir_config_t &pt2ir_config, IN const uint8_t *init_pt_data,
-         IN size_t init_pt_data_size, IN struct pt_image_section_cache *shared_iscache);
+    init(IN pt2ir_config_t &pt2ir_config,
+         IN struct pt_image_section_cache *shared_iscache);
 
     /**
      * Returns pt2ir_convert_status_t. If the convertion is successful, the function
@@ -337,11 +338,10 @@ public:
      * error code.
      * \note The convert function performs two processes: (1) decode the PT raw trace into
      * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
-     * instr_t and append it to ilist.
+     * instr_t and append it to drir's instruction list.
      */
     pt2ir_convert_status_t
-    convert(IN const uint8_t *next_pt_data, IN size_t next_pt_data_size,
-            INOUT drir_t *drir);
+    convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir);
 
 private:
     /* Diagnose converting errors and output diagnostic results.
@@ -371,13 +371,6 @@ private:
 
     /* The size of the PT data within the raw buffer. */
     uint64_t pt_raw_buffer_data_size_;
-
-    /* The offset within the raw buffer of the end of the PT data currently being decoded.
-     */
-    uint64_t cur_pt_data_end_offset_;
-
-    /* The status of the PT decoder after decoding the previous instruction. */
-    int pt_decoder_status_;
 };
 
 #endif /* _PT2IR_H_ */
