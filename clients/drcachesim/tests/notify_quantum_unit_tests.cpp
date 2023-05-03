@@ -33,7 +33,6 @@
 /* Unit tests for the quantum notification API in analysis_tool_t. */
 
 #include "analyzer.h"
-#include "dr_api.h"
 #include "memref_gen.h"
 
 #include <vector>
@@ -150,7 +149,7 @@ public:
     void *
     parallel_shard_init(int shard_index, void *worker_data) override
     {
-        return reinterpret_cast<void *>(static_cast<ptr_uint_t>(0x8badf00d));
+        return reinterpret_cast<void *>(static_cast<uintptr_t>(0x8badf00d));
     }
     bool
     parallel_shard_exit(void *shard_data) override
@@ -166,7 +165,7 @@ public:
     bool
     parallel_shard_quantum_end(void *shard_data, uint64_t quantum_id) override
     {
-        if (shard_data != reinterpret_cast<void *>(static_cast<ptr_uint_t>(0x8badf00d))) {
+        if (shard_data != reinterpret_cast<void *>(static_cast<uintptr_t>(0x8badf00d))) {
             fprintf(stderr, "Invalid shard_data\n");
             return false;
         }
