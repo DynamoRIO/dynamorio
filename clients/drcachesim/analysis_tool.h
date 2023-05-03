@@ -160,7 +160,7 @@ public:
      * Notifies the analysis tool that the given trace \p quantum_id has ended.
      */
     virtual bool
-    notify_quantum_end(int quantum_id)
+    notify_quantum_end(uint64_t quantum_id)
     {
         return true;
     }
@@ -266,7 +266,7 @@ public:
      * shard represented by the given \p shard_data has ended.
      */
     virtual bool
-    parallel_shard_quantum_end(void *shard_data, int quantum_id)
+    parallel_shard_quantum_end(void *shard_data, uint64_t quantum_id)
     {
         return true;
     }

@@ -135,7 +135,7 @@ protected:
         int index;
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
         std::string error;
-        int cur_quantum_index;
+        uint64_t cur_quantum_index;
 
     private:
         analyzer_worker_data_t(const analyzer_worker_data_t &) = delete;

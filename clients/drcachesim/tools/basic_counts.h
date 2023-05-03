@@ -49,7 +49,7 @@ public:
     bool
     print_results() override;
     bool
-    notify_quantum_end(int quantum_id) override;
+    notify_quantum_end(uint64_t quantum_id) override;
     bool
     parallel_shard_supported() override;
     void *
@@ -61,7 +61,7 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
     bool
-    parallel_shard_quantum_end(void *shard_data, int quantum_id) override;
+    parallel_shard_quantum_end(void *shard_data, uint64_t quantum_id) override;
 
     // i#3068: We use the following struct to also export the counters.
     struct counters_t {

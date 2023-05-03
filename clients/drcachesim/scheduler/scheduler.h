@@ -569,7 +569,7 @@ public:
         /**
          * Returns the ordinal for the current input stream feeding this output stream.
          */
-        input_ordinal_t
+        virtual input_ordinal_t
         get_input_stream_ordinal()
         {
             return scheduler_->get_input_ordinal(ordinal_);

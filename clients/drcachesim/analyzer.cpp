@@ -289,9 +289,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
     }
     while (true) {
         RecordType record;
+        typename sched_type_t::stream_status_t status =
+            worker.stream->next_record(record);
         if (quantum_microseconds_ != 0) {
-            int next_quantum_index = (worker.stream->get_last_timestamp() -
-                                      worker.stream->get_first_timestamp()) /
+            uint64_t next_quantum_index = (worker.stream->get_last_timestamp() -
+                                           worker.stream->get_first_timestamp()) /
                 quantum_microseconds_;
             if (next_quantum_index != worker.cur_quantum_index) {
                 assert(next_quantum_index > worker.cur_quantum_index);
@@ -300,8 +302,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                 worker.cur_quantum_index = next_quantum_index;
             }
         }
-        typename sched_type_t::stream_status_t status =
-            worker.stream->next_record(record);
         if (status != sched_type_t::STATUS_OK) {
             if (status != sched_type_t::STATUS_EOF) {
                 if (status == sched_type_t::STATUS_REGION_INVALID) {
@@ -364,8 +364,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             worker->cur_quantum_index = 0;
         }
         if (quantum_microseconds_ != 0) {
-            int next_quantum_index = (worker->stream->get_last_timestamp() -
-                                      worker->stream->get_first_timestamp()) /
+            uint64_t next_quantum_index = (worker->stream->get_last_timestamp() -
+                                           worker->stream->get_first_timestamp()) /
                 quantum_microseconds_;
             if (next_quantum_index != worker->cur_quantum_index) {
                 assert(next_quantum_index > worker->cur_quantum_index);

@@ -295,7 +295,7 @@ basic_counts_t::get_total_counts()
 }
 
 bool
-basic_counts_t::parallel_shard_quantum_end(void *shard_data, int quantum_id)
+basic_counts_t::parallel_shard_quantum_end(void *shard_data, uint64_t quantum_id)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     counters_t shard_total;
@@ -310,7 +310,7 @@ basic_counts_t::parallel_shard_quantum_end(void *shard_data, int quantum_id)
 }
 
 bool
-basic_counts_t::notify_quantum_end(int quantum_id)
+basic_counts_t::notify_quantum_end(uint64_t quantum_id)
 {
     counters_t total;
     counters_t last_snapshot;
