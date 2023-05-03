@@ -62,8 +62,8 @@ main(int argc, char **argv)
           "mov $10, %%ecx\n\t"
           "rep movsq\n\t"
           "mov %%rax, %[x]\n\t"
-          : [ x ] "=r" (x) 
-          : [ buf1 ] "m"(buf1), [ buf2 ] "m"(buf2)
+          : [x] "=r"(x)
+          : [buf1] "m"(buf1), [buf2] "m"(buf2)
           : "ecx", "rdi", "rsi", "rax", "memory");
 
 #        else
@@ -79,8 +79,8 @@ main(int argc, char **argv)
           "mov $10, %%ecx\n\t"
           "rep movsd\n\t"
           "mov %%eax, %[x]\n\t"
-          : [ x ] "=r" (x)
-          : [ buf1 ] "m"(buf1), [ buf2 ] "m"(buf2)
+          : [x] "=r"(x)
+          : [buf1] "m"(buf1), [buf2] "m"(buf2)
           : "ecx", "edi", "esi", "eax", "memory");
 
 #        endif
