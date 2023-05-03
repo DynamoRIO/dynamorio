@@ -291,17 +291,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
         RecordType record;
         typename sched_type_t::stream_status_t status =
             worker.stream->next_record(record);
-        if (quantum_microseconds_ != 0) {
-            uint64_t next_quantum_index = (worker.stream->get_last_timestamp() -
-                                           worker.stream->get_first_timestamp()) /
-                quantum_microseconds_;
-            if (next_quantum_index != worker.cur_quantum_index) {
-                assert(next_quantum_index > worker.cur_quantum_index);
-                if (!process_quantum(worker.cur_quantum_index, &worker))
-                    return;
-                worker.cur_quantum_index = next_quantum_index;
-            }
-        }
         if (status != sched_type_t::STATUS_OK) {
             if (status != sched_type_t::STATUS_EOF) {
                 if (status == sched_type_t::STATUS_REGION_INVALID) {
@@ -316,6 +305,17 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                 !process_quantum(worker.cur_quantum_index, &worker))
                 return;
             return;
+        }
+        if (quantum_microseconds_ != 0) {
+            uint64_t next_quantum_index = (worker.stream->get_last_timestamp() -
+                                           worker.stream->get_first_timestamp()) /
+                quantum_microseconds_;
+            if (next_quantum_index != worker.cur_quantum_index) {
+                assert(next_quantum_index > worker.cur_quantum_index);
+                if (!process_quantum(worker.cur_quantum_index, &worker))
+                    return;
+                worker.cur_quantum_index = next_quantum_index;
+            }
         }
         for (int i = 0; i < num_tools_; ++i) {
             if (!tools_[i]->process_memref(record)) {

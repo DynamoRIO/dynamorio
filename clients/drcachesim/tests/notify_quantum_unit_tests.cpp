@@ -193,9 +193,8 @@ test_non_zero_quantum(bool parallel)
         // 0th quantum ends here.
         gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 101), gen_instr(1, 4),
         // 1st quantum ends here.
-        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 490),
+        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 490), gen_exit(1)
         // 4th quantum ends here.
-        gen_exit(1)
     };
 
     auto test_analysis_tool =
@@ -214,6 +213,7 @@ test_non_zero_quantum(bool parallel)
                     test_analyzer.get_error_string().c_str());
     }
     std::vector<std::pair<uint64_t, int>> expected_quantum_ends = {
+        // Pair of <quantum_id, seen_memrefs_when_quantum_ended>.
         std::make_pair(0, 6), std::make_pair(1, 8), std::make_pair(4, 10)
     };
     if (parallel) {
@@ -229,14 +229,14 @@ test_non_zero_quantum(bool parallel)
         CHECK(test_analysis_tool->serial_quantum_ends == expected_quantum_ends,
               "notify_quantum_end invoked at unexpected times.");
     }
-    fprintf(stderr, "test_non_zero_quantum done");
+    fprintf(stderr, "test_non_zero_quantum done for parallel=%d\n", parallel);
     return true;
 }
 
 int
 main(int argc, const char *argv[])
 {
-    if (!test_non_zero_quantum(false) || !test_non_zero_quantum(false))
+    if (!test_non_zero_quantum(false) || !test_non_zero_quantum(true))
         return 1;
     fprintf(stderr, "All done!\n");
     return 0;
