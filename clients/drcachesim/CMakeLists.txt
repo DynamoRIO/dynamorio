@@ -705,6 +705,7 @@ if (BUILD_TESTS)
                  tests/notify_quantum_unit_tests.cpp)
   configure_DynamoRIO_standalone(tool.drcacheoff.notify_quantum_unit_tests)
   target_link_libraries(tool.drcacheoff.notify_quantum_unit_tests drmemtrace_analyzer)
+  add_win32_flags(tool.drcacheoff.notify_quantum_unit_tests)
   add_test(NAME tool.drcacheoff.notify_quantum_unit_tests
            COMMAND tool.drcacheoff.notify_quantum_unit_tests)
 

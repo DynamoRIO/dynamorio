@@ -150,7 +150,7 @@ public:
     void *
     parallel_shard_init(int shard_index, void *worker_data) override
     {
-        return reinterpret_cast<void *>(0x8badf00d);
+        return reinterpret_cast<void *>(static_cast<ptr_uint_t>(0x8badf00d));
     }
     bool
     parallel_shard_exit(void *shard_data) override
@@ -166,7 +166,7 @@ public:
     bool
     parallel_shard_quantum_end(void *shard_data, uint64_t quantum_id) override
     {
-        if (shard_data != reinterpret_cast<void *>(0x8badf00d)) {
+        if (shard_data != reinterpret_cast<void *>(static_cast<ptr_uint_t>(0x8badf00d))) {
             fprintf(stderr, "Invalid shard_data\n");
             return false;
         }
@@ -186,7 +186,7 @@ private:
 static bool
 test_non_zero_quantum(bool parallel)
 {
-    constexpr int kQuantumMicroseconds = 100;
+    constexpr uint64_t kQuantumMicroseconds = 100;
     std::vector<memref_t> refs = {
         gen_instr(1, 1), gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1), gen_instr(1, 2),
         gen_data(1, true, 100, 4), gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 50),
@@ -203,7 +203,7 @@ test_non_zero_quantum(bool parallel)
         std::unique_ptr<test_analysis_tool_t>(new test_analysis_tool_t());
     std::vector<analysis_tool_t *> tools;
     tools.push_back(test_analysis_tool.get());
-    test_analyzer_t test_analyzer(refs, &tools[0], tools.size(), parallel,
+    test_analyzer_t test_analyzer(refs, &tools[0], (int)tools.size(), parallel,
                                   kQuantumMicroseconds);
 
     if (!test_analyzer) {
