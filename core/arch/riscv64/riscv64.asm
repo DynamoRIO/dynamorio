@@ -82,7 +82,7 @@ call_dispatch_alt_stack_no_free:
         addi     sp, s0, 0
         beqz     s2, GLOBAL_LABEL(unexpected_return)
         /* Restore the stack. */
-        ld       s2  0 (sp)
+        ld       s2, 0 (sp)
         ld       s1, 8 (sp)
         ld       s0, 16 (sp)
         ld       ra, 24 (sp)
