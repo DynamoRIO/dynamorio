@@ -672,24 +672,27 @@ check_rseq_side_exit_discontinuity()
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *move2 =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
-    instr_t *jmp =
+    instr_t *cond_jmp =
         XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move2));
 
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
-    instrlist_append(ilist, jmp);
+    instrlist_append(ilist, cond_jmp);
     instrlist_append(ilist, store);
     instrlist_append(ilist, move1);
     instrlist_append(ilist, move2);
 
-    std::vector<memref_instr_t> memref_instr_vec = { { gen_branch(1), jmp },
-                                                     { gen_instr(1), store },
-                                                     { gen_data(1, false, 42, 4),
-                                                       nullptr },
-                                                     { gen_instr(1), move2 } };
+    std::vector<memref_instr_t> memref_instr_vec = {
+        { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+          nullptr },
+        { gen_branch(1), cond_jmp },
+        { gen_instr(1), store },
+        { gen_data(1, false, 42, 4), nullptr },
+        { gen_instr(1), move2 }
+    };
 
     // TODO i#6023: Use this IR based encoder in other tests as well.
     static constexpr addr_t BASE_ADDR = 0xeba4ad4;
-    auto memrefs = get_memrefs_from_ir(ilist, memref_instr_vec, BASE_ADDR);
+    auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
     if (!run_checker(memrefs, true, 1, 5, "PC discontinuity due to rseq side exit",
                      "Failed to catch PC discontinuity from rseq side exit")) {
         return false;

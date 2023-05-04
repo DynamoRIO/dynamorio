@@ -146,14 +146,13 @@ gen_exit(memref_tid_t tid)
 }
 
 /* Returns a vector of memref_t with instr encodings.
- * The caller has to set tid + pid fields of the memref_t in memref_instr_t
- * structs but not the other fields. Also note that all data memrefs have to
- * be filled in for each instr when constructing memref_instr_vec. This only
- * applies to instr_t and for other memrefs, the caller should set everything
- * they need.
+ * For instr_t, the caller has to set tid + pid fields of the memref_t in
+ * memref_instr_t structs but not the other fields. For other memrefs the caller
+ * should still set everything they need. Also note that all data memrefs have to
+ * be filled in for each instr when constructing memref_instr_vec.
  */
 inline std::vector<memref_t>
-get_memrefs_from_ir(instrlist_t *ilist, std::vector<memref_instr_t> &memref_instr_vec,
+add_encodings_to_memrefs(instrlist_t *ilist, std::vector<memref_instr_t> &memref_instr_vec,
                     addr_t base_addr)
 {
     static const int MAX_DECODE_SIZE = 1024;
@@ -164,10 +163,9 @@ get_memrefs_from_ir(instrlist_t *ilist, std::vector<memref_instr_t> &memref_inst
     assert(pc != nullptr);
     assert(pc <= decode_buf + sizeof(decode_buf));
     std::vector<memref_t> memrefs = {};
-    memrefs.push_back(
-        gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS));
     for (auto pair : memref_instr_vec) {
-        if (pair.instr != nullptr && type_is_instr(pair.memref.instr.type)) {
+        if (type_is_instr(pair.memref.instr.type)) {
+            assert(pair.instr != nullptr);
             const size_t offset = instr_get_offset(pair.instr);
             const int instr_size = instr_length(GLOBAL_DCONTEXT, pair.instr);
             pair.memref.instr.addr = offset + base_addr;
