@@ -69,7 +69,7 @@ GLOBAL_LABEL(call_switch_stack:)
         /* Check mutex_to_free. */
         beqz     ARG4, call_dispatch_alt_stack_no_free
         /* Release the mutex. */
-        addi     ARG4, x0, 0
+        sd       x0, 0 (ARG4)
 call_dispatch_alt_stack_no_free:
         /* Copy AGG5 (return_on_return) to callee-save reg. */
         mv       s2, ARG5
