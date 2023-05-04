@@ -152,8 +152,8 @@ gen_exit(memref_tid_t tid)
  * be filled in for each instr when constructing memref_instr_vec.
  */
 inline std::vector<memref_t>
-add_encodings_to_memrefs(instrlist_t *ilist, std::vector<memref_instr_t> &memref_instr_vec,
-                    addr_t base_addr)
+add_encodings_to_memrefs(instrlist_t *ilist,
+                         std::vector<memref_instr_t> &memref_instr_vec, addr_t base_addr)
 {
     static const int MAX_DECODE_SIZE = 1024;
     byte decode_buf[MAX_DECODE_SIZE];
