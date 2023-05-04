@@ -30,6 +30,8 @@
  * DAMAGE.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::min.
+
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
@@ -244,7 +246,7 @@ bool
 basic_counts_t::print_results()
 {
     counters_t total;
-    uint64_t num_windows = 1;
+    uintptr_t num_windows = 1;
     uint64_t num_quantums = 0;
     for (const auto &shard : shard_map_) {
         num_windows = std::max(num_windows, shard.second->counters.size());
@@ -275,7 +277,7 @@ basic_counts_t::print_results()
         }
     } else if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";
-        for (uint64_t i = 0; i < num_windows; ++i) {
+        for (uintptr_t i = 0; i < num_windows; ++i) {
             std::cerr << "Window #" << i << ":\n";
             for (const auto &shard : shard_map_) {
                 if (shard.second->counters.size() > i) {
