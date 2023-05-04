@@ -160,8 +160,6 @@ add reg, reg, @P@:lo12:sym
 adrp reg, :got:sym @N@ \
 ldr  reg, [reg, @P@:got_lo12:sym]
 
-#  define SYSNUM_REG w8
-
 # endif
 
 # define END_FUNC(symbol) /* nothing */
@@ -376,6 +374,7 @@ ASSUME fs:_DATA @N@\
 # define REG_R10 x10
 # define REG_R11 x11
 # define REG_R12 x12
+# define SYSNUM_REG w8
 /* skip [x13..x30], not available on AArch32 */
 #elif defined(RISCV64)
 # define REG_SP   sp
