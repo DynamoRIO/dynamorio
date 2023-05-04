@@ -336,7 +336,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                         "Failed to read from trace: " + worker.stream->get_stream_name();
                 }
             } else if (quantum_microseconds_ != 0) {
-                !process_quantum(worker.cur_quantum_index, &worker);
+                process_quantum(worker.cur_quantum_index, &worker);
             }
             return;
         }
