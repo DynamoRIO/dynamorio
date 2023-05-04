@@ -1621,15 +1621,15 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
         return "TRACE_MARKER_TYPE_SPLIT_VALUE unexpected for 32-bit";
 #endif
     }
-#ifdef X64 // 32-bit has the absolute pc as the raw marker value.
+#ifdef X64 // 32-bit always had the absolute pc as the raw marker value.
     if ((*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
         (*entry)->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT ||
         (*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER) {
-        if (get_version(tdata) >= OFFLINE_FILE_VERSION_KERNEL_INT_PC) {
+        if (get_version(tdata) >= OFFLINE_FILE_VERSION_KERNEL_INT_PC &&
+            get_version(tdata) < OFFLINE_FILE_VERSION_XFER_ABS_PC) {
             // We convert the idx:offs to an absolute PC.
-            // TODO i#2062: For non-module code we don't have the block id and so
-            // cannot use this format.  We should probably just abandon this and
-            // always store the absolute PC.
+            // This doesn't work for non-module-code and is thus only present in
+            // legacy traces.
             kernel_interrupted_raw_pc_t raw_pc;
             raw_pc.combined_value = marker_val;
             DR_ASSERT(raw_pc.pc.modidx != PC_MODIDX_INVALID);
@@ -1641,7 +1641,7 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
                 marker_val, raw_pc.pc.modidx, modvec_()[raw_pc.pc.modidx].orig_seg_base,
                 pc);
             marker_val = reinterpret_cast<uintptr_t>(pc);
-        } // Else we've already marked as TRACE_ENTRY_VERSION_NO_KERNEL_PC.
+        } // For really old, we've already marked as TRACE_ENTRY_VERSION_NO_KERNEL_PC.
     }
 #endif
     *value = marker_val;
@@ -1800,19 +1800,27 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
                                   // This is inclusive.
                                   int remove_end_rough_idx)
 {
-    // First, advance to encoding/instruction boundaries.
+    // First, advance to encoding/instruction boundaries, but include any timestamp
+    // in what's being removed to avoid violating branch invariants (i#5986).
+    // XXX: We could try to look for a prior branch and keep the timestamp if there
+    // is none but it's not worth that complexity.
     int remove_start = remove_start_rough_idx;
-    while (
-        remove_start < static_cast<int>(tdata->rseq_buffer_.size()) &&
-        tdata->rseq_buffer_[remove_start].type != TRACE_TYPE_ENCODING &&
-        !type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_start].type)))
+    while (remove_start < static_cast<int>(tdata->rseq_buffer_.size()) &&
+           tdata->rseq_buffer_[remove_start].type != TRACE_TYPE_ENCODING &&
+           !type_is_instr(
+               static_cast<trace_type_t>(tdata->rseq_buffer_[remove_start].type)) &&
+           (tdata->rseq_buffer_[remove_start].type != TRACE_TYPE_MARKER ||
+            tdata->rseq_buffer_[remove_start].size != TRACE_MARKER_TYPE_TIMESTAMP))
         ++remove_start;
     int remove_end = remove_end_rough_idx;
     while (
         remove_end < static_cast<int>(tdata->rseq_buffer_.size()) &&
         (tdata->rseq_buffer_[remove_end].type == TRACE_TYPE_ENCODING ||
          type_is_instr(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_end].type)) ||
-         type_is_data(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_end].type))))
+         type_is_data(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_end].type)) ||
+         (tdata->rseq_buffer_[remove_end].type == TRACE_TYPE_MARKER &&
+          (tdata->rseq_buffer_[remove_end].size == TRACE_MARKER_TYPE_TIMESTAMP ||
+           tdata->rseq_buffer_[remove_end].size == TRACE_MARKER_TYPE_CPU_ID))))
         ++remove_end;
     log(4, "rseq rollback: advanced rough %d-%d to %d-%d\n", remove_start_rough_idx,
         remove_end_rough_idx, remove_start, remove_end);

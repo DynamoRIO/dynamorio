@@ -232,6 +232,7 @@ endif ()
 set(drcachesim_srcs
   launcher.cpp
   scheduler/scheduler.cpp
+  scheduler/speculator.cpp
   analyzer.cpp
   analyzer_multi.cpp
   ${client_and_sim_srcs}
@@ -277,6 +278,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 add_exported_library(drmemtrace_analyzer STATIC
   analyzer.cpp
   scheduler/scheduler.cpp
+  scheduler/speculator.cpp
   common/trace_entry.cpp
   reader/reader.cpp
   reader/config_reader.cpp
@@ -313,6 +315,7 @@ install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 install_client_nonDR_header(drmemtrace scheduler/scheduler.h)
+install_client_nonDR_header(drmemtrace scheduler/speculator.h)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
@@ -671,6 +674,12 @@ if (BUILD_TESTS)
     tests/scheduler_unit_tests.cpp)
   target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer)
   add_win32_flags(tool.scheduler.unit_tests)
+  if (WIN32)
+    # We have a dup symbol from linking in DR.  Linking libc first doesn't help.
+    append_property_string(TARGET tool.scheduler.unit_tests LINK_FLAGS
+      "/force:multiple")
+  endif ()
+  configure_DynamoRIO_standalone(tool.scheduler.unit_tests)
   add_test(NAME tool.scheduler.unit_tests
     COMMAND tool.scheduler.unit_tests
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)

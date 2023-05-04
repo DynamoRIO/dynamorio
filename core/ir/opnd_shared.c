@@ -2766,7 +2766,7 @@ reg_get_size(reg_id_t reg)
         return OPSZ_SCALABLE;
 #        endif
     }
-    if (reg >= DR_REG_P0 && reg <= DR_REG_P15)
+    if ((reg >= DR_REG_P0 && reg <= DR_REG_P15) || reg == DR_REG_FFR)
         return OPSZ_SCALABLE_PRED;
     if (reg == DR_REG_CNTVCT_EL0)
         return OPSZ_8;
