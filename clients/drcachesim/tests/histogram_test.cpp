@@ -43,9 +43,9 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 
-using namespace dynamorio::drmemtrace;
-
 namespace {
+
+using namespace dynamorio::drmemtrace;
 
 bool
 check_cross_line()

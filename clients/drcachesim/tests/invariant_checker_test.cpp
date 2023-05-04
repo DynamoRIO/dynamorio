@@ -43,9 +43,9 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 
-using namespace dynamorio::drmemtrace;
-
 namespace {
+
+using namespace dynamorio::drmemtrace;
 
 #ifdef X86
 #    define REG1 DR_REG_XAX
@@ -664,7 +664,8 @@ check_duplicate_syscall_with_same_pc()
 bool
 check_rseq_side_exit_discontinuity()
 {
-    // Negative test: Missing instructions in a basic block due to rseq side exit.
+    // Negative test: Seemingly missing instructions in a basic block due to rseq side
+    // exit.
     instr_t *store = XINST_CREATE_store(GLOBAL_DCONTEXT, OPND_CREATE_MEMPTR(REG2, 0),
                                         opnd_create_reg(REG1));
     instr_t *move1 =

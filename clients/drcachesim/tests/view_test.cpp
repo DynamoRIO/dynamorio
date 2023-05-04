@@ -62,9 +62,6 @@
         }                             \
     } while (0)
 
-using namespace dynamorio::drmemtrace;
-using namespace dynamorio::drmemtrace;
-
 // These are for our mock serial reader and must be in the same namespace
 // as file_reader_t's declaration.
 template <> file_reader_t<std::vector<trace_entry_t>>::file_reader_t()
@@ -90,6 +87,8 @@ file_reader_t<std::vector<trace_entry_t>>::read_next_entry()
 }
 
 namespace {
+
+using namespace dynamorio::drmemtrace;
 
 class view_test_t : public view_t {
 public:
