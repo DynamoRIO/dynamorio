@@ -244,8 +244,8 @@ bool
 basic_counts_t::print_results()
 {
     counters_t total;
-    uintptr_t num_windows = 1;
-    uintptr_t num_quantums = 0;
+    uint64_t num_windows = 1;
+    uint64_t num_quantums = 0;
     for (const auto &shard : shard_map_) {
         num_windows = std::max(num_windows, shard.second->counters.size());
         num_quantums = std::max(num_quantums, shard.second->last_seen_quantum + 1);
@@ -275,7 +275,7 @@ basic_counts_t::print_results()
         }
     } else if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";
-        for (uintptr_t i = 0; i < num_windows; ++i) {
+        for (uint64_t i = 0; i < num_windows; ++i) {
             std::cerr << "Window #" << i << ":\n";
             for (const auto &shard : shard_map_) {
                 if (shard.second->counters.size() > i) {
