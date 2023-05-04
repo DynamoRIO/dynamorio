@@ -701,12 +701,12 @@ if (BUILD_TESTS)
                      ${trace_dir} --tmp_output_dir ${tmp_output_dir})
   endif ()
 
-  add_executable(tool.drcacheoff.notify_quantum_unit_tests
-                 tests/notify_quantum_unit_tests.cpp)
-  add_win32_flags(tool.drcacheoff.notify_quantum_unit_tests)
-  target_link_libraries(tool.drcacheoff.notify_quantum_unit_tests drmemtrace_analyzer)
-  add_test(NAME tool.drcacheoff.notify_quantum_unit_tests
-           COMMAND tool.drcacheoff.notify_quantum_unit_tests)
+  add_executable(tool.drcacheoff.trace_quantum_analysis_unit_tests
+                 tests/trace_quantum_analysis_unit_tests.cpp)
+  add_win32_flags(tool.drcacheoff.trace_quantum_analysis_unit_tests)
+  target_link_libraries(tool.drcacheoff.trace_quantum_analysis_unit_tests drmemtrace_analyzer)
+  add_test(NAME tool.drcacheoff.trace_quantum_analysis_unit_tests
+           COMMAND tool.drcacheoff.trace_quantum_analysis_unit_tests)
 
   if (DR_HOST_AARCH64 AND NOT APPLE) # i#1997: static DR on Mac NYI.
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)

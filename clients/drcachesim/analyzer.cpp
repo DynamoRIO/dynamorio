@@ -87,6 +87,14 @@ analyzer_t::record_is_thread_final(memref_t record)
     return record.exit.type == TRACE_TYPE_THREAD_EXIT;
 }
 
+template <>
+bool
+analyzer_t::record_is_timestamp(const memref_t &record)
+{
+    return record.marker.type == TRACE_TYPE_MARKER &&
+        record.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP;
+}
+
 /******************************************************************************
  * Specializations for analyzer_tmpl_t<record_reader_t>, aka record_analyzer_t.
  */
@@ -116,6 +124,13 @@ bool
 record_analyzer_t::record_is_thread_final(trace_entry_t record)
 {
     return record.type == TRACE_TYPE_FOOTER;
+}
+
+template <>
+bool
+record_analyzer_t::record_is_timestamp(const trace_entry_t &record)
+{
+    return record.type == TRACE_TYPE_MARKER && record.size == TRACE_MARKER_TYPE_TIMESTAMP;
 }
 
 /********************************************************************
@@ -277,6 +292,26 @@ analyzer_tmpl_t<RecordType, ReaderType>::get_error_string()
 }
 
 template <typename RecordType, typename ReaderType>
+bool
+analyzer_tmpl_t<RecordType, ReaderType>::advance_quantum_id(
+    analyzer_worker_data_t *worker, const RecordType &record, uint64_t &cur_quantum_index)
+{
+    cur_quantum_index = worker->cur_quantum_index;
+    if (quantum_microseconds_ == 0 || !record_is_timestamp(record)) {
+        return false;
+    }
+    uint64_t next_quantum_index =
+        (worker->stream->get_last_timestamp() - worker->stream->get_first_timestamp()) /
+        quantum_microseconds_;
+    if (next_quantum_index != worker->cur_quantum_index) {
+        assert(next_quantum_index > worker->cur_quantum_index);
+        worker->cur_quantum_index = next_quantum_index;
+        return true;
+    }
+    return false;
+}
+
+template <typename RecordType, typename ReaderType>
 void
 analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &worker)
 {
@@ -300,22 +335,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                     worker.error =
                         "Failed to read from trace: " + worker.stream->get_stream_name();
                 }
+            } else if (quantum_microseconds_ != 0) {
+                !process_quantum(worker.cur_quantum_index, &worker);
             }
-            if (quantum_microseconds_ != 0 &&
-                !process_quantum(worker.cur_quantum_index, &worker))
-                return;
             return;
         }
-        if (quantum_microseconds_ != 0) {
-            uint64_t next_quantum_index = (worker.stream->get_last_timestamp() -
-                                           worker.stream->get_first_timestamp()) /
-                quantum_microseconds_;
-            if (next_quantum_index != worker.cur_quantum_index) {
-                assert(next_quantum_index > worker.cur_quantum_index);
-                if (!process_quantum(worker.cur_quantum_index, &worker))
-                    return;
-                worker.cur_quantum_index = next_quantum_index;
-            }
+        uint64_t cur_quantum_index;
+        if (advance_quantum_id(&worker, record, cur_quantum_index) &&
+            !process_quantum(cur_quantum_index, &worker)) {
+            return;
         }
         for (int i = 0; i < num_tools_; ++i) {
             if (!tools_[i]->process_memref(record)) {
@@ -364,17 +392,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
             worker->cur_quantum_index = 0;
         }
-        if (quantum_microseconds_ != 0) {
-            uint64_t next_quantum_index = (worker->stream->get_last_timestamp() -
-                                           worker->stream->get_first_timestamp()) /
-                quantum_microseconds_;
-            if (next_quantum_index != worker->cur_quantum_index) {
-                assert(next_quantum_index > worker->cur_quantum_index);
-                if (!process_shard_quantum(shard_index, worker->cur_quantum_index,
-                                           worker))
-                    return;
-                worker->cur_quantum_index = next_quantum_index;
-            }
+        uint64_t cur_quantum_index;
+        if (advance_quantum_id(worker, record, cur_quantum_index) &&
+            !process_shard_quantum(shard_index, cur_quantum_index, worker)) {
+            return;
         }
         for (int i = 0; i < num_tools_; ++i) {
             if (!tools_[i]->parallel_shard_memref(worker->shard_data[shard_index][i],
@@ -483,7 +504,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_quantum(uint64_t quantum_id,
                                                          analyzer_worker_data_t *worker)
 {
     for (int i = 0; i < num_tools_; ++i) {
-        if (!tools_[i]->notify_quantum_end(quantum_id)) {
+        if (!tools_[i]->generate_quantum_result(quantum_id)) {
             worker->error = tools_[i]->get_error_string();
             VPRINT(this, 1,
                    "Worker %d hit process_quantum error %s on trace shard %s at quantum "
@@ -502,8 +523,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_quantum(
     int shard_id, uint64_t quantum_id, analyzer_worker_data_t *worker)
 {
     for (int i = 0; i < num_tools_; ++i) {
-        if (!tools_[i]->parallel_shard_quantum_end(worker->shard_data[shard_id][i],
-                                                   quantum_id)) {
+        if (!tools_[i]->generate_shard_quantum_result(worker->shard_data[shard_id][i],
+                                                      quantum_id)) {
             worker->error = tools_[i]->get_error_string();
             VPRINT(this, 1,
                    "Worker %d hit process_shard_quantum error %s on trace shard %s at "

@@ -3755,7 +3755,8 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
     torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
 
-    torunonly_drcacheoff(quantum-count-logs ${ci_shared_app} "" "@-simulator_type@basic_counts@-quantum_microseconds@100000" "")
+    torunonly_drcacheoff(quantum-count-logs ${ci_shared_app} ""
+      "@-simulator_type@basic_counts@-quantum_microseconds@100000" "")
 
     # As for the online test, we check that only 1 thread is in the final trace.
     torunonly_drcacheoff(max-global client.annotation-concurrency

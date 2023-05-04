@@ -107,16 +107,16 @@ public:
         quantum_microseconds_ = quantum_microseconds;
         verbosity_ = 2;
         worker_count_ = 1;
-        test_stream = std::unique_ptr<scheduler_t::stream_t>(new test_stream_t(refs));
-        worker_data_.push_back(analyzer_worker_data_t(0, test_stream.get()));
+        test_stream_ = std::unique_ptr<scheduler_t::stream_t>(new test_stream_t(refs));
+        worker_data_.push_back(analyzer_worker_data_t(0, test_stream_.get()));
     }
 
 private:
-    std::unique_ptr<scheduler_t::stream_t> test_stream;
+    std::unique_ptr<scheduler_t::stream_t> test_stream_;
 };
 
 // Test analysis_tool_t that stores information about when the quantum-end
-// events (parallel_shard_quantum_end and notify_quantum_end) were invoked.
+// events (generate_shard_quantum_result and generate_quantum_result) were invoked.
 class test_analysis_tool_t : public analysis_tool_t {
 public:
     test_analysis_tool_t()
@@ -131,9 +131,9 @@ public:
         return true;
     }
     bool
-    notify_quantum_end(uint64_t quantum_id) override
+    generate_quantum_result(uint64_t quantum_id) override
     {
-        serial_quantum_ends.push_back(std::make_pair(quantum_id, seen_memrefs_));
+        serial_quantum_ends_.push_back(std::make_pair(quantum_id, seen_memrefs_));
         return true;
     }
     bool
@@ -149,7 +149,7 @@ public:
     void *
     parallel_shard_init(int shard_index, void *worker_data) override
     {
-        return reinterpret_cast<void *>(static_cast<uintptr_t>(0x8badf00d));
+        return reinterpret_cast<void *>(kShardData);
     }
     bool
     parallel_shard_exit(void *shard_data) override
@@ -163,23 +163,25 @@ public:
         return true;
     }
     bool
-    parallel_shard_quantum_end(void *shard_data, uint64_t quantum_id) override
+    generate_shard_quantum_result(void *shard_data, uint64_t quantum_id) override
     {
-        if (shard_data != reinterpret_cast<void *>(static_cast<uintptr_t>(0x8badf00d))) {
+        if (shard_data != reinterpret_cast<void *>(kShardData)) {
             fprintf(stderr, "Invalid shard_data\n");
             return false;
         }
-        parallel_quantum_ends.push_back(
+        parallel_quantum_ends_.push_back(
             std::make_pair(quantum_id, seen_parallel_memrefs_));
         return true;
     }
 
-    std::vector<std::pair<uint64_t, int>> serial_quantum_ends;
-    std::vector<std::pair<uint64_t, int>> parallel_quantum_ends;
+    std::vector<std::pair<uint64_t, int>> serial_quantum_ends_;
+    std::vector<std::pair<uint64_t, int>> parallel_quantum_ends_;
 
 private:
     int seen_memrefs_;
     int seen_parallel_memrefs_;
+
+    static constexpr uintptr_t kShardData = 0x8badf00d;
 };
 
 static bool
@@ -217,17 +219,17 @@ test_non_zero_quantum(bool parallel)
         std::make_pair(0, 6), std::make_pair(1, 8), std::make_pair(4, 10)
     };
     if (parallel) {
-        CHECK(test_analysis_tool->serial_quantum_ends.empty(),
-              "The serial API notify_quantum_end should not be invoked for parallel "
+        CHECK(test_analysis_tool->serial_quantum_ends_.empty(),
+              "The serial API generate_quantum_result should not be invoked for parallel "
               "analysis");
-        CHECK(test_analysis_tool->parallel_quantum_ends == expected_quantum_ends,
-              "parallel_shard_quantum_end invoked at unexpected times.");
+        CHECK(test_analysis_tool->parallel_quantum_ends_ == expected_quantum_ends,
+              "generate_shard_quantum_result invoked at unexpected times.");
     } else {
-        CHECK(test_analysis_tool->parallel_quantum_ends.empty(),
-              "The parallel API parallel_shard_quantum_end should not be invoked for "
+        CHECK(test_analysis_tool->parallel_quantum_ends_.empty(),
+              "The parallel API generate_shard_quantum_result should not be invoked for "
               "serial analysis");
-        CHECK(test_analysis_tool->serial_quantum_ends == expected_quantum_ends,
-              "notify_quantum_end invoked at unexpected times.");
+        CHECK(test_analysis_tool->serial_quantum_ends_ == expected_quantum_ends,
+              "generate_quantum_result invoked at unexpected times.");
     }
     fprintf(stderr, "test_non_zero_quantum done for parallel=%d\n", parallel);
     return true;

@@ -172,6 +172,9 @@ protected:
     bool
     record_is_thread_final(RecordType record);
 
+    bool
+    record_is_timestamp(const RecordType &record);
+
     // Invoked when the given quantum finishes during serial analysis of the
     // trace.
     virtual bool
@@ -182,6 +185,14 @@ protected:
     virtual bool
     process_shard_quantum(int shard_id, uint64_t quantum_id,
                           analyzer_worker_data_t *worker);
+
+    // Advances the current quantum id stored in the worker data, based on the
+    // most recent seen timestamp in the trace stream. Returns whether the current
+    // quantum id was updated. Also returns the previous quantum index in
+    // cur_quantum_index.
+    bool
+    advance_quantum_id(analyzer_worker_data_t *worker, const RecordType &record,
+                       uint64_t &cur_quantum_index);
 
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;

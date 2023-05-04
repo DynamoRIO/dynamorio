@@ -575,7 +575,7 @@ public:
             return scheduler_->get_input_ordinal(ordinal_);
         }
         /**
-         * Returns the value of the last seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+         * Returns the value of the most recent seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
          */
         uint64_t
         get_last_timestamp() const override
