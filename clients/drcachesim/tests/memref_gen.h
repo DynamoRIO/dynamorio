@@ -147,7 +147,7 @@ gen_exit(memref_tid_t tid)
 
 /* Returns a vector of memref_t with instr encodings.
  * The caller has to set tid + pid fields of the memref_t in memref_instr_t
- * structs but not the other fields. Also note that all operand records have to
+ * structs but not the other fields. Also note that all data memrefs have to
  * be filled in for each instr when constructing memref_instr_vec. This only
  * applies to instr_t and for other memrefs, the caller should set everything
  * they need.
