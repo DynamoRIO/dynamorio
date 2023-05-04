@@ -55,10 +55,6 @@ add_definitions(
   -DPT_VERSION_EXT=\"${PT_VERSION_EXT}\"
 )
 
-include(GNUInstallDirs)
-include(FindUnixCommands)
-include(CheckCCompilerFlag)
-
 add_definitions(
   -DFEATURE_SIDEBAND
   -DFEATURE_ELF

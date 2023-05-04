@@ -779,70 +779,77 @@ struct schedule_entry_t {
 #ifdef BUILD_PT_TRACER
 
 /**
- * The type of a syscall PT entry in the offline output.
+ * The type of a syscall PT entry in the raw offline output.
  */
 typedef enum {
-    /* The instances of this type store the PID, signifying which process the data in the
+    /**
+     * The instances of this type store the PID, signifying which process the data in the
      * buffer has been collected from.
      */
     SYSCALL_PT_ENTRY_TYPE_PID = 0,
-    /* The instances of this type store the thread Id, signifying which thread the data in
+    /**
+     * The instances of this type store the thread Id, signifying which thread the data in
      * the buffer has been collected from.
      */
     SYSCALL_PT_ENTRY_TYPE_THREAD,
-    /* The instance with this type demonstrates that the leftover portion of the buffer
+    /**
+     * The instance with this type demonstrates that the leftover portion of the buffer
      * holds metadata while also providing information about the metadata's size.
      */
     SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY,
-    /* The instance with this type demonstrates that the leftover portion of the buffer
+    /**
+     * The instance with this type demonstrates that the leftover portion of the buffer
      * holds one syscall's metadata and PT data while also providing information about all
      * these data's size.
      */
     SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY,
-    /* The instances of this type store the sysnum, indicating the type of syscall.
+    /**
+     * The instances of this type store the sysnum, indicating the type of syscall.
      */
     SYSCALL_PT_ENTRY_TYPE_SYSNUM,
-    /* The instances of this type store the syscall's index, which indicates the calling
+    /**
+     * The instances of this type store the syscall's index, which indicates the calling
      * index of the syscall in the current thread.
      */
     SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX,
-    /* The instances of this type store the syscall's arguments number, which indicates
+    /**
+     * The instances of this type store the syscall's arguments number, which indicates
      * the number of arguments of the syscall.
      */
     SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM,
-    SYSCALL_PT_ENTRY_TYPE_MAX = 6
+    SYSCALL_PT_ENTRY_TYPE_MAX
 } syscall_pt_entry_type_t;
 
 START_PACKED_STRUCTURE
 struct _syscall_pt_entry_t {
     union {
         struct {
-            uint64_t pid : 61;
-            uint64_t type : 3;
+            uint64_t pid : 59;
+            uint64_t type : 5;
         } pid;
         struct {
-            uint64_t tid : 61;
-            uint64_t type : 3;
+            uint64_t tid : 59;
+            uint64_t type : 5;
         } tid;
         struct {
-            uint64_t data_size : 61;
-            uint64_t type : 3;
+            uint64_t data_size : 59;
+            uint64_t type : 5;
         } pt_metadata_boundary;
         struct {
-            uint64_t data_size : 61;
-            uint64_t type : 3;
+            uint64_t data_size : 59;
+            uint64_t type : 5;
         } pt_data_boundary;
         struct {
-            uint64_t sysnum : 61;
-            uint64_t type : 3;
+            uint64_t sysnum : 59;
+            uint64_t type : 5;
         } sysnum;
         struct {
-            uint64_t idx : 61;
-            uint64_t type : 3;
+            uint64_t idx : 59;
+            uint64_t type : 5;
         } syscall_idx;
         struct {
-            uint64_t args_num : 61;
-            uint64_t type : 3;
+            uint64_t args_num : 59;
+            uint64_t type : 5;
         } syscall_args_num;
         uint64_t combined_value;
     };

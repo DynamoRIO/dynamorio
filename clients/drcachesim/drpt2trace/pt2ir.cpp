@@ -238,6 +238,14 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
         return PT2IR_CONV_ERROR_RAW_TRACE_TOO_LARGE;
     }
 
+    /* The Libipt decoder requires a fixed-size data block to be set for decoding before
+     * creation and does not offer an API to extend or modify the data being decoded. To
+     * decode multiple data chunks using a shared decoder, a workaround is needed. First,
+     * initialize an empty data block as a buffer. Next, each time we want to decode a
+     * chunk, reset the buffer and copy the data into it, and then set the decoder's
+     * decode position to the chunk's initial position.
+     */
+
     /* Reset the raw buffer and copy the new data to the buffer. */
     memset(pt_raw_buffer_.get(), 0, pt_raw_buffer_size_);
     memcpy(pt_raw_buffer_.get(), pt_data, pt_data_size);
@@ -255,10 +263,9 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
         memset(&insn, 0, sizeof(insn));
         int status = 0;
 
-        /* Before decoding a new stream of data, the decoder must reset the decode
-         * position to the start of the buffer. Since Libipt does not provide an API to
-         * reset the decode position, pt_insn_sync_set() is used for manual
-         * synchronization.
+        /* Before decoding a new data block, the decoder must reset the decode position to
+         * the start of the buffer. Since Libipt does not provide an API to reset the
+         * decode position, pt_insn_sync_set() is used for manual synchronization.
          */
         if (manual_sync == true) {
             status = pt_insn_sync_set(pt_instr_decoder_, 0);

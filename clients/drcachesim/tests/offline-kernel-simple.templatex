@@ -1,2 +1,2 @@
 Hello, world!
-(.*\n)*Number of Instructions: *[0-9]*
+(.*\n)*Number of Instructions: *[1-9][0-9]*

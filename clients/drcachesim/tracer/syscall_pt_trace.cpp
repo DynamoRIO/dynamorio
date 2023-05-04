@@ -106,11 +106,6 @@ syscall_pt_trace_t::start_syscall_pt_trace(IN int sysnum)
     ASSERT(is_initialized_, "syscall_pt_trace_t is not initialized");
     ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
 
-    /* Create a new pttracer handle for every syscall.
-     * TODO i#5505: To reduce the overhead caused by pttracer initialization, we need to
-     * share the same pttracer handle for all syscalls per thread.
-     */
-    pttracer_handle_.reset();
     if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
                                  RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
                                  &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
@@ -161,6 +156,13 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
     }
     cur_recording_sysnum_ = -1;
     recorded_syscall_count_++;
+
+    /* Reset the pttracer handle for next syscall.
+     * TODO i#5505: To reduce the overhead caused by pttracer initialization, we need to
+     * share the same pttracer handle for all syscalls per thread. And also, we need to
+     * improve the libpt2ir to support streaming decoding.
+     */
+    pttracer_handle_.reset();
     return true;
 }
 
@@ -185,11 +187,13 @@ syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
 
     /* Write the buffer header to the output file */
     if (write_file_func_(output_file_, pdb_header, PT_METADATA_PDB_HEADER_SIZE) == 0) {
+        ASSERT(false, "Failed to write the metadata's header to the output file");
         return false;
     }
 
     /* Write the pt_metadata to the output file */
     if (write_file_func_(output_file_, &metadata, sizeof(pt_metadata_t)) == 0) {
+        ASSERT(false, "Failed to write the metadata to the output file");
         return false;
     }
 
@@ -249,11 +253,13 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
 
     /* Write the buffer header to the output file */
     if (write_file_func_(output_file_, pdb_header, PT_DATA_PDB_HEADER_SIZE) == 0) {
+        ASSERT(false, "Failed to write the trace data's header to the output file");
         return false;
     }
 
     /* Write the syscall's PT data to the output file */
     if (write_file_func_(output_file_, data->pt_buffer, data->pt_size) == 0) {
+        ASSERT(false, "Failed to write the trace data to the output file");
         return false;
     }
     return true;
