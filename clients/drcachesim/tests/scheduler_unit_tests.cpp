@@ -812,6 +812,7 @@ test_synthetic()
     assert(sched_as_string[1] == "BBBDDDFFFAAACCCEEEGGGBBBDDDFFF");
 }
 
+#if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZLIB)
 static void
 simulate_core(scheduler_t::stream_t *stream)
 {
@@ -825,6 +826,7 @@ simulate_core(scheduler_t::stream_t *stream)
         assert(status == scheduler_t::STATUS_OK);
     }
 }
+#endif
 
 static void
 test_synthetic_multi_threaded(const char *testdir)
