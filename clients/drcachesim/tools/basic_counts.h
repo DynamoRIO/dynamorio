@@ -172,10 +172,15 @@ protected:
         memref_tid_t tid = 0;
         // A vector to support windows.
         std::vector<counters_t> counters;
-        counters_t last_quantum_counters_snapshot;
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
+
+        // Record deltas of counters seen in each trace quantum.
+        std::vector<counters_t> per_quantum_deltas;
+        // Record snapshots of counters seen in each trace quantum.
+        std::vector<counters_t> per_quantum_snapshots;
+        uint64_t last_seen_quantum = -1;
     };
 
     static bool
@@ -184,6 +189,8 @@ protected:
     static void
     print_counters(const counters_t &counters, int_least64_t num_threads,
                    const std::string &prefix);
+    void
+    compute_shard_quantum_result(per_shard_t *shard, uint64_t quantum_id);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, per_shard_t *> shard_map_;
