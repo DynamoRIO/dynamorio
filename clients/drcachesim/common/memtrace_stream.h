@@ -84,7 +84,7 @@ public:
     get_stream_name() const = 0;
 
     /**
-     * Returns the value of the most recent seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+     * Returns the value of the most recently seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
      */
     virtual uint64_t
     get_last_timestamp() const = 0;

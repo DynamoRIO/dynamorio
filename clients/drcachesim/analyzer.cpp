@@ -294,9 +294,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::get_error_string()
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::advance_quantum_id(
-    analyzer_worker_data_t *worker, const RecordType &record, uint64_t &cur_quantum_index)
+    analyzer_worker_data_t *worker, const RecordType &record,
+    uint64_t &prev_quantum_index)
 {
-    cur_quantum_index = worker->cur_quantum_index;
+    prev_quantum_index = worker->cur_quantum_index;
     if (quantum_microseconds_ == 0 || !record_is_timestamp(record)) {
         return false;
     }
@@ -340,9 +341,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
             }
             return;
         }
-        uint64_t cur_quantum_index;
-        if (advance_quantum_id(&worker, record, cur_quantum_index) &&
-            !process_quantum(cur_quantum_index, &worker)) {
+        uint64_t prev_quantum_index;
+        if (advance_quantum_id(&worker, record, prev_quantum_index) &&
+            !process_quantum(prev_quantum_index, &worker)) {
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
@@ -392,9 +393,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
             worker->cur_quantum_index = 0;
         }
-        uint64_t cur_quantum_index;
-        if (advance_quantum_id(worker, record, cur_quantum_index) &&
-            !process_shard_quantum(shard_index, cur_quantum_index, worker)) {
+        uint64_t prev_quantum_index;
+        if (advance_quantum_id(worker, record, prev_quantum_index) &&
+            !process_shard_quantum(shard_index, prev_quantum_index, worker)) {
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {

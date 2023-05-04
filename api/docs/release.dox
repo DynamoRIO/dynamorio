@@ -166,7 +166,7 @@ changes:
    INSTR_CREATE_eor_sve_pred(), INSTR_CREATE_and_sve_pred() and
    INSTR_CREATE_bic_sve_pred() to use the new vector element registers and to
    correctly encode the predicate mode.
- - Added a new drmemtrace analyzer option \p -quantum_microseconds that enables the
+ - Added a new drmemtrace analyzer option \p -quantum_microseconds that invokes the
    (also newly added) generate_quantum_result() and generate_shard_quantum_result()
    analysis tool APIs periodically every \p -quantum_microseconds of the trace as
    measured by the #TRACE_MARKER_TYPE_TIMESTAMP marker entries.
