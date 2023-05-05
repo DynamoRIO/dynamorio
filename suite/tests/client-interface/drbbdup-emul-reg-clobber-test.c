@@ -70,7 +70,7 @@ GLOBAL_LABEL(FUNCNAME:)
 
         /* Save a magic value in XAX. The value is set before the rep
          * instruction and should still be in XAX after the rep instruction. */
-        mov      REG_XAX, 0xabcdabcd
+        mov      REG_XAX, HEX(abcdabcd)
 
         /* Rep mov that is expanded by the client. It should not clobber the
          * value in XAX. */
