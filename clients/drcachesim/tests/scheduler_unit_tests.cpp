@@ -33,6 +33,7 @@
 #undef NDEBUG
 #include <assert.h>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 #include "dr_api.h"
@@ -811,6 +812,53 @@ test_synthetic()
     assert(sched_as_string[1] == "BBBDDDFFFAAACCCEEEGGGBBBDDDFFF");
 }
 
+#if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZLIB)
+static void
+simulate_core(scheduler_t::stream_t *stream)
+{
+    memref_t record;
+    for (scheduler_t::stream_status_t status = stream->next_record(record);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
+        if (status == scheduler_t::STATUS_WAIT) {
+            std::this_thread::yield();
+            continue;
+        }
+        assert(status == scheduler_t::STATUS_OK);
+    }
+}
+#endif
+
+static void
+test_synthetic_multi_threaded(const char *testdir)
+{
+    std::cerr << "\n----------------\nTesting synthetic multi-threaded\n";
+    // We want a larger input trace to better stress synchronization across
+    // output threads.
+#if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZLIB)
+    std::string path = std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir";
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(path);
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/2);
+    static constexpr int NUM_OUTPUTS = 4;
+    static constexpr int QUANTUM_DURATION = 2000;
+    sched_ops.quantum_duration = QUANTUM_DURATION;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::thread> threads;
+    threads.reserve(NUM_OUTPUTS);
+    for (int i = 0; i < NUM_OUTPUTS; ++i) {
+        threads.emplace_back(std::thread(&simulate_core, scheduler.get_stream(i)));
+    }
+    for (std::thread &thread : threads)
+        thread.join();
+#endif
+}
+
 static void
 test_speculation()
 {
@@ -958,6 +1006,7 @@ main(int argc, const char *argv[])
     test_only_threads();
     test_real_file_queries_and_filters(argv[1]);
     test_synthetic();
+    test_synthetic_multi_threaded(argv[1]);
     test_speculation();
 
     dr_standalone_exit();
