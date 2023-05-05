@@ -130,8 +130,8 @@ typedef struct {
     hashtable_t manager_table; /* Maps bbs with book-keeping data (for thread-private
                                   caches only). */
     int case_index; /* Used to keep track of the current case during insertion. */
-    bool inserted_restore_all; /* track if we need to restore regs at the end of the block
-                                */
+    bool inserted_restore_all;     /* Track if we need to restore regs at the end of the
+                                      block.  */
     void *orig_analysis_data;      /* Analysis data accessible for all cases. */
     void *default_analysis_data;   /* Analysis data specific to default case. */
     void **case_analysis_data;     /* Analysis data specific to cases. */

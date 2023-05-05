@@ -30,66 +30,60 @@
  * DAMAGE.
  */
 
-#include "tools.h"
-#include <stdint.h>
+/* Test i#5906: verify that drbbdup does not clobber app values when expanding
+ * reps. */
+
+#ifndef ASM_CODE_ONLY  /* C code */
+#    include "tools.h" /* for print() */
+#    include <stdio.h>
+
+/* in asm */
+void
+test_reg_clobber(char *buf1, char *buf2, int *x);
 
 int
-main(int argc, char **argv)
+main()
 {
-#ifdef X86
     char buf1[1024];
     char buf2[1024];
-#    ifdef WINDOWS
-#        ifdef X64
-    // TODO: Implement on Windows.
-    uint64_t x = 0xabcdabcd;
-    __movsq((unsigned long long *)buf2, (unsigned long long *)buf1, 0);
-#        else
-    // TODO: Implement on Windows.
-    uint32_t x = 0xabcdabcd;
-    __movsd((unsigned long *)buf2, (unsigned long *)buf1, 0);
-#        endif
-#    else
-#        ifdef X64
-    uint64_t x = 0x11111111;
-
-    /* Put a magic value in rax to test if it was corrupted. Using rax because
-     * it is used to spill flags.
+    int x = 0;
+    /* This function will copy some bytes from buf2 to buf1 and return a magic value in x.
      */
-    __asm("lea %[buf1], %%rdi\n\t"
-          "lea %[buf2], %%rsi\n\t"
-          "mov $0xabcdabcd, %%rax\n\n"
-          "mov $10, %%ecx\n\t"
-          "rep movsq\n\t"
-          "mov %%rax, %[x]\n\t"
-          : [x] "=r"(x)
-          : [buf1] "m"(buf1), [buf2] "m"(buf2)
-          : "ecx", "rdi", "rsi", "rax", "memory");
-
-#        else
-
-    uint32_t x = 0x11111111;
-
-    /* Put a magic value in eax to test if it was corrupted. Using eax because
-     * it is used to spill flags.
-     */
-    __asm("lea %[buf1], %%edi\n\t"
-          "lea %[buf2], %%esi\n\t"
-          "mov $0xabcdabcd, %%eax\n\n"
-          "mov $10, %%ecx\n\t"
-          "rep movsd\n\t"
-          "mov %%eax, %[x]\n\t"
-          : [x] "=r"(x)
-          : [buf1] "m"(buf1), [buf2] "m"(buf2)
-          : "ecx", "edi", "esi", "eax", "memory");
-
-#        endif
-#    endif
-#else
-    // XXX: not implemented on non-X86 platforms currently.
-    uint32_t x = 0xabcdabcd;
-#endif
-    print("x=%x\n", x);
+    test_reg_clobber(buf1, buf2, &x);
+    print("x=%08x\n", x);
     print("Hello, world!\n");
-    return 0;
 }
+
+#else /* asm code *************************************************************/
+#    include "asm_defines.asm"
+/* clang-format off */
+START_FILE
+
+#define FUNCNAME test_reg_clobber
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XDI, ARG1
+        mov      REG_XSI, ARG2
+        mov      REG_XDX, ARG3
+        PUSH_CALLEE_SAVED_REGS()
+        END_PROLOG
+
+        /* Save a magic value in XAX. The value is set before the rep
+         * instruction and should still be in XAX after the rep instruction. */
+        mov      REG_XAX, 0xabcdabcd
+
+        /* Rep mov that is expanded by the client. It should not clobber the
+         * value in XAX. */
+        mov      REG_XCX, 10
+        rep movsb [REG_XDI], [REG_XSI]
+
+        /* Return the value in the output parameter. */
+        mov      [REG_XDX], REG_XAX
+        POP_CALLEE_SAVED_REGS()
+        ret
+        END_FUNC(FUNCNAME)
+
+
+END_FILE
+/* clang-format on */
+#endif
