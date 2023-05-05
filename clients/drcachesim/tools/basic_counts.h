@@ -180,7 +180,7 @@ protected:
         std::vector<counters_t> per_quantum_deltas;
         // Record snapshots of counters seen in each trace quantum.
         std::vector<counters_t> per_quantum_snapshots;
-        uint64_t last_seen_quantum = -1;
+        uint64_t next_expected_quantum = 0;
     };
 
     static bool

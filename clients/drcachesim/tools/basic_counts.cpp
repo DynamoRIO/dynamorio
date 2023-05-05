@@ -250,7 +250,7 @@ basic_counts_t::print_results()
     uint64_t num_quantums = 0;
     for (const auto &shard : shard_map_) {
         num_windows = std::max(num_windows, shard.second->counters.size());
-        num_quantums = std::max(num_quantums, shard.second->last_seen_quantum + 1);
+        num_quantums = std::max(num_quantums, shard.second->next_expected_quantum);
     }
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
@@ -328,11 +328,11 @@ basic_counts_t::compute_shard_quantum_result(per_shard_t *shard, uint64_t quantu
     // We may not see quantums where there was no trace activity. Such
     // quantums have a delta of zero, and snapshot same as the previous
     // non-zero one.
-    for (uint64_t i = shard->last_seen_quantum + 1; i < quantum_id; ++i) {
+    for (uint64_t i = shard->next_expected_quantum; i < quantum_id; ++i) {
         shard->per_quantum_deltas.emplace_back();
         shard->per_quantum_snapshots.push_back(last_snapshot);
     }
-    shard->last_seen_quantum = quantum_id;
+    shard->next_expected_quantum = quantum_id + 1;
     shard->per_quantum_deltas.push_back(diff);
     shard->per_quantum_snapshots.push_back(shard_total);
     assert(shard->per_quantum_deltas.size() == quantum_id + 1);
