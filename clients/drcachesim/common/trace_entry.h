@@ -395,7 +395,7 @@ typedef enum {
      * This marker is emitted prior to each system call when -enable_kernel_tracing is
      * specified. The marker value contains a unique system call identifier.
      */
-    TRACE_MARKER_TYPE_SYSCALL_ID,
+    TRACE_MARKER_TYPE_SYSCALL_IDX,
 
     /**
      * This top-level marker identifies the instruction count in each chunk
@@ -781,6 +781,165 @@ struct schedule_entry_t {
     uint64_t cpu;
     uint64_t instr_count;
 } END_PACKED_STRUCTURE;
+
+#ifdef BUILD_PT_TRACER
+
+/**
+ * The type of a syscall PT entry in the raw offline output.
+ */
+typedef enum {
+    /**
+     * The instances of this type store the PID, signifying which process the data in the
+     * buffer has been collected from.
+     */
+    SYSCALL_PT_ENTRY_TYPE_PID = 0,
+    /**
+     * The instances of this type store the thread Id, signifying which thread the data in
+     * the buffer has been collected from.
+     */
+    SYSCALL_PT_ENTRY_TYPE_THREAD,
+    /**
+     * The instance with this type demonstrates that the leftover portion of the buffer
+     * holds metadata while also providing information about the metadata's size.
+     */
+    SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY,
+    /**
+     * The instance with this type demonstrates that the leftover portion of the buffer
+     * holds one syscall's metadata and PT data while also providing information about all
+     * these data's size.
+     */
+    SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY,
+    /**
+     * The instances of this type store the sysnum, indicating the type of syscall.
+     */
+    SYSCALL_PT_ENTRY_TYPE_SYSNUM,
+    /**
+     * The instances of this type store the syscall's index, which indicates the calling
+     * index of the syscall in the current thread.
+     */
+    SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX,
+    /**
+     * The instances of this type store the syscall's arguments number, which indicates
+     * the number of arguments of the syscall.
+     */
+    SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM,
+    SYSCALL_PT_ENTRY_TYPE_MAX
+} syscall_pt_entry_type_t;
+
+START_PACKED_STRUCTURE
+struct _syscall_pt_entry_t {
+    union {
+        struct {
+            uint64_t pid : 59;
+            uint64_t type : 5;
+        } pid;
+        struct {
+            uint64_t tid : 59;
+            uint64_t type : 5;
+        } tid;
+        struct {
+            uint64_t data_size : 59;
+            uint64_t type : 5;
+        } pt_metadata_boundary;
+        struct {
+            uint64_t data_size : 59;
+            uint64_t type : 5;
+        } pt_data_boundary;
+        struct {
+            uint64_t sysnum : 59;
+            uint64_t type : 5;
+        } sysnum;
+        struct {
+            uint64_t idx : 59;
+            uint64_t type : 5;
+        } syscall_idx;
+        struct {
+            uint64_t args_num : 59;
+            uint64_t type : 5;
+        } syscall_args_num;
+        uint64_t combined_value;
+    };
+} END_PACKED_STRUCTURE;
+typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
+
+/**
+ * The per-thread metadata and each syscall's PT data are stored in one PT DATA
+ * Buffer(PDB). The PDB format is:
+ * +----------+--------+
+ * |PDB Header|PDB Data|
+ * +----------+--------+
+ *
+ * The PDB Header is a list of syscall_pt_entry_t. There are two types of PDB Header:
+ * a. The format of per-thread metadata's PDB header is:
+ * +---+---+--------------------+
+ * |pid|tid|pt_metadata_boundary|
+ * +---+---+--------------------+
+ * This header is stored in the first PDB of each thread. And the PDB Data of this PDB is
+ * PT's metadata.
+ *
+ * b. The format of syscalls' PT data's PDB header is:
+ * +---+---+----------------+------------------+
+ * |pid|tid|pt_data_boundary|syscall's metadata|
+ * +---+---+----------------+------------------+
+ * This header is stored in the PDBs of each syscall. And the PDB Data of this PDB
+ * contains the arguments of the syscall and the PT data of the syscall.
+ */
+
+/* The header of per-thread metadata buffer contains 3 syscall_pt_entry_t instances:
+ * 1. The first instance is used to store the pid.
+ * 2. The second instance is used to store the tid.
+ * 3. The 3rd instance is used to store the output buffer's type and size.
+ */
+#    define PT_METADATA_PDB_HEADER_ENTRY_NUM 3
+#    define PT_METADATA_PDB_HEADER_SIZE \
+        (PT_METADATA_PDB_HEADER_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+#    define PT_METADATA_PDB_DATA_OFFSET PT_METADATA_PDB_HEADER_SIZE
+
+/* The header of each syscall's PT data buffer contains max 6 syscall_pt_entry_t
+ * instances:
+ * 1. The first instance is used to store the pid.
+ * 2. The second instance is used to store the tid.
+ * 3. The 3rd instance is used to store the output buffer's type and size.
+ * 4. The 4th-6th instance is used to store the syscall's metadata.
+ */
+#    define PT_DATA_PDB_HEADER_ENTRY_NUM 6
+#    define PT_DATA_PDB_HEADER_SIZE \
+        (PT_DATA_PDB_HEADER_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+#    define PT_DATA_PDB_DATA_OFFSET PT_DATA_PDB_HEADER_SIZE
+
+/* The metadata of each syscall is stored in the PDB header. The metadata contains 3
+ * syscall_pt_entry_t instances:
+ * +--------+-------------+------------------+
+ * |1.sysnum|2.syscall_idx|3.syscall_args_num|
+ * +--------+-------------+------------------+
+ */
+#    define SYSCALL_METADATA_ENTRY_NUM 3
+#    define SYSCALL_METADATA_SIZE \
+        (SYSCALL_METADATA_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+
+typedef enum {
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
+    PDB_HEADER_PID_IDX = 0,
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD in the PDB header.
+     */
+    PDB_HEADER_TID_IDX = 1,
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY in the
+     * PDB header.
+     */
+    PDB_HEADER_DATA_BOUNDARY_IDX = 2,
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSNUM in the PDB header.
+     */
+    PDB_HEADER_SYSNUM_IDX = 3,
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX in the PDB
+     * header.
+     */
+    PDB_HEADER_SYSCALL_IDX = 4,
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM in the
+     * PDB header.
+     */
+    PDB_HEADER_NUM_ARGS_IDX = 5
+} pdb_header_entry_idx_t;
+#endif
 
 /**
  * The name of the file in -offline mode where module data is written.

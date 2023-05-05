@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,8 +37,10 @@
 #define _SYSCALL_PT_TRACE_ 1
 
 #include <cstddef>
+#include <string>
 
 #include "../common/utils.h"
+#include "../common/trace_entry.h"
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "drpttracer.h"
@@ -108,8 +110,7 @@ public:
      * pass in the output directory and the file write function.
      */
     bool
-    init(void *drcontext, char *pt_dir_name, size_t pt_dir_name_size,
-         drmemtrace_open_file_func_t open_file_func,
+    init(void *drcontext, char *pt_dir_name, drmemtrace_open_file_func_t open_file_func,
          drmemtrace_write_file_func_t write_file_func,
          drmemtrace_close_file_func_t close_file_func);
 
@@ -128,12 +129,10 @@ public:
         return cur_recording_sysnum_;
     }
 
-    /* Get the id of the last recorded syscall.
-     * The id is the index of the last recorded syscall in this thread's recorded syscall
-     * list.
+    /* Get the index of the last recorded syscall in this thread's recorded syscall list.
      */
     int
-    get_last_recorded_syscall_id()
+    get_last_recorded_syscall_idx()
     {
         return recorded_syscall_count_;
     }
@@ -146,7 +145,11 @@ public:
     is_syscall_pt_trace_enabled(IN int sysnum);
 
 private:
-    /* Dump PT trace and the metadata to files. */
+    /* Dump the metadata to a per-thread file. */
+    bool
+    metadata_dump(pt_metadata_t metadata);
+
+    /* Dump PT trace data to a per-thread file. */
     bool
     trace_data_dump(drpttracer_output_autoclean_t &output);
 
@@ -159,8 +162,19 @@ private:
     /* The shared file close function. */
     drmemtrace_close_file_func_t close_file_func_;
 
+    /* Indicates whether the syscall_pt_trace instance has been initialized. The init
+     * function should be called only once per thread.
+     */
+    bool is_initialized_;
+
     /* The pttracer handle held by this instance. */
     drpttracer_handle_autoclean_t pttracer_handle_;
+
+    /* The pttracer output data held by every instance. The output buffer stores PT trace
+     * data for each system call. The buffer will be updated when stop_syscall_pt_trace()
+     * is invoked.
+     */
+    drpttracer_output_autoclean_t pttracer_output_buffer_;
 
     /* The number of recorded syscall. */
     int recorded_syscall_count_;
@@ -168,13 +182,19 @@ private:
     /* The sysnum of current recording syscall. */
     int cur_recording_sysnum_;
 
+    /* Flag to indicate if metadata is being dumped. */
+    bool is_dumping_metadata_;
+
     /* The drcontext.
      * We need ensure pass the same context to all drpttracer's APIs.
      */
     void *drcontext_;
 
-    /* The output directory name. */
-    char pt_dir_name_[MAXIMUM_PATH];
+    /* The output file.
+     * It is a per-thread file. It stores the PT trace data and metadata for
+     * every syscall in the current thread.
+     */
+    file_t output_file_;
 };
 
 #endif /* _SYSCALL_PT_TRACE_ */

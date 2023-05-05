@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -100,16 +100,20 @@ typedef struct _pt_metadata_t {
 
 /**
  * The storage container type of drpttracer's output.
- * This data struct is used by drpttracer to store PT metadata, PT trace, and
- * sideband data. These data can be dumped into different files by the client. These files
- * can be the inputs of pt2ir_t, which decodes the PT data into Dynamorio's IR.
+ * This data struct is used by drpttracer to store PT trace, and sideband data. These data
+ * can be dumped into different files by the client. These files can be the inputs of
+ * pt2ir_t, which decodes the PT data into Dynamorio's IR.
+ * \note This buffer can be shared across different tracing sessions. Thus, we allocate a
+ * buffer with the maximum trace size. The pt_size and sideband_size variables indicate
+ * the valid data size within the buffer.
  */
 typedef struct _drpttracer_output_t {
-    pt_metadata_t metadata;    /**< The PT trace's metadata. */
-    void *pt;                  /**< The PT trace's pointer. */
-    size_t pt_size;            /**< The size of PT trace. */
-    void *sideband_data;       /**< The PT sideband data's pointer. */
-    size_t sideband_data_size; /**< The buffer size of PT sideband data. */
+    void *pt_buffer;             /**< The buffer of PT trace. */
+    size_t pt_buffer_size;       /**< The size of PT trace's buffer. */
+    size_t pt_size;              /**< The size of vaild PT trace stored in PT buffer. */
+    void *sideband_buffer;       /**< The PT sideband data's buffer. */
+    size_t sideband_buffer_size; /**< The size of PT sideband data's buffer. */
+    size_t sideband_size; /**< The size of vaild PT sideband data stored in PT buffer. */
 } drpttracer_output_t;
 
 /***************************************************************************
@@ -155,6 +159,8 @@ typedef enum {
     DRPTTRACER_ERROR_FAILED_TO_MMAP_PERF_DATA,
     /** Operation failed: failed to mmap PT data. */
     DRPTTRACER_ERROR_FAILED_TO_MMAP_PT_DATA,
+    /** Operation failed: failed to allocate output buffer. */
+    DRPTTRACER_ERROR_FAILED_TO_ALLOCATE_OUTPUT_BUFFER,
     /** Operation failed: failed to start tracing. */
     DRPTTRACER_ERROR_FAILED_TO_START_TRACING,
     /** Operation failed: failed to stop tracing. */
@@ -166,7 +172,7 @@ typedef enum {
     /** Operation failed: overwritten sideband data. */
     DRPTTRACER_ERROR_OVERWRITTEN_SIDEBAND_DATA,
     /** Operation failed: failed to read SIDEBAND data from perf data ring buffer. */
-    DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBAND_DATA,
+    DRPTTRACER_ERROR_FAILED_TO_READ_SIDEBANBD_DATA,
 } drpttracer_status_t;
 
 /**
@@ -193,8 +199,8 @@ DR_EXPORT
  *
  * \param[in] drcontext  The context of DynamoRIO.
  * \param[in] tracing_mode  The tracing mode.
- * \param[in] pt_size_shift  The size shift of PT trace's buffer.
- * \param[in] sideband_size_shift  The size shift of sideband data's buffer.
+ * \param[in] pt_size_shift  The size shift of PT trace's ring buffer.
+ * \param[in] sideband_size_shift  The size shift of sideband data's ring buffer.
  * \param[out] tracer_handle  The pttracer handle.
  *
  * \note The size offset is used to control the size of the buffer allocated by the perf:
@@ -238,7 +244,7 @@ DR_EXPORT
  * \return the status code.
  */
 drpttracer_status_t
-drpttracer_destroy_handle(IN void *drcontext, IN void *tracer_handle);
+drpttracer_destroy_handle(IN void *drcontext, INOUT void *tracer_handle);
 
 DR_EXPORT
 /**
@@ -281,7 +287,34 @@ DR_EXPORT
  */
 drpttracer_status_t
 drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
-                        OUT drpttracer_output_t **output);
+                        OUT drpttracer_output_t *output);
+
+DR_EXPORT
+/**
+ * Get the PT metadata of the given pttracer handle.
+ *
+ * \param[in] tracer_handle The pttracer handle.
+ * \param[out] pt_metadata  The PT metadata of the current pttracer handle.
+ *
+ * \return the status code.
+ */
+drpttracer_status_t
+drpttracer_get_pt_metadata(IN void *tracer_handle, OUT pt_metadata_t *pt_metadata);
+
+DR_EXPORT
+/**
+ * Creates an output object of drpttracer.
+ *
+ * \param[in] drcontext  The context of DynamoRIO.
+ * \param[in] pt_buf_size_shift  The size shift of the PT trace's output buffer.
+ * \param[in] sd_buf_size_shift  The size shift of the sideband data's output buffer.
+ * \param[out] output  The output object that will be created.
+ *
+ * \return the status code.
+ */
+drpttracer_status_t
+drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
+                         IN size_t sd_buf_size_shift, OUT drpttracer_output_t **output);
 
 DR_EXPORT
 /**
