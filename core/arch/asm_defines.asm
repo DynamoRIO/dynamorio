@@ -130,8 +130,6 @@ add reg, reg, sym@PAGEOFF
 adrp reg, sym@PAGE @N@ \
 add  reg, reg, sym@PAGEOFF
 
-#  define SYSNUM_REG w16
-
 # else
 
 #  define DECLARE_FUNC(symbol) \
@@ -374,8 +372,12 @@ ASSUME fs:_DATA @N@\
 # define REG_R10 x10
 # define REG_R11 x11
 # define REG_R12 x12
-# define SYSNUM_REG w8
 /* skip [x13..x30], not available on AArch32 */
+#  if defined(MACOS)
+#   define SYSNUM_REG w16
+#  else
+#   define SYSNUM_REG w8
+#  endif
 #elif defined(RISCV64)
 # define REG_SP   sp
 # define REG_R0   x0
