@@ -1,4 +1,4 @@
-\[heartbeat\] Quantum [0-9]* in TID [0-9]*: instrs delta = [0-9]*, snapshot = [0-9]*
+\[heartbeat\] Quantum [0-9]* in TID [0-9]*: instrs delta = [0-9]*, cumulative = [0-9]*
 Basic counts tool results:
 Total counts:
      .* total \(fetched\) instructions
@@ -20,7 +20,7 @@ Total counts:
            0 total physical address unavailable markers
      .* total other markers
      .* total encodings
-Quantum 0 deltas:.*
+Quantum 0 delta:.*
      .* quantum delta \(fetched\) instructions
      .* quantum delta unique \(fetched\) instructions
      .* quantum delta non-fetched instructions
@@ -40,25 +40,25 @@ Quantum 0 deltas:.*
      .* quantum delta other markers
      .* quantum delta encodings
 .*
-Quantum 0 snapshots:
-     .* quantum snapshot \(fetched\) instructions
-     .* quantum snapshot unique \(fetched\) instructions
-     .* quantum snapshot non-fetched instructions
-     .* quantum snapshot prefetches
-     .* quantum snapshot data loads
-     .* quantum snapshot data stores
-     .* quantum snapshot icache flushes
-     .* quantum snapshot dcache flushes
-     .* quantum snapshot scheduling markers
-     .* quantum snapshot transfer markers
-     .* quantum snapshot function id markers
-     .* quantum snapshot function return address markers
-     .* quantum snapshot function argument markers
-     .* quantum snapshot function return value markers
-           0 quantum snapshot physical address \+ virtual address marker pairs
-           0 quantum snapshot physical address unavailable markers
-     .* quantum snapshot other markers
-     .* quantum snapshot encodings
+Quantum 0 cumulative:
+     .* quantum cumulative \(fetched\) instructions
+     .* quantum cumulative unique \(fetched\) instructions
+     .* quantum cumulative non-fetched instructions
+     .* quantum cumulative prefetches
+     .* quantum cumulative data loads
+     .* quantum cumulative data stores
+     .* quantum cumulative icache flushes
+     .* quantum cumulative dcache flushes
+     .* quantum cumulative scheduling markers
+     .* quantum cumulative transfer markers
+     .* quantum cumulative function id markers
+     .* quantum cumulative function return address markers
+     .* quantum cumulative function argument markers
+     .* quantum cumulative function return value markers
+           0 quantum cumulative physical address \+ virtual address marker pairs
+           0 quantum cumulative physical address unavailable markers
+     .* quantum cumulative other markers
+     .* quantum cumulative encodings
 .*
 Thread .* counts:
      .* \(fetched\) instructions

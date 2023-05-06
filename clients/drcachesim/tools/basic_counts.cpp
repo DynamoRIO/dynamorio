@@ -247,10 +247,10 @@ basic_counts_t::print_results()
 {
     counters_t total;
     uintptr_t num_windows = 1;
-    uint64_t num_quantums = 0;
+    size_t num_quantums = 0;
     for (const auto &shard : shard_map_) {
         num_windows = std::max(num_windows, shard.second->counters.size());
-        num_quantums = std::max(num_quantums, shard.second->next_expected_quantum);
+        num_quantums = std::max(num_quantums, shard.second->quantum_ids.size());
     }
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
@@ -267,13 +267,13 @@ basic_counts_t::print_results()
         // XXX: for parallel with multiple shards, we could merge the results based on
         // timestamp.
         auto shard = shard_map_.begin()->second;
-        for (int i = 0; i < num_quantums; ++i) {
-            std::cerr << "Quantum " << i << " deltas:\n";
-            print_counters(shard->per_quantum_deltas[i], 0, " quantum delta");
+        for (size_t i = 0; i < shard->quantum_ids.size(); ++i) {
+            std::cerr << "Quantum " << shard->quantum_ids[i] << " delta:\n";
+            print_counters(shard->per_quantum_delta[i], 0, " quantum delta");
         }
-        for (int i = 0; i < num_quantums; ++i) {
-            std::cerr << "Quantum " << i << " snapshots:\n";
-            print_counters(shard->per_quantum_snapshots[i], 0, " quantum snapshot");
+        for (size_t i = 0; i < shard->quantum_ids.size(); ++i) {
+            std::cerr << "Quantum " << shard->quantum_ids[i] << " cumulative:\n";
+            print_counters(shard->per_quantum_cumulative[i], 0, " quantum cumulative");
         }
     } else if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";
@@ -320,23 +320,14 @@ basic_counts_t::compute_shard_quantum_result(per_shard_t *shard, uint64_t quantu
     for (const auto &ctr : shard->counters) {
         shard_total += ctr;
     }
-    counters_t last_snapshot;
-    if (!shard->per_quantum_snapshots.empty())
-        last_snapshot = shard->per_quantum_snapshots.back();
+    counters_t last_cumulative;
+    if (!shard->per_quantum_cumulative.empty())
+        last_cumulative = shard->per_quantum_cumulative.back();
     counters_t diff = shard_total;
-    diff -= last_snapshot;
-    // We may not see quantums where there was no trace activity. Such
-    // quantums have a delta of zero, and snapshot same as the previous
-    // non-zero one.
-    for (uint64_t i = shard->next_expected_quantum; i < quantum_id; ++i) {
-        shard->per_quantum_deltas.emplace_back();
-        shard->per_quantum_snapshots.push_back(last_snapshot);
-    }
-    shard->next_expected_quantum = quantum_id + 1;
-    shard->per_quantum_deltas.push_back(diff);
-    shard->per_quantum_snapshots.push_back(shard_total);
-    assert(shard->per_quantum_deltas.size() == quantum_id + 1);
-    assert(shard->per_quantum_snapshots.size() == quantum_id + 1);
+    diff -= last_cumulative;
+    shard->quantum_ids.push_back(quantum_id);
+    shard->per_quantum_delta.push_back(diff);
+    shard->per_quantum_cumulative.push_back(shard_total);
 }
 
 bool
@@ -344,25 +335,25 @@ basic_counts_t::generate_shard_quantum_result(void *shard_data, uint64_t quantum
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     compute_shard_quantum_result(per_shard, quantum_id);
-    counters_t delta = per_shard->per_quantum_deltas.back();
-    counters_t snapshot = per_shard->per_quantum_snapshots.back();
+    counters_t delta = per_shard->per_quantum_delta.back();
+    counters_t cumulative = per_shard->per_quantum_cumulative.back();
     std::cerr << "[heartbeat] Quantum " << quantum_id << " in TID " << per_shard->tid
-              << ": instrs delta = " << delta.instrs << ", snapshot = " << snapshot.instrs
-              << "\n";
+              << ": instrs delta = " << delta.instrs
+              << ", cumulative = " << cumulative.instrs << "\n";
     return true;
 }
 
 bool
 basic_counts_t::generate_quantum_result(uint64_t quantum_id)
 {
-    counters_t delta_sum, snapshot_sum;
+    counters_t delta_sum, cumulative_sum;
     for (auto &shard : shard_map_) {
         compute_shard_quantum_result(shard.second, quantum_id);
-        delta_sum += shard.second->per_quantum_deltas.back();
-        snapshot_sum += shard.second->per_quantum_snapshots.back();
+        delta_sum += shard.second->per_quantum_delta.back();
+        cumulative_sum += shard.second->per_quantum_cumulative.back();
     }
     std::cerr << "[heartbeat] Quantum " << quantum_id
               << ": instrs delta = " << delta_sum.instrs
-              << ", snapshot = " << snapshot_sum.instrs << "\n";
+              << ", cumulative = " << cumulative_sum.instrs << "\n";
     return true;
 }

@@ -176,11 +176,12 @@ protected:
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
 
+        // Record list of quantum ids observed.
+        std::vector<uint64_t> quantum_ids;
         // Record deltas of counters seen in each trace quantum.
-        std::vector<counters_t> per_quantum_deltas;
+        std::vector<counters_t> per_quantum_delta;
         // Record snapshots of counters seen in each trace quantum.
-        std::vector<counters_t> per_quantum_snapshots;
-        uint64_t next_expected_quantum = 0;
+        std::vector<counters_t> per_quantum_cumulative;
     };
 
     static bool
