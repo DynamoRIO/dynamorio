@@ -377,7 +377,7 @@ ASSUME fs:_DATA @N@\
 #   define SYSNUM_REG w16
 #  else
 #   define SYSNUM_REG w8
-#  endif
+#  endif /* MACOS */
 #elif defined(RISCV64)
 # define REG_SP   sp
 # define REG_R0   x0
