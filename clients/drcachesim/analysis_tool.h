@@ -157,23 +157,23 @@ public:
     virtual bool
     print_results() = 0;
     /**
-     * Notifies the analysis tool that the given trace \p quantum_id has ended so
-     * that it can generate the result for that quantum.
+     * Notifies the analysis tool that the given trace \p interval_id has ended so
+     * that it can generate the result for that interval.
      *
-     * \p quantum_id is the ordinal of the trace quantum. Each trace quantum has
-     * a length equal to the \p -quantum_microseconds specified to the
-     * framework. Trace quantums are measured using the value of the
-     * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p quantum_id
+     * \p interval_id is the ordinal of the trace interval. Each trace interval has
+     * a length equal to the \p -interval_microseconds specified to the
+     * framework. Trace intervals are measured using the value of the
+     * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,
-     * i.e. the tool may not see some \p quantum_id if the trace does not have
-     * any activity in those trace quantums. The return value indicates whether
+     * i.e. the tool may not see some \p interval_id if the trace does not have
+     * any activity in those trace intervals. The return value indicates whether
      * it was successful.
      *
      * An example use case of this API is to create a time series of some output
      * metric over the whole trace.
      */
     virtual bool
-    generate_quantum_result(uint64_t quantum_id)
+    generate_interval_result(uint64_t interval_id)
     {
         return true;
     }
@@ -275,24 +275,24 @@ public:
         return "";
     }
     /**
-     * Notifies the analysis tool that the given trace \p quantum_id in the
+     * Notifies the analysis tool that the given trace \p interval_id in the
      * shard represented by the given \p shard_data has ended so that it can
-     * generate the result for that quantum.
+     * generate the result for that interval.
      *
-     * \p quantum_id is the ordinal of the trace quantum in the given shard.
-     * Each trace quantum has a length equal to the \p -quantum_microseconds
-     * specified to the framework. Trace quantums are measured using the value
-     * of the #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p quantum_id
+     * \p interval_id is the ordinal of the trace interval in the given shard.
+     * Each trace interval has a length equal to the \p -interval_microseconds
+     * specified to the framework. Trace intervals are measured using the value
+     * of the #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,
-     * i.e. the tool may not see some \p quantum_id if the trace shard did not
-     * have any activity in that quantum. The return value indicates whether
+     * i.e. the tool may not see some \p interval_id if the trace shard did not
+     * have any activity in that interval. The return value indicates whether
      * it was successful.
      *
      * An example use case of this API is to create a time series of some
      * output metric over each trace shard.
      */
     virtual bool
-    generate_shard_quantum_result(void *shard_data, uint64_t quantum_id)
+    generate_shard_interval_result(void *shard_data, uint64_t interval_id)
     {
         return true;
     }

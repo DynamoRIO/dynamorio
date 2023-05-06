@@ -148,7 +148,7 @@ changes:
    code compatibility is unchanged.
  - Removed the drcachesim external iterator analyzer interface.  Users should instead
    use the new #dynamorio::drmemtrace::scheduler_tmpl_t interface for direct control
-   over iteration.  See \ref sec_drcachesim_sched for example code.
+   over iteration.  See \ref sec_drcachesim_sched intervalfor example code.
  - Refactored the drmemtrace reader and file reader classes to better fit the
    new scheduler model: now each reader owns just one single stream of records
    with all multi-stream interleaving owned by the scheduler.
@@ -166,9 +166,9 @@ changes:
    INSTR_CREATE_eor_sve_pred(), INSTR_CREATE_and_sve_pred() and
    INSTR_CREATE_bic_sve_pred() to use the new vector element registers and to
    correctly encode the predicate mode.
- - Added a new drmemtrace analyzer option \p -quantum_microseconds that invokes the
-   (also newly added) generate_quantum_result() and generate_shard_quantum_result()
-   analysis tool APIs periodically every \p -quantum_microseconds of the trace as
+ - Added a new drmemtrace analyzer option \p -interval_microseconds that invokes the
+   (also newly added) generate_interval_result() and generate_shard_interval_result()
+   analysis tool APIs periodically every \p -interval_microseconds of the trace as
    measured by the #TRACE_MARKER_TYPE_TIMESTAMP marker entries.
 
 Further non-compatibility-affecting changes include:

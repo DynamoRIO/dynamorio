@@ -1,0 +1,81 @@
+\[heartbeat\] Interval [0-9]* in TID [0-9]*: instrs delta = [0-9]*, cumulative = [0-9]*
+Basic counts tool results:
+Total counts:
+     .* total \(fetched\) instructions
+     .* total unique \(fetched\) instructions
+     .* total non-fetched instructions
+     .* total prefetches
+     .* total data loads
+     .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
+           1 total threads
+     .* total scheduling markers
+     .* total transfer markers
+     .* total function id markers
+     .* total function return address markers
+     .* total function argument markers
+     .* total function return value markers
+           0 total physical address \+ virtual address marker pairs
+           0 total physical address unavailable markers
+     .* total other markers
+     .* total encodings
+Interval 0 delta:.*
+     .* interval delta \(fetched\) instructions
+     .* interval delta unique \(fetched\) instructions
+     .* interval delta non-fetched instructions
+     .* interval delta prefetches
+     .* interval delta data loads
+     .* interval delta data stores
+     .* interval delta icache flushes
+     .* interval delta dcache flushes
+     .* interval delta scheduling markers
+     .* interval delta transfer markers
+     .* interval delta function id markers
+     .* interval delta function return address markers
+     .* interval delta function argument markers
+     .* interval delta function return value markers
+           0 interval delta physical address \+ virtual address marker pairs
+           0 interval delta physical address unavailable markers
+     .* interval delta other markers
+     .* interval delta encodings
+.*
+Interval 0 cumulative:
+     .* interval cumulative \(fetched\) instructions
+     .* interval cumulative unique \(fetched\) instructions
+     .* interval cumulative non-fetched instructions
+     .* interval cumulative prefetches
+     .* interval cumulative data loads
+     .* interval cumulative data stores
+     .* interval cumulative icache flushes
+     .* interval cumulative dcache flushes
+     .* interval cumulative scheduling markers
+     .* interval cumulative transfer markers
+     .* interval cumulative function id markers
+     .* interval cumulative function return address markers
+     .* interval cumulative function argument markers
+     .* interval cumulative function return value markers
+           0 interval cumulative physical address \+ virtual address marker pairs
+           0 interval cumulative physical address unavailable markers
+     .* interval cumulative other markers
+     .* interval cumulative encodings
+.*
+Thread .* counts:
+     .* \(fetched\) instructions
+     .* unique \(fetched\) instructions
+     .* non-fetched instructions
+     .* prefetches
+     .* data loads
+     .* data stores
+     .* icache flushes
+     .* dcache flushes
+     .* scheduling markers
+     .* transfer markers
+     .* function id markers
+     .* function return address markers
+     .* function argument markers
+     .* function return value markers
+           0 physical address \+ virtual address marker pairs
+           0 physical address unavailable markers
+     .* other markers
+     .* encodings

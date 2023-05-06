@@ -247,10 +247,10 @@ basic_counts_t::print_results()
 {
     counters_t total;
     uintptr_t num_windows = 1;
-    size_t num_quantums = 0;
+    size_t num_intervals = 0;
     for (const auto &shard : shard_map_) {
         num_windows = std::max(num_windows, shard.second->counters.size());
-        num_quantums = std::max(num_quantums, shard.second->quantum_ids.size());
+        num_intervals = std::max(num_intervals, shard.second->interval_ids.size());
     }
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
@@ -261,19 +261,19 @@ basic_counts_t::print_results()
     std::cerr << "Total counts:\n";
     print_counters(total, shard_map_.size(), " total");
 
-    if (num_quantums > 0 && shard_map_.size() == 1) {
-        // We print per-quantum counts only for serial analysis and parallel with a
+    if (num_intervals > 0 && shard_map_.size() == 1) {
+        // We print per-interval counts only for serial analysis and parallel with a
         // single shard.
         // XXX: for parallel with multiple shards, we could merge the results based on
         // timestamp.
         auto shard = shard_map_.begin()->second;
-        for (size_t i = 0; i < shard->quantum_ids.size(); ++i) {
-            std::cerr << "Quantum " << shard->quantum_ids[i] << " delta:\n";
-            print_counters(shard->per_quantum_delta[i], 0, " quantum delta");
+        for (size_t i = 0; i < shard->interval_ids.size(); ++i) {
+            std::cerr << "Interval " << shard->interval_ids[i] << " delta:\n";
+            print_counters(shard->per_interval_delta[i], 0, " interval delta");
         }
-        for (size_t i = 0; i < shard->quantum_ids.size(); ++i) {
-            std::cerr << "Quantum " << shard->quantum_ids[i] << " cumulative:\n";
-            print_counters(shard->per_quantum_cumulative[i], 0, " quantum cumulative");
+        for (size_t i = 0; i < shard->interval_ids.size(); ++i) {
+            std::cerr << "Interval " << shard->interval_ids[i] << " cumulative:\n";
+            print_counters(shard->per_interval_cumulative[i], 0, " interval cumulative");
         }
     } else if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";
@@ -314,45 +314,45 @@ basic_counts_t::get_total_counts()
 }
 
 void
-basic_counts_t::compute_shard_quantum_result(per_shard_t *shard, uint64_t quantum_id)
+basic_counts_t::compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id)
 {
     counters_t shard_total;
     for (const auto &ctr : shard->counters) {
         shard_total += ctr;
     }
     counters_t last_cumulative;
-    if (!shard->per_quantum_cumulative.empty())
-        last_cumulative = shard->per_quantum_cumulative.back();
+    if (!shard->per_interval_cumulative.empty())
+        last_cumulative = shard->per_interval_cumulative.back();
     counters_t diff = shard_total;
     diff -= last_cumulative;
-    shard->quantum_ids.push_back(quantum_id);
-    shard->per_quantum_delta.push_back(diff);
-    shard->per_quantum_cumulative.push_back(shard_total);
+    shard->interval_ids.push_back(interval_id);
+    shard->per_interval_delta.push_back(diff);
+    shard->per_interval_cumulative.push_back(shard_total);
 }
 
 bool
-basic_counts_t::generate_shard_quantum_result(void *shard_data, uint64_t quantum_id)
+basic_counts_t::generate_shard_interval_result(void *shard_data, uint64_t interval_id)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-    compute_shard_quantum_result(per_shard, quantum_id);
-    counters_t delta = per_shard->per_quantum_delta.back();
-    counters_t cumulative = per_shard->per_quantum_cumulative.back();
-    std::cerr << "[heartbeat] Quantum " << quantum_id << " in TID " << per_shard->tid
+    compute_shard_interval_result(per_shard, interval_id);
+    counters_t delta = per_shard->per_interval_delta.back();
+    counters_t cumulative = per_shard->per_interval_cumulative.back();
+    std::cerr << "[heartbeat] Interval " << interval_id << " in TID " << per_shard->tid
               << ": instrs delta = " << delta.instrs
               << ", cumulative = " << cumulative.instrs << "\n";
     return true;
 }
 
 bool
-basic_counts_t::generate_quantum_result(uint64_t quantum_id)
+basic_counts_t::generate_interval_result(uint64_t interval_id)
 {
     counters_t delta_sum, cumulative_sum;
     for (auto &shard : shard_map_) {
-        compute_shard_quantum_result(shard.second, quantum_id);
-        delta_sum += shard.second->per_quantum_delta.back();
-        cumulative_sum += shard.second->per_quantum_cumulative.back();
+        compute_shard_interval_result(shard.second, interval_id);
+        delta_sum += shard.second->per_interval_delta.back();
+        cumulative_sum += shard.second->per_interval_cumulative.back();
     }
-    std::cerr << "[heartbeat] Quantum " << quantum_id
+    std::cerr << "[heartbeat] Interval " << interval_id
               << ": instrs delta = " << delta_sum.instrs
               << ", cumulative = " << cumulative_sum.instrs << "\n";
     return true;

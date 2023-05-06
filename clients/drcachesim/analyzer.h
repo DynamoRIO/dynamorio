@@ -104,7 +104,7 @@ public:
     analyzer_tmpl_t(const std::string &trace_path,
                     analysis_tool_tmpl_t<RecordType> **tools, int num_tools,
                     int worker_count = 0, uint64_t skip_instrs = 0,
-                    uint64_t quantum_microseconds = 0, int verbosity = 0);
+                    uint64_t interval_microseconds = 0, int verbosity = 0);
     /** Launches the analysis process. */
     virtual bool
     run();
@@ -121,7 +121,7 @@ protected:
         analyzer_worker_data_t(int index, typename sched_type_t::stream_t *stream)
             : index(index)
             , stream(stream)
-            , cur_quantum_index(0)
+            , cur_interval_index(0)
             , shard_data()
         {
         }
@@ -129,7 +129,7 @@ protected:
         {
             index = src.index;
             stream = src.stream;
-            cur_quantum_index = src.cur_quantum_index;
+            cur_interval_index = src.cur_interval_index;
             shard_data = std::move(src.shard_data);
             error = std::move(src.error);
         }
@@ -137,7 +137,7 @@ protected:
         int index;
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
         std::string error;
-        uint64_t cur_quantum_index;
+        uint64_t cur_interval_index;
         std::unordered_map<int, std::vector<void *>> shard_data;
 
     private:
@@ -175,24 +175,24 @@ protected:
     bool
     record_is_timestamp(const RecordType &record);
 
-    // Invoked when the given quantum finishes during serial analysis of the
+    // Invoked when the given interval finishes during serial analysis of the
     // trace.
     virtual bool
-    process_quantum(uint64_t quantum_id, analyzer_worker_data_t *worker);
+    process_interval(uint64_t interval_id, analyzer_worker_data_t *worker);
 
-    // Invoked when the given quantum finishes in the given shard during
+    // Invoked when the given interval finishes in the given shard during
     // parallel analysis of the trace.
     virtual bool
-    process_shard_quantum(int shard_id, uint64_t quantum_id,
-                          analyzer_worker_data_t *worker);
+    process_shard_interval(int shard_id, uint64_t interval_id,
+                           analyzer_worker_data_t *worker);
 
-    // Advances the current quantum id stored in the worker data, based on the
+    // Advances the current interval id stored in the worker data, based on the
     // most recent seen timestamp in the trace stream. Returns whether the current
-    // quantum id was updated. Also returns the previous quantum index in
-    // cur_quantum_index.
+    // interval id was updated. Also returns the previous interval index in
+    // cur_interval_index.
     bool
-    advance_quantum_id(analyzer_worker_data_t *worker, const RecordType &record,
-                       uint64_t &cur_quantum_index);
+    advance_interval_id(analyzer_worker_data_t *worker, const RecordType &record,
+                        uint64_t &cur_interval_index);
 
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
@@ -206,7 +206,7 @@ protected:
     int worker_count_;
     const char *output_prefix_ = "[analyzer]";
     uint64_t skip_instrs_ = 0;
-    uint64_t quantum_microseconds_ = 0;
+    uint64_t interval_microseconds_ = 0;
     int verbosity_ = 0;
 
 private:

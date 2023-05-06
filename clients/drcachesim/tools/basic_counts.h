@@ -49,7 +49,7 @@ public:
     bool
     print_results() override;
     bool
-    generate_quantum_result(uint64_t quantum_id) override;
+    generate_interval_result(uint64_t interval_id) override;
     bool
     parallel_shard_supported() override;
     void *
@@ -61,7 +61,7 @@ public:
     std::string
     parallel_shard_error(void *shard_data) override;
     bool
-    generate_shard_quantum_result(void *shard_data, uint64_t quantum_id) override;
+    generate_shard_interval_result(void *shard_data, uint64_t interval_id) override;
 
     // i#3068: We use the following struct to also export the counters.
     struct counters_t {
@@ -176,12 +176,12 @@ protected:
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
 
-        // Record list of quantum ids observed.
-        std::vector<uint64_t> quantum_ids;
-        // Record deltas of counters seen in each trace quantum.
-        std::vector<counters_t> per_quantum_delta;
-        // Record snapshots of counters seen in each trace quantum.
-        std::vector<counters_t> per_quantum_cumulative;
+        // Record list of interval ids observed.
+        std::vector<uint64_t> interval_ids;
+        // Record deltas of counters seen in each trace interval.
+        std::vector<counters_t> per_interval_delta;
+        // Record snapshots of counters seen in each trace interval.
+        std::vector<counters_t> per_interval_cumulative;
     };
 
     static bool
@@ -191,7 +191,7 @@ protected:
     print_counters(const counters_t &counters, int_least64_t num_threads,
                    const std::string &prefix);
     void
-    compute_shard_quantum_result(per_shard_t *shard, uint64_t quantum_id);
+    compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, per_shard_t *> shard_map_;

@@ -1416,10 +1416,10 @@ aggregation across the whole trace should occur here as well, while shard-specif
 results can be presented in parallel_shard_exit().
 
 Tools may also generate and/or print results periodically using
-generate_quantum_result() and generate_shard_quantum_result(). To enable these
-callbacks, the \p -quantum_microseconds option must be set to the desired length
-of each trace quantum. The framework will invoke the above-mentioned tool
-functions upon completion of each trace quantum which is measured using the
+generate_interval_result() and generate_shard_interval_result(). To enable these
+callbacks, the \p -interval_microseconds option must be set to the desired length
+of each trace interval. The framework will invoke the above-mentioned tool
+functions upon completion of each trace interval which is measured using the
 #TRACE_MARKER_TYPE_TIMESTAMP marker values. This may be useful for creating a
 time-series of some output metric.
 

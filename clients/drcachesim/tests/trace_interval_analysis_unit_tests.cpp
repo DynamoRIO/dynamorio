@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* Unit tests for the quantum notification API in analysis_tool_t. */
+/* Unit tests for the interval result generation API in analysis_tool_t. */
 
 #include "analyzer.h"
 #include "memref_gen.h"
@@ -98,13 +98,13 @@ private:
 class test_analyzer_t : public analyzer_t {
 public:
     test_analyzer_t(const std::vector<memref_t> &refs, analysis_tool_t **tools,
-                    int num_tools, bool parallel, uint64_t quantum_microseconds)
+                    int num_tools, bool parallel, uint64_t interval_microseconds)
         : analyzer_t()
     {
         num_tools_ = num_tools;
         tools_ = tools;
         parallel_ = parallel;
-        quantum_microseconds_ = quantum_microseconds;
+        interval_microseconds_ = interval_microseconds;
         verbosity_ = 2;
         worker_count_ = 1;
         test_stream_ = std::unique_ptr<scheduler_t::stream_t>(new test_stream_t(refs));
@@ -115,8 +115,8 @@ private:
     std::unique_ptr<scheduler_t::stream_t> test_stream_;
 };
 
-// Test analysis_tool_t that stores information about when the quantum-end
-// events (generate_shard_quantum_result and generate_quantum_result) were invoked.
+// Test analysis_tool_t that stores information about when the interval-end
+// events (generate_shard_interval_result and generate_interval_result) were invoked.
 class test_analysis_tool_t : public analysis_tool_t {
 public:
     test_analysis_tool_t()
@@ -131,9 +131,9 @@ public:
         return true;
     }
     bool
-    generate_quantum_result(uint64_t quantum_id) override
+    generate_interval_result(uint64_t interval_id) override
     {
-        serial_quantum_ends_.push_back(std::make_pair(quantum_id, seen_memrefs_));
+        serial_interval_ends_.push_back(std::make_pair(interval_id, seen_memrefs_));
         return true;
     }
     bool
@@ -163,19 +163,19 @@ public:
         return true;
     }
     bool
-    generate_shard_quantum_result(void *shard_data, uint64_t quantum_id) override
+    generate_shard_interval_result(void *shard_data, uint64_t interval_id) override
     {
         if (shard_data != reinterpret_cast<void *>(kShardData)) {
             fprintf(stderr, "Invalid shard_data\n");
             return false;
         }
-        parallel_quantum_ends_.push_back(
-            std::make_pair(quantum_id, seen_parallel_memrefs_));
+        parallel_interval_ends_.push_back(
+            std::make_pair(interval_id, seen_parallel_memrefs_));
         return true;
     }
 
-    std::vector<std::pair<uint64_t, int>> serial_quantum_ends_;
-    std::vector<std::pair<uint64_t, int>> parallel_quantum_ends_;
+    std::vector<std::pair<uint64_t, int>> serial_interval_ends_;
+    std::vector<std::pair<uint64_t, int>> parallel_interval_ends_;
 
 private:
     int seen_memrefs_;
@@ -185,18 +185,18 @@ private:
 };
 
 static bool
-test_non_zero_quantum(bool parallel)
+test_non_zero_interval(bool parallel)
 {
-    constexpr uint64_t kQuantumMicroseconds = 100;
+    constexpr uint64_t kIntervalMicroseconds = 100;
     std::vector<memref_t> refs = {
         gen_instr(1, 1), gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1), gen_instr(1, 2),
         gen_data(1, true, 100, 4), gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 50),
         gen_instr(1, 3),
-        // 0th quantum ends here.
+        // 0th interval ends here.
         gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 101), gen_instr(1, 4),
-        // 1st quantum ends here.
+        // 1st interval ends here.
         gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 490), gen_exit(1)
-        // 4th quantum ends here.
+        // 4th interval ends here.
     };
 
     auto test_analysis_tool =
@@ -204,7 +204,7 @@ test_non_zero_quantum(bool parallel)
     std::vector<analysis_tool_t *> tools;
     tools.push_back(test_analysis_tool.get());
     test_analyzer_t test_analyzer(refs, &tools[0], (int)tools.size(), parallel,
-                                  kQuantumMicroseconds);
+                                  kIntervalMicroseconds);
 
     if (!test_analyzer) {
         FATAL_ERROR("failed to initialize test analyzer: %s",
@@ -214,31 +214,32 @@ test_non_zero_quantum(bool parallel)
         FATAL_ERROR("failed to run test_analyzer: %s",
                     test_analyzer.get_error_string().c_str());
     }
-    std::vector<std::pair<uint64_t, int>> expected_quantum_ends = {
-        // Pair of <quantum_id, seen_memrefs_when_quantum_ended>.
+    std::vector<std::pair<uint64_t, int>> expected_interval_ends = {
+        // Pair of <interval_id, seen_memrefs_when_interval_ended>.
         std::make_pair(0, 6), std::make_pair(1, 8), std::make_pair(4, 10)
     };
     if (parallel) {
-        CHECK(test_analysis_tool->serial_quantum_ends_.empty(),
-              "The serial API generate_quantum_result should not be invoked for parallel "
-              "analysis");
-        CHECK(test_analysis_tool->parallel_quantum_ends_ == expected_quantum_ends,
-              "generate_shard_quantum_result invoked at unexpected times.");
+        CHECK(
+            test_analysis_tool->serial_interval_ends_.empty(),
+            "The serial API generate_interval_result should not be invoked for parallel "
+            "analysis");
+        CHECK(test_analysis_tool->parallel_interval_ends_ == expected_interval_ends,
+              "generate_shard_interval_result invoked at unexpected times.");
     } else {
-        CHECK(test_analysis_tool->parallel_quantum_ends_.empty(),
-              "The parallel API generate_shard_quantum_result should not be invoked for "
+        CHECK(test_analysis_tool->parallel_interval_ends_.empty(),
+              "The parallel API generate_shard_interval_result should not be invoked for "
               "serial analysis");
-        CHECK(test_analysis_tool->serial_quantum_ends_ == expected_quantum_ends,
-              "generate_quantum_result invoked at unexpected times.");
+        CHECK(test_analysis_tool->serial_interval_ends_ == expected_interval_ends,
+              "generate_interval_result invoked at unexpected times.");
     }
-    fprintf(stderr, "test_non_zero_quantum done for parallel=%d\n", parallel);
+    fprintf(stderr, "test_non_zero_interval done for parallel=%d\n", parallel);
     return true;
 }
 
 int
 main(int argc, const char *argv[])
 {
-    if (!test_non_zero_quantum(false) || !test_non_zero_quantum(true))
+    if (!test_non_zero_interval(false) || !test_non_zero_interval(true))
         return 1;
     fprintf(stderr, "All done!\n");
     return 0;
