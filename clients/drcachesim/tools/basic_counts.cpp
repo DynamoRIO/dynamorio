@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-#define NOMINMAX // Avoid windows.h messing up std::min.
+#define NOMINMAX // Avoid windows.h messing up std::max.
 
 #include <algorithm>
 #include <iomanip>
@@ -267,11 +267,11 @@ basic_counts_t::print_results()
         // XXX: for parallel with multiple shards, we could merge the results based on
         // timestamp.
         auto shard = shard_map_.begin()->second;
-        for (uint64_t i = 0; i < num_quantums; ++i) {
+        for (int i = 0; i < num_quantums; ++i) {
             std::cerr << "Quantum " << i << " deltas:\n";
             print_counters(shard->per_quantum_deltas[i], 0, " quantum delta");
         }
-        for (uint64_t i = 0; i < num_quantums; ++i) {
+        for (int i = 0; i < num_quantums; ++i) {
             std::cerr << "Quantum " << i << " snapshots:\n";
             print_counters(shard->per_quantum_snapshots[i], 0, " quantum snapshot");
         }
