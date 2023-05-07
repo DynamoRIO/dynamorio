@@ -63,6 +63,12 @@ cache_lru_t::init(int associativity, int block_size, int total_size,
 }
 
 void
+cache_lru_t::invalidate_update(caching_device_block_t *block)
+{
+    // Leave counters unchanged for LRU.
+}
+
+void
 cache_lru_t::access_update(int block_idx, int way)
 {
     int cnt = get_caching_device_block(block_idx, way).counter_;

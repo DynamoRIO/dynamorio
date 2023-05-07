@@ -125,6 +125,8 @@ public:
 
 protected:
     virtual void
+    invalidate_update(caching_device_block_t *block);
+    virtual void
     access_update(int block_idx, int way);
     virtual int
     replace_which_way(int block_idx);
@@ -156,8 +158,8 @@ protected:
         if (use_tag2block_table_)
             tag2block.erase(block->tag_);
         block->tag_ = TAG_INVALID;
-        // Xref cache_block_t constructor about why we set counter to 0.
-        block->counter_ = 0;
+
+        invalidate_update(block); // updates counters according to replacement policy
     }
 
     inline void

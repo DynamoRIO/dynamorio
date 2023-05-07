@@ -49,6 +49,8 @@ public:
 
 protected:
     void
+    invalidate_update(caching_device_block_t *block) override;
+    void
     access_update(int block_idx, int way) override;
     int
     replace_which_way(int block_idx) override;
