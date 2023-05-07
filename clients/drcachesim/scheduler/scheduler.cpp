@@ -380,16 +380,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::report_time(uint64_t cur_tim
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::start_speculation(
-    addr_t start_address)
+    addr_t start_address, bool queue_current_record)
 {
-    return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    return scheduler_->start_speculation(ordinal_, start_address, queue_current_record);
 }
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::stop_speculation()
 {
-    return sched_type_t::STATUS_NOT_IMPLEMENTED;
+    return scheduler_->stop_speculation(ordinal_);
 }
 
 /***************************************************************************
@@ -492,9 +492,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             static_cast<int>(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS));
     }
 
+    // TODO i#5843: Once the speculator supports more options, change the
+    // default.  For now we hardcode nops as the only supported option.
+    options_.flags = static_cast<scheduler_flags_t>(
+        static_cast<int>(options_.flags) |
+        static_cast<int>(sched_type_t::SCHEDULER_SPECULATE_NOPS));
+
     outputs_.reserve(output_count);
     for (int i = 0; i < output_count; i++) {
-        outputs_.emplace_back(this, i, verbosity_);
+        outputs_.emplace_back(this, i,
+                              TESTANY(SCHEDULER_SPECULATE_NOPS, options_.flags)
+                                  ? spec_type_t::USE_NOPS
+                                  // TODO i#5843: Add more flags for other options.
+                                  : spec_type_t::LAST_FROM_TRACE,
+                              verbosity_);
     }
     if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT) {
         // Assign the inputs up front to avoid locks once we're in parallel mode.
@@ -801,6 +812,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     outputs_[output].cur_input = input;
     if (input < 0)
         return;
+    std::lock_guard<std::mutex> lock(*inputs_[input].lock);
     inputs_[input].instrs_in_quantum = 0;
 }
 
@@ -809,8 +821,8 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t output)
 {
     bool need_lock = (options_.mapping == MAP_TO_ANY_OUTPUT);
-    auto scoped_lock = need_lock ? std::unique_lock<std::mutex>()
-                                 : std::unique_lock<std::mutex>(sched_lock_);
+    auto scoped_lock = need_lock ? std::unique_lock<std::mutex>(sched_lock_)
+                                 : std::unique_lock<std::mutex>();
     // We're only called when we should definitely swap so clear the current.
     int prev_index = outputs_[output].cur_input;
     input_ordinal_t index = INVALID_INPUT_ORDINAL;
@@ -819,6 +831,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
         if (index < 0) {
             if (options_.mapping == MAP_TO_ANY_OUTPUT) {
                 if (ready_.empty()) {
+                    std::lock_guard<std::mutex> lock(*inputs_[prev_index].lock);
                     if (inputs_[prev_index].at_eof)
                         return sched_type_t::STATUS_EOF;
                     else
@@ -832,6 +845,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                 // TODO i#5843: This should require a lock for >1 outputs too.
                 uint64_t min_time = 0xffffffffffffffff;
                 for (size_t i = 0; i < inputs_.size(); i++) {
+                    std::lock_guard<std::mutex> lock(*inputs_[i].lock);
                     if (!inputs_[i].at_eof && inputs_[i].next_timestamp > 0 &&
                         inputs_[i].next_timestamp < min_time) {
                         min_time = inputs_[i].next_timestamp;
@@ -863,11 +877,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
             } else
                 return sched_type_t::STATUS_INVALID;
             // reader_t::at_eof_ is true until init() is called.
+            std::lock_guard<std::mutex> lock(*inputs_[index].lock);
             if (inputs_[index].needs_init) {
                 inputs_[index].reader->init();
                 inputs_[index].needs_init = false;
             }
         }
+        std::lock_guard<std::mutex> lock(*inputs_[index].lock);
         if (inputs_[index].at_eof ||
             *inputs_[index].reader == *inputs_[index].reader_end) {
             VPRINT(this, 2, "next_record[%d]: local index %d == input #%d at eof\n",
@@ -895,6 +911,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         return sched_type_t::STATUS_EOF;
     }
     input = &inputs_[outputs_[output].cur_input];
+    auto lock = std::unique_lock<std::mutex>(*input->lock);
+    if (outputs_[output].speculating) {
+        error_string_ = outputs_[output].speculator.next_record(
+            outputs_[output].speculate_pc, record);
+        if (!error_string_.empty())
+            return sched_type_t::STATUS_INVALID;
+        // Leave the cur input where it is: the ordinals will remain unchanged.
+        // Also avoid the context switch checks below as we cannot switch in the
+        // middle of speculating (we also don't count speculated instructions toward
+        // QUANTUM_INSTRUCTIONS).
+        return sched_type_t::STATUS_OK;
+    }
     while (true) {
         if (input->needs_init) {
             // We pay the cost of this conditional to support ipc_reader_t::init() which
@@ -921,10 +949,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 input->needs_advance = true;
             }
             if (input->at_eof || *input->reader == *input->reader_end) {
+                lock.unlock();
                 sched_type_t::stream_status_t res = pick_next_input(output);
                 if (res != sched_type_t::STATUS_OK)
                     return res;
                 input = &inputs_[outputs_[output].cur_input];
+                lock = std::unique_lock<std::mutex>(*input->lock);
                 continue;
             } else {
                 record = **input->reader;
@@ -944,14 +974,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
             need_new_input = true;
         if (need_new_input) {
             int cur_input = outputs_[output].cur_input;
+            lock.unlock();
             sched_type_t::stream_status_t res = pick_next_input(output);
             if (res != sched_type_t::STATUS_OK)
                 return res;
             if (outputs_[output].cur_input != cur_input) {
+                lock.lock();
                 input->queue.push_back(record);
                 input = &inputs_[outputs_[output].cur_input];
+                lock = std::unique_lock<std::mutex>(*input->lock);
                 continue;
-            }
+            } else
+                lock.lock();
         }
         if (input->needs_roi && !input->regions_of_interest.empty()) {
             sched_type_t::stream_status_t res =
@@ -972,6 +1006,31 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     VPRINT(this, 4, "next_record[%d]: from %d: ", output, input->index);
     VDO(this, 4, print_record(record););
 
+    outputs_[output].last_record = record;
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::start_speculation(output_ordinal_t output,
+                                                            addr_t start_address,
+                                                            bool queue_current_record)
+{
+    if (!outputs_[output].speculating && queue_current_record) {
+        inputs_[outputs_[output].cur_input].queue.push_back(outputs_[output].last_record);
+    }
+    outputs_[output].speculating = true;
+    outputs_[output].speculate_pc = start_address;
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::stop_speculation(output_ordinal_t output)
+{
+    if (!outputs_[output].speculating)
+        return sched_type_t::STATUS_INVALID;
+    outputs_[output].speculating = false;
     return sched_type_t::STATUS_OK;
 }
 

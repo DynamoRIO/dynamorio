@@ -232,7 +232,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t(
 {
     // The scheduler will call reader_t::init() for each input file.  We assume
     // that won't block (analyzer_multi_t separates out IPC readers).
-    if (!init_scheduler(trace_path, verbosity)) {
+    if (!init_scheduler(trace_path, INVALID_THREAD_ID, verbosity)) {
         success_ = false;
         error_string_ = "Failed to create scheduler";
         return;
