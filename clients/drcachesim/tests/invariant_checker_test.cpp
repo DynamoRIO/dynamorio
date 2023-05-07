@@ -293,7 +293,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: Transition from instr to kernel_xfer event marker.
+    // Negative test: Transition from instr to kernel_xfer event marker.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),   gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
