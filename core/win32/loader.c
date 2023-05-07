@@ -256,8 +256,8 @@ os_loader_init_prologue(void)
         /* FIX: i#6024: when kernelbase.dll has TLS or client which will lead to
          * crash. Solution is to always save pre_static_tls but do not set 
          * ThreadLocalStoragePointer to NULL. If we set it to NULL, it will lead to
-         * crash when application uses ThreadLocalStoragePointer (eg. __declspec(thread))
-         * is used, but client or kernelbase.dll (Win11/Win22H2) or client don't
+         * crash when application uses ThreadLocalStoragePointer (eg. __declspec(thread)
+         * is used), but client or kernelbase.dll (Win11/Win22H2) or client doesn't
          * have TLS which will fail to restore TheadLocalStoragePointer later in
          * calls to should_swap_teb_static_tls() as tlx_next_id is 0
          */
