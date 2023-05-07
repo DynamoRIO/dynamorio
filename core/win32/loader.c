@@ -253,13 +253,21 @@ os_loader_init_prologue(void)
             LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->NlsCache=" PFX "\n",
                 pre_nls_cache);
         }
-        if (should_swap_teb_static_tls()) {
+        /* FIX: i#6024: when kernelbase.dll has TLS or client which will lead to
+         * crash. Solution is to always save pre_static_tls but do not set 
+         * ThreadLocalStoragePointer to NULL. If we set it to NULL, it will lead to
+         * crash when application uses ThreadLocalStoragePointer (eg. __declspec(thread))
+         * is used, but client or kernelbase.dll (Win11/Win22H2) or client don't
+         * have TLS which will fail to restore TheadLocalStoragePointer later in
+         * calls to should_swap_teb_static_tls() as tlx_next_id is 0
+         */
+        //if (should_swap_teb_static_tls()) {
             pre_static_tls = d_r_get_tls(STATIC_TLS_TIB_OFFSET);
-            d_r_set_tls(STATIC_TLS_TIB_OFFSET, NULL);
+            //d_r_set_tls(STATIC_TLS_TIB_OFFSET, NULL);
             LOG(GLOBAL, LOG_LOADER, 2,
                 "initial thread TEB->ThreadLocalStoragePointer=" PFX "\n",
                 pre_static_tls);
-        }
+        //}
     }
 
     drwinapi_init();
