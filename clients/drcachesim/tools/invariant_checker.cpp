@@ -582,12 +582,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 if (knob_test_name_ != "kernel_xfer_app" || knob_offline_) {
                     const std::string pc_discontinuity_error_string =
                         check_for_pc_discontinuity(shard, memref, nullptr, false);
-
-                    // TODO(sahil): Add a prefix or suffix to the error string here so
-                    // that the check_for_pc_discontinuity() function does not need to
-                    // include duplicate logic.
+                    const std::string error_msg_suffix =
+                        "Discontinuity between instruction and kernel event marker";
                     report_if_false(shard, pc_discontinuity_error_string.empty(),
-                                    pc_discontinuity_error_string);
+                                    pc_discontinuity_error_string + " - " +
+                                        error_msg_suffix);
                 }
 
                 shard->signal_stack_.push({ memref.marker.marker_value,
@@ -834,9 +833,7 @@ invariant_checker_t::check_for_pc_discontinuity(
                 error_msg = "Duplicate syscall instrs with the same PC";
             } else {
                 // If we reach this block, we know there is a PC discontinuity.
-                error_msg = memref_is_kernel_event_marker
-                    ? "Discontinuity between instruction and kernel event marker"
-                    : "Non-explicit control flow has no marker";
+                error_msg = "Non-explicit control flow has no marker";
             }
         }
     }
