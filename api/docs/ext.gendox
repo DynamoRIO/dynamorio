@@ -55,7 +55,7 @@ REPLACE_WITH_GENDOX_SUBPAGES
 Umbra is a DynamoRIO Extension that provides shadow memory features.  It is
 distributed as part of the Dr. Memory Framework, which is included with
 DynamoRIO versions 5.0.0 and higher.  <a
-href="http://drmemory.org/docs/page_umbra.html">Online documentation is
+href="http://drmemory.org/page_umbra.html">Online documentation is
 available</a>.  If this documentation is part of a DynamoRIO public
 release, <a href="../../drmemory/drmemory/docs/html/page_umbra.html">this
 link</a> should point at the local documentation provided with the release
@@ -68,7 +68,7 @@ Dr. Syscall is a DynamoRIO Extension that provides system call monitoring
 features beyond the basics in the DynamoRIO API itself.  It is distributed
 as part of the Dr. Memory Framework, which is included with DynamoRIO
 versions 5.0.0 and higher.  <a
-href="http://drmemory.org/docs/page_drsyscall.html">Online documentation is
+href="http://drmemory.org/page_drsyscall.html">Online documentation is
 available</a>.  If this documentation is part of a DynamoRIO public
 release, <a href="../../drmemory/drmemory/docs/html/page_drsyscall.html">this
 link</a> should point at the local documentation provided with the release
@@ -81,7 +81,7 @@ package.
 Dr. SymCache is a DynamoRIO Extension that provides caching of symbol
 lookup results.  It is distributed as part of the Dr. Memory Framework,
 which is included with DynamoRIO versions 5.0.0 and higher.  <a
-href="http://drmemory.org/docs/page_drsymcache.html">Online documentation is
+href="http://drmemory.org/page_drsymcache.html">Online documentation is
 available</a>.  If this documentation is part of a DynamoRIO public
 release, <a href="../../drmemory/drmemory/docs/html/page_drsymcache.html">this
 link</a> should point at the local documentation provided with the release
