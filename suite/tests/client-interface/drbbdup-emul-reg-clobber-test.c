@@ -78,11 +78,8 @@ GLOBAL_LABEL(FUNCNAME:)
         rep movsb
 
         /* Return the value in the output parameter. */
-#ifdef X64 /* Should ideally use PTRSZ instead of #ifdef but seeing compiler error */
-        mov      QWORD [REG_XDX], REG_XAX
-#else
-        mov      DWORD [REG_XDX], REG_XAX
-#endif
+        mov      PTRSZ [REG_XDX], REG_XAX
+
         POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
