@@ -158,7 +158,8 @@ public:
     print_results() = 0;
     /**
      * Notifies the analysis tool that the given trace \p interval_id has ended so
-     * that it can generate the result for that interval.
+     * that it can generate the result for that interval. The return value indicates
+     * whether it was successful.
      *
      * \p interval_id is the ordinal of the trace interval. Each trace interval has
      * a length equal to the \p -interval_microseconds specified to the
@@ -166,8 +167,7 @@ public:
      * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,
      * i.e. the tool may not see some \p interval_id if the trace does not have
-     * any activity in those trace intervals. The return value indicates whether
-     * it was successful.
+     * any activity in those trace intervals.
      *
      * An example use case of this API is to create a time series of some output
      * metric over the whole trace.
@@ -277,7 +277,8 @@ public:
     /**
      * Notifies the analysis tool that the given trace \p interval_id in the
      * shard represented by the given \p shard_data has ended so that it can
-     * generate the result for that interval.
+     * generate the result for that interval. The return value indicates
+     * whether it was successful.
      *
      * \p interval_id is the ordinal of the trace interval in the given shard.
      * Each trace interval has a length equal to the \p -interval_microseconds
@@ -285,8 +286,7 @@ public:
      * of the #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,
      * i.e. the tool may not see some \p interval_id if the trace shard did not
-     * have any activity in that interval. The return value indicates whether
-     * it was successful.
+     * have any activity in that interval.
      *
      * An example use case of this API is to create a time series of some
      * output metric over each trace shard.

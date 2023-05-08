@@ -320,11 +320,10 @@ basic_counts_t::compute_shard_interval_result(per_shard_t *shard, uint64_t inter
     for (const auto &ctr : shard->counters) {
         shard_total += ctr;
     }
-    counters_t last_cumulative;
-    if (!shard->per_interval_cumulative.empty())
-        last_cumulative = shard->per_interval_cumulative.back();
     counters_t diff = shard_total;
-    diff -= last_cumulative;
+    if (!shard->per_interval_cumulative.empty()) {
+        diff -= shard->per_interval_cumulative.back();
+    }
     shard->interval_ids.push_back(interval_id);
     shard->per_interval_delta.push_back(diff);
     shard->per_interval_cumulative.push_back(shard_total);

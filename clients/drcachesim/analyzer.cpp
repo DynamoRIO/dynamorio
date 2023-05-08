@@ -297,7 +297,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::advance_interval_id(
     analyzer_worker_data_t *worker, const RecordType &record,
     uint64_t &prev_interval_index)
 {
-    prev_interval_index = worker->cur_interval_index;
     if (interval_microseconds_ == 0 || !record_is_timestamp(record)) {
         return false;
     }
@@ -306,6 +305,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::advance_interval_id(
         interval_microseconds_;
     if (next_interval_index != worker->cur_interval_index) {
         assert(next_interval_index > worker->cur_interval_index);
+        prev_interval_index = worker->cur_interval_index;
         worker->cur_interval_index = next_interval_index;
         return true;
     }

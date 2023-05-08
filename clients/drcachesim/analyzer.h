@@ -189,10 +189,10 @@ protected:
     // Advances the current interval id stored in the worker data, based on the
     // most recent seen timestamp in the trace stream. Returns whether the current
     // interval id was updated. Also returns the previous interval index in
-    // cur_interval_index.
+    // prev_interval_index.
     bool
     advance_interval_id(analyzer_worker_data_t *worker, const RecordType &record,
-                        uint64_t &cur_interval_index);
+                        uint64_t &prev_interval_index);
 
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;

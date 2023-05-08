@@ -1419,7 +1419,7 @@ Tools may also generate and/or print results periodically using
 generate_interval_result() and generate_shard_interval_result(). To enable these
 callbacks, the \p -interval_microseconds option must be set to the desired length
 of each trace interval. The framework will invoke the above-mentioned tool
-functions upon completion of each trace interval which is measured using the
+APIs upon completion of each trace interval which is measured using the
 #TRACE_MARKER_TYPE_TIMESTAMP marker values. This may be useful for creating a
 time-series of some output metric.
 

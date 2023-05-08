@@ -180,7 +180,7 @@ protected:
         std::vector<uint64_t> interval_ids;
         // Record deltas of counters seen in each trace interval.
         std::vector<counters_t> per_interval_delta;
-        // Record snapshots of counters seen in each trace interval.
+        // Record cumulative counter values seen in each trace interval.
         std::vector<counters_t> per_interval_cumulative;
     };
 

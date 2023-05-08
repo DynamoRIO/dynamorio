@@ -490,8 +490,9 @@ droption_t<std::string> op_tracer_ops(
 droption_t<int> op_interval_microseconds(
     DROPTION_SCOPE_FRONTEND, "interval_microseconds", 0,
     "Enable periodic heartbeats for every interval of given microseconds in the trace.",
-    "Desired length of each interval defined in microseconds of trace time. If set, "
-    "analysis tools receive a callback when each interval ends.");
+    "Desired length of each trace interval, defined in microseconds of trace time. "
+    "Trace intervals are measured using the TRACE_MARKER_TYPE_TIMESTAMP marker values. "
+    "If set, analysis tools receive a callback when each interval ends.");
 
 droption_t<int>
     op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,
