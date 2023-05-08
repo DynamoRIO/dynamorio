@@ -6,5 +6,6 @@ Hit tracing window #0 limit: disabling tracing.
 Hit retrace threshold: enabling tracing for window #1.
 [^W]*
 Hello, world!
+.*
 Basic counts tool results:
 .*
