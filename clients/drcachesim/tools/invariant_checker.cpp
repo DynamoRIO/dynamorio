@@ -748,9 +748,10 @@ invariant_checker_t::check_for_pc_discontinuity(
     const bool memref_is_kernel_event_marker =
         (memref.marker.type == TRACE_TYPE_MARKER &&
          memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT);
-    const addr_t prev_instr_trace_pc = memref_is_kernel_event_marker
-        ? shard->prev_instr_.instr.addr
-        : shard->last_instr_in_cur_context_.instr.addr;
+    //    const addr_t prev_instr_trace_pc = memref_is_kernel_event_marker
+    //        ? shard->prev_instr_.instr.addr
+    //        : shard->last_instr_in_cur_context_.instr.addr;
+    const addr_t prev_instr_trace_pc = shard->prev_instr_.instr.addr;
     const addr_t current_memref_addr =
         memref_is_kernel_event_marker ? memref.marker.marker_value : memref.instr.addr;
 
