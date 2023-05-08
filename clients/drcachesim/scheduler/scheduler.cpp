@@ -336,6 +336,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         return res;
 
     // Update our memtrace_stream_t state.
+    std::lock_guard<std::mutex> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
         ++cur_ref_count_;
     if (scheduler_->record_type_is_instr(record))
@@ -807,8 +808,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     assert(output >= 0 && output < static_cast<output_ordinal_t>(outputs_.size()));
     // 'input' might be INVALID_INPUT_ORDINAL.
     assert(input < static_cast<input_ordinal_t>(inputs_.size()));
-    if (outputs_[output].cur_input >= 0)
-        ready_.push(outputs_[output].cur_input);
+    if (outputs_[output].cur_input >= 0) {
+        if (options_.mapping == MAP_TO_ANY_OUTPUT)
+            ready_.push(outputs_[output].cur_input);
+    }
     outputs_[output].cur_input = input;
     if (input < 0)
         return;
