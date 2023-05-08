@@ -75,7 +75,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Rep mov that is expanded by the client. It should not clobber the
          * value in XAX. */
         mov      REG_XCX, 10
-        rep movsb 
+        rep movsb
 
         /* Return the value in the output parameter. */
 #ifdef X64 /* Should ideally use PTRSZ instead of #ifdef but seeing compiler error */
