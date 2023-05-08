@@ -496,9 +496,6 @@ instr_get_app_pc(instr_t *instr)
 }
 
 DR_API
-/**
- * Get the relative offset of \p instr in an encoded instruction list.
- */
 size_t
 instr_get_offset(instr_t *instr)
 {
