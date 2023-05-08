@@ -964,8 +964,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::record_schedule_segment(
     GetSystemTime(&sys_time);
     FILETIME file_time;
     if (!SystemTimeToFileTime(&sys_time, &file_time))
-        return sched_type_t : STATUS_RECORD_FAILED;
-    timestamp = file_time.LowDateTime + (file_time.dwHighDateTime << 32);
+        return sched_type_t::STATUS_RECORD_FAILED;
+    timestamp =
+        file_time.dwLowDateTime + (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
 #endif
     outputs_[output].record.emplace_back(type, input, start_instruction, stop_instruction,
                                          timestamp);

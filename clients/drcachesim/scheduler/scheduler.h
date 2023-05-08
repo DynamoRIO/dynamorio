@@ -923,7 +923,9 @@ protected:
     record_schedule_segment(
         output_ordinal_t output, typename schedule_record_t::record_type_t type,
         input_ordinal_t input, uint64_t start_instruction,
-        uint64_t stop_instruction = std::numeric_limits<uint64_t>::max());
+        // Wrap max in parens to work around Visual Studio compiler issues with the
+        // max macro (even despite NOMINMAX defined above).
+        uint64_t stop_instruction = (std::numeric_limits<uint64_t>::max)());
 
     // The caller must hold the input.lock.
     stream_status_t
