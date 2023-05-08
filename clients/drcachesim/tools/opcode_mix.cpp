@@ -207,6 +207,11 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
         opcode = instr_get_opcode(&instr);
         shard->worker->opcode_cache[trace_pc] = opcode;
+        if (instr_is_cbr(&instr) || instr_is_ubr(&instr) || instr_is_mbr(&instr) ||
+            instr_is_call_direct(&instr) || instr_is_call_indirect(&instr) ||
+            instr_is_return(&instr)) {
+            ++shard->branch_instr_count;
+        }
         instr_free(dcontext_.dcontext, &instr);
     }
     ++shard->opcode_counts[opcode];
@@ -252,6 +257,8 @@ opcode_mix_t::print_results()
     }
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << total.instr_count << " : total executed instructions\n";
+    std::cerr << std::setw(15) << total.branch_instr_count / total.instr_count
+              << " : branch density\n";
     std::vector<std::pair<int, int_least64_t>> sorted(total.opcode_counts.begin(),
                                                       total.opcode_counts.end());
     std::sort(sorted.begin(), sorted.end(), cmp_val);

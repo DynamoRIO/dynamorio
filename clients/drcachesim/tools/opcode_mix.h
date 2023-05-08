@@ -92,6 +92,7 @@ protected:
         }
         worker_data_t *worker;
         int_least64_t instr_count;
+        int_least64_t branch_instr_count;
         std::unordered_map<int, int_least64_t> opcode_counts;
         std::string error;
         app_pc last_trace_module_start;
