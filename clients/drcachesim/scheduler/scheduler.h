@@ -40,6 +40,7 @@
  * @brief DrMemtrace top-level trace scheduler.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::max.
 #include <assert.h>
 #include <deque>
 #include <limits>

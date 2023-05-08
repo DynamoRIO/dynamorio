@@ -1248,6 +1248,7 @@ test_replay_multi_threaded(const char *testdir)
 #endif
 }
 
+#ifdef HAS_ZLIB
 // We subclass scheduler_t to access its record struct and functions.
 class test_scheduler_t : public scheduler_t {
 public:
@@ -1296,6 +1297,7 @@ public:
             assert(false);
     }
 };
+#endif
 
 static void
 test_replay_timestamps()
@@ -1382,6 +1384,7 @@ test_replay_timestamps()
 static void
 test_replay_skip()
 {
+#ifdef HAS_ZLIB
     std::cerr << "\n----------------\nTesting replay of skips\n";
     std::vector<trace_entry_t> memrefs = {
         /* clang-format off */
@@ -1524,6 +1527,7 @@ test_replay_skip()
         }
         assert(ordinal == 11);
     }
+#endif
 }
 
 } // namespace
