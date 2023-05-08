@@ -336,6 +336,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         return res;
 
     // Update our memtrace_stream_t state.
+    std::lock_guard<std::mutex> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
         ++cur_ref_count_;
     if (scheduler_->record_type_is_instr(record))
@@ -807,11 +808,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
     assert(output >= 0 && output < static_cast<output_ordinal_t>(outputs_.size()));
     // 'input' might be INVALID_INPUT_ORDINAL.
     assert(input < static_cast<input_ordinal_t>(inputs_.size()));
-    if (outputs_[output].cur_input >= 0)
-        ready_.push(outputs_[output].cur_input);
+    if (outputs_[output].cur_input >= 0) {
+        if (options_.mapping == MAP_TO_ANY_OUTPUT)
+            ready_.push(outputs_[output].cur_input);
+    }
     outputs_[output].cur_input = input;
     if (input < 0)
         return;
+    std::lock_guard<std::mutex> lock(*inputs_[input].lock);
     inputs_[input].instrs_in_quantum = 0;
 }
 
@@ -820,8 +824,8 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t output)
 {
     bool need_lock = (options_.mapping == MAP_TO_ANY_OUTPUT);
-    auto scoped_lock = need_lock ? std::unique_lock<std::mutex>()
-                                 : std::unique_lock<std::mutex>(sched_lock_);
+    auto scoped_lock = need_lock ? std::unique_lock<std::mutex>(sched_lock_)
+                                 : std::unique_lock<std::mutex>();
     // We're only called when we should definitely swap so clear the current.
     int prev_index = outputs_[output].cur_input;
     input_ordinal_t index = INVALID_INPUT_ORDINAL;
@@ -830,6 +834,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
         if (index < 0) {
             if (options_.mapping == MAP_TO_ANY_OUTPUT) {
                 if (ready_.empty()) {
+                    std::lock_guard<std::mutex> lock(*inputs_[prev_index].lock);
                     if (inputs_[prev_index].at_eof)
                         return sched_type_t::STATUS_EOF;
                     else
@@ -843,6 +848,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                 // TODO i#5843: This should require a lock for >1 outputs too.
                 uint64_t min_time = 0xffffffffffffffff;
                 for (size_t i = 0; i < inputs_.size(); i++) {
+                    std::lock_guard<std::mutex> lock(*inputs_[i].lock);
                     if (!inputs_[i].at_eof && inputs_[i].next_timestamp > 0 &&
                         inputs_[i].next_timestamp < min_time) {
                         min_time = inputs_[i].next_timestamp;
@@ -874,11 +880,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
             } else
                 return sched_type_t::STATUS_INVALID;
             // reader_t::at_eof_ is true until init() is called.
+            std::lock_guard<std::mutex> lock(*inputs_[index].lock);
             if (inputs_[index].needs_init) {
                 inputs_[index].reader->init();
                 inputs_[index].needs_init = false;
             }
         }
+        std::lock_guard<std::mutex> lock(*inputs_[index].lock);
         if (inputs_[index].at_eof ||
             *inputs_[index].reader == *inputs_[index].reader_end) {
             VPRINT(this, 2, "next_record[%d]: local index %d == input #%d at eof\n",
@@ -906,6 +914,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         return sched_type_t::STATUS_EOF;
     }
     input = &inputs_[outputs_[output].cur_input];
+    auto lock = std::unique_lock<std::mutex>(*input->lock);
     if (outputs_[output].speculating) {
         error_string_ = outputs_[output].speculator.next_record(
             outputs_[output].speculate_pc, record);
@@ -943,10 +952,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 input->needs_advance = true;
             }
             if (input->at_eof || *input->reader == *input->reader_end) {
+                lock.unlock();
                 sched_type_t::stream_status_t res = pick_next_input(output);
                 if (res != sched_type_t::STATUS_OK)
                     return res;
                 input = &inputs_[outputs_[output].cur_input];
+                lock = std::unique_lock<std::mutex>(*input->lock);
                 continue;
             } else {
                 record = **input->reader;
@@ -966,14 +977,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
             need_new_input = true;
         if (need_new_input) {
             int cur_input = outputs_[output].cur_input;
+            lock.unlock();
             sched_type_t::stream_status_t res = pick_next_input(output);
             if (res != sched_type_t::STATUS_OK)
                 return res;
             if (outputs_[output].cur_input != cur_input) {
+                lock.lock();
                 input->queue.push_back(record);
                 input = &inputs_[outputs_[output].cur_input];
+                lock = std::unique_lock<std::mutex>(*input->lock);
                 continue;
-            }
+            } else
+                lock.lock();
         }
         if (input->needs_roi && !input->regions_of_interest.empty()) {
             sched_type_t::stream_status_t res =

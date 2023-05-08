@@ -725,9 +725,17 @@ protected:
     typedef speculator_tmpl_t<RecordType> spec_type_t;
 
     struct input_info_t {
+        input_info_t()
+            : lock(new std::mutex)
+        {
+        }
         int index = -1; // Position in inputs_ vector.
         std::unique_ptr<ReaderType> reader;
         std::unique_ptr<ReaderType> reader_end;
+        // While the scheduler only hands an input to one output at a time, during
+        // scheduling decisions one thread may need to access another's fields.
+        // We use a unique_ptr to make this moveable for vector storage.
+        std::unique_ptr<std::mutex> lock;
         // A tid can be duplicated across workloads so we need the pair of
         // workload index + tid to identify the original input.
         int workload = -1;
@@ -809,10 +817,12 @@ protected:
     advance_region_of_interest(output_ordinal_t output, RecordType &record,
                                input_info_t &input);
 
+    // The sched_lock_ must be held when this is called.
     void
     set_cur_input(output_ordinal_t output, input_ordinal_t input);
 
     // Finds the next input stream for the 'output_ordinal'-th output stream.
+    // No input_info_t lock can be held on entry.
     stream_status_t
     pick_next_input(output_ordinal_t output);
 
@@ -876,11 +886,14 @@ protected:
     const char *output_prefix_ = "[scheduler]";
     std::string error_string_;
     scheduler_options_t options_;
+    // Each vector element has a mutex which should be held when accessing its fields.
     std::vector<input_info_t> inputs_;
+    // Each vector element is accessed only by its owning thread, except the
+    // record and record_index fields which are accessed under sched_lock_.
     std::vector<output_info_t> outputs_;
     // We use a central lock for global scheduling.  We assume the synchronization
     // cost is outweighed by the simulator's overhead.  This protects concurrent
-    // access to the inputs_, outputs_, and ready_ fields.
+    // access to inputs_.size(), outputs_.size(), and the ready_ field.
     std::mutex sched_lock_;
     // Input indices ready to be scheduled.
     std::queue<input_ordinal_t> ready_;
