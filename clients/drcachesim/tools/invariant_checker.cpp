@@ -582,6 +582,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 if (knob_test_name_ != "kernel_xfer_app" || knob_offline_) {
                     const std::string pc_discontinuity_error_string =
                         check_for_pc_discontinuity(shard, memref, nullptr, false);
+
+                    // TODO(sahil): Add a prefix or suffix to the error string here so
+                    // that the check_for_pc_discontinuity() function does not need to
+                    // include duplicate logic.
                     report_if_false(shard, pc_discontinuity_error_string.empty(),
                                     pc_discontinuity_error_string);
                 }
