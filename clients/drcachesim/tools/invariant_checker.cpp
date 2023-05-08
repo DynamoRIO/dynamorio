@@ -742,26 +742,26 @@ invariant_checker_t::check_for_pc_discontinuity(
     std::string error_msg = "";
     bool have_cond_branch_target = false;
     addr_t cond_branch_target = 0;
-    addr_t prev_instr_trace_pc = shard->prev_instr_.instr.addr;
-    // Identify whether the current memref is a marker or an instruction. These will be
-    // handled slightly differently.
+    memref_t prev_instr = shard->prev_instr_;
     bool memref_is_kernel_event_marker = false;
 #ifdef UNIX
+    // Identify whether the current memref is a marker instead of an instruction. This
+    // will be handled differently.
     memref_is_kernel_event_marker = memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT;
     if (memref_is_kernel_event_marker) {
-        prev_instr_trace_pc = shard->last_instr_in_cur_context_.instr.addr;
+        prev_instr = shard->last_instr_in_cur_context_;
     }
 #endif
     const addr_t current_memref_addr =
         memref_is_kernel_event_marker ? memref.marker.marker_value : memref.instr.addr;
 
-    if (prev_instr_trace_pc != 0 /*first*/ &&
+    if (prev_instr.instr.addr != 0 /*first*/ &&
         // We do not bother to support legacy traces without encodings.
         expect_encoding && type_is_instr_direct_branch(shard->prev_instr_.instr.type)) {
         if (shard->prev_instr_.instr.encoding_is_new)
-            shard->branch_target_cache.erase(prev_instr_trace_pc);
-        auto cached = shard->branch_target_cache.find(prev_instr_trace_pc);
+            shard->branch_target_cache.erase(prev_instr.instr.addr);
+        auto cached = shard->branch_target_cache.find(prev_instr.instr.addr);
         if (cached != shard->branch_target_cache.end()) {
             have_cond_branch_target = true;
             cond_branch_target = cached->second;
@@ -776,11 +776,11 @@ invariant_checker_t::check_for_pc_discontinuity(
                 have_cond_branch_target = true;
                 cond_branch_target = reinterpret_cast<addr_t>(
                     opnd_get_pc(instr_get_target(shard->prev_instr_decoded_->data)));
-                shard->branch_target_cache[prev_instr_trace_pc] = cond_branch_target;
+                shard->branch_target_cache[prev_instr.instr.addr] = cond_branch_target;
             }
         }
     }
-    if (prev_instr_trace_pc != 0 /*first*/) {
+    if (prev_instr.instr.addr != 0 /*first*/) {
         // Check for all valid transitions except taken branches. We consider taken
         // branches later so that we can provide a different message for those
         // invariant violations.
@@ -789,10 +789,9 @@ invariant_checker_t::check_for_pc_discontinuity(
             TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                     shard->file_type_) ||
             // Regular fall-through.
-            (prev_instr_trace_pc + shard->prev_instr_.instr.size ==
-             current_memref_addr) ||
+            (prev_instr.instr.addr + prev_instr.instr.size == current_memref_addr) ||
             // String loop.
-            (prev_instr_trace_pc == current_memref_addr &&
+            (prev_instr.instr.addr == current_memref_addr &&
              (memref_is_kernel_event_marker ||
               memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
               // Online incorrectly marks the 1st string instr across a thread
@@ -828,7 +827,7 @@ invariant_checker_t::check_for_pc_discontinuity(
             } else if (cur_instr_decoded != nullptr &&
                        shard->prev_instr_decoded_ != nullptr &&
                        instr_is_syscall(cur_instr_decoded->data) &&
-                       current_memref_addr == prev_instr_trace_pc &&
+                       current_memref_addr == prev_instr.instr.addr &&
                        instr_is_syscall(shard->prev_instr_decoded_->data)) {
                 error_msg = "Duplicate syscall instrs with the same PC";
             } else {
