@@ -694,6 +694,10 @@ instr_get_opcode(instr_t *instr);
 
 /**
  * Get the relative offset of \p instr in an encoded instruction list.
+ *
+ * \note instrlist_encode* sets the offset field in each instr_t in the encoded
+ * instruction list. Therefore, this API must be called only after calling
+ * instrlist_encode*.
  */
 DR_API
 size_t
