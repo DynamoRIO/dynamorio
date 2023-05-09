@@ -163,7 +163,10 @@ gen_exit(memref_tid_t tid)
  * For instr_t, the caller has to set tid + pid fields of the memref_t in
  * memref_instr_t structs but not the other fields. For other memrefs the caller
  * should still set everything they need. Also note that all data memrefs have to
- * be filled in for each instr when constructing memref_instr_vec.
+ * be filled in for each instr when constructing memref_instr_vec. Each instr
+ * field in memref_instr_vec's elements needs to be constructed using DR's IR
+ * API for creating instructions. Any PC-relative instr in ilist is encoded as
+ * though the final instruction list were located at base_addr.
  */
 inline std::vector<memref_t>
 add_encodings_to_memrefs(instrlist_t *ilist,

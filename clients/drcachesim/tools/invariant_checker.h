@@ -109,7 +109,7 @@ protected:
             prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
             last_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
         }
-        memref_t last_local_branch_ = {};
+        memref_t last_branch_ = {};
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
         memref_t prev_instr_ = {};
