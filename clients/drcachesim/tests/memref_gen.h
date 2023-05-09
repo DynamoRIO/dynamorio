@@ -37,9 +37,23 @@
 #include "dr_api.h"
 #include <assert.h>
 #include <cstring>
+#include <vector>
 
 namespace dynamorio {
 namespace drmemtrace {
+
+#ifdef X86
+#    define REG1 DR_REG_XAX
+#    define REG2 DR_REG_XDX
+#elif defined(AARCHXX)
+#    define REG1 DR_REG_R0
+#    define REG2 DR_REG_R1
+#elif defined(RISCV64)
+#    define REG1 DR_REG_A0
+#    define REG2 DR_REG_A1
+#else
+#    error Unsupported arch
+#endif
 
 struct memref_instr_t {
     memref_t memref;

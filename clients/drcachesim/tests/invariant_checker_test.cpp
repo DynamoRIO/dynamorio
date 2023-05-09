@@ -47,19 +47,6 @@ namespace {
 
 using namespace dynamorio::drmemtrace;
 
-#ifdef X86
-#    define REG1 DR_REG_XAX
-#    define REG2 DR_REG_XDX
-#elif defined(AARCHXX)
-#    define REG1 DR_REG_R0
-#    define REG2 DR_REG_R1
-#elif defined(RISCV64)
-#    define REG1 DR_REG_A0
-#    define REG2 DR_REG_A1
-#else
-#    error Unsupported arch
-#endif
-
 class checker_no_abort_t : public invariant_checker_t {
 public:
     checker_no_abort_t(bool offline)
@@ -684,9 +671,13 @@ check_rseq_side_exit_discontinuity()
     std::vector<memref_instr_t> memref_instr_vec = {
         { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
           nullptr },
+        // Rseq entry marker not added to make the sequence look like a legacy
+        // tace.
         { gen_branch(1), cond_jmp },
         { gen_instr(1), store },
         { gen_data(1, false, 42, 4), nullptr },
+        // move1 instruction missing due to the 'side-exit' at move2 which is
+        // the target of cond_jmp.
         { gen_instr(1), move2 }
     };
 
