@@ -55,9 +55,10 @@ namespace drmemtrace {
 #    error Unsupported arch
 #endif
 
-struct memref_instr_t {
+struct memref_with_IR_t {
     memref_t memref;
-    instr_t *instr;
+    instr_t *instr; // This is an instr created with DR IR APIs and is set only
+                    // for instrs created as such.
 };
 
 inline memref_t
@@ -160,19 +161,20 @@ gen_exit(memref_tid_t tid)
 }
 
 /* Returns a vector of memref_t with instr encodings.
- * For instr_t, the caller has to set tid + pid fields of the memref_t in
- * memref_instr_t structs but not the other fields. For other memrefs the caller
+ * For memref_with_IR_t, the caller has to set tid + pid fields of the memref_t in
+ * memref_with_IR_t structs but not the other fields. For other memrefs the caller
  * should still set everything they need. Also note that all data memrefs have to
  * be filled in for each instr when constructing memref_instr_vec. Each instr
  * field in memref_instr_vec's elements needs to be constructed using DR's IR
  * API for creating instructions. Any PC-relative instr in ilist is encoded as
  * though the final instruction list were located at base_addr.
  */
-inline std::vector<memref_t>
+std::vector<memref_t>
 add_encodings_to_memrefs(instrlist_t *ilist,
-                         std::vector<memref_instr_t> &memref_instr_vec, addr_t base_addr)
+                         std::vector<memref_with_IR_t> &memref_instr_vec,
+                         addr_t base_addr)
 {
-    static const int MAX_DECODE_SIZE = 1024;
+    static const int MAX_DECODE_SIZE = 2048;
     byte decode_buf[MAX_DECODE_SIZE];
     byte *pc =
         instrlist_encode_to_copy(GLOBAL_DCONTEXT, ilist, decode_buf,

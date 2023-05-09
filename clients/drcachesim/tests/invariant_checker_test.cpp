@@ -668,7 +668,7 @@ check_rseq_side_exit_discontinuity()
     instrlist_append(ilist, move1);
     instrlist_append(ilist, move2);
 
-    std::vector<memref_instr_t> memref_instr_vec = {
+    std::vector<memref_with_IR_t> memref_instr_vec = {
         { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
           nullptr },
         // Rseq entry marker not added to make the sequence look like a legacy
