@@ -294,19 +294,19 @@ opcode_mix_t::print_results()
               << (double)total.branch_instr_count / ((double)total.instr_count)
               << " : branch density\n";
     std::cerr << std::setw(15) << "opcode"
-              << ":" << std::setw(9) << "cbr"
-              << ":" << std::setw(9) << "ubr"
-              << ":" << std::setw(9) << "mbr"
-              << ":" << std::setw(9) << "ret"
-              << ":" << std::setw(9) << "dircall"
-              << ":" << std::setw(9) << "indcall"
-              << ":\n";
+              << " : " << std::setw(9) << "cbr"
+              << " : " << std::setw(9) << "ubr"
+              << " : " << std::setw(9) << "mbr"
+              << " : " << std::setw(9) << "ret"
+              << " : " << std::setw(9) << "dircall"
+              << " : " << std::setw(9) << "indcall"
+              << " : \n";
     for (const auto &keyvals : total.opcode_branch_counts) {
         std::cerr << std::setw(15) << decode_opcode_name(keyvals.first) << " : ";
         for (branch_t bt = branch_t::cbr; bt <= branch_t::indcall;
              bt = (branch_t)(bt + 1)) {
             std::cerr << std::setw(9) << total.opcode_branch_counts[keyvals.first][bt]
-                      << ":";
+                      << " : ";
         }
         std::cerr << "\n";
     }
