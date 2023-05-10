@@ -317,7 +317,8 @@ public:
         /**
          * A schedule recorded previously by this scheduler is to be replayed.
          * The input schedule data is specified in
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t.replay_istream.
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::
+         * scheduler_options_t.schedule_replay_istream.
          * The same output count and input stream order and count must be re-specified;
          * scheduling details such as regions of interest and core bindings do not
          * need to be re-specified and are in fact ignored.
@@ -428,15 +429,15 @@ public:
          * write_recorded_schedule() must be called when finished to write the
          * in-memory data out to this stream.
          */
-        archive_ostream_t *record_ostream = nullptr;
+        archive_ostream_t *schedule_record_ostream = nullptr;
         /**
          * Input stream for replaying a previously recorded schedule when
          * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_AS_PREVIOUSLY is specified.  If
-         * this is non-nullptr and MAP_AS_PREVIOUSLY is specified, record_ostream must
-         * be nullptr, and most other fields in this struct controlling scheduling are
-         * ignored.
+         * this is non-nullptr and MAP_AS_PREVIOUSLY is specified, schedule_record_ostream
+         * must be nullptr, and most other fields in this struct controlling scheduling
+         * are ignored.
          */
-        archive_istream_t *replay_istream = nullptr;
+        archive_istream_t *schedule_replay_istream = nullptr;
     };
 
     /**
@@ -749,8 +750,9 @@ public:
 
     /**
      * Writes out the recorded schedule.  Requires that
-     * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::record_ostream
-     * was non-nullptr at init time.
+     * #dynamorio::drmemtrace::scheduler_tmpl_t::
+     * scheduler_options_t::schedule_record_ostream was non-nullptr
+     * at init time.
      */
     scheduler_status_t
     write_recorded_schedule();

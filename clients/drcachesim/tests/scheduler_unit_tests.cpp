@@ -750,6 +750,42 @@ test_real_file_queries_and_filters(const char *testdir)
 #endif
 }
 
+// Returns a string with one char per input.
+// Assumes the input threads are all tid_base plus an offset < 26.
+static std::vector<std::string>
+run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t tid_base)
+{
+    // Walk the outputs in lockstep for crude but deterministic concurrency.
+    std::vector<scheduler_t::stream_t *> outputs(num_outputs, nullptr);
+    std::vector<bool> eof(num_outputs, false);
+    for (int i = 0; i < num_outputs; i++)
+        outputs[i] = scheduler.get_stream(i);
+    int num_eof = 0;
+    // Record the threads, one char each.
+    std::vector<std::string> sched_as_string(num_outputs);
+    while (num_eof < num_outputs) {
+        for (int i = 0; i < num_outputs; i++) {
+            if (eof[i])
+                continue;
+            memref_t memref;
+            scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
+            if (status == scheduler_t::STATUS_EOF) {
+                ++num_eof;
+                eof[i] = true;
+                continue;
+            }
+            if (status == scheduler_t::STATUS_WAIT)
+                continue;
+            assert(status == scheduler_t::STATUS_OK);
+            if (type_is_instr(memref.instr.type)) {
+                sched_as_string[i] +=
+                    'A' + static_cast<char>(memref.instr.tid - tid_base);
+            }
+        }
+    }
+    return sched_as_string;
+}
+
 static void
 test_synthetic()
 {
@@ -781,32 +817,8 @@ test_synthetic()
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
-    // Walk the outputs in lockstep for crude but deterministic concurrency.
-    std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
-    std::vector<bool> eof(NUM_OUTPUTS, false);
-    for (int i = 0; i < NUM_OUTPUTS; i++)
-        outputs[i] = scheduler.get_stream(i);
-    int num_eof = 0;
-    // Record the threads, one char each.
-    std::vector<std::string> sched_as_string(NUM_OUTPUTS);
-    while (num_eof < NUM_OUTPUTS) {
-        for (int i = 0; i < NUM_OUTPUTS; i++) {
-            if (eof[i])
-                continue;
-            memref_t memref;
-            scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
-            if (status == scheduler_t::STATUS_EOF) {
-                ++num_eof;
-                eof[i] = true;
-                continue;
-            }
-            assert(status == scheduler_t::STATUS_OK);
-            if (type_is_instr(memref.instr.type)) {
-                sched_as_string[i] +=
-                    'A' + static_cast<char>(memref.instr.tid - TID_BASE);
-            }
-        }
-    }
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
@@ -1039,36 +1051,14 @@ test_replay()
         sched_ops.quantum_duration = QUANTUM_INSTRS;
 
         zipfile_ostream_t outfile(record_fname);
-        sched_ops.record_ostream = &outfile;
+        sched_ops.schedule_record_ostream = &outfile;
 
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
             scheduler_t::STATUS_SUCCESS)
             assert(false);
-        // Walk the outputs in lockstep for crude but deterministic concurrency.
-        std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
-        std::vector<bool> eof(NUM_OUTPUTS, false);
-        for (int i = 0; i < NUM_OUTPUTS; i++)
-            outputs[i] = scheduler.get_stream(i);
-        int num_eof = 0;
-        // Record the threads, one char each.
-        std::vector<std::string> sched_as_string(NUM_OUTPUTS);
-        while (num_eof < NUM_OUTPUTS) {
-            for (int i = 0; i < NUM_OUTPUTS; i++) {
-                if (eof[i])
-                    continue;
-                memref_t memref;
-                scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
-                if (status == scheduler_t::STATUS_EOF) {
-                    ++num_eof;
-                    eof[i] = true;
-                    continue;
-                }
-                assert(status == scheduler_t::STATUS_OK);
-                if (type_is_instr(memref.instr.type))
-                    sched_as_string[i] += 'A' + (memref.instr.tid - TID_BASE);
-            }
-        }
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
@@ -1077,8 +1067,8 @@ test_replay()
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
     }
-    // Now replay the schedule.
-    {
+    // Now replay the schedule several times to ensure repeatability.
+    for (int outer = 0; outer < 5; ++outer) {
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         for (int i = 0; i < NUM_INPUTS; i++) {
             memref_tid_t tid = TID_BASE + i;
@@ -1093,40 +1083,14 @@ test_replay()
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/4);
         zipfile_istream_t infile(record_fname);
-        sched_ops.replay_istream = &infile;
+        sched_ops.schedule_replay_istream = &infile;
 
         scheduler_t scheduler;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
             scheduler_t::STATUS_SUCCESS)
             assert(false);
-        // Walk the outputs in lockstep for crude but deterministic concurrency.
-        std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
-        std::vector<bool> eof(NUM_OUTPUTS, false);
-        for (int i = 0; i < NUM_OUTPUTS; i++)
-            outputs[i] = scheduler.get_stream(i);
-        int num_eof = 0;
-        // Record the threads, one char each.
-        std::vector<std::string> sched_as_string(NUM_OUTPUTS);
-        while (num_eof < NUM_OUTPUTS) {
-            for (int i = 0; i < NUM_OUTPUTS; i++) {
-                if (eof[i])
-                    continue;
-                memref_t memref;
-                scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
-                if (status == scheduler_t::STATUS_EOF) {
-                    ++num_eof;
-                    eof[i] = true;
-                    continue;
-                }
-                if (status == scheduler_t::STATUS_WAIT)
-                    continue;
-                assert(status == scheduler_t::STATUS_OK);
-                if (type_is_instr(memref.instr.type)) {
-                    sched_as_string[i] +=
-                        'A' + static_cast<char>(memref.instr.tid - TID_BASE);
-                }
-            }
-        }
+        std::vector<std::string> sched_as_string =
+            run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
@@ -1180,7 +1144,7 @@ test_replay_multi_threaded(const char *testdir)
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/2);
         zipfile_ostream_t outfile(record_fname);
-        sched_ops.record_ostream = &outfile;
+        sched_ops.schedule_record_ostream = &outfile;
         static constexpr int QUANTUM_DURATION = 2000;
         sched_ops.quantum_duration = QUANTUM_DURATION;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
@@ -1208,7 +1172,7 @@ test_replay_multi_threaded(const char *testdir)
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/2);
         zipfile_istream_t infile(record_fname);
-        sched_ops.replay_istream = &infile;
+        sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
             scheduler_t::STATUS_SUCCESS)
             assert(false);
@@ -1340,39 +1304,13 @@ test_replay_timestamps()
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/4);
     zipfile_istream_t infile(record_fname);
-    sched_ops.replay_istream = &infile;
+    sched_ops.schedule_replay_istream = &infile;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
-    // Walk the outputs in lockstep for crude but deterministic concurrency.
-    std::vector<scheduler_t::stream_t *> outputs(NUM_OUTPUTS, nullptr);
-    std::vector<bool> eof(NUM_OUTPUTS, false);
-    for (int i = 0; i < NUM_OUTPUTS; i++)
-        outputs[i] = scheduler.get_stream(i);
-    int num_eof = 0;
-    // Record the threads, one char each.
-    std::vector<std::string> sched_as_string(NUM_OUTPUTS);
-    while (num_eof < NUM_OUTPUTS) {
-        for (int i = 0; i < NUM_OUTPUTS; i++) {
-            if (eof[i])
-                continue;
-            memref_t memref;
-            scheduler_t::stream_status_t status = outputs[i]->next_record(memref);
-            if (status == scheduler_t::STATUS_EOF) {
-                ++num_eof;
-                eof[i] = true;
-                continue;
-            }
-            if (status == scheduler_t::STATUS_WAIT)
-                continue;
-            assert(status == scheduler_t::STATUS_OK);
-            if (type_is_instr(memref.instr.type)) {
-                sched_as_string[i] +=
-                    'A' + static_cast<char>(memref.instr.tid - TID_BASE);
-            }
-        }
-    }
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
@@ -1435,7 +1373,7 @@ test_replay_skip()
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/4);
         zipfile_ostream_t outfile(record_fname);
-        sched_ops.record_ostream = &outfile;
+        sched_ops.schedule_record_ostream = &outfile;
         if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS)
             assert(false);
         auto *stream = scheduler.get_stream(0);
@@ -1462,7 +1400,7 @@ test_replay_skip()
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/4);
         zipfile_istream_t infile(record_fname);
-        sched_ops.replay_istream = &infile;
+        sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS)
             assert(false);
         int ordinal = 0;
