@@ -452,6 +452,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // resumption point.
                 shard->last_signal_context_.pre_signal_instr.instr.type ==
                     TRACE_TYPE_INSTR_SYSENTER;
+            // TODO(sahil):
             bool pre_signal_flow_continuity =
                 // Skip pre-signal instr check if there was no such instr. May
                 // happen for nested signals without any intervening instr, and
@@ -748,9 +749,9 @@ invariant_checker_t::check_for_pc_discontinuity(
 #ifdef UNIX
     // Identify whether the current memref is a marker instead of an instruction. This
     // will be handled differently.
-    memref_is_kernel_event_marker = memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT;
-    if (memref_is_kernel_event_marker) {
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        memref_is_kernel_event_marker = true;
         prev_instr = shard->last_instr_in_cur_context_;
     }
 #endif
