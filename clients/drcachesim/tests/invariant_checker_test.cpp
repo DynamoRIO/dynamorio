@@ -672,7 +672,7 @@ check_rseq_side_exit_discontinuity()
         { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
           nullptr },
         // Rseq entry marker not added to make the sequence look like a legacy
-        // tace.
+        // trace.
         { gen_branch(1), cond_jmp },
         { gen_instr(1), store },
         { gen_data(1, false, 42, 4), nullptr },
