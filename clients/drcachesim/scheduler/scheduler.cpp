@@ -515,7 +515,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                               verbosity_);
         if (options_.record_ostream != nullptr) {
             sched_type_t::stream_status_t status = record_schedule_segment(
-                i, schedule_record_t::VERSION, schedule_record_t::VERSION_CURRENT, i, 0);
+                i, schedule_record_t::VERSION, schedule_record_t::VERSION_CURRENT, 0, 0);
             if (status != sched_type_t::STATUS_OK) {
                 error_string_ = "Failed to add version to recorded schedule";
                 return STATUS_ERROR_FILE_WRITE_FAILED;
@@ -645,16 +645,23 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_recorded_schedule()
         }
         // XXX: This could be made more efficient if we stored the record count
         // in the version field's stop_instruction field or something so we can
-        // size the vector up front.
+        // size the vector up front.  As this only happens once we do not bother
+        // and live with a few vector resizes.
+        bool saw_footer = false;
         while (options_.replay_istream->read(reinterpret_cast<char *>(&record),
                                              sizeof(record))) {
             if (record.type == schedule_record_t::VERSION) {
                 if (record.key.version != schedule_record_t::VERSION_CURRENT)
                     return STATUS_ERROR_INVALID_PARAMETER;
-            } else if (record.type == schedule_record_t::FOOTER)
+            } else if (record.type == schedule_record_t::FOOTER) {
+                saw_footer = true;
                 break;
-            else
+            } else
                 outputs_[i].record.push_back(record);
+        }
+        if (!saw_footer) {
+            error_string_ = "Record file missing footer";
+            return STATUS_ERROR_INVALID_PARAMETER;
         }
         VPRINT(this, 1, "Read %zu recorded records for output #%d\n",
                outputs_[i].record.size(), i);
@@ -857,8 +864,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
                     if (status != sched_type_t::STATUS_OK)
                         return status;
                     // Indicate we need a synthetic thread exit on replay.
-                    status = record_schedule_segment(output, schedule_record_t::SKIP,
-                                                     input.index, cur_instr, 0);
+                    status =
+                        record_schedule_segment(output, schedule_record_t::SYNTHETIC_END,
+                                                input.index, cur_instr, 0);
                     if (status != sched_type_t::STATUS_OK)
                         return status;
                 }
@@ -983,6 +991,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::close_schedule_segment(output_ordinal_
                                                                  input_info_t &input)
 {
     assert(output >= 0 && output < static_cast<output_ordinal_t>(outputs_.size()));
+    assert(!outputs_[output].record.empty());
     if (outputs_[output].record.back().type == schedule_record_t::SKIP) {
         // Skips already have a final stop value.
         return sched_type_t::STATUS_OK;
@@ -1119,30 +1128,31 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                         return sched_type_t::STATUS_WAIT;
                     }
                 }
-                if (segment.type == schedule_record_t::SKIP) {
+                if (segment.type == schedule_record_t::SYNTHETIC_END) {
                     std::lock_guard<std::mutex> lock(*inputs_[index].lock);
-                    if (segment.stop_instruction == 0) {
-                        // A stop of 0 means an artificial end to this input as we're past
-                        // the final region of interest.
-                        inputs_[index].queue.push_back(
-                            create_thread_exit(inputs_[index].tid));
-                        inputs_[index].at_eof = true;
-                        VPRINT(this, 2, "early end for input %d\n", index);
-                    } else {
-                        uint64_t cur_instr =
-                            inputs_[index].reader->get_instruction_ordinal();
-                        VPRINT(this, 2,
-                               "skipping from %" PRId64 " to %" PRId64
-                               " instrs for schedule\n",
-                               cur_instr, segment.stop_instruction);
-                        auto status = skip_instructions(output, inputs_[index],
-                                                        segment.stop_instruction -
-                                                            cur_instr - 1 /*exclusive*/);
-                        // Increment the region to get window id markers with ordinals.
-                        inputs_[index].cur_region++;
-                        if (status != sched_type_t::STATUS_SKIPPED)
-                            return sched_type_t::STATUS_INVALID;
-                    }
+                    // We're past the final region of interest and we need to insert
+                    // a synthetic thread exit record.
+                    inputs_[index].queue.push_back(
+                        create_thread_exit(inputs_[index].tid));
+                    inputs_[index].at_eof = true;
+                    VPRINT(this, 2, "early end for input %d\n", index);
+                    // We're done with this entry so move to and past it.
+                    outputs_[output].record_index += 2;
+                    return sched_type_t::STATUS_SKIPPED;
+                } else if (segment.type == schedule_record_t::SKIP) {
+                    std::lock_guard<std::mutex> lock(*inputs_[index].lock);
+                    uint64_t cur_instr = inputs_[index].reader->get_instruction_ordinal();
+                    VPRINT(this, 2,
+                           "skipping from %" PRId64 " to %" PRId64
+                           " instrs for schedule\n",
+                           cur_instr, segment.stop_instruction);
+                    auto status = skip_instructions(output, inputs_[index],
+                                                    segment.stop_instruction - cur_instr -
+                                                        1 /*exclusive*/);
+                    // Increment the region to get window id markers with ordinals.
+                    inputs_[index].cur_region++;
+                    if (status != sched_type_t::STATUS_SKIPPED)
+                        return sched_type_t::STATUS_INVALID;
                     // We're done with the skip so move to and past it.
                     outputs_[output].record_index += 2;
                     return sched_type_t::STATUS_SKIPPED;
@@ -1166,7 +1176,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                 }
             } else if (options_.deps == DEPENDENCY_TIMESTAMPS) {
                 // TODO i#5843: This should require a lock for >1 outputs too.
-                uint64_t min_time = 0xffffffffffffffffU;
+                uint64_t min_time = std::numeric_limits<uint64_t>::max();
                 for (size_t i = 0; i < inputs_.size(); i++) {
                     std::lock_guard<std::mutex> lock(*inputs_[i].lock);
                     if (!inputs_[i].at_eof && inputs_[i].next_timestamp > 0 &&

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -105,14 +105,32 @@ public:
         return gptr() - eback();
     }
     std::string
+    result_to_string(int code)
+    {
+        // For now we just turn the number into a string.
+        std::ostringstream oss;
+        oss << code;
+        return oss.str();
+    }
+    std::string
     open_component(const std::string &name)
     {
-        if (unzCloseCurrentFile(file_) != UNZ_OK)
-            return "Failed to close current component";
-        if (unzLocateFile(file_, name.c_str(), /*iCaseSensitivity=*/true) != UNZ_OK)
-            return "Failed to open zipfile component " + name;
-        if (unzOpenCurrentFile(file_) != UNZ_OK)
-            return "Failed to open zipfile component " + name;
+        int res;
+        if (file_ != nullptr) {
+            res = unzCloseCurrentFile(file_);
+            if (res != UNZ_OK)
+                return "Failed to close current component: " + result_to_string(res);
+        }
+        res = unzLocateFile(file_, name.c_str(), /*iCaseSensitivity=*/true);
+        if (res != UNZ_OK) {
+            return "Failed to locate zipfile component " + name + ": " +
+                result_to_string(res);
+        }
+        res = unzOpenCurrentFile(file_);
+        if (res != UNZ_OK) {
+            return "Failed to open zipfile component " + name + ": " +
+                result_to_string(res);
+        }
         return "";
     }
 

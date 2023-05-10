@@ -808,8 +808,9 @@ protected:
             // The first entry in each component must be this type.  The "key" field
             // holds a version number.
             VERSION,
-            FOOTER, // The final entry in the component.  Other fields are ignored.
-            SKIP,   // Skip ahead to the next region of interest.
+            FOOTER,        // The final entry in the component.  Other fields are ignored.
+            SKIP,          // Skip ahead to the next region of interest.
+            SYNTHETIC_END, // A synthetic thread exit record must be supplied.
         };
         static constexpr int VERSION_CURRENT = 0;
         schedule_record_t() = default;
@@ -839,8 +840,6 @@ protected:
         // Input stream ordinal of starting point.
         uint64_t start_instruction = 0;
         // Input stream ordinal, inclusive.  Max numeric value means continue until EOF.
-        // A 0 value for type SKIP means we're on the last region and should insert
-        // a synthetic exit.
         uint64_t stop_instruction = 0;
         // Timestamp in microseconds to keep context switches ordered.
         // XXX: To add more fine-grained ordering we could emit multiple entries
@@ -922,6 +921,8 @@ protected:
     stream_status_t
     record_schedule_segment(
         output_ordinal_t output, typename schedule_record_t::record_type_t type,
+        // "input" can instead be a version of type int.
+        // As they are the same underlying type we cannot overload.
         input_ordinal_t input, uint64_t start_instruction,
         // Wrap max in parens to work around Visual Studio compiler issues with the
         // max macro (even despite NOMINMAX defined above).
