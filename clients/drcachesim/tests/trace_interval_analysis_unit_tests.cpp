@@ -166,8 +166,7 @@ public:
     generate_shard_interval_result(void *shard_data, uint64_t interval_id) override
     {
         if (shard_data != reinterpret_cast<void *>(kShardData)) {
-            fprintf(stderr, "Invalid shard_data\n");
-            return false;
+            FATAL_ERROR("Invalid shard_data");
         }
         parallel_interval_ends_.push_back(
             std::make_pair(interval_id, seen_parallel_memrefs_));

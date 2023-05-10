@@ -186,10 +186,10 @@ protected:
     process_shard_interval(int shard_id, uint64_t interval_id,
                            analyzer_worker_data_t *worker);
 
-    // Advances the current interval id stored in the worker data, based on the
-    // most recent seen timestamp in the trace stream. Returns whether the current
-    // interval id was updated. Also returns the previous interval index in
-    // prev_interval_index.
+    // Possibly advances the current interval id stored in the worker data, based
+    // on the most recent seen timestamp in the trace stream. Returns whether the
+    // current interval id was updated. Also returns the previous interval index
+    // in prev_interval_index.
     bool
     advance_interval_id(analyzer_worker_data_t *worker, const RecordType &record,
                         uint64_t &prev_interval_index);

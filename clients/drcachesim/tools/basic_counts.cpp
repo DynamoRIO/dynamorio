@@ -33,10 +33,10 @@
 #define NOMINMAX // Avoid windows.h messing up std::max.
 
 #include <algorithm>
+#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <vector>
-#include <cassert>
 
 #include "basic_counts.h"
 #include "../common/utils.h"
