@@ -56,10 +56,11 @@
 // elements when next_record is invoked.
 class test_stream_t : public scheduler_t::stream_t {
 public:
-    test_stream_t(const std::vector<memref_t> &refs)
+    test_stream_t(const std::vector<memref_t> &refs,  bool parallel)
         : stream_t(nullptr, 0, 0)
         , refs_(refs)
         , at_(0)
+        , parallel_(parallel)
     {
     }
     scheduler_t::stream_status_t
@@ -69,6 +70,9 @@ public:
             record = refs_[at_++];
             if (record.marker.type == TRACE_TYPE_MARKER &&
                 record.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+                last_timestamps_[record.marker.tid] = record.marker.marker_value;
+                if (first_timestamps_[record.marker.tid] == 0)
+                    first_timestamps_[record.marker.tid] = record.marker.marker_value;
                 last_timestamp_ = record.marker.marker_value;
                 if (first_timestamp_ == 0)
                     first_timestamp_ = last_timestamp_;
@@ -85,12 +89,39 @@ public:
     scheduler_t::input_ordinal_t
     get_input_stream_ordinal() override
     {
-        return 0;
+        assert(at_ > 0);
+        // All TIDs form a separate input stream.
+        return refs_[at_ - 1].instr.tid;
+    }
+    uint64_t
+    get_first_timestamp() const override
+    {
+        if (!parallel_)
+            return first_timestamp_;
+        assert(at_ > 0);
+        auto it = first_timestamps_.find(refs_[at_ - 1].instr.tid);
+        assert(it != first_timestamps_.end());
+        return it->second;
+    }
+    uint64_t
+    get_last_timestamp() const override
+    {
+        if (!parallel_)
+            return last_timestamp_;
+        assert(at_ > 0);
+        auto it = last_timestamps_.find(refs_[at_ - 1].instr.tid);
+        assert(it != last_timestamps_.end());
+        return it->second;
     }
 
 private:
     std::vector<memref_t> refs_;
+    std::unordered_map<memref_tid_t, uint64_t> first_timestamps_;
+    std::unordered_map<memref_tid_t, uint64_t> last_timestamps_;
+    uint64_t first_timestamp_;
+    uint64_t last_timestamp_;
     size_t at_;
+    bool parallel_;
 };
 
 // Test analyzer_t that uses a test_stream_t instead of a stream provided
@@ -107,7 +138,8 @@ public:
         interval_microseconds_ = interval_microseconds;
         verbosity_ = 2;
         worker_count_ = 1;
-        test_stream_ = std::unique_ptr<scheduler_t::stream_t>(new test_stream_t(refs));
+        test_stream_ = std::unique_ptr<scheduler_t::stream_t>(
+            new test_stream_t(refs, parallel));
         worker_data_.push_back(analyzer_worker_data_t(0, test_stream_.get()));
     }
 
@@ -121,7 +153,6 @@ class test_analysis_tool_t : public analysis_tool_t {
 public:
     test_analysis_tool_t()
         : seen_memrefs_(0)
-        , seen_parallel_memrefs_(0)
     {
     }
     bool
@@ -149,7 +180,11 @@ public:
     void *
     parallel_shard_init(int shard_index, void *worker_data) override
     {
-        return reinterpret_cast<void *>(kShardData);
+        auto per_shard = new per_shard_t;
+        per_shard->magic_num = kMagicNum;
+        per_shard->tid = kInvalidTid;
+        per_shard->seen_memrefs = 0;
+        return reinterpret_cast<void *>(per_shard);
     }
     bool
     parallel_shard_exit(void *shard_data) override
@@ -159,28 +194,43 @@ public:
     bool
     parallel_shard_memref(void *shard_data, const memref_t &memref) override
     {
-        ++seen_parallel_memrefs_;
+        per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+        ++shard->seen_memrefs;
+        if (shard->tid == kInvalidTid)
+            shard->tid = memref.data.tid;
+        else if (shard->tid != memref.data.tid)
+            FATAL_ERROR("Unexpected TID in memref %d %d", shard->tid, memref.data.tid);
         return true;
     }
     bool
     generate_shard_interval_result(void *shard_data, uint64_t interval_id) override
     {
-        if (shard_data != reinterpret_cast<void *>(kShardData)) {
+        per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+        if (shard->magic_num != kMagicNum) {
             FATAL_ERROR("Invalid shard_data");
         }
-        parallel_interval_ends_.push_back(
-            std::make_pair(interval_id, seen_parallel_memrefs_));
+        if (shard->tid == kInvalidTid)
+            FATAL_ERROR("Expected TID to be found by now");
+        parallel_interval_ends_[shard->tid].push_back(
+            std::make_pair(interval_id, shard->seen_memrefs));
         return true;
     }
 
     std::vector<std::pair<uint64_t, int>> serial_interval_ends_;
-    std::vector<std::pair<uint64_t, int>> parallel_interval_ends_;
+    std::unordered_map<memref_tid_t, std::vector<std::pair<uint64_t, int>>>
+        parallel_interval_ends_;
 
 private:
     int seen_memrefs_;
-    int seen_parallel_memrefs_;
 
-    static constexpr uintptr_t kShardData = 0x8badf00d;
+    struct per_shard_t {
+        memref_tid_t tid;
+        uintptr_t magic_num;
+        int seen_memrefs;
+    };
+
+    static constexpr uintptr_t kMagicNum = 0x8badf00d;
+    static constexpr memref_tid_t kInvalidTid = -1;
 };
 
 static bool
@@ -188,14 +238,30 @@ test_non_zero_interval(bool parallel)
 {
     constexpr uint64_t kIntervalMicroseconds = 100;
     std::vector<memref_t> refs = {
-        gen_instr(1, 1), gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1), gen_instr(1, 2),
-        gen_data(1, true, 100, 4), gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 50),
-        gen_instr(1, 3),
-        // 0th interval ends here.
-        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 101), gen_instr(1, 4),
-        // 1st interval ends here.
-        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 490), gen_exit(1)
-        // 4th interval ends here.
+        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1), gen_instr(1, 100),
+        gen_data(1, true, 1000, 4),
+
+        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 51), gen_instr(2, 200),
+
+        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 70), gen_instr(1, 108),
+
+        // 0th serial interval ends.
+        // 0th shard interval ends for tid=1.
+        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 101), gen_instr(1, 204),
+
+        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 110), gen_instr(2, 208),
+
+        // 1th shard interval ends for tid=2.
+        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 170), gen_instr(2, 208),
+
+        // 1st serial interval ends.
+        // 1st shard interval ends for tid=2
+        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 390), gen_instr(2, 208),
+
+        // 3rd serial interval ends.
+        // 3rd shard interval ends for tid=2.
+        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 490), gen_exit(1), gen_exit(2)
+        // 4th interval ends for serial and all shards.
     };
 
     auto test_analysis_tool =
@@ -213,11 +279,13 @@ test_non_zero_interval(bool parallel)
         FATAL_ERROR("failed to run test_analyzer: %s",
                     test_analyzer.get_error_string().c_str());
     }
-    std::vector<std::pair<uint64_t, int>> expected_interval_ends = {
-        // Pair of <interval_id, seen_memrefs_when_interval_ended>.
-        std::make_pair(0, 6), std::make_pair(1, 8), std::make_pair(4, 10)
-    };
     if (parallel) {
+        std::unordered_map<memref_tid_t, std::vector<std::pair<uint64_t, int>>>
+            expected_interval_ends;
+        expected_interval_ends[1] = { std::make_pair(0, 5), std::make_pair(1, 7),
+                                      std::make_pair(4, 9) };
+        expected_interval_ends[2] = { std::make_pair(0, 4), std::make_pair(1, 6),
+                                      std::make_pair(3, 9) };
         CHECK(
             test_analysis_tool->serial_interval_ends_.empty(),
             "The serial API generate_interval_result should not be invoked for parallel "
@@ -225,6 +293,11 @@ test_non_zero_interval(bool parallel)
         CHECK(test_analysis_tool->parallel_interval_ends_ == expected_interval_ends,
               "generate_shard_interval_result invoked at unexpected times.");
     } else {
+        std::vector<std::pair<uint64_t, int>> expected_interval_ends = {
+            // Pair of <interval_id, seen_memrefs_when_interval_ended>.
+            std::make_pair(0, 7), std::make_pair(1, 13), std::make_pair(3, 15),
+            std::make_pair(4, 18)
+        };
         CHECK(test_analysis_tool->parallel_interval_ends_.empty(),
               "The parallel API generate_shard_interval_result should not be invoked for "
               "serial analysis");

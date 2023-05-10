@@ -115,13 +115,28 @@ public:
 protected:
     typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
 
+    // Data for one trace shard.
+    struct analyzer_shard_data_t {
+        analyzer_shard_data_t()
+            : cur_interval_index(0)
+        {
+        }
+        analyzer_shard_data_t(analyzer_shard_data_t &&src)
+        {
+            cur_interval_index = src.cur_interval_index;
+            tool_data = std::move(tool_data);
+        }
+
+        uint64_t cur_interval_index;
+        std::vector<void *> tool_data;
+    };
+
     // Data for one worker thread.  Our concurrency model has each input shard
     // analyzed by a single worker thread, eliminating the need for locks.
     struct analyzer_worker_data_t {
         analyzer_worker_data_t(int index, typename sched_type_t::stream_t *stream)
             : index(index)
             , stream(stream)
-            , cur_interval_index(0)
             , shard_data()
         {
         }
@@ -129,7 +144,6 @@ protected:
         {
             index = src.index;
             stream = src.stream;
-            cur_interval_index = src.cur_interval_index;
             shard_data = std::move(src.shard_data);
             error = std::move(src.error);
         }
@@ -137,15 +151,13 @@ protected:
         int index;
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
         std::string error;
-        uint64_t cur_interval_index;
-        std::unordered_map<int, std::vector<void *>> shard_data;
+        std::unordered_map<int, analyzer_shard_data_t> shard_data;
 
     private:
         analyzer_worker_data_t(const analyzer_worker_data_t &) = delete;
         analyzer_worker_data_t &
         operator=(const analyzer_worker_data_t &) = delete;
     };
-
     bool
     init_scheduler(const std::string &trace_path,
                    memref_tid_t only_thread = INVALID_THREAD_ID, int verbosity = 0);
@@ -191,8 +203,10 @@ protected:
     // current interval id was updated. Also returns the previous interval index
     // in prev_interval_index.
     bool
-    advance_interval_id(analyzer_worker_data_t *worker, const RecordType &record,
-                        uint64_t &prev_interval_index);
+    advance_interval_id(
+        typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
+        analyzer_shard_data_t *analyzer_shard_data, const RecordType &record,
+        uint64_t &prev_interval_index);
 
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
