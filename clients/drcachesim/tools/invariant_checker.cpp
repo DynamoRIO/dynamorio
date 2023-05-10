@@ -512,6 +512,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+        report_if_false(shard, memref.marker.marker_value >= shard->last_timestamp_,
+                        "Timestamp does not increase monotonically");
         shard->last_timestamp_ = memref.marker.marker_value;
         shard->saw_timestamp_but_no_instr_ = true;
         if (knob_verbose_ >= 3) {

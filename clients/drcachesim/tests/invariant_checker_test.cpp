@@ -691,6 +691,33 @@ check_rseq_side_exit_discontinuity()
     return true;
 }
 
+bool
+check_timestamp_increase_monotonically(void)
+{
+    // Positive test: timestamps increase monotonically.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Negative test: timestamp does not increase monotonically .
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 5),
+        };
+        if (!run_checker(memrefs, true, 1, 3,
+                         "Timestamp does not increase monotonically"))
+            return false;
+    }
+    return true;
+}
+
 } // namespace
 
 int
