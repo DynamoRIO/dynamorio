@@ -45,6 +45,8 @@
 
 namespace {
 
+using namespace dynamorio::drmemtrace;
+
 bool
 check_cross_line()
 {
