@@ -143,7 +143,7 @@ check_branch_target_after_branch()
     {
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1), gen_branch(1, 2),
-            gen_instr(1, 3), gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_instr(1, 3), gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 1),
             gen_instr(2, 1),
         };
         if (!run_checker(memrefs, false))
@@ -154,9 +154,9 @@ check_branch_target_after_branch()
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
             gen_branch(1, 2),
-            gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 1),
             gen_instr(2, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
             gen_instr(1, 3),
         };
         if (!run_checker(memrefs, true, 1, 4,
@@ -174,7 +174,7 @@ check_branch_target_after_branch()
             gen_instr(1, 1),
             gen_branch(1, 2),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
-            gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 1),
             gen_instr(2, 4),
         };
         if (!run_checker(memrefs, false))
@@ -601,13 +601,13 @@ check_duplicate_syscall_with_same_pc()
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
             gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
 #    elif defined(ARM_64)
             gen_instr_encoded(ADDR,
                               0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR,
                               0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
@@ -626,13 +626,13 @@ check_duplicate_syscall_with_same_pc()
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
             gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR + 2, { 0x0f, 0x05 }), // 0x7fcf3b9dd9eb: 0f 05 syscall
 #    elif defined(ARM_64)
             gen_instr_encoded(ADDR, 0xd4000001,
                               2), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR + 4, 0xd4000001,
                               2), // 0x7fcf3b9dd9eb: 0xd4000001 svc #0x0
@@ -692,27 +692,36 @@ check_rseq_side_exit_discontinuity()
 }
 
 bool
-check_timestamp_increase_monotonically(void)
+check_timestamps(void)
 {
-    // Positive test: timestamps increase monotonically.
+    // Positive test: timestamps increase.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 3),
         };
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Negative test: timestamp does not increase monotonically .
+    // Negative test: timestamp stays the same.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 5),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
         };
-        if (!run_checker(memrefs, true, 1, 3,
-                         "Timestamp does not increase monotonically"))
+        if (!run_checker(memrefs, true, 1, 3, "Timestamp does not increase"))
+            return false;
+    }
+    // Negative test: timestamp decreases.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
+        };
+        if (!run_checker(memrefs, true, 1, 3, "Timestamp does not increase"))
             return false;
     }
     return true;
@@ -725,7 +734,8 @@ main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
-        check_duplicate_syscall_with_same_pc() && check_rseq_side_exit_discontinuity()) {
+        check_duplicate_syscall_with_same_pc() && check_rseq_side_exit_discontinuity() &&
+        check_timestamps()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
