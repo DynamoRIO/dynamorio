@@ -239,8 +239,8 @@ Further non-compatibility-affecting changes include:
    with one destination and six sources.
  - Added a new label to help in handling "rseq" (Linux restartable sequence) regions:
    #DR_NOTE_RSEQ_ENTRY.
- - Added a new API for getting the offset of an instr in an instrlist that has been
-   encoded with instrlist_encode* set of APIs.
+ - Added instr_get_offset() API for getting the offset of an instr in an instrlist that
+   has been encoded with instrlist_encode* set of APIs.
 
 **************************************************
 <hr>
