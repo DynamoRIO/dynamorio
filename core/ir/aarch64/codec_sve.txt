@@ -67,6 +67,7 @@
 00000100xx000100100xxxxxxxxxxxxx  n   900  SVE     asrd  z_tszl8_bhsd_0 : p10_mrg_lo z_tszl8_bhsd_0 tszl8_imm3_5p1
 00000100xx010100100xxxxxxxxxxxxx  n   901  SVE     asrr  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_0 z_size_bhsd_5
 0110010110001010101xxxxxxxxxxxxx  n   953  BF16   bfcvt          z_h_0 : p10_mrg_lo z_s_5
+0110010010001010101xxxxxxxxxxxxx  n   1064 BF16 bfcvtnt   z_msz_bhsd_0 : z_msz_bhsd_0 p10_mrg_lo z_s_5
 01100100011xxxxx100000xxxxxxxxxx  n   954  BF16   bfdot          z_s_0 : z_s_0 z_h_5 z_h_16
 01100100011xxxxx010000xxxxxxxxxx  n   954  BF16   bfdot          z_s_0 : z_s_0 z_h_5 z3_h_16 i2_index_19
 01100100111xxxxx100000xxxxxxxxxx  n   955  BF16 bfmlalb          z_s_0 : z_s_0 z_h_5 z_h_16
@@ -646,6 +647,7 @@
 000001000110xxxx110010xxxxxxxxxx  n   843  SVE   sqdech          z_h_0 : z_h_0 pred_constr mul imm4_16p1
 00100101xx1010101000110xxxxxxxxx  n   824  SVE   sqdecp             x0 : x0 p_size_bhsd_5
 00100101xx1010101000000xxxxxxxxx  n   824  SVE   sqdecp   z_size_hsd_0 : z_size_hsd_0 p_size_hsd_5
+00100101xx1010101000100xxxxxxxxx  n   824  SVE   sqdecp             x0 : p_size_bhsd_5 w0
 000001001010xxxx111110xxxxxxxxxx  n   854  SVE   sqdecw             x0 : w0 pred_constr mul imm4_16p1
 000001001011xxxx111110xxxxxxxxxx  n   854  SVE   sqdecw             x0 : x0 pred_constr mul imm4_16p1
 000001001010xxxx110010xxxxxxxxxx  n   854  SVE   sqdecw          z_s_0 : z_s_0 pred_constr mul imm4_16p1
