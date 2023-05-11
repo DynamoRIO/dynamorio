@@ -342,6 +342,11 @@ add_executable(record_filter_launcher
 target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter)
 use_DynamoRIO_extension(record_filter_launcher droption)
 
+add_executable(scheduler_launcher tests/scheduler_launcher.cpp)
+target_link_libraries(scheduler_launcher drmemtrace_analyzer drfrontendlib)
+use_DynamoRIO_extension(scheduler_launcher droption)
+add_dependencies(scheduler_launcher api_headers)
+
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
 set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir
@@ -373,6 +378,7 @@ target_link_libraries(drmemtrace_analyzer ${zlib_libs})
 if (NOT AARCH64 AND NOT APPLE)
   target_link_libraries(opcode_mix_launcher ${zlib_libs})
 endif ()
+target_link_libraries(scheduler_launcher ${zlib_libs})
 
 macro(add_drmemtrace name type)
   if (${type} STREQUAL "STATIC")
@@ -480,6 +486,7 @@ restore_nonclient_flags(prefetch_analyzer_launcher)
 if (NOT AARCH64 AND NOT APPLE)
   restore_nonclient_flags(opcode_mix_launcher)
 endif ()
+restore_nonclient_flags(scheduler_launcher)
 restore_nonclient_flags(drmemtrace_simulator)
 restore_nonclient_flags(drmemtrace_reuse_distance)
 restore_nonclient_flags(drmemtrace_histogram)
@@ -534,6 +541,7 @@ add_win32_flags(drmemtrace_raw2trace)
 if (NOT AARCH64 AND NOT APPLE)
   add_win32_flags(opcode_mix_launcher)
 endif ()
+add_win32_flags(scheduler_launcher)
 add_win32_flags(drmemtrace_simulator)
 add_win32_flags(drmemtrace_reuse_distance)
 add_win32_flags(drmemtrace_histogram)
