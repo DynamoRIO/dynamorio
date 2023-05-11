@@ -346,6 +346,13 @@ add_executable(scheduler_launcher tests/scheduler_launcher.cpp)
 target_link_libraries(scheduler_launcher drmemtrace_analyzer drfrontendlib)
 use_DynamoRIO_extension(scheduler_launcher droption)
 add_dependencies(scheduler_launcher api_headers)
+# Simple test to ensure this launcher keeps working.
+if (X86 AND X64 AND ZIP_FOUND)
+  set(trace_dir
+    "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+  add_test(NAME tool.scheduler_launcher
+    COMMAND scheduler_launcher -trace_dir ${trace_dir})
+endif ()
 
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
