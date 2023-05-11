@@ -346,6 +346,13 @@ add_executable(scheduler_launcher tests/scheduler_launcher.cpp)
 target_link_libraries(scheduler_launcher drmemtrace_analyzer drfrontendlib)
 use_DynamoRIO_extension(scheduler_launcher droption)
 add_dependencies(scheduler_launcher api_headers)
+# Simple test to ensure this launcher keeps working.
+if (X86 AND X64 AND ZIP_FOUND)
+  set(trace_dir
+    "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+  add_test(NAME tool.scheduler_launcher
+    COMMAND scheduler_launcher -trace_dir ${trace_dir})
+endif ()
 
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
@@ -695,10 +702,11 @@ if (BUILD_TESTS)
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
 
   # XXX i#5675: add tests for other environments. Currently, the repository does not have
-  # a checked-in post-processed trace for x86-32 or AArchXX.
+  # a checked-in post-processed trace for x86-32 or AArchXX.  We are also limited to
+  # the old format due to missing zip support so we can't use the new threadsig.x64.
   if (X86 AND X64 AND ZLIB_FOUND)
     set(trace_dir
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.legacy-for-record-filter.x64.tracedir")
     set(tmp_output_dir ${PROJECT_BINARY_DIR}/record_filter_tests_tmp_output)
     file(MAKE_DIRECTORY ${tmp_output_dir})
     add_executable(tool.drcacheoff.record_filter_unit_tests

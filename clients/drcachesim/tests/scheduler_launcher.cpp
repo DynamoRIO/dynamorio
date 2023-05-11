@@ -45,7 +45,7 @@
 #include "droption.h"
 #include "dr_frontend.h"
 #include "scheduler.h"
-#ifdef HAS_ZLIB
+#ifdef HAS_ZIP
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
 #endif
@@ -66,7 +66,7 @@ droption_t<std::string>
                  "[Required] Trace input directory",
                  "Specifies the directory containing the trace files to be analyzed.");
 
-droption_t<int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64, "Verbosity level",
+droption_t<int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 1, 0, 64, "Verbosity level",
                            "Verbosity level for notifications.");
 
 droption_t<int> op_num_cores(DROPTION_SCOPE_ALL, "num_cores", 4, 0, 8192,
@@ -76,7 +76,7 @@ droption_t<int64_t> op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 10
                                      "Scheduling quantum in instructions",
                                      "Scheduling quantum in instructions");
 
-#ifdef HAS_ZLIB
+#ifdef HAS_ZIP
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
                                        "Path for storing record of schedule",
                                        "Path for storing record of schedule.");
@@ -104,7 +104,7 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
             thread_sequence.push_back(record.instr.tid);
         if (record.instr.tid != prev_tid) {
             thread_sequence.push_back(record.instr.tid);
-            if (op_verbose.get_value() > 1) {
+            if (op_verbose.get_value() > 0) {
                 std::ostringstream line;
                 line
                     << "Core #" << ordinal << " @" << stream->get_record_ordinal()
@@ -151,14 +151,13 @@ _tmain(int argc, const TCHAR *targv[])
         scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
         scheduler_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
     sched_ops.quantum_duration = op_sched_quantum.get_value();
-#ifdef HAS_ZLIB
+#ifdef HAS_ZIP
     std::unique_ptr<zipfile_ostream_t> record_zip;
     std::unique_ptr<zipfile_istream_t> replay_zip;
     if (!op_record_file.get_value().empty()) {
         record_zip.reset(new zipfile_ostream_t(op_record_file.get_value()));
         sched_ops.schedule_record_ostream = record_zip.get();
-    }
-    if (!op_replay_file.get_value().empty()) {
+    } else if (!op_replay_file.get_value().empty()) {
         replay_zip.reset(new zipfile_istream_t(op_replay_file.get_value()));
         sched_ops.schedule_replay_istream = replay_zip.get();
         sched_ops.mapping = scheduler_t::MAP_AS_PREVIOUSLY;
@@ -188,7 +187,7 @@ _tmain(int argc, const TCHAR *targv[])
         std::cerr << "\n";
     }
 
-#ifdef HAS_ZLIB
+#ifdef HAS_ZIP
     if (!op_record_file.get_value().empty()) {
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS) {
             FATAL_ERROR("Failed to write schedule to %s",

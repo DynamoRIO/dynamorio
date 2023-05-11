@@ -702,8 +702,8 @@ test_real_file_queries_and_filters(const char *testdir)
     static constexpr memref_tid_t TID_1_A = 23699;
     std::string trace2 = std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir";
     // This trace has many threads: we pick 2 of the smallest.
-    static constexpr memref_tid_t TID_2_A = 10507;
-    static constexpr memref_tid_t TID_2_B = 10508;
+    static constexpr memref_tid_t TID_2_A = 3018559;
+    static constexpr memref_tid_t TID_2_B = 3018555;
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(trace1);
@@ -735,13 +735,13 @@ test_real_file_queries_and_filters(const char *testdir)
            "chase.20190225.185346.23699.memtrace.sz");
     // These could be in any order (dir listing determines that).
     assert(scheduler.get_input_stream_name(1) ==
-               "drmemtrace.threadsig.10507.6178.trace.gz" ||
+               "drmemtrace.threadsig.3018559.5319.trace.zip" ||
            scheduler.get_input_stream_name(1) ==
-               "drmemtrace.threadsig.10508.1635.trace.gz");
+               "drmemtrace.threadsig.3018555.0775.trace.zip");
     assert(scheduler.get_input_stream_name(2) ==
-               "drmemtrace.threadsig.10507.6178.trace.gz" ||
+               "drmemtrace.threadsig.3018559.5319.trace.zip" ||
            scheduler.get_input_stream_name(2) ==
-               "drmemtrace.threadsig.10508.1635.trace.gz");
+               "drmemtrace.threadsig.3018555.0775.trace.zip");
     // Ensure all tids were seen.
     assert(tids_seen.size() == 3);
     assert(tids_seen.find(TID_1_A) != tids_seen.end() &&
