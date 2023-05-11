@@ -45,8 +45,10 @@
 #include "droption.h"
 #include "dr_frontend.h"
 #include "scheduler.h"
-#include "zipfile_istream.h"
-#include "zipfile_ostream.h"
+#ifdef HAS_ZLIB
+#    include "zipfile_istream.h"
+#    include "zipfile_ostream.h"
+#endif
 
 using namespace dynamorio::drmemtrace;
 
@@ -74,6 +76,7 @@ droption_t<int64_t> op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 10
                                      "Scheduling quantum in instructions",
                                      "Scheduling quantum in instructions");
 
+#ifdef HAS_ZLIB
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
                                        "Path for storing record of schedule",
                                        "Path for storing record of schedule.");
@@ -81,6 +84,7 @@ droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "
 droption_t<std::string> op_replay_file(DROPTION_SCOPE_FRONTEND, "replay_file", "",
                                        "Path with stored schedule for replay",
                                        "Path with stored schedule for replay.");
+#endif
 
 void
 simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &scheduler,
@@ -147,6 +151,7 @@ _tmain(int argc, const TCHAR *targv[])
         scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
         scheduler_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
     sched_ops.quantum_duration = op_sched_quantum.get_value();
+#ifdef HAS_ZLIB
     std::unique_ptr<zipfile_ostream_t> record_zip;
     std::unique_ptr<zipfile_istream_t> replay_zip;
     if (!op_record_file.get_value().empty()) {
@@ -158,6 +163,7 @@ _tmain(int argc, const TCHAR *targv[])
         sched_ops.schedule_replay_istream = replay_zip.get();
         sched_ops.mapping = scheduler_t::MAP_AS_PREVIOUSLY;
     }
+#endif
     if (scheduler.init(sched_inputs, op_num_cores.get_value(), sched_ops) !=
         scheduler_t::STATUS_SUCCESS) {
         FATAL_ERROR("failed to initialize scheduler: %s",
@@ -182,12 +188,14 @@ _tmain(int argc, const TCHAR *targv[])
         std::cerr << "\n";
     }
 
+#ifdef HAS_ZLIB
     if (!op_record_file.get_value().empty()) {
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS) {
             FATAL_ERROR("Failed to write schedule to %s",
                         op_record_file.get_value().c_str());
         }
     }
+#endif
 
     return 0;
 }
