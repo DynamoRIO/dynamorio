@@ -687,10 +687,11 @@ if (BUILD_TESTS)
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
 
   # XXX i#5675: add tests for other environments. Currently, the repository does not have
-  # a checked-in post-processed trace for x86-32 or AArchXX.
+  # a checked-in post-processed trace for x86-32 or AArchXX.  We are also limited to
+  # the old format due to missing zip support so we can't use the new threadsig.x64.
   if (X86 AND X64 AND ZLIB_FOUND)
     set(trace_dir
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.legacy-for-record-filter.x64.tracedir")
     set(tmp_output_dir ${PROJECT_BINARY_DIR}/record_filter_tests_tmp_output)
     file(MAKE_DIRECTORY ${tmp_output_dir})
     add_executable(tool.drcacheoff.record_filter_unit_tests
