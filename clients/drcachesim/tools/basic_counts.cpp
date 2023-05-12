@@ -247,10 +247,8 @@ basic_counts_t::print_results()
 {
     counters_t total;
     uintptr_t num_windows = 1;
-    size_t num_intervals = 0;
     for (const auto &shard : shard_map_) {
         num_windows = std::max(num_windows, shard.second->counters.size());
-        num_intervals = std::max(num_intervals, shard.second->interval_ids.size());
     }
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
@@ -261,21 +259,7 @@ basic_counts_t::print_results()
     std::cerr << "Total counts:\n";
     print_counters(total, shard_map_.size(), " total");
 
-    if (num_intervals > 0 && shard_map_.size() == 1) {
-        // We print per-interval counts only for serial analysis and parallel with a
-        // single shard.
-        // XXX: for parallel with multiple shards, we could merge the results based on
-        // timestamp.
-        auto shard = shard_map_.begin()->second;
-        for (size_t i = 0; i < shard->interval_ids.size(); ++i) {
-            std::cerr << "Interval " << shard->interval_ids[i] << " delta:\n";
-            print_counters(shard->per_interval_delta[i], 0, " interval delta");
-        }
-        for (size_t i = 0; i < shard->interval_ids.size(); ++i) {
-            std::cerr << "Interval " << shard->interval_ids[i] << " cumulative:\n";
-            print_counters(shard->per_interval_cumulative[i], 0, " interval cumulative");
-        }
-    } else if (num_windows > 1) {
+    if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";
         for (uintptr_t i = 0; i < num_windows; ++i) {
             std::cerr << "Window #" << i << ":\n";
@@ -313,46 +297,60 @@ basic_counts_t::get_total_counts()
     return total;
 }
 
-void
-basic_counts_t::compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id)
+analysis_tool_t::interval_state_snapshot_t *
+basic_counts_t::generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id)
 {
-    counters_t shard_total;
-    for (const auto &ctr : shard->counters) {
-        shard_total += ctr;
+    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    count_snapshot_t *snapshot = new count_snapshot_t;
+    for (const auto &ctr : per_shard->counters) {
+        snapshot->counters += ctr;
     }
-    counters_t diff = shard_total;
-    if (!shard->per_interval_cumulative.empty()) {
-        diff -= shard->per_interval_cumulative.back();
+    return snapshot;
+}
+
+analysis_tool_t::interval_state_snapshot_t *
+basic_counts_t::generate_interval_snapshot(uint64_t interval_id)
+{
+    count_snapshot_t *snapshot = new count_snapshot_t;
+    for (const auto &shard : shard_map_) {
+        for (const auto &ctr : shard.second->counters) {
+            snapshot->counters += ctr;
+        }
     }
-    shard->interval_ids.push_back(interval_id);
-    shard->per_interval_delta.push_back(diff);
-    shard->per_interval_cumulative.push_back(shard_total);
+    return snapshot;
+}
+
+analysis_tool_t::interval_state_snapshot_t *
+basic_counts_t::combine_interval_snapshot(analysis_tool_t::interval_state_snapshot_t *one,
+                                          analysis_tool_t::interval_state_snapshot_t *two)
+{
+    count_snapshot_t *result = new count_snapshot_t;
+    *result = *dynamic_cast<count_snapshot_t *>(one);
+    result->counters += dynamic_cast<count_snapshot_t *>(two)->counters;
+    return result;
 }
 
 bool
-basic_counts_t::generate_shard_interval_result(void *shard_data, uint64_t interval_id)
+basic_counts_t::print_interval_results(
+    const std::vector<interval_state_snapshot_t *> &snapshots)
 {
-    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-    compute_shard_interval_result(per_shard, interval_id);
-    counters_t delta = per_shard->per_interval_delta.back();
-    counters_t cumulative = per_shard->per_interval_cumulative.back();
-    std::cerr << "[heartbeat] Interval " << interval_id << " in TID " << per_shard->tid
-              << ": instrs delta = " << delta.instrs
-              << ", cumulative = " << cumulative.instrs << "\n";
+    std::cerr << "Interval total counts:\n";
+    counters_t last;
+    for (const auto &snapshot_base : snapshots) {
+        auto *snapshot = dynamic_cast<count_snapshot_t *>(snapshot_base);
+        counters_t diff = snapshot->counters;
+        diff -= last;
+        last = snapshot->counters;
+        std::cerr << "Interval " << snapshot->interval_id_ << ":\n";
+        print_counters(diff, 0, " interval delta");
+    }
     return true;
 }
 
 bool
-basic_counts_t::generate_interval_result(uint64_t interval_id)
+basic_counts_t::release_interval_snapshot(
+    analysis_tool_t::interval_state_snapshot_t *snapshot)
 {
-    counters_t delta_sum, cumulative_sum;
-    for (auto &shard : shard_map_) {
-        compute_shard_interval_result(shard.second, interval_id);
-        delta_sum += shard.second->per_interval_delta.back();
-        cumulative_sum += shard.second->per_interval_cumulative.back();
-    }
-    std::cerr << "[heartbeat] Interval " << interval_id
-              << ": instrs delta = " << delta_sum.instrs
-              << ", cumulative = " << cumulative_sum.instrs << "\n";
+    delete snapshot;
     return true;
 }

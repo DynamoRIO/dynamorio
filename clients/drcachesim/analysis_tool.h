@@ -47,6 +47,7 @@
 #include "memtrace_stream.h"
 #include "trace_entry.h"
 #include <string>
+#include <vector>
 
 /**
  * The base class for a tool that analyzes a trace.  A new tool should subclass this
@@ -156,24 +157,95 @@ public:
      */
     virtual bool
     print_results() = 0;
+
+    /**
+     * Struct that stores details of a tool's state snapshot at an interval. This is
+     * useful for computing and combining interval results. Tools should inherit from
+     * this struct to define their own state snapshot structs.
+     */
+    struct interval_state_snapshot_t {
+        interval_state_snapshot_t(int shard_id, uint64_t interval_id,
+                                  uint64_t last_timestamp)
+            : shard_id_(shard_id)
+            , interval_id_(interval_id)
+            , last_timestamp_(last_timestamp)
+        {
+        }
+        interval_state_snapshot_t()
+            : shard_id_(0)
+            , interval_id_(0)
+            , last_timestamp_(0)
+        {
+        }
+
+        int shard_id_;
+        uint64_t interval_id_;
+        uint64_t last_timestamp_;
+
+        virtual ~interval_state_snapshot_t() = default;
+    };
     /**
      * Notifies the analysis tool that the given trace \p interval_id has ended so
-     * that it can generate the result for that interval. The return value indicates
-     * whether it was successful.
+     * that it can generate and return a pointer to the state snapshot for that
+     * interval.
      *
-     * \p interval_id is the ordinal of the trace interval. Each trace interval has
-     * a length equal to the \p -interval_microseconds specified to the
-     * framework. Trace intervals are measured using the value of the
+     * \p interval_id is the ordinal of the trace interval that just ended. Trace
+     * intervals have a length equal to the \p -interval_microseconds specified
+     * to the framework. Trace intervals are measured using the value of the
      * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,
      * i.e. the tool may not see some \p interval_id if the trace does not have
      * any activity in those trace intervals.
      *
+     * The returned \p interval_state_snapshot_t* will be passed to the
+     * combine_interval_snapshot() API which is invoked by the framework to merge
+     * multiple \p interval_state_snapshot_t* from different shards in the parallel
+     * mode of the analyzer.
+     *
+     * Finally, the print_interval_result() API is invoked with a list of
+     * \p interval_state_snapshot_t* for the overall trace.
+     *
+     * The tool must not de-allocate the state snapshot until release_state_snapshot()
+     * is invoked by the framework.
+     *
      * An example use case of this API is to create a time series of some output
      * metric over the whole trace.
      */
+    virtual interval_state_snapshot_t *
+    generate_interval_snapshot(uint64_t interval_id)
+    {
+        return nullptr;
+    }
+    /**
+     * Invoked by the framework to combine the two \p interval_state_snapshot_t
+     * objects pointed by the given inputs.
+     */
+    virtual interval_state_snapshot_t *
+    combine_interval_snapshot(interval_state_snapshot_t *one,
+                              interval_state_snapshot_t *two)
+    {
+        return nullptr;
+    }
+    /**
+     * Prints the interval results for the whole trace (not per-shard). The
+     * state snapshots for each interval can be found using the given
+     * \p state_snapshots vector.
+     */
     virtual bool
-    generate_interval_result(uint64_t interval_id)
+    print_interval_results(
+        const std::vector<interval_state_snapshot_t *> &state_snapshots)
+    {
+        return true;
+    }
+
+    /**
+     * Notifies the tool that the \p interval_state_snapshot_t object pointed to
+     * by \p interval_snapshot is no longer needed by the framework. The tool may
+     * de-allocate it right away or later, as it needs. Returns whether it was
+     * successful.
+     */
+    virtual bool
+    release_interval_snapshot(interval_state_snapshot_t *interval_snapshot)
     {
         return true;
     }
@@ -275,26 +347,36 @@ public:
         return "";
     }
     /**
-     * Notifies the analysis tool that the given trace \p interval_id in the
-     * shard represented by the given \p shard_data has ended so that it can
-     * generate the result for that interval. The return value indicates
-     * whether it was successful.
+     * Notifies the analysis tool that the given trace \p interval_id has ended in
+     * the given \p shard_id so that it can generate and return a pointer to the
+     * state snapshot for that interval.
      *
-     * \p interval_id is the ordinal of the trace interval in the given shard.
-     * Each trace interval has a length equal to the \p -interval_microseconds
-     * specified to the framework. Trace intervals are measured using the value
-     * of the #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
+     * \p interval_id is the ordinal of the trace interval that just ended. Trace
+     * intervals have a length equal to the \p -interval_microseconds specified
+     * to the framework. Trace intervals are measured using the value of the
+     * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,
-     * i.e. the tool may not see some \p interval_id if the trace shard did not
-     * have any activity in that interval.
+     * i.e. the tool may not see some \p interval_id if the trace does not have
+     * any activity in those trace intervals.
      *
-     * An example use case of this API is to create a time series of some
-     * output metric over each trace shard.
+     * The returned \p interval_state_snapshot_t* will be passed to the
+     * combine_interval_snapshot() API which is invoked by the framework to merge
+     * multiple \p interval_state_snapshot_t* from different shards in the parallel
+     * mode of the analyzer.
+     *
+     * Finally, the print_interval_result() API is invoked with a list of
+     * \p interval_state_snapshot_t* for the overall trace.
+     *
+     * The tool must not de-allocate the state snapshot until release_state_snapshot()
+     * is invoked by the framework.
+     *
+     * An example use case of this API is to create a time series of some output
+     * metric over the whole trace.
      */
-    virtual bool
-    generate_shard_interval_result(void *shard_data, uint64_t interval_id)
+    virtual interval_state_snapshot_t *
+    generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id)
     {
-        return true;
+        return nullptr;
     }
 
 protected:

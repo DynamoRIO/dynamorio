@@ -45,6 +45,7 @@
 
 #include <iterator>
 #include <memory>
+#include <queue>
 #include <string>
 #include <vector>
 #include "analysis_tool.h"
@@ -115,20 +116,37 @@ public:
 protected:
     typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
 
+    // Tool data for one shard.
+    struct analyzer_tool_shard_data_t {
+        analyzer_tool_shard_data_t()
+            : shard_data_(nullptr)
+        {
+        }
+        analyzer_tool_shard_data_t(analyzer_tool_shard_data_t &&src)
+        {
+            shard_data_ = src.shard_data_;
+            interval_snapshot_data_ = std::move(interval_snapshot_data_);
+        }
+
+        void *shard_data_;
+        std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
+            interval_snapshot_data_;
+    };
+
     // Data for one trace shard.
     struct analyzer_shard_data_t {
         analyzer_shard_data_t()
-            : cur_interval_index(0)
+            : cur_interval_index_(0)
         {
         }
         analyzer_shard_data_t(analyzer_shard_data_t &&src)
         {
-            cur_interval_index = src.cur_interval_index;
-            tool_data = std::move(tool_data);
+            cur_interval_index_ = src.cur_interval_index_;
+            tool_data_ = std::move(tool_data_);
         }
 
-        uint64_t cur_interval_index;
-        std::vector<void *> tool_data;
+        uint64_t cur_interval_index_;
+        std::vector<analyzer_tool_shard_data_t> tool_data_;
     };
 
     // Data for one worker thread.  Our concurrency model has each input shard
@@ -137,7 +155,6 @@ protected:
         analyzer_worker_data_t(int index, typename sched_type_t::stream_t *stream)
             : index(index)
             , stream(stream)
-            , shard_data()
         {
         }
         analyzer_worker_data_t(analyzer_worker_data_t &&src)
@@ -190,13 +207,14 @@ protected:
     // Invoked when the given interval finishes during serial analysis of the
     // trace.
     virtual bool
-    process_interval(uint64_t interval_id, analyzer_worker_data_t *worker);
+    process_interval(uint64_t interval_id, analyzer_shard_data_t *shard,
+                     analyzer_worker_data_t *worker);
 
     // Invoked when the given interval finishes in the given shard during
     // parallel analysis of the trace.
     virtual bool
     process_shard_interval(int shard_id, uint64_t interval_id,
-                           analyzer_worker_data_t *worker);
+                           analyzer_shard_data_t *shard, analyzer_worker_data_t *worker);
 
     // Possibly advances the current interval id stored in the worker data, based
     // on the most recent seen timestamp in the trace stream. Returns whether the
@@ -208,6 +226,17 @@ protected:
         analyzer_shard_data_t *analyzer_shard_data, const RecordType &record,
         uint64_t &prev_interval_index);
 
+    // Computes and stores the interval results in merged_interval_snapshots_. For
+    // serial analysis where we already have only a single shard, this involves
+    // simply copying interval_state_snapshot_t* from the input. For parallel
+    // analysis, this involves merging results from multiple shards for intervals
+    // that map to the same output interval.
+    void
+    merge_shard_interval_results(
+        std::unordered_map<int,
+                           std::vector<std::queue<typename analysis_tool_tmpl_t<
+                               RecordType>::interval_state_snapshot_t *>>> &intervals);
+
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
     std::string error_string_;
@@ -216,6 +245,10 @@ protected:
     std::vector<analyzer_worker_data_t> worker_data_;
     int num_tools_;
     analysis_tool_tmpl_t<RecordType> **tools_;
+    std::unordered_map<int,
+                       std::vector<typename analysis_tool_tmpl_t<
+                           RecordType>::interval_state_snapshot_t *>>
+        merged_interval_snapshots_;
     bool parallel_;
     int worker_count_;
     const char *output_prefix_ = "[analyzer]";

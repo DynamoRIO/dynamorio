@@ -46,10 +46,10 @@ public:
     ~basic_counts_t() override;
     bool
     process_memref(const memref_t &memref) override;
+    analysis_tool_t::interval_state_snapshot_t *
+    generate_interval_snapshot(uint64_t interval_id) override;
     bool
     print_results() override;
-    bool
-    generate_interval_result(uint64_t interval_id) override;
     bool
     parallel_shard_supported() override;
     void *
@@ -60,8 +60,16 @@ public:
     parallel_shard_memref(void *shard_data, const memref_t &memref) override;
     std::string
     parallel_shard_error(void *shard_data) override;
+    interval_state_snapshot_t *
+    generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override;
+    interval_state_snapshot_t *
+    combine_interval_snapshot(interval_state_snapshot_t *one,
+                              interval_state_snapshot_t *two) override;
     bool
-    generate_shard_interval_result(void *shard_data, uint64_t interval_id) override;
+    print_interval_results(
+        const std::vector<interval_state_snapshot_t *> &state_snapshots) override;
+    bool
+    release_interval_snapshot(interval_state_snapshot_t *interval_snapshot) override;
 
     // i#3068: We use the following struct to also export the counters.
     struct counters_t {
@@ -175,15 +183,11 @@ protected:
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
-
-        // Record list of interval ids observed.
-        std::vector<uint64_t> interval_ids;
-        // Record deltas of counters seen in each trace interval.
-        std::vector<counters_t> per_interval_delta;
-        // Record cumulative counter values seen in each trace interval.
-        std::vector<counters_t> per_interval_cumulative;
     };
-
+    // Records a snapshot of counts as they were at an interval.
+    struct count_snapshot_t : public interval_state_snapshot_t {
+        counters_t counters;
+    };
     static bool
     cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
                 const std::pair<memref_tid_t, per_shard_t *> &r);
