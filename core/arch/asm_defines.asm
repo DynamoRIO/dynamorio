@@ -130,8 +130,6 @@ add reg, reg, sym@PAGEOFF
 adrp reg, sym@PAGE @N@ \
 add  reg, reg, sym@PAGEOFF
 
-#  define SYSNUM_REG w16
-
 # else
 
 #  define DECLARE_FUNC(symbol) \
@@ -159,8 +157,6 @@ add reg, reg, @P@:lo12:sym
 #  define AARCH64_ADRP_GOT_LDR(sym, reg) \
 adrp reg, :got:sym @N@ \
 ldr  reg, [reg, @P@:got_lo12:sym]
-
-#  define SYSNUM_REG w8
 
 # endif
 
@@ -377,6 +373,11 @@ ASSUME fs:_DATA @N@\
 # define REG_R11 x11
 # define REG_R12 x12
 /* skip [x13..x30], not available on AArch32 */
+#  if defined(MACOS)
+#   define SYSNUM_REG w16
+#  else
+#   define SYSNUM_REG w8
+#  endif /* MACOS */
 #elif defined(RISCV64)
 # define REG_SP   sp
 # define REG_R0   x0
