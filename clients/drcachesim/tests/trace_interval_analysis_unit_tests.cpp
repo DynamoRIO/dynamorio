@@ -271,8 +271,7 @@ public:
         if (shard->shard_id_ == kInvalidTid)
             shard->shard_id_ = memref.data.tid;
         else if (shard->shard_id_ != memref.data.tid) {
-            FATAL_ERROR("Unexpected TID in memref %d %d", shard->shard_id_,
-                        memref.data.tid);
+            FATAL_ERROR("Unexpected TID in memref");
         }
         return true;
     }

@@ -705,7 +705,7 @@ if (BUILD_TESTS)
                  tests/trace_interval_analysis_unit_tests.cpp)
   add_win32_flags(tool.drcacheoff.trace_interval_analysis_unit_tests)
   target_link_libraries(tool.drcacheoff.trace_interval_analysis_unit_tests
-    drmemtrace_analyzer)
+    drmemtrace_analyzer drdecode)
   add_test(NAME tool.drcacheoff.trace_interval_analysis_unit_tests
            COMMAND tool.drcacheoff.trace_interval_analysis_unit_tests)
 
