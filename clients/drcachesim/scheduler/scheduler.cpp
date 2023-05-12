@@ -672,7 +672,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_recorded_schedule()
     // See if there was more data in the file (we do this after reading to not
     // mis-report i/o or path errors as this error).
     std::string err = options_.schedule_replay_istream->open_component(
-        recorded_schedule_component_name(outputs_.size()));
+        recorded_schedule_component_name(static_cast<output_ordinal_t>(outputs_.size())));
     if (err.empty()) {
         error_string_ = "Not enough output streams for recorded file";
         return STATUS_ERROR_INVALID_PARAMETER;
