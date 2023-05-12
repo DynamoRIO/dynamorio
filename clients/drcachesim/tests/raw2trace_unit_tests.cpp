@@ -33,6 +33,7 @@
 /* Unit tests for raw2trace. */
 
 #include "dr_api.h"
+#include "memref_gen.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
 #include <iostream>
@@ -54,19 +55,6 @@
             return false;             \
         }                             \
     } while (0)
-
-#ifdef X86
-#    define REG1 DR_REG_XAX
-#    define REG2 DR_REG_XDX
-#elif defined(AARCHXX)
-#    define REG1 DR_REG_R0
-#    define REG2 DR_REG_R1
-#elif defined(RISCV64)
-#    define REG1 DR_REG_A0
-#    define REG2 DR_REG_A1
-#else
-#    error Unsupported arch
-#endif
 
 // Module mapper for testing different module bounds but without encodings.
 class test_multi_module_mapper_t : public module_mapper_t {
