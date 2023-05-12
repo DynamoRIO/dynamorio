@@ -458,13 +458,13 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
     assert(merged_interval_snapshots_.empty());
     // Used to recompute the interval_id for the result intervals, which are numbered by
     // the earliest shard's timestamp.
-    uint64_t earliest_ever_interval_end_timestamp = UINT64_MAX;
+    uint64_t earliest_ever_interval_end_timestamp = std::numeric_limits<uint64_t>::max();
     // All tools process the same number of shards.
     size_t shard_count = intervals.begin()->second.size();
     bool any_shard_has_results_left = true;
     while (any_shard_has_results_left) {
         // Look for the earliest interval timestamp.
-        uint64_t earliest_interval_end_timestamp = UINT64_MAX;
+        uint64_t earliest_interval_end_timestamp = std::numeric_limits<uint64_t>::max();
         for (size_t shard_idx = 0; shard_idx < shard_count; ++shard_idx) {
             // We simply check an arbitrary tool's interval_state_snapshot_t queue fronts.
             // For the same shard, all tools will have the same intervals.
@@ -477,7 +477,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
                 earliest_ever_interval_end_timestamp, earliest_interval_end_timestamp);
         }
         // We're done if no shard has any interval left.
-        if (earliest_interval_end_timestamp == UINT64_MAX) {
+        if (earliest_interval_end_timestamp == std::numeric_limits<uint64_t>::max()) {
             any_shard_has_results_left = false;
             continue;
         }
