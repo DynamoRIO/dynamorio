@@ -49,6 +49,7 @@
 #include "droption.h"
 #include "intel-pt.h"
 #include "pt2ir.h"
+#include "ir2trace.h"
 #include "trace_entry.h"
 
 #define CLIENT_NAME "drpt2trace"
@@ -247,7 +248,7 @@ public:
  */
 
 static void
-print_results(IN drir_t &drir)
+print_results(IN drir_t &drir, IN std::vector<trace_entry_t> &entries)
 {
     if (drir.get_ilist() == nullptr) {
         std::cerr << "The list to store decoded instructions is not initialized."
@@ -266,6 +267,7 @@ print_results(IN drir_t &drir)
         instr = instr_get_next(instr);
     }
     std::cout << "Number of Instructions: " << count << std::endl;
+    std::cout << "Number of Trace Entries: " << entries.size() << std::endl;
 }
 
 /****************************************************************************
@@ -547,8 +549,18 @@ main(int argc, const char *argv[])
         return FAILURE;
     }
 
-    /* Print the count and the disassemble code of DR IR. */
-    print_results(drir);
+    /* Convert the DR IR to trace entries. */
+    std::vector<trace_entry_t> entries;
+    ir2trace_convert_status_t ir2trace_convert_status =
+        ir2trace_t::convert(drir, entries);
+    if (ir2trace_convert_status != IR2TRACE_CONV_SUCCESS) {
+        std::cerr << CLIENT_NAME << ": failed to convert DR IR to trace entries."
+                  << "[error status: " << ir2trace_convert_status << "]" << std::endl;
+        return FAILURE;
+    }
+
+    /* Print the disassemble code of instructions and the trace entries count. */
+    print_results(drir, entries);
 
     return SUCCESS;
 }
