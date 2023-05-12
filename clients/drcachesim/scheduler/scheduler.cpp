@@ -778,12 +778,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                     +toadd.key.input, +toadd.start_instruction,
                     +all_sched[i][j].stop_instruction, +toadd.timestamp);
                 start_consec = -1;
-                auto &added = outputs_[i].record.back();
-                VPRINT(this, 3,
-                       "segment #%zu: input=%d start=%" PRId64 " stop=%" PRId64
-                       " time=%" PRId64 "\n",
-                       outputs_[i].record.size() - 1, added.key.input,
-                       added.start_instruction, added.stop_instruction, added.timestamp);
+                VDO(this, 3, {
+                    auto &added = outputs_[i].record.back();
+                    VPRINT(this, 3,
+                           "segment #%zu: input=%d start=%" PRId64 " stop=%" PRId64
+                           " time=%" PRId64 "\n",
+                           outputs_[i].record.size() - 1, added.key.input,
+                           added.start_instruction, added.stop_instruction,
+                           added.timestamp);
+                });
             }
         }
         VPRINT(this, 1, "Collapsed duplicates for %zu as-traced records for output #%d\n",
