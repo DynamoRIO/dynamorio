@@ -65,6 +65,9 @@ enum ir2trace_convert_status_t {
     IR2TRACE_CONV_ERROR_INVALID_PARAMETER
 };
 
+/**
+ * ir2trace_t is a class that can convert DynamoRIO's IR format to trace entries.
+ */
 class ir2trace_t {
 public:
     ir2trace_t()

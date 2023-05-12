@@ -30,8 +30,11 @@
  * DAMAGE.
  */
 
+#include "../common/utils.h"
 #include "ir2trace.h"
 #include "dr_api.h"
+
+#define ERRMSG_HEADER "[drpt2ir] "
 
 ir2trace_convert_status_t
 ir2trace_t::convert(IN drir_t &drir, OUT std::vector<trace_entry_t> &trace)
@@ -43,7 +46,12 @@ ir2trace_t::convert(IN drir_t &drir, OUT std::vector<trace_entry_t> &trace)
     while (instr != NULL) {
         trace_entry_t entry = {};
 
-        /* Obtain the specific type of instruction. */
+        /* Obtain the specific type of instruction.
+         * TODO i#5505: The following code shares similarities with
+         * instru_t::instr_to_instr_type(). After successfully linking the drir2trace
+         * library to raw2trace, the redundancy should be eliminated by removing the
+         * subsequent code.
+         */
         entry.type = TRACE_TYPE_INSTR;
         if (instr_opcode_valid(instr)) {
             if (instr_is_call_direct(instr)) {
@@ -63,6 +71,10 @@ ir2trace_t::convert(IN drir_t &drir, OUT std::vector<trace_entry_t> &trace)
             } else if (instr_is_rep_string_op(instr)) {
                 entry.type = TRACE_TYPE_INSTR_MAYBE_FETCH;
             }
+        } else {
+#ifdef DEBUG
+            ERRMSG(ERRMSG_HEADER "Try to convert an invalid instruction.\n");
+#endif
         }
 
         entry.size = instr_length(GLOBAL_DCONTEXT, instr);
