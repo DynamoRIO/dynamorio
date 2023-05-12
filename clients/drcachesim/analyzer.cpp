@@ -570,7 +570,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
             all_intervals;
         for (const auto &worker : worker_data_) {
             for (const auto &shard_data : worker.shard_data) {
-                for (size_t tool_idx = 0; tool_idx < shard_data.second.tool_data_.size();
+                for (int tool_idx = 0;
+                     tool_idx < static_cast<int>(shard_data.second.tool_data_.size());
                      ++tool_idx) {
                     if (shard_data.second.tool_data_[tool_idx]
                             .interval_snapshot_data_.empty())
