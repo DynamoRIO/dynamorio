@@ -237,9 +237,9 @@ protected:
     // that map to the same output interval.
     bool
     merge_shard_interval_results(
-        std::unordered_map<int,
-                           std::vector<std::queue<typename analysis_tool_tmpl_t<
-                               RecordType>::interval_state_snapshot_t *>>> &intervals);
+        std::vector<std::vector<std::queue<
+            typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>>
+            &intervals);
 
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
@@ -252,11 +252,10 @@ protected:
     // Stores the interval state snapshots for the whole trace, which for the parallel
     // mode are the resulting interval state snapshots after merging from all shards
     // in merge_shard_interval_results.
-    // merged_interval_snapshots_[tool_idx][shard_idx] is a vector of the interval
-    // snapshots (in order of the intervals) for that tool and shard.
-    std::unordered_map<int,
-                       std::vector<typename analysis_tool_tmpl_t<
-                           RecordType>::interval_state_snapshot_t *>>
+    // merged_interval_snapshots_[tool_idx] is a vector of the interval snapshots
+    // (in order of the intervals) for that tool.
+    std::vector<std::vector<
+        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
         merged_interval_snapshots_;
     bool parallel_;
     int worker_count_;
