@@ -175,6 +175,7 @@ protected:
         analyzer_worker_data_t &
         operator=(const analyzer_worker_data_t &) = delete;
     };
+
     bool
     init_scheduler(const std::string &trace_path,
                    memref_tid_t only_thread = INVALID_THREAD_ID, int verbosity = 0);
@@ -205,20 +206,23 @@ protected:
     record_is_timestamp(const RecordType &record);
 
     // Invoked when the given interval finishes during serial analysis of the
-    // trace.
+    // trace. Even though our implementation allows access to shard from the provided
+    // worker, we still provide it separately to keep the API implementation-independent.
     virtual bool
     process_interval(uint64_t interval_id, analyzer_shard_data_t *shard,
                      analyzer_worker_data_t *worker);
 
     // Invoked when the given interval finishes in the given shard during
-    // parallel analysis of the trace.
+    // parallel analysis of the trace. Even though our implementation allows access
+    // to shard from the provided worker, we still provide it separately to keep the
+    // API implementation-independent.
     virtual bool
     process_shard_interval(int shard_id, uint64_t interval_id,
                            analyzer_shard_data_t *shard, analyzer_worker_data_t *worker);
 
     // Possibly advances the current interval id stored in the worker data, based
     // on the most recent seen timestamp in the trace stream. Returns whether the
-    // current interval id was updated. Also returns the previous interval index
+    // current interval id was updated, and if so also sets the previous interval index
     // in prev_interval_index.
     bool
     advance_interval_id(
@@ -245,6 +249,11 @@ protected:
     std::vector<analyzer_worker_data_t> worker_data_;
     int num_tools_;
     analysis_tool_tmpl_t<RecordType> **tools_;
+    // Stores the interval state snapshots for the whole trace, which for the parallel
+    // mode are the resulting interval state snapshots after merging from all shards
+    // in merge_shard_interval_results.
+    // merged_interval_snapshots_[tool_idx][shard_idx] is a vector of the interval
+    // snapshots (in order of the intervals) for that tool and shard.
     std::unordered_map<int,
                        std::vector<typename analysis_tool_tmpl_t<
                            RecordType>::interval_state_snapshot_t *>>

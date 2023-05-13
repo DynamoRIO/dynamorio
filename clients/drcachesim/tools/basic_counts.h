@@ -67,9 +67,9 @@ public:
                               interval_state_snapshot_t *two) override;
     bool
     print_interval_results(
-        const std::vector<interval_state_snapshot_t *> &state_snapshots) override;
+        const std::vector<interval_state_snapshot_t *> &interval_snapshots) override;
     bool
-    release_interval_snapshot(interval_state_snapshot_t *interval_snapshot) override;
+    release_interval_snapshot(interval_state_snapshot_t *snapshot) override;
 
     // i#3068: We use the following struct to also export the counters.
     struct counters_t {

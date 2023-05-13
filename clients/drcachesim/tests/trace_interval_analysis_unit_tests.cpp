@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* Unit tests for the interval result generation API in analysis_tool_t. */
+/* Unit tests for the trace interval analysis APIs in analysis_tool_t. */
 
 #include "analyzer.h"
 #include "memref_gen.h"
@@ -127,7 +127,7 @@ private:
     bool parallel_;
 };
 
-// Test analyzer_t that uses a test_stream_t instead of a stream provided
+// Test analyzer_t that uses a test_stream_t instead of the stream provided
 // by a scheduler_t.
 class test_analyzer_t : public analyzer_t {
 public:
@@ -150,14 +150,15 @@ private:
     std::unique_ptr<scheduler_t::stream_t> test_stream_;
 };
 
-// Test analysis_tool_t that stores information about when the interval-end
-// events (generate_shard_interval_result and generate_interval_result) were invoked.
+// Test analysis_tool_t that records information about when the
+// generate_shard_interval_snapshot and generate_interval_snapshot APIs were invoked.
 class test_analysis_tool_t : public analysis_tool_t {
 public:
-    // Describes the point in trace when an interval ends.
+    // Describes the point in trace when an interval ends. This is same as the point
+    // when the generate_*interval_snapshot API is invoked.
     struct interval_end_point_t {
         memref_tid_t shard_id_;
-        int seen_memrefs_;
+        int seen_memrefs_; // For parallel mode, this is the shard-local count.
         uint64_t interval_id_;
 
         bool
@@ -202,25 +203,26 @@ public:
         print() const
         {
             std::cerr << "(shard: " << shard_id_ << ", interval_id: " << interval_id_
-                      << ", interval_end_timestamp_: " << interval_end_timestamp_
+                      << ", interval_end_timestamp: " << interval_end_timestamp_
                       << ", component_intervals: ";
             for (const auto &s : component_intervals_) {
-                std::cerr << "(" << s.shard_id_ << "," << s.seen_memrefs_ << ","
-                          << s.interval_id_ << "),";
+                std::cerr << "(shard:" << s.shard_id_
+                          << ", seen_memrefs:" << s.seen_memrefs_
+                          << ", interval_id:" << s.interval_id_ << "),";
             }
             std::cerr << ")\n";
         }
 
         // Stores the list of intervals that were combined to produce this snapshot.
         // In the serial case, this contains just a single value. In the parallel case,
-        // this contains a list of size equal to the count of shard intervals that were
-        // combined to create this snapshot.
+        // this contains a list of size equal to the count of shard interval snapshots
+        // that were combined to create this snapshot.
         std::vector<interval_end_point_t> component_intervals_;
     };
 
-    // Constructs an analysis_tool_t that expects the given state snapshots to be
+    // Constructs an analysis_tool_t that expects the given interval state snapshots to be
     // produced.
-    test_analysis_tool_t(std::vector<recorded_snapshot_t> expected_state_snapshots)
+    test_analysis_tool_t(const std::vector<recorded_snapshot_t> &expected_state_snapshots)
         : seen_memrefs_(0)
         , expected_state_snapshots_(expected_state_snapshots)
         , outstanding_snapshots_(0)
@@ -380,30 +382,32 @@ test_non_zero_interval(bool parallel)
 {
     constexpr uint64_t kIntervalMicroseconds = 100;
     std::vector<memref_t> refs = {
-        // Trace for a single worker: expected intervals shard_id_1 - shard_id_2 - serial
+        // Trace for a single worker but two constituent shards.
+        // Expected active interval_ids: shard_1_local - shard_2_local - whole_trace
         gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 40),  // 0 - _ - 0
         gen_instr(1, 100),                               // 0 - _ - 0
         gen_data(1, true, 1000, 4),                      // 0 - _ - 0
-        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 151), // 0 - 0 - 1
-        gen_instr(2, 200),                               // 0 - 0 - 1
-        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 170), // 1 - 0 - 1
-        gen_instr(1, 108),                               // 1 - 0 - 1
-        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 201), // 2 - 0 - 2
-        gen_instr(1, 204),                               // 2 - 0 - 2
-        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 210), // 2 - 1 - 2
-        gen_instr(2, 208),                               // 2 - 1 - 2
-        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 270), // 2 - 1 - 2
-        gen_instr(2, 208),                               // 2 - 1 - 2
-        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 490), // 2 - 3 - 4
-        gen_instr(2, 212),                               // 2 - 3 - 4
-        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 590), // 5 - 4 - 5
-        gen_exit(1),                                     // 5 - 4 - 5
+        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 151), // _ - 0 - 1
+        gen_instr(2, 200),                               // _ - 0 - 1
+        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 170), // 1 - _ - 1
+        gen_instr(1, 108),                               // 1 - _ - 1
+        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 201), // 2 - _ - 2
+        gen_instr(1, 204),                               // 2 - _ - 2
+        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 210), // _ - 1 - 2
+        gen_instr(2, 208),                               // _ - 1 - 2
+        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 270), // _ - 1 - 2
+        gen_instr(2, 208),                               // _ - 1 - 2
+        gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 490), // _ - 3 - 4
+        gen_instr(2, 212),                               // _ - 3 - 4
+        gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 590), // 5 - _ - 5
+        gen_exit(1),                                     // 5 - _ - 5
         gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 610), // _ - 5 - 6
         gen_instr(2, 216),                               // _ - 5 - 6
         gen_exit(2)                                      // _ - 5 - 6
     };
     // Format for interval_switch_point: <tid, seen_memrefs, interval_id>
-
+    // For serial: each whole trace interval is made up of only one snapshot, the
+    // serial snapshot.
     std::vector<test_analysis_tool_t::recorded_snapshot_t> serial_state_snapshots = {
         test_analysis_tool_t::recorded_snapshot_t(0, 0, 100, { { 0, 3, 0 } }),
         test_analysis_tool_t::recorded_snapshot_t(0, 1, 200, { { 0, 7, 1 } }),
@@ -412,8 +416,14 @@ test_non_zero_interval(bool parallel)
         test_analysis_tool_t::recorded_snapshot_t(0, 5, 600, { { 0, 17, 5 } }),
         test_analysis_tool_t::recorded_snapshot_t(0, 6, 700, { { 0, 20, 6 } }),
     };
+    // For parallel: each whole trace interval is made up of snapshots from each
+    // shard that was active in that interval.
     std::vector<test_analysis_tool_t::recorded_snapshot_t> parallel_state_snapshots = {
         test_analysis_tool_t::recorded_snapshot_t(0, 0, 100, { { 1, 3, 0 } }),
+        // Narration: The whole-trace interval_id=1 with interval_end_timestamp=200
+        // is made up of the following two shard-local interval snapshots:
+        // - from shard_id=1, the interval_id=1 that ends at the local_memref=5
+        // - from shard_id=2, the interval_id=0 that ends at the local_memref=2
         test_analysis_tool_t::recorded_snapshot_t(0, 1, 200,
                                                   { { 1, 5, 1 }, { 2, 2, 0 } }),
         test_analysis_tool_t::recorded_snapshot_t(0, 2, 300,
@@ -429,7 +439,6 @@ test_non_zero_interval(bool parallel)
     tools.push_back(test_analysis_tool.get());
     test_analyzer_t test_analyzer(refs, &tools[0], (int)tools.size(), parallel,
                                   kIntervalMicroseconds);
-
     if (!test_analyzer) {
         FATAL_ERROR("failed to initialize test analyzer: %s",
                     test_analyzer.get_error_string().c_str());

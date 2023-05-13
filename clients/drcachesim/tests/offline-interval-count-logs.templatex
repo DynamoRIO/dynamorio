@@ -38,7 +38,7 @@ Thread .* counts:
            0 physical address unavailable markers
      .* other markers
      .* encodings
-Interval total counts:
+Interval total counts across threads:
 Interval 0:.*
      .* interval delta \(fetched\) instructions
      .* interval delta unique \(fetched\) instructions

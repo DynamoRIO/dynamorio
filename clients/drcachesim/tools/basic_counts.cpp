@@ -33,7 +33,6 @@
 #define NOMINMAX // Avoid windows.h messing up std::max.
 
 #include <algorithm>
-#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <vector>
@@ -332,11 +331,11 @@ basic_counts_t::combine_interval_snapshot(analysis_tool_t::interval_state_snapsh
 
 bool
 basic_counts_t::print_interval_results(
-    const std::vector<interval_state_snapshot_t *> &snapshots)
+    const std::vector<interval_state_snapshot_t *> &interval_snapshots)
 {
-    std::cerr << "Interval total counts:\n";
+    std::cerr << "Interval total counts across threads:\n";
     counters_t last;
-    for (const auto &snapshot_base : snapshots) {
+    for (const auto &snapshot_base : interval_snapshots) {
         auto *snapshot = dynamic_cast<count_snapshot_t *>(snapshot_base);
         counters_t diff = snapshot->counters;
         diff -= last;

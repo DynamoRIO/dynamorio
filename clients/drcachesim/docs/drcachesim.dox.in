@@ -1415,13 +1415,18 @@ present the results of the analysis.  For parallel operation, any desired
 aggregation across the whole trace should occur here as well, while shard-specific
 results can be presented in parallel_shard_exit().
 
-Tools may also generate and/or print results periodically using
-generate_interval_result() and generate_shard_interval_result(). To enable these
-callbacks, the \p -interval_microseconds option must be set to the desired length
-of each trace interval. The framework will invoke the above-mentioned tool
-APIs upon completion of each trace interval which is measured using the
-#TRACE_MARKER_TYPE_TIMESTAMP marker values. This may be useful for creating a
-time-series of some output metric.
+Tools can also perform trace analysis by intervals, e.g. to generate a time series
+of their results, using the \p -interval_microseconds option. The
+generate_interval_snapshot() and generate_shard_interval_snapshot() APIs allow the
+tool to create a snapshot of their internal state when a trace interval ends. These
+snapshots are then passed to the tool in a later print_interval_results() API call
+where the tool can generate and print result for each trace interval. The length of
+a trace interval is defined by the \p -interval_microseconds option, measured using
+the #TRACE_MARKER_TYPE_TIMESTAMP marker values. Trace interval analysis is
+supported also for the parallel mode where the framework combines the shard-local
+interval results to create the whole-trace interval results, using the
+tool's combine_interval_snapshot() API.
+
 
 Today, parallel analysis is only supported for offline traces.
 Support for online traces may be added in the future.
