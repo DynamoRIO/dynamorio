@@ -153,22 +153,22 @@ protected:
     // analyzed by a single worker thread, eliminating the need for locks.
     struct analyzer_worker_data_t {
         analyzer_worker_data_t(int index, typename sched_type_t::stream_t *stream)
-            : index(index)
-            , stream(stream)
+            : index_(index)
+            , stream_(stream)
         {
         }
         analyzer_worker_data_t(analyzer_worker_data_t &&src)
         {
-            index = src.index;
-            stream = src.stream;
-            shard_data = std::move(src.shard_data);
-            error = std::move(src.error);
+            index_ = src.index_;
+            stream_ = src.stream_;
+            shard_data_ = std::move(src.shard_data_);
+            error_ = std::move(src.error_);
         }
 
-        int index;
-        typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
-        std::string error;
-        std::unordered_map<int, analyzer_shard_data_t> shard_data;
+        int index_;
+        typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream_;
+        std::string error_;
+        std::unordered_map<int, analyzer_shard_data_t> shard_data_;
 
     private:
         analyzer_worker_data_t(const analyzer_worker_data_t &) = delete;
@@ -231,7 +231,7 @@ protected:
     // simply copying interval_state_snapshot_t* from the input. For parallel
     // analysis, this involves merging results from multiple shards for intervals
     // that map to the same output interval.
-    void
+    bool
     merge_shard_interval_results(
         std::unordered_map<int,
                            std::vector<std::queue<typename analysis_tool_tmpl_t<

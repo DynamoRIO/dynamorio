@@ -165,22 +165,22 @@ public:
      */
     struct interval_state_snapshot_t {
         interval_state_snapshot_t(int shard_id, uint64_t interval_id,
-                                  uint64_t last_timestamp)
+                                  uint64_t interval_end_timestamp)
             : shard_id_(shard_id)
             , interval_id_(interval_id)
-            , last_timestamp_(last_timestamp)
+            , interval_end_timestamp_(interval_end_timestamp)
         {
         }
         interval_state_snapshot_t()
             : shard_id_(0)
             , interval_id_(0)
-            , last_timestamp_(0)
+            , interval_end_timestamp_(0)
         {
         }
 
         int shard_id_;
         uint64_t interval_id_;
-        uint64_t last_timestamp_;
+        uint64_t interval_end_timestamp_;
 
         virtual ~interval_state_snapshot_t() = default;
     };

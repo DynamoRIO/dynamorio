@@ -61,6 +61,7 @@ public:
     test_stream_t(const std::vector<memref_t> &refs, bool parallel)
         : stream_t(nullptr, 0, 0)
         , refs_(refs)
+        , first_timestamp_(0)
         , at_(0)
         , parallel_(parallel)
     {
@@ -179,9 +180,10 @@ public:
     // Describes the state recorded by test_analysis_tool_t at the end of each
     // interval.
     struct recorded_snapshot_t : public analysis_tool_t::interval_state_snapshot_t {
-        recorded_snapshot_t(int shard_id, uint64_t interval_id, uint64_t last_timestamp,
+        recorded_snapshot_t(int shard_id, uint64_t interval_id,
+                            uint64_t interval_end_timestamp,
                             std::vector<interval_end_point_t> component_intervals)
-            : interval_state_snapshot_t(shard_id, interval_id, last_timestamp)
+            : interval_state_snapshot_t(shard_id, interval_id, interval_end_timestamp)
             , component_intervals_(component_intervals)
         {
         }
@@ -193,14 +195,14 @@ public:
         operator==(const recorded_snapshot_t &rhs) const
         {
             return shard_id_ == rhs.shard_id_ && interval_id_ == rhs.interval_id_ &&
-                last_timestamp_ == rhs.last_timestamp_ &&
+                interval_end_timestamp_ == rhs.interval_end_timestamp_ &&
                 component_intervals_ == rhs.component_intervals_;
         }
         void
         print() const
         {
             std::cerr << "(shard: " << shard_id_ << ", interval_id: " << interval_id_
-                      << ", last_timestamp: " << last_timestamp_
+                      << ", interval_end_timestamp_: " << interval_end_timestamp_
                       << ", component_intervals: ";
             for (const auto &s : component_intervals_) {
                 std::cerr << "(" << s.shard_id_ << "," << s.seen_memrefs_ << ","
@@ -221,6 +223,7 @@ public:
     test_analysis_tool_t(std::vector<recorded_snapshot_t> expected_state_snapshots)
         : seen_memrefs_(0)
         , expected_state_snapshots_(expected_state_snapshots)
+        , outstanding_snapshots_(0)
     {
     }
     bool
@@ -233,8 +236,9 @@ public:
     generate_interval_snapshot(uint64_t interval_id) override
     {
         auto *snapshot = new recorded_snapshot_t();
+        ++outstanding_snapshots_;
         snapshot->component_intervals_.push_back(
-            { /* tid=*/0, seen_memrefs_, interval_id });
+            { /*tid=*/0, seen_memrefs_, interval_id });
         return snapshot;
     }
     bool
@@ -285,6 +289,7 @@ public:
         if (shard->shard_id_ == kInvalidTid)
             FATAL_ERROR("Expected TID to be found by now");
         auto *snapshot = new recorded_snapshot_t();
+        ++outstanding_snapshots_;
         snapshot->component_intervals_.push_back(
             { shard->shard_id_, shard->seen_memrefs_, interval_id });
         return snapshot;
@@ -294,6 +299,7 @@ public:
                               analysis_tool_t::interval_state_snapshot_t *two) override
     {
         recorded_snapshot_t *result = new recorded_snapshot_t();
+        ++outstanding_snapshots_;
         recorded_snapshot_t *snapshot_one = dynamic_cast<recorded_snapshot_t *>(one);
         recorded_snapshot_t *snapshot_two = dynamic_cast<recorded_snapshot_t *>(two);
         result->component_intervals_ = std::move(snapshot_one->component_intervals_);
@@ -344,12 +350,19 @@ public:
         analysis_tool_t::interval_state_snapshot_t *snapshot) override
     {
         delete snapshot;
+        --outstanding_snapshots_;
         return true;
+    }
+    int
+    get_outstanding_snapshot_count()
+    {
+        return outstanding_snapshots_;
     }
 
 private:
     int seen_memrefs_;
     std::vector<recorded_snapshot_t> expected_state_snapshots_;
+    int outstanding_snapshots_;
 
     // Data tracked per shard.
     struct per_shard_t {
@@ -428,6 +441,12 @@ test_non_zero_interval(bool parallel)
     if (!test_analyzer.print_stats()) {
         FATAL_ERROR("failed to print stats: %s",
                     test_analyzer.get_error_string().c_str());
+    }
+    if (test_analysis_tool.get()->get_outstanding_snapshot_count() != 0) {
+        std::cerr << "Failed to release all outstanding snapshots: "
+                  << test_analysis_tool.get()->get_outstanding_snapshot_count()
+                  << " left\n";
+        return false;
     }
     fprintf(stderr, "test_non_zero_interval done for parallel=%d\n", parallel);
     return true;
