@@ -173,12 +173,12 @@ changes:
    measured by the #TRACE_MARKER_TYPE_TIMESTAMP marker values. In these callbacks, the
    tool creates and returns a snapshot of their internal state that is required to
    produce and print per-interval results in a later print_interval_results() call.
-   The tool's internal state is a struct derived from the #interval_state_snapshot_t
-   base struct. Additionally, the tool implements combine_interval_snapshot() to
-   combine two interval snapshot structs, which is required for producing whole-trace
-   results in the parallel mode of analyzer operation, and also
-   release_interval_snapshot() which is used to release the analyzer framework's claim
-   to the interval snapshot objects.
+   The tool's internal state is a struct derived from the
+   #analysis_tool_tmpl_t::interval_state_snapshot_t base struct. Additionally, the tool
+   implements combine_interval_snapshot() to combine two interval snapshot structs,
+   which is required for producing whole-trace results in the parallel mode of analyzer
+   operation, and also release_interval_snapshot() which is used to release the
+   analyzer framework's claim to the interval snapshot objects.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.
