@@ -620,7 +620,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     shard->prev_prev_entry_ = shard->prev_entry_;
 #endif
     shard->prev_entry_ = memref;
-
+    if (type_is_instr_branch(shard->prev_entry_.instr.type))
+        shard->last_branch_ = shard->prev_entry_;
     return true;
 }
 
@@ -804,6 +805,12 @@ invariant_checker_t::check_for_pc_discontinuity(
                        memref.instr.addr == prev_instr_trace_pc &&
                        instr_is_syscall(shard->prev_instr_decoded_->data)) {
                 error_msg = "Duplicate syscall instrs with the same PC";
+            } else if (shard->prev_instr_decoded_ != nullptr &&
+                       instr_writes_memory(shard->prev_instr_decoded_->data) &&
+                       type_is_instr_conditional_branch(shard->last_branch_.instr.type)) {
+                // This sequence happens when an rseq side exit occurs which
+                // results in missing instruction in the basic block.
+                error_msg = "PC discontinuity due to rseq side exit";
             } else {
                 error_msg = "Non-explicit control flow has no marker";
             }
