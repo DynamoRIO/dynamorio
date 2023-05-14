@@ -139,7 +139,7 @@ public:
         tools_ = tools;
         parallel_ = parallel;
         interval_microseconds_ = interval_microseconds;
-        verbosity_ = 2;
+        verbosity_ = 1;
         worker_count_ = 1;
         test_stream_ =
             std::unique_ptr<scheduler_t::stream_t>(new test_stream_t(refs, parallel));
@@ -148,6 +148,87 @@ public:
 
 private:
     std::unique_ptr<scheduler_t::stream_t> test_stream_;
+};
+
+// Dummy analysis_tool_t that does not provide interval results. This helps verify
+// the case when one of the tools run does not implement the interval related APIs.
+class dummy_analysis_tool_t : public analysis_tool_t {
+public:
+    dummy_analysis_tool_t()
+        : generate_snapshot_count_(0)
+    {
+    }
+    bool
+    process_memref(const memref_t &memref) override
+    {
+        return true;
+    }
+    analysis_tool_t::interval_state_snapshot_t *
+    generate_interval_snapshot(uint64_t interval_id) override
+    {
+        ++generate_snapshot_count_;
+        return nullptr;
+    }
+    bool
+    print_results() override
+    {
+        return true;
+    }
+    bool
+    parallel_shard_supported() override
+    {
+        return true;
+    }
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override
+    {
+        return nullptr;
+    }
+    bool
+    parallel_shard_exit(void *shard_data) override
+    {
+        return true;
+    }
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override
+    {
+        return true;
+    }
+    analysis_tool_t::interval_state_snapshot_t *
+    generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override
+    {
+        ++generate_snapshot_count_;
+        return nullptr;
+    }
+    analysis_tool_t::interval_state_snapshot_t *
+    combine_interval_snapshot(analysis_tool_t::interval_state_snapshot_t *one,
+                              analysis_tool_t::interval_state_snapshot_t *two) override
+    {
+        FATAL_ERROR("Did not expect combine_interval_snapshot to be invoked");
+        return nullptr;
+    }
+    bool
+    print_interval_results(
+        const std::vector<interval_state_snapshot_t *> &snapshots) override
+    {
+        FATAL_ERROR("Did not expect print_interval_results to be invoked");
+        return true;
+    }
+    bool
+    release_interval_snapshot(
+        analysis_tool_t::interval_state_snapshot_t *snapshot) override
+    {
+        FATAL_ERROR("Did not expect release_interval_snapshot to be invoked");
+        return true;
+    }
+    int
+    get_generate_snapshot_count()
+    {
+        return generate_snapshot_count_;
+    }
+
+private:
+    int generate_snapshot_count_;
 };
 
 // Test analysis_tool_t that records information about when the
@@ -432,11 +513,14 @@ test_non_zero_interval(bool parallel)
         test_analysis_tool_t::recorded_snapshot_t(0, 5, 600, { { 1, 9, 5 } }),
         test_analysis_tool_t::recorded_snapshot_t(0, 6, 700, { { 2, 11, 5 } })
     };
+    std::vector<analysis_tool_t *> tools;
     auto test_analysis_tool =
         std::unique_ptr<test_analysis_tool_t>(new test_analysis_tool_t(
             parallel ? parallel_state_snapshots : serial_state_snapshots));
-    std::vector<analysis_tool_t *> tools;
     tools.push_back(test_analysis_tool.get());
+    auto dummy_analysis_tool =
+        std::unique_ptr<dummy_analysis_tool_t>(new dummy_analysis_tool_t());
+    tools.push_back(dummy_analysis_tool.get());
     test_analyzer_t test_analyzer(refs, &tools[0], (int)tools.size(), parallel,
                                   kIntervalMicroseconds);
     if (!test_analyzer) {
@@ -455,6 +539,15 @@ test_non_zero_interval(bool parallel)
         std::cerr << "Failed to release all outstanding snapshots: "
                   << test_analysis_tool.get()->get_outstanding_snapshot_count()
                   << " left\n";
+        return false;
+    }
+    int expected_generate_call_count = parallel ? 8 : 6;
+    if (dummy_analysis_tool.get()->get_generate_snapshot_count() !=
+        expected_generate_call_count) {
+        std::cerr << "Dummy analysis tool got "
+                  << dummy_analysis_tool.get()->get_generate_snapshot_count()
+                  << " interval API calls, but expected " << expected_generate_call_count
+                  << "\n";
         return false;
     }
     fprintf(stderr, "test_non_zero_interval done for parallel=%d\n", parallel);

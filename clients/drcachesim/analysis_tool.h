@@ -227,7 +227,8 @@ public:
      * objects pointed by the given inputs. This is useful in the parallel mode
      * of analyzer, where each trace shard is processed in parallel. In this mode,
      * the \p interval_state_snapshot_t from different shards that map to the same
-     * final whole-trace interval need to be combined into one.
+     * final whole-trace interval need to be combined into one. This API must not
+     * return a nullptr.
      */
     virtual interval_state_snapshot_t *
     combine_interval_snapshot(interval_state_snapshot_t *one,

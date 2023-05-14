@@ -447,97 +447,99 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
 
 template <typename RecordType, typename ReaderType>
 bool
+analyzer_tmpl_t<RecordType, ReaderType>::merge_and_release_snapshots(
+    int tool_idx,
+    typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *&result,
+    typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *one,
+    typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *two)
+{
+    result = tools_[tool_idx]->combine_interval_snapshot(one, two);
+    if (result == nullptr) {
+        error_string_ = "combine_interval_snapshot unexpectedly returned nullptr";
+        return false;
+    }
+    if (!tools_[tool_idx]->release_interval_snapshot(one) ||
+        !tools_[tool_idx]->release_interval_snapshot(two)) {
+        error_string_ = tools_[tool_idx]->get_error_string();
+        return false;
+    }
+    return true;
+}
+
+template <typename RecordType, typename ReaderType>
+bool
 analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
-    // intervals[tool_idx][shard_idx] is a queue of interval_state_snapshot_t*
-    // representing that tool's interval snapshots for that shard.
-    std::vector<std::vector<std::queue<
-        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>>
-        &intervals)
+    // intervals[shard_idx] is a queue of interval_state_snapshot_t*
+    // representing the interval snapshots for that shard.
+    std::vector<std::queue<
+        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
+        &intervals,
+    std::vector<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
+        &merged_intervals,
+    int tool_idx)
 {
     assert(!intervals.empty());
-    assert(merged_interval_snapshots_.empty());
-    merged_interval_snapshots_.resize(num_tools_);
+    assert(merged_intervals.empty());
     // Used to recompute the interval_id for the result whole trace intervals, which are
     // numbered by the earliest shard's timestamp.
     uint64_t earliest_ever_interval_end_timestamp = std::numeric_limits<uint64_t>::max();
-    // All tools process the same number of shards, so we get the count from any tool.
-    size_t shard_count = intervals[0].size();
+    size_t shard_count = intervals.size();
     bool any_shard_has_results_left = true;
     while (any_shard_has_results_left) {
-        // Look for the earliest interval timestamp. This is to find the next whole trace
-        // interval across all shards.
+        // Look for the next whole trace interval across all shards, which will be the
+        // one with the earliest interval-end timestamp.
         uint64_t earliest_interval_end_timestamp = std::numeric_limits<uint64_t>::max();
         for (size_t shard_idx = 0; shard_idx < shard_count; ++shard_idx) {
-            // We simply check an arbitrary tool's interval_state_snapshot_t queue fronts.
-            // Since for the same shard, all tools will have the same intervals.
-            if (intervals[0][shard_idx].empty())
+            if (intervals[shard_idx].empty())
                 continue;
             earliest_interval_end_timestamp =
                 std::min(earliest_interval_end_timestamp,
-                         intervals[0][shard_idx].front()->interval_end_timestamp_);
+                         intervals[shard_idx].front()->interval_end_timestamp_);
         }
         // We're done if no shard has any interval left unprocessed.
         if (earliest_interval_end_timestamp == std::numeric_limits<uint64_t>::max()) {
             any_shard_has_results_left = false;
             continue;
         }
+        assert(earliest_interval_end_timestamp % interval_microseconds_ == 0);
         if (earliest_ever_interval_end_timestamp ==
             std::numeric_limits<uint64_t>::max()) {
             earliest_ever_interval_end_timestamp = earliest_interval_end_timestamp;
         }
 
         // Merge next intervals that have a timestamp == earliest_interval_end_timestamp.
-        // In other words: merge snapshots from all shards that were active during the
-        // interval that ended at earliest_interval_end_timestamp.
-        // We need to merge separately per tool.
-        std::vector<
-            typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
-            merged_interval_snapshot(num_tools_, nullptr);
+        // In other words: merge intervals from all shards that were active during this
+        // interval.
+        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t
+            *cur_merged_interval = nullptr;
         for (size_t shard_idx = 0; shard_idx < shard_count; ++shard_idx) {
-            // We simply check an arbitrary tool's interval_state_snapshot_t queue.
-            if (intervals[0][shard_idx].empty())
+            if (intervals[shard_idx].empty())
                 continue;
             uint64_t cur_interval_end_timestamp =
-                intervals[0][shard_idx].front()->interval_end_timestamp_;
+                intervals[shard_idx].front()->interval_end_timestamp_;
             assert(cur_interval_end_timestamp >= earliest_interval_end_timestamp);
             if (cur_interval_end_timestamp > earliest_interval_end_timestamp)
                 continue;
-            // This shard was active during this interval. So, we iterate over all
-            // tools and merge the current shard's snapshot with the per-tool result.
-            for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
-                auto &shard_intervals = intervals[tool_idx];
-                if (merged_interval_snapshot[tool_idx] == nullptr) {
-                    merged_interval_snapshot[tool_idx] =
-                        shard_intervals[shard_idx].front();
-                } else {
-                    auto res = tools_[tool_idx]->combine_interval_snapshot(
-                        merged_interval_snapshot[tool_idx],
-                        shard_intervals[shard_idx].front());
-                    if (!tools_[tool_idx]->release_interval_snapshot(
-                            shard_intervals[shard_idx].front()) ||
-                        !tools_[tool_idx]->release_interval_snapshot(
-                            merged_interval_snapshot[tool_idx])) {
-                        error_string_ = tools_[tool_idx]->get_error_string();
-                        return false;
-                    }
-                    merged_interval_snapshot[tool_idx] = res;
-                }
-                shard_intervals[shard_idx].pop();
+            // This shard was active during this interval. So, we merge the current
+            // shard's snapshot with the result.
+            if (cur_merged_interval == nullptr) {
+                cur_merged_interval = intervals[shard_idx].front();
+            } else {
+                typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *res;
+                if (!merge_and_release_snapshots(tool_idx, res, cur_merged_interval,
+                                                 intervals[shard_idx].front()))
+                    return false;
+                cur_merged_interval = res;
             }
+            intervals[shard_idx].pop();
         }
-        // Add the merged interval_state_snapshot_t to the final result.
-        for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
-            assert(earliest_interval_end_timestamp % interval_microseconds_ == 0 &&
-                   earliest_ever_interval_end_timestamp % interval_microseconds_ == 0);
-            auto &tool_merged_snapshot = merged_interval_snapshot[tool_idx];
-            tool_merged_snapshot->interval_end_timestamp_ =
-                earliest_interval_end_timestamp;
-            tool_merged_snapshot->shard_id_ = 0;
-            tool_merged_snapshot->interval_id_ =
-                (earliest_interval_end_timestamp - earliest_ever_interval_end_timestamp) /
-                interval_microseconds_;
-            merged_interval_snapshots_[tool_idx].push_back(tool_merged_snapshot);
-        }
+        // Add the merged interval to the result list of whole trace intervals.
+        cur_merged_interval->interval_end_timestamp_ = earliest_interval_end_timestamp;
+        cur_merged_interval->shard_id_ = 0;
+        cur_merged_interval->interval_id_ =
+            (earliest_interval_end_timestamp - earliest_ever_interval_end_timestamp) /
+            interval_microseconds_;
+        merged_intervals.push_back(cur_merged_interval);
     }
     return true;
 }
@@ -594,8 +596,17 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
                 }
             }
         }
-        if (!merge_shard_interval_results(all_intervals)) {
-            return false;
+        assert(merged_interval_snapshots_.empty());
+        merged_interval_snapshots_.resize(num_tools_);
+        for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
+            // We need to do this separately per tool because all tools may not
+            // generate an interval_state_snapshot_t for all intervals (even though
+            // the framework notifies them of all intervals).
+            if (!merge_shard_interval_results(all_intervals[tool_idx],
+                                              merged_interval_snapshots_[tool_idx],
+                                              tool_idx)) {
+                return false;
+            }
         }
     }
     return true;
@@ -613,7 +624,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
             return false;
         }
         if (interval_microseconds_ != 0) {
-            if (!tools_[i]->print_interval_results(merged_interval_snapshots_[i])) {
+            if (!merged_interval_snapshots_[i].empty() &&
+                !tools_[i]->print_interval_results(merged_interval_snapshots_[i])) {
                 error_string_ = tools_[i]->get_error_string();
                 return false;
             }
@@ -652,13 +664,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(uint64_t interval_id,
                 worker->stream_->get_stream_name().c_str(), interval_id);
             return false;
         }
-        snapshot->interval_id_ = interval_id;
-        snapshot->shard_id_ = 0; // Default to zero for the serial mode.
-        snapshot->interval_end_timestamp_ =
-            (worker->stream_->get_first_timestamp() / interval_microseconds_ +
-             interval_id + 1) *
-            interval_microseconds_;
-        shard->tool_data_[i].interval_snapshot_data_.push(snapshot);
+        if (snapshot != nullptr) {
+            snapshot->interval_id_ = interval_id;
+            snapshot->shard_id_ = 0; // Default to zero for the serial mode.
+            snapshot->interval_end_timestamp_ =
+                (worker->stream_->get_first_timestamp() / interval_microseconds_ +
+                 interval_id + 1) *
+                interval_microseconds_;
+            shard->tool_data_[i].interval_snapshot_data_.push(snapshot);
+        }
     }
     return true;
 }
@@ -682,13 +696,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_interval(
                    worker->stream_->get_stream_name().c_str(), interval_id);
             return false;
         }
-        snapshot->interval_id_ = interval_id;
-        snapshot->shard_id_ = shard_id;
-        snapshot->interval_end_timestamp_ =
-            (worker->stream_->get_first_timestamp() / interval_microseconds_ +
-             interval_id + 1) *
-            interval_microseconds_;
-        shard->tool_data_[i].interval_snapshot_data_.push(snapshot);
+        if (snapshot != nullptr) {
+            snapshot->interval_id_ = interval_id;
+            snapshot->shard_id_ = shard_id;
+            snapshot->interval_end_timestamp_ =
+                (worker->stream_->get_first_timestamp() / interval_microseconds_ +
+                 interval_id + 1) *
+                interval_microseconds_;
+            shard->tool_data_[i].interval_snapshot_data_.push(snapshot);
+        }
     }
     return true;
 }
