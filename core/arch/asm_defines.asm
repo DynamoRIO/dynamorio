@@ -542,11 +542,11 @@ ASSUME fs:_DATA @N@\
  * x4(tp)           : Thread pointer
  * x5(t0)           : Temporary/alternate link register
  * x6..7(t1..2)     : Temporaries
- * x8(s0/fp)        : Calee saved register/frame pointer
- * x9(s1)           : Calee saved register
+ * x8(s0/fp)        : Callee saved register/frame pointer
+ * x9(s1)           : Callee saved register
  * x10..11(a0..1)   : Function arguments/return values
  * x12..17(a2..7)   : Function arguments
- * x18..27(s2..11)  : Calee saved registers
+ * x18..27(s2..11)  : Callee saved registers
  * x28..31(t3..6)   : Temporaries
  *
  * f0..7(ft0..7)    : FP temporaries
@@ -564,6 +564,7 @@ ASSUME fs:_DATA @N@\
 # define ARG6 REG_R15
 # define ARG7 REG_R16
 # define ARG8 REG_R17
+# define SYSNUM_REG REG_R17
 /* Arguments are passed on stack right-to-left. */
 # define ARG9  0(REG_SP) /* no ret addr */
 # define ARG10 ARG_SZ(REG_SP)
