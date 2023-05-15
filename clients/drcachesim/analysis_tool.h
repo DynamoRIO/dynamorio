@@ -163,7 +163,8 @@ public:
      * useful for computing and combining interval results. Tools should inherit from
      * this struct to define their own state snapshot structs. Tools do not need to
      * supply any values to construct this base struct; they can simply use the
-     * default constructor.
+     * default constructor. The members of this base class will be set by the
+     * framework automatically.
      */
     struct interval_state_snapshot_t {
         interval_state_snapshot_t(int shard_id, uint64_t interval_id,
