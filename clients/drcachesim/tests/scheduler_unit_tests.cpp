@@ -1562,8 +1562,9 @@ test_replay_as_traced_from_file(const char *testdir)
     std::string path = std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir";
     std::string cpu_file =
         std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir/cpu_schedule.bin.zip";
-    // This checked-in trace has 8 threads on 9 cores, with one core starting
-    // out in a wait state.
+    // This checked-in trace has 8 threads on 9 cores, with one core starting out in a
+    // wait state and many entries to merge in the cpu_schedule file.  It doesn't have
+    // much thread migration but our synthetic test above covers that.
     static const char *const SCHED_STRING =
         "Core #0: 3018553 \nCore #1: 3018556 \nCore #2: 3018557 \nCore #3: 3018558 "
         "\nCore #4: 3018520 \nCore #5: 3018520 \nCore #6: 3018554 \nCore #7: 3018555 "

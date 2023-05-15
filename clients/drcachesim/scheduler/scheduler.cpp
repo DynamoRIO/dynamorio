@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-#include <map>
+#include <set>
 #include <unordered_map>
 
 #include "scheduler.h"
@@ -695,21 +695,27 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
 
     schedule_entry_t entry(0, 0, 0, 0);
     // See comment in read_recorded_schedule() on our assumption that we can
-    // easily fit the whole context switch sequence in memory.
+    // easily fit the whole context switch sequence in memory.  This cpu_schedule
+    // file has an entry per timestamp, though, even for consecutive ones on the same
+    // core, so it uses more memory.
     // We do not have a subfile listing feature in archive_istream_t, but we can
     // read sequentially as each record has a cpu field.
     // This schedule_entry_t format doesn't have the stop instruction ordinal (as it was
     // designed for skip targets only), so we take two passes to get that information.
+    // If we do find memory is an issue we could add a stop field to schedule_entry_t
+    // and collapse as we go, saving memory.
     // We also need to translate the thread and cpu id values into 0-based ordinals.
     std::unordered_map<memref_tid_t, input_ordinal_t> tid2input;
     for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
         tid2input[inputs_[i].tid] = i;
     }
-    std::unordered_map<uint64_t, output_ordinal_t> cpu2output;
-    std::vector<std::map<uint64_t, uint64_t>> start2stop(inputs_.size());
+    std::vector<std::set<uint64_t>> start2stop(inputs_.size());
     // We number the outputs according to their order in the file.
-    // XXX: Should we support some direction from the user on this?
-    // What about dividing by socket: we may want to do that using the cpuid.
+    // XXX i#5843: Should we support some direction from the user on this?  Simulation
+    // may want to preserve the NUMA relationships and may need to set up its simulated
+    // cores at init time, so it would prefer to partition by output stream identifier.
+    // Maybe we could at least add the proposed memtrace_stream_t query for cpuid and
+    // let it be called even before reading any records at all?
     output_ordinal_t cur_output = 0;
     uint64_t cur_cpu = std::numeric_limits<uint64_t>::max();
     // We also want to collapse same-cpu consecutive records so we start with
@@ -726,14 +732,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                 }
             }
             cur_cpu = entry.cpu;
-            cpu2output[entry.cpu] = cur_output;
         }
         input_ordinal_t input = tid2input[entry.thread];
         // We'll fill in the stop ordinal in our second pass below.
-        uint64_t start = entry.instr_count;
+        uint64_t start = entry.start_instruction;
         uint64_t timestamp = entry.timestamp;
-        // Some entries have no instructions.
-        if (all_sched[cur_output].size() > 0 &&
+        // Some entries have no instructions (there is an entry for each timestamp, and
+        // a signal can come in after a prior timestamp with no intervening instrs).
+        if (!all_sched[cur_output].empty() &&
             input == all_sched[cur_output].back().key.input &&
             start == all_sched[cur_output].back().start_instruction) {
             VPRINT(this, 3,
@@ -743,67 +749,72 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
         }
         all_sched[cur_output].emplace_back(schedule_record_t::DEFAULT, input, start, 0,
                                            timestamp);
-        start2stop[input][entry.instr_count] = entry.instr_count;
+        start2stop[input].insert(start);
     }
-    for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
+    for (int output_idx = 0; output_idx < static_cast<output_ordinal_t>(outputs_.size());
+         ++output_idx) {
         VPRINT(this, 1, "Read %zu as-traced records for output #%d\n",
-               all_sched[i].size(), i);
+               all_sched[output_idx].size(), output_idx);
         // Update the stop_instruction field and collapse consecutive entries while
         // inserting into the final location.
         int start_consec = -1;
-        for (int j = 0; j < static_cast<int>(all_sched[i].size()); ++j) {
-            auto &segment = all_sched[i][j];
+        for (int sched_idx = 0;
+             sched_idx < static_cast<int>(all_sched[output_idx].size()); ++sched_idx) {
+            auto &segment = all_sched[output_idx][sched_idx];
             auto find = start2stop[segment.key.input].find(segment.start_instruction);
             ++find;
             if (find == start2stop[segment.key.input].end())
                 segment.stop_instruction = std::numeric_limits<uint64_t>::max();
             else
-                segment.stop_instruction = find->second;
-            VPRINT(this, 3,
+                segment.stop_instruction = *find;
+            VPRINT(this, 4,
                    "as-read segment #%d: input=%d start=%" PRId64 " stop=%" PRId64
                    " time=%" PRId64 "\n",
-                   j, segment.key.input, segment.start_instruction,
+                   sched_idx, segment.key.input, segment.start_instruction,
                    segment.stop_instruction, segment.timestamp);
-            if (j + 1 < static_cast<int>(all_sched[i].size()) &&
-                segment.key.input == all_sched[i][j + 1].key.input &&
-                segment.stop_instruction == all_sched[i][j + 1].start_instruction) {
+            if (sched_idx + 1 < static_cast<int>(all_sched[output_idx].size()) &&
+                segment.key.input == all_sched[output_idx][sched_idx + 1].key.input &&
+                segment.stop_instruction ==
+                    all_sched[output_idx][sched_idx + 1].start_instruction) {
                 // Collapse into next.
                 if (start_consec == -1)
-                    start_consec = j;
+                    start_consec = sched_idx;
             } else {
-                schedule_record_t &toadd =
-                    start_consec >= 0 ? all_sched[i][start_consec] : all_sched[i][j];
-                outputs_[i].record.emplace_back(
+                schedule_record_t &toadd = start_consec >= 0
+                    ? all_sched[output_idx][start_consec]
+                    : all_sched[output_idx][sched_idx];
+                outputs_[output_idx].record.emplace_back(
                     static_cast<typename schedule_record_t::record_type_t>(toadd.type),
                     +toadd.key.input, +toadd.start_instruction,
-                    +all_sched[i][j].stop_instruction, +toadd.timestamp);
+                    +all_sched[output_idx][sched_idx].stop_instruction, +toadd.timestamp);
                 start_consec = -1;
                 VDO(this, 3, {
-                    auto &added = outputs_[i].record.back();
+                    auto &added = outputs_[output_idx].record.back();
                     VPRINT(this, 3,
                            "segment #%zu: input=%d start=%" PRId64 " stop=%" PRId64
                            " time=%" PRId64 "\n",
-                           outputs_[i].record.size() - 1, added.key.input,
+                           outputs_[output_idx].record.size() - 1, added.key.input,
                            added.start_instruction, added.stop_instruction,
                            added.timestamp);
                 });
             }
         }
         VPRINT(this, 1, "Collapsed duplicates for %zu as-traced records for output #%d\n",
-               outputs_[i].record.size(), i);
-        if (!outputs_[i].record.empty()) {
-            if (outputs_[i].record[0].start_instruction != 0) {
-                VPRINT(this, 1, "Initial input for output #%d is: wait state\n", i);
-                set_cur_input(i, INVALID_INPUT_ORDINAL);
-                outputs_[i].waiting = true;
-                outputs_[i].record_index = -1;
+               outputs_[output_idx].record.size(), output_idx);
+        if (!outputs_[output_idx].record.empty()) {
+            if (outputs_[output_idx].record[0].start_instruction != 0) {
+                VPRINT(this, 1, "Initial input for output #%d is: wait state\n",
+                       output_idx);
+                set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
+                outputs_[output_idx].waiting = true;
+                outputs_[output_idx].record_index = -1;
             } else {
-                VPRINT(this, 1, "Initial input for output #%d is %d\n", i,
-                       outputs_[i].record[0].key.input);
-                set_cur_input(i, outputs_[i].record[0].key.input);
+                VPRINT(this, 1, "Initial input for output #%d is %d\n", output_idx,
+                       outputs_[output_idx].record[0].key.input);
+                set_cur_input(output_idx, outputs_[output_idx].record[0].key.input);
             }
         } else
-            set_cur_input(i, INVALID_INPUT_ORDINAL);
+            set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
     }
     return STATUS_SUCCESS;
 }
