@@ -206,19 +206,15 @@ protected:
     record_is_timestamp(const RecordType &record);
 
     // Invoked when the given interval finishes during serial analysis of the
-    // trace. Even though our implementation allows access to shard from the provided
-    // worker, we still provide it separately to keep the API implementation-independent.
-    virtual bool
-    process_interval(uint64_t interval_id, analyzer_shard_data_t *shard,
-                     analyzer_worker_data_t *worker);
+    // trace.
+    bool
+    process_interval(uint64_t interval_id, analyzer_worker_data_t *worker);
 
     // Invoked when the given interval finishes in the given shard during
-    // parallel analysis of the trace. Even though our implementation allows access
-    // to shard from the provided worker, we still provide it separately to keep the
-    // API implementation-independent.
-    virtual bool
+    // parallel analysis of the trace.
+    bool
     process_shard_interval(int shard_id, uint64_t interval_id,
-                           analyzer_shard_data_t *shard, analyzer_worker_data_t *worker);
+                           analyzer_worker_data_t *worker);
 
     // Merges the interval_state_snapshot_t objects pointed by 'one' and 'two', and
     // returns the result in 'result'. Also releases the 'one' and 'two' objects. It
@@ -237,15 +233,21 @@ protected:
     bool
     advance_interval_id(
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
-        analyzer_shard_data_t *analyzer_shard_data, const RecordType &record,
+        analyzer_shard_data_t *shard, const RecordType &record,
         uint64_t &prev_interval_index);
+
+    // Collects interval results for all shards from the workers, and then merges
+    // the shard-local intervals to form the whole-trace interval results using
+    // merge_shard_interval_results().
+    bool
+    collect_and_merge_shard_interval_results();
 
     // Computes and stores the interval results in merged_interval_snapshots_. For
     // serial analysis where we already have only a single shard, this involves
     // simply copying interval_state_snapshot_t* from the input. For parallel
     // analysis, this involves merging results from multiple shards for intervals
     // that map to the same output interval.
-    bool
+    virtual bool
     merge_shard_interval_results(
         std::vector<std::queue<
             typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>

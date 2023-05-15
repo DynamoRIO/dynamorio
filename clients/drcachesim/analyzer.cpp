@@ -337,15 +337,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
                         "Failed to read from trace: " + worker.stream_->get_stream_name();
                 }
             } else if (interval_microseconds_ != 0) {
-                process_interval(worker.shard_data_[0].cur_interval_index_,
-                                 &worker.shard_data_[0], &worker);
+                process_interval(worker.shard_data_[0].cur_interval_index_, &worker);
             }
             return;
         }
         uint64_t prev_interval_index;
         if (advance_interval_id(worker.stream_, &worker.shard_data_[0], record,
                                 prev_interval_index) &&
-            !process_interval(prev_interval_index, &worker.shard_data_[0], &worker)) {
+            !process_interval(prev_interval_index, &worker)) {
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
@@ -397,8 +396,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
         uint64_t prev_interval_index;
         if (advance_interval_id(worker->stream_, &worker->shard_data_[shard_index],
                                 record, prev_interval_index) &&
-            !process_shard_interval(shard_index, prev_interval_index,
-                                    &worker->shard_data_[shard_index], worker)) {
+            !process_shard_interval(shard_index, prev_interval_index, worker)) {
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
@@ -418,7 +416,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             if (interval_microseconds_ != 0 &&
                 !process_shard_interval(
                     shard_index, worker->shard_data_[shard_index].cur_interval_index_,
-                    &worker->shard_data_[shard_index], worker))
+                    worker))
                 return;
             for (int i = 0; i < num_tools_; ++i) {
                 if (!tools_[i]->parallel_shard_exit(
@@ -546,6 +544,38 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
 
 template <typename RecordType, typename ReaderType>
 bool
+analyzer_tmpl_t<RecordType, ReaderType>::collect_and_merge_shard_interval_results()
+{
+    // all_intervals[tool_idx][shard_idx] contains a queue of the
+    // interval_state_snapshot_t* that were output by that tool for that shard.
+    std::vector<std::vector<std::queue<
+        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>>
+        all_intervals(num_tools_);
+    for (const auto &worker : worker_data_) {
+        for (const auto &shard_data : worker.shard_data_) {
+            for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
+                all_intervals[tool_idx].emplace_back(std::move(
+                    shard_data.second.tool_data_[tool_idx].interval_snapshot_data_));
+            }
+        }
+    }
+    assert(merged_interval_snapshots_.empty());
+    merged_interval_snapshots_.resize(num_tools_);
+    for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
+        // We need to do this separately per tool because all tools may not
+        // generate an interval_state_snapshot_t for the same intervals (even though
+        // the framework notifies all tools of all intervals).
+        if (!merge_shard_interval_results(all_intervals[tool_idx],
+                                          merged_interval_snapshots_[tool_idx],
+                                          tool_idx)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+template <typename RecordType, typename ReaderType>
+bool
 analyzer_tmpl_t<RecordType, ReaderType>::run()
 {
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
@@ -582,32 +612,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
         }
     }
     if (interval_microseconds_ != 0) {
-        // all_intervals[tool_idx][shard_idx] contains a queue of the
-        // interval_state_snapshot_t* for all interval snapshots of that tool for that
-        // shard.
-        std::vector<std::vector<std::queue<
-            typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>>
-            all_intervals(num_tools_);
-        for (const auto &worker : worker_data_) {
-            for (const auto &shard_data : worker.shard_data_) {
-                for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
-                    all_intervals[tool_idx].emplace_back(std::move(
-                        shard_data.second.tool_data_[tool_idx].interval_snapshot_data_));
-                }
-            }
-        }
-        assert(merged_interval_snapshots_.empty());
-        merged_interval_snapshots_.resize(num_tools_);
-        for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
-            // We need to do this separately per tool because all tools may not
-            // generate an interval_state_snapshot_t for all intervals (even though
-            // the framework notifies them of all intervals).
-            if (!merge_shard_interval_results(all_intervals[tool_idx],
-                                              merged_interval_snapshots_[tool_idx],
-                                              tool_idx)) {
-                return false;
-            }
-        }
+        return collect_and_merge_shard_interval_results();
     }
     return true;
 }
@@ -648,7 +653,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::process_interval(uint64_t interval_id,
-                                                          analyzer_shard_data_t *shard,
                                                           analyzer_worker_data_t *worker)
 {
     for (int i = 0; i < num_tools_; ++i) {
@@ -671,7 +675,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(uint64_t interval_id,
                 (worker->stream_->get_first_timestamp() / interval_microseconds_ +
                  interval_id + 1) *
                 interval_microseconds_;
-            shard->tool_data_[i].interval_snapshot_data_.push(snapshot);
+            worker->shard_data_[0].tool_data_[i].interval_snapshot_data_.push(snapshot);
         }
     }
     return true;
@@ -680,15 +684,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(uint64_t interval_id,
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::process_shard_interval(
-    int shard_id, uint64_t interval_id, analyzer_shard_data_t *shard,
-    analyzer_worker_data_t *worker)
+    int shard_id, uint64_t interval_id, analyzer_worker_data_t *worker)
 {
-    for (int i = 0; i < num_tools_; ++i) {
+    for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *snapshot =
-            tools_[i]->generate_shard_interval_snapshot(
-                worker->shard_data_[shard_id].tool_data_[i].shard_data_, interval_id);
-        if (tools_[i]->get_error_string() != "") {
-            worker->error_ = tools_[i]->get_error_string();
+            tools_[tool_idx]->generate_shard_interval_snapshot(
+                worker->shard_data_[shard_id].tool_data_[tool_idx].shard_data_,
+                interval_id);
+        if (tools_[tool_idx]->get_error_string() != "") {
+            worker->error_ = tools_[tool_idx]->get_error_string();
             VPRINT(this, 1,
                    "Worker %d hit process_shard_interval error %s on trace shard %s at "
                    "interval %" PRId64 "\n",
@@ -703,7 +707,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_shard_interval(
                 (worker->stream_->get_first_timestamp() / interval_microseconds_ +
                  interval_id + 1) *
                 interval_microseconds_;
-            shard->tool_data_[i].interval_snapshot_data_.push(snapshot);
+            worker->shard_data_[shard_id]
+                .tool_data_[tool_idx]
+                .interval_snapshot_data_.push(snapshot);
         }
     }
     return true;

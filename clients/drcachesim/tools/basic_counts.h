@@ -180,13 +180,14 @@ protected:
         memref_tid_t tid = 0;
         // A vector to support windows.
         std::vector<counters_t> counters;
+        counters_t counters_at_last_interval;
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
     };
     // Records a snapshot of counts as they were at an interval.
     struct count_snapshot_t : public interval_state_snapshot_t {
-        counters_t counters;
+        counters_t delta_counters;
     };
     static bool
     cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,

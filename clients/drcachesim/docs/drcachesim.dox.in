@@ -1427,7 +1427,6 @@ supported also for the parallel mode where the framework combines the shard-loca
 interval results to create the whole-trace interval results, using the
 tool's combine_interval_snapshot() API.
 
-
 Today, parallel analysis is only supported for offline traces.
 Support for online traces may be added in the future.
 
