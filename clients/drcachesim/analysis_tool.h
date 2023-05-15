@@ -161,7 +161,9 @@ public:
     /**
      * Struct that stores details of a tool's state snapshot at an interval. This is
      * useful for computing and combining interval results. Tools should inherit from
-     * this struct to define their own state snapshot structs.
+     * this struct to define their own state snapshot structs. Tools do not need to
+     * supply any values to construct this base struct; they can simply use the
+     * default constructor.
      */
     struct interval_state_snapshot_t {
         interval_state_snapshot_t(int shard_id, uint64_t interval_id,
@@ -209,10 +211,11 @@ public:
      * mode of the analyzer.
      *
      * Finally, the print_interval_result() API is invoked with a list of
-     * \p interval_state_snapshot_t* for the overall trace.
+     * \p interval_state_snapshot_t* representing interval snapshots for the
+     * whole trace.
      *
-     * The tool must not de-allocate the state snapshot until release_state_snapshot()
-     * is invoked by the framework.
+     * The tool must not de-allocate the state snapshot until
+     * release_interval_snapshot() is invoked by the framework.
      *
      * An example use case of this API is to create a time series of some output
      * metric over the whole trace.
@@ -238,7 +241,7 @@ public:
     }
     /**
      * Prints the interval results for the whole trace. The state snapshots
-     * for each interval can be found using the given \p interval_snapshots.
+     * for intervals can be found in the given \p interval_snapshots.
      */
     virtual bool
     print_interval_results(
@@ -371,8 +374,8 @@ public:
      * to the framework. Trace intervals are measured using the value of the
      * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,
-     * i.e. the tool may not see some \p interval_id if the trace did not have
-     * any activity in that interval.
+     * i.e. the tool may not see some \p interval_id if the trace shard did not
+     * have any activity in that interval.
      *
      * The returned \p interval_state_snapshot_t* will be passed to the
      * combine_interval_snapshot() API which is invoked by the framework to merge
@@ -380,10 +383,13 @@ public:
      * mode of the analyzer.
      *
      * Finally, the print_interval_result() API is invoked with a list of
-     * \p interval_state_snapshot_t* for the overall trace.
+     * \p interval_state_snapshot_t* representing interval snapshots for the
+     * whole trace. In the parallel mode of the analyzer, this list is computed by
+     * combining the shard-local \p interval_state_snapshot_t using the tool's
+     * combine_interval_snapshot() API.
      *
-     * The tool must not de-allocate the state snapshot until release_state_snapshot()
-     * is invoked by the framework.
+     * The tool must not de-allocate the state snapshot until
+     * release_interval_snapshot() is invoked by the framework.
      *
      * An example use case of this API is to create a time series of some output
      * metric over the whole trace.

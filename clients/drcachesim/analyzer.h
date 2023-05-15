@@ -246,7 +246,7 @@ protected:
     // serial analysis where we already have only a single shard, this involves
     // simply copying interval_state_snapshot_t* from the input. For parallel
     // analysis, this involves merging results from multiple shards for intervals
-    // that map to the same output interval.
+    // that map to the same final whole-trace interval.
     virtual bool
     merge_shard_interval_results(
         std::vector<std::queue<

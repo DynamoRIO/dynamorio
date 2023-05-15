@@ -185,8 +185,9 @@ protected:
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
     };
-    // Records a snapshot of counts as they were at an interval.
+    // Records a snapshot of counts for a trace interval.
     struct count_snapshot_t : public interval_state_snapshot_t {
+        // Records the incremental value of all counters in a trace interval.
         counters_t delta_counters;
     };
     static bool

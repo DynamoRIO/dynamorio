@@ -265,6 +265,9 @@ public:
         recorded_snapshot_t(int shard_id, uint64_t interval_id,
                             uint64_t interval_end_timestamp,
                             std::vector<interval_end_point_t> component_intervals)
+            // Actual tools do not need to supply values to construct the base
+            // interval_state_snapshot_t. This is only to make it easier to construct
+            // the expected snapshot objects in this test.
             : interval_state_snapshot_t(shard_id, interval_id, interval_end_timestamp)
             , component_intervals_(component_intervals)
         {
@@ -319,9 +322,9 @@ public:
     generate_interval_snapshot(uint64_t interval_id) override
     {
         auto *snapshot = new recorded_snapshot_t();
-        ++outstanding_snapshots_;
         snapshot->component_intervals_.push_back(
             { /*tid=*/0, seen_memrefs_, interval_id });
+        ++outstanding_snapshots_;
         return snapshot;
     }
     bool
@@ -372,9 +375,9 @@ public:
         if (shard->shard_id_ == kInvalidTid)
             FATAL_ERROR("Expected TID to be found by now");
         auto *snapshot = new recorded_snapshot_t();
-        ++outstanding_snapshots_;
         snapshot->component_intervals_.push_back(
             { shard->shard_id_, shard->seen_memrefs_, interval_id });
+        ++outstanding_snapshots_;
         return snapshot;
     }
     analysis_tool_t::interval_state_snapshot_t *
@@ -463,27 +466,28 @@ test_non_zero_interval(bool parallel)
 {
     constexpr uint64_t kIntervalMicroseconds = 100;
     std::vector<memref_t> refs = {
-        // Trace for a single worker but two constituent shards.
-        // Expected active interval_ids: shard_1_local - shard_2_local - whole_trace
+        // Trace for a single worker which has two constituent shards. (scheduler_t
+        // does not guarantee that workers will process shards one after the other.)
+        // Expected active interval_id: shard_1_local - shard_2_local - whole_trace
         gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 40),  // 0 - _ - 0
-        gen_instr(1, 100),                               // 0 - _ - 0
-        gen_data(1, true, 1000, 4),                      // 0 - _ - 0
+        gen_instr(1, 10000),                             // 0 - _ - 0
+        gen_data(1, true, 1234, 4),                      // 0 - _ - 0
         gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 151), // _ - 0 - 1
-        gen_instr(2, 200),                               // _ - 0 - 1
+        gen_instr(2, 20000),                             // _ - 0 - 1
         gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 170), // 1 - _ - 1
-        gen_instr(1, 108),                               // 1 - _ - 1
+        gen_instr(1, 10008),                             // 1 - _ - 1
         gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 201), // 2 - _ - 2
-        gen_instr(1, 204),                               // 2 - _ - 2
+        gen_instr(1, 20004),                             // 2 - _ - 2
         gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 210), // _ - 1 - 2
-        gen_instr(2, 208),                               // _ - 1 - 2
+        gen_instr(2, 20008),                             // _ - 1 - 2
         gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 270), // _ - 1 - 2
-        gen_instr(2, 208),                               // _ - 1 - 2
+        gen_instr(2, 20008),                             // _ - 1 - 2
         gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 490), // _ - 3 - 4
-        gen_instr(2, 212),                               // _ - 3 - 4
+        gen_instr(2, 20012),                             // _ - 3 - 4
         gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 590), // 5 - _ - 5
         gen_exit(1),                                     // 5 - _ - 5
         gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 610), // _ - 5 - 6
-        gen_instr(2, 216),                               // _ - 5 - 6
+        gen_instr(2, 20016),                             // _ - 5 - 6
         gen_exit(2)                                      // _ - 5 - 6
     };
     // Format for interval_switch_point: <tid, seen_memrefs, interval_id>

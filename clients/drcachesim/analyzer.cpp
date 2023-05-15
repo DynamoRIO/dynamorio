@@ -300,6 +300,12 @@ analyzer_tmpl_t<RecordType, ReaderType>::advance_interval_id(
     if (interval_microseconds_ == 0 || !record_is_timestamp(record)) {
         return false;
     }
+    // We keep the interval end timestamps independent of the first timestamp of the
+    // trace. For the parallel mode, where we need to merge intervals from different
+    // shards that were active during the same final whole-trace interval, having aligned
+    // interval-end points makes it easier to merge. Note that interval ids are however
+    // still dependent on the first timestamp since we want interval ids to start at a
+    // small number.
     uint64_t next_interval_index = stream->get_last_timestamp() / interval_microseconds_ -
         stream->get_first_timestamp() / interval_microseconds_;
     if (next_interval_index != shard->cur_interval_index_) {
@@ -451,6 +457,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_and_release_snapshots(
     typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *one,
     typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *two)
 {
+    assert(one != nullptr && two != nullptr);
     result = tools_[tool_idx]->combine_interval_snapshot(one, two);
     if (result == nullptr) {
         error_string_ = "combine_interval_snapshot unexpectedly returned nullptr";
@@ -472,6 +479,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
     std::vector<std::queue<
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
         &intervals,
+    // This function will write the resulting whole-trace intervals to
+    // merged_intervals.
     std::vector<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
         &merged_intervals,
     int tool_idx)
@@ -533,7 +542,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
         }
         // Add the merged interval to the result list of whole trace intervals.
         cur_merged_interval->interval_end_timestamp_ = earliest_interval_end_timestamp;
-        cur_merged_interval->shard_id_ = 0;
+        cur_merged_interval->shard_id_ = 0; // Zero signifies whole-trace.
         cur_merged_interval->interval_id_ =
             (earliest_interval_end_timestamp - earliest_ever_interval_end_timestamp) /
             interval_microseconds_;
