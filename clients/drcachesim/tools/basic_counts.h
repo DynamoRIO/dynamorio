@@ -188,6 +188,9 @@ protected:
     // Records a snapshot of counts for a trace interval.
     struct count_snapshot_t : public interval_state_snapshot_t {
         counters_t counters;
+        // TODO i#6020: Add per-window counters to the snapshot, and also
+        // return interval counts separately per-window in a structured
+        // way and print under a flag.
     };
     static bool
     cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,

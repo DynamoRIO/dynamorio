@@ -329,7 +329,7 @@ basic_counts_t::combine_interval_snapshots(
     for (const auto snapshot : last_shard_snapshots) {
         if (snapshot == nullptr)
             continue;
-        result->counters =
+        result->counters +=
             dynamic_cast<const count_snapshot_t *const>(snapshot)->counters;
     }
     return result;
@@ -343,7 +343,7 @@ basic_counts_t::print_interval_results(
     counters_t last;
     for (const auto &snapshot_base : interval_snapshots) {
         auto *snapshot = dynamic_cast<count_snapshot_t *>(snapshot_base);
-        std::cerr << "Interval " << snapshot->interval_id << ":\n";
+        std::cerr << "Interval #" << snapshot->interval_id << ":\n";
         counters_t diff = snapshot->counters;
         diff -= last;
         print_counters(diff, 0, " interval delta");

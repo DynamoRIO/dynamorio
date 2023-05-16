@@ -671,8 +671,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(uint64_t interval_id,
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *snapshot;
         if (parallel) {
             snapshot = tools_[tool_idx]->generate_shard_interval_snapshot(
-                worker->shard_data[shard_id].tool_data[tool_idx].shard_data,
-                interval_id);
+                worker->shard_data[shard_id].tool_data[tool_idx].shard_data, interval_id);
         } else {
             snapshot = tools_[tool_idx]->generate_interval_snapshot(interval_id);
         }
@@ -692,9 +691,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(uint64_t interval_id,
                 (worker->stream->get_first_timestamp() / interval_microseconds_ +
                  interval_id + 1) *
                 interval_microseconds_;
-            worker->shard_data[shard_id]
-                .tool_data[tool_idx]
-                .interval_snapshot_data.push(snapshot);
+            worker->shard_data[shard_id].tool_data[tool_idx].interval_snapshot_data.push(
+                snapshot);
         }
     }
     return true;

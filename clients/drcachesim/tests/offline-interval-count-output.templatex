@@ -39,7 +39,7 @@ Thread .* counts:
      .* other markers
      .* encodings
 Interval total counts across threads:
-Interval 0:.*
+Interval #0:.*
      .* interval delta \(fetched\) instructions
      .* interval delta unique \(fetched\) instructions
      .* interval delta non-fetched instructions
@@ -58,4 +58,4 @@ Interval 0:.*
            0 interval delta physical address unavailable markers
      .* interval delta other markers
      .* interval delta encodings
-Interval 1:.*
+Interval #1:.*

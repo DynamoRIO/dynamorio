@@ -224,7 +224,7 @@ public:
     }
     /**
      * Invoked by the framework to combine the shard-local \p interval_state_snapshot_t
-     * objects pointed to by \p last_shard_snapshots, to create the combined
+     * objects pointed at by \p last_shard_snapshots, to create the combined
      * \p interval_state_snapshot_t for a whole-trace interval. This is useful in the
      * parallel mode of the analyzer, where each trace shard is processed in parallel. In
      * this mode, the framework creates the \p interval_state_snapshot_t for each

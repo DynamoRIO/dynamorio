@@ -128,7 +128,7 @@ private:
     std::unordered_map<memref_tid_t, uint64_t> last_timestamps_;
     uint64_t first_timestamp_;
     uint64_t last_timestamp_;
-    size_t at_;
+    int at_;
     bool parallel_;
 };
 

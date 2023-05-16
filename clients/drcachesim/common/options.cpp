@@ -487,7 +487,7 @@ droption_t<std::string> op_tracer_ops(
     "(For internal use: sweeps up tracer options)",
     "This is an internal option that sweeps up other options to pass to the tracer.");
 
-droption_t<int> op_interval_microseconds(
+droption_t<bytesize_t> op_interval_microseconds(
     DROPTION_SCOPE_FRONTEND, "interval_microseconds", 0,
     "Enable periodic heartbeats for intervals of given microseconds in the trace.",
     "Desired length of each trace interval, defined in microseconds of trace time. "
