@@ -227,16 +227,34 @@ public:
         return nullptr;
     }
     /**
-     * Invoked by the framework to combine the two \p interval_state_snapshot_t
-     * objects pointed by the given inputs. This is useful in the parallel mode
-     * of analyzer, where each trace shard is processed in parallel. In this mode,
-     * the \p interval_state_snapshot_t from different shards that map to the same
-     * final whole-trace interval need to be combined into one. This API must not
-     * return a nullptr.
+     * Invoked by the framework to combine the shard-local \p interval_state_snapshot_t
+     * objects pointed to by \p last_shard_snapshots, to create the combined
+     * \p interval_state_snapshot_t for a whole-trace interval. This is useful in the
+     * parallel mode of the analyzer, where each trace shard is processed in parallel. In
+     * this mode, the framework creates the \p interval_state_snapshot_t for each
+     * whole-trace interval, one by one. For each interval, it invokes
+     * combine_interval_snapshots() with the as-then last interval snapshots from each
+     * shard (in \p last_shard_snapshots), and also information about whether each of
+     * those snapshots was observed in the current interval (in \p
+     * observed_in_cur_interval). \p last_shard_snapshots will contain at least one
+     * non-null element. Tools must not return a nullptr. Tools must not modify the
+     * provided snapshots.
+     *
+     * \p observed_in_cur_interval helps the tool to determine which of the provided
+     * \p last_shard_snapshots are relevant to it.
+     * - for cumulative metrics (e.g. total instructions till an interval), the tool
+     *   may want to combine interval snapshots from all last shards to get the accurate
+     *   cumulative count.
+     * - for delta metrics (e.g. incremental instructions in an interval), the tool
+     *   may want to combine interval snapshots from only the shards that were observed in
+     *   the current interval.
+     * - or if the tool mixes cumulative and delta metrics: some field-specific logic that
+     *   combines the above two strategies.
      */
     virtual interval_state_snapshot_t *
-    combine_interval_snapshot(interval_state_snapshot_t *one,
-                              interval_state_snapshot_t *two)
+    combine_interval_snapshots(
+        const std::vector<const interval_state_snapshot_t *> last_shard_snapshots,
+        const std::vector<bool> observed_in_cur_interval)
     {
         return nullptr;
     }

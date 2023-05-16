@@ -300,14 +300,10 @@ analysis_tool_t::interval_state_snapshot_t *
 basic_counts_t::generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
-    counters_t cur_counters;
-    for (const auto &ctr : per_shard->counters) {
-        cur_counters += ctr;
-    }
     count_snapshot_t *snapshot = new count_snapshot_t;
-    snapshot->delta_counters = cur_counters;
-    snapshot->delta_counters -= per_shard->counters_at_last_interval;
-    per_shard->counters_at_last_interval = cur_counters;
+    for (const auto &ctr : per_shard->counters) {
+        snapshot->counters += ctr;
+    }
     return snapshot;
 }
 
@@ -316,24 +312,26 @@ basic_counts_t::generate_interval_snapshot(uint64_t interval_id)
 {
     count_snapshot_t *snapshot = new count_snapshot_t;
     for (const auto &shard : shard_map_) {
-        counters_t shard_total;
         for (const auto &ctr : shard.second->counters) {
-            shard_total += ctr;
+            snapshot->counters += ctr;
         }
-        snapshot->delta_counters += shard_total;
-        snapshot->delta_counters -= shard.second->counters_at_last_interval;
-        shard.second->counters_at_last_interval = shard_total;
     }
     return snapshot;
 }
 
 analysis_tool_t::interval_state_snapshot_t *
-basic_counts_t::combine_interval_snapshot(analysis_tool_t::interval_state_snapshot_t *one,
-                                          analysis_tool_t::interval_state_snapshot_t *two)
+basic_counts_t::combine_interval_snapshots(
+    const std::vector<const analysis_tool_t::interval_state_snapshot_t *>
+        last_shard_snapshots,
+    const std::vector<bool> observed_in_cur_interval)
 {
     count_snapshot_t *result = new count_snapshot_t;
-    result->delta_counters = dynamic_cast<count_snapshot_t *>(one)->delta_counters;
-    result->delta_counters += dynamic_cast<count_snapshot_t *>(two)->delta_counters;
+    for (const auto snapshot : last_shard_snapshots) {
+        if (snapshot == nullptr)
+            continue;
+        result->counters =
+            dynamic_cast<const count_snapshot_t *const>(snapshot)->counters;
+    }
     return result;
 }
 
@@ -342,10 +340,14 @@ basic_counts_t::print_interval_results(
     const std::vector<interval_state_snapshot_t *> &interval_snapshots)
 {
     std::cerr << "Interval total counts across threads:\n";
+    counters_t last;
     for (const auto &snapshot_base : interval_snapshots) {
         auto *snapshot = dynamic_cast<count_snapshot_t *>(snapshot_base);
         std::cerr << "Interval " << snapshot->interval_id_ << ":\n";
-        print_counters(snapshot->delta_counters, 0, " interval delta");
+        counters_t diff = snapshot->counters;
+        diff -= last;
+        print_counters(diff, 0, " interval delta");
+        last = snapshot->counters;
     }
     return true;
 }

@@ -216,16 +216,6 @@ protected:
     process_shard_interval(int shard_id, uint64_t interval_id,
                            analyzer_worker_data_t *worker);
 
-    // Merges the interval_state_snapshot_t objects pointed by 'one' and 'two', and
-    // returns the result in 'result'. Also releases the 'one' and 'two' objects. It
-    // uses the APIs implemented by the tool at index 'tool_idx'.
-    bool
-    merge_and_release_snapshots(
-        int tool_idx,
-        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *&result,
-        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *one,
-        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *two);
-
     // Possibly advances the current interval id stored in the worker data, based
     // on the most recent seen timestamp in the trace stream. Returns whether the
     // current interval id was updated, and if so also sets the previous interval index

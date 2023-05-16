@@ -63,8 +63,10 @@ public:
     interval_state_snapshot_t *
     generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override;
     interval_state_snapshot_t *
-    combine_interval_snapshot(interval_state_snapshot_t *one,
-                              interval_state_snapshot_t *two) override;
+    combine_interval_snapshots(
+        const std::vector<const analysis_tool_t::interval_state_snapshot_t *>
+            last_shard_snapshots,
+        const std::vector<bool> observed_in_cur_interval) override;
     bool
     print_interval_results(
         const std::vector<interval_state_snapshot_t *> &interval_snapshots) override;
@@ -180,15 +182,13 @@ protected:
         memref_tid_t tid = 0;
         // A vector to support windows.
         std::vector<counters_t> counters;
-        counters_t counters_at_last_interval;
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
     };
     // Records a snapshot of counts for a trace interval.
     struct count_snapshot_t : public interval_state_snapshot_t {
-        // Records the incremental value of all counters in a trace interval.
-        counters_t delta_counters;
+        counters_t counters;
     };
     static bool
     cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
