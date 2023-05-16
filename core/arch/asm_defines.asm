@@ -910,6 +910,10 @@ ASSUME fs:_DATA @N@\
         mov      ARG1, p1   @N@\
         blx      callee
 #elif defined(RISCV64)
+/* For RISC-V, there is not a instuction could operate both immediate 
+ * and registers. Here is a macro which to judge if the arguments is
+ * registers or not.
+ */
 .set register.sp, 1
 .macro RVSETARG argreg, p
   .ifdef "register.\p"
@@ -922,11 +926,11 @@ ASSUME fs:_DATA @N@\
         call     callee
 /* FIXME i#3544: Handle p1..4 being registers instead of immediates. */
 # define CALLC1(callee, p1)    \
-        SETARG(ARG1, p1)   @N@\
+        RVSETARG ARG1, p1   @N@\
         call      callee
 # define CALLC2(callee, p1, p2)    \
-        li      ARG2, p2   @N@\
-        li      ARG1, p1   @N@\
+        RVSETARG ARG2, p2   @N@\
+        RVSETARG ARG1, p1   @N@\
         call      callee
 # define CALLC3(callee, p1, p2, p3)    \
         RVSETARG ARG3, p3  @N@ \
@@ -934,10 +938,10 @@ ASSUME fs:_DATA @N@\
         RVSETARG ARG1, p1  @N@ \
         call      callee
 # define CALLC4(callee, p1, p2, p3, p4)    \
-        li      ARG4, p4   @N@\
-        li      ARG3, p3   @N@\
-        li      ARG2, p2   @N@\
-        li      ARG1, p1   @N@\
+        RVSETARG ARG4, p4   @N@\
+        RVSETARG ARG3, p3   @N@\
+        RVSETARG ARG2, p2   @N@\
+        RVSETARG ARG1, p1   @N@\
         call      callee
 #endif
 

@@ -323,19 +323,18 @@ GLOBAL_LABEL(back_from_native:)
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
         nop
-        li      fp, 0
+        mv      fp, x0  /* clear frame ptr for stack trace bottom */
 
         CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, sp)
-        li      ARG2, 0
-        li      ARG3, 0
+        mv      ARG2, x0
+        mv      ARG3, x0
 
 .L_start_invoke_C:
-        li      fp, 0
-        add     ARG1, sp, x0
+        li      fp, 0 /* clear frame ptr for stack trace bottom */
+        add     ARG1, sp, x0 /* 1st arg to privload_early_inject */
         jal     GLOBAL_REF(privload_early_inject)
         /* shouldn't return */
         jal     GLOBAL_REF(unexpected_return)
-        ret
         END_FUNC(_start)
 
 /* i#1227: on a conflict with the app we reload ourselves.
@@ -347,6 +346,7 @@ GLOBAL_LABEL(_start:)
         DECLARE_FUNC(xfer_to_new_libdr)
 GLOBAL_LABEL(xfer_to_new_libdr:)
         mv      s0, ARG1
+        /* Restore sp */
         add     sp, ARG2, x0
         la      ARG1, .L_start_invoke_C
         la      ARG2, GLOBAL_REF(_start)
@@ -363,15 +363,8 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
 
         DECLARE_FUNC(dynamorio_condvar_wake_and_jmp)
 GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
-        mv      REG_R9, REG_R11
-        li      REG_R15, 0
-        li      REG_R14, 0
-        li      REG_R13, 0
-        li      REG_R12, 0x7fffffff
-        li      REG_R11, 1
-        li      a7, 98
-        ecall
-        jr     REG_R9
+/* FIXME i#3544: Not implemented */
+        ret
         END_FUNC(dynamorio_condvar_wake_and_jmp)
 
 END_FILE
