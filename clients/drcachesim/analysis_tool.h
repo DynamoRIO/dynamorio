@@ -167,21 +167,17 @@ public:
      * framework automatically.
      */
     struct interval_state_snapshot_t {
-        interval_state_snapshot_t(int shard_id, uint64_t interval_id,
-                                  uint64_t interval_end_timestamp)
-            : shard_id_(shard_id)
-            , interval_id_(interval_id)
+        interval_state_snapshot_t(uint64_t interval_id, uint64_t interval_end_timestamp)
+            : interval_id_(interval_id)
             , interval_end_timestamp_(interval_end_timestamp)
         {
         }
         interval_state_snapshot_t()
-            : shard_id_(0)
-            , interval_id_(0)
+            : interval_id_(0)
             , interval_end_timestamp_(0)
         {
         }
 
-        int shard_id_;
         uint64_t interval_id_;
         // Stores the timestamp (exclusive) when the above interval ends. Note
         // that this is not the last timestamp actually seen in the trace interval,
@@ -195,7 +191,7 @@ public:
      * Notifies the analysis tool that the given trace \p interval_id has ended so
      * that it can generate a snapshot of its internal state in a struct derived
      * from \p interval_state_snapshot_t, and return a pointer to it. The returned
-     * pointer will be provided to the tool in later combine_interval_snapshot()
+     * pointer will be provided to the tool in later combine_interval_snapshots()
      * and print_interval_result() calls.
      *
      * \p interval_id is the ordinal of the trace interval that just ended. Trace
@@ -207,7 +203,7 @@ public:
      * any activity in that interval.
      *
      * The returned \p interval_state_snapshot_t* will be passed to the
-     * combine_interval_snapshot() API which is invoked by the framework to merge
+     * combine_interval_snapshots() API which is invoked by the framework to merge
      * multiple \p interval_state_snapshot_t from different shards in the parallel
      * mode of the analyzer.
      *
@@ -376,17 +372,19 @@ public:
         return "";
     }
     /**
-     * Notifies the analysis tool that the given trace \p interval_id in the
-     * given \p shard_id has ended, so that it can generate a snapshot of its
-     * internal state in a struct derived from \p interval_state_snapshot_t, and
-     * return a pointer to it. The returned pointer will be provided to the tool
-     * in later combine_interval_snapshot() and print_interval_result() calls.
+     * Notifies the analysis tool that the given trace \p interval_id in the shard
+     * represented by the given \p shard_data has ended, so that it can generate a
+     * snapshot of its internal state in a struct derived from \p
+     * interval_state_snapshot_t, and return a pointer to it. The returned pointer will
+     * be provided to the tool in later combine_interval_snapshots() and
+     * print_interval_result() calls.
      *
-     * Note that the provided \p interval_id is local to the given \p shard_id,
-     * and not the whole-trace interval. The framework will automatically merge
-     * the shard-local \p interval_state_snapshot_t using combine_interval_snapshot()
-     * to create a series of \p interval_state_snapshot_t for the whole-trace
-     * intervals.
+     * Note that the provided \p interval_id is local to the shard that is
+     * represented by the given \p share_data, and not the whole-trace interval. The
+     * framework will automatically create an \p interval_state_snapshot_t for each
+     * whole-trace interval by using combine_interval_snapshots() to combine one or more
+     * shard-local \p interval_state_snapshot_t corresponding to that whole-trace
+     * interval.
      *
      * \p interval_id is the ordinal of the trace interval that just ended. Trace
      * intervals have a length equal to the \p -interval_microseconds specified

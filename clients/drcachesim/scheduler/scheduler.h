@@ -611,6 +611,9 @@ public:
         uint64_t
         get_last_timestamp() const override
         {
+            if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
+                        scheduler_->options_.flags))
+                return scheduler_->get_input_stream(ordinal_)->get_last_timestamp();
             return last_timestamp_;
         }
         /**

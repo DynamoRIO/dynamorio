@@ -205,16 +205,13 @@ protected:
     bool
     record_is_timestamp(const RecordType &record);
 
-    // Invoked when the given interval finishes during serial analysis of the
-    // trace.
+    // Invoked when the given interval finishes during serial or parallel
+    // analysis of the trace. For parallel analysis, the shard_id
+    // parameter should be set to the shard_id for which the interval
+    // finished. For serial analysis, it should remain the default value.
     bool
-    process_interval(uint64_t interval_id, analyzer_worker_data_t *worker);
-
-    // Invoked when the given interval finishes in the given shard during
-    // parallel analysis of the trace.
-    bool
-    process_shard_interval(int shard_id, uint64_t interval_id,
-                           analyzer_worker_data_t *worker);
+    process_interval(uint64_t interval_id, analyzer_worker_data_t *worker, bool parallel,
+                     int shard_id = 0);
 
     // Possibly advances the current interval id stored in the worker data, based
     // on the most recent seen timestamp in the trace stream. Returns whether the
@@ -223,8 +220,7 @@ protected:
     bool
     advance_interval_id(
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
-        analyzer_shard_data_t *shard, const RecordType &record,
-        uint64_t &prev_interval_index);
+        analyzer_shard_data_t *shard, uint64_t &prev_interval_index);
 
     // Collects interval results for all shards from the workers, and then merges
     // the shard-local intervals to form the whole-trace interval results using

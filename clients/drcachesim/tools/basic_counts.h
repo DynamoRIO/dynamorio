@@ -46,7 +46,7 @@ public:
     ~basic_counts_t() override;
     bool
     process_memref(const memref_t &memref) override;
-    analysis_tool_t::interval_state_snapshot_t *
+    interval_state_snapshot_t *
     generate_interval_snapshot(uint64_t interval_id) override;
     bool
     print_results() override;
@@ -64,8 +64,7 @@ public:
     generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override;
     interval_state_snapshot_t *
     combine_interval_snapshots(
-        const std::vector<const analysis_tool_t::interval_state_snapshot_t *>
-            last_shard_snapshots,
+        const std::vector<const interval_state_snapshot_t *> last_shard_snapshots,
         const std::vector<bool> observed_in_cur_interval) override;
     bool
     print_interval_results(

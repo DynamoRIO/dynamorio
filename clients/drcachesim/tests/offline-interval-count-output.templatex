@@ -57,4 +57,5 @@ Interval 0:.*
            0 interval delta physical address \+ virtual address marker pairs
            0 interval delta physical address unavailable markers
      .* interval delta other markers
-     .* interval delta encodings.*
+     .* interval delta encodings
+Interval 1:.*
