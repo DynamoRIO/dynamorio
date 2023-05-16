@@ -30,6 +30,9 @@
  * DAMAGE.
  */
 
+#include <set>
+#include <unordered_map>
+
 #include "scheduler.h"
 #include "file_reader.h"
 #ifdef HAS_ZLIB
@@ -43,6 +46,12 @@
 #endif
 #include "directory_iterator.h"
 #include "utils.h"
+#ifdef UNIX
+#    include <sys/time.h>
+#else
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h>
+#endif
 
 #undef VPRINT
 #ifdef DEBUG
@@ -242,6 +251,8 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::get_reader(const std::string &
 {
     // TODO i#5675: Add support for other file formats, particularly
     // .zip files.
+    if (ends_with(path, ".sz") || ends_with(path, ".zip"))
+        return nullptr;
     return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
         new default_record_file_reader_t(path, verbosity));
 }
@@ -336,6 +347,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         return res;
 
     // Update our memtrace_stream_t state.
+    std::lock_guard<std::mutex> guard(*input->lock);
     if (!input->reader->is_record_synthetic())
         ++cur_ref_count_;
     if (scheduler_->record_type_is_instr(record))
@@ -468,7 +480,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                     // TODO i#5843: Implement priorities.
                     return STATUS_ERROR_NOT_IMPLEMENTED;
                 }
-                for (size_t i = 0; i < modifiers.regions_of_interest.size(); i++) {
+                for (size_t i = 0; i < modifiers.regions_of_interest.size(); ++i) {
                     const auto &range = modifiers.regions_of_interest[i];
                     if (range.start_instruction == 0 ||
                         (range.stop_instruction < range.start_instruction &&
@@ -499,18 +511,35 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         static_cast<int>(sched_type_t::SCHEDULER_SPECULATE_NOPS));
 
     outputs_.reserve(output_count);
-    for (int i = 0; i < output_count; i++) {
+    for (int i = 0; i < output_count; ++i) {
         outputs_.emplace_back(this, i,
                               TESTANY(SCHEDULER_SPECULATE_NOPS, options_.flags)
                                   ? spec_type_t::USE_NOPS
                                   // TODO i#5843: Add more flags for other options.
                                   : spec_type_t::LAST_FROM_TRACE,
                               verbosity_);
+        if (options_.schedule_record_ostream != nullptr) {
+            sched_type_t::stream_status_t status = record_schedule_segment(
+                i, schedule_record_t::VERSION, schedule_record_t::VERSION_CURRENT, 0, 0);
+            if (status != sched_type_t::STATUS_OK) {
+                error_string_ = "Failed to add version to recorded schedule";
+                return STATUS_ERROR_FILE_WRITE_FAILED;
+            }
+        }
     }
+    if (options_.mapping == MAP_AS_PREVIOUSLY) {
+        if (options_.schedule_replay_istream == nullptr ||
+            options_.schedule_record_ostream != nullptr)
+            return STATUS_ERROR_INVALID_PARAMETER;
+        sched_type_t::scheduler_status_t status = read_recorded_schedule();
+        if (status != sched_type_t::STATUS_SUCCESS)
+            return STATUS_ERROR_INVALID_PARAMETER;
+    } else if (options_.schedule_replay_istream != nullptr)
+        return STATUS_ERROR_INVALID_PARAMETER;
     if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT) {
         // Assign the inputs up front to avoid locks once we're in parallel mode.
         // We use a simple round-robin static assignment for now.
-        for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); i++) {
+        for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
             size_t index = i % output_count;
             if (outputs_[index].input_indices.empty())
                 set_cur_input(static_cast<input_ordinal_t>(index), i);
@@ -518,14 +547,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             VPRINT(this, 2, "Assigning input #%d to output #%zd\n", i, index);
         }
     } else if (options_.mapping == MAP_TO_RECORDED_OUTPUT) {
-        // TODO i#5843,i#5694: Implement cpu-oriented parallel iteration.
-        // Initially we only support analyzer_t's serial mode.
-        if (options_.deps != DEPENDENCY_TIMESTAMPS)
-            return STATUS_ERROR_NOT_IMPLEMENTED;
-        // TODO i#5843: Support more than one output.
-        if (output_count != 1)
-            return STATUS_ERROR_NOT_IMPLEMENTED;
-        if (inputs_.size() == 1) {
+        if (output_count > 1) {
+            if (options_.replay_as_traced_istream == nullptr)
+                return STATUS_ERROR_INVALID_PARAMETER;
+            sched_type_t::scheduler_status_t status = read_traced_schedule();
+            if (status != sched_type_t::STATUS_SUCCESS)
+                return STATUS_ERROR_INVALID_PARAMETER;
+            // Now leverage the regular replay code.
+            options_.mapping = MAP_AS_PREVIOUSLY;
+        } else if (inputs_.size() == 1) {
             set_cur_input(0, 0);
         } else {
             // The old file_reader_t interleaving would output the top headers for every
@@ -537,25 +567,254 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                 return res;
         }
     } else {
-        // TODO i#5843: Honor deps when scheduling on synthetic cores.
-        if (options_.deps != DEPENDENCY_IGNORE)
-            return STATUS_ERROR_NOT_IMPLEMENTED;
         // TODO i#5843: Implement time-based quanta.
         if (options_.quantum_unit != QUANTUM_INSTRUCTIONS)
             return STATUS_ERROR_NOT_IMPLEMENTED;
         // Assign initial inputs.
         // TODO i#5843: Once we support core bindings and priorities we'll want
         // to consider that here.
-        for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); i++) {
+        for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
             if (i < static_cast<input_ordinal_t>(inputs_.size()))
                 set_cur_input(i, i);
             else
                 set_cur_input(i, INVALID_INPUT_ORDINAL);
         }
         for (int i = static_cast<output_ordinal_t>(outputs_.size());
-             i < static_cast<input_ordinal_t>(inputs_.size()); i++) {
+             i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
             ready_.push(i);
         }
+    }
+    return STATUS_SUCCESS;
+}
+
+template <typename RecordType, typename ReaderType>
+std::string
+scheduler_tmpl_t<RecordType, ReaderType>::recorded_schedule_component_name(
+    output_ordinal_t output)
+{
+    static const char *const SCHED_CHUNK_PREFIX = "output.";
+    std::ostringstream name;
+    name << SCHED_CHUNK_PREFIX << std::setfill('0') << std::setw(4) << output;
+    return name.str();
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::write_recorded_schedule()
+{
+    if (options_.schedule_record_ostream == nullptr)
+        return STATUS_ERROR_INVALID_PARAMETER;
+    std::lock_guard<std::mutex> guard(sched_lock_);
+    for (int i = 0; i < static_cast<int>(outputs_.size()); ++i) {
+        sched_type_t::stream_status_t status =
+            record_schedule_segment(i, schedule_record_t::FOOTER, 0, 0, 0);
+        if (status != sched_type_t::STATUS_OK)
+            return STATUS_ERROR_FILE_WRITE_FAILED;
+        std::string name = recorded_schedule_component_name(i);
+        std::string err = options_.schedule_record_ostream->open_new_component(name);
+        if (!err.empty()) {
+            VPRINT(this, 1, "Failed to open component %s in record file: %s\n",
+                   name.c_str(), err.c_str());
+            return STATUS_ERROR_FILE_WRITE_FAILED;
+        }
+        if (!options_.schedule_record_ostream->write(
+                reinterpret_cast<char *>(outputs_[i].record.data()),
+                outputs_[i].record.size() * sizeof(outputs_[i].record[0])))
+            return STATUS_ERROR_FILE_WRITE_FAILED;
+    }
+    return STATUS_SUCCESS;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::read_recorded_schedule()
+{
+    if (options_.schedule_replay_istream == nullptr)
+        return STATUS_ERROR_INVALID_PARAMETER;
+
+    schedule_record_t record;
+    // We assume we can easily fit the whole context switch sequence in memory.
+    // If that turns out not to be the case for very long traces, we deliberately
+    // used an archive format so we could do parallel incremental reads.
+    // (Conversely, if we want to commit to storing in memory, we could use a
+    // non-archive format and store the output ordinal in the version record.)
+    for (int i = 0; i < static_cast<int>(outputs_.size()); ++i) {
+        std::string err = options_.schedule_replay_istream->open_component(
+            recorded_schedule_component_name(i));
+        if (!err.empty()) {
+            error_string_ = "Failed to open schedule_replay_istream component " +
+                recorded_schedule_component_name(i) + ": " + err;
+            return STATUS_ERROR_INVALID_PARAMETER;
+        }
+        // XXX: This could be made more efficient if we stored the record count
+        // in the version field's stop_instruction field or something so we can
+        // size the vector up front.  As this only happens once we do not bother
+        // and live with a few vector resizes.
+        bool saw_footer = false;
+        while (options_.schedule_replay_istream->read(reinterpret_cast<char *>(&record),
+                                                      sizeof(record))) {
+            if (record.type == schedule_record_t::VERSION) {
+                if (record.key.version != schedule_record_t::VERSION_CURRENT)
+                    return STATUS_ERROR_INVALID_PARAMETER;
+            } else if (record.type == schedule_record_t::FOOTER) {
+                saw_footer = true;
+                break;
+            } else
+                outputs_[i].record.push_back(record);
+        }
+        if (!saw_footer) {
+            error_string_ = "Record file missing footer";
+            return STATUS_ERROR_INVALID_PARAMETER;
+        }
+        VPRINT(this, 1, "Read %zu recorded records for output #%d\n",
+               outputs_[i].record.size(), i);
+    }
+    // See if there was more data in the file (we do this after reading to not
+    // mis-report i/o or path errors as this error).
+    std::string err = options_.schedule_replay_istream->open_component(
+        recorded_schedule_component_name(static_cast<output_ordinal_t>(outputs_.size())));
+    if (err.empty()) {
+        error_string_ = "Not enough output streams for recorded file";
+        return STATUS_ERROR_INVALID_PARAMETER;
+    }
+    for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
+        if (!outputs_[i].record.empty()) {
+            set_cur_input(i, outputs_[i].record[0].key.input);
+        } else
+            set_cur_input(i, INVALID_INPUT_ORDINAL);
+    }
+    return STATUS_SUCCESS;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
+{
+    if (options_.replay_as_traced_istream == nullptr)
+        return STATUS_ERROR_INVALID_PARAMETER;
+
+    schedule_entry_t entry(0, 0, 0, 0);
+    // See comment in read_recorded_schedule() on our assumption that we can
+    // easily fit the whole context switch sequence in memory.  This cpu_schedule
+    // file has an entry per timestamp, though, even for consecutive ones on the same
+    // core, so it uses more memory.
+    // We do not have a subfile listing feature in archive_istream_t, but we can
+    // read sequentially as each record has a cpu field.
+    // This schedule_entry_t format doesn't have the stop instruction ordinal (as it was
+    // designed for skip targets only), so we take two passes to get that information.
+    // If we do find memory is an issue we could add a stop field to schedule_entry_t
+    // and collapse as we go, saving memory.
+    // We also need to translate the thread and cpu id values into 0-based ordinals.
+    std::unordered_map<memref_tid_t, input_ordinal_t> tid2input;
+    for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
+        tid2input[inputs_[i].tid] = i;
+    }
+    std::vector<std::set<uint64_t>> start2stop(inputs_.size());
+    // We number the outputs according to their order in the file.
+    // XXX i#5843: Should we support some direction from the user on this?  Simulation
+    // may want to preserve the NUMA relationships and may need to set up its simulated
+    // cores at init time, so it would prefer to partition by output stream identifier.
+    // Maybe we could at least add the proposed memtrace_stream_t query for cpuid and
+    // let it be called even before reading any records at all?
+    output_ordinal_t cur_output = 0;
+    uint64_t cur_cpu = std::numeric_limits<uint64_t>::max();
+    // We also want to collapse same-cpu consecutive records so we start with
+    // a temporary local vector.
+    std::vector<std::vector<schedule_record_t>> all_sched(outputs_.size());
+    while (options_.replay_as_traced_istream->read(reinterpret_cast<char *>(&entry),
+                                                   sizeof(entry))) {
+        if (entry.cpu != cur_cpu) {
+            if (cur_cpu != std::numeric_limits<uint64_t>::max()) {
+                ++cur_output;
+                if (cur_output >= static_cast<int>(outputs_.size())) {
+                    error_string_ = "replay_as_traced_istream cpu count != output count";
+                    return STATUS_ERROR_INVALID_PARAMETER;
+                }
+            }
+            cur_cpu = entry.cpu;
+        }
+        input_ordinal_t input = tid2input[entry.thread];
+        // We'll fill in the stop ordinal in our second pass below.
+        uint64_t start = entry.start_instruction;
+        uint64_t timestamp = entry.timestamp;
+        // Some entries have no instructions (there is an entry for each timestamp, and
+        // a signal can come in after a prior timestamp with no intervening instrs).
+        if (!all_sched[cur_output].empty() &&
+            input == all_sched[cur_output].back().key.input &&
+            start == all_sched[cur_output].back().start_instruction) {
+            VPRINT(this, 3,
+                   "Output #%d: as-read segment #%zu has no instructions: skipping\n",
+                   cur_output, all_sched[cur_output].size() - 1);
+            continue;
+        }
+        all_sched[cur_output].emplace_back(schedule_record_t::DEFAULT, input, start, 0,
+                                           timestamp);
+        start2stop[input].insert(start);
+    }
+    for (int output_idx = 0; output_idx < static_cast<output_ordinal_t>(outputs_.size());
+         ++output_idx) {
+        VPRINT(this, 1, "Read %zu as-traced records for output #%d\n",
+               all_sched[output_idx].size(), output_idx);
+        // Update the stop_instruction field and collapse consecutive entries while
+        // inserting into the final location.
+        int start_consec = -1;
+        for (int sched_idx = 0;
+             sched_idx < static_cast<int>(all_sched[output_idx].size()); ++sched_idx) {
+            auto &segment = all_sched[output_idx][sched_idx];
+            auto find = start2stop[segment.key.input].find(segment.start_instruction);
+            ++find;
+            if (find == start2stop[segment.key.input].end())
+                segment.stop_instruction = std::numeric_limits<uint64_t>::max();
+            else
+                segment.stop_instruction = *find;
+            VPRINT(this, 4,
+                   "as-read segment #%d: input=%d start=%" PRId64 " stop=%" PRId64
+                   " time=%" PRId64 "\n",
+                   sched_idx, segment.key.input, segment.start_instruction,
+                   segment.stop_instruction, segment.timestamp);
+            if (sched_idx + 1 < static_cast<int>(all_sched[output_idx].size()) &&
+                segment.key.input == all_sched[output_idx][sched_idx + 1].key.input &&
+                segment.stop_instruction ==
+                    all_sched[output_idx][sched_idx + 1].start_instruction) {
+                // Collapse into next.
+                if (start_consec == -1)
+                    start_consec = sched_idx;
+            } else {
+                schedule_record_t &toadd = start_consec >= 0
+                    ? all_sched[output_idx][start_consec]
+                    : all_sched[output_idx][sched_idx];
+                outputs_[output_idx].record.emplace_back(
+                    static_cast<typename schedule_record_t::record_type_t>(toadd.type),
+                    +toadd.key.input, +toadd.start_instruction,
+                    +all_sched[output_idx][sched_idx].stop_instruction, +toadd.timestamp);
+                start_consec = -1;
+                VDO(this, 3, {
+                    auto &added = outputs_[output_idx].record.back();
+                    VPRINT(this, 3,
+                           "segment #%zu: input=%d start=%" PRId64 " stop=%" PRId64
+                           " time=%" PRId64 "\n",
+                           outputs_[output_idx].record.size() - 1, added.key.input,
+                           added.start_instruction, added.stop_instruction,
+                           added.timestamp);
+                });
+            }
+        }
+        VPRINT(this, 1, "Collapsed duplicates for %zu as-traced records for output #%d\n",
+               outputs_[output_idx].record.size(), output_idx);
+        if (!outputs_[output_idx].record.empty()) {
+            if (outputs_[output_idx].record[0].start_instruction != 0) {
+                VPRINT(this, 1, "Initial input for output #%d is: wait state\n",
+                       output_idx);
+                set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
+                outputs_[output_idx].waiting = true;
+                outputs_[output_idx].record_index = -1;
+            } else {
+                VPRINT(this, 1, "Initial input for output #%d is %d\n", output_idx,
+                       outputs_[output_idx].record[0].key.input);
+                set_cur_input(output_idx, outputs_[output_idx].record[0].key.input);
+            }
+        } else
+            set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
     }
     return STATUS_SUCCESS;
 }
@@ -568,7 +827,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_timestamps()
     // Queue up any skipped records to ensure we present them to the
     // output stream(s).
     uint64_t min_time = 0xffffffffffffffff;
-    for (size_t i = 0; i < inputs_.size(); i++) {
+    for (size_t i = 0; i < inputs_.size(); ++i) {
         input_info_t &input = inputs_[i];
         if (input.next_timestamp <= 0) {
             for (const auto &record : input.queue) {
@@ -742,6 +1001,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
                 return sched_type_t::STATUS_EOF;
             else {
                 // We let the user know we're done.
+                if (options_.schedule_record_ostream != nullptr) {
+                    sched_type_t::stream_status_t status =
+                        close_schedule_segment(output, input);
+                    if (status != sched_type_t::STATUS_OK)
+                        return status;
+                    // Indicate we need a synthetic thread exit on replay.
+                    status =
+                        record_schedule_segment(output, schedule_record_t::SYNTHETIC_END,
+                                                input.index, cur_instr, 0);
+                    if (status != sched_type_t::STATUS_OK)
+                        return status;
+                }
                 input.queue.push_back(create_thread_exit(input.tid));
                 input.at_eof = true;
                 return sched_type_t::STATUS_SKIPPED;
@@ -758,6 +1029,28 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
 
     VPRINT(this, 2, "skipping from %" PRId64 " to %" PRId64 " instrs for ROI\n",
            cur_instr, cur_range.start_instruction);
+    if (options_.schedule_record_ostream != nullptr) {
+        sched_type_t::stream_status_t status = close_schedule_segment(output, input);
+        if (status != sched_type_t::STATUS_OK)
+            return status;
+        status = record_schedule_segment(output, schedule_record_t::SKIP, input.index,
+                                         cur_instr, cur_range.start_instruction);
+        if (status != sched_type_t::STATUS_OK)
+            return status;
+        status = record_schedule_segment(output, schedule_record_t::DEFAULT, input.index,
+                                         cur_range.start_instruction);
+        if (status != sched_type_t::STATUS_OK)
+            return status;
+    }
+    return skip_instructions(output, input, cur_range.start_instruction - cur_instr - 1);
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::skip_instructions(output_ordinal_t output,
+                                                            input_info_t &input,
+                                                            uint64_t skip_amount)
+{
     // We assume the queue contains no instrs (else our query of input.reader's
     // instr ordinal would include them and so be incorrect) and that we should
     // thus skip it all.
@@ -765,7 +1058,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
         assert(!record_type_is_instr(input.queue.front()));
         input.queue.pop_front();
     }
-    input.reader->skip_instructions(cur_range.start_instruction - cur_instr - 1);
+    input.reader->skip_instructions(skip_amount);
     if (*input.reader == *input.reader_end) {
         // Raise error because the input region is out of bounds.
         input.at_eof = true;
@@ -793,6 +1086,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
     // we need to update the view tool to handle a window marker as the very
     // first entry).
     if (input.cur_region > 0) {
+        VPRINT(this, 3, "skip_instructions input=%d: inserting separator marker\n",
+               input.index);
         input.queue.push_back(
             create_region_separator_marker(input.tid, input.cur_region));
     }
@@ -800,36 +1095,223 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
 }
 
 template <typename RecordType, typename ReaderType>
-void
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::record_schedule_segment(
+    output_ordinal_t output, typename schedule_record_t::record_type_t type,
+    input_ordinal_t input, uint64_t start_instruction, uint64_t stop_instruction)
+{
+    uint64_t timestamp;
+    // XXX i#5843: Should we just use dr_get_microseconds() and avoid split-OS support
+    // inside here?  We will be pulling in drdecode at least for identifying blocking
+    // syscalls so maybe full DR isn't much more since we're often linked with raw2trace
+    // which already needs it.  If we do we can remove the headers for this code too.
+#ifdef UNIX
+    struct timeval time;
+    if (gettimeofday(&time, nullptr) != 0)
+        return sched_type_t::STATUS_RECORD_FAILED;
+    timestamp = time.tv_sec * 1000000 + time.tv_usec;
+#else
+    SYSTEMTIME sys_time;
+    GetSystemTime(&sys_time);
+    FILETIME file_time;
+    if (!SystemTimeToFileTime(&sys_time, &file_time))
+        return sched_type_t::STATUS_RECORD_FAILED;
+    timestamp =
+        file_time.dwLowDateTime + (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
+#endif
+    outputs_[output].record.emplace_back(type, input, start_instruction, stop_instruction,
+                                         timestamp);
+    // The stop is typically updated later in close_schedule_segment().
+    if (type == schedule_record_t::DEFAULT) {
+        inputs_[input].recorded_in_schedule = true;
+    }
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::close_schedule_segment(output_ordinal_t output,
+                                                                 input_info_t &input)
+{
+    assert(output >= 0 && output < static_cast<output_ordinal_t>(outputs_.size()));
+    assert(!outputs_[output].record.empty());
+    if (outputs_[output].record.back().type == schedule_record_t::SKIP) {
+        // Skips already have a final stop value.
+        return sched_type_t::STATUS_OK;
+    }
+    uint64_t instr_ord = input.reader->get_instruction_ordinal();
+    if (input.at_eof || *input.reader == *input.reader_end) {
+        // The end is exclusive, so use the max int value.
+        instr_ord = std::numeric_limits<uint64_t>::max();
+    }
+    VPRINT(this, 3,
+           "close_schedule_segment: input=%d start=%" PRId64 " stop=%" PRId64 "\n",
+           input.index, outputs_[output].record.back().start_instruction, instr_ord);
+    outputs_[output].record.back().stop_instruction = instr_ord;
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                                                         input_ordinal_t input)
 {
     assert(output >= 0 && output < static_cast<output_ordinal_t>(outputs_.size()));
     // 'input' might be INVALID_INPUT_ORDINAL.
     assert(input < static_cast<input_ordinal_t>(inputs_.size()));
-    if (outputs_[output].cur_input >= 0)
-        ready_.push(outputs_[output].cur_input);
+    int prev_input = outputs_[output].cur_input;
+    if (prev_input >= 0) {
+        if (options_.mapping == MAP_TO_ANY_OUTPUT && prev_input != input)
+            ready_.push(prev_input);
+        if (prev_input != input && options_.schedule_record_ostream != nullptr) {
+            input_info_t &prev_info = inputs_[prev_input];
+            std::lock_guard<std::mutex> lock(*prev_info.lock);
+            sched_type_t::stream_status_t status =
+                close_schedule_segment(output, prev_info);
+            if (status != sched_type_t::STATUS_OK)
+                return status;
+        }
+    }
     outputs_[output].cur_input = input;
     if (input < 0)
-        return;
+        return STATUS_OK;
+    if (prev_input == input)
+        return STATUS_OK;
+    std::lock_guard<std::mutex> lock(*inputs_[input].lock);
     inputs_[input].instrs_in_quantum = 0;
+    if (options_.schedule_record_ostream != nullptr) {
+        uint64_t instr_ord = inputs_[input].reader->get_instruction_ordinal();
+        if (!inputs_[input].recorded_in_schedule && instr_ord == 1) {
+            // Due to differing reader->init() vs initial set_cur_input() orderings
+            // we can have an initial value of 1 for non-initial input streams
+            // with few markers; we reset to 0 for such cases.
+            VPRINT(this, 3,
+                   "set_cur_input: adjusting instr_ord from 1 to 0 for input=%d\n",
+                   input);
+            instr_ord = 0;
+        }
+        VPRINT(this, 3, "set_cur_input: recording input=%d start=%" PRId64 "\n", input,
+               instr_ord);
+        sched_type_t::stream_status_t status =
+            record_schedule_segment(output, schedule_record_t::DEFAULT, input, instr_ord);
+        if (status != sched_type_t::STATUS_OK)
+            return status;
+    }
+    return STATUS_OK;
 }
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t output)
 {
-    bool need_lock = (options_.mapping == MAP_TO_ANY_OUTPUT);
-    auto scoped_lock = need_lock ? std::unique_lock<std::mutex>()
-                                 : std::unique_lock<std::mutex>(sched_lock_);
-    // We're only called when we should definitely swap so clear the current.
+    bool need_lock =
+        options_.mapping == MAP_TO_ANY_OUTPUT || options_.mapping == MAP_AS_PREVIOUSLY;
+    auto scoped_lock = need_lock ? std::unique_lock<std::mutex>(sched_lock_)
+                                 : std::unique_lock<std::mutex>();
     int prev_index = outputs_[output].cur_input;
     input_ordinal_t index = INVALID_INPUT_ORDINAL;
-    set_cur_input(output, INVALID_INPUT_ORDINAL);
     while (true) {
         if (index < 0) {
-            if (options_.mapping == MAP_TO_ANY_OUTPUT) {
+            if (options_.mapping == MAP_AS_PREVIOUSLY) {
+                if (outputs_[output].record_index + 1 >=
+                    static_cast<int>(outputs_[output].record.size()))
+                    return sched_type_t::STATUS_EOF;
+                const schedule_record_t &segment =
+                    outputs_[output].record[outputs_[output].record_index + 1];
+                index = segment.key.input;
+                {
+                    std::lock_guard<std::mutex> lock(*inputs_[index].lock);
+                    if (inputs_[index].reader->get_instruction_ordinal() >
+                        segment.start_instruction) {
+                        VPRINT(this, 1,
+                               "WARNING: next_record[%d]: input %d wants instr #%" PRId64
+                               " but it is already at #%" PRId64 "\n",
+                               output, index, segment.start_instruction,
+                               inputs_[index].reader->get_instruction_ordinal());
+                    }
+                    if (inputs_[index].reader->get_instruction_ordinal() <
+                            segment.start_instruction &&
+                        // When we skip our separator+timestamp markers are at the
+                        // prior instr ord so do not wait for that.
+                        outputs_[output].record[outputs_[output].record_index].type !=
+                            schedule_record_t::SKIP) {
+                        // Some other output stream has not advanced far enough, and we do
+                        // not support multiple positions in one input stream: we wait.
+                        // XXX i#5843: We may want to provide a kernel-mediated wait
+                        // feature so a multi-threaded simulator doesn't have to do a
+                        // spinning poll loop.
+                        VPRINT(this, 3,
+                               "next_record[%d]: waiting for input %d instr #%" PRId64
+                               "\n",
+                               output, index, segment.start_instruction);
+                        // Give up this input and go into a wait state.
+                        // We'll come back here on the next next_record() call.
+                        set_cur_input(output, INVALID_INPUT_ORDINAL);
+                        outputs_[output].waiting = true;
+                        return sched_type_t::STATUS_WAIT;
+                    }
+                }
+                // Also wait if this segment is ahead of the next-up segment on another
+                // output.  We only have a timestamp per context switch so we can't
+                // enforce finer-grained timing replay.
+                if (options_.deps == DEPENDENCY_TIMESTAMPS) {
+                    for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size());
+                         ++i) {
+                        if (i != output &&
+                            outputs_[i].record_index + 1 <
+                                static_cast<int>(outputs_[i].record.size()) &&
+                            segment.timestamp > outputs_[i]
+                                                    .record[outputs_[i].record_index + 1]
+                                                    .timestamp) {
+                            VPRINT(this, 3,
+                                   "next_record[%d]: waiting because timestamp %" PRIu64
+                                   " is ahead of output %d\n",
+                                   output, segment.timestamp, i);
+                            // Give up this input and go into a wait state.
+                            // We'll come back here on the next next_record() call.
+                            set_cur_input(output, INVALID_INPUT_ORDINAL);
+                            outputs_[output].waiting = true;
+                            return sched_type_t::STATUS_WAIT;
+                        }
+                    }
+                }
+                if (segment.type == schedule_record_t::SYNTHETIC_END) {
+                    std::lock_guard<std::mutex> lock(*inputs_[index].lock);
+                    // We're past the final region of interest and we need to insert
+                    // a synthetic thread exit record.
+                    inputs_[index].queue.push_back(
+                        create_thread_exit(inputs_[index].tid));
+                    inputs_[index].at_eof = true;
+                    VPRINT(this, 2, "early end for input %d\n", index);
+                    // We're done with this entry so move to and past it.
+                    outputs_[output].record_index += 2;
+                    return sched_type_t::STATUS_SKIPPED;
+                } else if (segment.type == schedule_record_t::SKIP) {
+                    std::lock_guard<std::mutex> lock(*inputs_[index].lock);
+                    uint64_t cur_instr = inputs_[index].reader->get_instruction_ordinal();
+                    VPRINT(this, 2,
+                           "skipping from %" PRId64 " to %" PRId64
+                           " instrs for schedule\n",
+                           cur_instr, segment.stop_instruction);
+                    auto status = skip_instructions(output, inputs_[index],
+                                                    segment.stop_instruction - cur_instr -
+                                                        1 /*exclusive*/);
+                    // Increment the region to get window id markers with ordinals.
+                    inputs_[index].cur_region++;
+                    if (status != sched_type_t::STATUS_SKIPPED)
+                        return sched_type_t::STATUS_INVALID;
+                    // We're done with the skip so move to and past it.
+                    outputs_[output].record_index += 2;
+                    return sched_type_t::STATUS_SKIPPED;
+                } else {
+                    VPRINT(this, 2,
+                           "next_record[%d]: advancing to input %d instr #%" PRId64 "\n",
+                           output, index, segment.start_instruction);
+                }
+                ++outputs_[output].record_index;
+            } else if (options_.mapping == MAP_TO_ANY_OUTPUT) {
                 if (ready_.empty()) {
+                    std::lock_guard<std::mutex> lock(*inputs_[prev_index].lock);
                     if (inputs_[prev_index].at_eof)
                         return sched_type_t::STATUS_EOF;
                     else
@@ -841,8 +1323,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                 }
             } else if (options_.deps == DEPENDENCY_TIMESTAMPS) {
                 // TODO i#5843: This should require a lock for >1 outputs too.
-                uint64_t min_time = 0xffffffffffffffff;
-                for (size_t i = 0; i < inputs_.size(); i++) {
+                uint64_t min_time = std::numeric_limits<uint64_t>::max();
+                for (size_t i = 0; i < inputs_.size(); ++i) {
+                    std::lock_guard<std::mutex> lock(*inputs_[i].lock);
                     if (!inputs_[i].at_eof && inputs_[i].next_timestamp > 0 &&
                         inputs_[i].next_timestamp < min_time) {
                         min_time = inputs_[i].next_timestamp;
@@ -874,15 +1357,19 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
             } else
                 return sched_type_t::STATUS_INVALID;
             // reader_t::at_eof_ is true until init() is called.
+            std::lock_guard<std::mutex> lock(*inputs_[index].lock);
             if (inputs_[index].needs_init) {
                 inputs_[index].reader->init();
                 inputs_[index].needs_init = false;
             }
         }
+        std::lock_guard<std::mutex> lock(*inputs_[index].lock);
         if (inputs_[index].at_eof ||
             *inputs_[index].reader == *inputs_[index].reader_end) {
             VPRINT(this, 2, "next_record[%d]: local index %d == input #%d at eof\n",
                    output, outputs_[output].input_indices_index, index);
+            if (options_.schedule_record_ostream != nullptr)
+                close_schedule_segment(output, inputs_[outputs_[output].cur_input]);
             inputs_[index].at_eof = true;
             index = INVALID_INPUT_ORDINAL;
             // Loop and pick next thread.
@@ -900,12 +1387,19 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                                                       RecordType &record,
                                                       input_info_t *&input)
 {
+    if (outputs_[output].waiting) {
+        sched_type_t::stream_status_t res = pick_next_input(output);
+        if (res != sched_type_t::STATUS_OK)
+            return res;
+        outputs_[output].waiting = false;
+    }
     if (outputs_[output].cur_input < 0) {
         // This happens with more outputs than inputs.  For non-empty outputs we
         // require cur_input to be set to >=0 during init().
         return sched_type_t::STATUS_EOF;
     }
     input = &inputs_[outputs_[output].cur_input];
+    auto lock = std::unique_lock<std::mutex>(*input->lock);
     if (outputs_[output].speculating) {
         error_string_ = outputs_[output].speculator.next_record(
             outputs_[output].speculate_pc, record);
@@ -937,45 +1431,88 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
             // to all subsequent records.  We do not want to ++ after reading as that
             // messes up memtrace_stream_t queries on ordinals while the user examines
             // the record.
-            if (input->needs_advance && !input->at_eof)
+            if (input->needs_advance && !input->at_eof) {
                 ++(*input->reader);
-            else {
+            } else {
                 input->needs_advance = true;
             }
             if (input->at_eof || *input->reader == *input->reader_end) {
+                lock.unlock();
                 sched_type_t::stream_status_t res = pick_next_input(output);
                 if (res != sched_type_t::STATUS_OK)
                     return res;
                 input = &inputs_[outputs_[output].cur_input];
+                lock = std::unique_lock<std::mutex>(*input->lock);
                 continue;
             } else {
                 record = **input->reader;
             }
         }
         bool need_new_input = false;
-        if (options_.mapping == MAP_TO_ANY_OUTPUT &&
-            options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
-            record_type_is_instr(record)) {
+        if (options_.mapping == MAP_AS_PREVIOUSLY) {
+            assert(outputs_[output].record_index >= 0);
+            if (outputs_[output].record_index >=
+                static_cast<int>(outputs_[output].record.size())) {
+                // We're on the last record.
+            } else if (outputs_[output].record[outputs_[output].record_index].type ==
+                       schedule_record_t::SKIP) {
+                need_new_input = true;
+            } else {
+                uint64_t stop = outputs_[output]
+                                    .record[outputs_[output].record_index]
+                                    .stop_instruction;
+                // The stop is exclusive.  0 does mean to do nothing (easiest
+                // to have an empty record to share the next-entry for a start skip
+                // or other cases).
+                if (input->reader->get_instruction_ordinal() >= stop) {
+                    need_new_input = true;
+                }
+            }
+        } else if (options_.mapping == MAP_TO_ANY_OUTPUT &&
+                   options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
+                   record_type_is_instr(record)) {
             // TODO i#5843: We also want to swap on blocking syscalls.
             ++input->instrs_in_quantum;
             if (input->instrs_in_quantum > options_.quantum_duration)
                 need_new_input = true;
         }
-        if (options_.deps == DEPENDENCY_TIMESTAMPS &&
+        if (options_.mapping != MAP_AS_PREVIOUSLY &&
+            options_.deps == DEPENDENCY_TIMESTAMPS &&
             record_type_is_timestamp(record, input->next_timestamp))
             need_new_input = true;
         if (need_new_input) {
-            int cur_input = outputs_[output].cur_input;
+            int prev_input = outputs_[output].cur_input;
+            lock.unlock();
             sched_type_t::stream_status_t res = pick_next_input(output);
-            if (res != sched_type_t::STATUS_OK)
+            if (res != sched_type_t::STATUS_OK && res != sched_type_t::STATUS_WAIT &&
+                res != sched_type_t::STATUS_SKIPPED)
                 return res;
-            if (outputs_[output].cur_input != cur_input) {
+            if (outputs_[output].cur_input != prev_input) {
+                // TODO i#5843: Queueing here and in a few other places gets the
+                // ordinals off: we need to undo the ordinal increases to avoid
+                // over-counting while queued and double-counting when we resume.
+                // In some cases we need to undo this on the output stream too.
+                // So we should set suppress_ref_count_ in the input to get
+                // is_record_synthetic() (and have our stream class check that
+                // for instr count too) -- but what about output during speculation?
+                // Decrement counts instead to undo?
+                lock.lock();
                 input->queue.push_back(record);
+                if (res == sched_type_t::STATUS_WAIT)
+                    return res;
                 input = &inputs_[outputs_[output].cur_input];
+                lock = std::unique_lock<std::mutex>(*input->lock);
+                continue;
+            } else
+                lock.lock();
+            if (res == sched_type_t::STATUS_SKIPPED) {
+                // Like for the ROI below, we need the queue or a de-ref.
+                input->needs_advance = false;
                 continue;
             }
         }
-        if (input->needs_roi && !input->regions_of_interest.empty()) {
+        if (input->needs_roi && options_.mapping != MAP_AS_PREVIOUSLY &&
+            !input->regions_of_interest.empty()) {
             sched_type_t::stream_status_t res =
                 advance_region_of_interest(output, record, *input);
             if (res == sched_type_t::STATUS_SKIPPED) {

@@ -46,7 +46,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  Explore-GitHub-Actions:
+  aarch64-native:
     runs-on: [self-hosted, linux, ARM64]
     steps:
       - name: Check out repository code

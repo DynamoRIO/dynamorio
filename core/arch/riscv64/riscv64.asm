@@ -59,7 +59,34 @@ GLOBAL_LABEL(cpuid_supported:)
  */
         DECLARE_FUNC(call_switch_stack)
 GLOBAL_LABEL(call_switch_stack:)
-/* FIXME i#3544: Not implemented */
+        /* Init the stack. */
+        addi     sp, sp, -32
+        /* Use two callee-save regs to call func. */
+        sd       ra, 24 (sp)
+        sd       s0, 16 (sp)
+        sd       s1, 8 (sp)
+        sd       s2, 0 (sp)
+        /* Check mutex_to_free. */
+        beqz     ARG4, call_dispatch_alt_stack_no_free
+        /* Release the mutex. */
+        sd       x0, 0 (ARG4)
+call_dispatch_alt_stack_no_free:
+        /* Copy AGG5 (return_on_return) to callee-save reg. */
+        mv       s2, ARG5
+        /* Switch the stack. */
+        addi     s0, sp, 0
+        addi     sp, ARG2, 0
+        /* Call func. */
+        jr       ARG3
+        /* Switch stack back. */
+        addi     sp, s0, 0
+        beqz     s2, GLOBAL_LABEL(unexpected_return)
+        /* Restore the stack. */
+        ld       s2, 0 (sp)
+        ld       s1, 8 (sp)
+        ld       s0, 16 (sp)
+        ld       ra, 24 (sp)
+        addi     sp, sp, 32
         ret
         END_FUNC(call_switch_stack)
 
@@ -138,7 +165,10 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         /* void atomic_add(int *adr, int val) */
         DECLARE_FUNC(atomic_add)
 GLOBAL_LABEL(atomic_add:)
-/* FIXME i#3544: Not implemented */
+1:      lr.d       a2, (a0)
+        add        a2, a2, a1
+        sc.d       a3, a2, (a0)
+        bnez       a3, 1b
         ret
         END_FUNC(atomic_add)
 
@@ -240,13 +270,16 @@ GLOBAL_LABEL(dynamorio_clone:)
 
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-/* FIXME i#3544: Not implemented */
+        li        SYSNUM_REG, SYS_rt_sigreturn
+        ecall
         jal       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
 
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-/* FIXME i#3544: Not implemented */
+        li        a0, 0 /* exit code */
+        li        SYSNUM_REG, SYS_exit /* SYS_exit number */
+        ecall
         jal       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
 
