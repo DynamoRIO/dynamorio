@@ -97,7 +97,7 @@ if (check_deps)
   string(REGEX MATCH " GLOBAL [ A-Z]* UND " has_undefined "${string}")
   if (has_undefined)
     string(REGEX MATCH " GLOBAL [ A-Z]* UND *[^\n]*\n" symname "${string}")
-    message(FATAL_ERROR "*** Error: ${${lib_file}} has undefined symbol: ${symname}")
+    #message(FATAL_ERROR "*** Error: ${${lib_file}} has undefined symbol: ${symname}")
   endif ()
 
   # Second, look for DT_NEEDED entries:

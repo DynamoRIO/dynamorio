@@ -289,7 +289,19 @@ GLOBAL_LABEL(back_from_native:)
 # if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
-/* FIXME i#3544: Not implemented */
+        nop
+        li      fp, 0
+
+        CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, sp)
+        li      ARG2, 0
+        li      ARG3, 0
+
+.L_start_invoke_C:
+        li      fp, 0
+        add     ARG1, sp, x0
+        jal     GLOBAL_REF(privload_early_inject)
+        /* shouldn't return */
+        jal     GLOBAL_REF(unexpected_return)
         ret
         END_FUNC(_start)
 
@@ -301,7 +313,16 @@ GLOBAL_LABEL(_start:)
  */
         DECLARE_FUNC(xfer_to_new_libdr)
 GLOBAL_LABEL(xfer_to_new_libdr:)
-/* FIXME i#3544: Not implemented */
+        mv      s0, ARG1
+        add     sp, ARG2, x0
+        la      ARG1, .L_start_invoke_C
+        la      ARG2, GLOBAL_REF(_start)
+        sub     ARG1, ARG1, ARG2
+        add     s0, s0, ARG1
+
+        mv      ARG2, ARG3
+        mv      ARG3, ARG4
+        jr      s0
         ret
         END_FUNC(xfer_to_new_libdr)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
@@ -309,8 +330,15 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
 
         DECLARE_FUNC(dynamorio_condvar_wake_and_jmp)
 GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
-/* FIXME i#3544: Not implemented */
-        ret
+        mv      REG_R9, REG_R11
+        li      REG_R15, 0
+        li      REG_R14, 0
+        li      REG_R13, 0
+        li      REG_R12, 0x7fffffff
+        li      REG_R11, 1
+        li      a7, 98
+        ecall
+        jr     REG_R9
         END_FUNC(dynamorio_condvar_wake_and_jmp)
 
 END_FILE

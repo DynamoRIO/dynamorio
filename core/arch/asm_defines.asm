@@ -908,20 +908,28 @@ ASSUME fs:_DATA @N@\
         mov      ARG1, p1   @N@\
         blx      callee
 #elif defined(RISCV64)
+.set register.sp, 1
+.macro RVSETARG argreg, p
+  .ifdef "register.\p"
+        mv       \argreg, \p
+  .else
+        li       \argreg, \p
+  .endif
+.endm
 # define CALLC0(callee)    \
-        call      callee
+        call     callee
 /* FIXME i#3544: Handle p1..4 being registers instead of immediates. */
 # define CALLC1(callee, p1)    \
-        li      ARG1, p1   @N@\
+        SETARG(ARG1, p1)   @N@\
         call      callee
 # define CALLC2(callee, p1, p2)    \
         li      ARG2, p2   @N@\
         li      ARG1, p1   @N@\
         call      callee
 # define CALLC3(callee, p1, p2, p3)    \
-        li      ARG3, p3   @N@\
-        li      ARG2, p2   @N@\
-        li      ARG1, p1   @N@\
+        RVSETARG ARG3, p3  @N@ \
+        RVSETARG ARG2, p2  @N@ \
+        RVSETARG ARG1, p1  @N@ \
         call      callee
 # define CALLC4(callee, p1, p2, p3, p4)    \
         li      ARG4, p4   @N@\
