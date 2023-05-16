@@ -84,6 +84,10 @@ droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "
 droption_t<std::string> op_replay_file(DROPTION_SCOPE_FRONTEND, "replay_file", "",
                                        "Path with stored schedule for replay",
                                        "Path with stored schedule for replay.");
+droption_t<std::string>
+    op_cpu_schedule_file(DROPTION_SCOPE_FRONTEND, "cpu_schedule_file", "",
+                         "Path with stored as-traced schedule for replay",
+                         "Path with stored as-traced schedule for replay.");
 #endif
 
 void
@@ -102,7 +106,7 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
             FATAL_ERROR("scheduler failed to advance: %d", status);
         if (thread_sequence.empty())
             thread_sequence.push_back(record.instr.tid);
-        if (record.instr.tid != prev_tid) {
+        else if (record.instr.tid != prev_tid) {
             thread_sequence.push_back(record.instr.tid);
             if (op_verbose.get_value() > 0) {
                 std::ostringstream line;
@@ -120,8 +124,8 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
                     << " instrs == thread " << record.instr.tid << "\n";
                 std::cerr << line.str();
             }
-            prev_tid = record.instr.tid;
         }
+        prev_tid = record.instr.tid;
     }
 }
 
@@ -154,6 +158,7 @@ _tmain(int argc, const TCHAR *targv[])
 #ifdef HAS_ZIP
     std::unique_ptr<zipfile_ostream_t> record_zip;
     std::unique_ptr<zipfile_istream_t> replay_zip;
+    std::unique_ptr<zipfile_istream_t> cpu_schedule_zip;
     if (!op_record_file.get_value().empty()) {
         record_zip.reset(new zipfile_ostream_t(op_record_file.get_value()));
         sched_ops.schedule_record_ostream = record_zip.get();
@@ -161,6 +166,12 @@ _tmain(int argc, const TCHAR *targv[])
         replay_zip.reset(new zipfile_istream_t(op_replay_file.get_value()));
         sched_ops.schedule_replay_istream = replay_zip.get();
         sched_ops.mapping = scheduler_t::MAP_AS_PREVIOUSLY;
+        sched_ops.deps = scheduler_t::DEPENDENCY_TIMESTAMPS;
+    } else if (!op_cpu_schedule_file.get_value().empty()) {
+        cpu_schedule_zip.reset(new zipfile_istream_t(op_cpu_schedule_file.get_value()));
+        sched_ops.mapping = scheduler_t::MAP_TO_RECORDED_OUTPUT;
+        sched_ops.deps = scheduler_t::DEPENDENCY_TIMESTAMPS;
+        sched_ops.replay_as_traced_istream = cpu_schedule_zip.get();
     }
 #endif
     if (scheduler.init(sched_inputs, op_num_cores.get_value(), sched_ops) !=

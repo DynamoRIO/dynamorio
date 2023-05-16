@@ -763,17 +763,17 @@ typedef struct _encoding_entry_t encoding_entry_t;
 START_PACKED_STRUCTURE
 struct schedule_entry_t {
     schedule_entry_t(uint64_t thread, uint64_t timestamp, uint64_t cpu,
-                     uint64_t instr_count)
+                     uint64_t start_instruction)
         : thread(thread)
         , timestamp(timestamp)
         , cpu(cpu)
-        , instr_count(instr_count)
+        , start_instruction(start_instruction)
     {
     }
     uint64_t thread;
     uint64_t timestamp;
     uint64_t cpu;
-    uint64_t instr_count;
+    uint64_t start_instruction;
 } END_PACKED_STRUCTURE;
 
 #ifdef BUILD_PT_TRACER
