@@ -119,56 +119,56 @@ protected:
     // Tool data for one shard.
     struct analyzer_tool_shard_data_t {
         analyzer_tool_shard_data_t()
-            : shard_data_(nullptr)
+            : shard_data(nullptr)
         {
         }
         analyzer_tool_shard_data_t(analyzer_tool_shard_data_t &&src)
         {
-            shard_data_ = src.shard_data_;
-            interval_snapshot_data_ = std::move(interval_snapshot_data_);
+            shard_data = src.shard_data;
+            interval_snapshot_data = std::move(interval_snapshot_data);
         }
 
-        void *shard_data_;
+        void *shard_data;
         std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
-            interval_snapshot_data_;
+            interval_snapshot_data;
     };
 
     // Data for one trace shard.
     struct analyzer_shard_data_t {
         analyzer_shard_data_t()
-            : cur_interval_index_(0)
+            : cur_interval_index(0)
         {
         }
         analyzer_shard_data_t(analyzer_shard_data_t &&src)
         {
-            cur_interval_index_ = src.cur_interval_index_;
-            tool_data_ = std::move(tool_data_);
+            cur_interval_index = src.cur_interval_index;
+            tool_data = std::move(tool_data);
         }
 
-        uint64_t cur_interval_index_;
-        std::vector<analyzer_tool_shard_data_t> tool_data_;
+        uint64_t cur_interval_index;
+        std::vector<analyzer_tool_shard_data_t> tool_data;
     };
 
     // Data for one worker thread.  Our concurrency model has each input shard
     // analyzed by a single worker thread, eliminating the need for locks.
     struct analyzer_worker_data_t {
         analyzer_worker_data_t(int index, typename sched_type_t::stream_t *stream)
-            : index_(index)
-            , stream_(stream)
+            : index(index)
+            , stream(stream)
         {
         }
         analyzer_worker_data_t(analyzer_worker_data_t &&src)
         {
-            index_ = src.index_;
-            stream_ = src.stream_;
-            shard_data_ = std::move(src.shard_data_);
-            error_ = std::move(src.error_);
+            index = src.index;
+            stream = src.stream;
+            shard_data = std::move(src.shard_data);
+            error = std::move(src.error);
         }
 
-        int index_;
-        typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream_;
-        std::string error_;
-        std::unordered_map<int, analyzer_shard_data_t> shard_data_;
+        int index;
+        typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
+        std::string error;
+        std::unordered_map<int, analyzer_shard_data_t> shard_data;
 
     private:
         analyzer_worker_data_t(const analyzer_worker_data_t &) = delete;

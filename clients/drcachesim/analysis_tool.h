@@ -168,22 +168,22 @@ public:
      */
     struct interval_state_snapshot_t {
         interval_state_snapshot_t(uint64_t interval_id, uint64_t interval_end_timestamp)
-            : interval_id_(interval_id)
-            , interval_end_timestamp_(interval_end_timestamp)
+            : interval_id(interval_id)
+            , interval_end_timestamp(interval_end_timestamp)
         {
         }
         interval_state_snapshot_t()
-            : interval_id_(0)
-            , interval_end_timestamp_(0)
+            : interval_id(0)
+            , interval_end_timestamp(0)
         {
         }
 
-        uint64_t interval_id_;
+        uint64_t interval_id;
         // Stores the timestamp (exclusive) when the above interval ends. Note
         // that this is not the last timestamp actually seen in the trace interval,
         // but simply the abstract boundary of the interval. This will be aligned
         // to the specified -interval_microseconds.
-        uint64_t interval_end_timestamp_;
+        uint64_t interval_end_timestamp;
 
         virtual ~interval_state_snapshot_t() = default;
     };

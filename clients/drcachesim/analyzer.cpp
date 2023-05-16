@@ -308,10 +308,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::advance_interval_id(
     // small number.
     uint64_t next_interval_index = stream->get_last_timestamp() / interval_microseconds_ -
         stream->get_first_timestamp() / interval_microseconds_;
-    if (next_interval_index != shard->cur_interval_index_) {
-        assert(next_interval_index > shard->cur_interval_index_);
-        prev_interval_index = shard->cur_interval_index_;
-        shard->cur_interval_index_ = next_interval_index;
+    if (next_interval_index != shard->cur_interval_index) {
+        assert(next_interval_index > shard->cur_interval_index);
+        prev_interval_index = shard->cur_interval_index;
+        shard->cur_interval_index = next_interval_index;
         return true;
     }
     return false;
@@ -323,44 +323,44 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
 {
     std::vector<void *> user_worker_data(num_tools_);
 
-    worker.shard_data_[0].tool_data_.resize(num_tools_);
+    worker.shard_data[0].tool_data.resize(num_tools_);
     for (int i = 0; i < num_tools_; ++i) {
-        worker.error_ = tools_[i]->initialize_stream(worker.stream_);
-        if (!worker.error_.empty())
+        worker.error = tools_[i]->initialize_stream(worker.stream);
+        if (!worker.error.empty())
             return;
     }
     while (true) {
         RecordType record;
         typename sched_type_t::stream_status_t status =
-            worker.stream_->next_record(record);
+            worker.stream->next_record(record);
         if (status != sched_type_t::STATUS_OK) {
             if (status != sched_type_t::STATUS_EOF) {
                 if (status == sched_type_t::STATUS_REGION_INVALID) {
-                    worker.error_ =
-                        "Too-far -skip_instrs for: " + worker.stream_->get_stream_name();
+                    worker.error =
+                        "Too-far -skip_instrs for: " + worker.stream->get_stream_name();
                 } else {
-                    worker.error_ =
-                        "Failed to read from trace: " + worker.stream_->get_stream_name();
+                    worker.error =
+                        "Failed to read from trace: " + worker.stream->get_stream_name();
                 }
             } else if (interval_microseconds_ != 0) {
-                process_interval(worker.shard_data_[0].cur_interval_index_, &worker,
+                process_interval(worker.shard_data[0].cur_interval_index, &worker,
                                  /*parallel=*/false);
             }
             return;
         }
         uint64_t prev_interval_index;
         if (record_is_timestamp(record) &&
-            advance_interval_id(worker.stream_, &worker.shard_data_[0],
+            advance_interval_id(worker.stream, &worker.shard_data[0],
                                 prev_interval_index) &&
             !process_interval(prev_interval_index, &worker, /*parallel=*/false)) {
             return;
         }
         for (int i = 0; i < num_tools_; ++i) {
             if (!tools_[i]->process_memref(record)) {
-                worker.error_ = tools_[i]->get_error_string();
+                worker.error = tools_[i]->get_error_string();
                 VPRINT(this, 1, "Worker %d hit memref error %s on trace shard %s\n",
-                       worker.index_, worker.error_.c_str(),
-                       worker.stream_->get_stream_name().c_str());
+                       worker.index, worker.error.c_str(),
+                       worker.stream->get_stream_name().c_str());
                 return;
             }
         }
@@ -374,36 +374,36 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
     std::vector<void *> user_worker_data(num_tools_);
 
     for (int i = 0; i < num_tools_; ++i)
-        user_worker_data[i] = tools_[i]->parallel_worker_init(worker->index_);
+        user_worker_data[i] = tools_[i]->parallel_worker_init(worker->index);
     RecordType record;
     for (typename sched_type_t::stream_status_t status =
-             worker->stream_->next_record(record);
+             worker->stream->next_record(record);
          status != sched_type_t::STATUS_EOF;
-         status = worker->stream_->next_record(record)) {
+         status = worker->stream->next_record(record)) {
         if (status != sched_type_t::STATUS_OK) {
             if (status == sched_type_t::STATUS_REGION_INVALID) {
-                worker->error_ =
-                    "Too-far -skip_instrs for: " + worker->stream_->get_stream_name();
+                worker->error =
+                    "Too-far -skip_instrs for: " + worker->stream->get_stream_name();
             } else {
-                worker->error_ =
-                    "Failed to read from trace: " + worker->stream_->get_stream_name();
+                worker->error =
+                    "Failed to read from trace: " + worker->stream->get_stream_name();
             }
             return;
         }
-        int shard_index = worker->stream_->get_input_stream_ordinal();
-        if (worker->shard_data_.find(shard_index) == worker->shard_data_.end()) {
+        int shard_index = worker->stream->get_input_stream_ordinal();
+        if (worker->shard_data.find(shard_index) == worker->shard_data.end()) {
             VPRINT(this, 1, "Worker %d starting on trace shard %d stream is %p\n",
-                   worker->index_, shard_index, worker->stream_);
-            worker->shard_data_[shard_index].tool_data_.resize(num_tools_);
+                   worker->index, shard_index, worker->stream);
+            worker->shard_data[shard_index].tool_data.resize(num_tools_);
             for (int i = 0; i < num_tools_; ++i) {
-                worker->shard_data_[shard_index].tool_data_[i].shard_data_ =
+                worker->shard_data[shard_index].tool_data[i].shard_data =
                     tools_[i]->parallel_shard_init_stream(
-                        shard_index, user_worker_data[i], worker->stream_);
+                        shard_index, user_worker_data[i], worker->stream);
             }
         }
         uint64_t prev_interval_index;
         if (record_is_timestamp(record) &&
-            advance_interval_id(worker->stream_, &worker->shard_data_[shard_index],
+            advance_interval_id(worker->stream, &worker->shard_data[shard_index],
                                 prev_interval_index) &&
             !process_interval(prev_interval_index, worker, /*parallel=*/true,
                               shard_index)) {
@@ -411,31 +411,31 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
         }
         for (int i = 0; i < num_tools_; ++i) {
             if (!tools_[i]->parallel_shard_memref(
-                    worker->shard_data_[shard_index].tool_data_[i].shard_data_, record)) {
-                worker->error_ = tools_[i]->parallel_shard_error(
-                    worker->shard_data_[shard_index].tool_data_[i].shard_data_);
+                    worker->shard_data[shard_index].tool_data[i].shard_data, record)) {
+                worker->error = tools_[i]->parallel_shard_error(
+                    worker->shard_data[shard_index].tool_data[i].shard_data);
                 VPRINT(this, 1, "Worker %d hit shard memref error %s on trace shard %s\n",
-                       worker->index_, worker->error_.c_str(),
-                       worker->stream_->get_stream_name().c_str());
+                       worker->index, worker->error.c_str(),
+                       worker->stream->get_stream_name().c_str());
                 return;
             }
         }
         if (record_is_thread_final(record)) {
-            VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index_,
-                   worker->stream_->get_stream_name().c_str());
+            VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index,
+                   worker->stream->get_stream_name().c_str());
             if (interval_microseconds_ != 0 &&
-                !process_interval(worker->shard_data_[shard_index].cur_interval_index_,
+                !process_interval(worker->shard_data[shard_index].cur_interval_index,
                                   worker, /*parallel=*/true, shard_index))
                 return;
             for (int i = 0; i < num_tools_; ++i) {
                 if (!tools_[i]->parallel_shard_exit(
-                        worker->shard_data_[shard_index].tool_data_[i].shard_data_)) {
-                    worker->error_ = tools_[i]->parallel_shard_error(
-                        worker->shard_data_[shard_index].tool_data_[i].shard_data_);
+                        worker->shard_data[shard_index].tool_data[i].shard_data)) {
+                    worker->error = tools_[i]->parallel_shard_error(
+                        worker->shard_data[shard_index].tool_data[i].shard_data);
                     VPRINT(this, 1,
                            "Worker %d hit shard exit error %s on trace shard %s\n",
-                           worker->index_, worker->error_.c_str(),
-                           worker->stream_->get_stream_name().c_str());
+                           worker->index, worker->error.c_str(),
+                           worker->stream->get_stream_name().c_str());
                     return;
                 }
             }
@@ -444,8 +444,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
     for (int i = 0; i < num_tools_; ++i) {
         const std::string error = tools_[i]->parallel_worker_exit(user_worker_data[i]);
         if (!error.empty()) {
-            worker->error_ = error;
-            VPRINT(this, 1, "Worker %d hit worker exit error %s\n", worker->index_,
+            worker->error = error;
+            VPRINT(this, 1, "Worker %d hit worker exit error %s\n", worker->index,
                    error.c_str());
             return;
         }
@@ -484,7 +484,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
                 continue;
             earliest_interval_end_timestamp =
                 std::min(earliest_interval_end_timestamp,
-                         intervals[shard_idx].front()->interval_end_timestamp_);
+                         intervals[shard_idx].front()->interval_end_timestamp);
         }
         // We're done if no shard has any interval left unprocessed.
         if (earliest_interval_end_timestamp == std::numeric_limits<uint64_t>::max()) {
@@ -503,7 +503,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
             if (intervals[shard_idx].empty())
                 continue;
             uint64_t cur_interval_end_timestamp =
-                intervals[shard_idx].front()->interval_end_timestamp_;
+                intervals[shard_idx].front()->interval_end_timestamp;
             assert(cur_interval_end_timestamp >= earliest_interval_end_timestamp);
             if (cur_interval_end_timestamp > earliest_interval_end_timestamp)
                 continue;
@@ -536,8 +536,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
             return false;
         }
         // Add the merged interval to the result list of whole trace intervals.
-        cur_merged_interval->interval_end_timestamp_ = earliest_interval_end_timestamp;
-        cur_merged_interval->interval_id_ =
+        cur_merged_interval->interval_end_timestamp = earliest_interval_end_timestamp;
+        cur_merged_interval->interval_id =
             (earliest_interval_end_timestamp - earliest_ever_interval_end_timestamp) /
             interval_microseconds_;
         merged_intervals.push_back(cur_merged_interval);
@@ -562,10 +562,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::collect_and_merge_shard_interval_result
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>>
         all_intervals(num_tools_);
     for (const auto &worker : worker_data_) {
-        for (const auto &shard_data : worker.shard_data_) {
+        for (const auto &shard_data : worker.shard_data) {
             for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
                 all_intervals[tool_idx].emplace_back(std::move(
-                    shard_data.second.tool_data_[tool_idx].interval_snapshot_data_));
+                    shard_data.second.tool_data[tool_idx].interval_snapshot_data));
             }
         }
     }
@@ -591,8 +591,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (!parallel_) {
         process_serial(worker_data_[0]);
-        if (!worker_data_[0].error_.empty()) {
-            error_string_ = worker_data_[0].error_;
+        if (!worker_data_[0].error.empty()) {
+            error_string_ = worker_data_[0].error;
             return false;
         }
     } else {
@@ -615,8 +615,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
         for (std::thread &thread : threads)
             thread.join();
         for (auto &worker : worker_data_) {
-            if (!worker.error_.empty()) {
-                error_string_ = worker.error_;
+            if (!worker.error.empty()) {
+                error_string_ = worker.error;
                 return false;
             }
         }
@@ -671,31 +671,30 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(uint64_t interval_id,
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *snapshot;
         if (parallel) {
             snapshot = tools_[tool_idx]->generate_shard_interval_snapshot(
-                worker->shard_data_[shard_id].tool_data_[tool_idx].shard_data_,
+                worker->shard_data[shard_id].tool_data[tool_idx].shard_data,
                 interval_id);
         } else {
             snapshot = tools_[tool_idx]->generate_interval_snapshot(interval_id);
         }
         if (tools_[tool_idx]->get_error_string() != "") {
-            worker->error_ = tools_[tool_idx]->get_error_string();
+            worker->error = tools_[tool_idx]->get_error_string();
             VPRINT(this, 1,
                    "Worker %d hit process_interval error %s during %s analysis in trace "
                    "shard %s at "
                    "interval %" PRId64 "\n",
-                   worker->index_, worker->error_.c_str(),
-                   parallel ? "parallel" : "serial",
-                   worker->stream_->get_stream_name().c_str(), interval_id);
+                   worker->index, worker->error.c_str(), parallel ? "parallel" : "serial",
+                   worker->stream->get_stream_name().c_str(), interval_id);
             return false;
         }
         if (snapshot != nullptr) {
-            snapshot->interval_id_ = interval_id;
-            snapshot->interval_end_timestamp_ =
-                (worker->stream_->get_first_timestamp() / interval_microseconds_ +
+            snapshot->interval_id = interval_id;
+            snapshot->interval_end_timestamp =
+                (worker->stream->get_first_timestamp() / interval_microseconds_ +
                  interval_id + 1) *
                 interval_microseconds_;
-            worker->shard_data_[shard_id]
-                .tool_data_[tool_idx]
-                .interval_snapshot_data_.push(snapshot);
+            worker->shard_data[shard_id]
+                .tool_data[tool_idx]
+                .interval_snapshot_data.push(snapshot);
         }
     }
     return true;

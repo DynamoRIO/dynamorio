@@ -245,24 +245,24 @@ public:
     // Describes the point in trace when an interval ends. This is same as the point
     // when the generate_*interval_snapshot API is invoked.
     struct interval_end_point_t {
-        memref_tid_t tid_;
-        int seen_memrefs_; // For parallel mode, this is the shard-local count.
-        uint64_t interval_id_;
+        memref_tid_t tid;
+        int seen_memrefs; // For parallel mode, this is the shard-local count.
+        uint64_t interval_id;
 
         bool
         operator==(const interval_end_point_t &rhs) const
         {
-            return tid_ == rhs.tid_ && seen_memrefs_ == rhs.seen_memrefs_ &&
-                interval_id_ == rhs.interval_id_;
+            return tid == rhs.tid && seen_memrefs == rhs.seen_memrefs &&
+                interval_id == rhs.interval_id;
         }
         bool
         operator<(const interval_end_point_t &rhs) const
         {
-            if (tid_ != rhs.tid_)
-                return tid_ < rhs.tid_;
-            if (seen_memrefs_ != rhs.seen_memrefs_)
-                return seen_memrefs_ < rhs.seen_memrefs_;
-            return interval_id_ < rhs.interval_id_;
+            if (tid != rhs.tid)
+                return tid < rhs.tid;
+            if (seen_memrefs != rhs.seen_memrefs)
+                return seen_memrefs < rhs.seen_memrefs;
+            return interval_id < rhs.interval_id;
         }
     };
 
@@ -275,7 +275,7 @@ public:
             // interval_state_snapshot_t. This is only to make it easier to construct
             // the expected snapshot objects in this test.
             : interval_state_snapshot_t(interval_id, interval_end_timestamp)
-            , component_intervals_(component_intervals)
+            , component_intervals(component_intervals)
         {
         }
         recorded_snapshot_t()
@@ -285,19 +285,19 @@ public:
         bool
         operator==(const recorded_snapshot_t &rhs) const
         {
-            return interval_id_ == rhs.interval_id_ &&
-                interval_end_timestamp_ == rhs.interval_end_timestamp_ &&
-                component_intervals_ == rhs.component_intervals_;
+            return interval_id == rhs.interval_id &&
+                interval_end_timestamp == rhs.interval_end_timestamp &&
+                component_intervals == rhs.component_intervals;
         }
         void
         print() const
         {
-            std::cerr << "(interval_id: " << interval_id_
-                      << ", interval_end_timestamp: " << interval_end_timestamp_
+            std::cerr << "(interval_id: " << interval_id
+                      << ", interval_end_timestamp: " << interval_end_timestamp
                       << ", component_intervals: ";
-            for (const auto &s : component_intervals_) {
-                std::cerr << "(tid:" << s.tid_ << ", seen_memrefs:" << s.seen_memrefs_
-                          << ", interval_id:" << s.interval_id_ << "),";
+            for (const auto &s : component_intervals) {
+                std::cerr << "(tid:" << s.tid << ", seen_memrefs:" << s.seen_memrefs
+                          << ", interval_id:" << s.interval_id << "),";
             }
             std::cerr << ")\n";
         }
@@ -306,7 +306,7 @@ public:
         // In the serial case, this contains just a single value. In the parallel case,
         // this contains a list of size equal to the count of shard interval snapshots
         // that were combined to create this snapshot.
-        std::vector<interval_end_point_t> component_intervals_;
+        std::vector<interval_end_point_t> component_intervals;
     };
 
     // Constructs an analysis_tool_t that expects the given interval state snapshots to be
@@ -329,7 +329,7 @@ public:
     generate_interval_snapshot(uint64_t interval_id) override
     {
         auto *snapshot = new recorded_snapshot_t();
-        snapshot->component_intervals_.push_back(
+        snapshot->component_intervals.push_back(
             { /*tid=*/0, seen_memrefs_, interval_id });
         ++outstanding_snapshots_;
         return snapshot;
@@ -348,9 +348,9 @@ public:
     parallel_shard_init(int shard_index, void *worker_data) override
     {
         auto per_shard = new per_shard_t;
-        per_shard->magic_num_ = kMagicNum;
-        per_shard->tid_ = kInvalidTid;
-        per_shard->seen_memrefs_ = 0;
+        per_shard->magic_num = kMagicNum;
+        per_shard->tid = kInvalidTid;
+        per_shard->seen_memrefs = 0;
         return reinterpret_cast<void *>(per_shard);
     }
     bool
@@ -364,10 +364,10 @@ public:
     parallel_shard_memref(void *shard_data, const memref_t &memref) override
     {
         per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
-        ++shard->seen_memrefs_;
-        if (shard->tid_ == kInvalidTid)
-            shard->tid_ = memref.data.tid;
-        else if (shard->tid_ != memref.data.tid) {
+        ++shard->seen_memrefs;
+        if (shard->tid == kInvalidTid)
+            shard->tid = memref.data.tid;
+        else if (shard->tid != memref.data.tid) {
             FATAL_ERROR("Unexpected TID in memref");
         }
         return true;
@@ -376,14 +376,14 @@ public:
     generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override
     {
         per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
-        if (shard->magic_num_ != kMagicNum) {
+        if (shard->magic_num != kMagicNum) {
             FATAL_ERROR("Invalid shard_data");
         }
-        if (shard->tid_ == kInvalidTid)
+        if (shard->tid == kInvalidTid)
             FATAL_ERROR("Expected TID to be found by now");
         auto *snapshot = new recorded_snapshot_t();
-        snapshot->component_intervals_.push_back(
-            { shard->tid_, shard->seen_memrefs_, interval_id });
+        snapshot->component_intervals.push_back(
+            { shard->tid, shard->seen_memrefs, interval_id });
         ++outstanding_snapshots_;
         return snapshot;
     }
@@ -400,10 +400,9 @@ public:
                 (!combine_only_active_shards_ || observed_in_cur_interval[shard_idx])) {
                 auto snapshot = dynamic_cast<const recorded_snapshot_t *const>(
                     last_shard_snapshots[shard_idx]);
-                result->component_intervals_.insert(
-                    result->component_intervals_.end(),
-                    snapshot->component_intervals_.begin(),
-                    snapshot->component_intervals_.end());
+                result->component_intervals.insert(result->component_intervals.end(),
+                                                   snapshot->component_intervals.begin(),
+                                                   snapshot->component_intervals.end());
             }
         }
         return result;
@@ -415,10 +414,10 @@ public:
         if (one.size() != two.size())
             return false;
         for (int i = 0; i < one.size(); ++i) {
-            std::sort(one[i]->component_intervals_.begin(),
-                      one[i]->component_intervals_.end());
-            std::sort(two[i].component_intervals_.begin(),
-                      two[i].component_intervals_.end());
+            std::sort(one[i]->component_intervals.begin(),
+                      one[i]->component_intervals.end());
+            std::sort(two[i].component_intervals.begin(),
+                      two[i].component_intervals.end());
             if (!(*one[i] == two[i]))
                 return false;
         }
@@ -467,9 +466,9 @@ private:
 
     // Data tracked per shard.
     struct per_shard_t {
-        memref_tid_t tid_;
-        uintptr_t magic_num_;
-        int seen_memrefs_;
+        memref_tid_t tid;
+        uintptr_t magic_num;
+        int seen_memrefs;
     };
 
     static constexpr uintptr_t kMagicNum = 0x8badf00d;
