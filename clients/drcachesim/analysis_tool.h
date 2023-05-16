@@ -380,7 +380,7 @@ public:
      * print_interval_result() calls.
      *
      * Note that the provided \p interval_id is local to the shard that is
-     * represented by the given \p share_data, and not the whole-trace interval. The
+     * represented by the given \p shard_data, and not the whole-trace interval. The
      * framework will automatically create an \p interval_state_snapshot_t for each
      * whole-trace interval by using combine_interval_snapshots() to combine one or more
      * shard-local \p interval_state_snapshot_t corresponding to that whole-trace

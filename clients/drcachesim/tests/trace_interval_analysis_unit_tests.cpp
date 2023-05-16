@@ -482,7 +482,7 @@ test_non_zero_interval(bool parallel, bool combine_only_active_shards = true)
     std::vector<memref_t> refs = {
         // Trace for a single worker which has two constituent shards. (scheduler_t
         // does not guarantee that workers will process shards one after the other.)
-        // Expected active interval_id: tid_52_local | tid_52_local | whole_trace
+        // Expected active interval_id: tid_51_local | tid_52_local | whole_trace
         gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 40),  // 0 | _ | 0
         gen_instr(51, 10000),                             // 0 | _ | 0
         gen_data(51, true, 1234, 4),                      // 0 | _ | 0
