@@ -8251,8 +8251,13 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
         asm("b dynamorio_condvar_wake_and_jmp");
 #    endif
 #elif defined(RISCV64)
-        /* FIXME i#3544: Not implemented */
-        ASSERT_NOT_IMPLEMENTED(false);
+        asm("lw " ASM_R0 ", %0" : : "m"(notify_var));
+        asm("li " ASM_R1 ", 1");
+        asm("sw " ASM_R1 ",(" ASM_R0 ")");
+        asm("lw " ASM_R1 ", %0" : : "m"(continuation));
+        asm("lw " ASM_R2 ", %0" : : "m"(xsp));
+        asm("mv " ASM_XSP ", "ASM_R2);
+        asm("j dynamorio_condvar_wake_and_jmp");
 #endif
     } else {
         ksynch_set_value(notify_var, 1);

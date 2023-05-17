@@ -342,7 +342,15 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
 
         DECLARE_FUNC(dynamorio_condvar_wake_and_jmp)
 GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
-/* FIXME i#3544: Not implemented */
+        mv      REG_R9, REG_R11 /* save across syscall */
+        li      REG_R15, 0 /* arg6 */
+        li      REG_R14, 0 /* arg5 */
+        li      REG_R13, 0 /* arg4 */
+        li      REG_R12, 0x7fffffff /* arg3 = INT_MAX */
+        li      REG_R11, 1 /* arg2 = FUTEX_WAKE */
+        li      a7, 98 /* SYS_futex */
+        ecall
+        jr REG_R9
         ret
         END_FUNC(dynamorio_condvar_wake_and_jmp)
 
