@@ -64,8 +64,8 @@ public:
     generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override;
     interval_state_snapshot_t *
     combine_interval_snapshots(
-        const std::vector<const interval_state_snapshot_t *> last_shard_snapshots,
-        const std::vector<bool> observed_in_cur_interval) override;
+        std::vector<const interval_state_snapshot_t *> latest_shard_snapshots,
+        uint64_t interval_end_timestamp) override;
     bool
     print_interval_results(
         const std::vector<interval_state_snapshot_t *> &interval_snapshots) override;
@@ -187,6 +187,12 @@ protected:
     };
     // Records a snapshot of counts for a trace interval.
     struct count_snapshot_t : public interval_state_snapshot_t {
+        // Cumulative counters till the current interval.
+        // We could alternatively keep track of just the delta values vs
+        // the last interval. But that would require us to keep track of
+        // the last interval's counters in per_shard_t. So we simply track
+        // the cumulative values here and compute the delta at the end in
+        // print_interval_results().
         counters_t counters;
         // TODO i#6020: Add per-window counters to the snapshot, and also
         // return interval counts separately per-window in a structured

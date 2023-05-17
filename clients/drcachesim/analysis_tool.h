@@ -224,33 +224,34 @@ public:
     }
     /**
      * Invoked by the framework to combine the shard-local \p interval_state_snapshot_t
-     * objects pointed at by \p last_shard_snapshots, to create the combined
-     * \p interval_state_snapshot_t for a whole-trace interval. This is useful in the
-     * parallel mode of the analyzer, where each trace shard is processed in parallel. In
-     * this mode, the framework creates the \p interval_state_snapshot_t for each
-     * whole-trace interval, one by one. For each interval, it invokes
-     * combine_interval_snapshots() with the as-then last interval snapshots from each
-     * shard (in \p last_shard_snapshots), and also information about whether each of
-     * those snapshots was observed in the current interval (in \p
-     * observed_in_cur_interval). \p last_shard_snapshots will contain at least one
-     * non-null element. Tools must not return a nullptr. Tools must not modify the
-     * provided snapshots.
+     * objects pointed at by \p latest_shard_snapshots, to create the combined
+     * \p interval_state_snapshot_t for the whole-trace interval that ends at
+     * \p interval_end_timestamp. This is useful in the parallel mode of the analyzer,
+     * where each trace shard is processed in parallel. In this mode, the framework
+     * creates the \p interval_state_snapshot_t for each whole-trace interval, one by one.
+     * For each interval, it invokes combine_interval_snapshots() with the latest seen
+     * interval snapshots from each shard (in \p latest_shard_snapshots) as of the
+     * interval ending at \p interval_end_timestamp. \p latest_shard_snapshots will
+     * contain at least one non-null element, and at least one of them will have its \p
+     * interval_state_snapshot_t::interval_end_timestamp set to \p interval_end_timestamp.
+     * Tools must not return a nullptr. Tools must not modify the provided snapshots.
      *
-     * \p observed_in_cur_interval helps the tool to determine which of the provided
-     * \p last_shard_snapshots are relevant to it.
+     * \p interval_end_timestamp helps the tool to determine which of the provided
+     * \p latest_shard_snapshots are relevant to it.
      * - for cumulative metrics (e.g. total instructions till an interval), the tool
-     *   may want to combine interval snapshots from all last shards to get the accurate
+     *   may want to combine latest interval snapshots from all shards to get the accurate
      *   cumulative count.
-     * - for delta metrics (e.g. incremental instructions in an interval), the tool
-     *   may want to combine interval snapshots from only the shards that were observed in
-     *   the current interval.
+     * - for delta metrics (e.g. incremental instructions in an interval), the tool may
+     *   want to combine interval snapshots from only the shards that were observed in the
+     *   current interval (with \p latest_shard_snapshots [i]->interval_end_timestamp ==
+     *   \p interval_end_timestamp)
      * - or if the tool mixes cumulative and delta metrics: some field-specific logic that
      *   combines the above two strategies.
      */
     virtual interval_state_snapshot_t *
     combine_interval_snapshots(
-        const std::vector<const interval_state_snapshot_t *> last_shard_snapshots,
-        const std::vector<bool> observed_in_cur_interval)
+        const std::vector<const interval_state_snapshot_t *> latest_shard_snapshots,
+        uint64_t interval_end_timestamp)
     {
         return nullptr;
     }

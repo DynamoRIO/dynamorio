@@ -97,7 +97,7 @@ public:
     get_input_stream_ordinal() override
     {
         assert(at_ >= 0 && at_ < refs_.size());
-        // All TIDs form a separate input stream.
+        // Each TID forms a separate input stream.
         return tid2ordinal[refs_[at_].instr.tid];
     }
     uint64_t
@@ -208,8 +208,8 @@ public:
     analysis_tool_t::interval_state_snapshot_t *
     combine_interval_snapshots(
         const std::vector<const analysis_tool_t::interval_state_snapshot_t *>
-            last_shard_snapshots,
-        const std::vector<bool> observed_in_cur_interval) override
+            latest_shard_snapshots,
+        uint64_t interval_end_timestamp) override
     {
         FATAL_ERROR("Did not expect combine_interval_snapshots to be invoked");
         return nullptr;
@@ -390,19 +390,21 @@ public:
     analysis_tool_t::interval_state_snapshot_t *
     combine_interval_snapshots(
         const std::vector<const analysis_tool_t::interval_state_snapshot_t *>
-            last_shard_snapshots,
-        const std::vector<bool> observed_in_cur_interval) override
+            latest_shard_snapshots,
+        uint64_t interval_end_timestamp) override
     {
         recorded_snapshot_t *result = new recorded_snapshot_t();
         ++outstanding_snapshots_;
-        for (int shard_idx = 0; shard_idx < last_shard_snapshots.size(); ++shard_idx) {
-            if (last_shard_snapshots[shard_idx] != nullptr &&
-                (!combine_only_active_shards_ || observed_in_cur_interval[shard_idx])) {
-                auto snapshot = dynamic_cast<const recorded_snapshot_t *const>(
-                    last_shard_snapshots[shard_idx]);
-                result->component_intervals.insert(result->component_intervals.end(),
-                                                   snapshot->component_intervals.begin(),
-                                                   snapshot->component_intervals.end());
+        for (auto snapshot : latest_shard_snapshots) {
+            if (snapshot != nullptr &&
+                (!combine_only_active_shards_ ||
+                 snapshot->interval_end_timestamp == interval_end_timestamp)) {
+                auto recorded_snapshot =
+                    dynamic_cast<const recorded_snapshot_t *const>(snapshot);
+                result->component_intervals.insert(
+                    result->component_intervals.end(),
+                    recorded_snapshot->component_intervals.begin(),
+                    recorded_snapshot->component_intervals.end());
             }
         }
         return result;

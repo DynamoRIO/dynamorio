@@ -322,11 +322,11 @@ basic_counts_t::generate_interval_snapshot(uint64_t interval_id)
 analysis_tool_t::interval_state_snapshot_t *
 basic_counts_t::combine_interval_snapshots(
     const std::vector<const analysis_tool_t::interval_state_snapshot_t *>
-        last_shard_snapshots,
-    const std::vector<bool> observed_in_cur_interval)
+        latest_shard_snapshots,
+    uint64_t interval_end_timestamp)
 {
     count_snapshot_t *result = new count_snapshot_t;
-    for (const auto snapshot : last_shard_snapshots) {
+    for (const auto snapshot : latest_shard_snapshots) {
         if (snapshot == nullptr)
             continue;
         result->counters +=
