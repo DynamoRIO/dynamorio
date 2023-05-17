@@ -343,7 +343,8 @@ basic_counts_t::print_interval_results(
     counters_t last;
     for (const auto &snapshot_base : interval_snapshots) {
         auto *snapshot = dynamic_cast<count_snapshot_t *>(snapshot_base);
-        std::cerr << "Interval #" << snapshot->interval_id << ":\n";
+        std::cerr << "Interval #" << snapshot->interval_id << " ending at timestamp "
+                  << snapshot->interval_end_timestamp << ":\n";
         counters_t diff = snapshot->counters;
         diff -= last;
         print_counters(diff, 0, " interval delta");

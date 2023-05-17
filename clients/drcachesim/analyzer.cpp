@@ -456,7 +456,9 @@ template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
     // intervals[shard_idx] is a queue of interval_state_snapshot_t*
-    // representing the interval snapshots for that shard.
+    // representing the interval snapshots for that shard. This is a queue as we
+    // process the intervals here in a FIFO manner. Using a queue also makes code
+    // a bit simpler.
     std::vector<std::queue<
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
         &intervals,
@@ -498,7 +500,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
         }
         // Update last_snapshot_per_shard for shards that were active during this
         // interval, which have a timestamp == earliest_interval_end_timestamp.
-        std::vector<bool> observed_in_cur_interval(shard_count, false);
         for (size_t shard_idx = 0; shard_idx < shard_count; ++shard_idx) {
             if (intervals[shard_idx].empty())
                 continue;
@@ -509,7 +510,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
                 continue;
             // This shard was active during this interval. So, we update the current
             // shard's latest interval snapshot.
-            observed_in_cur_interval[shard_idx] = true;
             if (last_snapshot_per_shard[shard_idx] != nullptr) {
                 if (!tools_[tool_idx]->release_interval_snapshot(
                         last_snapshot_per_shard[shard_idx])) {
@@ -530,7 +530,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
                                              last_snapshot_per_shard.end());
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t
             *cur_merged_interval = tools_[tool_idx]->combine_interval_snapshots(
-                const_last_snapshot_per_shard, observed_in_cur_interval);
+                const_last_snapshot_per_shard, earliest_interval_end_timestamp);
         if (cur_merged_interval == nullptr) {
             error_string_ = "combine_interval_snapshots unexpectedly returned nullptr";
             return false;

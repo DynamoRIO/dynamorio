@@ -129,6 +129,8 @@ protected:
         }
 
         void *shard_data;
+        // This is a queue as merge_shard_interval_results processes the intervals in a
+        // FIFO manner. Using a queue also makes code a bit simpler.
         std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
             interval_snapshot_data;
     };
