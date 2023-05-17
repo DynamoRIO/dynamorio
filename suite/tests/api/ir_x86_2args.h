@@ -287,8 +287,8 @@ OPCODE(pslldq, pslldq, pslldq, 0, REGARG(XMM0), IMMARG(OPSZ_1))
 
 OPCODE(unpcklps, unpcklps, unpcklps, 0, REGARG(XMM0), MEMARG(OPSZ_8))
 OPCODE(unpcklpd, unpcklpd, unpcklpd, 0, REGARG(XMM0), MEMARG(OPSZ_8))
-OPCODE(unpckhps, unpckhps, unpckhps, 0, REGARG(XMM0), MEMARG(OPSZ_8))
-OPCODE(unpckhpd, unpckhpd, unpckhpd, 0, REGARG(XMM0), MEMARG(OPSZ_8))
+OPCODE(unpckhps, unpckhps, unpckhps, 0, REGARG(XMM0), MEMARG(OPSZ_16))
+OPCODE(unpckhpd, unpckhpd, unpckhpd, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 
 OPCODE(andps, andps, andps, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(andpd, andpd, andpd, 0, REGARG(XMM0), MEMARG(OPSZ_16))
