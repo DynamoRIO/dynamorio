@@ -2752,9 +2752,10 @@ test_extra_leading_prefixes(void *dc)
 #endif
 
     /* Only FS/GS prefixes are accepted on x64, so different prefixes "win" here */
-    const byte b3[] = { 0x26, 0x26, 0x26, 0x26, 0x26, 0x26, 0x26, 0x64, 0x26, 0x26, 0x26, 0x26, 0x13, 0x04, 0x0a };
+    const byte b3[] = { 0x26, 0x26, 0x26, 0x26, 0x26, 0x26, 0x26, 0x64,
+                        0x26, 0x26, 0x26, 0x26, 0x13, 0x04, 0x0a };
     pc =
-      disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false /*no pc*/,
+        disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false /*no pc*/,
                               false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc == &b3[0] + sizeof(b3));
 #ifdef X64
