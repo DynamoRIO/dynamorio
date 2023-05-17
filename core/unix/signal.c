@@ -8256,7 +8256,7 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
         asm("sd " ASM_R1 ",(" ASM_R0 ")");
         asm("ld " ASM_R1 ", %0" : : "m"(continuation));
         asm("ld " ASM_R2 ", %0" : : "m"(xsp)); /* Clobber xsp last (see above). */
-        asm("mv " ASM_XSP ", "ASM_R2);
+        asm("mv " ASM_XSP ", " ASM_R2);
         asm("j dynamorio_condvar_wake_and_jmp");
 #endif
     } else {
