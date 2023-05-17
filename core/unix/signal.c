@@ -8251,11 +8251,11 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
         asm("b dynamorio_condvar_wake_and_jmp");
 #    endif
 #elif defined(RISCV64)
-        asm("lw " ASM_R0 ", %0" : : "m"(notify_var));
+        asm("ld " ASM_R0 ", %0" : : "m"(notify_var));
         asm("li " ASM_R1 ", 1");
-        asm("sw " ASM_R1 ",(" ASM_R0 ")");
-        asm("lw " ASM_R1 ", %0" : : "m"(continuation));
-        asm("lw " ASM_R2 ", %0" : : "m"(xsp));
+        asm("sd " ASM_R1 ",(" ASM_R0 ")");
+        asm("ld " ASM_R1 ", %0" : : "m"(continuation));
+        asm("ld " ASM_R2 ", %0" : : "m"(xsp)); /* Clobber xsp last (see above). */
         asm("mv " ASM_XSP ", "ASM_R2);
         asm("j dynamorio_condvar_wake_and_jmp");
 #endif
@@ -8271,6 +8271,11 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
         asm("ldr " ASM_R0 ", %0" : : "m"(continuation));
         asm("ldr " ASM_R1 ", %0" : : "m"(xsp)); /* Clobber xsp last (see above). */
         asm("mov " ASM_XSP ", " ASM_R1);
+        asm(ASM_INDJMP " " ASM_R0);
+#elif defined(RISCV64)
+        asm("ld " ASM_R0 ", %0" : : "m"(continuation));
+        asm("ld " ASM_R1 ", %0" : : "m"(xsp)); /* Clobber xsp last (see above). */
+        asm("mv " ASM_XSP ", "ASM_R2);
         asm(ASM_INDJMP " " ASM_R0);
 #endif /* X86/ARM */
     }
