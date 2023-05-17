@@ -342,6 +342,18 @@ add_executable(record_filter_launcher
 target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter)
 use_DynamoRIO_extension(record_filter_launcher droption)
 
+add_executable(scheduler_launcher tests/scheduler_launcher.cpp)
+target_link_libraries(scheduler_launcher drmemtrace_analyzer drfrontendlib)
+use_DynamoRIO_extension(scheduler_launcher droption)
+add_dependencies(scheduler_launcher api_headers)
+# Simple test to ensure this launcher keeps working.
+if (X86 AND X64 AND ZIP_FOUND)
+  set(trace_dir
+    "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+  add_test(NAME tool.scheduler_launcher
+    COMMAND scheduler_launcher -trace_dir ${trace_dir})
+endif ()
+
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
 set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir
@@ -373,6 +385,7 @@ target_link_libraries(drmemtrace_analyzer ${zlib_libs})
 if (NOT AARCH64 AND NOT APPLE)
   target_link_libraries(opcode_mix_launcher ${zlib_libs})
 endif ()
+target_link_libraries(scheduler_launcher ${zlib_libs})
 
 macro(add_drmemtrace name type)
   if (${type} STREQUAL "STATIC")
@@ -480,6 +493,7 @@ restore_nonclient_flags(prefetch_analyzer_launcher)
 if (NOT AARCH64 AND NOT APPLE)
   restore_nonclient_flags(opcode_mix_launcher)
 endif ()
+restore_nonclient_flags(scheduler_launcher)
 restore_nonclient_flags(drmemtrace_simulator)
 restore_nonclient_flags(drmemtrace_reuse_distance)
 restore_nonclient_flags(drmemtrace_histogram)
@@ -534,6 +548,7 @@ add_win32_flags(drmemtrace_raw2trace)
 if (NOT AARCH64 AND NOT APPLE)
   add_win32_flags(opcode_mix_launcher)
 endif ()
+add_win32_flags(scheduler_launcher)
 add_win32_flags(drmemtrace_simulator)
 add_win32_flags(drmemtrace_reuse_distance)
 add_win32_flags(drmemtrace_histogram)
@@ -687,10 +702,11 @@ if (BUILD_TESTS)
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
 
   # XXX i#5675: add tests for other environments. Currently, the repository does not have
-  # a checked-in post-processed trace for x86-32 or AArchXX.
+  # a checked-in post-processed trace for x86-32 or AArchXX.  We are also limited to
+  # the old format due to missing zip support so we can't use the new threadsig.x64.
   if (X86 AND X64 AND ZLIB_FOUND)
     set(trace_dir
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.legacy-for-record-filter.x64.tracedir")
     set(tmp_output_dir ${PROJECT_BINARY_DIR}/record_filter_tests_tmp_output)
     file(MAKE_DIRECTORY ${tmp_output_dir})
     add_executable(tool.drcacheoff.record_filter_unit_tests

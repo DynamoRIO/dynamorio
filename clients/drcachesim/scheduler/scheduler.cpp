@@ -30,6 +30,9 @@
  * DAMAGE.
  */
 
+#include <set>
+#include <unordered_map>
+
 #include "scheduler.h"
 #include "file_reader.h"
 #ifdef HAS_ZLIB
@@ -248,6 +251,8 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::get_reader(const std::string &
 {
     // TODO i#5675: Add support for other file formats, particularly
     // .zip files.
+    if (ends_with(path, ".sz") || ends_with(path, ".zip"))
+        return nullptr;
     return std::unique_ptr<dynamorio::drmemtrace::record_reader_t>(
         new default_record_file_reader_t(path, verbosity));
 }
@@ -524,8 +529,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
     }
     if (options_.mapping == MAP_AS_PREVIOUSLY) {
         if (options_.schedule_replay_istream == nullptr ||
-            options_.schedule_record_ostream != nullptr ||
-            options_.deps != DEPENDENCY_IGNORE)
+            options_.schedule_record_ostream != nullptr)
             return STATUS_ERROR_INVALID_PARAMETER;
         sched_type_t::scheduler_status_t status = read_recorded_schedule();
         if (status != sched_type_t::STATUS_SUCCESS)
@@ -543,14 +547,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             VPRINT(this, 2, "Assigning input #%d to output #%zd\n", i, index);
         }
     } else if (options_.mapping == MAP_TO_RECORDED_OUTPUT) {
-        // TODO i#5843,i#5694: Implement cpu-oriented parallel iteration.
-        // Initially we only support analyzer_t's serial mode.
-        if (options_.deps != DEPENDENCY_TIMESTAMPS)
-            return STATUS_ERROR_NOT_IMPLEMENTED;
-        // TODO i#5843: Support more than one output.
-        if (output_count != 1)
-            return STATUS_ERROR_NOT_IMPLEMENTED;
-        if (inputs_.size() == 1) {
+        if (output_count > 1) {
+            if (options_.replay_as_traced_istream == nullptr)
+                return STATUS_ERROR_INVALID_PARAMETER;
+            sched_type_t::scheduler_status_t status = read_traced_schedule();
+            if (status != sched_type_t::STATUS_SUCCESS)
+                return STATUS_ERROR_INVALID_PARAMETER;
+            // Now leverage the regular replay code.
+            options_.mapping = MAP_AS_PREVIOUSLY;
+        } else if (inputs_.size() == 1) {
             set_cur_input(0, 0);
         } else {
             // The old file_reader_t interleaving would output the top headers for every
@@ -562,9 +567,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                 return res;
         }
     } else {
-        // TODO i#5843: Honor deps when scheduling on synthetic cores.
-        if (options_.deps != DEPENDENCY_IGNORE)
-            return STATUS_ERROR_NOT_IMPLEMENTED;
         // TODO i#5843: Implement time-based quanta.
         if (options_.quantum_unit != QUANTUM_INSTRUCTIONS)
             return STATUS_ERROR_NOT_IMPLEMENTED;
@@ -667,12 +669,152 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_recorded_schedule()
         VPRINT(this, 1, "Read %zu recorded records for output #%d\n",
                outputs_[i].record.size(), i);
     }
+    // See if there was more data in the file (we do this after reading to not
+    // mis-report i/o or path errors as this error).
+    std::string err = options_.schedule_replay_istream->open_component(
+        recorded_schedule_component_name(static_cast<output_ordinal_t>(outputs_.size())));
+    if (err.empty()) {
+        error_string_ = "Not enough output streams for recorded file";
+        return STATUS_ERROR_INVALID_PARAMETER;
+    }
     for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
-        if (i < static_cast<input_ordinal_t>(inputs_.size()) &&
-            !outputs_[i].record.empty()) {
+        if (!outputs_[i].record.empty()) {
             set_cur_input(i, outputs_[i].record[0].key.input);
         } else
             set_cur_input(i, INVALID_INPUT_ORDINAL);
+    }
+    return STATUS_SUCCESS;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
+{
+    if (options_.replay_as_traced_istream == nullptr)
+        return STATUS_ERROR_INVALID_PARAMETER;
+
+    schedule_entry_t entry(0, 0, 0, 0);
+    // See comment in read_recorded_schedule() on our assumption that we can
+    // easily fit the whole context switch sequence in memory.  This cpu_schedule
+    // file has an entry per timestamp, though, even for consecutive ones on the same
+    // core, so it uses more memory.
+    // We do not have a subfile listing feature in archive_istream_t, but we can
+    // read sequentially as each record has a cpu field.
+    // This schedule_entry_t format doesn't have the stop instruction ordinal (as it was
+    // designed for skip targets only), so we take two passes to get that information.
+    // If we do find memory is an issue we could add a stop field to schedule_entry_t
+    // and collapse as we go, saving memory.
+    // We also need to translate the thread and cpu id values into 0-based ordinals.
+    std::unordered_map<memref_tid_t, input_ordinal_t> tid2input;
+    for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
+        tid2input[inputs_[i].tid] = i;
+    }
+    std::vector<std::set<uint64_t>> start2stop(inputs_.size());
+    // We number the outputs according to their order in the file.
+    // XXX i#5843: Should we support some direction from the user on this?  Simulation
+    // may want to preserve the NUMA relationships and may need to set up its simulated
+    // cores at init time, so it would prefer to partition by output stream identifier.
+    // Maybe we could at least add the proposed memtrace_stream_t query for cpuid and
+    // let it be called even before reading any records at all?
+    output_ordinal_t cur_output = 0;
+    uint64_t cur_cpu = std::numeric_limits<uint64_t>::max();
+    // We also want to collapse same-cpu consecutive records so we start with
+    // a temporary local vector.
+    std::vector<std::vector<schedule_record_t>> all_sched(outputs_.size());
+    while (options_.replay_as_traced_istream->read(reinterpret_cast<char *>(&entry),
+                                                   sizeof(entry))) {
+        if (entry.cpu != cur_cpu) {
+            if (cur_cpu != std::numeric_limits<uint64_t>::max()) {
+                ++cur_output;
+                if (cur_output >= static_cast<int>(outputs_.size())) {
+                    error_string_ = "replay_as_traced_istream cpu count != output count";
+                    return STATUS_ERROR_INVALID_PARAMETER;
+                }
+            }
+            cur_cpu = entry.cpu;
+        }
+        input_ordinal_t input = tid2input[entry.thread];
+        // We'll fill in the stop ordinal in our second pass below.
+        uint64_t start = entry.start_instruction;
+        uint64_t timestamp = entry.timestamp;
+        // Some entries have no instructions (there is an entry for each timestamp, and
+        // a signal can come in after a prior timestamp with no intervening instrs).
+        if (!all_sched[cur_output].empty() &&
+            input == all_sched[cur_output].back().key.input &&
+            start == all_sched[cur_output].back().start_instruction) {
+            VPRINT(this, 3,
+                   "Output #%d: as-read segment #%zu has no instructions: skipping\n",
+                   cur_output, all_sched[cur_output].size() - 1);
+            continue;
+        }
+        all_sched[cur_output].emplace_back(schedule_record_t::DEFAULT, input, start, 0,
+                                           timestamp);
+        start2stop[input].insert(start);
+    }
+    for (int output_idx = 0; output_idx < static_cast<output_ordinal_t>(outputs_.size());
+         ++output_idx) {
+        VPRINT(this, 1, "Read %zu as-traced records for output #%d\n",
+               all_sched[output_idx].size(), output_idx);
+        // Update the stop_instruction field and collapse consecutive entries while
+        // inserting into the final location.
+        int start_consec = -1;
+        for (int sched_idx = 0;
+             sched_idx < static_cast<int>(all_sched[output_idx].size()); ++sched_idx) {
+            auto &segment = all_sched[output_idx][sched_idx];
+            auto find = start2stop[segment.key.input].find(segment.start_instruction);
+            ++find;
+            if (find == start2stop[segment.key.input].end())
+                segment.stop_instruction = std::numeric_limits<uint64_t>::max();
+            else
+                segment.stop_instruction = *find;
+            VPRINT(this, 4,
+                   "as-read segment #%d: input=%d start=%" PRId64 " stop=%" PRId64
+                   " time=%" PRId64 "\n",
+                   sched_idx, segment.key.input, segment.start_instruction,
+                   segment.stop_instruction, segment.timestamp);
+            if (sched_idx + 1 < static_cast<int>(all_sched[output_idx].size()) &&
+                segment.key.input == all_sched[output_idx][sched_idx + 1].key.input &&
+                segment.stop_instruction ==
+                    all_sched[output_idx][sched_idx + 1].start_instruction) {
+                // Collapse into next.
+                if (start_consec == -1)
+                    start_consec = sched_idx;
+            } else {
+                schedule_record_t &toadd = start_consec >= 0
+                    ? all_sched[output_idx][start_consec]
+                    : all_sched[output_idx][sched_idx];
+                outputs_[output_idx].record.emplace_back(
+                    static_cast<typename schedule_record_t::record_type_t>(toadd.type),
+                    +toadd.key.input, +toadd.start_instruction,
+                    +all_sched[output_idx][sched_idx].stop_instruction, +toadd.timestamp);
+                start_consec = -1;
+                VDO(this, 3, {
+                    auto &added = outputs_[output_idx].record.back();
+                    VPRINT(this, 3,
+                           "segment #%zu: input=%d start=%" PRId64 " stop=%" PRId64
+                           " time=%" PRId64 "\n",
+                           outputs_[output_idx].record.size() - 1, added.key.input,
+                           added.start_instruction, added.stop_instruction,
+                           added.timestamp);
+                });
+            }
+        }
+        VPRINT(this, 1, "Collapsed duplicates for %zu as-traced records for output #%d\n",
+               outputs_[output_idx].record.size(), output_idx);
+        if (!outputs_[output_idx].record.empty()) {
+            if (outputs_[output_idx].record[0].start_instruction != 0) {
+                VPRINT(this, 1, "Initial input for output #%d is: wait state\n",
+                       output_idx);
+                set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
+                outputs_[output_idx].waiting = true;
+                outputs_[output_idx].record_index = -1;
+            } else {
+                VPRINT(this, 1, "Initial input for output #%d is %d\n", output_idx,
+                       outputs_[output_idx].record[0].key.input);
+                set_cur_input(output_idx, outputs_[output_idx].record[0].key.input);
+            }
+        } else
+            set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
     }
     return STATUS_SUCCESS;
 }
@@ -1112,21 +1254,25 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                 // Also wait if this segment is ahead of the next-up segment on another
                 // output.  We only have a timestamp per context switch so we can't
                 // enforce finer-grained timing replay.
-                for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
-                    if (i != output &&
-                        outputs_[i].record_index + 1 <
-                            static_cast<int>(outputs_[i].record.size()) &&
-                        segment.timestamp >
-                            outputs_[i].record[outputs_[i].record_index + 1].timestamp) {
-                        VPRINT(this, 3,
-                               "next_record[%d]: waiting because timestamp %" PRIu64
-                               " is ahead of output %d\n",
-                               output, segment.timestamp, i);
-                        // Give up this input and go into a wait state.
-                        // We'll come back here on the next next_record() call.
-                        set_cur_input(output, INVALID_INPUT_ORDINAL);
-                        outputs_[output].waiting = true;
-                        return sched_type_t::STATUS_WAIT;
+                if (options_.deps == DEPENDENCY_TIMESTAMPS) {
+                    for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size());
+                         ++i) {
+                        if (i != output &&
+                            outputs_[i].record_index + 1 <
+                                static_cast<int>(outputs_[i].record.size()) &&
+                            segment.timestamp > outputs_[i]
+                                                    .record[outputs_[i].record_index + 1]
+                                                    .timestamp) {
+                            VPRINT(this, 3,
+                                   "next_record[%d]: waiting because timestamp %" PRIu64
+                                   " is ahead of output %d\n",
+                                   output, segment.timestamp, i);
+                            // Give up this input and go into a wait state.
+                            // We'll come back here on the next next_record() call.
+                            set_cur_input(output, INVALID_INPUT_ORDINAL);
+                            outputs_[output].waiting = true;
+                            return sched_type_t::STATUS_WAIT;
+                        }
                     }
                 }
                 if (segment.type == schedule_record_t::SYNTHETIC_END) {
@@ -1304,6 +1450,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         }
         bool need_new_input = false;
         if (options_.mapping == MAP_AS_PREVIOUSLY) {
+            assert(outputs_[output].record_index >= 0);
             if (outputs_[output].record_index >=
                 static_cast<int>(outputs_[output].record.size())) {
                 // We're on the last record.
@@ -1329,7 +1476,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
             if (input->instrs_in_quantum > options_.quantum_duration)
                 need_new_input = true;
         }
-        if (options_.deps == DEPENDENCY_TIMESTAMPS &&
+        if (options_.mapping != MAP_AS_PREVIOUSLY &&
+            options_.deps == DEPENDENCY_TIMESTAMPS &&
             record_type_is_timestamp(record, input->next_timestamp))
             need_new_input = true;
         if (need_new_input) {

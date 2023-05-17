@@ -14287,4 +14287,18 @@
 #define INSTR_CREATE_udot_sve_idx(dc, Zda, Zn, Zm, index) \
     instr_create_1dst_4src(dc, OP_udot, Zda, Zda, Zn, Zm, index)
 
+/**
+ * Creates a BFCVTNT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BFCVTNT <Zd>.H, <Pg>/M, <Zn>.S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register, Z (Scalable).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_bfcvtnt_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_3src(dc, OP_bfcvtnt, Zd, Zd, Pg, Zn)
 #endif /* DR_IR_MACROS_AARCH64_H */

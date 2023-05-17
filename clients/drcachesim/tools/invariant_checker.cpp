@@ -699,7 +699,7 @@ invariant_checker_t::check_schedule_data()
     // archive.  We figure out which cpu each one is from on the fly.
     schedule_entry_t next(0, 0, 0, 0);
     while (cpu_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
-        global.ref_count_ = next.instr_count;
+        global.ref_count_ = next.start_instruction;
         global.tid_ = next.thread;
         report_if_false(
             &global,
