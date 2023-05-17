@@ -95,18 +95,15 @@ public:
         STATUS_OK,  /**< Stream is healthy and can continue to advance. */
         STATUS_EOF, /**< Stream is at its end. */
         /**
-         * Indicates that there is no activity on this stream at this time.
-         * This happens for
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT when
-         * the original recorded trace contains idle periods on some cores.
-         */
-        STATUS_IDLE,
-        /**
          * For dynamic scheduling with cross-stream dependencies, the scheduler may pause
          * a stream if it gets ahead of another stream it should have a dependence on.
          * This value is also used for schedules following the recorded timestamps
          * (#dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS) to
-         * avoid one stream getting ahead of another.
+         * avoid one stream getting ahead of another.  For replaying a schedule
+         * as it was traced with
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT
+         * this can indicate an idle period on a core where the traced workload was
+         * not currently scheduled.
          */
         STATUS_WAIT,
         STATUS_INVALID,         /**< Error condition. */
@@ -305,7 +302,10 @@ public:
          * scheduled into.  This requires an output stream count equal to the number of
          * cores occupied by the input stream set.  When combined with
          * #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS, this will
-         * precisely replay the recorded schedule.
+         * precisely replay the recorded schedule; for this mode,
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::
+         * scheduler_options_t.replay_as_traced_istream
+         * must be specified.
          */
         MAP_TO_RECORDED_OUTPUT,
         /**
@@ -438,6 +438,13 @@ public:
          * are ignored.
          */
         archive_istream_t *schedule_replay_istream = nullptr;
+        /**
+         * Input stream for replaying the traced schedule when
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT is specified
+         * for more than one output stream (whose count must match the number of
+         * traced cores).
+         */
+        archive_istream_t *replay_as_traced_istream = nullptr;
     };
 
     /**
@@ -487,7 +494,7 @@ public:
         }
 
         // We deliberately use a regular function which can return a status for things
-        // like STATUS_IDLE and abandon attempting to follow std::iterator here as ++;*
+        // like STATUS_WAIT and abandon attempting to follow std::iterator here as ++;*
         // makes it harder to return multiple different statuses as first-class events.
         // We don’t plan to use range-based for loops or other language features for
         // iterators and our iteration is only forward, so std::iterator's value is
@@ -915,6 +922,9 @@ protected:
     // The caller must hold the input.lock.
     stream_status_t
     skip_instructions(output_ordinal_t output, input_info_t &input, uint64_t skip_amount);
+
+    scheduler_status_t
+    read_traced_schedule();
 
     scheduler_status_t
     read_recorded_schedule();
