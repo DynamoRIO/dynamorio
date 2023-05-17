@@ -166,6 +166,19 @@ changes:
    INSTR_CREATE_eor_sve_pred(), INSTR_CREATE_and_sve_pred() and
    INSTR_CREATE_bic_sve_pred() to use the new vector element registers and to
    correctly encode the predicate mode.
+ - Added a new drmemtrace analyzer option \p -interval_microseconds and various new
+   #analysis_tool_t APIs for producing per-interval results. The analyzer framework
+   invokes the generate_interval_snapshot() and generate_shard_interval_snapshot()
+   analysis tool APIs periodically every \p -interval_microseconds of the trace as
+   measured by the #TRACE_MARKER_TYPE_TIMESTAMP marker values. In these callbacks, the
+   tool creates and returns a snapshot of their internal state that is required to
+   produce and print per-interval results in a later print_interval_results() call.
+   The tool's internal state is a struct derived from the
+   #analysis_tool_tmpl_t::interval_state_snapshot_t base struct. Additionally, the tool
+   implements combine_interval_snapshot() to combine two interval snapshot structs,
+   which is required for producing whole-trace results in the parallel mode of analyzer
+   operation, and also release_interval_snapshot() which is used to release the
+   analyzer framework's claim to the interval snapshot objects.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.

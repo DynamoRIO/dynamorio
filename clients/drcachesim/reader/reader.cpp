@@ -289,8 +289,11 @@ reader_t::process_input_entry()
             // already seen, so this condition is not really needed. But to
             // be future-proof, we want to avoid looking at timestamps that
             // won't be passed to the user as well.
-            if (have_memref)
+            if (have_memref) {
                 last_timestamp_ = cur_ref_.marker.marker_value;
+                if (first_timestamp_ == 0)
+                    first_timestamp_ = last_timestamp_;
+            }
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_VERSION)
             version_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
