@@ -351,7 +351,6 @@ GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
         li      a7, 98 /* SYS_futex */
         ecall
         jr REG_R9
-        ret
         END_FUNC(dynamorio_condvar_wake_and_jmp)
 
 END_FILE
