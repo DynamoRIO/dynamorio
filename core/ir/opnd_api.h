@@ -1408,11 +1408,11 @@ typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
 #    define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
 #    define DR_REG_START_SEGMENT_x64 \
         DR_SEG_FS /**< Start of segment register enum values for x64 */
-#    define DR_REG_STOP_SEGMENT DR_SEG_GS  /**< End of segment register enum values */
-#    define DR_REG_START_DR DR_REG_DR0     /**< Start of debug register enum values */
-#    define DR_REG_STOP_DR DR_REG_DR15     /**< End of debug register enum values */
-#    define DR_REG_START_CR DR_REG_CR0     /**< Start of control register enum values */
-#    define DR_REG_STOP_CR DR_REG_CR15     /**< End of control register enum values */
+#    define DR_REG_STOP_SEGMENT DR_SEG_GS /**< End of segment register enum values */
+#    define DR_REG_START_DR DR_REG_DR0    /**< Start of debug register enum values */
+#    define DR_REG_STOP_DR DR_REG_DR15    /**< End of debug register enum values */
+#    define DR_REG_START_CR DR_REG_CR0    /**< Start of control register enum values */
+#    define DR_REG_STOP_CR DR_REG_CR15    /**< End of control register enum values */
 /**
  * Last valid register enum value.  Note: DR_REG_INVALID is now smaller
  * than this value.
