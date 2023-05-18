@@ -345,7 +345,7 @@ GLOBAL_LABEL(.L_start_invoke_C:)
  * libdr bounds in registers for the new libdr to unmap.
  */
         DECLARE_FUNC(xfer_to_new_libdr)
-GLOBAL_LABEL(xfer_to_new_libdr:)              
+GLOBAL_LABEL(xfer_to_new_libdr:)
         mv       s0, ARG1
         /* Restore sp */
         mv       sp, ARG2
