@@ -318,7 +318,7 @@ basic_counts_t::generate_interval_snapshot(uint64_t interval_id)
             snapshot->counters += ctr;
         }
     }
-    snapshot->tid = 0;
+    snapshot->tid = 0; // Use zero to represent the whole-trace interval.
     return snapshot;
 }
 
