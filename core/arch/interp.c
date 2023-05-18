@@ -3147,6 +3147,7 @@ mangle_pre_client(dcontext_t *dcontext, build_bb_t *bb)
         instr_t *ret = instrlist_last(bb->ilist);
         instr_t *mov = instr_get_prev(ret);
         LOG(THREAD, LOG_INTERP, 3, "Found dr_app_running_under_dynamorio\n");
+        // clang-format off
         ASSERT(ret != NULL && instr_is_return(ret) && mov != NULL &&
             IF_X86(instr_get_opcode(mov) == OP_mov_imm &&)
             IF_ARM(instr_get_opcode(mov) == OP_mov &&
@@ -3156,6 +3157,7 @@ mangle_pre_client(dcontext_t *dcontext, build_bb_t *bb)
                 bb->start_pc == instr_get_raw_bits(mov) ||
                 /* the translation field might be NULL */
                 bb->start_pc == instr_get_translation(mov)));
+        // clang-format on
         /* i#1998: ensure the instr is Level 3+ */
         instr_decode(dcontext, mov);
         instr_set_src(mov, 0, OPND_CREATE_INT32(1));
