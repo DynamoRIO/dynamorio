@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -29,6 +29,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  */
+
+#define NOMINMAX // Avoid windows.h messing up std::max.
 
 #include <algorithm>
 #include <iomanip>
@@ -293,4 +295,69 @@ basic_counts_t::get_total_counts()
         }
     }
     return total;
+}
+
+analysis_tool_t::interval_state_snapshot_t *
+basic_counts_t::generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id)
+{
+    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    count_snapshot_t *snapshot = new count_snapshot_t;
+    for (const auto &ctr : per_shard->counters) {
+        snapshot->counters += ctr;
+    }
+    return snapshot;
+}
+
+analysis_tool_t::interval_state_snapshot_t *
+basic_counts_t::generate_interval_snapshot(uint64_t interval_id)
+{
+    count_snapshot_t *snapshot = new count_snapshot_t;
+    for (const auto &shard : shard_map_) {
+        for (const auto &ctr : shard.second->counters) {
+            snapshot->counters += ctr;
+        }
+    }
+    return snapshot;
+}
+
+analysis_tool_t::interval_state_snapshot_t *
+basic_counts_t::combine_interval_snapshots(
+    const std::vector<const analysis_tool_t::interval_state_snapshot_t *>
+        latest_shard_snapshots,
+    uint64_t interval_end_timestamp)
+{
+    count_snapshot_t *result = new count_snapshot_t;
+    for (const auto snapshot : latest_shard_snapshots) {
+        if (snapshot == nullptr)
+            continue;
+        result->counters +=
+            dynamic_cast<const count_snapshot_t *const>(snapshot)->counters;
+    }
+    return result;
+}
+
+bool
+basic_counts_t::print_interval_results(
+    const std::vector<interval_state_snapshot_t *> &interval_snapshots)
+{
+    std::cerr << "Interval total counts across threads:\n";
+    counters_t last;
+    for (const auto &snapshot_base : interval_snapshots) {
+        auto *snapshot = dynamic_cast<count_snapshot_t *>(snapshot_base);
+        std::cerr << "Interval #" << snapshot->interval_id << " ending at timestamp "
+                  << snapshot->interval_end_timestamp << ":\n";
+        counters_t diff = snapshot->counters;
+        diff -= last;
+        print_counters(diff, 0, " interval delta");
+        last = snapshot->counters;
+    }
+    return true;
+}
+
+bool
+basic_counts_t::release_interval_snapshot(
+    analysis_tool_t::interval_state_snapshot_t *snapshot)
+{
+    delete snapshot;
+    return true;
 }

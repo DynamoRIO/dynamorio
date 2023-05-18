@@ -606,18 +606,33 @@ public:
         /**
          * Returns the ordinal for the current input stream feeding this output stream.
          */
-        input_ordinal_t
+        virtual input_ordinal_t
         get_input_stream_ordinal()
         {
             return scheduler_->get_input_ordinal(ordinal_);
         }
         /**
-         * Returns the value of the last seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+         * Returns the value of the most recently seen #TRACE_MARKER_TYPE_TIMESTAMP
+         * marker.
          */
         uint64_t
         get_last_timestamp() const override
         {
+            if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
+                        scheduler_->options_.flags))
+                return scheduler_->get_input_stream(ordinal_)->get_last_timestamp();
             return last_timestamp_;
+        }
+        /**
+         * Returns the value of the first seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+         */
+        uint64_t
+        get_first_timestamp() const override
+        {
+            if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
+                        scheduler_->options_.flags))
+                return scheduler_->get_input_stream(ordinal_)->get_first_timestamp();
+            return first_timestamp_;
         }
         /**
          * Returns the #trace_version_t value from the #TRACE_MARKER_TYPE_VERSION record
@@ -685,6 +700,7 @@ public:
         uint64_t cur_ref_count_ = 0;
         uint64_t cur_instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
+        uint64_t first_timestamp_ = 0;
         // Remember top-level headers for the memtrace_stream_t interface.
         uint64_t version_ = 0;
         uint64_t filetype_ = 0;
@@ -744,7 +760,7 @@ public:
     get_input_stream_name(input_ordinal_t input) const
     {
         if (input < 0 || input >= static_cast<input_ordinal_t>(inputs_.size()))
-            return nullptr;
+            return "";
         return inputs_[input].reader->get_stream_name();
     }
 

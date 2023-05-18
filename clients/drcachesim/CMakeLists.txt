@@ -719,6 +719,14 @@ if (BUILD_TESTS)
                      ${trace_dir} --tmp_output_dir ${tmp_output_dir})
   endif ()
 
+  add_executable(tool.drcacheoff.trace_interval_analysis_unit_tests
+                 tests/trace_interval_analysis_unit_tests.cpp)
+  add_win32_flags(tool.drcacheoff.trace_interval_analysis_unit_tests)
+  target_link_libraries(tool.drcacheoff.trace_interval_analysis_unit_tests
+    drmemtrace_analyzer drdecode)
+  add_test(NAME tool.drcacheoff.trace_interval_analysis_unit_tests
+           COMMAND tool.drcacheoff.trace_interval_analysis_unit_tests)
+
   if (DR_HOST_AARCH64 AND NOT APPLE) # i#1997: static DR on Mac NYI.
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_aarch64_sys)
