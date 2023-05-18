@@ -143,8 +143,8 @@ analyzer_multi_t::analyzer_multi_t()
         }
     } else {
         // Legacy file.
-        if (!init_scheduler(op_infile.get_value(),
-            INVALID_THREAD_ID /*all threads*/, op_verbose.get_value()))
+        if (!init_scheduler(op_infile.get_value(), INVALID_THREAD_ID /*all threads*/,
+                            op_verbose.get_value()))
             success_ = false;
     }
     if (!init_analysis_tools()) {
