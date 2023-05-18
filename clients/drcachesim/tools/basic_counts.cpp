@@ -350,6 +350,20 @@ basic_counts_t::print_interval_results(
         diff -= last;
         print_counters(diff, 0, " interval delta");
         last = snapshot->counters;
+        if (knob_verbose_ > 0) {
+            if (snapshot->instr_count_cumulative !=
+                static_cast<uint64_t>(snapshot->counters.instrs)) {
+                std::cerr << "Cumulative instr count value provided by framework ("
+                          << snapshot->instr_count_cumulative
+                          << ") not equal to tool value (" << snapshot->counters.instrs
+                          << ")\n";
+            }
+            if (snapshot->instr_count_delta != static_cast<uint64_t>(diff.instrs)) {
+                std::cerr << "Delta instr count value provided by framework ("
+                          << snapshot->instr_count_delta << ") not equal to tool value ("
+                          << diff.instrs << ")\n";
+            }
+        }
     }
     return true;
 }
