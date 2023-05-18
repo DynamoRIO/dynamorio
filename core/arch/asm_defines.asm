@@ -911,7 +911,7 @@ ASSUME fs:_DATA @N@\
         blx      callee
 #elif defined(RISCV64)
 /* For RISC-V, there is no a instruction can operate on both immediates
- * and registers. Here is a macro which judges whether its argument is
+ * and registers. Here is a macro that judges whether its argument is
  * a register or no.
  */
 .set register.sp, 1
