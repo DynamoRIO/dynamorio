@@ -227,13 +227,12 @@ GLOBAL_LABEL(dr_app_start:)
 
         DECLARE_EXPORTED_FUNC(dr_app_take_over)
 GLOBAL_LABEL(dr_app_take_over:)
-/* FIXME i#3544: Not implemented */
         j        GLOBAL_REF(dynamorio_app_take_over)
         END_FUNC(dr_app_take_over)
 
         DECLARE_EXPORTED_FUNC(dr_app_running_under_dynamorio)
 GLOBAL_LABEL(dr_app_running_under_dynamorio:)
-/* FIXME i#3544: Not implemented */
+        li     ARG1, 0 /* This instruction is manged by mangle_pre_client. */
         ret
         END_FUNC(dr_app_running_under_dynamorio)
 
@@ -241,7 +240,28 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio:)
 
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
-/* FIXME i#3544: Not implemented */
+        /* Save link register for the case that DR is not taking over. */
+        addi    sp, sp, -16
+        sd      ra, 0(sp)
+
+        /* Preverse stack space. */
+        addi    sp, sp, -PRIV_MCONTEXT_SIZE
+        /* Push x3 on to stack to use it as a scratch. */
+        sd      x3, 4*ARG_SZ(sp)
+        /* Compute original sp. */
+        addi    x3, sp, PRIV_MCONTEXT_SIZE+16
+        /* Save link register on to stack. */
+        sd      ra, 1*ARG_SZ(sp)
+        /* Save original sp on to stack. */
+        sd      x3, 2*ARG_SZ(sp)
+        /* Save ra as pc */
+        sd      ra, 32*ARG_SZ(sp)
+        CALLC1(save_priv_mcontext_helper, sp)
+        CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), sp)
+        /* If we get here, DR is not taking over. */
+        addi    sp, sp, PRIV_MCONTEXT_SIZE
+        ld      ra, 0(sp)
+        addi    sp, sp, 16
         ret
         END_FUNC(dynamorio_app_take_over)
 
