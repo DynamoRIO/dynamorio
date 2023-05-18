@@ -5879,30 +5879,30 @@ const instr_info_t e_vex_extensions[][3] = {
     {OP_vptest, 0x66381718, "vptest",   xx, xx,    Vx,Wx, xx, mrm|vex|reqp, fW6, END_LIST},
     {INVALID, 0x66381718, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext  4 */
-    {OP_pmovsxbw,  0x66382018, "pmovsxbw", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovsxbw,  0x66382018, "pmovsxbw", Vdq, xx, Wq_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovsxbw, 0x66382018, "vpmovsxbw", Vx, xx, Wh_x, xx, xx, mrm|vex|reqp, x, tpe[176][10]},
     {PREFIX_EXT,     0x382018, "(prefix ext 176)", xx, xx, xx, xx, xx, mrm|evex, x, 176},
   }, { /* e_vex ext  5 */
-    {OP_pmovsxbd,  0x66382118, "pmovsxbd", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovsxbd,  0x66382118, "pmovsxbd", Vdq, xx, Wd_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovsxbd, 0x66382118, "vpmovsxbd", Vx, xx, Wi_x, xx, xx, mrm|vex|reqp, x, tpe[170][10]},
     {PREFIX_EXT,     0x382118, "(prefix ext 170)", xx, xx, xx, xx, xx, mrm|evex, x, 170},
   }, { /* e_vex ext  6 */
     /* XXX i#1312: the SSE and VEX table entries could get moved to prefix_extensions and
      * this table here re-numbered.
      */
-    {OP_pmovsxbq,  0x66382218, "pmovsxbq", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovsxbq,  0x66382218, "pmovsxbq", Vdq, xx, Ww_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovsxbq, 0x66382218, "vpmovsxbq", Vx, xx, Wj_x, xx, xx, mrm|vex|reqp, x, tpe[161][10]},
     {PREFIX_EXT,     0x382218, "(prefix ext 161)", xx, xx, xx, xx, xx, mrm|evex, x, 161},
   }, { /* e_vex ext  7 */
-    {OP_pmovsxwd,  0x66382318, "pmovsxwd", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovsxwd,  0x66382318, "pmovsxwd", Vdq, xx, Wq_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovsxwd, 0x66382318, "vpmovsxwd", Vx, xx, Wh_x, xx, xx, mrm|vex|reqp, x, tpe[173][10]},
     {PREFIX_EXT,     0x382318, "(prefix ext 173)", xx, xx, xx, xx, xx, mrm|evex, x, 173},
   }, { /* e_vex ext  8 */
-    {OP_pmovsxwq,  0x66382418, "pmovsxwq", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovsxwq,  0x66382418, "pmovsxwq", Vdq, xx, Wd_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovsxwq, 0x66382418, "vpmovsxwq", Vx, xx, Wi_x, xx, xx, mrm|vex|reqp, x, tpe[164][10]},
     {PREFIX_EXT,     0x382418, "(prefix ext 164)", xx, xx, xx, xx, xx, mrm|evex, x, 164},
   }, { /* e_vex ext  9 */
-    {OP_pmovsxdq,  0x66382518, "pmovsxdq", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovsxdq,  0x66382518, "pmovsxdq", Vdq, xx, Wq_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovsxdq, 0x66382518, "vpmovsxdq", Vx, xx, Wh_x, xx, xx, mrm|vex|reqp, x, tpe[167][10]},
     {PREFIX_EXT,     0x382518, "(prefix ext 167)", xx, xx, xx, xx, xx, mrm|evex, x, 167},
   }, { /* e_vex ext 10 */
@@ -5922,30 +5922,30 @@ const instr_info_t e_vex_extensions[][3] = {
     {OP_vpackusdw, 0x66382b18, "vpackusdw", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tevexwb[245][0]},
     {EVEX_Wb_EXT,  0x66382b18, "(evex_Wb ext 245)", xx, xx, xx, xx, xx, mrm|evex, x, 245},
   }, { /* e_vex ext 14 */
-    {OP_pmovzxbw,  0x66383018, "pmovzxbw", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovzxbw,  0x66383018, "pmovzxbw", Vdq, xx, Wq_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovzxbw, 0x66383018, "vpmovzxbw", Vx, xx, Wh_x, xx, xx, mrm|vex|reqp, x, tpe[175][10]},
     {PREFIX_EXT,     0x383018, "(prefix ext 175)", xx, xx, xx, xx, xx, mrm|evex, x, 175},
   }, { /* e_vex ext 15 */
-    {OP_pmovzxbd,  0x66383118, "pmovzxbd", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovzxbd,  0x66383118, "pmovzxbd", Vdq, xx, Wd_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovzxbd, 0x66383118, "vpmovzxbd", Vx, xx, Wi_x, xx, xx, mrm|vex|reqp, x, tpe[169][10]},
     {PREFIX_EXT,     0x383118, "(prefix ext 169)", xx, xx, xx, xx, xx, mrm|evex, x, 169},
   }, { /* e_vex ext 16 */
     /* XXX i#1312: the SSE and VEX table entries could get moved to prefix_extensions and
      * this table here re-numbered.
      */
-    {OP_pmovzxbq,  0x66383218, "pmovzxbq", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovzxbq,  0x66383218, "pmovzxbq", Vdq, xx, Ww_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovzxbq, 0x66383218, "vpmovzxbq", Vx, xx, Wj_x, xx, xx, mrm|vex|reqp, x, tpe[160][10]},
     {PREFIX_EXT, 0x383218, "(prefix ext 160)", xx, xx, xx, xx, xx, mrm|evex, x, 160},
   }, { /* e_vex ext 17 */
-    {OP_pmovzxwd,  0x66383318, "pmovzxwd", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovzxwd,  0x66383318, "pmovzxwd", Vdq, xx, Wq_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovzxwd, 0x66383318, "vpmovzxwd", Vx, xx, Wh_x, xx, xx, mrm|vex|reqp, x, tpe[172][10]},
     {PREFIX_EXT,     0x383318, "(prefix ext 172)", xx, xx, xx, xx, xx, mrm|evex, x, 172},
   }, { /* e_vex ext 18 */
-    {OP_pmovzxwq,  0x66383418, "pmovzxwq", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovzxwq,  0x66383418, "pmovzxwq", Vdq, xx, Wd_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovzxwq, 0x66383418, "vpmovzxwq", Vx, xx, Wi_x, xx, xx, mrm|vex|reqp, x, tpe[163][10]},
     {PREFIX_EXT, 0x383418, "(prefix ext 163)", xx, xx, xx, xx, xx, mrm|evex, x, 163},
   }, { /* e_vex ext 19 */
-    {OP_pmovzxdq,  0x66383518, "pmovzxdq", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
+    {OP_pmovzxdq,  0x66383518, "pmovzxdq", Vdq, xx, Wq_dq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovzxdq, 0x66383518, "vpmovzxdq", Vx, xx, Wh_x, xx, xx, mrm|vex|reqp, x, tpe[166][10]},
     {PREFIX_EXT,     0x383518, "(prefix ext 166)", xx, xx, xx, xx, xx, mrm|evex, x, 166},
   }, { /* e_vex ext 20 */
