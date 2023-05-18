@@ -96,7 +96,6 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
     if (type_is_instr(memref.instr.type)) {
-        per_shard->tid = memref.instr.tid;
         ++counters->instrs;
         counters->unique_pc_addrs.insert(memref.instr.addr);
         // The encoding entries aren't exposed at the memref_t level, but
@@ -169,6 +168,8 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             default: ++counters->other_markers; break;
             }
         }
+    } else if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
+        per_shard->tid = memref.exit.tid;
     } else if (memref.data.type == TRACE_TYPE_INSTR_FLUSH) {
         counters->icache_flushes++;
     } else if (memref.data.type == TRACE_TYPE_DATA_FLUSH) {
