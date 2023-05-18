@@ -910,11 +910,12 @@ ASSUME fs:_DATA @N@\
         mov      ARG1, p1   @N@\
         blx      callee
 #elif defined(RISCV64)
-/* For RISC-V, there is not a instruction could operate both immediate
- * and registers. Here is a macro which to judge if the arguments is
- * registers or not.
+/* For RISC-V, there is no a instruction can operate on both immediates
+ * and registers. Here is a macro which judges whether its argument is
+ * a register or no.
  */
 .set register.sp, 1
+/* TODO i#3544: Temporary solution */
 .macro RVSETARG argreg, p
   .ifdef "register.\p"
         mv       \argreg, \p

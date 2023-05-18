@@ -329,12 +329,12 @@ GLOBAL_LABEL(_start:)
         mv      ARG2, x0
         mv      ARG3, x0
 
-        /* Clear 2nd & 3rd args to distinguish from xfer_to_new_libdr */
-.L_start_invoke_C:
-        mv      fp, x0 /* clear frame ptr for stack trace bottom */
+        /* Clear 2nd & 3rd args to distinguish from xfer_to_new_libdr. */
+GLOBAL_LABEL(.L_start_invoke_C:)
+        mv      fp, x0 /* Clear frame ptr for stack trace bottom */
         mv      ARG1, sp /* 1st arg to privload_early_inject */
         jal     GLOBAL_REF(privload_early_inject)
-        /* shouldn't return */
+        /* Shouldn't return. */
         jal     GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 
@@ -348,8 +348,8 @@ GLOBAL_LABEL(_start:)
 GLOBAL_LABEL(xfer_to_new_libdr:)
         mv      s0, ARG1
         /* Restore sp */
-        mv     sp, ARG2
-        la      ARG1, .L_start_invoke_C
+        mv      sp, ARG2
+        la      ARG1, GLOBAL_REF(.L_start_invoke_C)
         la      ARG2, GLOBAL_REF(_start)
         sub     ARG1, ARG1, ARG2
         add     s0, s0, ARG1
