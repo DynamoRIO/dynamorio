@@ -467,21 +467,24 @@ bool
 analyzer_tmpl_t<RecordType, ReaderType>::combine_interval_snapshots(
     const std::vector<
         const typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
-        &snapshots,
+        &latest_shard_snapshots,
     uint64_t interval_end_timestamp, int tool_idx,
     typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *&result)
 {
-    result =
-        tools_[tool_idx]->combine_interval_snapshots(snapshots, interval_end_timestamp);
+    result = tools_[tool_idx]->combine_interval_snapshots(latest_shard_snapshots,
+                                                          interval_end_timestamp);
     if (result == nullptr) {
         error_string_ = "combine_interval_snapshots unexpectedly returned nullptr";
         return false;
     }
     result->instr_count_delta = 0;
     result->instr_count_cumulative = 0;
-    for (auto snapshot : snapshots) {
+    for (auto snapshot : latest_shard_snapshots) {
         if (snapshot == nullptr)
             continue;
+        // As discussed in the doc for analysis_tool_t::combine_interval_snapshots,
+        // we combine all shard's latest snapshots for cumulative metrics, whereas
+        // we combine only the shards active in current interval for delta metrics.
         result->instr_count_cumulative += snapshot->instr_count_cumulative;
         if (snapshot->interval_end_timestamp == interval_end_timestamp)
             result->instr_count_delta += snapshot->instr_count_delta;

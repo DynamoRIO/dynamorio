@@ -269,7 +269,7 @@ protected:
     combine_interval_snapshots(
         const std::vector<
             const typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
-            &snapshots,
+            &latest_shard_snapshots,
         uint64_t interval_end_timestamp, int tool_idx,
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *&result);
 
