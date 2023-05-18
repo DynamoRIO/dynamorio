@@ -345,9 +345,9 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
         DECLARE_FUNC(dynamorio_condvar_wake_and_jmp)
 GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
         mv      REG_R9, ARG2 /* save across syscall */
-        li      ARG6, 0 /* arg6 */
-        li      ARG5, 0 /* arg5 */
-        li      ARG4, 0 /* arg4 */
+        li      ARG6, 0
+        li      ARG5, 0
+        li      ARG4, 0
         li      ARG3, 0x7fffffff /* arg3 = INT_MAX */
         li      ARG2, 1 /* arg2 = FUTEX_WAKE */
         li      SYSNUM_REG, 98 /* SYS_futex */
