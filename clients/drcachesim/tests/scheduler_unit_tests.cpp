@@ -829,6 +829,64 @@ test_synthetic()
     assert(sched_as_string[1] == "BBBDDDFFFAAACCCEEEGGGBBBDDDFFF");
 }
 
+static void
+test_synthetic_with_timestamps()
+{
+    std::cerr << "\n----------------\nTesting synthetic with timestamps\n";
+    static constexpr int NUM_WORKLOADS = 3;
+    static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
+            // We also test duplicate tids across workloads.
+            memref_tid_t tid =
+                TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
+            std::vector<trace_entry_t> inputs;
+            inputs.push_back(make_thread(tid));
+            inputs.push_back(make_pid(1));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                if (instr_idx % 2 == 0) {
+                    inputs.push_back(make_timestamp(
+                        // We have different base timestamps per workload, and we have the
+                        // later-ordered inputs in each with the earlier timestamps to
+                        // better test scheduler ordering.
+                        1000 * workload_idx +
+                        100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
+                }
+                inputs.push_back(make_instr(42 + instr_idx * 4));
+            }
+            inputs.push_back(make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/4);
+    sched_ops.quantum_duration = 3;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // Hardcoding here for the 3x3 inputs where the inverted timestamps mean
+    // the priorities are {C,B,A},{F,E,D},{I,H,G}.  Thus we expect to first alternate
+    // among {C,F,I} and finish them off before moving to {B,E,H} and {A,D,G}:
+    assert(sched_as_string[0] == "CCCIIIFFFCCCIIIHHHBBBEEEHHHDDDGGGAAADDDGGG");
+    assert(sched_as_string[1] == "FFFCCCIIIFFFBBBEEEHHHBBBEEEAAADDDGGGAAA");
+}
+
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
 static void
 simulate_core(scheduler_t::stream_t *stream)
@@ -857,7 +915,7 @@ test_synthetic_multi_threaded(const char *testdir)
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(path);
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
                                                /*verbosity=*/2);
     static constexpr int NUM_OUTPUTS = 4;
@@ -1139,7 +1197,7 @@ test_replay_multi_threaded(const char *testdir)
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         sched_inputs.emplace_back(path);
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
                                                    /*verbosity=*/2);
         zipfile_ostream_t outfile(record_fname);
@@ -1624,6 +1682,7 @@ main(int argc, const char *argv[])
     test_only_threads();
     test_real_file_queries_and_filters(argv[1]);
     test_synthetic();
+    test_synthetic_with_timestamps();
     test_synthetic_multi_threaded(argv[1]);
     test_speculation();
     test_replay();

@@ -152,7 +152,7 @@ _tmain(int argc, const TCHAR *targv[])
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(op_trace_dir.get_value());
     scheduler_t::scheduler_options_t sched_ops(
-        scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+        scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_TIMESTAMPS,
         scheduler_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
     sched_ops.quantum_duration = op_sched_quantum.get_value();
 #ifdef HAS_ZIP
