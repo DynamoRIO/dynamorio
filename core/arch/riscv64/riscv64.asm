@@ -233,7 +233,10 @@ GLOBAL_LABEL(dr_longjmp:)
         /* int atomic_swap(int *adr, int val) */
         DECLARE_FUNC(atomic_swap)
 GLOBAL_LABEL(atomic_swap:)
-/* FIXME i#3544: Not implemented */
+1:      lr.d     ARG3, (ARG1)
+        sc.d     ARG4, ARG2, (ARG1)
+        bnez     ARG4, 1b
+        mv       ARG1, ARG3
         ret
         END_FUNC(atomic_swap)
 
