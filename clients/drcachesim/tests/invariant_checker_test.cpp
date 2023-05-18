@@ -704,14 +704,14 @@ check_timestamps(void)
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Negative test: timestamp stays the same.
+    // Positive test: timestamp stays the same.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
         };
-        if (!run_checker(memrefs, true, 1, 3, "Timestamp does not increase"))
+        if (!run_checker(memrefs, false))
             return false;
     }
     // Negative test: timestamp decreases.
@@ -721,7 +721,7 @@ check_timestamps(void)
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 1),
         };
-        if (!run_checker(memrefs, true, 1, 3, "Timestamp does not increase"))
+        if (!run_checker(memrefs, true, 1, 3, "Timestamp is less than the previous one"))
             return false;
     }
     return true;
