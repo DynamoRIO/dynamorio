@@ -942,6 +942,7 @@ sets the corresponding option with the same name described in \ref sec_drcachesi
 - cpu_scheduling \<bool\>
 - verbose \<unsigned int\>
 - coherence \<bool\>
+- use_physical \<bool\>
 
 Supported cache parameters and their value types:
 - type \<string, one of "instruction", "data", or "unified"\>
