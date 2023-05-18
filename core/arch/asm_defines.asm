@@ -948,7 +948,7 @@ ASSUME fs:_DATA @N@\
 .set reg.x29, 1
 .set reg.x30, 1
 .set reg.x31, 1
-.macro mov reg, p
+.macro MOV reg, p
   .ifdef "reg.\p"
         mv      \reg, \p
   .else
