@@ -321,7 +321,7 @@ GLOBAL_LABEL(back_from_native:)
 #ifdef UNIX
 # if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
         DECLARE_FUNC(_start)
-GLOBAL_LABEL(_start:)      
+GLOBAL_LABEL(_start:)
         nop
         mv       fp, x0  /* Clear frame ptr for stack trace bottom. */
 
