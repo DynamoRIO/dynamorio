@@ -84,10 +84,16 @@ public:
     get_stream_name() const = 0;
 
     /**
-     * Returns the value of the last seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+     * Returns the value of the most recently seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
      */
     virtual uint64_t
     get_last_timestamp() const = 0;
+
+    /**
+     * Returns the value of the first seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+     */
+    virtual uint64_t
+    get_first_timestamp() const = 0;
 
     /**
      * Returns the #trace_version_t value from the #TRACE_MARKER_TYPE_VERSION record
@@ -174,6 +180,11 @@ public:
     }
     uint64_t
     get_last_timestamp() const override
+    {
+        return 0;
+    }
+    uint64_t
+    get_first_timestamp() const override
     {
         return 0;
     }
