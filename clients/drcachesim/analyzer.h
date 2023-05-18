@@ -125,7 +125,7 @@ protected:
         analyzer_tool_shard_data_t(analyzer_tool_shard_data_t &&src)
         {
             shard_data = src.shard_data;
-            interval_snapshot_data = std::move(interval_snapshot_data);
+            interval_snapshot_data = std::move(src.interval_snapshot_data);
         }
 
         void *shard_data;
@@ -144,7 +144,7 @@ protected:
         analyzer_shard_data_t(analyzer_shard_data_t &&src)
         {
             cur_interval_index = src.cur_interval_index;
-            tool_data = std::move(tool_data);
+            tool_data = std::move(src.tool_data);
         }
 
         uint64_t cur_interval_index;
