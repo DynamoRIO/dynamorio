@@ -912,7 +912,7 @@ ASSUME fs:_DATA @N@\
 #elif defined(RISCV64)
 /* For RISC-V, there is no a instruction can operate on both immediates
  * and registers. Here is a macro that judges whether its argument is
- * a register or no.
+ * a register or not.
  */
 .set register.sp, 1
 /* TODO i#3544: Temporary solution */
