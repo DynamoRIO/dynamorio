@@ -264,7 +264,16 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
  */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
-/* FIXME i#3544: Not implemented */
+        sd      ARG1, 8 (ARG2)
+        sd      ARG6, 0 (ARG2) /* Func is now on TOS of newsp. */
+        li      SYSNUM_REG, SYS_clone /* All args are already in syscall registers.*/
+        ecall
+        bnez    ARG1, dynamorio_clone_parent
+        ld      ARG1, 0 (sp)
+        ld      ARG2, 8 (sp)
+        jalr    ARG1
+        jal     GLOBAL_REF(unexpected_return)
+dynamorio_clone_parent:
         ret
         END_FUNC(dynamorio_clone)
 
