@@ -2712,7 +2712,7 @@ test_evex_compressed_disp_with_segment_prefix(void *dc)
 {
 #ifdef X64
     byte *pc;
-    const byte b[] = { 0x2e, 0x67, 0x62, 0x01, 0xc5, 0x00, 0xc4, 0x62, 0x21, 0x00 };
+    const byte b[] = { 0x65, 0x67, 0x62, 0x01, 0xc5, 0x00, 0xc4, 0x62, 0x21, 0x00 };
     char dbuf[512];
     int len;
 
@@ -2723,7 +2723,7 @@ test_evex_compressed_disp_with_segment_prefix(void *dc)
     ASSERT(
         strcmp(
             dbuf,
-            "addr32 vpinsrw %xmm23[14byte] %cs:0x42(%r10d)[2byte] $0x00 -> %xmm28\n") ==
+            "addr32 vpinsrw %xmm23[14byte] %gs:0x42(%r10d)[2byte] $0x00 -> %xmm28\n") ==
         0);
 #endif
 }
@@ -2731,12 +2731,12 @@ test_evex_compressed_disp_with_segment_prefix(void *dc)
 static void
 test_extra_leading_prefixes(void *dc)
 {
-#ifdef X64
     byte *pc;
-    const byte b1[] = { 0xf3, 0xf2, 0x4b, 0x0f, 0x70, 0x76, 0x00, 0xff };
-    const byte b2[] = { 0xf3, 0xf2, 0x0f, 0xbc, 0xf2 };
     char dbuf[512];
     int len;
+#ifdef X64
+    const byte b1[] = { 0xf3, 0xf2, 0x4b, 0x0f, 0x70, 0x76, 0x00, 0xff };
+    const byte b2[] = { 0xf3, 0xf2, 0x0f, 0xbc, 0xf2 };
 
     pc =
         disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
@@ -2749,6 +2749,19 @@ test_extra_leading_prefixes(void *dc)
                               false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc == &b2[0] + sizeof(b2));
     ASSERT(strcmp(dbuf, "bsf    %edx -> %esi\n") == 0);
+#endif
+
+    /* Only FS/GS prefixes are accepted on x64, so different prefixes "win" here */
+    const byte b3[] = { 0x26, 0x26, 0x26, 0x26, 0x26, 0x26, 0x26, 0x64,
+                        0x26, 0x26, 0x26, 0x26, 0x13, 0x04, 0x0a };
+    pc =
+        disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b3[0] + sizeof(b3));
+#ifdef X64
+    ASSERT(strcmp(dbuf, "adc    %fs:(%rdx,%rcx)[4byte] %eax -> %eax\n") == 0);
+#else
+    ASSERT(strcmp(dbuf, "adc    %es:(%edx,%ecx)[4byte] %eax -> %eax\n") == 0);
 #endif
 }
 
