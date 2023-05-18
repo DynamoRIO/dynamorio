@@ -130,8 +130,10 @@ get_processor_specific_info(void)
         cpu_info.sve_vector_length_bytes = 32;
         dr_set_sve_vector_length(256);
 #            endif
-    } else
+    } else {
         cpu_info.sve_vector_length_bytes = 32;
+        dr_set_sve_vector_length(256);
+    }
 #        else
     /* Set SVE vector length for unit testing the off-line decoder. */
     dr_set_sve_vector_length(256);
@@ -224,49 +226,76 @@ proc_init_arch(void)
 #define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
 #define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
 
+#if defined(BUILD_TESTS) || defined(STANDALONE_DECODER)
+void
+proc_set_feature(feature_bit_t f, bool enable)
+{
+    uint64 *freg_val = 0;
+    ushort feat_nibble = GET_FEAT_NIBPOS(f);
+    uint64 feat_nsflag = GET_FEAT_NSFLAG(f);
+    uint64 feat_val = GET_FEAT_VAL(f);
+
+    feature_reg_idx_t feat_reg = GET_FEAT_REG(f);
+    switch (feat_reg) {
+    case AA64ISAR0: {
+        freg_val = &cpu_info.features.flags_aa64isar0;
+        break;
+    }
+    case AA64ISAR1: {
+        freg_val = &cpu_info.features.flags_aa64isar1;
+        break;
+    }
+    case AA64PFR0: {
+        freg_val = &cpu_info.features.flags_aa64pfr0;
+        break;
+    }
+    case AA64MMFR1: {
+        freg_val = &cpu_info.features.flags_aa64mmfr1;
+        break;
+    }
+    case AA64DFR0: {
+        freg_val = &cpu_info.features.flags_aa64dfr0;
+        break;
+    }
+    case AA64ZFR0: {
+        freg_val = &cpu_info.features.flags_aa64zfr0;
+        break;
+    }
+    default:
+        CLIENT_ASSERT(false, "proc_has_feature: invalid feature register");
+    }
+
+    /* Clear the current feature state */
+    *freg_val &= ~(0xFULL << (feat_nibble * 4));
+    if (enable) {
+        /* Write the feature value into the feature nibble */
+        *freg_val |= feat_val << (feat_nibble * 4);
+    } else if (feat_nsflag == 0xF) {
+        /* If the not-set flag is 0xF, then that needs manually setting */
+        *freg_val |= feat_nsflag << (feat_nibble * 4);
+    }
+}
+
+void
+enable_all_test_cpu_features()
+{
+    const feature_bit_t features[] = {
+        FEATURE_LSE,    FEATURE_RDM,  FEATURE_FP16, FEATURE_DotProd, FEATURE_SVE,
+        FEATURE_LOR,    FEATURE_FHM,  FEATURE_SM3,  FEATURE_SM4,     FEATURE_SHA512,
+        FEATURE_SHA3,   FEATURE_RAS,  FEATURE_SPE,  FEATURE_PAUTH,   FEATURE_LRCPC,
+        FEATURE_LRCPC2, FEATURE_BF16, FEATURE_I8MM, FEATURE_F64MM,   FEATURE_FlagM,
+        FEATURE_JSCVT,  FEATURE_DPB,  FEATURE_DPB2
+    };
+    for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
+        proc_set_feature(features[i], true);
+    }
+}
+#endif
+
 bool
 proc_has_feature(feature_bit_t f)
 {
 #ifndef DR_HOST_NOT_TARGET
-
-    /* Pretend features are supported for codec tests run on h/w which does not
-     * support all features.
-     */
-#    if defined(BUILD_TESTS)
-    switch (f) {
-    case FEATURE_LSE:
-    case FEATURE_RDM:
-    case FEATURE_FP16:
-    case FEATURE_DotProd:
-    case FEATURE_SVE:
-    case FEATURE_LOR:
-    case FEATURE_FHM:
-    case FEATURE_SM3:
-    case FEATURE_SM4:
-    case FEATURE_SHA512:
-    case FEATURE_SHA3:
-    case FEATURE_RAS:
-    case FEATURE_SPE:
-    case FEATURE_PAUTH:
-    case FEATURE_LRCPC:
-    case FEATURE_LRCPC2:
-    case FEATURE_BF16:
-    case FEATURE_I8MM:
-    case FEATURE_F64MM:
-    case FEATURE_FlagM:
-    case FEATURE_JSCVT:
-    case FEATURE_DPB:
-    case FEATURE_DPB2: return true;
-
-    case FEATURE_AESX:
-    case FEATURE_PMULL:
-    case FEATURE_SHA1:
-    case FEATURE_SHA256:
-    case FEATURE_CRC32:
-    case FEATURE_FlagM2:
-    case FEATURE_RNG: break;
-    }
-#    endif
     ushort feat_nibble, feat_val, freg_nibble, feat_nsflag;
     uint64 freg_val = 0;
 

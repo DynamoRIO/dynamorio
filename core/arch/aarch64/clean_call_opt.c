@@ -183,11 +183,9 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     memset(ci->reg_used, 0, sizeof(bool) * DR_NUM_GPR_REGS);
     ci->num_simd_used = 0;
     /* num_opmask_used is not applicable to ARM/AArch64. */
-    ASSERT(proc_num_simd_registers() ==
-           (MCXT_NUM_SIMD_SLOTS +
-            (proc_has_feature(FEATURE_SVE) ? (MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
-                                           : 0)));
-    memset(ci->simd_used, 0, sizeof(bool) * proc_num_simd_registers());
+    memset(ci->simd_used,
+           0,
+           sizeof(bool) * (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS));
     ci->write_flags = false;
 
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
@@ -203,7 +201,6 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     }
 
     for (instr = instrlist_first(ilist); instr != NULL; instr = instr_get_next(instr)) {
-
         /* General purpose registers */
         for (i = 0; i < DR_NUM_GPR_REGS; i++) {
             reg_id_t reg = DR_REG_START_GPR + (reg_id_t)i;
@@ -216,8 +213,8 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
             }
         }
 
-        /* SIMD register usage */
-        for (i = 0; i < proc_num_simd_registers(); i++) {
+        /* SIMD/SVE register usage */
+        for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
             if (!ci->simd_used[i] &&
                 instr_uses_reg(instr,
                                (proc_has_feature(FEATURE_SVE) ? DR_REG_Z0 : DR_REG_Q0) +
@@ -226,6 +223,35 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
                     "CLEANCALL: callee " PFX " uses VREG%d at " PFX "\n", ci->start, i,
                     instr_get_app_pc(instr));
                 ci->simd_used[i] = true;
+                ci->num_simd_used++;
+            }
+        }
+
+        if (proc_has_feature(FEATURE_SVE)) {
+            /* SVE predicate register usage */
+            for (i = MCXT_NUM_SIMD_SLOTS; i < (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS);
+                 i++) {
+                const uint reg_idx = i - MCXT_NUM_SIMD_SLOTS;
+                if (!ci->simd_used[i] &&
+                    instr_uses_reg(instr, DR_REG_P0 + (reg_id_t)reg_idx)) {
+                    LOG(THREAD, LOG_CLEANCALL, 2,
+                        "CLEANCALL: callee " PFX " uses P%d at " PFX "\n", ci->start,
+                        reg_idx, instr_get_app_pc(instr));
+                    ci->simd_used[i] = true;
+                    ci->num_simd_used++;
+                }
+            }
+
+            /* SVE FFR register usage */
+            const uint ffr_index = MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS;
+            if (!ci->simd_used[ffr_index] && instr_uses_reg(instr, DR_REG_FFR)) {
+                LOG(THREAD,
+                    LOG_CLEANCALL,
+                    2,
+                    "CLEANCALL: callee " PFX " uses FFR at " PFX "\n",
+                    ci->start,
+                    instr_get_app_pc(instr));
+                ci->simd_used[ffr_index] = true;
                 ci->num_simd_used++;
             }
         }

@@ -138,11 +138,15 @@ memtrace(void *drcontext)
      */
     for (mem_ref = (mem_ref_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
         /* We use PIFX to avoid leading zeroes and shrink the resulting file. */
-        fprintf(data->logf, "" PIFX ": %2d, %s\n", (ptr_uint_t)mem_ref->addr,
+#ifndef NO_TRACE_OUTPUT
+        fprintf(data->logf,
+                "" PIFX ": %2d, %s\n",
+                (ptr_uint_t) mem_ref->addr,
                 mem_ref->size,
                 (mem_ref->type > REF_TYPE_WRITE)
                     ? decode_opcode_name(mem_ref->type) /* opcode for instr */
                     : (mem_ref->type == REF_TYPE_WRITE ? "w" : "r"));
+#endif
         data->num_refs++;
     }
     BUF_PTR(data->seg_base) = data->buf_base;
@@ -314,13 +318,31 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
     DR_ASSERT(instr_is_app(instr_operands));
 
     for (i = 0; i < instr_num_srcs(instr_operands); i++) {
-        if (opnd_is_memory_reference(instr_get_src(instr_operands, i)))
-            instrument_mem(drcontext, bb, where, instr_get_src(instr_operands, i), false);
+        const opnd_t src = instr_get_src(instr_operands, i);
+        if (opnd_is_memory_reference(src)) {
+#ifdef AARCH64
+            /* Memory references involving SVE registers are not supported yet, that work
+             * is coming in i#5844.
+             */
+            if (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src)))
+                continue;
+#endif
+            instrument_mem(drcontext, bb, where, src, false);
+        }
     }
 
     for (i = 0; i < instr_num_dsts(instr_operands); i++) {
-        if (opnd_is_memory_reference(instr_get_dst(instr_operands, i)))
-            instrument_mem(drcontext, bb, where, instr_get_dst(instr_operands, i), true);
+        const opnd_t dst = instr_get_dst(instr_operands, i);
+        if (opnd_is_memory_reference(dst)) {
+#ifdef AARCH64
+            /* Memory references involving SVE registers are not supported yet, that work
+             * is coming in i#5844.
+             */
+            if (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst)))
+                continue;
+#endif
+            instrument_mem(drcontext, bb, where, dst, true);
+        }
     }
 
     /* insert code to call clean_call for processing the buffer */
@@ -376,6 +398,7 @@ event_thread_init(void *drcontext)
 
     data->num_refs = 0;
 
+#ifndef NO_TRACE_OUTPUT
     if (log_to_stderr) {
         data->logf = stderr;
     } else {
@@ -393,6 +416,7 @@ event_thread_init(void *drcontext)
         data->logf = log_stream_from_file(data->log);
     }
     fprintf(data->logf, "Format: <data address>: <data size>, <(r)ead/(w)rite/opcode>\n");
+#endif
 }
 
 static void
@@ -404,8 +428,10 @@ event_thread_exit(void *drcontext)
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
+#ifndef NO_TRACE_OUTPUT
     if (!log_to_stderr)
         log_stream_close(data->logf); /* closes fd too */
+#endif
     dr_raw_mem_free(data->buf_base, MEM_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }

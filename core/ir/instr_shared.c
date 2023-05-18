@@ -377,11 +377,15 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     if (nxt == NULL) {
         nxt = instr_encode_ignore_reachability(dcontext, instr, buf);
         if (nxt == NULL) {
+#ifdef AARCH64
+            /* We do not use instr_info_t encoding info on AArch64. FIXME i#1569 */
+            SYSLOG_INTERNAL_WARNING("cannot encode %s", get_opcode_name(instr_get_opcode(instr)));
+#else
             SYSLOG_INTERNAL_WARNING("cannot encode %s",
                                     opcode_to_encoding_info(instr->opcode,
-                                                            instr_get_isa_mode(instr)
-                                                                _IF_ARM(false))
+                                                            instr_get_isa_mode(instr) _IF_ARM(false))
                                         ->name);
+#endif
             if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
                 heap_reachable_free(dcontext, buf, MAX_INSTR_LENGTH HEAPACCT(ACCT_IR));
             return 0;
@@ -903,8 +907,7 @@ instr_get_eflags(instr_t *instr, dr_opnd_query_flags_t flags)
             encoded = true;
             len = private_instr_encode(dcontext, instr, true /*cache*/);
             if (len == 0) {
-                if (!instr_is_label(instr))
-                    CLIENT_ASSERT(false, "instr_get_eflags: invalid instr");
+                CLIENT_ASSERT(instr_is_label(instr), "instr_get_eflags: invalid instr");
                 return 0;
             }
         }
@@ -1794,6 +1797,35 @@ instr_uses_reg(instr_t *instr, reg_id_t reg)
 bool
 instr_reg_in_dst(instr_t *instr, reg_id_t reg)
 {
+#ifdef AARCH64
+    /* FFR does not appear in any operand, it is implicit upon the instruction type or
+     * accessed via SVE predicate registers.
+     */
+    if (reg == DR_REG_FFR) {
+        switch (instr_get_opcode(instr)) {
+        case OP_setffr:
+        case OP_rdffr:
+
+        case OP_ldff1b:
+        case OP_ldff1d:
+        case OP_ldff1h:
+        case OP_ldff1sb:
+        case OP_ldff1sh:
+        case OP_ldff1sw:
+        case OP_ldff1w:
+
+        case OP_ldnf1b:
+        case OP_ldnf1d:
+        case OP_ldnf1h:
+        case OP_ldnf1sb:
+        case OP_ldnf1sh:
+        case OP_ldnf1sw:
+        case OP_ldnf1w: return true;
+        default: break;
+        }
+    }
+#endif
+
     int i;
     for (i = 0; i < instr_num_dsts(instr); i++) {
         if (opnd_uses_reg(instr_get_dst(instr, i), reg))
@@ -1810,6 +1842,19 @@ instr_reg_in_src(instr_t *instr, reg_id_t reg)
     /* special case (we don't want all of instr_is_nop() special-cased: just this one) */
     if (instr_get_opcode(instr) == OP_nop_modrm)
         return false;
+#endif
+
+#ifdef AARCH64
+    /* FFR does not appear in any operand, it is implicit upon the instruction type or
+     * accessed via SVE predicate registers.
+     */
+    if (reg == DR_REG_FFR) {
+        switch (instr_get_opcode(instr)) {
+        case OP_wrffr:
+        case OP_rdffrs: return true;
+        default: break;
+        }
+    }
 #endif
     for (i = 0; i < instr_num_srcs(instr); i++) {
         if (opnd_uses_reg(instr_get_src(instr, i), reg))

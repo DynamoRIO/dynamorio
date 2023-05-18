@@ -434,7 +434,11 @@ typedef struct _clean_call_info_t {
     bool skip_save_flags;
     bool skip_clear_flags;
     int num_simd_skip;
+#if defined(AARCH64)
     bool simd_skip[MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS];
+#else
+    bool simd_skip[MCXT_NUM_SIMD_SLOTS];
+#endif
 #ifdef X86
     int num_opmask_skip;
     bool opmask_skip[MCXT_NUM_OPMASK_SLOTS];
@@ -1505,7 +1509,11 @@ typedef struct _callee_info_t {
     /* SIMD ([xyz]mm) registers usage. Part of the array might be left
      * uninitialized if proc_num_simd_registers() < MCXT_NUM_SIMD_SLOTS.
      */
+#if defined(AARCH64)
+    bool simd_used[MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS];
+#else
     bool simd_used[MCXT_NUM_SIMD_SLOTS];
+#endif
 #ifdef X86
     int num_opmask_used; /* number of mask registers used by callee */
     /* AVX-512 mask register usage. */

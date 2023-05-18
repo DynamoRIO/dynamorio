@@ -199,6 +199,10 @@ private:
 #ifdef X86
         replace = INSTR_CREATE_lahf(dc);
 #elif defined(AARCH64)
+#    ifdef BUILD_TESTS
+        /* OP_psb requires SPE feature */
+        proc_set_feature(FEATURE_SPE, true);
+#    endif
         replace = INSTR_CREATE_psb_csync(dc);
 #elif defined(ARM)
         replace = INSTR_CREATE_yield(dc);

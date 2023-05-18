@@ -120,6 +120,13 @@ else (WIN32)
   set(OPT_CFLAGS "-O2")
 endif (WIN32)
 
+option(NO_TRACE_OUTPUT
+    "Do not create a trace output file (used by instrace_simple and memtrace_simple)"
+    OFF)
+if (NO_TRACE_OUTPUT)
+  add_definitions(-DNO_TRACE_OUTPUT)
+endif (NO_TRACE_OUTPUT)
+
 if (DEBUG)
   set(OPT_CFLAGS "${OPT_CFLAGS} -DDEBUG")
 endif (DEBUG)

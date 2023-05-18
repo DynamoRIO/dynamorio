@@ -359,6 +359,8 @@ main(int argc, char *argv[])
     bool test_result;
     instr_t *instr;
 
+    enable_all_test_cpu_features();
+
     RUN_INSTR_TEST(bfcvt);
     RUN_INSTR_TEST(bfcvtn2_vector);
     RUN_INSTR_TEST(bfcvtn_vector);
