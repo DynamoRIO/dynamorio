@@ -264,34 +264,34 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
  */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
-        addi    ARG2, ARG2, -16 /* Description: newsp = newsp + 16. */
-        sd      ARG1, 8 (ARG2)
-        sd      ARG6, 0 (ARG2) /* The func is now on TOS of newsp. */
-        li      SYSNUM_REG, SYS_clone /* All args are already in syscall registers.*/
+        addi     ARG2, ARG2, -16 /* Description: newsp = newsp + 16. */
+        sd       ARG1, 8 (ARG2)
+        sd       ARG6, 0 (ARG2) /* The func is now on TOS of newsp. */
+        li       SYSNUM_REG, SYS_clone /* All args are already in syscall registers.*/
         ecall
-        bnez    ARG1, dynamorio_clone_parent
-        ld      ARG1, 0 (sp)
-        ld      ARG2, 8 (sp)
-        addi    sp, sp, 16
-        jalr    ARG1
-        jal     GLOBAL_REF(unexpected_return)
+        bnez     ARG1, dynamorio_clone_parent
+        ld       ARG1, 0 (sp)
+        ld       ARG2, 8 (sp)
+        addi     sp, sp, 16
+        jalr     ARG1
+        jal      GLOBAL_REF(unexpected_return)
 dynamorio_clone_parent:
         ret
         END_FUNC(dynamorio_clone)
 
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-        li        SYSNUM_REG, SYS_rt_sigreturn
+        li       SYSNUM_REG, SYS_rt_sigreturn
         ecall
-        jal       GLOBAL_REF(unexpected_return)
+        jal      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
 
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-        li        a0, 0 /* exit code */
-        li        SYSNUM_REG, SYS_exit /* SYS_exit number */
+        li       a0, 0 /* exit code */
+        li       SYSNUM_REG, SYS_exit /* SYS_exit number */
         ecall
-        jal       GLOBAL_REF(unexpected_return)
+        jal      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
 
 # ifndef NOT_DYNAMORIO_CORE_PROPER
@@ -301,7 +301,7 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
 #  endif
         DECLARE_FUNC(main_signal_handler)
 GLOBAL_LABEL(main_signal_handler:)
-        mv      ARG4, sp /* pass as extra arg */
+        mv       ARG4, sp /* pass as extra arg */
         j        GLOBAL_REF(main_signal_handler_C) /* chain call */
         END_FUNC(main_signal_handler)
 
