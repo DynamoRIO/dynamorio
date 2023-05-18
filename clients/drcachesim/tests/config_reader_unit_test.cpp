@@ -31,9 +31,10 @@
  */
 
 #include <iostream>
-#include "../reader/config_reader.h"
-#include "../simulator/cache.h"
-#include "../simulator/cache_simulator_create.h"
+#include "config_reader_unit_test.h"
+#include "reader/config_reader.h"
+#include "simulator/cache.h"
+#include "simulator/cache_simulator_create.h"
 
 static void
 check_cache(const std::map<std::string, cache_params_t> &caches, std::string name,
@@ -60,15 +61,22 @@ check_cache(const std::map<std::string, cache_params_t> &caches, std::string nam
     }
 }
 
-int
-main(int argc, const char *argv[])
+void
+unit_test_config_reader(const char *testdir)
 {
     cache_simulator_knobs_t knobs;
     std::map<std::string, cache_params_t> caches;
-    std::string file_name = "single_core.conf";
+    std::string file_path = std::string(testdir) + "/single_core.conf";
+
+    std::ifstream file_stream;
+    file_stream.open(file_path);
+    if (!file_stream.is_open()) {
+        std::cerr << "Failed to open the config file: '" << file_path.c_str() << "'\n";
+        exit(1);
+    }
 
     config_reader_t config;
-    if (!config.configure(file_name, knobs, caches)) {
+    if (!config.configure(&file_stream, knobs, caches)) {
         std::cerr << "drcachesim config_reader_test failed (config error)\n";
         exit(1);
     }
@@ -99,6 +107,4 @@ main(int argc, const char *argv[])
             exit(1);
         }
     }
-
-    return 0;
 }
