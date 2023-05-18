@@ -62,7 +62,7 @@ GLOBAL_LABEL(call_switch_stack:)
         /* Init the stack. */
         addi     sp, sp, -32
         /* Use two callee-save regs to call func. */
-        sd      ra, 24 (sp)
+        sd       ra, 24 (sp)
         sd       s0, 16 (sp)
         sd       s1, 8 (sp)
         sd       s2, 0 (sp)
