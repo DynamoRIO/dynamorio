@@ -75,7 +75,8 @@ main(int argc, const char *argv[])
 
     if (knobs.num_cores != 1 || knobs.line_size != 64 || knobs.skip_refs != 1000000 ||
         knobs.warmup_refs != 0 || knobs.warmup_fraction != 0.8 ||
-        knobs.sim_refs != 8888888 || knobs.cpu_scheduling != true || knobs.verbose != 0) {
+        knobs.sim_refs != 8888888 || knobs.cpu_scheduling != true || knobs.verbose != 0 ||
+        knobs.model_coherence != true || knobs.use_physical != true) {
         std::cerr << "drcachesim config_reader_test failed (common params)\n";
         exit(1);
     }
