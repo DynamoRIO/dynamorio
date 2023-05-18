@@ -115,28 +115,28 @@ call_dispatch_alt_stack_no_free:
  */
         DECLARE_EXPORTED_FUNC(dr_call_on_clean_stack)
 GLOBAL_LABEL(dr_call_on_clean_stack:)
-        addi    sp, sp, -16
-        sd      ra, 8(sp)   /* Save link register. */
-        sd      s0, 0(sp)
-        mv      s0, sp      /* Save sp across the call. */
+        addi     sp, sp, -16
+        sd       ra, 8(sp)   /* Save link register. */
+        sd       s0, 0(sp)
+        mv       s0, sp      /* Save sp across the call. */
         /* Swap stacks. */
-        ld      sp, dstack_OFFSET(ARG1)
+        ld       sp, dstack_OFFSET(ARG1)
         /* Set up args. */
-        mv      ra,   ARG2 /* void *(*func)(arg1...arg8) */
-        mv      ARG1, ARG3          /* void *arg1 */
-        mv      ARG2, ARG4          /* void *arg2 */
-        mv      ARG3, ARG5          /* void *arg3 */
-        mv      ARG4, ARG6          /* void *arg4 */
-        mv      ARG5, ARG7          /* void *arg5 */
-        mv      ARG6, ARG8          /* void *arg6 */
-        ld      ARG7, 0(s0)         /* void *arg7, retrived from the stack */
-        ld      ARG8, ARG_SZ(s0)    /* void *arg8, retrived from the stack */
-        jalr    ra
+        mv       ra,   ARG2 /* void *(*func)(arg1...arg8) */
+        mv       ARG1, ARG3          /* void *arg1 */
+        mv       ARG2, ARG4          /* void *arg2 */
+        mv       ARG3, ARG5          /* void *arg3 */
+        mv       ARG4, ARG6          /* void *arg4 */
+        mv       ARG5, ARG7          /* void *arg5 */
+        mv       ARG6, ARG8          /* void *arg6 */
+        ld       ARG7, 0(s0)         /* void *arg7, retrived from the stack */
+        ld       ARG8, ARG_SZ(s0)    /* void *arg8, retrived from the stack */
+        jalr     ra
         /* Swap stacks. */
-        mv      sp, s0
-        ld      s0, 0 (sp)
-        ld      ra, 8 (sp)
-        addi    sp, sp, 16
+        mv       sp, s0
+        ld       s0, 0 (sp)
+        ld       ra, 8 (sp)
+        addi     sp, sp, 16
         ret
         END_FUNC(dr_call_on_clean_stack)
 
