@@ -264,6 +264,7 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
  */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
+        addi    ARG2, ARG2, -16 /* Newsp = Newsp + 16. */
         sd      ARG1, 8 (ARG2)
         sd      ARG6, 0 (ARG2) /* Func is now on TOS of newsp. */
         li      SYSNUM_REG, SYS_clone /* All args are already in syscall registers.*/
@@ -271,6 +272,7 @@ GLOBAL_LABEL(dynamorio_clone:)
         bnez    ARG1, dynamorio_clone_parent
         ld      ARG1, 0 (sp)
         ld      ARG2, 8 (sp)
+        addi    sp, sp, 16
         jalr    ARG1
         jal     GLOBAL_REF(unexpected_return)
 dynamorio_clone_parent:
