@@ -323,7 +323,7 @@ GLOBAL_LABEL(back_from_native:)
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
         nop
-        mv      fp, x0  /* clear frame ptr for stack trace bottom */
+        mv      fp, x0  /* Clear frame ptr for stack trace bottom. */
 
         CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, sp)
         mv      ARG2, x0
@@ -331,8 +331,8 @@ GLOBAL_LABEL(_start:)
 
         /* Clear 2nd & 3rd args to distinguish from xfer_to_new_libdr. */
 GLOBAL_LABEL(.L_start_invoke_C:)
-        mv      fp, x0 /* Clear frame ptr for stack trace bottom */
-        mv      ARG1, sp /* 1st arg to privload_early_inject */
+        mv      fp, x0 /* Clear frame ptr for stack trace bottom. */
+        mv      ARG1, sp /* 1st arg to privload_early_inject. */
         jal     GLOBAL_REF(privload_early_inject)
         /* Shouldn't return. */
         jal     GLOBAL_REF(unexpected_return)
