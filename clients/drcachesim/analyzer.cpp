@@ -479,6 +479,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::combine_interval_snapshots(
     }
     result->instr_count_delta = 0;
     result->instr_count_cumulative = 0;
+    result->active_shard_count = 0;
     for (auto snapshot : latest_shard_snapshots) {
         if (snapshot == nullptr)
             continue;
@@ -486,8 +487,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::combine_interval_snapshots(
         // we combine all shard's latest snapshots for cumulative metrics, whereas
         // we combine only the shards active in current interval for delta metrics.
         result->instr_count_cumulative += snapshot->instr_count_cumulative;
-        if (snapshot->interval_end_timestamp == interval_end_timestamp)
+        if (snapshot->interval_end_timestamp == interval_end_timestamp) {
             result->instr_count_delta += snapshot->instr_count_delta;
+            ++result->active_shard_count;
+        }
     }
     return true;
 }
@@ -733,6 +736,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
             snapshot->instr_count_cumulative = worker->stream->get_instruction_ordinal();
             snapshot->instr_count_delta =
                 snapshot->instr_count_cumulative - interval_init_instr_count;
+            snapshot->active_shard_count = 1;
             worker->shard_data[shard_id].tool_data[tool_idx].interval_snapshot_data.push(
                 snapshot);
         }
