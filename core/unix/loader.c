@@ -1840,7 +1840,8 @@ privload_mem_is_elf_so_header(byte *mem)
      */
     if (
 #        ifdef X64
-        elf_hdr->e_machine != EM_X86_64 && elf_hdr->e_machine != EM_AARCH64 && elf_hdr->e_machine != EM_RISCV
+        elf_hdr->e_machine != EM_X86_64 && elf_hdr->e_machine != EM_AARCH64 &&
+        elf_hdr->e_machine != EM_RISCV
 #        else
         elf_hdr->e_machine != EM_386 && elf_hdr->e_machine != EM_ARM
 #        endif

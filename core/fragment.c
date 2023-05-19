@@ -6716,11 +6716,11 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
              */
 #ifdef DEBUG
             uint pre_flushtime;
-#ifdef RISCV64
+#    ifdef RISCV64
             ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, pre_flushtime);
-#else
+#    else
             ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &pre_flushtime);
-#endif
+#    endif
 #endif
             vm_area_check_shared_pending(tgt_dcontext, NULL);
             /* lazy deletion may inc flushtime_global, so may have a higher
