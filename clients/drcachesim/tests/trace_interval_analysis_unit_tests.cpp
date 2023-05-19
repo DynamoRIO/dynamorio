@@ -61,9 +61,10 @@ public:
     test_stream_t(const std::vector<memref_t> &refs, bool parallel)
         : stream_t(nullptr, 0, 0)
         , refs_(refs)
-        , first_timestamp_(0)
         , at_(-1)
         , parallel_(parallel)
+        , instr_count_(0)
+        , first_timestamp_(0)
     {
     }
     scheduler_t::stream_status_t
@@ -83,6 +84,9 @@ public:
                 last_timestamp_ = record.marker.marker_value;
                 if (first_timestamp_ == 0)
                     first_timestamp_ = last_timestamp_;
+            } else if (type_is_instr(record.instr.type)) {
+                ++instr_count_;
+                ++instr_counts_[record.instr.tid];
             }
             return scheduler_t::stream_status_t::STATUS_OK;
         }
@@ -120,16 +124,32 @@ public:
         assert(it != last_timestamps_.end());
         return it->second;
     }
+    uint64_t
+    get_instruction_ordinal() const override
+    {
+        if (!parallel_)
+            return instr_count_;
+        assert(at_ >= 0 && at_ < refs_.size());
+        auto it = instr_counts_.find(refs_[at_].instr.tid);
+        assert(it != instr_counts_.end());
+        return it->second;
+    }
 
 private:
     std::unordered_map<memref_tid_t, scheduler_t::input_ordinal_t> tid2ordinal;
     std::vector<memref_t> refs_;
-    std::unordered_map<memref_tid_t, uint64_t> first_timestamps_;
-    std::unordered_map<memref_tid_t, uint64_t> last_timestamps_;
-    uint64_t first_timestamp_;
-    uint64_t last_timestamp_;
     int at_;
     bool parallel_;
+
+    // Values tracked per thread.
+    std::unordered_map<memref_tid_t, uint64_t> instr_counts_;
+    std::unordered_map<memref_tid_t, uint64_t> first_timestamps_;
+    std::unordered_map<memref_tid_t, uint64_t> last_timestamps_;
+
+    // Values tracked for the whole trace.
+    uint64_t instr_count_;
+    uint64_t first_timestamp_;
+    uint64_t last_timestamp_;
 };
 
 // Test analyzer_t that uses a test_stream_t instead of the stream provided
@@ -270,11 +290,13 @@ public:
     // interval.
     struct recorded_snapshot_t : public analysis_tool_t::interval_state_snapshot_t {
         recorded_snapshot_t(uint64_t interval_id, uint64_t interval_end_timestamp,
+                            uint64_t instr_count_cumulative, uint64_t instr_count_delta,
                             std::vector<interval_end_point_t> component_intervals)
             // Actual tools do not need to supply values to construct the base
             // interval_state_snapshot_t. This is only to make it easier to construct
             // the expected snapshot objects in this test.
-            : interval_state_snapshot_t(interval_id, interval_end_timestamp)
+            : interval_state_snapshot_t(interval_id, interval_end_timestamp,
+                                        instr_count_cumulative, instr_count_delta)
             , component_intervals(component_intervals)
         {
         }
@@ -513,45 +535,45 @@ test_non_zero_interval(bool parallel, bool combine_only_active_shards = true)
         // serial snapshot.
         expected_state_snapshots = {
             // Format for interval_end_point_t: <tid, seen_memrefs, interval_id>
-            test_analysis_tool_t::recorded_snapshot_t(0, 100, { { 0, 3, 0 } }),
-            test_analysis_tool_t::recorded_snapshot_t(1, 200, { { 0, 7, 1 } }),
-            test_analysis_tool_t::recorded_snapshot_t(2, 300, { { 0, 13, 2 } }),
-            test_analysis_tool_t::recorded_snapshot_t(4, 500, { { 0, 15, 4 } }),
-            test_analysis_tool_t::recorded_snapshot_t(5, 600, { { 0, 17, 5 } }),
-            test_analysis_tool_t::recorded_snapshot_t(6, 700, { { 0, 20, 6 } }),
+            test_analysis_tool_t::recorded_snapshot_t(0, 100, 1, 1, { { 0, 3, 0 } }),
+            test_analysis_tool_t::recorded_snapshot_t(1, 200, 3, 2, { { 0, 7, 1 } }),
+            test_analysis_tool_t::recorded_snapshot_t(2, 300, 6, 3, { { 0, 13, 2 } }),
+            test_analysis_tool_t::recorded_snapshot_t(4, 500, 7, 1, { { 0, 15, 4 } }),
+            test_analysis_tool_t::recorded_snapshot_t(5, 600, 7, 0, { { 0, 17, 5 } }),
+            test_analysis_tool_t::recorded_snapshot_t(6, 700, 8, 1, { { 0, 20, 6 } }),
         };
     } else if (combine_only_active_shards) {
         // Each whole trace interval is made up of snapshots from each
         // shard that was active in that interval.
         expected_state_snapshots = {
             // Format for interval_end_point_t: <tid, seen_memrefs, interval_id>
-            test_analysis_tool_t::recorded_snapshot_t(0, 100, { { 51, 3, 0 } }),
+            test_analysis_tool_t::recorded_snapshot_t(0, 100, 1, 1, { { 51, 3, 0 } }),
             // Narration: The whole-trace interval_id=1 with interval_end_timestamp=200
             // is made up of the following two shard-local interval snapshots:
             // - from shard_id=51, the interval_id=1 that ends at the local_memref=5
             // - from shard_id=52, the interval_id=0 that ends at the local_memref=2
-            test_analysis_tool_t::recorded_snapshot_t(1, 200,
+            test_analysis_tool_t::recorded_snapshot_t(1, 200, 3, 2,
                                                       { { 51, 5, 1 }, { 52, 2, 0 } }),
-            test_analysis_tool_t::recorded_snapshot_t(2, 300,
+            test_analysis_tool_t::recorded_snapshot_t(2, 300, 6, 3,
                                                       { { 51, 7, 2 }, { 52, 6, 1 } }),
-            test_analysis_tool_t::recorded_snapshot_t(4, 500, { { 52, 8, 3 } }),
-            test_analysis_tool_t::recorded_snapshot_t(5, 600, { { 51, 9, 5 } }),
-            test_analysis_tool_t::recorded_snapshot_t(6, 700, { { 52, 11, 5 } })
+            test_analysis_tool_t::recorded_snapshot_t(4, 500, 7, 1, { { 52, 8, 3 } }),
+            test_analysis_tool_t::recorded_snapshot_t(5, 600, 7, 0, { { 51, 9, 5 } }),
+            test_analysis_tool_t::recorded_snapshot_t(6, 700, 8, 1, { { 52, 11, 5 } })
         };
     } else {
         // Each whole trace interval is made up of last snapshots from all trace shards.
         expected_state_snapshots = {
             // Format for interval_end_point_t: <tid, seen_memrefs, interval_id>
-            test_analysis_tool_t::recorded_snapshot_t(0, 100, { { 51, 3, 0 } }),
-            test_analysis_tool_t::recorded_snapshot_t(1, 200,
+            test_analysis_tool_t::recorded_snapshot_t(0, 100, 1, 1, { { 51, 3, 0 } }),
+            test_analysis_tool_t::recorded_snapshot_t(1, 200, 3, 2,
                                                       { { 51, 5, 1 }, { 52, 2, 0 } }),
-            test_analysis_tool_t::recorded_snapshot_t(2, 300,
+            test_analysis_tool_t::recorded_snapshot_t(2, 300, 6, 3,
                                                       { { 51, 7, 2 }, { 52, 6, 1 } }),
-            test_analysis_tool_t::recorded_snapshot_t(4, 500,
+            test_analysis_tool_t::recorded_snapshot_t(4, 500, 7, 1,
                                                       { { 51, 7, 2 }, { 52, 8, 3 } }),
-            test_analysis_tool_t::recorded_snapshot_t(5, 600,
+            test_analysis_tool_t::recorded_snapshot_t(5, 600, 7, 0,
                                                       { { 51, 9, 5 }, { 52, 8, 3 } }),
-            test_analysis_tool_t::recorded_snapshot_t(6, 700,
+            test_analysis_tool_t::recorded_snapshot_t(6, 700, 8, 1,
                                                       { { 51, 9, 5 }, { 52, 11, 5 } })
         };
     }

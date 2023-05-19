@@ -167,14 +167,20 @@ public:
      * framework automatically.
      */
     struct interval_state_snapshot_t {
-        interval_state_snapshot_t(uint64_t interval_id, uint64_t interval_end_timestamp)
+        interval_state_snapshot_t(uint64_t interval_id, uint64_t interval_end_timestamp,
+                                  uint64_t instr_count_cumulative,
+                                  uint64_t instr_count_delta)
             : interval_id(interval_id)
             , interval_end_timestamp(interval_end_timestamp)
+            , instr_count_cumulative(instr_count_cumulative)
+            , instr_count_delta(instr_count_delta)
         {
         }
         interval_state_snapshot_t()
             : interval_id(0)
             , interval_end_timestamp(0)
+            , instr_count_cumulative(0)
+            , instr_count_delta(0)
         {
         }
 
@@ -184,6 +190,13 @@ public:
         // but simply the abstract boundary of the interval. This will be aligned
         // to the specified -interval_microseconds.
         uint64_t interval_end_timestamp;
+
+        // Count of instructions: cumulative till this interval, and the incremental
+        // delta in this interval vs the previous one. May be useful for tools to
+        // compute PKI (per kilo instruction) metrics; obviates the need for each
+        // tool to duplicate this.
+        uint64_t instr_count_cumulative;
+        uint64_t instr_count_delta;
 
         virtual ~interval_state_snapshot_t() = default;
     };
