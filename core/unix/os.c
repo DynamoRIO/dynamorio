@@ -1887,7 +1887,7 @@ is_thread_tls_initialized(void)
 #else
     /* FIXME i#3544: Not implemented */
     ASSERT_NOT_IMPLEMENTED(false);
-    return true;
+    return false;
 #endif
     return true;
 }
