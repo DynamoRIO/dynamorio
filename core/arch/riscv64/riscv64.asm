@@ -219,7 +219,7 @@ GLOBAL_LABEL(dr_try_start:)
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
-        sd       x18, (ARG1)
+        sd       x18, 0 (ARG1)
         sd       x19, 8 (ARG1)
         sd       x20, 16 (ARG1)
         sd       x21, 24 (ARG1)
@@ -261,8 +261,36 @@ GLOBAL_LABEL(dr_setjmp:)
  */
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
-/* FIXME i#3544: Not implemented */
-        ret
+        sd       x18, 0 (ARG1)
+        sd       x19, 8 (ARG1)
+        sd       x20, 16 (ARG1)
+        sd       x21, 24 (ARG1)
+        sd       x22, 32 (ARG1)
+        sd       x23, 40 (ARG1)
+        sd       x24, 48 (ARG1)
+        sd       x25, 56 (ARG1)
+        sd       x26, 64 (ARG1)
+        sd       x27, 72 (ARG1)
+        mv       ARG7, sp
+        sd       ARG7, 80 (ARG1)
+        sd       x8, 88 (ARG1)
+        sd       x9, 96 (ARG1)
+        fsd      f8, 104 (ARG1)
+        fsd      f9, 112 (ARG1)
+        fsd      f18, 120 (ARG1)
+        fsd      f19, 128 (ARG1)
+        fsd      f20, 136 (ARG1)
+        fsd      f21, 144 (ARG1)
+        fsd      f22, 152 (ARG1)
+        fsd      f23, 160 (ARG1)
+        fsd      f24, 168 (ARG1)
+        fsd      f25, 176 (ARG1)
+        fsd      f26, 184 (ARG1)
+        fsd      f27, 192 (ARG1)
+        li       t0, 0
+        snez     t0, ARG1
+        add      ARG1, ARG, t0
+        jalr     ra
         END_FUNC(dr_longjmp)
 
         /* int atomic_swap(int *adr, int val) */
