@@ -307,8 +307,12 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_
 static bool
 stub_is_patched_for_intermediate_fragment_link(dcontext_t *dcontext, cache_pc stub_pc)
 {
-    uint enc;
+    uint enc = 0;
+#ifdef RISCV64
+    ATOMIC_4BYTE_ALIGNED_READ(stub_pc, enc);
+#else
     ATOMIC_4BYTE_ALIGNED_READ(stub_pc, &enc);
+#endif
     return (enc & 0xfc000000) == 0x14000000; /* B (OP_b)*/
 }
 
@@ -316,8 +320,12 @@ static bool
 stub_is_patched_for_far_fragment_link(dcontext_t *dcontext, fragment_t *f,
                                       cache_pc stub_pc)
 {
-    ptr_uint_t target_pc;
+    ptr_uint_t target_pc = 0;
+#ifdef RISCV64
+    ATOMIC_8BYTE_ALIGNED_READ(get_target_pc_slot(f, stub_pc), target_pc);
+#else
     ATOMIC_8BYTE_ALIGNED_READ(get_target_pc_slot(f, stub_pc), &target_pc);
+#endif
     return target_pc != (ptr_uint_t)fcache_return_routine(dcontext);
 }
 

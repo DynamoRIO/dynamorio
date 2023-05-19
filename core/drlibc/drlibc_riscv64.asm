@@ -46,14 +46,17 @@ START_FILE
  */
         DECLARE_FUNC(dynamorio_syscall)
 GLOBAL_LABEL(dynamorio_syscall:)
-        mv      t0,a0
-        mv      a0,a2
-        mv      a1,a3
-        mv      a2,a4
-        mv      a3,a5
-        mv      a4,a6
-        mv      a5,a7
-        mv      a7,t0
+        slti     t0, ARG2, 7
+        mv       t1, ARG1
+        mv       ARG1, ARG3
+        mv       ARG2, ARG4
+        mv       ARG3, ARG5
+        mv       ARG4, ARG6
+        mv       ARG5, ARG7
+        mv       ARG6, ARG8
+        bnez     t0, 1f
+        ld       ARG7, 0(sp)
+1:      mv       SYSNUM_REG, t1
         ecall
         ret
 

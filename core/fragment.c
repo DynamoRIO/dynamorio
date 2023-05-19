@@ -1842,7 +1842,11 @@ fragment_thread_reset_init(dcontext_t *dcontext)
     if (dynamo_resetting)
         pt->flushtime_last_update = 0;
     else
+#ifdef RISCV64
+        ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, pt->flushtime_last_update);
+#else
         ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &pt->flushtime_last_update);
+#endif
 
     /* set initial hashtable sizes */
     hashtable_fragment_init(
@@ -5427,7 +5431,11 @@ check_flush_queue(dcontext_t *dcontext, fragment_t *was_I_flushed)
      * check is our shared deletion algorithm's only perf hit when there's no
      * actual shared flushing.
      */
+#ifdef RISCV64
+    ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, local_flushtime_global);
+#else
     ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &local_flushtime_global);
+#endif
     if (DYNAMO_OPTION(shared_deletion) &&
         pt->flushtime_last_update < local_flushtime_global) {
 #ifdef LINUX
@@ -5819,7 +5827,11 @@ increment_global_flushtime()
      * when we're approaching overflow
      */
     uint local_flushtime_global;
+#ifdef RISCV64
+    ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, local_flushtime_global);
+#else
     ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &local_flushtime_global);
+#endif
     if (local_flushtime_global == UINT_MAX / 2) {
         ASSERT_NOT_TESTED(); /* FIXME: add -stress_flushtime_global_max */
         SYSLOG_INTERNAL_WARNING("flushtime_global approaching UINT_MAX, resetting");
@@ -6704,7 +6716,11 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
              */
 #ifdef DEBUG
             uint pre_flushtime;
+#ifdef RISCV64
+            ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, pre_flushtime);
+#else
             ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, &pre_flushtime);
+#endif
 #endif
             vm_area_check_shared_pending(tgt_dcontext, NULL);
             /* lazy deletion may inc flushtime_global, so may have a higher

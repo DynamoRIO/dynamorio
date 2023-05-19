@@ -48,9 +48,10 @@
 byte **
 get_dr_tls_base_addr(void)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    byte *lib_tls_base = (byte *)read_thread_register(TLS_REG_LIB);
+    if (lib_tls_base == NULL)
+        return NULL;
+    return (byte **)(lib_tls_base + DR_TLS_BASE_OFFSET);
 }
 
 void
