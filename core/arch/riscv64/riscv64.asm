@@ -129,8 +129,8 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         mv       ARG4, ARG6          /* void *arg4 */
         mv       ARG5, ARG7          /* void *arg5 */
         mv       ARG6, ARG8          /* void *arg6 */
-        ld       ARG7, 0(s0)         /* void *arg7, retrived from the stack */
-        ld       ARG8, ARG_SZ(s0)    /* void *arg8, retrived from the stack */
+        ld       ARG7, 2*ARG_SZ(s0)  /* void *arg7, retrived from the stack */
+        ld       ARG8, 3*ARG_SZ(s0)  /* void *arg8, retrived from the stack */
         jalr     ra
         /* Swap stacks. */
         mv       sp, s0
