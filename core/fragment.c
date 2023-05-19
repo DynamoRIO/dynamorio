@@ -5425,7 +5425,7 @@ check_flush_queue(dcontext_t *dcontext, fragment_t *was_I_flushed)
             SELF_PROTECT_LOCAL(dcontext, READONLY);
     }
     /* now check shared queue to dec ref counts */
-    uint local_flushtime_global;
+    uint local_flushtime_global = 0;
     /* No lock needed: any racy incs to global are in safe direction, and our inc
      * is atomic so we shouldn't see any partial-word-updated values here.  This
      * check is our shared deletion algorithm's only perf hit when there's no
@@ -5826,7 +5826,7 @@ increment_global_flushtime()
     /* reset will turn flushtime_global back to 0, so we schedule one
      * when we're approaching overflow
      */
-    uint local_flushtime_global;
+    uint local_flushtime_global = 0;
 #ifdef RISCV64
     ATOMIC_4BYTE_ALIGNED_READ(&flushtime_global, local_flushtime_global);
 #else
