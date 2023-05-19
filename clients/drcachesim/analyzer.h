@@ -122,10 +122,11 @@ protected:
             : shard_data(nullptr)
         {
         }
+        // Provide a move constructor for use with std::vector.
         analyzer_tool_shard_data_t(analyzer_tool_shard_data_t &&src)
         {
             shard_data = src.shard_data;
-            interval_snapshot_data = std::move(interval_snapshot_data);
+            interval_snapshot_data = std::move(src.interval_snapshot_data);
         }
 
         void *shard_data;
@@ -133,6 +134,13 @@ protected:
         // FIFO manner. Using a queue also makes code a bit simpler.
         std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
             interval_snapshot_data;
+
+    private:
+        // Delete copy constructor and assignment operator to avoid overhead of
+        // copying, e.g. by std::vector.
+        analyzer_tool_shard_data_t(const analyzer_tool_shard_data_t &) = delete;
+        analyzer_tool_shard_data_t &
+        operator=(const analyzer_tool_shard_data_t &) = delete;
     };
 
     // Data for one trace shard.
@@ -141,14 +149,16 @@ protected:
             : cur_interval_index(0)
         {
         }
-        analyzer_shard_data_t(analyzer_shard_data_t &&src)
-        {
-            cur_interval_index = src.cur_interval_index;
-            tool_data = std::move(tool_data);
-        }
 
         uint64_t cur_interval_index;
         std::vector<analyzer_tool_shard_data_t> tool_data;
+
+    private:
+        // Delete copy constructor and assignment operator to avoid overhead of
+        // copying. We can define a move constructor in future if needed.
+        analyzer_shard_data_t(const analyzer_shard_data_t &) = delete;
+        analyzer_shard_data_t &
+        operator=(const analyzer_shard_data_t &) = delete;
     };
 
     // Data for one worker thread.  Our concurrency model has each input shard
@@ -159,6 +169,7 @@ protected:
             , stream(stream)
         {
         }
+        // Provide a move constructor for use with std::vector.
         analyzer_worker_data_t(analyzer_worker_data_t &&src)
         {
             index = src.index;
@@ -173,6 +184,8 @@ protected:
         std::unordered_map<int, analyzer_shard_data_t> shard_data;
 
     private:
+        // Delete copy constructor and assignment operator to avoid overhead of
+        // copying, e.g. by std::vector.
         analyzer_worker_data_t(const analyzer_worker_data_t &) = delete;
         analyzer_worker_data_t &
         operator=(const analyzer_worker_data_t &) = delete;
