@@ -798,7 +798,7 @@
 +0x07b4   28 2c bc             sub    byte ptr [rsp+rdi*4], ch
 +0x07b7   9f                   lahf
 +0x07b8   bc 18 4f e9 47       mov    esp, 0x47e94f18
-+0x07bd   3e 87 36             xchg   dword ptr [ds:rsi], esi
++0x07bd   3e 87 36             xchg   dword ptr [rsi], esi
 +0x07c0   9c                   pushfq
 +0x07c1   55                   push   rbp
 +0x07c2   3b 17                cmp    edx, dword ptr [rdi]
@@ -956,7 +956,7 @@
 +0x0943   75 8e                jnz    0x00000000100008d3
 +0x0945   ea 48 23 be f1 fe a9...??  <INVALID>
 +0x0946   48 23 be f1 fe a9 a4 and    rdi, qword ptr [rsi-0x5b56010f]
-+0x094d   36 0b 58 2d          or     ebx, dword ptr [ss:rax+0x2d]
++0x094d   36 0b 58 2d          or     ebx, dword ptr [rax+0x2d]
 +0x0951   13 eb                adc    ebp, ebx
 +0x0953   11 8e 35 d2 1f 95    adc    dword ptr [rsi-0x6ae02dcb], ecx
 +0x0959   89 46 3f             mov    dword ptr [rsi+0x3f], eax
@@ -1111,7 +1111,7 @@
 +0x0aa3   75 ef                jnz    0x0000000010000a94
 +0x0aa5   b9 a2 b0 f1 ba       mov    ecx, 0xbaf1b0a2
 +0x0aaa   39 94 fd 61 df 34 a9 cmp    dword ptr [rbp+rdi*8-0x56cb209f], edx
-+0x0ab1   4b 2e a4             movsb  cs
++0x0ab1   4b 2e a4             movsb
 +0x0ab4   ec                   in     al
 +0x0ab5   b9 92 69 e4 8e       mov    ecx, 0x8ee46992
 +0x0aba   44 ba 0b 61 3d f7    mov    edx, 0xf73d610b
@@ -2043,7 +2043,7 @@
 +0x13da   38 fc                cmp    ah, bh
 +0x13dc   15 35 b3 e8 6c       adc    eax, 0x6ce8b335
 +0x13e1   d0 e9                shr    cl, 0x01
-+0x13e3   2e 36 d9 95 37 eb 48 fst    dword ptr [ss:rbp+0x1548eb37]
++0x13e3   2e 36 d9 95 37 eb 48 fst    dword ptr [rbp+0x1548eb37]
  15
 +0x13eb   14 16                adc    al, 0x16
 +0x13ed   c7 06 6e e9 74 9b    mov    dword ptr [rsi], 0x9b74e96e
@@ -2150,7 +2150,7 @@
 +0x1518   b7 95                mov    bh, 0x95
 +0x151a   af                   scasd
 +0x151b   bd fa 74 29 e4       mov    ebp, 0xe42974fa
-+0x1520   2e c1 70 7d b5       shl    dword ptr [cs:rax+0x7d], 0xb5
++0x1520   2e c1 70 7d b5       shl    dword ptr [rax+0x7d], 0xb5
 +0x1525   62 12 6f d8 ed dc...??  <INVALID>
 +0x1526   12 6f d8             adc    ch, byte ptr [rdi-0x28]
 +0x1529   ed                   in     eax, dx
@@ -2298,7 +2298,7 @@
 +0x1691   d6...??              <INVALID>
 +0x1692   7d 1f                jnl    0x00000000100016b3
 +0x1694   49 f8                clc
-+0x1696   3e 80 54 e2 e2 3e    adc    byte ptr [ds:rdx-0x1e], 0x3e
++0x1696   3e 80 54 e2 e2 3e    adc    byte ptr [rdx-0x1e], 0x3e
 +0x169c   f3 dd 1f             fstp   qword ptr [rdi]
 +0x169f   51                   push   rcx
 +0x16a0   96                   xchg   esi, eax
@@ -2732,7 +2732,7 @@
 +0x1aeb   cf                   iretd
 +0x1aec   88 aa cd 82 15 78    mov    byte ptr [rdx+0x781582cd], ch
 +0x1af2   0b 3a                or     edi, dword ptr [rdx]
-+0x1af4   3e 83 84 0a e1 66 45 add    dword ptr [ds:rdx+rcx-0x4dba991f], 0x4e
++0x1af4   3e 83 84 0a e1 66 45 add    dword ptr [rdx+rcx-0x4dba991f], 0x4e
  b2 4e
 +0x1afd   02 90 65 e5 fc cf    add    dl, byte ptr [rax-0x30031a9b]
 +0x1b03   8f ff 4f 73 cc...??  <INVALID>
@@ -2774,7 +2774,7 @@
 +0x1b58   44 e6 50             out    0x50, al
 +0x1b5b   fd                   std
 +0x1b5c   9a 46 2e 86 b9 fd bf...??  <INVALID>
-+0x1b5d   46 2e 86 b9 fd bf 23 xchg   byte ptr [cs:rcx-0x1fdc4003], bh
++0x1b5d   46 2e 86 b9 fd bf 23 xchg   byte ptr [rcx-0x1fdc4003], bh
  e0
 +0x1b65   00 ad db 8c c8 13    add    byte ptr [rbp+0x13c88cdb], ch
 +0x1b6b   4e d9 b1 89 41 b5 96 fnstenv [rcx-0x694abe77]
@@ -2864,7 +2864,7 @@
 +0x1c4c   1a 2d 65 0c 86 16    sbb    ch, <rel> byte ptr [0x00000000268628b7]
 +0x1c52   39 50 e3             cmp    dword ptr [rax-0x1d], edx
 +0x1c55   8e 82 db cc cb 25    mov    es, dword ptr [rdx+0x25cbccdb]
-+0x1c5b   36 31 a0 d0 cf 97 2c xor    dword ptr [ss:rax+0x2c97cfd0], esp
++0x1c5b   36 31 a0 d0 cf 97 2c xor    dword ptr [rax+0x2c97cfd0], esp
 +0x1c62   f5                   cmc
 +0x1c63   49 e2 21             loop   0x0000000010001c87
 +0x1c66   e0 ef                loopne 0x0000000010001c57

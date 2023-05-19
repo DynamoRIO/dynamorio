@@ -30,10 +30,10 @@
  * DAMAGE.
  */
 
-#ifndef _CACHE_REPLACEMENT_POLICY_UNIT_TEST_H_
-#define _CACHE_REPLACEMENT_POLICY_UNIT_TEST_H_ 1
+#ifndef _CONFIG_READER_UNIT_TEST_H_
+#define _CONFIG_READER_UNIT_TEST_H_ 1
 
 void
-unit_test_cache_replacement_policy();
+unit_test_config_reader(const char *testdir);
 
-#endif /* _CACHE_REPLACEMENT_POLICY_UNIT_TEST_H_ */
+#endif /* _CONFIG_READER_UNIT_TEST_H_ */
