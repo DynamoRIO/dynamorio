@@ -41,6 +41,7 @@ START_FILE
 #endif
 
 /* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
+/* The reserved space SIMD is also included. */
 #define PRIV_MCONTEXT_SIZE 0x410
 
 /* offset of priv_mcontext_t in dr_mcontext_t */
