@@ -128,73 +128,74 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
 
 #ifdef DR_APP_EXPORTS
 
-/* Save priv_mcontext_t, except for x0(zero), x1(ra), x2(sp), x3(scratch) and pc, to the address in ARG1.
+/* Save priv_mcontext_t, except for x0(zero), x1(ra), x2(sp), x3(scratch),
+ * x11(arg1) and pc, to the address in ARG1.
  * Typically the caller will save those five registers itself before calling this.
  */
 save_priv_mcontext_helper:
-        sd       x4,   1*ARG_SZ(ARG1)
-        sd       x5,   2*ARG_SZ(ARG1)
-        sd       x6,   3*ARG_SZ(ARG1)
-        sd       x7,   4*ARG_SZ(ARG1)
-        sd       x8,   5*ARG_SZ(ARG1)
-        sd       x9,   6*ARG_SZ(ARG1)
-        sd       x10,  7*ARG_SZ(ARG1)
-        sd       x11,  8*ARG_SZ(ARG1)
-        sd       x12,  9*ARG_SZ(ARG1)
-        sd       x13, 10*ARG_SZ(ARG1)
-        sd       x14, 11*ARG_SZ(ARG1)
-        sd       x15, 12*ARG_SZ(ARG1)
-        sd       x16, 13*ARG_SZ(ARG1)
-        sd       x17, 14*ARG_SZ(ARG1)
-        sd       x18, 15*ARG_SZ(ARG1)
-        sd       x19, 16*ARG_SZ(ARG1)
-        sd       x20, 17*ARG_SZ(ARG1)
-        sd       x21, 18*ARG_SZ(ARG1)
-        sd       x22, 19*ARG_SZ(ARG1)
-        sd       x23, 20*ARG_SZ(ARG1)
-        sd       x24, 21*ARG_SZ(ARG1)
-        sd       x25, 22*ARG_SZ(ARG1)
-        sd       x26, 23*ARG_SZ(ARG1)
-        sd       x27, 24*ARG_SZ(ARG1)
-        sd       x28, 25*ARG_SZ(ARG1)
-        sd       x29, 26*ARG_SZ(ARG1)
-        sd       x30, 27*ARG_SZ(ARG1)
-        sd       x31, 28*ARG_SZ(ARG1)
-        /* pc (29*ARG_SZ) is already saved. */
-        fsd      f0,  30*ARG_SZ(ARG1)
-        fsd      f1,  31*ARG_SZ(ARG1)
-        fsd      f2,  32*ARG_SZ(ARG1)
-        fsd      f3,  33*ARG_SZ(ARG1)
-        fsd      f4,  34*ARG_SZ(ARG1)
-        fsd      f5,  35*ARG_SZ(ARG1)
-        fsd      f6,  36*ARG_SZ(ARG1)
-        fsd      f7,  37*ARG_SZ(ARG1)
-        fsd      f8,  38*ARG_SZ(ARG1)
-        fsd      f9,  39*ARG_SZ(ARG1)
-        fsd      f10, 40*ARG_SZ(ARG1)
-        fsd      f11, 41*ARG_SZ(ARG1)
-        fsd      f12, 42*ARG_SZ(ARG1)
-        fsd      f13, 43*ARG_SZ(ARG1)
-        fsd      f14, 44*ARG_SZ(ARG1)
-        fsd      f15, 45*ARG_SZ(ARG1)
-        fsd      f16, 46*ARG_SZ(ARG1)
-        fsd      f17, 47*ARG_SZ(ARG1)
-        fsd      f18, 48*ARG_SZ(ARG1)
-        fsd      f19, 49*ARG_SZ(ARG1)
-        fsd      f20, 50*ARG_SZ(ARG1)
-        fsd      f21, 51*ARG_SZ(ARG1)
-        fsd      f22, 52*ARG_SZ(ARG1)
-        fsd      f23, 53*ARG_SZ(ARG1)
-        fsd      f24, 54*ARG_SZ(ARG1)
-        fsd      f25, 55*ARG_SZ(ARG1)
-        fsd      f26, 56*ARG_SZ(ARG1)
-        fsd      f27, 57*ARG_SZ(ARG1)
-        fsd      f28, 58*ARG_SZ(ARG1)
-        fsd      f29, 59*ARG_SZ(ARG1)
-        fsd      f30, 60*ARG_SZ(ARG1)
-        fsd      f31, 61*ARG_SZ(ARG1)
+        sd       x4,   4*ARG_SZ(ARG1)
+        sd       x5,   5*ARG_SZ(ARG1)
+        sd       x6,   6*ARG_SZ(ARG1)
+        sd       x7,   7*ARG_SZ(ARG1)
+        sd       x8,   8*ARG_SZ(ARG1)
+        sd       x9,   9*ARG_SZ(ARG1)
+        /* a0 (10*ARG_SZ) is already saved. */
+        sd       x10, 11*ARG_SZ(ARG1)
+        sd       x12, 12*ARG_SZ(ARG1)
+        sd       x13, 13*ARG_SZ(ARG1)
+        sd       x14, 14*ARG_SZ(ARG1)
+        sd       x15, 15*ARG_SZ(ARG1)
+        sd       x16, 16*ARG_SZ(ARG1)
+        sd       x17, 17*ARG_SZ(ARG1)
+        sd       x18, 18*ARG_SZ(ARG1)
+        sd       x19, 19*ARG_SZ(ARG1)
+        sd       x20, 20*ARG_SZ(ARG1)
+        sd       x21, 21*ARG_SZ(ARG1)
+        sd       x22, 22*ARG_SZ(ARG1)
+        sd       x23, 23*ARG_SZ(ARG1)
+        sd       x24, 24*ARG_SZ(ARG1)
+        sd       x25, 25*ARG_SZ(ARG1)
+        sd       x26, 26*ARG_SZ(ARG1)
+        sd       x27, 27*ARG_SZ(ARG1)
+        sd       x28, 28*ARG_SZ(ARG1)
+        sd       x29, 29*ARG_SZ(ARG1)
+        sd       x30, 30*ARG_SZ(ARG1)
+        sd       x31, 31*ARG_SZ(ARG1)
+        /* pc (32*ARG_SZ) is already saved. */
+        fsd      f0,  33*ARG_SZ(ARG1)
+        fsd      f1,  34*ARG_SZ(ARG1)
+        fsd      f2,  35*ARG_SZ(ARG1)
+        fsd      f3,  36*ARG_SZ(ARG1)
+        fsd      f4,  37*ARG_SZ(ARG1)
+        fsd      f5,  38*ARG_SZ(ARG1)
+        fsd      f6,  39*ARG_SZ(ARG1)
+        fsd      f7,  40*ARG_SZ(ARG1)
+        fsd      f8,  41*ARG_SZ(ARG1)
+        fsd      f9,  42*ARG_SZ(ARG1)
+        fsd      f10, 43*ARG_SZ(ARG1)
+        fsd      f11, 44*ARG_SZ(ARG1)
+        fsd      f12, 45*ARG_SZ(ARG1)
+        fsd      f13, 46*ARG_SZ(ARG1)
+        fsd      f14, 47*ARG_SZ(ARG1)
+        fsd      f15, 48*ARG_SZ(ARG1)
+        fsd      f16, 49*ARG_SZ(ARG1)
+        fsd      f17, 50*ARG_SZ(ARG1)
+        fsd      f18, 51*ARG_SZ(ARG1)
+        fsd      f19, 52*ARG_SZ(ARG1)
+        fsd      f20, 53*ARG_SZ(ARG1)
+        fsd      f21, 54*ARG_SZ(ARG1)
+        fsd      f22, 55*ARG_SZ(ARG1)
+        fsd      f23, 56*ARG_SZ(ARG1)
+        fsd      f24, 57*ARG_SZ(ARG1)
+        fsd      f25, 58*ARG_SZ(ARG1)
+        fsd      f26, 59*ARG_SZ(ARG1)
+        fsd      f27, 60*ARG_SZ(ARG1)
+        fsd      f28, 61*ARG_SZ(ARG1)
+        fsd      f29, 62*ARG_SZ(ARG1)
+        fsd      f30, 63*ARG_SZ(ARG1)
+        fsd      f31, 64*ARG_SZ(ARG1)
         frcsr    x3
-        sd       x3,  62*ARG_SZ(ARG1)
+        sd       x3,  65*ARG_SZ(ARG1)
         /* No need to save simd registers, at least for now. */
         ret
 
@@ -207,7 +208,7 @@ GLOBAL_LABEL(dr_app_start:)
         /* Preverse stack space. */
         addi     sp, sp, -PRIV_MCONTEXT_SIZE
         /* Push x3 on to stack to use it as a scratch. */
-        sd       x3, 4*ARG_SZ(sp)
+        sd       x3, 3*ARG_SZ(sp)
         /* Compute original sp. */
         addi     x3, sp, PRIV_MCONTEXT_SIZE+16
         /* Save original sp on to stack. */
@@ -216,6 +217,8 @@ GLOBAL_LABEL(dr_app_start:)
         sd       ra, 1*ARG_SZ(sp)
         /* Save ra as pc */
         sd       ra, 32*ARG_SZ(sp)
+        /* Save arg1 */
+        sd       ARG1, 10*ARG_SZ(sp)
         CALLC1(save_priv_mcontext_helper, sp)
         CALLC1(GLOBAL_REF(dr_app_start_helper), sp)
         /* If we get here, DR is not taking over. */
@@ -247,7 +250,7 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         /* Preverse stack space. */
         addi     sp, sp, -PRIV_MCONTEXT_SIZE
         /* Push x3 on to stack to use it as a scratch. */
-        sd       x3, 4*ARG_SZ(sp)
+        sd       x3, 3*ARG_SZ(sp)
         /* Compute original sp. */
         addi     x3, sp, PRIV_MCONTEXT_SIZE+16
         /* Save original sp on to stack. */
@@ -256,6 +259,8 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         sd       ra, 1*ARG_SZ(sp)
         /* Save ra as pc */
         sd       ra, 32*ARG_SZ(sp)
+        /* Save arg1 */
+        sd       ARG1, 10*ARG_SZ(sp)
         CALLC1(save_priv_mcontext_helper, sp)
         CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), sp)
         /* If we get here, DR is not taking over. */
