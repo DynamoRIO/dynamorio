@@ -309,13 +309,19 @@ public:
         {
             return interval_id == rhs.interval_id &&
                 interval_end_timestamp == rhs.interval_end_timestamp &&
+                instr_count_cumulative == rhs.instr_count_cumulative &&
+                instr_count_delta == rhs.instr_count_delta &&
+                active_shard_count == rhs.active_shard_count &&
                 component_intervals == rhs.component_intervals;
         }
         void
         print() const
         {
-            std::cerr << "(interval_id: " << interval_id
-                      << ", interval_end_timestamp: " << interval_end_timestamp
+            std::cerr << "(id: " << interval_id
+                      << ", end_timestamp: " << interval_end_timestamp
+                      << ", instr_count_cumulative: " << instr_count_cumulative
+                      << ", instr_count_delta: " << instr_count_delta
+                      << ", active_shard_count: " << active_shard_count
                       << ", component_intervals: ";
             for (const auto &s : component_intervals) {
                 std::cerr << "(tid:" << s.tid << ", seen_memrefs:" << s.seen_memrefs
