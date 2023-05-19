@@ -311,7 +311,6 @@ public:
                 interval_end_timestamp == rhs.interval_end_timestamp &&
                 instr_count_cumulative == rhs.instr_count_cumulative &&
                 instr_count_delta == rhs.instr_count_delta &&
-                active_shard_count == rhs.active_shard_count &&
                 component_intervals == rhs.component_intervals;
         }
         void
@@ -321,7 +320,6 @@ public:
                       << ", end_timestamp: " << interval_end_timestamp
                       << ", instr_count_cumulative: " << instr_count_cumulative
                       << ", instr_count_delta: " << instr_count_delta
-                      << ", active_shard_count: " << active_shard_count
                       << ", component_intervals: ";
             for (const auto &s : component_intervals) {
                 std::cerr << "(tid:" << s.tid << ", seen_memrefs:" << s.seen_memrefs
