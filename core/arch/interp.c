@@ -3151,11 +3151,11 @@ mangle_pre_client(dcontext_t *dcontext, build_bb_t *bb)
                IF_X86(instr_get_opcode(mov) == OP_mov_imm &&)
                    IF_ARM(instr_get_opcode(mov) == OP_mov &&
                           OPND_IS_IMMED_INT(instr_get_src(mov, 0)) &&)
-                       IF_AARCH64_ELSE(instr_get_opcode(mov) == OP_movz &&,
-                                       IF_RISCV64(instr_get_opcode(mov) == OP_addi &&))(
-                           bb->start_pc == instr_get_raw_bits(mov) ||
-                           /* the translation field might be NULL */
-                           bb->start_pc == instr_get_translation(mov)));
+                       IF_AARCH64(instr_get_opcode(mov) == OP_movz &&)
+                           IF_RISCV64(instr_get_opcode(mov) == OP_addi &&)(
+                               bb->start_pc == instr_get_raw_bits(mov) ||
+                               /* the translation field might be NULL */
+                               bb->start_pc == instr_get_translation(mov)));
         /* i#1998: ensure the instr is Level 3+ */
         instr_decode(dcontext, mov);
         instr_set_src(mov, 0, OPND_CREATE_INT32(1));
