@@ -305,6 +305,7 @@ basic_counts_t::generate_shard_interval_snapshot(void *shard_data, uint64_t inte
     for (const auto &ctr : per_shard->counters) {
         snapshot->counters += ctr;
     }
+    snapshot->tid = per_shard->tid;
     return snapshot;
 }
 
@@ -317,6 +318,7 @@ basic_counts_t::generate_interval_snapshot(uint64_t interval_id)
             snapshot->counters += ctr;
         }
     }
+    snapshot->tid = 0; // Use zero to represent the whole-trace interval.
     return snapshot;
 }
 
