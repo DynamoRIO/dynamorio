@@ -305,6 +305,7 @@ basic_counts_t::generate_shard_interval_snapshot(void *shard_data, uint64_t inte
     for (const auto &ctr : per_shard->counters) {
         snapshot->counters += ctr;
     }
+    snapshot->tid = per_shard->tid;
     return snapshot;
 }
 
@@ -317,6 +318,7 @@ basic_counts_t::generate_interval_snapshot(uint64_t interval_id)
             snapshot->counters += ctr;
         }
     }
+    snapshot->tid = 0; // Use zero to represent the whole-trace interval.
     return snapshot;
 }
 
@@ -350,6 +352,26 @@ basic_counts_t::print_interval_results(
         diff -= last;
         print_counters(diff, 0, " interval delta");
         last = snapshot->counters;
+        if (knob_verbose_ > 0) {
+            if (snapshot->instr_count_cumulative !=
+                static_cast<uint64_t>(snapshot->counters.instrs)) {
+                std::stringstream err_stream;
+                err_stream << "Cumulative instr count value provided by framework ("
+                           << snapshot->instr_count_cumulative
+                           << ") not equal to tool value (" << snapshot->counters.instrs
+                           << ")\n";
+                error_string_ = err_stream.str();
+                return false;
+            }
+            if (snapshot->instr_count_delta != static_cast<uint64_t>(diff.instrs)) {
+                std::stringstream err_stream;
+                err_stream << "Delta instr count value provided by framework ("
+                           << snapshot->instr_count_delta << ") not equal to tool value ("
+                           << diff.instrs << ")\n";
+                error_string_ = err_stream.str();
+                return false;
+            }
+        }
     }
     return true;
 }

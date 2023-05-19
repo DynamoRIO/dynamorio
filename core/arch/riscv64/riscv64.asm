@@ -348,8 +348,20 @@ GLOBAL_LABEL(back_from_native:)
 # if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
-/* FIXME i#3544: Not implemented */
-        ret
+        nop
+        mv       fp, x0  /* Clear frame ptr for stack trace bottom. */
+
+        CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, sp)
+        mv       ARG2, x0
+        mv       ARG3, x0
+
+        /* Clear 2nd & 3rd args to distinguish from xfer_to_new_libdr. */
+GLOBAL_LABEL(.L_start_invoke_C:)
+        mv       fp, x0 /* Clear frame ptr for stack trace bottom. */
+        mv       ARG1, sp /* 1st arg to privload_early_inject. */
+        jal      GLOBAL_REF(privload_early_inject)
+        /* Shouldn't return. */
+        jal     GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 
 /* i#1227: on a conflict with the app we reload ourselves.
@@ -360,16 +372,35 @@ GLOBAL_LABEL(_start:)
  */
         DECLARE_FUNC(xfer_to_new_libdr)
 GLOBAL_LABEL(xfer_to_new_libdr:)
-/* FIXME i#3544: Not implemented */
+        mv       s0, ARG1
+        /* Restore sp */
+        mv       sp, ARG2
+        la       ARG1, GLOBAL_REF(.L_start_invoke_C)
+        la       ARG2, GLOBAL_REF(_start)
+        sub      ARG1, ARG1, ARG2
+        add      s0, s0, ARG1
+        /* _start expects these as 2nd & 3rd args */
+        mv       ARG2, ARG3
+        mv       ARG3, ARG4
+        jr       s0
         ret
         END_FUNC(xfer_to_new_libdr)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
 #endif /* UNIX */
-
+/* We need to call futex_wakeall without using any stack.
+ * Takes KSYNCH_TYPE* in a0 and the post-syscall jump target in a1
+ */
         DECLARE_FUNC(dynamorio_condvar_wake_and_jmp)
 GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
-/* FIXME i#3544: Not implemented */
-        ret
+        mv       REG_R9, ARG2 /* save across syscall */
+        li       ARG6, 0
+        li       ARG5, 0
+        li       ARG4, 0
+        li       ARG3, 0x7fffffff /* arg3 = INT_MAX */
+        li       ARG2, 1 /* arg2 = FUTEX_WAKE */
+        li       SYSNUM_REG, 98 /* SYS_futex */
+        ecall
+        jr REG_R9
         END_FUNC(dynamorio_condvar_wake_and_jmp)
 
 END_FILE
