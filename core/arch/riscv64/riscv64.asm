@@ -361,11 +361,20 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
         END_FUNC(xfer_to_new_libdr)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
 #endif /* UNIX */
-
+/* We need to call futex_wakeall without using any stack.
+ * Takes KSYNCH_TYPE* in a0 and the post-syscall jump target in a1
+ */
         DECLARE_FUNC(dynamorio_condvar_wake_and_jmp)
 GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
-/* FIXME i#3544: Not implemented */
-        ret
+        mv       REG_R9, ARG2 /* save across syscall */
+        li       ARG6, 0
+        li       ARG5, 0
+        li       ARG4, 0
+        li       ARG3, 0x7fffffff /* arg3 = INT_MAX */
+        li       ARG2, 1 /* arg2 = FUTEX_WAKE */
+        li       SYSNUM_REG, 98 /* SYS_futex */
+        ecall
+        jr REG_R9
         END_FUNC(dynamorio_condvar_wake_and_jmp)
 
 END_FILE
