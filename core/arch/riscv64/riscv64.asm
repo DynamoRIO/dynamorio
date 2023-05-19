@@ -42,7 +42,7 @@ START_FILE
 
 /* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
 /* The reserved space for SIMD is also included. */
-#define PRIV_MCONTEXT_SIZE 0x410
+#define PRIV_MCONTEXT_SIZE 0x290
 
 /* offset of priv_mcontext_t in dr_mcontext_t */
 #define PRIV_MCONTEXT_OFFSET 16
