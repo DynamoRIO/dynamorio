@@ -271,7 +271,6 @@ GLOBAL_LABEL(dynamorio_clone:)
         ecall
         bnez     ARG1, dynamorio_clone_parent
         ld       ARG1, 0 (sp)
-        ld       ARG2, 8 (sp)
         addi     sp, sp, 16
         jalr     ARG1
         jal      GLOBAL_REF(unexpected_return)
