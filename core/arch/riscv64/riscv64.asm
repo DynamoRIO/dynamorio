@@ -129,7 +129,7 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
 #ifdef DR_APP_EXPORTS
 
 /* Save priv_mcontext_t, except for x0(zero), x1(ra), x2(sp), x3(scratch),
- * x11(arg1) and pc, to the address in ARG1.
+ * x10(arg1) and pc, to the address in ARG1.
  * Typically the caller will save those five registers itself before calling this.
  */
 save_priv_mcontext_helper:
@@ -140,7 +140,7 @@ save_priv_mcontext_helper:
         sd       x8,   8*ARG_SZ(ARG1)
         sd       x9,   9*ARG_SZ(ARG1)
         /* a0 (10*ARG_SZ) is already saved. */
-        sd       x10, 11*ARG_SZ(ARG1)
+        sd       x11, 11*ARG_SZ(ARG1)
         sd       x12, 12*ARG_SZ(ARG1)
         sd       x13, 13*ARG_SZ(ARG1)
         sd       x14, 14*ARG_SZ(ARG1)
