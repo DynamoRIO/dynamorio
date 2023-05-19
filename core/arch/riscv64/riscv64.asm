@@ -264,7 +264,7 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
  */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
-        addi     ARG2, ARG2, -16 /* Description: newsp = newsp + 16. */
+        addi     ARG2, ARG2, -16 /* Description: newsp = newsp - 16. */
         sd       ARG1, 8 (ARG2)
         sd       ARG6, 0 (ARG2) /* The func is now on TOS of newsp. */
         li       SYSNUM_REG, SYS_clone /* All args are already in syscall registers.*/
@@ -289,7 +289,7 @@ GLOBAL_LABEL(dynamorio_sigreturn:)
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
         li       a0, 0 /* exit code */
-        li       SYSNUM_REG, SYS_exit /* SYS_exit number */
+        li       SYSNUM_REG, SYS_exit
         ecall
         jal      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
