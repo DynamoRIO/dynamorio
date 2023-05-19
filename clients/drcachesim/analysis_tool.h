@@ -167,6 +167,9 @@ public:
      * framework automatically.
      */
     struct interval_state_snapshot_t {
+        // This constructor is only for convenience in unit tests. The tool does not
+        // need to provide these values, and can simply use the default constructor
+        // below.
         interval_state_snapshot_t(uint64_t interval_id, uint64_t interval_end_timestamp,
                                   uint64_t instr_count_cumulative,
                                   uint64_t instr_count_delta)
@@ -184,6 +187,8 @@ public:
         {
         }
 
+        // The following fields are set automatically by the analyzer framework. The
+        // tool does not need to set them.
         uint64_t interval_id;
         // Stores the timestamp (exclusive) when the above interval ends. Note
         // that this is not the last timestamp actually seen in the trace interval,
@@ -269,8 +274,17 @@ public:
         return nullptr;
     }
     /**
-     * Prints the interval results for the whole trace. The state snapshots
-     * for intervals can be found in the given \p interval_snapshots.
+     * Prints the interval results for the given series of interval state snapshots in
+     * \p interval_snapshots.
+     *
+     * This is currently invoked with the list of whole-trace interval snapshots (for
+     * the parallel mode, these are the snapshots created by merging the shard-local
+     * snapshots).
+     *
+     * The framework should be able to invoke this multiple times, possibly with a
+     * different list of interval snapshots. So it should avoid free-ing memory or
+     * changing global state. This is to keep open the possibility of the framework
+     * printing interval results for each shard separately in future.
      */
     virtual bool
     print_interval_results(
