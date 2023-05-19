@@ -64,12 +64,6 @@ cache_fifo_t::init(int associativity, int block_size, int total_size,
 }
 
 void
-cache_fifo_t::invalidate_update(caching_device_block_t *block)
-{
-    // Leave counters unchanged for FIFO.
-}
-
-void
 cache_fifo_t::access_update(int block_idx, int way)
 {
     // Since the FIFO replacement policy is independent of cache hit,
