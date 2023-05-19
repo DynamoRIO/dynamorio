@@ -208,16 +208,51 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
  */
         DECLARE_EXPORTED_FUNC(dr_try_start)
 GLOBAL_LABEL(dr_try_start:)
-        addi      ARG1, ARG1, TRY_CXT_SETJMP_OFFS
+        addi     ARG1, ARG1, TRY_CXT_SETJMP_OFFS
         j        GLOBAL_REF(dr_setjmp)
         END_FUNC(dr_try_start)
 
-/*
+/* We save only callee-saved regites: SP, x8/fp, x9, x18-x27, f8-9, f18-27:
+ * a total of 25 reg_t (64-bit) slots. See definition of dr_jmp_buf_t.
+ *
  * int dr_setjmp(dr_jmp_buf_t *buf);
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
-/* FIXME i#3544: Not implemented */
+        sd       x18, (ARG1)
+        sd       x19, 8 (ARG1)
+        sd       x20, 16 (ARG1)
+        sd       x21, 24 (ARG1)
+        sd       x22, 32 (ARG1)
+        sd       x23, 40 (ARG1)
+        sd       x24, 48 (ARG1)
+        sd       x25, 56 (ARG1)
+        sd       x26, 64 (ARG1)
+        sd       x27, 72 (ARG1)
+        mv       ARG7, sp
+        sd       ARG7, 80 (ARG1)
+        sd       x8, 88 (ARG1)
+        sd       x9, 96 (ARG1)
+        fsd      f8, 104 (ARG1)
+        fsd      f9, 112 (ARG1)
+        fsd      f18, 120 (ARG1)
+        fsd      f19, 128 (ARG1)
+        fsd      f20, 136 (ARG1)
+        fsd      f21, 144 (ARG1)
+        fsd      f22, 152 (ARG1)
+        fsd      f23, 160 (ARG1)
+        fsd      f24, 168 (ARG1)
+        fsd      f25, 176 (ARG1)
+        fsd      f26, 184 (ARG1)
+        fsd      f27, 192 (ARG1)
+# ifdef UNIX
+        addi     sp, sp, -16
+        sd       ra, 0 (sp)
+        jal      GLOBAL_REF(dr_setjmp_sigmask)
+        ld       ra, 0 (sp)
+        add      sp, sp, 16
+# endif
+        li       a0, 0
         ret
         END_FUNC(dr_setjmp)
 
