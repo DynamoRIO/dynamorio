@@ -777,7 +777,7 @@ atomic_dec_becomes_zero(volatile int *var)
                  * atomic.                                        \
                  */                                               \
                 ASSERT(ALIGNED(addr_src, 4));                     \
-                ASSERT(ALIGNED(res, 4));                     \
+                ASSERT(ALIGNED(res, 4));                          \
                 /* Fence for acquire semantics. */                \
                 __asm__ __volatile__("lw %0, 0(%1)\n\t"           \
                                      "fence iorw,iorw"            \
@@ -812,7 +812,7 @@ atomic_dec_becomes_zero(volatile int *var)
                  * atomic.                                        \
                  */                                               \
                 ASSERT(ALIGNED(addr_src, 8));                     \
-                ASSERT(ALIGNED(res, 8));                     \
+                ASSERT(ALIGNED(res, 8));                          \
                 __asm__ __volatile__("ld %0, 0(%1)\n\t"           \
                                      "fence iorw,iorw"            \
                                      : "=r"(res)                  \
