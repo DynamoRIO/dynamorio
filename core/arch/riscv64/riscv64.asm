@@ -210,10 +210,10 @@ GLOBAL_LABEL(dr_app_start:)
         sd       x3, 4*ARG_SZ(sp)
         /* Compute original sp. */
         addi     x3, sp, PRIV_MCONTEXT_SIZE+16
-        /* Save link register on to stack. */
-        sd       ra, 1*ARG_SZ(sp)
         /* Save original sp on to stack. */
         sd       x3, 2*ARG_SZ(sp)
+        /* Save link register on to stack. */
+        sd       ra, 1*ARG_SZ(sp)
         /* Save ra as pc */
         sd       ra, 32*ARG_SZ(sp)
         CALLC1(save_priv_mcontext_helper, sp)
@@ -250,10 +250,10 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         sd       x3, 4*ARG_SZ(sp)
         /* Compute original sp. */
         addi     x3, sp, PRIV_MCONTEXT_SIZE+16
-        /* Save link register on to stack. */
-        sd       ra, 1*ARG_SZ(sp)
         /* Save original sp on to stack. */
         sd       x3, 2*ARG_SZ(sp)
+        /* Save link register on to stack. */
+        sd       ra, 1*ARG_SZ(sp)
         /* Save ra as pc */
         sd       ra, 32*ARG_SZ(sp)
         CALLC1(save_priv_mcontext_helper, sp)
