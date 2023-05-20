@@ -287,10 +287,9 @@ GLOBAL_LABEL(dr_longjmp:)
         fld      f25, 176 (ARG1)
         fld      f26, 184 (ARG1)
         fld      f27, 192 (ARG1)
-        li       t0, 0
-        snez     t0, ARG1
-        add      ARG1, ARG1, t0
-        jalr     ra
+        beqz     ARG1, 1b
+        addi     ARG1, ARG1, 1
+1:      jalr     ra
         END_FUNC(dr_longjmp)
 
         /* int atomic_swap(int *adr, int val) */
