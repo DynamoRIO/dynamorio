@@ -77,31 +77,29 @@ GLOBAL_LABEL(cpuid_supported:)
 GLOBAL_LABEL(call_switch_stack:)
         /* Init the stack. */
         addi     sp, sp, -32
-        /* Use two callee-save regs to call func. */
-        sd       ra, 24 (sp)
-        sd       s0, 16 (sp)
-        sd       s1, 8 (sp)
-        sd       s2, 0 (sp)
+        sd       ra, 16(sp)
+        /* Use two callee-saved regs to call func. */
+        sd       s0, 8 (sp)
+        sd       s1, 0 (sp)
         /* Check mutex_to_free. */
         beqz     ARG4, call_dispatch_alt_stack_no_free
         /* Release the mutex. */
-        sd       x0, 0 (ARG4)
+        sd       x0, 0(ARG4)
 call_dispatch_alt_stack_no_free:
-        /* Copy AGG5 (return_on_return) to callee-save reg. */
-        mv       s2, ARG5
+        /* Copy ARG5 (return_on_return) to callee-saved reg. */
+        mv       s1, ARG5
         /* Switch the stack. */
-        addi     s0, sp, 0
-        addi     sp, ARG2, 0
+        mv       s0, sp
+        mv       sp, ARG2
         /* Call func. */
-        jr       ARG3
+        jalr     ARG3
         /* Switch stack back. */
-        addi     sp, s0, 0
-        beqz     s2, GLOBAL_LABEL(unexpected_return)
+        mv       sp, s0
+        beqz     s1, GLOBAL_LABEL(unexpected_return)
         /* Restore the stack. */
-        ld       s2, 0 (sp)
-        ld       s1, 8 (sp)
-        ld       s0, 16 (sp)
-        ld       ra, 24 (sp)
+        ld       s1, 0 (sp)
+        ld       s0, 8 (sp)
+        ld       ra, 16(sp)
         addi     sp, sp, 32
         ret
         END_FUNC(call_switch_stack)
