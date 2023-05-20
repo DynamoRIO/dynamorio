@@ -1406,7 +1406,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     }
     input = &inputs_[outputs_[output].cur_input];
     auto lock = std::unique_lock<std::mutex>(*input->lock);
-    if (outputs_[output].speculating) {
+    if (!outputs_[output].speculation_split.empty()) {
+        outputs_[output].prev_speculate_pc = outputs_[output].speculate_pc;
         error_string_ = outputs_[output].speculator.next_record(
             outputs_[output].speculate_pc, record);
         if (!error_string_.empty())
@@ -1547,11 +1548,21 @@ scheduler_tmpl_t<RecordType, ReaderType>::start_speculation(output_ordinal_t out
                                                             addr_t start_address,
                                                             bool queue_current_record)
 {
-    if (!outputs_[output].speculating && queue_current_record) {
-        inputs_[outputs_[output].cur_input].queue.push_back(outputs_[output].last_record);
+    auto &outinfo = outputs_[output];
+    if (outinfo.speculation_split.empty()) {
+        if (queue_current_record)
+            inputs_[outinfo.cur_input].queue.push_back(outinfo.last_record);
+        outinfo.speculation_split.push(0);
+    } else {
+        if (queue_current_record) {
+            // XXX: We'll re-call the speculator so we're assuming a repeatable response.
+            outinfo.speculation_split.push(outinfo.prev_speculate_pc);
+        } else
+            outinfo.speculation_split.push(outinfo.speculate_pc);
     }
-    outputs_[output].speculating = true;
-    outputs_[output].speculate_pc = start_address;
+    outinfo.speculate_pc = start_address;
+    VPRINT(this, 2, "start_speculation layer=%zu pc=0x%" PRIx64 "\n",
+           outinfo.speculation_split.size(), start_address);
     return sched_type_t::STATUS_OK;
 }
 
@@ -1559,9 +1570,16 @@ template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::stop_speculation(output_ordinal_t output)
 {
-    if (!outputs_[output].speculating)
+    auto &outinfo = outputs_[output];
+    if (outinfo.speculation_split.empty())
         return sched_type_t::STATUS_INVALID;
-    outputs_[output].speculating = false;
+    if (outinfo.speculation_split.size() > 1) {
+        // speculate_pc is only used when exiting inner layers.
+        outinfo.speculate_pc = outinfo.speculation_split.top();
+    }
+    VPRINT(this, 2, "stop_speculation layer=%zu (resume=0x%" PRIx64 ")\n",
+           outinfo.speculation_split.size(), outinfo.speculate_pc);
+    outinfo.speculation_split.pop();
     return sched_type_t::STATUS_OK;
 }
 
