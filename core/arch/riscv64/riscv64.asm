@@ -165,10 +165,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         /* void atomic_add(int *adr, int val) */
         DECLARE_FUNC(atomic_add)
 GLOBAL_LABEL(atomic_add:)
-1:      lr.d       a2, (a0)
-        add        a2, a2, a1
-        sc.d       a3, a2, (a0)
-        bnez       a3, 1b
+        amoswap.d      ARG1, ARG2, 0 (ARG1)
         ret
         END_FUNC(atomic_add)
 
@@ -233,10 +230,7 @@ GLOBAL_LABEL(dr_longjmp:)
         /* int atomic_swap(int *adr, int val) */
         DECLARE_FUNC(atomic_swap)
 GLOBAL_LABEL(atomic_swap:)
-1:      lr.d     ARG3, (ARG1)
-        sc.d     ARG4, ARG2, (ARG1)
-        bnez     ARG4, 1b
-        mv       ARG1, ARG3
+        amoswap.d      ARG1, ARG2, 0 (ARG1)
         ret
         END_FUNC(atomic_swap)
 
