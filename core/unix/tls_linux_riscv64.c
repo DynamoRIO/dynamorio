@@ -57,21 +57,37 @@ get_dr_tls_base_addr(void)
 void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT(read_thread_register(TLS_REG_LIB) != 0);
+    ASSERT(os_tls->os_seg_info.priv_lib_tls_base == NULL);
+    ASSERT(*get_dr_tls_base_addr() == NULL ||
+           *get_dr_tls_base_addr() == TLS_SLOT_VAL_EXITED);
+    *get_dr_tls_base_addr() = segment;
+    os_tls->tls_type = TLS_TYPE_SLOT;
 }
 
 bool
 tls_thread_preinit()
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    return true;
 }
 
 void
 tls_thread_free(tls_type_t tls_type, int index)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    byte **dr_tls_base_addr;
+    os_local_state_t *os_tls;
+
+    ASSERT(tls_type == TLS_TYPE_SLOT);
+    dr_tls_base_addr = get_dr_tls_base_addr();
+    ASSERT(dr_tls_base_addr != NULL);
+    os_tls = (os_local_state_t *)*dr_tls_base_addr;
+    ASSERT(os_tls->self == os_tls);
+    /* FIXME i#1578: support detach on RISCV. We need some way to
+     * determine whether a thread has exited (for deadlock_avoidance_unlock,
+     * e.g.) after dcontext and os_tls are freed.  For now we store -1 in this
+     * slot and assume the app will never use that value (we check in
+     * os_enter_dynamorio()).
+     */
+    *dr_tls_base_addr = TLS_SLOT_VAL_EXITED;
+    return;
 }
