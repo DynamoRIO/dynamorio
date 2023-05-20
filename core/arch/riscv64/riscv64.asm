@@ -165,7 +165,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         /* void atomic_add(int *adr, int val) */
         DECLARE_FUNC(atomic_add)
 GLOBAL_LABEL(atomic_add:)
-        amoswap.d      ARG1, ARG2, 0 (ARG1)
+        amoadd.d       ARG1, ARG2, 0 (ARG1)
         ret
         END_FUNC(atomic_add)
 
