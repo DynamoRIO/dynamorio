@@ -61,8 +61,8 @@ GLOBAL_LABEL(cpuid_supported:)
 GLOBAL_LABEL(call_switch_stack:)
         /* Init the stack. */
         addi     sp, sp, -32
-        /* Use two callee-saved regs to call func. */
         sd       ra, 16(sp)
+        /* Use two callee-saved regs to call func. */
         sd       s0, 8 (sp)
         sd       s1, 0 (sp)
         /* Check mutex_to_free. */
