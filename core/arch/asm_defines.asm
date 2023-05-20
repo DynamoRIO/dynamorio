@@ -910,27 +910,70 @@ ASSUME fs:_DATA @N@\
         mov      ARG1, p1   @N@\
         blx      callee
 #elif defined(RISCV64)
+/* For RISC-V, there is no instruction which can operate on both immediates
+ * and registers. Here is a macro that judges whether its argument is a
+ * register or not.
+ */
+.set reg.sp, 1
+.set reg.x0, 1
+.set reg.x1, 1
+.set reg.x2, 1
+.set reg.x3, 1
+.set reg.x4, 1
+.set reg.x5, 1
+.set reg.x6, 1
+.set reg.x7, 1
+.set reg.x8, 1
+.set reg.x9, 1
+.set reg.x10, 1
+.set reg.x11, 1
+.set reg.x12, 1
+.set reg.x13, 1
+.set reg.x14, 1
+.set reg.x15, 1
+.set reg.x16, 1
+.set reg.x17, 1
+.set reg.x18, 1
+.set reg.x19, 1
+.set reg.x20, 1
+.set reg.x21, 1
+.set reg.x22, 1
+.set reg.x23, 1
+.set reg.x24, 1
+.set reg.x25, 1
+.set reg.x26, 1
+.set reg.x27, 1
+.set reg.x28, 1
+.set reg.x29, 1
+.set reg.x30, 1
+.set reg.x31, 1
+.macro MOV reg, p
+  .ifdef "reg.\p"
+        mv      \reg, \p
+  .else
+        li      \reg, \p
+  .endif
+.endm
 # define CALLC0(callee)    \
-        call      callee
-/* FIXME i#3544: Handle p1..4 being registers instead of immediates. */
+        call     callee
 # define CALLC1(callee, p1)    \
-        li      ARG1, p1   @N@\
-        call      callee
+        MOV      ARG1, p1   @N@\
+        call     callee
 # define CALLC2(callee, p1, p2)    \
-        li      ARG2, p2   @N@\
-        li      ARG1, p1   @N@\
-        call      callee
+        MOV      ARG2, p2   @N@\
+        MOV      ARG1, p1   @N@\
+        call     callee
 # define CALLC3(callee, p1, p2, p3)    \
-        li      ARG3, p3   @N@\
-        li      ARG2, p2   @N@\
-        li      ARG1, p1   @N@\
-        call      callee
+        MOV      ARG3, p3  @N@ \
+        MOV      ARG2, p2  @N@ \
+        MOV      ARG1, p1  @N@ \
+        call     callee
 # define CALLC4(callee, p1, p2, p3, p4)    \
-        li      ARG4, p4   @N@\
-        li      ARG3, p3   @N@\
-        li      ARG2, p2   @N@\
-        li      ARG1, p1   @N@\
-        call      callee
+        MOV      ARG4, p4   @N@\
+        MOV      ARG3, p3   @N@\
+        MOV      ARG2, p2   @N@\
+        MOV      ARG1, p1   @N@\
+        call     callee
 #endif
 
 /* For stdcall callees */
