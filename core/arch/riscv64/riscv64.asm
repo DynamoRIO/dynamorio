@@ -289,7 +289,7 @@ GLOBAL_LABEL(dr_longjmp:)
         fld      f27, 192 (ARG1)
         li       t0, 0
         snez     t0, ARG1
-        add      ARG1, ARG, t0
+        add      ARG1, ARG1, t0
         jalr     ra
         END_FUNC(dr_longjmp)
 
