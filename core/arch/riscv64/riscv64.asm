@@ -287,9 +287,8 @@ GLOBAL_LABEL(dr_longjmp:)
         fld      f25, 176 (ARG1)
         fld      f26, 184 (ARG1)
         fld      f27, 192 (ARG1)
-        beqz     ARG1, skip
-        addi     ARG1, ARG1, 1
-skip:
+        seqz     ARG1, ARG2
+        add      ARG1, ARG1, ARG2
         jalr     ra
         END_FUNC(dr_longjmp)
 
