@@ -1609,7 +1609,7 @@ typedef struct dr_jmp_buf_t {
 #    define REGS_IN_JMP_BUF 22 /* See dr_setjmp and dr_longjmp. */
     reg_t regs[REGS_IN_JMP_BUF];
 #elif defined(RISCV64)         /* For riscv64.asm. */
-#    define REGS_IN_JMP_BUF 25 /* See dr_setjmp and dr_longjmp. */
+#    define REGS_IN_JMP_BUF 26 /* See dr_setjmp and dr_longjmp. */
     reg_t regs[REGS_IN_JMP_BUF];
 #endif                         /* X86/AARCH64/ARM/RISCV64 */
 #if defined(UNIX) && defined(DEBUG)
