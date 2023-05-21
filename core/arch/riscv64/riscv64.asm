@@ -316,10 +316,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         /* void atomic_add(int *adr, int val) */
         DECLARE_FUNC(atomic_add)
 GLOBAL_LABEL(atomic_add:)
-1:      lr.d       a2, (a0)
-        add        a2, a2, a1
-        sc.d       a3, a2, (a0)
-        bnez       a3, 1b
+        amoadd.d       ARG2, ARG2, 0 (ARG1)
         ret
         END_FUNC(atomic_add)
 
@@ -448,7 +445,7 @@ GLOBAL_LABEL(dr_longjmp:)
         /* int atomic_swap(int *adr, int val) */
         DECLARE_FUNC(atomic_swap)
 GLOBAL_LABEL(atomic_swap:)
-/* FIXME i#3544: Not implemented */
+        amoswap.d      ARG2, ARG2, 0 (ARG1)
         ret
         END_FUNC(atomic_swap)
 
