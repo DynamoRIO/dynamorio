@@ -1051,8 +1051,8 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define PC_LOAD_ADDR_ALIGN 4
 
 #elif defined(RISCV64)
-/* FIXME i#3544: This can be 2B in C. */
 #    define RISCV64_INSTR_SIZE 4
+#    define RISCV64_INSTR_C_SIZE 2
 /* FIXME i#3544: Not implemented */
 #    define FRAGMENT_BASE_PREFIX_SIZE(flags) RISCV64_INSTR_SIZE
 /* FIXME i#3544: Not implemented */
