@@ -252,7 +252,7 @@
  * \param shift_amount  An integer value that must be either 0, 1, 2, or 3.
  */
 #define XINST_CREATE_add_sll(dc, d, s1, s2_toshift, shift_amount) \
-    (INSTR_CREATE_slli(dc, opnd_create_reg(DR_REG_X5), s2_toshift, shift_amount), \
+    (INSTR_CREATE_slli(dc, opnd_create_reg(DR_REG_X5), s2_toshift, opnd_create_immed_int(shift_amount, OPSZ_1)), \
      INSTR_CREATE_add(dc, d, s1, opnd_create_reg(DR_REG_X5)))
 
 /**
