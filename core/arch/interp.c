@@ -4776,7 +4776,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
                                                           SCRATCH_REG0_OFFS));
     insert_shared_restore_dcontext_reg(dcontext, bb->ilist, NULL);
 
-#ifdef AARCH64
+#if defined(AARCH64) || defined(RISCV64)
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #else
     /* this is the jump to native code */

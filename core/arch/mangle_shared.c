@@ -1899,6 +1899,11 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     reg_id_t sysreg = reg_to_pointer_sized(DR_REG_SYSNUM);
     instr_t *walk, *tgt;
 
+#ifdef RISCV64
+/* FIXME i#3544: Not looking for syscall number for now. */
+    return 93; // exit
+#endif
+
     if (prev == NULL) {
 #if defined(WINDOWS) && defined(X64)
         if (get_os_version() >= WINDOWS_VERSION_10_1511) {

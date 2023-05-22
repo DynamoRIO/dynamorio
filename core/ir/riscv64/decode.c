@@ -94,9 +94,8 @@ decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 byte *
 decode_cti(void *drcontext, byte *pc, instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    return decode(dcontext, pc, instr);
 }
 
 byte *

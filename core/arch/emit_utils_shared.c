@@ -1896,7 +1896,15 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
      * where we want to go next in the fcache_t.
      */
     if (absolute) {
+#ifdef RISCV64
+            APP(ilist,
+                instr_create_restore_from_tls(dcontext, DR_REG_X5,
+                                              NEXT_TAG_OFFSET));
+            /* jalr x5 */
+            APP(ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(DR_REG_X5)));
+#else
         APP(ilist, instr_create_jump_via_dcontext(dcontext, NEXT_TAG_OFFSET));
+#endif
     } else {
         if (shared) {
             /* next_tag placed into tls slot earlier in this routine */
@@ -1909,6 +1917,15 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
                                               FCACHE_ENTER_TARGET_SLOT));
             /* br x0 */
             APP(ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X0)));
+#elif defined(RISCV64)
+            /* Load next_tag from FCACHE_ENTER_TARGET_SLOT, stored by
+             * append_setup_fcache_target.
+             */
+            APP(ilist,
+                instr_create_restore_from_tls(dcontext, DR_REG_X5,
+                                              FCACHE_ENTER_TARGET_SLOT));
+            /* jalr x5 */
+            APP(ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(DR_REG_X5)));
 #else
             APP(ilist,
                 XINST_CREATE_jump_mem(dcontext,
@@ -2170,12 +2187,14 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1)));
 #endif
 
+#ifndef RISCV64
     /* restore the original register state */
     append_restore_simd_reg(dcontext, &ilist, absolute);
     /* Please note that append_restore_simd_reg may change the flags. Therefore, the
      * order matters.
      */
     append_restore_xflags(dcontext, &ilist, absolute);
+#endif
     append_restore_gpr(dcontext, &ilist, absolute);
     append_jmp_to_fcache_target(dcontext, &ilist, code, absolute, shared,
                                 &patch _IF_X86_64(&jmp86_store_addr)
@@ -3199,7 +3218,7 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *ibl_code,
         /* FIXME: do we want this?  seems to be a problem, I'm disabling:
          * ASSERT(!collision || start_pc_offset == FRAGMENT_START_PC_OFFS)
          */
-#ifdef AARCH64
+#if defined(AARCH64) || defined(RISCV64)
         ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #else
         APP(ilist,
@@ -3234,6 +3253,8 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *ibl_code,
             ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569: NYI on AArch64 */
 #elif defined(ARM)
             ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551: NYI on ARM */
+#elif defined(RISCV64)
+            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#3544: NYI on RISC-V */
 #endif
         } else {
             APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG2, INDIRECT_STUB_SPILL_SLOT));
@@ -3244,7 +3265,7 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *ibl_code,
 #endif
                 APP(ilist,
                     RESTORE_FROM_TLS(dcontext, SCRATCH_REG2, MANGLE_XCX_SPILL_SLOT));
-#ifdef AARCH64
+#if defined(AARCH64) || defined(RISCV64)
             ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
 #else
             APP(ilist,
