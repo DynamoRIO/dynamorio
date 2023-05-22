@@ -259,7 +259,7 @@ os_loader_init_prologue(void)
          * crash when application uses ThreadLocalStoragePointer (eg. __declspec(thread)
          * is used), but client or kernelbase.dll (Win11/Win22H2) or client doesn't
          * have TLS which will fail to restore TheadLocalStoragePointer later in
-         * calls to should_swap_teb_static_tls() as tlx_next_id is 0
+         * calls to should_swap_teb_static_tls() as tlx_next_idx is 0
          */
         //if (should_swap_teb_static_tls()) {
         pre_static_tls = d_r_get_tls(STATIC_TLS_TIB_OFFSET);
