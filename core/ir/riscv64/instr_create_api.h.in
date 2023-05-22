@@ -56,7 +56,7 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load(dc, r, m) instr_create_1dst_1src(dc, OP_c_nop, r, m)
+#define XINST_CREATE_load(dc, r, m) INSTR_CREATE_ld(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t which loads 1 byte
@@ -66,7 +66,7 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load_1byte_zext4(dc, r, m) instr_create_1dst_1src(dc, OP_c_nop, r, m)
+#define XINST_CREATE_load_1byte_zext4(dc, r, m) INSTR_CREATE_lbu(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -75,7 +75,7 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load_1byte(dc, r, m) instr_create_1dst_1src(dc, OP_c_nop, r, m)
+#define XINST_CREATE_load_1byte(dc, r, m) INSTR_CREATE_lbu(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a 2-byte
@@ -84,7 +84,7 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load_2bytes(dc, r, m) instr_create_1dst_1src(dc, OP_c_nop, r, m)
+#define XINST_CREATE_load_2bytes(dc, r, m) INSTR_CREATE_lhu(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a 4-byte
@@ -93,7 +93,7 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store(dc, m, r) instr_create_1dst_1src(dc, OP_c_nop, m, r)
+#define XINST_CREATE_store(dc, m, r) INSTR_CREATE_sd(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a 1-byte
@@ -102,7 +102,7 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_1byte(dc, m, r) instr_create_1dst_1src(dc, OP_c_nop, m, r)
+#define XINST_CREATE_store_1byte(dc, m, r) INSTR_CREATE_sb(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a 2-byte
@@ -111,7 +111,7 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store_2bytes(dc, m, r) instr_create_1dst_1src(dc, OP_c_nop, m, r)
+#define XINST_CREATE_store_2bytes(dc, m, r) INSTR_CREATE_sh(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a register
@@ -120,7 +120,7 @@
  * \param d   The destination register opnd.
  * \param s   The source register opnd.
  */
-#define XINST_CREATE_move(dc, d, s) instr_create_1dst_1src(dc, OP_c_nop, d, s)
+#define XINST_CREATE_move(dc, d, s) INSTR_CREATE_addi(dc, d, s, opnd_create_immed_int(0, OPSZ_1))
 
 /**
  * This platform-independent macro creates an instr_t for a multimedia
@@ -142,21 +142,12 @@
 
 /**
  * This platform-independent macro creates an instr_t for an indirect
- * jump through memory instruction.  For AArch32, the memory address
- * must be aligned to 4.
- * \param dc  The void * dcontext used to allocate memory for the instr_t.
- * \param m   The memory opnd holding the target.
- */
-#define XINST_CREATE_jump_mem(dc, m) \
-    instr_create_0dst_2src(dc, OP_c_nop, opnd_create_reg(DR_REG_PC), (m))
-
-/**
- * This platform-independent macro creates an instr_t for an indirect
  * jump instruction through a register.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param r   The register opnd holding the target.
  */
-#define XINST_CREATE_jump_reg(dc, r) instr_create_0dst_1src(dc, OP_c_nop, r)
+#define XINST_CREATE_jump_reg(dc, r) \
+    INSTR_CREATE_jalr(dc, opnd_create_reg(DR_REG_X0), r, opnd_create_immed_int(0, OPSZ_1))
 
 /**
  * This platform-independent macro creates an instr_t for an immediate
@@ -165,25 +156,26 @@
  * \param r   The destination register opnd.
  * \param i   The source immediate integer opnd.
  */
-#define XINST_CREATE_load_int(dc, r, i) instr_create_1dst_1src(dc, OP_c_nop, r, i)
+#define XINST_CREATE_load_int(dc, r, i) INSTR_CREATE_addi(dc, r, opnd_create_reg(DR_REG_X0), i)
 
 /**
  * This platform-independent macro creates an instr_t for a return instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  */
-#define XINST_CREATE_return(dc) instr_create_0dst_0src(dc, OP_c_nop)
+#define XINST_CREATE_return(dc) \
+    INSTR_CREATE_jalr(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1), opnd_create_immed_int(0, OPSZ_1))
 
 /**
  * This platform-independent macro creates an instr_t for an unconditional
  * branch instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
- * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * either a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).
  * Be sure to ensure that the limited reach of this short branch will reach
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
  */
-#define XINST_CREATE_jump(dc, t) instr_create_0dst_1src(dc, OP_c_nop, t)
+#define XINST_CREATE_jump(dc, t) INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_X0), t)
 
 /**
  * This platform-independent macro creates an instr_t for an unconditional
@@ -195,7 +187,7 @@
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
  */
-#define XINST_CREATE_jump_short(dc, t) instr_create_0dst_1src(dc, OP_c_nop, t)
+#define XINST_CREATE_jump_short(dc, t) INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_X0), t)
 
 /**
  * This platform-independent macro creates an instr_t for an unconditional
@@ -207,7 +199,7 @@
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
  */
-#define XINST_CREATE_call(dc, t) instr_create_0dst_1src(dc, OP_c_nop, t)
+#define XINST_CREATE_call(dc, t) INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_X1), t)
 
 /**
  * This platform-independent macro creates an instr_t for a conditional
@@ -231,7 +223,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_add(dc, d, s) instr_create_1dst_2src(dc, OP_c_nop, d, d, s)
+#define XINST_CREATE_add(dc, d, s) INSTR_CREATE_add(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -244,8 +236,7 @@
  * \param s2  The opnd_t explicit source operand for the instruction. This
  * can be either a register or an immediate integer.
  */
-#define XINST_CREATE_add_2src(dc, d, s1, s2) \
-    instr_create_1dst_2src(dc, OP_c_nop, d, s1, s2)
+#define XINST_CREATE_add_2src(dc, d, s1, s2) INSTR_CREATE_add(dc, d, s1, s2)
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -261,8 +252,8 @@
  * \param shift_amount  An integer value that must be either 0, 1, 2, or 3.
  */
 #define XINST_CREATE_add_sll(dc, d, s1, s2_toshift, shift_amount) \
-    instr_create_1dst_3src(dc, OP_c_nop, d, s1, s2_toshift,        \
-                           opnd_create_immed_int(shift_amount, OPSZ_1))
+    (INSTR_CREATE_slli(dc, opnd_create_reg(DR_REG_X5), s2_toshift, shift_amount), \
+     INSTR_CREATE_add(dc, d, s1, opnd_create_reg(DR_REG_X5)))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -271,7 +262,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_add_s(dc, d, s) instr_create_1dst_2src(dc, OP_c_nop, d, d, s)
+#define XINST_CREATE_add_s(dc, d, s) INSTR_CREATE_add(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for a subtraction
@@ -281,7 +272,7 @@
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 /* FIXME: How to handle a lack of flags register? */
-#define XINST_CREATE_sub(dc, d, s) instr_create_1dst_2src(dc, OP_c_nop, d, d, s)
+#define XINST_CREATE_sub(dc, d, s) INSTR_CREATE_sub(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for a subtraction
@@ -291,7 +282,7 @@
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 /* FIXME: How to handle a lack of flags register? */
-#define XINST_CREATE_sub_s(dc, d, s) instr_create_1dst_2src(dc, OP_c_nop, d, d, s)
+#define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_sub(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for a bitwise and
@@ -301,7 +292,7 @@
  * \param s  The opnd_t explicit source operand for the instruction.
  */
 /* FIXME: How to handle a lack of flags register? */
-#define XINST_CREATE_and_s(dc, d, s) instr_create_1dst_2src(dc, OP_c_nop, d, d, s)
+#define XINST_CREATE_and_s(dc, d, s) INSTR_CREATE_and(dc, d, d, s)
 
 /**
  * This platform-independent macro creates an instr_t for a comparison
