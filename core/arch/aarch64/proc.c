@@ -261,8 +261,7 @@ proc_set_feature(feature_bit_t f, bool enable)
         freg_val = &cpu_info.features.flags_aa64zfr0;
         break;
     }
-    default:
-        CLIENT_ASSERT(false, "proc_has_feature: invalid feature register");
+    default: CLIENT_ASSERT(false, "proc_has_feature: invalid feature register");
     }
 
     /* Clear the current feature state */

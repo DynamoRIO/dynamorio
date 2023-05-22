@@ -379,11 +379,13 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         if (nxt == NULL) {
 #ifdef AARCH64
             /* We do not use instr_info_t encoding info on AArch64. FIXME i#1569 */
-            SYSLOG_INTERNAL_WARNING("cannot encode %s", get_opcode_name(instr_get_opcode(instr)));
+            SYSLOG_INTERNAL_WARNING("cannot encode %s",
+                                    get_opcode_name(instr_get_opcode(instr)));
 #else
             SYSLOG_INTERNAL_WARNING("cannot encode %s",
                                     opcode_to_encoding_info(instr->opcode,
-                                                            instr_get_isa_mode(instr) _IF_ARM(false))
+                                                            instr_get_isa_mode(instr)
+                                                                _IF_ARM(false))
                                         ->name);
 #endif
             if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))

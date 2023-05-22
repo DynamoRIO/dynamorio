@@ -136,8 +136,10 @@
      * and dr_simd_t has no fields larger than 32 bits, so we have no padding.
      */
     dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
+#    ifdef X64 /* 64-bit */
     dr_simd_t svep[MCXT_NUM_SVEP_SLOTS];
     dr_simd_t ffr;
+#   endif
 #elif defined(X86)
     /* Our inlined ibl uses eax-edx, so we place them together to fit
      * on the same 32-byte cache line; yet we also want to simplify

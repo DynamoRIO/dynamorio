@@ -114,9 +114,7 @@ instrace(void *drcontext)
     for (ins_ref = (ins_ref_t *)data->buf_base; ins_ref < buf_ptr; ins_ref++) {
         /* We use PIFX to avoid leading zeroes and shrink the resulting file. */
 #ifndef NO_TRACE_OUTPUT
-        fprintf(data->logf,
-                PIFX ",%s\n",
-                (ptr_uint_t) ins_ref->pc,
+        fprintf(data->logf, PIFX ",%s\n", (ptr_uint_t)ins_ref->pc,
                 decode_opcode_name(ins_ref->opcode));
 #endif
         data->num_refs++;

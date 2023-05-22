@@ -139,9 +139,7 @@ memtrace(void *drcontext)
     for (mem_ref = (mem_ref_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
         /* We use PIFX to avoid leading zeroes and shrink the resulting file. */
 #ifndef NO_TRACE_OUTPUT
-        fprintf(data->logf,
-                "" PIFX ": %2d, %s\n",
-                (ptr_uint_t) mem_ref->addr,
+        fprintf(data->logf, "" PIFX ": %2d, %s\n", (ptr_uint_t)mem_ref->addr,
                 mem_ref->size,
                 (mem_ref->type > REF_TYPE_WRITE)
                     ? decode_opcode_name(mem_ref->type) /* opcode for instr */

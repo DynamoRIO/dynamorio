@@ -446,10 +446,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     if (!out_of_line) {
         /* sub sp, sp, #clean_call_switch_stack_size */
-        PRE(ilist,
-            instr,
-            XINST_CREATE_sub(dcontext,
-                             opnd_create_reg(DR_REG_SP),
+        PRE(ilist, instr,
+            XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
                              OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
     }
 
@@ -550,8 +548,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                               DR_REG_Q0, SIMD_REG_TYPE);
     }
 
-    dstack_offs += (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
-                   * sizeof(dr_simd_t);
+    dstack_offs += (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS) *
+        sizeof(dr_simd_t);
 
     /* Restore the registers we used. */
     /* ldp x0, x1, [sp] */
@@ -668,9 +666,9 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                           opnd_create_reg(DR_REG_SP)));
 
-    current_offs = get_clean_call_switch_stack_size()
-                   - (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
-                         * sizeof(dr_simd_t);
+    current_offs = get_clean_call_switch_stack_size() -
+        (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS) *
+            sizeof(dr_simd_t);
 
     /* add x0, x0, current_offs */
     PRE(ilist, instr,

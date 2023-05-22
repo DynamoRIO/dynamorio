@@ -183,9 +183,9 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     memset(ci->reg_used, 0, sizeof(bool) * DR_NUM_GPR_REGS);
     ci->num_simd_used = 0;
     /* num_opmask_used is not applicable to ARM/AArch64. */
-    memset(ci->simd_used,
-           0,
-           sizeof(bool) * (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS));
+    memset(ci->simd_used, 0,
+           sizeof(bool) *
+               (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS));
     ci->write_flags = false;
 
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
@@ -245,11 +245,8 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
             /* SVE FFR register usage */
             const uint ffr_index = MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS;
             if (!ci->simd_used[ffr_index] && instr_uses_reg(instr, DR_REG_FFR)) {
-                LOG(THREAD,
-                    LOG_CLEANCALL,
-                    2,
-                    "CLEANCALL: callee " PFX " uses FFR at " PFX "\n",
-                    ci->start,
+                LOG(THREAD, LOG_CLEANCALL, 2,
+                    "CLEANCALL: callee " PFX " uses FFR at " PFX "\n", ci->start,
                     instr_get_app_pc(instr));
                 ci->simd_used[ffr_index] = true;
                 ci->num_simd_used++;
