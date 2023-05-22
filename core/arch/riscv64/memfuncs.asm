@@ -44,16 +44,30 @@ START_FILE
  */
         DECLARE_FUNC(memcpy)
 GLOBAL_LABEL(memcpy:)
-/* FIXME i#3544: Not implemented */
-        ret
+/* TODO i#3544: Naive version, optimize it. */
+        mv       t1, ARG1
+        beqz     ARG3, 2f
+1:      lbu      t2, 0(ARG2)
+        addi     ARG2, ARG2, 1
+        sb       t2, 0(t1)
+        addi     t1, t1, 1
+        addi     ARG3, ARG3, -1
+        bnez     ARG3, 1b
+2:      ret
         END_FUNC(memcpy)
 
 /* Private memset.
  */
         DECLARE_FUNC(memset)
 GLOBAL_LABEL(memset:)
-/* FIXME i#3544: Not implemented */
-        ret
+/* TODO i#3544: Naive version, optimize it. */
+        mv       t1, ARG1
+        beqz     ARG3, 2f
+1:      sb       ARG2, 0(t1)
+        addi     t1, t1, 1
+        addi     ARG3, ARG3, -1
+        bnez     ARG3, 1b
+2:      ret
         END_FUNC(memset)
 
 /* See x86.asm notes about needing these to avoid gcc invoking *_chk */

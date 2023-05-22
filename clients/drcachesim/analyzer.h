@@ -45,6 +45,7 @@
 
 #include <iterator>
 #include <memory>
+#include <queue>
 #include <string>
 #include <vector>
 #include "analysis_tool.h"
@@ -103,7 +104,8 @@ public:
      */
     analyzer_tmpl_t(const std::string &trace_path,
                     analysis_tool_tmpl_t<RecordType> **tools, int num_tools,
-                    int worker_count = 0, uint64_t skip_instrs = 0, int verbosity = 0);
+                    int worker_count = 0, uint64_t skip_instrs = 0,
+                    uint64_t interval_microseconds = 0, int verbosity = 0);
     /** Launches the analysis process. */
     virtual bool
     run();
@@ -114,6 +116,53 @@ public:
 protected:
     typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
 
+    // Tool data for one shard.
+    struct analyzer_tool_shard_data_t {
+        analyzer_tool_shard_data_t()
+            : shard_data(nullptr)
+        {
+        }
+        // Provide a move constructor for use with std::vector.
+        analyzer_tool_shard_data_t(analyzer_tool_shard_data_t &&src)
+        {
+            shard_data = src.shard_data;
+            interval_snapshot_data = std::move(src.interval_snapshot_data);
+        }
+
+        void *shard_data;
+        // This is a queue as merge_shard_interval_results processes the intervals in a
+        // FIFO manner. Using a queue also makes code a bit simpler.
+        std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
+            interval_snapshot_data;
+
+    private:
+        // Delete copy constructor and assignment operator to avoid overhead of
+        // copying, e.g. by std::vector.
+        analyzer_tool_shard_data_t(const analyzer_tool_shard_data_t &) = delete;
+        analyzer_tool_shard_data_t &
+        operator=(const analyzer_tool_shard_data_t &) = delete;
+    };
+
+    // Data for one trace shard.
+    struct analyzer_shard_data_t {
+        analyzer_shard_data_t()
+            : cur_interval_index(0)
+            , cur_interval_init_instr_count(0)
+        {
+        }
+
+        uint64_t cur_interval_index;
+        uint64_t cur_interval_init_instr_count;
+        std::vector<analyzer_tool_shard_data_t> tool_data;
+
+    private:
+        // Delete copy constructor and assignment operator to avoid overhead of
+        // copying. We can define a move constructor in future if needed.
+        analyzer_shard_data_t(const analyzer_shard_data_t &) = delete;
+        analyzer_shard_data_t &
+        operator=(const analyzer_shard_data_t &) = delete;
+    };
+
     // Data for one worker thread.  Our concurrency model has each input shard
     // analyzed by a single worker thread, eliminating the need for locks.
     struct analyzer_worker_data_t {
@@ -122,18 +171,23 @@ protected:
             , stream(stream)
         {
         }
+        // Provide a move constructor for use with std::vector.
         analyzer_worker_data_t(analyzer_worker_data_t &&src)
         {
             index = src.index;
             stream = src.stream;
+            shard_data = std::move(src.shard_data);
             error = std::move(src.error);
         }
 
         int index;
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
         std::string error;
+        std::unordered_map<int, analyzer_shard_data_t> shard_data;
 
     private:
+        // Delete copy constructor and assignment operator to avoid overhead of
+        // copying, e.g. by std::vector.
         analyzer_worker_data_t(const analyzer_worker_data_t &) = delete;
         analyzer_worker_data_t &
         operator=(const analyzer_worker_data_t &) = delete;
@@ -165,6 +219,60 @@ protected:
     bool
     record_is_thread_final(RecordType record);
 
+    bool
+    record_is_timestamp(const RecordType &record);
+
+    // Invoked when the given interval finishes during serial or parallel
+    // analysis of the trace. For parallel analysis, the shard_id
+    // parameter should be set to the shard_id for which the interval
+    // finished. For serial analysis, it should remain the default value.
+    bool
+    process_interval(uint64_t interval_id, uint64_t interval_init_instr_count,
+                     analyzer_worker_data_t *worker, bool parallel, int shard_id = 0);
+
+    // Possibly advances the current interval id stored in the worker data, based
+    // on the most recent seen timestamp in the trace stream. Returns whether the
+    // current interval id was updated, and if so also sets the previous interval index
+    // in prev_interval_index.
+    bool
+    advance_interval_id(
+        typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
+        analyzer_shard_data_t *shard, uint64_t &prev_interval_index,
+        uint64_t &prev_interval_init_instr_count);
+
+    // Collects interval results for all shards from the workers, and then merges
+    // the shard-local intervals to form the whole-trace interval results using
+    // merge_shard_interval_results().
+    bool
+    collect_and_merge_shard_interval_results();
+
+    // Computes and stores the interval results in merged_interval_snapshots_. For
+    // serial analysis where we already have only a single shard, this involves
+    // simply copying interval_state_snapshot_t* from the input. For parallel
+    // analysis, this involves merging results from multiple shards for intervals
+    // that map to the same final whole-trace interval.
+    virtual bool
+    merge_shard_interval_results(
+        std::vector<std::queue<
+            typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
+            &intervals,
+        std::vector<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t
+                        *> &merged_intervals,
+        int tool_idx);
+
+    // Combines all interval snapshots in the given vector to create the interval
+    // snapshot for the whole-trace interval ending at interval_end_timestamp and
+    // stores it in 'result'. These snapshots are for the tool at tool_idx. Returns
+    // whether it was successful. This routine also combines the instr count fields
+    // in analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t.
+    bool
+    combine_interval_snapshots(
+        const std::vector<
+            const typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
+            &latest_shard_snapshots,
+        uint64_t interval_end_timestamp, int tool_idx,
+        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *&result);
+
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
     std::string error_string_;
@@ -173,10 +281,19 @@ protected:
     std::vector<analyzer_worker_data_t> worker_data_;
     int num_tools_;
     analysis_tool_tmpl_t<RecordType> **tools_;
+    // Stores the interval state snapshots for the whole trace, which for the parallel
+    // mode are the resulting interval state snapshots after merging from all shards
+    // in merge_shard_interval_results.
+    // merged_interval_snapshots_[tool_idx] is a vector of the interval snapshots
+    // (in order of the intervals) for that tool.
+    std::vector<std::vector<
+        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
+        merged_interval_snapshots_;
     bool parallel_;
     int worker_count_;
     const char *output_prefix_ = "[analyzer]";
     uint64_t skip_instrs_ = 0;
+    uint64_t interval_microseconds_ = 0;
     int verbosity_ = 0;
 
 private:

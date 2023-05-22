@@ -496,17 +496,17 @@ OPCODE(vmovsldup_zlok0ld, vmovsldup, vmovsldup_mask, 0, REGARG(ZMM0), REGARG(K0)
 OPCODE(vmovsldup_zhik7ld, vmovsldup, vmovsldup_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),
        MEMARG(OPSZ_64))
 OPCODE(vmovddup_xlok0ld, vmovddup, vmovddup_mask, 0, REGARG(XMM0), REGARG(K0),
-       MEMARG(OPSZ_8))
+       MEMARG(OPSZ_16))
 OPCODE(vmovddup_xhik7ld, vmovddup, vmovddup_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),
-       MEMARG(OPSZ_8))
+       MEMARG(OPSZ_16))
 OPCODE(vmovddup_ylok0ld, vmovddup, vmovddup_mask, 0, REGARG(YMM0), REGARG(K0),
-       MEMARG(OPSZ_16))
+       MEMARG(OPSZ_32))
 OPCODE(vmovddup_yhik7ld, vmovddup, vmovddup_mask, X64_ONLY, REGARG(YMM16), REGARG(K7),
-       MEMARG(OPSZ_16))
+       MEMARG(OPSZ_32))
 OPCODE(vmovddup_zlok0ld, vmovddup, vmovddup_mask, 0, REGARG(ZMM0), REGARG(K0),
-       MEMARG(OPSZ_32))
+       MEMARG(OPSZ_64))
 OPCODE(vmovddup_zhik7ld, vmovddup, vmovddup_mask, X64_ONLY, REGARG(ZMM16), REGARG(K7),
-       MEMARG(OPSZ_32))
+       MEMARG(OPSZ_64))
 OPCODE(vmovshdup_xlok0ld, vmovshdup, vmovshdup_mask, 0, REGARG(XMM0), REGARG(K0),
        MEMARG(OPSZ_16))
 OPCODE(vmovshdup_xhik7ld, vmovshdup, vmovshdup_mask, X64_ONLY, REGARG(XMM16), REGARG(K7),

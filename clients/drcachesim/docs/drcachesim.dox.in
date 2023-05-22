@@ -943,6 +943,7 @@ sets the corresponding option with the same name described in \ref sec_drcachesi
 - cpu_scheduling \<bool\>
 - verbose \<unsigned int\>
 - coherence \<bool\>
+- use_physical \<bool\>
 
 Supported cache parameters and their value types:
 - type \<string, one of "instruction", "data", or "unified"\>
@@ -1440,6 +1441,19 @@ overridden.  It is called just once after processing all trace data and it shoul
 present the results of the analysis.  For parallel operation, any desired
 aggregation across the whole trace should occur here as well, while shard-specific
 results can be presented in parallel_shard_exit().
+
+Tools can also perform trace analysis by intervals, e.g. to generate a time series
+of their results, using the \p -interval_microseconds option. The
+generate_interval_snapshot() API allows the tool to create a snapshot of its
+internal state when a trace interval ends. These snapshots are then passed to the
+tool in a later print_interval_results() API call where the tool can generate and
+print results for each trace interval. The length of a trace interval is defined by
+the \p -interval_microseconds option, measured using the #TRACE_MARKER_TYPE_TIMESTAMP
+marker values. Trace interval analysis is supported also for the parallel mode where
+the tool implements generate_shard_interval_snapshot() to generate a snapshot for
+shard-local intervals and the framework automatically combines the shard-local
+interval snapshots to create the whole-trace interval snapshots, using the
+tool's combine_interval_snapshots() API.
 
 Today, parallel analysis is only supported for offline traces.
 Support for online traces may be added in the future.
