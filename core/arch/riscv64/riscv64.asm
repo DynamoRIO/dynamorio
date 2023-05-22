@@ -316,10 +316,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         /* void atomic_add(int *adr, int val) */
         DECLARE_FUNC(atomic_add)
 GLOBAL_LABEL(atomic_add:)
-1:      lr.d       a2, (a0)
-        add        a2, a2, a1
-        sc.d       a3, a2, (a0)
-        bnez       a3, 1b
+        amoadd.d       ARG2, ARG2, 0 (ARG1)
         ret
         END_FUNC(atomic_add)
 
@@ -359,16 +356,52 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
  */
         DECLARE_EXPORTED_FUNC(dr_try_start)
 GLOBAL_LABEL(dr_try_start:)
-        addi      ARG1, ARG1, TRY_CXT_SETJMP_OFFS
+        addi     ARG1, ARG1, TRY_CXT_SETJMP_OFFS
         j        GLOBAL_REF(dr_setjmp)
         END_FUNC(dr_try_start)
 
-/*
+/* We save only callee-saved registers and ra: ra, SP, x8/fp, x9, x18-x27, f8-9, f18-27:
+ * a total of 26 reg_t (64-bit) slots. See definition of dr_jmp_buf_t.
+ *
  * int dr_setjmp(dr_jmp_buf_t *buf);
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
-/* FIXME i#3544: Not implemented */
+        sd       ra, 0 (ARG1)
+        mv       t0, sp
+        sd       t0, ARG_SZ (ARG1)
+        sd       s0, 2*ARG_SZ (ARG1)
+        sd       s1, 3*ARG_SZ (ARG1)
+        sd       s2, 4*ARG_SZ (ARG1)
+        sd       s3, 5*ARG_SZ (ARG1)
+        sd       s4, 6*ARG_SZ (ARG1)
+        sd       s5, 7*ARG_SZ (ARG1)
+        sd       s6, 8*ARG_SZ (ARG1)
+        sd       s7, 9*ARG_SZ (ARG1)
+        sd       s8, 10*ARG_SZ (ARG1)
+        sd       s9, 11*ARG_SZ (ARG1)
+        sd       s10, 12*ARG_SZ (ARG1)
+        sd       s11, 13*ARG_SZ (ARG1)
+        fsd      fs0, 14*ARG_SZ (ARG1)
+        fsd      fs1, 15*ARG_SZ (ARG1)
+        fsd      fs2, 16*ARG_SZ (ARG1)
+        fsd      fs3, 17*ARG_SZ (ARG1)
+        fsd      fs4, 18*ARG_SZ (ARG1)
+        fsd      fs5, 19*ARG_SZ (ARG1)
+        fsd      fs6, 20*ARG_SZ (ARG1)
+        fsd      fs7, 21*ARG_SZ (ARG1)
+        fsd      fs8, 22*ARG_SZ (ARG1)
+        fsd      fs9, 23*ARG_SZ (ARG1)
+        fsd      fs10, 24*ARG_SZ (ARG1)
+        fsd      fs11, 25*ARG_SZ (ARG1)
+# ifdef UNIX
+        addi     sp, sp, -16
+        sd       ra, 0 (sp)
+        jal      GLOBAL_REF(dr_setjmp_sigmask)
+        ld       ra, 0 (sp)
+        add      sp, sp, 16
+# endif
+        li       a0, 0
         ret
         END_FUNC(dr_setjmp)
 
@@ -377,14 +410,42 @@ GLOBAL_LABEL(dr_setjmp:)
  */
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
-/* FIXME i#3544: Not implemented */
+        ld       ra, 0 (ARG1) /* Restore return address from buf */
+        ld       t0, ARG_SZ (ARG1)
+        mv       sp, t0
+        ld       s0, 2*ARG_SZ (ARG1)
+        ld       s1, 3*ARG_SZ (ARG1)
+        ld       s2, 4*ARG_SZ (ARG1)
+        ld       s3, 5*ARG_SZ (ARG1)
+        ld       s4, 6*ARG_SZ (ARG1)
+        ld       s5, 7*ARG_SZ (ARG1)
+        ld       s6, 8*ARG_SZ (ARG1)
+        ld       s7, 9*ARG_SZ (ARG1)
+        ld       s8, 10*ARG_SZ (ARG1)
+        ld       s9, 11*ARG_SZ (ARG1)
+        ld       s10, 12*ARG_SZ (ARG1)
+        ld       s11, 13*ARG_SZ (ARG1)
+        fld      fs0, 14*ARG_SZ (ARG1)
+        fld      fs1, 15*ARG_SZ (ARG1)
+        fld      fs2, 16*ARG_SZ (ARG1)
+        fld      fs3, 17*ARG_SZ (ARG1)
+        fld      fs4, 18*ARG_SZ (ARG1)
+        fld      fs5, 19*ARG_SZ (ARG1)
+        fld      fs6, 20*ARG_SZ (ARG1)
+        fld      fs7, 21*ARG_SZ (ARG1)
+        fld      fs8, 22*ARG_SZ (ARG1)
+        fld      fs9, 23*ARG_SZ (ARG1)
+        fld      fs10, 24*ARG_SZ (ARG1)
+        fld      fs11, 25*ARG_SZ (ARG1)
+        seqz     ARG1, ARG2
+        add      ARG1, ARG1, ARG2 /* ARG1 = ( ARG2 == 0 ) ? 1 : ARG2 */
         ret
         END_FUNC(dr_longjmp)
 
         /* int atomic_swap(int *adr, int val) */
         DECLARE_FUNC(atomic_swap)
 GLOBAL_LABEL(atomic_swap:)
-/* FIXME i#3544: Not implemented */
+        amoswap.d      ARG2, ARG2, 0 (ARG1)
         ret
         END_FUNC(atomic_swap)
 
