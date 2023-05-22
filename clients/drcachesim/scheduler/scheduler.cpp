@@ -1561,7 +1561,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::start_speculation(output_ordinal_t out
             outinfo.speculation_split.push(outinfo.speculate_pc);
     }
     outinfo.speculate_pc = start_address;
-    VPRINT(this, 2, "start_speculation layer=%zu pc=0x%" PRIx64 "\n",
+    VPRINT(this, 2, "start_speculation layer=%zu pc=0x%zx\n",
            outinfo.speculation_split.size(), start_address);
     return sched_type_t::STATUS_OK;
 }
@@ -1577,7 +1577,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::stop_speculation(output_ordinal_t outp
         // speculate_pc is only used when exiting inner layers.
         outinfo.speculate_pc = outinfo.speculation_split.top();
     }
-    VPRINT(this, 2, "stop_speculation layer=%zu (resume=0x%" PRIx64 ")\n",
+    VPRINT(this, 2, "stop_speculation layer=%zu (resume=0x%zx)\n",
            outinfo.speculation_split.size(), outinfo.speculate_pc);
     outinfo.speculation_split.pop();
     return sched_type_t::STATUS_OK;
