@@ -593,7 +593,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
 
 template <typename RecordType, typename ReaderType>
 bool
-analyzer_tmpl_t<RecordType, ReaderType>::collect_and_merge_shard_interval_results()
+analyzer_tmpl_t<RecordType, ReaderType>::collect_and_maybe_merge_shard_interval_results()
 {
     // all_intervals[tool_idx][shard_idx] contains a queue of the
     // interval_state_snapshot_t* that were output by that tool for that shard.
@@ -661,7 +661,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
         }
     }
     if (interval_microseconds_ != 0) {
-        return collect_and_merge_shard_interval_results();
+        return collect_and_maybe_merge_shard_interval_results();
     }
     return true;
 }
@@ -677,7 +677,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
             error_string_ = tools_[i]->get_error_string();
             return false;
         }
-        if (interval_microseconds_ != 0) {
+        if (interval_microseconds_ != 0 && !merged_interval_snapshots_.empty()) {
+            // merged_interval_snapshots_ may be empty depending on the derived class'
+            // implementation of collect_and_maybe_merge_shard_interval_results.
             if (!merged_interval_snapshots_[i].empty() &&
                 !tools_[i]->print_interval_results(merged_interval_snapshots_[i])) {
                 error_string_ = tools_[i]->get_error_string();
