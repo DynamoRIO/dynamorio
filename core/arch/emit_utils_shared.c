@@ -1897,11 +1897,9 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
      */
     if (absolute) {
 #ifdef RISCV64
-            APP(ilist,
-                instr_create_restore_from_tls(dcontext, DR_REG_X5,
-                                              NEXT_TAG_OFFSET));
-            /* jalr x5 */
-            APP(ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(DR_REG_X5)));
+        APP(ilist, instr_create_restore_from_tls(dcontext, DR_REG_X5, NEXT_TAG_OFFSET));
+        /* jalr x5 */
+        APP(ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(DR_REG_X5)));
 #else
         APP(ilist, instr_create_jump_via_dcontext(dcontext, NEXT_TAG_OFFSET));
 #endif

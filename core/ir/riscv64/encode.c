@@ -91,20 +91,30 @@ decode_info_init_for_instr(decode_info_t *di, instr_t *instr)
 }
 
 /* FIXME: Code generation. */
-#define R_type(funct7, rs2, rs1, funct3, rd, opcode)    ((funct7)<<25 | (rs2)<<20 | (rs1)<<15 | (funct3)<<12 | (rd)<<7 | (opcode))
-#define I_type(imm12, rs1, funct3, rd, opcode)    ((imm12)<<20 | (rs1)<<15 | (funct3)<<12 | (rd)<<7 | (opcode))
-#define S_type(imm12, rs2, rs1, funct3, opcode)    (((imm12)>>5)<<25 | (rs2)<<20 | (rs1)<<15 | (funct3)<<12 | ((imm12)&31)<<7 | (opcode))
-#define B_type(imm13, rs2, rs1, funct3, opcode)      ((((imm13)>>12)&1)<<31 | (((imm13)>>5)&63)<<25 | (rs2)<<20 | (rs1)<<15 | (funct3)<<12 | (((imm13)>>1)&15)<<8 | (((imm13)>>11)&1)<<7 | (opcode))
-#define U_type(imm32, rd, opcode)    (((imm32)>>12)<<12 | (rd)<<7 | (opcode))
-#define J_type(imm21, rd, opcode)    ((((imm21)>>20)&1)<<31 | (((imm21)>>1)&0b1111111111)<<21 | (((imm21)>>11)&1)<<20 | (((imm21)>>12)&0b11111111)<<12 | (rd)<<7 | (opcode))
+#define R_type(funct7, rs2, rs1, funct3, rd, opcode) \
+    ((funct7) << 25 | (rs2) << 20 | (rs1) << 15 | (funct3) << 12 | (rd) << 7 | (opcode))
+#define I_type(imm12, rs1, funct3, rd, opcode) \
+    ((imm12) << 20 | (rs1) << 15 | (funct3) << 12 | (rd) << 7 | (opcode))
+#define S_type(imm12, rs2, rs1, funct3, opcode)                          \
+    (((imm12) >> 5) << 25 | (rs2) << 20 | (rs1) << 15 | (funct3) << 12 | \
+     ((imm12)&31) << 7 | (opcode))
+#define B_type(imm13, rs2, rs1, funct3, opcode)                                \
+    ((((imm13) >> 12) & 1) << 31 | (((imm13) >> 5) & 63) << 25 | (rs2) << 20 | \
+     (rs1) << 15 | (funct3) << 12 | (((imm13) >> 1) & 15) << 8 |               \
+     (((imm13) >> 11) & 1) << 7 | (opcode))
+#define U_type(imm32, rd, opcode) (((imm32) >> 12) << 12 | (rd) << 7 | (opcode))
+#define J_type(imm21, rd, opcode)                                                     \
+    ((((imm21) >> 20) & 1) << 31 | (((imm21) >> 1) & 0b1111111111) << 21 |            \
+     (((imm21) >> 11) & 1) << 20 | (((imm21) >> 12) & 0b11111111) << 12 | (rd) << 7 | \
+     (opcode))
 
-#define LD(rd, rs1, imm12)      I_type(imm12, rs1, 0b011, rd, 0b0000011)
-#define SD(rs2, rs1, imm12)     S_type(imm12, rs2, rs1, 0b011, 0b0100011)
-#define JAL(rd, imm21)          J_type(imm21, rd, 0b1101111)
-#define JALR(rd, rs1, imm12)    I_type(imm12, rs1, 0b000, rd, 0b1100111)
-#define ADD(rd, rs1, rs2)       R_type(0b0000000, rs2, rs1, 0b000, rd, 0b0110011)
-#define ADDI(rd, rs1, imm12)    I_type((imm12)&0b111111111111, rs1, 0b000, rd, 0b0010011)
-#define AUIPC(rd, imm20)        U_type((imm20)<<12, rd, 0b0010111)
+#define LD(rd, rs1, imm12) I_type(imm12, rs1, 0b011, rd, 0b0000011)
+#define SD(rs2, rs1, imm12) S_type(imm12, rs2, rs1, 0b011, 0b0100011)
+#define JAL(rd, imm21) J_type(imm21, rd, 0b1101111)
+#define JALR(rd, rs1, imm12) I_type(imm12, rs1, 0b000, rd, 0b1100111)
+#define ADD(rd, rs1, rs2) R_type(0b0000000, rs2, rs1, 0b000, rd, 0b0110011)
+#define ADDI(rd, rs1, imm12) I_type((imm12)&0b111111111111, rs1, 0b000, rd, 0b0010011)
+#define AUIPC(rd, imm20) U_type((imm20) << 12, rd, 0b0010111)
 
 byte *
 instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc,
@@ -122,48 +132,40 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         return copy_pc;
 
     switch (instr->opcode) {
-        case OP_c_nop:
-            enc = 0x1;
-            break;
-        case OP_ecall:
-            enc = 0x73;
-            break;
-        case OP_addi:
-            enc = ADDI(instr->dsts[0].value.reg_and_element_size.reg,
-                       instr->src0.value.reg_and_element_size.reg,
-                       instr->srcs[0].value.immed_int);
-            break;
-        case OP_add:
-            enc = ADD(instr->dsts[0].value.reg_and_element_size.reg,
-                      instr->src0.value.reg_and_element_size.reg,
-                      instr->srcs[0].value.reg_and_element_size.reg);
-            break;
-        case OP_ld:
-            enc = LD(instr->dsts[0].value.reg_and_element_size.reg,
-                     instr->src0.value.base_disp.base_reg,
-                     instr->src0.value.base_disp.disp);
-            break;
-        case OP_sd:
-            enc = SD(instr->dsts[0].value.reg_and_element_size.reg,
-                     instr->src0.value.base_disp.base_reg,
-                     instr->src0.value.base_disp.disp);
-            break;
-        case OP_jal:
-            uint raw = (int)(instr->src0.value.pc - final_pc);
-            enc = JAL(instr->dsts[0].value.reg_and_element_size.reg, raw);
-            break;
-        case OP_jalr:
-            enc = JALR(instr->dsts[0].value.reg_and_element_size.reg,
-                       instr->src0.value.reg_and_element_size.reg,
-                       instr->srcs[0].value.immed_int);
-            break;
-        case OP_auipc:
-            enc = AUIPC(instr->dsts[0].value.reg_and_element_size.reg,
-                       instr->src0.value.immed_int);
-            break;
-        default:
-            enc = 0x0;
-            break;
+    case OP_c_nop: enc = 0x1; break;
+    case OP_ecall: enc = 0x73; break;
+    case OP_addi:
+        enc = ADDI(instr->dsts[0].value.reg_and_element_size.reg,
+                   instr->src0.value.reg_and_element_size.reg,
+                   instr->srcs[0].value.immed_int);
+        break;
+    case OP_add:
+        enc = ADD(instr->dsts[0].value.reg_and_element_size.reg,
+                  instr->src0.value.reg_and_element_size.reg,
+                  instr->srcs[0].value.reg_and_element_size.reg);
+        break;
+    case OP_ld:
+        enc = LD(instr->dsts[0].value.reg_and_element_size.reg,
+                 instr->src0.value.base_disp.base_reg, instr->src0.value.base_disp.disp);
+        break;
+    case OP_sd:
+        enc = SD(instr->dsts[0].value.reg_and_element_size.reg,
+                 instr->src0.value.base_disp.base_reg, instr->src0.value.base_disp.disp);
+        break;
+    case OP_jal:
+        uint raw = (int)(instr->src0.value.pc - final_pc);
+        enc = JAL(instr->dsts[0].value.reg_and_element_size.reg, raw);
+        break;
+    case OP_jalr:
+        enc = JALR(instr->dsts[0].value.reg_and_element_size.reg,
+                   instr->src0.value.reg_and_element_size.reg,
+                   instr->srcs[0].value.immed_int);
+        break;
+    case OP_auipc:
+        enc = AUIPC(instr->dsts[0].value.reg_and_element_size.reg,
+                    instr->src0.value.immed_int);
+        break;
+    default: enc = 0x0; break;
     }
 
     *(uint *)copy_pc = enc;

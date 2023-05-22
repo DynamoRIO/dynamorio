@@ -1900,7 +1900,7 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     instr_t *walk, *tgt;
 
 #ifdef RISCV64
-/* FIXME i#3544: Not looking for syscall number for now. */
+    /* FIXME i#3544: Not looking for syscall number for now. */
     return 93; // exit
 #endif
 

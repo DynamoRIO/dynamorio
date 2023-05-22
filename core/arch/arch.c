@@ -94,11 +94,13 @@ bool *d_r_avx512_code_in_use = NULL;
 bool d_r_client_avx512_code_in_use = false;
 #endif
 
+#ifndef RISCV64
 /* static functions forward references */
 static byte *
 emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                   byte *fcache_return_pc, ibl_source_fragment_type_t source_fragment_type,
                   bool thread_shared, bool target_trace_table, ibl_code_t ibl_code[]);
+#endif
 
 static byte *
 emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
@@ -343,7 +345,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
 #ifdef WINDOWS_PC_SAMPLE
     gencode->fcache_enter_return_end = pc;
 #endif
-
+#ifndef RISCV64
     /* PR 244737: thread-private uses shared gencode on x64.
      * Should we set the option instead? */
     if (USE_SHARED_TRACE_IBL()) {
@@ -374,7 +376,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
                                !DYNAMO_OPTION(bb_ibl_targets), /*target_trace_table*/
                                gencode->coarse_ibl);
     }
-
+#endif
 #ifdef WINDOWS_PC_SAMPLE
     gencode->ibl_routines_end = pc;
 #endif
@@ -801,7 +803,6 @@ d_r_arch_init(void)
         }
 #endif
     }
-
     /* Ensure addressing registers fit into base+disp operand base and index fields. */
     IF_AARCHXX(ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, DR_REG_MAX_ADDRESSING_REG));
 
@@ -964,6 +965,7 @@ void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
     }
 }
 
+#ifndef RISCV64
 static byte *
 emit_ibl_routine_and_template(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                               byte *fcache_return_pc, bool target_trace_table,
@@ -1028,7 +1030,7 @@ emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
     for (branch_type = IBL_BRANCH_TYPE_START; branch_type < IBL_BRANCH_TYPE_END;
          branch_type++) {
-#ifdef HASHTABLE_STATISTICS
+#    ifdef HASHTABLE_STATISTICS
         /* ugly asserts but we'll stick with uints to save space */
         IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(
             GET_IBL_TARGET_TABLE(branch_type, target_trace_table) +
@@ -1050,7 +1052,7 @@ emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             (uint)((IS_IBL_TRACE(source_fragment_type))
                        ? offsetof(unprot_ht_statistics_t, trace_ibl_stats[branch_type])
                        : offsetof(unprot_ht_statistics_t, bb_ibl_stats[branch_type]));
-#endif
+#    endif
         pc = emit_ibl_routine_and_template(
             dcontext, code, pc, fcache_return_pc, target_trace_table, inline_ibl_head,
             thread_shared, branch_type, source_fragment_type,
@@ -1058,6 +1060,7 @@ emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     }
     return pc;
 }
+#endif
 
 static byte *
 emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
@@ -1145,6 +1148,7 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     code->do_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared, 0,
                          &code->do_syscall_offs);
+#    ifndef RISCV64
     pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_int_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
@@ -1161,6 +1165,7 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     code->do_clone_syscall = pc;
     pc = emit_do_clone_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                                &code->do_clone_syscall_offs);
+#    endif
 #    ifdef VMX86_SERVER
     pc = check_size_and_cache_line(isa_mode, code, pc);
     code->do_vmkuw_syscall = pc;
@@ -1280,12 +1285,11 @@ arch_thread_init(dcontext_t *dcontext)
     pc = check_size_and_cache_line(isa_mode, code, pc);
     code->fcache_return = pc;
     pc = emit_fcache_return(dcontext, code, pc);
-
     code->fcache_return_end = pc;
 #ifdef WINDOWS_PC_SAMPLE
     code->fcache_enter_return_end = pc;
 #endif
-
+#ifndef RISCV64
     /* Currently all ibl routines target the trace hashtable
        and we don't yet support basic blocks as targets of an IBL.
        However, having separate routines at least enables finer control
@@ -1328,6 +1332,7 @@ arch_thread_init(dcontext_t *dcontext)
                            false,                          /* thread_shared */
                            !DYNAMO_OPTION(bb_ibl_targets), /* target_trace_table */
                            code->bb_ibl);
+#endif
 #ifdef WINDOWS_PC_SAMPLE
     code->ibl_routines_end = pc;
 #endif
@@ -3339,6 +3344,9 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
 int
 get_syscall_method(void)
 {
+#ifdef RISCV64
+    return SYSCALL_METHOD_ECALL;
+#endif
     return syscall_method;
 }
 

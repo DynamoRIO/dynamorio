@@ -1925,7 +1925,7 @@ fragment_thread_reset_init(dcontext_t *dcontext)
 #endif
             }
         }
-
+#ifndef RISCV64
         /* When targetting BBs, currently the source is assumed to be only a
          * bb since traces going to a bb for the first time should mark it
          * as a trace head.  Therefore the tables are currently only
@@ -1960,7 +1960,7 @@ fragment_thread_reset_init(dcontext_t *dcontext)
                         ibl_bb_table_type_names[branch_type]));
                 /* mark as inclusive table for bb's - we in fact currently
                  * keep only frags that are not FRAG_IS_TRACE_HEAD */
-#ifdef HASHTABLE_STATISTICS
+#    ifdef HASHTABLE_STATISTICS
                 if (INTERNAL_OPTION(hashtable_ibl_stats)) {
                     /* for compatibility using an entry in the per-branch type stats */
                     CHECK_UNPROT_STATS(pt->bb_ibt[branch_type]);
@@ -1970,7 +1970,7 @@ fragment_thread_reset_init(dcontext_t *dcontext)
                 } else {
                     pt->bb_ibt[branch_type].unprot_stats = NULL;
                 }
-#endif /* HASHTABLE_STATISTICS */
+#    endif /* HASHTABLE_STATISTICS */
             } else {
                 /* ensure table from last time (if we had a reset) not still there */
                 memset(&pt->bb_ibt[branch_type], 0, sizeof(pt->bb_ibt[branch_type]));
@@ -1979,7 +1979,7 @@ fragment_thread_reset_init(dcontext_t *dcontext)
                                                        false, /* no adjust old
                                                                * ref-count */
                                                        true /* lock */);
-#ifdef HASHTABLE_STATISTICS
+#    ifdef HASHTABLE_STATISTICS
                 if (INTERNAL_OPTION(hashtable_ibl_stats)) {
                     ALLOC_UNPROT_STATS(dcontext, &pt->bb_ibt[branch_type]);
                     CHECK_UNPROT_STATS(pt->bb_ibt[branch_type]);
@@ -1988,9 +1988,10 @@ fragment_thread_reset_init(dcontext_t *dcontext)
                 } else {
                     pt->bb_ibt[branch_type].unprot_stats = NULL;
                 }
-#endif
+#    endif
             }
         }
+#endif
     }
     ASSERT(IBL_BRANCH_TYPE_END == 3);
 
