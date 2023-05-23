@@ -1194,7 +1194,7 @@ init_thread_io(void *drcontext)
         // If we have switched to instruction trace already, then add a
         // FILTER_ENDPOINT marker.
         uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
-        if (mode == BBDUP_MODE_TRACE){
+        if (mode == BBDUP_MODE_TRACE) {
             BUF_PTR(data->seg_base) += instru->append_marker(
                 BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
         }

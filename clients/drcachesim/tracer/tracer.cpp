@@ -685,7 +685,7 @@ insert_conditional_skip_target(void *drcontext, instrlist_t *ilist, instr_t *whe
 
 static void
 insert_mode_comparison(void *drcontext, instrlist_t *ilist, instr_t *where,
-                       reg_id_t reg_ptr, void * addr, uint slot)
+                       reg_id_t reg_ptr, void *addr, uint slot)
 {
     reg_id_t reg_mine = DR_REG_NULL, reg_global = DR_REG_NULL;
     if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_mine) !=
