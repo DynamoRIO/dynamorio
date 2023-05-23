@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,8 @@ public:
     ~basic_counts_t() override;
     bool
     process_memref(const memref_t &memref) override;
+    interval_state_snapshot_t *
+    generate_interval_snapshot(uint64_t interval_id) override;
     bool
     print_results() override;
     bool
@@ -58,6 +60,17 @@ public:
     parallel_shard_memref(void *shard_data, const memref_t &memref) override;
     std::string
     parallel_shard_error(void *shard_data) override;
+    interval_state_snapshot_t *
+    generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override;
+    interval_state_snapshot_t *
+    combine_interval_snapshots(
+        std::vector<const interval_state_snapshot_t *> latest_shard_snapshots,
+        uint64_t interval_end_timestamp) override;
+    bool
+    print_interval_results(
+        const std::vector<interval_state_snapshot_t *> &interval_snapshots) override;
+    bool
+    release_interval_snapshot(interval_state_snapshot_t *snapshot) override;
 
     // i#3068: We use the following struct to also export the counters.
     struct counters_t {
@@ -86,6 +99,31 @@ public:
             encodings += rhs.encodings;
             for (const uint64_t addr : rhs.unique_pc_addrs) {
                 unique_pc_addrs.insert(addr);
+            }
+            return *this;
+        }
+        counters_t &
+        operator-=(const counters_t &rhs)
+        {
+            instrs -= rhs.instrs;
+            instrs_nofetch -= rhs.instrs_nofetch;
+            prefetches -= rhs.prefetches;
+            loads -= rhs.loads;
+            stores -= rhs.stores;
+            sched_markers -= rhs.sched_markers;
+            xfer_markers -= rhs.xfer_markers;
+            func_id_markers -= rhs.func_id_markers;
+            func_retaddr_markers -= rhs.func_retaddr_markers;
+            func_arg_markers -= rhs.func_arg_markers;
+            func_retval_markers -= rhs.func_retval_markers;
+            phys_addr_markers -= rhs.phys_addr_markers;
+            phys_unavail_markers -= rhs.phys_unavail_markers;
+            other_markers -= rhs.other_markers;
+            icache_flushes -= rhs.icache_flushes;
+            dcache_flushes -= rhs.dcache_flushes;
+            encodings -= rhs.encodings;
+            for (const uint64_t addr : rhs.unique_pc_addrs) {
+                unique_pc_addrs.erase(addr);
             }
             return *this;
         }
@@ -147,13 +185,28 @@ protected:
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
     };
-
+    // Records a snapshot of counts for a trace interval.
+    struct count_snapshot_t : public interval_state_snapshot_t {
+        // Cumulative counters till the current interval.
+        // We could alternatively keep track of just the delta values vs
+        // the last interval. But that would require us to keep track of
+        // the last interval's counters in per_shard_t. So we simply track
+        // the cumulative values here and compute the delta at the end in
+        // print_interval_results().
+        counters_t counters;
+        memref_tid_t tid;
+        // TODO i#6020: Add per-window counters to the snapshot, and also
+        // return interval counts separately per-window in a structured
+        // way and print under a flag.
+    };
     static bool
     cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
                 const std::pair<memref_tid_t, per_shard_t *> &r);
     static void
     print_counters(const counters_t &counters, int_least64_t num_threads,
                    const std::string &prefix);
+    void
+    compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, per_shard_t *> shard_map_;
