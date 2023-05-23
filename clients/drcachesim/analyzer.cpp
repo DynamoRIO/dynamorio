@@ -678,7 +678,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::print_stats()
             return false;
         }
         if (interval_microseconds_ != 0 && !merged_interval_snapshots_.empty()) {
-            // merged_interval_snapshots_ may be empty depending on the derived class'
+            // merged_interval_snapshots_ may be empty depending on the derived class's
             // implementation of collect_and_maybe_merge_shard_interval_results.
             if (!merged_interval_snapshots_[i].empty() &&
                 !tools_[i]->print_interval_results(merged_interval_snapshots_[i])) {

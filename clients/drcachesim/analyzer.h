@@ -240,8 +240,8 @@ protected:
         analyzer_shard_data_t *shard, uint64_t &prev_interval_index,
         uint64_t &prev_interval_init_instr_count);
 
-    // Collects interval results for all shards from the workers, and then merges
-    // the shard-local intervals to form the whole-trace interval results using
+    // Collects interval results for all shards from the workers, and then optional
+    // merges the shard-local intervals to form the whole-trace interval results using
     // merge_shard_interval_results(). Derived classes may override this to change
     // whether and how shard-local intervals are merged.
     virtual bool
@@ -287,7 +287,7 @@ protected:
     // in merge_shard_interval_results.
     // merged_interval_snapshots_[tool_idx] is a vector of the interval snapshots
     // (in order of the intervals) for that tool.
-    // This may not be set, depending on the derived class' implementation of
+    // This may not be set, depending on the derived class's implementation of
     // collect_and_maybe_merge_shard_interval_results.
     std::vector<std::vector<
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
