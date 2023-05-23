@@ -3716,7 +3716,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                    "\n\t\tx26=\"" PFX "\"\n\t\tx27=\"" PFX "\""
                    "\n\t\tx28=\"" PFX "\"\n\t\tx29=\"" PFX "\""
                    "\n\t\tx30=\"" PFX "\"\n\t\tx31=\"" PFX "\""
-#endif     /* X86/ARM/RISCV64 */
+#endif /* X86/ARM/RISCV64 */
                  : "priv_mcontext_t @" PFX "\n"
 #ifdef X86
                    "\txax = " PFX "\n\txbx = " PFX "\n\txcx = " PFX "\n\txdx = " PFX "\n"
@@ -3773,7 +3773,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
         context->x17, context->x18, context->x19, context->x20, context->x21,
         context->x22, context->x23, context->x24, context->x25, context->x26,
         context->x27, context->x28, context->x29, context->x30, context->x31
-#endif     /* X86/ARM/RISCV64 */
+#endif /* X86/ARM/RISCV64 */
     );
 
 #ifdef X86
@@ -3875,7 +3875,7 @@ get_time()
     return __rdtsc(); /* compiler intrinsic */
 }
 #    endif
-#endif    /* PROFILE_RDTSC */
+#endif /* PROFILE_RDTSC */
 
 #ifdef DEBUG
 bool
@@ -3973,8 +3973,8 @@ unit_test_atomic_ops(void)
     EXPECT(atomic_dec_becomes_zero(&count1), false); /* result is -2 */
     EXPECT(atomic_compare_exchange_int(&count1, -3, 1), false); /* no exchange */
     EXPECT(count1, -2);
-    EXPECT(atomic_compare_exchange_int(&count1, -2, 1), true);  /* exchange */
-    EXPECT(atomic_dec_becomes_zero(&count1), true);             /* result is 0 */
+    EXPECT(atomic_compare_exchange_int(&count1, -2, 1), true); /* exchange */
+    EXPECT(atomic_dec_becomes_zero(&count1), true);            /* result is 0 */
     do_parallel_updates();
     EXPECT(count1, MAX_NUM_THREADS);
     EXPECT(count2, MAX_NUM_THREADS);
