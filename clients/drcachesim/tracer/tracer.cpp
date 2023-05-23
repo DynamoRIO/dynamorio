@@ -179,7 +179,7 @@ bbdup_duplication_enabled()
 
 // If we have both BBDUP_MODE_TRACE and BBDUP_MODE_L0_FILTER, then L0 filter is active
 // only when mode is BBDUP_MODE_L0_FILTER
-static void
+void
 get_L0_filters_enabled(uintptr_t mode, OUT bool *l0i_enabled, OUT bool *l0d_enabled)
 {
     if (op_L0_filter_until_instrs.get_value()) {
@@ -683,6 +683,73 @@ insert_conditional_skip_target(void *drcontext, instrlist_t *ilist, instr_t *whe
 #endif
 }
 
+static void
+insert_mode_comparison(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t reg_ptr, void * addr, uint slot)
+{
+    reg_id_t reg_mine = DR_REG_NULL, reg_global = DR_REG_NULL;
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_mine) !=
+            DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, ilist, where, NULL, &reg_global) !=
+            DRREG_SUCCESS)
+        FATAL("Fatal error: failed to reserve reg.");
+#ifdef AARCHXX
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)addr,
+                                     opnd_create_reg(reg_global), ilist, where, NULL,
+                                     NULL);
+#    ifdef AARCH64
+    MINSERT(ilist, where,
+            INSTR_CREATE_ldar(drcontext, opnd_create_reg(reg_global),
+                              OPND_CREATE_MEMPTR(reg_global, 0)));
+#    else
+    MINSERT(ilist, where,
+            XINST_CREATE_load(drcontext, opnd_create_reg(reg_global),
+                              OPND_CREATE_MEMPTR(reg_global, 0)));
+    MINSERT(ilist, where, INSTR_CREATE_dmb(drcontext, OPND_CREATE_INT(DR_DMB_ISH)));
+#    endif
+#else
+    MINSERT(ilist, where,
+            XINST_CREATE_load(drcontext, opnd_create_reg(reg_global),
+                              OPND_CREATE_ABSMEM(addr, OPSZ_PTR)));
+#endif
+    dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
+                           tls_offs + sizeof(void *) * slot, reg_mine);
+#ifdef AARCHXX
+    MINSERT(ilist, where,
+            XINST_CREATE_sub(drcontext, opnd_create_reg(reg_mine),
+                             opnd_create_reg(reg_global)));
+#elif defined(RISCV64)
+    /* FIXME i#3544: Not implemented */
+    DR_ASSERT_MSG(false, "Not implemented on RISC-V");
+#else
+    // Our version of a flags-free reg-reg subtraction: 1's complement one reg
+    // plus 1 and then add using base+index of LEA.
+    MINSERT(ilist, where, INSTR_CREATE_not(drcontext, opnd_create_reg(reg_global)));
+    MINSERT(ilist, where,
+            INSTR_CREATE_lea(drcontext, opnd_create_reg(reg_global),
+                             OPND_CREATE_MEM_lea(reg_global, DR_REG_NULL, 0, 1)));
+    MINSERT(ilist, where,
+            INSTR_CREATE_lea(drcontext, opnd_create_reg(reg_mine),
+                             OPND_CREATE_MEM_lea(reg_mine, reg_global, 1, 0)));
+#endif
+    // To avoid writing a 0 on top of the redzone, we read the buffer value and add
+    // that to the local ("mine") window minus the global window.  The redzone is
+    // -1, so if we do mine minus global which will always be non-positive, we'll
+    // never write 0 for a redzone slot (and thus possibly overflowing).
+    MINSERT(ilist, where,
+            XINST_CREATE_load(drcontext, opnd_create_reg(reg_global),
+                              OPND_CREATE_MEMPTR(reg_ptr, 0)));
+    MINSERT(ilist, where,
+            XINST_CREATE_add(drcontext, opnd_create_reg(reg_mine),
+                             opnd_create_reg(reg_global)));
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, 0),
+                               opnd_create_reg(reg_mine)));
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_global) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, ilist, where, reg_mine) != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to unreserve scratch reg.\n");
+}
+
 /* We insert code to read from trace buffer and check whether the redzone
  * is reached. If redzone is reached, the clean call will be called.
  * Additionally, for tracing windows, we also check for a mode switch and
@@ -721,70 +788,13 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         // requires a store and two scratch regs so perhaps this should be measured
         // against a branch-based scheme, but we assume we're i/o bound and so this will
         // not affect overhead.
-        reg_id_t reg_mine = DR_REG_NULL, reg_global = DR_REG_NULL;
-        if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_mine) !=
-                DRREG_SUCCESS ||
-            drreg_reserve_register(drcontext, ilist, where, NULL, &reg_global) !=
-                DRREG_SUCCESS)
-            FATAL("Fatal error: failed to reserve reg.");
-#ifdef AARCHXX
-        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&tracing_window,
-                                         opnd_create_reg(reg_global), ilist, where, NULL,
-                                         NULL);
-#    ifdef AARCH64
-        MINSERT(ilist, where,
-                INSTR_CREATE_ldar(drcontext, opnd_create_reg(reg_global),
-                                  OPND_CREATE_MEMPTR(reg_global, 0)));
-#    else
-        MINSERT(ilist, where,
-                XINST_CREATE_load(drcontext, opnd_create_reg(reg_global),
-                                  OPND_CREATE_MEMPTR(reg_global, 0)));
-        MINSERT(ilist, where, INSTR_CREATE_dmb(drcontext, OPND_CREATE_INT(DR_DMB_ISH)));
-#    endif
-#else
-        MINSERT(ilist, where,
-                XINST_CREATE_load(drcontext, opnd_create_reg(reg_global),
-                                  OPND_CREATE_ABSMEM(&tracing_window, OPSZ_PTR)));
-#endif
-        dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
-                               tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_WINDOW,
-                               reg_mine);
-#ifdef AARCHXX
-        MINSERT(ilist, where,
-                XINST_CREATE_sub(drcontext, opnd_create_reg(reg_mine),
-                                 opnd_create_reg(reg_global)));
-#elif defined(RISCV64)
-        /* FIXME i#3544: Not implemented */
-        DR_ASSERT_MSG(false, "Not implemented on RISC-V");
-#else
-        // Our version of a flags-free reg-reg subtraction: 1's complement one reg
-        // plus 1 and then add using base+index of LEA.
-        MINSERT(ilist, where, INSTR_CREATE_not(drcontext, opnd_create_reg(reg_global)));
-        MINSERT(ilist, where,
-                INSTR_CREATE_lea(drcontext, opnd_create_reg(reg_global),
-                                 OPND_CREATE_MEM_lea(reg_global, DR_REG_NULL, 0, 1)));
-        MINSERT(ilist, where,
-                INSTR_CREATE_lea(drcontext, opnd_create_reg(reg_mine),
-                                 OPND_CREATE_MEM_lea(reg_mine, reg_global, 1, 0)));
-#endif
-        // To avoid writing a 0 on top of the redzone, we read the buffer value and add
-        // that to the local ("mine") window minus the global window.  The redzone is
-        // -1, so if we do mine minus global which will always be non-positive, we'll
-        // never write 0 for a redzone slot (and thus possibly overflowing).
-        MINSERT(ilist, where,
-                XINST_CREATE_load(drcontext, opnd_create_reg(reg_global),
-                                  OPND_CREATE_MEMPTR(reg_ptr, 0)));
-        MINSERT(ilist, where,
-                XINST_CREATE_add(drcontext, opnd_create_reg(reg_mine),
-                                 opnd_create_reg(reg_global)));
-        MINSERT(ilist, where,
-                XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, 0),
-                                   opnd_create_reg(reg_mine)));
-        if (drreg_unreserve_register(drcontext, ilist, where, reg_global) !=
-                DRREG_SUCCESS ||
-            drreg_unreserve_register(drcontext, ilist, where, reg_mine) != DRREG_SUCCESS)
-            FATAL("Fatal error: failed to unreserve scratch reg.\n");
+        insert_mode_comparison(drcontext, ilist, where, reg_ptr, &tracing_window,
+                               MEMTRACE_TLS_OFFS_WINDOW);
     }
+    // Force a clean call when the tracing mode changes, so that the other
+    // threads can update their traces appropriately.
+    insert_mode_comparison(drcontext, ilist, where, reg_ptr, &tracing_mode,
+                           MEMTRACE_TLS_OFFS_MODE);
 
     reg_id_t reg_tmp = DR_REG_NULL, reg_tmp2 = DR_REG_NULL;
     instr_t *skip_thread = INSTR_CREATE_label(drcontext);

@@ -604,7 +604,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 }
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
                 log(2, "Reached filter endpoint\n");
-                saw_filter_endpoint_ = true;
+                tdata->saw_filter_endpoint_ = true;
                 // For the full trace, the cache contains block-level info unlike the
                 // filtered trace which contains instr-level info. Since we cannot use
                 // the decode cache entries after the transition, we need to flush the
@@ -658,7 +658,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
         DR_CHECK(reinterpret_cast<trace_entry_t *>(buf) == buf_base,
                  "We shouldn't have buffered anything before calling "
                  "append_bb_entries");
-        if (saw_filter_endpoint_) {
+        if (tdata->saw_filter_endpoint_) {
             // The file type needs to be updated during the switch to correctly
             // process the entries that follow after. This does not affect the
             // written-out type.
@@ -808,7 +808,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                         OUT bool *end_of_record)
 {
     // Set to initial state before processing a new trace.
-    saw_filter_endpoint_ = false;
+    tdata->saw_filter_endpoint_ = false;
     // We now convert each offline entry into a trace_entry_t.
     // We fill in instr entries and memref type and size.
     const offline_entry_t *in_entry = get_next_entry(tdata);

@@ -132,6 +132,9 @@ enum {
     // For has_tracing_windows(), this is the ordinal of the tracing window at
     // the start of the current trace buffer.  It is -1 if windows are not enabled.
     MEMTRACE_TLS_OFFS_WINDOW,
+    // For -L0_filter_until_instrs, this is used for triggering mode switch in other
+    // threads when a thread changes tracing_mode.
+    MEMTRACE_TLS_OFFS_MODE,
     MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
 
@@ -271,6 +274,9 @@ is_in_tracing_mode(uintptr_t mode)
 {
     return (mode == BBDUP_MODE_TRACE || mode == BBDUP_MODE_L0_FILTER);
 }
+
+void
+get_L0_filters_enabled(uintptr_t mode, OUT bool *l0i_enabled, OUT bool *l0d_enabled);
 
 } // namespace drmemtrace
 } // namespace dynamorio

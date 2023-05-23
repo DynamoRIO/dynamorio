@@ -81,6 +81,18 @@ get_local_window(per_thread_t *data)
     return *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW);
 }
 
+static ptr_int_t
+get_local_mode(per_thread_t *data)
+{
+    return *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_MODE);
+}
+
+static void
+set_local_mode(per_thread_t *data, ptr_int_t mode)
+{
+    *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_MODE) = mode;
+}
+
 static uint64
 local_instr_count_threshold(uint64 trace_for_instrs)
 {
@@ -976,7 +988,23 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         if (op_offline.get_value() && op_split_windows.get_value())
             buf_ptr += instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
     }
-    uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
+    // Switch to instruction-tracing mode by adding FILTER_ENDPOINT marker if another
+    // thread triggered the switch.
+    ptr_int_t mode = tracing_mode.load(std::memory_order_acquire);
+    if (get_local_mode(data) != mode) {
+        if (get_local_mode(data) == BBDUP_MODE_L0_FILTER) {
+            NOTIFY(0, "Thread %d: filter mode changed\n", dr_get_thread_id(drcontext));
+            // If a switch occurred, then it is possible that the buffer
+            // contains a mix of filtered and unfiltered records. We discard
+            // the buffer by resetting the buffer pointer.
+            buf_ptr = data->buf_base + header_size;
+
+            // Add a FILTER_ENDPOINT marker to indicate that filtering stops here.
+            buf_ptr +=
+                instru->append_marker(buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+        }
+        set_local_mode(data, mode);
+    }
     // When -L0_filter_until_instrs is used with -max_trace_size/-max_global_trace_refs,
     // the max size/refs limit applies to the full trace and not the filtered trace so we
     // can skip the check in filter mode.
@@ -1025,6 +1053,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                        tracing_window.load(std::memory_order_acquire));
 
                 tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
+                set_local_mode(data, BBDUP_MODE_TRACE);
             }
         } else if (op_trace_for_instrs.get_value() > 0) {
             bool hit_window_end = false;
@@ -1148,6 +1177,7 @@ init_thread_io(void *drcontext)
     set_local_window(drcontext, -1);
     if (has_tracing_windows())
         set_local_window(drcontext, tracing_window.load(std::memory_order_acquire));
+    set_local_mode(data, tracing_mode.load(std::memory_order_acquire));
 
     if (op_offline.get_value()) {
         if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire))) {
@@ -1161,6 +1191,14 @@ init_thread_io(void *drcontext)
         BUF_PTR(data->seg_base) +=
             append_unit_header(drcontext, BUF_PTR(data->seg_base),
                                dr_get_thread_id(drcontext), get_local_window(data));
+        // If we have switched to instruction trace already, then add a
+        // FILTER_ENDPOINT marker.
+        uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
+        if (mode == BBDUP_MODE_TRACE){
+            BUF_PTR(data->seg_base) += instru->append_marker(
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+        }
+
     } else {
         /* pass pid and tid to the simulator to register current thread */
         char buf[MAXIMUM_PATH];

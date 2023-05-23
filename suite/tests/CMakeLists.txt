@@ -3853,6 +3853,31 @@ if (BUILD_CLIENTS)
         "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 10K"
       "@-simulator_type@basic_counts" "")
 
+
+    set(ci_pthreads_app pthreads.pthreads)
+    # pthreads tests
+    torunonly_drcacheoff(warmup-pthreads-windows-split ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 100K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.warmup-pthreads-windows-split_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
+    set(tool.drcacheoff.warmup-pthreads-windows-split_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
+
+    torunonly_drcacheoff(warmup-pthreads-2 ${ci_pthreads_app}
+        "-trace_after_instrs 10 -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(warmup-pthreads-max-refs ${ci_pthreads_app}
+        "-trace_after_instrs 100K -L0_filter_until_instrs 100K -max_global_trace_refs 100K"
+      "@-simulator_type@basic_counts" "10000")
+
+    torunonly_drcacheoff(warmup-pthreads-max-trace-size ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 100K"
+      "@-simulator_type@basic_counts" "")
+
+
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)
       torunonly_drcacheoff(builtin-prefetch-basic-counts builtin_prefetch "" "@-simulator_type@basic_counts" "")

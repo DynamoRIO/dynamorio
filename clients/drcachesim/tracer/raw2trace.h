@@ -898,6 +898,7 @@ protected:
         std::string error;
         int version;
         offline_file_type_t file_type;
+        bool saw_filter_endpoint_ = false;
         size_t cache_line_size = 0;
         std::vector<offline_entry_t> pre_read;
 
@@ -1089,8 +1090,6 @@ protected:
     }
 
     const module_mapper_t *modmap_ptr_ = nullptr;
-
-    bool saw_filter_endpoint_ = false;
 
     uint64 count_elided_ = 0;
     uint64 count_duplicate_syscall_ = 0;
