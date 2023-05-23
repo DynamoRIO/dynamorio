@@ -1191,12 +1191,14 @@ init_thread_io(void *drcontext)
         BUF_PTR(data->seg_base) +=
             append_unit_header(drcontext, BUF_PTR(data->seg_base),
                                dr_get_thread_id(drcontext), get_local_window(data));
-        // If we have switched to instruction trace already, then add a
-        // FILTER_ENDPOINT marker.
-        uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
-        if (mode == BBDUP_MODE_TRACE) {
-            BUF_PTR(data->seg_base) += instru->append_marker(
-                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+        if (op_L0_filter_until_instrs.get_value()) {
+            // If we have switched to instruction trace already, then add a
+            // FILTER_ENDPOINT marker.
+            uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
+            if (mode == BBDUP_MODE_TRACE) {
+                BUF_PTR(data->seg_base) += instru->append_marker(
+                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+            }
         }
 
     } else {
