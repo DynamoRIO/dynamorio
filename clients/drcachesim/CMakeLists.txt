@@ -742,9 +742,10 @@ if (BUILD_TESTS)
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
 
     add_executable(tool.drcachesim.invariant_checker_test tests/invariant_checker_test.cpp)
+    configure_DynamoRIO_standalone(tool.drcachesim.invariant_checker_test)
+    add_win32_flags(tool.drcachesim.invariant_checker_test)
     target_link_libraries(tool.drcachesim.invariant_checker_test
         drmemtrace_static drmemtrace_analyzer drmemtrace_invariant_checker)
-    add_win32_flags(tool.drcachesim.invariant_checker_test)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
 
