@@ -3745,7 +3745,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                    "\tx20 = " PFX "\n\tx21 = " PFX "\n\tx22 = " PFX "\n\tx23 = " PFX "\n"
                    "\tx24 = " PFX "\n\tx25 = " PFX "\n\tx26 = " PFX "\n\tx27 = " PFX "\n"
                    "\tx28 = " PFX "\n\tx29 = " PFX "\n\tx30 = " PFX "\n\tx31 = " PFX "\n"
-#endif     /* X86/ARM/RISCV64 */
+#endif /* X86/ARM/RISCV64 */
         ,
         context,
 #ifdef X86
