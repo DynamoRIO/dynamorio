@@ -827,7 +827,7 @@ protected:
         bool needs_advance = false;
         bool needs_roi = true;
         bool at_eof = false;
-        uintptr_t next_timestamp = 0;
+        uint64_t next_timestamp = 0;
         uint64_t instrs_in_quantum = 0;
         bool recorded_in_schedule = false;
         // This is a per-workload value, stored in each input for convenience.
