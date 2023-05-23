@@ -534,10 +534,10 @@ public:
 
         /**
          * Stops speculative execution, resuming execution at the
-         * stream of records from the point at which the prior start_speculation()
-         * call was made, either repeating the current record at that time (if "true"
-         * was passed for "queue_current_record" to start_speculation()) or continuing
-         * on the subsequent record (if "false" was passed).  Returns
+         * stream of records from the point at which the prior matching
+         * start_speculation() call was made, either repeating the current record at that
+         * time (if "true" was passed for "queue_current_record" to start_speculation())
+         * or continuing on the subsequent record (if "false" was passed).  Returns
          * #dynamorio::drmemtrace::scheduler_tmpl_t::STATUS_INVALID if there was no
          * prior start_speculation() call.
          */
@@ -890,9 +890,13 @@ protected:
         std::vector<input_ordinal_t> input_indices;
         int input_indices_index = 0;
         // Speculation support.
-        std::stack<addr_t> speculation_split; // PC of resumption point.
+        std::stack<addr_t> speculation_stack; // Stores PC of resumption point.
         speculator_tmpl_t<RecordType> speculator;
         addr_t speculate_pc = 0;
+        // Stores the value of speculate_pc before asking the speculator for the current
+        // record.  So if that record was an instruction, speculate_pc holds the next PC
+        // while this field holds the instruction's start PC.  The use case is for
+        // queueing a read-ahead instruction record for start_speculation().
         addr_t prev_speculate_pc = 0;
         RecordType last_record;
         // A list of schedule segments.  These are accessed only while holding

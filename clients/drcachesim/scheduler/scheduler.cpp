@@ -1406,7 +1406,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     }
     input = &inputs_[outputs_[output].cur_input];
     auto lock = std::unique_lock<std::mutex>(*input->lock);
-    if (!outputs_[output].speculation_split.empty()) {
+    if (!outputs_[output].speculation_stack.empty()) {
         outputs_[output].prev_speculate_pc = outputs_[output].speculate_pc;
         error_string_ = outputs_[output].speculator.next_record(
             outputs_[output].speculate_pc, record);
@@ -1549,20 +1549,27 @@ scheduler_tmpl_t<RecordType, ReaderType>::start_speculation(output_ordinal_t out
                                                             bool queue_current_record)
 {
     auto &outinfo = outputs_[output];
-    if (outinfo.speculation_split.empty()) {
+    if (outinfo.speculation_stack.empty()) {
         if (queue_current_record)
             inputs_[outinfo.cur_input].queue.push_back(outinfo.last_record);
-        outinfo.speculation_split.push(0);
+        // The store address for the outer layer is not used since we have the
+        // actual trace storing our resumption context, so we store a sentinel.
+        static constexpr addr_t SPECULATION_OUTER_ADDRESS = 0;
+        outinfo.speculation_stack.push(SPECULATION_OUTER_ADDRESS);
     } else {
         if (queue_current_record) {
-            // XXX: We'll re-call the speculator so we're assuming a repeatable response.
-            outinfo.speculation_split.push(outinfo.prev_speculate_pc);
+            // XXX i#5843: We'll re-call the speculator so we're assuming a repeatable
+            // response with the same instruction returned.  We should probably save the
+            // precise record either here or in the speculator.
+            outinfo.speculation_stack.push(outinfo.prev_speculate_pc);
         } else
-            outinfo.speculation_split.push(outinfo.speculate_pc);
+            outinfo.speculation_stack.push(outinfo.speculate_pc);
     }
+    // Set the prev in case another start is called before reading a record.
+    outinfo.prev_speculate_pc = outinfo.speculate_pc;
     outinfo.speculate_pc = start_address;
     VPRINT(this, 2, "start_speculation layer=%zu pc=0x%zx\n",
-           outinfo.speculation_split.size(), start_address);
+           outinfo.speculation_stack.size(), start_address);
     return sched_type_t::STATUS_OK;
 }
 
@@ -1571,15 +1578,15 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::stop_speculation(output_ordinal_t output)
 {
     auto &outinfo = outputs_[output];
-    if (outinfo.speculation_split.empty())
+    if (outinfo.speculation_stack.empty())
         return sched_type_t::STATUS_INVALID;
-    if (outinfo.speculation_split.size() > 1) {
+    if (outinfo.speculation_stack.size() > 1) {
         // speculate_pc is only used when exiting inner layers.
-        outinfo.speculate_pc = outinfo.speculation_split.top();
+        outinfo.speculate_pc = outinfo.speculation_stack.top();
     }
     VPRINT(this, 2, "stop_speculation layer=%zu (resume=0x%zx)\n",
-           outinfo.speculation_split.size(), outinfo.speculate_pc);
-    outinfo.speculation_split.pop();
+           outinfo.speculation_stack.size(), outinfo.speculate_pc);
+    outinfo.speculation_stack.pop();
     return sched_type_t::STATUS_OK;
 }
 
