@@ -914,7 +914,8 @@ arch_profile_exit()
 #endif /* WINDOWS_PC_SAMPLE */
 
 /* arch-specific atexit cleanup */
-void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
+void
+d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 {
     /* we only need to unprotect shared_code for profile extraction
      * so we do it there to also cover the fast exit path
@@ -1984,7 +1985,8 @@ fcache_return_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
     return (cache_pc)code->fcache_return;
 }
 
-cache_pc fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc
+fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(DYNAMO_OPTION(coarse_units));
@@ -1994,7 +1996,8 @@ cache_pc fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
         return (cache_pc)code->fcache_return_coarse;
 }
 
-cache_pc trace_head_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc
+trace_head_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(DYNAMO_OPTION(coarse_units));
@@ -2769,7 +2772,8 @@ fcache_enter_shared_routine(dcontext_t *dcontext)
         SHARED_GENCODE_MATCH_THREAD(dcontext)->fcache_enter);
 }
 
-cache_pc fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc
+fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(USE_SHARED_GENCODE());
@@ -2780,7 +2784,8 @@ cache_pc fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 }
 
 #ifdef TRACE_HEAD_CACHE_INCR
-cache_pc trace_head_incr_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc
+trace_head_incr_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(USE_SHARED_GENCODE());
@@ -3711,7 +3716,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                    "\n\t\tx26=\"" PFX "\"\n\t\tx27=\"" PFX "\""
                    "\n\t\tx28=\"" PFX "\"\n\t\tx29=\"" PFX "\""
                    "\n\t\tx30=\"" PFX "\"\n\t\tx31=\"" PFX "\""
-#endif /* X86/ARM/RISCV64 */
+#endif     /* X86/ARM/RISCV64 */
                  : "priv_mcontext_t @" PFX "\n"
 #ifdef X86
                    "\txax = " PFX "\n\txbx = " PFX "\n\txcx = " PFX "\n\txdx = " PFX "\n"
@@ -3740,7 +3745,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                    "\tx20 = " PFX "\n\tx21 = " PFX "\n\tx22 = " PFX "\n\tx23 = " PFX "\n"
                    "\tx24 = " PFX "\n\tx25 = " PFX "\n\tx26 = " PFX "\n\tx27 = " PFX "\n"
                    "\tx28 = " PFX "\n\tx29 = " PFX "\n\tx30 = " PFX "\n\tx31 = " PFX "\n"
-#endif /* X86/ARM/RISCV64 */
+#endif     /* X86/ARM/RISCV64 */
         ,
         context,
 #ifdef X86
@@ -3768,7 +3773,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
         context->x17, context->x18, context->x19, context->x20, context->x21,
         context->x22, context->x23, context->x24, context->x25, context->x26,
         context->x27, context->x28, context->x29, context->x30, context->x31
-#endif /* X86/ARM/RISCV64 */
+#endif     /* X86/ARM/RISCV64 */
     );
 
 #ifdef X86
@@ -3814,7 +3819,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #    ifdef AARCH64
         int words = proc_has_feature(FEATURE_SVE) ? 16 : 4;
 #    else
-        int words = 4
+        int words = 4;
 #    endif
         /* XXX: should be proc_num_simd_saved(). */
         for (i = 0; i < proc_num_simd_registers(); i++) {
@@ -3870,7 +3875,7 @@ get_time()
     return __rdtsc(); /* compiler intrinsic */
 }
 #    endif
-#endif /* PROFILE_RDTSC */
+#endif    /* PROFILE_RDTSC */
 
 #ifdef DEBUG
 bool
@@ -3968,8 +3973,8 @@ unit_test_atomic_ops(void)
     EXPECT(atomic_dec_becomes_zero(&count1), false); /* result is -2 */
     EXPECT(atomic_compare_exchange_int(&count1, -3, 1), false); /* no exchange */
     EXPECT(count1, -2);
-    EXPECT(atomic_compare_exchange_int(&count1, -2, 1), true); /* exchange */
-    EXPECT(atomic_dec_becomes_zero(&count1), true);            /* result is 0 */
+    EXPECT(atomic_compare_exchange_int(&count1, -2, 1), true);  /* exchange */
+    EXPECT(atomic_dec_becomes_zero(&count1), true);             /* result is 0 */
     do_parallel_updates();
     EXPECT(count1, MAX_NUM_THREADS);
     EXPECT(count2, MAX_NUM_THREADS);
