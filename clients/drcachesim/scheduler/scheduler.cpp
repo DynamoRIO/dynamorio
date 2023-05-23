@@ -1577,6 +1577,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // We again prefer to switch to another input even if the current
                 // input has the oldest timestamp, prioritizing context switches
                 // over timestamp ordering.
+                // NOCHECK not true for priority; want FIFO for same-priority: have
+                // to impl in comparator w/ counters or sthg and re-add ourselves
+                // to the ready queue here.  Xref me removing the add-to-ready
+                // by set_cur_input to invalid up front: have to reconcile.
                 need_new_input = true;
             }
         }
