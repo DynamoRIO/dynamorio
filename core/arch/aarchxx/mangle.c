@@ -422,10 +422,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     if (cci == NULL)
         cci = &default_clean_call_info;
-    ASSERT(proc_num_simd_registers() ==
-           (MCXT_NUM_SIMD_SLOTS +
-            (proc_has_feature(FEATURE_SVE) ? (MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
-                                           : 0)));
     if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
         /* FIXME i#1551: once we add skipping of regs, need to keep shape here.
          * Also, num_opmask_skip is not applicable to ARM/AArch64.
@@ -433,6 +429,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
     /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
 #ifdef AARCH64
+    ASSERT(proc_num_simd_registers() ==
+           (MCXT_NUM_SIMD_SLOTS +
+            (proc_has_feature(FEATURE_SVE) ? (MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
+                                           : 0)));
+
     /* X0 is used to hold the stack pointer. */
     cci->reg_skip[DR_REG_X0 - DR_REG_START_GPR] = false;
     /* X1 and X2 are used to save and restore the status and control registers. */
@@ -562,7 +563,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
                                                REG_OFFSET(DR_REG_X2), OPSZ_8)));
 #else
-
     /* vstmdb always does writeback */
     PRE(ilist, instr,
         INSTR_CREATE_vstmdb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP), SIMD_REG_LIST_LEN,
@@ -572,10 +572,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                             SIMD_REG_LIST_0_15));
 
     dstack_offs += proc_num_simd_registers() * sizeof(dr_simd_t);
-    ASSERT(proc_num_simd_registers() ==
-           (MCXT_NUM_SIMD_SLOTS + proc_has_feature(FEATURE_SVE)
-                ? (MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
-                : 0));
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
 
     /* pc and aflags */
     if (cci->skip_save_flags) {

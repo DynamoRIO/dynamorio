@@ -3811,7 +3811,11 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #elif defined(AARCHXX)
     {
         int i, j;
+#    ifdef AARCH64
         int words = proc_has_feature(FEATURE_SVE) ? 16 : 4;
+#    else
+        int words = 4
+#    endif
         /* XXX: should be proc_num_simd_saved(). */
         for (i = 0; i < proc_num_simd_registers(); i++) {
             print_file(f, dump_xml ? "\t\tqd= \"0x" : "\tq%-3d= 0x", i);
