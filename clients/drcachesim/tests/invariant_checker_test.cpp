@@ -91,7 +91,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 return false;
             }
         } else if (!checker.errors.empty()) {
-            for (int i = 0; i < checker.errors.size(); ++i) {
+            for (unsigned int i = 0; i < checker.errors.size(); ++i) {
                 std::cerr << "Unexpected error: " << checker.errors[i]
                           << " at ref: " << checker.error_refs[i] << "\n";
             }
