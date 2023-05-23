@@ -702,6 +702,10 @@ typedef union _dr_simd_t {
 #        define MCXT_NUM_SIMD_SLOTS                                  \
             16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
                 */
+/* 32bit ARM does not have these slots, but the they are defined for compatibility
+ */
+#        define MCXT_NUM_SVEP_SLOTS 0
+#        define MCXT_NUM_FFR_SLOTS 0
 #    endif
 #    define PRE_SIMD_PADDING                                       \
         0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots \
