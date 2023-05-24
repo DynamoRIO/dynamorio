@@ -353,7 +353,7 @@ print_histogram_mult_1p0_test()
 
     std::stringstream output_string;
     reuse_distance.print_histogram(output_string, count, sorted, distance_map_data);
-    if (knobs.verbose > 1) {
+    if (TEST_VERBOSE(2)) {
         std::cout << output_string.str() << "\n";
     }
 
@@ -397,7 +397,7 @@ print_histogram_mult_1p2_test()
 
     std::stringstream output_string;
     reuse_distance.print_histogram(output_string, count, sorted, distance_map_data);
-    if (knobs.verbose > 1) {
+    if (TEST_VERBOSE(2)) {
         std::cout << output_string.str() << "\n";
     }
 
@@ -445,17 +445,17 @@ data_histogram_test()
     int instruction_hits = 0;
     int data_hits = 0;
     // Simple function to decide if a given access should be TRACE_TYPE_INSTR.
-    auto UseInstrType = [&](int distance) {
+    auto use_instr_type = [&](int distance) {
         return (distance / TEST_DISTANCE_INCREMENT % 3) == 0;
     };
     for (int tgt_dist = TEST_DISTANCE_START; tgt_dist < TEST_DISTANCE_END;
          tgt_dist += TEST_DISTANCE_INCREMENT) {
         if (TEST_VERBOSE(1))
             std::cerr << "Testing reuse dist=" << tgt_dist << "\n";
-        auto memref_type = UseInstrType(tgt_dist) ? TRACE_TYPE_INSTR : TRACE_TYPE_READ;
+        auto memref_type = use_instr_type(tgt_dist) ? TRACE_TYPE_INSTR : TRACE_TYPE_READ;
         bool success =
             generate_target_distance_memrefs(tgt_dist, reuse_distance, agen, memref_type);
-        if (UseInstrType(tgt_dist)) {
+        if (use_instr_type(tgt_dist)) {
             ++instruction_hits;
         } else {
             ++data_hits;
@@ -470,6 +470,7 @@ data_histogram_test()
 
     auto *shard = reuse_distance.get_aggregated_results();
 
+    assert(data_hits > 0);
     assert(shard->data_refs > data_hits);
     assert(shard->dist_map_data.size() == data_hits);
     assert(shard->dist_map.size() == instruction_hits + data_hits);
@@ -482,7 +483,7 @@ data_histogram_test()
 
         // If it's not an instruction, dist_map_data should have also
         // recorded exactly 1 hit.
-        if (UseInstrType(tgt_dist)) {
+        if (use_instr_type(tgt_dist)) {
             assert(shard->dist_map_data.find(tgt_dist) == shard->dist_map.end());
         } else {
             assert(shard->dist_map_data.find(tgt_dist) != shard->dist_map.end());

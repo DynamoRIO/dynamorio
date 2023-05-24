@@ -435,7 +435,7 @@ reuse_distance_t::get_aggregated_results()
         }
         // Merge dist_map_data with aggregated dist_map_data, and also
         // merge it into the shard's dist_map if it needs merging.
-        bool shard_needs_merge = shard.second->dist_map_needs_merge;
+        bool shard_needs_merge = shard.second->dist_map_is_instr_only;
         for (const auto &entry : shard.second->dist_map_data) {
             aggregated_results_->dist_map_data[entry.first] += entry.second;
             if (shard_needs_merge) {
@@ -443,7 +443,7 @@ reuse_distance_t::get_aggregated_results()
             }
         }
         // If it didn't include data already, it does now.
-        shard.second->dist_map_needs_merge = false;
+        shard.second->dist_map_is_instr_only = false;
         // Merge the unified histogram data.
         for (const auto &entry : shard.second->dist_map) {
             aggregated_results_->dist_map[entry.first] += entry.second;
@@ -463,7 +463,7 @@ reuse_distance_t::get_aggregated_results()
             ref->distant_refs += entry.second->distant_refs;
         }
     }
-    aggregated_results_->dist_map_needs_merge = false;
+    aggregated_results_->dist_map_is_instr_only = false;
     return aggregated_results_.get();
 }
 

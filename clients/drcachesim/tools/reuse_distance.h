@@ -116,7 +116,7 @@ protected:
         // This means dist_map is effectively instruction-only until aggregation.
         distance_histogram_t dist_map;
         distance_histogram_t dist_map_data;
-        bool dist_map_needs_merge = true;
+        bool dist_map_is_instr_only = true;
         std::unique_ptr<line_ref_list_t> ref_list;
         int_least64_t total_refs = 0;
         int_least64_t data_refs = 0; // Non-instruction reference count.
