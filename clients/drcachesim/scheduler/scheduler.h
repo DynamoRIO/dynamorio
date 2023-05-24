@@ -47,6 +47,7 @@
 #include <mutex>
 #include <queue>
 #include <set>
+#include <stack>
 #include <unordered_map>
 #include <vector>
 #include "archive_istream.h"
@@ -532,25 +533,23 @@ public:
          * Because the instruction record after a branch typically needs to be read
          * before knowing whether a simulator is on the wrong path or not, this routine
          * supports putting back the current record so that it will be re-provided as
-         * the first record after stop_speculation(), if "queue_current_record" is true.
-         * The "queue_current_record" parameter is ignored if speculation is already in
-         * effect.
+         * the first record after (the outermost) stop_speculation(), if
+         * "queue_current_record" is true.
          *
-         * This call can be "nested" but only one stop_speculation call is needed to
-         * resume the paused stream.
+         * This call can be nested; each call needs to be paired with a corresponding
+         * stop_speculation() call.
          */
         virtual stream_status_t
         start_speculation(addr_t start_address, bool queue_current_record);
 
         /**
-         * Stops speculative execution and resumes the regular stream of records from
-         * the point at which the most distant prior start_speculation() call without an
-         * intervening stop_speculation() call was made (either repeating the current
-         * record at that time, if "true" was passed for "queue_current_record" to
-         * start_speculation(), or continuing on the subsequent record if "false" was
-         * passed).  Returns #dynamorio::drmemtrace::scheduler_tmpl_t::STATUS_INVALID if
-         * there was no prior start_speculation() call or if stop_speculation() was
-         * already called since the last start.
+         * Stops speculative execution, resuming execution at the
+         * stream of records from the point at which the prior matching
+         * start_speculation() call was made, either repeating the current record at that
+         * time (if "true" was passed for "queue_current_record" to start_speculation())
+         * or continuing on the subsequent record (if "false" was passed).  Returns
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::STATUS_INVALID if there was no
+         * prior start_speculation() call.
          */
         virtual stream_status_t
         stop_speculation();
@@ -905,9 +904,14 @@ protected:
         std::vector<input_ordinal_t> input_indices;
         int input_indices_index = 0;
         // Speculation support.
-        bool speculating = false;
+        std::stack<addr_t> speculation_stack; // Stores PC of resumption point.
         speculator_tmpl_t<RecordType> speculator;
         addr_t speculate_pc = 0;
+        // Stores the value of speculate_pc before asking the speculator for the current
+        // record.  So if that record was an instruction, speculate_pc holds the next PC
+        // while this field holds the instruction's start PC.  The use case is for
+        // queueing a read-ahead instruction record for start_speculation().
+        addr_t prev_speculate_pc = 0;
         RecordType last_record;
         // A list of schedule segments.  These are accessed only while holding
         // sched_lock_.

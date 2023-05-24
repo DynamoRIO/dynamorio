@@ -1070,17 +1070,50 @@ test_speculation()
             stream->stop_speculation();
             break;
         case 12:
+            // Back to the outer speculation layer's next PC.
+            assert(type_is_instr(memref.instr.type));
+            assert(memref_is_nop_instr(memref));
+#ifdef AARCH64
+            assert(memref.instr.addr == 204);
+#elif defined(X86_64) || defined(X86_32)
+            assert(memref.instr.addr == 201);
+#elif defined(ARM)
+            assert(memref.instr.addr == 202 || memref.instr.addr == 204);
+#endif
+            // Test a nested start_speculation(), saving the current record.
+            stream->start_speculation(400, true);
+            break;
+        case 13:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref_is_nop_instr(memref));
+            assert(memref.instr.addr == 400);
+            stream->stop_speculation();
+            break;
+        case 14:
+            // Back to the outer speculation layer's prior PC.
+            assert(type_is_instr(memref.instr.type));
+            assert(memref_is_nop_instr(memref));
+#ifdef AARCH64
+            assert(memref.instr.addr == 204);
+#elif defined(X86_64) || defined(X86_32)
+            assert(memref.instr.addr == 201);
+#elif defined(ARM)
+            assert(memref.instr.addr == 202 || memref.instr.addr == 204);
+#endif
+            stream->stop_speculation();
+            break;
+        case 15:
             // Back to the trace, but skipping what we already read.
             assert(type_is_instr(memref.instr.type));
             assert(memref.instr.addr == 5);
             break;
         default:
-            assert(ordinal == 13);
+            assert(ordinal == 16);
             assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
         }
         ++ordinal;
     }
-    assert(ordinal == 14);
+    assert(ordinal == 17);
 }
 
 static void
