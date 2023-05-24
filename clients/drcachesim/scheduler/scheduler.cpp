@@ -541,6 +541,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             }
         }
     }
+    return set_initial_schedule(workload2inputs);
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
+    std::unordered_map<int, std::vector<int>> &workload2inputs)
+{
     if (options_.mapping == MAP_AS_PREVIOUSLY) {
         if (options_.schedule_replay_istream == nullptr ||
             options_.schedule_record_ostream != nullptr)
@@ -554,14 +562,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
         // Assign the inputs up front to avoid locks once we're in parallel mode.
         // We use a simple round-robin static assignment for now.
         for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
-            size_t index = i % output_count;
+            size_t index = i % outputs_.size();
             if (outputs_[index].input_indices.empty())
                 set_cur_input(static_cast<input_ordinal_t>(index), i);
             outputs_[index].input_indices.push_back(i);
             VPRINT(this, 2, "Assigning input #%d to output #%zd\n", i, index);
         }
     } else if (options_.mapping == MAP_TO_RECORDED_OUTPUT) {
-        if (output_count > 1) {
+        if (outputs_.size() > 1) {
             if (options_.replay_as_traced_istream == nullptr)
                 return STATUS_ERROR_INVALID_PARAMETER;
             sched_type_t::scheduler_status_t status = read_traced_schedule();
@@ -605,7 +613,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             // Compute the min timestamp (==base_timestamp) per workload and sort
             // all inputs by relative time from the base.
             for (int workload_idx = 0;
-                 workload_idx < static_cast<int>(workload_inputs.size());
+                 workload_idx < static_cast<int>(workload2inputs.size());
                  ++workload_idx) {
                 uint64_t min_time = std::numeric_limits<uint64_t>::max();
                 input_ordinal_t min_input = -1;
@@ -1219,7 +1227,7 @@ bool
 scheduler_tmpl_t<RecordType, ReaderType>::ready_queue_empty()
 {
     if (options_.deps == DEPENDENCY_TIMESTAMPS)
-        return ready_.empty();
+        return ready_priority_.empty();
     return ready_fifo_.empty();
 }
 
@@ -1231,7 +1239,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input
         VPRINT(this, 4, "add_to_ready_queue: input %d timestamp delta %" PRIu64 "\n",
                input->index, input->reader->get_last_timestamp() - input->base_timestamp);
         input->queue_counter = ++ready_counter_;
-        ready_.push(input);
+        ready_priority_.push(input);
         return;
     }
     ready_fifo_.push(input);
@@ -1242,8 +1250,8 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::input_info_t *
 scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue()
 {
     if (options_.deps == DEPENDENCY_TIMESTAMPS) {
-        input_info_t *res = ready_.top();
-        ready_.pop();
+        input_info_t *res = ready_priority_.top();
+        ready_priority_.pop();
         VPRINT(this, 4, "pop_from_ready_queue: input %d timestamp delta %" PRIu64 "\n",
                res->index, res->reader->get_last_timestamp() - res->base_timestamp);
         return res;
@@ -1584,10 +1592,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // We again prefer to switch to another input even if the current
                 // input has the oldest timestamp, prioritizing context switches
                 // over timestamp ordering.
-                // NOCHECK not true for priority; want FIFO for same-priority: have
-                // to impl in comparator w/ counters or sthg and re-add ourselves
-                // to the ready queue here.  Xref me removing the add-to-ready
-                // by set_cur_input to invalid up front: have to reconcile.
                 need_new_input = true;
             }
         }

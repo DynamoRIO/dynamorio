@@ -340,7 +340,9 @@ public:
          * asked-for context switch rates is more important that honoring precise
          * trace-buffer-based timestamp inter-input dependencies: thus, timestamp
          * ordering will be followed at context switch points for picking the next
-         * input, but timestamps will not preempt an input.
+         * input, but timestamps will not preempt an input.  To precisely follow
+         * the recorded timestamps, use
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT.
          */
         DEPENDENCY_TIMESTAMPS,
         // TODO i#5843: Add inferred data dependencies.
@@ -920,7 +922,14 @@ protected:
         bool waiting = false;
     };
 
+    // Called just once at initialization time to set the initial input-to-output
+    // mappings and state.
+    scheduler_status_t
+    set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs);
+
     // Assumed to only be called at initialization time.
+    // Reads ahead in each input to find its first timestamp (queuing the records
+    // read to feed to the user's first requests).
     scheduler_status_t
     get_initial_timestamps();
 
@@ -1093,7 +1102,7 @@ protected:
     std::vector<output_info_t> outputs_;
     // We use a central lock for global scheduling.  We assume the synchronization
     // cost is outweighed by the simulator's overhead.  This protects concurrent
-    // access to inputs_.size(), outputs_.size(), ready_fifo_, ready_, and
+    // access to inputs_.size(), outputs_.size(), ready_fifo_, ready_priority_, and
     // ready_counter_.
     std::mutex sched_lock_;
     // Inputs ready to be scheduled when we have DEPENDENCY_IGNORE.
@@ -1104,7 +1113,7 @@ protected:
     // same queue.
     std::priority_queue<input_info_t *, std::vector<input_info_t *>,
                         InputTimestampComparator>
-        ready_;
+        ready_priority_;
     // Global ready queue counter used to provide FIFO for same-priority inputs.
     uint64_t ready_counter_ = 0;
 };
