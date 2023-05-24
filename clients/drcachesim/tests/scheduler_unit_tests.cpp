@@ -55,7 +55,7 @@ public:
     explicit mock_reader_t(const std::vector<trace_entry_t> &trace)
         : trace_(trace)
     {
-        verbosity_ = 4;
+        verbosity_ = 3;
     }
     bool
     init() override
@@ -811,7 +811,7 @@ test_synthetic()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_IGNORE,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/3);
     sched_ops.quantum_duration = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
@@ -886,7 +886,7 @@ test_synthetic_with_timestamps()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/3);
     sched_ops.quantum_duration = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
@@ -969,7 +969,7 @@ test_synthetic_with_priorities()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/3);
     sched_ops.quantum_duration = 3;
     scheduler_t scheduler;
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
@@ -985,6 +985,74 @@ test_synthetic_with_priorities()
     // first.  J remains uninterrupted due to lower timestamps.
     assert(sched_as_string[0] == "BBBHHHEEEBBBHHHFFFJJJJJJJJJCCCIIIDDDAAAGGGDDD");
     assert(sched_as_string[1] == "EEEBBBHHHEEECCCIIICCCFFFIIIFFFAAAGGGDDDAAAGGG");
+}
+
+static void
+test_synthetic_with_bindings()
+{
+    std::cerr << "\n----------------\nTesting synthetic with bindings\n";
+    static constexpr int NUM_WORKLOADS = 3;
+    static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
+    static constexpr int NUM_OUTPUTS = 5;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    auto get_tid = [&](int workload_idx, int input_idx) {
+        return TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
+    };
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
+            memref_tid_t tid = get_tid(workload_idx, input_idx);
+            std::vector<trace_entry_t> inputs;
+            inputs.push_back(make_thread(tid));
+            inputs.push_back(make_pid(1));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                // Include timestamps but keep each workload with the same time to
+                // avoid complicating the test.
+                if (instr_idx % 2 == 0) {
+                    inputs.push_back(make_timestamp(10 * (instr_idx + 1)));
+                }
+                inputs.push_back(make_instr(42 + instr_idx * 4));
+            }
+            inputs.push_back(make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+        // We do a static partitionining of the cores for our workloads with one
+        // of them overlapping the others.
+        std::set<scheduler_t::output_ordinal_t> cores;
+        switch (workload_idx) {
+        case 0: cores.insert({ 2, 4 }); break;
+        case 1: cores.insert({ 0, 1 }); break;
+        case 2: cores.insert({ 1, 2, 3 }); break;
+        default: assert(false);
+        }
+        sched_inputs.back().thread_modifiers.emplace_back(cores);
+    }
+
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    sched_ops.quantum_duration = 3;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // We have {A,B,C} on {2,4}, {D,E,F} on {0,1}, and {G,H,I} on {1,2,3}:
+    assert(sched_as_string[0] == "DDDFFFDDDFFFDDDFFF");
+    assert(sched_as_string[1] == "EEEHHHEEEIIIEEE");
+    assert(sched_as_string[2] == "AAACCCGGGCCCHHHCCC");
+    assert(sched_as_string[3] == "GGGIIIHHHGGGIII");
+    assert(sched_as_string[4] == "BBBAAABBBAAABBB");
 }
 
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
@@ -1238,7 +1306,7 @@ test_replay()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_IGNORE,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/3);
+                                                   /*verbosity=*/2);
         sched_ops.quantum_duration = QUANTUM_INSTRS;
 
         zipfile_ostream_t outfile(record_fname);
@@ -1272,7 +1340,7 @@ test_replay()
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/4);
+                                                   /*verbosity=*/2);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
 
@@ -1332,7 +1400,7 @@ test_replay_multi_threaded(const char *testdir)
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/1);
         zipfile_ostream_t outfile(record_fname);
         sched_ops.schedule_record_ostream = &outfile;
         static constexpr int QUANTUM_DURATION = 2000;
@@ -1360,7 +1428,7 @@ test_replay_multi_threaded(const char *testdir)
         scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
                                                    scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                    scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
+                                                   /*verbosity=*/1);
         zipfile_istream_t infile(record_fname);
         sched_ops.schedule_replay_istream = &infile;
         if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
@@ -1728,7 +1796,7 @@ test_replay_as_traced()
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
-                                               /*verbosity=*/4);
+                                               /*verbosity=*/3);
     zipfile_istream_t infile(cpu_fname);
     sched_ops.replay_as_traced_istream = &infile;
     scheduler_t scheduler;
@@ -1817,6 +1885,7 @@ main(int argc, const char *argv[])
     test_synthetic();
     test_synthetic_with_timestamps();
     test_synthetic_with_priorities();
+    test_synthetic_with_bindings();
     test_synthetic_multi_threaded(argv[1]);
     test_speculation();
     test_replay();

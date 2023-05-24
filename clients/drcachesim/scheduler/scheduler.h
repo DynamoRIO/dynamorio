@@ -160,6 +160,14 @@ public:
             , priority(priority)
         {
         }
+        /**
+         * Convenience constructor for placing all threads for one workload on a set of
+         * cores for a static partitioning.
+         */
+        input_thread_info_t(std::set<output_ordinal_t> output_binding)
+            : output_binding(output_binding)
+        {
+        }
         /** Size of the struct for binary-compatible additions. */
         size_t struct_size = sizeof(input_thread_info_t);
         /**
@@ -1103,7 +1111,7 @@ protected:
 
     // sched_lock_ must be held by the caller.
     input_info_t *
-    pop_from_ready_queue();
+    pop_from_ready_queue(output_ordinal_t output);
     ///
     ///////////////////////////////////////////////////////////////////////////
 
