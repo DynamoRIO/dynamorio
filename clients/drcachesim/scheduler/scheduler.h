@@ -258,9 +258,6 @@ public:
          */
         std::vector<input_reader_t> readers;
 
-        // TODO i#5843: This is currently ignored for MAP_TO_RECORDED_OUTPUT +
-        // DEPENDENCY_TIMESTAMPS b/c file_reader_t opens the individual files!
-        // TODO i#5843: Add a test of this field.
         /**
          * If empty, every trace file in 'path' or every reader in 'readers' becomes
          * an enabled input.  If non-empty, only those inputs whose thread ids are
@@ -310,9 +307,14 @@ public:
          */
         MAP_TO_RECORDED_OUTPUT,
         /**
-         * The input streams are scheduling using a new synthetic schedule onto the
+         * The input streams are scheduled using a new dynamic sequence onto the
          * output streams.  Any input markers indicating how the software threads were
-         * originally mapped to cores during tracing are ignored.
+         * originally mapped to cores during tracing are ignored.  Instead, inputs
+         * run until either a quantum expires (see
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::quantum_unit)
+         * or a (potentially) blocking system call is identified.  At this point,
+         * a new input is selected, taking into consideration other options such
+         * as priorities, core bindings, and inter-input dependencies.
          */
         MAP_TO_ANY_OUTPUT,
         /**
@@ -331,7 +333,17 @@ public:
     enum inter_input_dependency_t {
         /** Ignores all inter-input dependencies. */
         DEPENDENCY_IGNORE,
-        /** Ensures timestamps in the inputs arrive at the outputs in timestamp order. */
+        /**
+         * Ensures timestamps in the inputs arrive at the outputs in timestamp order.
+         * For
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_ANY_OUTPUT, enforcing
+         * asked-for context switch rates is more important that honoring precise
+         * trace-buffer-based timestamp inter-input dependencies: thus, timestamp
+         * ordering will be followed at context switch points for picking the next
+         * input, but timestamps will not preempt an input.  To precisely follow
+         * the recorded timestamps, use
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT.
+         */
         DEPENDENCY_TIMESTAMPS,
         // TODO i#5843: Add inferred data dependencies.
     };
@@ -819,6 +831,10 @@ protected:
         uintptr_t next_timestamp = 0;
         uint64_t instrs_in_quantum = 0;
         bool recorded_in_schedule = false;
+        // This is a per-workload value, stored in each input for convenience.
+        uint64_t base_timestamp = 0;
+        // Global ready queue counter used to provide FIFO for same-priority inputs.
+        uint64_t queue_counter = 0;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -905,6 +921,15 @@ protected:
         int record_index = 0;
         bool waiting = false;
     };
+
+    // Called just once at initialization time to set the initial input-to-output
+    // mappings and state.
+    scheduler_status_t
+    set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs);
+
+    // Assumed to only be called at initialization time.
+    // Reads ahead in each input to find its first timestamp (queuing the records
+    // read to feed to the user's first requests).
     scheduler_status_t
     get_initial_timestamps();
 
@@ -1031,6 +1056,40 @@ protected:
     stream_status_t
     stop_speculation(output_ordinal_t output);
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Support for ready queues for who to schedule next:
+
+    // I tried using a lambda where we could capture "this" and so use int indices
+    // in the queues instead of pointers but hit problems (weird crash while running)
+    // so I'm sticking with this solution of a separate struct.
+    struct InputTimestampComparator {
+        bool
+        operator()(input_info_t *a, input_info_t *b) const
+        {
+            if ((a->reader->get_last_timestamp() - a->base_timestamp) ==
+                (b->reader->get_last_timestamp() - b->base_timestamp)) {
+                // We use a counter to provide FIFO order for same-priority inputs.
+                return a->queue_counter > b->queue_counter;
+            }
+            return (a->reader->get_last_timestamp() - a->base_timestamp) >
+                (b->reader->get_last_timestamp() - b->base_timestamp);
+        }
+    };
+
+    // sched_lock_ must be held by the caller.
+    bool
+    ready_queue_empty();
+
+    // sched_lock_ must be held by the caller.
+    void
+    add_to_ready_queue(input_info_t *input);
+
+    // sched_lock_ must be held by the caller.
+    input_info_t *
+    pop_from_ready_queue();
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
     // This has the same value as scheduler_options_t.verbosity (for use in VPRINT).
     int verbosity_ = 0;
     const char *output_prefix_ = "[scheduler]";
@@ -1043,10 +1102,20 @@ protected:
     std::vector<output_info_t> outputs_;
     // We use a central lock for global scheduling.  We assume the synchronization
     // cost is outweighed by the simulator's overhead.  This protects concurrent
-    // access to inputs_.size(), outputs_.size(), and the ready_ field.
+    // access to inputs_.size(), outputs_.size(), ready_fifo_, ready_priority_, and
+    // ready_counter_.
     std::mutex sched_lock_;
-    // Input indices ready to be scheduled.
-    std::queue<input_ordinal_t> ready_;
+    // Inputs ready to be scheduled when we have DEPENDENCY_IGNORE.
+    std::queue<input_info_t *> ready_fifo_;
+    // Inputs ready to be scheduled, sorted by timestamp if timestamp
+    // dependencies are requested.  We use the timestamp delta from the first observed
+    // timestamp in each workload in order to mix inputs from different workloads in the
+    // same queue.
+    std::priority_queue<input_info_t *, std::vector<input_info_t *>,
+                        InputTimestampComparator>
+        ready_priority_;
+    // Global ready queue counter used to provide FIFO for same-priority inputs.
+    uint64_t ready_counter_ = 0;
 };
 
 /** See #dynamorio::drmemtrace::scheduler_tmpl_t. */
