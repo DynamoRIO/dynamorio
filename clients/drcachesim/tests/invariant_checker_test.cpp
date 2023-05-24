@@ -593,9 +593,9 @@ check_function_markers()
 bool
 check_duplicate_syscall_with_same_pc()
 {
-    constexpr addr_t ADDR = 0x7fcf3b9d;
     // Negative: syscalls with the same PC.
 #if defined(X86_64) || defined(X86_32) || defined(ARM_64)
+    constexpr addr_t ADDR = 0x7fcf3b9d;
     {
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
