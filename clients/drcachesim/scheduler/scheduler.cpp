@@ -490,10 +490,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                     return STATUS_ERROR_NOT_IMPLEMENTED;
                 }
                 input.priority = modifiers.priority;
-                if (input.priority != 0) {
-                    // TODO i#5843: Implement priorities.
-                    return STATUS_ERROR_NOT_IMPLEMENTED;
-                }
                 for (size_t i = 0; i < modifiers.regions_of_interest.size(); ++i) {
                     const auto &range = modifiers.regions_of_interest[i];
                     if (range.start_instruction == 0 ||
@@ -1432,7 +1428,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     // shouldn't switch.  The queue preserves FIFO for same-priority
                     // cases so we will switch if someone of equal priority is waiting.
                     set_cur_input(output, INVALID_INPUT_ORDINAL);
-                    // TODO i#5843: Add core binding and priority support.
+                    // TODO i#5843: Add core binding support.
                     input_info_t *queue_next = pop_from_ready_queue();
                     index = queue_next->index;
                 }

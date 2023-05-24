@@ -154,6 +154,12 @@ public:
             : regions_of_interest(regions)
         {
         }
+        /** Convenience constructor for common usage. */
+        input_thread_info_t(memref_tid_t tid, int priority)
+            : tids(1, tid)
+            , priority(priority)
+        {
+        }
         /** Size of the struct for binary-compatible additions. */
         size_t struct_size = sizeof(input_thread_info_t);
         /**
@@ -169,10 +175,11 @@ public:
          */
         std::set<output_ordinal_t> output_binding;
         /**
-         * Relative priority for scheduling.  The default is 0.
+         * Relative priority for scheduling.  The default is 0.  Higher values have
+         * higher priorities and will starve lower-priority inputs.
+         * Higher priorities out-weigh dependencies such as
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS.
          */
-        // TODO i#5843: Decide and document whether these priorities are strict
-        // and higher will starve lower or whether they are looser.
         int priority = 0;
         /**
          * If non-empty, all input records outside of these ranges are skipped: it is as
@@ -1066,11 +1073,14 @@ protected:
         bool
         operator()(input_info_t *a, input_info_t *b) const
         {
+            if (a->priority != b->priority)
+                return a->priority < b->priority; // Higher is better.
             if ((a->reader->get_last_timestamp() - a->base_timestamp) ==
                 (b->reader->get_last_timestamp() - b->base_timestamp)) {
                 // We use a counter to provide FIFO order for same-priority inputs.
-                return a->queue_counter > b->queue_counter;
+                return a->queue_counter > b->queue_counter; // Lower is better.
             }
+            // Lower is better.
             return (a->reader->get_last_timestamp() - a->base_timestamp) >
                 (b->reader->get_last_timestamp() - b->base_timestamp);
         }

@@ -906,6 +906,86 @@ test_synthetic_with_timestamps()
     assert(sched_as_string[1] == "FFFJJJJJJJJJCCCIIIEEEBBBHHHEEEAAAGGGDDDAAAGGG");
 }
 
+static void
+test_synthetic_with_priorities()
+{
+    std::cerr << "\n----------------\nTesting synthetic with priorities\n";
+    static constexpr int NUM_WORKLOADS = 3;
+    static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    auto get_tid = [&](int workload_idx, int input_idx) {
+        return TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
+    };
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
+            memref_tid_t tid = get_tid(workload_idx, input_idx);
+            std::vector<trace_entry_t> inputs;
+            inputs.push_back(make_thread(tid));
+            inputs.push_back(make_pid(1));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                // Sprinkle timestamps every other instruction.
+                if (instr_idx % 2 == 0) {
+                    // We have different base timestamps per workload, and we have the
+                    // later-ordered inputs in each with the earlier timestamps to
+                    // better test scheduler ordering.
+                    inputs.push_back(make_timestamp(
+                        1000 * workload_idx +
+                        100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
+                }
+                inputs.push_back(make_instr(42 + instr_idx * 4));
+            }
+            inputs.push_back(make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+        // Set some different priorities for the middle threads.
+        sched_inputs.back().thread_modifiers.emplace_back(get_tid(workload_idx, 1), 1);
+    }
+    // We have one input with lower timestamps than everyone, to test that it never gets
+    // switched out once we get to it among the default-priority inputs.
+    memref_tid_t tid = TID_BASE + NUM_WORKLOADS * NUM_INPUTS_PER_WORKLOAD;
+    std::vector<trace_entry_t> inputs;
+    inputs.push_back(make_thread(tid));
+    inputs.push_back(make_pid(1));
+    for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+        if (instr_idx % 2 == 0)
+            inputs.push_back(make_timestamp(1 + instr_idx));
+        inputs.push_back(make_instr(42 + instr_idx * 4));
+    }
+    inputs.push_back(make_exit(tid));
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+    sched_inputs.emplace_back(std::move(readers));
+
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/4);
+    sched_ops.quantum_duration = 3;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // See the test_synthetic_with_timestamps() test which has our base sequence
+    // here where we would start with {C,F,I,J} and then move on to {B,E,H} and finish
+    // with {A,D,G} -- but we've elevated B, E, and H to higher priorities so they go
+    // first.  J remains uninterrupted due to lower timestamps.
+    assert(sched_as_string[0] == "BBBHHHEEEBBBHHHFFFJJJJJJJJJCCCIIIDDDAAAGGGDDD");
+    assert(sched_as_string[1] == "EEEBBBHHHEEECCCIIICCCFFFIIIFFFAAAGGGDDDAAAGGG");
+}
+
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
 static void
 simulate_core(scheduler_t::stream_t *stream)
@@ -1735,6 +1815,7 @@ main(int argc, const char *argv[])
     test_real_file_queries_and_filters(argv[1]);
     test_synthetic();
     test_synthetic_with_timestamps();
+    test_synthetic_with_priorities();
     test_synthetic_multi_threaded(argv[1]);
     test_speculation();
     test_replay();
