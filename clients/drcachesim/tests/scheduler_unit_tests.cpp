@@ -842,18 +842,18 @@ test_synthetic_with_timestamps()
     for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
         std::vector<scheduler_t::input_reader_t> readers;
         for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
-            // We also test duplicate tids across workloads.
             memref_tid_t tid =
                 TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
             std::vector<trace_entry_t> inputs;
             inputs.push_back(make_thread(tid));
             inputs.push_back(make_pid(1));
             for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                // Sprinkle timestamps every other instruction.
                 if (instr_idx % 2 == 0) {
+                    // We have different base timestamps per workload, and we have the
+                    // later-ordered inputs in each with the earlier timestamps to
+                    // better test scheduler ordering.
                     inputs.push_back(make_timestamp(
-                        // We have different base timestamps per workload, and we have the
-                        // later-ordered inputs in each with the earlier timestamps to
-                        // better test scheduler ordering.
                         1000 * workload_idx +
                         100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
                 }
@@ -866,6 +866,23 @@ test_synthetic_with_timestamps()
         }
         sched_inputs.emplace_back(std::move(readers));
     }
+    // We have one input with lower timestamps than everyone, to
+    // test that it never gets switched out.
+    memref_tid_t tid = TID_BASE + NUM_WORKLOADS * NUM_INPUTS_PER_WORKLOAD;
+    std::vector<trace_entry_t> inputs;
+    inputs.push_back(make_thread(tid));
+    inputs.push_back(make_pid(1));
+    for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+        if (instr_idx % 2 == 0)
+            inputs.push_back(make_timestamp(1 + instr_idx));
+        inputs.push_back(make_instr(42 + instr_idx * 4));
+    }
+    inputs.push_back(make_exit(tid));
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+    sched_inputs.emplace_back(std::move(readers));
+
     scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
                                                scheduler_t::DEPENDENCY_TIMESTAMPS,
                                                scheduler_t::SCHEDULER_DEFAULTS,
@@ -880,11 +897,13 @@ test_synthetic_with_timestamps()
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
-    // Hardcoding here for the 3x3 inputs where the inverted timestamps mean
-    // the priorities are {C,B,A},{F,E,D},{I,H,G}.  Thus we expect to first alternate
-    // among {C,F,I} and finish them off before moving to {B,E,H} and {A,D,G}:
-    assert(sched_as_string[0] == "CCCIIIFFFCCCIIIHHHBBBEEEHHHDDDGGGAAADDDGGG");
-    assert(sched_as_string[1] == "FFFCCCIIIFFFBBBEEEHHHBBBEEEAAADDDGGGAAA");
+    // Hardcoding here for the 3x3+1 inputs where the inverted timestamps mean the
+    // priorities are {C,B,A},{F,E,D},{I,H,G},{J} within the workloads.  Across
+    // workloads we should start with {C,F,I,J} and then move on to {B,E,H} and finish
+    // with {A,D,G}.  We should interleave within each group -- except once we reach J
+    // we should completely finish it.
+    assert(sched_as_string[0] == "CCCIIICCCFFFIIIFFFBBBHHHEEEBBBHHHDDDAAAGGGDDD");
+    assert(sched_as_string[1] == "FFFJJJJJJJJJCCCIIIEEEBBBHHHEEEAAAGGGDDDAAAGGG");
 }
 
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)

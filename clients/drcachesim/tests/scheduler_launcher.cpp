@@ -111,17 +111,23 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
             if (op_verbose.get_value() > 0) {
                 std::ostringstream line;
                 line
-                    << "Core #" << ordinal << " @" << stream->get_record_ordinal()
-                    << " refs, " << stream->get_instruction_ordinal() << " instrs: input "
-                    << stream->get_input_stream_ordinal() << " @"
+                    << "Core #" << std::setw(2) << ordinal << " @" << std::setw(9)
+                    << stream->get_record_ordinal() << " refs, " << std::setw(9)
+                    << stream->get_instruction_ordinal() << " instrs: input "
+                    << std::setw(4) << stream->get_input_stream_ordinal() << " @"
+                    << std::setw(9)
                     << scheduler
                            .get_input_stream_interface(stream->get_input_stream_ordinal())
                            ->get_record_ordinal()
-                    << " refs, "
+                    << " refs, " << std::setw(9)
                     << scheduler
                            .get_input_stream_interface(stream->get_input_stream_ordinal())
                            ->get_instruction_ordinal()
-                    << " instrs == thread " << record.instr.tid << "\n";
+                    << " instrs, time " << std::setw(16)
+                    << scheduler
+                           .get_input_stream_interface(stream->get_input_stream_ordinal())
+                           ->get_last_timestamp()
+                    << " == thread " << record.instr.tid << "\n";
                 std::cerr << line.str();
             }
         }

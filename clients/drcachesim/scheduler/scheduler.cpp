@@ -620,7 +620,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                 for (int input_idx : workload2inputs[workload_idx]) {
                     VPRINT(this, 4,
                            "workload %d: setting input %d base_timestamp to %" PRIu64
-                           " vs next_timestamp %" PRIu64 "\n",
+                           " vs next_timestamp %zu\n",
                            workload_idx, input_idx, min_time,
                            inputs_[input_idx].next_timestamp);
                     inputs_[input_idx].base_timestamp = min_time;
@@ -1230,6 +1230,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input
     if (options_.deps == DEPENDENCY_TIMESTAMPS) {
         VPRINT(this, 4, "add_to_ready_queue: input %d timestamp delta %" PRIu64 "\n",
                input->index, input->reader->get_last_timestamp() - input->base_timestamp);
+        input->queue_counter = ++ready_counter_;
         ready_.push(input);
         return;
     }
@@ -1418,6 +1419,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     else
                         index = prev_index; // Go back to prior.
                 } else {
+                    // Give up the input before we go to the queue so we can add
+                    // ourselves to the queue.  If we're the highest priority we
+                    // shouldn't switch.  The queue preserves FIFO for same-priority
+                    // cases so we will switch if someone of equal priority is waiting.
+                    set_cur_input(output, INVALID_INPUT_ORDINAL);
                     // TODO i#5843: Add core binding and priority support.
                     input_info_t *queue_next = pop_from_ready_queue();
                     index = queue_next->index;
@@ -1469,7 +1475,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
             VPRINT(this, 2, "next_record[%d]: local index %d == input #%d at eof\n",
                    output, outputs_[output].input_indices_index, index);
             if (options_.schedule_record_ostream != nullptr)
-                close_schedule_segment(output, inputs_[outputs_[output].cur_input]);
+                close_schedule_segment(output, inputs_[prev_index]);
             inputs_[index].at_eof = true;
             index = INVALID_INPUT_ORDINAL;
             // Loop and pick next thread.
