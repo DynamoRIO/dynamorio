@@ -40,6 +40,22 @@ START_FILE
 # error Non-Linux is not supported
 #endif
 
+/* sizeof(priv_mcontext_t) rounded up to a multiple of 16 */
+/* The reserved space for SIMD is also included. */
+#define PRIV_MCONTEXT_SIZE 0x290
+
+/* offset of priv_mcontext_t in dr_mcontext_t */
+#define PRIV_MCONTEXT_OFFSET 16
+
+#if PRIV_MCONTEXT_OFFSET < 16 || PRIV_MCONTEXT_OFFSET % 16 != 0
+# error PRIV_MCONTEXT_OFFSET
+#endif
+
+/* offsetof(dcontext_t, dstack) */
+#define dstack_OFFSET     0x458
+/* offsetof(dcontext_t, is_exiting) */
+#define is_exiting_OFFSET (dstack_OFFSET+1*ARG_SZ)
+
 #ifndef RISCV64
 # error RISCV64 must be defined
 #endif
@@ -61,31 +77,29 @@ GLOBAL_LABEL(cpuid_supported:)
 GLOBAL_LABEL(call_switch_stack:)
         /* Init the stack. */
         addi     sp, sp, -32
-        /* Use two callee-save regs to call func. */
-        sd       ra, 24 (sp)
-        sd       s0, 16 (sp)
-        sd       s1, 8 (sp)
-        sd       s2, 0 (sp)
+        sd       ra, 16(sp)
+        /* Use two callee-saved regs to call func. */
+        sd       s0, 8 (sp)
+        sd       s1, 0 (sp)
         /* Check mutex_to_free. */
         beqz     ARG4, call_dispatch_alt_stack_no_free
         /* Release the mutex. */
-        sd       x0, 0 (ARG4)
+        sd       x0, 0(ARG4)
 call_dispatch_alt_stack_no_free:
-        /* Copy AGG5 (return_on_return) to callee-save reg. */
-        mv       s2, ARG5
+        /* Copy ARG5 (return_on_return) to callee-saved reg. */
+        mv       s1, ARG5
         /* Switch the stack. */
-        addi     s0, sp, 0
-        addi     sp, ARG2, 0
+        mv       s0, sp
+        mv       sp, ARG2
         /* Call func. */
-        jr       ARG3
+        jalr     ARG3
         /* Switch stack back. */
-        addi     sp, s0, 0
-        beqz     s2, GLOBAL_LABEL(unexpected_return)
+        mv       sp, s0
+        beqz     s1, GLOBAL_LABEL(unexpected_return)
         /* Restore the stack. */
-        ld       s2, 0 (sp)
-        ld       s1, 8 (sp)
-        ld       s0, 16 (sp)
-        ld       ra, 24 (sp)
+        ld       s1, 0 (sp)
+        ld       s0, 8 (sp)
+        ld       ra, 16(sp)
         addi     sp, sp, 32
         ret
         END_FUNC(call_switch_stack)
@@ -110,7 +124,28 @@ call_dispatch_alt_stack_no_free:
  */
         DECLARE_EXPORTED_FUNC(dr_call_on_clean_stack)
 GLOBAL_LABEL(dr_call_on_clean_stack:)
-/* FIXME i#3544: Not implemented */
+        addi     sp, sp, -16
+        sd       ra, 8(sp)   /* Save link register. */
+        sd       s0, 0(sp)
+        mv       s0, sp      /* Save sp across the call. */
+        /* Swap stacks. */
+        ld       sp, dstack_OFFSET(ARG1)
+        /* Set up args. */
+        mv       ra,   ARG2 /* void *(*func)(arg1...arg8) */
+        mv       ARG1, ARG3          /* void *arg1 */
+        mv       ARG2, ARG4          /* void *arg2 */
+        mv       ARG3, ARG5          /* void *arg3 */
+        mv       ARG4, ARG6          /* void *arg4 */
+        mv       ARG5, ARG7          /* void *arg5 */
+        mv       ARG6, ARG8          /* void *arg6 */
+        ld       ARG7, 2*ARG_SZ(s0)  /* void *arg7, retrived from the stack */
+        ld       ARG8, 3*ARG_SZ(s0)  /* void *arg8, retrived from the stack */
+        jalr     ra
+        /* Swap stacks. */
+        mv       sp, s0
+        ld       s0, 0 (sp)
+        ld       ra, 8 (sp)
+        addi     sp, sp, 16
         ret
         END_FUNC(dr_call_on_clean_stack)
 
@@ -118,21 +153,114 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
 
 #ifdef DR_APP_EXPORTS
 
+/* Save priv_mcontext_t, except for x0(zero), x1(ra), x2(sp), x3(scratch),
+ * x10(arg1) and pc, to the address in ARG1.
+ * Typically the caller will save those five registers itself before calling this.
+ */
+save_priv_mcontext_helper:
+        sd       x4,   4*ARG_SZ(ARG1)
+        sd       x5,   5*ARG_SZ(ARG1)
+        sd       x6,   6*ARG_SZ(ARG1)
+        sd       x7,   7*ARG_SZ(ARG1)
+        sd       x8,   8*ARG_SZ(ARG1)
+        sd       x9,   9*ARG_SZ(ARG1)
+        /* a0 (10*ARG_SZ) is already saved. */
+        sd       x11, 11*ARG_SZ(ARG1)
+        sd       x12, 12*ARG_SZ(ARG1)
+        sd       x13, 13*ARG_SZ(ARG1)
+        sd       x14, 14*ARG_SZ(ARG1)
+        sd       x15, 15*ARG_SZ(ARG1)
+        sd       x16, 16*ARG_SZ(ARG1)
+        sd       x17, 17*ARG_SZ(ARG1)
+        sd       x18, 18*ARG_SZ(ARG1)
+        sd       x19, 19*ARG_SZ(ARG1)
+        sd       x20, 20*ARG_SZ(ARG1)
+        sd       x21, 21*ARG_SZ(ARG1)
+        sd       x22, 22*ARG_SZ(ARG1)
+        sd       x23, 23*ARG_SZ(ARG1)
+        sd       x24, 24*ARG_SZ(ARG1)
+        sd       x25, 25*ARG_SZ(ARG1)
+        sd       x26, 26*ARG_SZ(ARG1)
+        sd       x27, 27*ARG_SZ(ARG1)
+        sd       x28, 28*ARG_SZ(ARG1)
+        sd       x29, 29*ARG_SZ(ARG1)
+        sd       x30, 30*ARG_SZ(ARG1)
+        sd       x31, 31*ARG_SZ(ARG1)
+        /* pc (32*ARG_SZ) is already saved. */
+        fsd      f0,  33*ARG_SZ(ARG1)
+        fsd      f1,  34*ARG_SZ(ARG1)
+        fsd      f2,  35*ARG_SZ(ARG1)
+        fsd      f3,  36*ARG_SZ(ARG1)
+        fsd      f4,  37*ARG_SZ(ARG1)
+        fsd      f5,  38*ARG_SZ(ARG1)
+        fsd      f6,  39*ARG_SZ(ARG1)
+        fsd      f7,  40*ARG_SZ(ARG1)
+        fsd      f8,  41*ARG_SZ(ARG1)
+        fsd      f9,  42*ARG_SZ(ARG1)
+        fsd      f10, 43*ARG_SZ(ARG1)
+        fsd      f11, 44*ARG_SZ(ARG1)
+        fsd      f12, 45*ARG_SZ(ARG1)
+        fsd      f13, 46*ARG_SZ(ARG1)
+        fsd      f14, 47*ARG_SZ(ARG1)
+        fsd      f15, 48*ARG_SZ(ARG1)
+        fsd      f16, 49*ARG_SZ(ARG1)
+        fsd      f17, 50*ARG_SZ(ARG1)
+        fsd      f18, 51*ARG_SZ(ARG1)
+        fsd      f19, 52*ARG_SZ(ARG1)
+        fsd      f20, 53*ARG_SZ(ARG1)
+        fsd      f21, 54*ARG_SZ(ARG1)
+        fsd      f22, 55*ARG_SZ(ARG1)
+        fsd      f23, 56*ARG_SZ(ARG1)
+        fsd      f24, 57*ARG_SZ(ARG1)
+        fsd      f25, 58*ARG_SZ(ARG1)
+        fsd      f26, 59*ARG_SZ(ARG1)
+        fsd      f27, 60*ARG_SZ(ARG1)
+        fsd      f28, 61*ARG_SZ(ARG1)
+        fsd      f29, 62*ARG_SZ(ARG1)
+        fsd      f30, 63*ARG_SZ(ARG1)
+        fsd      f31, 64*ARG_SZ(ARG1)
+        frcsr    x3
+        sd       x3,  65*ARG_SZ(ARG1)
+        /* No need to save simd registers, at least for now. */
+        ret
+
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
-/* FIXME i#3544: Not implemented */
+        /* Save link register for the case that DR is not taking over. */
+        addi     sp, sp, -16
+        sd       ra, 0(sp)
+
+        /* Preverse stack space. */
+        addi     sp, sp, -PRIV_MCONTEXT_SIZE
+        /* Push x3 on to stack to use it as a scratch. */
+        sd       x3, 3*ARG_SZ(sp)
+        /* Compute original sp. */
+        addi     x3, sp, PRIV_MCONTEXT_SIZE+16
+        /* Save original sp on to stack. */
+        sd       x3, 2*ARG_SZ(sp)
+        /* Save link register on to stack. */
+        sd       ra, 1*ARG_SZ(sp)
+        /* Save ra as pc */
+        sd       ra, 32*ARG_SZ(sp)
+        /* Save arg1 */
+        sd       ARG1, 10*ARG_SZ(sp)
+        CALLC1(save_priv_mcontext_helper, sp)
+        CALLC1(GLOBAL_REF(dr_app_start_helper), sp)
+        /* If we get here, DR is not taking over. */
+        addi     sp, sp, PRIV_MCONTEXT_SIZE
+        ld       ra, 0(sp)
+        addi     sp, sp, 16
         ret
         END_FUNC(dr_app_start)
 
         DECLARE_EXPORTED_FUNC(dr_app_take_over)
 GLOBAL_LABEL(dr_app_take_over:)
-/* FIXME i#3544: Not implemented */
         j        GLOBAL_REF(dynamorio_app_take_over)
         END_FUNC(dr_app_take_over)
 
         DECLARE_EXPORTED_FUNC(dr_app_running_under_dynamorio)
 GLOBAL_LABEL(dr_app_running_under_dynamorio:)
-/* FIXME i#3544: Not implemented */
+        li       ARG1, 0 /* This instruction is manged by mangle_pre_client. */
         ret
         END_FUNC(dr_app_running_under_dynamorio)
 
@@ -140,7 +268,30 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio:)
 
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
-/* FIXME i#3544: Not implemented */
+        /* Save link register for the case that DR is not taking over. */
+        addi     sp, sp, -16
+        sd       ra, 0(sp)
+
+        /* Preverse stack space. */
+        addi     sp, sp, -PRIV_MCONTEXT_SIZE
+        /* Push x3 on to stack to use it as a scratch. */
+        sd       x3, 3*ARG_SZ(sp)
+        /* Compute original sp. */
+        addi     x3, sp, PRIV_MCONTEXT_SIZE+16
+        /* Save original sp on to stack. */
+        sd       x3, 2*ARG_SZ(sp)
+        /* Save link register on to stack. */
+        sd       ra, 1*ARG_SZ(sp)
+        /* Save ra as pc */
+        sd       ra, 32*ARG_SZ(sp)
+        /* Save arg1 */
+        sd       ARG1, 10*ARG_SZ(sp)
+        CALLC1(save_priv_mcontext_helper, sp)
+        CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), sp)
+        /* If we get here, DR is not taking over. */
+        addi     sp, sp, PRIV_MCONTEXT_SIZE
+        ld       ra, 0(sp)
+        addi     sp, sp, 16
         ret
         END_FUNC(dynamorio_app_take_over)
 
@@ -165,10 +316,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         /* void atomic_add(int *adr, int val) */
         DECLARE_FUNC(atomic_add)
 GLOBAL_LABEL(atomic_add:)
-1:      lr.d       a2, (a0)
-        add        a2, a2, a1
-        sc.d       a3, a2, (a0)
-        bnez       a3, 1b
+        amoadd.d       ARG2, ARG2, 0 (ARG1)
         ret
         END_FUNC(atomic_add)
 
@@ -208,16 +356,52 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
  */
         DECLARE_EXPORTED_FUNC(dr_try_start)
 GLOBAL_LABEL(dr_try_start:)
-        addi      ARG1, ARG1, TRY_CXT_SETJMP_OFFS
+        addi     ARG1, ARG1, TRY_CXT_SETJMP_OFFS
         j        GLOBAL_REF(dr_setjmp)
         END_FUNC(dr_try_start)
 
-/*
+/* We save only callee-saved registers and ra: ra, SP, x8/fp, x9, x18-x27, f8-9, f18-27:
+ * a total of 26 reg_t (64-bit) slots. See definition of dr_jmp_buf_t.
+ *
  * int dr_setjmp(dr_jmp_buf_t *buf);
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
-/* FIXME i#3544: Not implemented */
+        sd       ra, 0 (ARG1)
+        mv       t0, sp
+        sd       t0, ARG_SZ (ARG1)
+        sd       s0, 2*ARG_SZ (ARG1)
+        sd       s1, 3*ARG_SZ (ARG1)
+        sd       s2, 4*ARG_SZ (ARG1)
+        sd       s3, 5*ARG_SZ (ARG1)
+        sd       s4, 6*ARG_SZ (ARG1)
+        sd       s5, 7*ARG_SZ (ARG1)
+        sd       s6, 8*ARG_SZ (ARG1)
+        sd       s7, 9*ARG_SZ (ARG1)
+        sd       s8, 10*ARG_SZ (ARG1)
+        sd       s9, 11*ARG_SZ (ARG1)
+        sd       s10, 12*ARG_SZ (ARG1)
+        sd       s11, 13*ARG_SZ (ARG1)
+        fsd      fs0, 14*ARG_SZ (ARG1)
+        fsd      fs1, 15*ARG_SZ (ARG1)
+        fsd      fs2, 16*ARG_SZ (ARG1)
+        fsd      fs3, 17*ARG_SZ (ARG1)
+        fsd      fs4, 18*ARG_SZ (ARG1)
+        fsd      fs5, 19*ARG_SZ (ARG1)
+        fsd      fs6, 20*ARG_SZ (ARG1)
+        fsd      fs7, 21*ARG_SZ (ARG1)
+        fsd      fs8, 22*ARG_SZ (ARG1)
+        fsd      fs9, 23*ARG_SZ (ARG1)
+        fsd      fs10, 24*ARG_SZ (ARG1)
+        fsd      fs11, 25*ARG_SZ (ARG1)
+# ifdef UNIX
+        addi     sp, sp, -16
+        sd       ra, 0 (sp)
+        jal      GLOBAL_REF(dr_setjmp_sigmask)
+        ld       ra, 0 (sp)
+        add      sp, sp, 16
+# endif
+        li       a0, 0
         ret
         END_FUNC(dr_setjmp)
 
@@ -226,14 +410,42 @@ GLOBAL_LABEL(dr_setjmp:)
  */
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
-/* FIXME i#3544: Not implemented */
+        ld       ra, 0 (ARG1) /* Restore return address from buf */
+        ld       t0, ARG_SZ (ARG1)
+        mv       sp, t0
+        ld       s0, 2*ARG_SZ (ARG1)
+        ld       s1, 3*ARG_SZ (ARG1)
+        ld       s2, 4*ARG_SZ (ARG1)
+        ld       s3, 5*ARG_SZ (ARG1)
+        ld       s4, 6*ARG_SZ (ARG1)
+        ld       s5, 7*ARG_SZ (ARG1)
+        ld       s6, 8*ARG_SZ (ARG1)
+        ld       s7, 9*ARG_SZ (ARG1)
+        ld       s8, 10*ARG_SZ (ARG1)
+        ld       s9, 11*ARG_SZ (ARG1)
+        ld       s10, 12*ARG_SZ (ARG1)
+        ld       s11, 13*ARG_SZ (ARG1)
+        fld      fs0, 14*ARG_SZ (ARG1)
+        fld      fs1, 15*ARG_SZ (ARG1)
+        fld      fs2, 16*ARG_SZ (ARG1)
+        fld      fs3, 17*ARG_SZ (ARG1)
+        fld      fs4, 18*ARG_SZ (ARG1)
+        fld      fs5, 19*ARG_SZ (ARG1)
+        fld      fs6, 20*ARG_SZ (ARG1)
+        fld      fs7, 21*ARG_SZ (ARG1)
+        fld      fs8, 22*ARG_SZ (ARG1)
+        fld      fs9, 23*ARG_SZ (ARG1)
+        fld      fs10, 24*ARG_SZ (ARG1)
+        fld      fs11, 25*ARG_SZ (ARG1)
+        seqz     ARG1, ARG2
+        add      ARG1, ARG1, ARG2 /* ARG1 = ( ARG2 == 0 ) ? 1 : ARG2 */
         ret
         END_FUNC(dr_longjmp)
 
         /* int atomic_swap(int *adr, int val) */
         DECLARE_FUNC(atomic_swap)
 GLOBAL_LABEL(atomic_swap:)
-/* FIXME i#3544: Not implemented */
+        amoswap.d      ARG2, ARG2, 0 (ARG1)
         ret
         END_FUNC(atomic_swap)
 
@@ -264,23 +476,32 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
  */
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
-/* FIXME i#3544: Not implemented */
+        addi     ARG2, ARG2, -16 /* Description: newsp = newsp - 16. */
+        sd       ARG6, 0 (ARG2) /* The func is now on TOS of newsp. */
+        li       SYSNUM_REG, SYS_clone /* All args are already in syscall registers.*/
+        ecall
+        bnez     ARG1, dynamorio_clone_parent
+        ld       ARG1, 0 (sp)
+        addi     sp, sp, 16
+        jalr     ARG1
+        jal      GLOBAL_REF(unexpected_return)
+dynamorio_clone_parent:
         ret
         END_FUNC(dynamorio_clone)
 
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-        li        SYSNUM_REG, SYS_rt_sigreturn
+        li       SYSNUM_REG, SYS_rt_sigreturn
         ecall
-        jal       GLOBAL_REF(unexpected_return)
+        jal      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
 
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-        li        a0, 0 /* exit code */
-        li        SYSNUM_REG, SYS_exit /* SYS_exit number */
+        li       a0, 0 /* exit code */
+        li       SYSNUM_REG, SYS_exit
         ecall
-        jal       GLOBAL_REF(unexpected_return)
+        jal      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
 
 # ifndef NOT_DYNAMORIO_CORE_PROPER
@@ -290,7 +511,7 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
 #  endif
         DECLARE_FUNC(main_signal_handler)
 GLOBAL_LABEL(main_signal_handler:)
-        mv      ARG4, sp /* pass as extra arg */
+        mv       ARG4, sp /* pass as extra arg */
         j        GLOBAL_REF(main_signal_handler_C) /* chain call */
         END_FUNC(main_signal_handler)
 
@@ -322,8 +543,20 @@ GLOBAL_LABEL(back_from_native:)
 # if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
-/* FIXME i#3544: Not implemented */
-        ret
+        nop
+        mv       fp, x0  /* Clear frame ptr for stack trace bottom. */
+
+        CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, sp)
+        mv       ARG2, x0
+        mv       ARG3, x0
+
+        /* Clear 2nd & 3rd args to distinguish from xfer_to_new_libdr. */
+GLOBAL_LABEL(.L_start_invoke_C:)
+        mv       fp, x0 /* Clear frame ptr for stack trace bottom. */
+        mv       ARG1, sp /* 1st arg to privload_early_inject. */
+        jal      GLOBAL_REF(privload_early_inject)
+        /* Shouldn't return. */
+        jal     GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 
 /* i#1227: on a conflict with the app we reload ourselves.
@@ -334,16 +567,35 @@ GLOBAL_LABEL(_start:)
  */
         DECLARE_FUNC(xfer_to_new_libdr)
 GLOBAL_LABEL(xfer_to_new_libdr:)
-/* FIXME i#3544: Not implemented */
+        mv       s0, ARG1
+        /* Restore sp */
+        mv       sp, ARG2
+        la       ARG1, GLOBAL_REF(.L_start_invoke_C)
+        la       ARG2, GLOBAL_REF(_start)
+        sub      ARG1, ARG1, ARG2
+        add      s0, s0, ARG1
+        /* _start expects these as 2nd & 3rd args */
+        mv       ARG2, ARG3
+        mv       ARG3, ARG4
+        jr       s0
         ret
         END_FUNC(xfer_to_new_libdr)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
 #endif /* UNIX */
-
+/* We need to call futex_wakeall without using any stack.
+ * Takes KSYNCH_TYPE* in a0 and the post-syscall jump target in a1
+ */
         DECLARE_FUNC(dynamorio_condvar_wake_and_jmp)
 GLOBAL_LABEL(dynamorio_condvar_wake_and_jmp:)
-/* FIXME i#3544: Not implemented */
-        ret
+        mv       REG_R9, ARG2 /* save across syscall */
+        li       ARG6, 0
+        li       ARG5, 0
+        li       ARG4, 0
+        li       ARG3, 0x7fffffff /* arg3 = INT_MAX */
+        li       ARG2, 1 /* arg2 = FUTEX_WAKE */
+        li       SYSNUM_REG, 98 /* SYS_futex */
+        ecall
+        jr REG_R9
         END_FUNC(dynamorio_condvar_wake_and_jmp)
 
 END_FILE
