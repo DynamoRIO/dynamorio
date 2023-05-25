@@ -491,10 +491,8 @@ data_histogram_test()
         // If it's not an instruction, dist_map_data should have also
         // recorded exactly 1 hit.
         if (use_instr_type(tgt_dist)) {
-            std::cerr << "data_histogram_test() msg4\n";
             assert(shard->dist_map_data.find(tgt_dist) == shard->dist_map_data.end());
         } else {
-            std::cerr << "data_histogram_test() msg5\n";
             assert(shard->dist_map_data.find(tgt_dist) != shard->dist_map_data.end());
             assert(shard->dist_map_data.at(tgt_dist) == 1);
         }
