@@ -148,6 +148,7 @@ protected:
         analyzer_shard_data_t()
             : cur_interval_index(0)
             , cur_interval_init_instr_count(0)
+            , shard_id(0)
         {
         }
 

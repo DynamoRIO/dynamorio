@@ -443,9 +443,10 @@ public:
                 auto recorded_snapshot =
                     dynamic_cast<const recorded_snapshot_t *const>(snapshot);
                 if (recorded_snapshot->tool_shard_id != recorded_snapshot->shard_id) {
-                    std::cerr << "shard_id stored by tool ("
-                              << recorded_snapshot->tool_shard_id << ") and framework ("
-                              << recorded_snapshot->shard_id << ") mismatch\n";
+                    FATAL_ERROR("shard_id stored by tool (" PRIi64
+                                ") and framework (" PRIi64 ") mismatch",
+                                recorded_snapshot->tool_shard_id,
+                                recorded_snapshot->shard_id);
                     return nullptr;
                 }
                 result->component_intervals.insert(
@@ -648,8 +649,8 @@ test_non_zero_interval(bool parallel, bool combine_only_active_shards = true)
 int
 main(int argc, const char *argv[])
 {
-    if (!test_non_zero_interval(false) || !test_non_zero_interval(true, false) ||
-        !test_non_zero_interval(true, true))
+    if (!test_non_zero_interval(false) || !test_non_zero_interval(true, true) ||
+        !test_non_zero_interval(true, false))
         return 1;
     fprintf(stderr, "All done!\n");
     return 0;
