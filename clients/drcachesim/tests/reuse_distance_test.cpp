@@ -463,13 +463,15 @@ data_histogram_test()
         assert(success);
     }
     std::cerr << "data_histogram_test() setup done\n";
-    if (TEST_VERBOSE(1)) {
+    if (TEST_VERBOSE(0)) {
         reuse_distance.print_results();
     }
+    std::cerr << "data_histogram_test() print_results done\n";
 
     assert(reuse_distance.get_shard_map().size() == 1);
 
     auto *shard = reuse_distance.get_aggregated_results();
+    std::cerr << "data_histogram_test() aggregate done\n";
 
     assert(data_hits > 0);
     assert(shard->data_refs > data_hits);
