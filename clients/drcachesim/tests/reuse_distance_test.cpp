@@ -462,6 +462,7 @@ data_histogram_test()
         }
         assert(success);
     }
+    std::cerr << "data_histogram_test() setup done\n";
     if (TEST_VERBOSE(1)) {
         reuse_distance.print_results();
     }
@@ -490,6 +491,7 @@ data_histogram_test()
             assert(shard->dist_map_data.at(tgt_dist) == 1);
         }
     }
+    std::cerr << "data_histogram_test() first checks done\n";
 
     // When debugging, print the raw histogram data (unsorted).
     if (TEST_VERBOSE(2)) {
@@ -498,6 +500,7 @@ data_histogram_test()
                       << "  Count: " << std::setw(8) << dist_count.second << "\n";
         }
     }
+    std::cerr << "data_histogram_test() final logging done\n";
 }
 
 } // namespace
@@ -511,4 +514,5 @@ main(int argc, const char *argv[])
     simple_reuse_distance_test();
     reuse_distance_limit_test();
     data_histogram_test();
+    std::cerr << "All tests done.\n";
 }
