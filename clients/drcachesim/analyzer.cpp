@@ -510,8 +510,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::combine_interval_snapshots(
         error_string_ = "combine_interval_snapshots unexpectedly returned nullptr";
         return false;
     }
-    result->shard_id =
-        analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t::kWholeTraceShardId;
     result->instr_count_delta = 0;
     result->instr_count_cumulative = 0;
     for (auto snapshot : latest_shard_snapshots) {
@@ -610,6 +608,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
                                         cur_merged_interval))
             return false;
         // Add the merged interval to the result list of whole trace intervals.
+        cur_merged_interval->shard_id = analysis_tool_tmpl_t<
+            RecordType>::interval_state_snapshot_t::kWholeTraceShardId;
         cur_merged_interval->interval_end_timestamp = earliest_interval_end_timestamp;
         cur_merged_interval->interval_id = compute_interval_id(
             earliest_ever_interval_end_timestamp, earliest_interval_end_timestamp);

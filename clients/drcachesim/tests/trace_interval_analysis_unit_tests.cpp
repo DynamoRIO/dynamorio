@@ -305,6 +305,7 @@ public:
         {
         }
         recorded_snapshot_t()
+            : interval_state_snapshot_t()
         {
         }
 
@@ -647,8 +648,8 @@ test_non_zero_interval(bool parallel, bool combine_only_active_shards = true)
 int
 main(int argc, const char *argv[])
 {
-    if (!test_non_zero_interval(false) || !test_non_zero_interval(true, true) ||
-        !test_non_zero_interval(true, false))
+    if (!test_non_zero_interval(false) || !test_non_zero_interval(true, false) ||
+        !test_non_zero_interval(true, true))
         return 1;
     fprintf(stderr, "All done!\n");
     return 0;
