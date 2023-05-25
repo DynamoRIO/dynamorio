@@ -14301,4 +14301,256 @@
  */
 #define INSTR_CREATE_bfcvtnt_sve_pred(dc, Zd, Pg, Zn) \
     instr_create_1dst_3src(dc, OP_bfcvtnt, Zd, Zd, Pg, Zn)
+
+/**
+ * Creates an AESD instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AESD    <Zdn>.B, <Zdn>.B, <Zm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_aesd_sve(dc, Zdn, Zm) \
+    instr_create_1dst_2src(dc, OP_aesd, Zdn, Zdn, Zm)
+
+/**
+ * Creates an AESE instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    AESE    <Zdn>.B, <Zdn>.B, <Zm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_aese_sve(dc, Zdn, Zm) \
+    instr_create_1dst_2src(dc, OP_aese, Zdn, Zdn, Zm)
+
+/**
+ * Creates a BCAX instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BCAX    <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ * \param Zk   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_bcax_sve(dc, Zdn, Zm, Zk) \
+    instr_create_1dst_3src(dc, OP_bcax, Zdn, Zdn, Zm, Zk)
+
+/**
+ * Creates a BSL1N instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BSL1N   <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ * \param Zk   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_bsl1n_sve(dc, Zdn, Zm, Zk) \
+    instr_create_1dst_3src(dc, OP_bsl1n, Zdn, Zdn, Zm, Zk)
+
+/**
+ * Creates a BSL2N instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BSL2N   <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ * \param Zk   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_bsl2n_sve(dc, Zdn, Zm, Zk) \
+    instr_create_1dst_3src(dc, OP_bsl2n, Zdn, Zdn, Zm, Zk)
+
+/**
+ * Creates a BSL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    BSL     <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ * \param Zk   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_bsl_sve(dc, Zdn, Zm, Zk) \
+    instr_create_1dst_3src(dc, OP_bsl, Zdn, Zdn, Zm, Zk)
+
+/**
+ * Creates an EOR3 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    EOR3    <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ * \param Zk   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_eor3_sve(dc, Zdn, Zm, Zk) \
+    instr_create_1dst_3src(dc, OP_eor3, Zdn, Zdn, Zm, Zk)
+
+/**
+ * Creates a FMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLALB  <Zda>.S, <Zn>.H, <Zm>.H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_fmlalb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_fmlalb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a FMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLALT  <Zda>.S, <Zn>.H, <Zm>.H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_fmlalt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_fmlalt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a FMLSLB instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLSLB  <Zda>.S, <Zn>.H, <Zm>.H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_fmlslb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_fmlslb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a FMLSLT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    FMLSLT  <Zda>.S, <Zn>.H, <Zm>.H
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z (Scalable).
+ * \param Zn   The second source vector register, Z (Scalable).
+ * \param Zm   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_fmlslt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_fmlslt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a HISTSEG instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    HISTSEG <Zd>.B, <Zn>.B, <Zm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_histseg_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_histseg, Zd, Zn, Zm)
+
+/**
+ * Creates a NBSL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    NBSL    <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ * \param Zk   The third source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_nbsl_sve(dc, Zdn, Zm, Zk) \
+    instr_create_1dst_3src(dc, OP_nbsl, Zdn, Zdn, Zm, Zk)
+
+/**
+ * Creates a PMUL instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    PMUL    <Zd>.B, <Zn>.B, <Zm>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_pmul_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_pmul, Zd, Zn, Zm)
+
+/**
+ * Creates a RAX1 instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    RAX1    <Zd>.D, <Zn>.D, <Zm>.D
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_rax1_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_rax1, Zd, Zn, Zm)
+
+/**
+ * Creates a SM4E instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM4E    <Zdn>.S, <Zdn>.S, <Zm>.S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_sm4e_sve(dc, Zdn, Zm) \
+    instr_create_1dst_2src(dc, OP_sm4e, Zdn, Zdn, Zm)
+
+/**
+ * Creates a SM4EKEY instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    SM4EKEY <Zd>.S, <Zn>.S, <Zm>.S
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_sm4ekey_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_sm4ekey, Zd, Zn, Zm)
 #endif /* DR_IR_MACROS_AARCH64_H */

@@ -32,3 +32,309 @@
 # See dis-a64-sve.txt for the formatting.
 
 # Tests:
+# AESD    <Zdn>.B, <Zdn>.B, <Zm>.B (AESD-Z.ZZ-_)
+4522e400 : aesd z0.b, z0.b, z0.b                     : aesd   %z0.b %z0.b -> %z0.b
+4522e462 : aesd z2.b, z2.b, z3.b                     : aesd   %z2.b %z3.b -> %z2.b
+4522e4a4 : aesd z4.b, z4.b, z5.b                     : aesd   %z4.b %z5.b -> %z4.b
+4522e4e6 : aesd z6.b, z6.b, z7.b                     : aesd   %z6.b %z7.b -> %z6.b
+4522e528 : aesd z8.b, z8.b, z9.b                     : aesd   %z8.b %z9.b -> %z8.b
+4522e56a : aesd z10.b, z10.b, z11.b                  : aesd   %z10.b %z11.b -> %z10.b
+4522e5ac : aesd z12.b, z12.b, z13.b                  : aesd   %z12.b %z13.b -> %z12.b
+4522e5ee : aesd z14.b, z14.b, z15.b                  : aesd   %z14.b %z15.b -> %z14.b
+4522e630 : aesd z16.b, z16.b, z17.b                  : aesd   %z16.b %z17.b -> %z16.b
+4522e651 : aesd z17.b, z17.b, z18.b                  : aesd   %z17.b %z18.b -> %z17.b
+4522e693 : aesd z19.b, z19.b, z20.b                  : aesd   %z19.b %z20.b -> %z19.b
+4522e6d5 : aesd z21.b, z21.b, z22.b                  : aesd   %z21.b %z22.b -> %z21.b
+4522e717 : aesd z23.b, z23.b, z24.b                  : aesd   %z23.b %z24.b -> %z23.b
+4522e759 : aesd z25.b, z25.b, z26.b                  : aesd   %z25.b %z26.b -> %z25.b
+4522e79b : aesd z27.b, z27.b, z28.b                  : aesd   %z27.b %z28.b -> %z27.b
+4522e7ff : aesd z31.b, z31.b, z31.b                  : aesd   %z31.b %z31.b -> %z31.b
+
+# AESE    <Zdn>.B, <Zdn>.B, <Zm>.B (AESE-Z.ZZ-_)
+4522e000 : aese z0.b, z0.b, z0.b                     : aese   %z0.b %z0.b -> %z0.b
+4522e062 : aese z2.b, z2.b, z3.b                     : aese   %z2.b %z3.b -> %z2.b
+4522e0a4 : aese z4.b, z4.b, z5.b                     : aese   %z4.b %z5.b -> %z4.b
+4522e0e6 : aese z6.b, z6.b, z7.b                     : aese   %z6.b %z7.b -> %z6.b
+4522e128 : aese z8.b, z8.b, z9.b                     : aese   %z8.b %z9.b -> %z8.b
+4522e16a : aese z10.b, z10.b, z11.b                  : aese   %z10.b %z11.b -> %z10.b
+4522e1ac : aese z12.b, z12.b, z13.b                  : aese   %z12.b %z13.b -> %z12.b
+4522e1ee : aese z14.b, z14.b, z15.b                  : aese   %z14.b %z15.b -> %z14.b
+4522e230 : aese z16.b, z16.b, z17.b                  : aese   %z16.b %z17.b -> %z16.b
+4522e251 : aese z17.b, z17.b, z18.b                  : aese   %z17.b %z18.b -> %z17.b
+4522e293 : aese z19.b, z19.b, z20.b                  : aese   %z19.b %z20.b -> %z19.b
+4522e2d5 : aese z21.b, z21.b, z22.b                  : aese   %z21.b %z22.b -> %z21.b
+4522e317 : aese z23.b, z23.b, z24.b                  : aese   %z23.b %z24.b -> %z23.b
+4522e359 : aese z25.b, z25.b, z26.b                  : aese   %z25.b %z26.b -> %z25.b
+4522e39b : aese z27.b, z27.b, z28.b                  : aese   %z27.b %z28.b -> %z27.b
+4522e3ff : aese z31.b, z31.b, z31.b                  : aese   %z31.b %z31.b -> %z31.b
+
+# BCAX    <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D (BCAX-Z.ZZZ-_)
+04603800 : bcax z0.d, z0.d, z0.d, z0.d               : bcax   %z0.d %z0.d %z0.d -> %z0.d
+04633882 : bcax z2.d, z2.d, z3.d, z4.d               : bcax   %z2.d %z3.d %z4.d -> %z2.d
+046538c4 : bcax z4.d, z4.d, z5.d, z6.d               : bcax   %z4.d %z5.d %z6.d -> %z4.d
+04673906 : bcax z6.d, z6.d, z7.d, z8.d               : bcax   %z6.d %z7.d %z8.d -> %z6.d
+04693948 : bcax z8.d, z8.d, z9.d, z10.d              : bcax   %z8.d %z9.d %z10.d -> %z8.d
+046b398a : bcax z10.d, z10.d, z11.d, z12.d           : bcax   %z10.d %z11.d %z12.d -> %z10.d
+046d39cc : bcax z12.d, z12.d, z13.d, z14.d           : bcax   %z12.d %z13.d %z14.d -> %z12.d
+046f3a0e : bcax z14.d, z14.d, z15.d, z16.d           : bcax   %z14.d %z15.d %z16.d -> %z14.d
+04713a50 : bcax z16.d, z16.d, z17.d, z18.d           : bcax   %z16.d %z17.d %z18.d -> %z16.d
+04723a71 : bcax z17.d, z17.d, z18.d, z19.d           : bcax   %z17.d %z18.d %z19.d -> %z17.d
+04743ab3 : bcax z19.d, z19.d, z20.d, z21.d           : bcax   %z19.d %z20.d %z21.d -> %z19.d
+04763af5 : bcax z21.d, z21.d, z22.d, z23.d           : bcax   %z21.d %z22.d %z23.d -> %z21.d
+04783b37 : bcax z23.d, z23.d, z24.d, z25.d           : bcax   %z23.d %z24.d %z25.d -> %z23.d
+047a3b79 : bcax z25.d, z25.d, z26.d, z27.d           : bcax   %z25.d %z26.d %z27.d -> %z25.d
+047c3bbb : bcax z27.d, z27.d, z28.d, z29.d           : bcax   %z27.d %z28.d %z29.d -> %z27.d
+047f3bff : bcax z31.d, z31.d, z31.d, z31.d           : bcax   %z31.d %z31.d %z31.d -> %z31.d
+
+# BSL     <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D (BSL-Z.ZZZ-_)
+04203c00 : bsl z0.d, z0.d, z0.d, z0.d                : bsl    %z0.d %z0.d %z0.d -> %z0.d
+04233c82 : bsl z2.d, z2.d, z3.d, z4.d                : bsl    %z2.d %z3.d %z4.d -> %z2.d
+04253cc4 : bsl z4.d, z4.d, z5.d, z6.d                : bsl    %z4.d %z5.d %z6.d -> %z4.d
+04273d06 : bsl z6.d, z6.d, z7.d, z8.d                : bsl    %z6.d %z7.d %z8.d -> %z6.d
+04293d48 : bsl z8.d, z8.d, z9.d, z10.d               : bsl    %z8.d %z9.d %z10.d -> %z8.d
+042b3d8a : bsl z10.d, z10.d, z11.d, z12.d            : bsl    %z10.d %z11.d %z12.d -> %z10.d
+042d3dcc : bsl z12.d, z12.d, z13.d, z14.d            : bsl    %z12.d %z13.d %z14.d -> %z12.d
+042f3e0e : bsl z14.d, z14.d, z15.d, z16.d            : bsl    %z14.d %z15.d %z16.d -> %z14.d
+04313e50 : bsl z16.d, z16.d, z17.d, z18.d            : bsl    %z16.d %z17.d %z18.d -> %z16.d
+04323e71 : bsl z17.d, z17.d, z18.d, z19.d            : bsl    %z17.d %z18.d %z19.d -> %z17.d
+04343eb3 : bsl z19.d, z19.d, z20.d, z21.d            : bsl    %z19.d %z20.d %z21.d -> %z19.d
+04363ef5 : bsl z21.d, z21.d, z22.d, z23.d            : bsl    %z21.d %z22.d %z23.d -> %z21.d
+04383f37 : bsl z23.d, z23.d, z24.d, z25.d            : bsl    %z23.d %z24.d %z25.d -> %z23.d
+043a3f79 : bsl z25.d, z25.d, z26.d, z27.d            : bsl    %z25.d %z26.d %z27.d -> %z25.d
+043c3fbb : bsl z27.d, z27.d, z28.d, z29.d            : bsl    %z27.d %z28.d %z29.d -> %z27.d
+043f3fff : bsl z31.d, z31.d, z31.d, z31.d            : bsl    %z31.d %z31.d %z31.d -> %z31.d
+
+# BSL1N   <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D (BSL1N-Z.ZZZ-_)
+04603c00 : bsl1n z0.d, z0.d, z0.d, z0.d              : bsl1n  %z0.d %z0.d %z0.d -> %z0.d
+04633c82 : bsl1n z2.d, z2.d, z3.d, z4.d              : bsl1n  %z2.d %z3.d %z4.d -> %z2.d
+04653cc4 : bsl1n z4.d, z4.d, z5.d, z6.d              : bsl1n  %z4.d %z5.d %z6.d -> %z4.d
+04673d06 : bsl1n z6.d, z6.d, z7.d, z8.d              : bsl1n  %z6.d %z7.d %z8.d -> %z6.d
+04693d48 : bsl1n z8.d, z8.d, z9.d, z10.d             : bsl1n  %z8.d %z9.d %z10.d -> %z8.d
+046b3d8a : bsl1n z10.d, z10.d, z11.d, z12.d          : bsl1n  %z10.d %z11.d %z12.d -> %z10.d
+046d3dcc : bsl1n z12.d, z12.d, z13.d, z14.d          : bsl1n  %z12.d %z13.d %z14.d -> %z12.d
+046f3e0e : bsl1n z14.d, z14.d, z15.d, z16.d          : bsl1n  %z14.d %z15.d %z16.d -> %z14.d
+04713e50 : bsl1n z16.d, z16.d, z17.d, z18.d          : bsl1n  %z16.d %z17.d %z18.d -> %z16.d
+04723e71 : bsl1n z17.d, z17.d, z18.d, z19.d          : bsl1n  %z17.d %z18.d %z19.d -> %z17.d
+04743eb3 : bsl1n z19.d, z19.d, z20.d, z21.d          : bsl1n  %z19.d %z20.d %z21.d -> %z19.d
+04763ef5 : bsl1n z21.d, z21.d, z22.d, z23.d          : bsl1n  %z21.d %z22.d %z23.d -> %z21.d
+04783f37 : bsl1n z23.d, z23.d, z24.d, z25.d          : bsl1n  %z23.d %z24.d %z25.d -> %z23.d
+047a3f79 : bsl1n z25.d, z25.d, z26.d, z27.d          : bsl1n  %z25.d %z26.d %z27.d -> %z25.d
+047c3fbb : bsl1n z27.d, z27.d, z28.d, z29.d          : bsl1n  %z27.d %z28.d %z29.d -> %z27.d
+047f3fff : bsl1n z31.d, z31.d, z31.d, z31.d          : bsl1n  %z31.d %z31.d %z31.d -> %z31.d
+
+# BSL2N   <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D (BSL2N-Z.ZZZ-_)
+04a03c00 : bsl2n z0.d, z0.d, z0.d, z0.d              : bsl2n  %z0.d %z0.d %z0.d -> %z0.d
+04a33c82 : bsl2n z2.d, z2.d, z3.d, z4.d              : bsl2n  %z2.d %z3.d %z4.d -> %z2.d
+04a53cc4 : bsl2n z4.d, z4.d, z5.d, z6.d              : bsl2n  %z4.d %z5.d %z6.d -> %z4.d
+04a73d06 : bsl2n z6.d, z6.d, z7.d, z8.d              : bsl2n  %z6.d %z7.d %z8.d -> %z6.d
+04a93d48 : bsl2n z8.d, z8.d, z9.d, z10.d             : bsl2n  %z8.d %z9.d %z10.d -> %z8.d
+04ab3d8a : bsl2n z10.d, z10.d, z11.d, z12.d          : bsl2n  %z10.d %z11.d %z12.d -> %z10.d
+04ad3dcc : bsl2n z12.d, z12.d, z13.d, z14.d          : bsl2n  %z12.d %z13.d %z14.d -> %z12.d
+04af3e0e : bsl2n z14.d, z14.d, z15.d, z16.d          : bsl2n  %z14.d %z15.d %z16.d -> %z14.d
+04b13e50 : bsl2n z16.d, z16.d, z17.d, z18.d          : bsl2n  %z16.d %z17.d %z18.d -> %z16.d
+04b23e71 : bsl2n z17.d, z17.d, z18.d, z19.d          : bsl2n  %z17.d %z18.d %z19.d -> %z17.d
+04b43eb3 : bsl2n z19.d, z19.d, z20.d, z21.d          : bsl2n  %z19.d %z20.d %z21.d -> %z19.d
+04b63ef5 : bsl2n z21.d, z21.d, z22.d, z23.d          : bsl2n  %z21.d %z22.d %z23.d -> %z21.d
+04b83f37 : bsl2n z23.d, z23.d, z24.d, z25.d          : bsl2n  %z23.d %z24.d %z25.d -> %z23.d
+04ba3f79 : bsl2n z25.d, z25.d, z26.d, z27.d          : bsl2n  %z25.d %z26.d %z27.d -> %z25.d
+04bc3fbb : bsl2n z27.d, z27.d, z28.d, z29.d          : bsl2n  %z27.d %z28.d %z29.d -> %z27.d
+04bf3fff : bsl2n z31.d, z31.d, z31.d, z31.d          : bsl2n  %z31.d %z31.d %z31.d -> %z31.d
+
+# EOR3    <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D (EOR3-Z.ZZZ-_)
+04203800 : eor3 z0.d, z0.d, z0.d, z0.d               : eor3   %z0.d %z0.d %z0.d -> %z0.d
+04233882 : eor3 z2.d, z2.d, z3.d, z4.d               : eor3   %z2.d %z3.d %z4.d -> %z2.d
+042538c4 : eor3 z4.d, z4.d, z5.d, z6.d               : eor3   %z4.d %z5.d %z6.d -> %z4.d
+04273906 : eor3 z6.d, z6.d, z7.d, z8.d               : eor3   %z6.d %z7.d %z8.d -> %z6.d
+04293948 : eor3 z8.d, z8.d, z9.d, z10.d              : eor3   %z8.d %z9.d %z10.d -> %z8.d
+042b398a : eor3 z10.d, z10.d, z11.d, z12.d           : eor3   %z10.d %z11.d %z12.d -> %z10.d
+042d39cc : eor3 z12.d, z12.d, z13.d, z14.d           : eor3   %z12.d %z13.d %z14.d -> %z12.d
+042f3a0e : eor3 z14.d, z14.d, z15.d, z16.d           : eor3   %z14.d %z15.d %z16.d -> %z14.d
+04313a50 : eor3 z16.d, z16.d, z17.d, z18.d           : eor3   %z16.d %z17.d %z18.d -> %z16.d
+04323a71 : eor3 z17.d, z17.d, z18.d, z19.d           : eor3   %z17.d %z18.d %z19.d -> %z17.d
+04343ab3 : eor3 z19.d, z19.d, z20.d, z21.d           : eor3   %z19.d %z20.d %z21.d -> %z19.d
+04363af5 : eor3 z21.d, z21.d, z22.d, z23.d           : eor3   %z21.d %z22.d %z23.d -> %z21.d
+04383b37 : eor3 z23.d, z23.d, z24.d, z25.d           : eor3   %z23.d %z24.d %z25.d -> %z23.d
+043a3b79 : eor3 z25.d, z25.d, z26.d, z27.d           : eor3   %z25.d %z26.d %z27.d -> %z25.d
+043c3bbb : eor3 z27.d, z27.d, z28.d, z29.d           : eor3   %z27.d %z28.d %z29.d -> %z27.d
+043f3bff : eor3 z31.d, z31.d, z31.d, z31.d           : eor3   %z31.d %z31.d %z31.d -> %z31.d
+
+# FMLALB  <Zda>.S, <Zn>.H, <Zm>.H (FMLALB-Z.ZZZ-_)
+64a08000 : fmlalb z0.s, z0.h, z0.h                   : fmlalb %z0.s %z0.h %z0.h -> %z0.s
+64a48062 : fmlalb z2.s, z3.h, z4.h                   : fmlalb %z2.s %z3.h %z4.h -> %z2.s
+64a680a4 : fmlalb z4.s, z5.h, z6.h                   : fmlalb %z4.s %z5.h %z6.h -> %z4.s
+64a880e6 : fmlalb z6.s, z7.h, z8.h                   : fmlalb %z6.s %z7.h %z8.h -> %z6.s
+64aa8128 : fmlalb z8.s, z9.h, z10.h                  : fmlalb %z8.s %z9.h %z10.h -> %z8.s
+64ac816a : fmlalb z10.s, z11.h, z12.h                : fmlalb %z10.s %z11.h %z12.h -> %z10.s
+64ae81ac : fmlalb z12.s, z13.h, z14.h                : fmlalb %z12.s %z13.h %z14.h -> %z12.s
+64b081ee : fmlalb z14.s, z15.h, z16.h                : fmlalb %z14.s %z15.h %z16.h -> %z14.s
+64b28230 : fmlalb z16.s, z17.h, z18.h                : fmlalb %z16.s %z17.h %z18.h -> %z16.s
+64b38251 : fmlalb z17.s, z18.h, z19.h                : fmlalb %z17.s %z18.h %z19.h -> %z17.s
+64b58293 : fmlalb z19.s, z20.h, z21.h                : fmlalb %z19.s %z20.h %z21.h -> %z19.s
+64b782d5 : fmlalb z21.s, z22.h, z23.h                : fmlalb %z21.s %z22.h %z23.h -> %z21.s
+64b98317 : fmlalb z23.s, z24.h, z25.h                : fmlalb %z23.s %z24.h %z25.h -> %z23.s
+64bb8359 : fmlalb z25.s, z26.h, z27.h                : fmlalb %z25.s %z26.h %z27.h -> %z25.s
+64bd839b : fmlalb z27.s, z28.h, z29.h                : fmlalb %z27.s %z28.h %z29.h -> %z27.s
+64bf83ff : fmlalb z31.s, z31.h, z31.h                : fmlalb %z31.s %z31.h %z31.h -> %z31.s
+
+# FMLALT  <Zda>.S, <Zn>.H, <Zm>.H (FMLALT-Z.ZZZ-_)
+64a08400 : fmlalt z0.s, z0.h, z0.h                   : fmlalt %z0.s %z0.h %z0.h -> %z0.s
+64a48462 : fmlalt z2.s, z3.h, z4.h                   : fmlalt %z2.s %z3.h %z4.h -> %z2.s
+64a684a4 : fmlalt z4.s, z5.h, z6.h                   : fmlalt %z4.s %z5.h %z6.h -> %z4.s
+64a884e6 : fmlalt z6.s, z7.h, z8.h                   : fmlalt %z6.s %z7.h %z8.h -> %z6.s
+64aa8528 : fmlalt z8.s, z9.h, z10.h                  : fmlalt %z8.s %z9.h %z10.h -> %z8.s
+64ac856a : fmlalt z10.s, z11.h, z12.h                : fmlalt %z10.s %z11.h %z12.h -> %z10.s
+64ae85ac : fmlalt z12.s, z13.h, z14.h                : fmlalt %z12.s %z13.h %z14.h -> %z12.s
+64b085ee : fmlalt z14.s, z15.h, z16.h                : fmlalt %z14.s %z15.h %z16.h -> %z14.s
+64b28630 : fmlalt z16.s, z17.h, z18.h                : fmlalt %z16.s %z17.h %z18.h -> %z16.s
+64b38651 : fmlalt z17.s, z18.h, z19.h                : fmlalt %z17.s %z18.h %z19.h -> %z17.s
+64b58693 : fmlalt z19.s, z20.h, z21.h                : fmlalt %z19.s %z20.h %z21.h -> %z19.s
+64b786d5 : fmlalt z21.s, z22.h, z23.h                : fmlalt %z21.s %z22.h %z23.h -> %z21.s
+64b98717 : fmlalt z23.s, z24.h, z25.h                : fmlalt %z23.s %z24.h %z25.h -> %z23.s
+64bb8759 : fmlalt z25.s, z26.h, z27.h                : fmlalt %z25.s %z26.h %z27.h -> %z25.s
+64bd879b : fmlalt z27.s, z28.h, z29.h                : fmlalt %z27.s %z28.h %z29.h -> %z27.s
+64bf87ff : fmlalt z31.s, z31.h, z31.h                : fmlalt %z31.s %z31.h %z31.h -> %z31.s
+
+# FMLSLB  <Zda>.S, <Zn>.H, <Zm>.H (FMLSLB-Z.ZZZ-_)
+64a0a000 : fmlslb z0.s, z0.h, z0.h                   : fmlslb %z0.s %z0.h %z0.h -> %z0.s
+64a4a062 : fmlslb z2.s, z3.h, z4.h                   : fmlslb %z2.s %z3.h %z4.h -> %z2.s
+64a6a0a4 : fmlslb z4.s, z5.h, z6.h                   : fmlslb %z4.s %z5.h %z6.h -> %z4.s
+64a8a0e6 : fmlslb z6.s, z7.h, z8.h                   : fmlslb %z6.s %z7.h %z8.h -> %z6.s
+64aaa128 : fmlslb z8.s, z9.h, z10.h                  : fmlslb %z8.s %z9.h %z10.h -> %z8.s
+64aca16a : fmlslb z10.s, z11.h, z12.h                : fmlslb %z10.s %z11.h %z12.h -> %z10.s
+64aea1ac : fmlslb z12.s, z13.h, z14.h                : fmlslb %z12.s %z13.h %z14.h -> %z12.s
+64b0a1ee : fmlslb z14.s, z15.h, z16.h                : fmlslb %z14.s %z15.h %z16.h -> %z14.s
+64b2a230 : fmlslb z16.s, z17.h, z18.h                : fmlslb %z16.s %z17.h %z18.h -> %z16.s
+64b3a251 : fmlslb z17.s, z18.h, z19.h                : fmlslb %z17.s %z18.h %z19.h -> %z17.s
+64b5a293 : fmlslb z19.s, z20.h, z21.h                : fmlslb %z19.s %z20.h %z21.h -> %z19.s
+64b7a2d5 : fmlslb z21.s, z22.h, z23.h                : fmlslb %z21.s %z22.h %z23.h -> %z21.s
+64b9a317 : fmlslb z23.s, z24.h, z25.h                : fmlslb %z23.s %z24.h %z25.h -> %z23.s
+64bba359 : fmlslb z25.s, z26.h, z27.h                : fmlslb %z25.s %z26.h %z27.h -> %z25.s
+64bda39b : fmlslb z27.s, z28.h, z29.h                : fmlslb %z27.s %z28.h %z29.h -> %z27.s
+64bfa3ff : fmlslb z31.s, z31.h, z31.h                : fmlslb %z31.s %z31.h %z31.h -> %z31.s
+
+# FMLSLT  <Zda>.S, <Zn>.H, <Zm>.H (FMLSLT-Z.ZZZ-_)
+64a0a400 : fmlslt z0.s, z0.h, z0.h                   : fmlslt %z0.s %z0.h %z0.h -> %z0.s
+64a4a462 : fmlslt z2.s, z3.h, z4.h                   : fmlslt %z2.s %z3.h %z4.h -> %z2.s
+64a6a4a4 : fmlslt z4.s, z5.h, z6.h                   : fmlslt %z4.s %z5.h %z6.h -> %z4.s
+64a8a4e6 : fmlslt z6.s, z7.h, z8.h                   : fmlslt %z6.s %z7.h %z8.h -> %z6.s
+64aaa528 : fmlslt z8.s, z9.h, z10.h                  : fmlslt %z8.s %z9.h %z10.h -> %z8.s
+64aca56a : fmlslt z10.s, z11.h, z12.h                : fmlslt %z10.s %z11.h %z12.h -> %z10.s
+64aea5ac : fmlslt z12.s, z13.h, z14.h                : fmlslt %z12.s %z13.h %z14.h -> %z12.s
+64b0a5ee : fmlslt z14.s, z15.h, z16.h                : fmlslt %z14.s %z15.h %z16.h -> %z14.s
+64b2a630 : fmlslt z16.s, z17.h, z18.h                : fmlslt %z16.s %z17.h %z18.h -> %z16.s
+64b3a651 : fmlslt z17.s, z18.h, z19.h                : fmlslt %z17.s %z18.h %z19.h -> %z17.s
+64b5a693 : fmlslt z19.s, z20.h, z21.h                : fmlslt %z19.s %z20.h %z21.h -> %z19.s
+64b7a6d5 : fmlslt z21.s, z22.h, z23.h                : fmlslt %z21.s %z22.h %z23.h -> %z21.s
+64b9a717 : fmlslt z23.s, z24.h, z25.h                : fmlslt %z23.s %z24.h %z25.h -> %z23.s
+64bba759 : fmlslt z25.s, z26.h, z27.h                : fmlslt %z25.s %z26.h %z27.h -> %z25.s
+64bda79b : fmlslt z27.s, z28.h, z29.h                : fmlslt %z27.s %z28.h %z29.h -> %z27.s
+64bfa7ff : fmlslt z31.s, z31.h, z31.h                : fmlslt %z31.s %z31.h %z31.h -> %z31.s
+
+# HISTSEG <Zd>.B, <Zn>.B, <Zm>.B (HISTSEG-Z.ZZ-_)
+4520a000 : histseg z0.b, z0.b, z0.b                  : histseg %z0.b %z0.b -> %z0.b
+4524a062 : histseg z2.b, z3.b, z4.b                  : histseg %z3.b %z4.b -> %z2.b
+4526a0a4 : histseg z4.b, z5.b, z6.b                  : histseg %z5.b %z6.b -> %z4.b
+4528a0e6 : histseg z6.b, z7.b, z8.b                  : histseg %z7.b %z8.b -> %z6.b
+452aa128 : histseg z8.b, z9.b, z10.b                 : histseg %z9.b %z10.b -> %z8.b
+452ca16a : histseg z10.b, z11.b, z12.b               : histseg %z11.b %z12.b -> %z10.b
+452ea1ac : histseg z12.b, z13.b, z14.b               : histseg %z13.b %z14.b -> %z12.b
+4530a1ee : histseg z14.b, z15.b, z16.b               : histseg %z15.b %z16.b -> %z14.b
+4532a230 : histseg z16.b, z17.b, z18.b               : histseg %z17.b %z18.b -> %z16.b
+4533a251 : histseg z17.b, z18.b, z19.b               : histseg %z18.b %z19.b -> %z17.b
+4535a293 : histseg z19.b, z20.b, z21.b               : histseg %z20.b %z21.b -> %z19.b
+4537a2d5 : histseg z21.b, z22.b, z23.b               : histseg %z22.b %z23.b -> %z21.b
+4539a317 : histseg z23.b, z24.b, z25.b               : histseg %z24.b %z25.b -> %z23.b
+453ba359 : histseg z25.b, z26.b, z27.b               : histseg %z26.b %z27.b -> %z25.b
+453da39b : histseg z27.b, z28.b, z29.b               : histseg %z28.b %z29.b -> %z27.b
+453fa3ff : histseg z31.b, z31.b, z31.b               : histseg %z31.b %z31.b -> %z31.b
+
+# NBSL    <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D (NBSL-Z.ZZZ-_)
+04e03c00 : nbsl z0.d, z0.d, z0.d, z0.d               : nbsl   %z0.d %z0.d %z0.d -> %z0.d
+04e33c82 : nbsl z2.d, z2.d, z3.d, z4.d               : nbsl   %z2.d %z3.d %z4.d -> %z2.d
+04e53cc4 : nbsl z4.d, z4.d, z5.d, z6.d               : nbsl   %z4.d %z5.d %z6.d -> %z4.d
+04e73d06 : nbsl z6.d, z6.d, z7.d, z8.d               : nbsl   %z6.d %z7.d %z8.d -> %z6.d
+04e93d48 : nbsl z8.d, z8.d, z9.d, z10.d              : nbsl   %z8.d %z9.d %z10.d -> %z8.d
+04eb3d8a : nbsl z10.d, z10.d, z11.d, z12.d           : nbsl   %z10.d %z11.d %z12.d -> %z10.d
+04ed3dcc : nbsl z12.d, z12.d, z13.d, z14.d           : nbsl   %z12.d %z13.d %z14.d -> %z12.d
+04ef3e0e : nbsl z14.d, z14.d, z15.d, z16.d           : nbsl   %z14.d %z15.d %z16.d -> %z14.d
+04f13e50 : nbsl z16.d, z16.d, z17.d, z18.d           : nbsl   %z16.d %z17.d %z18.d -> %z16.d
+04f23e71 : nbsl z17.d, z17.d, z18.d, z19.d           : nbsl   %z17.d %z18.d %z19.d -> %z17.d
+04f43eb3 : nbsl z19.d, z19.d, z20.d, z21.d           : nbsl   %z19.d %z20.d %z21.d -> %z19.d
+04f63ef5 : nbsl z21.d, z21.d, z22.d, z23.d           : nbsl   %z21.d %z22.d %z23.d -> %z21.d
+04f83f37 : nbsl z23.d, z23.d, z24.d, z25.d           : nbsl   %z23.d %z24.d %z25.d -> %z23.d
+04fa3f79 : nbsl z25.d, z25.d, z26.d, z27.d           : nbsl   %z25.d %z26.d %z27.d -> %z25.d
+04fc3fbb : nbsl z27.d, z27.d, z28.d, z29.d           : nbsl   %z27.d %z28.d %z29.d -> %z27.d
+04ff3fff : nbsl z31.d, z31.d, z31.d, z31.d           : nbsl   %z31.d %z31.d %z31.d -> %z31.d
+
+# PMUL    <Zd>.B, <Zn>.B, <Zm>.B (PMUL-Z.ZZ-_)
+04206400 : pmul z0.b, z0.b, z0.b                     : pmul   %z0.b %z0.b -> %z0.b
+04246462 : pmul z2.b, z3.b, z4.b                     : pmul   %z3.b %z4.b -> %z2.b
+042664a4 : pmul z4.b, z5.b, z6.b                     : pmul   %z5.b %z6.b -> %z4.b
+042864e6 : pmul z6.b, z7.b, z8.b                     : pmul   %z7.b %z8.b -> %z6.b
+042a6528 : pmul z8.b, z9.b, z10.b                    : pmul   %z9.b %z10.b -> %z8.b
+042c656a : pmul z10.b, z11.b, z12.b                  : pmul   %z11.b %z12.b -> %z10.b
+042e65ac : pmul z12.b, z13.b, z14.b                  : pmul   %z13.b %z14.b -> %z12.b
+043065ee : pmul z14.b, z15.b, z16.b                  : pmul   %z15.b %z16.b -> %z14.b
+04326630 : pmul z16.b, z17.b, z18.b                  : pmul   %z17.b %z18.b -> %z16.b
+04336651 : pmul z17.b, z18.b, z19.b                  : pmul   %z18.b %z19.b -> %z17.b
+04356693 : pmul z19.b, z20.b, z21.b                  : pmul   %z20.b %z21.b -> %z19.b
+043766d5 : pmul z21.b, z22.b, z23.b                  : pmul   %z22.b %z23.b -> %z21.b
+04396717 : pmul z23.b, z24.b, z25.b                  : pmul   %z24.b %z25.b -> %z23.b
+043b6759 : pmul z25.b, z26.b, z27.b                  : pmul   %z26.b %z27.b -> %z25.b
+043d679b : pmul z27.b, z28.b, z29.b                  : pmul   %z28.b %z29.b -> %z27.b
+043f67ff : pmul z31.b, z31.b, z31.b                  : pmul   %z31.b %z31.b -> %z31.b
+
+# RAX1    <Zd>.D, <Zn>.D, <Zm>.D (RAX1-Z.ZZ-_)
+4520f400 : rax1 z0.d, z0.d, z0.d                     : rax1   %z0.d %z0.d -> %z0.d
+4524f462 : rax1 z2.d, z3.d, z4.d                     : rax1   %z3.d %z4.d -> %z2.d
+4526f4a4 : rax1 z4.d, z5.d, z6.d                     : rax1   %z5.d %z6.d -> %z4.d
+4528f4e6 : rax1 z6.d, z7.d, z8.d                     : rax1   %z7.d %z8.d -> %z6.d
+452af528 : rax1 z8.d, z9.d, z10.d                    : rax1   %z9.d %z10.d -> %z8.d
+452cf56a : rax1 z10.d, z11.d, z12.d                  : rax1   %z11.d %z12.d -> %z10.d
+452ef5ac : rax1 z12.d, z13.d, z14.d                  : rax1   %z13.d %z14.d -> %z12.d
+4530f5ee : rax1 z14.d, z15.d, z16.d                  : rax1   %z15.d %z16.d -> %z14.d
+4532f630 : rax1 z16.d, z17.d, z18.d                  : rax1   %z17.d %z18.d -> %z16.d
+4533f651 : rax1 z17.d, z18.d, z19.d                  : rax1   %z18.d %z19.d -> %z17.d
+4535f693 : rax1 z19.d, z20.d, z21.d                  : rax1   %z20.d %z21.d -> %z19.d
+4537f6d5 : rax1 z21.d, z22.d, z23.d                  : rax1   %z22.d %z23.d -> %z21.d
+4539f717 : rax1 z23.d, z24.d, z25.d                  : rax1   %z24.d %z25.d -> %z23.d
+453bf759 : rax1 z25.d, z26.d, z27.d                  : rax1   %z26.d %z27.d -> %z25.d
+453df79b : rax1 z27.d, z28.d, z29.d                  : rax1   %z28.d %z29.d -> %z27.d
+453ff7ff : rax1 z31.d, z31.d, z31.d                  : rax1   %z31.d %z31.d -> %z31.d
+
+# SM4E    <Zdn>.S, <Zdn>.S, <Zm>.S (SM4E-Z.ZZ-_)
+4523e000 : sm4e z0.s, z0.s, z0.s                     : sm4e   %z0.s %z0.s -> %z0.s
+4523e062 : sm4e z2.s, z2.s, z3.s                     : sm4e   %z2.s %z3.s -> %z2.s
+4523e0a4 : sm4e z4.s, z4.s, z5.s                     : sm4e   %z4.s %z5.s -> %z4.s
+4523e0e6 : sm4e z6.s, z6.s, z7.s                     : sm4e   %z6.s %z7.s -> %z6.s
+4523e128 : sm4e z8.s, z8.s, z9.s                     : sm4e   %z8.s %z9.s -> %z8.s
+4523e16a : sm4e z10.s, z10.s, z11.s                  : sm4e   %z10.s %z11.s -> %z10.s
+4523e1ac : sm4e z12.s, z12.s, z13.s                  : sm4e   %z12.s %z13.s -> %z12.s
+4523e1ee : sm4e z14.s, z14.s, z15.s                  : sm4e   %z14.s %z15.s -> %z14.s
+4523e230 : sm4e z16.s, z16.s, z17.s                  : sm4e   %z16.s %z17.s -> %z16.s
+4523e251 : sm4e z17.s, z17.s, z18.s                  : sm4e   %z17.s %z18.s -> %z17.s
+4523e293 : sm4e z19.s, z19.s, z20.s                  : sm4e   %z19.s %z20.s -> %z19.s
+4523e2d5 : sm4e z21.s, z21.s, z22.s                  : sm4e   %z21.s %z22.s -> %z21.s
+4523e317 : sm4e z23.s, z23.s, z24.s                  : sm4e   %z23.s %z24.s -> %z23.s
+4523e359 : sm4e z25.s, z25.s, z26.s                  : sm4e   %z25.s %z26.s -> %z25.s
+4523e39b : sm4e z27.s, z27.s, z28.s                  : sm4e   %z27.s %z28.s -> %z27.s
+4523e3ff : sm4e z31.s, z31.s, z31.s                  : sm4e   %z31.s %z31.s -> %z31.s
+
+# SM4EKEY <Zd>.S, <Zn>.S, <Zm>.S (SM4EKEY-Z.ZZ-_)
+4520f000 : sm4ekey z0.s, z0.s, z0.s                  : sm4ekey %z0.s %z0.s -> %z0.s
+4524f062 : sm4ekey z2.s, z3.s, z4.s                  : sm4ekey %z3.s %z4.s -> %z2.s
+4526f0a4 : sm4ekey z4.s, z5.s, z6.s                  : sm4ekey %z5.s %z6.s -> %z4.s
+4528f0e6 : sm4ekey z6.s, z7.s, z8.s                  : sm4ekey %z7.s %z8.s -> %z6.s
+452af128 : sm4ekey z8.s, z9.s, z10.s                 : sm4ekey %z9.s %z10.s -> %z8.s
+452cf16a : sm4ekey z10.s, z11.s, z12.s               : sm4ekey %z11.s %z12.s -> %z10.s
+452ef1ac : sm4ekey z12.s, z13.s, z14.s               : sm4ekey %z13.s %z14.s -> %z12.s
+4530f1ee : sm4ekey z14.s, z15.s, z16.s               : sm4ekey %z15.s %z16.s -> %z14.s
+4532f230 : sm4ekey z16.s, z17.s, z18.s               : sm4ekey %z17.s %z18.s -> %z16.s
+4533f251 : sm4ekey z17.s, z18.s, z19.s               : sm4ekey %z18.s %z19.s -> %z17.s
+4535f293 : sm4ekey z19.s, z20.s, z21.s               : sm4ekey %z20.s %z21.s -> %z19.s
+4537f2d5 : sm4ekey z21.s, z22.s, z23.s               : sm4ekey %z22.s %z23.s -> %z21.s
+4539f317 : sm4ekey z23.s, z24.s, z25.s               : sm4ekey %z24.s %z25.s -> %z23.s
+453bf359 : sm4ekey z25.s, z26.s, z27.s               : sm4ekey %z26.s %z27.s -> %z25.s
+453df39b : sm4ekey z27.s, z28.s, z29.s               : sm4ekey %z28.s %z29.s -> %z27.s
+453ff3ff : sm4ekey z31.s, z31.s, z31.s               : sm4ekey %z31.s %z31.s -> %z31.s
+
