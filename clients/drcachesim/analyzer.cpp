@@ -437,6 +437,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
         }
         memref_tid_t tid;
+        // Currently shards map only to threads, so the shard_id is the same as
+        // the thread id.
         if (worker->shard_data[shard_index].shard_id == 0 &&
             record_has_tid(record, tid)) {
             worker->shard_data[shard_index].shard_id = tid;
