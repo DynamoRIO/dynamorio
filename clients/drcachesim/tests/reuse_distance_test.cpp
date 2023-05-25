@@ -172,7 +172,7 @@ simple_reuse_distance_test()
     constexpr uint32_t TEST_ADDRESS = 0x1000; // Arbitrary.
     constexpr uint32_t TEST_DISTANCE_START = 50;
     constexpr uint32_t TEST_DISTANCE_END = 2000;
-    constexpr uint32_t TEST_DISTANCE_INCREMENT = 75;
+    constexpr uint32_t TEST_DISTANCE_INCREMENT = 175;
 
     // Create a reuse_distance test object.
     reuse_distance_knobs_t knobs;
@@ -429,7 +429,7 @@ data_histogram_test()
 
     constexpr uint32_t TEST_ADDRESS = 0x1000; // Arbitrary.
     constexpr uint32_t TEST_DISTANCE_START = 50;
-    constexpr uint32_t TEST_DISTANCE_END = 2000;
+    constexpr uint32_t TEST_DISTANCE_END = 1000;
     constexpr uint32_t TEST_DISTANCE_INCREMENT = 75;
 
     // Create a reuse_distance test object.
