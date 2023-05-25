@@ -170,38 +170,45 @@ public:
         // This constructor is only for convenience in unit tests. The tool does not
         // need to provide these values, and can simply use the default constructor
         // below.
-        interval_state_snapshot_t(uint64_t interval_id, uint64_t interval_end_timestamp,
+        interval_state_snapshot_t(int64_t shard_id, uint64_t interval_id,
+                                  uint64_t interval_end_timestamp,
                                   uint64_t instr_count_cumulative,
                                   uint64_t instr_count_delta)
-            : interval_id(interval_id)
+            : shard_id(shard_id)
+            , interval_id(interval_id)
             , interval_end_timestamp(interval_end_timestamp)
             , instr_count_cumulative(instr_count_cumulative)
             , instr_count_delta(instr_count_delta)
         {
         }
         interval_state_snapshot_t()
-            : interval_id(0)
-            , interval_end_timestamp(0)
-            , instr_count_cumulative(0)
-            , instr_count_delta(0)
         {
         }
 
-        // The following fields are set automatically by the analyzer framework. The
-        // tool does not need to set them.
-        uint64_t interval_id;
+        // The following fields are set automatically by the analyzer framework after
+        // the tool returns the interval_state_snapshot_t* in the
+        // generate_*interval_snapshot APIs. So they'll be available to the tool in
+        // the combine_interval_snapshots and print_interval_results APIs.
+
+        // Identifier for the shard to which this interval belongs. Currently, shards
+        // map only to threads, so this is the thread id. Set to WHOLE_TRACE_SHARD_ID
+        // for the whole trace interval snapshots.
+        int64_t shard_id = 0;
+        uint64_t interval_id = 0;
         // Stores the timestamp (exclusive) when the above interval ends. Note
         // that this is not the last timestamp actually seen in the trace interval,
         // but simply the abstract boundary of the interval. This will be aligned
         // to the specified -interval_microseconds.
-        uint64_t interval_end_timestamp;
+        uint64_t interval_end_timestamp = 0;
 
         // Count of instructions: cumulative till this interval, and the incremental
         // delta in this interval vs the previous one. May be useful for tools to
         // compute PKI (per kilo instruction) metrics; obviates the need for each
         // tool to duplicate this.
-        uint64_t instr_count_cumulative;
-        uint64_t instr_count_delta;
+        uint64_t instr_count_cumulative = 0;
+        uint64_t instr_count_delta = 0;
+
+        static constexpr int64_t WHOLE_TRACE_SHARD_ID = -1;
 
         virtual ~interval_state_snapshot_t() = default;
     };
@@ -212,8 +219,8 @@ public:
      * pointer will be provided to the tool in later combine_interval_snapshots()
      * and print_interval_result() calls.
      *
-     * \p interval_id is the ordinal of the trace interval that just ended. Trace
-     * intervals have a length equal to the \p -interval_microseconds specified
+     * \p interval_id is a positive ordinal of the trace interval that just ended.
+     * Trace intervals have a length equal to the \p -interval_microseconds specified
      * to the framework. Trace intervals are measured using the value of the
      * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,
@@ -414,8 +421,8 @@ public:
      * shard-local \p interval_state_snapshot_t corresponding to that whole-trace
      * interval.
      *
-     * \p interval_id is the ordinal of the trace interval that just ended. Trace
-     * intervals have a length equal to the \p -interval_microseconds specified
+     * \p interval_id is a positive ordinal of the trace interval that just ended.
+     * Trace intervals have a length equal to the \p -interval_microseconds specified
      * to the framework. Trace intervals are measured using the value of the
      * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,

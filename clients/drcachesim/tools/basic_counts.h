@@ -194,7 +194,6 @@ protected:
         // the cumulative values here and compute the delta at the end in
         // print_interval_results().
         counters_t counters;
-        memref_tid_t tid;
         // TODO i#6020: Add per-window counters to the snapshot, and also
         // return interval counts separately per-window in a structured
         // way and print under a flag.
