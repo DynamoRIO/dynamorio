@@ -340,7 +340,14 @@ bool
 basic_counts_t::print_interval_results(
     const std::vector<interval_state_snapshot_t *> &interval_snapshots)
 {
-    std::cerr << "Interval total counts across threads:\n";
+    std::cerr << "Counts per trace interval for ";
+    if (!interval_snapshots.empty() &&
+        interval_snapshots[0]->shard_id !=
+            interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID) {
+        std::cerr << "TID " << interval_snapshots[0]->shard_id << ":\n";
+    } else {
+        std::cerr << "whole trace:\n";
+    }
     counters_t last;
     for (const auto &snapshot_base : interval_snapshots) {
         auto *snapshot = dynamic_cast<count_snapshot_t *>(snapshot_base);
