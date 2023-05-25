@@ -1230,10 +1230,10 @@ template <typename RecordType, typename ReaderType>
 void
 scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input)
 {
-    if (options_.deps == DEPENDENCY_TIMESTAMPS) {
-        VPRINT(this, 4, "add_to_ready_queue: input %d timestamp delta %" PRIu64 "\n",
-               input->index, input->reader->get_last_timestamp() - input->base_timestamp);
-    }
+    VPRINT(this, 4,
+           "add_to_ready_queue: input %d priority %d timestamp delta %" PRIu64 "\n",
+           input->index, input->priority,
+           input->reader->get_last_timestamp() - input->base_timestamp);
     input->queue_counter = ++ready_counter_;
     ready_priority_.push(input);
 }
@@ -1244,10 +1244,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue()
 {
     input_info_t *res = ready_priority_.top();
     ready_priority_.pop();
-    if (options_.deps == DEPENDENCY_TIMESTAMPS) {
-        VPRINT(this, 4, "pop_from_ready_queue: input %d timestamp delta %" PRIu64 "\n",
-               res->index, res->reader->get_last_timestamp() - res->base_timestamp);
-    }
+    VPRINT(this, 4,
+           "pop_from_ready_queue: input %d priority %d timestamp delta %" PRIu64 "\n",
+           res->index, res->priority,
+           res->reader->get_last_timestamp() - res->base_timestamp);
     return res;
 }
 

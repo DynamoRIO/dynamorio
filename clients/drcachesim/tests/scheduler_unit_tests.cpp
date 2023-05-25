@@ -945,7 +945,9 @@ test_synthetic_with_priorities()
         }
         sched_inputs.emplace_back(std::move(readers));
         // Set some different priorities for the middle threads.
-        sched_inputs.back().thread_modifiers.emplace_back(get_tid(workload_idx, 1), 1);
+        // The others retain the default 0 priority.
+        sched_inputs.back().thread_modifiers.emplace_back(
+            get_tid(workload_idx, /*input_idx=*/1), /*priority=*/1);
     }
     // We have one input with lower timestamps than everyone, to test that it never gets
     // switched out once we get to it among the default-priority inputs.
@@ -978,9 +980,8 @@ test_synthetic_with_priorities()
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
-    // See the test_synthetic_with_timestamps() test which has our base sequence
-    // here where we would start with {C,F,I,J} and then move on to {B,E,H} and finish
-    // with {A,D,G} -- but we've elevated B, E, and H to higher priorities so they go
+    // See the test_synthetic_with_timestamps() test which has our base sequence.
+    // We've elevated B, E, and H to higher priorities so they go
     // first.  J remains uninterrupted due to lower timestamps.
     assert(sched_as_string[0] == "BBBHHHEEEBBBHHHFFFJJJJJJJJJCCCIIIDDDAAAGGGDDD");
     assert(sched_as_string[1] == "EEEBBBHHHEEECCCIIICCCFFFIIIFFFAAAGGGDDDAAAGGG");

@@ -841,7 +841,10 @@ protected:
         // This is a per-workload value, stored in each input for convenience.
         uint64_t base_timestamp = 0;
         // This equals 'options_.deps == DEPENDENCY_TIMESTAMPS', stored here for
-        // access in InputTimestampComparator.
+        // access in InputTimestampComparator which is static and has no access
+        // to the schedule_t.  (An alternative would be to try to get a lambda
+        // with schedule_t "this" access for the comparator to compile: it is not
+        // simple to do so, however.)
         bool order_by_timestamp = false;
         // Global ready queue counter used to provide FIFO for same-priority inputs.
         uint64_t queue_counter = 0;
@@ -1078,19 +1081,15 @@ protected:
         {
             if (a->priority != b->priority)
                 return a->priority < b->priority; // Higher is better.
-            if (!a->order_by_timestamp) {
-                assert(!b->order_by_timestamp);
-                // We use a counter to provide FIFO order.
-                return a->queue_counter > b->queue_counter; // Lower is better.
+            if (a->order_by_timestamp &&
+                (a->reader->get_last_timestamp() - a->base_timestamp) !=
+                    (b->reader->get_last_timestamp() - b->base_timestamp)) {
+                // Lower is better.
+                return (a->reader->get_last_timestamp() - a->base_timestamp) >
+                    (b->reader->get_last_timestamp() - b->base_timestamp);
             }
-            if ((a->reader->get_last_timestamp() - a->base_timestamp) ==
-                (b->reader->get_last_timestamp() - b->base_timestamp)) {
-                // We use a counter to provide FIFO order for same-priority inputs.
-                return a->queue_counter > b->queue_counter; // Lower is better.
-            }
-            // Lower is better.
-            return (a->reader->get_last_timestamp() - a->base_timestamp) >
-                (b->reader->get_last_timestamp() - b->base_timestamp);
+            // We use a counter to provide FIFO order for same-priority inputs.
+            return a->queue_counter > b->queue_counter; // Lower is better.
         }
     };
 
