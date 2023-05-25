@@ -479,6 +479,8 @@ data_histogram_test()
     assert(shard->dist_map.size() == instruction_hits + data_hits);
     for (int tgt_dist = TEST_DISTANCE_START; tgt_dist < TEST_DISTANCE_END;
          tgt_dist += TEST_DISTANCE_INCREMENT) {
+        std::cerr << "data_histogram_test() testing tgt_dist="
+                  << tgt_dist << "\n";
         const auto it = shard->dist_map.find(tgt_dist);
         // Should be exactly one access at each target distance.
         assert(it != shard->dist_map.end());
