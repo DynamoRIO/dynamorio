@@ -36,6 +36,7 @@
 #include "memref_gen.h"
 
 #include <algorithm>
+#include <inttypes.h>
 #include <iostream>
 #include <vector>
 
@@ -443,8 +444,8 @@ public:
                 auto recorded_snapshot =
                     dynamic_cast<const recorded_snapshot_t *const>(snapshot);
                 if (recorded_snapshot->tool_shard_id != recorded_snapshot->shard_id) {
-                    FATAL_ERROR("shard_id stored by tool (" PRIi64
-                                ") and framework (" PRIi64 ") mismatch",
+                    FATAL_ERROR("shard_id stored by tool (%" PRIi64
+                                ") and framework (%" PRIi64 ") mismatch",
                                 recorded_snapshot->tool_shard_id,
                                 recorded_snapshot->shard_id);
                     return nullptr;
