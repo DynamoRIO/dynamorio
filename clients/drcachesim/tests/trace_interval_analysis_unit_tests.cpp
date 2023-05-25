@@ -297,16 +297,15 @@ public:
             // interval_state_snapshot_t. This is only to make it easier to construct
             // the expected snapshot objects in this test.
             // Since the final verification happens only for the whole trace intervals,
-            // we simply use kWholeTraceShardId here and for tool_shard_id below.
-            : interval_state_snapshot_t(kWholeTraceShardId, interval_id,
+            // we simply use WHOLE_TRACE_SHARD_ID here and for tool_shard_id below.
+            : interval_state_snapshot_t(WHOLE_TRACE_SHARD_ID, interval_id,
                                         interval_end_timestamp, instr_count_cumulative,
                                         instr_count_delta)
             , component_intervals(component_intervals)
-            , tool_shard_id(kWholeTraceShardId)
+            , tool_shard_id(WHOLE_TRACE_SHARD_ID)
         {
         }
         recorded_snapshot_t()
-            : interval_state_snapshot_t()
         {
         }
 
@@ -342,7 +341,7 @@ public:
         // that were combined to create this snapshot.
         std::vector<interval_end_point_t> component_intervals;
         // Stores the shard_id recorded by the test tool. Compared with the shard_id
-        // stored by the tool in the base struct.
+        // stored by the framework in the base struct.
         int64_t tool_shard_id;
     };
 
@@ -367,7 +366,7 @@ public:
     {
         auto *snapshot = new recorded_snapshot_t();
         snapshot->tool_shard_id =
-            analysis_tool_t::interval_state_snapshot_t::kWholeTraceShardId;
+            analysis_tool_t::interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID;
         snapshot->component_intervals.push_back(
             { /*tid=*/0, seen_memrefs_, interval_id });
         ++outstanding_snapshots_;
@@ -435,7 +434,7 @@ public:
     {
         recorded_snapshot_t *result = new recorded_snapshot_t();
         result->tool_shard_id =
-            analysis_tool_t::interval_state_snapshot_t::kWholeTraceShardId;
+            analysis_tool_t::interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID;
         ++outstanding_snapshots_;
         for (auto snapshot : latest_shard_snapshots) {
             if (snapshot != nullptr &&

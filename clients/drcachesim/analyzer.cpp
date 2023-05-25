@@ -609,7 +609,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
             return false;
         // Add the merged interval to the result list of whole trace intervals.
         cur_merged_interval->shard_id = analysis_tool_tmpl_t<
-            RecordType>::interval_state_snapshot_t::kWholeTraceShardId;
+            RecordType>::interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID;
         cur_merged_interval->interval_end_timestamp = earliest_interval_end_timestamp;
         cur_merged_interval->interval_id = compute_interval_id(
             earliest_ever_interval_end_timestamp, earliest_interval_end_timestamp);
@@ -765,7 +765,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
             snapshot->shard_id = parallel
                 ? worker->shard_data[shard_idx].shard_id
                 : analysis_tool_tmpl_t<
-                      RecordType>::interval_state_snapshot_t::kWholeTraceShardId;
+                      RecordType>::interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID;
             snapshot->interval_id = interval_id;
             snapshot->interval_end_timestamp = compute_interval_end_timestamp(
                 worker->stream->get_first_timestamp(), interval_id);
