@@ -512,11 +512,11 @@ data_histogram_test()
 int
 main(int argc, const char *argv[])
 {
+    data_histogram_test();
     print_histogram_empty_test();
     print_histogram_mult_1p0_test();
     print_histogram_mult_1p2_test();
     simple_reuse_distance_test();
     reuse_distance_limit_test();
-    data_histogram_test();
     std::cerr << "All tests done.\n";
 }
