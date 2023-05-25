@@ -190,8 +190,11 @@ public:
         {
         }
 
-        // The following fields are set automatically by the analyzer framework. The
-        // tool does not need to set them.
+        // The following fields are set automatically by the analyzer framework after
+        // the tool returns the interval_state_snapshot_t* in the
+        // generate_*interval_snapshot APIs. So they'll be available to the tool in
+        // the combine_interval_snapshots and print_interval_results APIs.
+
         // Identifier for the shard to which this interval belongs. Currently, shards
         // map only to threads, so this is the thread id. Set to kWholeTraceShardId
         // for the whole trace interval snapshots.

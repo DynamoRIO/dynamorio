@@ -437,8 +437,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
         }
         memref_tid_t tid;
-        if (record_has_tid(record, tid) &&
-            worker->shard_data[shard_index].shard_id == 0) {
+        if (worker->shard_data[shard_index].shard_id == 0 &&
+            record_has_tid(record, tid)) {
             worker->shard_data[shard_index].shard_id = tid;
         }
         uint64_t prev_interval_index;

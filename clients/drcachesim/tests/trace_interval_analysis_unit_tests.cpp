@@ -442,7 +442,9 @@ public:
                 auto recorded_snapshot =
                     dynamic_cast<const recorded_snapshot_t *const>(snapshot);
                 if (recorded_snapshot->tool_shard_id != recorded_snapshot->shard_id) {
-                    std::cerr << "shard_id stored by tool and framework mismatch";
+                    std::cerr << "shard_id stored by tool ("
+                              << recorded_snapshot->tool_shard_id << ") and framework ("
+                              << recorded_snapshot->shard_id << ") mismatch\n";
                     return nullptr;
                 }
                 result->component_intervals.insert(
