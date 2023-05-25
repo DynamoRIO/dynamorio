@@ -840,6 +840,9 @@ protected:
         bool recorded_in_schedule = false;
         // This is a per-workload value, stored in each input for convenience.
         uint64_t base_timestamp = 0;
+        // This equals 'options_.deps == DEPENDENCY_TIMESTAMPS', stored here for
+        // access in InputTimestampComparator.
+        bool order_by_timestamp = false;
         // Global ready queue counter used to provide FIFO for same-priority inputs.
         uint64_t queue_counter = 0;
     };
@@ -1075,6 +1078,11 @@ protected:
         {
             if (a->priority != b->priority)
                 return a->priority < b->priority; // Higher is better.
+            if (!a->order_by_timestamp) {
+                assert(!b->order_by_timestamp);
+                // We use a counter to provide FIFO order.
+                return a->queue_counter > b->queue_counter; // Lower is better.
+            }
             if ((a->reader->get_last_timestamp() - a->base_timestamp) ==
                 (b->reader->get_last_timestamp() - b->base_timestamp)) {
                 // We use a counter to provide FIFO order for same-priority inputs.
@@ -1112,15 +1120,13 @@ protected:
     std::vector<output_info_t> outputs_;
     // We use a central lock for global scheduling.  We assume the synchronization
     // cost is outweighed by the simulator's overhead.  This protects concurrent
-    // access to inputs_.size(), outputs_.size(), ready_fifo_, ready_priority_, and
+    // access to inputs_.size(), outputs_.size(), ready_priority_, and
     // ready_counter_.
     std::mutex sched_lock_;
-    // Inputs ready to be scheduled when we have DEPENDENCY_IGNORE.
-    std::queue<input_info_t *> ready_fifo_;
-    // Inputs ready to be scheduled, sorted by timestamp if timestamp
+    // Inputs ready to be scheduled, sorted by priority and then timestamp if timestamp
     // dependencies are requested.  We use the timestamp delta from the first observed
     // timestamp in each workload in order to mix inputs from different workloads in the
-    // same queue.
+    // same queue.  FIFO ordering is used for same-priority entries.
     std::priority_queue<input_info_t *, std::vector<input_info_t *>,
                         InputTimestampComparator>
         ready_priority_;

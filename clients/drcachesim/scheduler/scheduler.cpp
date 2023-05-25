@@ -628,6 +628,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
                            workload_idx, input_idx, min_time,
                            inputs_[input_idx].next_timestamp);
                     inputs_[input_idx].base_timestamp = min_time;
+                    inputs_[input_idx].order_by_timestamp = true;
                 }
             }
             // Pick the starting inputs by sorting by relative time from each workload's
@@ -1222,9 +1223,7 @@ template <typename RecordType, typename ReaderType>
 bool
 scheduler_tmpl_t<RecordType, ReaderType>::ready_queue_empty()
 {
-    if (options_.deps == DEPENDENCY_TIMESTAMPS)
-        return ready_priority_.empty();
-    return ready_fifo_.empty();
+    return ready_priority_.empty();
 }
 
 template <typename RecordType, typename ReaderType>
@@ -1234,26 +1233,21 @@ scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input
     if (options_.deps == DEPENDENCY_TIMESTAMPS) {
         VPRINT(this, 4, "add_to_ready_queue: input %d timestamp delta %" PRIu64 "\n",
                input->index, input->reader->get_last_timestamp() - input->base_timestamp);
-        input->queue_counter = ++ready_counter_;
-        ready_priority_.push(input);
-        return;
     }
-    ready_fifo_.push(input);
+    input->queue_counter = ++ready_counter_;
+    ready_priority_.push(input);
 }
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::input_info_t *
 scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue()
 {
+    input_info_t *res = ready_priority_.top();
+    ready_priority_.pop();
     if (options_.deps == DEPENDENCY_TIMESTAMPS) {
-        input_info_t *res = ready_priority_.top();
-        ready_priority_.pop();
         VPRINT(this, 4, "pop_from_ready_queue: input %d timestamp delta %" PRIu64 "\n",
                res->index, res->reader->get_last_timestamp() - res->base_timestamp);
-        return res;
     }
-    input_info_t *res = ready_fifo_.front();
-    ready_fifo_.pop();
     return res;
 }
 
