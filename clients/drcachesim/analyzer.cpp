@@ -292,6 +292,36 @@ analyzer_tmpl_t<RecordType, ReaderType>::get_error_string()
 }
 
 template <typename RecordType, typename ReaderType>
+uint64_t
+analyzer_tmpl_t<RecordType, ReaderType>::compute_interval_id(uint64_t first_timestamp,
+                                                             uint64_t latest_timestamp)
+{
+    assert(first_timestamp <= latest_timestamp);
+    // We keep the interval end timestamps independent of the first timestamp of the
+    // trace. For the parallel mode, where we need to merge intervals from different
+    // shards that were active during the same final whole-trace interval, having aligned
+    // interval-end points makes it easier to merge. Note that interval ids are however
+    // still dependent on the first timestamp since we want interval ids to start at a
+    // small number >= 1.
+    return latest_timestamp / interval_microseconds_ -
+        first_timestamp / interval_microseconds_ + 1;
+}
+
+template <typename RecordType, typename ReaderType>
+uint64_t
+analyzer_tmpl_t<RecordType, ReaderType>::compute_interval_end_timestamp(
+    uint64_t first_timestamp, uint64_t interval_id)
+{
+    assert(interval_id >= 1);
+    uint64_t end_timestamp =
+        (first_timestamp / interval_microseconds_ + interval_id) * interval_microseconds_;
+    // Since the interval's end timestamp is exclusive, the end_timestamp would actually
+    // fall under the next interval.
+    assert(compute_interval_id(first_timestamp, end_timestamp) == interval_id + 1);
+    return end_timestamp;
+}
+
+template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::advance_interval_id(
     typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
@@ -301,14 +331,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::advance_interval_id(
     if (interval_microseconds_ == 0) {
         return false;
     }
-    // We keep the interval end timestamps independent of the first timestamp of the
-    // trace. For the parallel mode, where we need to merge intervals from different
-    // shards that were active during the same final whole-trace interval, having aligned
-    // interval-end points makes it easier to merge. Note that interval ids are however
-    // still dependent on the first timestamp since we want interval ids to start at a
-    // small number.
-    uint64_t next_interval_index = stream->get_last_timestamp() / interval_microseconds_ -
-        stream->get_first_timestamp() / interval_microseconds_;
+    uint64_t next_interval_index =
+        compute_interval_id(stream->get_first_timestamp(), stream->get_last_timestamp());
     if (next_interval_index != shard->cur_interval_index) {
         assert(next_interval_index > shard->cur_interval_index);
         prev_interval_index = shard->cur_interval_index;
@@ -327,6 +351,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
     std::vector<void *> user_worker_data(num_tools_);
 
     worker.shard_data[0].tool_data.resize(num_tools_);
+    if (interval_microseconds_ != 0)
+        worker.shard_data[0].cur_interval_index = 1;
     for (int i = 0; i < num_tools_; ++i) {
         worker.error = tools_[i]->initialize_stream(worker.stream);
         if (!worker.error.empty())
@@ -402,11 +428,18 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             VPRINT(this, 1, "Worker %d starting on trace shard %d stream is %p\n",
                    worker->index, shard_index, worker->stream);
             worker->shard_data[shard_index].tool_data.resize(num_tools_);
+            if (interval_microseconds_ != 0)
+                worker->shard_data[shard_index].cur_interval_index = 1;
             for (int i = 0; i < num_tools_; ++i) {
                 worker->shard_data[shard_index].tool_data[i].shard_data =
                     tools_[i]->parallel_shard_init_stream(
                         shard_index, user_worker_data[i], worker->stream);
             }
+        }
+        memref_tid_t tid;
+        if (record_has_tid(record, tid) &&
+            worker->shard_data[shard_index].shard_id == 0) {
+            worker->shard_data[shard_index].shard_id = tid;
         }
         uint64_t prev_interval_index;
         uint64_t prev_interval_init_instr_count;
@@ -477,6 +510,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::combine_interval_snapshots(
         error_string_ = "combine_interval_snapshots unexpectedly returned nullptr";
         return false;
     }
+    result->shard_id =
+        analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t::kWholeTraceShardId;
     result->instr_count_delta = 0;
     result->instr_count_cumulative = 0;
     for (auto snapshot : latest_shard_snapshots) {
@@ -576,9 +611,8 @@ analyzer_tmpl_t<RecordType, ReaderType>::merge_shard_interval_results(
             return false;
         // Add the merged interval to the result list of whole trace intervals.
         cur_merged_interval->interval_end_timestamp = earliest_interval_end_timestamp;
-        cur_merged_interval->interval_id =
-            (earliest_interval_end_timestamp - earliest_ever_interval_end_timestamp) /
-            interval_microseconds_;
+        cur_merged_interval->interval_id = compute_interval_id(
+            earliest_ever_interval_end_timestamp, earliest_interval_end_timestamp);
         merged_intervals.push_back(cur_merged_interval);
     }
     for (auto snapshot : last_snapshot_per_shard) {
@@ -705,14 +739,15 @@ template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
     uint64_t interval_id, uint64_t interval_init_instr_count,
-    analyzer_worker_data_t *worker, bool parallel, int shard_id)
+    analyzer_worker_data_t *worker, bool parallel, int shard_idx)
 {
-    assert(parallel || shard_id == 0); // Default to zero for the serial mode.
+    assert(parallel || shard_idx == 0); // Default to zero for the serial mode.
     for (int tool_idx = 0; tool_idx < num_tools_; ++tool_idx) {
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *snapshot;
         if (parallel) {
             snapshot = tools_[tool_idx]->generate_shard_interval_snapshot(
-                worker->shard_data[shard_id].tool_data[tool_idx].shard_data, interval_id);
+                worker->shard_data[shard_idx].tool_data[tool_idx].shard_data,
+                interval_id);
         } else {
             snapshot = tools_[tool_idx]->generate_interval_snapshot(interval_id);
         }
@@ -727,15 +762,17 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
             return false;
         }
         if (snapshot != nullptr) {
+            snapshot->shard_id = parallel
+                ? worker->shard_data[shard_idx].shard_id
+                : analysis_tool_tmpl_t<
+                      RecordType>::interval_state_snapshot_t::kWholeTraceShardId;
             snapshot->interval_id = interval_id;
-            snapshot->interval_end_timestamp =
-                (worker->stream->get_first_timestamp() / interval_microseconds_ +
-                 interval_id + 1) *
-                interval_microseconds_;
+            snapshot->interval_end_timestamp = compute_interval_end_timestamp(
+                worker->stream->get_first_timestamp(), interval_id);
             snapshot->instr_count_cumulative = worker->stream->get_instruction_ordinal();
             snapshot->instr_count_delta =
                 snapshot->instr_count_cumulative - interval_init_instr_count;
-            worker->shard_data[shard_id].tool_data[tool_idx].interval_snapshot_data.push(
+            worker->shard_data[shard_idx].tool_data[tool_idx].interval_snapshot_data.push(
                 snapshot);
         }
     }

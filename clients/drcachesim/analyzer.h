@@ -153,6 +153,9 @@ protected:
 
         uint64_t cur_interval_index;
         uint64_t cur_interval_init_instr_count;
+        // Identifier for the shard. Currently, shards map only to threads, so this is
+        // the thread id.
+        int64_t shard_id;
         std::vector<analyzer_tool_shard_data_t> tool_data;
 
     private:
@@ -228,7 +231,17 @@ protected:
     // finished. For serial analysis, it should remain the default value.
     bool
     process_interval(uint64_t interval_id, uint64_t interval_init_instr_count,
-                     analyzer_worker_data_t *worker, bool parallel, int shard_id = 0);
+                     analyzer_worker_data_t *worker, bool parallel, int shard_idx = 0);
+
+    // Compute interval id for the given latest_timestamp, assuming the trace (or
+    // trace shard) starts at the given first_timestamp.
+    uint64_t
+    compute_interval_id(uint64_t first_timestamp, uint64_t latest_timestamp);
+
+    // Compute the interval end timestamp for the given interval_id, assuming the trace
+    // (or trace shard) starts at the given first_timestamp.
+    uint64_t
+    compute_interval_end_timestamp(uint64_t first_timestamp, uint64_t interval_id);
 
     // Possibly advances the current interval id stored in the worker data, based
     // on the most recent seen timestamp in the trace stream. Returns whether the

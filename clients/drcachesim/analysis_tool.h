@@ -170,17 +170,20 @@ public:
         // This constructor is only for convenience in unit tests. The tool does not
         // need to provide these values, and can simply use the default constructor
         // below.
-        interval_state_snapshot_t(uint64_t interval_id, uint64_t interval_end_timestamp,
+        interval_state_snapshot_t(int64_t shard_id, uint64_t interval_id,
+                                  uint64_t interval_end_timestamp,
                                   uint64_t instr_count_cumulative,
                                   uint64_t instr_count_delta)
-            : interval_id(interval_id)
+            : shard_id(shard_id)
+            , interval_id(interval_id)
             , interval_end_timestamp(interval_end_timestamp)
             , instr_count_cumulative(instr_count_cumulative)
             , instr_count_delta(instr_count_delta)
         {
         }
         interval_state_snapshot_t()
-            : interval_id(0)
+            : shard_id(0)
+            , interval_id(0)
             , interval_end_timestamp(0)
             , instr_count_cumulative(0)
             , instr_count_delta(0)
@@ -189,6 +192,10 @@ public:
 
         // The following fields are set automatically by the analyzer framework. The
         // tool does not need to set them.
+        // Identifier for the shard to which this interval belongs. Currently, shards
+        // map only to threads, so this is the thread id. Set to kWholeTraceShardId
+        // for the whole trace interval snapshots.
+        int64_t shard_id;
         uint64_t interval_id;
         // Stores the timestamp (exclusive) when the above interval ends. Note
         // that this is not the last timestamp actually seen in the trace interval,
@@ -203,6 +210,8 @@ public:
         uint64_t instr_count_cumulative;
         uint64_t instr_count_delta;
 
+        static constexpr int64_t kWholeTraceShardId = -1;
+
         virtual ~interval_state_snapshot_t() = default;
     };
     /**
@@ -212,8 +221,8 @@ public:
      * pointer will be provided to the tool in later combine_interval_snapshots()
      * and print_interval_result() calls.
      *
-     * \p interval_id is the ordinal of the trace interval that just ended. Trace
-     * intervals have a length equal to the \p -interval_microseconds specified
+     * \p interval_id is a positive ordinal of the trace interval that just ended.
+     * Trace intervals have a length equal to the \p -interval_microseconds specified
      * to the framework. Trace intervals are measured using the value of the
      * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,
@@ -414,8 +423,8 @@ public:
      * shard-local \p interval_state_snapshot_t corresponding to that whole-trace
      * interval.
      *
-     * \p interval_id is the ordinal of the trace interval that just ended. Trace
-     * intervals have a length equal to the \p -interval_microseconds specified
+     * \p interval_id is a positive ordinal of the trace interval that just ended.
+     * Trace intervals have a length equal to the \p -interval_microseconds specified
      * to the framework. Trace intervals are measured using the value of the
      * #TRACE_MARKER_TYPE_TIMESTAMP markers. The provided \p interval_id
      * values will be monotonically increasing but may not be continuous,
