@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -58,6 +58,8 @@ else ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
 project(DynamoRIO_samples)
+
+include(CheckIncludeFile)
 
 if ("${CMAKE_VERSION}" VERSION_EQUAL "3.9" OR
    "${CMAKE_VERSION}" VERSION_GREATER "3.9")
