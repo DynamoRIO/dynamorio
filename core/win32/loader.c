@@ -261,13 +261,10 @@ os_loader_init_prologue(void)
          * have TLS which will fail to restore TheadLocalStoragePointer later in
          * calls to should_swap_teb_static_tls() as tlx_next_idx is 0
          */
-        //if (should_swap_teb_static_tls()) {
         pre_static_tls = d_r_get_tls(STATIC_TLS_TIB_OFFSET);
-        //d_r_set_tls(STATIC_TLS_TIB_OFFSET, NULL);
         LOG(GLOBAL, LOG_LOADER, 2,
             "initial thread TEB->ThreadLocalStoragePointer=" PFX "\n",
             pre_static_tls);
-        //}
     }
 
     drwinapi_init();
