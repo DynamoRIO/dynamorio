@@ -1330,6 +1330,10 @@ event_pre_syscall(void *drcontext, int sysnum)
         return true;
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
+
+    BUF_PTR(data->seg_base) +=
+        instru->append_marker(BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
+
 #ifdef ARM
     // On Linux ARM, cacheflush syscall takes 3 params: start, end, and 0.
     if (sysnum == SYS_cacheflush) {

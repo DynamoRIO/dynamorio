@@ -150,6 +150,7 @@ protected:
         bool found_cache_line_size_marker_ = false;
         bool found_instr_count_marker_ = false;
         bool found_page_size_marker_ = false;
+        bool found_syscall_marker_ = false;
         uint64_t last_instr_count_marker_ = 0;
         std::string error_;
         // Track the location of errors.

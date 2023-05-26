@@ -434,6 +434,13 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_RSEQ_ENTRY,
 
+    /**
+     * This marker is emitted prior to each system call.  The marker value contains the
+     * system call number.  If these markers are present, the file type
+     * #OFFLINE_FILE_TYPE_SYSCALL_NUMBERS is set.
+     */
+    TRACE_MARKER_TYPE_SYSCALL,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -655,6 +662,7 @@ typedef enum {
     OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
     OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
+    OFFLINE_FILE_TYPE_SYSCALL_NUMBERS = 0x400, /**< System call numbers are included. */
 } offline_file_type_t;
 
 static inline const char *
