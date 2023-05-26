@@ -1237,14 +1237,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::input_info_t *
-scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(output_ordinal_t output)
+scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
+    output_ordinal_t for_output)
 {
     std::set<input_info_t *> skipped;
     input_info_t *res = nullptr;
     do {
         res = ready_priority_.top();
         ready_priority_.pop();
-        if (res->binding.empty() || res->binding.find(output) != res->binding.end())
+        if (res->binding.empty() || res->binding.find(for_output) != res->binding.end())
             break;
         // We keep searching for a suitable input.
         skipped.insert(res);
@@ -1269,6 +1270,9 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                                                         input_ordinal_t input)
 {
+    // XXX i#5843: Merge tracking of current inputs with ready_queue_ to better manage
+    // the possible 3 states of each input (a live cur_input for an output stream, in
+    // the ready_queue_, or at EOF).
     assert(output >= 0 && output < static_cast<output_ordinal_t>(outputs_.size()));
     // 'input' might be INVALID_INPUT_ORDINAL.
     assert(input < static_cast<input_ordinal_t>(inputs_.size()));

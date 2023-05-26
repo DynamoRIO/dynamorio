@@ -1110,8 +1110,10 @@ protected:
     add_to_ready_queue(input_info_t *input);
 
     // sched_lock_ must be held by the caller.
+    // "for_output" is which output stream is looking for a new input; only an
+    // input which is able to run on that output will be selected.
     input_info_t *
-    pop_from_ready_queue(output_ordinal_t output);
+    pop_from_ready_queue(output_ordinal_t for_output);
     ///
     ///////////////////////////////////////////////////////////////////////////
 
