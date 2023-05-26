@@ -480,12 +480,9 @@ data_histogram_test()
          tgt_dist += TEST_DISTANCE_INCREMENT) {
         std::cerr << "data_histogram_test() testing tgt_dist=" << tgt_dist << "\n";
         const auto it = shard->dist_map.find(tgt_dist);
-        std::cerr << "data_histogram_test() msg1\n";
         // Should be exactly one access at each target distance.
         assert(it != shard->dist_map.end());
-        std::cerr << "data_histogram_test() msg2\n";
         assert(it->second == 1);
-        std::cerr << "data_histogram_test() msg3\n";
 
         // If it's not an instruction, dist_map_data should have also
         // recorded exactly 1 hit.
@@ -495,7 +492,6 @@ data_histogram_test()
             assert(shard->dist_map_data.find(tgt_dist) != shard->dist_map_data.end());
             assert(shard->dist_map_data.at(tgt_dist) == 1);
         }
-        std::cerr << "data_histogram_test() msg6\n";
     }
 
     // When debugging, print the raw histogram data (unsorted).
