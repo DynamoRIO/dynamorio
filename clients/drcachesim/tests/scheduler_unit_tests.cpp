@@ -1055,6 +1055,77 @@ test_synthetic_with_bindings()
     assert(sched_as_string[4] == "BBBAAABBBAAABBB");
 }
 
+static void
+test_synthetic_with_bindings_weighted()
+{
+    std::cerr << "\n----------------\nTesting synthetic with bindings and diff stamps\n";
+    static constexpr int NUM_WORKLOADS = 3;
+    static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
+    static constexpr int NUM_OUTPUTS = 5;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    auto get_tid = [&](int workload_idx, int input_idx) {
+        return TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
+    };
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
+            memref_tid_t tid = get_tid(workload_idx, input_idx);
+            std::vector<trace_entry_t> inputs;
+            inputs.push_back(make_thread(tid));
+            inputs.push_back(make_pid(1));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                // Use the same inverted timestamps as test_synthetic_with_timestamps()
+                // to cover different code paths; in particular it has a case where
+                // the last entry in the queue is the only one that fits on an output.
+                if (instr_idx % 2 == 0) {
+                    inputs.push_back(make_timestamp(
+                        1000 * workload_idx +
+                        100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
+                }
+                inputs.push_back(make_instr(42 + instr_idx * 4));
+            }
+            inputs.push_back(make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+        // We do a static partitionining of the cores for our workloads with one
+        // of them overlapping the others.
+        std::set<scheduler_t::output_ordinal_t> cores;
+        switch (workload_idx) {
+        case 0: cores.insert({ 2, 4 }); break;
+        case 1: cores.insert({ 0, 1 }); break;
+        case 2: cores.insert({ 1, 2, 3 }); break;
+        default: assert(false);
+        }
+        sched_inputs.back().thread_modifiers.emplace_back(cores);
+    }
+
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    sched_ops.quantum_duration = 3;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // We have {A,B,C} on {2,4}, {D,E,F} on {0,1}, and {G,H,I} on {1,2,3}:
+    assert(sched_as_string[0] == "FFFFFFFFFEEEEEEEEE");
+    assert(sched_as_string[1] == "IIIIIIIIIDDDDDDDDD");
+    assert(sched_as_string[2] == "CCCCCCCCCAAAAAAAAA");
+    assert(sched_as_string[3] == "HHHHHHHHHGGGGGGGGG");
+    assert(sched_as_string[4] == "BBBBBBBBB");
+}
+
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
 static void
 simulate_core(scheduler_t::stream_t *stream)
@@ -1886,6 +1957,7 @@ main(int argc, const char *argv[])
     test_synthetic_with_timestamps();
     test_synthetic_with_priorities();
     test_synthetic_with_bindings();
+    test_synthetic_with_bindings_weighted();
     test_synthetic_multi_threaded(argv[1]);
     test_speculation();
     test_replay();

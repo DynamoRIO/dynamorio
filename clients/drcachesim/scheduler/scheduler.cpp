@@ -1249,17 +1249,17 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
             break;
         // We keep searching for a suitable input.
         skipped.insert(res);
-    } while (!ready_priority_.empty());
-    if (ready_priority_.empty())
         res = nullptr;
+    } while (!ready_priority_.empty());
     // Re-add the ones we skipped, but without changing their counters so we preserve
     // the prior FIFO order.
     for (input_info_t *save : skipped)
         ready_priority_.push(save);
     if (res != nullptr) {
         VPRINT(this, 4,
-               "pop_from_ready_queue: input %d priority %d timestamp delta %" PRIu64 "\n",
-               res->index, res->priority,
+               "pop_from_ready_queue[%d]: input %d priority %d timestamp delta %" PRIu64
+               "\n",
+               for_output, res->index, res->priority,
                res->reader->get_last_timestamp() - res->base_timestamp);
     }
     return res;
