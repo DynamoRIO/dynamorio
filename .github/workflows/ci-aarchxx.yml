@@ -1,0 +1,308 @@
+# **********************************************************
+# Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of Google, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Github Actions workflow for AArchXX Continuous Integration testing.
+
+name: ci-aarchxx
+on:
+  # Run on pushes to master and on pull request changes, including from a
+  # forked repo with no "push" trigger, while avoiding duplicate triggers.
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, reopened, synchronize]
+  merge_group:
+
+  # Manual trigger using the Actions page. May remove when integration complete.
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # AArch64 cross-compile with gcc, with some tests run under QEMU.
+  # We use a more recent Ubuntu for a more recent QEMU.
+  aarch64-cross-compile:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    # Install cross-compiler for cross-compiling Linux build.
+    # Unfortunately there are no libunwind or compression cross-compile
+    # packages so we unpack the native versions and copy their files.
+    - name: Create Build Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install doxygen vera++ cmake g++-aarch64-linux-gnu \
+          qemu-user qemu-user-binfmt
+        sudo add-apt-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main'
+        apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64 \
+          zlib1g:arm64 zlib1g-dev:arm64 libsnappy1v5:arm64 libsnappy-dev:arm64 \
+          liblz4-1:arm64 liblz4-dev:arm64
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/${i}/; done
+        sudo rsync -av ../extract/usr/include/ /usr/aarch64-linux-gnu/include/
+        sudo rsync -av ../extract/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/aarchxx-cross-compile
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
+
+  # ARM cross-compile with gcc, with some tests run under QEMU.
+  # We use a more recent Ubuntu for a more recent QEMU.
+  arm-cross-compile:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    # Install cross-compiler for cross-compiling Linux build.
+    # Unfortunately there are no libunwind or compression cross-compile
+    # packages so we unpack the native versions and copy their files.
+    - name: Create Build Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install doxygen vera++ cmake g++-arm-linux-gnueabihf \
+          qemu-user qemu-user-binfmt
+        sudo add-apt-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main'
+        apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf \
+          zlib1g:armhf zlib1g-dev:armhf libsnappy1v5:armhf libsnappy-dev:armhf \
+          liblz4-1:armhf liblz4-dev:armhf
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
+        sudo rsync -av ../extract/usr/include/ /usr/arm-linux-gnueabihf/include/
+        sudo rsync -av ../extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/aarchxx-cross-compile
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
+
+  # Android ARM cross-compile with gcc, no tests:
+  android-arm-cross-compile:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    # Fetch and install Android NDK for Andoid cross-compile build.
+    - name: Create Build Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install doxygen vera++ cmake
+        cd /tmp
+        wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
+        unzip -q android-ndk-r10e-linux-x86_64.zip
+        export ANDROID_NDK_ROOT=/tmp/android-ndk-r10e
+        android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
+          --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
+          --install-dir=/tmp/android-gcc-arm-ndk-10e
+        # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
+        ln -sf ld.bfd /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
+        ln -sf arm-linux-androideabi-ld.bfd \
+          /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      env:
+        DYNAMORIO_CROSS_ANDROID_ONLY: yes
+        DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+      run: ./suite/runsuite_wrapper.pl automated_ci
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/android-arm-cross-compile
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
+
+  # AArch64 drdecode and drmemtrace on x86:
+  a64-on-x86:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    - name: Create Build Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          liblz4-dev
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl automated_ci
+      env:
+        DYNAMORIO_A64_ON_X86_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/a64-on-x86
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI

@@ -40,7 +40,6 @@ if (APPLE)
   # FIXME i#1815: get all the tests working.
   set(extra_ctest_args INCLUDE_LABEL OSX)
 endif ()
-set(extra_ctest_args INCLUDE_LABEL BRETT_MAGIC)
 include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 
 # extra args (note that runsuite_common_pre.cmake has already walked
