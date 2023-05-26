@@ -1,5 +1,7 @@
 Reuse distance tool aggregated results:
 Total accesses: 229
+Instruction accesses: 173
+Data accesses: 56
 Unique accesses: 126
 Unique cache lines accessed: 5
 Distance limit: 0
@@ -11,12 +13,13 @@ Reuse distance median: 1
 Reuse distance standard deviation: 1.64
 Reuse distance histogram bin multiplier: 1.00
 Reuse distance histogram:
-Distance       Count  Percent  Cumulative
-       0         103   45.98%   45.98%
-       1          42   18.75%   64.73%
-       2          13    5.80%   70.54%
-       3          13    5.80%   76.34%
-       4          53   23.66%  100.00%
+                      All References       :            Data References
+Distance       Count  Percent  Cumulative  :       Count  Percent  Cumulative
+       0         103   45.98%   45.98%     :           0    0.00%    0.00%
+       1          42   18.75%   64.73%     :           0    0.00%    0.00%
+       2          13    5.80%   70.54%     :          13    5.80%    5.80%
+       3          13    5.80%   76.34%     :           0    0.00%    5.80%
+       4          53   23.66%  100.00%     :          40   17.86%   23.66%
 
 Reuse distance threshold = 100 cache lines
 Top 10 frequently referenced cache lines
