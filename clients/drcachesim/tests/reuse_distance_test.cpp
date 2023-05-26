@@ -172,7 +172,7 @@ simple_reuse_distance_test()
     constexpr uint32_t TEST_ADDRESS = 0x1000; // Arbitrary.
     constexpr uint32_t TEST_DISTANCE_START = 50;
     constexpr uint32_t TEST_DISTANCE_END = 2000;
-    constexpr uint32_t TEST_DISTANCE_INCREMENT = 175;
+    constexpr uint32_t TEST_DISTANCE_INCREMENT = 75;
 
     // Create a reuse_distance test object.
     reuse_distance_knobs_t knobs;
@@ -429,7 +429,7 @@ data_histogram_test()
 
     constexpr uint32_t TEST_ADDRESS = 0x1000; // Arbitrary.
     constexpr uint32_t TEST_DISTANCE_START = 50;
-    constexpr uint32_t TEST_DISTANCE_END = 1000;
+    constexpr uint32_t TEST_DISTANCE_END = 2000;
     constexpr uint32_t TEST_DISTANCE_INCREMENT = 75;
 
     // Create a reuse_distance test object.
@@ -450,8 +450,9 @@ data_histogram_test()
     };
     for (int tgt_dist = TEST_DISTANCE_START; tgt_dist < TEST_DISTANCE_END;
          tgt_dist += TEST_DISTANCE_INCREMENT) {
-        if (TEST_VERBOSE(1))
+        if (TEST_VERBOSE(1)) {
             std::cerr << "Testing reuse dist=" << tgt_dist << "\n";
+        }
         auto memref_type = use_instr_type(tgt_dist) ? TRACE_TYPE_INSTR : TRACE_TYPE_READ;
         bool success =
             generate_target_distance_memrefs(tgt_dist, reuse_distance, agen, memref_type);
@@ -465,12 +466,10 @@ data_histogram_test()
     if (TEST_VERBOSE(1)) {
         reuse_distance.print_results();
     }
-    std::cerr << "data_histogram_test() print_results done\n";
 
     assert(reuse_distance.get_shard_map().size() == 1);
 
     auto *shard = reuse_distance.get_aggregated_results();
-    std::cerr << "data_histogram_test() aggregate done\n";
 
     assert(data_hits > 0);
     assert(shard->data_refs > data_hits);
@@ -478,7 +477,6 @@ data_histogram_test()
     assert(shard->dist_map.size() == instruction_hits + data_hits);
     for (int tgt_dist = TEST_DISTANCE_START; tgt_dist < TEST_DISTANCE_END;
          tgt_dist += TEST_DISTANCE_INCREMENT) {
-        std::cerr << "data_histogram_test() testing tgt_dist=" << tgt_dist << "\n";
         const auto it = shard->dist_map.find(tgt_dist);
         // Should be exactly one access at each target distance.
         assert(it != shard->dist_map.end());
