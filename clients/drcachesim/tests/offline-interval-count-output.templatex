@@ -38,8 +38,8 @@ Thread .* counts:
            0 physical address unavailable markers
      .* other markers
      .* encodings
-Interval total counts across threads:
-Interval #0 ending at timestamp.*
+Counts per trace interval for whole trace:
+Interval #1 ending at timestamp.*
      .* interval delta \(fetched\) instructions
      .* interval delta unique \(fetched\) instructions
      .* interval delta non-fetched instructions

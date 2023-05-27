@@ -36,6 +36,7 @@
 #include "memref_gen.h"
 
 #include <algorithm>
+#include <inttypes.h>
 #include <iostream>
 #include <vector>
 
@@ -295,9 +296,13 @@ public:
             // Actual tools do not need to supply values to construct the base
             // interval_state_snapshot_t. This is only to make it easier to construct
             // the expected snapshot objects in this test.
-            : interval_state_snapshot_t(interval_id, interval_end_timestamp,
-                                        instr_count_cumulative, instr_count_delta)
+            // Since the final verification happens only for the whole trace intervals,
+            // we simply use WHOLE_TRACE_SHARD_ID here and for tool_shard_id below.
+            : interval_state_snapshot_t(WHOLE_TRACE_SHARD_ID, interval_id,
+                                        interval_end_timestamp, instr_count_cumulative,
+                                        instr_count_delta)
             , component_intervals(component_intervals)
+            , tool_shard_id(WHOLE_TRACE_SHARD_ID)
         {
         }
         recorded_snapshot_t()
@@ -307,7 +312,8 @@ public:
         bool
         operator==(const recorded_snapshot_t &rhs) const
         {
-            return interval_id == rhs.interval_id &&
+            return shard_id == rhs.shard_id && tool_shard_id == rhs.tool_shard_id &&
+                interval_id == rhs.interval_id &&
                 interval_end_timestamp == rhs.interval_end_timestamp &&
                 instr_count_cumulative == rhs.instr_count_cumulative &&
                 instr_count_delta == rhs.instr_count_delta &&
@@ -316,7 +322,8 @@ public:
         void
         print() const
         {
-            std::cerr << "(id: " << interval_id
+            std::cerr << "(shard_id: " << shard_id << ", interval_id: " << interval_id
+                      << ", tool_shard_id: " << tool_shard_id
                       << ", end_timestamp: " << interval_end_timestamp
                       << ", instr_count_cumulative: " << instr_count_cumulative
                       << ", instr_count_delta: " << instr_count_delta
@@ -333,6 +340,9 @@ public:
         // this contains a list of size equal to the count of shard interval snapshots
         // that were combined to create this snapshot.
         std::vector<interval_end_point_t> component_intervals;
+        // Stores the shard_id recorded by the test tool. Compared with the shard_id
+        // stored by the framework in the base struct.
+        int64_t tool_shard_id;
     };
 
     // Constructs an analysis_tool_t that expects the given interval state snapshots to be
@@ -355,6 +365,8 @@ public:
     generate_interval_snapshot(uint64_t interval_id) override
     {
         auto *snapshot = new recorded_snapshot_t();
+        snapshot->tool_shard_id =
+            analysis_tool_t::interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID;
         snapshot->component_intervals.push_back(
             { /*tid=*/0, seen_memrefs_, interval_id });
         ++outstanding_snapshots_;
@@ -408,6 +420,7 @@ public:
         if (shard->tid == kInvalidTid)
             FATAL_ERROR("Expected TID to be found by now");
         auto *snapshot = new recorded_snapshot_t();
+        snapshot->tool_shard_id = shard->tid;
         snapshot->component_intervals.push_back(
             { shard->tid, shard->seen_memrefs, interval_id });
         ++outstanding_snapshots_;
@@ -420,6 +433,8 @@ public:
         uint64_t interval_end_timestamp) override
     {
         recorded_snapshot_t *result = new recorded_snapshot_t();
+        result->tool_shard_id =
+            analysis_tool_t::interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID;
         ++outstanding_snapshots_;
         for (auto snapshot : latest_shard_snapshots) {
             if (snapshot != nullptr &&
@@ -427,6 +442,13 @@ public:
                  snapshot->interval_end_timestamp == interval_end_timestamp)) {
                 auto recorded_snapshot =
                     dynamic_cast<const recorded_snapshot_t *const>(snapshot);
+                if (recorded_snapshot->tool_shard_id != recorded_snapshot->shard_id) {
+                    FATAL_ERROR("shard_id stored by tool (%" PRIi64
+                                ") and framework (%" PRIi64 ") mismatch",
+                                recorded_snapshot->tool_shard_id,
+                                recorded_snapshot->shard_id);
+                    return nullptr;
+                }
                 result->component_intervals.insert(
                     result->component_intervals.end(),
                     recorded_snapshot->component_intervals.begin(),
@@ -511,26 +533,26 @@ test_non_zero_interval(bool parallel, bool combine_only_active_shards = true)
         // Trace for a single worker which has two constituent shards. (scheduler_t
         // does not guarantee that workers will process shards one after the other.)
         // Expected active interval_id: tid_51_local | tid_52_local | whole_trace
-        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 40),  // 0 | _ | 0
-        gen_instr(51, 10000),                             // 0 | _ | 0
-        gen_data(51, true, 1234, 4),                      // 0 | _ | 0
-        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 151), // _ | 0 | 1
-        gen_instr(52, 20000),                             // _ | 0 | 1
-        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 170), // 1 | _ | 1
-        gen_instr(51, 10008),                             // 1 | _ | 1
-        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 201), // 2 | _ | 2
-        gen_instr(51, 20004),                             // 2 | _ | 2
-        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 210), // _ | 1 | 2
-        gen_instr(52, 20008),                             // _ | 1 | 2
-        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 270), // _ | 1 | 2
-        gen_instr(52, 20008),                             // _ | 1 | 2
-        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 490), // _ | 3 | 4
-        gen_instr(52, 20012),                             // _ | 3 | 4
-        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 590), // 5 | _ | 5
-        gen_exit(51),                                     // 5 | _ | 5
-        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 610), // _ | 5 | 6
-        gen_instr(52, 20016),                             // _ | 5 | 6
-        gen_exit(52)                                      // _ | 5 | 6
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 40),  // 1 | _ | 1
+        gen_instr(51, 10000),                             // 1 | _ | 1
+        gen_data(51, true, 1234, 4),                      // 1 | _ | 1
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 151), // _ | 1 | 2
+        gen_instr(52, 20000),                             // _ | 1 | 2
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 170), // 2 | _ | 2
+        gen_instr(51, 10008),                             // 2 | _ | 2
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 201), // 3 | _ | 3
+        gen_instr(51, 20004),                             // 3 | _ | 3
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 210), // _ | 2 | 3
+        gen_instr(52, 20008),                             // _ | 2 | 3
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 270), // _ | 2 | 3
+        gen_instr(52, 20008),                             // _ | 2 | 3
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 490), // _ | 4 | 5
+        gen_instr(52, 20012),                             // _ | 4 | 5
+        gen_marker(51, TRACE_MARKER_TYPE_TIMESTAMP, 590), // 6 | _ | 6
+        gen_exit(51),                                     // 6 | _ | 6
+        gen_marker(52, TRACE_MARKER_TYPE_TIMESTAMP, 610), // _ | 6 | 7
+        gen_instr(52, 20016),                             // _ | 6 | 7
+        gen_exit(52)                                      // _ | 6 | 7
     };
 
     std::vector<test_analysis_tool_t::recorded_snapshot_t> expected_state_snapshots;
@@ -539,46 +561,46 @@ test_non_zero_interval(bool parallel, bool combine_only_active_shards = true)
         // serial snapshot.
         expected_state_snapshots = {
             // Format for interval_end_point_t: <tid, seen_memrefs, interval_id>
-            test_analysis_tool_t::recorded_snapshot_t(0, 100, 1, 1, { { 0, 3, 0 } }),
-            test_analysis_tool_t::recorded_snapshot_t(1, 200, 3, 2, { { 0, 7, 1 } }),
-            test_analysis_tool_t::recorded_snapshot_t(2, 300, 6, 3, { { 0, 13, 2 } }),
-            test_analysis_tool_t::recorded_snapshot_t(4, 500, 7, 1, { { 0, 15, 4 } }),
-            test_analysis_tool_t::recorded_snapshot_t(5, 600, 7, 0, { { 0, 17, 5 } }),
-            test_analysis_tool_t::recorded_snapshot_t(6, 700, 8, 1, { { 0, 20, 6 } }),
+            test_analysis_tool_t::recorded_snapshot_t(1, 100, 1, 1, { { 0, 3, 1 } }),
+            test_analysis_tool_t::recorded_snapshot_t(2, 200, 3, 2, { { 0, 7, 2 } }),
+            test_analysis_tool_t::recorded_snapshot_t(3, 300, 6, 3, { { 0, 13, 3 } }),
+            test_analysis_tool_t::recorded_snapshot_t(5, 500, 7, 1, { { 0, 15, 5 } }),
+            test_analysis_tool_t::recorded_snapshot_t(6, 600, 7, 0, { { 0, 17, 6 } }),
+            test_analysis_tool_t::recorded_snapshot_t(7, 700, 8, 1, { { 0, 20, 7 } }),
         };
     } else if (combine_only_active_shards) {
         // Each whole trace interval is made up of snapshots from each
         // shard that was active in that interval.
         expected_state_snapshots = {
             // Format for interval_end_point_t: <tid, seen_memrefs, interval_id>
-            test_analysis_tool_t::recorded_snapshot_t(0, 100, 1, 1, { { 51, 3, 0 } }),
+            test_analysis_tool_t::recorded_snapshot_t(1, 100, 1, 1, { { 51, 3, 1 } }),
             // Narration: The whole-trace interval_id=1 with interval_end_timestamp=200
             // is made up of the following two shard-local interval snapshots:
             // - from shard_id=51, the interval_id=1 that ends at the local_memref=5
             // - from shard_id=52, the interval_id=0 that ends at the local_memref=2
-            test_analysis_tool_t::recorded_snapshot_t(1, 200, 3, 2,
-                                                      { { 51, 5, 1 }, { 52, 2, 0 } }),
-            test_analysis_tool_t::recorded_snapshot_t(2, 300, 6, 3,
-                                                      { { 51, 7, 2 }, { 52, 6, 1 } }),
-            test_analysis_tool_t::recorded_snapshot_t(4, 500, 7, 1, { { 52, 8, 3 } }),
-            test_analysis_tool_t::recorded_snapshot_t(5, 600, 7, 0, { { 51, 9, 5 } }),
-            test_analysis_tool_t::recorded_snapshot_t(6, 700, 8, 1, { { 52, 11, 5 } })
+            test_analysis_tool_t::recorded_snapshot_t(2, 200, 3, 2,
+                                                      { { 51, 5, 2 }, { 52, 2, 1 } }),
+            test_analysis_tool_t::recorded_snapshot_t(3, 300, 6, 3,
+                                                      { { 51, 7, 3 }, { 52, 6, 2 } }),
+            test_analysis_tool_t::recorded_snapshot_t(5, 500, 7, 1, { { 52, 8, 4 } }),
+            test_analysis_tool_t::recorded_snapshot_t(6, 600, 7, 0, { { 51, 9, 6 } }),
+            test_analysis_tool_t::recorded_snapshot_t(7, 700, 8, 1, { { 52, 11, 6 } })
         };
     } else {
         // Each whole trace interval is made up of last snapshots from all trace shards.
         expected_state_snapshots = {
             // Format for interval_end_point_t: <tid, seen_memrefs, interval_id>
-            test_analysis_tool_t::recorded_snapshot_t(0, 100, 1, 1, { { 51, 3, 0 } }),
-            test_analysis_tool_t::recorded_snapshot_t(1, 200, 3, 2,
-                                                      { { 51, 5, 1 }, { 52, 2, 0 } }),
-            test_analysis_tool_t::recorded_snapshot_t(2, 300, 6, 3,
-                                                      { { 51, 7, 2 }, { 52, 6, 1 } }),
-            test_analysis_tool_t::recorded_snapshot_t(4, 500, 7, 1,
-                                                      { { 51, 7, 2 }, { 52, 8, 3 } }),
-            test_analysis_tool_t::recorded_snapshot_t(5, 600, 7, 0,
-                                                      { { 51, 9, 5 }, { 52, 8, 3 } }),
-            test_analysis_tool_t::recorded_snapshot_t(6, 700, 8, 1,
-                                                      { { 51, 9, 5 }, { 52, 11, 5 } })
+            test_analysis_tool_t::recorded_snapshot_t(1, 100, 1, 1, { { 51, 3, 1 } }),
+            test_analysis_tool_t::recorded_snapshot_t(2, 200, 3, 2,
+                                                      { { 51, 5, 2 }, { 52, 2, 1 } }),
+            test_analysis_tool_t::recorded_snapshot_t(3, 300, 6, 3,
+                                                      { { 51, 7, 3 }, { 52, 6, 2 } }),
+            test_analysis_tool_t::recorded_snapshot_t(5, 500, 7, 1,
+                                                      { { 51, 7, 3 }, { 52, 8, 4 } }),
+            test_analysis_tool_t::recorded_snapshot_t(6, 600, 7, 0,
+                                                      { { 51, 9, 6 }, { 52, 8, 4 } }),
+            test_analysis_tool_t::recorded_snapshot_t(7, 700, 8, 1,
+                                                      { { 51, 9, 6 }, { 52, 11, 6 } })
         };
     }
     std::vector<analysis_tool_t *> tools;

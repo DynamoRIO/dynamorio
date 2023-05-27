@@ -47,6 +47,7 @@
 #include <mutex>
 #include <queue>
 #include <set>
+#include <stack>
 #include <unordered_map>
 #include <vector>
 #include "archive_istream.h"
@@ -153,6 +154,20 @@ public:
             : regions_of_interest(regions)
         {
         }
+        /** Convenience constructor for common usage. */
+        input_thread_info_t(memref_tid_t tid, int priority)
+            : tids(1, tid)
+            , priority(priority)
+        {
+        }
+        /**
+         * Convenience constructor for placing all threads for one workload on a set of
+         * cores for a static partitioning.
+         */
+        input_thread_info_t(std::set<output_ordinal_t> output_binding)
+            : output_binding(output_binding)
+        {
+        }
         /** Size of the struct for binary-compatible additions. */
         size_t struct_size = sizeof(input_thread_info_t);
         /**
@@ -168,10 +183,11 @@ public:
          */
         std::set<output_ordinal_t> output_binding;
         /**
-         * Relative priority for scheduling.  The default is 0.
+         * Relative priority for scheduling.  The default is 0.  Higher values have
+         * higher priorities and will starve lower-priority inputs.
+         * Higher priorities out-weigh dependencies such as
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS.
          */
-        // TODO i#5843: Decide and document whether these priorities are strict
-        // and higher will starve lower or whether they are looser.
         int priority = 0;
         /**
          * If non-empty, all input records outside of these ranges are skipped: it is as
@@ -257,9 +273,6 @@ public:
          */
         std::vector<input_reader_t> readers;
 
-        // TODO i#5843: This is currently ignored for MAP_TO_RECORDED_OUTPUT +
-        // DEPENDENCY_TIMESTAMPS b/c file_reader_t opens the individual files!
-        // TODO i#5843: Add a test of this field.
         /**
          * If empty, every trace file in 'path' or every reader in 'readers' becomes
          * an enabled input.  If non-empty, only those inputs whose thread ids are
@@ -309,9 +322,14 @@ public:
          */
         MAP_TO_RECORDED_OUTPUT,
         /**
-         * The input streams are scheduling using a new synthetic schedule onto the
+         * The input streams are scheduled using a new dynamic sequence onto the
          * output streams.  Any input markers indicating how the software threads were
-         * originally mapped to cores during tracing are ignored.
+         * originally mapped to cores during tracing are ignored.  Instead, inputs
+         * run until either a quantum expires (see
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::scheduler_options_t::quantum_unit)
+         * or a (potentially) blocking system call is identified.  At this point,
+         * a new input is selected, taking into consideration other options such
+         * as priorities, core bindings, and inter-input dependencies.
          */
         MAP_TO_ANY_OUTPUT,
         /**
@@ -330,7 +348,17 @@ public:
     enum inter_input_dependency_t {
         /** Ignores all inter-input dependencies. */
         DEPENDENCY_IGNORE,
-        /** Ensures timestamps in the inputs arrive at the outputs in timestamp order. */
+        /**
+         * Ensures timestamps in the inputs arrive at the outputs in timestamp order.
+         * For
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_ANY_OUTPUT, enforcing
+         * asked-for context switch rates is more important that honoring precise
+         * trace-buffer-based timestamp inter-input dependencies: thus, timestamp
+         * ordering will be followed at context switch points for picking the next
+         * input, but timestamps will not preempt an input.  To precisely follow
+         * the recorded timestamps, use
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT.
+         */
         DEPENDENCY_TIMESTAMPS,
         // TODO i#5843: Add inferred data dependencies.
     };
@@ -522,25 +550,23 @@ public:
          * Because the instruction record after a branch typically needs to be read
          * before knowing whether a simulator is on the wrong path or not, this routine
          * supports putting back the current record so that it will be re-provided as
-         * the first record after stop_speculation(), if "queue_current_record" is true.
-         * The "queue_current_record" parameter is ignored if speculation is already in
-         * effect.
+         * the first record after (the outermost) stop_speculation(), if
+         * "queue_current_record" is true.
          *
-         * This call can be "nested" but only one stop_speculation call is needed to
-         * resume the paused stream.
+         * This call can be nested; each call needs to be paired with a corresponding
+         * stop_speculation() call.
          */
         virtual stream_status_t
         start_speculation(addr_t start_address, bool queue_current_record);
 
         /**
-         * Stops speculative execution and resumes the regular stream of records from
-         * the point at which the most distant prior start_speculation() call without an
-         * intervening stop_speculation() call was made (either repeating the current
-         * record at that time, if "true" was passed for "queue_current_record" to
-         * start_speculation(), or continuing on the subsequent record if "false" was
-         * passed).  Returns #dynamorio::drmemtrace::scheduler_tmpl_t::STATUS_INVALID if
-         * there was no prior start_speculation() call or if stop_speculation() was
-         * already called since the last start.
+         * Stops speculative execution, resuming execution at the
+         * stream of records from the point at which the prior matching
+         * start_speculation() call was made, either repeating the current record at that
+         * time (if "true" was passed for "queue_current_record" to start_speculation())
+         * or continuing on the subsequent record (if "false" was passed).  Returns
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::STATUS_INVALID if there was no
+         * prior start_speculation() call.
          */
         virtual stream_status_t
         stop_speculation();
@@ -820,6 +846,16 @@ protected:
         uintptr_t next_timestamp = 0;
         uint64_t instrs_in_quantum = 0;
         bool recorded_in_schedule = false;
+        // This is a per-workload value, stored in each input for convenience.
+        uint64_t base_timestamp = 0;
+        // This equals 'options_.deps == DEPENDENCY_TIMESTAMPS', stored here for
+        // access in InputTimestampComparator which is static and has no access
+        // to the schedule_t.  (An alternative would be to try to get a lambda
+        // with schedule_t "this" access for the comparator to compile: it is not
+        // simple to do so, however.)
+        bool order_by_timestamp = false;
+        // Global ready queue counter used to provide FIFO for same-priority inputs.
+        uint64_t queue_counter = 0;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -891,9 +927,14 @@ protected:
         std::vector<input_ordinal_t> input_indices;
         int input_indices_index = 0;
         // Speculation support.
-        bool speculating = false;
+        std::stack<addr_t> speculation_stack; // Stores PC of resumption point.
         speculator_tmpl_t<RecordType> speculator;
         addr_t speculate_pc = 0;
+        // Stores the value of speculate_pc before asking the speculator for the current
+        // record.  So if that record was an instruction, speculate_pc holds the next PC
+        // while this field holds the instruction's start PC.  The use case is for
+        // queueing a read-ahead instruction record for start_speculation().
+        addr_t prev_speculate_pc = 0;
         RecordType last_record;
         // A list of schedule segments.  These are accessed only while holding
         // sched_lock_.
@@ -901,6 +942,15 @@ protected:
         int record_index = 0;
         bool waiting = false;
     };
+
+    // Called just once at initialization time to set the initial input-to-output
+    // mappings and state.
+    scheduler_status_t
+    set_initial_schedule(std::unordered_map<int, std::vector<int>> &workload2inputs);
+
+    // Assumed to only be called at initialization time.
+    // Reads ahead in each input to find its first timestamp (queuing the records
+    // read to feed to the user's first requests).
     scheduler_status_t
     get_initial_timestamps();
 
@@ -1027,6 +1077,46 @@ protected:
     stream_status_t
     stop_speculation(output_ordinal_t output);
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Support for ready queues for who to schedule next:
+
+    // I tried using a lambda where we could capture "this" and so use int indices
+    // in the queues instead of pointers but hit problems (weird crash while running)
+    // so I'm sticking with this solution of a separate struct.
+    struct InputTimestampComparator {
+        bool
+        operator()(input_info_t *a, input_info_t *b) const
+        {
+            if (a->priority != b->priority)
+                return a->priority < b->priority; // Higher is better.
+            if (a->order_by_timestamp &&
+                (a->reader->get_last_timestamp() - a->base_timestamp) !=
+                    (b->reader->get_last_timestamp() - b->base_timestamp)) {
+                // Lower is better.
+                return (a->reader->get_last_timestamp() - a->base_timestamp) >
+                    (b->reader->get_last_timestamp() - b->base_timestamp);
+            }
+            // We use a counter to provide FIFO order for same-priority inputs.
+            return a->queue_counter > b->queue_counter; // Lower is better.
+        }
+    };
+
+    // sched_lock_ must be held by the caller.
+    bool
+    ready_queue_empty();
+
+    // sched_lock_ must be held by the caller.
+    void
+    add_to_ready_queue(input_info_t *input);
+
+    // sched_lock_ must be held by the caller.
+    // "for_output" is which output stream is looking for a new input; only an
+    // input which is able to run on that output will be selected.
+    input_info_t *
+    pop_from_ready_queue(output_ordinal_t for_output);
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
     // This has the same value as scheduler_options_t.verbosity (for use in VPRINT).
     int verbosity_ = 0;
     const char *output_prefix_ = "[scheduler]";
@@ -1039,10 +1129,18 @@ protected:
     std::vector<output_info_t> outputs_;
     // We use a central lock for global scheduling.  We assume the synchronization
     // cost is outweighed by the simulator's overhead.  This protects concurrent
-    // access to inputs_.size(), outputs_.size(), and the ready_ field.
+    // access to inputs_.size(), outputs_.size(), ready_priority_, and
+    // ready_counter_.
     std::mutex sched_lock_;
-    // Input indices ready to be scheduled.
-    std::queue<input_ordinal_t> ready_;
+    // Inputs ready to be scheduled, sorted by priority and then timestamp if timestamp
+    // dependencies are requested.  We use the timestamp delta from the first observed
+    // timestamp in each workload in order to mix inputs from different workloads in the
+    // same queue.  FIFO ordering is used for same-priority entries.
+    std::priority_queue<input_info_t *, std::vector<input_info_t *>,
+                        InputTimestampComparator>
+        ready_priority_;
+    // Global ready queue counter used to provide FIFO for same-priority inputs.
+    uint64_t ready_counter_ = 0;
 };
 
 /** See #dynamorio::drmemtrace::scheduler_tmpl_t. */

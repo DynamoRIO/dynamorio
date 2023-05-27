@@ -1,8 +1,10 @@
 Hello, world!
 ---- <application exited with code 0> ----
 Reuse distance tool aggregated results:
-Total accesses: [0-9]+
-Unique accesses: [0-9]+
+Total accesses: [1-9][0-9]+
+Instruction accesses: [1-9][0-9]+
+Data accesses: [1-9][0-9]+
+Unique accesses: [1-9][0-9]+
 Unique cache lines accessed: [0-9]+
 .*
 Reuse distance mean: [0-9\.]+
