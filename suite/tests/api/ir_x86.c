@@ -2778,9 +2778,9 @@ test_ud1_operands(void *dc)
                               false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc == &b[0] + sizeof(b));
 #ifdef X64
-    ASSERT(strcmp(dbuf, "ud2b   eax, dword ptr [eax+0x16]\n") == 0);
+    ASSERT(strcmp(dbuf, "addr32 ud2b   %eax 0x16(%eax)[4byte]\n") == 0);
 #else
-    ASSERT(strcmp(dbuf, "ud2b   eax, dword ptr [bx+si+0x16]\n") == 0);
+    ASSERT(strcmp(dbuf, "addr16 ud2b   %eax 0x16(%bx,%si)[4byte]\n") == 0);
 #endif
 }
 

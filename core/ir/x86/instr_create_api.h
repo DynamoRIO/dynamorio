@@ -765,6 +765,7 @@
 #define INSTR_CREATE_cmp(dc, s1, s2) instr_create_0dst_2src((dc), OP_cmp, (s1), (s2))
 #define INSTR_CREATE_test(dc, s1, s2) instr_create_0dst_2src((dc), OP_test, (s1), (s2))
 #define INSTR_CREATE_ptest(dc, s1, s2) instr_create_0dst_2src((dc), OP_ptest, (s1), (s2))
+#define INSTR_CREATE_ud2b(dc, s1, s2) instr_create_0dst_2src((dc), OP_ud2b, (s1), (s2))
 /* AVX */
 #define INSTR_CREATE_vucomiss(dc, s1, s2) \
     instr_create_0dst_2src((dc), OP_vucomiss, (s1), (s2))
@@ -1563,8 +1564,6 @@
 #define INSTR_CREATE_bndmk(dc, d, s) instr_create_1dst_1src((dc), OP_bndmk, (d), (s))
 #define INSTR_CREATE_bndldx(dc, d, s) instr_create_1dst_1src((dc), OP_bndldx, (d), (s))
 #define INSTR_CREATE_bndstx(dc, d, s) instr_create_1dst_1src((dc), OP_bndstx, (d), (s))
-
-#define INSTR_CREATE_ud2b(dc, d, s) instr_create_1dst_1src((dc), OP_ud2b, (d), (s))
 /** @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */

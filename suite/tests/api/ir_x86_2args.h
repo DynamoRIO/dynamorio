@@ -385,6 +385,7 @@ OPCODE(fcmovbe, fcmovbe, fcmovcc, 0, OP_fcmovbe, REGARG(ST0))
 OPCODE(extrq, extrq, extrq, 0, REGARG(XMM0), REGARG(XMM1))
 OPCODE(insertq, insertq, insertq, 0, REGARG(XMM0), REGARG(XMM1))
 OPCODE(bt, bt, bt, 0, MEMARG(OPSZ_4), REGARG(EAX))
+OPCODE(ud2b, ud2b, ud2b, 0, REGARG(EAX), MEMARG(OPSZ_4))
 
 OPCODE(maskmovq, maskmovq, maskmovq, 0, REGARG(MM0), REGARG(MM0))
 OPCODE(maskmovdqu, maskmovdqu, maskmovdqu, 0, REGARG(XMM0), REGARG(XMM0))
@@ -399,8 +400,6 @@ XOPCODE(x_jl, jl, jump_cond, 0, DR_PRED_LT, TGTARG)
 XOPCODE(x_jle, jle, jump_cond, 0, DR_PRED_LE, TGTARG)
 XOPCODE(x_jnle, jnle, jump_cond, 0, DR_PRED_GT, TGTARG)
 XOPCODE(x_jnl, jnl, jump_cond, 0, DR_PRED_GE, TGTARG)
-
-OPCODE(ud2b, ud2b, ud2b, 0, REGARG(EAX), MEMARG(OPSZ_4))
 
 /****************************************************************************/
 /* XOP */
