@@ -500,7 +500,6 @@
 #define INSTR_CREATE_ud2a(dc) instr_create_0dst_0src((dc), OP_ud2a)
 #define INSTR_CREATE_emms(dc) instr_create_0dst_0src((dc), OP_emms)
 #define INSTR_CREATE_rsm(dc) instr_create_0dst_0src((dc), OP_rsm)
-#define INSTR_CREATE_ud2b(dc) instr_create_0dst_0src((dc), OP_ud2b)
 #define INSTR_CREATE_lfence(dc) instr_create_0dst_0src((dc), OP_lfence)
 #define INSTR_CREATE_mfence(dc) instr_create_0dst_0src((dc), OP_mfence)
 #define INSTR_CREATE_sfence(dc) instr_create_0dst_0src((dc), OP_sfence)
@@ -1564,6 +1563,8 @@
 #define INSTR_CREATE_bndmk(dc, d, s) instr_create_1dst_1src((dc), OP_bndmk, (d), (s))
 #define INSTR_CREATE_bndldx(dc, d, s) instr_create_1dst_1src((dc), OP_bndldx, (d), (s))
 #define INSTR_CREATE_bndstx(dc, d, s) instr_create_1dst_1src((dc), OP_bndstx, (d), (s))
+
+#define INSTR_CREATE_ud2b(dc, d, s) instr_create_1dst_1src((dc), OP_ud2b, (d), (s))
 /** @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
