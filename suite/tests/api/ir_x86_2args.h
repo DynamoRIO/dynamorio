@@ -400,6 +400,8 @@ XOPCODE(x_jle, jle, jump_cond, 0, DR_PRED_LE, TGTARG)
 XOPCODE(x_jnle, jnle, jump_cond, 0, DR_PRED_GT, TGTARG)
 XOPCODE(x_jnl, jnl, jump_cond, 0, DR_PRED_GE, TGTARG)
 
+OPCODE(ud2b, ud2b, ud2b, 0, REGARG(EAX), MEMARG(EBX))
+
 /****************************************************************************/
 /* XOP */
 OPCODE(vfrczps, vfrczps, vfrczps, 0, REGARG(XMM0), MEMARG(OPSZ_16))

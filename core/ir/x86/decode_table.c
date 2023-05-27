@@ -2649,7 +2649,7 @@ const instr_info_t second_byte[] = {
   /* b8 */
   {OP_popcnt, 0xf30fb810, "popcnt", Gv, xx, Ev, xx, xx, mrm|reqp, fW6, END_LIST},
   /* This is Group 10, but all identical (ud2b) so no reason to split opcode by /reg */
-  {OP_ud2b, 0x0fb910, "ud2b", xx, xx, xx, xx, xx, no, x, END_LIST},
+  {OP_ud2b, 0x0fb910, "ud2b", xx, xx, Gv, Ev, xx, mrm, x, END_LIST},
   {EXTENSION, 0x0fba10, "(group 8)", xx, xx, xx, xx, xx, mrm, x, 15},
   {OP_btc, 0x0fbb10, "btc", Ev, xx, Gv, Ev, xx, mrm, fW6, tex[15][7]},
   {PREFIX_EXT, 0x0fbc10, "(prefix ext 140)", xx, xx, xx, xx, xx, mrm, x, 140},
