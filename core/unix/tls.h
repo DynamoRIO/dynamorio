@@ -120,7 +120,7 @@ typedef struct _our_modify_ldt_t {
                          : "m"((val))                                                 \
                          : ASM_XAX);                                                  \
         } while (0)
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
 #    define WRITE_DR_SEG(val) ASSERT_NOT_REACHED()
 #    define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
 #    define TLS_SLOT_VAL_EXITED ((byte *)PTR_UINT_MINUS_1)
@@ -314,7 +314,7 @@ tls_thread_preinit();
 void
 tls_thread_free(tls_type_t tls_type, int index);
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 byte **
 get_dr_tls_base_addr(void);
 #endif
