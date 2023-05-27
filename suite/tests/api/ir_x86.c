@@ -2911,7 +2911,7 @@ main(int argc, char *argv[])
 
     test_extra_leading_prefixes(dcontext);
 
-    test_ud1_operands();
+    test_ud1_operands(dcontext);
 
     test_disasm_to_buffer(dcontext);
 
