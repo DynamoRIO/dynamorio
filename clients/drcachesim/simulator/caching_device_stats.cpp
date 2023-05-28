@@ -134,7 +134,7 @@ void
 caching_device_stats_t::dump_miss(const memref_t &memref)
 {
     addr_t pc, addr;
-    if (type_is_instr(memref.data.type))
+    if (type_is_instr(memref.instr.type))
         pc = memref.instr.addr;
     else { // data ref: others shouldn't get here
         assert(type_is_prefetch(memref.data.type) ||
