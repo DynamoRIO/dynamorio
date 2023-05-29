@@ -64,14 +64,6 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     ASSERT_NOT_REACHED();
 }
 
-static inline const char *
-immed_prefix(void)
-{
-    return (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))
-                ? ""
-                : (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)) ? "#" : "$"));
-}
-
 bool
 opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
 {
@@ -79,13 +71,8 @@ opnd_disassemble_arch(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t opnd)
     case IMMED_INTEGER_kind: {
         /* Immediates are sign-extended at the decode time. */
         ptr_int_t val = opnd_get_immed_int(opnd);
-        const char *sign = val < 0 ? "-" : "";
-        if (val < 0)
-            val = -val;
-        /* FIXME i#3544: objdump shows some immediates in decimal (i.e. addi).
-         * Should we try to differentiate those here too?
-         */
-        print_to_buffer(buf, bufsz, sofar, "%s%s0x%x", immed_prefix(), sign, val);
+        const char *fmt = opnd.decimal ? "%d" : "0x%x";
+        print_to_buffer(buf, bufsz, sofar, fmt, val);
         return true;
     }
     }
@@ -107,8 +94,6 @@ void
 print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz,
                      size_t *sofar INOUT)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
 }
 
 void
