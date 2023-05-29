@@ -1174,7 +1174,6 @@ enum {
     DR_REG_X29,     /**< The x29(t4) register. */
     DR_REG_X30,     /**< The x30(t5) register. */
     DR_REG_X31,     /**< The x31(t6) register. */
-    DR_REG_PC,      /**< The program counter. */
     /* GPR aliases */
     DR_REG_ZERO = DR_REG_X0, /**< The hard-wired zero (x0) register. */
     DR_REG_RA = DR_REG_X1,   /**< The return address (x1) register. */
@@ -1209,6 +1208,7 @@ enum {
     DR_REG_T4 = DR_REG_X29,  /**< The 5th temporary (x29) register. */
     DR_REG_T5 = DR_REG_X30,  /**< The 6th temporary (x30) register. */
     DR_REG_T6 = DR_REG_X31,  /**< The 7th temporary (x31) register. */
+    DR_REG_PC,   /**< The program counter. */
     /* Floating point registers */
     DR_REG_F0,   /**< The f0(ft0) floating-point register. */
     DR_REG_F1,   /**< The f1(ft1) floating-point register. */
@@ -1908,6 +1908,12 @@ struct _opnd_t {
         } base_disp; /* BASE_DISP_kind */
         void *addr;  /* REL_ADDR_kind and ABS_ADDR_kind */
     } value;
+#    ifdef RISCV64
+        /* Used by disassemble, indicates whether an immediate value should be formatted
+         * in decimal or hexadecimal, valid iff opnd is an IMMED_INTEGER_kind.
+         */
+        bool decimal;
+#    endif
 };
 #endif /* DR_FAST_IR */
 
