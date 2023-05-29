@@ -45,6 +45,8 @@
  * (which might be used as vendor ISA extensions).
  */
 
+#define ENCFAIL (uint)0x0 /* An invalid instruction (a.k.a c.unimp). */
+
 /* List of ISA extensions handled by the codec. */
 typedef enum {
     RISCV64_ISA_EXT_RV32A,
@@ -278,5 +280,7 @@ get_instruction_info(uint opc);
 
 byte *
 decode_common(dcontext_t *dc, byte *pc, byte *orig_pc, instr_t *instr);
+uint
+encode_common(byte *pc, instr_t *i, decode_info_t *di);
 
 #endif /* CODEC_H */

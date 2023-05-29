@@ -1401,3 +1401,12 @@ decode_failure:
     instr_set_opcode(instr, OP_INVALID);
     return NULL;
 }
+
+uint
+encode_common(byte *pc, instr_t *i, decode_info_t *di)
+{
+    ASSERT(((ptr_int_t)pc & 1) == 0);
+
+    /* FIXME i#3544: Not implemented */
+    return ENCFAIL;
+}
