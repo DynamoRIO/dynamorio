@@ -82,10 +82,10 @@ main()
     __try {
         __asm {
             /* to ensure that xax isn't clobbered while executing random
-             * code on the stack we set up a ud2a on the stack so that
+             * code on the stack we set up a ud2 on the stack so that
              * we get an exception right away
              */
-            push 000b0fh /* ud2a */
+            push 000b0fh /* ud2 */
             mov ebx, esp
             push arg0
             push ebx
@@ -114,10 +114,10 @@ main()
     __try {
         __asm {
             /* to ensure that xax isn't clobbered while executing random
-             * code on the stack we set up a ud2a on the stack so that
+             * code on the stack we set up a ud2 on the stack so that
              * we get an exception right away
              */
-            push 000b0fh /* ud2a */
+            push 000b0fh /* ud2 */
             mov ebx, esp
             push arg0
             push ebx
