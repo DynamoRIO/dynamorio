@@ -97,8 +97,10 @@ public:
             icache_flushes += rhs.icache_flushes;
             dcache_flushes += rhs.dcache_flushes;
             encodings += rhs.encodings;
-            for (const uint64_t addr : rhs.unique_pc_addrs) {
-                unique_pc_addrs.insert(addr);
+            if (track_unique_pc_addrs) {
+                for (const uint64_t addr : rhs.unique_pc_addrs) {
+                    unique_pc_addrs.insert(addr);
+                }
             }
             return *this;
         }
@@ -168,6 +170,23 @@ public:
         // we use encoding_is_new as a proxy.
         int_least64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
+
+        // Stops tracking unique_pc_addrs. Tracking unique_pc_addrs can be very
+        // memory intensive. We skip it for interval state snapshots.
+        void
+        skip_tracking_unique_pc_addrs()
+        {
+            track_unique_pc_addrs = false;
+            unique_pc_addrs.clear();
+        }
+        bool
+        is_tracking_unique_pc_addrs() const
+        {
+            return track_unique_pc_addrs;
+        }
+
+    private:
+        bool track_unique_pc_addrs = true;
     };
     counters_t
     get_total_counts();
@@ -193,6 +212,7 @@ protected:
         // the last interval's counters in per_shard_t. So we simply track
         // the cumulative values here and compute the delta at the end in
         // print_interval_results().
+        // Note that we do not track unique pc addresses for interval snapshots.
         counters_t counters;
         // TODO i#6020: Add per-window counters to the snapshot, and also
         // return interval counts separately per-window in a structured
