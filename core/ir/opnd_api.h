@@ -1208,7 +1208,7 @@ enum {
     DR_REG_T4 = DR_REG_X29,  /**< The 5th temporary (x29) register. */
     DR_REG_T5 = DR_REG_X30,  /**< The 6th temporary (x30) register. */
     DR_REG_T6 = DR_REG_X31,  /**< The 7th temporary (x31) register. */
-    DR_REG_PC,   /**< The program counter. */
+    DR_REG_PC,               /**< The program counter. */
     /* Floating point registers */
     DR_REG_F0,   /**< The f0(ft0) floating-point register. */
     DR_REG_F1,   /**< The f1(ft1) floating-point register. */
@@ -1909,10 +1909,10 @@ struct _opnd_t {
         void *addr;  /* REL_ADDR_kind and ABS_ADDR_kind */
     } value;
 #    ifdef RISCV64
-        /* Used by disassemble, indicates whether an immediate value should be formatted
-         * in decimal or hexadecimal, valid iff opnd is an IMMED_INTEGER_kind.
-         */
-        bool decimal;
+    /* Used by disassemble, indicates whether an immediate value should be formatted
+     * in decimal or hexadecimal, valid iff opnd is an IMMED_INTEGER_kind.
+     */
+    bool decimal;
 #    endif
 };
 #endif /* DR_FAST_IR */

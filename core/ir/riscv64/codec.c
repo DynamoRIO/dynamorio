@@ -1421,7 +1421,6 @@ decode_failure:
     return NULL;
 }
 
-
 /* Instruction operand encoder function.
  *
  * Encodes an operand from a given instr_t into the instruction.
@@ -1737,8 +1736,8 @@ encode_b_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_target(instr);
     int32_t imm = opnd_get_pc(opnd) - pc;
-    *out |= SET_FIELD(imm >> 11, 7, 7) | SET_FIELD(imm, 11, 8) | SET_FIELD(imm >> 5, 30, 25) |
-            SET_FIELD(imm >> 12, 31, 31);
+    *out |= SET_FIELD(imm >> 11, 7, 7) | SET_FIELD(imm, 11, 8) |
+        SET_FIELD(imm >> 5, 30, 25) | SET_FIELD(imm >> 12, 31, 31);
     return true;
 }
 
@@ -1772,7 +1771,8 @@ encode_j_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_target(instr);
     int32_t imm = opnd_get_pc(opnd) - pc;
-    *out |= SET_FIELD(imm >> 1, 31, 21) | SET_FIELD(imm >> 11, 20, 20) | SET_FIELD(imm >> 12, 19, 12) | SET_FIELD(imm >> 20, 31, 31);
+    *out |= SET_FIELD(imm >> 1, 31, 21) | SET_FIELD(imm >> 11, 20, 20) |
+        SET_FIELD(imm >> 12, 19, 12) | SET_FIELD(imm >> 20, 31, 31);
     return true;
 }
 
@@ -1985,7 +1985,9 @@ encode_caddi16sp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
-    *out |= SET_FIELD(imm >> 5, 2, 2) | SET_FIELD(imm >> 7, 4, 3) | SET_FIELD(imm >> 6, 5, 5) | SET_FIELD(imm >> 4, 6, 6) | SET_FIELD(imm >> 9, 12, 12);
+    *out |= SET_FIELD(imm >> 5, 2, 2) | SET_FIELD(imm >> 7, 4, 3) |
+        SET_FIELD(imm >> 6, 5, 5) | SET_FIELD(imm >> 4, 6, 6) |
+        SET_FIELD(imm >> 9, 12, 12);
     return true;
 }
 
@@ -2002,7 +2004,8 @@ encode_clwsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_disp(opnd);
-    *out |= SET_FIELD(imm >> 6, 3, 2) | SET_FIELD(imm >> 2, 6, 4) | SET_FIELD(imm >> 5, 12, 12);
+    *out |= SET_FIELD(imm >> 6, 3, 2) | SET_FIELD(imm >> 2, 6, 4) |
+        SET_FIELD(imm >> 5, 12, 12);
     return true;
 }
 
@@ -2019,7 +2022,8 @@ encode_cldsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_disp(opnd);
-    *out |= SET_FIELD(imm >> 6, 4, 2) | SET_FIELD(imm >> 3, 6, 5) | SET_FIELD(imm >> 5, 12, 12);
+    *out |= SET_FIELD(imm >> 6, 4, 2) | SET_FIELD(imm >> 3, 6, 5) |
+        SET_FIELD(imm >> 5, 12, 12);
     return true;
 }
 
@@ -2087,7 +2091,8 @@ encode_ciw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
-    *out |= SET_FIELD(imm >> 3, 5, 5) | SET_FIELD(imm >> 2, 6, 6) | SET_FIELD(imm >> 6, 10, 7) | SET_FIELD(imm >> 4, 12, 11);
+    *out |= SET_FIELD(imm >> 3, 5, 5) | SET_FIELD(imm >> 2, 6, 6) |
+        SET_FIELD(imm >> 6, 10, 7) | SET_FIELD(imm >> 4, 12, 11);
     return true;
 }
 
@@ -2107,7 +2112,8 @@ encode_clw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
     uint32_t reg = opnd_get_base(opnd) - DR_REG_X8;
     *out |= SET_FIELD(reg, 9, 7);
     int32_t imm = opnd_get_disp(opnd);
-    *out |= SET_FIELD(imm >> 6, 5, 5) | SET_FIELD(imm >> 2, 6, 6) | SET_FIELD(imm >> 3, 12, 10);
+    *out |= SET_FIELD(imm >> 6, 5, 5) | SET_FIELD(imm >> 2, 6, 6) |
+        SET_FIELD(imm >> 3, 12, 10);
     return true;
 }
 
@@ -2147,7 +2153,8 @@ encode_csw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
     uint32_t reg = opnd_get_base(opnd) - DR_REG_X8;
     *out |= SET_FIELD(reg, 9, 7);
     int32_t imm = opnd_get_disp(opnd);
-    *out |= SET_FIELD(imm >> 6, 5, 5) | SET_FIELD(imm >> 2, 6, 6) | SET_FIELD(imm >> 3, 12, 10);
+    *out |= SET_FIELD(imm >> 6, 5, 5) | SET_FIELD(imm >> 2, 6, 6) |
+        SET_FIELD(imm >> 3, 12, 10);
     return true;
 }
 
@@ -2201,10 +2208,11 @@ encode_cb_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_target(instr);
     int32_t imm = opnd_get_pc(opnd) - pc;
-    *out |= SET_FIELD(imm >> 5, 2, 2) | SET_FIELD(imm >> 1, 4, 3) | SET_FIELD(imm >> 6, 6, 5) | SET_FIELD(imm >> 3, 11, 10) | SET_FIELD(imm >> 8, 12, 12);
+    *out |= SET_FIELD(imm >> 5, 2, 2) | SET_FIELD(imm >> 1, 4, 3) |
+        SET_FIELD(imm >> 6, 6, 5) | SET_FIELD(imm >> 3, 11, 10) |
+        SET_FIELD(imm >> 8, 12, 12);
     return true;
 }
-
 
 /* Encode the immediate field of the CJ-type format as a pc-relative offset:
  * |15 13|12                      2|1      0|
@@ -2219,8 +2227,10 @@ encode_cj_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_target(instr);
     int32_t imm = opnd_get_pc(opnd) - pc;
-    *out |= SET_FIELD(imm >> 5, 2, 2) | SET_FIELD(imm >> 1, 5, 3) | SET_FIELD(imm >> 7, 6, 6) | SET_FIELD(imm >> 6, 7, 7) | SET_FIELD(imm >> 10, 8, 8) | SET_FIELD(imm >> 8, 10, 9) |
-            SET_FIELD(imm >> 4, 11, 11) | SET_FIELD(imm >> 11, 12, 12);
+    *out |= SET_FIELD(imm >> 5, 2, 2) | SET_FIELD(imm >> 1, 5, 3) |
+        SET_FIELD(imm >> 7, 6, 6) | SET_FIELD(imm >> 6, 7, 7) |
+        SET_FIELD(imm >> 10, 8, 8) | SET_FIELD(imm >> 8, 10, 9) |
+        SET_FIELD(imm >> 4, 11, 11) | SET_FIELD(imm >> 11, 12, 12);
     return true;
 }
 
@@ -2267,7 +2277,6 @@ encode_v_s_rs1_disp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
     *out |= SET_FIELD(imm, 11, 7) | SET_FIELD(imm >> 5, 31, 25);
     return true;
 }
-
 
 /* Array of operand encode functions indexed by riscv64_fld_t. */
 opnd_enc_func_t opnd_encoders[] = {
