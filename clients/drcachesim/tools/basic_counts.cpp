@@ -306,7 +306,7 @@ basic_counts_t::generate_shard_interval_snapshot(void *shard_data, uint64_t inte
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     count_snapshot_t *snapshot = new count_snapshot_t;
     // Tracking unique pc addresses for each snapshot takes up excessive space.
-    snapshot->counters.skip_tracking_unique_pc_addrs();
+    snapshot->counters.stop_tracking_unique_pc_addrs();
     for (const auto &ctr : per_shard->counters) {
         snapshot->counters += ctr;
     }
@@ -318,7 +318,7 @@ basic_counts_t::generate_interval_snapshot(uint64_t interval_id)
 {
     count_snapshot_t *snapshot = new count_snapshot_t;
     // Tracking unique pc addresses for each snapshot takes up excessive space.
-    snapshot->counters.skip_tracking_unique_pc_addrs();
+    snapshot->counters.stop_tracking_unique_pc_addrs();
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
             snapshot->counters += ctr;

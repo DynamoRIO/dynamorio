@@ -174,7 +174,7 @@ public:
         // Stops tracking unique_pc_addrs. Tracking unique_pc_addrs can be very
         // memory intensive. We skip it for interval state snapshots.
         void
-        skip_tracking_unique_pc_addrs()
+        stop_tracking_unique_pc_addrs()
         {
             track_unique_pc_addrs = false;
             unique_pc_addrs.clear();
