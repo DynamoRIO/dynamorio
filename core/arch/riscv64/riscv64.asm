@@ -394,9 +394,11 @@ GLOBAL_LABEL(dr_setjmp:)
         fsd      fs10, 24*ARG_SZ (ARG1)
         fsd      fs11, 25*ARG_SZ (ARG1)
 # ifdef UNIX
-        mv       t0, ra
+        addi     sp, sp, -16
+        sd       ra, 0 (sp)
         jal      GLOBAL_REF(dr_setjmp_sigmask)
-        mv       ra, t0
+        ld       ra, 0 (sp)
+        add      sp, sp, 16
 # endif
         li       a0, 0
         ret
