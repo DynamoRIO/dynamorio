@@ -245,6 +245,7 @@ typedef enum {
 
 #define BIT(v, b) (((v) >> b) & 1)
 #define GET_FIELD(v, high, low) (((v) >> low) & ((1ULL << (high - low + 1)) - 1))
+#define SET_FIELD(v, high, low) (((v) & ((1ULL << (high - low + 1)) - 1)) << low)
 #define SIGN_EXTEND(val, val_sz) (((int32_t)(val) << (32 - (val_sz))) >> (32 - (val_sz)))
 
 /* Calculate instruction width.
