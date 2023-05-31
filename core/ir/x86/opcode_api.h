@@ -1692,7 +1692,7 @@ enum {
 #define OP_icebp OP_int1
 #define OP_setalc OP_salc
 
-/* renamed opcodes */
+/* Renamed opcodes. */
 #define OP_ud2a OP_ud2
 #define OP_ud2b OP_ud1
 
