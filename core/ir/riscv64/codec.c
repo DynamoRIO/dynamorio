@@ -1735,7 +1735,14 @@ static bool
 encode_b_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_target(instr);
-    int32_t imm = opnd_get_pc(opnd) - pc;
+    int32_t imm;
+    if (opnd.kind == PC_kind)
+        imm = opnd_get_pc(opnd) - pc;
+    else if (opnd.kind == INSTR_kind)
+        imm = (byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset;
+    else
+        return false;
+
     *out |= SET_FIELD(imm >> 11, 7, 7) | SET_FIELD(imm, 11, 8) |
         SET_FIELD(imm >> 5, 30, 25) | SET_FIELD(imm >> 12, 31, 31);
     return true;
@@ -1770,7 +1777,14 @@ static bool
 encode_j_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_target(instr);
-    int32_t imm = opnd_get_pc(opnd) - pc;
+    int32_t imm;
+    if (opnd.kind == PC_kind)
+        imm = opnd_get_pc(opnd) - pc;
+    else if (opnd.kind == INSTR_kind)
+        imm = (byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset;
+    else
+        return false;
+
     *out |= SET_FIELD(imm >> 1, 31, 21) | SET_FIELD(imm >> 11, 20, 20) |
         SET_FIELD(imm >> 12, 19, 12) | SET_FIELD(imm >> 20, 31, 31);
     return true;
@@ -2207,7 +2221,15 @@ static bool
 encode_cb_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_target(instr);
-    int32_t imm = opnd_get_pc(opnd) - pc;
+
+    int32_t imm;
+    if (opnd.kind == PC_kind)
+        imm = opnd_get_pc(opnd) - pc;
+    else if (opnd.kind == INSTR_kind)
+        imm = (byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset;
+    else
+        return false;
+
     *out |= SET_FIELD(imm >> 5, 2, 2) | SET_FIELD(imm >> 1, 4, 3) |
         SET_FIELD(imm >> 6, 6, 5) | SET_FIELD(imm >> 3, 11, 10) |
         SET_FIELD(imm >> 8, 12, 12);
@@ -2226,7 +2248,15 @@ static bool
 encode_cj_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_target(instr);
-    int32_t imm = opnd_get_pc(opnd) - pc;
+
+    int32_t imm;
+    if (opnd.kind == PC_kind)
+        imm = opnd_get_pc(opnd) - pc;
+    else if (opnd.kind == INSTR_kind)
+        imm = (byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset;
+    else
+        return false;
+
     *out |= SET_FIELD(imm >> 5, 2, 2) | SET_FIELD(imm >> 1, 5, 3) |
         SET_FIELD(imm >> 7, 6, 6) | SET_FIELD(imm >> 6, 7, 7) |
         SET_FIELD(imm >> 10, 8, 8) | SET_FIELD(imm >> 8, 10, 9) |
