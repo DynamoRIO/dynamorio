@@ -5566,7 +5566,7 @@ intercept_exception(app_state_at_intercept_t *state)
          * judging by the need for the filter, doesn't even look like it needs
          * to be native. */
         /* Do not assert when a client is present: it may be using
-         * ud2a or something for its own purposes (i#503).  This
+         * ud2 or something for its own purposes (i#503).  This
          * curiosity is really to find errors in core DR.
          */
         ASSERT_CURIOSITY(dr_bb_hook_exists() || dr_trace_hook_exists() ||

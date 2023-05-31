@@ -193,7 +193,7 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             inst = instr_get_prev(inst);
         instrlist_meta_preinsert(bb, inst,
                                  INSTR_CREATE_jmp(drcontext, opnd_create_instr(skip)));
-        instrlist_meta_preinsert(bb, inst, INSTR_CREATE_ud2a(drcontext));
+        instrlist_meta_preinsert(bb, inst, INSTR_CREATE_ud2(drcontext));
         instrlist_meta_preinsert(bb, inst, skip);
     }
 
