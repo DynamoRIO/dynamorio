@@ -379,13 +379,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             (shard->skipped_instrs_ && shard->stream != nullptr &&
                              shard->stream->get_page_size() > 0),
                         "Missing page size marker");
-        report_if_false(
-            shard,
-            (shard->found_syscall_marker_ &&
-             TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_)) ||
-                (!shard->found_syscall_marker_ &&
-                 !TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_)),
-            "System call numbers presence does not match filetype");
+        report_if_false(shard,
+                        shard->found_syscall_marker_ ==
+                            // Making sure this is a bool for a safe comparison.
+                            static_cast<bool>(TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS,
+                                                      shard->file_type_)),
+                        "System call numbers presence does not match filetype");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,

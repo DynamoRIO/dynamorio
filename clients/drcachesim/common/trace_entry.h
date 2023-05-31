@@ -435,9 +435,10 @@ typedef enum {
     TRACE_MARKER_TYPE_RSEQ_ENTRY,
 
     /**
-     * This marker is emitted prior to each system call.  The marker value contains the
-     * system call number.  If these markers are present, the file type
-     * #OFFLINE_FILE_TYPE_SYSCALL_NUMBERS is set.
+     * This marker is emitted prior to each system call invocation, after the
+     * instruction fetch entry for the system call gateway instruction from user mode. The
+     * marker value contains the system call number.  If these markers are present, the
+     * file type #OFFLINE_FILE_TYPE_SYSCALL_NUMBERS is set.
      */
     TRACE_MARKER_TYPE_SYSCALL,
 

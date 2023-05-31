@@ -1331,7 +1331,9 @@ event_pre_syscall(void *drcontext, int sysnum)
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
 
-    // Ouput system call numbers if we have a full instruction trace.
+    // Output system call numbers if we have a full instruction trace.
+    // Since the instruction fetch has already been output, this will be
+    // appended to the block-final syscall instr.
     if (!op_L0I_filter.get_value()) {
         BUF_PTR(data->seg_base) += instru->append_marker(
             BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
