@@ -1820,6 +1820,12 @@ struct _opnd_t {
         /* Used for ARM: REG_kind, BASE_DISP_kind, and IMMED_INTEGER_kind */
         ushort /*dr_opnd_flags_t*/ flags;
     } aux;
+#    ifdef RISCV64
+    /* Used by disassemble, indicates whether an immediate value should be formatted
+     * in decimal or hexadecimal, valid iff opnd is an IMMED_INTEGER_kind.
+     */
+    bool decimal;
+#    endif
     union {
         /* all are 64 bits or less */
         /* NULL_kind has no value */
@@ -1908,12 +1914,6 @@ struct _opnd_t {
         } base_disp; /* BASE_DISP_kind */
         void *addr;  /* REL_ADDR_kind and ABS_ADDR_kind */
     } value;
-#    ifdef RISCV64
-    /* Used by disassemble, indicates whether an immediate value should be formatted
-     * in decimal or hexadecimal, valid iff opnd is an IMMED_INTEGER_kind.
-     */
-    bool decimal;
-#    endif
 };
 #endif /* DR_FAST_IR */
 
