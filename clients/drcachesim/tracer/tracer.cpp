@@ -1331,6 +1331,15 @@ event_pre_syscall(void *drcontext, int sysnum)
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
 
+    // If we just switched modes in this thread in a block ending in a syscall,
+    // we can end up here without having traced the syscall instr, which we
+    // want to avoid.  We look for an empty (non-initial, so we do not add
+    // init_header_size) buffer with zero instrs in the current window (b/c it
+    // could be empty just due to the syscall instr filling up the prior buffer).
+    if (BUF_PTR(data->seg_base) == data->buf_base + buf_hdr_slots_size &&
+        data->cur_window_instr_count == 0)
+        return true;
+
     // Output system call numbers if we have a full instruction trace.
     // Since the instruction fetch has already been output, this will be
     // appended to the block-final syscall instr.
