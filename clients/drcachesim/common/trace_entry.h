@@ -272,9 +272,17 @@ typedef enum {
     TRACE_MARKER_TYPE_CPU_ID,
 
     /**
-     * The marker value contains the function id defined by the user in the
-     * -record_function (and -record_heap_value if -record_heap is specified)
-     * option.
+     * The marker value contains the function id for functions traced by the user via
+     * the -record_function (and -record_heap_value if -record_heap is specified)
+     * option.  The mapping from this numeric ID to a library-qualified symbolic name
+     * is recorded during tracing in a file "funclist.log" whose format is described by
+     * the drmemtrace_get_funclist_path() function's documentation.
+     *
+     * This marker is also used to record parameter values for certain system calls such
+     * as for #OFFLINE_FILE_TYPE_KERNEL_SCHED.  These use large identifiers equal to
+     * #TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (or its bottom 16 bits
+     * for 32-bit marker values).  These identifiers are not stored in the function
+     * list file (drmemtrace_get_funclist_path()).
      */
     TRACE_MARKER_TYPE_FUNC_ID,
 
@@ -300,6 +308,9 @@ typedef enum {
      * The marker value contains the return value of the just-entered function,
      * whose id is specified by the closest previous #TRACE_MARKER_TYPE_FUNC_ID
      * marker entry
+     *
+     * The marker value for system calls (see #TRACE_FUNC_ID_SYSCALL_BASE) is either 0
+     * (failure) or 1 (success).
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
 
@@ -442,12 +453,37 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL,
 
+    /**
+     * This marker is emitted prior to a system call which is known to block under some
+     * circumstances.  Whether it blocks may depend on the values of parameters or the
+     * state of options set in prior system calls.  If these markers are present, the
+     * file type #OFFLINE_FILE_TYPE_KERNEL_SCHED is set.  The marker value is 0.
+     */
+    TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
     TRACE_MARKER_TYPE_RESERVED_END = 100,
     // Values below here are available for users to use for custom markers.
 } trace_marker_type_t;
+
+/** Constants related to function or system call parameter tracing. */
+enum {
+/**
+ * When system call parameter and return values are provided, they use the function
+ * tracing markers #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_ARG, and
+ * #TRACE_MARKER_TYPE_FUNC_RETVAL.  The identifier used for
+ * #TRACE_MARKER_TYPE_FUNC_ID is equal to this base value plus the 32-bit system
+ * call number for 64-bit marker values or this base value plus the lower 16 bits
+ * of the system call number for 32-bit marker values.
+ */
+#ifdef X64
+    TRACE_FUNC_ID_SYSCALL_BASE = 100000000UL,
+#else
+    TRACE_FUNC_ID_SYSCALL_BASE = 0x10000U,
+#endif
+};
 
 extern const char *const trace_type_names[];
 
@@ -663,8 +699,22 @@ typedef enum {
     OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
     OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
-    /** System call number markers are included. */
+    /** System call number markers (#TRACE_MARKER_TYPE_SYSCALL) are included. */
     OFFLINE_FILE_TYPE_SYSCALL_NUMBERS = 0x400,
+    /**
+     * Kernel scheduling information is included:
+     * #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers and system call parameters
+     * and return values for kernel locks (SYS_futex on Linux) using the function tracing
+     * markers #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_ARG, and
+     * #TRACE_MARKER_TYPE_FUNC_RETVAL with an identifier equal to
+     * #TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (or its bottom 16 bits
+     * for 32-bit marker values).  These identifiers are not stored in the function
+     * list file (drmemtrace_get_funclist_path()).
+     *
+     * The #TRACE_MARKER_TYPE_FUNC_RETVAL for system calls is either 0 (failure) or
+     * 1 (success).
+     */
+    OFFLINE_FILE_TYPE_KERNEL_SCHED = 0x800,
 } offline_file_type_t;
 
 static inline const char *

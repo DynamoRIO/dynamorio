@@ -322,6 +322,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                 TRACE_MARKER_TYPE_SYSCALL,
                         "Syscall instruction not followed by syscall marker");
     }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
+        shard->found_blocking_marker_ = true;
+        report_if_false(shard,
+                        shard->found_syscall_marker_ &&
+                            shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+                            shard->prev_entry_.marker.marker_type ==
+                                TRACE_MARKER_TYPE_SYSCALL,
+                        "Maybe-blocking marker not preceded by syscall marker");
+    }
 
     // Invariant: each chunk's instruction count must be identical and equal to
     // the value in the top-level marker.
@@ -390,6 +400,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_)) ||
                 shard->syscall_count_ == 0,
             "System call numbers presence does not match filetype");
+        report_if_false(shard,
+                        shard->found_blocking_marker_ ==
+                                // Making sure this is a bool for a safe comparison.
+                                static_cast<bool>(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SCHED,
+                                                          shard->file_type_)) ||
+                            shard->syscall_count_ == 0,
+                        "Kernel scheduling marker presence does not match filetype");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,

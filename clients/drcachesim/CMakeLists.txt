@@ -902,6 +902,22 @@ if (BUILD_TESTS)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_traceopts)
       use_DynamoRIO_extension(tool.drcacheoff.burst_traceopts drcovlib_static)
     endif (NOT RISCV64)
+
+    if (LINUX) # Futex is Linux-only.
+      add_executable(tool.drcacheoff.burst_futex
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/burst_futex.cpp")
+      configure_DynamoRIO_static(tool.drcacheoff.burst_futex)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_futex drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_futex drmemtrace_raw2trace
+        drmemtrace_analyzer)
+      if (WIN32)
+        # Just like for burst_replace, linking everything together takes effort.
+        target_link_libraries(tool.drcacheoff.burst_futex ${static_libc})
+      endif ()
+      add_win32_flags(tool.drcacheoff.burst_futex)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_futex)
+    endif ()
+
   endif ()
 
   if (X86 AND X64 AND ZIP_FOUND)
