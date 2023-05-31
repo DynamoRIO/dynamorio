@@ -188,7 +188,7 @@ const instr_info_t * const op_instr[] =
     /* OP_sysret      */   &second_byte[0x07],
     /* OP_invd        */   &second_byte[0x08],
     /* OP_wbinvd      */   &second_byte[0x09],
-    /* OP_ud2a        */   &second_byte[0x0b],
+    /* OP_ud2         */   &second_byte[0x0b],
     /* OP_nop_modrm   */   &second_byte[0x1f],
     /* OP_movntps     */   &prefix_extensions[11][0],
     /* OP_movntpd     */   &prefix_extensions[11][2],
@@ -289,7 +289,7 @@ const instr_info_t * const op_instr[] =
     /* OP_lfs         */   &second_byte[0xb4],
     /* OP_lgs         */   &second_byte[0xb5],
     /* OP_movzx       */   &second_byte[0xb7],
-    /* OP_ud2b        */   &second_byte[0xb9],
+    /* OP_ud1         */   &second_byte[0xb9],
     /* OP_btc         */   &second_byte[0xbb],
     /* OP_bsf         */   &prefix_extensions[140][0],
     /* OP_bsr         */   &prefix_extensions[136][0],
@@ -2441,7 +2441,7 @@ const instr_info_t second_byte[] = {
   {OP_invd, 0x0f0810, "invd", xx, xx, xx, xx, xx, no, x, END_LIST},
   {OP_wbinvd, 0x0f0910, "wbinvd", xx, xx, xx, xx, xx, no, x, END_LIST},
   {INVALID, 0x0f0a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-  {OP_ud2a, 0x0f0b10, "ud2a", xx, xx, xx, xx, xx, no, x, END_LIST}, /* "undefined instr" instr */
+  {OP_ud2, 0x0f0b10, "ud2", xx, xx, xx, xx, xx, no, x, END_LIST}, /* "undefined instr" instr */
   {INVALID, 0x0f0c10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   {EXTENSION, 0x0f0d10, "(group amd)", xx, xx, xx, xx, xx, mrm, x, 24}, /* AMD only */
   {OP_femms, 0x0f0e10, "femms", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -2648,8 +2648,8 @@ const instr_info_t second_byte[] = {
   {OP_movzx, 0x0fb710, "movzx", Gv, xx, Ew, xx, xx, mrm, x, tsb[0xb6]},
   /* b8 */
   {OP_popcnt, 0xf30fb810, "popcnt", Gv, xx, Ev, xx, xx, mrm|reqp, fW6, END_LIST},
-  /* This is Group 10, but all identical (ud2b) so no reason to split opcode by /reg */
-  {OP_ud2b, 0x0fb910, "ud2b", xx, xx, xx, xx, xx, no, x, END_LIST},
+  /* This is Group 10, but all identical (ud1) so no reason to split opcode by /reg */
+  {OP_ud1, 0x0fb910, "ud1", xx, xx, Gv, Ev, xx, mrm, x, END_LIST},
   {EXTENSION, 0x0fba10, "(group 8)", xx, xx, xx, xx, xx, mrm, x, 15},
   {OP_btc, 0x0fbb10, "btc", Ev, xx, Gv, Ev, xx, mrm, fW6, tex[15][7]},
   {PREFIX_EXT, 0x0fbc10, "(prefix ext 140)", xx, xx, xx, xx, xx, mrm, x, 140},
@@ -2932,7 +2932,7 @@ const instr_info_t base_extensions[][8] = {
     {MOD_EXT, 0x0fc736, "(group 9 mod ext 12)", xx, xx, xx, xx, xx, mrm, x, 12},
     {MOD_EXT, 0x0fc737, "(mod ext 13)", xx, xx, xx, xx, xx, mrm, x, 13},
   },
-  /* group 10 is all ud2b and is not used by us since identical */
+  /* group 10 is all ud1 and is not used by us since identical */
   /* group 11a (first byte c6) */
   { /* extensions[17] */
     {OP_mov_st, 0xc60020, "mov", Eb, xx, Ib, xx, xx, mrm, x, END_LIST},
