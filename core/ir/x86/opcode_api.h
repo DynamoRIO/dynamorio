@@ -1693,7 +1693,7 @@ enum {
 #define OP_setalc OP_salc
 
 /* Renamed opcodes. */
-#define OP_ud2a OP_ud2
-#define OP_ud2b OP_ud1
+#define OP_ud2a OP_ud2 /**< Deprecated opcode name for ud2. */
+#define OP_ud2b OP_ud1 /**< Deprecated opcode name for ud1. */
 
 #endif /* _DR_IR_OPCODES_X86_H_ */
