@@ -485,10 +485,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                 input_info_t &input = inputs_[index];
                 input.has_modifier = true;
                 input.binding = modifiers.output_binding;
-                if (!input.binding.empty()) {
-                    // TODO i#5843: Implement bindings.
-                    return STATUS_ERROR_NOT_IMPLEMENTED;
-                }
                 input.priority = modifiers.priority;
                 for (size_t i = 0; i < modifiers.regions_of_interest.size(); ++i) {
                     const auto &range = modifiers.regions_of_interest[i];
@@ -600,8 +596,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
         if (options_.quantum_unit != QUANTUM_INSTRUCTIONS)
             return STATUS_ERROR_NOT_IMPLEMENTED;
         // Assign initial inputs.
-        // TODO i#5843: Once we support core bindings and priorities we'll want
-        // to consider that here.
         if (options_.deps == DEPENDENCY_TIMESTAMPS) {
             sched_type_t::scheduler_status_t res = get_initial_timestamps();
             if (res != STATUS_SUCCESS)
@@ -640,8 +634,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
             }
             for (int i = 0; i < static_cast<output_ordinal_t>(outputs_.size()); ++i) {
                 if (i < static_cast<input_ordinal_t>(inputs_.size())) {
-                    input_info_t *queue_next = pop_from_ready_queue();
-                    set_cur_input(i, queue_next->index);
+                    input_info_t *queue_next = pop_from_ready_queue(i);
+                    if (queue_next == nullptr)
+                        set_cur_input(i, INVALID_INPUT_ORDINAL);
+                    else
+                        set_cur_input(i, queue_next->index);
                 } else
                     set_cur_input(i, INVALID_INPUT_ORDINAL);
             }
@@ -1240,14 +1237,31 @@ scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input
 
 template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::input_info_t *
-scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue()
+scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
+    output_ordinal_t for_output)
 {
-    input_info_t *res = ready_priority_.top();
-    ready_priority_.pop();
-    VPRINT(this, 4,
-           "pop_from_ready_queue: input %d priority %d timestamp delta %" PRIu64 "\n",
-           res->index, res->priority,
-           res->reader->get_last_timestamp() - res->base_timestamp);
+    std::set<input_info_t *> skipped;
+    input_info_t *res = nullptr;
+    do {
+        res = ready_priority_.top();
+        ready_priority_.pop();
+        if (res->binding.empty() || res->binding.find(for_output) != res->binding.end())
+            break;
+        // We keep searching for a suitable input.
+        skipped.insert(res);
+        res = nullptr;
+    } while (!ready_priority_.empty());
+    // Re-add the ones we skipped, but without changing their counters so we preserve
+    // the prior FIFO order.
+    for (input_info_t *save : skipped)
+        ready_priority_.push(save);
+    if (res != nullptr) {
+        VPRINT(this, 4,
+               "pop_from_ready_queue[%d]: input %d priority %d timestamp delta %" PRIu64
+               "\n",
+               for_output, res->index, res->priority,
+               res->reader->get_last_timestamp() - res->base_timestamp);
+    }
     return res;
 }
 
@@ -1256,6 +1270,9 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                                                         input_ordinal_t input)
 {
+    // XXX i#5843: Merge tracking of current inputs with ready_queue_ to better manage
+    // the possible 3 states of each input (a live cur_input for an output stream, in
+    // the ready_queue_, or at EOF).
     assert(output >= 0 && output < static_cast<output_ordinal_t>(outputs_.size()));
     // 'input' might be INVALID_INPUT_ORDINAL.
     assert(input < static_cast<input_ordinal_t>(inputs_.size()));
@@ -1422,8 +1439,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     // shouldn't switch.  The queue preserves FIFO for same-priority
                     // cases so we will switch if someone of equal priority is waiting.
                     set_cur_input(output, INVALID_INPUT_ORDINAL);
-                    // TODO i#5843: Add core binding support.
-                    input_info_t *queue_next = pop_from_ready_queue();
+                    input_info_t *queue_next = pop_from_ready_queue(output);
+                    if (queue_next == nullptr)
+                        return sched_type_t::STATUS_EOF;
                     index = queue_next->index;
                 }
             } else if (options_.deps == DEPENDENCY_TIMESTAMPS) {
