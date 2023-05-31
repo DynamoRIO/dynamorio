@@ -255,7 +255,6 @@ TEST_INSTR(pmul_sve)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_1));
 }
 
-
 TEST_INSTR(rax1_sve)
 {
 
