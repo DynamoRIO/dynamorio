@@ -357,7 +357,7 @@ typedef enum {
     FEATURE_I8MM = DEF_FEAT(AA64ZFR0, 11, 1, 0),   /**< SVE Int8 matrix multiplication */
     FEATURE_F64MM = DEF_FEAT(AA64ZFR0, 14, 1, 0),  /**< SVE FP64 matrix multiplication */
     FEATURE_SVE2 = DEF_FEAT(AA64ZFR0, 0, 1, 0),    /**< Scalable vectors 2 (AArch64) */
-    FEATURE_SVEAES = DEF_FEAT(AA64ZFR0, 1, 1, 0), /**< SVE2 + AES(AArch64) */
+    FEATURE_SVEAES = DEF_FEAT(AA64ZFR0, 1, 1, 0),  /**< SVE2 + AES(AArch64) */
     FEATURE_SVESHA3 = DEF_FEAT(AA64ZFR0, 8, 1, 0), /**< SVE2 + SHA3(AArch64) */
     FEATURE_SVESM4 = DEF_FEAT(AA64ZFR0, 10, 1, 0), /**< SVE2 + SM4(AArch64) */
 } feature_bit_t;
