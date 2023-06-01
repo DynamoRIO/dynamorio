@@ -360,6 +360,7 @@ typedef enum {
     FEATURE_SVEAES = DEF_FEAT(AA64ZFR0, 1, 1, 0),  /**< SVE2 + AES(AArch64) */
     FEATURE_SVESHA3 = DEF_FEAT(AA64ZFR0, 8, 1, 0), /**< SVE2 + SHA3(AArch64) */
     FEATURE_SVESM4 = DEF_FEAT(AA64ZFR0, 10, 1, 0), /**< SVE2 + SM4(AArch64) */
+    FEATURE_SVEBitPerm = DEF_FEAT(AA64ZFR0, 4, 1, 0), /**< SVE2 + BitPerm(AArch64) */
 } feature_bit_t;
 #endif
 #ifdef RISCV64

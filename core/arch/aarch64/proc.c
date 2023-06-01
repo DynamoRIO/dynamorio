@@ -227,7 +227,8 @@ proc_has_feature(feature_bit_t f)
     case FEATURE_SVE2:
     case FEATURE_SVEAES:
     case FEATURE_SVESHA3:
-    case FEATURE_SVESM4: return true;
+    case FEATURE_SVESM4:
+    case FEATURE_SVEBitPerm: return true;
 
     case FEATURE_AESX:
     case FEATURE_PMULL:
