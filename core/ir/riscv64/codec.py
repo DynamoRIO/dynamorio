@@ -621,8 +621,8 @@ class IslGenerator:
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif opc in [0b0100011, 0b0100111]:  # STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
-            inst.flds[0] = Field.V_S_RS1_DISP
-            inst.flds.pop(2)
+            inst.flds[2] = Field.V_S_RS1_DISP
+            inst.flds.pop(0)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif inst.mask == 0x1f07fff and inst.match in [0x6013, 0x106013, 0x306013]:
             # prefetch.[irw] instructions
