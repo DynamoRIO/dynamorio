@@ -497,10 +497,10 @@
 #define INSTR_CREATE_clts(dc) instr_create_0dst_0src((dc), OP_clts)
 #define INSTR_CREATE_invd(dc) instr_create_0dst_0src((dc), OP_invd)
 #define INSTR_CREATE_wbinvd(dc) instr_create_0dst_0src((dc), OP_wbinvd)
-#define INSTR_CREATE_ud2a(dc) instr_create_0dst_0src((dc), OP_ud2a)
+#define INSTR_CREATE_ud2(dc) instr_create_0dst_0src((dc), OP_ud2)
+#define INSTR_CREATE_ud2a(dc) INSTR_CREATE_ud2((dc))
 #define INSTR_CREATE_emms(dc) instr_create_0dst_0src((dc), OP_emms)
 #define INSTR_CREATE_rsm(dc) instr_create_0dst_0src((dc), OP_rsm)
-#define INSTR_CREATE_ud2b(dc) instr_create_0dst_0src((dc), OP_ud2b)
 #define INSTR_CREATE_lfence(dc) instr_create_0dst_0src((dc), OP_lfence)
 #define INSTR_CREATE_mfence(dc) instr_create_0dst_0src((dc), OP_mfence)
 #define INSTR_CREATE_sfence(dc) instr_create_0dst_0src((dc), OP_sfence)
@@ -766,6 +766,8 @@
 #define INSTR_CREATE_cmp(dc, s1, s2) instr_create_0dst_2src((dc), OP_cmp, (s1), (s2))
 #define INSTR_CREATE_test(dc, s1, s2) instr_create_0dst_2src((dc), OP_test, (s1), (s2))
 #define INSTR_CREATE_ptest(dc, s1, s2) instr_create_0dst_2src((dc), OP_ptest, (s1), (s2))
+#define INSTR_CREATE_ud1(dc, s1, s2) instr_create_0dst_2src((dc), OP_ud1, (s1), (s2))
+#define INSTR_CREATE_ud2b(dc, s1, s2) INSTR_CREATE_ud1((dc), (s1), (s2))
 /* AVX */
 #define INSTR_CREATE_vucomiss(dc, s1, s2) \
     instr_create_0dst_2src((dc), OP_vucomiss, (s1), (s2))
