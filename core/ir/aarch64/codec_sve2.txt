@@ -36,4 +36,20 @@
 
 # Instruction definitions:
 
-
+0100010100100010111001xxxxxxxxxx  n   17   SVEAES    aesd         z_b_0 : z_b_0 z_b_5
+0100010100100010111000xxxxxxxxxx  n   18   SVEAES    aese         z_b_0 : z_b_0 z_b_5
+00000100011xxxxx001110xxxxxxxxxx  n   599  SVE2    bcax         z_d_0 : z_d_0 z_d_16 z_d_5
+00000100001xxxxx001111xxxxxxxxxx  n   37   SVE2     bsl         z_d_0 : z_d_0 z_d_16 z_d_5
+00000100011xxxxx001111xxxxxxxxxx  n   1065 SVE2   bsl1n         z_d_0 : z_d_0 z_d_16 z_d_5
+00000100101xxxxx001111xxxxxxxxxx  n   1066 SVE2   bsl2n         z_d_0 : z_d_0 z_d_16 z_d_5
+00000100001xxxxx001110xxxxxxxxxx  n   600  SVE2    eor3         z_d_0 : z_d_0 z_d_16 z_d_5
+01100100101xxxxx100000xxxxxxxxxx  n   1067 SVE2  fmlalb         z_s_0 : z_s_0 z_msz_bhsd_5 z_msz_bhsd_16
+01100100101xxxxx100001xxxxxxxxxx  n   1068 SVE2  fmlalt         z_s_0 : z_s_0 z_msz_bhsd_5 z_msz_bhsd_16
+01100100101xxxxx101000xxxxxxxxxx  n   1069 SVE2  fmlslb         z_s_0 : z_s_0 z_msz_bhsd_5 z_msz_bhsd_16
+01100100101xxxxx101001xxxxxxxxxx  n   1070 SVE2  fmlslt         z_s_0 : z_s_0 z_msz_bhsd_5 z_msz_bhsd_16
+01000101001xxxxx101000xxxxxxxxxx  n   1071 SVE2 histseg         z_b_0 : z_b_5 z_b_16
+00000100111xxxxx001111xxxxxxxxxx  n   1072 SVE2    nbsl         z_d_0 : z_d_0 z_d_16 z_d_5
+00000100001xxxxx011001xxxxxxxxxx  n   328  SVE2    pmul  z_msz_bhsd_0 : z_msz_bhsd_5 z_msz_bhsd_16
+01000101001xxxxx111101xxxxxxxxxx  n   603  SVESHA3    rax1         z_d_0 : z_d_5 z_d_16
+0100010100100011111000xxxxxxxxxx  n   593  SVESM4    sm4e  z_msz_bhsd_0 : z_msz_bhsd_0 z_msz_bhsd_5
+01000101001xxxxx111100xxxxxxxxxx  n   594  SVESM4 sm4ekey  z_msz_bhsd_0 : z_msz_bhsd_5 z_msz_bhsd_16
