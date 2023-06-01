@@ -57,8 +57,22 @@ get_dr_tls_base_addr(void)
 void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
-    ASSERT(read_thread_register(TLS_REG_LIB) != 0);
-    ASSERT(os_tls->os_seg_info.priv_lib_tls_base == NULL);
+    ASSERT((byte *)(os_tls->self) == segment);
+    /* XXX: Keep whether we change the thread register consistent with
+     * os_should_swap_state() and os_switch_seg_to_context() code.
+     */
+    if (INTERNAL_OPTION(private_loader)) {
+        LOG(GLOBAL, LOG_THREADS, 2, "tls_thread_init: cur priv lib tls base is " PFX "\n",
+            os_tls->os_seg_info.priv_lib_tls_base);
+        write_thread_register(os_tls->os_seg_info.priv_lib_tls_base);
+        ASSERT(get_segment_base(TLS_REG_LIB) == os_tls->os_seg_info.priv_lib_tls_base);
+    } else {
+        /* Use the app's base which is already in place for static DR.
+         * We don't support other use cases of -no_private_loader.
+         */
+        ASSERT(read_thread_register(TLS_REG_LIB) != 0);
+        ASSERT(os_tls->os_seg_info.priv_lib_tls_base == NULL);
+    }
     ASSERT(*get_dr_tls_base_addr() == NULL ||
            *get_dr_tls_base_addr() == TLS_SLOT_VAL_EXITED);
     *get_dr_tls_base_addr() = segment;

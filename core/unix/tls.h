@@ -201,7 +201,7 @@ read_thread_register(reg_id_t reg)
     return sel;
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 static inline bool
 write_thread_register(void *val)
 {
@@ -210,6 +210,9 @@ write_thread_register(void *val)
     return false;
 #    elif defined(AARCH64)
     asm volatile("msr " IF_MACOS_ELSE("tpidrro_el0", "tpidr_el0") ", %0" : : "r"(val));
+    return true;
+#    elif defined(RISCV64)
+    asm volatile("mv tp, %0" : : "r"(val));
     return true;
 #    else
     return (dynamorio_syscall(SYS_set_tls, 1, val) == 0);
