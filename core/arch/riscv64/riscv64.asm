@@ -368,8 +368,7 @@ GLOBAL_LABEL(dr_try_start:)
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
         sd       ra, 0 (ARG1)
-        mv       t0, sp
-        sd       t0, ARG_SZ (ARG1)
+        sd       sp, ARG_SZ (ARG1)
         sd       s0, 2*ARG_SZ (ARG1)
         sd       s1, 3*ARG_SZ (ARG1)
         sd       s2, 4*ARG_SZ (ARG1)
@@ -411,8 +410,7 @@ GLOBAL_LABEL(dr_setjmp:)
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
         ld       ra, 0 (ARG1) /* Restore return address from buf */
-        ld       t0, ARG_SZ (ARG1)
-        mv       sp, t0
+        ld       sp, ARG_SZ (ARG1)
         ld       s0, 2*ARG_SZ (ARG1)
         ld       s1, 3*ARG_SZ (ARG1)
         ld       s2, 4*ARG_SZ (ARG1)
@@ -547,10 +545,12 @@ GLOBAL_LABEL(_start:)
         mv       fp, x0  /* Clear frame ptr for stack trace bottom. */
 
         CALLC3(GLOBAL_REF(relocate_dynamorio), 0, 0, sp)
+
+        /* Clear 2nd & 3rd args to distinguish from xfer_to_new_libdr. */
         mv       ARG2, x0
         mv       ARG3, x0
 
-        /* Clear 2nd & 3rd args to distinguish from xfer_to_new_libdr. */
+        /* Entry from xfer_to_new_libdr is here.  It has set up 2nd & 3rd args already. */
 GLOBAL_LABEL(.L_start_invoke_C:)
         mv       fp, x0 /* Clear frame ptr for stack trace bottom. */
         mv       ARG1, sp /* 1st arg to privload_early_inject. */
@@ -570,6 +570,10 @@ GLOBAL_LABEL(xfer_to_new_libdr:)
         mv       s0, ARG1
         /* Restore sp */
         mv       sp, ARG2
+        /* Skip prologue that calls relocate_dynamorio() and clears args 2+3 by
+         * adjusting the _start in the reloaded DR by the same distance as in
+         * the current DR, but w/o clobbering ARG3 or ARG4.
+         */
         la       ARG1, GLOBAL_REF(.L_start_invoke_C)
         la       ARG2, GLOBAL_REF(_start)
         sub      ARG1, ARG1, ARG2
