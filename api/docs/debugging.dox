@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -131,6 +131,8 @@ add-symbol-file '/lib64/ld-linux-x86-64.so.2' 0x00007f15285b6090
 >
 ```
 
+To pause the program and allow entering these commands when they are first printed, the `-msgbox_mask 15` option can be used (see the example below).
+
 In a release build, that message is not printed.  However, the same string of commands is available in the global variable `gdb_priv_cmds`, which can be displayed within gdb with something like this:
 
 ```
@@ -155,6 +157,101 @@ symbol-file
 ```
 
 The debugger also gets DR's symbols wrong when DR reloads itself to avoid gaps between its segments.  The repository contains [a gdb python script to load the libdynamorio.so symbols]( https://github.com/DynamoRIO/dynamorio/blob/master/tools/gdb-scripts/gdb-drsymload.py) which is the simplest way to automagically get the correct symbols.
+
+## Example Gdb Session
+
+Below is a sample gdb session where we break on the `drtable_create` function in the
+`drcov` tool.  We use `-msgbox_mask 15` in debug build to get a pause at each message
+including the one with all the symbol commands.  At that message, we hit Control-C to
+interrupt into the debugger where we paste the symbol loading commands.  Then we can use
+regular gdb breakpoint commands.  Upon continuing, we have to remember to hit enter as
+the message is still waiting.  We also disable SIGBUS to avoid safe-read faults from
+adding noise to the picture.
+
+```
+derek@dynamorio:~/dr/build$ gdb --args bin64/drrun -msgbox_mask 15 -t drcov -- suite/tests/bin/simple_app
+GNU gdb (Ubuntu 9.2-0ubuntu1~20.04.1) 9.2
+...
+Reading symbols from bin64/drrun...
+Reading symbols from /home/derek/dr/build/bin64/drrun.debug...
+(gdb) r
+Starting program: /home/derek/dr/build/bin64/drrun -msgbox_mask 15 -t drcov -- suite/tests/bin/simple_app
+process 3239276 is executing new program: /home/derek/dr/build/lib64/debug/libdynamorio.so
+<Starting application /home/derek/dr/build/suite/tests/bin/simple_app (3239276)>
+<press enter to continue>
+
+<Initial options = -no_dynamic_options -client_lib '/home/derek/dr/build/bin64/../clients/lib64/debug/libdrcov.so;0;' -client_lib64 '/home/derek/dr/build/bin64/../clients/lib64/debug/libdrcov.so;0;' -code_api -msgbox_mask 15 -stack_size 56K -signal_stack_size 32K -nop_initial_bblock -max_elide_jmp 0 -max_elide_call 0 -early_inject -emulate_brk -no_inline_ignored_syscalls -native_exec_default_list '' -no_native_exec_managed_code -no_indcall2direct >
+<press enter to continue>
+
+<Paste into GDB to debug DynamoRIO clients:
+set confirm off
+add-symbol-file '/home/derek/dr/build/bin64/../clients/lib64/debug/libdrcov.so' 0x0000ffffb3f8ba70
+add-symbol-file '/home/derek/dr/build/lib64/debug/libdynamorio.so' 0x0000000071019430
+add-symbol-file '/home/derek/dr/build/ext/lib64/debug/libdrcovlib.so' 0x0000ffffb3fc7f70
+add-symbol-file '/home/derek/dr/build/ext/lib64/debug/libdrx.so' 0x0000ffffb3fe43b0
+add-symbol-file '/home/derek/dr/build/ext/lib64/debug/libdrreg.so' 0x0000ffffb4000130
+add-symbol-file '/home/derek/dr/build/ext/lib64/debug/libdrmgr.so' 0x0000ffffb401f470
+>
+<press enter to continue>
+^C
+Program received signal SIGINT, Interrupt.
+0x000000007145e744 in ?? ()
+(gdb) set confirm off
+(gdb) add-symbol-file '/home/derek/dr/build/bin64/../clients/lib64/debug/libdrcov.so' 0x0000ffffb3f8ba70
+add symbol table from file "/home/derek/dr/build/bin64/../clients/lib64/debug/libdrcov.so" at
+        .text_addr = 0xffffb3f8ba70
+Reading symbols from /home/derek/dr/build/bin64/../clients/lib64/debug/libdrcov.so...
+Reading symbols from /home/derek/dr/build/clients/lib64/debug/libdrcov.so.debug...
+(gdb) add-symbol-file '/home/derek/dr/build/lib64/debug/libdynamorio.so' 0x0000000071019430
+add symbol table from file "/home/derek/dr/build/lib64/debug/libdynamorio.so" at
+        .text_addr = 0x71019430
+Reading symbols from /home/derek/dr/build/lib64/debug/libdynamorio.so...
+Reading symbols from /home/derek/dr/build/lib64/debug/libdynamorio.so.debug...
+(gdb) add-symbol-file '/home/derek/dr/build/ext/lib64/debug/libdrcovlib.so' 0x0000ffffb3fc7f70
+add symbol table from file "/home/derek/dr/build/ext/lib64/debug/libdrcovlib.so" at
+        .text_addr = 0xffffb3fc7f70
+Reading symbols from /home/derek/dr/build/ext/lib64/debug/libdrcovlib.so...
+Reading symbols from /home/derek/dr/build/ext/lib64/debug/libdrcovlib.so.debug...
+(gdb) add-symbol-file '/home/derek/dr/build/ext/lib64/debug/libdrx.so' 0x0000ffffb3fe43b0
+add symbol table from file "/home/derek/dr/build/ext/lib64/debug/libdrx.so" at
+        .text_addr = 0xffffb3fe43b0
+Reading symbols from /home/derek/dr/build/ext/lib64/debug/libdrx.so...
+Reading symbols from /home/derek/dr/build/ext/lib64/debug/libdrx.so.debug...
+(gdb) add-symbol-file '/home/derek/dr/build/ext/lib64/debug/libdrreg.so' 0x0000ffffb4000130
+add symbol table from file "/home/derek/dr/build/ext/lib64/debug/libdrreg.so" at
+        .text_addr = 0xffffb4000130
+Reading symbols from /home/derek/dr/build/ext/lib64/debug/libdrreg.so...
+Reading symbols from /home/derek/dr/build/ext/lib64/debug/libdrreg.so.debug...
+(gdb) add-symbol-file '/home/derek/dr/build/ext/lib64/debug/libdrmgr.so' 0x0000ffffb401f470
+add symbol table from file "/home/derek/dr/build/ext/lib64/debug/libdrmgr.so" at
+        .text_addr = 0xffffb401f470
+Reading symbols from /home/derek/dr/build/ext/lib64/debug/libdrmgr.so...
+Reading symbols from /home/derek/dr/build/ext/lib64/debug/libdrmgr.so.debug...
+(gdb) b drtable_create
+Breakpoint 1 at 0xffffb3fcc408: file /home/derek/dr/src/ext/drcontainers/drtable.c, line 171.
+(gdb) handle SIGBUS nostop noprint pass
+Signal        Stop      Print     Pass to program    Description
+SIGBUS        No        No        Yes                Bus error
+(gdb) c
+Continuing.
+
+
+Breakpoint 1, drtable_create (capacity=4096, entry_size=8, flags=0, synch=1 '\001', free_entry_func=0x0) at /home/derek/dr/src/ext/drcontainers/drtable.c:171
+171         DR_ASSERT(entry_size > 0 && entry_size < MAX_ENTRY_SIZE);
+(gdb) bt
+#0  drtable_create (capacity=4096, entry_size=8, flags=0, synch=1 '\001', free_entry_func=0x0) at /home/derek/dr/src/ext/drcontainers/drtable.c:171
+#1  0x0000ffffb3fc84ac in bb_table_create (synch=1 '\001') at /home/derek/dr/src/ext/drcovlib/drcovlib.c:188
+#2  0x0000ffffb3fc8778 in thread_data_create (drcontext=0x0) at /home/derek/dr/src/ext/drcovlib/drcovlib.c:258
+#3  0x0000ffffb3fc88b0 in global_data_create () at /home/derek/dr/src/ext/drcovlib/drcovlib.c:282
+#4  0x0000ffffb3fc930c in event_init () at /home/derek/dr/src/ext/drcovlib/drcovlib.c:543
+#5  0x0000ffffb3fc953c in drcovlib_init (ops=0xffffffffdec8) at /home/derek/dr/src/ext/drcovlib/drcovlib.c:599
+#6  0x0000ffffb3f8c0fc in dr_client_main (id=0, argc=1, argv=0xfffdb3fcda28) at /home/derek/dr/src/clients/drcov/drcov.c:179
+#7  0x00000000711e1f5c in instrument_init () at /home/derek/dr/src/core/lib/instrument.c:772
+#8  0x000000007102facc in dynamorio_app_init_part_two_finalize () at /home/derek/dr/src/core/dynamo.c:716
+#9  0x000000007144c490 in privload_early_inject (sp=0xfffffffff420, old_libdr_base=0xfffff7a64000 <error: Cannot access memory at address 0xfffff7a64000>,
+    old_libdr_size=5881856) at /home/derek/dr/src/core/unix/loader.c:2254
+#10 0x000000007140cc3c in _start () at /home/derek/dr/src/core/arch/aarchxx/aarchxx.asm:68
+```
 
 ## Memory Querying
 
