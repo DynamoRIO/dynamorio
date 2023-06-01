@@ -511,7 +511,7 @@ get_hot_patch_linkstub(void);
 const linkstub_t *
 get_client_linkstub(void);
 const linkstub_t *
-get_special_ibl_linkstub(int index, bool is_trace);
+get_special_ibl_linkstub(ibl_branch_type_t ibl_type, bool is_trace);
 const linkstub_t *
 get_ibl_sourceless_linkstub(uint link_flags, uint frag_flags);
 bool

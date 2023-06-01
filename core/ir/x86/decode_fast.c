@@ -335,7 +335,7 @@ static const byte escape_variable_length[256] = {
     r4, r4, r4, r4, r4, r4, r4, r4, r4, r4, r4, r4, r4, r4, r4, r4, /* 8 */
     m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  /* 9 */
     0,  0,  0,  m,  m,  m,  0,  0,  0,  0,  0,  m,  m,  m,  m,  m,  /* A */
-    m,  m,  m,  m,  m,  m,  m,  m,  m,  0,  m,  m,  m,  m,  m,  m,  /* B */
+    m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  /* B */
 
     m,  m,  m,  m,  m,  m,  m,  m,  0,  0,  0,  0,  0,  0,  0,  0, /* C */
     m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m,  m, /* D */

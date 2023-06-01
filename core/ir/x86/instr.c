@@ -1784,12 +1784,12 @@ instr_is_mov_imm_to_tos(instr_t *instr)
         opnd_get_disp(instr_get_dst(instr, 0)) == 0;
 }
 
-/* Returns true iff instr is an "undefined" instruction (ud2) */
+/* Returns true iff instr is an "undefined" instruction */
 bool
 instr_is_undefined(instr_t *instr)
 {
     return (instr_opcode_valid(instr) &&
-            (instr_get_opcode(instr) == OP_ud2a || instr_get_opcode(instr) == OP_ud2b));
+            (instr_get_opcode(instr) == OP_ud2 || instr_get_opcode(instr) == OP_ud1));
 }
 
 DR_API

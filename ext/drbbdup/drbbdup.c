@@ -130,6 +130,8 @@ typedef struct {
     hashtable_t manager_table; /* Maps bbs with book-keeping data (for thread-private
                                   caches only). */
     int case_index; /* Used to keep track of the current case during insertion. */
+    bool inserted_restore_all;     /* Track if we need to restore regs at the end of the
+                                      block.  */
     void *orig_analysis_data;      /* Analysis data accessible for all cases. */
     void *default_analysis_data;   /* Analysis data specific to default case. */
     void **case_analysis_data;     /* Analysis data specific to cases. */
@@ -665,8 +667,9 @@ drbbdup_is_at_end(instr_t *check_instr)
 }
 
 /* Returns true if at the start of the end of a bb version: if check_instr is
- * the start emulation label for the inserted jump or the exit label.  If there
- * are no emulation labels this is equivalent to drbbdup_is_at_end().
+ * the start emulation label for the inserted jump or the exit label. This does not return
+ * true for certain types of blocks e.g., blocks that do not end in a branch/syscall or
+ * blocks that have unending emulation like repstr.
  */
 static bool
 drbbdup_is_at_end_initial(instr_t *check_instr)
@@ -1507,6 +1510,7 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
         ASSERT(end_instr != NULL, "end instruction cannot be NULL");
         instr_t *end_initial = drbbdup_next_end_initial(next_instr);
         ASSERT(end_initial != NULL, "end instruction cannot be NULL");
+        pt->inserted_restore_all = false;
 
         /* Cache first, first nonlabel and last instructions. */
         if (next_instr == end_initial) {
@@ -1590,10 +1594,15 @@ drbbdup_instrument_dups(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
             }
         }
         drreg_restore_all(drcontext, bb, instr);
-    } else if (drbbdup_is_at_end(instr) && !is_last_special) {
-        drreg_restore_all(drcontext, bb, instr);
-    } else if (drbbdup_is_at_end(instr) || drbbdup_is_exit_jmp_emulation_marker(instr)) {
-        /* Ignore instruction: hide drbbdup's own markers and the rest of the end. */
+        pt->inserted_restore_all = true;
+    } else if (drbbdup_is_at_end(instr)) {
+        /* i#5906: if the emulation start label is missing we might still need to restore
+         * registers for blocks that don't end in a branch or for rep-expanded blocks. */
+        if (!pt->inserted_restore_all)
+            drreg_restore_all(drcontext, bb, instr);
+    } else if (drbbdup_is_exit_jmp_emulation_marker(instr)) {
+        /* Ignore instruction: hide drbbdup's own markers and the rest of the end.
+         * Do not call drreg_restore_all either. */
     } else if (pt->case_index == DRBBDUP_IGNORE_INDEX) {
         /* Ignore instruction. */
         ASSERT(drbbdup_is_special_instr(instr), "ignored instr should be cti or syscall");
@@ -1702,6 +1711,7 @@ drbbdup_link_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
     /* Start off with the default case index. */
     if (drmgr_is_first_instr(drcontext, instr)) {
         pt->case_index = DRBBDUP_DEFAULT_INDEX;
+        pt->inserted_restore_all = false;
     }
 
     if (is_thread_private) {
@@ -2073,6 +2083,7 @@ drbbdup_thread_init(void *drcontext)
     }
 
     pt->case_index = 0;
+    pt->inserted_restore_all = false;
     pt->orig_analysis_data = NULL;
     if (opts.non_default_case_limit > 0) {
         pt->case_analysis_data =

@@ -120,6 +120,7 @@ endif ()
 
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
+include(CheckIncludeFile)
 
 ###########################################################################
 # utility functions

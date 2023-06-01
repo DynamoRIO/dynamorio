@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,8 +45,12 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
-#define DR_FAST_IR 1
+#ifndef DR_FAST_IR
+#    define DR_FAST_IR 1
+#endif
 #include "dr_api.h"
+#include "drir.h"
+#include "elf_loader.h"
 
 #ifndef IN
 #    define IN // nothing
@@ -58,32 +62,13 @@
 #    define INOUT // nothing
 #endif
 
-/* The auto cleanup wrapper of instrlist_t.
- * This can ensure the instance of instrlist_t is cleaned up when it is out of scope.
- */
-struct instrlist_autoclean_t {
-public:
-    instrlist_autoclean_t(void *drcontext, instrlist_t *data)
-        : drcontext(drcontext)
-        , data(data)
-    {
-    }
-    ~instrlist_autoclean_t()
-    {
-#ifdef DEBUG
-        if (drcontext == nullptr) {
-            std::cerr << "instrlist_autoclean_t: invalid drcontext" << std::endl;
-            exit(1);
-        }
-#endif
-        if (data != nullptr) {
-            instrlist_clear_and_destroy(drcontext, data);
-            data = nullptr;
-        }
-    }
-    void *drcontext = nullptr;
-    instrlist_t *data = nullptr;
-};
+struct pt_config;
+struct pt_image;
+struct pt_image_section_cache;
+struct pt_sb_pevent_config;
+struct pt_sb_session;
+struct pt_insn_decoder;
+struct pt_packet_decoder;
 
 /**
  * The type of pt2ir_t::convert() return value.
@@ -92,6 +77,18 @@ enum pt2ir_convert_status_t {
     /** The conversion process is successful. */
     PT2IR_CONV_SUCCESS = 0,
 
+    /** The conversion process fail to initiate for invalid input. */
+    PT2IR_CONV_ERROR_INVALID_INPUT,
+
+    /** The conversion process failed to initiate because the instance was not
+     *  initialized.
+     */
+    PT2IR_CONV_ERROR_NOT_INITIALIZED,
+
+    /** The conversion process failed to initiate because it attempted to copy a large
+     *  amount of PT data into the raw buffer that was too small to accommodate it.
+     */
+    PT2IR_CONV_ERROR_RAW_TRACE_TOO_LARGE,
     /** The conversion process ends with a failure to sync to the PSB packet. */
     PT2IR_CONV_ERROR_SYNC_PACKET,
 
@@ -209,10 +206,8 @@ struct pt_sb_config_t {
 };
 
 /**
- * The struct pt2ir_config_t is a collection of one PT trace's configurations. drpt2trace
- * and raw2trace can use it to construct pt2ir_t.
- * \note XXX: Multiple PT raw traces for a process will share one kcore dump file. We may
- * need a kernel image manager to avoid loading the same dump file many times.
+ * The struct pt2ir_config_t contains configuration details for one or multiple PT traces
+ * and is utilized by drpt2trace and raw2trace to generate a pt2ir_t instance.
  */
 struct pt2ir_config_t {
 public:
@@ -222,9 +217,9 @@ public:
     pt_config_t pt_config;
 
     /**
-     * The PT raw trace file path.
+     * The raw buffer size of PT decoder.
      */
-    std::string raw_file_path;
+    uint64_t pt_raw_buffer_size;
 
     /**
      * The elf file path.
@@ -254,19 +249,14 @@ public:
     std::vector<std::string> sb_secondary_file_path_list;
 
     /**
-     * The path of the kernel dump file. The kernel dump file is used to decode the kernel
-     * PT raw trace.
+     * The kernel dump file path refers to the location where the kernel dump file is
+     * stored. This file is utilized by the sideband decoder for decoding the kernel PT
+     * raw trace.
      */
-    std::string kcore_path;
+    std::string sb_kcore_path;
 
     pt2ir_config_t()
     {
-        raw_file_path = "";
-        elf_file_path = "";
-        elf_base = 0;
-        sb_primary_file_path = "";
-        sb_secondary_file_path_list.clear();
-        kcore_path = "";
         pt_config.cpu.vendor = CPU_VENDOR_UNKNOWN;
         pt_config.cpu.family = 0;
         pt_config.cpu.model = 0;
@@ -275,6 +265,10 @@ public:
         pt_config.cpuid_0x15_ebx = 0;
         pt_config.mtc_freq = 0;
         pt_config.nom_freq = 0;
+        pt_raw_buffer_size = 0;
+        elf_file_path = "";
+        elf_base = 0;
+
         sb_config.sample_type = 0;
         sb_config.kernel_start = 0;
         sb_config.sysroot = "";
@@ -282,6 +276,9 @@ public:
         sb_config.time_mult = 1;
         sb_config.time_zero = 0;
         sb_config.tsc_offset = 0;
+        sb_primary_file_path = "";
+        sb_secondary_file_path_list.clear();
+        sb_kcore_path = "";
     }
 
     /**
@@ -289,8 +286,11 @@ public:
      * This function is used to parse the metadata of the PT raw trace.
      */
     bool
-    init_with_metadata(IN const std::string &path)
+    init_with_metadata(IN const void *metadata_buffer)
     {
+        if (metadata_buffer == NULL)
+            return false;
+
         struct {
             uint16_t cpu_family;
             uint8_t cpu_model;
@@ -300,17 +300,7 @@ public:
             uint64_t time_zero;
         } __attribute__((__packed__)) metadata;
 
-        std::ifstream f(path, std::ios::binary | std::ios::in);
-        if (!f.is_open()) {
-            std::cerr << "Failed to open metadata file: " << path << std::endl;
-            return false;
-        }
-        f.read(reinterpret_cast<char *>(&metadata), sizeof(metadata));
-        if (f.fail()) {
-            std::cerr << "Failed to read metadata file: " << path << std::endl;
-            return false;
-        }
-        f.close();
+        memcpy(&metadata, metadata_buffer, sizeof(metadata));
 
         pt_config.cpu.family = metadata.cpu_family;
         pt_config.cpu.model = metadata.cpu_model;
@@ -325,14 +315,6 @@ public:
     }
 };
 
-struct pt_config;
-struct pt_image;
-struct pt_image_section_cache;
-struct pt_sb_pevent_config;
-struct pt_sb_session;
-struct pt_insn_decoder;
-struct pt_ins;
-
 /**
  * pt2ir_t is a class that can convert PT raw trace to DynamoRIO's IR.
  */
@@ -342,66 +324,58 @@ public:
     ~pt2ir_t();
 
     /**
-     * Returns true if the pt2ir_t is successfully initialized. Returns false on failure.
-     * \note Parse struct pt2ir_config_t and initialize PT instruction decoder, the
-     * sideband session, and images caches.
+     * Initialize the PT instruction decoder and the sideband session.
+     * @param pt2ir_config The configuration of PT raw trace.
+     * @param shared_iscache The shared image section cache. \note The pt2ir_t instance is
+     * designed to work with a single thread, while the image is shared among all threads.
+     * Therefore, a shared image section cache must be provided.
+     * @return true if the instance is successfully initialized.
      */
     bool
-    init(IN pt2ir_config_t &pt2ir_config);
+    init(IN pt2ir_config_t &pt2ir_config,
+         IN struct pt_image_section_cache *shared_iscache);
 
     /**
-     * Returns pt2ir_convert_status_t. If the convertion is successful, the function
-     * returns PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding error
-     * code.
-     * \note The convert function performs two processes:
-     * (1) decode the PT raw trace into libipt's IR format pt_insn;
-     * (2) convert pt_insn into the DynamoRIO's IR format instr_t and append it to ilist.
-     * \note The caller does not need to initialize ilist. But if the convertion is
-     * successful, the caller needs to destroy the ilist.
+     * The convert function performs two processes: (1) decode the PT raw trace into
+     * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
+     * instr_t and append it to ilist inside the drir object.
+     * @param pt_data The PT raw trace.
+     * @param pt_data_size The size of PT raw trace.
+     * @param drir The drir object.
+     * @return pt2ir_convert_status_t. If the convertion is successful, the function
+     * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
+     * error code.
      */
     pt2ir_convert_status_t
-    convert(OUT instrlist_autoclean_t &ilist);
+    convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir);
 
 private:
-    /* Load PT raw file to buffer. The struct pt_insn_decoder will decode this buffer to
-     * libipt's IR.
-     */
-    bool
-    load_pt_raw_file(IN std::string &path);
-
-    /* Load the elf section in kcore to sideband session iscache and store the section
-     * index to sideband kimage.
-     * \note XXX: Could we not use kcore? We can store all kernel modules and the mapping
-     * information.
-     */
-    bool
-    load_kcore(IN std::string &path);
-
-    /* Allocate a sideband decoder in the sideband session. The sideband session may
-     * allocate many decoders, which mainly work on handling sideband perf records and
-     * help the PT decoder switch images.
-     */
-    bool
-    alloc_sb_pevent_decoder(IN struct pt_sb_pevent_config &config);
-
     /* Diagnose converting errors and output diagnostic results.
      * It will used to generate the error message during the decoding process.
      */
     void
     dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t ip);
 
+    /* It indicate if the instance of pt2ir_t has been initialized, signifying the
+     * readiness of the conversion process from PT data to DR's IR.
+     */
+    bool pt2ir_initialized_;
+
     /* Buffer for caching the PT raw trace. */
-    std::unique_ptr<unsigned char> pt_raw_buffer_;
+    std::unique_ptr<uint8_t[]> pt_raw_buffer_;
     size_t pt_raw_buffer_size_;
 
     /* The libipt instruction decoder. */
     struct pt_insn_decoder *pt_instr_decoder_;
 
-    /* The libipt image section cache. */
-    struct pt_image_section_cache *pt_iscache_;
+    /* The libipt sideband image section cache. */
+    struct pt_image_section_cache *pt_sb_iscache_;
 
     /* The libipt sideband session. */
     struct pt_sb_session *pt_sb_session_;
+
+    /* The size of the PT data within the raw buffer. */
+    uint64_t pt_raw_buffer_data_size_;
 };
 
 #endif /* _PT2IR_H_ */

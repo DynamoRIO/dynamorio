@@ -38,6 +38,8 @@
 #include "drmgr.h"
 #include "drpttracer.h"
 
+#define RING_BUFFER_SIZE_SHIFT 8
+
 typedef struct _per_thread_t {
     /* Initialize the tracer_handle before each syscall, and free it after each syscall.
      */
@@ -116,7 +118,8 @@ event_thread_init(void *drcontext)
     memset(pt, 0, sizeof(*pt));
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
     pt->recording_sysnum = -1;
-    bool ok = drpttracer_create_handle(drcontext, DRPTTRACER_TRACING_ONLY_KERNEL, 8, 8,
+    bool ok = drpttracer_create_handle(drcontext, DRPTTRACER_TRACING_ONLY_KERNEL,
+                                       RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
                                        &pt->current_trace_handle) == DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_create_handle failed");
 }
@@ -185,17 +188,23 @@ stop_tracing_and_check_trace(void *drcontext, void *trace_handle)
 {
     CHECK(trace_handle != NULL, "trace_handle is NULL");
     drpttracer_output_t *output;
-    bool ok =
-        drpttracer_stop_tracing(drcontext, trace_handle, &output) == DRPTTRACER_SUCCESS;
+
+    bool ok = drpttracer_create_output(drcontext, RING_BUFFER_SIZE_SHIFT, 0, &output) ==
+        DRPTTRACER_SUCCESS;
+    CHECK(ok, "drpttracer_create_output failed");
+    CHECK(output->pt_buffer != NULL,
+          "drpttracer_create_output failed to create PT output buffer");
+    CHECK(output->sideband_buffer == NULL,
+          "drpttracer_create_output created sideband data output buffer");
+
+    ok = drpttracer_stop_tracing(drcontext, trace_handle, output) == DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_stop_tracing failed");
     /* TODO i#5505: This version only tests whether the function of the tracer can output
      * data. The tests of whether the output data is correct will come on the next
      * version.
      */
-    CHECK(output->pt != NULL, "PT trace data is NULL");
     CHECK(output->pt_size != 0, "PT trace data size is 0");
-    CHECK(output->sideband_data == NULL, "PT's sideband data is not NULL");
-    CHECK(output->sideband_data_size == 0, "PT's sideband data size is not 0");
+    CHECK(output->sideband_size == 0, "PT's sideband data size is not 0");
 
     ok = drpttracer_destroy_output(drcontext, output) == DRPTTRACER_SUCCESS;
     CHECK(ok, "drpttracer_destroy_output failed");

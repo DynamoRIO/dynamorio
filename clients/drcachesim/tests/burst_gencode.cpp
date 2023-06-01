@@ -62,9 +62,9 @@ namespace {
 
 #ifdef LINUX
 #    ifdef X86
-static constexpr int UD2A_LENGTH = 2;
+static constexpr int UD2_LENGTH = 2;
 #    else
-static constexpr int UD2A_LENGTH = 4;
+static constexpr int UD2_LENGTH = 4;
 #    endif
 void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -74,7 +74,7 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
         return;
     }
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-    sc->SC_XIP += UD2A_LENGTH;
+    sc->SC_XIP += UD2_LENGTH;
     return;
 }
 #endif
@@ -155,7 +155,7 @@ private:
 #ifdef LINUX
         // Test a signal in non-module code.
 #    ifdef X86
-        instrlist_append(ilist, INSTR_CREATE_ud2a(dc));
+        instrlist_append(ilist, INSTR_CREATE_ud2(dc));
 #    elif defined(AARCH64)
         // TODO i#4562: creating UDF is not yet supported so we create a
         // privileged instruction to SIGILL for us.

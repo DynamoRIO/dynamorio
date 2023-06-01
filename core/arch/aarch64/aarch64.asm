@@ -494,8 +494,8 @@ GLOBAL_LABEL(dr_longjmp:)
         ldp      d10, d11, [ARG1, #128]
         ldp      d12, d13, [ARG1, #144]
         ldp      d14, d15, [ARG1, #160]
-        cmp      w0, #0
-        csinc    w0, w0, wzr, ne
+        cmp      w1, #0
+        csinc    w0, w1, wzr, ne
         br       x30
         END_FUNC(dr_longjmp)
 
