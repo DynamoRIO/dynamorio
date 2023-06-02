@@ -1336,6 +1336,9 @@ event_pre_syscall(void *drcontext, int sysnum)
     // want to avoid.  We look for an empty (non-initial, so we do not add
     // init_header_size) buffer with zero instrs in the current window (b/c it
     // could be empty just due to the syscall instr filling up the prior buffer).
+    // (The converse can happen, with a tracing window ending in a syscall but
+    // the mode having changed, causing us to exit up above and not emit a marker:
+    // we solve that by removing syscalls without markers in raw2trace.)
     if (BUF_PTR(data->seg_base) == data->buf_base + buf_hdr_slots_size &&
         data->cur_window_instr_count == 0)
         return true;

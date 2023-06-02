@@ -728,7 +728,6 @@ struct _offline_entry_t {
             uint64_t type : 3;
         } extended;
         uint64_t combined_value;
-        // XXX: add a CPU id entry for more faithful thread scheduling.
     };
 } END_PACKED_STRUCTURE;
 typedef struct _offline_entry_t offline_entry_t;

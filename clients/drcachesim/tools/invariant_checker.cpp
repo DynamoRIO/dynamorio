@@ -304,10 +304,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
         shard->found_syscall_marker_ = true;
+        // TODO i#5949: For WOW64 instr_is_syscall() always returns false here as it
+        // tries to check adjacent instrs; we disable this check until that is solved.
+#if !defined(WINDOWS) || defined(X64)
         if (shard->prev_instr_decoded_ != nullptr) {
             report_if_false(shard, instr_is_syscall(shard->prev_instr_decoded_->data),
                             "Syscall marker not placed after syscall instruction");
         }
+#endif
     } else if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
                type_is_instr(shard->prev_entry_.instr.type) &&
                shard->prev_instr_decoded_ != nullptr &&

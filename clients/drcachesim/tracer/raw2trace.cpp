@@ -943,6 +943,7 @@ raw2trace_t::do_conversion()
                 return error;
             count_elided_ += thread_data_[i]->count_elided;
             count_duplicate_syscall_ += thread_data_[i]->count_duplicate_syscall;
+            count_false_syscall_ += thread_data_[i]->count_false_syscall;
             count_rseq_abort_ += thread_data_[i]->count_rseq_abort;
             count_rseq_side_exit_ += thread_data_[i]->count_rseq_side_exit;
         }
@@ -962,6 +963,7 @@ raw2trace_t::do_conversion()
                 return tdata->error;
             count_elided_ += tdata->count_elided;
             count_duplicate_syscall_ += tdata->count_duplicate_syscall;
+            count_false_syscall_ += tdata->count_false_syscall;
             count_rseq_abort_ += tdata->count_rseq_abort;
             count_rseq_side_exit_ += tdata->count_rseq_side_exit;
         }
@@ -971,6 +973,8 @@ raw2trace_t::do_conversion()
         return error;
     VPRINT(1, "Omitted " UINT64_FORMAT_STRING " duplicate system calls.\n",
            count_duplicate_syscall_);
+    VPRINT(1, "Omitted " UINT64_FORMAT_STRING " false system calls.\n",
+           count_false_syscall_);
     VPRINT(1, "Reconstructed " UINT64_FORMAT_STRING " elided addresses.\n",
            count_elided_);
     VPRINT(1, "Adjusted " UINT64_FORMAT_STRING " rseq aborts.\n", count_rseq_abort_);
@@ -1262,6 +1266,9 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // TODO i#5934: This is a workaround for the trace invariant error triggered
         // by consecutive duplicate system call instructions. Remove this when the
         // error is fixed in the drmemtrace tracer.
+        // TODO i#6102: This actually does the wrong thing for SIG_IGN interrupting
+        // an auto-restart syscall; we live with that until we remove it after fixing
+        // the incorrect duplicate syscall error.
         if (instr->is_syscall() && get_last_pc_if_syscall(tdata) == orig_pc &&
             instr_count == 1) {
             add_to_statistic(tdata, RAW2TRACE_STAT_DUPLICATE_SYSCALL, 1);
@@ -1269,6 +1276,10 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // Since this instr is in its own block, we're done.
             // Note that this will result in a pair of timestamp+cpu markers without
             // anything before the next timestamp+cpu pair.
+            break;
+        } else if (instr->is_syscall() && should_omit_syscall(tdata)) {
+            add_to_statistic(tdata, RAW2TRACE_STAT_FALSE_SYSCALL, 1);
+            log(3, "Omitting syscall instr without subsequent number marker.");
             break;
         }
         if (!instr->is_cti()) {
@@ -1602,6 +1613,49 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
         }
     } while (append);
     return "";
+}
+
+bool
+raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
+{
+    if (!TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, tdata->file_type))
+        return false;
+    // We have 2 scenarios where we record a syscall instr yet it doesn't
+    // execute right away and so there's no syscall number marker:
+    // 1) An asynchronous signal arrives during the block and is delivered
+    //    from dispatch before handling the syscall.
+    // 2) A syscall ends a tracing window and we disable tracing before the
+    //    syscall is handled.
+    // In both cases, we want to just remove the syscall instr: so we remove
+    // if we find no subsequent marker either immediately following or after
+    // a buffer header of timestamp+cpuid.
+    // (For the window case there are alternatives where we try to emit
+    // the marker by passing info to the pre-syscall event handler or by moving
+    // the marker to the block instrumentation but these all incur more complexity
+    // than this relatively simple solution.)
+    const offline_entry_t *in_entry = get_next_entry(tdata);
+    std::vector<offline_entry_t> saved;
+    if (in_entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
+        saved.push_back(*in_entry);
+        in_entry = get_next_entry(tdata);
+        if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            in_entry->extended.valueB == TRACE_MARKER_TYPE_CPU_ID) {
+            saved.push_back(*in_entry);
+            in_entry = get_next_entry(tdata);
+        }
+    }
+    bool omit = false;
+    if (in_entry->extended.type != OFFLINE_TYPE_EXTENDED ||
+        in_entry->extended.ext != OFFLINE_EXT_TYPE_MARKER ||
+        in_entry->extended.valueB != TRACE_MARKER_TYPE_SYSCALL) {
+        omit = true;
+    }
+    saved.push_back(*in_entry);
+    for (auto &entry : saved) {
+        unread_entry(tdata, entry);
+    }
+    return omit;
 }
 
 std::string
@@ -2288,6 +2342,13 @@ raw2trace_t::unread_last_entry(raw2trace_thread_data_t *tdata)
     tdata->pre_read.push_back(tdata->last_entry);
 }
 
+void
+raw2trace_t::unread_entry(raw2trace_thread_data_t *tdata, offline_entry_t &entry)
+{
+    VPRINT(5, "Unreading prior entry\n");
+    tdata->pre_read.push_back(entry);
+}
+
 bool
 raw2trace_t::thread_file_at_eof(raw2trace_thread_data_t *tdata)
 {
@@ -2893,6 +2954,7 @@ raw2trace_t::add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statisti
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: tdata->count_elided += value; break;
     case RAW2TRACE_STAT_DUPLICATE_SYSCALL: tdata->count_duplicate_syscall += value; break;
+    case RAW2TRACE_STAT_FALSE_SYSCALL: tdata->count_false_syscall += value; break;
     case RAW2TRACE_STAT_RSEQ_ABORT: tdata->count_rseq_abort += value; break;
     case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: tdata->count_rseq_side_exit += value; break;
     default: DR_ASSERT(false);
@@ -2905,6 +2967,7 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided_;
     case RAW2TRACE_STAT_DUPLICATE_SYSCALL: return count_duplicate_syscall_;
+    case RAW2TRACE_STAT_FALSE_SYSCALL: return count_false_syscall_;
     case RAW2TRACE_STAT_RSEQ_ABORT: return count_rseq_abort_; break;
     case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: return count_rseq_side_exit_; break;
     default: DR_ASSERT(false); return 0;

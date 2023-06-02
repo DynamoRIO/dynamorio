@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -760,6 +760,12 @@ DR_API
 bool
 instr_is_wow64_syscall(instr_t *instr)
 {
+    /* TODO i#5949: add support for standalone decoding of a single instr ignoring
+     * the host platform.  It's not clear how best to do this for matching things
+     * like "call %edx": should we instead provide instr_is_maybe_syscall(), and
+     * additionally have it take in the prior and subsequent instructions or
+     * PC-to-decode for prior and subsequent?
+     */
 #    ifdef STANDALONE_DECODER
     /* We don't have get_os_version(), etc., and we assume this routine is not needed */
     return false;
