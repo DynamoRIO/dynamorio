@@ -1263,6 +1263,15 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         DR_CHECK(pc > decode_pc, "error advancing inside block");
         DR_CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
+        if (instr->is_syscall() && should_omit_syscall(tdata)) {
+            add_to_statistic(tdata, RAW2TRACE_STAT_FALSE_SYSCALL, 1);
+            log(3, "Omitting syscall instr without subsequent number marker.\n");
+            // Exit and do not append this syscall instruction.  It must be the
+            // final instruction in the block; since the tracer requests callbacks
+            // on all syscalls, none are inlined.
+            DR_CHECK(i == instr_count - 1, "syscall not last in block");
+            break;
+        }
         // TODO i#5934: This is a workaround for the trace invariant error triggered
         // by consecutive duplicate system call instructions. Remove this when the
         // error is fixed in the drmemtrace tracer.
@@ -1271,15 +1280,31 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // the incorrect duplicate syscall error.
         if (instr->is_syscall() && get_last_pc_if_syscall(tdata) == orig_pc &&
             instr_count == 1) {
+            // Also remove the syscall marker.  It could be after a timestmap;cpuid
+            // pair; we're fine removing those too and having the prior timestamp
+            // go with the next block.
+            if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, tdata->file_type)) {
+                const offline_entry_t *in_entry = get_next_entry(tdata);
+                if (in_entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
+                    in_entry = get_next_entry(tdata);
+                    if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+                        in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+                        in_entry->extended.valueB == TRACE_MARKER_TYPE_CPU_ID) {
+                        in_entry = get_next_entry(tdata);
+                    }
+                }
+                DR_CHECK(in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+                             in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+                             in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL,
+                         "Syscall without marker should have been removed");
+                // We've consumed these records and we just drop them.
+            }
             add_to_statistic(tdata, RAW2TRACE_STAT_DUPLICATE_SYSCALL, 1);
-            log(3, "Found block with duplicate system call instruction. Skipping.");
+            log(3, "Found block with duplicate system call instruction. Skipping.\n");
             // Since this instr is in its own block, we're done.
             // Note that this will result in a pair of timestamp+cpu markers without
-            // anything before the next timestamp+cpu pair.
-            break;
-        } else if (instr->is_syscall() && should_omit_syscall(tdata)) {
-            add_to_statistic(tdata, RAW2TRACE_STAT_FALSE_SYSCALL, 1);
-            log(3, "Omitting syscall instr without subsequent number marker.");
+            // anything before the next timestamp+cpu pair for legacy traces w/o
+            // syscall number markers.
             break;
         }
         if (!instr->is_cti()) {
@@ -2299,8 +2324,9 @@ raw2trace_t::get_next_entry(raw2trace_thread_data_t *tdata)
     // from the vector.
     tdata->last_entry_is_split = false;
     if (!tdata->pre_read.empty()) {
-        tdata->last_entry = tdata->pre_read[0];
-        tdata->pre_read.erase(tdata->pre_read.begin(), tdata->pre_read.begin() + 1);
+        tdata->last_entry = tdata->pre_read.front();
+        VPRINT(5, "Reading from queue\n");
+        tdata->pre_read.pop_front();
     } else {
         if (!tdata->thread_file->read((char *)&tdata->last_entry,
                                       sizeof(tdata->last_entry)))
@@ -2336,16 +2362,16 @@ raw2trace_t::unread_last_entry(raw2trace_thread_data_t *tdata)
     VPRINT(5, "Unreading last entry\n");
     if (tdata->last_entry_is_split) {
         VPRINT(4, "Unreading both parts of split entry at once\n");
-        tdata->pre_read.push_back(tdata->last_split_first_entry);
+        tdata->pre_read.push_front(tdata->last_split_first_entry);
         tdata->last_entry_is_split = false;
     }
-    tdata->pre_read.push_back(tdata->last_entry);
+    tdata->pre_read.push_front(tdata->last_entry);
 }
 
 void
 raw2trace_t::unread_entry(raw2trace_thread_data_t *tdata, offline_entry_t &entry)
 {
-    VPRINT(5, "Unreading prior entry\n");
+    VPRINT(5, "Unreading a given entry type=%d\n", static_cast<int>(entry.addr.type));
     tdata->pre_read.push_back(entry);
 }
 

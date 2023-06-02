@@ -49,6 +49,7 @@
 #include <atomic>
 #include <list>
 #include <memory>
+#include <queue>
 #include <set>
 #include <unordered_map>
 #include "trace_entry.h"
@@ -900,7 +901,7 @@ protected:
         int version;
         offline_file_type_t file_type;
         size_t cache_line_size = 0;
-        std::vector<offline_entry_t> pre_read;
+        std::deque<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
         std::vector<trace_entry_t> delayed_branch;
@@ -993,7 +994,7 @@ protected:
     virtual const offline_entry_t *
     get_next_entry_keep_prior(raw2trace_thread_data_t *tdata);
 
-    /* Adds the last read entry to the back of the read queue for get_next_entry(). */
+    /* Adds the last read entry to the front of the read queue for get_next_entry(). */
     virtual void
     unread_last_entry(raw2trace_thread_data_t *tdata);
 
