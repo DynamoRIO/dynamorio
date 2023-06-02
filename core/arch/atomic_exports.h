@@ -932,8 +932,8 @@ atomic_compare_exchange_int(volatile int *var, int compare, int exchange)
     ASSERT(ALIGNED(var, 4));
     /* This code is based on GCC's atomic_compare_exchange_strong().
      * The fence ensures no re-ordering beyond the start of the lr/sc loop.
-     * The lr/sc use acquire ordering to ensure that the full loop has
-     * sequentially consistent memory order semantics.
+     * The lr/sc use acquire and release ordering to ensure that the full loop 
+     * has sequentially consistent memory order semantics.
      */
     __asm__ __volatile__("fence   iorw,ow\n\t"
                          "1: lr.w.aqrl  t0, (%1)\n\t"
@@ -941,7 +941,6 @@ atomic_compare_exchange_int(volatile int *var, int compare, int exchange)
                          "   sc.w.rl    %0, %3, (%1)\n\t"
                          "   bnez       %0, 1b\n\t"
                          "2:\n\t"
-                         "   subw       %0, t0, %2\n\t"
                          : "+r"(res)
                          : "r"(var), "r"(compare), "r"(exchange)
                          : "t0", "memory");
