@@ -561,14 +561,14 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
             VPRINT(this, 2, "Assigning input #%d to output #%zd\n", i, index);
         }
     } else if (options_.mapping == MAP_TO_RECORDED_OUTPUT) {
-        if (outputs_.size() > 1) {
-            if (options_.replay_as_traced_istream == nullptr)
-                return STATUS_ERROR_INVALID_PARAMETER;
+        if (options_.replay_as_traced_istream != nullptr) {
             sched_type_t::scheduler_status_t status = read_traced_schedule();
             if (status != sched_type_t::STATUS_SUCCESS)
                 return STATUS_ERROR_INVALID_PARAMETER;
             // Now leverage the regular replay code.
             options_.mapping = MAP_AS_PREVIOUSLY;
+        } else if (outputs_.size() > 1) {
+            return STATUS_ERROR_INVALID_PARAMETER;
         } else if (inputs_.size() == 1) {
             set_cur_input(0, 0);
         } else {
@@ -793,6 +793,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
     // We also want to collapse same-cpu consecutive records so we start with
     // a temporary local vector.
     std::vector<std::vector<schedule_record_t>> all_sched(outputs_.size());
+    uint64_t prev_start = 0; // Only used to detect a decrease.
+    uint64_t add_to_start = 0;
     while (options_.replay_as_traced_istream->read(reinterpret_cast<char *>(&entry),
                                                    sizeof(entry))) {
         if (entry.cpu != cur_cpu) {
@@ -804,10 +806,29 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                 }
             }
             cur_cpu = entry.cpu;
+            prev_start = 0;
         }
         input_ordinal_t input = tid2input[entry.thread];
         // We'll fill in the stop ordinal in our second pass below.
         uint64_t start = entry.start_instruction;
+        if (start < prev_start) {
+            // Work around i#6107 where the counts in the file are incorrectly modulo
+            // the chunk size.  We haven't read into the trace far enough to find the
+            // actual chunk size for for this workaround we only support what was the
+            // default in raw2trace up to this point, 10M.
+            static constexpr uint64_t DEFAULT_CHUNK_SIZE = 10 * 1000 * 1000;
+            // If within 50% of the end of the chunk we assume it's i#6107.
+            if (prev_start * 2 > DEFAULT_CHUNK_SIZE) {
+                add_to_start += DEFAULT_CHUNK_SIZE;
+                VPRINT(this, 2, "Working around i#6107 by adding %" PRId64 " instrs\n",
+                       add_to_start);
+            } else {
+                error_string_ = "Invalid decreasing start field in schedule file";
+                return STATUS_ERROR_INVALID_PARAMETER;
+            }
+        }
+        prev_start = start;
+        start += add_to_start;
         uint64_t timestamp = entry.timestamp;
         // Some entries have no instructions (there is an entry for each timestamp, and
         // a signal can come in after a prior timestamp with no intervening instrs).
@@ -846,8 +867,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                    segment.stop_instruction, segment.timestamp);
             if (sched_idx + 1 < static_cast<int>(all_sched[output_idx].size()) &&
                 segment.key.input == all_sched[output_idx][sched_idx + 1].key.input &&
-                segment.stop_instruction ==
+                segment.stop_instruction >
                     all_sched[output_idx][sched_idx + 1].start_instruction) {
+                // A second sanity check.
+                error_string_ = "Invalid decreasing start field in schedule file";
+                return STATUS_ERROR_INVALID_PARAMETER;
+            } else if (sched_idx + 1 < static_cast<int>(all_sched[output_idx].size()) &&
+                       segment.key.input ==
+                           all_sched[output_idx][sched_idx + 1].key.input &&
+                       segment.stop_instruction ==
+                           all_sched[output_idx][sched_idx + 1].start_instruction) {
                 // Collapse into next.
                 if (start_consec == -1)
                     start_consec = sched_idx;
