@@ -157,7 +157,6 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
         return false;
     }
     cur_recording_sysnum_ = -1;
-    recorded_syscall_count_++;
 
     /* Reset the pttracer handle for next syscall.
      * TODO i#5505: To reduce the overhead caused by pttracer initialization, we need to

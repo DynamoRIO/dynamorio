@@ -129,12 +129,13 @@ public:
         return cur_recording_sysnum_;
     }
 
-    /* Get the index of the last recorded syscall in this thread's recorded syscall list.
+    /* Set the index of the current recording syscall in this thread's recorded syscall
+     * list.
      */
-    int
-    get_last_recorded_syscall_idx()
+    void
+    set_current_recording_syscall_idx(IN int recorded_syscall_count)
     {
-        return recorded_syscall_count_;
+        recorded_syscall_count_ = recorded_syscall_count;
     }
 
     /* Check whether the syscall's PT need to be recorded.

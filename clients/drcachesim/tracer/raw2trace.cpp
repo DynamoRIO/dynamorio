@@ -912,10 +912,8 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                                 sizeof(trace_entry_t) * entries.size())) {
         return "Failed to write to output file";
     }
-    return "";
-#elif
-    return "";
 #endif
+    return "";
 }
 
 std::string
