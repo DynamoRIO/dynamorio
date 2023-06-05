@@ -45,7 +45,7 @@ Tools built on DynamoRIO and available in the [release package](https://dynamori
 - The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.c)
 - The dynamic fuzz testing tool [Dr. Fuzz](http://drmemory.org/page_drfuzz.html)
 - The disassembly tool [drdisas](https://dynamorio.org/page_drdisas.html)
-- And more, including opcode counts, branch instrumentation, etc.: see \ref API_samples.
+- And more, including opcode counts, branch instrumentation, etc.: see [API samples](https://dynamorio.org/API_samples.html)
 
 ## Building your own custom tools
 

@@ -91,7 +91,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 return false;
             }
         } else if (!checker.errors.empty()) {
-            for (int i = 0; i < checker.errors.size(); ++i) {
+            for (unsigned int i = 0; i < checker.errors.size(); ++i) {
                 std::cerr << "Unexpected error: " << checker.errors[i]
                           << " at ref: " << checker.error_refs[i] << "\n";
             }
@@ -593,24 +593,24 @@ check_function_markers()
 bool
 check_duplicate_syscall_with_same_pc()
 {
-    constexpr addr_t ADDR = 0x7fcf3b9dd9e9;
     // Negative: syscalls with the same PC.
 #if defined(X86_64) || defined(X86_32) || defined(ARM_64)
+    constexpr addr_t ADDR = 0x7fcf3b9d;
     {
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
-            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
-            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
 #    elif defined(ARM_64)
             gen_instr_encoded(ADDR,
-                              0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+                              0xd4000001), // 0x7fcf3b9d: 0xd4000001 svc #0x0
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR,
-                              0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+                              0xd4000001), // 0x7fcf3b9d: 0xd4000001 svc #0x0
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
@@ -625,13 +625,13 @@ check_duplicate_syscall_with_same_pc()
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
-            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR + 2, { 0x0f, 0x05 }), // 0x7fcf3b9dd9eb: 0f 05 syscall
 #    elif defined(ARM_64)
             gen_instr_encoded(ADDR, 0xd4000001,
-                              2), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+                              2), // 0x7fcf3b9d: 0xd4000001 svc #0x0
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR + 4, 0xd4000001,
