@@ -162,7 +162,8 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     if (strlen(basename) > strlen(OUTFILE_SUFFIX_LZ4) + 1) {
         if (basename_pre_suffix == nullptr) {
             basename_pre_suffix =
-                strstr(basename_dot, OUTFILE_SUFFIX_LZ4 + strlen(OUTFILE_SUFFIX) + 1);
+                strstr(basename + strlen(basename) - strlen(OUTFILE_SUFFIX_LZ4),
+                       OUTFILE_SUFFIX_LZ4);
             if (basename_pre_suffix != nullptr) {
                 is_lz4 = true;
             }
