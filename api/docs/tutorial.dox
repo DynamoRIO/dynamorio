@@ -300,7 +300,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     dr_mutex_unlock(as_built_lock);
 
 +     /* insert clean call */
-+     dr_insert_clean_call(drcontext, bb, instrlist_first(bb), clean_call, false, 1,
++     dr_insert_clean_call(drcontext, bb, instrlist_first(bb), (void *)clean_call, false, 1,
 +                          OPND_CREATE_INT32(num_instructions));
 +
     return DR_EMIT_DEFAULT;
