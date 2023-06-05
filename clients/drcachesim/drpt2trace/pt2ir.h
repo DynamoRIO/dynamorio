@@ -71,6 +71,20 @@ struct pt_insn_decoder;
 struct pt_packet_decoder;
 
 /**
+ * The auto cleanup wrapper of struct pt_image_section_cache.
+ * \note This can ensure the instance of pt_image_section_cache is cleaned up when it is
+ * out of scope.
+ */
+struct pt_iscache_autoclean_t {
+public:
+    pt_iscache_autoclean_t();
+
+    ~pt_iscache_autoclean_t();
+
+    struct pt_image_section_cache *iscache = nullptr;
+};
+
+/**
  * The type of pt2ir_t::convert() return value.
  */
 enum pt2ir_convert_status_t {
@@ -326,14 +340,10 @@ public:
     /**
      * Initialize the PT instruction decoder and the sideband session.
      * @param pt2ir_config The configuration of PT raw trace.
-     * @param shared_iscache The shared image section cache. \note The pt2ir_t instance is
-     * designed to work with a single thread, while the image is shared among all threads.
-     * Therefore, a shared image section cache must be provided.
      * @return true if the instance is successfully initialized.
      */
     bool
-    init(IN pt2ir_config_t &pt2ir_config,
-         IN struct pt_image_section_cache *shared_iscache);
+    init(IN pt2ir_config_t &pt2ir_config);
 
     /**
      * The convert function performs two processes: (1) decode the PT raw trace into
@@ -376,6 +386,12 @@ private:
 
     /* The size of the PT data within the raw buffer. */
     uint64_t pt_raw_buffer_data_size_;
+
+    /* The shared image section cache.
+     * The pt2ir_t instance is designed to work with a single thread, while the image is
+     * shared among all threads.
+     */
+    static pt_iscache_autoclean_t share_iscache_;
 };
 
 #endif /* _PT2IR_H_ */

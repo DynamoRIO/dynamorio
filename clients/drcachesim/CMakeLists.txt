@@ -227,6 +227,16 @@ if (liblz4)
   target_link_libraries(drmemtrace_raw2trace lz4)
 endif ()
 
+if (BUILD_PT_POST_PROCESSOR)
+  add_definitions(-DBUILD_PT_POST_PROCESSOR)
+  # Add the directory containing libipt.so and libipt-sb.so to the linker search path.
+  set(libipt_install_dir "${PROJECT_BINARY_DIR}/third_party/${INSTALL_LIB}")
+  SET(CMAKE_EXE_LINKER_FLAGS
+    "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${libipt_install_dir}'"
+  )
+  target_link_libraries(drmemtrace_raw2trace drpt2ir drir2trace)
+endif (BUILD_PT_POST_PROCESSOR)
+
 # XXX: We should link in drmemtrace_analyzer instead of re-building its
 # source files.
 set(drcachesim_srcs

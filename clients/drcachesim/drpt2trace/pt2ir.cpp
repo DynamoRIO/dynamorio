@@ -46,6 +46,21 @@
 
 #define ERRMSG_HEADER "[drpt2ir] "
 
+pt_iscache_autoclean_t::pt_iscache_autoclean_t()
+{
+    iscache = pt_iscache_alloc(nullptr);
+}
+
+pt_iscache_autoclean_t::~pt_iscache_autoclean_t()
+{
+    if (iscache != nullptr) {
+        pt_iscache_free(iscache);
+        iscache = nullptr;
+    }
+}
+
+pt_iscache_autoclean_t pt2ir_t::share_iscache_;
+
 pt2ir_t::pt2ir_t()
     : pt2ir_initialized_(false)
     , pt_raw_buffer_size_(0)
@@ -68,8 +83,7 @@ pt2ir_t::~pt2ir_t()
 }
 
 bool
-pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
-              IN struct pt_image_section_cache *shared_iscache)
+pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
 {
     if (pt2ir_initialized_) {
         ERRMSG(ERRMSG_HEADER "pt2ir_t is already initialized.\n");
@@ -109,9 +123,10 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config,
     }
 
     /* If an ELF file is provided, load it into the image of the instruction decoder. */
-    if (!pt2ir_config.elf_file_path.empty() && shared_iscache != nullptr) {
+    if (!pt2ir_config.elf_file_path.empty() && share_iscache_.iscache != nullptr) {
         if (!elf_loader_t::load(pt2ir_config.elf_file_path.c_str(), pt2ir_config.elf_base,
-                                shared_iscache, pt_insn_get_image(pt_instr_decoder_))) {
+                                share_iscache_.iscache,
+                                pt_insn_get_image(pt_instr_decoder_))) {
             ERRMSG("Failed to load ELF file(%s) to.\n",
                    pt2ir_config.elf_file_path.c_str());
             return false;

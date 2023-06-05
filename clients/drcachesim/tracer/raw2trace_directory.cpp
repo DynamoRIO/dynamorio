@@ -127,38 +127,49 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     const char *basename_pre_suffix = nullptr;
 #ifdef HAS_ZLIB
     bool is_gzipped = false, is_zlib = false;
-    basename_pre_suffix =
-        strstr(basename_dot - strlen(OUTFILE_SUFFIX_GZ), OUTFILE_SUFFIX_GZ);
-    if (basename_pre_suffix != nullptr) {
-        is_gzipped = true;
-    } else {
-        basename_pre_suffix =
-            strstr(basename_dot - strlen(OUTFILE_SUFFIX_ZLIB), OUTFILE_SUFFIX_ZLIB);
+    if (strlen(basename) > strlen(OUTFILE_SUFFIX_GZ) + 1) {
+        basename_pre_suffix = strstr(
+            basename + strlen(basename) - strlen(OUTFILE_SUFFIX_GZ), OUTFILE_SUFFIX_GZ);
         if (basename_pre_suffix != nullptr) {
-            is_zlib = true;
+            is_gzipped = true;
+        } else {
+            if (strlen(basename) > strlen(OUTFILE_SUFFIX_ZLIB) + 1) {
+                basename_pre_suffix =
+                    strstr(basename + strlen(basename) - strlen(OUTFILE_SUFFIX_ZLIB),
+                           OUTFILE_SUFFIX_ZLIB);
+                if (basename_pre_suffix != nullptr) {
+                    is_zlib = true;
+                }
+            }
         }
     }
 #endif
 #ifdef HAS_SNAPPY
     bool is_snappy = false;
-    if (basename_pre_suffix == nullptr) {
-        basename_pre_suffix =
-            strstr(basename_dot - strlen(OUTFILE_SUFFIX_SZ), OUTFILE_SUFFIX_SZ);
-        if (basename_pre_suffix != nullptr) {
-            is_snappy = true;
+    if (strlen(basename) > strlen(OUTFILE_SUFFIX_SZ) + 1) {
+        if (basename_pre_suffix == nullptr) {
+            basename_pre_suffix =
+                strstr(basename + strlen(basename) - strlen(OUTFILE_SUFFIX_SZ),
+                       OUTFILE_SUFFIX_SZ);
+            if (basename_pre_suffix != nullptr) {
+                is_snappy = true;
+            }
         }
     }
 #endif
 #ifdef HAS_LZ4
     bool is_lz4 = false;
-    if (basename_pre_suffix == nullptr) {
-        basename_pre_suffix =
-            strstr(basename_dot - strlen(OUTFILE_SUFFIX_LZ4), OUTFILE_SUFFIX_LZ4);
-        if (basename_pre_suffix != nullptr) {
-            is_lz4 = true;
+    if (strlen(basename) > strlen(OUTFILE_SUFFIX_LZ4) + 1) {
+        if (basename_pre_suffix == nullptr) {
+            basename_pre_suffix =
+                strstr(basename_dot, OUTFILE_SUFFIX_LZ4 + strlen(OUTFILE_SUFFIX) + 1);
+            if (basename_pre_suffix != nullptr) {
+                is_lz4 = true;
+            }
         }
     }
 #endif
+
     if (basename_pre_suffix == nullptr)
         basename_pre_suffix = strstr(basename_dot, OUTFILE_SUFFIX);
     if (basename_pre_suffix == nullptr)
@@ -228,6 +239,77 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
         return "Failed to open output file " + std::string(path);
 #endif
     VPRINT(1, "Opened output file %s\n", path);
+    return "";
+}
+
+std::string
+raw2trace_directory_t::open_kthread_files()
+{
+#ifdef BUILD_PT_POST_PROCESSOR
+    VPRINT(1, "Iterating dir %s\n", kernel_indir_.c_str());
+    directory_iterator_t end;
+    directory_iterator_t iter(kernel_indir_);
+    if (!iter) {
+        return "Failed to list directory " + kernel_indir_ + ": " + iter.error_string();
+    }
+    for (; iter != end; ++iter) {
+        const char *basename = (*iter).c_str();
+        char path[MAXIMUM_PATH];
+        CHECK(basename[0] != '/',
+              "dir iterator entry %s should not be an absolute path\n", basename);
+
+        /* Skip kcore and kallsys. */
+        if (strcmp(basename, DRMEMTRACE_KCORE_FILENAME) == 0 ||
+            strcmp(basename, DRMEMTRACE_KALLSYMS_FILENAME) == 0)
+            continue;
+
+        /* Skip any non-.raw.pt in case someone put some other file in there. */
+        const char *basename_pre_suffix = nullptr;
+        if (strlen(basename) > strlen(OUTFILE_SUFFIX_PT) + 1) {
+            basename_pre_suffix =
+                strstr(basename + strlen(basename) - strlen(OUTFILE_SUFFIX_PT),
+                       OUTFILE_SUFFIX_PT);
+        }
+        if (basename_pre_suffix == nullptr)
+            continue;
+
+        /* Get the complete file path for this kernel file. */
+        if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s", kernel_indir_.c_str(),
+                        DIRSEP, basename) <= 0) {
+            return "Failed to get full path of file " + std::string(basename);
+        }
+        NULL_TERMINATE_BUFFER(path);
+
+        std::istream *ifile = nullptr;
+        if (ifile == nullptr)
+            ifile = new std::ifstream(path, std::ifstream::binary);
+        if (!((std::ifstream *)ifile)->is_open()) {
+            delete ifile;
+            return "Failed to open kernel thread file " + std::string(path);
+        }
+        std::string error = raw2trace_t::check_kthread_file(ifile);
+        if (!error.empty()) {
+            delete ifile;
+            return "Failed sanity checks for kernel thread file " + std::string(path) +
+                ": " + error;
+        }
+        thread_id_t tid = INVALID_THREAD_ID;
+        error = raw2trace_t::get_kthread_file_tid(ifile, &tid);
+        if (!error.empty()) {
+            delete ifile;
+            return "Failed to get thread id for kernel thread file " + std::string(path) +
+                ": " + error;
+        }
+
+        in_kfiles_map_[tid] = ifile;
+        VPRINT(1, "Opened input kernel thread file %s\n", path);
+    }
+#else
+    VPRINT(1,
+           "The Post-processor for Kernel PT data has not been built, cannot open the "
+           "kernel thread files at %s\n",
+           kernel_indir_.c_str());
+#endif
     return "";
 }
 
@@ -418,6 +500,19 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     if (!err.empty())
         return err;
 
+    /* Open the kernel files. */
+    kcoredir_ = "";
+    kallsymsdir_ = "";
+    kernel_indir_ = indir_ + std::string(DIRSEP) + ".." + std::string(DIRSEP) +
+        DRMEMTRACE_KERNEL_PT_SUBDIR;
+    if (directory_iterator_t::is_directory(kernel_indir_)) {
+        kcoredir_ = kernel_indir_ + std::string(DIRSEP) + DRMEMTRACE_KCORE_FILENAME;
+        kallsymsdir_ = kernel_indir_ + std::string(DIRSEP) + DRMEMTRACE_KALLSYMS_FILENAME;
+        err = open_kthread_files();
+        if (!err.empty())
+            return err;
+    }
+
     return open_thread_files();
 }
 
@@ -472,5 +567,8 @@ raw2trace_directory_t::~raw2trace_directory_t()
         delete serial_schedule_file_;
     if (cpu_schedule_file_ != nullptr)
         delete cpu_schedule_file_;
+    for (auto kfi : in_kfiles_map_) {
+        delete kfi.second;
+    }
     dr_standalone_exit();
 }

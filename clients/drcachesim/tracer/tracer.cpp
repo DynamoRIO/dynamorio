@@ -91,9 +91,7 @@ namespace dynamorio {
 namespace drmemtrace {
 
 char logsubdir[MAXIMUM_PATH];
-#ifdef BUILD_PT_TRACER
-static char kernel_pt_logsubdir[MAXIMUM_PATH];
-#endif
+char kernel_pt_logsubdir[MAXIMUM_PATH];
 char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 
 static file_t module_file;
@@ -1341,8 +1339,16 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
+
+    /* Write a marker to userspace raw trace. */
+    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
+    uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_idx();
+    BUF_PTR(data->seg_base) +=
+        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
+
     if (file_ops_func.handoff_buf == NULL)
         process_and_output_buffer(drcontext, false);
+
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
@@ -1371,13 +1377,10 @@ event_post_syscall(void *drcontext, int sysnum)
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
         return;
-    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
-        return;
     if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
         return;
 
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-
     if (data->syscall_pt_trace.get_cur_recording_sysnum() == INVALID_SYSNUM) {
         ASSERT(false, "last syscall is not traced");
         return;
@@ -1389,14 +1392,6 @@ event_post_syscall(void *drcontext, int sysnum)
         ASSERT(false, "failed to stop syscall pt trace");
         return;
     }
-
-    /* Write a marker to userspace raw trace. */
-    if (BUF_PTR(data->seg_base) == NULL)
-        return; /* This thread was filtered out. */
-    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
-    uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_idx();
-    BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
 #endif
 }
 
@@ -1739,11 +1734,12 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(logsubdir);
     if (!file_ops_func.create_dir(logsubdir))
         return false;
+
+    dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir), "%s%s%s",
+                buf, DIRSEP, DRMEMTRACE_KERNEL_PT_SUBDIR);
+    NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir),
-                    "%s%s%s", buf, DIRSEP, KERNEL_PT_OUTFILE_SUBDIR);
-        NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
         if (!file_ops_func.create_dir(kernel_pt_logsubdir))
             return false;
     }

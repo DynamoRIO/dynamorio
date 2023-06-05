@@ -59,6 +59,9 @@
 #include <fstream>
 #include "hashtable.h"
 #include <vector>
+#ifdef BUILD_PT_POST_PROCESSOR
+#    include "../drpt2trace/pt2ir.h"
+#endif
 
 #ifdef DEBUG
 #    define DEBUG_ASSERT(x) DR_ASSERT(x)
@@ -67,6 +70,9 @@
 #endif
 
 #define OUTFILE_SUFFIX "raw"
+#ifdef BUILD_PT_POST_PROCESSOR
+#    define OUTFILE_SUFFIX_PT "raw.pt"
+#endif
 #ifdef HAS_ZLIB
 #    define OUTFILE_SUFFIX_GZ "raw.gz"
 #    define OUTFILE_SUFFIX_ZLIB "raw.zlib"
@@ -78,9 +84,6 @@
 #    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
 #endif
 #define OUTFILE_SUBDIR "raw"
-#ifdef BUILD_PT_TRACER
-#    define KERNEL_PT_OUTFILE_SUBDIR "kernel.raw"
-#endif
 #define WINDOW_SUBDIR_PREFIX "window"
 #define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
 #define WINDOW_SUBDIR_FIRST "window.0000"
@@ -382,6 +385,22 @@ struct trace_metadata_reader_t {
     static std::string
     check_entry_thread_start(const offline_entry_t *entry);
 };
+
+#ifdef BUILD_PT_POST_PROCESSOR
+/**
+ * Functions for decoding and verifying raw memtrace data headers.
+ */
+struct ktrace_metadata_reader_t {
+    static bool
+    is_thread_shared_pt_metadata_header(const syscall_pt_entry_t *entry);
+    static bool
+    is_syscall_pt_data_header(const syscall_pt_entry_t *entry);
+    static thread_id_t
+    get_thread_id(const syscall_pt_entry_t *entry);
+    static std::string
+    check_entry_thread_start(const syscall_pt_entry_t *entry);
+};
+#endif
 
 /**
  * module_mapper_t maps and unloads application modules, as well as non-module
@@ -735,15 +754,17 @@ public:
     // and out_files are all owned and opened/closed by the caller.  module_map is not a
     // string and can contain binary data.
     // If a nullptr dcontext is passed, creates a new DR context va dr_standalone_init().
-    raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
-                const std::vector<std::ostream *> &out_files,
-                const std::vector<archive_ostream_t *> &out_archives,
-                file_t encoding_file = INVALID_FILE,
-                std::ostream *serial_schedule_file = nullptr,
-                archive_ostream_t *cpu_schedule_file = nullptr, void *dcontext = nullptr,
-                unsigned int verbosity = 0, int worker_count = -1,
-                const std::string &alt_module_dir = "",
-                uint64_t chunk_instr_count = 10 * 1000 * 1000);
+    raw2trace_t(
+        const char *module_map, const std::vector<std::istream *> &thread_files,
+        const std::vector<std::ostream *> &out_files,
+        const std::vector<archive_ostream_t *> &out_archives,
+        file_t encoding_file = INVALID_FILE, std::ostream *serial_schedule_file = nullptr,
+        archive_ostream_t *cpu_schedule_file = nullptr, void *dcontext = nullptr,
+        unsigned int verbosity = 0, int worker_count = -1,
+        const std::string &alt_module_dir = "",
+        uint64_t chunk_instr_count = 10 * 1000 * 1000,
+        const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map = {},
+        const std::string &kcore_path = "", const std::string &kallsyms_path = "");
     // If a nullptr dcontext_in was passed to the constructor, calls dr_standalone_exit().
     virtual ~raw2trace_t();
 
@@ -825,6 +846,20 @@ public:
     static std::string
     check_thread_file(std::istream *f);
 
+#ifdef BUILD_PT_POST_PROCESSOR
+    /**
+     *  Checks whether the given file is a valid kernel PT file.
+     */
+    static std::string
+    check_kthread_file(std::istream *f);
+
+    /**
+     *  Return the tid of the given kernel PT file.
+     */
+    static std::string
+    get_kthread_file_tid(std::istream *f, OUT thread_id_t *tid);
+#endif
+
     uint64
     get_statistic(raw2trace_statistic_t stat);
 
@@ -882,6 +917,7 @@ protected:
             , last_decode_modidx(0)
             , last_decode_modoffs(0)
             , last_block_summary(nullptr)
+            , kthread_file(nullptr)
         {
         }
         // Support subclasses extending this struct.
@@ -954,6 +990,13 @@ protected:
         int rseq_commit_idx_ = -1; // Index into rseq_buffer_.
         std::vector<branch_info_t> rseq_branch_targets_;
         std::vector<app_pc> rseq_decode_pcs_;
+
+        std::istream *kthread_file;
+#ifdef BUILD_PT_POST_PROCESSOR
+        std::vector<syscall_pt_entry_t> pre_read_pt_entries;
+        bool pt_metadata_processed = false;
+        pt2ir_t pt2ir;
+#endif
     };
 
     /**
@@ -1017,6 +1060,12 @@ protected:
 
     virtual std::string
     read_and_map_modules();
+
+    /**
+     * Process the PT data associated with the provided syscall index.
+     */
+    std::string
+    process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx);
 
     /**
      * Processes a raw buffer which must be the next buffer in the desired (typically
@@ -1413,6 +1462,11 @@ private:
 
     offline_instru_t instru_offline_;
     const std::vector<module_t> *modvec_ptr_ = nullptr;
+
+    /* The following member variables are utilized for decoding kernel PT traces. */
+    const std::unordered_map<thread_id_t, std::istream *> kthread_files_map_;
+    const std::string kcore_path_;
+    const std::string kallsyms_path_;
 };
 
 #endif /* _RAW2TRACE_H_ */

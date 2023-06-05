@@ -57,6 +57,8 @@ add_dependencies(drpt2ir ipt ipt-sb api_headers)
 target_link_libraries(drpt2ir ipt ipt-sb)
 install_client_nonDR_header(drmemtrace elf_loader.h)
 install_client_nonDR_header(drmemtrace pt2ir.h)
+DR_export_target(drpt2ir)
+install_exported_target(drpt2ir ${INSTALL_CLIENTS_LIB})
 
 set(drir2trace_srcs
   ir2trace.cpp
@@ -65,6 +67,8 @@ add_library(drir2trace STATIC ${drir2trace_srcs})
 configure_DynamoRIO_decoder(drir2trace)
 add_dependencies(drir2trace api_headers)
 install_client_nonDR_header(drmemtrace ir2trace.h)
+DR_export_target(drir2trace)
+install_exported_target(drir2trace ${INSTALL_CLIENTS_LIB})
 
 include_directories(${PROJECT_BINARY_DIR}/clients/include/drmemtrace)
 # drpt2trace is a client that uses drpt2ir and drir2trace to convert PT data to trace
@@ -72,7 +76,7 @@ include_directories(${PROJECT_BINARY_DIR}/clients/include/drmemtrace)
 set(drpt2trace_srcs
   drpt2trace.cpp
 )
-add_definitions(-DBUILD_PT_TRACER)
+add_definitions(-DBUILD_PT_POST_PROCESSOR)
 add_executable(drpt2trace ${drpt2trace_srcs})
 configure_DynamoRIO_standalone(drpt2trace)
 use_DynamoRIO_extension(drpt2trace droption)

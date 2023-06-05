@@ -92,13 +92,13 @@ typedef enum {
     // assume we don't need the opcode.
 
     // These entries describe a memory reference as data:
-    TRACE_TYPE_READ,  /**< A data load. */
-    TRACE_TYPE_WRITE, /**< A data store. */
+    TRACE_TYPE_READ,     /**< A data load. */
+    TRACE_TYPE_WRITE,    /**< A data store. */
 
     TRACE_TYPE_PREFETCH, /**< A general prefetch. */
 
     // X86 specific prefetch
-    TRACE_TYPE_PREFETCHT0, /**< An x86 prefetch to all levels of the cache. */
+    TRACE_TYPE_PREFETCHT0,     /**< An x86 prefetch to all levels of the cache. */
     TRACE_TYPE_PREFETCH_READ_L1 =
         TRACE_TYPE_PREFETCHT0, /**< Load prefetch to L1 cache. */
     TRACE_TYPE_PREFETCHT1,     /**< An x86 prefetch to level 2 cache and higher. */
@@ -201,9 +201,9 @@ typedef enum {
     TRACE_TYPE_INSTR_SYSENTER,
 
     // Architecture-agnostic trace entry types for prefetch instructions.
-    TRACE_TYPE_PREFETCH_READ_L1_NT, /**< Non-temporal load prefetch to L1 cache. */
-    TRACE_TYPE_PREFETCH_READ_L2_NT, /**< Non-temporal load prefetch to L2 cache. */
-    TRACE_TYPE_PREFETCH_READ_L3_NT, /**< Non-temporal load prefetch to L3 cache. */
+    TRACE_TYPE_PREFETCH_READ_L1_NT,  /**< Non-temporal load prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_READ_L2_NT,  /**< Non-temporal load prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_READ_L3_NT,  /**< Non-temporal load prefetch to L3 cache. */
 
     TRACE_TYPE_PREFETCH_INSTR_L1,    /**< Instr prefetch to L1 cache. */
     TRACE_TYPE_PREFETCH_INSTR_L1_NT, /**< Non-temporal instr prefetch to L1 cache. */
@@ -392,8 +392,8 @@ typedef enum {
     TRACE_MARKER_TYPE_PAGE_SIZE,
 
     /**
-     * This marker is emitted prior to each system call when -enable_kernel_tracing is
-     * specified. The marker value contains a unique system call identifier.
+     * This marker is emitted prior to each system call and the value contains a unique
+     * system call identifier.
      */
     TRACE_MARKER_TYPE_SYSCALL_IDX,
 
@@ -651,10 +651,11 @@ typedef enum {
     OFFLINE_FILE_TYPE_ARCH_X86_64 = 0x40,      /**< Recorded on x86 (64-bit). */
     OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
         OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
-        OFFLINE_FILE_TYPE_ARCH_X86_64,   /**< All possible architecture types. */
-    OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
-    OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
-    OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
+        OFFLINE_FILE_TYPE_ARCH_X86_64,    /**< All possible architecture types. */
+    OFFLINE_FILE_TYPE_IFILTERED = 0x80,   /**< Instruction addresses filtered online. */
+    OFFLINE_FILE_TYPE_DFILTERED = 0x100,  /**< Data addresses filtered online. */
+    OFFLINE_FILE_TYPE_ENCODINGS = 0x200,  /**< Instruction encodings are included. */
+    OFFLINE_FILE_TYPE_SYSCALL_PT = 0x400, /**< Syscalls' PT tracings are included. */
 } offline_file_type_t;
 
 static inline const char *
@@ -776,7 +777,7 @@ struct schedule_entry_t {
     uint64_t start_instruction;
 } END_PACKED_STRUCTURE;
 
-#ifdef BUILD_PT_TRACER
+#if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
 /**
  * The type of a syscall PT entry in the raw offline output.
@@ -791,7 +792,7 @@ typedef enum {
      * The instances of this type store the thread Id, signifying which thread the data in
      * the buffer has been collected from.
      */
-    SYSCALL_PT_ENTRY_TYPE_THREAD,
+    SYSCALL_PT_ENTRY_TYPE_THREAD_ID,
     /**
      * The instance with this type demonstrates that the leftover portion of the buffer
      * holds metadata while also providing information about the metadata's size.
@@ -914,7 +915,8 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
 typedef enum {
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
     PDB_HEADER_PID_IDX = 0,
-    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD in the PDB header.
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD_ID in the PDB
+     * header.
      */
     PDB_HEADER_TID_IDX = 1,
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY in the
@@ -927,7 +929,7 @@ typedef enum {
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX in the PDB
      * header.
      */
-    PDB_HEADER_SYSCALL_IDX = 4,
+    PDB_HEADER_SYSCALL_IDX_IDX = 4,
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM in the
      * PDB header.
      */
@@ -968,5 +970,23 @@ typedef enum {
  * each cpu.
  */
 #define DRMEMTRACE_CPU_SCHEDULE_FILENAME "cpu_schedule.bin.zip"
+
+/**
+ * The name of the folder in -offline mode where the kernel's per thread PT data is
+ * stored. This data is captured during online tracing.
+ */
+#define DRMEMTRACE_KERNEL_PT_SUBDIR "kernel.raw"
+
+/**
+ * The name of the file in -offline mode where the kernel code segments is stored. This
+ * file is copied from '/proc/kcore' during online tracing.
+ */
+#define DRMEMTRACE_KCORE_FILENAME "kcore"
+
+/**
+ * The name of the file in -offline mode where kallsyms is stored. This file is copied
+ * from '/proc/kallsyms' during online tracing.
+ */
+#define DRMEMTRACE_KALLSYMS_FILENAME "kallsyms"
 
 #endif /* _TRACE_ENTRY_H_ */

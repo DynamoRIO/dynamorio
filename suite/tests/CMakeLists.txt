@@ -4271,9 +4271,11 @@ if (BUILD_CLIENTS)
         set(cmd_pfx "sudo@")
         set(${testname_full}_precmd
           "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
-        set (${testname_full}_postcmd
+        set(${testname_full}_postcmd
+          "firstglob@${cmd_pfx}${drcachesim_path}@-indir@${testname_full}.*.dir${sim_atops}")
+        set (${testname_full}_postcmd2
           "${cmd_pfx}chmod@777@-R@${testname_full}.*.dir")
-        set(${testname_full}_postcmd2
+        set(${testname_full}_postcmd3
           "firstglob@${cmd_pfx}${drpt2trace_path}@-mode@ELF@-raw_pt_format@DRMEMTRACE@-raw_pt@${testname_full}.*.dir/kernel.raw/*.pt@-elf@${testname_full}.*.dir/kernel.raw/kcore")
       endmacro ()
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
