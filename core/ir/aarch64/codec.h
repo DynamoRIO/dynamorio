@@ -85,4 +85,14 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
         return false;                                              \
     }
 
+#define EXCLUDE_ELEMENT(elsz)                                                \
+    do {                                                                     \
+        if (!opnd_is_element_vector_reg(opnd))                               \
+            return false;                                                    \
+                                                                             \
+        const aarch64_reg_offset size = get_vector_element_reg_offset(opnd); \
+        if (size == NOT_A_REG || size == elsz)                               \
+            return false;                                                    \
+    } while (0)
+
 #endif /* CODEC_H */
