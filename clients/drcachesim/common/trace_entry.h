@@ -92,13 +92,13 @@ typedef enum {
     // assume we don't need the opcode.
 
     // These entries describe a memory reference as data:
-    TRACE_TYPE_READ,     /**< A data load. */
-    TRACE_TYPE_WRITE,    /**< A data store. */
+    TRACE_TYPE_READ,  /**< A data load. */
+    TRACE_TYPE_WRITE, /**< A data store. */
 
     TRACE_TYPE_PREFETCH, /**< A general prefetch. */
 
     // X86 specific prefetch
-    TRACE_TYPE_PREFETCHT0,     /**< An x86 prefetch to all levels of the cache. */
+    TRACE_TYPE_PREFETCHT0, /**< An x86 prefetch to all levels of the cache. */
     TRACE_TYPE_PREFETCH_READ_L1 =
         TRACE_TYPE_PREFETCHT0, /**< Load prefetch to L1 cache. */
     TRACE_TYPE_PREFETCHT1,     /**< An x86 prefetch to level 2 cache and higher. */
@@ -201,9 +201,9 @@ typedef enum {
     TRACE_TYPE_INSTR_SYSENTER,
 
     // Architecture-agnostic trace entry types for prefetch instructions.
-    TRACE_TYPE_PREFETCH_READ_L1_NT,  /**< Non-temporal load prefetch to L1 cache. */
-    TRACE_TYPE_PREFETCH_READ_L2_NT,  /**< Non-temporal load prefetch to L2 cache. */
-    TRACE_TYPE_PREFETCH_READ_L3_NT,  /**< Non-temporal load prefetch to L3 cache. */
+    TRACE_TYPE_PREFETCH_READ_L1_NT, /**< Non-temporal load prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_READ_L2_NT, /**< Non-temporal load prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_READ_L3_NT, /**< Non-temporal load prefetch to L3 cache. */
 
     TRACE_TYPE_PREFETCH_INSTR_L1,    /**< Instr prefetch to L1 cache. */
     TRACE_TYPE_PREFETCH_INSTR_L1_NT, /**< Non-temporal instr prefetch to L1 cache. */
