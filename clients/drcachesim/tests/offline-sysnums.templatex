@@ -1,3 +1,4 @@
+all done
 Basic counts tool results:
 Total counts:
      .* total \(fetched\) instructions
@@ -20,3 +21,4 @@ Total counts:
      .* total other markers
      .* total encodings
 .*
+Trace invariant checks passed
