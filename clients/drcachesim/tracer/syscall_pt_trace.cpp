@@ -53,7 +53,7 @@ syscall_pt_trace_t::syscall_pt_trace_t()
     , close_file_func_(nullptr)
     , pttracer_handle_ { GLOBAL_DCONTEXT, nullptr }
     , pttracer_output_buffer_ { GLOBAL_DCONTEXT, nullptr }
-    , recorded_syscall_count_(0)
+    , recorded_syscall_count_(-1)
     , cur_recording_sysnum_(-1)
     , is_dumping_metadata_(false)
     , drcontext_(nullptr)
@@ -152,12 +152,11 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
                                 pttracer_output_buffer_.data) != DRPTTRACER_SUCCESS) {
         return false;
     }
-
+    recorded_syscall_count_++;
     if (!trace_data_dump(pttracer_output_buffer_)) {
         return false;
     }
     cur_recording_sysnum_ = -1;
-    recorded_syscall_count_++;
 
     /* Reset the pttracer handle for next syscall.
      * TODO i#5505: To reduce the overhead caused by pttracer initialization, we need to
