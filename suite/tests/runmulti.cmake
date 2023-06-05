@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2023 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -53,6 +53,9 @@ macro(process_cmdline line skip_empty err_and_out)
   string(REGEX REPLACE "@@" " " ${line} "${${line}}")
   string(REGEX REPLACE "@" ";" ${line} "${${line}}")
   string(REGEX REPLACE "!" "\\\;" ${line} "${${line}}")
+  # Clear to avoid repeating prior command if this one isn't run.
+  set(cmd_err "")
+  set(cmd_out "")
 
   if (${line} MATCHES "^foreach;")
     set(each ${${line}})
@@ -115,6 +118,7 @@ endmacro()
 process_cmdline(precmd ON ignore)
 
 process_cmdline(cmd OFF tomatch)
+message("output: |${tomatch}|")
 
 if (NOT "${postcmd}" STREQUAL "")
   process_cmdline(postcmd OFF tomatch)
