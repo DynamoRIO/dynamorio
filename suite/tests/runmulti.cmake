@@ -128,6 +128,6 @@ endif()
 # get expected output (must already be processed w/ regex => literal, etc.)
 file(READ "${cmp}" str)
 
-if (NOT "${tomatch}" MATCHES "${str}")
+if (NOT "${tomatch}" MATCHES "^${str}$")
   message(FATAL_ERROR "output |${tomatch}| failed to match expected output |${str}|")
 endif ()
