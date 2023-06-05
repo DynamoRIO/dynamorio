@@ -42,6 +42,12 @@ include_directories(
   ${PROJECT_BINARY_DIR}/third_party/include/libipt
 )
 
+# Add the directory containing libipt.so and libipt-sb.so to the linker search path.
+set(libipt_install_dir "${PROJECT_BINARY_DIR}/third_party/${INSTALL_LIB}")
+SET(CMAKE_EXE_LINKER_FLAGS
+  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${libipt_install_dir}'"
+)
+
 # drpt2ir don't include configure.h so they don't get DR defines.
 add_dr_defines()
 
@@ -81,9 +87,4 @@ add_executable(drpt2trace ${drpt2trace_srcs})
 configure_DynamoRIO_standalone(drpt2trace)
 use_DynamoRIO_extension(drpt2trace droption)
 add_dependencies(drpt2trace ipt drpt2ir drir2trace)
-# Add the directory containing libipt.so and libipt-sb.so to the linker search path.
-set(libipt_install_dir "${PROJECT_BINARY_DIR}/third_party/${INSTALL_LIB}")
-SET(CMAKE_EXE_LINKER_FLAGS
-  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${libipt_install_dir}'"
-)
 target_link_libraries(drpt2trace ipt drpt2ir drir2trace)
