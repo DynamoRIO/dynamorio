@@ -223,7 +223,7 @@ struct file_ops_func_t {
 };
 extern struct file_ops_func_t file_ops_func;
 
-extern uint64 num_refs_racy;             /* racy global memory reference count */
+extern uint64 num_refs_racy; /* racy global memory reference count */
 extern char logsubdir[MAXIMUM_PATH];
 extern char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 extern size_t trace_buf_size;
