@@ -1339,13 +1339,6 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
-
-    /* Write a marker to userspace raw trace. */
-    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
-    uintptr_t marker_val = data->recorded_syscall_count;
-    BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
-
     if (file_ops_func.handoff_buf == NULL)
         process_and_output_buffer(drcontext, false);
 
@@ -1354,8 +1347,7 @@ event_pre_syscall(void *drcontext, int sysnum)
         if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
             return true;
         }
-        data->syscall_pt_trace.set_current_recording_syscall_idx(
-            data->recorded_syscall_count);
+
         if (data->syscall_pt_trace.get_cur_recording_sysnum() != INVALID_SYSNUM) {
             ASSERT(false, "last tracing isn't stopped");
             if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
@@ -1375,13 +1367,15 @@ event_pre_syscall(void *drcontext, int sysnum)
 static void
 event_post_syscall(void *drcontext, int sysnum)
 {
-    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    data->recorded_syscall_count++;
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
         return;
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+        return;
     if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
         return;
+
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
     if (data->syscall_pt_trace.get_cur_recording_sysnum() == INVALID_SYSNUM) {
         ASSERT(false, "last syscall is not traced");
@@ -1394,6 +1388,14 @@ event_post_syscall(void *drcontext, int sysnum)
         ASSERT(false, "failed to stop syscall pt trace");
         return;
     }
+
+    /* Write a marker to userspace raw trace. */
+    if (BUF_PTR(data->seg_base) == NULL)
+        return; /* This thread was filtered out. */
+    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
+    uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_idx();
+    BUF_PTR(data->seg_base) +=
+        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
 #endif
 }
 
@@ -1494,7 +1496,6 @@ init_thread_in_process(void *drcontext)
         *(byte **)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICACHE) = data->l0_icache;
     }
 
-    data->recorded_syscall_count = 0;
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         data->syscall_pt_trace.init(

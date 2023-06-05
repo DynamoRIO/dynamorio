@@ -108,7 +108,6 @@ typedef struct {
     uint64 num_phys_markers;
     byte *v2p_buf;
     uint64 num_v2p_writeouts; /* v2p_buf writeout instances. */
-    int recorded_syscall_count;
 #ifdef BUILD_PT_TRACER
     /* For syscall kernel trace. */
     syscall_pt_trace_t syscall_pt_trace;
