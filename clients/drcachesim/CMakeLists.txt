@@ -299,6 +299,8 @@ install_client_nonDR_header(drmemtrace common/utils.h)
 install_client_nonDR_header(drmemtrace common/trace_entry.h)
 install_client_nonDR_header(drmemtrace common/memref.h)
 install_client_nonDR_header(drmemtrace common/memtrace_stream.h)
+install_client_nonDR_header(drmemtrace common/archive_istream.h)
+install_client_nonDR_header(drmemtrace common/archive_ostream.h)
 install_client_nonDR_header(drmemtrace reader/reader.h)
 install_client_nonDR_header(drmemtrace reader/record_file_reader.h)
 install_client_nonDR_header(drmemtrace analysis_tool.h)
@@ -340,6 +342,18 @@ add_executable(record_filter_launcher
 target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter)
 use_DynamoRIO_extension(record_filter_launcher droption)
 
+add_executable(scheduler_launcher tests/scheduler_launcher.cpp)
+target_link_libraries(scheduler_launcher drmemtrace_analyzer drfrontendlib)
+use_DynamoRIO_extension(scheduler_launcher droption)
+add_dependencies(scheduler_launcher api_headers)
+# Simple test to ensure this launcher keeps working.
+if (X86 AND X64 AND ZIP_FOUND)
+  set(trace_dir
+    "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+  add_test(NAME tool.scheduler_launcher
+    COMMAND scheduler_launcher -trace_dir ${trace_dir})
+endif ()
+
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
 set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir
@@ -371,6 +385,7 @@ target_link_libraries(drmemtrace_analyzer ${zlib_libs})
 if (NOT AARCH64 AND NOT APPLE)
   target_link_libraries(opcode_mix_launcher ${zlib_libs})
 endif ()
+target_link_libraries(scheduler_launcher ${zlib_libs})
 
 macro(add_drmemtrace name type)
   if (${type} STREQUAL "STATIC")
@@ -478,6 +493,7 @@ restore_nonclient_flags(prefetch_analyzer_launcher)
 if (NOT AARCH64 AND NOT APPLE)
   restore_nonclient_flags(opcode_mix_launcher)
 endif ()
+restore_nonclient_flags(scheduler_launcher)
 restore_nonclient_flags(drmemtrace_simulator)
 restore_nonclient_flags(drmemtrace_reuse_distance)
 restore_nonclient_flags(drmemtrace_histogram)
@@ -492,6 +508,12 @@ restore_nonclient_flags(drmemtrace_invariant_checker)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
+#
+# TODO i#6040: We should add a new configure_original_flage(target) function
+# which restores the ORIG_ flags at the source level for all other targets
+# in this file which are neither clients nor use DR standalone. We can then
+# get rid of add_win32_flags(target) since that just adds a couple of flags
+# back, and using the ORIG_ values is preferable.
 macro(add_win32_flags target)
   if (WIN32)
     if (DEBUG)
@@ -532,6 +554,7 @@ add_win32_flags(drmemtrace_raw2trace)
 if (NOT AARCH64 AND NOT APPLE)
   add_win32_flags(opcode_mix_launcher)
 endif ()
+add_win32_flags(scheduler_launcher)
 add_win32_flags(drmemtrace_simulator)
 add_win32_flags(drmemtrace_reuse_distance)
 add_win32_flags(drmemtrace_histogram)
@@ -654,12 +677,13 @@ if (BUILD_TESTS)
        COMMAND tool.reuse_distance.unit_tests)
 
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp
-    tests/cache_replacement_policy_unit_test.cpp)
+    tests/cache_replacement_policy_unit_test.cpp tests/config_reader_unit_test.cpp)
   target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
     drmemtrace_static drmemtrace_analyzer ${zlib_libs})
   add_win32_flags(tool.drcachesim.unit_tests)
   add_test(NAME tool.drcachesim.unit_tests
-           COMMAND tool.drcachesim.unit_tests)
+           COMMAND tool.drcachesim.unit_tests
+           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
 
   add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
   configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
@@ -685,10 +709,11 @@ if (BUILD_TESTS)
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
 
   # XXX i#5675: add tests for other environments. Currently, the repository does not have
-  # a checked-in post-processed trace for x86-32 or AArchXX.
+  # a checked-in post-processed trace for x86-32 or AArchXX.  We are also limited to
+  # the old format due to missing zip support so we can't use the new threadsig.x64.
   if (X86 AND X64 AND ZLIB_FOUND)
     set(trace_dir
-      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.legacy-for-record-filter.x64.tracedir")
     set(tmp_output_dir ${PROJECT_BINARY_DIR}/record_filter_tests_tmp_output)
     file(MAKE_DIRECTORY ${tmp_output_dir})
     add_executable(tool.drcacheoff.record_filter_unit_tests
@@ -700,6 +725,14 @@ if (BUILD_TESTS)
              COMMAND tool.drcacheoff.record_filter_unit_tests --trace_dir
                      ${trace_dir} --tmp_output_dir ${tmp_output_dir})
   endif ()
+
+  add_executable(tool.drcacheoff.trace_interval_analysis_unit_tests
+                 tests/trace_interval_analysis_unit_tests.cpp)
+  add_win32_flags(tool.drcacheoff.trace_interval_analysis_unit_tests)
+  target_link_libraries(tool.drcacheoff.trace_interval_analysis_unit_tests
+    drmemtrace_analyzer drdecode)
+  add_test(NAME tool.drcacheoff.trace_interval_analysis_unit_tests
+           COMMAND tool.drcacheoff.trace_interval_analysis_unit_tests)
 
   if (DR_HOST_AARCH64 AND NOT APPLE) # i#1997: static DR on Mac NYI.
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
@@ -724,9 +757,10 @@ if (BUILD_TESTS)
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
 
     add_executable(tool.drcachesim.invariant_checker_test tests/invariant_checker_test.cpp)
+    configure_DynamoRIO_standalone(tool.drcachesim.invariant_checker_test)
+    add_win32_flags(tool.drcachesim.invariant_checker_test)
     target_link_libraries(tool.drcachesim.invariant_checker_test
         drmemtrace_static drmemtrace_analyzer drmemtrace_invariant_checker)
-    add_win32_flags(tool.drcachesim.invariant_checker_test)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
 

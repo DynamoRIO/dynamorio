@@ -45,6 +45,8 @@
 
 namespace {
 
+using namespace dynamorio::drmemtrace;
+
 class checker_no_abort_t : public invariant_checker_t {
 public:
     checker_no_abort_t(bool offline)
@@ -89,7 +91,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 return false;
             }
         } else if (!checker.errors.empty()) {
-            for (int i = 0; i < checker.errors.size(); ++i) {
+            for (unsigned int i = 0; i < checker.errors.size(); ++i) {
                 std::cerr << "Unexpected error: " << checker.errors[i]
                           << " at ref: " << checker.error_refs[i] << "\n";
             }
@@ -591,24 +593,24 @@ check_function_markers()
 bool
 check_duplicate_syscall_with_same_pc()
 {
-    constexpr addr_t ADDR = 0x7fcf3b9dd9e9;
     // Negative: syscalls with the same PC.
 #if defined(X86_64) || defined(X86_32) || defined(ARM_64)
+    constexpr addr_t ADDR = 0x7fcf3b9d;
     {
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
-            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
-            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
 #    elif defined(ARM_64)
             gen_instr_encoded(ADDR,
-                              0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+                              0xd4000001), // 0x7fcf3b9d: 0xd4000001 svc #0x0
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR,
-                              0xd4000001), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+                              0xd4000001), // 0x7fcf3b9d: 0xd4000001 svc #0x0
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
@@ -623,13 +625,13 @@ check_duplicate_syscall_with_same_pc()
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
-            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9dd9e9: 0f 05 syscall
+            gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR + 2, { 0x0f, 0x05 }), // 0x7fcf3b9dd9eb: 0f 05 syscall
 #    elif defined(ARM_64)
             gen_instr_encoded(ADDR, 0xd4000001,
-                              2), // 0x7fcf3b9dd9e9: 0xd4000001 svc #0x0
+                              2), // 0x7fcf3b9d: 0xd4000001 svc #0x0
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR + 4, 0xd4000001,
@@ -646,6 +648,49 @@ check_duplicate_syscall_with_same_pc()
     return true;
 }
 
+bool
+check_rseq_side_exit_discontinuity()
+{
+    // Negative test: Seemingly missing instructions in a basic block due to rseq side
+    // exit.
+    instr_t *store = XINST_CREATE_store(GLOBAL_DCONTEXT, OPND_CREATE_MEMPTR(REG2, 0),
+                                        opnd_create_reg(REG1));
+    instr_t *move1 =
+        XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *move2 =
+        XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *cond_jmp =
+        XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move2));
+
+    instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+    instrlist_append(ilist, cond_jmp);
+    instrlist_append(ilist, store);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, move2);
+
+    std::vector<memref_with_IR_t> memref_instr_vec = {
+        { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+          nullptr },
+        // Rseq entry marker not added to make the sequence look like a legacy
+        // trace.
+        { gen_branch(1), cond_jmp },
+        { gen_instr(1), store },
+        { gen_data(1, false, 42, 4), nullptr },
+        // move1 instruction missing due to the 'side-exit' at move2 which is
+        // the target of cond_jmp.
+        { gen_instr(1), move2 }
+    };
+
+    // TODO i#6023: Use this IR based encoder in other tests as well.
+    static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+    auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+    if (!run_checker(memrefs, true, 1, 5, "PC discontinuity due to rseq side exit",
+                     "Failed to catch PC discontinuity from rseq side exit")) {
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 int
@@ -653,7 +698,7 @@ main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
-        check_duplicate_syscall_with_same_pc()) {
+        check_duplicate_syscall_with_same_pc() && check_rseq_side_exit_discontinuity()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

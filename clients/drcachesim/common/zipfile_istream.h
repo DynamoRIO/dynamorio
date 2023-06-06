@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,7 @@
 #include <fstream>
 #include <zlib.h>
 #include "minizip/unzip.h"
+#include "archive_istream.h"
 
 /* We need to override the stream buffer class which is where the file
  * reads happen.  The stream buffer base class reads from eback()..egptr()
@@ -103,6 +104,35 @@ public:
         }
         return gptr() - eback();
     }
+    std::string
+    result_to_string(int code)
+    {
+        // For now we just turn the number into a string.
+        std::ostringstream oss;
+        oss << code;
+        return oss.str();
+    }
+    std::string
+    open_component(const std::string &name)
+    {
+        int res;
+        if (file_ != nullptr) {
+            res = unzCloseCurrentFile(file_);
+            if (res != UNZ_OK)
+                return "Failed to close current component: " + result_to_string(res);
+        }
+        res = unzLocateFile(file_, name.c_str(), /*iCaseSensitivity=*/true);
+        if (res != UNZ_OK) {
+            return "Failed to locate zipfile component " + name + ": " +
+                result_to_string(res);
+        }
+        res = unzOpenCurrentFile(file_);
+        if (res != UNZ_OK) {
+            return "Failed to open zipfile component " + name + ": " +
+                result_to_string(res);
+        }
+        return "";
+    }
 
 private:
     static const int buffer_size_ = 4096;
@@ -110,17 +140,23 @@ private:
     char *buf_ = nullptr;
 };
 
-class zipfile_istream_t : public std::istream {
+class zipfile_istream_t : public archive_istream_t {
 public:
     explicit zipfile_istream_t(const std::string &path)
-        : std::istream(new zipfile_istreambuf_t(path))
+        : archive_istream_t(new zipfile_istreambuf_t(path))
     {
         if (!rdbuf())
             setstate(std::ios::badbit);
     }
-    virtual ~zipfile_istream_t() override
+    ~zipfile_istream_t() override
     {
         delete rdbuf();
+    }
+    std::string
+    open_component(const std::string &name) override
+    {
+        zipfile_istreambuf_t *zbuf = reinterpret_cast<zipfile_istreambuf_t *>(rdbuf());
+        return zbuf->open_component(name);
     }
 };
 

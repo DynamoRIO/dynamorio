@@ -166,6 +166,24 @@ changes:
    INSTR_CREATE_eor_sve_pred(), INSTR_CREATE_and_sve_pred() and
    INSTR_CREATE_bic_sve_pred() to use the new vector element registers and to
    correctly encode the predicate mode.
+ - Added a new drmemtrace analyzer option \p -interval_microseconds and various new
+   #analysis_tool_t APIs for producing per-interval results. The analyzer framework
+   invokes the generate_interval_snapshot() and generate_shard_interval_snapshot()
+   analysis tool APIs periodically every \p -interval_microseconds of the trace as
+   measured by the #TRACE_MARKER_TYPE_TIMESTAMP marker values. In these callbacks, the
+   tool creates and returns a snapshot of their internal state that is required to
+   produce and print per-interval results in a later print_interval_results() call.
+   The tool's internal state is a struct derived from the
+   #analysis_tool_tmpl_t::interval_state_snapshot_t base struct. Additionally, the tool
+   implements combine_interval_snapshot() to combine two interval snapshot structs,
+   which is required for producing whole-trace results in the parallel mode of analyzer
+   operation, and also release_interval_snapshot() which is used to release the
+   analyzer framework's claim to the interval snapshot objects.
+ - ud2a and ud2b have been renamed to ud2 and ud1, respectively. The old constants
+   #OP_ud2a and #OP_ud2b, as well as the #INSTR_CREATE_ud2a()/#INSTR_CREATE_ud2b()
+   macros, are \#defined to the new names, #OP_ud2, #OP_ud1, #INSTR_CREATE_ud2(),
+   and #INSTR_CREATE_ud1() respectively. ud1 now correctly accounts for its operands
+   so manipulation of ud1 is not backwards compatible.
 
 Further non-compatibility-affecting changes include:
  - Added AArchXX support for attaching to a running process.
@@ -239,6 +257,8 @@ Further non-compatibility-affecting changes include:
    with one destination and six sources.
  - Added a new label to help in handling "rseq" (Linux restartable sequence) regions:
    #DR_NOTE_RSEQ_ENTRY.
+ - Added instr_get_offset() API for getting the offset of an instr in an instrlist that
+   has been encoded with instrlist_encode* set of APIs.
 
 **************************************************
 <hr>

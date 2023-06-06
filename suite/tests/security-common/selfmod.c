@@ -524,7 +524,7 @@ ADDRTAKEN_LABEL(illegal_immediate_addr_plus_four:)
 GLOBAL_LABEL(FUNCNAME:)
         /* modify OP_loop target via eax (so eflags save conflict) */
         lea      REG_XAX, SYMREF(loop_target_end - 1)
-        mov      BYTE [REG_XAX], HEX(4)     /* selfmod write: skip both ud2a */
+        mov      BYTE [REG_XAX], HEX(4)     /* selfmod write: skip both ud2 */
         mov      REG_XCX, 4
         loop     loop_orig_target
 ADDRTAKEN_LABEL(loop_target_end:)
@@ -536,7 +536,7 @@ loop_orig_target:
         push     REG_XDI
         lea      REG_XDI, SYMREF(loop_target_end2 - 1)
         mov      al, 4
-        stosb    /* selfmod write: skip both ud2a */
+        stosb    /* selfmod write: skip both ud2 */
         mov      REG_XCX, 4
         loop     loop_orig_target2
 ADDRTAKEN_LABEL(loop_target_end2:)
@@ -548,9 +548,9 @@ loop_orig_target2:
 #ifndef X64 /* to make the push immed easier */
         /* modify OP_loop target via OP_push */
         mov      REG_XAX, REG_XSP
-        /* we clobber the 2 with 4 and overwrite the 2 ud2a with themselves */
+        /* we clobber the 2 with 4 and overwrite the 2 ud2 with themselves */
         lea      REG_XSP, SYMREF(loop_target_end3 + 3)
-        push     HEX(0b0f0b04)    /* selfmod write: skip both ud2a */
+        push     HEX(0b0f0b04)    /* selfmod write: skip both ud2 */
         mov      REG_XCX, 4
         loop     loop_orig_target3
 ADDRTAKEN_LABEL(loop_target_end3:)

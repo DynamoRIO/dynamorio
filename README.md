@@ -43,9 +43,9 @@ Tools built on DynamoRIO and available in the [release package](https://dynamori
 - The instruction tracing tool [instrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/instrace_x86.c) ([drmemtrace](https://dynamorio.org/page_drcachesim.html)'s offline traces are faster with more surrounding infrastructure, but this is a simpler starting point for customized instruction tracing)
 - The basic block tracing tool [bbbuf](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/bbbuf.c)
 - The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.c)
-- The dynamic fuzz testing tool [Dr. Fuzz](http://drmemory.org/docs/page_drfuzz.html)
+- The dynamic fuzz testing tool [Dr. Fuzz](http://drmemory.org/page_drfuzz.html)
 - The disassembly tool [drdisas](https://dynamorio.org/page_drdisas.html)
-- And more, including opcode counts, branch instrumentation, etc.: see \ref API_samples.
+- And more, including opcode counts, branch instrumentation, etc.: see [API samples](https://dynamorio.org/API_samples.html)
 
 ## Building your own custom tools
 

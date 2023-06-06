@@ -80,6 +80,13 @@
 #    define ASM_R3 "r3"
 #    define ASM_XSP "sp"
 #    define ASM_INDJMP "bx"
+#elif defined(DR_HOST_RISCV64)
+#    define ASM_R0 "a0"
+#    define ASM_R1 "a1"
+#    define ASM_R2 "a2"
+#    define ASM_R3 "a3"
+#    define ASM_XSP "sp"
+#    define ASM_INDJMP "jr"
 #endif /* X86/ARM */
 
 #define MACHINE_TLS_IS_DR_TLS IF_X86_ELSE(INTERNAL_OPTION(mangle_app_seg), true)
