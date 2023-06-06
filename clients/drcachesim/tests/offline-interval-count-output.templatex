@@ -57,5 +57,4 @@ Interval #1 ending at timestamp [0-9]*:
            0 interval delta physical address \+ virtual address marker pairs
            0 interval delta physical address unavailable markers
      [ 0-9]* interval delta other markers
-     [ 0-9]* interval delta encodings
-.*
+     [ 0-9]* interval delta encodings.*
