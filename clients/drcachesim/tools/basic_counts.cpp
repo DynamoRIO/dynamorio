@@ -334,6 +334,13 @@ basic_counts_t::combine_interval_snapshots(
     uint64_t interval_end_timestamp)
 {
     count_snapshot_t *result = new count_snapshot_t;
+    // The snapshots in latest_shard_snapshots do not track unique_pc_addrs, so
+    // the combined result->counters also would not contain any element in the
+    // unique_pc_addrs set. But we still need to explicitly disable
+    // unique_pc_addrs tracking in result->counters using the following function
+    // call. This is so that printing of unique_pc_addrs count is skipped as
+    // intended during print_interval_results.
+    result->counters.stop_tracking_unique_pc_addrs();
     for (const auto snapshot : latest_shard_snapshots) {
         if (snapshot == nullptr)
             continue;
