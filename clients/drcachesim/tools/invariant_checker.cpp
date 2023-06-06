@@ -680,12 +680,7 @@ invariant_checker_t::check_schedule_data()
                             "Serial schedule entry does not match trace");
             ++global.ref_count_;
         }
-        report_if_false(&global,
-                        // If the zip library is not present, raw2trace produces an
-                        // empty serial file (and no cpu file).
-                        // XXX: Better to not write a file at all probably; or,
-                        // fix the logic to produce a non-empty serial one.
-                        global.ref_count_ == 0 || global.ref_count_ == serial.size(),
+        report_if_false(&global, global.ref_count_ == serial.size(),
                         "Serial schedule entry count does not match trace");
     }
     if (cpu_schedule_file_ == nullptr)
