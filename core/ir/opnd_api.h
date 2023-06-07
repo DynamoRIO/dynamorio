@@ -1780,6 +1780,11 @@ typedef enum _dr_opnd_flags_t {
      * SVE predicate constraint
      */
     DR_OPND_IS_PREDICATE_CONSTRAINT = 0x800,
+
+    /**
+     * This is used by RISCV64 for immediates display format.
+    */
+    DR_OPND_IMM_PRINT_DECIMAL = 0x1000,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -1820,12 +1825,6 @@ struct _opnd_t {
         /* Used for ARM: REG_kind, BASE_DISP_kind, and IMMED_INTEGER_kind */
         ushort /*dr_opnd_flags_t*/ flags;
     } aux;
-#    ifdef RISCV64
-    /* Used by disassemble, indicates whether an immediate value should be formatted
-     * in decimal or hexadecimal, valid iff opnd is an IMMED_INTEGER_kind.
-     */
-    bool decimal;
-#    endif
     union {
         /* all are 64 bits or less */
         /* NULL_kind has no value */

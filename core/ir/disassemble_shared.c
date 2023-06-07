@@ -399,6 +399,10 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
                 print_to_buffer(buf, bufsz, sofar, "-");
             }
         }
+#if defined(RISCV64)
+        const char *fmt = TEST(opnd_get_flags(opnd), DR_OPND_IMM_PRINT_DECIMAL) ? "%d" : "0x%x";
+        print_to_buffer(buf, bufsz, sofar, fmt, disp);
+#else
         if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
             print_to_buffer(buf, bufsz, sofar, "%d", disp);
         else if ((unsigned)disp <= 0xff && !opnd_is_disp_force_full(opnd))
@@ -407,6 +411,7 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
             print_to_buffer(buf, bufsz, sofar, "0x%04x", disp);
         else /* there are no 64-bit displacements */
             print_to_buffer(buf, bufsz, sofar, "0x%08x", disp);
+#endif
     }
 
     if (!TESTANY(DR_DISASM_INTEL | DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask))) {
