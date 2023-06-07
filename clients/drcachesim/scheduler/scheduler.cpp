@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include <algorithm>
 #include <set>
 #include <unordered_map>
 
@@ -793,8 +794,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
     // We also want to collapse same-cpu consecutive records so we start with
     // a temporary local vector.
     std::vector<std::vector<schedule_record_t>> all_sched(outputs_.size());
-    uint64_t prev_start = 0; // Only used to detect a decrease.
-    uint64_t add_to_start = 0;
+    // Work around i#6107 by tracking counts sorted by timestamp for each input.
+    std::vector<std::vector<schedule_record_t>> input_sched(inputs_.size());
     while (options_.replay_as_traced_istream->read(reinterpret_cast<char *>(&entry),
                                                    sizeof(entry))) {
         if (entry.cpu != cur_cpu) {
@@ -806,29 +807,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                 }
             }
             cur_cpu = entry.cpu;
-            prev_start = 0;
         }
         input_ordinal_t input = tid2input[entry.thread];
         // We'll fill in the stop ordinal in our second pass below.
         uint64_t start = entry.start_instruction;
-        if (start < prev_start) {
-            // Work around i#6107 where the counts in the file are incorrectly modulo
-            // the chunk size.  We haven't read into the trace far enough to find the
-            // actual chunk size for for this workaround we only support what was the
-            // default in raw2trace up to this point, 10M.
-            static constexpr uint64_t DEFAULT_CHUNK_SIZE = 10 * 1000 * 1000;
-            // If within 50% of the end of the chunk we assume it's i#6107.
-            if (prev_start * 2 > DEFAULT_CHUNK_SIZE) {
-                add_to_start += DEFAULT_CHUNK_SIZE;
-                VPRINT(this, 2, "Working around i#6107 by adding %" PRId64 " instrs\n",
-                       add_to_start);
-            } else {
-                error_string_ = "Invalid decreasing start field in schedule file";
-                return STATUS_ERROR_INVALID_PARAMETER;
-            }
-        }
-        prev_start = start;
-        start += add_to_start;
         uint64_t timestamp = entry.timestamp;
         // Some entries have no instructions (there is an entry for each timestamp, and
         // a signal can come in after a prior timestamp with no intervening instrs).
@@ -843,7 +825,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
         all_sched[cur_output].emplace_back(schedule_record_t::DEFAULT, input, start, 0,
                                            timestamp);
         start2stop[input].insert(start);
+        input_sched[input].emplace_back(schedule_record_t::DEFAULT, input, start, 0,
+                                        timestamp);
     }
+    sched_type_t::scheduler_status_t res =
+        check_and_fix_modulo_problem_in_schedule(input_sched, start2stop, all_sched);
+    if (res != sched_type_t::STATUS_SUCCESS)
+        return res;
     for (int output_idx = 0; output_idx < static_cast<output_ordinal_t>(outputs_.size());
          ++output_idx) {
         VPRINT(this, 1, "Read %zu as-traced records for output #%d\n",
@@ -916,6 +904,105 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
             }
         } else
             set_cur_input(output_idx, INVALID_INPUT_ORDINAL);
+    }
+    return STATUS_SUCCESS;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::scheduler_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::check_and_fix_modulo_problem_in_schedule(
+    std::vector<std::vector<schedule_record_t>> &input_sched,
+    std::vector<std::set<uint64_t>> &start2stop,
+    std::vector<std::vector<schedule_record_t>> &all_sched)
+
+{
+    // Work around i#6107 where the counts in the file are incorrectly modulo the chunk
+    // size.  Unfortunately we need to construct input_sched and sort it for each input
+    // in order to even detect this issue; we could bump the trace version to let us
+    // know it's not present if these steps become overhead concerns.
+
+    // We store the actual instruction count for each timestamp, for each input, keyed
+    // by timestamp so we can look it up when iterating over the per-cpu schedule.  We
+    // do not support consecutive identical timestamps in one input for this workaround.
+    std::vector<std::unordered_map<uint64_t, uint64_t>> timestamp2adjust(inputs_.size());
+
+    // We haven't read into the trace far enough to find the actual chunk size, so for
+    // this workaround we only support what was the default in raw2trace up to this
+    // point, 10M.
+    static constexpr uint64_t DEFAULT_CHUNK_SIZE = 10 * 1000 * 1000;
+
+    // For each input, sort and walk the schedule and look for decreasing counts.
+    // Construct timestamp2adjust so we can fix the other data structures if necessary.
+    bool found_i6107 = false;
+    for (int input_idx = 0; input_idx < static_cast<input_ordinal_t>(inputs_.size());
+         ++input_idx) {
+        std::sort(input_sched[input_idx].begin(), input_sched[input_idx].end(),
+                  [](const schedule_record_t &l, const schedule_record_t &r) {
+                      return l.timestamp < r.timestamp;
+                  });
+        uint64_t prev_start = 0;
+        uint64_t add_to_start = 0;
+        bool in_order = true;
+        for (const schedule_record_t &sched : input_sched[input_idx]) {
+            if (sched.start_instruction < prev_start) {
+                // If within 50% of the end of the chunk we assume it's i#6107.
+                if (prev_start * 2 > DEFAULT_CHUNK_SIZE) {
+                    add_to_start += DEFAULT_CHUNK_SIZE;
+                    if (in_order) {
+                        VPRINT(this, 2, "Working around i#6107 for input #%d\n",
+                               input_idx);
+                        in_order = false;
+                        found_i6107 = true;
+                    }
+                } else {
+                    error_string_ = "Invalid decreasing start field in schedule file";
+                    return STATUS_ERROR_INVALID_PARAMETER;
+                }
+            }
+            // We could save space by not storing the early ones but we do need to
+            // include all duplicates.
+            if (timestamp2adjust[input_idx].find(sched.timestamp) !=
+                timestamp2adjust[input_idx].end()) {
+                error_string_ = "Same timestamps not supported for i#6107 workaround";
+                return STATUS_ERROR_INVALID_PARAMETER;
+            }
+            prev_start = sched.start_instruction;
+            timestamp2adjust[input_idx][sched.timestamp] =
+                sched.start_instruction + add_to_start;
+        }
+    }
+    if (!found_i6107)
+        return STATUS_SUCCESS;
+    // Rebuild start2stop.
+    for (int input_idx = 0; input_idx < static_cast<input_ordinal_t>(inputs_.size());
+         ++input_idx) {
+        start2stop[input_idx].clear();
+        for (auto &keyval : timestamp2adjust[input_idx]) {
+            start2stop[input_idx].insert(keyval.second);
+        }
+    }
+    // Update all_sched.
+    for (int output_idx = 0; output_idx < static_cast<output_ordinal_t>(outputs_.size());
+         ++output_idx) {
+        for (int sched_idx = 0;
+             sched_idx < static_cast<int>(all_sched[output_idx].size()); ++sched_idx) {
+            auto &segment = all_sched[output_idx][sched_idx];
+            auto it = timestamp2adjust[segment.key.input].find(segment.timestamp);
+            if (it == timestamp2adjust[segment.key.input].end()) {
+                error_string_ = "Failed to find timestamp for i#6107 workaround";
+                return STATUS_ERROR_INVALID_PARAMETER;
+            }
+            assert(it->second >= segment.start_instruction);
+            assert(it->second % DEFAULT_CHUNK_SIZE == segment.start_instruction);
+            if (it->second != segment.start_instruction) {
+                VPRINT(this, 2,
+                       "Updating all_sched[%d][%d] input %d from %" PRId64 " to %" PRId64
+                       "\n",
+                       output_idx, sched_idx, segment.key.input,
+                       segment.start_instruction, it->second);
+            }
+            segment.start_instruction = it->second;
+        }
     }
     return STATUS_SUCCESS;
 }

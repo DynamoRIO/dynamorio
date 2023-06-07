@@ -1891,7 +1891,7 @@ test_replay_as_traced_i6107_workaround()
     std::cerr << "\n----------------\nTesting replay as-traced i#6107 workaround\n";
 
     // The i#6107 workaround applies to 10M-insruction chunks.
-    static constexpr int NUM_INPUTS = 1;
+    static constexpr int NUM_INPUTS = 2;
     static constexpr int NUM_OUTPUTS = 1;
     static constexpr int CHUNK_NUM_INSTRS = 10 * 1000 * 1000;
     static constexpr int SCHED_STEP_INSTRS = 1000 * 1000;
@@ -1915,14 +1915,17 @@ test_replay_as_traced_i6107_workaround()
     }
 
     // Synthesize a cpu-schedule file with the i#6107 bug.
+    // Interleave the two inputs to test handling that.
     std::string cpu_fname = "tmp_test_cpu_i6107.zip";
     {
         std::vector<schedule_entry_t> sched;
         for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
              ++step_idx) {
-            sched.emplace_back(TID_BASE, TIMESTAMP_BASE + step_idx, CPU,
-                               // The bug has modulo chunk count as the count.
-                               step_idx * SCHED_STEP_INSTRS % CHUNK_NUM_INSTRS);
+            for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+                sched.emplace_back(TID_BASE + input_idx, TIMESTAMP_BASE + step_idx, CPU,
+                                   // The bug has modulo chunk count as the count.
+                                   step_idx * SCHED_STEP_INSTRS % CHUNK_NUM_INSTRS);
+            }
         }
         std::ostringstream cpu_string;
         cpu_string << CPU;
