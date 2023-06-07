@@ -1783,7 +1783,7 @@ typedef enum _dr_opnd_flags_t {
 
     /**
      * This is used by RISCV64 for immediates display format.
-    */
+     */
     DR_OPND_IMM_PRINT_DECIMAL = 0x1000,
 } dr_opnd_flags_t;
 
