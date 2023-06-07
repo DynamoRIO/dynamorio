@@ -645,17 +645,16 @@ invariant_checker_t::process_memref(const memref_t &memref)
 }
 
 void
-invariant_checker_t::check_schedule_data()
+invariant_checker_t::check_schedule_data(per_shard_t *global)
 {
     if (serial_schedule_file_ == nullptr && cpu_schedule_file_ == nullptr)
         return;
     // Check that the scheduling data in the files written by raw2trace match
     // the data in the trace.
-    per_shard_t global;
     // Use a synthetic stream object to allow report_if_false to work normally.
     auto stream = std::unique_ptr<memtrace_stream_t>(
-        new default_memtrace_stream_t(&global.ref_count_));
-    global.stream = stream.get();
+        new default_memtrace_stream_t(&global->ref_count_));
+    global->stream = stream.get();
     std::vector<schedule_entry_t> serial;
     std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
     for (auto &shard_keyval : shard_map_) {
@@ -674,13 +673,13 @@ invariant_checker_t::check_schedule_data()
         schedule_entry_t next(0, 0, 0, 0);
         while (
             serial_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
-            report_if_false(&global,
-                            memcmp(&serial[static_cast<size_t>(global.ref_count_)], &next,
-                                   sizeof(next)) == 0,
+            report_if_false(global,
+                            memcmp(&serial[static_cast<size_t>(global->ref_count_)],
+                                   &next, sizeof(next)) == 0,
                             "Serial schedule entry does not match trace");
-            ++global.ref_count_;
+            ++global->ref_count_;
         }
-        report_if_false(&global, global.ref_count_ == serial.size(),
+        report_if_false(global, global->ref_count_ == serial.size(),
                         "Serial schedule entry count does not match trace");
     }
     if (cpu_schedule_file_ == nullptr)
@@ -697,19 +696,19 @@ invariant_checker_t::check_schedule_data()
     // archive.  We figure out which cpu each one is from on the fly.
     schedule_entry_t next(0, 0, 0, 0);
     while (cpu_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
-        global.ref_count_ = next.start_instruction;
-        global.tid_ = next.thread;
+        global->ref_count_ = next.start_instruction;
+        global->tid_ = next.thread;
         report_if_false(
-            &global,
+            global,
             memcmp(&cpu2sched[next.cpu][static_cast<size_t>(cpu2idx[next.cpu])], &next,
                    sizeof(next)) == 0,
             "Cpu schedule entry does not match trace");
         ++cpu2idx[next.cpu];
     }
     for (auto &keyval : cpu2sched) {
-        global.ref_count_ = 0;
-        global.tid_ = keyval.first;
-        report_if_false(&global, cpu2idx[keyval.first] == keyval.second.size(),
+        global->ref_count_ = 0;
+        global->tid_ = keyval.first;
+        report_if_false(global, cpu2idx[keyval.first] == keyval.second.size(),
                         "Cpu schedule entry count does not match trace");
     }
 }
@@ -717,7 +716,8 @@ invariant_checker_t::check_schedule_data()
 bool
 invariant_checker_t::print_results()
 {
-    check_schedule_data();
+    per_shard_t global;
+    check_schedule_data(&global);
     std::cerr << "Trace invariant checks passed\n";
     return true;
 }

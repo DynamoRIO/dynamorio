@@ -109,6 +109,8 @@ protected:
             prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
             last_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
         }
+        // Provide a virtual destructor to facilitate subclassing.
+        virtual ~per_shard_t() = default;
         memref_t last_branch_ = {};
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
@@ -182,8 +184,10 @@ protected:
     virtual void
     report_if_false(per_shard_t *shard, bool condition,
                     const std::string &invariant_name);
+    // This must be called at the end (typically from print_results) and passed in
+    // an empty shard structure.
     virtual void
-    check_schedule_data();
+    check_schedule_data(per_shard_t *global_shard);
 
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
