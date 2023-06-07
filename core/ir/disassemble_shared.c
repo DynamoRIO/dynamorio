@@ -400,7 +400,8 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
             }
         }
 #if defined(RISCV64)
-        const char *fmt = TEST(opnd_get_flags(opnd), DR_OPND_IMM_PRINT_DECIMAL) ? "%d" : "0x%x";
+        const char *fmt =
+            TEST(opnd_get_flags(opnd), DR_OPND_IMM_PRINT_DECIMAL) ? "%d" : "0x%x";
         print_to_buffer(buf, bufsz, sofar, fmt, disp);
 #else
         if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
