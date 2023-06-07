@@ -791,10 +791,13 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         insert_mode_comparison(drcontext, ilist, where, reg_ptr, &tracing_window,
                                MEMTRACE_TLS_OFFS_WINDOW);
     }
-    // Force a clean call when the tracing mode changes, so that the other
-    // threads can update their traces appropriately.
-    insert_mode_comparison(drcontext, ilist, where, reg_ptr, &tracing_mode,
-                           MEMTRACE_TLS_OFFS_MODE);
+
+    if (op_L0_filter_until_instrs.get_value()) {
+        // Force a clean call when the tracing mode changes, so that the other
+        // threads can update their traces appropriately.
+        insert_mode_comparison(drcontext, ilist, where, reg_ptr, &tracing_mode,
+                               MEMTRACE_TLS_OFFS_MODE);
+    }
 
     reg_id_t reg_tmp = DR_REG_NULL, reg_tmp2 = DR_REG_NULL;
     instr_t *skip_thread = INSTR_CREATE_label(drcontext);
