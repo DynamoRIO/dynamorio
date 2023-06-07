@@ -33,6 +33,7 @@
 #define NOMINMAX // Avoid windows.h messing up std::max.
 
 #include <algorithm>
+#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <vector>
@@ -208,8 +209,10 @@ basic_counts_t::print_counters(const counters_t &counters, int_least64_t num_thr
 {
     std::cerr << std::setw(12) << counters.instrs << prefix
               << " (fetched) instructions\n";
-    std::cerr << std::setw(12) << counters.unique_pc_addrs.size() << prefix
-              << " unique (fetched) instructions\n";
+    if (counters.is_tracking_unique_pc_addrs()) {
+        std::cerr << std::setw(12) << counters.unique_pc_addrs.size() << prefix
+                  << " unique (fetched) instructions\n";
+    }
     std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
               << " non-fetched instructions\n";
     std::cerr << std::setw(12) << counters.prefetches << prefix << " prefetches\n";
@@ -302,10 +305,11 @@ basic_counts_t::generate_shard_interval_snapshot(void *shard_data, uint64_t inte
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     count_snapshot_t *snapshot = new count_snapshot_t;
+    // Tracking unique pc addresses for each snapshot takes up excessive space.
+    snapshot->counters.stop_tracking_unique_pc_addrs();
     for (const auto &ctr : per_shard->counters) {
         snapshot->counters += ctr;
     }
-    snapshot->tid = per_shard->tid;
     return snapshot;
 }
 
@@ -313,12 +317,13 @@ analysis_tool_t::interval_state_snapshot_t *
 basic_counts_t::generate_interval_snapshot(uint64_t interval_id)
 {
     count_snapshot_t *snapshot = new count_snapshot_t;
+    // Tracking unique pc addresses for each snapshot takes up excessive space.
+    snapshot->counters.stop_tracking_unique_pc_addrs();
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
             snapshot->counters += ctr;
         }
     }
-    snapshot->tid = 0; // Use zero to represent the whole-trace interval.
     return snapshot;
 }
 
@@ -329,11 +334,19 @@ basic_counts_t::combine_interval_snapshots(
     uint64_t interval_end_timestamp)
 {
     count_snapshot_t *result = new count_snapshot_t;
+    // The snapshots in latest_shard_snapshots do not track unique_pc_addrs, so
+    // the combined result->counters also would not contain any element in the
+    // unique_pc_addrs set. But we still need to explicitly disable
+    // unique_pc_addrs tracking in result->counters using the following function
+    // call. This is so that printing of unique_pc_addrs count is skipped as
+    // intended during print_interval_results.
+    result->counters.stop_tracking_unique_pc_addrs();
     for (const auto snapshot : latest_shard_snapshots) {
         if (snapshot == nullptr)
             continue;
         result->counters +=
             dynamic_cast<const count_snapshot_t *const>(snapshot)->counters;
+        assert(result->counters.unique_pc_addrs.empty());
     }
     return result;
 }
@@ -342,7 +355,14 @@ bool
 basic_counts_t::print_interval_results(
     const std::vector<interval_state_snapshot_t *> &interval_snapshots)
 {
-    std::cerr << "Interval total counts across threads:\n";
+    std::cerr << "Counts per trace interval for ";
+    if (!interval_snapshots.empty() &&
+        interval_snapshots[0]->shard_id !=
+            interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID) {
+        std::cerr << "TID " << interval_snapshots[0]->shard_id << ":\n";
+    } else {
+        std::cerr << "whole trace:\n";
+    }
     counters_t last;
     for (const auto &snapshot_base : interval_snapshots) {
         auto *snapshot = dynamic_cast<count_snapshot_t *>(snapshot_base);

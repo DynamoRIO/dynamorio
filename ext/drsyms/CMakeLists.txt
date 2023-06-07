@@ -186,9 +186,9 @@ configure_extension(drsyms_static ON)
 configure_drsyms_target(drsyms_static)
 use_DynamoRIO_extension(drsyms_static drcontainers)
 
-target_link_libraries(drsyms "${dwarf_libpath}" "${elftc_libpath}")
+target_link_libraries(drsyms dwarf elftc)
 if (LINUX)
-  target_link_libraries(drsyms "${elf_libpath}")
+  target_link_libraries(drsyms elf)
 endif ()
 # i#693: CMake will try to export the path to the static libs we use via
 # IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG, but they won't exist on the

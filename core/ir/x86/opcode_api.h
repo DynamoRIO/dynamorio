@@ -179,7 +179,7 @@ enum {
     /*  97 */ OP_sysret,    /**< IA-32/AMD64 sysret opcode. */
     /*  98 */ OP_invd,      /**< IA-32/AMD64 invd opcode. */
     /*  99 */ OP_wbinvd,    /**< IA-32/AMD64 wbinvd opcode. */
-    /* 100 */ OP_ud2a,      /**< IA-32/AMD64 ud2a opcode. */
+    /* 100 */ OP_ud2,       /**< IA-32/AMD64 ud2 opcode. */
     /* 101 */ OP_nop_modrm, /**< IA-32/AMD64 nop_modrm opcode. */
     /* 102 */ OP_movntps,   /**< IA-32/AMD64 movntps opcode. */
     /* 103 */ OP_movntpd,   /**< IA-32/AMD64 movntpd opcode. */
@@ -280,7 +280,7 @@ enum {
     /* 193 */ OP_lfs,        /**< IA-32/AMD64 lfs opcode. */
     /* 194 */ OP_lgs,        /**< IA-32/AMD64 lgs opcode. */
     /* 195 */ OP_movzx,      /**< IA-32/AMD64 movzx opcode. */
-    /* 196 */ OP_ud2b,       /**< IA-32/AMD64 ud2b opcode. */
+    /* 196 */ OP_ud1,        /**< IA-32/AMD64 ud1 opcode. */
     /* 197 */ OP_btc,        /**< IA-32/AMD64 btc opcode. */
     /* 198 */ OP_bsf,        /**< IA-32/AMD64 bsf opcode. */
     /* 199 */ OP_bsr,        /**< IA-32/AMD64 bsr opcode. */
@@ -1691,5 +1691,9 @@ enum {
 /* undocumented opcodes */
 #define OP_icebp OP_int1
 #define OP_setalc OP_salc
+
+/* Renamed opcodes. */
+#define OP_ud2a OP_ud2 /**< Deprecated opcode name for ud2. */
+#define OP_ud2b OP_ud1 /**< Deprecated opcode name for ud1. */
 
 #endif /* _DR_IR_OPCODES_X86_H_ */
