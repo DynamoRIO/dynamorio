@@ -1,6 +1,6 @@
-/* **********************************************************
- * Copyright (c) 2022 Rivos, Inc.  All rights reserved.
- * **********************************************************/
+/* *******************************************************************************
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * *******************************************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -13,14 +13,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Rivos, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL RIVOS, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -31,18 +31,22 @@
  */
 
 /*
- * tls_linux_arm.c - thread-local storage for RISC-V Linux
+ * tls_linux_risc.c - thread-local storage for arm, arm64, riscv64 Linux
  */
 
+#include <stddef.h> /* offsetof */
 #include "../globals.h"
 #include "tls.h"
+#if !(defined(AARCH64) || defined(RISCV64))
+#    include "include/syscall.h"
+#endif
 
 #ifndef LINUX
 #    error Linux-only
 #endif
 
-#ifndef RISCV64
-#    error RISC-V-only
+#if !(defined(AARCHXX) || defined(RISCV64))
+#    error ARM/AArch64/RISCV64-only
 #endif
 
 byte **
@@ -96,7 +100,7 @@ tls_thread_free(tls_type_t tls_type, int index)
     ASSERT(dr_tls_base_addr != NULL);
     os_tls = (os_local_state_t *)*dr_tls_base_addr;
     ASSERT(os_tls->self == os_tls);
-    /* FIXME i#1578: support detach on RV64. We need some way to
+    /* FIXME i#1578: support detach on ARM.  We need some way to
      * determine whether a thread has exited (for deadlock_avoidance_unlock,
      * e.g.) after dcontext and os_tls are freed.  For now we store -1 in this
      * slot and assume the app will never use that value (we check in

@@ -2155,7 +2155,7 @@ get_local_state()
 void
 os_enter_dynamorio(void)
 {
-#    if defined(ARM) || defined(RISCV64)
+#    if defined(AARCHXX) || defined(RISCV64)
     /* i#1578: check that app's tls value doesn't match our sentinel */
     ASSERT(*(byte **)get_dr_tls_base_addr() != TLS_SLOT_VAL_EXITED);
 #    endif
