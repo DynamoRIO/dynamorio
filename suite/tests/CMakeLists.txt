@@ -3853,7 +3853,8 @@ if (BUILD_CLIENTS)
         "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 10K"
       "@-simulator_type@basic_counts" "")
 
-
+    # pthreads not available with MSVC
+    if (NOT MSVC)
     set(ci_pthreads_app pthreads.pthreads)
     # pthreads tests
     torunonly_drcacheoff(warmup-pthreads-windows-split ${ci_pthreads_app}
@@ -3876,6 +3877,7 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(warmup-pthreads-max-trace-size ${ci_pthreads_app}
         "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 100K"
       "@-simulator_type@basic_counts" "")
+    endif ()
 
 
     # __builtin_prefetch used in the test is not defined on MSVC.
