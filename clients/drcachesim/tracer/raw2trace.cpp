@@ -1284,18 +1284,18 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // pair; we're fine removing those too and having the prior timestamp
             // go with the next block.
             if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, tdata->file_type)) {
-                const offline_entry_t *in_entry = get_next_entry(tdata);
-                if (in_entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
-                    in_entry = get_next_entry(tdata);
-                    if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-                        in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                        in_entry->extended.valueB == TRACE_MARKER_TYPE_CPU_ID) {
-                        in_entry = get_next_entry(tdata);
+                const offline_entry_t *entry = get_next_entry(tdata);
+                if (entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
+                    entry = get_next_entry(tdata);
+                    if (entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+                        entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+                        entry->extended.valueB == TRACE_MARKER_TYPE_CPU_ID) {
+                        entry = get_next_entry(tdata);
                     }
                 }
-                DR_CHECK(in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-                             in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                             in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL,
+                DR_CHECK(entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+                             entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+                             entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL,
                          "Syscall without marker should have been removed");
                 // We've consumed these records and we just drop them.
             }
