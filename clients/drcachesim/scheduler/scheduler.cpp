@@ -563,6 +563,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
         }
     } else if (options_.mapping == MAP_TO_RECORDED_OUTPUT) {
         if (options_.replay_as_traced_istream != nullptr) {
+            // Even for just one output we honor a request to replay the schedule
+            // (although it should match the analyzer serial mode so there's no big
+            // benefit to reading the schedule file.  The analyzer serial mode or other
+            // special cases of one output don't set the replay_as_traced_istream
+            // field.)
             sched_type_t::scheduler_status_t status = read_traced_schedule();
             if (status != sched_type_t::STATUS_SUCCESS)
                 return STATUS_ERROR_INVALID_PARAMETER;
