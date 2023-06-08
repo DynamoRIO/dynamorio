@@ -703,10 +703,6 @@ messages.  It builds faster, and it automatically re-runs CMake when
 necessary, resulting in proper incremental builds.  It's all-around a
 superior build experience from the command line.
 
-There is a Windows build of Ninja checked in to make/ninja.exe.  Simply put
-this on your PATH.  Ninja has no dependencies and the executable can be
-placed anywhere.
-
 In addition to having ninja.exe on your PATH, you need to set the
 environment variable ASM to "ml" for a 32-bit build and to "ml64" for a
 64-bit build (otherwise Ninja tries to assemble using cl).  If you have
