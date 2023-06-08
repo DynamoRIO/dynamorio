@@ -3009,6 +3009,216 @@ TEST_INSTR(usubwt_sve)
               opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
 }
+
+TEST_INSTR(aesimc_sve)
+{
+
+    /* Testing AESIMC  <Zdn>.B, <Zdn>.B */
+    const char *const expected_0_0[6] = {
+        "aesimc %z0.b -> %z0.b",   "aesimc %z5.b -> %z5.b",   "aesimc %z10.b -> %z10.b",
+        "aesimc %z16.b -> %z16.b", "aesimc %z21.b -> %z21.b", "aesimc %z31.b -> %z31.b",
+    };
+    TEST_LOOP(aesimc, aesimc_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1));
+}
+
+TEST_INSTR(aesmc_sve)
+{
+
+    /* Testing AESMC   <Zdn>.B, <Zdn>.B */
+    const char *const expected_0_0[6] = {
+        "aesmc  %z0.b -> %z0.b",   "aesmc  %z5.b -> %z5.b",   "aesmc  %z10.b -> %z10.b",
+        "aesmc  %z16.b -> %z16.b", "aesmc  %z21.b -> %z21.b", "aesmc  %z31.b -> %z31.b",
+    };
+    TEST_LOOP(aesmc, aesmc_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1));
+}
+
+TEST_INSTR(sqxtnb_sve)
+{
+
+    /* Testing SQXTNB  <Zd>.<Ts>, <Zn>.<Tb> */
+    const char *const expected_0_0[6] = {
+        "sqxtnb %z0.h -> %z0.b",   "sqxtnb %z6.h -> %z5.b",   "sqxtnb %z11.h -> %z10.b",
+        "sqxtnb %z17.h -> %z16.b", "sqxtnb %z22.h -> %z21.b", "sqxtnb %z31.h -> %z31.b",
+    };
+    TEST_LOOP(sqxtnb, sqxtnb_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "sqxtnb %z0.s -> %z0.h",   "sqxtnb %z6.s -> %z5.h",   "sqxtnb %z11.s -> %z10.h",
+        "sqxtnb %z17.s -> %z16.h", "sqxtnb %z22.s -> %z21.h", "sqxtnb %z31.s -> %z31.h",
+    };
+    TEST_LOOP(sqxtnb, sqxtnb_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "sqxtnb %z0.d -> %z0.s",   "sqxtnb %z6.d -> %z5.s",   "sqxtnb %z11.d -> %z10.s",
+        "sqxtnb %z17.d -> %z16.s", "sqxtnb %z22.d -> %z21.s", "sqxtnb %z31.d -> %z31.s",
+    };
+    TEST_LOOP(sqxtnb, sqxtnb_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8));
+}
+
+TEST_INSTR(sqxtnt_sve)
+{
+
+    /* Testing SQXTNT  <Zd>.<Ts>, <Zn>.<Tb> */
+    const char *const expected_0_0[6] = {
+        "sqxtnt %z0.b %z0.h -> %z0.b",    "sqxtnt %z5.b %z6.h -> %z5.b",
+        "sqxtnt %z10.b %z11.h -> %z10.b", "sqxtnt %z16.b %z17.h -> %z16.b",
+        "sqxtnt %z21.b %z22.h -> %z21.b", "sqxtnt %z31.b %z31.h -> %z31.b",
+    };
+    TEST_LOOP(sqxtnt, sqxtnt_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "sqxtnt %z0.h %z0.s -> %z0.h",    "sqxtnt %z5.h %z6.s -> %z5.h",
+        "sqxtnt %z10.h %z11.s -> %z10.h", "sqxtnt %z16.h %z17.s -> %z16.h",
+        "sqxtnt %z21.h %z22.s -> %z21.h", "sqxtnt %z31.h %z31.s -> %z31.h",
+    };
+    TEST_LOOP(sqxtnt, sqxtnt_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "sqxtnt %z0.s %z0.d -> %z0.s",    "sqxtnt %z5.s %z6.d -> %z5.s",
+        "sqxtnt %z10.s %z11.d -> %z10.s", "sqxtnt %z16.s %z17.d -> %z16.s",
+        "sqxtnt %z21.s %z22.d -> %z21.s", "sqxtnt %z31.s %z31.d -> %z31.s",
+    };
+    TEST_LOOP(sqxtnt, sqxtnt_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8));
+}
+
+TEST_INSTR(sqxtunb_sve)
+{
+
+    /* Testing SQXTUNB <Zd>.<Ts>, <Zn>.<Tb> */
+    const char *const expected_0_0[6] = {
+        "sqxtunb %z0.h -> %z0.b",   "sqxtunb %z6.h -> %z5.b",
+        "sqxtunb %z11.h -> %z10.b", "sqxtunb %z17.h -> %z16.b",
+        "sqxtunb %z22.h -> %z21.b", "sqxtunb %z31.h -> %z31.b",
+    };
+    TEST_LOOP(sqxtunb, sqxtunb_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "sqxtunb %z0.s -> %z0.h",   "sqxtunb %z6.s -> %z5.h",
+        "sqxtunb %z11.s -> %z10.h", "sqxtunb %z17.s -> %z16.h",
+        "sqxtunb %z22.s -> %z21.h", "sqxtunb %z31.s -> %z31.h",
+    };
+    TEST_LOOP(sqxtunb, sqxtunb_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "sqxtunb %z0.d -> %z0.s",   "sqxtunb %z6.d -> %z5.s",
+        "sqxtunb %z11.d -> %z10.s", "sqxtunb %z17.d -> %z16.s",
+        "sqxtunb %z22.d -> %z21.s", "sqxtunb %z31.d -> %z31.s",
+    };
+    TEST_LOOP(sqxtunb, sqxtunb_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8));
+}
+
+TEST_INSTR(sqxtunt_sve)
+{
+
+    /* Testing SQXTUNT <Zd>.<Ts>, <Zn>.<Tb> */
+    const char *const expected_0_0[6] = {
+        "sqxtunt %z0.b %z0.h -> %z0.b",    "sqxtunt %z5.b %z6.h -> %z5.b",
+        "sqxtunt %z10.b %z11.h -> %z10.b", "sqxtunt %z16.b %z17.h -> %z16.b",
+        "sqxtunt %z21.b %z22.h -> %z21.b", "sqxtunt %z31.b %z31.h -> %z31.b",
+    };
+    TEST_LOOP(sqxtunt, sqxtunt_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "sqxtunt %z0.h %z0.s -> %z0.h",    "sqxtunt %z5.h %z6.s -> %z5.h",
+        "sqxtunt %z10.h %z11.s -> %z10.h", "sqxtunt %z16.h %z17.s -> %z16.h",
+        "sqxtunt %z21.h %z22.s -> %z21.h", "sqxtunt %z31.h %z31.s -> %z31.h",
+    };
+    TEST_LOOP(sqxtunt, sqxtunt_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "sqxtunt %z0.s %z0.d -> %z0.s",    "sqxtunt %z5.s %z6.d -> %z5.s",
+        "sqxtunt %z10.s %z11.d -> %z10.s", "sqxtunt %z16.s %z17.d -> %z16.s",
+        "sqxtunt %z21.s %z22.d -> %z21.s", "sqxtunt %z31.s %z31.d -> %z31.s",
+    };
+    TEST_LOOP(sqxtunt, sqxtunt_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8));
+}
+
+TEST_INSTR(uqxtnb_sve)
+{
+
+    /* Testing UQXTNB  <Zd>.<Ts>, <Zn>.<Tb> */
+    const char *const expected_0_0[6] = {
+        "uqxtnb %z0.h -> %z0.b",   "uqxtnb %z6.h -> %z5.b",   "uqxtnb %z11.h -> %z10.b",
+        "uqxtnb %z17.h -> %z16.b", "uqxtnb %z22.h -> %z21.b", "uqxtnb %z31.h -> %z31.b",
+    };
+    TEST_LOOP(uqxtnb, uqxtnb_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "uqxtnb %z0.s -> %z0.h",   "uqxtnb %z6.s -> %z5.h",   "uqxtnb %z11.s -> %z10.h",
+        "uqxtnb %z17.s -> %z16.h", "uqxtnb %z22.s -> %z21.h", "uqxtnb %z31.s -> %z31.h",
+    };
+    TEST_LOOP(uqxtnb, uqxtnb_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "uqxtnb %z0.d -> %z0.s",   "uqxtnb %z6.d -> %z5.s",   "uqxtnb %z11.d -> %z10.s",
+        "uqxtnb %z17.d -> %z16.s", "uqxtnb %z22.d -> %z21.s", "uqxtnb %z31.d -> %z31.s",
+    };
+    TEST_LOOP(uqxtnb, uqxtnb_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8));
+}
+
+TEST_INSTR(uqxtnt_sve)
+{
+
+    /* Testing UQXTNT  <Zd>.<Ts>, <Zn>.<Tb> */
+    const char *const expected_0_0[6] = {
+        "uqxtnt %z0.b %z0.h -> %z0.b",    "uqxtnt %z5.b %z6.h -> %z5.b",
+        "uqxtnt %z10.b %z11.h -> %z10.b", "uqxtnt %z16.b %z17.h -> %z16.b",
+        "uqxtnt %z21.b %z22.h -> %z21.b", "uqxtnt %z31.b %z31.h -> %z31.b",
+    };
+    TEST_LOOP(uqxtnt, uqxtnt_sve, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2));
+
+    const char *const expected_0_1[6] = {
+        "uqxtnt %z0.h %z0.s -> %z0.h",    "uqxtnt %z5.h %z6.s -> %z5.h",
+        "uqxtnt %z10.h %z11.s -> %z10.h", "uqxtnt %z16.h %z17.s -> %z16.h",
+        "uqxtnt %z21.h %z22.s -> %z21.h", "uqxtnt %z31.h %z31.s -> %z31.h",
+    };
+    TEST_LOOP(uqxtnt, uqxtnt_sve, 6, expected_0_1[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4));
+
+    const char *const expected_0_2[6] = {
+        "uqxtnt %z0.s %z0.d -> %z0.s",    "uqxtnt %z5.s %z6.d -> %z5.s",
+        "uqxtnt %z10.s %z11.d -> %z10.s", "uqxtnt %z16.s %z17.d -> %z16.s",
+        "uqxtnt %z21.s %z22.d -> %z21.s", "uqxtnt %z31.s %z31.d -> %z31.s",
+    };
+    TEST_LOOP(uqxtnt, uqxtnt_sve, 6, expected_0_2[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8));
+}
 int
 main(int argc, char *argv[])
 {
@@ -3113,6 +3323,15 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(usublt_sve);
     RUN_INSTR_TEST(usubwb_sve);
     RUN_INSTR_TEST(usubwt_sve);
+
+    RUN_INSTR_TEST(aesimc_sve);
+    RUN_INSTR_TEST(aesmc_sve);
+    RUN_INSTR_TEST(sqxtnb_sve);
+    RUN_INSTR_TEST(sqxtnt_sve);
+    RUN_INSTR_TEST(sqxtunb_sve);
+    RUN_INSTR_TEST(sqxtunt_sve);
+    RUN_INSTR_TEST(uqxtnb_sve);
+    RUN_INSTR_TEST(uqxtnt_sve);
 
     print("All SVE2 tests complete.\n");
 #ifndef STANDALONE_DECODER

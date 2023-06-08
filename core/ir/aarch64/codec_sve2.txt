@@ -44,6 +44,8 @@
 01000101xx1xxxxx011001xxxxxxxxxx  n   1083 SVE2    addhnt  z_sizep1_bhs_0 : z_sizep1_bhs_0 z_size_hsd_5 z_size_hsd_16
 0100010100100010111001xxxxxxxxxx  n   17   SVEAES      aesd          z_b_0 : z_b_0 z_b_5
 0100010100100010111000xxxxxxxxxx  n   18   SVEAES      aese          z_b_0 : z_b_0 z_b_5
+010001010010000011100100000xxxxx  n   19   SVEAES    aesimc          z_b_0 : z_b_0
+010001010010000011100000000xxxxx  n   20   SVEAES     aesmc          z_b_0 : z_b_0
 00000100011xxxxx001110xxxxxxxxxx  n   599  SVE2      bcax          z_d_0 : z_d_0 z_d_16 z_d_5
 01000101xx0xxxxx101101xxxxxxxxxx  n   1075 SVEBitPerm      bdep  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
 01000101xx0xxxxx101100xxxxxxxxxx  n   1076 SVEBitPerm      bext  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
@@ -102,6 +104,10 @@
 01000100xx0xxxxx011100xxxxxxxxxx  n   412  SVE2  sqrdmlah  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16
 01000100xx0xxxxx011101xxxxxxxxxx  n   579  SVE2  sqrdmlsh  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16
 00000100xx1xxxxx011101xxxxxxxxxx  n   413  SVE2  sqrdmulh  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
+010001010x1xx000010000xxxxxxxxxx  n   1139 SVE2    sqxtnb  z_wtszl19_bhsd_0 : z_wtszl19p1_bhsd_5
+010001010x1xx000010001xxxxxxxxxx  n   1140 SVE2    sqxtnt  z_wtszl19_bhsd_0 : z_wtszl19_bhsd_0 z_wtszl19p1_bhsd_5
+010001010x1xx000010100xxxxxxxxxx  n   1141 SVE2   sqxtunb  z_wtszl19_bhsd_0 : z_wtszl19p1_bhsd_5
+010001010x1xx000010101xxxxxxxxxx  n   1142 SVE2   sqxtunt  z_wtszl19_bhsd_0 : z_wtszl19_bhsd_0 z_wtszl19p1_bhsd_5
 01000101xx0xxxxx000100xxxxxxxxxx  n   1113 SVE2    ssublb   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx100010xxxxxxxxxx  n   1114 SVE2   ssublbt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx000101xxxxxxxxxx  n   1115 SVE2    ssublt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
@@ -126,6 +132,8 @@
 01000100xx0xxxxx010111xxxxxxxxxx  n   1132 SVE2    umlslt   z_size_hsd_0 : z_size_hsd_0 z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx011110xxxxxxxxxx  n   1133 SVE2    umullb   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx011111xxxxxxxxxx  n   1134 SVE2    umullt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
+010001010x1xx000010010xxxxxxxxxx  n   1143 SVE2    uqxtnb  z_wtszl19_bhsd_0 : z_wtszl19p1_bhsd_5
+010001010x1xx000010011xxxxxxxxxx  n   1144 SVE2    uqxtnt  z_wtszl19_bhsd_0 : z_wtszl19_bhsd_0 z_wtszl19p1_bhsd_5
 01000101xx0xxxxx000110xxxxxxxxxx  n   1135 SVE2    usublb   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx000111xxxxxxxxxx  n   1136 SVE2    usublt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx010110xxxxxxxxxx  n   1137 SVE2    usubwb   z_size_hsd_0 : z_size_hsd_5 z_sizep1_bhs_16
