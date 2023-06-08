@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -830,7 +830,8 @@ function build {
 On Windows you can target **Unix Makefiles** in order to use GNU make and
 build in parallel (NMake does not support parallel builds; see also issue
 71).  However, note that Visual Studio generators support parallel builds
-and are faster than using Cygwin make.
+and are faster than using Cygwin make.  The instructions here are relatively
+old and are kept just for completeness.
 
 If you have gcc installed you will have to explicitly tell the CMake
 generator to prefer cl:
@@ -855,8 +856,7 @@ if had incorrect arguments: ${sizeof_void} EQUAL 8 (Unknown arguments specified)
 ```
 
 Then you need to switch to a version of make that supports colons in paths.
-One such version is 3.80, a copy of which (compiled for cygwin) is
-available in the make/ directory.  I recommend copying it into your
+One such version is 3.80.  I recommend copying it into your
 /usr/local/bin directory and either putting /usr/local/bin ahead of
 /usr/bin on your `PATH` or passing it to CMake explicitly:
 
@@ -865,7 +865,7 @@ cmake -DCMAKE_MAKE_PROGRAM=$SYSTEMDRIVE/cygwin/usr/local/bin/make.exe
 ```
 
 If you have a very recent cygwin installation you may need to put
-cygintl-2.dll from the make/ directory into /usr/local/bin as well.
+cygintl-2.dll directory into /usr/local/bin as well.
 
 Now you can build in parallel, which reduces build time:
 
