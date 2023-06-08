@@ -2589,13 +2589,17 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
                     tdata->last_timestamp_ = it->addr;
                 else if (it->size == TRACE_MARKER_TYPE_CPU_ID) {
+                    DR_CHECK(tdata->chunk_count_ > 0,
+                             "chunk_count_ should have been incremented already");
+                    uint64_t instr_count =
+                        (tdata->chunk_count_ - 1) * chunk_instr_count_ +
+                        tdata->cur_chunk_instr_count;
                     tdata->last_cpu_ = static_cast<uint>(it->addr);
                     tdata->sched.emplace_back(tdata->tid, tdata->last_timestamp_,
-                                              tdata->last_cpu_,
-                                              tdata->cur_chunk_instr_count);
+                                              tdata->last_cpu_, instr_count);
                     tdata->cpu2sched[it->addr].emplace_back(
                         tdata->tid, tdata->last_timestamp_, tdata->last_cpu_,
-                        tdata->cur_chunk_instr_count);
+                        instr_count);
                 }
             }
         }

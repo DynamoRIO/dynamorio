@@ -118,7 +118,6 @@ endmacro()
 process_cmdline(precmd ON ignore)
 
 process_cmdline(cmd OFF tomatch)
-message("output: |${tomatch}|")
 
 if (NOT "${postcmd}" STREQUAL "")
   process_cmdline(postcmd OFF tomatch)
