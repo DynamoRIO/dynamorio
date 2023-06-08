@@ -588,8 +588,28 @@ DR_API
 bool
 instr_is_scatter(instr_t *instr)
 {
-    /* FIXME i#3837: add support. */
-    ASSERT_NOT_IMPLEMENTED(false);
+    switch (instr_get_opcode(instr)) {
+    case OP_st1b:
+    case OP_st1h:
+    case OP_st1w:
+    case OP_st1d:
+    case OP_st2b:
+    case OP_st2h:
+    case OP_st2w:
+    case OP_st2d:
+    case OP_st3b:
+    case OP_st3h:
+    case OP_st3w:
+    case OP_st3d:
+    case OP_st4b:
+    case OP_st4h:
+    case OP_st4w:
+    case OP_st4d:
+    case OP_stnt1b:
+    case OP_stnt1h:
+    case OP_stnt1w:
+    case OP_stnt1d: return true;
+    }
     return false;
 }
 
@@ -597,8 +617,53 @@ DR_API
 bool
 instr_is_gather(instr_t *instr)
 {
-    /* FIXME i#3837: add support. */
-    ASSERT_NOT_IMPLEMENTED(false);
+    switch (instr_get_opcode(instr)) {
+    case OP_ld1b:
+    case OP_ld1h:
+    case OP_ld1w:
+    case OP_ld1d:
+    case OP_ld1sb:
+    case OP_ld1sh:
+    case OP_ld1sw:
+    case OP_ld1rob:
+    case OP_ld1rqb:
+    case OP_ld1rqh:
+    case OP_ld1rqw:
+    case OP_ld1rqd:
+    case OP_ldff1b:
+    case OP_ldff1h:
+    case OP_ldff1w:
+    case OP_ldff1d:
+    case OP_ldff1sb:
+    case OP_ldff1sh:
+    case OP_ldff1sw:
+    case OP_ldnf1b:
+    case OP_ldnf1h:
+    case OP_ldnf1w:
+    case OP_ldnf1d:
+    case OP_ldnf1sb:
+    case OP_ldnf1sh:
+    case OP_ldnf1sw:
+    case OP_ldnt1b:
+    case OP_ldnt1h:
+    case OP_ldnt1w:
+    case OP_ldnt1d:
+    case OP_ldnt1sb:
+    case OP_ldnt1sh:
+    case OP_ldnt1sw:
+    case OP_ld2b:
+    case OP_ld2h:
+    case OP_ld2w:
+    case OP_ld2d:
+    case OP_ld3b:
+    case OP_ld3h:
+    case OP_ld3w:
+    case OP_ld3d:
+    case OP_ld4b:
+    case OP_ld4h:
+    case OP_ld4w:
+    case OP_ld4d: return true;
+    }
     return false;
 }
 

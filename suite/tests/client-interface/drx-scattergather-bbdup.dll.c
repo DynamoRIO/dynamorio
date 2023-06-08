@@ -61,6 +61,7 @@ inscount(uint num_instrs)
     global_sg_count += num_instrs;
 }
 
+#if defined(X86)
 /* Global, because the markers will be in a different app2app list after breaking up
  * scatter/gather into separate basic blocks during expansion.
  */
@@ -69,6 +70,7 @@ static app_pc mask_update_test_avx512_gather_pc = (app_pc)INT_MAX;
 static app_pc mask_clobber_test_avx512_scatter_pc = (app_pc)INT_MAX;
 static app_pc mask_update_test_avx512_scatter_pc = (app_pc)INT_MAX;
 static app_pc mask_update_test_avx2_gather_pc = (app_pc)INT_MAX;
+#endif /* defined(X86) */
 
 static ptr_int_t instru_mode;
 enum {
@@ -257,6 +259,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             scatter_gather_present = true;
         } else if (instr_is_scatter(instr)) {
             scatter_gather_present = true;
+#if defined(X86)
         } else if (instr_is_mov_constant(instr, &val) &&
                    val == TEST_AVX512_GATHER_MASK_CLOBBER_MARKER) {
             instr_t *next_instr = instr_get_next(instr);
@@ -325,6 +328,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                         search_for_next_gather_pc(drcontext, next_instr);
                 }
             }
+#endif /* defined(X86) */
         }
     }
     bool expansion_ok = drx_expand_scatter_gather(drcontext, bb, &expanded);
@@ -336,6 +340,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     }
     CHECK((scatter_gather_present IF_X64(&&expanded)) || (expansion_ok && !expanded),
           "drx_expand_scatter_gather() bad OUT values");
+#if defined(X86)
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         if (instr_get_opcode(instr) == OP_kandnw &&
             (instr_get_app_pc(instr) == mask_clobber_test_avx512_gather_pc ||
@@ -381,6 +386,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             break;
         }
     }
+#endif /* defined(X86) */
     return DR_EMIT_DEFAULT;
 }
 

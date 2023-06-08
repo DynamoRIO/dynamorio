@@ -38,6 +38,7 @@
 #include "drx.h"
 #include "hashtable.h"
 #include "../ext_utils.h"
+#include "scatter_gather_shared.h"
 #include <stddef.h> /* for offsetof */
 #include <string.h>
 
@@ -183,23 +184,6 @@ drx_scatter_gather_exit()
 {
     drmgr_unregister_tls_field(tls_idx);
 }
-
-typedef struct _scatter_gather_info_t {
-    bool is_evex;
-    bool is_load;
-    opnd_size_t scalar_index_size;
-    opnd_size_t scalar_value_size;
-    opnd_size_t scatter_gather_size;
-    reg_id_t mask_reg;
-    reg_id_t base_reg;
-    reg_id_t index_reg;
-    union {
-        reg_id_t gather_dst_reg;
-        reg_id_t scatter_src_reg;
-    };
-    int disp;
-    int scale;
-} scatter_gather_info_t;
 
 static void
 get_scatter_gather_info(instr_t *instr, scatter_gather_info_t *sg_info)
@@ -981,40 +965,17 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
 bool
 drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 {
-    instr_t *instr, *next_instr, *first_app = NULL;
-    bool delete_rest = false;
-
     if (expanded != NULL)
         *expanded = false;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_APP2APP) {
         return false;
     }
 
-    /* Make each scatter or gather instruction be in their own basic block.
-     * TODO i#3837: cross-platform code like the following bb splitting can be shared
-     * with other architectures in the future.
-     */
-    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
-        next_instr = instr_get_next(instr);
-        if (delete_rest) {
-            instrlist_remove(bb, instr);
-            instr_destroy(drcontext, instr);
-        } else if (instr_is_app(instr)) {
-            if (first_app == NULL)
-                first_app = instr;
-            if (instr_is_gather(instr) || instr_is_scatter(instr)) {
-                delete_rest = true;
-                if (instr != first_app) {
-                    instrlist_remove(bb, instr);
-                    instr_destroy(drcontext, instr);
-                }
-            }
-        }
+    instr_t *sg_instr = NULL;
+    if (!scatter_gather_split_bb(drcontext, bb, &sg_instr)) {
+        return true;
     }
-    if (first_app == NULL)
-        return true;
-    if (!instr_is_gather(first_app) && !instr_is_scatter(first_app))
-        return true;
+    DR_ASSERT(sg_instr != NULL);
 
     /* We want to avoid spill slot conflicts with later instrumentation passes. */
     drreg_status_t res_bb_props =
@@ -1023,7 +984,6 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 
     dr_atomic_store32(&drx_scatter_gather_expanded, 1);
 
-    instr_t *sg_instr = first_app;
     scatter_gather_info_t sg_info;
     bool res = false;
     /* XXX: we may want to make this function public, as it may be useful to clients. */
@@ -1269,6 +1229,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     instrlist_remove(bb, sg_instr);
 #if VERBOSE
     dr_fprintf(STDERR, "\twas expanded to the following sequence:\n");
+    instr_t *instr;
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         dr_print_instr(drcontext, STDERR, instr, "");
     }

@@ -71,8 +71,8 @@
 #    define IF_WINDOWS_ELSE(x, y) (y)
 #endif
 
-#ifdef X86
-/* TODO i#3837: Add AArch64 support. */
+#if defined(X86) || defined(AARCH64)
+/* TODO i#3837: Complete AArch64 support. */
 #    define PLATFORM_SUPPORTS_SCATTER_GATHER
 #endif
 
