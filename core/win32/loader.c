@@ -263,8 +263,7 @@ os_loader_init_prologue(void)
          */
         pre_static_tls = d_r_get_tls(STATIC_TLS_TIB_OFFSET);
         LOG(GLOBAL, LOG_LOADER, 2,
-            "initial thread TEB->ThreadLocalStoragePointer=" PFX "\n",
-            pre_static_tls);
+            "initial thread TEB->ThreadLocalStoragePointer=" PFX "\n", pre_static_tls);
     }
 
     drwinapi_init();
