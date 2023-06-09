@@ -1330,6 +1330,25 @@ event_pre_syscall(void *drcontext, int sysnum)
         return true;
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
+
+    // If we just switched to BBDUP_MODE_TRACE in this thread in a block ending in a
+    // syscall, we can end up here without having traced the syscall instr, which we
+    // want to avoid.  We look for an empty new-window buffer (not just empty, because
+    // it could be empty just due to the syscall instr filling up the prior buffer).
+    // (The converse can happen, with a tracing window ending in a syscall but the mode
+    // having changed, causing us to exit up above and not emit a marker: we solve that
+    // by removing syscalls without markers in raw2trace.)
+    if (is_new_window_buffer_empty(data))
+        return true;
+
+    // Output system call numbers if we have a full instruction trace.
+    // Since the instruction fetch has already been output, this will be
+    // appended to the block-final syscall instr.
+    if (!op_L0I_filter.get_value()) {
+        BUF_PTR(data->seg_base) += instru->append_marker(
+            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
+    }
+
 #ifdef ARM
     // On Linux ARM, cacheflush syscall takes 3 params: start, end, and 0.
     if (sysnum == SYS_cacheflush) {
@@ -1393,6 +1412,16 @@ event_post_syscall(void *drcontext, int sysnum)
     /* Write a marker to userspace raw trace. */
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
+    /* TODO i#5505: We should move this _IDX marker to pre-syscall for two
+     * reasons: 1) Some syscalls have no post event (e.g., exit or sigreturn);
+     * 2) A blocking syscall may have a thread switch in between, separating the
+     * syscall instruction from this marker by quite a distance when interleaved
+     * with other threads.
+     */
+    /* This marker has the same issues with a syscall instruction not having a following
+     * marker as we hit with the syscall number marker, but our solutions there also
+     * solve the same problems for this marker.
+     */
     trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
     uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_idx();
     BUF_PTR(data->seg_base) +=

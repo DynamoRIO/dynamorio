@@ -368,6 +368,9 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: record ordinal 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
+        case TRACE_MARKER_TYPE_SYSCALL:
+            std::cerr << "<marker: system call " << memref.marker.marker_value << ">\n";
+            break;
         case TRACE_MARKER_TYPE_WINDOW_ID:
             // Handled above.
             break;
