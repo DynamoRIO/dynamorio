@@ -1280,7 +1280,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // the incorrect duplicate syscall error.
         if (instr->is_syscall() && get_last_pc_if_syscall(tdata) == orig_pc &&
             instr_count == 1) {
-            // Also remove the syscall marker.  It could be after a timestmap;cpuid
+            // Also remove the syscall marker.  It could be after a timestamp+cpuid
             // pair; we're fine removing those too and having the prior timestamp
             // go with the next block.
             if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, tdata->file_type)) {
@@ -1678,7 +1678,7 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
     }
     saved.push_back(*in_entry);
     for (auto &entry : saved) {
-        unread_entry(tdata, entry);
+        queue_entry(tdata, entry);
     }
     return omit;
 }
@@ -2369,9 +2369,9 @@ raw2trace_t::unread_last_entry(raw2trace_thread_data_t *tdata)
 }
 
 void
-raw2trace_t::unread_entry(raw2trace_thread_data_t *tdata, offline_entry_t &entry)
+raw2trace_t::queue_entry(raw2trace_thread_data_t *tdata, offline_entry_t &entry)
 {
-    VPRINT(5, "Unreading a given entry type=%d\n", static_cast<int>(entry.addr.type));
+    VPRINT(5, "Queueing a given entry type=%d\n", static_cast<int>(entry.addr.type));
     tdata->pre_read.push_back(entry);
 }
 

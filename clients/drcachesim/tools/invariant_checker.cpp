@@ -294,13 +294,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             memref.marker.marker_value == shard->stream->get_version(),
                         "Stream interface version != trace marker");
     }
-    // Ensure each syscall instruction has a marker immediately afterward.
-    // XXX i#5790: An asynchronous signal could be delivered after the tracer
-    // recorded the syscall instruction but before DR executed the syscall itself.
-    // This should also show up as a PC discontinuity in the current checks though
-    // and we don't seem to be seeing it: unless that is what i#5934 is?
-    // In any case we leave these checks for now and will adjust when we adjust
-    // the PC discontinuity checks.
+    // Ensure each syscall instruction has a marker immediately afterward.  An
+    // asynchronous signal could be delivered after the tracer recorded the syscall
+    // instruction but before DR executed the syscall itself (xref i#5790) but raw2trace
+    // removes the syscall instruction in such cases.
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
         shard->found_syscall_marker_ = true;
@@ -315,6 +312,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     } else if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
                type_is_instr(shard->prev_entry_.instr.type) &&
                shard->prev_instr_decoded_ != nullptr &&
+               // TODO i#5949: For WOW64 instr_is_syscall() always returns false.
                instr_is_syscall(shard->prev_instr_decoded_->data)) {
         report_if_false(shard,
                         shard->found_syscall_marker_ &&
@@ -383,6 +381,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             (shard->skipped_instrs_ && shard->stream != nullptr &&
                              shard->stream->get_page_size() > 0),
                         "Missing page size marker");
+        // We assume every trace has at least 1 system call.
         report_if_false(shard,
                         shard->found_syscall_marker_ ==
                             // Making sure this is a bool for a safe comparison.

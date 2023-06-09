@@ -663,7 +663,8 @@ typedef enum {
     OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
     OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
-    OFFLINE_FILE_TYPE_SYSCALL_NUMBERS = 0x400, /**< System call numbers are included. */
+    /** System call number markers are included. */
+    OFFLINE_FILE_TYPE_SYSCALL_NUMBERS = 0x400,
 } offline_file_type_t;
 
 static inline const char *

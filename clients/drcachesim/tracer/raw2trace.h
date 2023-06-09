@@ -1000,7 +1000,7 @@ protected:
 
     /* Adds "entry" to the back of the read queue for get_next_entry(). */
     void
-    unread_entry(raw2trace_thread_data_t *tdata, offline_entry_t &entry);
+    queue_entry(raw2trace_thread_data_t *tdata, offline_entry_t &entry);
 
     /**
      * Callback notifying the currently-processed thread has exited. Subclasses are

@@ -1007,8 +1007,8 @@ test_false_syscalls(void *drcontext)
     raw.push_back(make_timestamp(2));
     raw.push_back(make_core());
     // Repeat the syscall but with a marker this time.
-    // Start with the move to not trigger dup syscall removal.
-    raw.push_back(make_block(offs_move1, 2));
+    // This should not trigger dup-syscall removal.
+    raw.push_back(make_block(offs_sys, 1));
     raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
     // Test a syscall with a marker across headers.
     raw.push_back(make_block(offs_move1, 2));
@@ -1041,14 +1041,12 @@ test_false_syscalls(void *drcontext)
         // The sys instr was removed!
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 2) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
-        // The move1 instr, with no encoding (2nd occurrence).
-        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         // A sys instr that was not removed.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
                     SYSCALL_NUM) &&
-        // The move1 instr, with no encoding (3rd occurrence).
+        // The move1 instr, with no encoding (2nd occurrence).
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         // A sys instr that was not removed, with no encoding (2nd occurrence).
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
