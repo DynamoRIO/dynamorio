@@ -40,11 +40,6 @@
 #include <string.h>
 #include <atomic>
 #include <string>
-#ifdef ARM
-#    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
-#elif defined(LINUX)
-#    include <syscall.h>
-#endif
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drwrap.h"
@@ -66,6 +61,12 @@
 #include "../common/named_pipe.h"
 #include "../common/options.h"
 #include "../common/utils.h"
+
+#ifdef ARM
+#    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
+#elif defined(LINUX)
+#    include <syscall.h>
+#endif
 
 #ifdef BUILD_PT_TRACER
 #    include "drpttracer.h"
