@@ -47,6 +47,7 @@
 #include "drcovlib.h"
 #include <array>
 #include <atomic>
+#include <limits>
 #include <list>
 #include <memory>
 #include <queue>
@@ -103,6 +104,8 @@ typedef enum {
     RAW2TRACE_STAT_RSEQ_ABORT,
     RAW2TRACE_STAT_RSEQ_SIDE_EXIT,
     RAW2TRACE_STAT_FALSE_SYSCALL,
+    RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
+    RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP
 } raw2trace_statistic_t;
 
 struct module_t {
@@ -930,6 +933,8 @@ protected:
         uint64 count_false_syscall = 0;
         uint64 count_rseq_abort = 0;
         uint64 count_rseq_side_exit = 0;
+        uint64 earliest_trace_timestamp = std::numeric_limits<uint64>::max();
+        uint64 latest_trace_timestamp = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -1103,6 +1108,8 @@ protected:
     uint64 count_false_syscall_ = 0;
     uint64 count_rseq_abort_ = 0;
     uint64 count_rseq_side_exit_ = 0;
+    uint64 earliest_trace_timestamp_ = std::numeric_limits<uint64>::max();
+    uint64 latest_trace_timestamp_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 
@@ -1246,7 +1253,7 @@ private:
     // Increases the per-thread counter for the statistic identified by stat by value.
     void
     add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
-                     int value);
+                     uint64_t value);
     void
     log_instruction(app_pc decode_pc, app_pc orig_pc);
 

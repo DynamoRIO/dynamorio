@@ -820,6 +820,10 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
             VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
                    (uint)tdata->tid, (uint64)entry.timestamp.usec);
+            add_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
+                             (uint64)entry.timestamp.usec);
+            add_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
+                             (uint64)entry.timestamp.usec);
             byte *buf = buf_base +
                 trace_metadata_writer_t::write_timestamp(buf_base,
                                                          (uintptr_t)entry.timestamp.usec);
@@ -946,6 +950,10 @@ raw2trace_t::do_conversion()
             count_false_syscall_ += thread_data_[i]->count_false_syscall;
             count_rseq_abort_ += thread_data_[i]->count_rseq_abort;
             count_rseq_side_exit_ += thread_data_[i]->count_rseq_side_exit;
+            earliest_trace_timestamp_ = std::min(
+                earliest_trace_timestamp_, thread_data_[i]->earliest_trace_timestamp);
+            latest_trace_timestamp_ = std::max(latest_trace_timestamp_,
+                                               thread_data_[i]->latest_trace_timestamp);
         }
     } else {
         // The files can be converted concurrently.
@@ -966,6 +974,10 @@ raw2trace_t::do_conversion()
             count_false_syscall_ += tdata->count_false_syscall;
             count_rseq_abort_ += tdata->count_rseq_abort;
             count_rseq_side_exit_ += tdata->count_rseq_side_exit;
+            earliest_trace_timestamp_ =
+                std::min(earliest_trace_timestamp_, tdata->earliest_trace_timestamp);
+            latest_trace_timestamp_ =
+                std::max(latest_trace_timestamp_, tdata->latest_trace_timestamp);
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -980,6 +992,8 @@ raw2trace_t::do_conversion()
     VPRINT(1, "Adjusted " UINT64_FORMAT_STRING " rseq aborts.\n", count_rseq_abort_);
     VPRINT(1, "Adjusted " UINT64_FORMAT_STRING " rseq side exits.\n",
            count_rseq_side_exit_);
+    VPRINT(1, "Trace duration %.3fs.\n",
+           (latest_trace_timestamp_ - earliest_trace_timestamp_) / 1000000.0);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
@@ -2979,7 +2993,7 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
 
 void
 raw2trace_t::add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
-                              int value)
+                              uint64 value)
 {
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: tdata->count_elided += value; break;
@@ -2987,6 +3001,13 @@ raw2trace_t::add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statisti
     case RAW2TRACE_STAT_FALSE_SYSCALL: tdata->count_false_syscall += value; break;
     case RAW2TRACE_STAT_RSEQ_ABORT: tdata->count_rseq_abort += value; break;
     case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: tdata->count_rseq_side_exit += value; break;
+    case RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP:
+        tdata->earliest_trace_timestamp =
+            std::min(tdata->earliest_trace_timestamp, value);
+        break;
+    case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP:
+        tdata->latest_trace_timestamp = std::max(tdata->latest_trace_timestamp, value);
+        break;
     default: DR_ASSERT(false);
     }
 }
@@ -2998,8 +3019,10 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided_;
     case RAW2TRACE_STAT_DUPLICATE_SYSCALL: return count_duplicate_syscall_;
     case RAW2TRACE_STAT_FALSE_SYSCALL: return count_false_syscall_;
-    case RAW2TRACE_STAT_RSEQ_ABORT: return count_rseq_abort_; break;
-    case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: return count_rseq_side_exit_; break;
+    case RAW2TRACE_STAT_RSEQ_ABORT: return count_rseq_abort_;
+    case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: return count_rseq_side_exit_;
+    case RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP: return earliest_trace_timestamp_;
+    case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP: return latest_trace_timestamp_;
     default: DR_ASSERT(false); return 0;
     }
 }
