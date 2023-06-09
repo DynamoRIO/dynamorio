@@ -301,6 +301,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
         shard->found_syscall_marker_ = true;
+        ++shard->syscall_count_;
         // TODO i#5949: For WOW64 instr_is_syscall() always returns false here as it
         // tries to check adjacent instrs; we disable this check until that is solved.
 #if !defined(WINDOWS) || defined(X64)
@@ -381,13 +382,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             (shard->skipped_instrs_ && shard->stream != nullptr &&
                              shard->stream->get_page_size() > 0),
                         "Missing page size marker");
-        // We assume every trace has at least 1 system call.
-        report_if_false(shard,
-                        shard->found_syscall_marker_ ==
-                            // Making sure this is a bool for a safe comparison.
-                            static_cast<bool>(TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS,
-                                                      shard->file_type_)),
-                        "System call numbers presence does not match filetype");
+        report_if_false(
+            shard,
+            shard->found_syscall_marker_ ==
+                    // Making sure this is a bool for a safe comparison.
+                    static_cast<bool>(
+                        TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_)) ||
+                shard->syscall_count_ == 0,
+            "System call numbers presence does not match filetype");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
