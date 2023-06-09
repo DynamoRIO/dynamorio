@@ -933,7 +933,7 @@ protected:
         uint64 count_false_syscall = 0;
         uint64 count_rseq_abort = 0;
         uint64 count_rseq_side_exit = 0;
-        uint64 earliest_trace_timestamp = std::numeric_limits<uint64>::max();
+        uint64 earliest_trace_timestamp = (std::numeric_limits<uint64>::max)();
         uint64 latest_trace_timestamp = 0;
 
         uint64 cur_chunk_instr_count = 0;
@@ -1108,7 +1108,7 @@ protected:
     uint64 count_false_syscall_ = 0;
     uint64 count_rseq_abort_ = 0;
     uint64 count_rseq_side_exit_ = 0;
-    uint64 earliest_trace_timestamp_ = std::numeric_limits<uint64>::max();
+    uint64 earliest_trace_timestamp_ = (std::numeric_limits<uint64>::max)();
     uint64 latest_trace_timestamp_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
