@@ -42,6 +42,7 @@
 #include "../tools/invariant_checker.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
+#include "test_helpers.h"
 
 namespace {
 
@@ -696,6 +697,8 @@ check_rseq_side_exit_discontinuity()
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
+
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
         check_duplicate_syscall_with_same_pc() && check_rseq_side_exit_discontinuity()) {

@@ -44,6 +44,7 @@
 #include "../reader/file_reader.h"
 #include "../scheduler/scheduler.h"
 #include "memref_gen.h"
+#include "test_helpers.h"
 
 #undef ASSERT
 #define ASSERT(cond, msg, ...)        \
@@ -590,6 +591,8 @@ run_chunk_tests(void *drcontext)
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
+
     void *drcontext = dr_standalone_init();
     if (run_limit_tests(drcontext) && run_chunk_tests(drcontext)) {
         std::cerr << "view_test passed\n";

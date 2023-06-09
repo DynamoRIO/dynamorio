@@ -34,6 +34,7 @@
 
 #include "analyzer.h"
 #include "memref_gen.h"
+#include "test_helpers.h"
 
 #include <algorithm>
 #include <inttypes.h>
@@ -649,6 +650,8 @@ test_non_zero_interval(bool parallel, bool combine_only_active_shards = true)
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
+
     if (!test_non_zero_interval(false) || !test_non_zero_interval(true, true) ||
         !test_non_zero_interval(true, false))
         return 1;

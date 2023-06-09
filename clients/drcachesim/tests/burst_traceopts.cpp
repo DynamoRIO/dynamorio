@@ -44,6 +44,7 @@
 #    include "scheduler.h"
 #    include "tracer/raw2trace.h"
 #    include "tracer/raw2trace_directory.h"
+#    include "test_helpers.h"
 #    include <assert.h>
 #    include <iostream>
 #    include <math.h>
@@ -219,6 +220,8 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
+
     reg_id_set_unit_tests();
 
     std::string dir_opt = gather_trace("", "opt");

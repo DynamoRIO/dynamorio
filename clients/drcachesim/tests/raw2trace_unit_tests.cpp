@@ -36,6 +36,7 @@
 #include "memref_gen.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
+#include "test_helpers.h"
 #include <iostream>
 #include <sstream>
 
@@ -1974,6 +1975,7 @@ test_xfer_absolute(void *drcontext)
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
 
     void *drcontext = dr_standalone_init();
     if (!test_branch_delays(drcontext) || !test_marker_placement(drcontext) ||

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,6 +41,7 @@
 #include "simulator/cache_lru.h"
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
+#include "test_helpers.h"
 
 static cache_simulator_knobs_t
 make_test_knobs()
@@ -550,6 +551,8 @@ unit_test_cache_bad_configs()
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
+
     // Takes in a path to the tests/ src dir.
     assert(argc == 2);
 

@@ -41,6 +41,7 @@
 
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
+#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <signal.h>
@@ -214,6 +215,8 @@ is_dc_zva_instr(void *dr_context, memref_t memref)
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
+
     // App setup.
     signal(SIGILL, sigill_handler);
 

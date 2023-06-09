@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,7 @@
 
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
+#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <fstream>
@@ -147,6 +148,7 @@ exit_cb(void *)
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
     /* We also test -rstats_to_stderr */
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    "-stderr_mask 0xc -rstats_to_stderr"

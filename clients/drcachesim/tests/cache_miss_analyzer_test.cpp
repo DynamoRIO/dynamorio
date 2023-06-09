@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
 #include "../simulator/cache_miss_analyzer.h"
 #include "../simulator/cache_simulator.h"
 #include "../common/memref.h"
+#include "test_helpers.h"
 
 static memref_t
 generate_mem_ref(const addr_t addr, const addr_t pc)
@@ -209,6 +210,8 @@ two_dominant_strides()
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
+
     if (no_dominant_stride() && one_dominant_stride() && two_dominant_strides()) {
         return 0;
     } else {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,7 @@
 #include "../tools/histogram.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
+#include "test_helpers.h"
 
 namespace {
 
@@ -85,6 +86,8 @@ check_cross_line()
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
+
     if (check_cross_line()) {
         std::cerr << "histogram_test passed\n";
         return 0;

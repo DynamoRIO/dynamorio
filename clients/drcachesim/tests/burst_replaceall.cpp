@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,7 @@
 #include "drvector.h"
 #include "../../../suite/tests/client_tools.h"
 #include "../../../suite/tests/condvar.h"
+#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
@@ -264,6 +265,8 @@ void *
 int
 main(int argc, const char *argv[])
 {
+    disable_popups();
+
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
     static int iter_start = outer_iters / 3;
