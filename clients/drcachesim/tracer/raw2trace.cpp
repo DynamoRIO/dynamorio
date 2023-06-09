@@ -3090,10 +3090,13 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
 #    endif
     case SYS_sendmsg:
     case SYS_sendto:
-#    ifdef X64
+#    ifdef SYS_wait4
     case SYS_wait4:
+#    endif
+#    ifdef SYS_waitid
     case SYS_waitid:
-#    else
+#    endif
+#    ifdef SYS_waitpid
     case SYS_waitpid:
 #    endif
     case SYS_write:

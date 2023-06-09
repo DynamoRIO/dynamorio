@@ -400,12 +400,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_)) ||
                 shard->syscall_count_ == 0,
             "System call numbers presence does not match filetype");
+        // We can't easily identify blocking syscalls ourselves so we only check
+        // one direction here.
         report_if_false(shard,
-                        shard->found_blocking_marker_ ==
-                                // Making sure this is a bool for a safe comparison.
-                                static_cast<bool>(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SCHED,
-                                                          shard->file_type_)) ||
-                            shard->syscall_count_ == 0,
+                        !shard->found_blocking_marker_ ||
+                            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SCHED, shard->file_type_),
                         "Kernel scheduling marker presence does not match filetype");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
