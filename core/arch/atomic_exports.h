@@ -935,11 +935,11 @@ atomic_compare_exchange_int(volatile int *var, int compare, int exchange)
     ASSERT(ALIGNED(var, 4));
     /* This code is based on GCC's atomic_compare_exchange_strong().
      * The fence ensures no re-ordering beyond the start of the lr/sc loop.
-     * The lr/sc use acquire and release ordering to ensure that the full loop
-     * has sequentially consistent memory order semantics.
+     * Provides acquire/release semantics for LR/SC sequences by setting the
+     * aq and rl bits on lr and sc respectively.
      */
     __asm__ __volatile__("fence   iorw,ow\n\t"
-                         "1: lr.w.aqrl  t0, (%1)\n\t"
+                         "1: lr.w.aq    t0, (%1)\n\t"
                          "   bne        t0, %2, 2f\n\t"
                          "   sc.w.rl    %0, %3, (%1)\n\t"
                          "   bnez       %0, 1b\n\t"
@@ -960,11 +960,11 @@ atomic_compare_exchange_int64(volatile int64 *var, int64 compare, int64 exchange
     ASSERT(ALIGNED(var, 8));
     /* This code is based on GCC's atomic_compare_exchange_strong().
      * The fence ensures no re-ordering beyond the start of the lr/sc loop.
-     * The lr/sc use acquire ordering to ensure that the full loop has
-     * sequentially consistent memory order semantics.
+     * Provides acquire/release semantics for LR/SC sequences by setting the
+     * aq and rl bits on lr and sc respectively.
      */
     __asm__ __volatile__("fence   iorw,ow\n\t"
-                         "1: lr.d.aqrl  t0, (%1)\n\t"
+                         "1: lr.d.aq    t0, (%1)\n\t"
                          "   bne        t0, %2, 2f\n\t"
                          "   sc.d.rl    %0, %3, (%1)\n\t"
                          "   bnez       %0, 1b\n\t"
