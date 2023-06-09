@@ -1253,7 +1253,7 @@ private:
     // Increases the per-thread counter for the statistic identified by stat by value.
     void
     add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
-                     uint64_t value);
+                     uint64 value);
     void
     log_instruction(app_pc decode_pc, app_pc orig_pc);
 
