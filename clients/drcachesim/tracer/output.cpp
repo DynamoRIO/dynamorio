@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -190,6 +190,10 @@ get_file_type()
         IF_X86_ELSE(
             IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
             IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64, OFFLINE_FILE_TYPE_ARCH_ARM32)));
+    if (!op_L0I_filter.get_value()) {
+        file_type = static_cast<offline_file_type_t>(file_type |
+                                                     OFFLINE_FILE_TYPE_SYSCALL_NUMBERS);
+    }
     return file_type;
 }
 

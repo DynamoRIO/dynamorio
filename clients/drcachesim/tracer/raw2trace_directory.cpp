@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -317,26 +317,33 @@ raw2trace_directory_t::open_kthread_files()
 std::string
 raw2trace_directory_t::open_serial_schedule_file()
 {
-#ifdef HAS_ZLIB
-    const char *suffix = ".gz";
+#ifndef HAS_ZIP
+    // We could support writing this out by refactoring the raw2trace code,
+    // but it's mostly for fast skipping which requires zip files anyway: thus we
+    // just leave serial_schedule_file_ as nullptr and don't write out a file.
+    return "";
 #else
+#    ifdef HAS_ZLIB
+    const char *suffix = ".gz";
+#    else
     const char *suffix = "";
-#endif
+#    endif
     char path[MAXIMUM_PATH];
     if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s%s", outdir_.c_str(), DIRSEP,
                     DRMEMTRACE_SERIAL_SCHEDULE_FILENAME, suffix) <= 0) {
         return "Failed to compute full path for " +
             std::string(DRMEMTRACE_SERIAL_SCHEDULE_FILENAME);
     }
-#ifdef HAS_ZLIB
+#    ifdef HAS_ZLIB
     serial_schedule_file_ = new gzip_ostream_t(path);
-#else
+#    else
     serial_schedule_file_ = new std::ofstream(path, std::ofstream::binary);
-#endif
+#    endif
     if (!*serial_schedule_file_)
         return "Failed to open serial schedule file " + std::string(path);
     VPRINT(1, "Opened serial schedule file %s\n", path);
     return "";
+#endif
 }
 
 std::string

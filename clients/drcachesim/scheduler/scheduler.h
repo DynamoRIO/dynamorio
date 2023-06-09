@@ -993,6 +993,12 @@ protected:
     read_traced_schedule();
 
     scheduler_status_t
+    check_and_fix_modulo_problem_in_schedule(
+        std::vector<std::vector<schedule_record_t>> &input_sched,
+        std::vector<std::set<uint64_t>> &start2stop,
+        std::vector<std::vector<schedule_record_t>> &all_sched);
+
+    scheduler_status_t
     read_recorded_schedule();
 
     // The caller must hold the lock for the input.
