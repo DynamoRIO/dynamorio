@@ -256,7 +256,7 @@ The decision was to go with the patching strategy (adding patch_mov_immed_ptrsz(
 
 ### Testing
 
-To test that our copied rseq sequence is properly registered, we need to execute a restart.  That means forcing either a preempt, a migration, or a signal during the sequence.  System calls are supposedly disallowed inside the sequence (there is an ifdef-ed check for them in the kernel), which makes it hard to force preemption or migration.  The simplest solution is a synchronous signal triggered by an instruction in the sequence, something like `ud2a` causing a SIGILL.
+To test that our copied rseq sequence is properly registered, we need to execute a restart.  That means forcing either a preempt, a migration, or a signal during the sequence.  System calls are supposedly disallowed inside the sequence (there is an ifdef-ed check for them in the kernel), which makes it hard to force preemption or migration.  The simplest solution is a synchronous signal triggered by an instruction in the sequence, something like `ud2` causing a SIGILL.
 
 We want to test both running to completion and a restart, so I have our tests use a parameter specifying whether to raise the SIGILL.  In the test, the code runs each rseq sequence twice, once with and once without the parameter set, to test both completion and restart.
 

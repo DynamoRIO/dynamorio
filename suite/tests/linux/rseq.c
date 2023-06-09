@@ -235,14 +235,14 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "movq (%%rbx), %%rax\n\t"
         "movq (%%rdi), %%rax\n\t"
         "movq (%%rsi), %%rax\n\t"
-        /* Test a restart in the middle of the sequence via ud2a SIGILL. */
+        /* Test a restart in the middle of the sequence via ud2 SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
-        /* For -test_mode invariant_checker: expect a signal after ud2a.
+        /* For -test_mode invariant_checker: expect a signal after ud2.
          * (An alternative is to add decoding to invariant_checker.)
          */
         "prefetcht2 1\n\t"
-        "ud2a\n\t"
+        "ud2\n\t"
         "7:\n\t"
         "addl $1, %[completions]\n\t"
 
@@ -398,11 +398,11 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "je 12f\n\t"
         "cmp $2, %%rax\n\t"
         "je 13f\n\t"
-        /* Test a restart via ud2a SIGILL. */
+        /* Test a restart via ud2 SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
         "prefetcht2 1\n\t" /* See above: annotation for invariant_checker. */
-        "ud2a\n\t"
+        "ud2\n\t"
         "7:\n\t"
         "addl $1, %[completions]\n\t"
 
@@ -463,7 +463,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "b.eq 12f\n\t"
         "cmp x0, #2\n\t"
         "b.eq 13f\n\t"
-        /* Test a restart via ud2a SIGILL. */
+        /* Test a restart via ud2 SIGILL. */
         "ldrb w0, %[force_restart]\n\t"
         "cbz x0, 7f\n\t"
         "mov x0, #1\n\t"
@@ -561,7 +561,7 @@ test_rseq_native_fault(void)
         "cmp $2, %%rax\n\t"
         "jne 11f\n\t"
         /* Raise a signal on the native run. */
-        "ud2a\n\t"
+        "ud2\n\t"
         "11:\n\t"
         "nop\n\t"
 

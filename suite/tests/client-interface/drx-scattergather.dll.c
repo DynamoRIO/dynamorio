@@ -274,7 +274,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
              */
             instrlist_postinsert(
                 bb, instr,
-                INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
+                INSTR_XL8(INSTR_CREATE_ud2(drcontext),
                           /* It's guaranteed by the test that there will be a next
                            * app instruction, because the emulated sequence consists
                            * of 16 mask updates, and this is just the first.
@@ -289,7 +289,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
              * update.
              */
             instrlist_preinsert(bb, instr,
-                                INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
+                                INSTR_XL8(INSTR_CREATE_ud2(drcontext),
                                           /* It's again guaranteed by the test that there
                                            * will be a next app instruction.
                                            */
@@ -297,7 +297,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         } else if (instr_is_mov(instr) && instr_reads_memory(instr) &&
                    (instr_get_app_pc(instr) == mask_update_test_avx2_gather_pc)) {
             instrlist_postinsert(bb, instr,
-                                 INSTR_XL8(INSTR_CREATE_ud2a(drcontext),
+                                 INSTR_XL8(INSTR_CREATE_ud2(drcontext),
                                            /* It's again guaranteed by the test that there
                                             * will be a next app instruction.
                                             */

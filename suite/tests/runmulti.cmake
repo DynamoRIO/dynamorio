@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2022 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2023 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -53,6 +53,9 @@ macro(process_cmdline line skip_empty err_and_out)
   string(REGEX REPLACE "@@" " " ${line} "${${line}}")
   string(REGEX REPLACE "@" ";" ${line} "${${line}}")
   string(REGEX REPLACE "!" "\\\;" ${line} "${${line}}")
+  # Clear to avoid repeating prior command if this one isn't run.
+  set(cmd_err "")
+  set(cmd_out "")
 
   if (${line} MATCHES "^foreach;")
     set(each ${${line}})
@@ -128,6 +131,6 @@ endif()
 # get expected output (must already be processed w/ regex => literal, etc.)
 file(READ "${cmp}" str)
 
-if (NOT "${tomatch}" MATCHES "${str}")
+if (NOT "${tomatch}" MATCHES "^${str}$")
   message(FATAL_ERROR "output |${tomatch}| failed to match expected output |${str}|")
 endif ()

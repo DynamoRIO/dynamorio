@@ -109,6 +109,7 @@ protected:
             prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
             last_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
         }
+        memref_t last_branch_ = {};
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
         memref_t prev_instr_ = {};
@@ -149,6 +150,8 @@ protected:
         bool found_cache_line_size_marker_ = false;
         bool found_instr_count_marker_ = false;
         bool found_page_size_marker_ = false;
+        bool found_syscall_marker_ = false;
+        uint64_t syscall_count_ = 0;
         uint64_t last_instr_count_marker_ = 0;
         std::string error_;
         // Track the location of errors.

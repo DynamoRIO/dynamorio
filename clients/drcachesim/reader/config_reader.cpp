@@ -145,6 +145,18 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
             } else {
                 knobs.model_coherence = false;
             }
+        } else if (param == "use_physical") {
+            // Whether to use physical addresses
+            std::string bool_val;
+            if (!(*fin_ >> bool_val)) {
+                ERRMSG("Error reading use_physical from the configuration file\n");
+                return false;
+            }
+            if (is_true(bool_val)) {
+                knobs.use_physical = true;
+            } else {
+                knobs.use_physical = false;
+            }
         } else {
             // A cache unit.
             cache_params_t cache;

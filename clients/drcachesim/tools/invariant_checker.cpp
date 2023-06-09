@@ -294,6 +294,34 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             memref.marker.marker_value == shard->stream->get_version(),
                         "Stream interface version != trace marker");
     }
+    // Ensure each syscall instruction has a marker immediately afterward.  An
+    // asynchronous signal could be delivered after the tracer recorded the syscall
+    // instruction but before DR executed the syscall itself (xref i#5790) but raw2trace
+    // removes the syscall instruction in such cases.
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_SYSCALL) {
+        shard->found_syscall_marker_ = true;
+        ++shard->syscall_count_;
+        // TODO i#5949: For WOW64 instr_is_syscall() always returns false here as it
+        // tries to check adjacent instrs; we disable this check until that is solved.
+#if !defined(WINDOWS) || defined(X64)
+        if (shard->prev_instr_decoded_ != nullptr) {
+            report_if_false(shard, instr_is_syscall(shard->prev_instr_decoded_->data),
+                            "Syscall marker not placed after syscall instruction");
+        }
+#endif
+    } else if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
+               type_is_instr(shard->prev_entry_.instr.type) &&
+               shard->prev_instr_decoded_ != nullptr &&
+               // TODO i#5949: For WOW64 instr_is_syscall() always returns false.
+               instr_is_syscall(shard->prev_instr_decoded_->data)) {
+        report_if_false(shard,
+                        shard->found_syscall_marker_ &&
+                            shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+                            shard->prev_entry_.marker.marker_type ==
+                                TRACE_MARKER_TYPE_SYSCALL,
+                        "Syscall instruction not followed by syscall marker");
+    }
 
     // Invariant: each chunk's instruction count must be identical and equal to
     // the value in the top-level marker.
@@ -354,6 +382,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             (shard->skipped_instrs_ && shard->stream != nullptr &&
                              shard->stream->get_page_size() > 0),
                         "Missing page size marker");
+        report_if_false(
+            shard,
+            shard->found_syscall_marker_ ==
+                    // Making sure this is a bool for a safe comparison.
+                    static_cast<bool>(
+                        TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_)) ||
+                shard->syscall_count_ == 0,
+            "System call numbers presence does not match filetype");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
@@ -620,7 +656,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     shard->prev_prev_entry_ = shard->prev_entry_;
 #endif
     shard->prev_entry_ = memref;
-
+    if (type_is_instr_branch(shard->prev_entry_.instr.type))
+        shard->last_branch_ = shard->prev_entry_;
     return true;
 }
 
@@ -696,7 +733,7 @@ invariant_checker_t::check_schedule_data()
     // archive.  We figure out which cpu each one is from on the fly.
     schedule_entry_t next(0, 0, 0, 0);
     while (cpu_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
-        global.ref_count_ = next.instr_count;
+        global.ref_count_ = next.start_instruction;
         global.tid_ = next.thread;
         report_if_false(
             &global,
@@ -804,6 +841,12 @@ invariant_checker_t::check_for_pc_discontinuity(
                        memref.instr.addr == prev_instr_trace_pc &&
                        instr_is_syscall(shard->prev_instr_decoded_->data)) {
                 error_msg = "Duplicate syscall instrs with the same PC";
+            } else if (shard->prev_instr_decoded_ != nullptr &&
+                       instr_writes_memory(shard->prev_instr_decoded_->data) &&
+                       type_is_instr_conditional_branch(shard->last_branch_.instr.type)) {
+                // This sequence happens when an rseq side exit occurs which
+                // results in missing instruction in the basic block.
+                error_msg = "PC discontinuity due to rseq side exit";
             } else {
                 error_msg = "Non-explicit control flow has no marker";
             }

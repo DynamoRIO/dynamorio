@@ -2716,6 +2716,15 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.drbbdup-emul-test.dll drreg)
 endif (NOT RISCV64)
 
+if (X86)
+  tobuild_ci(client.drbbdup-emul-reg-clobber-test
+      client-interface/drbbdup-emul-reg-clobber-test.c "" "" "")
+  use_DynamoRIO_extension(client.drbbdup-emul-reg-clobber-test.dll drmgr)
+  use_DynamoRIO_extension(client.drbbdup-emul-reg-clobber-test.dll drutil)
+  use_DynamoRIO_extension(client.drbbdup-emul-reg-clobber-test.dll drbbdup)
+  use_DynamoRIO_extension(client.drbbdup-emul-reg-clobber-test.dll drreg)
+endif (X86)
+
 if (ARM)
   tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")
   use_DynamoRIO_extension(client.predicate-test.dll drmgr)
@@ -3580,7 +3589,8 @@ if (BUILD_CLIENTS)
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
 
         torunonly_simtool(counts_only_thread ${ci_shared_app}
-          "-indir ${thread_trace_dir} -simulator_type basic_counts -only_thread 10506" "")
+          "-indir ${thread_trace_dir} -simulator_type basic_counts -only_thread 3018559"
+          "")
         set(tool.counts_only_thread_rawtemp ON) # no preprocessor
       endif ()
     endif ()
@@ -3754,6 +3764,16 @@ if (BUILD_CLIENTS)
 
     torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
     torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
+
+    if (LINUX) # Test uses Linux-specific timer code.
+      if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+        torunonly_drcacheoff(sysnums linux.signal_pre_syscall ""
+          "@-simulator_type@basic_counts@${test_mode_flag}" "")
+      endif ()
+    endif ()
+
+    torunonly_drcacheoff(interval-count-output ${ci_shared_app} ""
+      "@-simulator_type@basic_counts@-interval_microseconds@1M" "")
 
     # As for the online test, we check that only 1 thread is in the final trace.
     torunonly_drcacheoff(max-global client.annotation-concurrency
@@ -4686,6 +4706,9 @@ if (UNIX)
     endif ()
     tobuild(linux.signal_racesys linux/signal_racesys.c)
     target_link_libraries(linux.signal_racesys rt)
+
+    tobuild(linux.signal_pre_syscall linux/signal_pre_syscall.c)
+    target_link_libraries(linux.signal_pre_syscall rt)
   endif ()
 
   if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64

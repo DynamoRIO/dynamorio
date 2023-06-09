@@ -35,6 +35,7 @@
 #include <cstdlib>
 #undef NDEBUG
 #include <assert.h>
+#include "config_reader_unit_test.h"
 #include "cache_replacement_policy_unit_test.h"
 #include "simulator/cache.h"
 #include "simulator/cache_lru.h"
@@ -549,6 +550,10 @@ unit_test_cache_bad_configs()
 int
 main(int argc, const char *argv[])
 {
+    // Takes in a path to the tests/ src dir.
+    assert(argc == 2);
+
+    unit_test_config_reader(argv[1]);
     unit_test_cache_associativity();
     unit_test_cache_size();
     unit_test_cache_line_size();

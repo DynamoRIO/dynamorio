@@ -160,6 +160,8 @@ public:
                     break;
                 case TRACE_MARKER_TYPE_TIMESTAMP:
                     last_timestamp_ = cur_entry_.addr;
+                    if (first_timestamp_ == 0)
+                        first_timestamp_ = last_timestamp_;
                     break;
                 }
             }
@@ -181,6 +183,11 @@ public:
     get_last_timestamp() const override
     {
         return last_timestamp_;
+    }
+    uint64_t
+    get_first_timestamp() const override
+    {
+        return first_timestamp_;
     }
     uint64_t
     get_version() const override
@@ -248,6 +255,7 @@ private:
     uint64_t cur_ref_count_ = 0;
     uint64_t cur_instr_count_ = 0;
     uint64_t last_timestamp_ = 0;
+    uint64_t first_timestamp_ = 0;
 
     // Remember top-level headers for the memtrace_stream_t interface.
     uint64_t version_ = 0;

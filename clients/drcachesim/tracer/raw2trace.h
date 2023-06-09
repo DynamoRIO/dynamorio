@@ -49,6 +49,7 @@
 #include <atomic>
 #include <list>
 #include <memory>
+#include <queue>
 #include <set>
 #include <unordered_map>
 #include "trace_entry.h"
@@ -101,6 +102,7 @@ typedef enum {
     RAW2TRACE_STAT_DUPLICATE_SYSCALL,
     RAW2TRACE_STAT_RSEQ_ABORT,
     RAW2TRACE_STAT_RSEQ_SIDE_EXIT,
+    RAW2TRACE_STAT_FALSE_SYSCALL,
 } raw2trace_statistic_t;
 
 struct module_t {
@@ -899,7 +901,7 @@ protected:
         int version;
         offline_file_type_t file_type;
         size_t cache_line_size = 0;
-        std::vector<offline_entry_t> pre_read;
+        std::deque<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
         std::vector<trace_entry_t> delayed_branch;
@@ -925,6 +927,7 @@ protected:
         // Statistics on the processing.
         uint64 count_elided = 0;
         uint64 count_duplicate_syscall = 0;
+        uint64 count_false_syscall = 0;
         uint64 count_rseq_abort = 0;
         uint64 count_rseq_side_exit = 0;
 
@@ -991,8 +994,13 @@ protected:
     virtual const offline_entry_t *
     get_next_entry_keep_prior(raw2trace_thread_data_t *tdata);
 
+    /* Adds the last read entry to the front of the read queue for get_next_entry(). */
     virtual void
     unread_last_entry(raw2trace_thread_data_t *tdata);
+
+    /* Adds "entry" to the back of the read queue for get_next_entry(). */
+    void
+    queue_entry(raw2trace_thread_data_t *tdata, offline_entry_t &entry);
 
     /**
      * Callback notifying the currently-processed thread has exited. Subclasses are
@@ -1092,6 +1100,7 @@ protected:
 
     uint64 count_elided_ = 0;
     uint64 count_duplicate_syscall_ = 0;
+    uint64 count_false_syscall_ = 0;
     uint64 count_rseq_abort_ = 0;
     uint64 count_rseq_side_exit_ = 0;
 
@@ -1297,6 +1306,9 @@ private:
                   const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                   bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
                   OUT bool *reached_end_of_memrefs);
+
+    bool
+    should_omit_syscall(raw2trace_thread_data_t *tdata);
 
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;

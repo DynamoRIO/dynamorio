@@ -434,6 +434,14 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_RSEQ_ENTRY,
 
+    /**
+     * This marker is emitted prior to each system call invocation, after the
+     * instruction fetch entry for the system call gateway instruction from user mode. The
+     * marker value contains the system call number.  If these markers are present, the
+     * file type #OFFLINE_FILE_TYPE_SYSCALL_NUMBERS is set.
+     */
+    TRACE_MARKER_TYPE_SYSCALL,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -655,6 +663,8 @@ typedef enum {
     OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
     OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
+    /** System call number markers are included. */
+    OFFLINE_FILE_TYPE_SYSCALL_NUMBERS = 0x400,
 } offline_file_type_t;
 
 static inline const char *
@@ -719,7 +729,6 @@ struct _offline_entry_t {
             uint64_t type : 3;
         } extended;
         uint64_t combined_value;
-        // XXX: add a CPU id entry for more faithful thread scheduling.
     };
 } END_PACKED_STRUCTURE;
 typedef struct _offline_entry_t offline_entry_t;
@@ -763,17 +772,17 @@ typedef struct _encoding_entry_t encoding_entry_t;
 START_PACKED_STRUCTURE
 struct schedule_entry_t {
     schedule_entry_t(uint64_t thread, uint64_t timestamp, uint64_t cpu,
-                     uint64_t instr_count)
+                     uint64_t start_instruction)
         : thread(thread)
         , timestamp(timestamp)
         , cpu(cpu)
-        , instr_count(instr_count)
+        , start_instruction(start_instruction)
     {
     }
     uint64_t thread;
     uint64_t timestamp;
     uint64_t cpu;
-    uint64_t instr_count;
+    uint64_t start_instruction;
 } END_PACKED_STRUCTURE;
 
 #ifdef BUILD_PT_TRACER
