@@ -915,8 +915,8 @@ set_clone_record_fields(void *record, reg_t app_thread_xsp, app_pc continuation_
  *
  * CAUTION: don't use a lot of stack in this routine as it gets invoked on the
  *          dstack from new_thread_setup - this is because this routine assumes
- *          no more than 2 pages of dstack have been used so far since the clone
- *          system call was done.
+ *          no more than a page of dstack for X86 and 2 pages of dstack for
+ *          AArch64 have been used so far since the clone system call was done.
  */
 void *
 get_clone_record(reg_t xsp)
@@ -930,14 +930,20 @@ get_clone_record(reg_t xsp)
     /* The (size of the clone record +
      *      stack used by new_thread_start (only for setting up priv_mcontext_t) +
      *      stack used by new_thread_setup before calling get_clone_record())
-     * is less than 2 pages.  This is verified by the assert below.  If it does
-     * exceed 2 pages, it won't happen at random during runtime, but in a
-     * predictable way during development, which will be caught by the assert.
-     * The current usage is about 1920 bytes for clone_record +
-     * sizeof(priv_mcontext_t) + few words in new_thread_setup before
-     * get_clone_record() is called.
+     * is less than a page for X86 and 2 pages for AArch64. This is verified by
+     * the assert below. If it does exceed 1 page for X86 and 2 for AArch64, it
+     * won't happen at random during runtime, but in a predictable way during
+     * development, which will be caught by the assert.
+     *
+     * The current usage is about 800 bytes (X86) or 1920 bytes (AArch64) for
+     * clone_record + sizeof(priv_mcontext_t) + few words in new_thread_setup
+     * before get_clone_record() is called.
      */
+#ifdef AARCH64
     dstack_base = (byte *)ALIGN_FORWARD(xsp, PAGE_SIZE) + PAGE_SIZE;
+#else
+    dstack_base = (byte *)ALIGN_FORWARD(xsp, PAGE_SIZE);
+#endif
     record = (clone_record_t *)(dstack_base - sizeof(clone_record_t));
 
     /* dstack_base and the dstack in the clone record should be the same. */
