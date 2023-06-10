@@ -687,7 +687,8 @@ if (BUILD_TESTS)
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp
     tests/cache_replacement_policy_unit_test.cpp tests/config_reader_unit_test.cpp)
   target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
-    drmemtrace_static drmemtrace_analyzer ${zlib_libs} test_helpers)
+    # Link test_helpers first, or else the zlib main takes over.
+    drmemtrace_static drmemtrace_analyzer test_helpers ${zlib_libs})
   add_win32_flags(tool.drcachesim.unit_tests)
   add_test(NAME tool.drcachesim.unit_tests
            COMMAND tool.drcachesim.unit_tests
@@ -760,7 +761,7 @@ if (BUILD_TESTS)
     # Tests for the cache miss analyzer.
     add_executable(tool.drcachesim.miss_analyzer_unit_test tests/cache_miss_analyzer_test.cpp)
     target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
-      drmemtrace_static drmemtrace_analyzer ${zlib_libs} test_helpers)
+      drmemtrace_static drmemtrace_analyzer test_helpers ${zlib_libs})
     add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
     add_test(NAME tool.drcachesim.miss_analyzer_unit_test
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
