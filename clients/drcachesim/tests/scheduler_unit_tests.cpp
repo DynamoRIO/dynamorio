@@ -43,7 +43,6 @@
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
 #endif
-#include "test_helpers.h"
 
 using namespace dynamorio::drmemtrace;
 
@@ -2025,10 +2024,8 @@ test_replay_as_traced_from_file(const char *testdir)
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
-
     // Takes in a path to the tests/ src dir.
     assert(argc == 2);
     // Avoid races with lazy drdecode init (b/279350357).

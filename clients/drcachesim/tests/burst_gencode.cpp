@@ -42,7 +42,6 @@
 #include "drmemtrace/raw2trace.h"
 #include "raw2trace_directory.h"
 #include "scheduler.h"
-#include "test_helpers.h"
 #include <assert.h>
 #ifdef LINUX
 #    include <signal.h>
@@ -379,9 +378,8 @@ look_for_gencode(std::string trace_dir)
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
     std::string trace_dir = gather_trace();
     return look_for_gencode(trace_dir);
 }

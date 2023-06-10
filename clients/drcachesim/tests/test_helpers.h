@@ -35,49 +35,9 @@
 #ifndef _TEST_HELPERS_H_
 #define _TEST_HELPERS_H_ 1
 
-#include <stdio.h>
-
-#ifdef WINDOWS
-#    ifndef WIN32_LEAN_AND_MEAN
-#        define WIN32_LEAN_AND_MEAN
-#        include <windows.h>
-#    endif
-#    ifdef DEBUG
-#        include <crtdbg.h>
-#    endif
-#    include <stdlib.h>
-
-// We use the same controls as in suite/tests/tools.h to disable popups.
-
-LONG WINAPI
-console_exception_filter(struct _EXCEPTION_POINTERS *pExceptionInfo);
-
-static inline void
-disable_popups()
-{
-    // Set the global unhandled exception filter to the exception filter
-    SetUnhandledExceptionFilter(console_exception_filter);
-
-    // Avoid pop-up messageboxes in tests.
-    if (!IsDebuggerPresent()) {
-#    ifdef DEBUG
-        // Set for _CRT_{WARN,ERROR,ASSERT}.
-        for (int i = 0; i < _CRT_ERRCNT; i++) {
-            _CrtSetReportMode(i, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
-            _CrtSetReportFile(i, _CRTDBG_FILE_STDERR);
-        }
-#    endif
-        // Configure assert() and _wassert() in release build. */
-        _set_error_mode(_OUT_TO_STDERR);
-    }
-}
-
-#else
-static inline void
-disable_popups()
-{
-    // Nothing to do.
-}
-#endif
+// Tests with a main() should use test_main() which calls this.  This is declared
+// separately for use with _tmain().
+void
+disable_popups();
 
 #endif /* _TEST_HELPERS_H_ */

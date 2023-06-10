@@ -41,7 +41,6 @@
  */
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
-#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
@@ -203,10 +202,8 @@ void *
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
-
 #ifdef UNIX
     pthread_t thread[num_threads];
 #else

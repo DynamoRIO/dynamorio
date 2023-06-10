@@ -40,7 +40,6 @@
 #include "tools/filter/cache_filter.h"
 #include "tools/filter/record_filter.h"
 #include "tools/filter/type_filter.h"
-#include "test_helpers.h"
 
 #include <inttypes.h>
 #include <fstream>
@@ -430,10 +429,8 @@ test_null_filter()
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
-
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
                                        &parse_err, NULL) ||

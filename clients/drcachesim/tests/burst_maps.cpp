@@ -39,7 +39,6 @@
 /* Like burst_static we deliberately do not include configure.h here. */
 #include "dr_api.h"
 #include "../../common/utils.h"
-#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
@@ -160,10 +159,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
-
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
     static int iter_start = outer_iters / 3;

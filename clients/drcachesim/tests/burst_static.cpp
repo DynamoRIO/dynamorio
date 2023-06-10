@@ -39,7 +39,6 @@
  * for us.
  */
 #include "dr_api.h"
-#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
@@ -67,10 +66,8 @@ do_some_work(int arg)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
-
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
     static int iter_start = outer_iters / 3;

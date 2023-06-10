@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,14 +30,64 @@
  * DAMAGE.
  */
 
-#include "test_helpers.h"
-
 #ifdef WINDOWS
-LONG WINAPI
+#    ifndef WIN32_LEAN_AND_MEAN
+#        define WIN32_LEAN_AND_MEAN
+#        include <windows.h>
+#    endif
+#    ifdef DEBUG
+#        include <crtdbg.h>
+#    endif
+#    include <stdio.h>
+#    include <stdlib.h>
+
+// We use the same controls as in suite/tests/tools.h to disable popups.
+
+static LONG WINAPI
 console_exception_filter(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
     fprintf(stderr, "ERROR: Unhandled exception 0x%x caught\n",
             pExceptionInfo->ExceptionRecord->ExceptionCode);
     return EXCEPTION_EXECUTE_HANDLER;
+}
+
+void
+disable_popups()
+{
+    // Set the global unhandled exception filter to the exception filter
+    SetUnhandledExceptionFilter(console_exception_filter);
+
+    // Avoid pop-up messageboxes in tests.
+    if (!IsDebuggerPresent()) {
+#    ifdef DEBUG
+        // Set for _CRT_{WARN,ERROR,ASSERT}.
+        for (int i = 0; i < _CRT_ERRCNT; i++) {
+            _CrtSetReportMode(i, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+            _CrtSetReportFile(i, _CRTDBG_FILE_STDERR);
+        }
+#    endif
+        // Configure assert() and _wassert() in release build. */
+        _set_error_mode(_OUT_TO_STDERR);
+    }
+}
+
+#else
+void
+disable_popups()
+{
+    // Nothing to do.
+}
+#endif
+
+#ifndef NO_HELPER_MAIN
+// The test implements this.
+int
+test_main(int argc, const char *argv[]);
+
+int
+main(int argc, const char *argv[])
+{
+    disable_popups();
+    return test_main(argc, argv);
 }
 #endif

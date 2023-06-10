@@ -344,8 +344,11 @@ add_executable(record_filter_launcher
 target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter)
 use_DynamoRIO_extension(record_filter_launcher droption)
 
-add_executable(scheduler_launcher tests/scheduler_launcher.cpp)
-target_link_libraries(scheduler_launcher drmemtrace_analyzer drfrontendlib test_helpers)
+# We want to use test_helper's disable_popups() but we have _tmain and so do not want
+# the test_helper library's main symbol: so we compile ourselves and disable.
+add_executable(scheduler_launcher tests/scheduler_launcher.cpp tests/test_helpers.cpp)
+append_property_list(TARGET scheduler_launcher COMPILE_DEFINITIONS "NO_HELPER_MAIN")
+target_link_libraries(scheduler_launcher drmemtrace_analyzer drfrontendlib)
 use_DynamoRIO_extension(scheduler_launcher droption)
 add_dependencies(scheduler_launcher api_headers)
 # Simple test to ensure this launcher keeps working.
@@ -517,7 +520,7 @@ restore_nonclient_flags(drmemtrace_invariant_checker)
 # get rid of add_win32_flags(target) since that just adds a couple of flags
 # back, and using the ORIG_ values is preferable.
 macro(add_win32_flags target)
-  if (DEBUG)
+  if (DEBUG AND NOT DEFINED ${target}_uses_configure)
     append_property_list(TARGET ${target} COMPILE_DEFINITIONS "DEBUG")
   endif ()
   if (WIN32)
@@ -857,8 +860,7 @@ if (BUILD_TESTS)
       add_win32_flags(tool.drcacheoff.burst_noreach)
     endif ()
     if (LINUX) # Uses mremap.
-      add_executable(tool.drcacheoff.burst_maps tests/burst_maps.cpp
-        tests/test_helpers.cpp)
+      add_executable(tool.drcacheoff.burst_maps tests/burst_maps.cpp)
       configure_DynamoRIO_static(tool.drcacheoff.burst_maps)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_maps drmemtrace_static)
       target_link_libraries(tool.drcacheoff.burst_maps test_helpers)
@@ -916,6 +918,7 @@ if (BUILD_TESTS)
         # Just like for burst_replace, linking everything together takes effort.
         target_link_libraries(tool.drcacheoff.burst_traceopts ${static_libc})
       endif ()
+      set(tool.drcacheoff.burst_traceopts_uses_configure ON) # Avoid dup DEBUG.
       add_win32_flags(tool.drcacheoff.burst_traceopts)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_traceopts)
       use_DynamoRIO_extension(tool.drcacheoff.burst_traceopts drcovlib_static)

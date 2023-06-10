@@ -37,7 +37,6 @@
 #include "../tools/reuse_distance.h"
 #include "../tools/reuse_distance_create.h"
 #include "../common/memref.h"
-#include "test_helpers.h"
 
 namespace {
 
@@ -505,14 +504,13 @@ data_histogram_test()
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
-
     print_histogram_empty_test();
     print_histogram_mult_1p0_test();
     print_histogram_mult_1p2_test();
     simple_reuse_distance_test();
     reuse_distance_limit_test();
     data_histogram_test();
+    return 0;
 }

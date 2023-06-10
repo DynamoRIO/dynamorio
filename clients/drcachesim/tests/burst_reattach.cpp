@@ -39,7 +39,6 @@
 /* Like burst_static we deliberately do not include configure.h here */
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
-#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <fstream>
@@ -91,10 +90,8 @@ exit_cb(void *)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
-
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    "-stderr_mask 0xc"
                    " -client_lib '#;;-offline"

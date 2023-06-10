@@ -42,7 +42,6 @@
 #include "../tools/histogram.h"
 #include "../common/memref.h"
 #include "memref_gen.h"
-#include "test_helpers.h"
 
 namespace {
 
@@ -84,10 +83,8 @@ check_cross_line()
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
-
     if (check_cross_line()) {
         std::cerr << "histogram_test passed\n";
         return 0;

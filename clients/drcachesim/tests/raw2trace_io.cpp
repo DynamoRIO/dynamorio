@@ -41,7 +41,6 @@
 #include "droption.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
-#include "test_helpers.h"
 #include <cassert>
 #include <errno.h>
 #include <fcntl.h>
@@ -257,10 +256,8 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
-
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
                                        &parse_err, NULL) ||

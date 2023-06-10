@@ -43,7 +43,6 @@
 #include "drcovlib.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
-#include "test_helpers.h"
 #include <assert.h>
 #include <iostream>
 #include <math.h>
@@ -233,10 +232,8 @@ post_process()
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-    disable_popups();
-
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
     static int iter_start = outer_iters / 3;
