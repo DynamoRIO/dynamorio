@@ -1730,7 +1730,7 @@ os_timeout(int time_in_milliseconds)
             ASSERT(sizeof(var) == sizeof(void *));                     \
             __asm__ __volatile__("ld %0, %1(tp) \n\t"                  \
                                  "ld %0, %2(%0) \n\t"                  \
-                                 : "=r"(var)                           \
+                                 : "+r"(var)                           \
                                  : "i"(DR_TLS_BASE_OFFSET), "i"(imm)); \
         } while (0)
 #    define WRITE_TLS_INT_SLOT_IMM(imm, var)                                   \
@@ -1868,7 +1868,7 @@ is_thread_tls_initialized(void)
         } else
             return false;
     }
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
     byte **dr_tls_base_addr;
     if (tls_global_type == TLS_TYPE_NONE)
         return false;
@@ -1883,10 +1883,6 @@ is_thread_tls_initialized(void)
      * deadlock_avoidance_unlock() which calls get_thread_private_dcontext()
      * which comes here.
      */
-    return true;
-#else
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return true;
 #endif
     return true;
@@ -1982,7 +1978,7 @@ os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t reg)
 os_local_state_t *
 get_os_tls(void)
 {
-    os_local_state_t *os_tls;
+    os_local_state_t *os_tls = NULL;
     ASSERT(is_thread_tls_initialized());
     READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
     return os_tls;
@@ -2139,7 +2135,7 @@ get_app_segment_base(uint seg)
 local_state_extended_t *
 get_local_state_extended()
 {
-    os_local_state_t *os_tls;
+    os_local_state_t *os_tls = NULL;
     ASSERT(is_thread_tls_initialized());
     READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
     return &(os_tls->state);
@@ -2159,7 +2155,7 @@ get_local_state()
 void
 os_enter_dynamorio(void)
 {
-#    ifdef ARM
+#    if defined(AARCHXX) || defined(RISCV64)
     /* i#1578: check that app's tls value doesn't match our sentinel */
     ASSERT(*(byte **)get_dr_tls_base_addr() != TLS_SLOT_VAL_EXITED);
 #    endif
@@ -3051,7 +3047,7 @@ d_r_get_thread_id(void)
 thread_id_t
 get_tls_thread_id(void)
 {
-    ptr_int_t tid; /* can't use thread_id_t since it's 32-bits */
+    ptr_int_t tid = 0; /* can't use thread_id_t since it's 32-bits */
     if (!is_thread_tls_initialized())
         return INVALID_THREAD_ID;
     READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, tid);
@@ -3068,7 +3064,7 @@ dcontext_t *
 get_thread_private_dcontext(void)
 {
 #ifdef HAVE_TLS
-    dcontext_t *dcontext;
+    dcontext_t *dcontext = NULL;
     /* We have to check this b/c this is called from __errno_location prior
      * to os_tls_init, as well as after os_tls_exit, and early in a new
      * thread's initialization (see comments below on that).
@@ -3182,7 +3178,7 @@ replace_thread_id(thread_id_t old, thread_id_t new)
     thread_id_t new_tid = new;
     ASSERT(is_thread_tls_initialized());
     DOCHECK(1, {
-        thread_id_t old_tid;
+        thread_id_t old_tid = 0;
         IF_LINUX_ELSE(READ_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid),
                       READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid));
         ASSERT(old_tid == old);
