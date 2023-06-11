@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -31,13 +31,13 @@
  */
 
 /*
- * tls_linux_arm.c - thread-local storage for arm and arm64 Linux
+ * tls_linux_risc.c - thread-local storage for arm, arm64, riscv64 Linux
  */
 
 #include <stddef.h> /* offsetof */
 #include "../globals.h"
 #include "tls.h"
-#ifndef AARCH64
+#if !(defined(AARCH64) || defined(RISCV64))
 #    include "include/syscall.h"
 #endif
 
@@ -45,8 +45,8 @@
 #    error Linux-only
 #endif
 
-#ifndef AARCHXX
-#    error ARM/AArch64-only
+#if !(defined(AARCHXX) || defined(RISCV64))
+#    error ARM/AArch64/RISCV64-only
 #endif
 
 byte **
@@ -107,5 +107,4 @@ tls_thread_free(tls_type_t tls_type, int index)
      * os_enter_dynamorio()).
      */
     *dr_tls_base_addr = TLS_SLOT_VAL_EXITED;
-    return;
 }

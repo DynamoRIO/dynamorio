@@ -508,6 +508,12 @@ restore_nonclient_flags(drmemtrace_invariant_checker)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
+#
+# TODO i#6040: We should add a new configure_original_flage(target) function
+# which restores the ORIG_ flags at the source level for all other targets
+# in this file which are neither clients nor use DR standalone. We can then
+# get rid of add_win32_flags(target) since that just adds a couple of flags
+# back, and using the ORIG_ values is preferable.
 macro(add_win32_flags target)
   if (WIN32)
     if (DEBUG)
@@ -751,9 +757,10 @@ if (BUILD_TESTS)
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
 
     add_executable(tool.drcachesim.invariant_checker_test tests/invariant_checker_test.cpp)
+    configure_DynamoRIO_standalone(tool.drcachesim.invariant_checker_test)
+    add_win32_flags(tool.drcachesim.invariant_checker_test)
     target_link_libraries(tool.drcachesim.invariant_checker_test
         drmemtrace_static drmemtrace_analyzer drmemtrace_invariant_checker)
-    add_win32_flags(tool.drcachesim.invariant_checker_test)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
 

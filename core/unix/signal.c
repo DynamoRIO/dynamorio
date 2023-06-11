@@ -2253,8 +2253,8 @@ uint
 handle_post_old_sigaction(dcontext_t *dcontext, bool success, int sig,
                           const old_sigaction_t *act, old_sigaction_t *oact)
 {
-    kernel_sigaction_t kact;
-    kernel_sigaction_t okact;
+    kernel_sigaction_t kact = {};
+    kernel_sigaction_t okact = {};
     ptr_uint_t res;
     if (act != NULL && success) {
         if (!convert_old_sigaction_to_kernel(dcontext, &kact, act)) {

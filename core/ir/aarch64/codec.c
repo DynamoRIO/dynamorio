@@ -4414,6 +4414,18 @@ encode_opnd_z_h_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return encode_single_sized(OPSZ_SCALABLE, 16, HALF_REG, 0, opnd, enc_out);
 }
 
+static inline bool
+decode_opnd_z_s_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_single_sized(DR_REG_Z0, DR_REG_Z31, 16, 5, SINGLE_REG, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z_s_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_single_sized(OPSZ_SCALABLE, 16, SINGLE_REG, 0, opnd, enc_out);
+}
+
 /* z_q_16: Z register with d size elements. */
 
 static inline bool
@@ -7325,6 +7337,30 @@ static inline bool
 encode_opnd_z_msz_bhsd_0p3(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_sized_z(0, 23, BYTE_REG, DOUBLE_REG, 3, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_msz_bhsd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(5, 23, BYTE_REG, DOUBLE_REG, 0, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_msz_bhsd_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(5, 23, BYTE_REG, DOUBLE_REG, 0, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_msz_bhsd_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(16, 23, BYTE_REG, DOUBLE_REG, 0, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_msz_bhsd_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(16, 23, BYTE_REG, DOUBLE_REG, 0, opnd, enc_out);
 }
 
 /* mem0p: as mem0, but a pair of registers, so double size */
