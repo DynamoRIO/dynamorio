@@ -381,5 +381,7 @@ int
 test_main(int argc, const char *argv[])
 {
     std::string trace_dir = gather_trace();
+    while (argc < 10)
+        ;
     return look_for_gencode(trace_dir);
 }

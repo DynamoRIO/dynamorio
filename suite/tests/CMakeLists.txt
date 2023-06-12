@@ -1516,8 +1516,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # Though we mostly use drrun's -s we set this too in case the requested
     # value is higher than ctest's default.
     set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
+  elseif (is_runcmp)
+    # Runcmp generally doesn't use drrun or runstats so we need a ctest timeout.
+    set_tests_properties(${test} PROPERTIES TIMEOUT ${TEST_SECONDS})
   endif ()
 
+  # Though we use drrun and runstats -s timeout parameters, we have
   if (pass_opts_via_env)
     string(REPLACE ";" " " runops_string "${runops}")
     set_tests_properties(${test} PROPERTIES ENVIRONMENT "DYNAMORIO_OPTIONS=${runops_string}")
@@ -1627,6 +1631,10 @@ function(torunonly_native name realexe expect source exe_ops)
   strings2lists(${name} ops)
   set(${name}_expectbase ${expect})
   set(${name}_realtest ${realexe})
+  if (NOT DEFINED ${test}_timeout)
+    # We're not going through drrun with its timeout, so set the ctest timeout.
+#    set(${test}_timeout ${TEST_SECONDS})
+  endif ()
   torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added OFF)
 endfunction(torunonly_native)
 
