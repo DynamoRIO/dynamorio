@@ -974,6 +974,8 @@ main(int argc, char *argv[])
     bool test_result;
     instr_t *instr;
 
+    enable_all_test_cpu_features();
+
     RUN_INSTR_TEST(aesd_sve);
     RUN_INSTR_TEST(aese_sve);
     RUN_INSTR_TEST(bcax_sve);
