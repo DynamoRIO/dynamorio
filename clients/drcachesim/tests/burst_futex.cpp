@@ -156,6 +156,7 @@ main(int argc, const char *argv[])
     memref_t memref;
     int arg_ord = 0;
     bool saw_maybe_blocking = false;
+    bool saw_futex_marker = false;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
@@ -165,11 +166,13 @@ main(int argc, const char *argv[])
             saw_maybe_blocking = true;
         }
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
+            saw_futex_marker = true;
             assert(memref.marker.marker_value ==
                    TRACE_FUNC_ID_SYSCALL_BASE +
                        IF_X64_ELSE(SYS_futex, SYS_futex & 0xffff));
         }
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ARG) {
+            // We assume there is no futex call in any library used here.
             switch (arg_ord) {
             case 0:
                 assert(memref.marker.marker_value ==
@@ -187,6 +190,7 @@ main(int argc, const char *argv[])
         }
     }
     assert(saw_maybe_blocking);
+    assert(saw_futex_marker);
     static constexpr int FUTEX_ARG_COUNT = 6;
     assert(arg_ord == FUTEX_ARG_COUNT);
 

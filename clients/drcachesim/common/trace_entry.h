@@ -279,10 +279,14 @@ typedef enum {
      * the drmemtrace_get_funclist_path() function's documentation.
      *
      * This marker is also used to record parameter values for certain system calls such
-     * as for #OFFLINE_FILE_TYPE_KERNEL_SCHED.  These use large identifiers equal to
-     * #TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (or its bottom 16 bits
-     * for 32-bit marker values).  These identifiers are not stored in the function
-     * list file (drmemtrace_get_funclist_path()).
+     * as for #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS.  These use large identifiers equal to
+     * #TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (for 32-bit marker values
+     * just the bottom 16 bits of the system call number are added to the base).  These
+     * identifiers are not stored in the function list file
+     * (drmemtrace_get_funclist_path()).  The system call number used is the value
+     * passed to DynamoRIO's dr_register_pre_syscall_event() which is normalized
+     * to match SYS_ constants (see the dr_register_pre_syscall_event() documentation
+     * regarding MacOS).
      */
     TRACE_MARKER_TYPE_FUNC_ID,
 
@@ -310,7 +314,9 @@ typedef enum {
      * marker entry
      *
      * The marker value for system calls (see #TRACE_FUNC_ID_SYSCALL_BASE) is either 0
-     * (failure) or 1 (success).
+     * (failure) or 1 (success), as obtained from dr_syscall_get_result_ex() via the
+     * "succeeded" field of #dr_syscall_result_info_t.  See the corresponding
+     * documentation for caveats about the accuracy of this value.
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
 
@@ -456,8 +462,13 @@ typedef enum {
     /**
      * This marker is emitted prior to a system call which is known to block under some
      * circumstances.  Whether it blocks may depend on the values of parameters or the
-     * state of options set in prior system calls.  If these markers are present, the
-     * file type #OFFLINE_FILE_TYPE_KERNEL_SCHED is set.  The marker value is 0.
+     * state of options set in prior system calls.  Additionally, it is not guaranteed
+     * that every system call that might block is identified in the initial
+     * implementation, and it may be limited only to certain operating systems (Linux
+     * only for now).
+     *
+     * If these markers are present, the
+     * file type #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS is set.  The marker value is 0.
      */
     TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL,
 
@@ -714,7 +725,7 @@ typedef enum {
      * The #TRACE_MARKER_TYPE_FUNC_RETVAL for system calls is either 0 (failure) or
      * 1 (success).
      */
-    OFFLINE_FILE_TYPE_KERNEL_SCHED = 0x800,
+    OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS = 0x800,
 } offline_file_type_t;
 
 static inline const char *

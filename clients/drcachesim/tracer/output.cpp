@@ -190,7 +190,7 @@ get_file_type()
     }
 #ifdef LINUX
     file_type =
-        static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_KERNEL_SCHED);
+        static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS);
 #endif
     return file_type;
 }
