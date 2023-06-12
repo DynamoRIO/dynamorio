@@ -47,6 +47,9 @@
 #include <sstream>
 #include <thread>
 #include <vector>
+#ifdef LINUX
+#    include <syscall.h>
+#endif
 
 // Assumes we return an error string by convention.
 #define CHECK(val, msg) \
@@ -601,6 +604,11 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                     tdata->rseq_buffering_enabled_ = true;
                     tdata->rseq_end_pc_ = marker_val;
                 }
+            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL &&
+                       is_maybe_blocking_syscall(marker_val)) {
+                log(2, "Maybe-blocking syscall %zu\n", marker_val);
+                buf += trace_metadata_writer_t::write_marker(
+                    buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
             }
             // If there is currently a delayed branch that has not been emitted yet,
             // delay most markers since intra-block markers can cause issues with
@@ -3002,4 +3010,102 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: return count_rseq_side_exit_; break;
     default: DR_ASSERT(false); return 0;
     }
+}
+
+bool
+raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
+{
+#ifdef LINUX
+    // Some of these can be non-blocking if certain flags were set in prior system
+    // calls.  If we want to track such state it would have to be done in the tracer.
+    // For our purposes of adding context switches when scheduling user-mode threads,
+    // "maybe blocking" is close enough.
+    //
+    // TODO i#5843: This is not an exhaustive up-to-date list: there are newer variants
+    // of some of these and brand-new syscalls which may block.  We need to do a full
+    // audit to be comprehensive, but this should cover most cases.
+    switch (number) {
+#    ifdef SYS_accept
+    case SYS_accept:
+#    endif
+    case SYS_accept4:
+    case SYS_close:
+#    ifdef SYS_creat
+    case SYS_creat:
+#    endif
+    case SYS_epoll_pwait:
+#    ifdef SYS_epoll_wait
+    case SYS_epoll_wait:
+#    endif
+    case SYS_fcntl:
+    case SYS_flock:
+    case SYS_fsync:
+    case SYS_futex:
+#    ifdef SYS_getpmsg
+    case SYS_getpmsg:
+#    endif
+    case SYS_ioctl:
+    case SYS_mq_open:
+    case SYS_msgrcv:
+    case SYS_msgsnd:
+    case SYS_msync:
+    case SYS_nanosleep:
+#    ifdef SYS_open
+    case SYS_open:
+#    endif
+    case SYS_openat:
+#    ifdef SYS_openat2
+    case SYS_openat2:
+#    endif
+#    ifdef SYS_pause
+    case SYS_pause:
+#    endif
+#    ifdef SYS_poll
+    case SYS_poll:
+#    endif
+    case SYS_ppoll:
+    case SYS_pread64:
+    case SYS_preadv:
+    case SYS_pselect6:
+#    ifndef X64
+    case SYS_pselect6_time64:
+#    endif
+#    ifdef SYS_putpmsg
+    case SYS_putpmsg:
+#    endif
+    case SYS_pwrite64:
+    case SYS_pwritev:
+    case SYS_read:
+    case SYS_readv:
+    case SYS_recvfrom:
+    case SYS_recvmsg:
+    case SYS_sched_yield:
+#    ifdef SYS_select
+    case SYS_select:
+#    endif
+    case SYS_semctl:
+    case SYS_semget:
+#    ifdef SYS_semop
+    case SYS_semop:
+#    endif
+    case SYS_sendmsg:
+    case SYS_sendto:
+#    ifdef SYS_wait4
+    case SYS_wait4:
+#    endif
+#    ifdef SYS_waitid
+    case SYS_waitid:
+#    endif
+#    ifdef SYS_waitpid
+    case SYS_waitpid:
+#    endif
+    case SYS_write:
+    case SYS_writev: return true;
+    default: return false;
+    }
+#else
+    // XXX i#5843: We only support Linux for now.  For Windows we may want to
+    // link in drsyscall and add maybe-blocking info to the drsyscall database.
+    return false;
+#endif
 }

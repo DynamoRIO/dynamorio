@@ -64,6 +64,8 @@
 
 #ifdef ARM
 #    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
+#elif defined(LINUX)
+#    include <syscall.h>
 #endif
 
 #ifdef BUILD_PT_TRACER
@@ -1347,6 +1349,19 @@ event_pre_syscall(void *drcontext, int sysnum)
     if (!op_L0I_filter.get_value()) {
         BUF_PTR(data->seg_base) += instru->append_marker(
             BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
+#ifdef LINUX
+        if (sysnum == SYS_futex) {
+            static constexpr int FUTEX_ARG_COUNT = 6;
+            BUF_PTR(data->seg_base) += instru->append_marker(
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
+                TRACE_FUNC_ID_SYSCALL_BASE + IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
+            for (int i = 0; i < FUTEX_ARG_COUNT; ++i) {
+                BUF_PTR(data->seg_base) += instru->append_marker(
+                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ARG,
+                    dr_syscall_get_param(drcontext, i));
+            }
+        }
+#endif
     }
 
 #ifdef ARM
@@ -1387,15 +1402,40 @@ event_pre_syscall(void *drcontext, int sysnum)
 static void
 event_post_syscall(void *drcontext, int sysnum)
 {
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+        return;
+    if (BUF_PTR(data->seg_base) == NULL)
+        return; /* This thread was filtered out. */
+
+#ifdef LINUX
+    if (!op_L0I_filter.get_value()) { /* No syscall data unless full instr trace. */
+        if (sysnum == SYS_futex) {
+            dr_syscall_result_info_t info = {
+                sizeof(info),
+            };
+            dr_syscall_get_result_ex(drcontext, &info);
+            BUF_PTR(data->seg_base) += instru->append_marker(
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
+                TRACE_FUNC_ID_SYSCALL_BASE + IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
+            /* XXX i#5843: Return values are complex and can include more than just
+             * the primary register value.  Since we care mostly just about failure,
+             * we use the "succeeded" field.  However, this is not accurate for all
+             * syscalls.  Plus, would the scheduler want to know about various
+             * successful return values which indicate how many waiters were woken
+             * up and other data?
+             */
+            BUF_PTR(data->seg_base) += instru->append_marker(
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_RETVAL, info.succeeded);
+        }
+    }
+#endif
+
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
         return;
-    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
-        return;
     if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
         return;
-
-    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
     if (data->syscall_pt_trace.get_cur_recording_sysnum() == INVALID_SYSNUM) {
         ASSERT(false, "last syscall is not traced");
@@ -1410,8 +1450,6 @@ event_post_syscall(void *drcontext, int sysnum)
     }
 
     /* Write a marker to userspace raw trace. */
-    if (BUF_PTR(data->seg_base) == NULL)
-        return; /* This thread was filtered out. */
     /* TODO i#5505: We should move this _IDX marker to pre-syscall for two
      * reasons: 1) Some syscalls have no post event (e.g., exit or sigreturn);
      * 2) A blocking syscall may have a thread switch in between, separating the

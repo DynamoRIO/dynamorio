@@ -4043,6 +4043,12 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
 
+      if (LINUX) # Futex is Linux-only.
+        set(tool.drcacheoff.burst_futex_nodr ON)
+        set(tool.drcacheoff.burst_futex_nopost ON)
+        torunonly_drcacheoff(burst_futex tool.drcacheoff.burst_futex "" "" "")
+      endif ()
+
       if (UNIX)
         # FIXME i#2040: this hits static client issues on Windows
         set(tool.drcacheoff.burst_threads_nodr ON)
