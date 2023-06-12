@@ -743,7 +743,7 @@ if (BUILD_TESTS)
     add_test(NAME tool.drcacheoff.record_filter_unit_tests
              COMMAND tool.drcacheoff.record_filter_unit_tests --trace_dir
                      ${trace_dir} --tmp_output_dir ${tmp_output_dir})
-    set_tests_properties(tool.drcacheoff.record_filter_.unit_tests PROPERTIES TIMEOUT
+    set_tests_properties(tool.drcacheoff.record_filter_unit_tests PROPERTIES TIMEOUT
       ${test_seconds})
   endif ()
 
@@ -960,7 +960,7 @@ if (BUILD_TESTS)
     use_DynamoRIO_extension(tool.drcacheoff.skip_unit_tests drdecode)
     add_test(NAME tool.drcacheoff.skip_unit_tests
              COMMAND tool.drcacheoff.skip_unit_tests --trace_file ${zip_path})
-    set_tests_properties(tool.drcacheoff.skip_unit_test PROPERTIES
+    set_tests_properties(tool.drcacheoff.skip_unit_tests PROPERTIES
       TIMEOUT ${test_seconds})
   endif ()
 endif ()
