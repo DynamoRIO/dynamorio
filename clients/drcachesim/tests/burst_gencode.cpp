@@ -378,7 +378,7 @@ look_for_gencode(std::string trace_dir)
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     std::string trace_dir = gather_trace();
     return look_for_gencode(trace_dir);

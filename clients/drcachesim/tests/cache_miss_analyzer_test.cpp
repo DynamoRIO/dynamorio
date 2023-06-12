@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -207,7 +207,7 @@ two_dominant_strides()
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     if (no_dominant_stride() && one_dominant_stride() && two_dominant_strides()) {
         return 0;

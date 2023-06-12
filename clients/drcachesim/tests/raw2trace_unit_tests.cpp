@@ -1972,9 +1972,8 @@ test_xfer_absolute(void *drcontext)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-
     void *drcontext = dr_standalone_init();
     if (!test_branch_delays(drcontext) || !test_marker_placement(drcontext) ||
         !test_marker_delays(drcontext) || !test_chunk_boundaries(drcontext) ||
