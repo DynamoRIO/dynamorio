@@ -3784,6 +3784,7 @@ if (BUILD_CLIENTS)
       "@-simulator_type@basic_counts@-interval_microseconds@1M" "")
 
     # As for the online test, we check that only 1 thread is in the final trace.
+    set(tool.drcacheoff.max-global_timeout 240) # Can take >120s.
     torunonly_drcacheoff(max-global client.annotation-concurrency
       # Include function tracing to sanity test combining with delay and max.
       "-trace_after_instrs 20K -max_global_trace_refs 10K -record_heap"
