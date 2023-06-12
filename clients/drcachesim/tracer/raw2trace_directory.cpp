@@ -511,8 +511,11 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     /* Open the kernel files. */
     kcoredir_ = "";
     kallsymsdir_ = "";
-    kernel_indir_ = indir_ + std::string(DIRSEP) + ".." + std::string(DIRSEP) +
+    kernel_indir_ = modfile_dir + std::string(DIRSEP) + ".." + std::string(DIRSEP) +
         DRMEMTRACE_KERNEL_PT_SUBDIR;
+    /* If the -enable_kernel_tracing option is not specified during tracing, the output
+     * directory will not include a kernel directory, and raw2trace will not process it.
+     */
     if (directory_iterator_t::is_directory(kernel_indir_)) {
         kcoredir_ = kernel_indir_ + std::string(DIRSEP) + DRMEMTRACE_KCORE_FILENAME;
         kallsymsdir_ = kernel_indir_ + std::string(DIRSEP) + DRMEMTRACE_KALLSYMS_FILENAME;

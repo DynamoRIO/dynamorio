@@ -53,7 +53,7 @@ syscall_pt_trace_t::syscall_pt_trace_t()
     , close_file_func_(nullptr)
     , pttracer_handle_ { GLOBAL_DCONTEXT, nullptr }
     , pttracer_output_buffer_ { GLOBAL_DCONTEXT, nullptr }
-    , recorded_syscall_count_(-1)
+    , recorded_syscall_idx_(-1)
     , cur_recording_sysnum_(-1)
     , is_dumping_metadata_(false)
     , drcontext_(nullptr)
@@ -148,11 +148,13 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
            "pttracer_output_buffer_.data is nullptr");
     ASSERT(output_file_ != INVALID_FILE, "output_file_ is INVALID_FILE");
 
+    recorded_syscall_idx_++;
+
     if (drpttracer_stop_tracing(drcontext_, pttracer_handle_.handle,
                                 pttracer_output_buffer_.data) != DRPTTRACER_SUCCESS) {
         return false;
     }
-    recorded_syscall_count_++;
+
     if (!trace_data_dump(pttracer_output_buffer_)) {
         return false;
     }
@@ -233,7 +235,7 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
     /* Initialize the syscall id. */
     pdb_header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.type =
         SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX;
-    pdb_header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx = recorded_syscall_count_;
+    pdb_header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx = recorded_syscall_idx_;
 
     /* Initialize the parameter of current recorded syscall.
      * TODO i#5505: dynamorio doesn't provide a function to get syscall's
@@ -272,7 +274,8 @@ syscall_pt_trace_t::is_syscall_pt_trace_enabled(IN int sysnum)
     /* The following syscall's post syscall callback can't be triggered. So we don't
      * support to recording the kernel PT of them.
      */
-    if (sysnum == SYS_exit || sysnum == SYS_exit_group || sysnum == SYS_execve) {
+    if (sysnum == SYS_exit || sysnum == SYS_exit_group || sysnum == SYS_execve ||
+        sysnum == SYS_rt_sigreturn) {
         return false;
     }
     return true;

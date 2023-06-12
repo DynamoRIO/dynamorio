@@ -98,6 +98,13 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
+        if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_PT, per_shard->filetype_)) {
+            if (per_shard->is_kernel) {
+                ++counters->kernel_instrs;
+            } else {
+                ++counters->user_instrs;
+            }
+        }
         counters->unique_pc_addrs.insert(memref.instr.addr);
         // The encoding entries aren't exposed at the memref_t level, but
         // we use encoding_is_new as a proxy.
@@ -106,6 +113,13 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             ++counters->encodings;
     } else if (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         ++counters->instrs_nofetch;
+        if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_PT, per_shard->filetype_)) {
+            if (per_shard->is_kernel) {
+                ++counters->kernel_instrs;
+            } else {
+                ++counters->user_instrs;
+            }
+        }
         // The encoding entries aren't exposed at the memref_t level, but
         // we use encoding_is_new as a proxy.
         if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype_) &&
@@ -156,6 +170,11 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
                 ++counters->phys_unavail_markers;
                 break;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+                per_shard->is_kernel = true;
+                counters->counting_kernel_instrs();
+                break;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: per_shard->is_kernel = false; break;
             case TRACE_MARKER_TYPE_FILETYPE:
                 if (per_shard->filetype_ == -1) {
                     per_shard->filetype_ =
@@ -215,6 +234,12 @@ basic_counts_t::print_counters(const counters_t &counters, int_least64_t num_thr
     }
     std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
               << " non-fetched instructions\n";
+    if (counters.is_counting_kernel_instrs()) {
+        std::cerr << std::setw(12) << counters.user_instrs << prefix
+                  << " userspace instructions\n";
+        std::cerr << std::setw(12) << counters.kernel_instrs << prefix
+                  << " kernel instructions\n";
+    }
     std::cerr << std::setw(12) << counters.prefetches << prefix << " prefetches\n";
     std::cerr << std::setw(12) << counters.loads << prefix << " data loads\n";
     std::cerr << std::setw(12) << counters.stores << prefix << " data stores\n";
@@ -256,6 +281,9 @@ basic_counts_t::print_results()
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
             total += ctr;
+            if (ctr.is_counting_kernel_instrs()) {
+                total.counting_kernel_instrs();
+            }
         }
     }
     std::cerr << TOOL_NAME << " results:\n";

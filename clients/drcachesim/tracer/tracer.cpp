@@ -91,7 +91,9 @@ namespace dynamorio {
 namespace drmemtrace {
 
 char logsubdir[MAXIMUM_PATH];
+#ifdef BUILD_PT_TRACER
 char kernel_pt_logsubdir[MAXIMUM_PATH];
+#endif
 char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 
 static file_t module_file;
@@ -1363,10 +1365,6 @@ event_pre_syscall(void *drcontext, int sysnum)
 
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
-            return true;
-        }
-
         if (data->syscall_pt_trace.get_cur_recording_sysnum() != INVALID_SYSNUM) {
             ASSERT(false, "last tracing isn't stopped");
             if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
@@ -1374,6 +1372,11 @@ event_pre_syscall(void *drcontext, int sysnum)
                 return false;
             }
         }
+
+        if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
+            return true;
+        }
+
         if (!data->syscall_pt_trace.start_syscall_pt_trace(sysnum)) {
             ASSERT(false, "failed to start syscall pt trace");
             return false;
@@ -1768,10 +1771,10 @@ init_offline_dir(void)
     if (!file_ops_func.create_dir(logsubdir))
         return false;
 
+#ifdef BUILD_PT_TRACER
     dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir), "%s%s%s",
                 buf, DIRSEP, DRMEMTRACE_KERNEL_PT_SUBDIR);
     NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
-#ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         if (!file_ops_func.create_dir(kernel_pt_logsubdir))
             return false;

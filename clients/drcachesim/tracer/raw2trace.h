@@ -394,7 +394,7 @@ struct trace_metadata_reader_t {
  */
 struct ktrace_metadata_reader_t {
     static bool
-    is_thread_shared_pt_metadata_header(const syscall_pt_entry_t *entry);
+    is_pt_metadata_header(const syscall_pt_entry_t *entry);
     static bool
     is_syscall_pt_data_header(const syscall_pt_entry_t *entry);
     static thread_id_t
@@ -919,7 +919,9 @@ protected:
             , last_decode_modidx(0)
             , last_decode_modoffs(0)
             , last_block_summary(nullptr)
+#ifdef BUILD_PT_POST_PROCESSOR
             , kthread_file(nullptr)
+#endif
         {
         }
         // Support subclasses extending this struct.
@@ -994,8 +996,8 @@ protected:
         std::vector<branch_info_t> rseq_branch_targets_;
         std::vector<app_pc> rseq_decode_pcs_;
 
-        std::istream *kthread_file;
 #ifdef BUILD_PT_POST_PROCESSOR
+        std::istream *kthread_file;
         std::vector<syscall_pt_entry_t> pre_read_pt_entries;
         bool pt_metadata_processed = false;
         pt2ir_t pt2ir;
@@ -1069,11 +1071,13 @@ protected:
     virtual std::string
     read_and_map_modules();
 
+#ifdef BUILD_PT_POST_PROCESSOR
     /**
      * Process the PT data associated with the provided syscall index.
      */
     std::string
     process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx);
+#endif
 
     /**
      * Processes a raw buffer which must be the next buffer in the desired (typically

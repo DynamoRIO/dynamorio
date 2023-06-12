@@ -44,7 +44,8 @@
 #include "elf_loader.h"
 #include "pt2ir.h"
 
-#define ERRMSG_HEADER "[drpt2ir] "
+#define ERRMSG_HEADER "[drpt2ir][Error] "
+#define WARNMSG_HEADER "[drpt2ir][Warning] "
 
 pt_iscache_autoclean_t::pt_iscache_autoclean_t()
 {
@@ -382,12 +383,12 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
                 instr_allocate_raw_bits(drir.get_drcontext(), instr, insn.size);
 #ifdef DEBUG
                 /* Print the invalid instruction‘s PC and raw bytes in DEBUG mode. */
-                dr_fprintf(STDOUT, "<INVALID> <raw " PFX "-" PFX " ==", (app_pc)insn.ip,
-                           (app_pc)insn.ip + insn.size);
+                ERRMSG(WARNMSG_HEADER "<INVALID> <raw " PFX "-" PFX " ==",
+                       (app_pc)insn.ip, (app_pc)insn.ip + insn.size);
                 for (int i = 0; i < insn.size; i++) {
-                    dr_fprintf(STDOUT, " %02x", insn.raw[i]);
+                    ERRMSG(" %02x", insn.raw[i]);
                 }
-                dr_fprintf(STDOUT, ">\n");
+                ERRMSG(">\n");
 #endif
             }
             drir.append(instr);

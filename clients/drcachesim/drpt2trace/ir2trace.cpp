@@ -34,10 +34,11 @@
 #include "ir2trace.h"
 #include "dr_api.h"
 
-#define ERRMSG_HEADER "[drpt2ir] "
+#define ERRMSG_HEADER "[drir2trace][Error] "
+#define WARNMSG_HEADER "[drir2trace][Warning] "
 
 ir2trace_convert_status_t
-ir2trace_t::convert(IN drir_t &drir, OUT std::vector<trace_entry_t> &trace)
+ir2trace_t::convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace)
 {
     if (drir.get_ilist() == NULL) {
         return IR2TRACE_CONV_ERROR_INVALID_PARAMETER;
@@ -73,7 +74,7 @@ ir2trace_t::convert(IN drir_t &drir, OUT std::vector<trace_entry_t> &trace)
             }
         } else {
 #ifdef DEBUG
-            ERRMSG(ERRMSG_HEADER "Try to convert an invalid instruction.\n");
+            ERRMSG(WARNMSG_HEADER "Try to convert an invalid instruction.\n");
 #endif
         }
 

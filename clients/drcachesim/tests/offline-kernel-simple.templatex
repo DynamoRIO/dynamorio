@@ -1,28 +1,45 @@
 Hello, world!
-(\n|.)*Cache simulation results:
-Core #0 \(1 thread\(s\)\)
-  L1I stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Compulsory misses:          *[0-9,\.]*
-    Invalidations:              *0
-(\n|.)*Miss rate:               *[0-9][,\.]..%
-  L1D stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Compulsory misses:          *[0-9,\.]*
-    Invalidations:              *0
-(\n|.)*Miss rate:               *[0-9][,\.]..%
-Core #1 \(0 thread\(s\)\)
-Core #2 \(0 thread\(s\)\)
-Core #3 \(0 thread\(s\)\)
-LL stats:
-    Hits:                       *[0-9,\.]*
-    Misses:                     *[0-9,\.]*
-    Compulsory misses:          *[0-9,\.]*
-    Invalidations:              *0
-(\n|.)*Local miss rate:         *[0-9,.]*%
-    Child hits:                 *[0-9,\.]*
-    Total miss rate:            *[0-4][,\.]..%
-(\n|.)*Number of Instructions: *[1-9][0-9]*
-(\n|.)*Number of Trace Entries: *[1-9][0-9]*(\n|.)*
+Basic counts tool results:
+Total counts:
+     .* total \(fetched\) instructions
+     .* total unique \(fetched\) instructions
+     .* total non-fetched instructions
+     *[1-9][0-9]* total userspace instructions
+     *[1-9][0-9]* total kernel instructions
+     .* total prefetches
+     .* total data loads
+     .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
+           1 total threads
+     .* total scheduling markers
+     .* total transfer markers
+     .* total function id markers
+     .* total function return address markers
+     .* total function argument markers
+     .* total function return value markers
+     .* total physical address \+ virtual address marker pairs
+     .* total physical address unavailable markers
+     .* total other markers
+     .* total encodings
+Thread .* counts:
+     .* \(fetched\) instructions
+     .* unique \(fetched\) instructions
+     .* non-fetched instructions
+     *[1-9][0-9]* userspace instructions
+     *[1-9][0-9]* kernel instructions
+     .* prefetches
+     .* data loads
+     .* data stores
+     .* icache flushes
+     .* dcache flushes
+     .* scheduling markers
+     .* transfer markers
+     .* function id markers
+     .* function return address markers
+     .* function argument markers
+     .* function return value markers
+     .* physical address \+ virtual address marker pairs
+     .* physical address unavailable markers
+     .* other markers
+     .* encodings

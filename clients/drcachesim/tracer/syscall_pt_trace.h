@@ -134,7 +134,7 @@ public:
     int
     get_last_recorded_syscall_idx()
     {
-        return recorded_syscall_count_;
+        return recorded_syscall_idx_;
     }
 
     /* Check whether the syscall's PT need to be recorded.
@@ -176,8 +176,8 @@ private:
      */
     drpttracer_output_autoclean_t pttracer_output_buffer_;
 
-    /* The number of recorded syscall. */
-    int recorded_syscall_count_;
+    /* The index of recorded syscall. */
+    int recorded_syscall_idx_;
 
     /* The sysnum of current recording syscall. */
     int cur_recording_sysnum_;

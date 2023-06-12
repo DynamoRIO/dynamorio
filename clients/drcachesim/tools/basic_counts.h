@@ -82,6 +82,8 @@ public:
         {
             instrs += rhs.instrs;
             instrs_nofetch += rhs.instrs_nofetch;
+            user_instrs += rhs.user_instrs;
+            kernel_instrs += rhs.kernel_instrs;
             prefetches += rhs.prefetches;
             loads += rhs.loads;
             stores += rhs.stores;
@@ -109,6 +111,8 @@ public:
         {
             instrs -= rhs.instrs;
             instrs_nofetch -= rhs.instrs_nofetch;
+            user_instrs -= rhs.user_instrs;
+            kernel_instrs -= rhs.kernel_instrs;
             prefetches -= rhs.prefetches;
             loads -= rhs.loads;
             stores -= rhs.stores;
@@ -136,6 +140,7 @@ public:
             // cannot compare till offsetof(basic_counts_t::counters_t, unique_pc_addrs)
             // as it gives a non-standard-layout type warning on osx.
             return instrs == rhs.instrs && instrs_nofetch == rhs.instrs_nofetch &&
+                user_instrs == rhs.user_instrs && kernel_instrs == rhs.kernel_instrs &&
                 prefetches == rhs.prefetches && loads == rhs.loads &&
                 stores == rhs.stores && sched_markers == rhs.sched_markers &&
                 xfer_markers == rhs.xfer_markers &&
@@ -152,6 +157,8 @@ public:
         }
         int_least64_t instrs = 0;
         int_least64_t instrs_nofetch = 0;
+        int_least64_t user_instrs = 0;
+        int_least64_t kernel_instrs = 0;
         int_least64_t prefetches = 0;
         int_least64_t loads = 0;
         int_least64_t stores = 0;
@@ -185,8 +192,21 @@ public:
             return track_unique_pc_addrs;
         }
 
+        void
+        counting_kernel_instrs()
+        {
+            count_kernel_instrs = true;
+        }
+
+        bool
+        is_counting_kernel_instrs() const
+        {
+            return count_kernel_instrs;
+        }
+
     private:
         bool track_unique_pc_addrs = true;
+        bool count_kernel_instrs = false;
     };
     counters_t
     get_total_counts();
@@ -203,6 +223,8 @@ protected:
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
+        /* Indicates whether is analyzing kernel trace. */
+        bool is_kernel = false;
     };
     // Records a snapshot of counts for a trace interval.
     struct count_snapshot_t : public interval_state_snapshot_t {

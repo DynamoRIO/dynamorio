@@ -392,8 +392,12 @@ typedef enum {
     TRACE_MARKER_TYPE_PAGE_SIZE,
 
     /**
-     * This marker is emitted prior to each system call and the value contains a unique
-     * system call identifier.
+     * This marker is emitted after each system call that records kernel PT, and its value
+     * contains a unique identifier for the system call within a specific thread.
+     * \note This marker serves solely to indicate when to decode the syscall's PT trace
+     * and will not be included in the final complete trace. Instead, we utilize
+     * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and #TRACE_MARKER_TYPE_SYSCALL_TRACE_END to
+     * signify the beginning and end of a syscall's PT trace in the final trace.
      */
     TRACE_MARKER_TYPE_SYSCALL_IDX,
 
@@ -441,6 +445,16 @@ typedef enum {
      * file type #OFFLINE_FILE_TYPE_SYSCALL_NUMBERS is set.
      */
     TRACE_MARKER_TYPE_SYSCALL,
+
+    /**
+     * Indicates a point in the trace where a syscall's trace start.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+
+    /**
+     * Indicates a point in the trace where a syscall's trace end.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
     // ...
     // These values are reserved for future built-in marker types.
@@ -659,11 +673,13 @@ typedef enum {
     OFFLINE_FILE_TYPE_ARCH_X86_64 = 0x40,      /**< Recorded on x86 (64-bit). */
     OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
         OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
-        OFFLINE_FILE_TYPE_ARCH_X86_64,    /**< All possible architecture types. */
-    OFFLINE_FILE_TYPE_IFILTERED = 0x80,   /**< Instruction addresses filtered online. */
-    OFFLINE_FILE_TYPE_DFILTERED = 0x100,  /**< Data addresses filtered online. */
-    OFFLINE_FILE_TYPE_ENCODINGS = 0x200,  /**< Instruction encodings are included. */
-    OFFLINE_FILE_TYPE_SYSCALL_PT = 0x400, /**< Syscalls' PT tracings are included. */
+        OFFLINE_FILE_TYPE_ARCH_X86_64,   /**< All possible architecture types. */
+    OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
+    OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
+    OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
+    /** System call number markers are included. */
+    OFFLINE_FILE_TYPE_SYSCALL_NUMBERS = 0x400,
+    OFFLINE_FILE_TYPE_SYSCALL_PT = 0x800, /**< Syscalls' PT tracings are included. */
 } offline_file_type_t;
 
 static inline const char *
@@ -920,24 +936,31 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
         (SYSCALL_METADATA_ENTRY_NUM * sizeof(syscall_pt_entry_t))
 
 typedef enum {
-    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
+    /**
+     *  Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header.
+     */
     PDB_HEADER_PID_IDX = 0,
-    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD_ID in the PDB
+    /**
+     * Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD_ID in the PDB
      * header.
      */
     PDB_HEADER_TID_IDX = 1,
-    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY in the
+    /**
+     * Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY in the
      * PDB header.
      */
     PDB_HEADER_DATA_BOUNDARY_IDX = 2,
-    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSNUM in the PDB header.
+    /**
+     * Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSNUM in the PDB header.
      */
     PDB_HEADER_SYSNUM_IDX = 3,
-    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX in the PDB
+    /**
+     * Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX in the PDB
      * header.
      */
     PDB_HEADER_SYSCALL_IDX_IDX = 4,
-    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM in the
+    /**
+     * Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM in the
      * PDB header.
      */
     PDB_HEADER_NUM_ARGS_IDX = 5
