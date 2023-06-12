@@ -3790,6 +3790,7 @@ if (BUILD_CLIENTS)
       "-trace_after_instrs 20K -max_global_trace_refs 10K -record_heap"
       "@-simulator_type@basic_counts" "${annotation_test_args_shorter}")
 
+    set(tool.drcacheoff.max-global_timeout 240) # Can take >90s.
     torunonly_drcacheoff(delay-func ${ci_shared_app}
       # Delay enough that zero data should be logged to test that function
       # tracing is delayed (i#4893).
