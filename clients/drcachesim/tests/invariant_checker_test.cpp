@@ -694,7 +694,7 @@ check_rseq_side_exit_discontinuity()
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
         check_kernel_xfer() && check_rseq() && check_function_markers() &&

@@ -504,7 +504,7 @@ data_histogram_test()
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     print_histogram_empty_test();
     print_histogram_mult_1p0_test();
@@ -512,4 +512,5 @@ main(int argc, const char *argv[])
     simple_reuse_distance_test();
     reuse_distance_limit_test();
     data_histogram_test();
+    return 0;
 }

@@ -45,6 +45,7 @@
 #include "droption.h"
 #include "dr_frontend.h"
 #include "scheduler.h"
+#include "test_helpers.h"
 #ifdef HAS_ZIP
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
@@ -140,6 +141,8 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
 int
 _tmain(int argc, const TCHAR *targv[])
 {
+    disable_popups();
+
     // Convert to UTF-8 if necessary
     char **argv;
     drfront_status_t sc = drfront_convert_args(targv, &argv, argc);
