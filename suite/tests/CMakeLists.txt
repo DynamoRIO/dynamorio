@@ -1633,7 +1633,7 @@ function(torunonly_native name realexe expect source exe_ops)
   set(${name}_realtest ${realexe})
   if (NOT DEFINED ${test}_timeout)
     # We're not going through drrun with its timeout, so set the ctest timeout.
-#    set(${test}_timeout ${TEST_SECONDS})
+    set(${test}_timeout ${TEST_SECONDS})
   endif ()
   torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added OFF)
 endfunction(torunonly_native)

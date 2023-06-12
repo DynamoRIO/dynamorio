@@ -33,6 +33,7 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
+# We set a time limit on our unit tests here which do not go through suite/.
 set(test_seconds 90)
 
 if (WIN32)
