@@ -247,7 +247,6 @@ set(drcachesim_srcs
   ${zip_reader}
   ${snappy_reader}
   reader/ipc_reader.cpp
-  simulator/analyzer_interface.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp)
 add_executable(drcachesim ${drcachesim_srcs})
