@@ -1250,10 +1250,12 @@ private:
     size_t
     get_cache_line_size(raw2trace_thread_data_t *tdata);
 
-    // Increases the per-thread counter for the statistic identified by stat by value.
+    // Accumulates the given value into the per-thread counter for the statistic
+    // identified by stat. This may involve a simple addition, or any other operation
+    // like std::min or std::max, depending on the statistic.
     void
-    add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
-                     uint64 value);
+    accumulate_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
+                            uint64 value);
     void
     log_instruction(app_pc decode_pc, app_pc orig_pc);
 
