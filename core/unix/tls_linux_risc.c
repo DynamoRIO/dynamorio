@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -107,5 +107,4 @@ tls_thread_free(tls_type_t tls_type, int index)
      * os_enter_dynamorio()).
      */
     *dr_tls_base_addr = TLS_SLOT_VAL_EXITED;
-    return;
 }

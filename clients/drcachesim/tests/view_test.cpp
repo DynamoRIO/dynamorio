@@ -588,7 +588,7 @@ run_chunk_tests(void *drcontext)
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     void *drcontext = dr_standalone_init();
     if (run_limit_tests(drcontext) && run_chunk_tests(drcontext)) {

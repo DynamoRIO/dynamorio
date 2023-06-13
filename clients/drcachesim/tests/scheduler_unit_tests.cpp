@@ -2024,7 +2024,7 @@ test_replay_as_traced_from_file(const char *testdir)
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     // Takes in a path to the tests/ src dir.
     assert(argc == 2);

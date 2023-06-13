@@ -1319,6 +1319,9 @@ private:
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);
 
+    bool
+    is_maybe_blocking_syscall(uintptr_t number);
+
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
 
