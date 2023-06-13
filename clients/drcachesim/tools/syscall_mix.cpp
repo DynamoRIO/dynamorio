@@ -40,11 +40,13 @@
 const std::string syscall_mix_t::TOOL_NAME = "Syscall mix tool";
 
 analysis_tool_t *
-syscall_mix_tool_create(unsigned int verbose = 0) {
+syscall_mix_tool_create(unsigned int verbose = 0)
+{
     return new syscall_mix_t(verbose);
 }
 
-syscall_mix_t::syscall_mix_t(unsigned int verbose): knob_verbose_(verbose)
+syscall_mix_t::syscall_mix_t(unsigned int verbose)
+    : knob_verbose_(verbose)
 {
 }
 
@@ -95,7 +97,7 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     shard_data_t *shard = reinterpret_cast<shard_data_t *>(shard_data);
     if (memref.marker.type != TRACE_TYPE_MARKER ||
         memref.marker.marker_type != TRACE_MARKER_TYPE_SYSCALL) {
-            return true;
+        return true;
     }
     ++shard->syscall_counts[memref.marker.marker_value];
     return true;
@@ -119,9 +121,10 @@ syscall_mix_t::process_memref(const memref_t &memref)
 }
 
 static bool
-cmp_second_val(const std::pair<int, int_least64_t> &l, const std::pair<int, int_least64_t> &r)
+cmp_second_val(const std::pair<int, int_least64_t> &l,
+               const std::pair<int, int_least64_t> &r)
 {
-    return (l.second > r.second);
+    return l.second > r.second;
 }
 
 bool
@@ -138,8 +141,8 @@ syscall_mix_t::print_results()
         }
     }
     std::cerr << TOOL_NAME << " results:\n";
-    std::cerr << std::setw(15) << "count" << " : "
-              << std::setw(9) << "syscall_num\n";
+    std::cerr << std::setw(15) << "count"
+              << " : " << std::setw(9) << "syscall_num\n";
     std::vector<std::pair<int, int_least64_t>> sorted(total.syscall_counts.begin(),
                                                       total.syscall_counts.end());
     std::sort(sorted.begin(), sorted.end(), cmp_second_val);
