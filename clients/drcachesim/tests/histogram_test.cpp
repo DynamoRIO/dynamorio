@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2022 Google, LLC  All rights reserved.
+ * Copyright (c) 2021-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -83,7 +83,7 @@ check_cross_line()
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     if (check_cross_line()) {
         std::cerr << "histogram_test passed\n";

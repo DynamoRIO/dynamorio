@@ -47,6 +47,7 @@
 #include "drcovlib.h"
 #include <array>
 #include <atomic>
+#include <limits>
 #include <list>
 #include <memory>
 #include <queue>
@@ -103,6 +104,8 @@ typedef enum {
     RAW2TRACE_STAT_RSEQ_ABORT,
     RAW2TRACE_STAT_RSEQ_SIDE_EXIT,
     RAW2TRACE_STAT_FALSE_SYSCALL,
+    RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
+    RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP
 } raw2trace_statistic_t;
 
 struct module_t {
@@ -930,6 +933,8 @@ protected:
         uint64 count_false_syscall = 0;
         uint64 count_rseq_abort = 0;
         uint64 count_rseq_side_exit = 0;
+        uint64 earliest_trace_timestamp = (std::numeric_limits<uint64>::max)();
+        uint64 latest_trace_timestamp = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -1103,6 +1108,8 @@ protected:
     uint64 count_false_syscall_ = 0;
     uint64 count_rseq_abort_ = 0;
     uint64 count_rseq_side_exit_ = 0;
+    uint64 earliest_trace_timestamp_ = (std::numeric_limits<uint64>::max)();
+    uint64 latest_trace_timestamp_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 
@@ -1243,10 +1250,12 @@ private:
     size_t
     get_cache_line_size(raw2trace_thread_data_t *tdata);
 
-    // Increases the per-thread counter for the statistic identified by stat by value.
+    // Accumulates the given value into the per-thread value for the statistic
+    // identified by stat. This may involve a simple addition, or any other operation
+    // like std::min or std::max, depending on the statistic.
     void
-    add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
-                     int value);
+    accumulate_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
+                            uint64 value);
     void
     log_instruction(app_pc decode_pc, app_pc orig_pc);
 
@@ -1309,6 +1318,9 @@ private:
 
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);
+
+    bool
+    is_maybe_blocking_syscall(uintptr_t number);
 
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;

@@ -212,7 +212,7 @@ is_dc_zva_instr(void *dr_context, memref_t memref)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     // App setup.
     signal(SIGILL, sigill_handler);

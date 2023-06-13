@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -159,7 +159,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
