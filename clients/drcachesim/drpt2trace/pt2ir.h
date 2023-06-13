@@ -389,7 +389,8 @@ private:
 
     /* The shared image section cache.
      * The pt2ir_t instance is designed to work with a single thread, while the image is
-     * shared among all threads.
+     * shared among all threads. And the libipt library incorporates pthread mutex to wrap
+     * all its data race operations, ensuring thread safety.
      */
     static pt_iscache_autoclean_t share_iscache_;
 };

@@ -243,10 +243,10 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     return "";
 }
 
+#ifdef BUILD_PT_POST_PROCESSOR
 std::string
 raw2trace_directory_t::open_kthread_files()
 {
-#ifdef BUILD_PT_POST_PROCESSOR
     VPRINT(1, "Iterating dir %s\n", kernel_indir_.c_str());
     directory_iterator_t end;
     directory_iterator_t iter(kernel_indir_);
@@ -305,14 +305,9 @@ raw2trace_directory_t::open_kthread_files()
         in_kfiles_map_[tid] = ifile;
         VPRINT(1, "Opened input kernel thread file %s\n", path);
     }
-#else
-    VPRINT(1,
-           "The Post-processor for Kernel PT data has not been built, cannot open the "
-           "kernel thread files at %s\n",
-           kernel_indir_.c_str());
-#endif
     return "";
 }
+#endif
 
 std::string
 raw2trace_directory_t::open_serial_schedule_file()
@@ -508,9 +503,10 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     if (!err.empty())
         return err;
 
-    /* Open the kernel files. */
     kcoredir_ = "";
     kallsymsdir_ = "";
+#ifdef BUILD_PT_POST_PROCESSOR
+    /* Open the kernel files. */
     kernel_indir_ = modfile_dir + std::string(DIRSEP) + ".." + std::string(DIRSEP) +
         DRMEMTRACE_KERNEL_PT_SUBDIR;
     /* If the -enable_kernel_tracing option is not specified during tracing, the output
@@ -523,6 +519,9 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
         if (!err.empty())
             return err;
     }
+#else
+    kernel_indir_ = "";
+#endif
 
     return open_thread_files();
 }

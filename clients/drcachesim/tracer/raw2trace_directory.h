@@ -102,8 +102,10 @@ private:
     open_serial_schedule_file();
     std::string
     open_cpu_schedule_file();
+#ifdef BUILD_PT_POST_PROCESSOR
     std::string
     open_kthread_files();
+#endif
     file_t modfile_;
     std::string kernel_indir_;
     std::string indir_;

@@ -192,21 +192,8 @@ public:
             return track_unique_pc_addrs;
         }
 
-        void
-        counting_kernel_instrs()
-        {
-            count_kernel_instrs = true;
-        }
-
-        bool
-        is_counting_kernel_instrs() const
-        {
-            return count_kernel_instrs;
-        }
-
     private:
         bool track_unique_pc_addrs = true;
-        bool count_kernel_instrs = false;
     };
     counters_t
     get_total_counts();
@@ -223,7 +210,10 @@ protected:
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
-        /* Indicates whether is analyzing kernel trace. */
+        /* Indicates whether we're currently in the kernel region of the trace, which
+         * means we've seen a TRACE_MARKER_TYPE_SYSCALL_TRACE_START without its matching
+         * TRACE_MARKER_TYPE_SYSCALL_TRACE_STOP.
+         */
         bool is_kernel = false;
     };
     // Records a snapshot of counts for a trace interval.
@@ -245,7 +235,7 @@ protected:
                 const std::pair<memref_tid_t, per_shard_t *> &r);
     static void
     print_counters(const counters_t &counters, int_least64_t num_threads,
-                   const std::string &prefix);
+                   const std::string &prefix, bool for_kernel_trace = false);
     void
     compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id);
 
