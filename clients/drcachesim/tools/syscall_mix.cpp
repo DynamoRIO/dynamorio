@@ -99,7 +99,7 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         memref.marker.marker_type != TRACE_MARKER_TYPE_SYSCALL) {
         return true;
     }
-    ++shard->syscall_counts[memref.marker.marker_value];
+    ++shard->syscall_counts[static_cast<int>(memref.marker.marker_value)];
     return true;
 }
 
