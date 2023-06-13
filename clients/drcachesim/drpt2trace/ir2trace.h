@@ -42,6 +42,7 @@
  */
 
 #include <vector>
+#include <mutex>
 #include "drir.h"
 #include "../common/trace_entry.h"
 
@@ -87,6 +88,13 @@ public:
      */
     static ir2trace_convert_status_t
     convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace);
+
+#ifdef DEBUG
+private:
+    /* The mutex and counter for warning messages. */
+    static std::mutex warning_msg_mutex_;
+    static int warning_msg_count_;
+#endif
 };
 
 #endif /* _IR2TRACE_H_ */

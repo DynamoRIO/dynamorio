@@ -4286,7 +4286,7 @@ if (BUILD_CLIENTS)
     # invalid instructions during the execution of drcachesim, the regex matching function
     # of ctest will SegFault. As a result, kernel tests are excluded in debug builds. So
     # we need find a solution for kernel tests in debug builds.
-    if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR AND NOT DEBUG)
+    if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
       get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
       macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args)
         set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
@@ -4308,7 +4308,7 @@ if (BUILD_CLIENTS)
           "firstglob@${cmd_pfx}${drcachesim_path}@-simulator_type@basic_counts@-indir@${testname_full}.*.dir${sim_atops}")
       endmacro ()
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
-    endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR AND NOT DEBUG)
+    endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 
   ###########################################################################

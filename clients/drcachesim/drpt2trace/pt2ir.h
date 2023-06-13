@@ -45,6 +45,7 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
+#include <mutex>
 #ifndef DR_FAST_IR
 #    define DR_FAST_IR 1
 #endif
@@ -393,6 +394,12 @@ private:
      * all its data race operations, ensuring thread safety.
      */
     static pt_iscache_autoclean_t share_iscache_;
+
+#ifdef DEBUG
+    /* The mutex and counter for warning messages. */
+    static std::mutex warning_msg_mutex_;
+    static int warning_msg_count_;
+#endif
 };
 
 #endif /* _PT2IR_H_ */

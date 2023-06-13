@@ -61,6 +61,11 @@ pt_iscache_autoclean_t::~pt_iscache_autoclean_t()
 }
 
 pt_iscache_autoclean_t pt2ir_t::share_iscache_;
+#ifdef DEBUG
+#    define MAX_WARNING_MSG_COUNT 5
+int pt2ir_t::warning_msg_count_ = 0;
+std::mutex pt2ir_t::warning_msg_mutex_;
+#endif
 
 pt2ir_t::pt2ir_t()
     : pt2ir_initialized_(false)
@@ -382,13 +387,21 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
                 instr_set_raw_bits(instr, insn.raw, insn.size);
                 instr_allocate_raw_bits(drir.get_drcontext(), instr, insn.size);
 #ifdef DEBUG
-                /* Print the invalid instruction‘s PC and raw bytes in DEBUG mode. */
-                ERRMSG(WARNMSG_HEADER "<INVALID> <raw " PFX "-" PFX " ==",
-                       (app_pc)insn.ip, (app_pc)insn.ip + insn.size);
-                for (int i = 0; i < insn.size; i++) {
-                    ERRMSG(" %02x", insn.raw[i]);
+
+                /* Print the invalid instruction‘s PC and raw bytes in DEBUG builds. */
+                warning_msg_mutex_.lock();
+                if (warning_msg_count_ < MAX_WARNING_MSG_COUNT) {
+                    ERRMSG(WARNMSG_HEADER "<INVALID> <raw " PFX "-" PFX " ==",
+                           (app_pc)insn.ip, (app_pc)insn.ip + insn.size);
+                    for (int i = 0; i < insn.size; i++) {
+                        ERRMSG(" %02x", insn.raw[i]);
+                    }
+                    ERRMSG(">\n");
+                } else if (warning_msg_count_ == MAX_WARNING_MSG_COUNT) {
+                    ERRMSG(WARNMSG_HEADER "---The log has been truncated---\n");
                 }
-                ERRMSG(">\n");
+                warning_msg_count_++;
+                warning_msg_mutex_.unlock();
 #endif
             }
             drir.append(instr);

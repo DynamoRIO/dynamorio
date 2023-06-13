@@ -37,6 +37,12 @@
 #define ERRMSG_HEADER "[drir2trace][Error] "
 #define WARNMSG_HEADER "[drir2trace][Warning] "
 
+#ifdef DEBUG
+#    define MAX_WARNING_MSG_COUNT 5
+int ir2trace_t::warning_msg_count_ = 0;
+std::mutex ir2trace_t::warning_msg_mutex_;
+#endif
+
 ir2trace_convert_status_t
 ir2trace_t::convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace)
 {
@@ -74,7 +80,14 @@ ir2trace_t::convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace)
             }
         } else {
 #ifdef DEBUG
-            ERRMSG(WARNMSG_HEADER "Try to convert an invalid instruction.\n");
+            warning_msg_mutex_.lock();
+            if (warning_msg_count_ < MAX_WARNING_MSG_COUNT) {
+                ERRMSG(WARNMSG_HEADER "Try to convert an invalid instruction.\n");
+            } else if (warning_msg_count_ == MAX_WARNING_MSG_COUNT) {
+                ERRMSG(WARNMSG_HEADER "---The log has been truncated---\n");
+            }
+            warning_msg_count_++;
+            warning_msg_mutex_.unlock();
 #endif
         }
 
