@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -202,7 +202,7 @@ void *
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
 #ifdef UNIX
     pthread_t thread[num_threads];

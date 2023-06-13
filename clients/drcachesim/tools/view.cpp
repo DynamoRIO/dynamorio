@@ -353,7 +353,13 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
         case TRACE_MARKER_TYPE_FUNC_ID:
-            std::cerr << "<marker: function #" << memref.marker.marker_value << ">\n";
+            if (memref.marker.marker_value >= TRACE_FUNC_ID_SYSCALL_BASE) {
+                std::cerr << "<marker: function==syscall #"
+                          << (memref.marker.marker_value - TRACE_FUNC_ID_SYSCALL_BASE)
+                          << ">\n";
+            } else {
+                std::cerr << "<marker: function #" << memref.marker.marker_value << ">\n";
+            }
             break;
         case TRACE_MARKER_TYPE_FUNC_RETADDR:
             std::cerr << "<marker: function return address 0x" << std::hex
@@ -373,6 +379,9 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             break;
         case TRACE_MARKER_TYPE_SYSCALL:
             std::cerr << "<marker: system call " << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+            std::cerr << "<marker: maybe-blocking sytem call>\n";
             break;
         case TRACE_MARKER_TYPE_WINDOW_ID:
             // Handled above.

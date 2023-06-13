@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -256,7 +256,7 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,

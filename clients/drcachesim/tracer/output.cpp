@@ -199,6 +199,10 @@ get_file_type()
         file_type = static_cast<offline_file_type_t>(file_type |
                                                      OFFLINE_FILE_TYPE_SYSCALL_NUMBERS);
     }
+#ifdef LINUX
+    file_type =
+        static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS);
+#endif
     return file_type;
 }
 
