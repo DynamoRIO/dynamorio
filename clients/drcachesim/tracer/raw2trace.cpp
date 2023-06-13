@@ -828,6 +828,10 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
             VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
                    (uint)tdata->tid, (uint64)entry.timestamp.usec);
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
+                                    static_cast<uint64>(entry.timestamp.usec));
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
+                                    static_cast<uint64>(entry.timestamp.usec));
             byte *buf = buf_base +
                 trace_metadata_writer_t::write_timestamp(buf_base,
                                                          (uintptr_t)entry.timestamp.usec);
@@ -954,6 +958,10 @@ raw2trace_t::do_conversion()
             count_false_syscall_ += thread_data_[i]->count_false_syscall;
             count_rseq_abort_ += thread_data_[i]->count_rseq_abort;
             count_rseq_side_exit_ += thread_data_[i]->count_rseq_side_exit;
+            earliest_trace_timestamp_ = std::min(
+                earliest_trace_timestamp_, thread_data_[i]->earliest_trace_timestamp);
+            latest_trace_timestamp_ = std::max(latest_trace_timestamp_,
+                                               thread_data_[i]->latest_trace_timestamp);
         }
     } else {
         // The files can be converted concurrently.
@@ -974,6 +982,10 @@ raw2trace_t::do_conversion()
             count_false_syscall_ += tdata->count_false_syscall;
             count_rseq_abort_ += tdata->count_rseq_abort;
             count_rseq_side_exit_ += tdata->count_rseq_side_exit;
+            earliest_trace_timestamp_ =
+                std::min(earliest_trace_timestamp_, tdata->earliest_trace_timestamp);
+            latest_trace_timestamp_ =
+                std::max(latest_trace_timestamp_, tdata->latest_trace_timestamp);
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -988,6 +1000,8 @@ raw2trace_t::do_conversion()
     VPRINT(1, "Adjusted " UINT64_FORMAT_STRING " rseq aborts.\n", count_rseq_abort_);
     VPRINT(1, "Adjusted " UINT64_FORMAT_STRING " rseq side exits.\n",
            count_rseq_side_exit_);
+    VPRINT(1, "Trace duration %.3fs.\n",
+           (latest_trace_timestamp_ - earliest_trace_timestamp_) / 1000000.0);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
@@ -1272,7 +1286,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         DR_CHECK(pc > decode_pc, "error advancing inside block");
         DR_CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
         if (instr->is_syscall() && should_omit_syscall(tdata)) {
-            add_to_statistic(tdata, RAW2TRACE_STAT_FALSE_SYSCALL, 1);
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_FALSE_SYSCALL, 1);
             log(3, "Omitting syscall instr without subsequent number marker.\n");
             // Exit and do not append this syscall instruction.  It must be the
             // final instruction in the block; since the tracer requests callbacks
@@ -1307,7 +1321,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                          "Syscall without marker should have been removed");
                 // We've consumed these records and we just drop them.
             }
-            add_to_statistic(tdata, RAW2TRACE_STAT_DUPLICATE_SYSCALL, 1);
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_DUPLICATE_SYSCALL, 1);
             log(3, "Found block with duplicate system call instruction. Skipping.\n");
             // Since this instr is in its own block, we're done.
             // Note that this will result in a pair of timestamp+cpu markers without
@@ -1594,7 +1608,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
                     // there should be no (other) intra-bb markers not for the store.
                     log(4, "Rolling back %d entries for rseq abort\n",
                         *buf_in - buf_start);
-                    add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
+                    accumulate_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
                     // If we recorded and emitted an encoding we would not emit
                     // it next time and be missing the encoding so we must clear
                     // the cache for that entry.  This will only happen once
@@ -1766,7 +1780,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t *
                 get_register_name(base), buf->addr);
         }
         have_addr = true;
-        add_to_statistic(tdata, RAW2TRACE_STAT_COUNT_ELIDED, 1);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_COUNT_ELIDED, 1);
     }
     if (!have_addr) {
         if (memref.use_remembered_base)
@@ -1967,7 +1981,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
         // An abort.  It could have aborted earlier but we have no way of knowing
         // so we do the simplest thing and only roll back the committing store.
         log(4, "Rseq aborted\n");
-        add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
         if (tdata->rseq_commit_idx_ < 0) {
             if (tdata->rseq_buffer_.empty()) {
                 // This is a graceful failure: we consider this a bug to
@@ -1998,7 +2012,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
         log(4, "Rseq instrumented side exit\n");
     } else {
         log(4, "Rseq exited on the side: searching for where\n");
-        add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_SIDE_EXIT, 1);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_SIDE_EXIT, 1);
         bool found_direct = false;
         bool found_skip = false;
         branch_info_t info;
@@ -2986,8 +3000,8 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
 }
 
 void
-raw2trace_t::add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
-                              int value)
+raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
+                                     raw2trace_statistic_t stat, uint64 value)
 {
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: tdata->count_elided += value; break;
@@ -2995,6 +3009,13 @@ raw2trace_t::add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statisti
     case RAW2TRACE_STAT_FALSE_SYSCALL: tdata->count_false_syscall += value; break;
     case RAW2TRACE_STAT_RSEQ_ABORT: tdata->count_rseq_abort += value; break;
     case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: tdata->count_rseq_side_exit += value; break;
+    case RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP:
+        tdata->earliest_trace_timestamp =
+            std::min(tdata->earliest_trace_timestamp, value);
+        break;
+    case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP:
+        tdata->latest_trace_timestamp = std::max(tdata->latest_trace_timestamp, value);
+        break;
     default: DR_ASSERT(false);
     }
 }
@@ -3006,8 +3027,10 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided_;
     case RAW2TRACE_STAT_DUPLICATE_SYSCALL: return count_duplicate_syscall_;
     case RAW2TRACE_STAT_FALSE_SYSCALL: return count_false_syscall_;
-    case RAW2TRACE_STAT_RSEQ_ABORT: return count_rseq_abort_; break;
-    case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: return count_rseq_side_exit_; break;
+    case RAW2TRACE_STAT_RSEQ_ABORT: return count_rseq_abort_;
+    case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: return count_rseq_side_exit_;
+    case RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP: return earliest_trace_timestamp_;
+    case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP: return latest_trace_timestamp_;
     default: DR_ASSERT(false); return 0;
     }
 }
