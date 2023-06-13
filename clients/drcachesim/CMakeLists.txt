@@ -33,6 +33,9 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
+# We set a time limit on our unit tests here which do not go through suite/.
+set(test_seconds 90)
+
 if (WIN32)
   set(os_name "win")
   # Our non-client files assume this is set, yet don't include headers that set it.
@@ -367,6 +370,7 @@ if (X86 AND X64 AND ZIP_FOUND)
     "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
   add_test(NAME tool.scheduler_launcher
     COMMAND scheduler_launcher -trace_dir ${trace_dir})
+  set_tests_properties(tool.scheduler_launcher PROPERTIES TIMEOUT ${test_seconds})
 endif ()
 
 # We have a companion test built using a separate --build-and-test CMake project in
@@ -693,6 +697,7 @@ if (BUILD_TESTS)
   add_win32_flags(tool.reuse_distance.unit_tests)
   add_test(NAME tool.reuse_distance.unit_tests
        COMMAND tool.reuse_distance.unit_tests)
+  set_tests_properties(tool.reuse_distance.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp
     tests/cache_replacement_policy_unit_test.cpp tests/config_reader_unit_test.cpp)
@@ -703,6 +708,7 @@ if (BUILD_TESTS)
   add_test(NAME tool.drcachesim.unit_tests
            COMMAND tool.drcachesim.unit_tests
            ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
+  set_tests_properties(tool.drcachesim.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
   add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
   configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
@@ -713,6 +719,8 @@ if (BUILD_TESTS)
   use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drcovlib_static)
   add_test(NAME tool.drcacheoff.raw2trace_unit_tests
     COMMAND tool.drcacheoff.raw2trace_unit_tests)
+  set_tests_properties(tool.drcacheoff.raw2trace_unit_tests PROPERTIES TIMEOUT
+    ${test_seconds})
 
   add_executable(tool.scheduler.unit_tests tests/scheduler_unit_tests.cpp
     tests/scheduler_unit_tests.cpp)
@@ -727,6 +735,7 @@ if (BUILD_TESTS)
   add_test(NAME tool.scheduler.unit_tests
     COMMAND tool.scheduler.unit_tests
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
+  set_tests_properties(tool.scheduler.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
   # XXX i#5675: add tests for other environments. Currently, the repository does not have
   # a checked-in post-processed trace for x86-32 or AArchXX.  We are also limited to
@@ -744,6 +753,8 @@ if (BUILD_TESTS)
     add_test(NAME tool.drcacheoff.record_filter_unit_tests
              COMMAND tool.drcacheoff.record_filter_unit_tests --trace_dir
                      ${trace_dir} --tmp_output_dir ${tmp_output_dir})
+    set_tests_properties(tool.drcacheoff.record_filter_unit_tests PROPERTIES TIMEOUT
+      ${test_seconds})
   endif ()
 
   add_executable(tool.drcacheoff.trace_interval_analysis_unit_tests
@@ -753,6 +764,8 @@ if (BUILD_TESTS)
     drmemtrace_analyzer drdecode test_helpers)
   add_test(NAME tool.drcacheoff.trace_interval_analysis_unit_tests
            COMMAND tool.drcacheoff.trace_interval_analysis_unit_tests)
+  set_tests_properties(tool.drcacheoff.trace_interval_analysis_unit_tests PROPERTIES
+    TIMEOUT ${test_seconds})
 
   if (DR_HOST_AARCH64 AND NOT APPLE) # i#1997: static DR on Mac NYI.
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
@@ -775,6 +788,8 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
     add_test(NAME tool.drcachesim.miss_analyzer_unit_test
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
+    set_tests_properties(tool.drcachesim.miss_analyzer_unit_test PROPERTIES
+      TIMEOUT ${test_seconds})
 
     add_executable(tool.drcachesim.invariant_checker_test tests/invariant_checker_test.cpp)
     configure_DynamoRIO_standalone(tool.drcachesim.invariant_checker_test)
@@ -783,6 +798,8 @@ if (BUILD_TESTS)
         drmemtrace_static drmemtrace_analyzer drmemtrace_invariant_checker test_helpers)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
+    set_tests_properties(tool.drcachesim.invariant_checker_test PROPERTIES
+      TIMEOUT ${test_seconds})
 
     add_executable(tool.drcacheoff.view_test tests/view_test.cpp reader/file_reader.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
@@ -794,6 +811,7 @@ if (BUILD_TESTS)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)
     add_test(NAME tool.drcacheoff.view_test
       COMMAND tool.drcacheoff.view_test)
+    set_tests_properties(tool.drcacheoff.view_test PROPERTIES TIMEOUT ${test_seconds})
 
     add_executable(tool.drcachesim.histogram_test
       tools/histogram.cpp tests/histogram_test.cpp)
@@ -802,6 +820,8 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcachesim.histogram_test)
     add_test(NAME tool.drcachesim.histogram_test
              COMMAND tool.drcachesim.histogram_test)
+    set_tests_properties(tool.drcachesim.histogram_test PROPERTIES
+      TIMEOUT ${test_seconds})
 
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)
@@ -934,6 +954,22 @@ if (BUILD_TESTS)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_traceopts)
       use_DynamoRIO_extension(tool.drcacheoff.burst_traceopts drcovlib_static)
     endif (NOT RISCV64)
+
+    if (LINUX) # Futex is Linux-only.
+      add_executable(tool.drcacheoff.burst_futex
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/burst_futex.cpp")
+      configure_DynamoRIO_static(tool.drcacheoff.burst_futex)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_futex drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_futex drmemtrace_raw2trace
+        drmemtrace_analyzer)
+      if (WIN32)
+        # Just like for burst_replace, linking everything together takes effort.
+        target_link_libraries(tool.drcacheoff.burst_futex ${static_libc})
+      endif ()
+      add_win32_flags(tool.drcacheoff.burst_futex)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_futex)
+    endif ()
+
   endif ()
 
   if (X86 AND X64 AND ZIP_FOUND)
@@ -950,6 +986,8 @@ if (BUILD_TESTS)
     use_DynamoRIO_extension(tool.drcacheoff.skip_unit_tests drdecode)
     add_test(NAME tool.drcacheoff.skip_unit_tests
              COMMAND tool.drcacheoff.skip_unit_tests --trace_file ${zip_path})
+    set_tests_properties(tool.drcacheoff.skip_unit_tests PROPERTIES
+      TIMEOUT ${test_seconds})
   endif ()
 endif ()
 

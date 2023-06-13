@@ -118,6 +118,7 @@ protected:
         std::unique_ptr<instr_autoclean_t> prev_instr_decoded_ = nullptr;
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
+        uintptr_t prev_func_id_ = 0;
         addr_t last_retaddr_ = 0;
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
@@ -153,6 +154,7 @@ protected:
         bool found_instr_count_marker_ = false;
         bool found_page_size_marker_ = false;
         bool found_syscall_marker_ = false;
+        bool found_blocking_marker_ = false;
         uint64_t syscall_count_ = 0;
         uint64_t last_instr_count_marker_ = 0;
         std::string error_;

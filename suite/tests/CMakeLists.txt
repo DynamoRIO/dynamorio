@@ -1525,8 +1525,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # Though we mostly use drrun's -s we set this too in case the requested
     # value is higher than ctest's default.
     set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
+  elseif (is_runcmp)
+    # Runcmp generally doesn't use drrun or runstats so we need a ctest timeout.
+    set_tests_properties(${test} PROPERTIES TIMEOUT ${TEST_SECONDS})
   endif ()
 
+  # Though we use drrun and runstats -s timeout parameters, we have
   if (pass_opts_via_env)
     string(REPLACE ";" " " runops_string "${runops}")
     set_tests_properties(${test} PROPERTIES ENVIRONMENT "DYNAMORIO_OPTIONS=${runops_string}")
@@ -1636,6 +1640,10 @@ function(torunonly_native name realexe expect source exe_ops)
   strings2lists(${name} ops)
   set(${name}_expectbase ${expect})
   set(${name}_realtest ${realexe})
+  if (NOT DEFINED ${test}_timeout)
+    # We're not going through drrun with its timeout, so set the ctest timeout.
+    set(${test}_timeout ${TEST_SECONDS})
+  endif ()
   torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added OFF)
 endfunction(torunonly_native)
 
@@ -3789,6 +3797,7 @@ if (BUILD_CLIENTS)
       # Include function tracing to sanity test combining with delay and max.
       "-trace_after_instrs 20K -max_global_trace_refs 10K -record_heap"
       "@-simulator_type@basic_counts" "${annotation_test_args_shorter}")
+    set(tool.drcacheoff.max-global_timeout 240) # Can take >120s.
 
     torunonly_drcacheoff(delay-func ${ci_shared_app}
       # Delay enough that zero data should be logged to test that function
@@ -3805,6 +3814,7 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.delay-func_nopost ON)
     set(tool.drcacheoff.delay-func_postcmd
       "${CMAKE_COMMAND}@-E@echo@${dir_prefix}.*.dir/raw/*raw*")
+    set(tool.drcacheoff.delay-func_timeout 240) # Can take >90s.
 
     torunonly_drcacheoff(windows-simple ${ci_shared_app}
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
@@ -4041,6 +4051,12 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_traceopts_nodr ON)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
+
+      if (LINUX) # Futex is Linux-only.
+        set(tool.drcacheoff.burst_futex_nodr ON)
+        set(tool.drcacheoff.burst_futex_nopost ON)
+        torunonly_drcacheoff(burst_futex tool.drcacheoff.burst_futex "" "" "")
+      endif ()
 
       if (UNIX)
         # FIXME i#2040: this hits static client issues on Windows
