@@ -113,8 +113,7 @@ syscall_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         ++shard->syscall_counts[syscall_num];
         break;
     }
-    default:
-        break;
+    default: break;
     }
     return true;
 }
