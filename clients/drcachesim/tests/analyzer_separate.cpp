@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,11 @@
 #include "drmemtrace/analyzer.h"
 #include "drmemtrace/histogram_create.h"
 
+using dynamorio::drmemtrace::analysis_tool_t;
+using dynamorio::drmemtrace::analyzer_t;
+
+namespace {
+
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
         fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
@@ -72,6 +77,8 @@ droption_t<unsigned int>
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
                                     "Verbosity level for notifications.");
+
+} // namespace
 
 int
 _tmain(int argc, const TCHAR *targv[])

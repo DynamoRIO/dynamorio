@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,6 +47,9 @@
 #include "analysis_tool.h"
 #include "reuse_distance_create.h"
 #include "memref.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // We see noticeable overhead in release build with an if() that directly
 // checks knob_verbose, so for non-debug uses we eliminate it entirely.
@@ -437,5 +440,8 @@ struct line_ref_list_t {
         return dist;
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _REUSE_DISTANCE_H_ */

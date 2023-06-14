@@ -52,6 +52,9 @@
 #endif
 #include "../../../suite/tests/condvar.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 static const int num_threads = 8;
 static const int num_idle_threads = 40;
 static const int burst_owner = 4;
@@ -255,3 +258,6 @@ test_main(int argc, const char *argv[])
     destroy_cond_var(idle_should_exit);
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

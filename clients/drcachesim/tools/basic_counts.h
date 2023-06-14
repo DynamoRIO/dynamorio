@@ -40,6 +40,9 @@
 
 #include "analysis_tool.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class basic_counts_t : public analysis_tool_t {
 public:
     basic_counts_t(unsigned int verbose);
@@ -247,5 +250,8 @@ protected:
     unsigned int knob_verbose_;
     static const std::string TOOL_NAME;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _BASIC_COUNTS_H_ */

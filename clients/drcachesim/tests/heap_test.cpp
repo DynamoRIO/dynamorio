@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,8 @@
 #include "tools.h"
 #include <new>
 #include <stdio.h>
+
+namespace {
 
 static void
 test_operators()
@@ -142,6 +144,8 @@ test_operators()
         free(buf);
     }
 }
+
+} // namespace
 
 int
 main()

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,9 @@
 #include "tlb_stats.h"
 #include "tlb.h"
 #include "tlb_simulator.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 analysis_tool_t *
 tlb_simulator_create(const tlb_simulator_knobs_t &knobs)
@@ -246,3 +249,6 @@ tlb_simulator_t::create_tlb(std::string policy)
            "Please choose " REPLACE_POLICY_LFU ".\n");
     return NULL;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

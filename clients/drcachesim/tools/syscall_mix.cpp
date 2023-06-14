@@ -38,6 +38,9 @@
 #include <iostream>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 const std::string syscall_mix_t::TOOL_NAME = "Syscall mix tool";
 
 analysis_tool_t *
@@ -169,3 +172,6 @@ syscall_mix_t::print_results()
     }
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

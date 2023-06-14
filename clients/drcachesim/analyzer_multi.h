@@ -40,6 +40,9 @@
 #include "analyzer.h"
 #include "simulator/cache_simulator_create.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class analyzer_multi_t : public analyzer_t {
 public:
     // Usage: errors encountered during the constructor will set a flag that should
@@ -78,5 +81,8 @@ protected:
 
     static const int max_num_tools_ = 8;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ANALYZER_MULTI_H_ */

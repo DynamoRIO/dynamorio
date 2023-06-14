@@ -58,6 +58,9 @@
 
 #include <iostream>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 // Assumes we return an error string by convention.
 #define CHECK(val, msg) \
     do {                \
@@ -3321,3 +3324,6 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     return false;
 #endif
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -35,6 +35,9 @@
 
 #include "analysis_tool.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /**
  * @file drmemtrace/invariant_checker_create.h
  * @brief DrMemtrace trace invariant checker tool creation.
@@ -47,5 +50,8 @@
  */
 analysis_tool_t *
 invariant_checker_create(bool offline, unsigned int verbose = 0);
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _INVARIANT_CHECKER_CREATE_H_ */

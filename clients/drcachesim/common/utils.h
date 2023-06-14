@@ -40,6 +40,9 @@
 #include <sstream>
 #include <string>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 // XXX: DR should export this
 #define INVALID_THREAD_ID 0
 
@@ -162,5 +165,8 @@ starts_with(const std::string &str, const std::string &with)
         return false;
     return pos == 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _UTILS_H_ */

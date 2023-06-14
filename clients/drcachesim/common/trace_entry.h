@@ -51,37 +51,40 @@
  * @brief DrMemtrace trace entry enum types and definitions.
  */
 
+namespace dynamorio {
+namespace drmemtrace {
+
 typedef uintptr_t addr_t; /**< The type of a memory address. */
 
 /**
  * The version number of the trace format.
  * This is presented to analysis tools as a marker of type
- * #TRACE_MARKER_TYPE_VERSION.
+ * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION.
  */
 typedef enum {
     /**
-     * A prior version where #TRACE_MARKER_TYPE_KERNEL_EVENT provided the module
-     * offset (and nothing for restartable sequence aborts) rather than the absolute
-     * PC of the interruption point provided today.
+     * A prior version where #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT
+     * provided the module offset (and nothing for restartable sequence aborts) rather
+     * than the absolute PC of the interruption point provided today.
      */
     TRACE_ENTRY_VERSION_NO_KERNEL_PC = 2,
     /**
-     * #TRACE_MARKER_TYPE_KERNEL_EVENT records provide the absolute
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT records provide the absolute
      * PC of the interruption point.
      */
     TRACE_ENTRY_VERSION_KERNEL_PC = 3,
     /**
      * The trace supports embedded instruction encodings, but they are only present
-     * if #OFFLINE_FILE_TYPE_ENCODINGS is set.
+     * if #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_ENCODINGS is set.
      */
     TRACE_ENTRY_VERSION_ENCODINGS = 4,
     /** The latest version of the trace format. */
     TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_ENCODINGS,
 } trace_version_t;
 
-/** The type of a trace entry in a #memref_t structure. */
+/** The type of a trace entry in a #dynamorio::drmemtrace::memref_t structure. */
 // The type identifier for trace entries in the raw trace_entry_t passed to
-// reader_t and the exposed #memref_t passed to analysis tools.
+// reader_t and the exposed #dynamorio::drmemtrace::memref_t passed to analysis tools.
 // XXX: if we want to rely on a recent C++ standard we could try to get
 // this enum to be just 2 bytes instead of an int and give it qualified names.
 // N.B.: when adding new values, be sure to update trace_type_names[].
@@ -178,7 +181,8 @@ typedef enum {
 
     /**
      * A marker containing metadata about this point in the trace.
-     * It includes a marker sub-type #trace_marker_type_t and a value.
+     * It includes a marker sub-type #dynamorio::drmemtrace::trace_marker_type_t and a
+     * value.
      */
     TRACE_TYPE_MARKER,
 
@@ -241,12 +245,12 @@ typedef enum {
      * The value of this marker contains the program counter at the kernel
      * interruption point.  If the interruption point is just after a branch, this
      * value is the target of that branch.
-     * (For trace version #TRACE_ENTRY_VERSION_NO_KERNEL_PC or below, the value is
-     * the module offset rather than the absolute program counter.)
+     * (For trace version #dynamorio::drmemtrace::TRACE_ENTRY_VERSION_NO_KERNEL_PC or
+     * below, the value is the module offset rather than the absolute program counter.)
      * The value is 0 for some types where this information is not available, namely
      * Windows callbacks.
      * A restartable sequence abort handler is further identified by a prior
-     * marker of type #TRACE_MARKER_TYPE_RSEQ_ABORT.
+     * marker of type #dynamorio::drmemtrace::TRACE_MARKER_TYPE_RSEQ_ABORT.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
@@ -279,12 +283,13 @@ typedef enum {
      * the drmemtrace_get_funclist_path() function's documentation.
      *
      * This marker is also used to record parameter values for certain system calls such
-     * as for #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS.  These use large identifiers equal to
-     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (for 32-bit
-     * marker values just the bottom 16 bits of the system call number are added to the
-     * base).  These identifiers are not stored in the function list file
-     * (drmemtrace_get_funclist_path()).  The system call number used is the value
-     * passed to DynamoRIO's dr_register_pre_syscall_event() which is normalized to
+     * as for #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS.  These use
+     * large identifiers equal to
+     * #dynamorio::drmemtrace::func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system
+     * call number (for 32-bit marker values just the bottom 16 bits of the system call
+     * number are added to the base).  These identifiers are not stored in the function
+     * list file (drmemtrace_get_funclist_path()).  The system call number used is the
+     * value passed to DynamoRIO's dr_register_pre_syscall_event() which is normalized to
      * match SYS_ constants (see the dr_register_pre_syscall_event() documentation
      * regarding MacOS).
      */
@@ -294,15 +299,15 @@ typedef enum {
     /**
      * The marker value contains the return address of the just-entered
      * function, whose id is specified by the closest previous
-     * #TRACE_MARKER_TYPE_FUNC_ID marker entry.
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID marker entry.
      */
     TRACE_MARKER_TYPE_FUNC_RETADDR,
 
     /**
      * The marker value contains one argument value of the just-entered
      * function, whose id is specified by the closest previous
-     * #TRACE_MARKER_TYPE_FUNC_ID marker entry. The number of such entries
-     * for one function invocation is equal to the specified argument in
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID marker entry. The number of such
+     * entries for one function invocation is equal to the specified argument in
      * -record_function (or pre-defined functions in -record_heap_value if
      * -record_heap is specified).
      */
@@ -310,12 +315,13 @@ typedef enum {
 
     /**
      * The marker value contains the return value of the just-entered function,
-     * whose id is specified by the closest previous #TRACE_MARKER_TYPE_FUNC_ID
-     * marker entry
+     * whose id is specified by the closest previous
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID marker entry
      *
-     * The marker value for system calls (see #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE)
-     * is either 0 (failure) or 1 (success), as obtained from dr_syscall_get_result_ex()
-     * via the "succeeded" field of #dr_syscall_result_info_t.  See the corresponding
+     * The marker value for system calls (see
+     * #dynamorio::drmemtrace::func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) is either 0
+     * (failure) or 1 (success), as obtained from dr_syscall_get_result_ex() via the
+     * "succeeded" field of #dr_syscall_result_info_t.  See the corresponding
      * documentation for caveats about the accuracy of this value.
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
@@ -331,8 +337,8 @@ typedef enum {
 
     /**
      * The marker value contains the OFFLINE_FILE_TYPE_* bitfields of type
-     * #offline_file_type_t identifying the architecture and other key high-level
-     * attributes of the trace.
+     * #dynamorio::drmemtrace::offline_file_type_t identifying the architecture and other
+     * key high-level attributes of the trace.
      */
     TRACE_MARKER_TYPE_FILETYPE,
 
@@ -351,19 +357,19 @@ typedef enum {
 
     /**
      * The marker value contains the version of the trace format: a value
-     * of type #trace_version_t.  The marker is present in the first few entries
-     * of a trace file.
+     * of type #dynamorio::drmemtrace::trace_version_t.  The marker is present in the
+     * first few entries of a trace file.
      */
     TRACE_MARKER_TYPE_VERSION,
 
     /**
-     * Serves to further identify #TRACE_MARKER_TYPE_KERNEL_EVENT as a
-     * restartable sequence abort handler.  This will always be immediately followed
-     * by #TRACE_MARKER_TYPE_KERNEL_EVENT.  The marker value for a signal that
-     * interrupted the instrumented execution is the precise interrupted PC, but
-     * for all other cases the value holds the continuation
-     * program counter, which is the restartable sequence abort handler.  (The precise
-     * interrupted point inside the sequence is not provided by the kernel.)
+     * Serves to further identify #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT
+     * as a restartable sequence abort handler.  This will always be immediately followed
+     * by #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT.  The marker value for a
+     * signal that interrupted the instrumented execution is the precise interrupted PC,
+     * but for all other cases the value holds the continuation program counter, which is
+     * the restartable sequence abort handler.  (The precise interrupted point inside the
+     * sequence is not provided by the kernel.)
      */
     TRACE_MARKER_TYPE_RSEQ_ABORT,
 
@@ -377,12 +383,13 @@ typedef enum {
 
     /**
      * The marker value contains the physical address corresponding to the subsequent
-     * #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS's virtual address.  A pair of such markers
-     * will appear somewhere prior to a regular instruction fetch or data load or store
-     * whose page's physical address has not yet been reported, or when a physical
-     * mapping change is detected.  If translation failed, a
-     * #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE will be present instead,
-     * without a corresponding #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS.
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VIRTUAL_ADDRESS's virtual address.  A
+     * pair of such markers will appear somewhere prior to a regular instruction fetch or
+     * data load or store whose page's physical address has not yet been reported, or when
+     * a physical mapping change is detected.  If translation failed, a
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE will be
+     * present instead, without a corresponding
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VIRTUAL_ADDRESS.
      */
     TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
 
@@ -394,12 +401,13 @@ typedef enum {
 
     /**
      * The marker value contains the virtual address corresponding to the prior
-     * #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS's physical address.  A pair of such markers
-     * will appear somewhere prior to a regular instruction fetch or data load or store
-     * whose page's physical address has not yet been reported, or when a physical
-     * mapping change is detected.  If translation failed, a
-     * #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE will be present instead,
-     * without a corresponding #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS.
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS's physical address.  A
+     * pair of such markers will appear somewhere prior to a regular instruction fetch or
+     * data load or store whose page's physical address has not yet been reported, or when
+     * a physical mapping change is detected.  If translation failed, a
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE will be
+     * present instead, without a corresponding
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VIRTUAL_ADDRESS.
      */
     TRACE_MARKER_TYPE_VIRTUAL_ADDRESS,
 
@@ -427,7 +435,7 @@ typedef enum {
 
     /**
      * Marks the end of a chunk.  The final chunk does not have such a marker
-     * but instead relies on the #TRACE_TYPE_FOOTER entry.
+     * but instead relies on the #dynamorio::drmemtrace::TRACE_TYPE_FOOTER entry.
      */
     TRACE_MARKER_TYPE_CHUNK_FOOTER,
 
@@ -460,7 +468,7 @@ typedef enum {
      * This marker is emitted prior to each system call invocation, after the
      * instruction fetch entry for the system call gateway instruction from user mode. The
      * marker value contains the system call number.  If these markers are present, the
-     * file type #OFFLINE_FILE_TYPE_SYSCALL_NUMBERS is set.
+     * file type #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_SYSCALL_NUMBERS is set.
      */
     TRACE_MARKER_TYPE_SYSCALL,
 
@@ -473,7 +481,8 @@ typedef enum {
      * only for now).
      *
      * If these markers are present, the
-     * file type #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS is set.  The marker value is 0.
+     * file type #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS is set.  The
+     * marker value is 0.
      */
     TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL,
 
@@ -498,11 +507,12 @@ typedef enum {
 enum class func_trace_t : uint64_t { // VS2019 won't infer 64-bit with "enum {".
 /**
  * When system call parameter and return values are provided, they use the function
- * tracing markers #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_ARG, and
- * #TRACE_MARKER_TYPE_FUNC_RETVAL.  The identifier used for
- * #TRACE_MARKER_TYPE_FUNC_ID is equal to this base value plus the 32-bit system
- * call number for 64-bit marker values or this base value plus the lower 16 bits
- * of the system call number for 32-bit marker values.
+ * tracing markers #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID,
+ * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ARG, and
+ * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL.  The identifier used for
+ * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID is equal to this base value plus the
+ * 32-bit system call number for 64-bit marker values or this base value plus the lower 16
+ * bits of the system call number for 32-bit marker values.
  */
 #ifdef X64
     TRACE_FUNC_ID_SYSCALL_BASE = 0x100000000ULL,
@@ -598,8 +608,9 @@ marker_type_is_function_marker(const trace_marker_type_t mark)
 /**
  * This is the data format generated by the online tracer and produced after
  * post-processing of raw offline traces.
- * The #reader_t class transforms this into #memref_t before handing to analysis tools.
- * Each trace entry is a <type, size, addr> tuple representing:
+ * The #dynamorio::drmemtrace::reader_t class transforms this into
+ * #dynamorio::drmemtrace::memref_t before handing to analysis tools. Each trace entry is
+ * a <type, size, addr> tuple representing:
  * - a memory reference
  * - an instr fetch
  * - a bundle of instrs
@@ -625,7 +636,7 @@ struct _trace_entry_t {
     };
 } END_PACKED_STRUCTURE;
 
-/** See #_trace_entry_t. */
+/** See #dynamorio::drmemtrace::_trace_entry_t. */
 typedef struct _trace_entry_t trace_entry_t;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -704,13 +715,15 @@ typedef enum {
  * Bitfields used to describe the high-level characteristics of both an
  * offline final trace and a raw not-yet-postprocessed trace, as well as
  * (despite the OFFLINE_ prefix) an online trace.
- * In a final trace these are stored in a marker of type #TRACE_MARKER_TYPE_FILETYPE.
+ * In a final trace these are stored in a marker of type
+ * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE.
  */
 typedef enum {
     OFFLINE_FILE_TYPE_DEFAULT = 0x00,
     /**
      * DEPRECATED: Addresses filtered online. Newer trace files use
-     * #OFFLINE_FILE_TYPE_IFILTERED and #OFFLINE_FILE_TYPE_DFILTERED.
+     * #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_IFILTERED and
+     * #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_DFILTERED.
      */
     OFFLINE_FILE_TYPE_FILTERED = 0x01,
     OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS = 0x02,
@@ -725,20 +738,22 @@ typedef enum {
     OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
     OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
-    /** System call number markers (#TRACE_MARKER_TYPE_SYSCALL) are included. */
+    /** System call number markers (#dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL) are
+       included. */
     OFFLINE_FILE_TYPE_SYSCALL_NUMBERS = 0x400,
     /**
      * Kernel scheduling information is included:
-     * #TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers and system call parameters
-     * and return values for kernel locks (SYS_futex on Linux) using the function tracing
-     * markers #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_ARG, and
-     * #TRACE_MARKER_TYPE_FUNC_RETVAL with an identifier equal to
-     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (or its
-     * bottom 16 bits for 32-bit marker values).  These identifiers are not stored in
-     * the function list file (drmemtrace_get_funclist_path()).
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL markers and system
+     * call parameters and return values for kernel locks (SYS_futex on Linux) using the
+     * function tracing markers #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID,
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ARG, and
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL with an identifier equal to
+     * #dynamorio::drmemtrace::func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system
+     * call number (or its bottom 16 bits for 32-bit marker values).  These identifiers
+     * are not stored in the function list file (drmemtrace_get_funclist_path()).
      *
-     * The #TRACE_MARKER_TYPE_FUNC_RETVAL for system calls is either 0 (failure) or
-     * 1 (success).
+     * The #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL for system calls is
+     * either 0 (failure) or 1 (success).
      */
     OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS = 0x800,
     /**
@@ -1077,5 +1092,8 @@ typedef enum {
  * from '/proc/kallsyms' during tracing.
  */
 #define DRMEMTRACE_KALLSYMS_FILENAME "kallsyms"
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _TRACE_ENTRY_H_ */

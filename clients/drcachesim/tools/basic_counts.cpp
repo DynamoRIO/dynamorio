@@ -41,6 +41,9 @@
 #include "basic_counts.h"
 #include "../common/utils.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 const std::string basic_counts_t::TOOL_NAME = "Basic counts tool";
 
 analysis_tool_t *
@@ -427,3 +430,6 @@ basic_counts_t::release_interval_snapshot(
     delete snapshot;
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

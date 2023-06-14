@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,9 @@
 #include <vector>
 #include "histogram.h"
 #include "../common/utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 const std::string histogram_t::TOOL_NAME = "Cache line histogram tool";
 
@@ -208,3 +211,6 @@ histogram_t::print_results()
     std::cerr << std::dec;
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

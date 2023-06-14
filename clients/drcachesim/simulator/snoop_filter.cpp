@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,9 @@
 #include <iomanip>
 #include <assert.h>
 #include <algorithm>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 snoop_filter_t::snoop_filter_t(void)
 {
@@ -135,3 +138,6 @@ snoop_filter_t::print_stats(void)
               << std::right << num_writebacks_ << std::endl;
     std::cerr.imbue(std::locale("C")); // Reset to avoid affecting later prints.
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

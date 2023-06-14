@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,9 @@
 
 #include "dr_api.h"
 #include "archive_ostream.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class raw2trace_directory_t {
 public:
@@ -112,5 +115,8 @@ private:
     std::string outdir_;
     unsigned int verbosity_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _RAW2TRACE_DIRECTORY_H_ */

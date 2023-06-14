@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,9 @@
 #include "../common/trace_entry.h"
 #include "dr_api.h"
 #include "kcore_copy.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #define MODULES_FILE_NAME "modules"
 #define MODULES_FILE_PATH "/proc/" MODULES_FILE_NAME
@@ -510,3 +513,6 @@ kcore_copy_t::read_kcore()
 
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

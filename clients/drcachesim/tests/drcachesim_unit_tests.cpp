@@ -42,6 +42,9 @@
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 static cache_simulator_knobs_t
 make_test_knobs()
 {
@@ -567,3 +570,6 @@ test_main(int argc, const char *argv[])
     unit_test_cache_replacement_policy();
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

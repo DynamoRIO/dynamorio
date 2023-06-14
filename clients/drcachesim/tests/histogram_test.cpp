@@ -43,9 +43,8 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 
-namespace {
-
-using namespace dynamorio::drmemtrace;
+namespace dynamorio {
+namespace drmemtrace {
 
 bool
 check_cross_line()
@@ -80,8 +79,6 @@ check_cross_line()
     return true;
 }
 
-} // namespace
-
 int
 test_main(int argc, const char *argv[])
 {
@@ -92,3 +89,6 @@ test_main(int argc, const char *argv[])
     std::cerr << "histogram_test FAILED\n";
     exit(1);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,9 @@
 #include "caching_device.h"
 #include "../common/memref.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 prefetcher_t::prefetcher_t(int block_size)
     : block_size_(block_size)
 {
@@ -51,3 +54,6 @@ prefetcher_t::prefetch(caching_device_t *cache, const memref_t &memref_in)
     memref.data.type = TRACE_TYPE_HARDWARE_PREFETCH;
     cache->request(memref);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

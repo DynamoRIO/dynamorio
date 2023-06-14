@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,9 @@
 #include "analysis_tool.h"
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class func_view_t : public analysis_tool_t {
 public:
@@ -121,5 +124,8 @@ protected:
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _FUNC_VIEW_H_ */

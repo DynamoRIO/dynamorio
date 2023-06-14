@@ -49,6 +49,9 @@
 #include "trace_entry.h"
 #include "utils.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #ifndef ZHEX64_FORMAT_STRING
 /* We avoid dr_defines.h to keep this code separated and simpler for using with
  * external code.
@@ -174,5 +177,8 @@ protected:
 private:
     std::string input_path_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _FILE_READER_H_ */

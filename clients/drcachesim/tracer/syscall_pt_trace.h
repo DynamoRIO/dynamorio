@@ -45,6 +45,9 @@
 #include "drmemtrace.h"
 #include "drpttracer.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /* The auto cleanup wrapper of pttracer handle.
  * This can ensure the pttracer handle is cleaned up when it is out of scope.
  */
@@ -196,5 +199,8 @@ private:
      */
     file_t output_file_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _SYSCALL_PT_TRACE_ */

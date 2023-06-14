@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,9 @@
 #include "analysis_tool.h"
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class opcode_mix_t : public analysis_tool_t {
 public:
@@ -136,5 +139,8 @@ protected:
     worker_data_t serial_worker_;
     shard_data_t serial_shard_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _OPCODE_MIX_H_ */

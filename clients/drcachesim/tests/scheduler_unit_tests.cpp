@@ -44,9 +44,8 @@
 #    include "zipfile_ostream.h"
 #endif
 
-using namespace dynamorio::drmemtrace;
-
-namespace {
+namespace dynamorio {
+namespace drmemtrace {
 
 // A mock reader that iterates over a vector of records.
 class mock_reader_t : public reader_t {
@@ -2021,8 +2020,6 @@ test_replay_as_traced_from_file(const char *testdir)
 #endif
 }
 
-} // namespace
-
 int
 test_main(int argc, const char *argv[])
 {
@@ -2055,3 +2052,6 @@ test_main(int argc, const char *argv[])
     dr_standalone_exit();
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio
