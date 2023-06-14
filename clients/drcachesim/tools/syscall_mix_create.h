@@ -49,4 +49,4 @@
 analysis_tool_t *
 syscall_mix_tool_create(unsigned int verbose = 0);
 
-#endif /* _OPCODE_MIX_CREATE_H_ */
+#endif /* _SYSCALL_MIX_CREATE_H_ */
