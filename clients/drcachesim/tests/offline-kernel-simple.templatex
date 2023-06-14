@@ -1,5 +1,5 @@
 Hello, world!
-[a-zA-Z0-9\\n \\[\\]<>=\\.\\-|]*Basic counts tool results:
+Basic counts tool results:
 Total counts:
  .* total \(fetched\) instructions
  .* total unique \(fetched\) instructions

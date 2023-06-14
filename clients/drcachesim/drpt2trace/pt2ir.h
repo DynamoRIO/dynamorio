@@ -341,10 +341,12 @@ public:
     /**
      * Initialize the PT instruction decoder and the sideband session.
      * @param pt2ir_config The configuration of PT raw trace.
+     * @param verbosity  The verbosity level for notifications. If set to 0, only error
+     * logs are printed. If set to 1, all logs are printed. Default value is 0.
      * @return true if the instance is successfully initialized.
      */
     bool
-    init(IN pt2ir_config_t &pt2ir_config);
+    init(IN pt2ir_config_t &pt2ir_config, IN int verbosity = 0);
 
     /**
      * The convert function performs two processes: (1) decode the PT raw trace into
@@ -395,11 +397,8 @@ private:
      */
     static pt_iscache_autoclean_t share_iscache_;
 
-#ifdef DEBUG
-    /* The mutex and counter for warning messages. */
-    static std::mutex warning_msg_mutex_;
-    static int warning_msg_count_;
-#endif
+    /* Integer value representing the verbosity level for notifications. */
+    int verbosity_;
 };
 
 #endif /* _PT2IR_H_ */

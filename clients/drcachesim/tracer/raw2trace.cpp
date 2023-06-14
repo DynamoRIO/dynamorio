@@ -848,7 +848,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
 #    define RING_BUFFER_SIZE_SHIFT 8
         config.pt_raw_buffer_size =
             (1L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
-        if (!tdata->pt2ir.init(config)) {
+        if (!tdata->pt2ir.init(config, verbosity_)) {
             return "Unable to initialize PT2IR";
         }
         tdata->pt_metadata_processed = true;

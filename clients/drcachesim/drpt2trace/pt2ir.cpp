@@ -40,12 +40,24 @@
 #include "intel-pt.h"
 #include "libipt-sb.h"
 
-#include "../common/utils.h"
 #include "elf_loader.h"
 #include "pt2ir.h"
 
-#define ERRMSG_HEADER "[drpt2ir][Error] "
-#define WARNMSG_HEADER "[drpt2ir][Warning] "
+#undef VPRINT_HEADER
+#define VPRINT_HEADER()               \
+    do {                              \
+        fprintf(stderr, "drpt2ir: "); \
+    } while (0)
+
+#undef VPRINT
+#define VPRINT(level, ...)                 \
+    do {                                   \
+        if (this->verbosity_ >= (level)) { \
+            VPRINT_HEADER();               \
+            fprintf(stderr, __VA_ARGS__);  \
+            fflush(stderr);                \
+        }                                  \
+    } while (0)
 
 pt_iscache_autoclean_t::pt_iscache_autoclean_t()
 {
@@ -61,11 +73,6 @@ pt_iscache_autoclean_t::~pt_iscache_autoclean_t()
 }
 
 pt_iscache_autoclean_t pt2ir_t::share_iscache_;
-#ifdef DEBUG
-#    define MAX_WARNING_MSG_COUNT 5
-int pt2ir_t::warning_msg_count_ = 0;
-std::mutex pt2ir_t::warning_msg_mutex_;
-#endif
 
 pt2ir_t::pt2ir_t()
     : pt2ir_initialized_(false)
@@ -74,6 +81,7 @@ pt2ir_t::pt2ir_t()
     , pt_sb_iscache_(nullptr)
     , pt_sb_session_(nullptr)
     , pt_raw_buffer_data_size_(0)
+    , verbosity_(0)
 {
 }
 
@@ -89,10 +97,11 @@ pt2ir_t::~pt2ir_t()
 }
 
 bool
-pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
+pt2ir_t::init(IN pt2ir_config_t &pt2ir_config, IN int verbosity)
 {
+    verbosity_ = verbosity;
     if (pt2ir_initialized_) {
-        ERRMSG(ERRMSG_HEADER "pt2ir_t is already initialized.\n");
+        VPRINT(0, "pt2ir_t is already initialized.\n");
         return false;
     }
 
@@ -113,8 +122,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
     if (pt_config.cpu.vendor == pcv_intel) {
         int errcode = pt_cpu_errata(&pt_config.errata, &pt_config.cpu);
         if (errcode < 0) {
-            ERRMSG(ERRMSG_HEADER "Failed to get cpu errata: %s.\n",
-                   pt_errstr(pt_errcode(errcode)));
+            VPRINT(0, "Failed to get cpu errata: %s.\n", pt_errstr(pt_errcode(errcode)));
             return false;
         }
     }
@@ -124,7 +132,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
     pt_config.end = pt_raw_buffer_.get() + pt_raw_buffer_size_;
     pt_instr_decoder_ = pt_insn_alloc_decoder(&pt_config);
     if (pt_instr_decoder_ == nullptr) {
-        ERRMSG(ERRMSG_HEADER "Failed to create libipt instruction decoder.\n");
+        VPRINT(0, "Failed to create libipt instruction decoder.\n");
         return false;
     }
 
@@ -133,7 +141,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
         if (!elf_loader_t::load(pt2ir_config.elf_file_path.c_str(), pt2ir_config.elf_base,
                                 share_iscache_.iscache,
                                 pt_insn_get_image(pt_instr_decoder_))) {
-            ERRMSG("Failed to load ELF file(%s) to.\n",
+            VPRINT(0, "Failed to load ELF file(%s) to.\n",
                    pt2ir_config.elf_file_path.c_str());
             return false;
         }
@@ -146,12 +154,12 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
     /* Init the sideband image section cache and session. */
     pt_sb_iscache_ = pt_iscache_alloc(nullptr);
     if (pt_sb_iscache_ == nullptr) {
-        ERRMSG(ERRMSG_HEADER "Failed to allocate sideband image section cache.\n");
+        VPRINT(0, "Failed to allocate sideband image section cache.\n");
         return false;
     }
     pt_sb_session_ = pt_sb_alloc(pt_sb_iscache_);
     if (pt_sb_session_ == nullptr) {
-        ERRMSG(ERRMSG_HEADER "Failed to allocate sb session.\n");
+        VPRINT(0, "Failed to allocate sb session.\n");
         return false;
     }
 
@@ -192,8 +200,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
         sb_primary_config.end = (size_t)0;
         int errcode = pt_sb_alloc_pevent_decoder(pt_sb_session_, &sb_primary_config);
         if (errcode < 0) {
-            ERRMSG(ERRMSG_HEADER
-                   "Failed to allocate primary sideband perf event decoder: %s.\n",
+            VPRINT(0, "Failed to allocate primary sideband perf event decoder: %s.\n",
                    pt_errstr(pt_errcode(errcode)));
             return false;
         }
@@ -209,7 +216,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
             int errcode =
                 pt_sb_alloc_pevent_decoder(pt_sb_session_, &sb_secondary_config);
             if (errcode < 0) {
-                ERRMSG(ERRMSG_HEADER
+                VPRINT(0,
                        "Failed to allocate secondary sideband perf event decoder: %s.\n",
                        pt_errstr(pt_errcode(errcode)));
                 return false;
@@ -223,8 +230,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
     if (!pt2ir_config.sb_kcore_path.empty()) {
         if (!elf_loader_t::load(pt2ir_config.sb_kcore_path.c_str(), 0, pt_sb_iscache_,
                                 pt_sb_kernel_image(pt_sb_session_))) {
-            ERRMSG(ERRMSG_HEADER
-                   "Failed to load kcore(%s) to sideband image sections cache.\n",
+            VPRINT(0, "Failed to load kcore(%s) to sideband image sections cache.\n",
                    pt2ir_config.sb_kcore_path.c_str());
             return false;
         }
@@ -235,7 +241,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config)
      */
     int errcode = pt_sb_init_decoders(pt_sb_session_);
     if (errcode < 0) {
-        ERRMSG(ERRMSG_HEADER "Failed to initialize sideband session: %s.\n",
+        VPRINT(0, "Failed to initialize sideband session: %s.\n",
                pt_errstr(pt_errcode(errcode)));
         return false;
     }
@@ -389,19 +395,15 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
 #ifdef DEBUG
 
                 /* Print the invalid instruction‘s PC and raw bytes in DEBUG builds. */
-                warning_msg_mutex_.lock();
-                if (warning_msg_count_ < MAX_WARNING_MSG_COUNT) {
-                    ERRMSG(WARNMSG_HEADER "<INVALID> <raw " PFX "-" PFX " ==",
-                           (app_pc)insn.ip, (app_pc)insn.ip + insn.size);
+                if (verbosity_ >= 1) {
+                    fprintf(stderr,
+                            "drpt2ir: <INVALID> <raw " PFX "-" PFX " ==", (app_pc)insn.ip,
+                            (app_pc)insn.ip + insn.size);
                     for (int i = 0; i < insn.size; i++) {
-                        ERRMSG(" %02x", insn.raw[i]);
+                        fprintf(stderr, " %02x", insn.raw[i]);
                     }
-                    ERRMSG(">\n");
-                } else if (warning_msg_count_ == MAX_WARNING_MSG_COUNT) {
-                    ERRMSG(WARNMSG_HEADER "---The log has been truncated---\n");
+                    fprintf(stderr, ">\n");
                 }
-                warning_msg_count_++;
-                warning_msg_mutex_.unlock();
 #endif
             }
             drir.append(instr);
@@ -421,13 +423,11 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
      */
     err = pt_insn_get_offset(pt_instr_decoder_, &pos);
     if (err < 0) {
-        ERRMSG(ERRMSG_HEADER "Could not determine offset: %s\n",
-               pt_errstr(pt_errcode(err)));
-        ERRMSG(ERRMSG_HEADER "[?, " HEX64_FORMAT_STRING "] %s: %s\n", ip, errtype,
+        VPRINT(0, "Could not determine offset: %s\n", pt_errstr(pt_errcode(err)));
+        VPRINT(0, "[?, " HEX64_FORMAT_STRING "] %s: %s\n", ip, errtype,
                pt_errstr(pt_errcode(errcode)));
     } else {
-        ERRMSG(ERRMSG_HEADER "[" HEX64_FORMAT_STRING ", IP:" HEX64_FORMAT_STRING
-                             "] %s: %s\n",
-               pos, ip, errtype, pt_errstr(pt_errcode(errcode)));
+        VPRINT(0, "[" HEX64_FORMAT_STRING ", IP:" HEX64_FORMAT_STRING "] %s: %s\n", pos,
+               ip, errtype, pt_errstr(pt_errcode(errcode)));
     }
 }
