@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,27 +30,52 @@
  * DAMAGE.
  */
 
-/* opcode-mix tool creation */
+#ifndef _SYSCALL_MIX_H_
+#define _SYSCALL_MIX_H_ 1
 
-#ifndef _OPCODE_MIX_CREATE_H_
-#define _OPCODE_MIX_CREATE_H_ 1
+#include <mutex>
+#include <string>
+#include <unordered_map>
 
 #include "analysis_tool.h"
 
-/**
- * @file drmemtrace/opcode_mix_create.h
- * @brief DrMemtrace opcode mixture trace analysis tool creation.
- */
+class syscall_mix_t : public analysis_tool_t {
+public:
+    syscall_mix_t(unsigned int verbose);
+    virtual ~syscall_mix_t();
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_worker_init(int worker_index) override;
+    std::string
+    parallel_worker_exit(void *worker_data) override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
 
-/**
- * Creates an analysis tool which counts the number of instances of each opcode
- * in the trace.  This tool needs access to the modules.log and original libraries
- * and binaries from the traced execution.  It does not support online analysis.
- * An alternate search path for the libraries in the modules.log can be specified
- * in "alt_module_path".
- */
-analysis_tool_t *
-opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose = 0,
-                       const std::string &alt_module_dir = "");
+protected:
+    struct shard_data_t {
+        std::unordered_map<int, int_least64_t> syscall_counts;
+        std::string error;
+    };
 
-#endif /* _OPCODE_MIX_CREATE_H_ */
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
+    // This mutex is only needed in parallel_shard_init.  In all other accesses to
+    // shard_map_ (print_results) we are single-threaded.
+    std::mutex shard_map_mutex_;
+    shard_data_t serial_shard_;
+    unsigned int knob_verbose_;
+
+    static const std::string TOOL_NAME;
+};
+
+#endif /* _SYSCALL_MIX_H_ */

@@ -49,6 +49,7 @@
 #define REUSE_TIME "reuse_time"
 #define BASIC_COUNTS "basic_counts"
 #define OPCODE_MIX "opcode_mix"
+#define SYSCALL_MIX "syscall_mix"
 #define VIEW "view"
 #define FUNC_VIEW "func_view"
 #define INVARIANT_CHECKER "invariant_checker"
