@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,27 +30,23 @@
  * DAMAGE.
  */
 
-/* opcode-mix tool creation */
+/* syscall-mix tool creation */
 
-#ifndef _OPCODE_MIX_CREATE_H_
-#define _OPCODE_MIX_CREATE_H_ 1
+#ifndef _SYSCALL_MIX_CREATE_H_
+#define _SYSCALL_MIX_CREATE_H_ 1
 
 #include "analysis_tool.h"
 
 /**
- * @file drmemtrace/opcode_mix_create.h
- * @brief DrMemtrace opcode mixture trace analysis tool creation.
+ * @file drmemtrace/syscall_mix_create.h
+ * @brief DrMemtrace syscall mixture trace analysis tool creation.
  */
 
 /**
- * Creates an analysis tool which counts the number of instances of each opcode
- * in the trace.  This tool needs access to the modules.log and original libraries
- * and binaries from the traced execution.  It does not support online analysis.
- * An alternate search path for the libraries in the modules.log can be specified
- * in "alt_module_path".
+ * Creates an analysis tool which counts the number of instances of each system call
+ * in the trace.
  */
 analysis_tool_t *
-opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose = 0,
-                       const std::string &alt_module_dir = "");
+syscall_mix_tool_create(unsigned int verbose = 0);
 
-#endif /* _OPCODE_MIX_CREATE_H_ */
+#endif /* _SYSCALL_MIX_CREATE_H_ */

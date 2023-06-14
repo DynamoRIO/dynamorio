@@ -4214,6 +4214,10 @@ if (BUILD_CLIENTS)
         "@-simulator_type@basic_counts" "")
     endif (NOT WIN32)
 
+    # Test syscall_mix.
+    torunonly_drcachesim(syscall-mix ${ci_shared_app} "-simulator_type syscall_mix" "")
+    torunonly_drcacheoff(syscall-mix ${ci_shared_app} "" "@-simulator_type@syscall_mix" "")
+
   endif (NOT ANDROID)
 
   # Test using our exported drmemtrace analysis framework (i#2006).
