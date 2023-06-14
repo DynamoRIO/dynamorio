@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -41,8 +41,8 @@
 #ifdef ANNOTATIONS /* around whole file */
 
 #    if !(defined(WINDOWS) && defined(X64))
-#        include "../third_party/valgrind/valgrind.h"
-#        include "../third_party/valgrind/memcheck.h"
+#        include "valgrind.h"
+#        include "memcheck.h"
 #    endif
 
 /* Macros for identifying an annotation head and extracting the pointer to its name.

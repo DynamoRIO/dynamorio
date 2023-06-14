@@ -2766,6 +2766,25 @@ test_extra_leading_prefixes(void *dc)
 }
 
 static void
+test_ud1_operands(void *dc)
+{
+    byte *pc;
+    char dbuf[512];
+    int len;
+
+    const byte b[] = { 0x67, 0x0f, 0xb9, 0x40, 0x16 };
+    pc =
+        disassemble_to_buffer(dc, (byte *)b, (byte *)b, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b[0] + sizeof(b));
+#ifdef X64
+    ASSERT(strcmp(dbuf, "addr32 ud1    %eax 0x16(%eax)[4byte]\n") == 0);
+#else
+    ASSERT(strcmp(dbuf, "addr16 ud1    %eax 0x16(%bx,%si)[4byte]\n") == 0);
+#endif
+}
+
+static void
 test_disasm_to_buffer(void *dc)
 {
     /* Test disassemble_to_buffer() corner cases. */
@@ -2891,6 +2910,8 @@ main(int argc, char *argv[])
     test_evex_compressed_disp_with_segment_prefix(dcontext);
 
     test_extra_leading_prefixes(dcontext);
+
+    test_ud1_operands(dcontext);
 
     test_disasm_to_buffer(dcontext);
 

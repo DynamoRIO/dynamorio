@@ -33,6 +33,9 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
+# We set a time limit on our unit tests here which do not go through suite/.
+set(test_seconds 90)
+
 if (WIN32)
   set(os_name "win")
   # Our non-client files assume this is set, yet don't include headers that set it.
@@ -244,7 +247,6 @@ set(drcachesim_srcs
   ${zip_reader}
   ${snappy_reader}
   reader/ipc_reader.cpp
-  simulator/analyzer_interface.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp)
 add_executable(drcachesim ${drcachesim_srcs})
@@ -319,6 +321,8 @@ install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 install_client_nonDR_header(drmemtrace scheduler/scheduler.h)
 install_client_nonDR_header(drmemtrace scheduler/speculator.h)
 
+add_library(test_helpers STATIC tests/test_helpers.cpp)
+
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
 add_executable(histogram_launcher
@@ -342,7 +346,10 @@ add_executable(record_filter_launcher
 target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter)
 use_DynamoRIO_extension(record_filter_launcher droption)
 
-add_executable(scheduler_launcher tests/scheduler_launcher.cpp)
+# We want to use test_helper's disable_popups() but we have _tmain and so do not want
+# the test_helper library's main symbol: so we compile ourselves and disable.
+add_executable(scheduler_launcher tests/scheduler_launcher.cpp tests/test_helpers.cpp)
+append_property_list(TARGET scheduler_launcher COMPILE_DEFINITIONS "NO_HELPER_MAIN")
 target_link_libraries(scheduler_launcher drmemtrace_analyzer drfrontendlib)
 use_DynamoRIO_extension(scheduler_launcher droption)
 add_dependencies(scheduler_launcher api_headers)
@@ -352,6 +359,7 @@ if (X86 AND X64 AND ZIP_FOUND)
     "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
   add_test(NAME tool.scheduler_launcher
     COMMAND scheduler_launcher -trace_dir ${trace_dir})
+  set_tests_properties(tool.scheduler_launcher PROPERTIES TIMEOUT ${test_seconds})
 endif ()
 
 # We have a companion test built using a separate --build-and-test CMake project in
@@ -508,7 +516,16 @@ restore_nonclient_flags(drmemtrace_invariant_checker)
 
 # We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
 # Thus we need to override the /MT with /MTd.
+#
+# TODO i#6040: We should add a new configure_original_flage(target) function
+# which restores the ORIG_ flags at the source level for all other targets
+# in this file which are neither clients nor use DR standalone. We can then
+# get rid of add_win32_flags(target) since that just adds a couple of flags
+# back, and using the ORIG_ values is preferable.
 macro(add_win32_flags target)
+  if (DEBUG AND NOT DEFINED ${target}_uses_configure)
+    append_property_list(TARGET ${target} COMPILE_DEFINITIONS "DEBUG")
+  endif ()
   if (WIN32)
     if (DEBUG)
       get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
@@ -665,32 +682,38 @@ endif ()
 if (BUILD_TESTS)
   add_executable(tool.reuse_distance.unit_tests tests/reuse_distance_test.cpp)
   target_link_libraries(tool.reuse_distance.unit_tests drmemtrace_reuse_distance
-    drmemtrace_static)
+    drmemtrace_static test_helpers)
   add_win32_flags(tool.reuse_distance.unit_tests)
   add_test(NAME tool.reuse_distance.unit_tests
        COMMAND tool.reuse_distance.unit_tests)
+  set_tests_properties(tool.reuse_distance.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
   add_executable(tool.drcachesim.unit_tests tests/drcachesim_unit_tests.cpp
     tests/cache_replacement_policy_unit_test.cpp tests/config_reader_unit_test.cpp)
   target_link_libraries(tool.drcachesim.unit_tests drmemtrace_simulator
-    drmemtrace_static drmemtrace_analyzer ${zlib_libs})
+    # Link test_helpers first, or else the zlib main takes over.
+    drmemtrace_static drmemtrace_analyzer test_helpers ${zlib_libs})
   add_win32_flags(tool.drcachesim.unit_tests)
   add_test(NAME tool.drcachesim.unit_tests
            COMMAND tool.drcachesim.unit_tests
            ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
+  set_tests_properties(tool.drcachesim.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
   add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
   configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
   add_win32_flags(tool.drcacheoff.raw2trace_unit_tests)
-  target_link_libraries(tool.drcacheoff.raw2trace_unit_tests drmemtrace_raw2trace)
+  target_link_libraries(tool.drcacheoff.raw2trace_unit_tests drmemtrace_raw2trace
+    test_helpers)
   use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drdecode)
   use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drcovlib_static)
   add_test(NAME tool.drcacheoff.raw2trace_unit_tests
     COMMAND tool.drcacheoff.raw2trace_unit_tests)
+  set_tests_properties(tool.drcacheoff.raw2trace_unit_tests PROPERTIES TIMEOUT
+    ${test_seconds})
 
   add_executable(tool.scheduler.unit_tests tests/scheduler_unit_tests.cpp
     tests/scheduler_unit_tests.cpp)
-  target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer)
+  target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer test_helpers)
   add_win32_flags(tool.scheduler.unit_tests)
   if (WIN32)
     # We have a dup symbol from linking in DR.  Linking libc first doesn't help.
@@ -701,6 +724,7 @@ if (BUILD_TESTS)
   add_test(NAME tool.scheduler.unit_tests
     COMMAND tool.scheduler.unit_tests
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
+  set_tests_properties(tool.scheduler.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
   # XXX i#5675: add tests for other environments. Currently, the repository does not have
   # a checked-in post-processed trace for x86-32 or AArchXX.  We are also limited to
@@ -714,26 +738,30 @@ if (BUILD_TESTS)
                    tests/record_filter_unit_tests.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.record_filter_unit_tests)
     target_link_libraries(tool.drcacheoff.record_filter_unit_tests drmemtrace_analyzer
-      drmemtrace_basic_counts drmemtrace_record_filter)
+      drmemtrace_basic_counts drmemtrace_record_filter test_helpers)
     add_test(NAME tool.drcacheoff.record_filter_unit_tests
              COMMAND tool.drcacheoff.record_filter_unit_tests --trace_dir
                      ${trace_dir} --tmp_output_dir ${tmp_output_dir})
+    set_tests_properties(tool.drcacheoff.record_filter_unit_tests PROPERTIES TIMEOUT
+      ${test_seconds})
   endif ()
 
   add_executable(tool.drcacheoff.trace_interval_analysis_unit_tests
                  tests/trace_interval_analysis_unit_tests.cpp)
   add_win32_flags(tool.drcacheoff.trace_interval_analysis_unit_tests)
   target_link_libraries(tool.drcacheoff.trace_interval_analysis_unit_tests
-    drmemtrace_analyzer drdecode)
+    drmemtrace_analyzer drdecode test_helpers)
   add_test(NAME tool.drcacheoff.trace_interval_analysis_unit_tests
            COMMAND tool.drcacheoff.trace_interval_analysis_unit_tests)
+  set_tests_properties(tool.drcacheoff.trace_interval_analysis_unit_tests PROPERTIES
+    TIMEOUT ${test_seconds})
 
   if (DR_HOST_AARCH64 AND NOT APPLE) # i#1997: static DR on Mac NYI.
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_aarch64_sys)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_aarch64_sys drmemtrace_static)
     target_link_libraries(tool.drcacheoff.burst_aarch64_sys drmemtrace_raw2trace
-      drmemtrace_analyzer)
+      drmemtrace_analyzer test_helpers)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_aarch64_sys)
     add_win32_flags(tool.drcacheoff.burst_aarch64_sys)
   endif ()
@@ -745,46 +773,56 @@ if (BUILD_TESTS)
     # Tests for the cache miss analyzer.
     add_executable(tool.drcachesim.miss_analyzer_unit_test tests/cache_miss_analyzer_test.cpp)
     target_link_libraries(tool.drcachesim.miss_analyzer_unit_test drmemtrace_simulator
-      drmemtrace_static drmemtrace_analyzer ${zlib_libs})
+      drmemtrace_static drmemtrace_analyzer test_helpers ${zlib_libs})
     add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
     add_test(NAME tool.drcachesim.miss_analyzer_unit_test
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
+    set_tests_properties(tool.drcachesim.miss_analyzer_unit_test PROPERTIES
+      TIMEOUT ${test_seconds})
 
     add_executable(tool.drcachesim.invariant_checker_test tests/invariant_checker_test.cpp)
-    target_link_libraries(tool.drcachesim.invariant_checker_test
-        drmemtrace_static drmemtrace_analyzer drmemtrace_invariant_checker)
+    configure_DynamoRIO_standalone(tool.drcachesim.invariant_checker_test)
     add_win32_flags(tool.drcachesim.invariant_checker_test)
+    target_link_libraries(tool.drcachesim.invariant_checker_test
+        drmemtrace_static drmemtrace_analyzer drmemtrace_invariant_checker test_helpers)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
+    set_tests_properties(tool.drcachesim.invariant_checker_test PROPERTIES
+      TIMEOUT ${test_seconds})
 
     add_executable(tool.drcacheoff.view_test tests/view_test.cpp reader/file_reader.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
     add_win32_flags(tool.drcacheoff.view_test)
     target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace
-      drmemtrace_analyzer)
+      drmemtrace_analyzer test_helpers)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drreg_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drcovlib_static)
     use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)
     add_test(NAME tool.drcacheoff.view_test
       COMMAND tool.drcacheoff.view_test)
+    set_tests_properties(tool.drcacheoff.view_test PROPERTIES TIMEOUT ${test_seconds})
 
     add_executable(tool.drcachesim.histogram_test
       tools/histogram.cpp tests/histogram_test.cpp)
     target_link_libraries(tool.drcachesim.histogram_test
-      drmemtrace_static drmemtrace_analyzer)
+      drmemtrace_static drmemtrace_analyzer test_helpers)
     add_win32_flags(tool.drcachesim.histogram_test)
     add_test(NAME tool.drcachesim.histogram_test
              COMMAND tool.drcachesim.histogram_test)
+    set_tests_properties(tool.drcachesim.histogram_test PROPERTIES
+      TIMEOUT ${test_seconds})
 
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_static test_helpers)
     add_win32_flags(tool.drcacheoff.burst_static)
 
     add_executable(tool.drcacheoff.burst_replace tests/burst_replace.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_replace)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_replace drmemtrace_static)
-    target_link_libraries(tool.drcacheoff.burst_replace drmemtrace_raw2trace)
+    target_link_libraries(tool.drcacheoff.burst_replace drmemtrace_raw2trace
+      test_helpers)
     if (WIN32)
       # burst_replace is unusual in cramming the tracer and post-processor into the
       # same binary and we need some massaging to avoid duplicate symbol link errors.
@@ -797,6 +835,7 @@ if (BUILD_TESTS)
     add_executable(tool.drcacheoff.burst_replaceall tests/burst_replaceall.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_replaceall)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_replaceall drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_replaceall test_helpers)
     add_win32_flags(tool.drcacheoff.burst_replaceall)
     use_DynamoRIO_extension(tool.drcacheoff.burst_replaceall drcontainers)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_replaceall)
@@ -805,6 +844,7 @@ if (BUILD_TESTS)
     add_executable(tool.drcacheoff.burst_malloc tests/burst_malloc.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_malloc test_helpers)
     add_win32_flags(tool.drcacheoff.burst_malloc)
     if (UNIX)
       append_property_string(SOURCE tests/burst_malloc.cpp
@@ -815,17 +855,20 @@ if (BUILD_TESTS)
     add_executable(tool.drcacheoff.burst_reattach tests/burst_reattach.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_reattach)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_reattach drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_reattach test_helpers)
     add_win32_flags(tool.drcacheoff.burst_reattach)
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_threads drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_threads test_helpers)
     add_win32_flags(tool.drcacheoff.burst_threads)
     link_with_pthread(tool.drcacheoff.burst_threads)
 
     add_executable(tool.drcacheoff.burst_threadfilter tests/burst_threadfilter.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threadfilter)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_threadfilter drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_threadfilter test_helpers)
     add_win32_flags(tool.drcacheoff.burst_threadfilter)
     link_with_pthread(tool.drcacheoff.burst_threadfilter)
 
@@ -833,12 +876,14 @@ if (BUILD_TESTS)
       add_executable(tool.drcacheoff.burst_noreach tests/burst_noreach.cpp)
       configure_DynamoRIO_static(tool.drcacheoff.burst_noreach)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_noreach drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_noreach test_helpers)
       add_win32_flags(tool.drcacheoff.burst_noreach)
     endif ()
     if (LINUX) # Uses mremap.
       add_executable(tool.drcacheoff.burst_maps tests/burst_maps.cpp)
       configure_DynamoRIO_static(tool.drcacheoff.burst_maps)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_maps drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_maps test_helpers)
       add_win32_flags(tool.drcacheoff.burst_maps)
     endif ()
 
@@ -850,7 +895,8 @@ if (BUILD_TESTS)
           tracer/instru_online.cpp)
         configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_io)
         add_win32_flags(tool.drcacheoff.raw2trace_io)
-        target_link_libraries(tool.drcacheoff.raw2trace_io drmemtrace_raw2trace)
+        target_link_libraries(tool.drcacheoff.raw2trace_io drmemtrace_raw2trace
+          test_helpers)
         use_DynamoRIO_extension(tool.drcacheoff.raw2trace_io droption)
         target_link_libraries(tool.drcacheoff.raw2trace_io drdecode)
         use_DynamoRIO_extension(tool.drcacheoff.raw2trace_io drcovlib_static)
@@ -864,6 +910,7 @@ if (BUILD_TESTS)
         COMPILE_DEFINITIONS "TEST_APP_DR_CLIENT_MAIN")
       configure_DynamoRIO_static(tool.drcacheoff.burst_client)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_client drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_client test_helpers)
       # A nop, keep it for the future Windows support.
       add_win32_flags(tool.drcacheoff.burst_client)
     endif ()
@@ -886,15 +933,32 @@ if (BUILD_TESTS)
       endif ()
       use_DynamoRIO_static_client(tool.drcacheoff.burst_traceopts drmemtrace_static)
       target_link_libraries(tool.drcacheoff.burst_traceopts drmemtrace_raw2trace
-        drmemtrace_analyzer)
+        drmemtrace_analyzer test_helpers)
       if (WIN32)
         # Just like for burst_replace, linking everything together takes effort.
         target_link_libraries(tool.drcacheoff.burst_traceopts ${static_libc})
       endif ()
+      set(tool.drcacheoff.burst_traceopts_uses_configure ON) # Avoid dup DEBUG.
       add_win32_flags(tool.drcacheoff.burst_traceopts)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_traceopts)
       use_DynamoRIO_extension(tool.drcacheoff.burst_traceopts drcovlib_static)
     endif (NOT RISCV64)
+
+    if (LINUX) # Futex is Linux-only.
+      add_executable(tool.drcacheoff.burst_futex
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/burst_futex.cpp")
+      configure_DynamoRIO_static(tool.drcacheoff.burst_futex)
+      use_DynamoRIO_static_client(tool.drcacheoff.burst_futex drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.burst_futex drmemtrace_raw2trace
+        drmemtrace_analyzer)
+      if (WIN32)
+        # Just like for burst_replace, linking everything together takes effort.
+        target_link_libraries(tool.drcacheoff.burst_futex ${static_libc})
+      endif ()
+      add_win32_flags(tool.drcacheoff.burst_futex)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_futex)
+    endif ()
+
   endif ()
 
   if (X86 AND X64 AND ZIP_FOUND)
@@ -904,12 +968,15 @@ if (BUILD_TESTS)
     add_executable(tool.drcacheoff.skip_unit_tests tests/skip_unit_tests.cpp)
     configure_DynamoRIO_standalone(tool.drcacheoff.skip_unit_tests)
     target_link_libraries(tool.drcacheoff.skip_unit_tests drmemtrace_analyzer
-      drmemtrace_view drmemtrace_raw2trace)
+      drmemtrace_view drmemtrace_raw2trace test_helpers)
+    add_win32_flags(tool.drcacheoff.skip_unit_tests)
     use_DynamoRIO_extension(tool.drcacheoff.skip_unit_tests drreg_static)
     use_DynamoRIO_extension(tool.drcacheoff.skip_unit_tests drcovlib_static)
     use_DynamoRIO_extension(tool.drcacheoff.skip_unit_tests drdecode)
     add_test(NAME tool.drcacheoff.skip_unit_tests
              COMMAND tool.drcacheoff.skip_unit_tests --trace_file ${zip_path})
+    set_tests_properties(tool.drcacheoff.skip_unit_tests PROPERTIES
+      TIMEOUT ${test_seconds})
   endif ()
 endif ()
 

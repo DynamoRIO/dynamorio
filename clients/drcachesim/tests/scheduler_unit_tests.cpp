@@ -1885,6 +1885,90 @@ test_replay_as_traced()
 }
 
 static void
+test_replay_as_traced_i6107_workaround()
+{
+#ifdef HAS_ZIP
+    std::cerr << "\n----------------\nTesting replay as-traced i#6107 workaround\n";
+
+    // The i#6107 workaround applies to 10M-insruction chunks.
+    static constexpr int NUM_INPUTS = 2;
+    static constexpr int NUM_OUTPUTS = 1;
+    static constexpr int CHUNK_NUM_INSTRS = 10 * 1000 * 1000;
+    static constexpr int SCHED_STEP_INSTRS = 1000 * 1000;
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr uint64_t TIMESTAMP_BASE = 100;
+    static constexpr int CPU = 6;
+
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+        memref_tid_t tid = TID_BASE + input_idx;
+        inputs[input_idx].push_back(make_thread(tid));
+        inputs[input_idx].push_back(make_pid(1));
+        for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
+             ++step_idx) {
+            inputs[input_idx].push_back(make_timestamp(101 + step_idx));
+            for (int instr_idx = 0; instr_idx < SCHED_STEP_INSTRS; ++instr_idx) {
+                inputs[input_idx].push_back(make_instr(42 + instr_idx));
+            }
+        }
+        inputs[input_idx].push_back(make_exit(tid));
+    }
+
+    // Synthesize a cpu-schedule file with the i#6107 bug.
+    // Interleave the two inputs to test handling that.
+    std::string cpu_fname = "tmp_test_cpu_i6107.zip";
+    {
+        std::vector<schedule_entry_t> sched;
+        for (int step_idx = 0; step_idx <= CHUNK_NUM_INSTRS / SCHED_STEP_INSTRS;
+             ++step_idx) {
+            for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+                sched.emplace_back(TID_BASE + input_idx, TIMESTAMP_BASE + step_idx, CPU,
+                                   // The bug has modulo chunk count as the count.
+                                   step_idx * SCHED_STEP_INSTRS % CHUNK_NUM_INSTRS);
+            }
+        }
+        std::ostringstream cpu_string;
+        cpu_string << CPU;
+        zipfile_ostream_t outfile(cpu_fname);
+        std::string err = outfile.open_new_component(cpu_string.str());
+        assert(err.empty());
+        if (!outfile.write(reinterpret_cast<char *>(sched.data()),
+                           sched.size() * sizeof(sched[0])))
+            assert(false);
+    }
+
+    // Replay the recorded schedule.
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    for (int input_idx = 0; input_idx < NUM_INPUTS; input_idx++) {
+        memref_tid_t tid = TID_BASE + input_idx;
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(
+            std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[input_idx])),
+            std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_RECORDED_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/2);
+    zipfile_istream_t infile(cpu_fname);
+    sched_ops.replay_as_traced_istream = &infile;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    // Since it initialized we didn't get an invalid schedule order.
+    // Make sure the stream works too.
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+    }
+#endif
+}
+
+static void
 test_replay_as_traced_from_file(const char *testdir)
 {
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
@@ -1940,7 +2024,7 @@ test_replay_as_traced_from_file(const char *testdir)
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     // Takes in a path to the tests/ src dir.
     assert(argc == 2);
@@ -1966,6 +2050,7 @@ main(int argc, const char *argv[])
     test_replay_skip();
     test_replay_as_traced_from_file(argv[1]);
     test_replay_as_traced();
+    test_replay_as_traced_i6107_workaround();
 
     dr_standalone_exit();
     return 0;

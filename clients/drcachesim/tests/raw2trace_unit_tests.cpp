@@ -164,7 +164,8 @@ make_header(int version = OFFLINE_FILE_VERSION)
     offline_entry_t entry;
     entry.extended.type = OFFLINE_TYPE_EXTENDED;
     entry.extended.ext = OFFLINE_EXT_TYPE_HEADER;
-    entry.extended.valueA = OFFLINE_FILE_TYPE_DEFAULT;
+    entry.extended.valueA = OFFLINE_FILE_TYPE_DEFAULT | OFFLINE_FILE_TYPE_ENCODINGS |
+        OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
     entry.extended.valueB = version;
     return entry;
 }
@@ -230,12 +231,12 @@ make_memref(uint64_t addr)
 }
 
 offline_entry_t
-make_timestamp()
+make_timestamp(uint64_t value = 0)
 {
     static int timecount;
     offline_entry_t entry;
     entry.timestamp.type = OFFLINE_TYPE_TIMESTAMP;
-    entry.timestamp.usec = ++timecount;
+    entry.timestamp.usec = value == 0 ? ++timecount : value;
     return entry;
 }
 
@@ -897,21 +898,27 @@ test_duplicate_syscalls(void *drcontext)
     size_t offs_move2 = offs_sys + instr_length(drcontext, sys);
 
     // Now we synthesize our raw trace itself, including a valid header sequence.
+    static constexpr int SYSCALL_NUM = 42; // Doesn't really matter.
     std::vector<offline_entry_t> raw;
     raw.push_back(make_header());
     raw.push_back(make_tid());
     raw.push_back(make_pid());
     raw.push_back(make_line_size());
-    raw.push_back(make_timestamp());
+    raw.push_back(make_timestamp(1));
     raw.push_back(make_core());
     raw.push_back(make_block(offs_move1, 2));
-    raw.push_back(make_timestamp());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
+    raw.push_back(make_timestamp(2));
     raw.push_back(make_core());
     // Repeat the syscall that was the second instr in the size-2 block above,
     // in its own separate block. This is the signature of the duplicate
     // system call invariant error seen in i#5934.
     raw.push_back(make_block(offs_sys, 1));
-    raw.push_back(make_timestamp());
+    // New traces have a syscall marker, of which we test removal.
+    raw.push_back(make_timestamp(3));
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
+    raw.push_back(make_timestamp(4));
     raw.push_back(make_core());
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
@@ -929,7 +936,7 @@ test_duplicate_syscalls(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER,
                     TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // The move1 instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
@@ -937,13 +944,117 @@ test_duplicate_syscalls(void *drcontext)
         // The sys instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
+                    SYSCALL_NUM) &&
         // Prev block ends.
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 2) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
-        // No duplicate sys instr.
-        // We keep the extraneous timestamp+cpu markers above.
-        // Prev block ends.
-        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        // No duplicate sys instr, and the following timestamp==3 and syscall marker
+        // are removed.
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 4) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move2 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+}
+
+bool
+test_false_syscalls(void *drcontext)
+{
+    std::cerr << "\n===============\nTesting false syscalls\n";
+    // Our synthetic test first constructs a list of instructions to be encoded into
+    // a buffer for decoding by raw2trace.
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move1 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
+    // complexities (xref create_syscall_instr()).
+#ifdef X86
+    instr_t *sys = INSTR_CREATE_syscall(drcontext);
+#elif defined(AARCHXX)
+    instr_t *sys = INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
+#elif defined(RISCV64)
+    instr_t *sys = INSTR_CREATE_ecall(drcontext);
+#else
+#    error Unsupported architecture.
+#endif
+    instr_t *move2 =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, move1);
+    instrlist_append(ilist, sys);
+    instrlist_append(ilist, move2);
+    size_t offs_nop = 0;
+    size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
+    size_t offs_sys = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_move2 = offs_sys + instr_length(drcontext, sys);
+
+    // Now we synthesize our raw trace itself, including a valid header sequence.
+    static constexpr int SYSCALL_NUM = 42; // Doesn't really matter.
+    std::vector<offline_entry_t> raw;
+    raw.push_back(make_header());
+    raw.push_back(make_tid());
+    raw.push_back(make_pid());
+    raw.push_back(make_line_size());
+    raw.push_back(make_timestamp(1));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move1, 2));
+    // There is no syscall marker here, so the syscall should be removed.
+    raw.push_back(make_timestamp(2));
+    raw.push_back(make_core());
+    // Repeat the syscall but with a marker this time.
+    // This should not trigger dup-syscall removal.
+    raw.push_back(make_block(offs_sys, 1));
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
+    // Test a syscall with a marker across headers.
+    raw.push_back(make_block(offs_move1, 2));
+    raw.push_back(make_timestamp(3));
+    raw.push_back(make_core());
+    raw.push_back(make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSCALL_NUM));
+    raw.push_back(make_timestamp(4));
+    raw.push_back(make_core());
+    raw.push_back(make_block(offs_move2, 1));
+    raw.push_back(make_exit());
+
+    std::vector<trace_entry_t> entries;
+    if (!run_raw2trace(drcontext, raw, ilist, entries))
+        return false;
+    int idx = 0;
+    return (
+        check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+        check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER,
+                    TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // The move1 instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        // The sys instr was removed!
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 2) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // A sys instr that was not removed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
+                    SYSCALL_NUM) &&
+        // The move1 instr, with no encoding (2nd occurrence).
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        // A sys instr that was not removed, with no encoding (2nd occurrence).
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 3) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL,
+                    SYSCALL_NUM) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP, 4) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // The move2 instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
@@ -1861,15 +1972,14 @@ test_xfer_absolute(void *drcontext)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
-
     void *drcontext = dr_standalone_init();
     if (!test_branch_delays(drcontext) || !test_marker_placement(drcontext) ||
         !test_marker_delays(drcontext) || !test_chunk_boundaries(drcontext) ||
         !test_chunk_encodings(drcontext) || !test_duplicate_syscalls(drcontext) ||
-        !test_rseq_fallthrough(drcontext) || !test_rseq_rollback_legacy(drcontext) ||
-        !test_rseq_rollback(drcontext) ||
+        !test_false_syscalls(drcontext) || !test_rseq_fallthrough(drcontext) ||
+        !test_rseq_rollback_legacy(drcontext) || !test_rseq_rollback(drcontext) ||
         !test_rseq_rollback_with_timestamps(drcontext) ||
         !test_rseq_rollback_with_signal(drcontext) ||
         !test_rseq_rollback_with_chunks(drcontext) || !test_rseq_side_exit(drcontext) ||
