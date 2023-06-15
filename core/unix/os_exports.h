@@ -200,7 +200,7 @@ extern uint android_tls_base_offs;
  *     void *private;
  *   } tcb_head_t;
  */
-#    define DR_TLS_BASE_OFFSET IF_X64_ELSE(8, 4) /* skip dtv */
+#    define DR_TLS_BASE_OFFSET IF_X64_ELSE(-8, -4) /* skip dtv */
 #endif
 
 #ifdef LINUX
