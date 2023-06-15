@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,22 +30,23 @@
  * DAMAGE.
  */
 
-/* Static library support for memory trace analysis tools.
- * Usage: supply implementations of these routines in a static library and link
- * with the tool_launcher library to create a new tool executable.
- */
+/* syscall-mix tool creation */
 
-#ifndef _ANALYSIS_TOOL_INTERFACE_H_
-#define _ANALYSIS_TOOL_INTERFACE_H_ 1
+#ifndef _SYSCALL_MIX_CREATE_H_
+#define _SYSCALL_MIX_CREATE_H_ 1
 
 #include "analysis_tool.h"
 
-/* The return value from this routine is passed to the other routines in
- * this interface.
- * Returning NULL, or returning an analysis_tool_t for which the ! operator
- * returns false, indicates failure.
+/**
+ * @file drmemtrace/syscall_mix_create.h
+ * @brief DrMemtrace syscall mixture trace analysis tool creation.
+ */
+
+/**
+ * Creates an analysis tool which counts the number of instances of each system call
+ * in the trace.
  */
 analysis_tool_t *
-drmemtrace_analysis_tool_create();
+syscall_mix_tool_create(unsigned int verbose = 0);
 
-#endif /* _ANALYSIS_TOOL_INTERFACE_H_ */
+#endif /* _SYSCALL_MIX_CREATE_H_ */

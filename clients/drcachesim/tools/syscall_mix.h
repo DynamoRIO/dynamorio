@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,53 +30,52 @@
  * DAMAGE.
  */
 
-/* analyzer_multi: represent a memory trace analysis tool that can process
- * a trace from multiple inputs: a file, from a raw file, or over a pipe online.
- */
+#ifndef _SYSCALL_MIX_H_
+#define _SYSCALL_MIX_H_ 1
 
-#ifndef _ANALYZER_MULTI_H_
-#define _ANALYZER_MULTI_H_ 1
+#include <mutex>
+#include <string>
+#include <unordered_map>
 
-#include "analyzer.h"
-#include "simulator/cache_simulator_create.h"
+#include "analysis_tool.h"
 
-class analyzer_multi_t : public analyzer_t {
+class syscall_mix_t : public analysis_tool_t {
 public:
-    // Usage: errors encountered during the constructor will set a flag that should
-    // be queried via operator!.
-    analyzer_multi_t();
-    virtual ~analyzer_multi_t();
+    syscall_mix_t(unsigned int verbose);
+    virtual ~syscall_mix_t();
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_worker_init(int worker_index) override;
+    std::string
+    parallel_worker_exit(void *worker_data) override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
 
 protected:
-    bool
-    create_analysis_tools();
-    bool
-    init_analysis_tools();
-    void
-    destroy_analysis_tools();
+    struct shard_data_t {
+        std::unordered_map<int, int_least64_t> syscall_counts;
+        std::string error;
+    };
 
-    analysis_tool_t *
-    create_analysis_tool_from_options();
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
+    // This mutex is only needed in parallel_shard_init.  In all other accesses to
+    // shard_map_ (print_results) we are single-threaded.
+    std::mutex shard_map_mutex_;
+    shard_data_t serial_shard_;
+    unsigned int knob_verbose_;
 
-    analysis_tool_t *
-    create_invariant_checker();
-
-    std::string
-    get_aux_file_path(std::string option_val, std::string default_filename);
-
-    std::string
-    get_module_file_path();
-
-    /* Get the cache simulator knobs used by the cache simulator
-     * and the cache miss analyzer.
-     */
-    cache_simulator_knobs_t *
-    get_cache_simulator_knobs();
-
-    std::unique_ptr<std::istream> serial_schedule_file_;
-    std::unique_ptr<std::istream> cpu_schedule_file_;
-
-    static const int max_num_tools_ = 8;
+    static const std::string TOOL_NAME;
 };
 
-#endif /* _ANALYZER_MULTI_H_ */
+#endif /* _SYSCALL_MIX_H_ */

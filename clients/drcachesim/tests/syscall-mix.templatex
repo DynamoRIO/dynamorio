@@ -1,0 +1,5 @@
+Hello, world!
+---- <application exited with code 0> ----
+Syscall mix tool results:
+          count : syscall_num
+(  *[1-9][0-9]* : *[0-9]*.*)+
