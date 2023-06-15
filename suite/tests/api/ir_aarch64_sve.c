@@ -8331,13 +8331,13 @@ TEST_INSTR(str)
     /* STR <Pt>, [<Xn|SP>{, #<simm>, MUL VL}] */
     int simm_1[6] = { 0, 255, -256, 127, -128, -1 };
     const char *expected_1[6] = {
-        "str    %p0 -> (%x0)[32byte]",         "str    %p2 -> +0xff(%x5)[32byte]",
-        "str    %p5 -> -0x0100(%x10)[32byte]", "str    %p8 -> +0x7f(%x15)[32byte]",
-        "str    %p10 -> -0x80(%x20)[32byte]",  "str    %p15 -> -0x01(%x30)[32byte]"
+        "str    %p0 -> (%x0)[4byte]",         "str    %p2 -> +0xff(%x5)[4byte]",
+        "str    %p5 -> -0x0100(%x10)[4byte]", "str    %p8 -> +0x7f(%x15)[4byte]",
+        "str    %p10 -> -0x80(%x20)[4byte]",  "str    %p15 -> -0x01(%x30)[4byte]"
     };
     TEST_LOOP(str, str, 6, expected_1[i],
               opnd_create_base_disp_aarch64(Xn_six_offset_0[i], DR_REG_NULL, 0, false,
-                                            simm_1[i], 0, OPSZ_32),
+                                            simm_1[i], 0, OPSZ_4),
               opnd_create_reg(Pn_six_offset_0[i]));
 }
 
@@ -8357,13 +8357,13 @@ TEST_INSTR(ldr)
     /* LDR <Pt>, [<Xn|SP>{, #<simm>, MUL VL}] */
     int simm_1[6] = { 0, 255, -256, 127, -128, -1 };
     const char *expected_1[6] = {
-        "ldr    (%x0)[32byte] -> %p0",         "ldr    +0xff(%x6)[32byte] -> %p3",
-        "ldr    -0x0100(%x11)[32byte] -> %p6", "ldr    +0x7f(%x16)[32byte] -> %p9",
-        "ldr    -0x80(%x21)[32byte] -> %p11",  "ldr    -0x01(%x30)[32byte] -> %p15",
+        "ldr    (%x0)[4byte] -> %p0",         "ldr    +0xff(%x6)[4byte] -> %p3",
+        "ldr    -0x0100(%x11)[4byte] -> %p6", "ldr    +0x7f(%x16)[4byte] -> %p9",
+        "ldr    -0x80(%x21)[4byte] -> %p11",  "ldr    -0x01(%x30)[4byte] -> %p15",
     };
     TEST_LOOP(ldr, ldr, 6, expected_1[i], opnd_create_reg(Pn_six_offset_1[i]),
               opnd_create_base_disp_aarch64(Xn_six_offset_1[i], DR_REG_NULL, 0, false,
-                                            simm_1[i], 0, OPSZ_32));
+                                            simm_1[i], 0, OPSZ_4));
 }
 
 TEST_INSTR(punpkhi_sve)

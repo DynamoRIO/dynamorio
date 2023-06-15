@@ -239,7 +239,7 @@
 ----------xxxxxx------xxxxx-----  svememx6_h_5    # vector memory reg with 6 bit imm for half value
 ----------xxxxxx------xxxxx-----  svememx6_s_5    # vector memory reg with 6 bit imm for single value
 ----------xxxxxx------xxxxx-----  svememx6_d_5    # vector memory reg with 6 bit imm for double value
-----------xxxxxx---xxxxxxxx-----  svemem_gpr_simm9_vl # imm offset and base reg for SVE ld/st
+----------xxxxxx-?-xxxxxxxx-----  svemem_gpr_simm9_vl # imm offset and base reg for SVE ld/st
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
 ----------xxxxxxxxxxxxxxxxx-----  prf12      # size is 0 bytes (prefetch variant of mem12)
