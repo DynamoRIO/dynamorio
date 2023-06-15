@@ -490,7 +490,7 @@ enum {
  * of the system call number for 32-bit marker values.
  */
 #ifdef X64
-    TRACE_FUNC_ID_SYSCALL_BASE = 0x100000000UL,
+    TRACE_FUNC_ID_SYSCALL_BASE = 0x100000000ULL,
 #else
     TRACE_FUNC_ID_SYSCALL_BASE = 0x10000U,
 #endif
