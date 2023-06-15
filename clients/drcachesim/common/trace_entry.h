@@ -280,12 +280,12 @@ typedef enum {
      *
      * This marker is also used to record parameter values for certain system calls such
      * as for #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS.  These use large identifiers equal to
-     * #TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (for 32-bit marker values
-     * just the bottom 16 bits of the system call number are added to the base).  These
-     * identifiers are not stored in the function list file
+     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (for 32-bit
+     * marker values just the bottom 16 bits of the system call number are added to the
+     * base).  These identifiers are not stored in the function list file
      * (drmemtrace_get_funclist_path()).  The system call number used is the value
-     * passed to DynamoRIO's dr_register_pre_syscall_event() which is normalized
-     * to match SYS_ constants (see the dr_register_pre_syscall_event() documentation
+     * passed to DynamoRIO's dr_register_pre_syscall_event() which is normalized to
+     * match SYS_ constants (see the dr_register_pre_syscall_event() documentation
      * regarding MacOS).
      */
     TRACE_MARKER_TYPE_FUNC_ID,
@@ -313,9 +313,9 @@ typedef enum {
      * whose id is specified by the closest previous #TRACE_MARKER_TYPE_FUNC_ID
      * marker entry
      *
-     * The marker value for system calls (see #TRACE_FUNC_ID_SYSCALL_BASE) is either 0
-     * (failure) or 1 (success), as obtained from dr_syscall_get_result_ex() via the
-     * "succeeded" field of #dr_syscall_result_info_t.  See the corresponding
+     * The marker value for system calls (see #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE)
+     * is either 0 (failure) or 1 (success), as obtained from dr_syscall_get_result_ex()
+     * via the "succeeded" field of #dr_syscall_result_info_t.  See the corresponding
      * documentation for caveats about the accuracy of this value.
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
@@ -480,7 +480,7 @@ typedef enum {
 } trace_marker_type_t;
 
 /** Constants related to function or system call parameter tracing. */
-enum {
+enum class func_trace_t : uint64_t { // VS2019 won't infer 64-bit with "enum {".
 /**
  * When system call parameter and return values are provided, they use the function
  * tracing markers #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_ARG, and
@@ -490,7 +490,7 @@ enum {
  * of the system call number for 32-bit marker values.
  */
 #ifdef X64
-    TRACE_FUNC_ID_SYSCALL_BASE = 100000000UL,
+    TRACE_FUNC_ID_SYSCALL_BASE = 0x100000000ULL,
 #else
     TRACE_FUNC_ID_SYSCALL_BASE = 0x10000U,
 #endif
@@ -718,9 +718,9 @@ typedef enum {
      * and return values for kernel locks (SYS_futex on Linux) using the function tracing
      * markers #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_ARG, and
      * #TRACE_MARKER_TYPE_FUNC_RETVAL with an identifier equal to
-     * #TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (or its bottom 16 bits
-     * for 32-bit marker values).  These identifiers are not stored in the function
-     * list file (drmemtrace_get_funclist_path()).
+     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (or its
+     * bottom 16 bits for 32-bit marker values).  These identifiers are not stored in
+     * the function list file (drmemtrace_get_funclist_path()).
      *
      * The #TRACE_MARKER_TYPE_FUNC_RETVAL for system calls is either 0 (failure) or
      * 1 (success).
