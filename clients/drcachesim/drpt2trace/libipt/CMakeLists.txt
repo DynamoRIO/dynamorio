@@ -104,7 +104,7 @@ set(LIBIPT_FILES
   ${LIBIPT_ROOT}/src/posix/pt_section_posix.c
 )
 
-add_library(ipt SHARED ${LIBIPT_FILES})
+add_library(ipt STATIC ${LIBIPT_FILES})
 DR_export_target(ipt)
 install_exported_target(ipt ${INSTALL_CLIENTS_LIB})
 
@@ -137,7 +137,7 @@ set(LIBSB_FILES
   ${LIBSB_ROOT}/src/pt_sb_pevent.c
 )
 
-add_library(ipt-sb SHARED ${LIBSB_FILES})
+add_library(ipt-sb STATIC ${LIBSB_FILES})
 
 configure_file(
   ${LIBSB_ROOT}/include/libipt-sb.h.in

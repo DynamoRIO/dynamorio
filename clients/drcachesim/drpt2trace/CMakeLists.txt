@@ -42,12 +42,6 @@ include_directories(
   ${PROJECT_BINARY_DIR}/third_party/include/libipt
 )
 
-# Add the directory containing libipt.so and libipt-sb.so to the linker search path.
-set(libipt_install_dir "${PROJECT_BINARY_DIR}/third_party/${INSTALL_LIB}")
-SET(CMAKE_EXE_LINKER_FLAGS
-  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${libipt_install_dir}'"
-)
-
 # drpt2ir don't include configure.h so they don't get DR defines.
 add_dr_defines()
 

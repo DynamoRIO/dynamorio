@@ -755,7 +755,7 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     thread_id_t tid = header.tid;
     tdata->tid = tid;
 #ifdef BUILD_PT_POST_PROCESSOR
-    if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_PT, tdata->file_type)) {
+    if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type)) {
         DR_ASSERT(tdata->kthread_file == nullptr);
         auto it = kthread_files_map_.find(tid);
         if (it != kthread_files_map_.end()) {
@@ -813,7 +813,7 @@ std::string
 raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx)
 {
     DR_ASSERT(tdata->kthread_file != nullptr);
-    DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_SYSCALL_PT, tdata->file_type));
+    DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type));
 
     if (!tdata->pt_metadata_processed) {
         DR_ASSERT(syscall_idx == 0);

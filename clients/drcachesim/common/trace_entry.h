@@ -477,7 +477,7 @@ typedef enum {
     TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL,
 
     /**
-     * Indicates a point in the trace where a syscall's trace start.
+     * Indicates a point in the trace where a syscall's kernel trace starts.
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
 
@@ -740,7 +740,11 @@ typedef enum {
      * 1 (success).
      */
     OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS = 0x800,
-    OFFLINE_FILE_TYPE_SYSCALL_PT = 0x1000, /**< Syscalls' PT tracings are included. */
+    /**
+     * Kernel traces of syscalls are included.
+     * The included kernel traces are in the Intel® Processor Trace format.
+     */
+    OFFLINE_FILE_TYPE_KERNEL_SYSCALLS = 0x1000,
 } offline_file_type_t;
 
 static inline const char *
@@ -997,31 +1001,24 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
         (SYSCALL_METADATA_ENTRY_NUM * sizeof(syscall_pt_entry_t))
 
 typedef enum {
-    /**
-     *  Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header.
-     */
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
     PDB_HEADER_PID_IDX = 0,
-    /**
-     * Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD_ID in the PDB
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD_ID in the PDB
      * header.
      */
     PDB_HEADER_TID_IDX = 1,
-    /**
-     * Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY in the
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY in the
      * PDB header.
      */
     PDB_HEADER_DATA_BOUNDARY_IDX = 2,
-    /**
-     * Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSNUM in the PDB header.
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSNUM in the PDB header.
      */
     PDB_HEADER_SYSNUM_IDX = 3,
-    /**
-     * Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX in the PDB
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX in the PDB
      * header.
      */
     PDB_HEADER_SYSCALL_IDX_IDX = 4,
-    /**
-     * Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM in the
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM in the
      * PDB header.
      */
     PDB_HEADER_NUM_ARGS_IDX = 5
@@ -1069,14 +1066,14 @@ typedef enum {
 #define DRMEMTRACE_KERNEL_PT_SUBDIR "kernel.raw"
 
 /**
- * The name of the file in -offline mode where the kernel code segments is stored. This
- * file is copied from '/proc/kcore' during online tracing.
+ * The name of the file in -offline mode where the kernel code segments are stored. This
+ * file is copied from '/proc/kcore' during tracing.
  */
 #define DRMEMTRACE_KCORE_FILENAME "kcore"
 
 /**
  * The name of the file in -offline mode where kallsyms is stored. This file is copied
- * from '/proc/kallsyms' during online tracing.
+ * from '/proc/kallsyms' during tracing.
  */
 #define DRMEMTRACE_KALLSYMS_FILENAME "kallsyms"
 

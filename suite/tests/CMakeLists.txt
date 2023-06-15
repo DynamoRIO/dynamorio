@@ -191,14 +191,6 @@ if (RUN_LONG_SUITE OR ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
   set(TEST_LONG ON)
 endif ()
 
-if (BUILD_PT_POST_PROCESSOR)
-  # Add the directory containing libipt.so and libipt-sb.so to the linker search path.
-  set(libipt_install_dir "${PROJECT_BINARY_DIR}/third_party/${INSTALL_LIB}")
-  SET(CMAKE_EXE_LINKER_FLAGS
-    "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${libipt_install_dir}'"
-  )
-endif (BUILD_PT_POST_PROCESSOR)
-
 ###########################################################################
 # BUILDING
 
