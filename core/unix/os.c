@@ -762,7 +762,7 @@ our_init(int argc, char **argv, char **envp)
     return 0;
 }
 
-#if defined(STATIC_LIBRARY) || defined(STANDALONE_UNIT_TEST)
+#if defined(STATIC_LIBRARY) || defined(STANDALONE_UNIT_TEST) || defined(RISCV64)
 /* If we're getting linked into a binary that already has an _init definition
  * like the app's exe or unit_tests, we add a pointer to our_init() to the
  * .init_array section.  We can't use the constructor attribute because not all
