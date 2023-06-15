@@ -53,7 +53,7 @@ syscall_pt_trace_t::syscall_pt_trace_t()
     , close_file_func_(nullptr)
     , pttracer_handle_ { GLOBAL_DCONTEXT, nullptr }
     , pttracer_output_buffer_ { GLOBAL_DCONTEXT, nullptr }
-    , recorded_syscall_idx_(-1)
+    , traced_syscall_idx_(0)
     , cur_recording_sysnum_(-1)
     , is_dumping_metadata_(false)
     , drcontext_(nullptr)
@@ -148,8 +148,6 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
            "pttracer_output_buffer_.data is nullptr");
     ASSERT(output_file_ != INVALID_FILE, "output_file_ is INVALID_FILE");
 
-    recorded_syscall_idx_++;
-
     if (drpttracer_stop_tracing(drcontext_, pttracer_handle_.handle,
                                 pttracer_output_buffer_.data) != DRPTTRACER_SUCCESS) {
         return false;
@@ -158,6 +156,8 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
     if (!trace_data_dump(pttracer_output_buffer_)) {
         return false;
     }
+
+    traced_syscall_idx_++;
     cur_recording_sysnum_ = -1;
 
     /* Reset the pttracer handle for next syscall.
@@ -235,7 +235,7 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
     /* Initialize the syscall id. */
     pdb_header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.type =
         SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX;
-    pdb_header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx = recorded_syscall_idx_;
+    pdb_header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx = traced_syscall_idx_;
 
     /* Initialize the parameter of current recorded syscall.
      * TODO i#5505: dynamorio doesn't provide a function to get syscall's

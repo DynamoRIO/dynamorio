@@ -409,8 +409,9 @@ typedef enum {
     TRACE_MARKER_TYPE_PAGE_SIZE,
 
     /**
-     * This marker is emitted after each system call that records kernel PT, and its value
-     * contains a unique identifier for the system call within a specific thread.
+     * This marker is emitted prior to each system call when -enable_kernel_tracing is
+     * specified. The marker value contains a unique identifier for the system call within
+     * a specific thread.
      * \note This marker serves solely to indicate when to decode the syscall's PT trace
      * and will not be included in the final complete trace. Instead, we utilize
      * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and #TRACE_MARKER_TYPE_SYSCALL_TRACE_END to

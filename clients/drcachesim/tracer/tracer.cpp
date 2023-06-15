@@ -1392,6 +1392,12 @@ event_pre_syscall(void *drcontext, int sysnum)
             return true;
         }
 
+        /* Write a marker to userspace raw trace. */
+        trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
+        uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
+        BUF_PTR(data->seg_base) +=
+            instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
+
         if (!data->syscall_pt_trace.start_syscall_pt_trace(sysnum)) {
             ASSERT(false, "failed to start syscall pt trace");
             return false;
@@ -1450,22 +1456,6 @@ event_post_syscall(void *drcontext, int sysnum)
         ASSERT(false, "failed to stop syscall pt trace");
         return;
     }
-
-    /* Write a marker to userspace raw trace. */
-    /* TODO i#5505: We should move this _IDX marker to pre-syscall for two
-     * reasons: 1) Some syscalls have no post event (e.g., exit or sigreturn);
-     * 2) A blocking syscall may have a thread switch in between, separating the
-     * syscall instruction from this marker by quite a distance when interleaved
-     * with other threads.
-     */
-    /* This marker has the same issues with a syscall instruction not having a following
-     * marker as we hit with the syscall number marker, but our solutions there also
-     * solve the same problems for this marker.
-     */
-    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
-    uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_idx();
-    BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
 #endif
 }
 

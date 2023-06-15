@@ -129,12 +129,12 @@ public:
         return cur_recording_sysnum_;
     }
 
-    /* Get the index of the last recorded syscall in this thread's recorded syscall list.
+    /* Get the index of the traced syscall.
      */
     int
-    get_last_recorded_syscall_idx()
+    get_traced_syscall_idx()
     {
-        return recorded_syscall_idx_;
+        return traced_syscall_idx_;
     }
 
     /* Check whether the syscall's PT need to be recorded.
@@ -176,8 +176,8 @@ private:
      */
     drpttracer_output_autoclean_t pttracer_output_buffer_;
 
-    /* The index of recorded syscall. */
-    int recorded_syscall_idx_;
+    /* The index of the traced syscall. */
+    int traced_syscall_idx_;
 
     /* The sysnum of current recording syscall. */
     int cur_recording_sysnum_;

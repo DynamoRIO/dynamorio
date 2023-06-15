@@ -753,6 +753,9 @@ private:
  */
 class raw2trace_t {
 public:
+    /* TODO i#5505: The argument list of raw2trace_t has become excessively long. It would
+     * be more manageable to have an options struct instead.
+     */
     // Only one of out_files and out_archives should be non-empty: archives support fast
     // seeking and are preferred but require zlib.
     // module_map, encoding_file, serial_schedule_file, cpu_schedule_file, thread_files,
