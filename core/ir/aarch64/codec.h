@@ -63,6 +63,7 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
  * Setting to fixed size for now in order to pass unit tests.
  */
 #    define OPSZ_SVE_VL opnd_size_from_bytes(dr_get_sve_vl() / 8)
+#    define OPSZ_SVE_PL opnd_size_from_bytes((dr_get_sve_vl() / 8) / 8)
 #else
 /* SVE vector length for off-line decoder set using -vl option with drdisas,
  * e.g.
@@ -72,6 +73,7 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
  * $
  */
 #    define OPSZ_SVE_VL opnd_size_from_bytes(dr_get_sve_vl() / 8)
+#    define OPSZ_SVE_PL opnd_size_from_bytes((dr_get_sve_vl() / 8) / 8)
 #endif
 
 #define RETURN_FALSE                                           \
