@@ -5585,9 +5585,9 @@ if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RI
     PROPERTIES LABELS UBUNTU_22)
 endif ()
 
-# XXX i#4719: Support for running riscv64 Linux tests under QEMU.
+# XXX i#3544: Enable passed tests on riscv64.
 if (RISCV64)
 set_tests_properties(
   code_api|api.ir
-  PROPERTIES LABELS RUNS_ON_QEMU)
+  PROPERTIES LABELS RISCV64)
 endif ()

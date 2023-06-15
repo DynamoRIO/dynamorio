@@ -67,7 +67,7 @@ droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
                                "Display the instruction encoding bytes.",
                                "Display the instruction encoding bytes.");
 
-#if defined(AARCH64) || defined(ARM)
+#if defined(AARCH64) || defined(ARM) || defined(RISCV64)
 #    define MAX_INSTR_LENGTH 4
 #else
 #    define MAX_INSTR_LENGTH 17

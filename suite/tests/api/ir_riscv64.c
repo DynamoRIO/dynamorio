@@ -46,9 +46,70 @@
 #include "dr_api.h"
 #include "tools.h"
 
+static byte buf[8192];
+
+#ifdef STANDALONE_DECODER
+#    define ASSERT(x)                                                                 \
+        ((void)((!(x)) ? (fprintf(stderr, "ASSERT FAILURE (standalone): %s:%d: %s\n", \
+                                  __FILE__, __LINE__, #x),                            \
+                          abort(), 0)                                                 \
+                       : 0))
+#else
+#    define ASSERT(x)                                                                \
+        ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE (client): %s:%d: %s\n", \
+                                     __FILE__, __LINE__, #x),                        \
+                          dr_abort(), 0)                                             \
+                       : 0))
+#endif
+
+static void
+test_instr_encoding(void *dc, uint opcode, instr_t *instr)
+{
+    instr_t *decin;
+    byte *pc;
+
+    ASSERT(instr_get_opcode(instr) == opcode);
+    instr_disassemble(dc, instr, STDERR);
+    print("\n");
+    ASSERT(instr_is_encoding_possible(instr));
+    pc = instr_encode(dc, instr, buf);
+    decin = instr_create(dc);
+    decode(dc, buf, decin);
+    if (!instr_same(instr, decin)) {
+        print("Disassembled as:\n");
+        instr_disassemble(dc, decin, STDERR);
+        print("\n");
+        ASSERT(instr_same(instr, decin));
+    }
+
+    instr_destroy(dc, instr);
+    instr_destroy(dc, decin);
+}
+
+static void
+test_load_store(void *dc)
+{
+    byte *pc;
+    instr_t *instr;
+
+    instr =
+        INSTR_CREATE_lb(dc, opnd_create_reg(DR_REG_A0),
+                        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_12b));
+    test_instr_encoding(dc, OP_lb, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
+#ifdef STANDALONE_DECODER
+    void *dcontext = GLOBAL_DCONTEXT;
+#else
+    void *dcontext = dr_standalone_init();
+#endif
+
+    test_load_store(dcontext);
+    print("test_load complete\n");
+
     print("All tests complete\n");
     return 0;
 }
