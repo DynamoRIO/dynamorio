@@ -39,6 +39,9 @@
 #    include <windows.h>
 #endif
 
+#include <iostream>
+
+#include "dr_api.h"
 #include "dr_frontend.h"
 #include "droption.h"
 #include "drmemtrace/analyzer.h"
@@ -73,6 +76,44 @@ droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
                                     "Verbosity level for notifications.");
 
+class analyzer_example_t : public analysis_tool_t {
+public:
+    analyzer_example_t()
+    {
+        dc = dr_standalone_init();
+        instr = instr_create(dc);
+        instr_init(dc, instr);
+    }
+    ~analyzer_example_t()
+    {
+        instr_destroy(dc, instr);
+        dr_standalone_exit();
+    }
+    bool
+    process_memref(const memref_t &memref) override
+    {
+        if (type_is_instr(memref.instr.type)) {
+            num_instrs++;
+
+            instr_reset(dc, instr);
+            byte *next_pc = decode_from_copy(dc, (byte *)&memref.instr.encoding[0],
+                                             (byte *)memref.instr.addr, instr);
+        }
+        return true;
+    }
+    bool
+    print_results() override
+    {
+        std::cerr << "Found " << num_instrs << " instructions\n";
+        return true;
+    }
+
+protected:
+    int num_instrs = 0;
+    instr_t *instr;
+    void *dc = NULL;
+};
+
 int
 _tmain(int argc, const TCHAR *targv[])
 {
@@ -94,6 +135,10 @@ _tmain(int argc, const TCHAR *targv[])
         op_line_size.get_value(), op_report_top.get_value(), op_verbose.get_value());
     std::vector<analysis_tool_t *> tools;
     tools.push_back(tool);
+
+    analysis_tool_t *d = new analyzer_example_t();
+    tools.push_back(d);
+
     analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());
     if (!analyzer) {
         FATAL_ERROR("failed to initialize analyzer: %s",
@@ -104,6 +149,7 @@ _tmain(int argc, const TCHAR *targv[])
     }
     analyzer.print_stats();
     delete tool;
+    delete d;
 
     return 0;
 }
