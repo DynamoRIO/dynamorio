@@ -391,22 +391,6 @@ struct trace_metadata_reader_t {
     check_entry_thread_start(const offline_entry_t *entry);
 };
 
-#ifdef BUILD_PT_POST_PROCESSOR
-/**
- * Functions for decoding and verifying raw memtrace data headers.
- */
-struct ktrace_metadata_reader_t {
-    static bool
-    is_pt_metadata_header(const syscall_pt_entry_t *entry);
-    static bool
-    is_syscall_pt_data_header(const syscall_pt_entry_t *entry);
-    static thread_id_t
-    get_thread_id(const syscall_pt_entry_t *entry);
-    static std::string
-    check_entry_thread_start(const syscall_pt_entry_t *entry);
-};
-#endif
-
 /**
  * module_mapper_t maps and unloads application modules, as well as non-module
  * instruction encodings (for raw traces, or if not present in the final trace).

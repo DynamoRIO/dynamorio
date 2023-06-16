@@ -1077,13 +1077,14 @@ raw2trace_t::get_kthread_file_tid(std::istream *f, thread_id_t *tid)
 {
     syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
     if (!f->read((char *)&header[0], PT_METADATA_PDB_HEADER_SIZE)) {
-        return "Unable to read kernel thread log file";
+        return "Unable to read kernel thread trace file";
     }
     f->seekg(-(std::streamoff)(PT_METADATA_PDB_HEADER_SIZE), f->cur);
-    *tid = ktrace_metadata_reader_t::get_thread_id(&header[PDB_HEADER_TID_IDX]);
-    if (*tid == INVALID_THREAD_ID) {
-        return "Unable to read thread id from kernel thread log file";
+    if (header[PDB_HEADER_TID_IDX].tid.type != SYSCALL_PT_ENTRY_TYPE_THREAD_ID) {
+        *tid = INVALID_THREAD_ID;
+        return "Unable to read thread id from kernel thread trace file";
     }
+    *tid = header[PDB_HEADER_TID_IDX].tid.tid;
     return "";
 }
 
@@ -1095,8 +1096,11 @@ raw2trace_t::check_kthread_file(std::istream *f)
         return "Unable to read kernel thread log file";
     }
     f->seekg(-(std::streamoff)(PT_METADATA_PDB_HEADER_SIZE), f->cur);
-    return ktrace_metadata_reader_t::check_entry_thread_start(
-        &header[PDB_HEADER_DATA_BOUNDARY_IDX]);
+    if (header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type !=
+        SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY) {
+        return "Kernel thread log file is corrupted: missing thread shared PT metadata";
+    }
+    return "";
 }
 #endif
 
@@ -3146,37 +3150,6 @@ trace_metadata_reader_t::check_entry_thread_start(const offline_entry_t *entry)
         return "Thread log file is corrupted: missing version entry";
     return error;
 }
-
-#ifdef BUILD_PT_POST_PROCESSOR
-bool
-ktrace_metadata_reader_t::is_pt_metadata_header(const syscall_pt_entry_t *entry)
-{
-    return entry->pt_metadata_boundary.type == SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY;
-}
-
-bool
-ktrace_metadata_reader_t::is_syscall_pt_data_header(const syscall_pt_entry_t *entry)
-{
-    return entry->pt_data_boundary.type == SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY;
-}
-
-thread_id_t
-ktrace_metadata_reader_t::get_thread_id(const syscall_pt_entry_t *entry)
-{
-    if (entry->tid.type != SYSCALL_PT_ENTRY_TYPE_THREAD_ID) {
-        return INVALID_THREAD_ID;
-    }
-    return entry->tid.tid;
-}
-
-std::string
-ktrace_metadata_reader_t::check_entry_thread_start(const syscall_pt_entry_t *entry)
-{
-    if (is_pt_metadata_header(entry))
-        return "";
-    return "Thread log file is corrupted: missing thread shared PT metadata";
-}
-#endif
 
 drmemtrace_status_t
 drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
