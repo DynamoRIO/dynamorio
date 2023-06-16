@@ -370,10 +370,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         marker_type_is_function_marker(memref.marker.marker_type)) {
-        report_if_false(shard,
-                        shard->prev_func_id_ >= TRACE_FUNC_ID_SYSCALL_BASE ||
-                            type_is_instr_branch(shard->prev_instr_.instr.type),
-                        "Function marker should be after a branch");
+        report_if_false(
+            shard,
+            shard->prev_func_id_ >=
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
+                type_is_instr_branch(shard->prev_instr_.instr.type),
+            "Function marker should be after a branch");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR) {
