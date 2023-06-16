@@ -5588,6 +5588,7 @@ endif ()
 # XXX i#3544: Enable passed tests on riscv64.
 if (RISCV64)
   set_tests_properties(
+    code_api|api.ir
     code_api|api.ir-static
     PROPERTIES LABELS RISCV64)
 endif ()

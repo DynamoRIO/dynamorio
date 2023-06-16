@@ -330,88 +330,66 @@ reg_is_gpr(reg_id_t reg)
 bool
 reg_is_simd(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_vector_simd(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_opmask(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_bnd(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_strictly_zmm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_ymm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_strictly_ymm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_xmm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_strictly_xmm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_mmx(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 instr_is_opmask(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
