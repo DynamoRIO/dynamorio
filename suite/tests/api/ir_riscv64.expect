@@ -1,3 +1,21 @@
-lb     +8(%a1)[1byte] -> %a0
-test_load complete
+lb     (%a1)[1byte] -> %a0
+lbu    -1(%a1)[1byte] -> %zero
+lh     +2047(%a1)[2byte] -> %a0
+lhu    (%zero)[2byte] -> %a0
+lw     -1(%a1)[4byte] -> %t6
+lwu    (%t6)[4byte] -> %a0
+ld     +42(%a1)[8byte] -> %a0
+sb     %a0 -> (%a1)[1byte]
+sh     %t6 -> -1(%zero)[2byte]
+sw     %zero -> +2047(%t6)[4byte]
+sd     %a0 -> +42(%a1)[8byte]
+c.ldsp (%sp)[8byte] -> %a0
+c.ld   +248(%a5)[8byte] -> %fp
+c.lwsp +124(%sp)[4byte] -> %zero
+c.lw   +124(%a5)[4byte] -> %fp
+c.sdsp %a0 -> (%sp)[8byte]
+c.sd   %fp -> +248(%a5)[8byte]
+c.swsp %zero -> +124(%sp)[4byte]
+c.sw   %fp -> +124(%a5)[4byte]
+test_integer_load_store complete
 All tests complete

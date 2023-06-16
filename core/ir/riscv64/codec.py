@@ -599,10 +599,12 @@ class IslGenerator:
     def __fixup_compressed_inst(self, inst: Instruction):
         opc = (inst.match & inst.mask) & 0x3
         funct3 = (inst.match & inst.mask) >> 13
-        if opc == 0 and funct3 not in [0, 0b100]:  # LOAD/STORE instructions
+        if (opc == 0b00 or opc == 0b10) and funct3 not in [0, 0b100]:  # LOAD/STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             # Immediate argument will handle the base+disp.
-            inst.flds.pop(1)
+            if opc == 0b00:
+                inst.flds.pop(1)
+            inst.flds.reverse()
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif Field.CB_IMM in inst.flds:
             # Compare-and-branch instructions need their branch operand moved

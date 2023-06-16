@@ -87,15 +87,100 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
 }
 
 static void
-test_load_store(void *dc)
+test_integer_load_store(void *dc)
 {
     byte *pc;
     instr_t *instr;
 
+    /* Load */
     instr = INSTR_CREATE_lb(
         dc, opnd_create_reg(DR_REG_A0),
-        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 8, OPSZ_1));
+        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_1));
     test_instr_encoding(dc, OP_lb, instr);
+    instr = INSTR_CREATE_lbu(
+        dc, opnd_create_reg(DR_REG_X0),
+        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, -1, OPSZ_1));
+    test_instr_encoding(dc, OP_lbu, instr);
+    instr = INSTR_CREATE_lh(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_2));
+    test_instr_encoding(dc, OP_lh, instr);
+    instr = INSTR_CREATE_lhu(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp_decimal(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_2));
+    test_instr_encoding(dc, OP_lhu, instr);
+    instr = INSTR_CREATE_lw(
+        dc, opnd_create_reg(DR_REG_X31),
+        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, -1, OPSZ_4));
+    test_instr_encoding(dc, OP_lw, instr);
+    instr = INSTR_CREATE_lwu(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp_decimal(DR_REG_X31, DR_REG_NULL, 0, 0, OPSZ_4));
+    test_instr_encoding(dc, OP_lwu, instr);
+    instr = INSTR_CREATE_ld(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 42, OPSZ_8));
+    test_instr_encoding(dc, OP_ld, instr);
+
+    /* Store */
+    instr = INSTR_CREATE_sb(
+        dc, opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_1),
+        opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_sb, instr);
+    instr = INSTR_CREATE_sh(
+        dc, opnd_create_base_disp_decimal(DR_REG_X0, DR_REG_NULL, 0, -1, OPSZ_2),
+        opnd_create_reg(DR_REG_X31));
+    test_instr_encoding(dc, OP_sh, instr);
+    instr = INSTR_CREATE_sw(
+        dc,
+        opnd_create_base_disp_decimal(DR_REG_X31, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_4),
+        opnd_create_reg(DR_REG_X0));
+    test_instr_encoding(dc, OP_sw, instr);
+    instr = INSTR_CREATE_sd(
+        dc, opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 42, OPSZ_8),
+        opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_sd, instr);
+
+    /* Compressed Load */
+    instr = INSTR_CREATE_c_ldsp(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8));
+    test_instr_encoding(dc, OP_c_ldsp, instr);
+    instr = INSTR_CREATE_c_ld(dc, opnd_create_reg(DR_REG_X8),
+                              opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
+                                                            ((1 << 5) - 1) << 3, OPSZ_8));
+    test_instr_encoding(dc, OP_c_ld, instr);
+    instr =
+        INSTR_CREATE_c_lwsp(dc, opnd_create_reg(DR_REG_X0),
+                            opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0,
+                                                          ((1 << 5) - 1) << 2, OPSZ_4));
+    test_instr_encoding(dc, OP_c_lwsp, instr);
+    instr = INSTR_CREATE_c_lw(dc, opnd_create_reg(DR_REG_X8),
+                              opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
+                                                            ((1 << 5) - 1) << 2, OPSZ_4));
+    test_instr_encoding(dc, OP_c_lw, instr);
+
+    /* Compressed Store */
+    instr = INSTR_CREATE_c_sdsp(
+        dc, opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_c_sdsp, instr);
+    instr = INSTR_CREATE_c_sd(dc,
+                              opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
+                                                            ((1 << 5) - 1) << 3, OPSZ_8),
+                              opnd_create_reg(DR_REG_X8));
+    test_instr_encoding(dc, OP_c_sd, instr);
+    instr =
+        INSTR_CREATE_c_swsp(dc,
+                            opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0,
+                                                          ((1 << 5) - 1) << 2, OPSZ_4),
+                            opnd_create_reg(DR_REG_X0));
+    test_instr_encoding(dc, OP_c_swsp, instr);
+    instr = INSTR_CREATE_c_sw(dc,
+                              opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
+                                                            ((1 << 5) - 1) << 2, OPSZ_4),
+                              opnd_create_reg(DR_REG_X8));
+    test_instr_encoding(dc, OP_c_sw, instr);
 }
 
 int
@@ -107,8 +192,8 @@ main(int argc, char *argv[])
     void *dcontext = dr_standalone_init();
 #endif
 
-    test_load_store(dcontext);
-    print("test_load complete\n");
+    test_integer_load_store(dcontext);
+    print("test_integer_load_store complete\n");
 
     print("All tests complete\n");
     return 0;
