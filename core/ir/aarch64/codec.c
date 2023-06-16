@@ -5816,26 +5816,6 @@ encode_opnd_z_wtszl19_bhsd_0(uint enc, int opcode, byte *pc, opnd_t opnd,
     return encode_tszl_size(opnd, enc_out, 0);
 }
 
-static inline bool
-decode_opnd_z_tszl19_bhsd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd);
-
-static inline bool
-decode_opnd_z_wtszl19_bhsd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_z_tszl19_bhsd_5(enc, opcode, pc, opnd);
-}
-
-static inline bool
-encode_opnd_z_wtszl19_bhsd_5(uint enc, int opcode, byte *pc, opnd_t opnd,
-                             OUT uint *enc_out)
-{
-    if (!encode_sized_base(5, 0, BYTE_REG, DOUBLE_REG, OPSZ_SCALABLE, 0, 0, false, opnd,
-                           enc_out))
-        return false;
-
-    return encode_tszl_size(opnd, enc_out, 0);
-}
-
 static inline aarch64_reg_offset
 extract_tsz_offset(uint enc, uint tszh_pos, uint tszl_pos)
 {
@@ -7017,6 +6997,18 @@ static inline bool
 encode_opnd_z_size_bhsd_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_sized_z(16, 22, BYTE_REG, DOUBLE_REG, 0, 0, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_size_sd_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(16, 22, SINGLE_REG, DOUBLE_REG, 0, 0, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_size_sd_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(16, 22, SINGLE_REG, DOUBLE_REG, 0, 0, opnd, enc_out);
 }
 
 static inline bool
