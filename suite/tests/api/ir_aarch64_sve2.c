@@ -3219,6 +3219,1002 @@ TEST_INSTR(uqxtnt_sve)
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
               opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8));
 }
+
+TEST_INSTR(fmlalb_sve_idx)
+{
+
+    /* Testing FMLALB  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_0_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_0_0[6] = {
+        "fmlalb %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "fmlalb %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "fmlalb %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "fmlalb %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "fmlalb %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "fmlalb %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(fmlalb, fmlalb_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_0_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(fmlalt_sve_idx)
+{
+
+    /* Testing FMLALT  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_0_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_0_0[6] = {
+        "fmlalt %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "fmlalt %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "fmlalt %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "fmlalt %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "fmlalt %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "fmlalt %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(fmlalt, fmlalt_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_0_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(fmlslb_sve_idx)
+{
+
+    /* Testing FMLSLB  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_0_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_0_0[6] = {
+        "fmlslb %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "fmlslb %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "fmlslb %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "fmlslb %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "fmlslb %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "fmlslb %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(fmlslb, fmlslb_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_0_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(fmlslt_sve_idx)
+{
+
+    /* Testing FMLSLT  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_0_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_0_0[6] = {
+        "fmlslt %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "fmlslt %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "fmlslt %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "fmlslt %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "fmlslt %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "fmlslt %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(fmlslt, fmlslt_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_0_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(smlalb_sve_idx_vector)
+{
+
+    /* Testing SMLALB  <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "smlalb %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "smlalb %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "smlalb %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "smlalb %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "smlalb %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "smlalb %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(smlalb, smlalb_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SMLALB  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "smlalb %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "smlalb %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "smlalb %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "smlalb %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "smlalb %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "smlalb %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(smlalb, smlalb_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(smlalt_sve_idx_vector)
+{
+
+    /* Testing SMLALT  <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "smlalt %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "smlalt %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "smlalt %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "smlalt %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "smlalt %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "smlalt %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(smlalt, smlalt_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SMLALT  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "smlalt %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "smlalt %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "smlalt %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "smlalt %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "smlalt %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "smlalt %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(smlalt, smlalt_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(smlslb_sve_idx_vector)
+{
+
+    /* Testing SMLSLB  <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "smlslb %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "smlslb %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "smlslb %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "smlslb %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "smlslb %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "smlslb %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(smlslb, smlslb_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SMLSLB  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "smlslb %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "smlslb %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "smlslb %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "smlslb %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "smlslb %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "smlslb %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(smlslb, smlslb_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(smlslt_sve_idx_vector)
+{
+
+    /* Testing SMLSLT  <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "smlslt %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "smlslt %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "smlslt %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "smlslt %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "smlslt %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "smlslt %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(smlslt, smlslt_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SMLSLT  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "smlslt %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "smlslt %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "smlslt %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "smlslt %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "smlslt %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "smlslt %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(smlslt, smlslt_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(smullb_sve_idx_vector)
+{
+
+    /* Testing SMULLB  <Zd>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "smullb %z0.s %z0.s $0x00 -> %z0.d",    "smullb %z6.s %z4.s $0x03 -> %z5.d",
+        "smullb %z11.s %z7.s $0x00 -> %z10.d",  "smullb %z17.s %z10.s $0x01 -> %z16.d",
+        "smullb %z22.s %z12.s $0x01 -> %z21.d", "smullb %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(smullb, smullb_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SMULLB  <Zd>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "smullb %z0.h %z0.h $0x00 -> %z0.s",   "smullb %z6.h %z3.h $0x04 -> %z5.s",
+        "smullb %z11.h %z4.h $0x05 -> %z10.s", "smullb %z17.h %z6.h $0x07 -> %z16.s",
+        "smullb %z22.h %z7.h $0x00 -> %z21.s", "smullb %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(smullb, smullb_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(smullt_sve_idx_vector)
+{
+
+    /* Testing SMULLT  <Zd>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "smullt %z0.s %z0.s $0x00 -> %z0.d",    "smullt %z6.s %z4.s $0x03 -> %z5.d",
+        "smullt %z11.s %z7.s $0x00 -> %z10.d",  "smullt %z17.s %z10.s $0x01 -> %z16.d",
+        "smullt %z22.s %z12.s $0x01 -> %z21.d", "smullt %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(smullt, smullt_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SMULLT  <Zd>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "smullt %z0.h %z0.h $0x00 -> %z0.s",   "smullt %z6.h %z3.h $0x04 -> %z5.s",
+        "smullt %z11.h %z4.h $0x05 -> %z10.s", "smullt %z17.h %z6.h $0x07 -> %z16.s",
+        "smullt %z22.h %z7.h $0x00 -> %z21.s", "smullt %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(smullt, smullt_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(sqdmlalb_sve_idx_vector)
+{
+
+    /* Testing SQDMLALB <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "sqdmlalb %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "sqdmlalb %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "sqdmlalb %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "sqdmlalb %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "sqdmlalb %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "sqdmlalb %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(sqdmlalb, sqdmlalb_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SQDMLALB <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "sqdmlalb %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "sqdmlalb %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "sqdmlalb %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "sqdmlalb %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "sqdmlalb %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "sqdmlalb %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(sqdmlalb, sqdmlalb_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(sqdmlalt_sve_idx_vector)
+{
+
+    /* Testing SQDMLALT <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "sqdmlalt %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "sqdmlalt %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "sqdmlalt %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "sqdmlalt %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "sqdmlalt %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "sqdmlalt %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(sqdmlalt, sqdmlalt_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SQDMLALT <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "sqdmlalt %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "sqdmlalt %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "sqdmlalt %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "sqdmlalt %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "sqdmlalt %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "sqdmlalt %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(sqdmlalt, sqdmlalt_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(sqdmlslb_sve_idx_vector)
+{
+
+    /* Testing SQDMLSLB <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "sqdmlslb %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "sqdmlslb %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "sqdmlslb %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "sqdmlslb %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "sqdmlslb %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "sqdmlslb %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(sqdmlslb, sqdmlslb_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SQDMLSLB <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "sqdmlslb %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "sqdmlslb %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "sqdmlslb %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "sqdmlslb %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "sqdmlslb %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "sqdmlslb %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(sqdmlslb, sqdmlslb_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(sqdmlslt_sve_idx_vector)
+{
+
+    /* Testing SQDMLSLT <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "sqdmlslt %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "sqdmlslt %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "sqdmlslt %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "sqdmlslt %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "sqdmlslt %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "sqdmlslt %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(sqdmlslt, sqdmlslt_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SQDMLSLT <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "sqdmlslt %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "sqdmlslt %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "sqdmlslt %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "sqdmlslt %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "sqdmlslt %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "sqdmlslt %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(sqdmlslt, sqdmlslt_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(sqdmulh_sve_idx)
+{
+
+    /* Testing SQDMULH <Zd>.D, <Zn>.D, <Zm>.D[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    const char *const expected_0_0[6] = {
+        "sqdmulh %z0.d %z0.d $0x00 -> %z0.d",    "sqdmulh %z6.d %z4.d $0x01 -> %z5.d",
+        "sqdmulh %z11.d %z7.d $0x01 -> %z10.d",  "sqdmulh %z17.d %z10.d $0x01 -> %z16.d",
+        "sqdmulh %z22.d %z12.d $0x00 -> %z21.d", "sqdmulh %z31.d %z15.d $0x01 -> %z31.d",
+    };
+    TEST_LOOP(sqdmulh, sqdmulh_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_8),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b));
+
+    /* Testing SQDMULH <Zd>.S, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_1_0[6] = {
+        "sqdmulh %z0.s %z0.s $0x00 -> %z0.s",   "sqdmulh %z6.s %z3.s $0x03 -> %z5.s",
+        "sqdmulh %z11.s %z4.s $0x00 -> %z10.s", "sqdmulh %z17.s %z6.s $0x01 -> %z16.s",
+        "sqdmulh %z22.s %z7.s $0x01 -> %z21.s", "sqdmulh %z31.s %z7.s $0x03 -> %z31.s",
+    };
+    TEST_LOOP(sqdmulh, sqdmulh_sve_idx, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_1_0[i], OPSZ_2b));
+
+    /* Testing SQDMULH <Zd>.H, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_2_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_2_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_2_0[6] = {
+        "sqdmulh %z0.h %z0.h $0x00 -> %z0.h",   "sqdmulh %z6.h %z3.h $0x04 -> %z5.h",
+        "sqdmulh %z11.h %z4.h $0x05 -> %z10.h", "sqdmulh %z17.h %z6.h $0x07 -> %z16.h",
+        "sqdmulh %z22.h %z7.h $0x00 -> %z21.h", "sqdmulh %z31.h %z7.h $0x07 -> %z31.h",
+    };
+    TEST_LOOP(sqdmulh, sqdmulh_sve_idx, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_2_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_2_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(sqdmullb_sve_idx_vector)
+{
+
+    /* Testing SQDMULLB <Zd>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "sqdmullb %z0.s %z0.s $0x00 -> %z0.d",
+        "sqdmullb %z6.s %z4.s $0x03 -> %z5.d",
+        "sqdmullb %z11.s %z7.s $0x00 -> %z10.d",
+        "sqdmullb %z17.s %z10.s $0x01 -> %z16.d",
+        "sqdmullb %z22.s %z12.s $0x01 -> %z21.d",
+        "sqdmullb %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(sqdmullb, sqdmullb_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SQDMULLB <Zd>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "sqdmullb %z0.h %z0.h $0x00 -> %z0.s",   "sqdmullb %z6.h %z3.h $0x04 -> %z5.s",
+        "sqdmullb %z11.h %z4.h $0x05 -> %z10.s", "sqdmullb %z17.h %z6.h $0x07 -> %z16.s",
+        "sqdmullb %z22.h %z7.h $0x00 -> %z21.s", "sqdmullb %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(sqdmullb, sqdmullb_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(sqdmullt_sve_idx_vector)
+{
+
+    /* Testing SQDMULLT <Zd>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "sqdmullt %z0.s %z0.s $0x00 -> %z0.d",
+        "sqdmullt %z6.s %z4.s $0x03 -> %z5.d",
+        "sqdmullt %z11.s %z7.s $0x00 -> %z10.d",
+        "sqdmullt %z17.s %z10.s $0x01 -> %z16.d",
+        "sqdmullt %z22.s %z12.s $0x01 -> %z21.d",
+        "sqdmullt %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(sqdmullt, sqdmullt_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing SQDMULLT <Zd>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "sqdmullt %z0.h %z0.h $0x00 -> %z0.s",   "sqdmullt %z6.h %z3.h $0x04 -> %z5.s",
+        "sqdmullt %z11.h %z4.h $0x05 -> %z10.s", "sqdmullt %z17.h %z6.h $0x07 -> %z16.s",
+        "sqdmullt %z22.h %z7.h $0x00 -> %z21.s", "sqdmullt %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(sqdmullt, sqdmullt_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(sqrdmlah_sve_idx)
+{
+
+    /* Testing SQRDMLAH <Zda>.D, <Zn>.D, <Zm>.D[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    const char *const expected_0_0[6] = {
+        "sqrdmlah %z0.d %z0.d %z0.d $0x00 -> %z0.d",
+        "sqrdmlah %z5.d %z6.d %z4.d $0x01 -> %z5.d",
+        "sqrdmlah %z10.d %z11.d %z7.d $0x01 -> %z10.d",
+        "sqrdmlah %z16.d %z17.d %z10.d $0x01 -> %z16.d",
+        "sqrdmlah %z21.d %z22.d %z12.d $0x00 -> %z21.d",
+        "sqrdmlah %z31.d %z31.d %z15.d $0x01 -> %z31.d",
+    };
+    TEST_LOOP(sqrdmlah, sqrdmlah_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_8),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b));
+
+    /* Testing SQRDMLAH <Zda>.S, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_1_0[6] = {
+        "sqrdmlah %z0.s %z0.s %z0.s $0x00 -> %z0.s",
+        "sqrdmlah %z5.s %z6.s %z3.s $0x03 -> %z5.s",
+        "sqrdmlah %z10.s %z11.s %z4.s $0x00 -> %z10.s",
+        "sqrdmlah %z16.s %z17.s %z6.s $0x01 -> %z16.s",
+        "sqrdmlah %z21.s %z22.s %z7.s $0x01 -> %z21.s",
+        "sqrdmlah %z31.s %z31.s %z7.s $0x03 -> %z31.s",
+    };
+    TEST_LOOP(sqrdmlah, sqrdmlah_sve_idx, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_1_0[i], OPSZ_2b));
+
+    /* Testing SQRDMLAH <Zda>.H, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_2_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_2_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_2_0[6] = {
+        "sqrdmlah %z0.h %z0.h %z0.h $0x00 -> %z0.h",
+        "sqrdmlah %z5.h %z6.h %z3.h $0x04 -> %z5.h",
+        "sqrdmlah %z10.h %z11.h %z4.h $0x05 -> %z10.h",
+        "sqrdmlah %z16.h %z17.h %z6.h $0x07 -> %z16.h",
+        "sqrdmlah %z21.h %z22.h %z7.h $0x00 -> %z21.h",
+        "sqrdmlah %z31.h %z31.h %z7.h $0x07 -> %z31.h",
+    };
+    TEST_LOOP(sqrdmlah, sqrdmlah_sve_idx, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_2_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_2_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(sqrdmlsh_sve_idx)
+{
+
+    /* Testing SQRDMLSH <Zda>.D, <Zn>.D, <Zm>.D[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    const char *const expected_0_0[6] = {
+        "sqrdmlsh %z0.d %z0.d %z0.d $0x00 -> %z0.d",
+        "sqrdmlsh %z5.d %z6.d %z4.d $0x01 -> %z5.d",
+        "sqrdmlsh %z10.d %z11.d %z7.d $0x01 -> %z10.d",
+        "sqrdmlsh %z16.d %z17.d %z10.d $0x01 -> %z16.d",
+        "sqrdmlsh %z21.d %z22.d %z12.d $0x00 -> %z21.d",
+        "sqrdmlsh %z31.d %z31.d %z15.d $0x01 -> %z31.d",
+    };
+    TEST_LOOP(sqrdmlsh, sqrdmlsh_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_8),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b));
+
+    /* Testing SQRDMLSH <Zda>.S, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_1_0[6] = {
+        "sqrdmlsh %z0.s %z0.s %z0.s $0x00 -> %z0.s",
+        "sqrdmlsh %z5.s %z6.s %z3.s $0x03 -> %z5.s",
+        "sqrdmlsh %z10.s %z11.s %z4.s $0x00 -> %z10.s",
+        "sqrdmlsh %z16.s %z17.s %z6.s $0x01 -> %z16.s",
+        "sqrdmlsh %z21.s %z22.s %z7.s $0x01 -> %z21.s",
+        "sqrdmlsh %z31.s %z31.s %z7.s $0x03 -> %z31.s",
+    };
+    TEST_LOOP(sqrdmlsh, sqrdmlsh_sve_idx, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_1_0[i], OPSZ_2b));
+
+    /* Testing SQRDMLSH <Zda>.H, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_2_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_2_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_2_0[6] = {
+        "sqrdmlsh %z0.h %z0.h %z0.h $0x00 -> %z0.h",
+        "sqrdmlsh %z5.h %z6.h %z3.h $0x04 -> %z5.h",
+        "sqrdmlsh %z10.h %z11.h %z4.h $0x05 -> %z10.h",
+        "sqrdmlsh %z16.h %z17.h %z6.h $0x07 -> %z16.h",
+        "sqrdmlsh %z21.h %z22.h %z7.h $0x00 -> %z21.h",
+        "sqrdmlsh %z31.h %z31.h %z7.h $0x07 -> %z31.h",
+    };
+    TEST_LOOP(sqrdmlsh, sqrdmlsh_sve_idx, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_2_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_2_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(sqrdmulh_sve_idx)
+{
+
+    /* Testing SQRDMULH <Zd>.D, <Zn>.D, <Zm>.D[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    const char *const expected_0_0[6] = {
+        "sqrdmulh %z0.d %z0.d $0x00 -> %z0.d",
+        "sqrdmulh %z6.d %z4.d $0x01 -> %z5.d",
+        "sqrdmulh %z11.d %z7.d $0x01 -> %z10.d",
+        "sqrdmulh %z17.d %z10.d $0x01 -> %z16.d",
+        "sqrdmulh %z22.d %z12.d $0x00 -> %z21.d",
+        "sqrdmulh %z31.d %z15.d $0x01 -> %z31.d",
+    };
+    TEST_LOOP(sqrdmulh, sqrdmulh_sve_idx, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_8),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b));
+
+    /* Testing SQRDMULH <Zd>.S, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_1_0[6] = {
+        "sqrdmulh %z0.s %z0.s $0x00 -> %z0.s",   "sqrdmulh %z6.s %z3.s $0x03 -> %z5.s",
+        "sqrdmulh %z11.s %z4.s $0x00 -> %z10.s", "sqrdmulh %z17.s %z6.s $0x01 -> %z16.s",
+        "sqrdmulh %z22.s %z7.s $0x01 -> %z21.s", "sqrdmulh %z31.s %z7.s $0x03 -> %z31.s",
+    };
+    TEST_LOOP(sqrdmulh, sqrdmulh_sve_idx, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_1_0[i], OPSZ_2b));
+
+    /* Testing SQRDMULH <Zd>.H, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_2_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_2_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_2_0[6] = {
+        "sqrdmulh %z0.h %z0.h $0x00 -> %z0.h",   "sqrdmulh %z6.h %z3.h $0x04 -> %z5.h",
+        "sqrdmulh %z11.h %z4.h $0x05 -> %z10.h", "sqrdmulh %z17.h %z6.h $0x07 -> %z16.h",
+        "sqrdmulh %z22.h %z7.h $0x00 -> %z21.h", "sqrdmulh %z31.h %z7.h $0x07 -> %z31.h",
+    };
+    TEST_LOOP(sqrdmulh, sqrdmulh_sve_idx, 6, expected_2_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_2_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_2_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(umlalb_sve_idx_vector)
+{
+
+    /* Testing UMLALB  <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "umlalb %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "umlalb %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "umlalb %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "umlalb %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "umlalb %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "umlalb %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(umlalb, umlalb_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing UMLALB  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "umlalb %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "umlalb %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "umlalb %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "umlalb %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "umlalb %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "umlalb %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(umlalb, umlalb_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(umlalt_sve_idx_vector)
+{
+
+    /* Testing UMLALT  <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "umlalt %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "umlalt %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "umlalt %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "umlalt %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "umlalt %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "umlalt %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(umlalt, umlalt_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing UMLALT  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "umlalt %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "umlalt %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "umlalt %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "umlalt %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "umlalt %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "umlalt %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(umlalt, umlalt_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(umlslb_sve_idx_vector)
+{
+
+    /* Testing UMLSLB  <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "umlslb %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "umlslb %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "umlslb %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "umlslb %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "umlslb %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "umlslb %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(umlslb, umlslb_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing UMLSLB  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "umlslb %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "umlslb %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "umlslb %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "umlslb %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "umlslb %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "umlslb %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(umlslb, umlslb_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(umlslt_sve_idx_vector)
+{
+
+    /* Testing UMLSLT  <Zda>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "umlslt %z0.d %z0.s %z0.s $0x00 -> %z0.d",
+        "umlslt %z5.d %z6.s %z4.s $0x03 -> %z5.d",
+        "umlslt %z10.d %z11.s %z7.s $0x00 -> %z10.d",
+        "umlslt %z16.d %z17.s %z10.s $0x01 -> %z16.d",
+        "umlslt %z21.d %z22.s %z12.s $0x01 -> %z21.d",
+        "umlslt %z31.d %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(umlslt, umlslt_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing UMLSLT  <Zda>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "umlslt %z0.s %z0.h %z0.h $0x00 -> %z0.s",
+        "umlslt %z5.s %z6.h %z3.h $0x04 -> %z5.s",
+        "umlslt %z10.s %z11.h %z4.h $0x05 -> %z10.s",
+        "umlslt %z16.s %z17.h %z6.h $0x07 -> %z16.s",
+        "umlslt %z21.s %z22.h %z7.h $0x00 -> %z21.s",
+        "umlslt %z31.s %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(umlslt, umlslt_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(umullb_sve_idx_vector)
+{
+
+    /* Testing UMULLB  <Zd>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "umullb %z0.s %z0.s $0x00 -> %z0.d",    "umullb %z6.s %z4.s $0x03 -> %z5.d",
+        "umullb %z11.s %z7.s $0x00 -> %z10.d",  "umullb %z17.s %z10.s $0x01 -> %z16.d",
+        "umullb %z22.s %z12.s $0x01 -> %z21.d", "umullb %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(umullb, umullb_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing UMULLB  <Zd>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "umullb %z0.h %z0.h $0x00 -> %z0.s",   "umullb %z6.h %z3.h $0x04 -> %z5.s",
+        "umullb %z11.h %z4.h $0x05 -> %z10.s", "umullb %z17.h %z6.h $0x07 -> %z16.s",
+        "umullb %z22.h %z7.h $0x00 -> %z21.s", "umullb %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(umullb, umullb_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+}
+
+TEST_INSTR(umullt_sve_idx_vector)
+{
+
+    /* Testing UMULLT  <Zd>.D, <Zn>.S, <Zm>.S[<index>] */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i2_0_0[6] = { 0, 3, 0, 1, 1, 3 };
+    const char *const expected_0_0[6] = {
+        "umullt %z0.s %z0.s $0x00 -> %z0.d",    "umullt %z6.s %z4.s $0x03 -> %z5.d",
+        "umullt %z11.s %z7.s $0x00 -> %z10.d",  "umullt %z17.s %z10.s $0x01 -> %z16.d",
+        "umullt %z22.s %z12.s $0x01 -> %z21.d", "umullt %z31.s %z15.s $0x03 -> %z31.d",
+    };
+    TEST_LOOP(umullt, umullt_sve_idx_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i2_0_0[i], OPSZ_2b));
+
+    /* Testing UMULLT  <Zd>.S, <Zn>.H, <Zm>.H[<index>] */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i3_1_0[6] = { 0, 4, 5, 7, 0, 7 };
+    const char *const expected_1_0[6] = {
+        "umullt %z0.h %z0.h $0x00 -> %z0.s",   "umullt %z6.h %z3.h $0x04 -> %z5.s",
+        "umullt %z11.h %z4.h $0x05 -> %z10.s", "umullt %z17.h %z6.h $0x07 -> %z16.s",
+        "umullt %z22.h %z7.h $0x00 -> %z21.s", "umullt %z31.h %z7.h $0x07 -> %z31.s",
+    };
+    TEST_LOOP(umullt, umullt_sve_idx_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
+
+}
 int
 main(int argc, char *argv[])
 {
@@ -3332,6 +4328,33 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(sqxtunt_sve);
     RUN_INSTR_TEST(uqxtnb_sve);
     RUN_INSTR_TEST(uqxtnt_sve);
+
+    RUN_INSTR_TEST(fmlalb_sve_idx);
+    RUN_INSTR_TEST(fmlalt_sve_idx);
+    RUN_INSTR_TEST(fmlslb_sve_idx);
+    RUN_INSTR_TEST(fmlslt_sve_idx);
+    RUN_INSTR_TEST(smlalb_sve_idx_vector);
+    RUN_INSTR_TEST(smlalt_sve_idx_vector);
+    RUN_INSTR_TEST(smlslb_sve_idx_vector);
+    RUN_INSTR_TEST(smlslt_sve_idx_vector);
+    RUN_INSTR_TEST(smullb_sve_idx_vector);
+    RUN_INSTR_TEST(smullt_sve_idx_vector);
+    RUN_INSTR_TEST(sqdmlalb_sve_idx_vector);
+    RUN_INSTR_TEST(sqdmlalt_sve_idx_vector);
+    RUN_INSTR_TEST(sqdmlslb_sve_idx_vector);
+    RUN_INSTR_TEST(sqdmlslt_sve_idx_vector);
+    RUN_INSTR_TEST(sqdmulh_sve_idx);
+    RUN_INSTR_TEST(sqdmullb_sve_idx_vector);
+    RUN_INSTR_TEST(sqdmullt_sve_idx_vector);
+    RUN_INSTR_TEST(sqrdmlah_sve_idx);
+    RUN_INSTR_TEST(sqrdmlsh_sve_idx);
+    RUN_INSTR_TEST(sqrdmulh_sve_idx);
+    RUN_INSTR_TEST(umlalb_sve_idx_vector);
+    RUN_INSTR_TEST(umlalt_sve_idx_vector);
+    RUN_INSTR_TEST(umlslb_sve_idx_vector);
+    RUN_INSTR_TEST(umlslt_sve_idx_vector);
+    RUN_INSTR_TEST(umullb_sve_idx_vector);
+    RUN_INSTR_TEST(umullt_sve_idx_vector);
 
     print("All SVE2 tests complete.\n");
 #ifndef STANDALONE_DECODER

@@ -76,9 +76,11 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
 #    define OPSZ_SVE_PL opnd_size_from_bytes((dr_get_sve_vl() / 8) / 8)
 #endif
 
-#define RETURN_FALSE                                           \
-    CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \
-    return false;
+#define RETURN_FALSE                                               \
+    do {                                                           \
+        CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \
+        return false;                                              \
+    } while (0);
 
 // Frustratingly vera++ fails if RETURN_FALSE is referenced inside this macro
 #define IF_RETURN_FALSE(condition)                                 \
@@ -95,6 +97,6 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
         const aarch64_reg_offset size = get_vector_element_reg_offset(opnd); \
         if (size == NOT_A_REG || size == elsz)                               \
             return false;                                                    \
-    } while (0)
+    } while (0);
 
 #endif /* CODEC_H */
