@@ -5849,7 +5849,7 @@ decode_opnd_z_wtszl19p1_bhsd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 
 static inline bool
 encode_opnd_z_wtszl19p1_bhsd_5(uint enc, int opcode, byte *pc, opnd_t opnd,
-                             OUT uint *enc_out)
+                               OUT uint *enc_out)
 {
     if (!encode_sized_base(5, 0, BYTE_REG, DOUBLE_REG, OPSZ_SCALABLE, 0, 0, false, opnd,
                            enc_out))
@@ -5857,7 +5857,6 @@ encode_opnd_z_wtszl19p1_bhsd_5(uint enc, int opcode, byte *pc, opnd_t opnd,
 
     return encode_tszl_size(opnd, enc_out, 1);
 }
-
 
 /* wx_sz_16: W/X register (or WZR/XZR) with size indicated in bit 22 */
 
