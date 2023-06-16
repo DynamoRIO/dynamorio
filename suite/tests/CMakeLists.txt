@@ -3888,7 +3888,7 @@ if (BUILD_CLIENTS)
       "@-simulator_type@basic_counts" "")
 
     torunonly_drcacheoff(warmup-pthreads-max-refs ${ci_pthreads_app}
-        "-trace_after_instrs 100K -L0_filter_until_instrs 100K -max_global_trace_refs 100K"
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 400K"
       "@-simulator_type@basic_counts" "10000")
 
     torunonly_drcacheoff(warmup-pthreads-max-trace-size ${ci_pthreads_app}
