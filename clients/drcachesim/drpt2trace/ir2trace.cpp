@@ -86,7 +86,7 @@ ir2trace_t::convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
                 entry.type = TRACE_TYPE_INSTR_MAYBE_FETCH;
             }
         } else {
-            VPRINT(1, "Try to convert an invalid instruction.\n");
+            VPRINT(1, "Trying to convert an invalid instruction.\n");
         }
 
         entry.size = instr_length(GLOBAL_DCONTEXT, instr);
