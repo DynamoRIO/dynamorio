@@ -1899,7 +1899,7 @@ endif ()
 
 # test static decoder library
 tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
-if (AARCH64)
+if (AARCH64 OR RISCV64)
   # The ir_aarch64.expect file is too large for CMake's regexes.
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   set(api.ir-static_runcmp_capture "stderr")
@@ -5587,7 +5587,7 @@ endif ()
 
 # XXX i#3544: Enable passed tests on riscv64.
 if (RISCV64)
-set_tests_properties(
-  code_api|api.ir
-  PROPERTIES LABELS RISCV64)
+  set_tests_properties(
+    code_api|api.ir-static
+    PROPERTIES LABELS RISCV64)
 endif ()

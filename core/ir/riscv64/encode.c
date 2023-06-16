@@ -74,17 +74,18 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
 void
 encode_debug_checks(void)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* FIXME i#3544: NYI */
 }
 #endif
 
 bool
 encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    uint enc;
+
+    byte tmp[RISCV64_INSTR_SIZE];
+    enc = encode_common(&tmp[0], in, di);
+    return enc != ENCFAIL;
 }
 
 void

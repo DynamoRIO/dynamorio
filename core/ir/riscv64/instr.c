@@ -439,9 +439,7 @@ instr_is_nop(instr_t *instr)
 bool
 opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    return (s1 == s2);
 }
 
 instr_t *

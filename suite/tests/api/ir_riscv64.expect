@@ -1,1 +1,3 @@
+lb     +8(%a1)[1byte] -> %a0
+test_load complete
 All tests complete

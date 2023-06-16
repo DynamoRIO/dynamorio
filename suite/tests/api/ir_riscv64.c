@@ -92,9 +92,9 @@ test_load_store(void *dc)
     byte *pc;
     instr_t *instr;
 
-    instr =
-        INSTR_CREATE_lb(dc, opnd_create_reg(DR_REG_A0),
-                        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_12b));
+    instr = INSTR_CREATE_lb(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 8, OPSZ_1));
     test_instr_encoding(dc, OP_lb, instr);
 }
 
