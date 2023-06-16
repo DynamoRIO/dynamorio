@@ -1354,7 +1354,8 @@ event_pre_syscall(void *drcontext, int sysnum)
             static constexpr int FUTEX_ARG_COUNT = 6;
             BUF_PTR(data->seg_base) += instru->append_marker(
                 BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
-                TRACE_FUNC_ID_SYSCALL_BASE + IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
+                static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                    IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
             for (int i = 0; i < FUTEX_ARG_COUNT; ++i) {
                 BUF_PTR(data->seg_base) += instru->append_marker(
                     BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ARG,
@@ -1425,7 +1426,8 @@ event_post_syscall(void *drcontext, int sysnum)
             dr_syscall_get_result_ex(drcontext, &info);
             BUF_PTR(data->seg_base) += instru->append_marker(
                 BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
-                TRACE_FUNC_ID_SYSCALL_BASE + IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
+                static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                    IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
             /* XXX i#5843: Return values are complex and can include more than just
              * the primary register value.  Since we care mostly just about failure,
              * we use the "succeeded" field.  However, this is not accurate for all
