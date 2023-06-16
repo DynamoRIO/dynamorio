@@ -236,6 +236,42 @@
 4522e39b : aese z27.b, z27.b, z28.b                  : aese   %z27.b %z28.b -> %z27.b
 4522e3ff : aese z31.b, z31.b, z31.b                  : aese   %z31.b %z31.b -> %z31.b
 
+# AESIMC  <Zdn>.B, <Zdn>.B (AESIMC-Z.Z-_)
+4520e400 : aesimc z0.b, z0.b                         : aesimc %z0.b -> %z0.b
+4520e402 : aesimc z2.b, z2.b                         : aesimc %z2.b -> %z2.b
+4520e404 : aesimc z4.b, z4.b                         : aesimc %z4.b -> %z4.b
+4520e406 : aesimc z6.b, z6.b                         : aesimc %z6.b -> %z6.b
+4520e408 : aesimc z8.b, z8.b                         : aesimc %z8.b -> %z8.b
+4520e40a : aesimc z10.b, z10.b                       : aesimc %z10.b -> %z10.b
+4520e40c : aesimc z12.b, z12.b                       : aesimc %z12.b -> %z12.b
+4520e40e : aesimc z14.b, z14.b                       : aesimc %z14.b -> %z14.b
+4520e410 : aesimc z16.b, z16.b                       : aesimc %z16.b -> %z16.b
+4520e411 : aesimc z17.b, z17.b                       : aesimc %z17.b -> %z17.b
+4520e413 : aesimc z19.b, z19.b                       : aesimc %z19.b -> %z19.b
+4520e415 : aesimc z21.b, z21.b                       : aesimc %z21.b -> %z21.b
+4520e417 : aesimc z23.b, z23.b                       : aesimc %z23.b -> %z23.b
+4520e419 : aesimc z25.b, z25.b                       : aesimc %z25.b -> %z25.b
+4520e41b : aesimc z27.b, z27.b                       : aesimc %z27.b -> %z27.b
+4520e41f : aesimc z31.b, z31.b                       : aesimc %z31.b -> %z31.b
+
+# AESMC   <Zdn>.B, <Zdn>.B (AESMC-Z.Z-_)
+4520e000 : aesmc z0.b, z0.b                          : aesmc  %z0.b -> %z0.b
+4520e002 : aesmc z2.b, z2.b                          : aesmc  %z2.b -> %z2.b
+4520e004 : aesmc z4.b, z4.b                          : aesmc  %z4.b -> %z4.b
+4520e006 : aesmc z6.b, z6.b                          : aesmc  %z6.b -> %z6.b
+4520e008 : aesmc z8.b, z8.b                          : aesmc  %z8.b -> %z8.b
+4520e00a : aesmc z10.b, z10.b                        : aesmc  %z10.b -> %z10.b
+4520e00c : aesmc z12.b, z12.b                        : aesmc  %z12.b -> %z12.b
+4520e00e : aesmc z14.b, z14.b                        : aesmc  %z14.b -> %z14.b
+4520e010 : aesmc z16.b, z16.b                        : aesmc  %z16.b -> %z16.b
+4520e011 : aesmc z17.b, z17.b                        : aesmc  %z17.b -> %z17.b
+4520e013 : aesmc z19.b, z19.b                        : aesmc  %z19.b -> %z19.b
+4520e015 : aesmc z21.b, z21.b                        : aesmc  %z21.b -> %z21.b
+4520e017 : aesmc z23.b, z23.b                        : aesmc  %z23.b -> %z23.b
+4520e019 : aesmc z25.b, z25.b                        : aesmc  %z25.b -> %z25.b
+4520e01b : aesmc z27.b, z27.b                        : aesmc  %z27.b -> %z27.b
+4520e01f : aesmc z31.b, z31.b                        : aesmc  %z31.b -> %z31.b
+
 # BCAX    <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D (BCAX-Z.ZZZ-_)
 04603800 : bcax z0.d, z0.d, z0.d, z0.d               : bcax   %z0.d %z0.d %z0.d -> %z0.d
 04633882 : bcax z2.d, z2.d, z3.d, z4.d               : bcax   %z2.d %z3.d %z4.d -> %z2.d
@@ -2652,6 +2688,206 @@
 04fd779b : sqrdmulh z27.d, z28.d, z29.d              : sqrdmulh %z28.d %z29.d -> %z27.d
 04ff77ff : sqrdmulh z31.d, z31.d, z31.d              : sqrdmulh %z31.d %z31.d -> %z31.d
 
+# SQXTNB  <Zd>.<T>, <Zn>.<Tb> (SQXTNB-Z.ZZ-_)
+45284000 : sqxtnb z0.b, z0.h                         : sqxtnb %z0.h -> %z0.b
+45284062 : sqxtnb z2.b, z3.h                         : sqxtnb %z3.h -> %z2.b
+452840a4 : sqxtnb z4.b, z5.h                         : sqxtnb %z5.h -> %z4.b
+452840e6 : sqxtnb z6.b, z7.h                         : sqxtnb %z7.h -> %z6.b
+45284128 : sqxtnb z8.b, z9.h                         : sqxtnb %z9.h -> %z8.b
+4528416a : sqxtnb z10.b, z11.h                       : sqxtnb %z11.h -> %z10.b
+452841ac : sqxtnb z12.b, z13.h                       : sqxtnb %z13.h -> %z12.b
+452841ee : sqxtnb z14.b, z15.h                       : sqxtnb %z15.h -> %z14.b
+45284230 : sqxtnb z16.b, z17.h                       : sqxtnb %z17.h -> %z16.b
+45284251 : sqxtnb z17.b, z18.h                       : sqxtnb %z18.h -> %z17.b
+45284293 : sqxtnb z19.b, z20.h                       : sqxtnb %z20.h -> %z19.b
+452842d5 : sqxtnb z21.b, z22.h                       : sqxtnb %z22.h -> %z21.b
+45284317 : sqxtnb z23.b, z24.h                       : sqxtnb %z24.h -> %z23.b
+45284359 : sqxtnb z25.b, z26.h                       : sqxtnb %z26.h -> %z25.b
+4528439b : sqxtnb z27.b, z28.h                       : sqxtnb %z28.h -> %z27.b
+452843ff : sqxtnb z31.b, z31.h                       : sqxtnb %z31.h -> %z31.b
+45304000 : sqxtnb z0.h, z0.s                         : sqxtnb %z0.s -> %z0.h
+45304062 : sqxtnb z2.h, z3.s                         : sqxtnb %z3.s -> %z2.h
+453040a4 : sqxtnb z4.h, z5.s                         : sqxtnb %z5.s -> %z4.h
+453040e6 : sqxtnb z6.h, z7.s                         : sqxtnb %z7.s -> %z6.h
+45304128 : sqxtnb z8.h, z9.s                         : sqxtnb %z9.s -> %z8.h
+4530416a : sqxtnb z10.h, z11.s                       : sqxtnb %z11.s -> %z10.h
+453041ac : sqxtnb z12.h, z13.s                       : sqxtnb %z13.s -> %z12.h
+453041ee : sqxtnb z14.h, z15.s                       : sqxtnb %z15.s -> %z14.h
+45304230 : sqxtnb z16.h, z17.s                       : sqxtnb %z17.s -> %z16.h
+45304251 : sqxtnb z17.h, z18.s                       : sqxtnb %z18.s -> %z17.h
+45304293 : sqxtnb z19.h, z20.s                       : sqxtnb %z20.s -> %z19.h
+453042d5 : sqxtnb z21.h, z22.s                       : sqxtnb %z22.s -> %z21.h
+45304317 : sqxtnb z23.h, z24.s                       : sqxtnb %z24.s -> %z23.h
+45304359 : sqxtnb z25.h, z26.s                       : sqxtnb %z26.s -> %z25.h
+4530439b : sqxtnb z27.h, z28.s                       : sqxtnb %z28.s -> %z27.h
+453043ff : sqxtnb z31.h, z31.s                       : sqxtnb %z31.s -> %z31.h
+45604000 : sqxtnb z0.s, z0.d                         : sqxtnb %z0.d -> %z0.s
+45604062 : sqxtnb z2.s, z3.d                         : sqxtnb %z3.d -> %z2.s
+456040a4 : sqxtnb z4.s, z5.d                         : sqxtnb %z5.d -> %z4.s
+456040e6 : sqxtnb z6.s, z7.d                         : sqxtnb %z7.d -> %z6.s
+45604128 : sqxtnb z8.s, z9.d                         : sqxtnb %z9.d -> %z8.s
+4560416a : sqxtnb z10.s, z11.d                       : sqxtnb %z11.d -> %z10.s
+456041ac : sqxtnb z12.s, z13.d                       : sqxtnb %z13.d -> %z12.s
+456041ee : sqxtnb z14.s, z15.d                       : sqxtnb %z15.d -> %z14.s
+45604230 : sqxtnb z16.s, z17.d                       : sqxtnb %z17.d -> %z16.s
+45604251 : sqxtnb z17.s, z18.d                       : sqxtnb %z18.d -> %z17.s
+45604293 : sqxtnb z19.s, z20.d                       : sqxtnb %z20.d -> %z19.s
+456042d5 : sqxtnb z21.s, z22.d                       : sqxtnb %z22.d -> %z21.s
+45604317 : sqxtnb z23.s, z24.d                       : sqxtnb %z24.d -> %z23.s
+45604359 : sqxtnb z25.s, z26.d                       : sqxtnb %z26.d -> %z25.s
+4560439b : sqxtnb z27.s, z28.d                       : sqxtnb %z28.d -> %z27.s
+456043ff : sqxtnb z31.s, z31.d                       : sqxtnb %z31.d -> %z31.s
+
+# SQXTNT  <Zd>.<T>, <Zn>.<Tb> (SQXTNT-Z.ZZ-_)
+45284400 : sqxtnt z0.b, z0.h                         : sqxtnt %z0.b %z0.h -> %z0.b
+45284462 : sqxtnt z2.b, z3.h                         : sqxtnt %z2.b %z3.h -> %z2.b
+452844a4 : sqxtnt z4.b, z5.h                         : sqxtnt %z4.b %z5.h -> %z4.b
+452844e6 : sqxtnt z6.b, z7.h                         : sqxtnt %z6.b %z7.h -> %z6.b
+45284528 : sqxtnt z8.b, z9.h                         : sqxtnt %z8.b %z9.h -> %z8.b
+4528456a : sqxtnt z10.b, z11.h                       : sqxtnt %z10.b %z11.h -> %z10.b
+452845ac : sqxtnt z12.b, z13.h                       : sqxtnt %z12.b %z13.h -> %z12.b
+452845ee : sqxtnt z14.b, z15.h                       : sqxtnt %z14.b %z15.h -> %z14.b
+45284630 : sqxtnt z16.b, z17.h                       : sqxtnt %z16.b %z17.h -> %z16.b
+45284651 : sqxtnt z17.b, z18.h                       : sqxtnt %z17.b %z18.h -> %z17.b
+45284693 : sqxtnt z19.b, z20.h                       : sqxtnt %z19.b %z20.h -> %z19.b
+452846d5 : sqxtnt z21.b, z22.h                       : sqxtnt %z21.b %z22.h -> %z21.b
+45284717 : sqxtnt z23.b, z24.h                       : sqxtnt %z23.b %z24.h -> %z23.b
+45284759 : sqxtnt z25.b, z26.h                       : sqxtnt %z25.b %z26.h -> %z25.b
+4528479b : sqxtnt z27.b, z28.h                       : sqxtnt %z27.b %z28.h -> %z27.b
+452847ff : sqxtnt z31.b, z31.h                       : sqxtnt %z31.b %z31.h -> %z31.b
+45304400 : sqxtnt z0.h, z0.s                         : sqxtnt %z0.h %z0.s -> %z0.h
+45304462 : sqxtnt z2.h, z3.s                         : sqxtnt %z2.h %z3.s -> %z2.h
+453044a4 : sqxtnt z4.h, z5.s                         : sqxtnt %z4.h %z5.s -> %z4.h
+453044e6 : sqxtnt z6.h, z7.s                         : sqxtnt %z6.h %z7.s -> %z6.h
+45304528 : sqxtnt z8.h, z9.s                         : sqxtnt %z8.h %z9.s -> %z8.h
+4530456a : sqxtnt z10.h, z11.s                       : sqxtnt %z10.h %z11.s -> %z10.h
+453045ac : sqxtnt z12.h, z13.s                       : sqxtnt %z12.h %z13.s -> %z12.h
+453045ee : sqxtnt z14.h, z15.s                       : sqxtnt %z14.h %z15.s -> %z14.h
+45304630 : sqxtnt z16.h, z17.s                       : sqxtnt %z16.h %z17.s -> %z16.h
+45304651 : sqxtnt z17.h, z18.s                       : sqxtnt %z17.h %z18.s -> %z17.h
+45304693 : sqxtnt z19.h, z20.s                       : sqxtnt %z19.h %z20.s -> %z19.h
+453046d5 : sqxtnt z21.h, z22.s                       : sqxtnt %z21.h %z22.s -> %z21.h
+45304717 : sqxtnt z23.h, z24.s                       : sqxtnt %z23.h %z24.s -> %z23.h
+45304759 : sqxtnt z25.h, z26.s                       : sqxtnt %z25.h %z26.s -> %z25.h
+4530479b : sqxtnt z27.h, z28.s                       : sqxtnt %z27.h %z28.s -> %z27.h
+453047ff : sqxtnt z31.h, z31.s                       : sqxtnt %z31.h %z31.s -> %z31.h
+45604400 : sqxtnt z0.s, z0.d                         : sqxtnt %z0.s %z0.d -> %z0.s
+45604462 : sqxtnt z2.s, z3.d                         : sqxtnt %z2.s %z3.d -> %z2.s
+456044a4 : sqxtnt z4.s, z5.d                         : sqxtnt %z4.s %z5.d -> %z4.s
+456044e6 : sqxtnt z6.s, z7.d                         : sqxtnt %z6.s %z7.d -> %z6.s
+45604528 : sqxtnt z8.s, z9.d                         : sqxtnt %z8.s %z9.d -> %z8.s
+4560456a : sqxtnt z10.s, z11.d                       : sqxtnt %z10.s %z11.d -> %z10.s
+456045ac : sqxtnt z12.s, z13.d                       : sqxtnt %z12.s %z13.d -> %z12.s
+456045ee : sqxtnt z14.s, z15.d                       : sqxtnt %z14.s %z15.d -> %z14.s
+45604630 : sqxtnt z16.s, z17.d                       : sqxtnt %z16.s %z17.d -> %z16.s
+45604651 : sqxtnt z17.s, z18.d                       : sqxtnt %z17.s %z18.d -> %z17.s
+45604693 : sqxtnt z19.s, z20.d                       : sqxtnt %z19.s %z20.d -> %z19.s
+456046d5 : sqxtnt z21.s, z22.d                       : sqxtnt %z21.s %z22.d -> %z21.s
+45604717 : sqxtnt z23.s, z24.d                       : sqxtnt %z23.s %z24.d -> %z23.s
+45604759 : sqxtnt z25.s, z26.d                       : sqxtnt %z25.s %z26.d -> %z25.s
+4560479b : sqxtnt z27.s, z28.d                       : sqxtnt %z27.s %z28.d -> %z27.s
+456047ff : sqxtnt z31.s, z31.d                       : sqxtnt %z31.s %z31.d -> %z31.s
+
+# SQXTUNB <Zd>.<T>, <Zn>.<Tb> (SQXTUNB-Z.ZZ-_)
+45285000 : sqxtunb z0.b, z0.h                        : sqxtunb %z0.h -> %z0.b
+45285062 : sqxtunb z2.b, z3.h                        : sqxtunb %z3.h -> %z2.b
+452850a4 : sqxtunb z4.b, z5.h                        : sqxtunb %z5.h -> %z4.b
+452850e6 : sqxtunb z6.b, z7.h                        : sqxtunb %z7.h -> %z6.b
+45285128 : sqxtunb z8.b, z9.h                        : sqxtunb %z9.h -> %z8.b
+4528516a : sqxtunb z10.b, z11.h                      : sqxtunb %z11.h -> %z10.b
+452851ac : sqxtunb z12.b, z13.h                      : sqxtunb %z13.h -> %z12.b
+452851ee : sqxtunb z14.b, z15.h                      : sqxtunb %z15.h -> %z14.b
+45285230 : sqxtunb z16.b, z17.h                      : sqxtunb %z17.h -> %z16.b
+45285251 : sqxtunb z17.b, z18.h                      : sqxtunb %z18.h -> %z17.b
+45285293 : sqxtunb z19.b, z20.h                      : sqxtunb %z20.h -> %z19.b
+452852d5 : sqxtunb z21.b, z22.h                      : sqxtunb %z22.h -> %z21.b
+45285317 : sqxtunb z23.b, z24.h                      : sqxtunb %z24.h -> %z23.b
+45285359 : sqxtunb z25.b, z26.h                      : sqxtunb %z26.h -> %z25.b
+4528539b : sqxtunb z27.b, z28.h                      : sqxtunb %z28.h -> %z27.b
+452853ff : sqxtunb z31.b, z31.h                      : sqxtunb %z31.h -> %z31.b
+45305000 : sqxtunb z0.h, z0.s                        : sqxtunb %z0.s -> %z0.h
+45305062 : sqxtunb z2.h, z3.s                        : sqxtunb %z3.s -> %z2.h
+453050a4 : sqxtunb z4.h, z5.s                        : sqxtunb %z5.s -> %z4.h
+453050e6 : sqxtunb z6.h, z7.s                        : sqxtunb %z7.s -> %z6.h
+45305128 : sqxtunb z8.h, z9.s                        : sqxtunb %z9.s -> %z8.h
+4530516a : sqxtunb z10.h, z11.s                      : sqxtunb %z11.s -> %z10.h
+453051ac : sqxtunb z12.h, z13.s                      : sqxtunb %z13.s -> %z12.h
+453051ee : sqxtunb z14.h, z15.s                      : sqxtunb %z15.s -> %z14.h
+45305230 : sqxtunb z16.h, z17.s                      : sqxtunb %z17.s -> %z16.h
+45305251 : sqxtunb z17.h, z18.s                      : sqxtunb %z18.s -> %z17.h
+45305293 : sqxtunb z19.h, z20.s                      : sqxtunb %z20.s -> %z19.h
+453052d5 : sqxtunb z21.h, z22.s                      : sqxtunb %z22.s -> %z21.h
+45305317 : sqxtunb z23.h, z24.s                      : sqxtunb %z24.s -> %z23.h
+45305359 : sqxtunb z25.h, z26.s                      : sqxtunb %z26.s -> %z25.h
+4530539b : sqxtunb z27.h, z28.s                      : sqxtunb %z28.s -> %z27.h
+453053ff : sqxtunb z31.h, z31.s                      : sqxtunb %z31.s -> %z31.h
+45605000 : sqxtunb z0.s, z0.d                        : sqxtunb %z0.d -> %z0.s
+45605062 : sqxtunb z2.s, z3.d                        : sqxtunb %z3.d -> %z2.s
+456050a4 : sqxtunb z4.s, z5.d                        : sqxtunb %z5.d -> %z4.s
+456050e6 : sqxtunb z6.s, z7.d                        : sqxtunb %z7.d -> %z6.s
+45605128 : sqxtunb z8.s, z9.d                        : sqxtunb %z9.d -> %z8.s
+4560516a : sqxtunb z10.s, z11.d                      : sqxtunb %z11.d -> %z10.s
+456051ac : sqxtunb z12.s, z13.d                      : sqxtunb %z13.d -> %z12.s
+456051ee : sqxtunb z14.s, z15.d                      : sqxtunb %z15.d -> %z14.s
+45605230 : sqxtunb z16.s, z17.d                      : sqxtunb %z17.d -> %z16.s
+45605251 : sqxtunb z17.s, z18.d                      : sqxtunb %z18.d -> %z17.s
+45605293 : sqxtunb z19.s, z20.d                      : sqxtunb %z20.d -> %z19.s
+456052d5 : sqxtunb z21.s, z22.d                      : sqxtunb %z22.d -> %z21.s
+45605317 : sqxtunb z23.s, z24.d                      : sqxtunb %z24.d -> %z23.s
+45605359 : sqxtunb z25.s, z26.d                      : sqxtunb %z26.d -> %z25.s
+4560539b : sqxtunb z27.s, z28.d                      : sqxtunb %z28.d -> %z27.s
+456053ff : sqxtunb z31.s, z31.d                      : sqxtunb %z31.d -> %z31.s
+
+# SQXTUNT <Zd>.<T>, <Zn>.<Tb> (SQXTUNT-Z.ZZ-_)
+45285400 : sqxtunt z0.b, z0.h                        : sqxtunt %z0.b %z0.h -> %z0.b
+45285462 : sqxtunt z2.b, z3.h                        : sqxtunt %z2.b %z3.h -> %z2.b
+452854a4 : sqxtunt z4.b, z5.h                        : sqxtunt %z4.b %z5.h -> %z4.b
+452854e6 : sqxtunt z6.b, z7.h                        : sqxtunt %z6.b %z7.h -> %z6.b
+45285528 : sqxtunt z8.b, z9.h                        : sqxtunt %z8.b %z9.h -> %z8.b
+4528556a : sqxtunt z10.b, z11.h                      : sqxtunt %z10.b %z11.h -> %z10.b
+452855ac : sqxtunt z12.b, z13.h                      : sqxtunt %z12.b %z13.h -> %z12.b
+452855ee : sqxtunt z14.b, z15.h                      : sqxtunt %z14.b %z15.h -> %z14.b
+45285630 : sqxtunt z16.b, z17.h                      : sqxtunt %z16.b %z17.h -> %z16.b
+45285651 : sqxtunt z17.b, z18.h                      : sqxtunt %z17.b %z18.h -> %z17.b
+45285693 : sqxtunt z19.b, z20.h                      : sqxtunt %z19.b %z20.h -> %z19.b
+452856d5 : sqxtunt z21.b, z22.h                      : sqxtunt %z21.b %z22.h -> %z21.b
+45285717 : sqxtunt z23.b, z24.h                      : sqxtunt %z23.b %z24.h -> %z23.b
+45285759 : sqxtunt z25.b, z26.h                      : sqxtunt %z25.b %z26.h -> %z25.b
+4528579b : sqxtunt z27.b, z28.h                      : sqxtunt %z27.b %z28.h -> %z27.b
+452857ff : sqxtunt z31.b, z31.h                      : sqxtunt %z31.b %z31.h -> %z31.b
+45305400 : sqxtunt z0.h, z0.s                        : sqxtunt %z0.h %z0.s -> %z0.h
+45305462 : sqxtunt z2.h, z3.s                        : sqxtunt %z2.h %z3.s -> %z2.h
+453054a4 : sqxtunt z4.h, z5.s                        : sqxtunt %z4.h %z5.s -> %z4.h
+453054e6 : sqxtunt z6.h, z7.s                        : sqxtunt %z6.h %z7.s -> %z6.h
+45305528 : sqxtunt z8.h, z9.s                        : sqxtunt %z8.h %z9.s -> %z8.h
+4530556a : sqxtunt z10.h, z11.s                      : sqxtunt %z10.h %z11.s -> %z10.h
+453055ac : sqxtunt z12.h, z13.s                      : sqxtunt %z12.h %z13.s -> %z12.h
+453055ee : sqxtunt z14.h, z15.s                      : sqxtunt %z14.h %z15.s -> %z14.h
+45305630 : sqxtunt z16.h, z17.s                      : sqxtunt %z16.h %z17.s -> %z16.h
+45305651 : sqxtunt z17.h, z18.s                      : sqxtunt %z17.h %z18.s -> %z17.h
+45305693 : sqxtunt z19.h, z20.s                      : sqxtunt %z19.h %z20.s -> %z19.h
+453056d5 : sqxtunt z21.h, z22.s                      : sqxtunt %z21.h %z22.s -> %z21.h
+45305717 : sqxtunt z23.h, z24.s                      : sqxtunt %z23.h %z24.s -> %z23.h
+45305759 : sqxtunt z25.h, z26.s                      : sqxtunt %z25.h %z26.s -> %z25.h
+4530579b : sqxtunt z27.h, z28.s                      : sqxtunt %z27.h %z28.s -> %z27.h
+453057ff : sqxtunt z31.h, z31.s                      : sqxtunt %z31.h %z31.s -> %z31.h
+45605400 : sqxtunt z0.s, z0.d                        : sqxtunt %z0.s %z0.d -> %z0.s
+45605462 : sqxtunt z2.s, z3.d                        : sqxtunt %z2.s %z3.d -> %z2.s
+456054a4 : sqxtunt z4.s, z5.d                        : sqxtunt %z4.s %z5.d -> %z4.s
+456054e6 : sqxtunt z6.s, z7.d                        : sqxtunt %z6.s %z7.d -> %z6.s
+45605528 : sqxtunt z8.s, z9.d                        : sqxtunt %z8.s %z9.d -> %z8.s
+4560556a : sqxtunt z10.s, z11.d                      : sqxtunt %z10.s %z11.d -> %z10.s
+456055ac : sqxtunt z12.s, z13.d                      : sqxtunt %z12.s %z13.d -> %z12.s
+456055ee : sqxtunt z14.s, z15.d                      : sqxtunt %z14.s %z15.d -> %z14.s
+45605630 : sqxtunt z16.s, z17.d                      : sqxtunt %z16.s %z17.d -> %z16.s
+45605651 : sqxtunt z17.s, z18.d                      : sqxtunt %z17.s %z18.d -> %z17.s
+45605693 : sqxtunt z19.s, z20.d                      : sqxtunt %z19.s %z20.d -> %z19.s
+456056d5 : sqxtunt z21.s, z22.d                      : sqxtunt %z21.s %z22.d -> %z21.s
+45605717 : sqxtunt z23.s, z24.d                      : sqxtunt %z23.s %z24.d -> %z23.s
+45605759 : sqxtunt z25.s, z26.d                      : sqxtunt %z25.s %z26.d -> %z25.s
+4560579b : sqxtunt z27.s, z28.d                      : sqxtunt %z27.s %z28.d -> %z27.s
+456057ff : sqxtunt z31.s, z31.d                      : sqxtunt %z31.s %z31.d -> %z31.s
+
 # SSUBLB  <Zd>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SSUBLB-Z.ZZ-_)
 45401000 : ssublb z0.h, z0.b, z0.b                   : ssublb %z0.b %z0.b -> %z0.h
 45441062 : ssublb z2.h, z3.b, z4.b                   : ssublb %z3.b %z4.b -> %z2.h
@@ -3883,6 +4119,106 @@
 45db7f59 : umullt z25.d, z26.s, z27.s                : umullt %z26.s %z27.s -> %z25.d
 45dd7f9b : umullt z27.d, z28.s, z29.s                : umullt %z28.s %z29.s -> %z27.d
 45df7fff : umullt z31.d, z31.s, z31.s                : umullt %z31.s %z31.s -> %z31.d
+
+# UQXTNB  <Zd>.<T>, <Zn>.<Tb> (UQXTNB-Z.ZZ-_)
+45284800 : uqxtnb z0.b, z0.h                         : uqxtnb %z0.h -> %z0.b
+45284862 : uqxtnb z2.b, z3.h                         : uqxtnb %z3.h -> %z2.b
+452848a4 : uqxtnb z4.b, z5.h                         : uqxtnb %z5.h -> %z4.b
+452848e6 : uqxtnb z6.b, z7.h                         : uqxtnb %z7.h -> %z6.b
+45284928 : uqxtnb z8.b, z9.h                         : uqxtnb %z9.h -> %z8.b
+4528496a : uqxtnb z10.b, z11.h                       : uqxtnb %z11.h -> %z10.b
+452849ac : uqxtnb z12.b, z13.h                       : uqxtnb %z13.h -> %z12.b
+452849ee : uqxtnb z14.b, z15.h                       : uqxtnb %z15.h -> %z14.b
+45284a30 : uqxtnb z16.b, z17.h                       : uqxtnb %z17.h -> %z16.b
+45284a51 : uqxtnb z17.b, z18.h                       : uqxtnb %z18.h -> %z17.b
+45284a93 : uqxtnb z19.b, z20.h                       : uqxtnb %z20.h -> %z19.b
+45284ad5 : uqxtnb z21.b, z22.h                       : uqxtnb %z22.h -> %z21.b
+45284b17 : uqxtnb z23.b, z24.h                       : uqxtnb %z24.h -> %z23.b
+45284b59 : uqxtnb z25.b, z26.h                       : uqxtnb %z26.h -> %z25.b
+45284b9b : uqxtnb z27.b, z28.h                       : uqxtnb %z28.h -> %z27.b
+45284bff : uqxtnb z31.b, z31.h                       : uqxtnb %z31.h -> %z31.b
+45304800 : uqxtnb z0.h, z0.s                         : uqxtnb %z0.s -> %z0.h
+45304862 : uqxtnb z2.h, z3.s                         : uqxtnb %z3.s -> %z2.h
+453048a4 : uqxtnb z4.h, z5.s                         : uqxtnb %z5.s -> %z4.h
+453048e6 : uqxtnb z6.h, z7.s                         : uqxtnb %z7.s -> %z6.h
+45304928 : uqxtnb z8.h, z9.s                         : uqxtnb %z9.s -> %z8.h
+4530496a : uqxtnb z10.h, z11.s                       : uqxtnb %z11.s -> %z10.h
+453049ac : uqxtnb z12.h, z13.s                       : uqxtnb %z13.s -> %z12.h
+453049ee : uqxtnb z14.h, z15.s                       : uqxtnb %z15.s -> %z14.h
+45304a30 : uqxtnb z16.h, z17.s                       : uqxtnb %z17.s -> %z16.h
+45304a51 : uqxtnb z17.h, z18.s                       : uqxtnb %z18.s -> %z17.h
+45304a93 : uqxtnb z19.h, z20.s                       : uqxtnb %z20.s -> %z19.h
+45304ad5 : uqxtnb z21.h, z22.s                       : uqxtnb %z22.s -> %z21.h
+45304b17 : uqxtnb z23.h, z24.s                       : uqxtnb %z24.s -> %z23.h
+45304b59 : uqxtnb z25.h, z26.s                       : uqxtnb %z26.s -> %z25.h
+45304b9b : uqxtnb z27.h, z28.s                       : uqxtnb %z28.s -> %z27.h
+45304bff : uqxtnb z31.h, z31.s                       : uqxtnb %z31.s -> %z31.h
+45604800 : uqxtnb z0.s, z0.d                         : uqxtnb %z0.d -> %z0.s
+45604862 : uqxtnb z2.s, z3.d                         : uqxtnb %z3.d -> %z2.s
+456048a4 : uqxtnb z4.s, z5.d                         : uqxtnb %z5.d -> %z4.s
+456048e6 : uqxtnb z6.s, z7.d                         : uqxtnb %z7.d -> %z6.s
+45604928 : uqxtnb z8.s, z9.d                         : uqxtnb %z9.d -> %z8.s
+4560496a : uqxtnb z10.s, z11.d                       : uqxtnb %z11.d -> %z10.s
+456049ac : uqxtnb z12.s, z13.d                       : uqxtnb %z13.d -> %z12.s
+456049ee : uqxtnb z14.s, z15.d                       : uqxtnb %z15.d -> %z14.s
+45604a30 : uqxtnb z16.s, z17.d                       : uqxtnb %z17.d -> %z16.s
+45604a51 : uqxtnb z17.s, z18.d                       : uqxtnb %z18.d -> %z17.s
+45604a93 : uqxtnb z19.s, z20.d                       : uqxtnb %z20.d -> %z19.s
+45604ad5 : uqxtnb z21.s, z22.d                       : uqxtnb %z22.d -> %z21.s
+45604b17 : uqxtnb z23.s, z24.d                       : uqxtnb %z24.d -> %z23.s
+45604b59 : uqxtnb z25.s, z26.d                       : uqxtnb %z26.d -> %z25.s
+45604b9b : uqxtnb z27.s, z28.d                       : uqxtnb %z28.d -> %z27.s
+45604bff : uqxtnb z31.s, z31.d                       : uqxtnb %z31.d -> %z31.s
+
+# UQXTNT  <Zd>.<T>, <Zn>.<Tb> (UQXTNT-Z.ZZ-_)
+45284c00 : uqxtnt z0.b, z0.h                         : uqxtnt %z0.b %z0.h -> %z0.b
+45284c62 : uqxtnt z2.b, z3.h                         : uqxtnt %z2.b %z3.h -> %z2.b
+45284ca4 : uqxtnt z4.b, z5.h                         : uqxtnt %z4.b %z5.h -> %z4.b
+45284ce6 : uqxtnt z6.b, z7.h                         : uqxtnt %z6.b %z7.h -> %z6.b
+45284d28 : uqxtnt z8.b, z9.h                         : uqxtnt %z8.b %z9.h -> %z8.b
+45284d6a : uqxtnt z10.b, z11.h                       : uqxtnt %z10.b %z11.h -> %z10.b
+45284dac : uqxtnt z12.b, z13.h                       : uqxtnt %z12.b %z13.h -> %z12.b
+45284dee : uqxtnt z14.b, z15.h                       : uqxtnt %z14.b %z15.h -> %z14.b
+45284e30 : uqxtnt z16.b, z17.h                       : uqxtnt %z16.b %z17.h -> %z16.b
+45284e51 : uqxtnt z17.b, z18.h                       : uqxtnt %z17.b %z18.h -> %z17.b
+45284e93 : uqxtnt z19.b, z20.h                       : uqxtnt %z19.b %z20.h -> %z19.b
+45284ed5 : uqxtnt z21.b, z22.h                       : uqxtnt %z21.b %z22.h -> %z21.b
+45284f17 : uqxtnt z23.b, z24.h                       : uqxtnt %z23.b %z24.h -> %z23.b
+45284f59 : uqxtnt z25.b, z26.h                       : uqxtnt %z25.b %z26.h -> %z25.b
+45284f9b : uqxtnt z27.b, z28.h                       : uqxtnt %z27.b %z28.h -> %z27.b
+45284fff : uqxtnt z31.b, z31.h                       : uqxtnt %z31.b %z31.h -> %z31.b
+45304c00 : uqxtnt z0.h, z0.s                         : uqxtnt %z0.h %z0.s -> %z0.h
+45304c62 : uqxtnt z2.h, z3.s                         : uqxtnt %z2.h %z3.s -> %z2.h
+45304ca4 : uqxtnt z4.h, z5.s                         : uqxtnt %z4.h %z5.s -> %z4.h
+45304ce6 : uqxtnt z6.h, z7.s                         : uqxtnt %z6.h %z7.s -> %z6.h
+45304d28 : uqxtnt z8.h, z9.s                         : uqxtnt %z8.h %z9.s -> %z8.h
+45304d6a : uqxtnt z10.h, z11.s                       : uqxtnt %z10.h %z11.s -> %z10.h
+45304dac : uqxtnt z12.h, z13.s                       : uqxtnt %z12.h %z13.s -> %z12.h
+45304dee : uqxtnt z14.h, z15.s                       : uqxtnt %z14.h %z15.s -> %z14.h
+45304e30 : uqxtnt z16.h, z17.s                       : uqxtnt %z16.h %z17.s -> %z16.h
+45304e51 : uqxtnt z17.h, z18.s                       : uqxtnt %z17.h %z18.s -> %z17.h
+45304e93 : uqxtnt z19.h, z20.s                       : uqxtnt %z19.h %z20.s -> %z19.h
+45304ed5 : uqxtnt z21.h, z22.s                       : uqxtnt %z21.h %z22.s -> %z21.h
+45304f17 : uqxtnt z23.h, z24.s                       : uqxtnt %z23.h %z24.s -> %z23.h
+45304f59 : uqxtnt z25.h, z26.s                       : uqxtnt %z25.h %z26.s -> %z25.h
+45304f9b : uqxtnt z27.h, z28.s                       : uqxtnt %z27.h %z28.s -> %z27.h
+45304fff : uqxtnt z31.h, z31.s                       : uqxtnt %z31.h %z31.s -> %z31.h
+45604c00 : uqxtnt z0.s, z0.d                         : uqxtnt %z0.s %z0.d -> %z0.s
+45604c62 : uqxtnt z2.s, z3.d                         : uqxtnt %z2.s %z3.d -> %z2.s
+45604ca4 : uqxtnt z4.s, z5.d                         : uqxtnt %z4.s %z5.d -> %z4.s
+45604ce6 : uqxtnt z6.s, z7.d                         : uqxtnt %z6.s %z7.d -> %z6.s
+45604d28 : uqxtnt z8.s, z9.d                         : uqxtnt %z8.s %z9.d -> %z8.s
+45604d6a : uqxtnt z10.s, z11.d                       : uqxtnt %z10.s %z11.d -> %z10.s
+45604dac : uqxtnt z12.s, z13.d                       : uqxtnt %z12.s %z13.d -> %z12.s
+45604dee : uqxtnt z14.s, z15.d                       : uqxtnt %z14.s %z15.d -> %z14.s
+45604e30 : uqxtnt z16.s, z17.d                       : uqxtnt %z16.s %z17.d -> %z16.s
+45604e51 : uqxtnt z17.s, z18.d                       : uqxtnt %z17.s %z18.d -> %z17.s
+45604e93 : uqxtnt z19.s, z20.d                       : uqxtnt %z19.s %z20.d -> %z19.s
+45604ed5 : uqxtnt z21.s, z22.d                       : uqxtnt %z21.s %z22.d -> %z21.s
+45604f17 : uqxtnt z23.s, z24.d                       : uqxtnt %z23.s %z24.d -> %z23.s
+45604f59 : uqxtnt z25.s, z26.d                       : uqxtnt %z25.s %z26.d -> %z25.s
+45604f9b : uqxtnt z27.s, z28.d                       : uqxtnt %z27.s %z28.d -> %z27.s
+45604fff : uqxtnt z31.s, z31.d                       : uqxtnt %z31.s %z31.d -> %z31.s
 
 # USUBLB  <Zd>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (USUBLB-Z.ZZ-_)
 45401800 : usublb z0.h, z0.b, z0.b                   : usublb %z0.b %z0.b -> %z0.h
