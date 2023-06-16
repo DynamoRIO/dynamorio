@@ -652,18 +652,23 @@ bool
 check_false_syscalls()
 {
     // Ensure missing syscall markers (from "false syscalls") are detected.
+#if defined(WINDOWS) && !defined(X64)
+    // TODO i#5949: For WOW64 instr_is_syscall() always returns false, so our
+    // checks do not currently work properly there.
+    return true;
+#else
     // XXX: Just like raw2trace_unit_tests, we need to create a syscall instruction and
     // it turns out there is no simple cross-platform way.
-#ifdef X86
+#    ifdef X86
     instr_t *sys = INSTR_CREATE_syscall(GLOBAL_DCONTEXT);
-#elif defined(AARCHXX)
+#    elif defined(AARCHXX)
     instr_t *sys =
         INSTR_CREATE_svc(GLOBAL_DCONTEXT, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-#elif defined(RISCV64)
+#    elif defined(RISCV64)
     instr_t *sys = INSTR_CREATE_ecall(GLOBAL_DCONTEXT);
-#else
-#    error Unsupported architecture.
-#endif
+#    else
+#        error Unsupported architecture.
+#    endif
     instr_t *move1 =
         XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
@@ -727,6 +732,7 @@ check_false_syscalls()
     }
     instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
     return res;
+#endif
 }
 
 bool
