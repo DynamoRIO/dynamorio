@@ -3850,6 +3850,12 @@ if (BUILD_CLIENTS)
       unset(tool.drcacheoff.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
     endif ()
 
+    # pthreads not available with MSVC
+    if (NOT MSVC)
+        torunonly_drcachesim(pthreads-basic-counts pthreads.pthreads "-simulator_type basic_counts"
+            "")
+    endif()
+
     if (X86 AND X64 AND ZLIB_FOUND)
       # XXX i#5538: Add trace files for other arches.
       set(zip_path
