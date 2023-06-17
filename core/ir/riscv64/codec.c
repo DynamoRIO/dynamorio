@@ -237,8 +237,8 @@ decode_rs2fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
  * Applies to the R4 uncompressed format.
  */
 static bool
-decode_rs3_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
-                int idx, instr_t *out)
+decode_rs3fp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                  int idx, instr_t *out)
 {
     reg_t reg = DR_REG_F0 + GET_FIELD(inst, 31, 27);
     opnd_t opnd = opnd_create_reg(reg);
@@ -1050,7 +1050,7 @@ opnd_dec_func_t opnd_decoders[] = {
     [RISCV64_FLD_BASE] = decode_base_opnd,
     [RISCV64_FLD_RS2] = decode_rs2_opnd,
     [RISCV64_FLD_RS2FP] = decode_rs2fp_opnd,
-    [RISCV64_FLD_RS3] = decode_rs3_opnd,
+    [RISCV64_FLD_RS3FP] = decode_rs3fp_opnd,
     [RISCV64_FLD_FM] = decode_fm_opnd,
     [RISCV64_FLD_PRED] = decode_pred_opnd,
     [RISCV64_FLD_SUCC] = decode_succ_opnd,
@@ -1538,7 +1538,7 @@ encode_rs2fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to the R4 uncompressed format.
  */
 static bool
-encode_rs3_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_rs3fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F0;
@@ -2310,7 +2310,7 @@ opnd_enc_func_t opnd_encoders[] = {
     [RISCV64_FLD_BASE] = encode_base_opnd,
     [RISCV64_FLD_RS2] = encode_rs2_opnd,
     [RISCV64_FLD_RS2FP] = encode_rs2fp_opnd,
-    [RISCV64_FLD_RS3] = encode_rs3_opnd,
+    [RISCV64_FLD_RS3FP] = encode_rs3fp_opnd,
     [RISCV64_FLD_FM] = encode_fm_opnd,
     [RISCV64_FLD_PRED] = encode_pred_opnd,
     [RISCV64_FLD_SUCC] = encode_succ_opnd,

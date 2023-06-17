@@ -51,11 +51,11 @@ amomaxu.w %a1 %a2 0x1 -> %a0
 amomaxu.d %a1 %a2 0x1 -> %a0
 test_atomic complete
 fcvt.l.s 0x0 %ft0 -> %a0
-fcvt.lu.s 0x0 %ft0 -> %a0
-fcvt.s.l 0x0 %a0 -> %ft0
-fcvt.s.lu 0x0 %a0 -> %ft0
-fcvt.l.d 0x0 %ft0 -> %a0
-fcvt.lu.d 0x0 %ft0 -> %a0
+fcvt.lu.s 0x1 %ft0 -> %a0
+fcvt.s.l 0x2 %a0 -> %ft0
+fcvt.s.lu 0x3 %a0 -> %ft0
+fcvt.l.d 0x4 %ft0 -> %a0
+fcvt.lu.d 0x7 %ft0 -> %a0
 fcvt.d.l 0x0 %a0 -> %ft0
 fcvt.d.lu 0x0 %a0 -> %ft0
 fcvt.d.s 0x0 %ft0 -> %ft0
@@ -81,4 +81,58 @@ fcvt.lu.q 0x0 %ft0 -> %a0
 fcvt.q.l 0x0 %a0 -> %ft0
 fcvt.q.lu 0x0 %a0 -> %ft0
 test_fcvt complete
+fmv.x.d %ft0 -> %a0
+fmv.d.x %zero -> %ft11
+fmv.x.w %ft11 -> %zero
+fmv.w.x %a0 -> %ft0
+test_fmv complete
+fmadd.d 0x0 %ft0 %ft2 %ft3 -> %ft11
+fmsub.d 0x1 %ft11 %ft0 %ft3 -> %ft0
+fnmadd.d 0x2 %ft1 %ft11 %ft0 -> %ft0
+fnmsub.d 0x3 %ft1 %ft2 %ft11 -> %ft0
+fmadd.q 0x0 %ft0 %ft2 %ft3 -> %ft11
+fmsub.q 0x1 %ft11 %ft0 %ft3 -> %ft0
+fnmadd.q 0x2 %ft1 %ft11 %ft0 -> %ft0
+fnmsub.q 0x3 %ft1 %ft2 %ft11 -> %ft0
+fmadd.s 0x0 %ft0 %ft2 %ft3 -> %ft11
+fmsub.s 0x1 %ft11 %ft0 %ft3 -> %ft0
+fnmadd.s 0x2 %ft1 %ft11 %ft0 -> %ft0
+fnmsub.s 0x3 %ft1 %ft2 %ft11 -> %ft0
+fadd.d 0x4 %ft11 %ft2 -> %ft0
+fsub.d 0x7 %ft0 %ft0 -> %ft11
+fmul.d 0x0 %ft1 %ft11 -> %ft0
+fdiv.d 0x0 %ft1 %ft2 -> %ft0
+fadd.q 0x4 %ft1 %ft2 -> %ft0
+fsub.q 0x7 %ft11 %ft0 -> %ft11
+fmul.q 0x0 %ft0 %ft11 -> %ft0
+fdiv.q 0x0 %ft1 %ft2 -> %ft0
+fadd.s 0x4 %ft1 %ft2 -> %ft0
+fsub.s 0x7 %ft11 %ft0 -> %ft11
+fmul.s 0x0 %ft0 %ft11 -> %ft0
+fdiv.s 0x0 %ft1 %ft2 -> %ft0
+fsqrt.d 0x0 %ft11 -> %ft0
+fsqrt.q 0x0 %ft0 -> %ft11
+fsqrt.s 0x0 %ft1 -> %ft0
+fsqrt.d 0x0 %ft11 -> %ft0
+fsqrt.q 0x0 %ft0 -> %ft11
+fsqrt.s 0x0 %ft1 -> %ft0
+fsgnj.d %ft0 %ft11 -> %ft0
+fsgnjn.d %ft0 %ft0 -> %ft11
+fsgnjx.d %ft0 %ft1 -> %ft0
+fsgnj.q %ft0 %ft11 -> %ft0
+fsgnjn.q %ft0 %ft0 -> %ft11
+fsgnjx.q %ft0 %ft1 -> %ft0
+fsgnj.s %ft0 %ft11 -> %ft0
+fsgnjn.s %ft0 %ft0 -> %ft11
+fsgnjx.s %ft0 %ft1 -> %ft0
+fmax.d %ft11 %ft2 -> %ft0
+fmin.d %ft1 %ft0 -> %ft11
+fmax.q %ft0 %ft11 -> %ft0
+fmin.q %ft1 %ft2 -> %ft0
+fmax.s %ft1 %ft2 -> %ft0
+fmin.s %ft1 %ft2 -> %ft0
+fclass.d %ft1 -> %a0
+fclass.q %ft1 -> %a0
+fclass.s %ft1 -> %a0
+test_float_arith complete
 All tests complete

@@ -171,7 +171,7 @@ class Field(str, Enum):
              '',
              'The second input floating-point register (inst[24:20]).'
              )
-    RS3 = (8,
+    RS3FP = (8,
            'rs3',
            False,
            'OPSZ_PTR',
