@@ -27,4 +27,58 @@ c.fld  +248(%a5)[8byte] -> %fs0
 c.fsdsp %ft11 -> (%sp)[8byte]
 c.fsd  %fs0 -> +248(%a5)[8byte]
 test_float_load_store complete
+lr.w   %a1 0x0 -> %a0
+lr.d   %t6 0x2 -> %zero
+sc.w   %a1 %a2 0x1 -> %a0
+sc.d   %t6 %a1 0x3 -> %zero
+amoswap.w %ra %t6 0x0 -> %zero
+amoswap.d %ra %zero 0x1 -> %t6
+amoadd.w %t6 %a2 0x2 -> %zero
+amoadd.d %a1 %a2 0x3 -> %a0
+amoxor.w %a1 %a2 0x1 -> %a0
+amoxor.d %a1 %a2 0x1 -> %a0
+amoand.w %a1 %a2 0x1 -> %a0
+amoand.d %a1 %a2 0x1 -> %a0
+amoor.w %a1 %a2 0x1 -> %a0
+amoor.d %a1 %a2 0x1 -> %a0
+amomin.w %a1 %a2 0x1 -> %a0
+amomin.d %a1 %a2 0x1 -> %a0
+amomax.w %a1 %a2 0x1 -> %a0
+amomax.d %a1 %a2 0x1 -> %a0
+amominu.w %a1 %a2 0x1 -> %a0
+amominu.d %a1 %a2 0x1 -> %a0
+amomaxu.w %a1 %a2 0x1 -> %a0
+amomaxu.d %a1 %a2 0x1 -> %a0
+test_atomic complete
+fcvt.l.s 0x0 %ft0 -> %a0
+fcvt.lu.s 0x0 %ft0 -> %a0
+fcvt.s.l 0x0 %a0 -> %ft0
+fcvt.s.lu 0x0 %a0 -> %ft0
+fcvt.l.d 0x0 %ft0 -> %a0
+fcvt.lu.d 0x0 %ft0 -> %a0
+fcvt.d.l 0x0 %a0 -> %ft0
+fcvt.d.lu 0x0 %a0 -> %ft0
+fcvt.d.s 0x0 %ft0 -> %ft0
+fcvt.s.d 0x0 %ft0 -> %ft0
+fcvt.w.d 0x0 %ft0 -> %a0
+fcvt.wu.d 0x0 %ft0 -> %a0
+fcvt.d.w 0x0 %a0 -> %ft0
+fcvt.d.wu 0x0 %a0 -> %ft0
+fcvt.s.q 0x0 %ft0 -> %ft0
+fcvt.q.s 0x0 %ft0 -> %ft0
+fcvt.d.q 0x0 %ft0 -> %ft0
+fcvt.q.d 0x0 %ft0 -> %ft0
+fcvt.w.q 0x0 %ft0 -> %a0
+fcvt.q.w 0x0 %a0 -> %ft0
+fcvt.wu.q 0x0 %ft0 -> %a0
+fcvt.q.wu 0x0 %a0 -> %ft0
+fcvt.w.s 0x0 %ft0 -> %a0
+fcvt.s.w 0x0 %a0 -> %ft0
+fcvt.wu.s 0x0 %ft0 -> %a0
+fcvt.s.wu 0x0 %a0 -> %ft0
+fcvt.l.q 0x0 %ft0 -> %a0
+fcvt.lu.q 0x0 %ft0 -> %a0
+fcvt.q.l 0x0 %a0 -> %ft0
+fcvt.q.lu 0x0 %a0 -> %ft0
+test_fcvt complete
 All tests complete

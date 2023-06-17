@@ -337,6 +337,8 @@ decode_rm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc
                instr_t *out)
 {
     int32_t imm = GET_FIELD(inst, 14, 12);
+    /* Invalid. Reserved for future use. */
+    ASSERT(imm != 0b101 && imm != 0b110);
     opnd_t opnd = opnd_create_immed_int(imm, op_sz);
     instr_set_src(out, idx, opnd);
     return true;
@@ -1446,6 +1448,7 @@ static bool
 encode_rdfp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
+    ASSERT(opnd_get_reg(opnd) >= DR_REG_F0);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F0;
     *out |= SET_FIELD(rd, 11, 7);
     return true;
@@ -1476,6 +1479,7 @@ static bool
 encode_rs1fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_src(instr, idx);
+    ASSERT(opnd_get_reg(opnd) >= DR_REG_F0);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F0;
     *out |= SET_FIELD(rd, 19, 15);
     return true;
@@ -1521,6 +1525,7 @@ static bool
 encode_rs2fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_src(instr, idx);
+    ASSERT(opnd_get_reg(opnd) >= DR_REG_F0);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F0;
     *out |= SET_FIELD(rd, 24, 20);
     return true;
@@ -1623,6 +1628,8 @@ encode_rm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
+    /* Invalid. Reserved for future use. */
+    ASSERT(imm != 0b101 && imm != 0b110);
     *out |= SET_FIELD(imm, 14, 12);
     return true;
 }
