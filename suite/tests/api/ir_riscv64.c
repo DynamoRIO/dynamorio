@@ -234,6 +234,104 @@ test_float_load_store(void *dc)
     /* There is no c.fsw* instructions in RV64. */
 }
 
+static void
+test_atomic(void *dc)
+{
+    instr_t *instr;
+
+    /* FIXME i#3544: Use [aq][rl] instead of hex number when disassembling. */
+
+    /* LR/SC */
+    instr = INSTR_CREATE_lr_w(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                              opnd_create_immed_int(0b00, OPSZ_2b));
+    test_instr_encoding(dc, OP_lr_w, instr);
+    instr = INSTR_CREATE_lr_d(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X31),
+                              opnd_create_immed_int(0b10, OPSZ_2b));
+    test_instr_encoding(dc, OP_lr_d, instr);
+    instr = INSTR_CREATE_sc_w(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                              opnd_create_reg(DR_REG_A2),
+                              opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_sc_w, instr);
+    instr = INSTR_CREATE_sc_d(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X31),
+                              opnd_create_reg(DR_REG_A1),
+                              opnd_create_immed_int(0b11, OPSZ_2b));
+    test_instr_encoding(dc, OP_sc_d, instr);
+
+    /* AMO */
+    instr = INSTR_CREATE_amoswap_w(
+        dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1),
+        opnd_create_reg(DR_REG_X31), opnd_create_immed_int(0b00, OPSZ_2b));
+    test_instr_encoding(dc, OP_amoswap_w, instr);
+    instr = INSTR_CREATE_amoswap_d(dc, opnd_create_reg(DR_REG_X31),
+                                   opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X0),
+                                   opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amoswap_d, instr);
+    instr = INSTR_CREATE_amoadd_w(dc, opnd_create_reg(DR_REG_X0),
+                                  opnd_create_reg(DR_REG_X31), opnd_create_reg(DR_REG_A2),
+                                  opnd_create_immed_int(0b10, OPSZ_2b));
+    test_instr_encoding(dc, OP_amoadd_w, instr);
+    instr = INSTR_CREATE_amoadd_d(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                  opnd_create_immed_int(0b11, OPSZ_2b));
+    test_instr_encoding(dc, OP_amoadd_d, instr);
+    instr = INSTR_CREATE_amoxor_w(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amoxor_w, instr);
+    instr = INSTR_CREATE_amoxor_d(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amoxor_d, instr);
+    instr = INSTR_CREATE_amoand_w(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amoand_w, instr);
+    instr = INSTR_CREATE_amoand_d(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amoand_d, instr);
+    instr = INSTR_CREATE_amoor_w(dc, opnd_create_reg(DR_REG_A0),
+                                 opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                 opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amoor_w, instr);
+    instr = INSTR_CREATE_amoor_d(dc, opnd_create_reg(DR_REG_A0),
+                                 opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                 opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amoor_d, instr);
+    instr = INSTR_CREATE_amomin_w(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amomin_w, instr);
+    instr = INSTR_CREATE_amomin_d(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amomin_d, instr);
+    instr = INSTR_CREATE_amomax_w(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amomax_w, instr);
+    instr = INSTR_CREATE_amomax_d(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                  opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amomax_d, instr);
+    instr = INSTR_CREATE_amominu_w(dc, opnd_create_reg(DR_REG_A0),
+                                   opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                   opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amominu_w, instr);
+    instr = INSTR_CREATE_amominu_d(dc, opnd_create_reg(DR_REG_A0),
+                                   opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                   opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amominu_d, instr);
+    instr = INSTR_CREATE_amomaxu_w(dc, opnd_create_reg(DR_REG_A0),
+                                   opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                   opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amomaxu_w, instr);
+    instr = INSTR_CREATE_amomaxu_d(dc, opnd_create_reg(DR_REG_A0),
+                                   opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2),
+                                   opnd_create_immed_int(0b01, OPSZ_2b));
+    test_instr_encoding(dc, OP_amomaxu_d, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -248,6 +346,9 @@ main(int argc, char *argv[])
 
     test_float_load_store(dcontext);
     print("test_float_load_store complete\n");
+
+    test_atomic(dcontext);
+    print("test_atomic complete\n");
 
     print("All tests complete\n");
     return 0;
