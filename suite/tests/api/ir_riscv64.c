@@ -342,25 +342,25 @@ test_fcvt(void *dc)
                                   opnd_create_reg(DR_REG_F0));
     test_instr_encoding(dc, OP_fcvt_l_s, instr);
     instr = INSTR_CREATE_fcvt_lu_s(dc, opnd_create_reg(DR_REG_A0),
-                                   opnd_create_immed_int(0b000, OPSZ_3b),
+                                   opnd_create_immed_int(0b001, OPSZ_3b),
                                    opnd_create_reg(DR_REG_F0));
     test_instr_encoding(dc, OP_fcvt_lu_s, instr);
 
     instr = INSTR_CREATE_fcvt_s_l(dc, opnd_create_reg(DR_REG_F0),
-                                  opnd_create_immed_int(0b000, OPSZ_3b),
+                                  opnd_create_immed_int(0b010, OPSZ_3b),
                                   opnd_create_reg(DR_REG_A0));
     test_instr_encoding(dc, OP_fcvt_s_l, instr);
     instr = INSTR_CREATE_fcvt_s_lu(dc, opnd_create_reg(DR_REG_F0),
-                                   opnd_create_immed_int(0b000, OPSZ_3b),
+                                   opnd_create_immed_int(0b011, OPSZ_3b),
                                    opnd_create_reg(DR_REG_A0));
     test_instr_encoding(dc, OP_fcvt_s_lu, instr);
 
     instr = INSTR_CREATE_fcvt_l_d(dc, opnd_create_reg(DR_REG_A0),
-                                  opnd_create_immed_int(0b000, OPSZ_3b),
+                                  opnd_create_immed_int(0b100, OPSZ_3b),
                                   opnd_create_reg(DR_REG_F0));
     test_instr_encoding(dc, OP_fcvt_l_d, instr);
     instr = INSTR_CREATE_fcvt_lu_d(dc, opnd_create_reg(DR_REG_A0),
-                                   opnd_create_immed_int(0b000, OPSZ_3b),
+                                   opnd_create_immed_int(0b111, OPSZ_3b),
                                    opnd_create_reg(DR_REG_F0));
     test_instr_encoding(dc, OP_fcvt_lu_d, instr);
 
@@ -473,6 +473,24 @@ test_fcvt(void *dc)
     test_instr_encoding(dc, OP_fcvt_q_lu, instr);
 }
 
+static void
+test_fmv(void *dc)
+{
+    instr_t *instr;
+    instr =
+        INSTR_CREATE_fmv_x_d(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_F0));
+    test_instr_encoding(dc, OP_fmv_x_d, instr);
+    instr =
+        INSTR_CREATE_fmv_d_x(dc, opnd_create_reg(DR_REG_F31), opnd_create_reg(DR_REG_X0));
+    test_instr_encoding(dc, OP_fmv_d_x, instr);
+    instr =
+        INSTR_CREATE_fmv_x_w(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_F31));
+    test_instr_encoding(dc, OP_fmv_x_w, instr);
+    instr =
+        INSTR_CREATE_fmv_w_x(dc, opnd_create_reg(DR_REG_F0), opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_fmv_w_x, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -493,6 +511,9 @@ main(int argc, char *argv[])
 
     test_fcvt(dcontext);
     print("test_fcvt complete\n");
+
+    test_fmv(dcontext);
+    print("test_fmv complete\n");
 
     print("All tests complete\n");
     return 0;
