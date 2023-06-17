@@ -89,7 +89,6 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
 static void
 test_integer_load_store(void *dc)
 {
-    byte *pc;
     instr_t *instr;
 
     /* Load */
@@ -183,6 +182,58 @@ test_integer_load_store(void *dc)
     test_instr_encoding(dc, OP_c_sw, instr);
 }
 
+static void
+test_float_load_store(void *dc)
+{
+    instr_t *instr;
+
+    /* Load */
+    instr = INSTR_CREATE_flw(
+        dc, opnd_create_reg(DR_REG_F0),
+        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4));
+    test_instr_encoding(dc, OP_flw, instr);
+    instr = INSTR_CREATE_fld(
+        dc, opnd_create_reg(DR_REG_F31),
+        opnd_create_base_disp_decimal(DR_REG_X0, DR_REG_NULL, 0, -1, OPSZ_8));
+    test_instr_encoding(dc, OP_fld, instr);
+
+    /* Store */
+    instr = INSTR_CREATE_fsw(
+        dc,
+        opnd_create_base_disp_decimal(DR_REG_X31, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_4),
+        opnd_create_reg(DR_REG_F1));
+    test_instr_encoding(dc, OP_fsw, instr);
+    instr = INSTR_CREATE_fsd(
+        dc,
+        opnd_create_base_disp_decimal(DR_REG_X31, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_8),
+        opnd_create_reg(DR_REG_F31));
+    test_instr_encoding(dc, OP_fsd, instr);
+
+    /* Compressed Load */
+    instr = INSTR_CREATE_c_fldsp(
+        dc, opnd_create_reg(DR_REG_F0),
+        opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8));
+    test_instr_encoding(dc, OP_c_fldsp, instr);
+    instr =
+        INSTR_CREATE_c_fld(dc, opnd_create_reg(DR_REG_F8),
+                           opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
+                                                         ((1 << 5) - 1) << 3, OPSZ_8));
+    test_instr_encoding(dc, OP_c_fld, instr);
+    /* There is no c.flw* instructions in RV64. */
+
+    /* Compressed Store */
+    instr = INSTR_CREATE_c_fsdsp(
+        dc, opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_F31));
+    test_instr_encoding(dc, OP_c_fsdsp, instr);
+    instr = INSTR_CREATE_c_fsd(dc,
+                               opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
+                                                             ((1 << 5) - 1) << 3, OPSZ_8),
+                               opnd_create_reg(DR_REG_F8));
+    test_instr_encoding(dc, OP_c_fsd, instr);
+    /* There is no c.fsw* instructions in RV64. */
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -194,6 +245,9 @@ main(int argc, char *argv[])
 
     test_integer_load_store(dcontext);
     print("test_integer_load_store complete\n");
+
+    test_float_load_store(dcontext);
+    print("test_float_load_store complete\n");
 
     print("All tests complete\n");
     return 0;

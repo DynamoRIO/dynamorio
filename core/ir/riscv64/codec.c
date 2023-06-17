@@ -1999,6 +1999,7 @@ encode_clwsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_disp(opnd);
+    ASSERT(opnd_get_base(opnd) == DR_REG_SP);
     *out |= SET_FIELD(imm >> 6, 3, 2) | SET_FIELD(imm >> 2, 6, 4) |
         SET_FIELD(imm >> 5, 12, 12);
     return true;
@@ -2017,6 +2018,7 @@ encode_cldsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_disp(opnd);
+    ASSERT(opnd_get_base(opnd) == DR_REG_SP);
     *out |= SET_FIELD(imm >> 6, 4, 2) | SET_FIELD(imm >> 3, 6, 5) |
         SET_FIELD(imm >> 5, 12, 12);
     return true;
@@ -2052,6 +2054,7 @@ encode_cswsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     int32_t imm = opnd_get_disp(opnd);
+    ASSERT(opnd_get_base(opnd) == DR_REG_SP);
     *out |= SET_FIELD(imm >> 6, 8, 7) | SET_FIELD(imm >> 2, 12, 9);
     return true;
 }
@@ -2069,6 +2072,7 @@ encode_csdsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     int32_t imm = opnd_get_disp(opnd);
+    ASSERT(opnd_get_base(opnd) == DR_REG_SP);
     *out |= SET_FIELD(imm >> 6, 9, 7) | SET_FIELD(imm >> 3, 12, 10);
     return true;
 }

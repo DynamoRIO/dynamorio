@@ -18,4 +18,13 @@ c.sd   %fp -> +248(%a5)[8byte]
 c.swsp %zero -> +124(%sp)[4byte]
 c.sw   %fp -> +124(%a5)[4byte]
 test_integer_load_store complete
+flw    (%a1)[4byte] -> %ft0
+fld    -1(%zero)[8byte] -> %ft11
+fsw    %ft1 -> +2047(%t6)[4byte]
+fsd    %ft11 -> +2047(%t6)[8byte]
+c.fldsp (%sp)[8byte] -> %ft0
+c.fld  +248(%a5)[8byte] -> %fs0
+c.fsdsp %ft11 -> (%sp)[8byte]
+c.fsd  %fs0 -> +248(%a5)[8byte]
+test_float_load_store complete
 All tests complete
