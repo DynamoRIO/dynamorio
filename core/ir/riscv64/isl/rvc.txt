@@ -10,8 +10,8 @@ c.fld      | cl  | cld_imm crs1_ crd_(fp)  | 001...........00
 c.sw       | cs  | csw_imm crs1_ crs2_     | 110...........00
 c.fsd      | cs  | csd_imm crs1_ crs2_(fp) | 101...........00
 c.j        | cj  | cj_imm                  | 101...........01
-c.jr       | cr  | crs1 crs2               | 1000.....0000010
-c.jalr     | cr  | crs1 crs2               | 1001.....0000010
+c.jr       | cr  | crs1                    | 1000.....0000010
+c.jalr     | cr  | crs1                    | 1001.....0000010
 c.beqz     | cb  | cb_imm crs1_            | 110...........01
 c.bnez     | cb  | cb_imm crs1_            | 111...........01
 c.li       | ci  | cimm5 crd               | 010...........01

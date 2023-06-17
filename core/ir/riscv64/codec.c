@@ -695,7 +695,7 @@ decode_csr_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
                     int idx, instr_t *out)
 {
     int32_t imm = GET_FIELD(inst, 19, 15);
-    opnd_t opnd = opnd_create_immed_int(imm, op_sz);
+    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -1731,7 +1731,7 @@ encode_b_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
     else
         return false;
 
-    *out |= SET_FIELD(imm >> 11, 7, 7) | SET_FIELD(imm, 11, 8) |
+    *out |= SET_FIELD(imm >> 11, 7, 7) | SET_FIELD(imm >> 1, 11, 8) |
         SET_FIELD(imm >> 5, 30, 25) | SET_FIELD(imm >> 12, 31, 31);
     return true;
 }
