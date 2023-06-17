@@ -222,19 +222,6 @@ c.sub  %a5 -> %fp
 test_integer_arith complete
 lui    0x2a -> %a0
 auipc  0x2a -> %a0
-jal    $0x000000400000e1ec -> %a0
-jalr   %a1 0x2a -> %a0
-beq    $0x000000400000e1ec %a0 %a1
-bne    $0x000000400000e1ec %a0 %a1
-blt    $0x000000400000e1ec %a0 %a1
-bge    $0x000000400000e1ec %a0 %a1
-bltu   $0x000000400000e1ec %a0 %a1
-bgeu   $0x000000400000e1ec %a0 %a1
-c.j    $0x000000400000e1ec
-c.jr   %a0
-c.jalr %a0
-c.beqz $0x000000400000e1ec %fp
-c.bnez $0x000000400000e1ec %fp
 c.li   31 -> %a1
 c.lui  1 -> %a1
 c.addi 31 -> %a1

@@ -88,6 +88,21 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
 }
 
 static void
+test_instr_encoding_branch(void *dc, uint opcode, instr_t *instr)
+{
+    instr_t *decin;
+
+    ASSERT(instr_get_opcode(instr) == opcode);
+    ASSERT(instr_is_encoding_possible(instr));
+    instr_encode(dc, instr, buf);
+    decin = instr_create(dc);
+    decode(dc, buf, decin);
+    ASSERT(instr_same(instr, decin));
+    instr_destroy(dc, instr);
+    instr_destroy(dc, decin);
+}
+
+static void
 test_integer_load_store(void *dc)
 {
     instr_t *instr;
@@ -985,42 +1000,42 @@ test_jump_and_branch(void *dc)
                                opnd_create_immed_int(42, OPSZ_20b));
     test_instr_encoding(dc, OP_auipc, instr);
     instr = INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_A0), opnd_create_pc(pc));
-    test_instr_encoding(dc, OP_jal, instr);
+    test_instr_encoding_branch(dc, OP_jal, instr);
     instr = INSTR_CREATE_jalr(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                               opnd_create_immed_int(42, OPSZ_12b));
-    test_instr_encoding(dc, OP_jalr, instr);
+    test_instr_encoding_branch(dc, OP_jalr, instr);
 
     instr = INSTR_CREATE_beq(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding(dc, OP_beq, instr);
+    test_instr_encoding_branch(dc, OP_beq, instr);
     instr = INSTR_CREATE_bne(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding(dc, OP_bne, instr);
+    test_instr_encoding_branch(dc, OP_bne, instr);
     instr = INSTR_CREATE_blt(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding(dc, OP_blt, instr);
+    test_instr_encoding_branch(dc, OP_blt, instr);
     instr = INSTR_CREATE_bge(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding(dc, OP_bge, instr);
+    test_instr_encoding_branch(dc, OP_bge, instr);
     instr = INSTR_CREATE_bltu(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                               opnd_create_reg(DR_REG_A1));
-    test_instr_encoding(dc, OP_bltu, instr);
+    test_instr_encoding_branch(dc, OP_bltu, instr);
     instr = INSTR_CREATE_bgeu(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                               opnd_create_reg(DR_REG_A1));
-    test_instr_encoding(dc, OP_bgeu, instr);
+    test_instr_encoding_branch(dc, OP_bgeu, instr);
 
     /* Compressed */
     instr = INSTR_CREATE_c_j(dc, opnd_create_pc(pc));
-    test_instr_encoding(dc, OP_c_j, instr);
+    test_instr_encoding_branch(dc, OP_c_j, instr);
     instr = INSTR_CREATE_c_jr(dc, opnd_create_reg(DR_REG_A0));
-    test_instr_encoding(dc, OP_c_jr, instr);
+    test_instr_encoding_branch(dc, OP_c_jr, instr);
     /* There is no c.jal in RV64. */
     instr = INSTR_CREATE_c_jalr(dc, opnd_create_reg(DR_REG_A0));
-    test_instr_encoding(dc, OP_c_jalr, instr);
+    test_instr_encoding_branch(dc, OP_c_jalr, instr);
     instr = INSTR_CREATE_c_beqz(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_X8));
-    test_instr_encoding(dc, OP_c_beqz, instr);
+    test_instr_encoding_branch(dc, OP_c_beqz, instr);
     instr = INSTR_CREATE_c_bnez(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_X8));
-    test_instr_encoding(dc, OP_c_bnez, instr);
+    test_instr_encoding_branch(dc, OP_c_bnez, instr);
     instr = INSTR_CREATE_c_li(dc, opnd_create_reg(DR_REG_A1),
                               opnd_create_immed_int_decimal((1 << 5) - 1, OPSZ_5b));
     test_instr_encoding(dc, OP_c_li, instr);
