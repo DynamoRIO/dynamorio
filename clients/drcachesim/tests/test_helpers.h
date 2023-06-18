@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,22 +30,14 @@
  * DAMAGE.
  */
 
-/* Static library support for memory trace analysis tools.
- * Usage: supply implementations of these routines in a static library and link
- * with the tool_launcher library to create a new tool executable.
- */
+/* helpers.h: utilities for tests. */
 
-#ifndef _ANALYSIS_TOOL_INTERFACE_H_
-#define _ANALYSIS_TOOL_INTERFACE_H_ 1
+#ifndef _TEST_HELPERS_H_
+#define _TEST_HELPERS_H_ 1
 
-#include "analysis_tool.h"
+// Tests with a main() should use test_main() which calls this.  This is declared
+// separately for use with _tmain().
+void
+disable_popups();
 
-/* The return value from this routine is passed to the other routines in
- * this interface.
- * Returning NULL, or returning an analysis_tool_t for which the ! operator
- * returns false, indicates failure.
- */
-analysis_tool_t *
-drmemtrace_analysis_tool_create();
-
-#endif /* _ANALYSIS_TOOL_INTERFACE_H_ */
+#endif /* _TEST_HELPERS_H_ */

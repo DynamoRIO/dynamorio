@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,53 +30,23 @@
  * DAMAGE.
  */
 
-/* analyzer_multi: represent a memory trace analysis tool that can process
- * a trace from multiple inputs: a file, from a raw file, or over a pipe online.
+/* syscall-mix tool creation */
+
+#ifndef _SYSCALL_MIX_CREATE_H_
+#define _SYSCALL_MIX_CREATE_H_ 1
+
+#include "analysis_tool.h"
+
+/**
+ * @file drmemtrace/syscall_mix_create.h
+ * @brief DrMemtrace syscall mixture trace analysis tool creation.
  */
 
-#ifndef _ANALYZER_MULTI_H_
-#define _ANALYZER_MULTI_H_ 1
+/**
+ * Creates an analysis tool which counts the number of instances of each system call
+ * in the trace.
+ */
+analysis_tool_t *
+syscall_mix_tool_create(unsigned int verbose = 0);
 
-#include "analyzer.h"
-#include "simulator/cache_simulator_create.h"
-
-class analyzer_multi_t : public analyzer_t {
-public:
-    // Usage: errors encountered during the constructor will set a flag that should
-    // be queried via operator!.
-    analyzer_multi_t();
-    virtual ~analyzer_multi_t();
-
-protected:
-    bool
-    create_analysis_tools();
-    bool
-    init_analysis_tools();
-    void
-    destroy_analysis_tools();
-
-    analysis_tool_t *
-    create_analysis_tool_from_options();
-
-    analysis_tool_t *
-    create_invariant_checker();
-
-    std::string
-    get_aux_file_path(std::string option_val, std::string default_filename);
-
-    std::string
-    get_module_file_path();
-
-    /* Get the cache simulator knobs used by the cache simulator
-     * and the cache miss analyzer.
-     */
-    cache_simulator_knobs_t *
-    get_cache_simulator_knobs();
-
-    std::unique_ptr<std::istream> serial_schedule_file_;
-    std::unique_ptr<std::istream> cpu_schedule_file_;
-
-    static const int max_num_tools_ = 8;
-};
-
-#endif /* _ANALYZER_MULTI_H_ */
+#endif /* _SYSCALL_MIX_CREATE_H_ */

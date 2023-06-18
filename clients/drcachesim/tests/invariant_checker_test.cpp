@@ -649,6 +649,93 @@ check_duplicate_syscall_with_same_pc()
 }
 
 bool
+check_false_syscalls()
+{
+    // Ensure missing syscall markers (from "false syscalls") are detected.
+#if defined(WINDOWS) && !defined(X64)
+    // TODO i#5949: For WOW64 instr_is_syscall() always returns false, so our
+    // checks do not currently work properly there.
+    return true;
+#else
+    // XXX: Just like raw2trace_unit_tests, we need to create a syscall instruction and
+    // it turns out there is no simple cross-platform way.
+#    ifdef X86
+    instr_t *sys = INSTR_CREATE_syscall(GLOBAL_DCONTEXT);
+#    elif defined(AARCHXX)
+    instr_t *sys =
+        INSTR_CREATE_svc(GLOBAL_DCONTEXT, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
+#    elif defined(RISCV64)
+    instr_t *sys = INSTR_CREATE_ecall(GLOBAL_DCONTEXT);
+#    else
+#        error Unsupported architecture.
+#    endif
+    instr_t *move1 =
+        XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+    instrlist_append(ilist, sys);
+    instrlist_append(ilist, move1);
+    static constexpr addr_t BASE_ADDR = 0x123450;
+    static constexpr uintptr_t FILE_TYPE =
+        OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
+    bool res = true;
+    {
+        // Correct: syscall followed by marker.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(1), sys },
+            { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    {
+        // Correct: syscall followed by marker with timestamp+cpu in between.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(1), sys },
+            { gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 101), nullptr },
+            { gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3), nullptr },
+            { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    {
+        // Incorrect: syscall with no marker.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(1), sys },
+            { gen_instr(1), move1 }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true, 1, 3,
+                         "Syscall instruction not followed by syscall marker",
+                         "Failed to catch syscall without number marker")) {
+            res = false;
+        }
+    }
+    {
+        // Incorrect: marker with no syscall.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(1), move1 },
+            { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true, 1, 3,
+                         "Syscall marker not placed after syscall instruction",
+                         "Failed to catch misplaced syscall marker")) {
+            res = false;
+        }
+    }
+    instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+    return res;
+#endif
+}
+
+bool
 check_rseq_side_exit_discontinuity()
 {
     // Negative test: Seemingly missing instructions in a basic block due to rseq side
@@ -684,6 +771,7 @@ check_rseq_side_exit_discontinuity()
     // TODO i#6023: Use this IR based encoder in other tests as well.
     static constexpr addr_t BASE_ADDR = 0xeba4ad4;
     auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+    instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
     if (!run_checker(memrefs, true, 1, 5, "PC discontinuity due to rseq side exit",
                      "Failed to catch PC discontinuity from rseq side exit")) {
         return false;
@@ -694,11 +782,12 @@ check_rseq_side_exit_discontinuity()
 } // namespace
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
-        check_duplicate_syscall_with_same_pc() && check_rseq_side_exit_discontinuity()) {
+        check_duplicate_syscall_with_same_pc() && check_false_syscalls() &&
+        check_rseq_side_exit_discontinuity()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

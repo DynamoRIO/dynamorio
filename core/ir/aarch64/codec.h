@@ -58,7 +58,8 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
     ((((uint32)(_enc)) >> (bitmin)) & (uint32)MASK((bitmax) - (bitmin) + 1))
 
 #if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
-#    define OPSZ_SVE_VL_BYTES opnd_size_from_bytes(proc_get_vector_length_bytes())
+#    define OPSZ_SVE_VL opnd_size_from_bytes(proc_get_vector_length_bytes() / 8)
+#    define OPSZ_SVE_PL opnd_size_from_bytes((proc_get_vector_length_bytes() / 8) / 8)
 #else
 /* SVE vector length for off-line decoder set using -vl option with drdisas,
  * e.g.
@@ -67,7 +68,8 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
  *  85865e6b   ldr    +0x37(%x19)[32byte] -> %z11
  * $
  */
-#    define OPSZ_SVE_VL_BYTES opnd_size_from_bytes(dr_get_sve_vector_length() / 8)
+#    define OPSZ_SVE_VL opnd_size_from_bytes(dr_get_sve_vector_length() / 8)
+#    define OPSZ_SVE_PL opnd_size_from_bytes((dr_get_sve_vector_length() / 8) / 8)
 #endif
 
 #define RETURN_FALSE                                           \
@@ -80,5 +82,15 @@ encode_common(byte *pc, instr_t *i, decode_info_t *di);
         CLIENT_ASSERT(false, "Unexpected state in AArch64 codec"); \
         return false;                                              \
     }
+
+#define EXCLUDE_ELEMENT(elsz)                                                \
+    do {                                                                     \
+        if (!opnd_is_element_vector_reg(opnd))                               \
+            return false;                                                    \
+                                                                             \
+        const aarch64_reg_offset size = get_vector_element_reg_offset(opnd); \
+        if (size == NOT_A_REG || size == elsz)                               \
+            return false;                                                    \
+    } while (0)
 
 #endif /* CODEC_H */

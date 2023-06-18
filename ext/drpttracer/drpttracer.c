@@ -149,34 +149,36 @@ typedef enum {
 static read_ring_buf_status_t
 read_ring_buf_to_buf(IN void *drcontext, IN uint8_t *ring_buf_base,
                      IN uint64_t ring_buf_size, IN uint64_t head, IN uint64_t tail,
-                     OUT void **data_buf, OUT uint64_t *data_buf_size)
+                     IN uint64_t output_buf_size, OUT void *output_buf,
+                     OUT uint64_t *output_data_size)
 {
     if (ring_buf_base == NULL) {
         ASSERT(false, "try to read from NULL buffer");
         return READ_RING_BUFFER_ERROR_INVALID_PARAMETER;
     }
     uint64_t data_size = head - tail;
+    if (data_size > output_buf_size) {
+        ASSERT(false, "output buffer size is too small");
+        return READ_RING_BUFFER_ERROR_INVALID_PARAMETER;
+    }
     if (data_size > ring_buf_size) {
         ASSERT(
             false,
             "data size is larger than the ring buffer size, and old data is overwritten");
         return READ_RING_BUFFER_ERROR_OLD_DATA_OVERWRITTEN;
     }
-    *data_buf_size = data_size;
-    if (data_size > 0) {
-        *data_buf = dr_thread_alloc(drcontext, *data_buf_size);
-    } else {
-        *data_buf = NULL;
-    }
+
+    *output_data_size = data_size;
+    ASSERT(output_buf != NULL, "output_buf is NULL");
 
     uint64_t head_offs = head % ring_buf_size;
     uint64_t tail_offs = tail % ring_buf_size;
     if (head_offs > tail_offs) {
-        memcpy((uint8_t *)*data_buf, ring_buf_base + tail_offs, data_size);
+        memcpy((uint8_t *)output_buf, ring_buf_base + tail_offs, data_size);
     } else if (head_offs < tail_offs) {
-        memcpy((uint8_t *)*data_buf, ring_buf_base + tail_offs,
+        memcpy((uint8_t *)output_buf, ring_buf_base + tail_offs,
                ring_buf_size - tail_offs);
-        memcpy((uint8_t *)*data_buf + ring_buf_size - tail_offs, ring_buf_base,
+        memcpy((uint8_t *)output_buf + ring_buf_size - tail_offs, ring_buf_base,
                head_offs);
     } else {
         /* Do nothing. */
@@ -607,7 +609,7 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
     read_ring_buf_status_t read_pt_data_status =
         read_ring_buf_to_buf(drcontext, (uint8_t *)handle->aux, handle->header->aux_size,
                              handle->header->aux_head, handle->header->aux_tail,
-                             &output->pt_buffer, &output->pt_size);
+                             output->pt_buffer_size, output->pt_buffer, &output->pt_size);
     if (read_pt_data_status != READ_RING_BUFFER_SUCCESS) {
         ERRMSG("failed to read data from ring buffer(errno:%d) \n", read_pt_data_status);
         ASSERT(false, "failed to read PT data from the ring buffer");
@@ -631,7 +633,8 @@ drpttracer_stop_tracing(IN void *drcontext, IN void *tracer_handle,
         read_ring_buf_status_t read_sd_status = read_ring_buf_to_buf(
             drcontext, (uint8_t *)handle->base + handle->header->data_offset,
             handle->header->data_size, handle->header->data_head,
-            handle->header->data_tail, &output->sideband_buffer, &output->sideband_size);
+            handle->header->data_tail, output->sideband_buffer_size,
+            output->sideband_buffer, &output->sideband_size);
         if (read_sd_status != READ_RING_BUFFER_SUCCESS) {
             ERRMSG("failed to read data from ring buffer(errno:%d) \n", read_sd_status);
             ASSERT(false, "failed to read sideband data from the ring buffer");
@@ -704,7 +707,7 @@ drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
         ASSERT(false, "failed to allocate memory for output");
         return DRPTTRACER_ERROR_FAILED_TO_ALLOCATE_OUTPUT_BUFFER;
     }
-    (*output)->pt_buffer_size = 1 << pt_buf_size_shift;
+    (*output)->pt_buffer_size = (uint64_t)(1UL << pt_buf_size_shift) * dr_page_size();
     (*output)->pt_buffer = dr_thread_alloc(drcontext, (*output)->pt_buffer_size);
     if ((*output)->pt_buffer == NULL) {
         ASSERT(false, "failed to allocate memory for pt_buffer of output");
@@ -713,7 +716,8 @@ drpttracer_create_output(IN void *drcontext, IN uint pt_buf_size_shift,
     }
     (*output)->pt_size = 0;
     if (sd_buf_size_shift != 0) {
-        (*output)->sideband_buffer_size = 1 << sd_buf_size_shift;
+        (*output)->sideband_buffer_size =
+            (uint64_t)((1UL << sd_buf_size_shift) + 1) * dr_page_size();
         (*output)->sideband_buffer =
             dr_thread_alloc(drcontext, (*output)->sideband_buffer_size);
         if ((*output)->sideband_buffer == NULL) {

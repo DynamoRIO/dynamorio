@@ -104,7 +104,9 @@ set(LIBIPT_FILES
   ${LIBIPT_ROOT}/src/posix/pt_section_posix.c
 )
 
-add_library(ipt SHARED ${LIBIPT_FILES})
+add_library(ipt STATIC ${LIBIPT_FILES})
+DR_export_target(ipt)
+install_exported_target(ipt ${INSTALL_CLIENTS_LIB})
 
 # put the version into the intel-pt header
 configure_file(
@@ -119,6 +121,8 @@ include_directories(
 add_library(pevent STATIC
   ${PROJECT_SOURCE_DIR}/third_party/libipt/pevent/src/pevent.c
 )
+DR_export_target(pevent)
+install_exported_target(pevent ${INSTALL_CLIENTS_LIB})
 
 set(LIBSB_ROOT ${PROJECT_SOURCE_DIR}/third_party/libipt/sideband)
 
@@ -133,7 +137,7 @@ set(LIBSB_FILES
   ${LIBSB_ROOT}/src/pt_sb_pevent.c
 )
 
-add_library(ipt-sb SHARED ${LIBSB_FILES})
+add_library(ipt-sb STATIC ${LIBSB_FILES})
 
 configure_file(
   ${LIBSB_ROOT}/include/libipt-sb.h.in
@@ -142,3 +146,5 @@ configure_file(
 
 target_link_libraries(ipt-sb ipt)
 target_link_libraries(ipt-sb pevent)
+DR_export_target(ipt-sb)
+install_exported_target(ipt-sb ${INSTALL_CLIENTS_LIB})

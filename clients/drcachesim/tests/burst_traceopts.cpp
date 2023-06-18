@@ -217,7 +217,7 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     reg_id_set_unit_tests();
 

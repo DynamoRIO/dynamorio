@@ -239,7 +239,7 @@
 ----------xxxxxx------xxxxx-----  svememx6_h_5    # vector memory reg with 6 bit imm for half value
 ----------xxxxxx------xxxxx-----  svememx6_s_5    # vector memory reg with 6 bit imm for single value
 ----------xxxxxx------xxxxx-----  svememx6_d_5    # vector memory reg with 6 bit imm for double value
-----------xxxxxx---xxxxxxxx-----  svemem_gpr_simm9_vl # imm offset and base reg for SVE ld/st
+----------xxxxxx-?-xxxxxxxx-----  svemem_gpr_simm9_vl # imm offset and base reg for SVE ld/st
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
 ----------xxxxxxxxxxxxxxxxx-----  prf12      # size is 0 bytes (prefetch variant of mem12)
@@ -263,6 +263,9 @@
 ---------x------------xxxxx-----  dq5_sz     # as dqx, but depending on the sz bit rather than the Q bit
 ---------x------------xxxxx-----  wx_sz_5    # W/X register (or WZR/XZR) with size indicated in bit 22
 ---------x-xx-------------------  i3_index_19 # Index value from 22, 20:19
+---------x-xx--------------xxxxx  z_wtszl19_bhsd_0 # z element register mediated by the tszl and tszh fields, writing out the size
+---------x-xx---------xxxxx-----  z_wtszl19_bhsd_5 # z element register mediated by the tszl and tszh fields, writing out the size
+---------x-xx---------xxxxx-----  z_wtszl19p1_bhsd_5 # z element register mediated by the tszl and tszh fields, writing out the size, plus 1
 ---------x-xxxxx----------------  wx_sz_16   # W/X register (or WZR/XZR) with size indicated in bit 22
 ---------x-xxxxxxxxx------------  mem_s_imm9_off # The offset part of memory address reg+offset mem_s_imm9
 ---------xx----------------xxxxx  z_size21_hsd_0  # sve vector reg, elsz depending on size21
@@ -296,8 +299,10 @@
 --------xx-----------------xxxxx  bhsd_size_reg0   # bhsd register, depending on size opcode
 --------xx-----------------xxxxx  z_size_bhsd_0    # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_bhs_0     # sve vector reg, elsz depending on size
+--------xx-----------------xxxxx  z_sizep1_bhs_0     # sve vector reg, elsz depending on size, plus one
 --------xx-----------------xxxxx  z_size_hsd_0     # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_sd_0      # sve vector reg, elsz depending on size
+--------xx-----------------xxxxx  z_size_hd_0      # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  float_reg5       # H, S or D register
 --------xx------------xxxxx-----  hsd_size_reg5    # hsd register, depending on size opcode
 --------xx------------xxxxx-----  bhsd_size_reg5   # bhsd register, depending on size opcode
@@ -305,6 +310,8 @@
 --------xx------------xxxxx-----  p_size_hsd_5     # sve predicate vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_bhsd_5    # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_bhs_5     # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  z_sizep1_bhs_5   # sve vector reg, elsz depending on size, plus 1
+--------xx------------xxxxx-----  z_sizep1_bs_5    # sve vector reg, elsz depending on size, plus 1
 --------xx------------xxxxx-----  z_size_hsd_5     # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_sd_5      # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  tszl8_imm3_5     # imm constructed from imm3 and some bits of tsz
@@ -317,6 +324,8 @@
 --------xx-xxxxx----------------  bhsd_size_reg16  # bhsd register, depending on size opcode
 --------xx-xxxxx----------------  p_size_bhsd_16   # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_size_bhsd_16   # sve vector reg, elsz depending on size
+--------xx-xxxxx----------------  z_sizep1_bhs_16  # sve vector reg, elsz depending on size plus 1
+--------xx-xxxxx----------------  z_sizep1_bs_16   # sve vector reg, elsz depending on size plus 1
 --------xx-xxxxx----------------  z_size_hsd_16    # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  imm2_tsz_index   # Index encoded in imm2:tsz
 -------??--xxxxx------xxxxx-----  svemem_vec_s_imm5 # SVE memory address [<Zn>.S{, #<imm>}]

@@ -264,6 +264,7 @@ tools can also be created, as described in \ref sec_drcachesim_newtool.
 - \ref sec_tool_func_view
 - \ref sec_tool_histogram
 - \ref sec_tool_invariant_checker
+- \ref sec_tool_syscall_mix
 
 \section sec_tool_cache_sim Cache Simulator
 
@@ -821,6 +822,41 @@ transfer interruptions.  It optionally checks for restricted behavior
 that technically is legal but is not expected to happen in the target
 trace, helping to identify tracing problems and suitability for use of
 a trace for core simulation.
+
+\section sec_tool_syscall_mix System Call Mix
+
+The system call mix tool counts the frequency of system calls in a trace. It works
+for both online and offline traces. It uses the #TRACE_MARKER_TYPE_SYSCALL markers
+that store the system call number. This works only with traces that have these
+markers; that is, offline traces must have #OFFLINE_FILE_TYPE_SYSCALL_NUMBERS in
+their file type.
+
+\code
+$ bin64/drrun -t drcachesim -indir drmemtrace.ls.*.dir -simulator_type syscall_mix
+Syscall mix tool results:
+          count : syscall_num
+             17 :         9
+             16 :         1
+              8 :         3
+              7 :       262
+              6 :       257
+              5 :         0
+              5 :        10
+              3 :        12
+              2 :       217
+              2 :        16
+              2 :        17
+              2 :       137
+              2 :        21
+              1 :       158
+              1 :       302
+              1 :       334
+              1 :       218
+              1 :       231
+              1 :       318
+              1 :        11
+              1 :       273
+\endcode
 
 ****************************************************************************
 \page google_workload_traces Google Workload Traces
@@ -1473,11 +1509,12 @@ The \p drmemtrace_analyzer library exported by the DynamoRIO package is the main
 library to link when building a new tool.  The tools described above are also
 exported as the libraries \p drmemtrace_basic_counts, \p drmemtrace_view, \p
 drmemtrace_opcode_mix, \p drmemtrace_histogram, \p drmemtrace_reuse_distance, \p
-drmemtrace_reuse_time, \p drmemtrace_simulator, and \p drmemtrace_func_view and can
-be created using the basic_counts_tool_create(), opcode_mix_tool_create(),
-histogram_tool_create(), reuse_distance_tool_create(), reuse_time_tool_create(),
-view_tool_create(), cache_simulator_create(), tlb_simulator_create(), and
-func_view_create() functions.
+drmemtrace_reuse_time, \p drmemtrace_simulator, \p drmemtrace_func_view, and
+\p drmemtrace_syscall_mix and can be created using the basic_counts_tool_create(),
+opcode_mix_tool_create(), histogram_tool_create(), reuse_distance_tool_create(),
+reuse_time_tool_create(), view_tool_create(), cache_simulator_create(),
+tlb_simulator_create(), func_view_create(), and syscall_mix_tool_create()
+functions.
 
 \section sec_drcachesim_sched Scheduler
 

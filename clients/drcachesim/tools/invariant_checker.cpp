@@ -314,13 +314,26 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                type_is_instr(shard->prev_entry_.instr.type) &&
                shard->prev_instr_decoded_ != nullptr &&
                // TODO i#5949: For WOW64 instr_is_syscall() always returns false.
-               instr_is_syscall(shard->prev_instr_decoded_->data)) {
+               instr_is_syscall(shard->prev_instr_decoded_->data) &&
+               // Allow timestamp+cpuid in between.
+               (memref.marker.type != TRACE_TYPE_MARKER ||
+                (memref.marker.marker_type != TRACE_MARKER_TYPE_TIMESTAMP &&
+                 memref.marker.marker_type != TRACE_MARKER_TYPE_CPU_ID))) {
         report_if_false(shard,
                         shard->found_syscall_marker_ &&
                             shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
                             shard->prev_entry_.marker.marker_type ==
                                 TRACE_MARKER_TYPE_SYSCALL,
                         "Syscall instruction not followed by syscall marker");
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
+        shard->found_blocking_marker_ = true;
+        report_if_false(shard,
+                        shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+                            shard->prev_entry_.marker.marker_type ==
+                                TRACE_MARKER_TYPE_SYSCALL,
+                        "Maybe-blocking marker not preceded by syscall marker");
     }
 
     // Invariant: each chunk's instruction count must be identical and equal to
@@ -356,9 +369,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Function marker misplaced between instr and memref");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
+        shard->prev_func_id_ = memref.marker.marker_value;
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
         marker_type_is_function_marker(memref.marker.marker_type)) {
-        report_if_false(shard, type_is_instr_branch(shard->prev_instr_.instr.type),
-                        "Function marker should be after a branch");
+        report_if_false(
+            shard,
+            shard->prev_func_id_ >=
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
+                type_is_instr_branch(shard->prev_instr_.instr.type),
+            "Function marker should be after a branch");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR) {
@@ -390,6 +411,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_)) ||
                 shard->syscall_count_ == 0,
             "System call numbers presence does not match filetype");
+        // We can't easily identify blocking syscalls ourselves so we only check
+        // one direction here.
+        report_if_false(
+            shard,
+            !shard->found_blocking_marker_ ||
+                TESTANY(OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS, shard->file_type_),
+            "Kernel scheduling marker presence does not match filetype");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,

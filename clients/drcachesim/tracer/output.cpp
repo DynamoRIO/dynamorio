@@ -179,6 +179,12 @@ get_file_type()
         file_type =
             static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_ENCODINGS);
     }
+#ifdef BUILD_PT_TRACER
+    if (op_enable_kernel_tracing.get_value()) {
+        file_type = static_cast<offline_file_type_t>(file_type |
+                                                     OFFLINE_FILE_TYPE_KERNEL_SYSCALLS);
+    }
+#endif
     file_type = static_cast<offline_file_type_t>(
         file_type |
         IF_X86_ELSE(
@@ -188,6 +194,10 @@ get_file_type()
         file_type = static_cast<offline_file_type_t>(file_type |
                                                      OFFLINE_FILE_TYPE_SYSCALL_NUMBERS);
     }
+#ifdef LINUX
+    file_type =
+        static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS);
+#endif
     return file_type;
 }
 
