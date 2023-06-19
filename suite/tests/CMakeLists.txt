@@ -3888,8 +3888,8 @@ if (BUILD_CLIENTS)
       "@-simulator_type@basic_counts" "")
 
     torunonly_drcacheoff(warmup-pthreads-max-refs ${ci_pthreads_app}
-        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 400K"
-      "@-simulator_type@basic_counts" "10000")
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 300K"
+      "@-simulator_type@basic_counts" "20000")
 
     torunonly_drcacheoff(warmup-pthreads-max-trace-size ${ci_pthreads_app}
         "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 100K"
