@@ -410,7 +410,12 @@ typedef enum {
 
     /**
      * This marker is emitted prior to each system call when -enable_kernel_tracing is
-     * specified. The marker value contains a unique system call identifier.
+     * specified. The marker value contains a unique identifier for the system call within
+     * a specific thread.
+     * \note This marker serves solely to indicate when to decode the syscall's PT trace
+     * and will not be included in the final complete trace. Instead, we utilize
+     * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and #TRACE_MARKER_TYPE_SYSCALL_TRACE_END to
+     * signify the beginning and end of a syscall's PT trace in the final trace.
      */
     TRACE_MARKER_TYPE_SYSCALL_IDX,
 
@@ -471,6 +476,16 @@ typedef enum {
      * file type #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS is set.  The marker value is 0.
      */
     TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL,
+
+    /**
+     * Indicates a point in the trace where a syscall's kernel trace starts.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+
+    /**
+     * Indicates a point in the trace where a syscall's trace end.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
     // ...
     // These values are reserved for future built-in marker types.
@@ -732,6 +747,11 @@ typedef enum {
      * 1 (success).
      */
     OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS = 0x800,
+    /**
+     * Kernel traces of syscalls are included.
+     * The included kernel traces are in the Intel® Processor Trace format.
+     */
+    OFFLINE_FILE_TYPE_KERNEL_SYSCALLS = 0x1000,
 } offline_file_type_t;
 
 static inline const char *
@@ -852,7 +872,7 @@ struct schedule_entry_t {
     uint64_t start_instruction;
 } END_PACKED_STRUCTURE;
 
-#ifdef BUILD_PT_TRACER
+#if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
 /**
  * The type of a syscall PT entry in the raw offline output.
@@ -867,7 +887,7 @@ typedef enum {
      * The instances of this type store the thread Id, signifying which thread the data in
      * the buffer has been collected from.
      */
-    SYSCALL_PT_ENTRY_TYPE_THREAD,
+    SYSCALL_PT_ENTRY_TYPE_THREAD_ID,
     /**
      * The instance with this type demonstrates that the leftover portion of the buffer
      * holds metadata while also providing information about the metadata's size.
@@ -990,7 +1010,8 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
 typedef enum {
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
     PDB_HEADER_PID_IDX = 0,
-    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD in the PDB header.
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD_ID in the PDB
+     * header.
      */
     PDB_HEADER_TID_IDX = 1,
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY in the
@@ -1003,7 +1024,7 @@ typedef enum {
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX in the PDB
      * header.
      */
-    PDB_HEADER_SYSCALL_IDX = 4,
+    PDB_HEADER_SYSCALL_IDX_IDX = 4,
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM in the
      * PDB header.
      */
@@ -1044,5 +1065,23 @@ typedef enum {
  * each cpu.
  */
 #define DRMEMTRACE_CPU_SCHEDULE_FILENAME "cpu_schedule.bin.zip"
+
+/**
+ * The name of the folder in -offline mode where the kernel's per thread PT data is
+ * stored. This data is captured during online tracing.
+ */
+#define DRMEMTRACE_KERNEL_PT_SUBDIR "kernel.raw"
+
+/**
+ * The name of the file in -offline mode where the kernel code segments are stored. This
+ * file is copied from '/proc/kcore' during tracing.
+ */
+#define DRMEMTRACE_KCORE_FILENAME "kcore"
+
+/**
+ * The name of the file in -offline mode where kallsyms is stored. This file is copied
+ * from '/proc/kallsyms' during tracing.
+ */
+#define DRMEMTRACE_KALLSYMS_FILENAME "kallsyms"
 
 #endif /* _TRACE_ENTRY_H_ */

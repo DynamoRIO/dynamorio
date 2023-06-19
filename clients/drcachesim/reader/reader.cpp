@@ -298,8 +298,10 @@ reader_t::process_input_entry()
             version_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
             filetype_ = cur_ref_.marker.marker_value;
-            if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_))
+            if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, filetype_) &&
+                !TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, filetype_)) {
                 expect_no_encodings_ = false;
+            }
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE)
             cache_line_size_ = cur_ref_.marker.marker_value;
         else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE)
