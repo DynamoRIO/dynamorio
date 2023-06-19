@@ -191,6 +191,7 @@
 -----------?????------xxxxx-----  z_tsz_bhsdq_5   # Z register with size encoded in tsz field
 -----------?????------xxxxx-----  wx5_imm5   # reg 5-9 d or q is inferred from bits 16:20
 -----------x--------------------  i1_index_20 # Index value from 20
+-----------x--------x-----------  i2_index_11 # Index value from 20,11
 -----------xx-------------------  i2_index_19 # Index value from 20:19
 -----------xx-------x-----------  i3_index_11 # Index value from 20:19,11
 -----------xxxxx----------------  imm5       # 5 bit immediate from 16-20
@@ -345,6 +346,7 @@
 -------xx------------------xxxxx  z_msz_bhsd_0p2  # z register with element size determined by msz, plus 2
 -------xx------------------xxxxx  z_msz_bhsd_0p3  # z register with element size determined by msz, plus 3
 -------xx-------------xxxxx-----  z_msz_bhsd_5    # z register with element size determined by msz
+-------xx----xxx----------------  z3_msz_bhsd_16  # z register with element size determined by msz, max z8
 -------xx--xxxxx----------------  z_msz_bhsd_16   # z register with element size determined by msz
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12

@@ -692,6 +692,24 @@
 45dd979b : eortb z27.d, z28.d, z29.d                 : eortb  %z27.d %z28.d %z29.d -> %z27.d
 45df97ff : eortb z31.d, z31.d, z31.d                 : eortb  %z31.d %z31.d %z31.d -> %z31.d
 
+# FMLALB  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (FMLALB-Z.ZZZi-S)
+64a04000 : fmlalb z0.s, z0.h, z0.h[0]                : fmlalb %z0.s %z0.h %z0.h $0x00 -> %z0.s
+64a24062 : fmlalb z2.s, z3.h, z2.h[0]                : fmlalb %z2.s %z3.h %z2.h $0x00 -> %z2.s
+64a348a4 : fmlalb z4.s, z5.h, z3.h[1]                : fmlalb %z4.s %z5.h %z3.h $0x01 -> %z4.s
+64a348e6 : fmlalb z6.s, z7.h, z3.h[1]                : fmlalb %z6.s %z7.h %z3.h $0x01 -> %z6.s
+64ac4128 : fmlalb z8.s, z9.h, z4.h[2]                : fmlalb %z8.s %z9.h %z4.h $0x02 -> %z8.s
+64ac416a : fmlalb z10.s, z11.h, z4.h[2]              : fmlalb %z10.s %z11.h %z4.h $0x02 -> %z10.s
+64ad49ac : fmlalb z12.s, z13.h, z5.h[3]              : fmlalb %z12.s %z13.h %z5.h $0x03 -> %z12.s
+64ad49ee : fmlalb z14.s, z15.h, z5.h[3]              : fmlalb %z14.s %z15.h %z5.h $0x03 -> %z14.s
+64b64230 : fmlalb z16.s, z17.h, z6.h[4]              : fmlalb %z16.s %z17.h %z6.h $0x04 -> %z16.s
+64b64251 : fmlalb z17.s, z18.h, z6.h[4]              : fmlalb %z17.s %z18.h %z6.h $0x04 -> %z17.s
+64b64293 : fmlalb z19.s, z20.h, z6.h[4]              : fmlalb %z19.s %z20.h %z6.h $0x04 -> %z19.s
+64b74ad5 : fmlalb z21.s, z22.h, z7.h[5]              : fmlalb %z21.s %z22.h %z7.h $0x05 -> %z21.s
+64b74b17 : fmlalb z23.s, z24.h, z7.h[5]              : fmlalb %z23.s %z24.h %z7.h $0x05 -> %z23.s
+64b84359 : fmlalb z25.s, z26.h, z0.h[6]              : fmlalb %z25.s %z26.h %z0.h $0x06 -> %z25.s
+64b8439b : fmlalb z27.s, z28.h, z0.h[6]              : fmlalb %z27.s %z28.h %z0.h $0x06 -> %z27.s
+64bf4bff : fmlalb z31.s, z31.h, z7.h[7]              : fmlalb %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
 # FMLALB  <Zda>.S, <Zn>.H, <Zm>.H (FMLALB-Z.ZZZ-_)
 64a08000 : fmlalb z0.s, z0.h, z0.h                   : fmlalb %z0.s %z0.h %z0.h -> %z0.s
 64a48062 : fmlalb z2.s, z3.h, z4.h                   : fmlalb %z2.s %z3.h %z4.h -> %z2.s
@@ -709,6 +727,24 @@
 64bb8359 : fmlalb z25.s, z26.h, z27.h                : fmlalb %z25.s %z26.h %z27.h -> %z25.s
 64bd839b : fmlalb z27.s, z28.h, z29.h                : fmlalb %z27.s %z28.h %z29.h -> %z27.s
 64bf83ff : fmlalb z31.s, z31.h, z31.h                : fmlalb %z31.s %z31.h %z31.h -> %z31.s
+
+# FMLALT  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (FMLALT-Z.ZZZi-S)
+64a04400 : fmlalt z0.s, z0.h, z0.h[0]                : fmlalt %z0.s %z0.h %z0.h $0x00 -> %z0.s
+64a24462 : fmlalt z2.s, z3.h, z2.h[0]                : fmlalt %z2.s %z3.h %z2.h $0x00 -> %z2.s
+64a34ca4 : fmlalt z4.s, z5.h, z3.h[1]                : fmlalt %z4.s %z5.h %z3.h $0x01 -> %z4.s
+64a34ce6 : fmlalt z6.s, z7.h, z3.h[1]                : fmlalt %z6.s %z7.h %z3.h $0x01 -> %z6.s
+64ac4528 : fmlalt z8.s, z9.h, z4.h[2]                : fmlalt %z8.s %z9.h %z4.h $0x02 -> %z8.s
+64ac456a : fmlalt z10.s, z11.h, z4.h[2]              : fmlalt %z10.s %z11.h %z4.h $0x02 -> %z10.s
+64ad4dac : fmlalt z12.s, z13.h, z5.h[3]              : fmlalt %z12.s %z13.h %z5.h $0x03 -> %z12.s
+64ad4dee : fmlalt z14.s, z15.h, z5.h[3]              : fmlalt %z14.s %z15.h %z5.h $0x03 -> %z14.s
+64b64630 : fmlalt z16.s, z17.h, z6.h[4]              : fmlalt %z16.s %z17.h %z6.h $0x04 -> %z16.s
+64b64651 : fmlalt z17.s, z18.h, z6.h[4]              : fmlalt %z17.s %z18.h %z6.h $0x04 -> %z17.s
+64b64693 : fmlalt z19.s, z20.h, z6.h[4]              : fmlalt %z19.s %z20.h %z6.h $0x04 -> %z19.s
+64b74ed5 : fmlalt z21.s, z22.h, z7.h[5]              : fmlalt %z21.s %z22.h %z7.h $0x05 -> %z21.s
+64b74f17 : fmlalt z23.s, z24.h, z7.h[5]              : fmlalt %z23.s %z24.h %z7.h $0x05 -> %z23.s
+64b84759 : fmlalt z25.s, z26.h, z0.h[6]              : fmlalt %z25.s %z26.h %z0.h $0x06 -> %z25.s
+64b8479b : fmlalt z27.s, z28.h, z0.h[6]              : fmlalt %z27.s %z28.h %z0.h $0x06 -> %z27.s
+64bf4fff : fmlalt z31.s, z31.h, z7.h[7]              : fmlalt %z31.s %z31.h %z7.h $0x07 -> %z31.s
 
 # FMLALT  <Zda>.S, <Zn>.H, <Zm>.H (FMLALT-Z.ZZZ-_)
 64a08400 : fmlalt z0.s, z0.h, z0.h                   : fmlalt %z0.s %z0.h %z0.h -> %z0.s
@@ -728,6 +764,24 @@
 64bd879b : fmlalt z27.s, z28.h, z29.h                : fmlalt %z27.s %z28.h %z29.h -> %z27.s
 64bf87ff : fmlalt z31.s, z31.h, z31.h                : fmlalt %z31.s %z31.h %z31.h -> %z31.s
 
+# FMLSLB  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (FMLSLB-Z.ZZZi-S)
+64a06000 : fmlslb z0.s, z0.h, z0.h[0]                : fmlslb %z0.s %z0.h %z0.h $0x00 -> %z0.s
+64a26062 : fmlslb z2.s, z3.h, z2.h[0]                : fmlslb %z2.s %z3.h %z2.h $0x00 -> %z2.s
+64a368a4 : fmlslb z4.s, z5.h, z3.h[1]                : fmlslb %z4.s %z5.h %z3.h $0x01 -> %z4.s
+64a368e6 : fmlslb z6.s, z7.h, z3.h[1]                : fmlslb %z6.s %z7.h %z3.h $0x01 -> %z6.s
+64ac6128 : fmlslb z8.s, z9.h, z4.h[2]                : fmlslb %z8.s %z9.h %z4.h $0x02 -> %z8.s
+64ac616a : fmlslb z10.s, z11.h, z4.h[2]              : fmlslb %z10.s %z11.h %z4.h $0x02 -> %z10.s
+64ad69ac : fmlslb z12.s, z13.h, z5.h[3]              : fmlslb %z12.s %z13.h %z5.h $0x03 -> %z12.s
+64ad69ee : fmlslb z14.s, z15.h, z5.h[3]              : fmlslb %z14.s %z15.h %z5.h $0x03 -> %z14.s
+64b66230 : fmlslb z16.s, z17.h, z6.h[4]              : fmlslb %z16.s %z17.h %z6.h $0x04 -> %z16.s
+64b66251 : fmlslb z17.s, z18.h, z6.h[4]              : fmlslb %z17.s %z18.h %z6.h $0x04 -> %z17.s
+64b66293 : fmlslb z19.s, z20.h, z6.h[4]              : fmlslb %z19.s %z20.h %z6.h $0x04 -> %z19.s
+64b76ad5 : fmlslb z21.s, z22.h, z7.h[5]              : fmlslb %z21.s %z22.h %z7.h $0x05 -> %z21.s
+64b76b17 : fmlslb z23.s, z24.h, z7.h[5]              : fmlslb %z23.s %z24.h %z7.h $0x05 -> %z23.s
+64b86359 : fmlslb z25.s, z26.h, z0.h[6]              : fmlslb %z25.s %z26.h %z0.h $0x06 -> %z25.s
+64b8639b : fmlslb z27.s, z28.h, z0.h[6]              : fmlslb %z27.s %z28.h %z0.h $0x06 -> %z27.s
+64bf6bff : fmlslb z31.s, z31.h, z7.h[7]              : fmlslb %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
 # FMLSLB  <Zda>.S, <Zn>.H, <Zm>.H (FMLSLB-Z.ZZZ-_)
 64a0a000 : fmlslb z0.s, z0.h, z0.h                   : fmlslb %z0.s %z0.h %z0.h -> %z0.s
 64a4a062 : fmlslb z2.s, z3.h, z4.h                   : fmlslb %z2.s %z3.h %z4.h -> %z2.s
@@ -745,6 +799,24 @@
 64bba359 : fmlslb z25.s, z26.h, z27.h                : fmlslb %z25.s %z26.h %z27.h -> %z25.s
 64bda39b : fmlslb z27.s, z28.h, z29.h                : fmlslb %z27.s %z28.h %z29.h -> %z27.s
 64bfa3ff : fmlslb z31.s, z31.h, z31.h                : fmlslb %z31.s %z31.h %z31.h -> %z31.s
+
+# FMLSLT  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (FMLSLT-Z.ZZZi-S)
+64a06400 : fmlslt z0.s, z0.h, z0.h[0]                : fmlslt %z0.s %z0.h %z0.h $0x00 -> %z0.s
+64a26462 : fmlslt z2.s, z3.h, z2.h[0]                : fmlslt %z2.s %z3.h %z2.h $0x00 -> %z2.s
+64a36ca4 : fmlslt z4.s, z5.h, z3.h[1]                : fmlslt %z4.s %z5.h %z3.h $0x01 -> %z4.s
+64a36ce6 : fmlslt z6.s, z7.h, z3.h[1]                : fmlslt %z6.s %z7.h %z3.h $0x01 -> %z6.s
+64ac6528 : fmlslt z8.s, z9.h, z4.h[2]                : fmlslt %z8.s %z9.h %z4.h $0x02 -> %z8.s
+64ac656a : fmlslt z10.s, z11.h, z4.h[2]              : fmlslt %z10.s %z11.h %z4.h $0x02 -> %z10.s
+64ad6dac : fmlslt z12.s, z13.h, z5.h[3]              : fmlslt %z12.s %z13.h %z5.h $0x03 -> %z12.s
+64ad6dee : fmlslt z14.s, z15.h, z5.h[3]              : fmlslt %z14.s %z15.h %z5.h $0x03 -> %z14.s
+64b66630 : fmlslt z16.s, z17.h, z6.h[4]              : fmlslt %z16.s %z17.h %z6.h $0x04 -> %z16.s
+64b66651 : fmlslt z17.s, z18.h, z6.h[4]              : fmlslt %z17.s %z18.h %z6.h $0x04 -> %z17.s
+64b66693 : fmlslt z19.s, z20.h, z6.h[4]              : fmlslt %z19.s %z20.h %z6.h $0x04 -> %z19.s
+64b76ed5 : fmlslt z21.s, z22.h, z7.h[5]              : fmlslt %z21.s %z22.h %z7.h $0x05 -> %z21.s
+64b76f17 : fmlslt z23.s, z24.h, z7.h[5]              : fmlslt %z23.s %z24.h %z7.h $0x05 -> %z23.s
+64b86759 : fmlslt z25.s, z26.h, z0.h[6]              : fmlslt %z25.s %z26.h %z0.h $0x06 -> %z25.s
+64b8679b : fmlslt z27.s, z28.h, z0.h[6]              : fmlslt %z27.s %z28.h %z0.h $0x06 -> %z27.s
+64bf6fff : fmlslt z31.s, z31.h, z7.h[7]              : fmlslt %z31.s %z31.h %z7.h $0x07 -> %z31.s
 
 # FMLSLT  <Zda>.S, <Zn>.H, <Zm>.H (FMLSLT-Z.ZZZ-_)
 64a0a400 : fmlslt z0.s, z0.h, z0.h                   : fmlslt %z0.s %z0.h %z0.h -> %z0.s
@@ -1774,6 +1846,42 @@
 44dd439b : smlalb z27.d, z28.s, z29.s                : smlalb %z27.d %z28.s %z29.s -> %z27.d
 44df43ff : smlalb z31.d, z31.s, z31.s                : smlalb %z31.d %z31.s %z31.s -> %z31.d
 
+# SMLALB  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (SMLALB-Z.ZZZi-S)
+44a08000 : smlalb z0.s, z0.h, z0.h[0]                : smlalb %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a28062 : smlalb z2.s, z3.h, z2.h[0]                : smlalb %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a388a4 : smlalb z4.s, z5.h, z3.h[1]                : smlalb %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a388e6 : smlalb z6.s, z7.h, z3.h[1]                : smlalb %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44ac8128 : smlalb z8.s, z9.h, z4.h[2]                : smlalb %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44ac816a : smlalb z10.s, z11.h, z4.h[2]              : smlalb %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44ad89ac : smlalb z12.s, z13.h, z5.h[3]              : smlalb %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44ad89ee : smlalb z14.s, z15.h, z5.h[3]              : smlalb %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b68230 : smlalb z16.s, z17.h, z6.h[4]              : smlalb %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b68251 : smlalb z17.s, z18.h, z6.h[4]              : smlalb %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b68293 : smlalb z19.s, z20.h, z6.h[4]              : smlalb %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b78ad5 : smlalb z21.s, z22.h, z7.h[5]              : smlalb %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b78b17 : smlalb z23.s, z24.h, z7.h[5]              : smlalb %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b88359 : smlalb z25.s, z26.h, z0.h[6]              : smlalb %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8839b : smlalb z27.s, z28.h, z0.h[6]              : smlalb %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bf8bff : smlalb z31.s, z31.h, z7.h[7]              : smlalb %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# SMLALB  <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (SMLALB-Z.ZZZi-D)
+44e08000 : smlalb z0.d, z0.s, z0.s[0]                : smlalb %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e38062 : smlalb z2.d, z3.s, z3.s[0]                : smlalb %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e480a4 : smlalb z4.d, z5.s, z4.s[0]                : smlalb %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e588e6 : smlalb z6.d, z7.s, z5.s[1]                : smlalb %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e68928 : smlalb z8.d, z9.s, z6.s[1]                : smlalb %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e7896a : smlalb z10.d, z11.s, z7.s[1]              : smlalb %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e889ac : smlalb z12.d, z13.s, z8.s[1]              : smlalb %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e989ee : smlalb z14.d, z15.s, z9.s[1]              : smlalb %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44fa8230 : smlalb z16.d, z17.s, z10.s[2]             : smlalb %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44fa8251 : smlalb z17.d, z18.s, z10.s[2]             : smlalb %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fb8293 : smlalb z19.d, z20.s, z11.s[2]             : smlalb %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fc82d5 : smlalb z21.d, z22.s, z12.s[2]             : smlalb %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fd8317 : smlalb z23.d, z24.s, z13.s[2]             : smlalb %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44fe8359 : smlalb z25.d, z26.s, z14.s[2]             : smlalb %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ff8b9b : smlalb z27.d, z28.s, z15.s[3]             : smlalb %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ff8bff : smlalb z31.d, z31.s, z15.s[3]             : smlalb %z31.d %z31.s %z15.s $0x03 -> %z31.d
+
 # SMLALT  <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SMLALT-Z.ZZZ-_)
 44404400 : smlalt z0.h, z0.b, z0.b                   : smlalt %z0.h %z0.b %z0.b -> %z0.h
 44444462 : smlalt z2.h, z3.b, z4.b                   : smlalt %z2.h %z3.b %z4.b -> %z2.h
@@ -1823,6 +1931,42 @@
 44db4759 : smlalt z25.d, z26.s, z27.s                : smlalt %z25.d %z26.s %z27.s -> %z25.d
 44dd479b : smlalt z27.d, z28.s, z29.s                : smlalt %z27.d %z28.s %z29.s -> %z27.d
 44df47ff : smlalt z31.d, z31.s, z31.s                : smlalt %z31.d %z31.s %z31.s -> %z31.d
+
+# SMLALT  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (SMLALT-Z.ZZZi-S)
+44a08400 : smlalt z0.s, z0.h, z0.h[0]                : smlalt %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a28462 : smlalt z2.s, z3.h, z2.h[0]                : smlalt %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a38ca4 : smlalt z4.s, z5.h, z3.h[1]                : smlalt %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a38ce6 : smlalt z6.s, z7.h, z3.h[1]                : smlalt %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44ac8528 : smlalt z8.s, z9.h, z4.h[2]                : smlalt %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44ac856a : smlalt z10.s, z11.h, z4.h[2]              : smlalt %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44ad8dac : smlalt z12.s, z13.h, z5.h[3]              : smlalt %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44ad8dee : smlalt z14.s, z15.h, z5.h[3]              : smlalt %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b68630 : smlalt z16.s, z17.h, z6.h[4]              : smlalt %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b68651 : smlalt z17.s, z18.h, z6.h[4]              : smlalt %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b68693 : smlalt z19.s, z20.h, z6.h[4]              : smlalt %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b78ed5 : smlalt z21.s, z22.h, z7.h[5]              : smlalt %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b78f17 : smlalt z23.s, z24.h, z7.h[5]              : smlalt %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b88759 : smlalt z25.s, z26.h, z0.h[6]              : smlalt %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8879b : smlalt z27.s, z28.h, z0.h[6]              : smlalt %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bf8fff : smlalt z31.s, z31.h, z7.h[7]              : smlalt %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# SMLALT  <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (SMLALT-Z.ZZZi-D)
+44e08400 : smlalt z0.d, z0.s, z0.s[0]                : smlalt %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e38462 : smlalt z2.d, z3.s, z3.s[0]                : smlalt %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e484a4 : smlalt z4.d, z5.s, z4.s[0]                : smlalt %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e58ce6 : smlalt z6.d, z7.s, z5.s[1]                : smlalt %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e68d28 : smlalt z8.d, z9.s, z6.s[1]                : smlalt %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e78d6a : smlalt z10.d, z11.s, z7.s[1]              : smlalt %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e88dac : smlalt z12.d, z13.s, z8.s[1]              : smlalt %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e98dee : smlalt z14.d, z15.s, z9.s[1]              : smlalt %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44fa8630 : smlalt z16.d, z17.s, z10.s[2]             : smlalt %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44fa8651 : smlalt z17.d, z18.s, z10.s[2]             : smlalt %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fb8693 : smlalt z19.d, z20.s, z11.s[2]             : smlalt %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fc86d5 : smlalt z21.d, z22.s, z12.s[2]             : smlalt %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fd8717 : smlalt z23.d, z24.s, z13.s[2]             : smlalt %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44fe8759 : smlalt z25.d, z26.s, z14.s[2]             : smlalt %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ff8f9b : smlalt z27.d, z28.s, z15.s[3]             : smlalt %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ff8fff : smlalt z31.d, z31.s, z15.s[3]             : smlalt %z31.d %z31.s %z15.s $0x03 -> %z31.d
 
 # SMLSLB  <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SMLSLB-Z.ZZZ-_)
 44405000 : smlslb z0.h, z0.b, z0.b                   : smlslb %z0.h %z0.b %z0.b -> %z0.h
@@ -1874,6 +2018,42 @@
 44dd539b : smlslb z27.d, z28.s, z29.s                : smlslb %z27.d %z28.s %z29.s -> %z27.d
 44df53ff : smlslb z31.d, z31.s, z31.s                : smlslb %z31.d %z31.s %z31.s -> %z31.d
 
+# SMLSLB  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (SMLSLB-Z.ZZZi-S)
+44a0a000 : smlslb z0.s, z0.h, z0.h[0]                : smlslb %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a2a062 : smlslb z2.s, z3.h, z2.h[0]                : smlslb %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a3a8a4 : smlslb z4.s, z5.h, z3.h[1]                : smlslb %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a3a8e6 : smlslb z6.s, z7.h, z3.h[1]                : smlslb %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44aca128 : smlslb z8.s, z9.h, z4.h[2]                : smlslb %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44aca16a : smlslb z10.s, z11.h, z4.h[2]              : smlslb %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44ada9ac : smlslb z12.s, z13.h, z5.h[3]              : smlslb %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44ada9ee : smlslb z14.s, z15.h, z5.h[3]              : smlslb %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b6a230 : smlslb z16.s, z17.h, z6.h[4]              : smlslb %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b6a251 : smlslb z17.s, z18.h, z6.h[4]              : smlslb %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b6a293 : smlslb z19.s, z20.h, z6.h[4]              : smlslb %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b7aad5 : smlslb z21.s, z22.h, z7.h[5]              : smlslb %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b7ab17 : smlslb z23.s, z24.h, z7.h[5]              : smlslb %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b8a359 : smlslb z25.s, z26.h, z0.h[6]              : smlslb %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8a39b : smlslb z27.s, z28.h, z0.h[6]              : smlslb %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bfabff : smlslb z31.s, z31.h, z7.h[7]              : smlslb %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# SMLSLB  <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (SMLSLB-Z.ZZZi-D)
+44e0a000 : smlslb z0.d, z0.s, z0.s[0]                : smlslb %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e3a062 : smlslb z2.d, z3.s, z3.s[0]                : smlslb %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e4a0a4 : smlslb z4.d, z5.s, z4.s[0]                : smlslb %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e5a8e6 : smlslb z6.d, z7.s, z5.s[1]                : smlslb %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e6a928 : smlslb z8.d, z9.s, z6.s[1]                : smlslb %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e7a96a : smlslb z10.d, z11.s, z7.s[1]              : smlslb %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e8a9ac : smlslb z12.d, z13.s, z8.s[1]              : smlslb %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e9a9ee : smlslb z14.d, z15.s, z9.s[1]              : smlslb %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44faa230 : smlslb z16.d, z17.s, z10.s[2]             : smlslb %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44faa251 : smlslb z17.d, z18.s, z10.s[2]             : smlslb %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fba293 : smlslb z19.d, z20.s, z11.s[2]             : smlslb %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fca2d5 : smlslb z21.d, z22.s, z12.s[2]             : smlslb %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fda317 : smlslb z23.d, z24.s, z13.s[2]             : smlslb %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44fea359 : smlslb z25.d, z26.s, z14.s[2]             : smlslb %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ffab9b : smlslb z27.d, z28.s, z15.s[3]             : smlslb %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ffabff : smlslb z31.d, z31.s, z15.s[3]             : smlslb %z31.d %z31.s %z15.s $0x03 -> %z31.d
+
 # SMLSLT  <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SMLSLT-Z.ZZZ-_)
 44405400 : smlslt z0.h, z0.b, z0.b                   : smlslt %z0.h %z0.b %z0.b -> %z0.h
 44445462 : smlslt z2.h, z3.b, z4.b                   : smlslt %z2.h %z3.b %z4.b -> %z2.h
@@ -1924,6 +2104,78 @@
 44dd579b : smlslt z27.d, z28.s, z29.s                : smlslt %z27.d %z28.s %z29.s -> %z27.d
 44df57ff : smlslt z31.d, z31.s, z31.s                : smlslt %z31.d %z31.s %z31.s -> %z31.d
 
+# SMLSLT  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (SMLSLT-Z.ZZZi-S)
+44a0a400 : smlslt z0.s, z0.h, z0.h[0]                : smlslt %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a2a462 : smlslt z2.s, z3.h, z2.h[0]                : smlslt %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a3aca4 : smlslt z4.s, z5.h, z3.h[1]                : smlslt %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a3ace6 : smlslt z6.s, z7.h, z3.h[1]                : smlslt %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44aca528 : smlslt z8.s, z9.h, z4.h[2]                : smlslt %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44aca56a : smlslt z10.s, z11.h, z4.h[2]              : smlslt %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44adadac : smlslt z12.s, z13.h, z5.h[3]              : smlslt %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44adadee : smlslt z14.s, z15.h, z5.h[3]              : smlslt %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b6a630 : smlslt z16.s, z17.h, z6.h[4]              : smlslt %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b6a651 : smlslt z17.s, z18.h, z6.h[4]              : smlslt %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b6a693 : smlslt z19.s, z20.h, z6.h[4]              : smlslt %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b7aed5 : smlslt z21.s, z22.h, z7.h[5]              : smlslt %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b7af17 : smlslt z23.s, z24.h, z7.h[5]              : smlslt %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b8a759 : smlslt z25.s, z26.h, z0.h[6]              : smlslt %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8a79b : smlslt z27.s, z28.h, z0.h[6]              : smlslt %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bfafff : smlslt z31.s, z31.h, z7.h[7]              : smlslt %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# SMLSLT  <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (SMLSLT-Z.ZZZi-D)
+44e0a400 : smlslt z0.d, z0.s, z0.s[0]                : smlslt %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e3a462 : smlslt z2.d, z3.s, z3.s[0]                : smlslt %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e4a4a4 : smlslt z4.d, z5.s, z4.s[0]                : smlslt %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e5ace6 : smlslt z6.d, z7.s, z5.s[1]                : smlslt %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e6ad28 : smlslt z8.d, z9.s, z6.s[1]                : smlslt %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e7ad6a : smlslt z10.d, z11.s, z7.s[1]              : smlslt %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e8adac : smlslt z12.d, z13.s, z8.s[1]              : smlslt %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e9adee : smlslt z14.d, z15.s, z9.s[1]              : smlslt %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44faa630 : smlslt z16.d, z17.s, z10.s[2]             : smlslt %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44faa651 : smlslt z17.d, z18.s, z10.s[2]             : smlslt %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fba693 : smlslt z19.d, z20.s, z11.s[2]             : smlslt %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fca6d5 : smlslt z21.d, z22.s, z12.s[2]             : smlslt %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fda717 : smlslt z23.d, z24.s, z13.s[2]             : smlslt %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44fea759 : smlslt z25.d, z26.s, z14.s[2]             : smlslt %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ffaf9b : smlslt z27.d, z28.s, z15.s[3]             : smlslt %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ffafff : smlslt z31.d, z31.s, z15.s[3]             : smlslt %z31.d %z31.s %z15.s $0x03 -> %z31.d
+
+# SMULLB  <Zd>.S, <Zn>.H, <Zm>.H[<imm>] (SMULLB-Z.ZZi-S)
+44a0c000 : smullb z0.s, z0.h, z0.h[0]                : smullb %z0.h %z0.h $0x00 -> %z0.s
+44a2c062 : smullb z2.s, z3.h, z2.h[0]                : smullb %z3.h %z2.h $0x00 -> %z2.s
+44a3c8a4 : smullb z4.s, z5.h, z3.h[1]                : smullb %z5.h %z3.h $0x01 -> %z4.s
+44a3c8e6 : smullb z6.s, z7.h, z3.h[1]                : smullb %z7.h %z3.h $0x01 -> %z6.s
+44acc128 : smullb z8.s, z9.h, z4.h[2]                : smullb %z9.h %z4.h $0x02 -> %z8.s
+44acc16a : smullb z10.s, z11.h, z4.h[2]              : smullb %z11.h %z4.h $0x02 -> %z10.s
+44adc9ac : smullb z12.s, z13.h, z5.h[3]              : smullb %z13.h %z5.h $0x03 -> %z12.s
+44adc9ee : smullb z14.s, z15.h, z5.h[3]              : smullb %z15.h %z5.h $0x03 -> %z14.s
+44b6c230 : smullb z16.s, z17.h, z6.h[4]              : smullb %z17.h %z6.h $0x04 -> %z16.s
+44b6c251 : smullb z17.s, z18.h, z6.h[4]              : smullb %z18.h %z6.h $0x04 -> %z17.s
+44b6c293 : smullb z19.s, z20.h, z6.h[4]              : smullb %z20.h %z6.h $0x04 -> %z19.s
+44b7cad5 : smullb z21.s, z22.h, z7.h[5]              : smullb %z22.h %z7.h $0x05 -> %z21.s
+44b7cb17 : smullb z23.s, z24.h, z7.h[5]              : smullb %z24.h %z7.h $0x05 -> %z23.s
+44b8c359 : smullb z25.s, z26.h, z0.h[6]              : smullb %z26.h %z0.h $0x06 -> %z25.s
+44b8c39b : smullb z27.s, z28.h, z0.h[6]              : smullb %z28.h %z0.h $0x06 -> %z27.s
+44bfcbff : smullb z31.s, z31.h, z7.h[7]              : smullb %z31.h %z7.h $0x07 -> %z31.s
+
+# SMULLB  <Zd>.D, <Zn>.S, <Zm>.S[<imm>] (SMULLB-Z.ZZi-D)
+44e0c000 : smullb z0.d, z0.s, z0.s[0]                : smullb %z0.s %z0.s $0x00 -> %z0.d
+44e3c062 : smullb z2.d, z3.s, z3.s[0]                : smullb %z3.s %z3.s $0x00 -> %z2.d
+44e4c0a4 : smullb z4.d, z5.s, z4.s[0]                : smullb %z5.s %z4.s $0x00 -> %z4.d
+44e5c8e6 : smullb z6.d, z7.s, z5.s[1]                : smullb %z7.s %z5.s $0x01 -> %z6.d
+44e6c928 : smullb z8.d, z9.s, z6.s[1]                : smullb %z9.s %z6.s $0x01 -> %z8.d
+44e7c96a : smullb z10.d, z11.s, z7.s[1]              : smullb %z11.s %z7.s $0x01 -> %z10.d
+44e8c9ac : smullb z12.d, z13.s, z8.s[1]              : smullb %z13.s %z8.s $0x01 -> %z12.d
+44e9c9ee : smullb z14.d, z15.s, z9.s[1]              : smullb %z15.s %z9.s $0x01 -> %z14.d
+44fac230 : smullb z16.d, z17.s, z10.s[2]             : smullb %z17.s %z10.s $0x02 -> %z16.d
+44fac251 : smullb z17.d, z18.s, z10.s[2]             : smullb %z18.s %z10.s $0x02 -> %z17.d
+44fbc293 : smullb z19.d, z20.s, z11.s[2]             : smullb %z20.s %z11.s $0x02 -> %z19.d
+44fcc2d5 : smullb z21.d, z22.s, z12.s[2]             : smullb %z22.s %z12.s $0x02 -> %z21.d
+44fdc317 : smullb z23.d, z24.s, z13.s[2]             : smullb %z24.s %z13.s $0x02 -> %z23.d
+44fec359 : smullb z25.d, z26.s, z14.s[2]             : smullb %z26.s %z14.s $0x02 -> %z25.d
+44ffcb9b : smullb z27.d, z28.s, z15.s[3]             : smullb %z28.s %z15.s $0x03 -> %z27.d
+44ffcbff : smullb z31.d, z31.s, z15.s[3]             : smullb %z31.s %z15.s $0x03 -> %z31.d
+
 # SMULLB  <Zd>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SMULLB-Z.ZZ-_)
 45407000 : smullb z0.h, z0.b, z0.b                   : smullb %z0.b %z0.b -> %z0.h
 45447062 : smullb z2.h, z3.b, z4.b                   : smullb %z3.b %z4.b -> %z2.h
@@ -1973,6 +2225,42 @@
 45db7359 : smullb z25.d, z26.s, z27.s                : smullb %z26.s %z27.s -> %z25.d
 45dd739b : smullb z27.d, z28.s, z29.s                : smullb %z28.s %z29.s -> %z27.d
 45df73ff : smullb z31.d, z31.s, z31.s                : smullb %z31.s %z31.s -> %z31.d
+
+# SMULLT  <Zd>.S, <Zn>.H, <Zm>.H[<imm>] (SMULLT-Z.ZZi-S)
+44a0c400 : smullt z0.s, z0.h, z0.h[0]                : smullt %z0.h %z0.h $0x00 -> %z0.s
+44a2c462 : smullt z2.s, z3.h, z2.h[0]                : smullt %z3.h %z2.h $0x00 -> %z2.s
+44a3cca4 : smullt z4.s, z5.h, z3.h[1]                : smullt %z5.h %z3.h $0x01 -> %z4.s
+44a3cce6 : smullt z6.s, z7.h, z3.h[1]                : smullt %z7.h %z3.h $0x01 -> %z6.s
+44acc528 : smullt z8.s, z9.h, z4.h[2]                : smullt %z9.h %z4.h $0x02 -> %z8.s
+44acc56a : smullt z10.s, z11.h, z4.h[2]              : smullt %z11.h %z4.h $0x02 -> %z10.s
+44adcdac : smullt z12.s, z13.h, z5.h[3]              : smullt %z13.h %z5.h $0x03 -> %z12.s
+44adcdee : smullt z14.s, z15.h, z5.h[3]              : smullt %z15.h %z5.h $0x03 -> %z14.s
+44b6c630 : smullt z16.s, z17.h, z6.h[4]              : smullt %z17.h %z6.h $0x04 -> %z16.s
+44b6c651 : smullt z17.s, z18.h, z6.h[4]              : smullt %z18.h %z6.h $0x04 -> %z17.s
+44b6c693 : smullt z19.s, z20.h, z6.h[4]              : smullt %z20.h %z6.h $0x04 -> %z19.s
+44b7ced5 : smullt z21.s, z22.h, z7.h[5]              : smullt %z22.h %z7.h $0x05 -> %z21.s
+44b7cf17 : smullt z23.s, z24.h, z7.h[5]              : smullt %z24.h %z7.h $0x05 -> %z23.s
+44b8c759 : smullt z25.s, z26.h, z0.h[6]              : smullt %z26.h %z0.h $0x06 -> %z25.s
+44b8c79b : smullt z27.s, z28.h, z0.h[6]              : smullt %z28.h %z0.h $0x06 -> %z27.s
+44bfcfff : smullt z31.s, z31.h, z7.h[7]              : smullt %z31.h %z7.h $0x07 -> %z31.s
+
+# SMULLT  <Zd>.D, <Zn>.S, <Zm>.S[<imm>] (SMULLT-Z.ZZi-D)
+44e0c400 : smullt z0.d, z0.s, z0.s[0]                : smullt %z0.s %z0.s $0x00 -> %z0.d
+44e3c462 : smullt z2.d, z3.s, z3.s[0]                : smullt %z3.s %z3.s $0x00 -> %z2.d
+44e4c4a4 : smullt z4.d, z5.s, z4.s[0]                : smullt %z5.s %z4.s $0x00 -> %z4.d
+44e5cce6 : smullt z6.d, z7.s, z5.s[1]                : smullt %z7.s %z5.s $0x01 -> %z6.d
+44e6cd28 : smullt z8.d, z9.s, z6.s[1]                : smullt %z9.s %z6.s $0x01 -> %z8.d
+44e7cd6a : smullt z10.d, z11.s, z7.s[1]              : smullt %z11.s %z7.s $0x01 -> %z10.d
+44e8cdac : smullt z12.d, z13.s, z8.s[1]              : smullt %z13.s %z8.s $0x01 -> %z12.d
+44e9cdee : smullt z14.d, z15.s, z9.s[1]              : smullt %z15.s %z9.s $0x01 -> %z14.d
+44fac630 : smullt z16.d, z17.s, z10.s[2]             : smullt %z17.s %z10.s $0x02 -> %z16.d
+44fac651 : smullt z17.d, z18.s, z10.s[2]             : smullt %z18.s %z10.s $0x02 -> %z17.d
+44fbc693 : smullt z19.d, z20.s, z11.s[2]             : smullt %z20.s %z11.s $0x02 -> %z19.d
+44fcc6d5 : smullt z21.d, z22.s, z12.s[2]             : smullt %z22.s %z12.s $0x02 -> %z21.d
+44fdc717 : smullt z23.d, z24.s, z13.s[2]             : smullt %z24.s %z13.s $0x02 -> %z23.d
+44fec759 : smullt z25.d, z26.s, z14.s[2]             : smullt %z26.s %z14.s $0x02 -> %z25.d
+44ffcf9b : smullt z27.d, z28.s, z15.s[3]             : smullt %z28.s %z15.s $0x03 -> %z27.d
+44ffcfff : smullt z31.d, z31.s, z15.s[3]             : smullt %z31.s %z15.s $0x03 -> %z31.d
 
 # SMULLT  <Zd>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SMULLT-Z.ZZ-_)
 45407400 : smullt z0.h, z0.b, z0.b                   : smullt %z0.b %z0.b -> %z0.h
@@ -2074,6 +2362,42 @@
 44dd639b : sqdmlalb z27.d, z28.s, z29.s              : sqdmlalb %z27.d %z28.s %z29.s -> %z27.d
 44df63ff : sqdmlalb z31.d, z31.s, z31.s              : sqdmlalb %z31.d %z31.s %z31.s -> %z31.d
 
+# SQDMLALB <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (SQDMLALB-Z.ZZZi-S)
+44a02000 : sqdmlalb z0.s, z0.h, z0.h[0]              : sqdmlalb %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a22062 : sqdmlalb z2.s, z3.h, z2.h[0]              : sqdmlalb %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a328a4 : sqdmlalb z4.s, z5.h, z3.h[1]              : sqdmlalb %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a328e6 : sqdmlalb z6.s, z7.h, z3.h[1]              : sqdmlalb %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44ac2128 : sqdmlalb z8.s, z9.h, z4.h[2]              : sqdmlalb %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44ac216a : sqdmlalb z10.s, z11.h, z4.h[2]            : sqdmlalb %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44ad29ac : sqdmlalb z12.s, z13.h, z5.h[3]            : sqdmlalb %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44ad29ee : sqdmlalb z14.s, z15.h, z5.h[3]            : sqdmlalb %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b62230 : sqdmlalb z16.s, z17.h, z6.h[4]            : sqdmlalb %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b62251 : sqdmlalb z17.s, z18.h, z6.h[4]            : sqdmlalb %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b62293 : sqdmlalb z19.s, z20.h, z6.h[4]            : sqdmlalb %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b72ad5 : sqdmlalb z21.s, z22.h, z7.h[5]            : sqdmlalb %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b72b17 : sqdmlalb z23.s, z24.h, z7.h[5]            : sqdmlalb %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b82359 : sqdmlalb z25.s, z26.h, z0.h[6]            : sqdmlalb %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8239b : sqdmlalb z27.s, z28.h, z0.h[6]            : sqdmlalb %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bf2bff : sqdmlalb z31.s, z31.h, z7.h[7]            : sqdmlalb %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# SQDMLALB <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (SQDMLALB-Z.ZZZi-D)
+44e02000 : sqdmlalb z0.d, z0.s, z0.s[0]              : sqdmlalb %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e32062 : sqdmlalb z2.d, z3.s, z3.s[0]              : sqdmlalb %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e420a4 : sqdmlalb z4.d, z5.s, z4.s[0]              : sqdmlalb %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e528e6 : sqdmlalb z6.d, z7.s, z5.s[1]              : sqdmlalb %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e62928 : sqdmlalb z8.d, z9.s, z6.s[1]              : sqdmlalb %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e7296a : sqdmlalb z10.d, z11.s, z7.s[1]            : sqdmlalb %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e829ac : sqdmlalb z12.d, z13.s, z8.s[1]            : sqdmlalb %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e929ee : sqdmlalb z14.d, z15.s, z9.s[1]            : sqdmlalb %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44fa2230 : sqdmlalb z16.d, z17.s, z10.s[2]           : sqdmlalb %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44fa2251 : sqdmlalb z17.d, z18.s, z10.s[2]           : sqdmlalb %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fb2293 : sqdmlalb z19.d, z20.s, z11.s[2]           : sqdmlalb %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fc22d5 : sqdmlalb z21.d, z22.s, z12.s[2]           : sqdmlalb %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fd2317 : sqdmlalb z23.d, z24.s, z13.s[2]           : sqdmlalb %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44fe2359 : sqdmlalb z25.d, z26.s, z14.s[2]           : sqdmlalb %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ff2b9b : sqdmlalb z27.d, z28.s, z15.s[3]           : sqdmlalb %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ff2bff : sqdmlalb z31.d, z31.s, z15.s[3]           : sqdmlalb %z31.d %z31.s %z15.s $0x03 -> %z31.d
+
 # SQDMLALBT <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SQDMLALBT-Z.ZZZ-_)
 44400800 : sqdmlalbt z0.h, z0.b, z0.b                : sqdmlalbt %z0.h %z0.b %z0.b -> %z0.h
 44440862 : sqdmlalbt z2.h, z3.b, z4.b                : sqdmlalbt %z2.h %z3.b %z4.b -> %z2.h
@@ -2174,6 +2498,42 @@
 44dd679b : sqdmlalt z27.d, z28.s, z29.s              : sqdmlalt %z27.d %z28.s %z29.s -> %z27.d
 44df67ff : sqdmlalt z31.d, z31.s, z31.s              : sqdmlalt %z31.d %z31.s %z31.s -> %z31.d
 
+# SQDMLALT <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (SQDMLALT-Z.ZZZi-S)
+44a02400 : sqdmlalt z0.s, z0.h, z0.h[0]              : sqdmlalt %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a22462 : sqdmlalt z2.s, z3.h, z2.h[0]              : sqdmlalt %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a32ca4 : sqdmlalt z4.s, z5.h, z3.h[1]              : sqdmlalt %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a32ce6 : sqdmlalt z6.s, z7.h, z3.h[1]              : sqdmlalt %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44ac2528 : sqdmlalt z8.s, z9.h, z4.h[2]              : sqdmlalt %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44ac256a : sqdmlalt z10.s, z11.h, z4.h[2]            : sqdmlalt %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44ad2dac : sqdmlalt z12.s, z13.h, z5.h[3]            : sqdmlalt %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44ad2dee : sqdmlalt z14.s, z15.h, z5.h[3]            : sqdmlalt %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b62630 : sqdmlalt z16.s, z17.h, z6.h[4]            : sqdmlalt %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b62651 : sqdmlalt z17.s, z18.h, z6.h[4]            : sqdmlalt %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b62693 : sqdmlalt z19.s, z20.h, z6.h[4]            : sqdmlalt %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b72ed5 : sqdmlalt z21.s, z22.h, z7.h[5]            : sqdmlalt %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b72f17 : sqdmlalt z23.s, z24.h, z7.h[5]            : sqdmlalt %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b82759 : sqdmlalt z25.s, z26.h, z0.h[6]            : sqdmlalt %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8279b : sqdmlalt z27.s, z28.h, z0.h[6]            : sqdmlalt %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bf2fff : sqdmlalt z31.s, z31.h, z7.h[7]            : sqdmlalt %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# SQDMLALT <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (SQDMLALT-Z.ZZZi-D)
+44e02400 : sqdmlalt z0.d, z0.s, z0.s[0]              : sqdmlalt %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e32462 : sqdmlalt z2.d, z3.s, z3.s[0]              : sqdmlalt %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e424a4 : sqdmlalt z4.d, z5.s, z4.s[0]              : sqdmlalt %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e52ce6 : sqdmlalt z6.d, z7.s, z5.s[1]              : sqdmlalt %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e62d28 : sqdmlalt z8.d, z9.s, z6.s[1]              : sqdmlalt %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e72d6a : sqdmlalt z10.d, z11.s, z7.s[1]            : sqdmlalt %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e82dac : sqdmlalt z12.d, z13.s, z8.s[1]            : sqdmlalt %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e92dee : sqdmlalt z14.d, z15.s, z9.s[1]            : sqdmlalt %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44fa2630 : sqdmlalt z16.d, z17.s, z10.s[2]           : sqdmlalt %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44fa2651 : sqdmlalt z17.d, z18.s, z10.s[2]           : sqdmlalt %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fb2693 : sqdmlalt z19.d, z20.s, z11.s[2]           : sqdmlalt %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fc26d5 : sqdmlalt z21.d, z22.s, z12.s[2]           : sqdmlalt %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fd2717 : sqdmlalt z23.d, z24.s, z13.s[2]           : sqdmlalt %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44fe2759 : sqdmlalt z25.d, z26.s, z14.s[2]           : sqdmlalt %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ff2f9b : sqdmlalt z27.d, z28.s, z15.s[3]           : sqdmlalt %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ff2fff : sqdmlalt z31.d, z31.s, z15.s[3]           : sqdmlalt %z31.d %z31.s %z15.s $0x03 -> %z31.d
+
 # SQDMLSLB <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SQDMLSLB-Z.ZZZ-_)
 44406800 : sqdmlslb z0.h, z0.b, z0.b                 : sqdmlslb %z0.h %z0.b %z0.b -> %z0.h
 44446862 : sqdmlslb z2.h, z3.b, z4.b                 : sqdmlslb %z2.h %z3.b %z4.b -> %z2.h
@@ -2223,6 +2583,42 @@
 44db6b59 : sqdmlslb z25.d, z26.s, z27.s              : sqdmlslb %z25.d %z26.s %z27.s -> %z25.d
 44dd6b9b : sqdmlslb z27.d, z28.s, z29.s              : sqdmlslb %z27.d %z28.s %z29.s -> %z27.d
 44df6bff : sqdmlslb z31.d, z31.s, z31.s              : sqdmlslb %z31.d %z31.s %z31.s -> %z31.d
+
+# SQDMLSLB <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (SQDMLSLB-Z.ZZZi-S)
+44a03000 : sqdmlslb z0.s, z0.h, z0.h[0]              : sqdmlslb %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a23062 : sqdmlslb z2.s, z3.h, z2.h[0]              : sqdmlslb %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a338a4 : sqdmlslb z4.s, z5.h, z3.h[1]              : sqdmlslb %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a338e6 : sqdmlslb z6.s, z7.h, z3.h[1]              : sqdmlslb %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44ac3128 : sqdmlslb z8.s, z9.h, z4.h[2]              : sqdmlslb %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44ac316a : sqdmlslb z10.s, z11.h, z4.h[2]            : sqdmlslb %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44ad39ac : sqdmlslb z12.s, z13.h, z5.h[3]            : sqdmlslb %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44ad39ee : sqdmlslb z14.s, z15.h, z5.h[3]            : sqdmlslb %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b63230 : sqdmlslb z16.s, z17.h, z6.h[4]            : sqdmlslb %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b63251 : sqdmlslb z17.s, z18.h, z6.h[4]            : sqdmlslb %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b63293 : sqdmlslb z19.s, z20.h, z6.h[4]            : sqdmlslb %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b73ad5 : sqdmlslb z21.s, z22.h, z7.h[5]            : sqdmlslb %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b73b17 : sqdmlslb z23.s, z24.h, z7.h[5]            : sqdmlslb %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b83359 : sqdmlslb z25.s, z26.h, z0.h[6]            : sqdmlslb %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8339b : sqdmlslb z27.s, z28.h, z0.h[6]            : sqdmlslb %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bf3bff : sqdmlslb z31.s, z31.h, z7.h[7]            : sqdmlslb %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# SQDMLSLB <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (SQDMLSLB-Z.ZZZi-D)
+44e03000 : sqdmlslb z0.d, z0.s, z0.s[0]              : sqdmlslb %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e33062 : sqdmlslb z2.d, z3.s, z3.s[0]              : sqdmlslb %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e430a4 : sqdmlslb z4.d, z5.s, z4.s[0]              : sqdmlslb %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e538e6 : sqdmlslb z6.d, z7.s, z5.s[1]              : sqdmlslb %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e63928 : sqdmlslb z8.d, z9.s, z6.s[1]              : sqdmlslb %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e7396a : sqdmlslb z10.d, z11.s, z7.s[1]            : sqdmlslb %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e839ac : sqdmlslb z12.d, z13.s, z8.s[1]            : sqdmlslb %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e939ee : sqdmlslb z14.d, z15.s, z9.s[1]            : sqdmlslb %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44fa3230 : sqdmlslb z16.d, z17.s, z10.s[2]           : sqdmlslb %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44fa3251 : sqdmlslb z17.d, z18.s, z10.s[2]           : sqdmlslb %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fb3293 : sqdmlslb z19.d, z20.s, z11.s[2]           : sqdmlslb %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fc32d5 : sqdmlslb z21.d, z22.s, z12.s[2]           : sqdmlslb %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fd3317 : sqdmlslb z23.d, z24.s, z13.s[2]           : sqdmlslb %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44fe3359 : sqdmlslb z25.d, z26.s, z14.s[2]           : sqdmlslb %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ff3b9b : sqdmlslb z27.d, z28.s, z15.s[3]           : sqdmlslb %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ff3bff : sqdmlslb z31.d, z31.s, z15.s[3]           : sqdmlslb %z31.d %z31.s %z15.s $0x03 -> %z31.d
 
 # SQDMLSLBT <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SQDMLSLBT-Z.ZZZ-_)
 44400c00 : sqdmlslbt z0.h, z0.b, z0.b                : sqdmlslbt %z0.h %z0.b %z0.b -> %z0.h
@@ -2324,6 +2720,42 @@
 44dd6f9b : sqdmlslt z27.d, z28.s, z29.s              : sqdmlslt %z27.d %z28.s %z29.s -> %z27.d
 44df6fff : sqdmlslt z31.d, z31.s, z31.s              : sqdmlslt %z31.d %z31.s %z31.s -> %z31.d
 
+# SQDMLSLT <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (SQDMLSLT-Z.ZZZi-S)
+44a03400 : sqdmlslt z0.s, z0.h, z0.h[0]              : sqdmlslt %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a23462 : sqdmlslt z2.s, z3.h, z2.h[0]              : sqdmlslt %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a33ca4 : sqdmlslt z4.s, z5.h, z3.h[1]              : sqdmlslt %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a33ce6 : sqdmlslt z6.s, z7.h, z3.h[1]              : sqdmlslt %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44ac3528 : sqdmlslt z8.s, z9.h, z4.h[2]              : sqdmlslt %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44ac356a : sqdmlslt z10.s, z11.h, z4.h[2]            : sqdmlslt %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44ad3dac : sqdmlslt z12.s, z13.h, z5.h[3]            : sqdmlslt %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44ad3dee : sqdmlslt z14.s, z15.h, z5.h[3]            : sqdmlslt %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b63630 : sqdmlslt z16.s, z17.h, z6.h[4]            : sqdmlslt %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b63651 : sqdmlslt z17.s, z18.h, z6.h[4]            : sqdmlslt %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b63693 : sqdmlslt z19.s, z20.h, z6.h[4]            : sqdmlslt %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b73ed5 : sqdmlslt z21.s, z22.h, z7.h[5]            : sqdmlslt %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b73f17 : sqdmlslt z23.s, z24.h, z7.h[5]            : sqdmlslt %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b83759 : sqdmlslt z25.s, z26.h, z0.h[6]            : sqdmlslt %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8379b : sqdmlslt z27.s, z28.h, z0.h[6]            : sqdmlslt %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bf3fff : sqdmlslt z31.s, z31.h, z7.h[7]            : sqdmlslt %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# SQDMLSLT <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (SQDMLSLT-Z.ZZZi-D)
+44e03400 : sqdmlslt z0.d, z0.s, z0.s[0]              : sqdmlslt %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e33462 : sqdmlslt z2.d, z3.s, z3.s[0]              : sqdmlslt %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e434a4 : sqdmlslt z4.d, z5.s, z4.s[0]              : sqdmlslt %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e53ce6 : sqdmlslt z6.d, z7.s, z5.s[1]              : sqdmlslt %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e63d28 : sqdmlslt z8.d, z9.s, z6.s[1]              : sqdmlslt %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e73d6a : sqdmlslt z10.d, z11.s, z7.s[1]            : sqdmlslt %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e83dac : sqdmlslt z12.d, z13.s, z8.s[1]            : sqdmlslt %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e93dee : sqdmlslt z14.d, z15.s, z9.s[1]            : sqdmlslt %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44fa3630 : sqdmlslt z16.d, z17.s, z10.s[2]           : sqdmlslt %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44fa3651 : sqdmlslt z17.d, z18.s, z10.s[2]           : sqdmlslt %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fb3693 : sqdmlslt z19.d, z20.s, z11.s[2]           : sqdmlslt %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fc36d5 : sqdmlslt z21.d, z22.s, z12.s[2]           : sqdmlslt %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fd3717 : sqdmlslt z23.d, z24.s, z13.s[2]           : sqdmlslt %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44fe3759 : sqdmlslt z25.d, z26.s, z14.s[2]           : sqdmlslt %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ff3f9b : sqdmlslt z27.d, z28.s, z15.s[3]           : sqdmlslt %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ff3fff : sqdmlslt z31.d, z31.s, z15.s[3]           : sqdmlslt %z31.d %z31.s %z15.s $0x03 -> %z31.d
+
 # SQDMULH <Zd>.<T>, <Zn>.<T>, <Zm>.<T> (SQDMULH-Z.ZZ-_)
 04207000 : sqdmulh z0.b, z0.b, z0.b                  : sqdmulh %z0.b %z0.b -> %z0.b
 04247062 : sqdmulh z2.b, z3.b, z4.b                  : sqdmulh %z3.b %z4.b -> %z2.b
@@ -2390,6 +2822,96 @@
 04fd739b : sqdmulh z27.d, z28.d, z29.d               : sqdmulh %z28.d %z29.d -> %z27.d
 04ff73ff : sqdmulh z31.d, z31.d, z31.d               : sqdmulh %z31.d %z31.d -> %z31.d
 
+# SQDMULH <Zd>.H, <Zn>.H, <Zm>.H[<imm>] (SQDMULH-Z.ZZi-H)
+4420f000 : sqdmulh z0.h, z0.h, z0.h[0]               : sqdmulh %z0.h %z0.h $0x00 -> %z0.h
+4422f062 : sqdmulh z2.h, z3.h, z2.h[0]               : sqdmulh %z3.h %z2.h $0x00 -> %z2.h
+442bf0a4 : sqdmulh z4.h, z5.h, z3.h[1]               : sqdmulh %z5.h %z3.h $0x01 -> %z4.h
+442bf0e6 : sqdmulh z6.h, z7.h, z3.h[1]               : sqdmulh %z7.h %z3.h $0x01 -> %z6.h
+4434f128 : sqdmulh z8.h, z9.h, z4.h[2]               : sqdmulh %z9.h %z4.h $0x02 -> %z8.h
+4434f16a : sqdmulh z10.h, z11.h, z4.h[2]             : sqdmulh %z11.h %z4.h $0x02 -> %z10.h
+443df1ac : sqdmulh z12.h, z13.h, z5.h[3]             : sqdmulh %z13.h %z5.h $0x03 -> %z12.h
+443df1ee : sqdmulh z14.h, z15.h, z5.h[3]             : sqdmulh %z15.h %z5.h $0x03 -> %z14.h
+4466f230 : sqdmulh z16.h, z17.h, z6.h[4]             : sqdmulh %z17.h %z6.h $0x04 -> %z16.h
+4466f251 : sqdmulh z17.h, z18.h, z6.h[4]             : sqdmulh %z18.h %z6.h $0x04 -> %z17.h
+4466f293 : sqdmulh z19.h, z20.h, z6.h[4]             : sqdmulh %z20.h %z6.h $0x04 -> %z19.h
+446ff2d5 : sqdmulh z21.h, z22.h, z7.h[5]             : sqdmulh %z22.h %z7.h $0x05 -> %z21.h
+446ff317 : sqdmulh z23.h, z24.h, z7.h[5]             : sqdmulh %z24.h %z7.h $0x05 -> %z23.h
+4470f359 : sqdmulh z25.h, z26.h, z0.h[6]             : sqdmulh %z26.h %z0.h $0x06 -> %z25.h
+4470f39b : sqdmulh z27.h, z28.h, z0.h[6]             : sqdmulh %z28.h %z0.h $0x06 -> %z27.h
+447ff3ff : sqdmulh z31.h, z31.h, z7.h[7]             : sqdmulh %z31.h %z7.h $0x07 -> %z31.h
+
+# SQDMULH <Zd>.S, <Zn>.S, <Zm>.S[<imm>] (SQDMULH-Z.ZZi-S)
+44a0f000 : sqdmulh z0.s, z0.s, z0.s[0]               : sqdmulh %z0.s %z0.s $0x00 -> %z0.s
+44a2f062 : sqdmulh z2.s, z3.s, z2.s[0]               : sqdmulh %z3.s %z2.s $0x00 -> %z2.s
+44a3f0a4 : sqdmulh z4.s, z5.s, z3.s[0]               : sqdmulh %z5.s %z3.s $0x00 -> %z4.s
+44abf0e6 : sqdmulh z6.s, z7.s, z3.s[1]               : sqdmulh %z7.s %z3.s $0x01 -> %z6.s
+44acf128 : sqdmulh z8.s, z9.s, z4.s[1]               : sqdmulh %z9.s %z4.s $0x01 -> %z8.s
+44acf16a : sqdmulh z10.s, z11.s, z4.s[1]             : sqdmulh %z11.s %z4.s $0x01 -> %z10.s
+44adf1ac : sqdmulh z12.s, z13.s, z5.s[1]             : sqdmulh %z13.s %z5.s $0x01 -> %z12.s
+44adf1ee : sqdmulh z14.s, z15.s, z5.s[1]             : sqdmulh %z15.s %z5.s $0x01 -> %z14.s
+44b6f230 : sqdmulh z16.s, z17.s, z6.s[2]             : sqdmulh %z17.s %z6.s $0x02 -> %z16.s
+44b6f251 : sqdmulh z17.s, z18.s, z6.s[2]             : sqdmulh %z18.s %z6.s $0x02 -> %z17.s
+44b6f293 : sqdmulh z19.s, z20.s, z6.s[2]             : sqdmulh %z20.s %z6.s $0x02 -> %z19.s
+44b7f2d5 : sqdmulh z21.s, z22.s, z7.s[2]             : sqdmulh %z22.s %z7.s $0x02 -> %z21.s
+44b7f317 : sqdmulh z23.s, z24.s, z7.s[2]             : sqdmulh %z24.s %z7.s $0x02 -> %z23.s
+44b0f359 : sqdmulh z25.s, z26.s, z0.s[2]             : sqdmulh %z26.s %z0.s $0x02 -> %z25.s
+44b8f39b : sqdmulh z27.s, z28.s, z0.s[3]             : sqdmulh %z28.s %z0.s $0x03 -> %z27.s
+44bff3ff : sqdmulh z31.s, z31.s, z7.s[3]             : sqdmulh %z31.s %z7.s $0x03 -> %z31.s
+
+# SQDMULH <Zd>.D, <Zn>.D, <Zm>.D[<imm>] (SQDMULH-Z.ZZi-D)
+44e0f000 : sqdmulh z0.d, z0.d, z0.d[0]               : sqdmulh %z0.d %z0.d $0x00 -> %z0.d
+44e3f062 : sqdmulh z2.d, z3.d, z3.d[0]               : sqdmulh %z3.d %z3.d $0x00 -> %z2.d
+44e4f0a4 : sqdmulh z4.d, z5.d, z4.d[0]               : sqdmulh %z5.d %z4.d $0x00 -> %z4.d
+44e5f0e6 : sqdmulh z6.d, z7.d, z5.d[0]               : sqdmulh %z7.d %z5.d $0x00 -> %z6.d
+44e6f128 : sqdmulh z8.d, z9.d, z6.d[0]               : sqdmulh %z9.d %z6.d $0x00 -> %z8.d
+44e7f16a : sqdmulh z10.d, z11.d, z7.d[0]             : sqdmulh %z11.d %z7.d $0x00 -> %z10.d
+44e8f1ac : sqdmulh z12.d, z13.d, z8.d[0]             : sqdmulh %z13.d %z8.d $0x00 -> %z12.d
+44e9f1ee : sqdmulh z14.d, z15.d, z9.d[0]             : sqdmulh %z15.d %z9.d $0x00 -> %z14.d
+44eaf230 : sqdmulh z16.d, z17.d, z10.d[0]            : sqdmulh %z17.d %z10.d $0x00 -> %z16.d
+44faf251 : sqdmulh z17.d, z18.d, z10.d[1]            : sqdmulh %z18.d %z10.d $0x01 -> %z17.d
+44fbf293 : sqdmulh z19.d, z20.d, z11.d[1]            : sqdmulh %z20.d %z11.d $0x01 -> %z19.d
+44fcf2d5 : sqdmulh z21.d, z22.d, z12.d[1]            : sqdmulh %z22.d %z12.d $0x01 -> %z21.d
+44fdf317 : sqdmulh z23.d, z24.d, z13.d[1]            : sqdmulh %z24.d %z13.d $0x01 -> %z23.d
+44fef359 : sqdmulh z25.d, z26.d, z14.d[1]            : sqdmulh %z26.d %z14.d $0x01 -> %z25.d
+44fff39b : sqdmulh z27.d, z28.d, z15.d[1]            : sqdmulh %z28.d %z15.d $0x01 -> %z27.d
+44fff3ff : sqdmulh z31.d, z31.d, z15.d[1]            : sqdmulh %z31.d %z15.d $0x01 -> %z31.d
+
+# SQDMULLB <Zd>.S, <Zn>.H, <Zm>.H[<imm>] (SQDMULLB-Z.ZZi-S)
+44a0e000 : sqdmullb z0.s, z0.h, z0.h[0]              : sqdmullb %z0.h %z0.h $0x00 -> %z0.s
+44a2e062 : sqdmullb z2.s, z3.h, z2.h[0]              : sqdmullb %z3.h %z2.h $0x00 -> %z2.s
+44a3e8a4 : sqdmullb z4.s, z5.h, z3.h[1]              : sqdmullb %z5.h %z3.h $0x01 -> %z4.s
+44a3e8e6 : sqdmullb z6.s, z7.h, z3.h[1]              : sqdmullb %z7.h %z3.h $0x01 -> %z6.s
+44ace128 : sqdmullb z8.s, z9.h, z4.h[2]              : sqdmullb %z9.h %z4.h $0x02 -> %z8.s
+44ace16a : sqdmullb z10.s, z11.h, z4.h[2]            : sqdmullb %z11.h %z4.h $0x02 -> %z10.s
+44ade9ac : sqdmullb z12.s, z13.h, z5.h[3]            : sqdmullb %z13.h %z5.h $0x03 -> %z12.s
+44ade9ee : sqdmullb z14.s, z15.h, z5.h[3]            : sqdmullb %z15.h %z5.h $0x03 -> %z14.s
+44b6e230 : sqdmullb z16.s, z17.h, z6.h[4]            : sqdmullb %z17.h %z6.h $0x04 -> %z16.s
+44b6e251 : sqdmullb z17.s, z18.h, z6.h[4]            : sqdmullb %z18.h %z6.h $0x04 -> %z17.s
+44b6e293 : sqdmullb z19.s, z20.h, z6.h[4]            : sqdmullb %z20.h %z6.h $0x04 -> %z19.s
+44b7ead5 : sqdmullb z21.s, z22.h, z7.h[5]            : sqdmullb %z22.h %z7.h $0x05 -> %z21.s
+44b7eb17 : sqdmullb z23.s, z24.h, z7.h[5]            : sqdmullb %z24.h %z7.h $0x05 -> %z23.s
+44b8e359 : sqdmullb z25.s, z26.h, z0.h[6]            : sqdmullb %z26.h %z0.h $0x06 -> %z25.s
+44b8e39b : sqdmullb z27.s, z28.h, z0.h[6]            : sqdmullb %z28.h %z0.h $0x06 -> %z27.s
+44bfebff : sqdmullb z31.s, z31.h, z7.h[7]            : sqdmullb %z31.h %z7.h $0x07 -> %z31.s
+
+# SQDMULLB <Zd>.D, <Zn>.S, <Zm>.S[<imm>] (SQDMULLB-Z.ZZi-D)
+44e0e000 : sqdmullb z0.d, z0.s, z0.s[0]              : sqdmullb %z0.s %z0.s $0x00 -> %z0.d
+44e3e062 : sqdmullb z2.d, z3.s, z3.s[0]              : sqdmullb %z3.s %z3.s $0x00 -> %z2.d
+44e4e0a4 : sqdmullb z4.d, z5.s, z4.s[0]              : sqdmullb %z5.s %z4.s $0x00 -> %z4.d
+44e5e8e6 : sqdmullb z6.d, z7.s, z5.s[1]              : sqdmullb %z7.s %z5.s $0x01 -> %z6.d
+44e6e928 : sqdmullb z8.d, z9.s, z6.s[1]              : sqdmullb %z9.s %z6.s $0x01 -> %z8.d
+44e7e96a : sqdmullb z10.d, z11.s, z7.s[1]            : sqdmullb %z11.s %z7.s $0x01 -> %z10.d
+44e8e9ac : sqdmullb z12.d, z13.s, z8.s[1]            : sqdmullb %z13.s %z8.s $0x01 -> %z12.d
+44e9e9ee : sqdmullb z14.d, z15.s, z9.s[1]            : sqdmullb %z15.s %z9.s $0x01 -> %z14.d
+44fae230 : sqdmullb z16.d, z17.s, z10.s[2]           : sqdmullb %z17.s %z10.s $0x02 -> %z16.d
+44fae251 : sqdmullb z17.d, z18.s, z10.s[2]           : sqdmullb %z18.s %z10.s $0x02 -> %z17.d
+44fbe293 : sqdmullb z19.d, z20.s, z11.s[2]           : sqdmullb %z20.s %z11.s $0x02 -> %z19.d
+44fce2d5 : sqdmullb z21.d, z22.s, z12.s[2]           : sqdmullb %z22.s %z12.s $0x02 -> %z21.d
+44fde317 : sqdmullb z23.d, z24.s, z13.s[2]           : sqdmullb %z24.s %z13.s $0x02 -> %z23.d
+44fee359 : sqdmullb z25.d, z26.s, z14.s[2]           : sqdmullb %z26.s %z14.s $0x02 -> %z25.d
+44ffeb9b : sqdmullb z27.d, z28.s, z15.s[3]           : sqdmullb %z28.s %z15.s $0x03 -> %z27.d
+44ffebff : sqdmullb z31.d, z31.s, z15.s[3]           : sqdmullb %z31.s %z15.s $0x03 -> %z31.d
+
 # SQDMULLB <Zd>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SQDMULLB-Z.ZZ-_)
 45406000 : sqdmullb z0.h, z0.b, z0.b                 : sqdmullb %z0.b %z0.b -> %z0.h
 45446062 : sqdmullb z2.h, z3.b, z4.b                 : sqdmullb %z3.b %z4.b -> %z2.h
@@ -2439,6 +2961,42 @@
 45db6359 : sqdmullb z25.d, z26.s, z27.s              : sqdmullb %z26.s %z27.s -> %z25.d
 45dd639b : sqdmullb z27.d, z28.s, z29.s              : sqdmullb %z28.s %z29.s -> %z27.d
 45df63ff : sqdmullb z31.d, z31.s, z31.s              : sqdmullb %z31.s %z31.s -> %z31.d
+
+# SQDMULLT <Zd>.S, <Zn>.H, <Zm>.H[<imm>] (SQDMULLT-Z.ZZi-S)
+44a0e400 : sqdmullt z0.s, z0.h, z0.h[0]              : sqdmullt %z0.h %z0.h $0x00 -> %z0.s
+44a2e462 : sqdmullt z2.s, z3.h, z2.h[0]              : sqdmullt %z3.h %z2.h $0x00 -> %z2.s
+44a3eca4 : sqdmullt z4.s, z5.h, z3.h[1]              : sqdmullt %z5.h %z3.h $0x01 -> %z4.s
+44a3ece6 : sqdmullt z6.s, z7.h, z3.h[1]              : sqdmullt %z7.h %z3.h $0x01 -> %z6.s
+44ace528 : sqdmullt z8.s, z9.h, z4.h[2]              : sqdmullt %z9.h %z4.h $0x02 -> %z8.s
+44ace56a : sqdmullt z10.s, z11.h, z4.h[2]            : sqdmullt %z11.h %z4.h $0x02 -> %z10.s
+44adedac : sqdmullt z12.s, z13.h, z5.h[3]            : sqdmullt %z13.h %z5.h $0x03 -> %z12.s
+44adedee : sqdmullt z14.s, z15.h, z5.h[3]            : sqdmullt %z15.h %z5.h $0x03 -> %z14.s
+44b6e630 : sqdmullt z16.s, z17.h, z6.h[4]            : sqdmullt %z17.h %z6.h $0x04 -> %z16.s
+44b6e651 : sqdmullt z17.s, z18.h, z6.h[4]            : sqdmullt %z18.h %z6.h $0x04 -> %z17.s
+44b6e693 : sqdmullt z19.s, z20.h, z6.h[4]            : sqdmullt %z20.h %z6.h $0x04 -> %z19.s
+44b7eed5 : sqdmullt z21.s, z22.h, z7.h[5]            : sqdmullt %z22.h %z7.h $0x05 -> %z21.s
+44b7ef17 : sqdmullt z23.s, z24.h, z7.h[5]            : sqdmullt %z24.h %z7.h $0x05 -> %z23.s
+44b8e759 : sqdmullt z25.s, z26.h, z0.h[6]            : sqdmullt %z26.h %z0.h $0x06 -> %z25.s
+44b8e79b : sqdmullt z27.s, z28.h, z0.h[6]            : sqdmullt %z28.h %z0.h $0x06 -> %z27.s
+44bfefff : sqdmullt z31.s, z31.h, z7.h[7]            : sqdmullt %z31.h %z7.h $0x07 -> %z31.s
+
+# SQDMULLT <Zd>.D, <Zn>.S, <Zm>.S[<imm>] (SQDMULLT-Z.ZZi-D)
+44e0e400 : sqdmullt z0.d, z0.s, z0.s[0]              : sqdmullt %z0.s %z0.s $0x00 -> %z0.d
+44e3e462 : sqdmullt z2.d, z3.s, z3.s[0]              : sqdmullt %z3.s %z3.s $0x00 -> %z2.d
+44e4e4a4 : sqdmullt z4.d, z5.s, z4.s[0]              : sqdmullt %z5.s %z4.s $0x00 -> %z4.d
+44e5ece6 : sqdmullt z6.d, z7.s, z5.s[1]              : sqdmullt %z7.s %z5.s $0x01 -> %z6.d
+44e6ed28 : sqdmullt z8.d, z9.s, z6.s[1]              : sqdmullt %z9.s %z6.s $0x01 -> %z8.d
+44e7ed6a : sqdmullt z10.d, z11.s, z7.s[1]            : sqdmullt %z11.s %z7.s $0x01 -> %z10.d
+44e8edac : sqdmullt z12.d, z13.s, z8.s[1]            : sqdmullt %z13.s %z8.s $0x01 -> %z12.d
+44e9edee : sqdmullt z14.d, z15.s, z9.s[1]            : sqdmullt %z15.s %z9.s $0x01 -> %z14.d
+44fae630 : sqdmullt z16.d, z17.s, z10.s[2]           : sqdmullt %z17.s %z10.s $0x02 -> %z16.d
+44fae651 : sqdmullt z17.d, z18.s, z10.s[2]           : sqdmullt %z18.s %z10.s $0x02 -> %z17.d
+44fbe693 : sqdmullt z19.d, z20.s, z11.s[2]           : sqdmullt %z20.s %z11.s $0x02 -> %z19.d
+44fce6d5 : sqdmullt z21.d, z22.s, z12.s[2]           : sqdmullt %z22.s %z12.s $0x02 -> %z21.d
+44fde717 : sqdmullt z23.d, z24.s, z13.s[2]           : sqdmullt %z24.s %z13.s $0x02 -> %z23.d
+44fee759 : sqdmullt z25.d, z26.s, z14.s[2]           : sqdmullt %z26.s %z14.s $0x02 -> %z25.d
+44ffef9b : sqdmullt z27.d, z28.s, z15.s[3]           : sqdmullt %z28.s %z15.s $0x03 -> %z27.d
+44ffefff : sqdmullt z31.d, z31.s, z15.s[3]           : sqdmullt %z31.s %z15.s $0x03 -> %z31.d
 
 # SQDMULLT <Zd>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (SQDMULLT-Z.ZZ-_)
 45406400 : sqdmullt z0.h, z0.b, z0.b                 : sqdmullt %z0.b %z0.b -> %z0.h
@@ -2556,6 +3114,60 @@
 44dd739b : sqrdmlah z27.d, z28.d, z29.d              : sqrdmlah %z27.d %z28.d %z29.d -> %z27.d
 44df73ff : sqrdmlah z31.d, z31.d, z31.d              : sqrdmlah %z31.d %z31.d %z31.d -> %z31.d
 
+# SQRDMLAH <Zda>.H, <Zn>.H, <Zm>.H[<imm>] (SQRDMLAH-Z.ZZZi-H)
+44201000 : sqrdmlah z0.h, z0.h, z0.h[0]              : sqrdmlah %z0.h %z0.h %z0.h $0x00 -> %z0.h
+44221062 : sqrdmlah z2.h, z3.h, z2.h[0]              : sqrdmlah %z2.h %z3.h %z2.h $0x00 -> %z2.h
+442b10a4 : sqrdmlah z4.h, z5.h, z3.h[1]              : sqrdmlah %z4.h %z5.h %z3.h $0x01 -> %z4.h
+442b10e6 : sqrdmlah z6.h, z7.h, z3.h[1]              : sqrdmlah %z6.h %z7.h %z3.h $0x01 -> %z6.h
+44341128 : sqrdmlah z8.h, z9.h, z4.h[2]              : sqrdmlah %z8.h %z9.h %z4.h $0x02 -> %z8.h
+4434116a : sqrdmlah z10.h, z11.h, z4.h[2]            : sqrdmlah %z10.h %z11.h %z4.h $0x02 -> %z10.h
+443d11ac : sqrdmlah z12.h, z13.h, z5.h[3]            : sqrdmlah %z12.h %z13.h %z5.h $0x03 -> %z12.h
+443d11ee : sqrdmlah z14.h, z15.h, z5.h[3]            : sqrdmlah %z14.h %z15.h %z5.h $0x03 -> %z14.h
+44661230 : sqrdmlah z16.h, z17.h, z6.h[4]            : sqrdmlah %z16.h %z17.h %z6.h $0x04 -> %z16.h
+44661251 : sqrdmlah z17.h, z18.h, z6.h[4]            : sqrdmlah %z17.h %z18.h %z6.h $0x04 -> %z17.h
+44661293 : sqrdmlah z19.h, z20.h, z6.h[4]            : sqrdmlah %z19.h %z20.h %z6.h $0x04 -> %z19.h
+446f12d5 : sqrdmlah z21.h, z22.h, z7.h[5]            : sqrdmlah %z21.h %z22.h %z7.h $0x05 -> %z21.h
+446f1317 : sqrdmlah z23.h, z24.h, z7.h[5]            : sqrdmlah %z23.h %z24.h %z7.h $0x05 -> %z23.h
+44701359 : sqrdmlah z25.h, z26.h, z0.h[6]            : sqrdmlah %z25.h %z26.h %z0.h $0x06 -> %z25.h
+4470139b : sqrdmlah z27.h, z28.h, z0.h[6]            : sqrdmlah %z27.h %z28.h %z0.h $0x06 -> %z27.h
+447f13ff : sqrdmlah z31.h, z31.h, z7.h[7]            : sqrdmlah %z31.h %z31.h %z7.h $0x07 -> %z31.h
+
+# SQRDMLAH <Zda>.S, <Zn>.S, <Zm>.S[<imm>] (SQRDMLAH-Z.ZZZi-S)
+44a01000 : sqrdmlah z0.s, z0.s, z0.s[0]              : sqrdmlah %z0.s %z0.s %z0.s $0x00 -> %z0.s
+44a21062 : sqrdmlah z2.s, z3.s, z2.s[0]              : sqrdmlah %z2.s %z3.s %z2.s $0x00 -> %z2.s
+44a310a4 : sqrdmlah z4.s, z5.s, z3.s[0]              : sqrdmlah %z4.s %z5.s %z3.s $0x00 -> %z4.s
+44ab10e6 : sqrdmlah z6.s, z7.s, z3.s[1]              : sqrdmlah %z6.s %z7.s %z3.s $0x01 -> %z6.s
+44ac1128 : sqrdmlah z8.s, z9.s, z4.s[1]              : sqrdmlah %z8.s %z9.s %z4.s $0x01 -> %z8.s
+44ac116a : sqrdmlah z10.s, z11.s, z4.s[1]            : sqrdmlah %z10.s %z11.s %z4.s $0x01 -> %z10.s
+44ad11ac : sqrdmlah z12.s, z13.s, z5.s[1]            : sqrdmlah %z12.s %z13.s %z5.s $0x01 -> %z12.s
+44ad11ee : sqrdmlah z14.s, z15.s, z5.s[1]            : sqrdmlah %z14.s %z15.s %z5.s $0x01 -> %z14.s
+44b61230 : sqrdmlah z16.s, z17.s, z6.s[2]            : sqrdmlah %z16.s %z17.s %z6.s $0x02 -> %z16.s
+44b61251 : sqrdmlah z17.s, z18.s, z6.s[2]            : sqrdmlah %z17.s %z18.s %z6.s $0x02 -> %z17.s
+44b61293 : sqrdmlah z19.s, z20.s, z6.s[2]            : sqrdmlah %z19.s %z20.s %z6.s $0x02 -> %z19.s
+44b712d5 : sqrdmlah z21.s, z22.s, z7.s[2]            : sqrdmlah %z21.s %z22.s %z7.s $0x02 -> %z21.s
+44b71317 : sqrdmlah z23.s, z24.s, z7.s[2]            : sqrdmlah %z23.s %z24.s %z7.s $0x02 -> %z23.s
+44b01359 : sqrdmlah z25.s, z26.s, z0.s[2]            : sqrdmlah %z25.s %z26.s %z0.s $0x02 -> %z25.s
+44b8139b : sqrdmlah z27.s, z28.s, z0.s[3]            : sqrdmlah %z27.s %z28.s %z0.s $0x03 -> %z27.s
+44bf13ff : sqrdmlah z31.s, z31.s, z7.s[3]            : sqrdmlah %z31.s %z31.s %z7.s $0x03 -> %z31.s
+
+# SQRDMLAH <Zda>.D, <Zn>.D, <Zm>.D[<imm>] (SQRDMLAH-Z.ZZZi-D)
+44e01000 : sqrdmlah z0.d, z0.d, z0.d[0]              : sqrdmlah %z0.d %z0.d %z0.d $0x00 -> %z0.d
+44e31062 : sqrdmlah z2.d, z3.d, z3.d[0]              : sqrdmlah %z2.d %z3.d %z3.d $0x00 -> %z2.d
+44e410a4 : sqrdmlah z4.d, z5.d, z4.d[0]              : sqrdmlah %z4.d %z5.d %z4.d $0x00 -> %z4.d
+44e510e6 : sqrdmlah z6.d, z7.d, z5.d[0]              : sqrdmlah %z6.d %z7.d %z5.d $0x00 -> %z6.d
+44e61128 : sqrdmlah z8.d, z9.d, z6.d[0]              : sqrdmlah %z8.d %z9.d %z6.d $0x00 -> %z8.d
+44e7116a : sqrdmlah z10.d, z11.d, z7.d[0]            : sqrdmlah %z10.d %z11.d %z7.d $0x00 -> %z10.d
+44e811ac : sqrdmlah z12.d, z13.d, z8.d[0]            : sqrdmlah %z12.d %z13.d %z8.d $0x00 -> %z12.d
+44e911ee : sqrdmlah z14.d, z15.d, z9.d[0]            : sqrdmlah %z14.d %z15.d %z9.d $0x00 -> %z14.d
+44ea1230 : sqrdmlah z16.d, z17.d, z10.d[0]           : sqrdmlah %z16.d %z17.d %z10.d $0x00 -> %z16.d
+44fa1251 : sqrdmlah z17.d, z18.d, z10.d[1]           : sqrdmlah %z17.d %z18.d %z10.d $0x01 -> %z17.d
+44fb1293 : sqrdmlah z19.d, z20.d, z11.d[1]           : sqrdmlah %z19.d %z20.d %z11.d $0x01 -> %z19.d
+44fc12d5 : sqrdmlah z21.d, z22.d, z12.d[1]           : sqrdmlah %z21.d %z22.d %z12.d $0x01 -> %z21.d
+44fd1317 : sqrdmlah z23.d, z24.d, z13.d[1]           : sqrdmlah %z23.d %z24.d %z13.d $0x01 -> %z23.d
+44fe1359 : sqrdmlah z25.d, z26.d, z14.d[1]           : sqrdmlah %z25.d %z26.d %z14.d $0x01 -> %z25.d
+44ff139b : sqrdmlah z27.d, z28.d, z15.d[1]           : sqrdmlah %z27.d %z28.d %z15.d $0x01 -> %z27.d
+44ff13ff : sqrdmlah z31.d, z31.d, z15.d[1]           : sqrdmlah %z31.d %z31.d %z15.d $0x01 -> %z31.d
+
 # SQRDMLSH <Zda>.<T>, <Zn>.<T>, <Zm>.<T> (SQRDMLSH-Z.ZZZ-_)
 44007400 : sqrdmlsh z0.b, z0.b, z0.b                 : sqrdmlsh %z0.b %z0.b %z0.b -> %z0.b
 44047462 : sqrdmlsh z2.b, z3.b, z4.b                 : sqrdmlsh %z2.b %z3.b %z4.b -> %z2.b
@@ -2622,6 +3234,60 @@
 44dd779b : sqrdmlsh z27.d, z28.d, z29.d              : sqrdmlsh %z27.d %z28.d %z29.d -> %z27.d
 44df77ff : sqrdmlsh z31.d, z31.d, z31.d              : sqrdmlsh %z31.d %z31.d %z31.d -> %z31.d
 
+# SQRDMLSH <Zda>.H, <Zn>.H, <Zm>.H[<imm>] (SQRDMLSH-Z.ZZZi-H)
+44201400 : sqrdmlsh z0.h, z0.h, z0.h[0]              : sqrdmlsh %z0.h %z0.h %z0.h $0x00 -> %z0.h
+44221462 : sqrdmlsh z2.h, z3.h, z2.h[0]              : sqrdmlsh %z2.h %z3.h %z2.h $0x00 -> %z2.h
+442b14a4 : sqrdmlsh z4.h, z5.h, z3.h[1]              : sqrdmlsh %z4.h %z5.h %z3.h $0x01 -> %z4.h
+442b14e6 : sqrdmlsh z6.h, z7.h, z3.h[1]              : sqrdmlsh %z6.h %z7.h %z3.h $0x01 -> %z6.h
+44341528 : sqrdmlsh z8.h, z9.h, z4.h[2]              : sqrdmlsh %z8.h %z9.h %z4.h $0x02 -> %z8.h
+4434156a : sqrdmlsh z10.h, z11.h, z4.h[2]            : sqrdmlsh %z10.h %z11.h %z4.h $0x02 -> %z10.h
+443d15ac : sqrdmlsh z12.h, z13.h, z5.h[3]            : sqrdmlsh %z12.h %z13.h %z5.h $0x03 -> %z12.h
+443d15ee : sqrdmlsh z14.h, z15.h, z5.h[3]            : sqrdmlsh %z14.h %z15.h %z5.h $0x03 -> %z14.h
+44661630 : sqrdmlsh z16.h, z17.h, z6.h[4]            : sqrdmlsh %z16.h %z17.h %z6.h $0x04 -> %z16.h
+44661651 : sqrdmlsh z17.h, z18.h, z6.h[4]            : sqrdmlsh %z17.h %z18.h %z6.h $0x04 -> %z17.h
+44661693 : sqrdmlsh z19.h, z20.h, z6.h[4]            : sqrdmlsh %z19.h %z20.h %z6.h $0x04 -> %z19.h
+446f16d5 : sqrdmlsh z21.h, z22.h, z7.h[5]            : sqrdmlsh %z21.h %z22.h %z7.h $0x05 -> %z21.h
+446f1717 : sqrdmlsh z23.h, z24.h, z7.h[5]            : sqrdmlsh %z23.h %z24.h %z7.h $0x05 -> %z23.h
+44701759 : sqrdmlsh z25.h, z26.h, z0.h[6]            : sqrdmlsh %z25.h %z26.h %z0.h $0x06 -> %z25.h
+4470179b : sqrdmlsh z27.h, z28.h, z0.h[6]            : sqrdmlsh %z27.h %z28.h %z0.h $0x06 -> %z27.h
+447f17ff : sqrdmlsh z31.h, z31.h, z7.h[7]            : sqrdmlsh %z31.h %z31.h %z7.h $0x07 -> %z31.h
+
+# SQRDMLSH <Zda>.S, <Zn>.S, <Zm>.S[<imm>] (SQRDMLSH-Z.ZZZi-S)
+44a01400 : sqrdmlsh z0.s, z0.s, z0.s[0]              : sqrdmlsh %z0.s %z0.s %z0.s $0x00 -> %z0.s
+44a21462 : sqrdmlsh z2.s, z3.s, z2.s[0]              : sqrdmlsh %z2.s %z3.s %z2.s $0x00 -> %z2.s
+44a314a4 : sqrdmlsh z4.s, z5.s, z3.s[0]              : sqrdmlsh %z4.s %z5.s %z3.s $0x00 -> %z4.s
+44ab14e6 : sqrdmlsh z6.s, z7.s, z3.s[1]              : sqrdmlsh %z6.s %z7.s %z3.s $0x01 -> %z6.s
+44ac1528 : sqrdmlsh z8.s, z9.s, z4.s[1]              : sqrdmlsh %z8.s %z9.s %z4.s $0x01 -> %z8.s
+44ac156a : sqrdmlsh z10.s, z11.s, z4.s[1]            : sqrdmlsh %z10.s %z11.s %z4.s $0x01 -> %z10.s
+44ad15ac : sqrdmlsh z12.s, z13.s, z5.s[1]            : sqrdmlsh %z12.s %z13.s %z5.s $0x01 -> %z12.s
+44ad15ee : sqrdmlsh z14.s, z15.s, z5.s[1]            : sqrdmlsh %z14.s %z15.s %z5.s $0x01 -> %z14.s
+44b61630 : sqrdmlsh z16.s, z17.s, z6.s[2]            : sqrdmlsh %z16.s %z17.s %z6.s $0x02 -> %z16.s
+44b61651 : sqrdmlsh z17.s, z18.s, z6.s[2]            : sqrdmlsh %z17.s %z18.s %z6.s $0x02 -> %z17.s
+44b61693 : sqrdmlsh z19.s, z20.s, z6.s[2]            : sqrdmlsh %z19.s %z20.s %z6.s $0x02 -> %z19.s
+44b716d5 : sqrdmlsh z21.s, z22.s, z7.s[2]            : sqrdmlsh %z21.s %z22.s %z7.s $0x02 -> %z21.s
+44b71717 : sqrdmlsh z23.s, z24.s, z7.s[2]            : sqrdmlsh %z23.s %z24.s %z7.s $0x02 -> %z23.s
+44b01759 : sqrdmlsh z25.s, z26.s, z0.s[2]            : sqrdmlsh %z25.s %z26.s %z0.s $0x02 -> %z25.s
+44b8179b : sqrdmlsh z27.s, z28.s, z0.s[3]            : sqrdmlsh %z27.s %z28.s %z0.s $0x03 -> %z27.s
+44bf17ff : sqrdmlsh z31.s, z31.s, z7.s[3]            : sqrdmlsh %z31.s %z31.s %z7.s $0x03 -> %z31.s
+
+# SQRDMLSH <Zda>.D, <Zn>.D, <Zm>.D[<imm>] (SQRDMLSH-Z.ZZZi-D)
+44e01400 : sqrdmlsh z0.d, z0.d, z0.d[0]              : sqrdmlsh %z0.d %z0.d %z0.d $0x00 -> %z0.d
+44e31462 : sqrdmlsh z2.d, z3.d, z3.d[0]              : sqrdmlsh %z2.d %z3.d %z3.d $0x00 -> %z2.d
+44e414a4 : sqrdmlsh z4.d, z5.d, z4.d[0]              : sqrdmlsh %z4.d %z5.d %z4.d $0x00 -> %z4.d
+44e514e6 : sqrdmlsh z6.d, z7.d, z5.d[0]              : sqrdmlsh %z6.d %z7.d %z5.d $0x00 -> %z6.d
+44e61528 : sqrdmlsh z8.d, z9.d, z6.d[0]              : sqrdmlsh %z8.d %z9.d %z6.d $0x00 -> %z8.d
+44e7156a : sqrdmlsh z10.d, z11.d, z7.d[0]            : sqrdmlsh %z10.d %z11.d %z7.d $0x00 -> %z10.d
+44e815ac : sqrdmlsh z12.d, z13.d, z8.d[0]            : sqrdmlsh %z12.d %z13.d %z8.d $0x00 -> %z12.d
+44e915ee : sqrdmlsh z14.d, z15.d, z9.d[0]            : sqrdmlsh %z14.d %z15.d %z9.d $0x00 -> %z14.d
+44ea1630 : sqrdmlsh z16.d, z17.d, z10.d[0]           : sqrdmlsh %z16.d %z17.d %z10.d $0x00 -> %z16.d
+44fa1651 : sqrdmlsh z17.d, z18.d, z10.d[1]           : sqrdmlsh %z17.d %z18.d %z10.d $0x01 -> %z17.d
+44fb1693 : sqrdmlsh z19.d, z20.d, z11.d[1]           : sqrdmlsh %z19.d %z20.d %z11.d $0x01 -> %z19.d
+44fc16d5 : sqrdmlsh z21.d, z22.d, z12.d[1]           : sqrdmlsh %z21.d %z22.d %z12.d $0x01 -> %z21.d
+44fd1717 : sqrdmlsh z23.d, z24.d, z13.d[1]           : sqrdmlsh %z23.d %z24.d %z13.d $0x01 -> %z23.d
+44fe1759 : sqrdmlsh z25.d, z26.d, z14.d[1]           : sqrdmlsh %z25.d %z26.d %z14.d $0x01 -> %z25.d
+44ff179b : sqrdmlsh z27.d, z28.d, z15.d[1]           : sqrdmlsh %z27.d %z28.d %z15.d $0x01 -> %z27.d
+44ff17ff : sqrdmlsh z31.d, z31.d, z15.d[1]           : sqrdmlsh %z31.d %z31.d %z15.d $0x01 -> %z31.d
+
 # SQRDMULH <Zd>.<T>, <Zn>.<T>, <Zm>.<T> (SQRDMULH-Z.ZZ-_)
 04207400 : sqrdmulh z0.b, z0.b, z0.b                 : sqrdmulh %z0.b %z0.b -> %z0.b
 04247462 : sqrdmulh z2.b, z3.b, z4.b                 : sqrdmulh %z3.b %z4.b -> %z2.b
@@ -2687,6 +3353,60 @@
 04fb7759 : sqrdmulh z25.d, z26.d, z27.d              : sqrdmulh %z26.d %z27.d -> %z25.d
 04fd779b : sqrdmulh z27.d, z28.d, z29.d              : sqrdmulh %z28.d %z29.d -> %z27.d
 04ff77ff : sqrdmulh z31.d, z31.d, z31.d              : sqrdmulh %z31.d %z31.d -> %z31.d
+
+# SQRDMULH <Zd>.H, <Zn>.H, <Zm>.H[<imm>] (SQRDMULH-Z.ZZi-H)
+4420f400 : sqrdmulh z0.h, z0.h, z0.h[0]              : sqrdmulh %z0.h %z0.h $0x00 -> %z0.h
+4422f462 : sqrdmulh z2.h, z3.h, z2.h[0]              : sqrdmulh %z3.h %z2.h $0x00 -> %z2.h
+442bf4a4 : sqrdmulh z4.h, z5.h, z3.h[1]              : sqrdmulh %z5.h %z3.h $0x01 -> %z4.h
+442bf4e6 : sqrdmulh z6.h, z7.h, z3.h[1]              : sqrdmulh %z7.h %z3.h $0x01 -> %z6.h
+4434f528 : sqrdmulh z8.h, z9.h, z4.h[2]              : sqrdmulh %z9.h %z4.h $0x02 -> %z8.h
+4434f56a : sqrdmulh z10.h, z11.h, z4.h[2]            : sqrdmulh %z11.h %z4.h $0x02 -> %z10.h
+443df5ac : sqrdmulh z12.h, z13.h, z5.h[3]            : sqrdmulh %z13.h %z5.h $0x03 -> %z12.h
+443df5ee : sqrdmulh z14.h, z15.h, z5.h[3]            : sqrdmulh %z15.h %z5.h $0x03 -> %z14.h
+4466f630 : sqrdmulh z16.h, z17.h, z6.h[4]            : sqrdmulh %z17.h %z6.h $0x04 -> %z16.h
+4466f651 : sqrdmulh z17.h, z18.h, z6.h[4]            : sqrdmulh %z18.h %z6.h $0x04 -> %z17.h
+4466f693 : sqrdmulh z19.h, z20.h, z6.h[4]            : sqrdmulh %z20.h %z6.h $0x04 -> %z19.h
+446ff6d5 : sqrdmulh z21.h, z22.h, z7.h[5]            : sqrdmulh %z22.h %z7.h $0x05 -> %z21.h
+446ff717 : sqrdmulh z23.h, z24.h, z7.h[5]            : sqrdmulh %z24.h %z7.h $0x05 -> %z23.h
+4470f759 : sqrdmulh z25.h, z26.h, z0.h[6]            : sqrdmulh %z26.h %z0.h $0x06 -> %z25.h
+4470f79b : sqrdmulh z27.h, z28.h, z0.h[6]            : sqrdmulh %z28.h %z0.h $0x06 -> %z27.h
+447ff7ff : sqrdmulh z31.h, z31.h, z7.h[7]            : sqrdmulh %z31.h %z7.h $0x07 -> %z31.h
+
+# SQRDMULH <Zd>.S, <Zn>.S, <Zm>.S[<imm>] (SQRDMULH-Z.ZZi-S)
+44a0f400 : sqrdmulh z0.s, z0.s, z0.s[0]              : sqrdmulh %z0.s %z0.s $0x00 -> %z0.s
+44a2f462 : sqrdmulh z2.s, z3.s, z2.s[0]              : sqrdmulh %z3.s %z2.s $0x00 -> %z2.s
+44a3f4a4 : sqrdmulh z4.s, z5.s, z3.s[0]              : sqrdmulh %z5.s %z3.s $0x00 -> %z4.s
+44abf4e6 : sqrdmulh z6.s, z7.s, z3.s[1]              : sqrdmulh %z7.s %z3.s $0x01 -> %z6.s
+44acf528 : sqrdmulh z8.s, z9.s, z4.s[1]              : sqrdmulh %z9.s %z4.s $0x01 -> %z8.s
+44acf56a : sqrdmulh z10.s, z11.s, z4.s[1]            : sqrdmulh %z11.s %z4.s $0x01 -> %z10.s
+44adf5ac : sqrdmulh z12.s, z13.s, z5.s[1]            : sqrdmulh %z13.s %z5.s $0x01 -> %z12.s
+44adf5ee : sqrdmulh z14.s, z15.s, z5.s[1]            : sqrdmulh %z15.s %z5.s $0x01 -> %z14.s
+44b6f630 : sqrdmulh z16.s, z17.s, z6.s[2]            : sqrdmulh %z17.s %z6.s $0x02 -> %z16.s
+44b6f651 : sqrdmulh z17.s, z18.s, z6.s[2]            : sqrdmulh %z18.s %z6.s $0x02 -> %z17.s
+44b6f693 : sqrdmulh z19.s, z20.s, z6.s[2]            : sqrdmulh %z20.s %z6.s $0x02 -> %z19.s
+44b7f6d5 : sqrdmulh z21.s, z22.s, z7.s[2]            : sqrdmulh %z22.s %z7.s $0x02 -> %z21.s
+44b7f717 : sqrdmulh z23.s, z24.s, z7.s[2]            : sqrdmulh %z24.s %z7.s $0x02 -> %z23.s
+44b0f759 : sqrdmulh z25.s, z26.s, z0.s[2]            : sqrdmulh %z26.s %z0.s $0x02 -> %z25.s
+44b8f79b : sqrdmulh z27.s, z28.s, z0.s[3]            : sqrdmulh %z28.s %z0.s $0x03 -> %z27.s
+44bff7ff : sqrdmulh z31.s, z31.s, z7.s[3]            : sqrdmulh %z31.s %z7.s $0x03 -> %z31.s
+
+# SQRDMULH <Zd>.D, <Zn>.D, <Zm>.D[<imm>] (SQRDMULH-Z.ZZi-D)
+44e0f400 : sqrdmulh z0.d, z0.d, z0.d[0]              : sqrdmulh %z0.d %z0.d $0x00 -> %z0.d
+44e3f462 : sqrdmulh z2.d, z3.d, z3.d[0]              : sqrdmulh %z3.d %z3.d $0x00 -> %z2.d
+44e4f4a4 : sqrdmulh z4.d, z5.d, z4.d[0]              : sqrdmulh %z5.d %z4.d $0x00 -> %z4.d
+44e5f4e6 : sqrdmulh z6.d, z7.d, z5.d[0]              : sqrdmulh %z7.d %z5.d $0x00 -> %z6.d
+44e6f528 : sqrdmulh z8.d, z9.d, z6.d[0]              : sqrdmulh %z9.d %z6.d $0x00 -> %z8.d
+44e7f56a : sqrdmulh z10.d, z11.d, z7.d[0]            : sqrdmulh %z11.d %z7.d $0x00 -> %z10.d
+44e8f5ac : sqrdmulh z12.d, z13.d, z8.d[0]            : sqrdmulh %z13.d %z8.d $0x00 -> %z12.d
+44e9f5ee : sqrdmulh z14.d, z15.d, z9.d[0]            : sqrdmulh %z15.d %z9.d $0x00 -> %z14.d
+44eaf630 : sqrdmulh z16.d, z17.d, z10.d[0]           : sqrdmulh %z17.d %z10.d $0x00 -> %z16.d
+44faf651 : sqrdmulh z17.d, z18.d, z10.d[1]           : sqrdmulh %z18.d %z10.d $0x01 -> %z17.d
+44fbf693 : sqrdmulh z19.d, z20.d, z11.d[1]           : sqrdmulh %z20.d %z11.d $0x01 -> %z19.d
+44fcf6d5 : sqrdmulh z21.d, z22.d, z12.d[1]           : sqrdmulh %z22.d %z12.d $0x01 -> %z21.d
+44fdf717 : sqrdmulh z23.d, z24.d, z13.d[1]           : sqrdmulh %z24.d %z13.d $0x01 -> %z23.d
+44fef759 : sqrdmulh z25.d, z26.d, z14.d[1]           : sqrdmulh %z26.d %z14.d $0x01 -> %z25.d
+44fff79b : sqrdmulh z27.d, z28.d, z15.d[1]           : sqrdmulh %z28.d %z15.d $0x01 -> %z27.d
+44fff7ff : sqrdmulh z31.d, z31.d, z15.d[1]           : sqrdmulh %z31.d %z15.d $0x01 -> %z31.d
 
 # SQXTNB  <Zd>.<T>, <Zn>.<Tb> (SQXTNB-Z.ZZ-_)
 45284000 : sqxtnb z0.b, z0.h                         : sqxtnb %z0.h -> %z0.b
@@ -3870,6 +4590,42 @@
 44dd4b9b : umlalb z27.d, z28.s, z29.s                : umlalb %z27.d %z28.s %z29.s -> %z27.d
 44df4bff : umlalb z31.d, z31.s, z31.s                : umlalb %z31.d %z31.s %z31.s -> %z31.d
 
+# UMLALB  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (UMLALB-Z.ZZZi-S)
+44a09000 : umlalb z0.s, z0.h, z0.h[0]                : umlalb %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a29062 : umlalb z2.s, z3.h, z2.h[0]                : umlalb %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a398a4 : umlalb z4.s, z5.h, z3.h[1]                : umlalb %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a398e6 : umlalb z6.s, z7.h, z3.h[1]                : umlalb %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44ac9128 : umlalb z8.s, z9.h, z4.h[2]                : umlalb %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44ac916a : umlalb z10.s, z11.h, z4.h[2]              : umlalb %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44ad99ac : umlalb z12.s, z13.h, z5.h[3]              : umlalb %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44ad99ee : umlalb z14.s, z15.h, z5.h[3]              : umlalb %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b69230 : umlalb z16.s, z17.h, z6.h[4]              : umlalb %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b69251 : umlalb z17.s, z18.h, z6.h[4]              : umlalb %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b69293 : umlalb z19.s, z20.h, z6.h[4]              : umlalb %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b79ad5 : umlalb z21.s, z22.h, z7.h[5]              : umlalb %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b79b17 : umlalb z23.s, z24.h, z7.h[5]              : umlalb %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b89359 : umlalb z25.s, z26.h, z0.h[6]              : umlalb %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8939b : umlalb z27.s, z28.h, z0.h[6]              : umlalb %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bf9bff : umlalb z31.s, z31.h, z7.h[7]              : umlalb %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# UMLALB  <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (UMLALB-Z.ZZZi-D)
+44e09000 : umlalb z0.d, z0.s, z0.s[0]                : umlalb %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e39062 : umlalb z2.d, z3.s, z3.s[0]                : umlalb %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e490a4 : umlalb z4.d, z5.s, z4.s[0]                : umlalb %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e598e6 : umlalb z6.d, z7.s, z5.s[1]                : umlalb %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e69928 : umlalb z8.d, z9.s, z6.s[1]                : umlalb %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e7996a : umlalb z10.d, z11.s, z7.s[1]              : umlalb %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e899ac : umlalb z12.d, z13.s, z8.s[1]              : umlalb %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e999ee : umlalb z14.d, z15.s, z9.s[1]              : umlalb %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44fa9230 : umlalb z16.d, z17.s, z10.s[2]             : umlalb %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44fa9251 : umlalb z17.d, z18.s, z10.s[2]             : umlalb %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fb9293 : umlalb z19.d, z20.s, z11.s[2]             : umlalb %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fc92d5 : umlalb z21.d, z22.s, z12.s[2]             : umlalb %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fd9317 : umlalb z23.d, z24.s, z13.s[2]             : umlalb %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44fe9359 : umlalb z25.d, z26.s, z14.s[2]             : umlalb %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ff9b9b : umlalb z27.d, z28.s, z15.s[3]             : umlalb %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ff9bff : umlalb z31.d, z31.s, z15.s[3]             : umlalb %z31.d %z31.s %z15.s $0x03 -> %z31.d
+
 # UMLALT  <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (UMLALT-Z.ZZZ-_)
 44404c00 : umlalt z0.h, z0.b, z0.b                   : umlalt %z0.h %z0.b %z0.b -> %z0.h
 44444c62 : umlalt z2.h, z3.b, z4.b                   : umlalt %z2.h %z3.b %z4.b -> %z2.h
@@ -3919,6 +4675,42 @@
 44db4f59 : umlalt z25.d, z26.s, z27.s                : umlalt %z25.d %z26.s %z27.s -> %z25.d
 44dd4f9b : umlalt z27.d, z28.s, z29.s                : umlalt %z27.d %z28.s %z29.s -> %z27.d
 44df4fff : umlalt z31.d, z31.s, z31.s                : umlalt %z31.d %z31.s %z31.s -> %z31.d
+
+# UMLALT  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (UMLALT-Z.ZZZi-S)
+44a09400 : umlalt z0.s, z0.h, z0.h[0]                : umlalt %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a29462 : umlalt z2.s, z3.h, z2.h[0]                : umlalt %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a39ca4 : umlalt z4.s, z5.h, z3.h[1]                : umlalt %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a39ce6 : umlalt z6.s, z7.h, z3.h[1]                : umlalt %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44ac9528 : umlalt z8.s, z9.h, z4.h[2]                : umlalt %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44ac956a : umlalt z10.s, z11.h, z4.h[2]              : umlalt %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44ad9dac : umlalt z12.s, z13.h, z5.h[3]              : umlalt %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44ad9dee : umlalt z14.s, z15.h, z5.h[3]              : umlalt %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b69630 : umlalt z16.s, z17.h, z6.h[4]              : umlalt %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b69651 : umlalt z17.s, z18.h, z6.h[4]              : umlalt %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b69693 : umlalt z19.s, z20.h, z6.h[4]              : umlalt %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b79ed5 : umlalt z21.s, z22.h, z7.h[5]              : umlalt %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b79f17 : umlalt z23.s, z24.h, z7.h[5]              : umlalt %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b89759 : umlalt z25.s, z26.h, z0.h[6]              : umlalt %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8979b : umlalt z27.s, z28.h, z0.h[6]              : umlalt %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bf9fff : umlalt z31.s, z31.h, z7.h[7]              : umlalt %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# UMLALT  <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (UMLALT-Z.ZZZi-D)
+44e09400 : umlalt z0.d, z0.s, z0.s[0]                : umlalt %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e39462 : umlalt z2.d, z3.s, z3.s[0]                : umlalt %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e494a4 : umlalt z4.d, z5.s, z4.s[0]                : umlalt %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e59ce6 : umlalt z6.d, z7.s, z5.s[1]                : umlalt %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e69d28 : umlalt z8.d, z9.s, z6.s[1]                : umlalt %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e79d6a : umlalt z10.d, z11.s, z7.s[1]              : umlalt %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e89dac : umlalt z12.d, z13.s, z8.s[1]              : umlalt %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e99dee : umlalt z14.d, z15.s, z9.s[1]              : umlalt %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44fa9630 : umlalt z16.d, z17.s, z10.s[2]             : umlalt %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44fa9651 : umlalt z17.d, z18.s, z10.s[2]             : umlalt %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fb9693 : umlalt z19.d, z20.s, z11.s[2]             : umlalt %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fc96d5 : umlalt z21.d, z22.s, z12.s[2]             : umlalt %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fd9717 : umlalt z23.d, z24.s, z13.s[2]             : umlalt %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44fe9759 : umlalt z25.d, z26.s, z14.s[2]             : umlalt %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ff9f9b : umlalt z27.d, z28.s, z15.s[3]             : umlalt %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ff9fff : umlalt z31.d, z31.s, z15.s[3]             : umlalt %z31.d %z31.s %z15.s $0x03 -> %z31.d
 
 # UMLSLB  <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (UMLSLB-Z.ZZZ-_)
 44405800 : umlslb z0.h, z0.b, z0.b                   : umlslb %z0.h %z0.b %z0.b -> %z0.h
@@ -3970,6 +4762,42 @@
 44dd5b9b : umlslb z27.d, z28.s, z29.s                : umlslb %z27.d %z28.s %z29.s -> %z27.d
 44df5bff : umlslb z31.d, z31.s, z31.s                : umlslb %z31.d %z31.s %z31.s -> %z31.d
 
+# UMLSLB  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (UMLSLB-Z.ZZZi-S)
+44a0b000 : umlslb z0.s, z0.h, z0.h[0]                : umlslb %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a2b062 : umlslb z2.s, z3.h, z2.h[0]                : umlslb %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a3b8a4 : umlslb z4.s, z5.h, z3.h[1]                : umlslb %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a3b8e6 : umlslb z6.s, z7.h, z3.h[1]                : umlslb %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44acb128 : umlslb z8.s, z9.h, z4.h[2]                : umlslb %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44acb16a : umlslb z10.s, z11.h, z4.h[2]              : umlslb %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44adb9ac : umlslb z12.s, z13.h, z5.h[3]              : umlslb %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44adb9ee : umlslb z14.s, z15.h, z5.h[3]              : umlslb %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b6b230 : umlslb z16.s, z17.h, z6.h[4]              : umlslb %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b6b251 : umlslb z17.s, z18.h, z6.h[4]              : umlslb %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b6b293 : umlslb z19.s, z20.h, z6.h[4]              : umlslb %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b7bad5 : umlslb z21.s, z22.h, z7.h[5]              : umlslb %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b7bb17 : umlslb z23.s, z24.h, z7.h[5]              : umlslb %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b8b359 : umlslb z25.s, z26.h, z0.h[6]              : umlslb %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8b39b : umlslb z27.s, z28.h, z0.h[6]              : umlslb %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bfbbff : umlslb z31.s, z31.h, z7.h[7]              : umlslb %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# UMLSLB  <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (UMLSLB-Z.ZZZi-D)
+44e0b000 : umlslb z0.d, z0.s, z0.s[0]                : umlslb %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e3b062 : umlslb z2.d, z3.s, z3.s[0]                : umlslb %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e4b0a4 : umlslb z4.d, z5.s, z4.s[0]                : umlslb %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e5b8e6 : umlslb z6.d, z7.s, z5.s[1]                : umlslb %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e6b928 : umlslb z8.d, z9.s, z6.s[1]                : umlslb %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e7b96a : umlslb z10.d, z11.s, z7.s[1]              : umlslb %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e8b9ac : umlslb z12.d, z13.s, z8.s[1]              : umlslb %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e9b9ee : umlslb z14.d, z15.s, z9.s[1]              : umlslb %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44fab230 : umlslb z16.d, z17.s, z10.s[2]             : umlslb %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44fab251 : umlslb z17.d, z18.s, z10.s[2]             : umlslb %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fbb293 : umlslb z19.d, z20.s, z11.s[2]             : umlslb %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fcb2d5 : umlslb z21.d, z22.s, z12.s[2]             : umlslb %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fdb317 : umlslb z23.d, z24.s, z13.s[2]             : umlslb %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44feb359 : umlslb z25.d, z26.s, z14.s[2]             : umlslb %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ffbb9b : umlslb z27.d, z28.s, z15.s[3]             : umlslb %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ffbbff : umlslb z31.d, z31.s, z15.s[3]             : umlslb %z31.d %z31.s %z15.s $0x03 -> %z31.d
+
 # UMLSLT  <Zda>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (UMLSLT-Z.ZZZ-_)
 44405c00 : umlslt z0.h, z0.b, z0.b                   : umlslt %z0.h %z0.b %z0.b -> %z0.h
 44445c62 : umlslt z2.h, z3.b, z4.b                   : umlslt %z2.h %z3.b %z4.b -> %z2.h
@@ -4020,6 +4848,78 @@
 44dd5f9b : umlslt z27.d, z28.s, z29.s                : umlslt %z27.d %z28.s %z29.s -> %z27.d
 44df5fff : umlslt z31.d, z31.s, z31.s                : umlslt %z31.d %z31.s %z31.s -> %z31.d
 
+# UMLSLT  <Zda>.S, <Zn>.H, <Zm>.H[<imm>] (UMLSLT-Z.ZZZi-S)
+44a0b400 : umlslt z0.s, z0.h, z0.h[0]                : umlslt %z0.s %z0.h %z0.h $0x00 -> %z0.s
+44a2b462 : umlslt z2.s, z3.h, z2.h[0]                : umlslt %z2.s %z3.h %z2.h $0x00 -> %z2.s
+44a3bca4 : umlslt z4.s, z5.h, z3.h[1]                : umlslt %z4.s %z5.h %z3.h $0x01 -> %z4.s
+44a3bce6 : umlslt z6.s, z7.h, z3.h[1]                : umlslt %z6.s %z7.h %z3.h $0x01 -> %z6.s
+44acb528 : umlslt z8.s, z9.h, z4.h[2]                : umlslt %z8.s %z9.h %z4.h $0x02 -> %z8.s
+44acb56a : umlslt z10.s, z11.h, z4.h[2]              : umlslt %z10.s %z11.h %z4.h $0x02 -> %z10.s
+44adbdac : umlslt z12.s, z13.h, z5.h[3]              : umlslt %z12.s %z13.h %z5.h $0x03 -> %z12.s
+44adbdee : umlslt z14.s, z15.h, z5.h[3]              : umlslt %z14.s %z15.h %z5.h $0x03 -> %z14.s
+44b6b630 : umlslt z16.s, z17.h, z6.h[4]              : umlslt %z16.s %z17.h %z6.h $0x04 -> %z16.s
+44b6b651 : umlslt z17.s, z18.h, z6.h[4]              : umlslt %z17.s %z18.h %z6.h $0x04 -> %z17.s
+44b6b693 : umlslt z19.s, z20.h, z6.h[4]              : umlslt %z19.s %z20.h %z6.h $0x04 -> %z19.s
+44b7bed5 : umlslt z21.s, z22.h, z7.h[5]              : umlslt %z21.s %z22.h %z7.h $0x05 -> %z21.s
+44b7bf17 : umlslt z23.s, z24.h, z7.h[5]              : umlslt %z23.s %z24.h %z7.h $0x05 -> %z23.s
+44b8b759 : umlslt z25.s, z26.h, z0.h[6]              : umlslt %z25.s %z26.h %z0.h $0x06 -> %z25.s
+44b8b79b : umlslt z27.s, z28.h, z0.h[6]              : umlslt %z27.s %z28.h %z0.h $0x06 -> %z27.s
+44bfbfff : umlslt z31.s, z31.h, z7.h[7]              : umlslt %z31.s %z31.h %z7.h $0x07 -> %z31.s
+
+# UMLSLT  <Zda>.D, <Zn>.S, <Zm>.S[<imm>] (UMLSLT-Z.ZZZi-D)
+44e0b400 : umlslt z0.d, z0.s, z0.s[0]                : umlslt %z0.d %z0.s %z0.s $0x00 -> %z0.d
+44e3b462 : umlslt z2.d, z3.s, z3.s[0]                : umlslt %z2.d %z3.s %z3.s $0x00 -> %z2.d
+44e4b4a4 : umlslt z4.d, z5.s, z4.s[0]                : umlslt %z4.d %z5.s %z4.s $0x00 -> %z4.d
+44e5bce6 : umlslt z6.d, z7.s, z5.s[1]                : umlslt %z6.d %z7.s %z5.s $0x01 -> %z6.d
+44e6bd28 : umlslt z8.d, z9.s, z6.s[1]                : umlslt %z8.d %z9.s %z6.s $0x01 -> %z8.d
+44e7bd6a : umlslt z10.d, z11.s, z7.s[1]              : umlslt %z10.d %z11.s %z7.s $0x01 -> %z10.d
+44e8bdac : umlslt z12.d, z13.s, z8.s[1]              : umlslt %z12.d %z13.s %z8.s $0x01 -> %z12.d
+44e9bdee : umlslt z14.d, z15.s, z9.s[1]              : umlslt %z14.d %z15.s %z9.s $0x01 -> %z14.d
+44fab630 : umlslt z16.d, z17.s, z10.s[2]             : umlslt %z16.d %z17.s %z10.s $0x02 -> %z16.d
+44fab651 : umlslt z17.d, z18.s, z10.s[2]             : umlslt %z17.d %z18.s %z10.s $0x02 -> %z17.d
+44fbb693 : umlslt z19.d, z20.s, z11.s[2]             : umlslt %z19.d %z20.s %z11.s $0x02 -> %z19.d
+44fcb6d5 : umlslt z21.d, z22.s, z12.s[2]             : umlslt %z21.d %z22.s %z12.s $0x02 -> %z21.d
+44fdb717 : umlslt z23.d, z24.s, z13.s[2]             : umlslt %z23.d %z24.s %z13.s $0x02 -> %z23.d
+44feb759 : umlslt z25.d, z26.s, z14.s[2]             : umlslt %z25.d %z26.s %z14.s $0x02 -> %z25.d
+44ffbf9b : umlslt z27.d, z28.s, z15.s[3]             : umlslt %z27.d %z28.s %z15.s $0x03 -> %z27.d
+44ffbfff : umlslt z31.d, z31.s, z15.s[3]             : umlslt %z31.d %z31.s %z15.s $0x03 -> %z31.d
+
+# UMULLB  <Zd>.S, <Zn>.H, <Zm>.H[<imm>] (UMULLB-Z.ZZi-S)
+44a0d000 : umullb z0.s, z0.h, z0.h[0]                : umullb %z0.h %z0.h $0x00 -> %z0.s
+44a2d062 : umullb z2.s, z3.h, z2.h[0]                : umullb %z3.h %z2.h $0x00 -> %z2.s
+44a3d8a4 : umullb z4.s, z5.h, z3.h[1]                : umullb %z5.h %z3.h $0x01 -> %z4.s
+44a3d8e6 : umullb z6.s, z7.h, z3.h[1]                : umullb %z7.h %z3.h $0x01 -> %z6.s
+44acd128 : umullb z8.s, z9.h, z4.h[2]                : umullb %z9.h %z4.h $0x02 -> %z8.s
+44acd16a : umullb z10.s, z11.h, z4.h[2]              : umullb %z11.h %z4.h $0x02 -> %z10.s
+44add9ac : umullb z12.s, z13.h, z5.h[3]              : umullb %z13.h %z5.h $0x03 -> %z12.s
+44add9ee : umullb z14.s, z15.h, z5.h[3]              : umullb %z15.h %z5.h $0x03 -> %z14.s
+44b6d230 : umullb z16.s, z17.h, z6.h[4]              : umullb %z17.h %z6.h $0x04 -> %z16.s
+44b6d251 : umullb z17.s, z18.h, z6.h[4]              : umullb %z18.h %z6.h $0x04 -> %z17.s
+44b6d293 : umullb z19.s, z20.h, z6.h[4]              : umullb %z20.h %z6.h $0x04 -> %z19.s
+44b7dad5 : umullb z21.s, z22.h, z7.h[5]              : umullb %z22.h %z7.h $0x05 -> %z21.s
+44b7db17 : umullb z23.s, z24.h, z7.h[5]              : umullb %z24.h %z7.h $0x05 -> %z23.s
+44b8d359 : umullb z25.s, z26.h, z0.h[6]              : umullb %z26.h %z0.h $0x06 -> %z25.s
+44b8d39b : umullb z27.s, z28.h, z0.h[6]              : umullb %z28.h %z0.h $0x06 -> %z27.s
+44bfdbff : umullb z31.s, z31.h, z7.h[7]              : umullb %z31.h %z7.h $0x07 -> %z31.s
+
+# UMULLB  <Zd>.D, <Zn>.S, <Zm>.S[<imm>] (UMULLB-Z.ZZi-D)
+44e0d000 : umullb z0.d, z0.s, z0.s[0]                : umullb %z0.s %z0.s $0x00 -> %z0.d
+44e3d062 : umullb z2.d, z3.s, z3.s[0]                : umullb %z3.s %z3.s $0x00 -> %z2.d
+44e4d0a4 : umullb z4.d, z5.s, z4.s[0]                : umullb %z5.s %z4.s $0x00 -> %z4.d
+44e5d8e6 : umullb z6.d, z7.s, z5.s[1]                : umullb %z7.s %z5.s $0x01 -> %z6.d
+44e6d928 : umullb z8.d, z9.s, z6.s[1]                : umullb %z9.s %z6.s $0x01 -> %z8.d
+44e7d96a : umullb z10.d, z11.s, z7.s[1]              : umullb %z11.s %z7.s $0x01 -> %z10.d
+44e8d9ac : umullb z12.d, z13.s, z8.s[1]              : umullb %z13.s %z8.s $0x01 -> %z12.d
+44e9d9ee : umullb z14.d, z15.s, z9.s[1]              : umullb %z15.s %z9.s $0x01 -> %z14.d
+44fad230 : umullb z16.d, z17.s, z10.s[2]             : umullb %z17.s %z10.s $0x02 -> %z16.d
+44fad251 : umullb z17.d, z18.s, z10.s[2]             : umullb %z18.s %z10.s $0x02 -> %z17.d
+44fbd293 : umullb z19.d, z20.s, z11.s[2]             : umullb %z20.s %z11.s $0x02 -> %z19.d
+44fcd2d5 : umullb z21.d, z22.s, z12.s[2]             : umullb %z22.s %z12.s $0x02 -> %z21.d
+44fdd317 : umullb z23.d, z24.s, z13.s[2]             : umullb %z24.s %z13.s $0x02 -> %z23.d
+44fed359 : umullb z25.d, z26.s, z14.s[2]             : umullb %z26.s %z14.s $0x02 -> %z25.d
+44ffdb9b : umullb z27.d, z28.s, z15.s[3]             : umullb %z28.s %z15.s $0x03 -> %z27.d
+44ffdbff : umullb z31.d, z31.s, z15.s[3]             : umullb %z31.s %z15.s $0x03 -> %z31.d
+
 # UMULLB  <Zd>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (UMULLB-Z.ZZ-_)
 45407800 : umullb z0.h, z0.b, z0.b                   : umullb %z0.b %z0.b -> %z0.h
 45447862 : umullb z2.h, z3.b, z4.b                   : umullb %z3.b %z4.b -> %z2.h
@@ -4069,6 +4969,42 @@
 45db7b59 : umullb z25.d, z26.s, z27.s                : umullb %z26.s %z27.s -> %z25.d
 45dd7b9b : umullb z27.d, z28.s, z29.s                : umullb %z28.s %z29.s -> %z27.d
 45df7bff : umullb z31.d, z31.s, z31.s                : umullb %z31.s %z31.s -> %z31.d
+
+# UMULLT  <Zd>.S, <Zn>.H, <Zm>.H[<imm>] (UMULLT-Z.ZZi-S)
+44a0d400 : umullt z0.s, z0.h, z0.h[0]                : umullt %z0.h %z0.h $0x00 -> %z0.s
+44a2d462 : umullt z2.s, z3.h, z2.h[0]                : umullt %z3.h %z2.h $0x00 -> %z2.s
+44a3dca4 : umullt z4.s, z5.h, z3.h[1]                : umullt %z5.h %z3.h $0x01 -> %z4.s
+44a3dce6 : umullt z6.s, z7.h, z3.h[1]                : umullt %z7.h %z3.h $0x01 -> %z6.s
+44acd528 : umullt z8.s, z9.h, z4.h[2]                : umullt %z9.h %z4.h $0x02 -> %z8.s
+44acd56a : umullt z10.s, z11.h, z4.h[2]              : umullt %z11.h %z4.h $0x02 -> %z10.s
+44adddac : umullt z12.s, z13.h, z5.h[3]              : umullt %z13.h %z5.h $0x03 -> %z12.s
+44adddee : umullt z14.s, z15.h, z5.h[3]              : umullt %z15.h %z5.h $0x03 -> %z14.s
+44b6d630 : umullt z16.s, z17.h, z6.h[4]              : umullt %z17.h %z6.h $0x04 -> %z16.s
+44b6d651 : umullt z17.s, z18.h, z6.h[4]              : umullt %z18.h %z6.h $0x04 -> %z17.s
+44b6d693 : umullt z19.s, z20.h, z6.h[4]              : umullt %z20.h %z6.h $0x04 -> %z19.s
+44b7ded5 : umullt z21.s, z22.h, z7.h[5]              : umullt %z22.h %z7.h $0x05 -> %z21.s
+44b7df17 : umullt z23.s, z24.h, z7.h[5]              : umullt %z24.h %z7.h $0x05 -> %z23.s
+44b8d759 : umullt z25.s, z26.h, z0.h[6]              : umullt %z26.h %z0.h $0x06 -> %z25.s
+44b8d79b : umullt z27.s, z28.h, z0.h[6]              : umullt %z28.h %z0.h $0x06 -> %z27.s
+44bfdfff : umullt z31.s, z31.h, z7.h[7]              : umullt %z31.h %z7.h $0x07 -> %z31.s
+
+# UMULLT  <Zd>.D, <Zn>.S, <Zm>.S[<imm>] (UMULLT-Z.ZZi-D)
+44e0d400 : umullt z0.d, z0.s, z0.s[0]                : umullt %z0.s %z0.s $0x00 -> %z0.d
+44e3d462 : umullt z2.d, z3.s, z3.s[0]                : umullt %z3.s %z3.s $0x00 -> %z2.d
+44e4d4a4 : umullt z4.d, z5.s, z4.s[0]                : umullt %z5.s %z4.s $0x00 -> %z4.d
+44e5dce6 : umullt z6.d, z7.s, z5.s[1]                : umullt %z7.s %z5.s $0x01 -> %z6.d
+44e6dd28 : umullt z8.d, z9.s, z6.s[1]                : umullt %z9.s %z6.s $0x01 -> %z8.d
+44e7dd6a : umullt z10.d, z11.s, z7.s[1]              : umullt %z11.s %z7.s $0x01 -> %z10.d
+44e8ddac : umullt z12.d, z13.s, z8.s[1]              : umullt %z13.s %z8.s $0x01 -> %z12.d
+44e9ddee : umullt z14.d, z15.s, z9.s[1]              : umullt %z15.s %z9.s $0x01 -> %z14.d
+44fad630 : umullt z16.d, z17.s, z10.s[2]             : umullt %z17.s %z10.s $0x02 -> %z16.d
+44fad651 : umullt z17.d, z18.s, z10.s[2]             : umullt %z18.s %z10.s $0x02 -> %z17.d
+44fbd693 : umullt z19.d, z20.s, z11.s[2]             : umullt %z20.s %z11.s $0x02 -> %z19.d
+44fcd6d5 : umullt z21.d, z22.s, z12.s[2]             : umullt %z22.s %z12.s $0x02 -> %z21.d
+44fdd717 : umullt z23.d, z24.s, z13.s[2]             : umullt %z24.s %z13.s $0x02 -> %z23.d
+44fed759 : umullt z25.d, z26.s, z14.s[2]             : umullt %z26.s %z14.s $0x02 -> %z25.d
+44ffdf9b : umullt z27.d, z28.s, z15.s[3]             : umullt %z28.s %z15.s $0x03 -> %z27.d
+44ffdfff : umullt z31.d, z31.s, z15.s[3]             : umullt %z31.s %z15.s $0x03 -> %z31.d
 
 # UMULLT  <Zd>.<T>, <Zn>.<Tb>, <Zm>.<Tb> (UMULLT-Z.ZZ-_)
 45407c00 : umullt z0.h, z0.b, z0.b                   : umullt %z0.b %z0.b -> %z0.h
