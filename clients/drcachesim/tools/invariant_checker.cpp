@@ -314,7 +314,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                type_is_instr(shard->prev_entry_.instr.type) &&
                shard->prev_instr_decoded_ != nullptr &&
                // TODO i#5949: For WOW64 instr_is_syscall() always returns false.
-               instr_is_syscall(shard->prev_instr_decoded_->data)) {
+               instr_is_syscall(shard->prev_instr_decoded_->data) &&
+               // Allow timestamp+cpuid in between.
+               (memref.marker.type != TRACE_TYPE_MARKER ||
+                (memref.marker.marker_type != TRACE_MARKER_TYPE_TIMESTAMP &&
+                 memref.marker.marker_type != TRACE_MARKER_TYPE_CPU_ID))) {
         report_if_false(shard,
                         shard->found_syscall_marker_ &&
                             shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&

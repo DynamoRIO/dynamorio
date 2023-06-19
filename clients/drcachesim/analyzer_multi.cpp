@@ -122,7 +122,8 @@ analyzer_multi_t::analyzer_multi_t()
                 dir.modfile_bytes_, dir.in_files_, dir.out_files_, dir.out_archives_,
                 dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_,
                 nullptr, op_verbose.get_value(), op_jobs.get_value(),
-                op_alt_module_dir.get_value(), op_chunk_instr_count.get_value());
+                op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
+                dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_);
             std::string error = raw2trace.do_conversion();
             if (!error.empty()) {
                 success_ = false;

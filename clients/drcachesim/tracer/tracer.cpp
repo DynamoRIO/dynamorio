@@ -94,7 +94,7 @@ namespace drmemtrace {
 
 char logsubdir[MAXIMUM_PATH];
 #ifdef BUILD_PT_TRACER
-static char kernel_pt_logsubdir[MAXIMUM_PATH];
+char kernel_pt_logsubdir[MAXIMUM_PATH];
 #endif
 char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 
@@ -1445,12 +1445,9 @@ event_pre_syscall(void *drcontext, int sysnum)
 #endif
     if (file_ops_func.handoff_buf == NULL)
         process_and_output_buffer(drcontext, false);
+
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
-            return true;
-        }
-
         if (data->syscall_pt_trace.get_cur_recording_sysnum() != INVALID_SYSNUM) {
             ASSERT(false, "last tracing isn't stopped");
             if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
@@ -1458,6 +1455,17 @@ event_pre_syscall(void *drcontext, int sysnum)
                 return false;
             }
         }
+
+        if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
+            return true;
+        }
+
+        /* Write a marker to userspace raw trace. */
+        trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
+        uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
+        BUF_PTR(data->seg_base) +=
+            instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
+
         if (!data->syscall_pt_trace.start_syscall_pt_trace(sysnum)) {
             ASSERT(false, "failed to start syscall pt trace");
             return false;
@@ -1519,22 +1527,6 @@ event_post_syscall(void *drcontext, int sysnum)
         ASSERT(false, "failed to stop syscall pt trace");
         return;
     }
-
-    /* Write a marker to userspace raw trace. */
-    /* TODO i#5505: We should move this _IDX marker to pre-syscall for two
-     * reasons: 1) Some syscalls have no post event (e.g., exit or sigreturn);
-     * 2) A blocking syscall may have a thread switch in between, separating the
-     * syscall instruction from this marker by quite a distance when interleaved
-     * with other threads.
-     */
-    /* This marker has the same issues with a syscall instruction not having a following
-     * marker as we hit with the syscall number marker, but our solutions there also
-     * solve the same problems for this marker.
-     */
-    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
-    uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_idx();
-    BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
 #endif
 }
 
@@ -1878,11 +1870,12 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(logsubdir);
     if (!file_ops_func.create_dir(logsubdir))
         return false;
+
 #ifdef BUILD_PT_TRACER
+    dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir), "%s%s%s",
+                buf, DIRSEP, DRMEMTRACE_KERNEL_PT_SUBDIR);
+    NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir),
-                    "%s%s%s", buf, DIRSEP, KERNEL_PT_OUTFILE_SUBDIR);
-        NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
         if (!file_ops_func.create_dir(kernel_pt_logsubdir))
             return false;
     }
