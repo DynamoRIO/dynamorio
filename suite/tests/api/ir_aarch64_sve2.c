@@ -4213,7 +4213,6 @@ TEST_INSTR(umullt_sve_idx_vector)
               opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
               opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
               opnd_create_immed_uint(i3_1_0[i], OPSZ_3b));
-
 }
 int
 main(int argc, char *argv[])
