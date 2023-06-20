@@ -7753,6 +7753,139 @@ TEST_INSTR(ldnt1sw_sve_pred)
                                                    OPSZ_8, DR_EXTEND_UXTX, 0, 0, 0,
                                                    OPSZ_16, 0));
 }
+
+TEST_INSTR(cdot_sve_idx_imm_vector)
+{
+
+    /* Testing CDOT    <Zda>.D, <Zn>.H, <Zm>.H[<imm>], <const> */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    static const uint rot_0_0[6] = { 0, 0, 90, 180, 180, 270 };
+    const char *const expected_0_0[6] = {
+        "cdot   %z0.d %z0.h %z0.h $0x00 $0x0000 -> %z0.d",
+        "cdot   %z5.d %z6.h %z4.h $0x01 $0x0000 -> %z5.d",
+        "cdot   %z10.d %z11.h %z7.h $0x01 $0x005a -> %z10.d",
+        "cdot   %z16.d %z17.h %z10.h $0x01 $0x00b4 -> %z16.d",
+        "cdot   %z21.d %z22.h %z12.h $0x00 $0x00b4 -> %z21.d",
+        "cdot   %z31.d %z31.h %z15.h $0x01 $0x010e -> %z31.d",
+    };
+    TEST_LOOP(cdot, cdot_sve_idx_imm_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_2),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+
+    /* Testing CDOT    <Zda>.S, <Zn>.B, <Zm>.B[<imm>], <const> */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    static const uint rot_1_0[6] = { 0, 0, 90, 180, 180, 270 };
+    const char *const expected_1_0[6] = {
+        "cdot   %z0.s %z0.b %z0.b $0x00 $0x0000 -> %z0.s",
+        "cdot   %z5.s %z6.b %z3.b $0x03 $0x0000 -> %z5.s",
+        "cdot   %z10.s %z11.b %z4.b $0x00 $0x005a -> %z10.s",
+        "cdot   %z16.s %z17.b %z6.b $0x01 $0x00b4 -> %z16.s",
+        "cdot   %z21.s %z22.b %z7.b $0x01 $0x00b4 -> %z21.s",
+        "cdot   %z31.s %z31.b %z7.b $0x03 $0x010e -> %z31.s",
+    };
+    TEST_LOOP(cdot, cdot_sve_idx_imm_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_1),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_1),
+              opnd_create_immed_uint(i2_1_0[i], OPSZ_2b),
+              opnd_create_immed_uint(rot_1_0[i], OPSZ_2));
+}
+
+TEST_INSTR(cmla_sve_idx_imm_vector)
+{
+
+    /* Testing CMLA    <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const> */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    static const uint rot_0_0[6] = { 0, 0, 90, 180, 180, 270 };
+    const char *const expected_0_0[6] = {
+        "cmla   %z0.s %z0.s %z0.s $0x00 $0x0000 -> %z0.s",
+        "cmla   %z5.s %z6.s %z4.s $0x01 $0x0000 -> %z5.s",
+        "cmla   %z10.s %z11.s %z7.s $0x01 $0x005a -> %z10.s",
+        "cmla   %z16.s %z17.s %z10.s $0x01 $0x00b4 -> %z16.s",
+        "cmla   %z21.s %z22.s %z12.s $0x00 $0x00b4 -> %z21.s",
+        "cmla   %z31.s %z31.s %z15.s $0x01 $0x010e -> %z31.s",
+    };
+    TEST_LOOP(cmla, cmla_sve_idx_imm_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+
+    /* Testing CMLA    <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const> */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    static const uint rot_1_0[6] = { 0, 0, 90, 180, 180, 270 };
+    const char *const expected_1_0[6] = {
+        "cmla   %z0.h %z0.h %z0.h $0x00 $0x0000 -> %z0.h",
+        "cmla   %z5.h %z6.h %z3.h $0x03 $0x0000 -> %z5.h",
+        "cmla   %z10.h %z11.h %z4.h $0x00 $0x005a -> %z10.h",
+        "cmla   %z16.h %z17.h %z6.h $0x01 $0x00b4 -> %z16.h",
+        "cmla   %z21.h %z22.h %z7.h $0x01 $0x00b4 -> %z21.h",
+        "cmla   %z31.h %z31.h %z7.h $0x03 $0x010e -> %z31.h",
+    };
+    TEST_LOOP(cmla, cmla_sve_idx_imm_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i2_1_0[i], OPSZ_2b),
+              opnd_create_immed_uint(rot_1_0[i], OPSZ_2));
+}
+
+TEST_INSTR(sqrdcmlah_sve_idx_imm_vector)
+{
+
+    /* Testing SQRDCMLAH <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const> */
+    static const reg_id_t Zm_0_0[6] = { DR_REG_Z0,  DR_REG_Z4,  DR_REG_Z7,
+                                        DR_REG_Z10, DR_REG_Z12, DR_REG_Z15 };
+    static const uint i1_0_0[6] = { 0, 1, 1, 1, 0, 1 };
+    static const uint rot_0_0[6] = { 0, 0, 90, 180, 180, 270 };
+    const char *const expected_0_0[6] = {
+        "sqrdcmlah %z0.s %z0.s %z0.s $0x00 $0x0000 -> %z0.s",
+        "sqrdcmlah %z5.s %z6.s %z4.s $0x01 $0x0000 -> %z5.s",
+        "sqrdcmlah %z10.s %z11.s %z7.s $0x01 $0x005a -> %z10.s",
+        "sqrdcmlah %z16.s %z17.s %z10.s $0x01 $0x00b4 -> %z16.s",
+        "sqrdcmlah %z21.s %z22.s %z12.s $0x00 $0x00b4 -> %z21.s",
+        "sqrdcmlah %z31.s %z31.s %z15.s $0x01 $0x010e -> %z31.s",
+    };
+    TEST_LOOP(sqrdcmlah, sqrdcmlah_sve_idx_imm_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_4),
+              opnd_create_reg_element_vector(Zm_0_0[i], OPSZ_4),
+              opnd_create_immed_uint(i1_0_0[i], OPSZ_1b),
+              opnd_create_immed_uint(rot_0_0[i], OPSZ_2));
+
+    /* Testing SQRDCMLAH <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const> */
+    static const reg_id_t Zm_1_0[6] = { DR_REG_Z0, DR_REG_Z3, DR_REG_Z4,
+                                        DR_REG_Z6, DR_REG_Z7, DR_REG_Z7 };
+    static const uint i2_1_0[6] = { 0, 3, 0, 1, 1, 3 };
+    static const uint rot_1_0[6] = { 0, 0, 90, 180, 180, 270 };
+    const char *const expected_1_0[6] = {
+        "sqrdcmlah %z0.h %z0.h %z0.h $0x00 $0x0000 -> %z0.h",
+        "sqrdcmlah %z5.h %z6.h %z3.h $0x03 $0x0000 -> %z5.h",
+        "sqrdcmlah %z10.h %z11.h %z4.h $0x00 $0x005a -> %z10.h",
+        "sqrdcmlah %z16.h %z17.h %z6.h $0x01 $0x00b4 -> %z16.h",
+        "sqrdcmlah %z21.h %z22.h %z7.h $0x01 $0x00b4 -> %z21.h",
+        "sqrdcmlah %z31.h %z31.h %z7.h $0x03 $0x010e -> %z31.h",
+    };
+    TEST_LOOP(sqrdcmlah, sqrdcmlah_sve_idx_imm_vector, 6, expected_1_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_2),
+              opnd_create_reg_element_vector(Zm_1_0[i], OPSZ_2),
+              opnd_create_immed_uint(i2_1_0[i], OPSZ_2b),
+              opnd_create_immed_uint(rot_1_0[i], OPSZ_2));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -7979,6 +8112,10 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(ldnt1sb_sve_pred);
     RUN_INSTR_TEST(ldnt1sh_sve_pred);
     RUN_INSTR_TEST(ldnt1sw_sve_pred);
+
+    RUN_INSTR_TEST(cdot_sve_idx_imm_vector);
+    RUN_INSTR_TEST(cmla_sve_idx_imm_vector);
+    RUN_INSTR_TEST(sqrdcmlah_sve_idx_imm_vector);
 
     print("All SVE2 tests complete.\n");
 #ifndef STANDALONE_DECODER

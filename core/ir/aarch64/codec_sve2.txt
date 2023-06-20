@@ -56,7 +56,11 @@
 00000100101xxxxx001111xxxxxxxxxx  n   1066 SVE2     bsl2n          z_d_0 : z_d_0 z_d_16 z_d_5
 01000101xx00000011011xxxxxxxxxxx  n   1161 SVE2      cadd  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 imm1_ew_10
 01000100xx0xxxxx0001xxxxxxxxxxxx  n   1162 SVE2      cdot    z_size_sd_0 : z_size_sd_0 z_sizep2_bh_5 z_sizep2_bh_16 imm2_nesw_10
+01000100111xxxxx0100xxxxxxxxxxxx  n   1162 SVE2      cdot          z_d_0 : z_d_0 z_msz_bhsd_5 z4_msz_bhsd_16 i1_index_20 imm2_nesw_10
+01000100101xxxxx0100xxxxxxxxxxxx  n   1162 SVE2      cdot          z_s_0 : z_s_0 z_b_5 z3_b_16 i2_index_19 imm2_nesw_10
 01000100xx0xxxxx0010xxxxxxxxxxxx  n   1163 SVE2      cmla  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16 imm2_nesw_10
+01000100101xxxxx0110xxxxxxxxxxxx  n   1163 SVE2      cmla   z_msz_bhsd_0 : z_msz_bhsd_0 z_msz_bhsd_5 z3_msz_bhsd_16 i2_index_19 imm2_nesw_10
+01000100111xxxxx0110xxxxxxxxxxxx  n   1163 SVE2      cmla          z_s_0 : z_s_0 z_s_5 z4_s_16 i1_index_20 imm2_nesw_10
 00000100001xxxxx001110xxxxxxxxxx  n   600  SVE2      eor3          z_d_0 : z_d_0 z_d_16 z_d_5
 01000101xx0xxxxx100100xxxxxxxxxx  n   1078 SVE2     eorbt  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16
 01000101xx0xxxxx100101xxxxxxxxxx  n   1079 SVE2     eortb  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16
@@ -169,6 +173,8 @@
 01000100101xxxxx1110x1xxxxxxxxxx  n   1112 SVE2  sqdmullt          z_s_0 : z_msz_bhsd_5 z3_msz_bhsd_16 i3_index_11
 01000100xx001001101xxxxxxxxxxxxx  n   411  SVE2     sqneg  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5
 01000100xx0xxxxx0011xxxxxxxxxxxx  n   1169 SVE2 sqrdcmlah  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16 imm2_nesw_10
+01000100101xxxxx0111xxxxxxxxxxxx  n   1169 SVE2 sqrdcmlah   z_msz_bhsd_0 : z_msz_bhsd_0 z_msz_bhsd_5 z3_msz_bhsd_16 i2_index_19 imm2_nesw_10
+01000100111xxxxx0111xxxxxxxxxxxx  n   1169 SVE2 sqrdcmlah          z_s_0 : z_s_0 z_s_5 z4_s_16 i1_index_20 imm2_nesw_10
 01000100xx0xxxxx011100xxxxxxxxxx  n   412  SVE2  sqrdmlah  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16
 01000100111xxxxx000100xxxxxxxxxx  n   412  SVE2  sqrdmlah          z_d_0 : z_d_0 z_d_5 z4_d_16 i1_index_20
 010001000x1xxxxx000100xxxxxxxxxx  n   412  SVE2  sqrdmlah          z_h_0 : z_h_0 z_h_5 z3_h_16 i3_index_19

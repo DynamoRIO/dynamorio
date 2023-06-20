@@ -357,7 +357,8 @@
 -------xx------------------xxxxx  z_msz_bhsd_0p2  # z register with element size determined by msz, plus 2
 -------xx------------------xxxxx  z_msz_bhsd_0p3  # z register with element size determined by msz, plus 3
 -------xx-------------xxxxx-----  z_msz_bhsd_5    # z register with element size determined by msz
--------xx----xxx----------------  z3_msz_bhsd_16  # z register with element size determined by msz, max z8
+-------xx----xxx----------------  z3_msz_bhsd_16  # z register with element size determined by msz, max z7
+-------xx---xxxx----------------  z4_msz_bhsd_16  # z register with element size determined by msz, max z15
 -------xx--xxxxx----------------  z_msz_bhsd_16   # z register with element size determined by msz
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12

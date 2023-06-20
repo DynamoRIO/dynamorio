@@ -17467,4 +17467,59 @@
  */
 #define INSTR_CREATE_ldnt1sw_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ldnt1sw, Zt, Zn, Pg)
+
+/*
+ * Creates a CDOT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      CDOT    <Zda>.D, <Zn>.H, <Zm>.H[<imm>], <const>
+      CDOT    <Zda>.S, <Zn>.B, <Zm>.B[<imm>], <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.h or Z.b.
+ * \param Zm   The third source vector register. Can be Z.h or Z.b.
+ * \param i1   The immediate index for Zm.
+ * \param rot  The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_cdot_sve_idx_imm_vector(dc, Zda, Zn, Zm, i1, rot) \
+    instr_create_1dst_5src(dc, OP_cdot, Zda, Zda, Zn, Zm, i1, rot)
+
+/**
+ * Creates a CMLA instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      CMLA    <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const>
+      CMLA    <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.s or Z.h.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i1   The immediate index for Zm.
+ * \param rot  The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_cmla_sve_idx_imm_vector(dc, Zda, Zn, Zm, i1, rot) \
+    instr_create_1dst_5src(dc, OP_cmla, Zda, Zda, Zn, Zm, i1, rot)
+
+/**
+ * Creates a SQRDCMLAH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRDCMLAH <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const>
+      SQRDCMLAH <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.s or Z.h.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i1   The immediate index for Zm.
+ * \param rot  The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_sqrdcmlah_sve_idx_imm_vector(dc, Zda, Zn, Zm, i1, rot) \
+    instr_create_1dst_5src(dc, OP_sqrdcmlah, Zda, Zda, Zn, Zm, i1, rot)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
