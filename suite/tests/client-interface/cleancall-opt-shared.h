@@ -293,10 +293,10 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
     }
     if (proc_has_feature(FEATURE_SVE)) {
         for (i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
-            if (memcmp(&mc_a->svep[i], &mc_b->svep[i], vl) != 0)
+            if (memcmp(&mc_a->svep[i], &mc_b->svep[i], vl / 8) != 0)
                 return false;
         }
-        if (memcmp(&mc_a->ffr, &mc_b->ffr, vl) != 0)
+        if (memcmp(&mc_a->ffr, &mc_b->ffr, vl / 8) != 0)
             return false;
     }
 #endif

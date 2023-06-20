@@ -125,8 +125,12 @@ create_base_disp_for_save_restore(uint base_reg, bool is_single_reg, reg_type rt
         opsz = is_single_reg ? OPSZ_16 : OPSZ_32;
         offset = num_saved * 16;
         break;
-    case SVE_REG_TYPE:
+    case SVE_ZREG_TYPE:
         opsz = opnd_size_from_bytes(proc_get_vector_length_bytes());
+        offset = num_saved;
+        break;
+    case SVE_PREG_TYPE:
+        opsz = opnd_size_from_bytes(proc_get_vector_length_bytes() / 8);
         offset = num_saved;
         break;
     default: ASSERT_NOT_REACHED();
@@ -238,7 +242,7 @@ insert_save_or_restore_svep_registers(
         if (reg_skip != NULL && reg_skip[MCXT_NUM_SIMD_SLOTS + i])
             continue;
 
-        opnd_t mem = get_mem_opnd(base_reg, true /* is_single_reg */, SVE_REG_TYPE,
+        opnd_t mem = get_mem_opnd(base_reg, true /* is_single_reg */, SVE_PREG_TYPE,
                                   saved_regs, ci);
         /* disp should never be greater than MAX_SVE_STR_OFFSET because it
          * is the immediate multiplied by the current vector register size
@@ -258,18 +262,18 @@ insert_save_or_restore_sve_registers(
                            uint num_saved, callee_info_t *ci),
     callee_info_t *ci)
 {
-    ASSERT(rtype == SVE_REG_TYPE);
+    ASSERT(rtype == SVE_ZREG_TYPE);
     ASSERT(first_reg == DR_REG_Z0);
     ASSERT(MCXT_NUM_FFR_SLOTS == 1);
 
-    // SVE Registers
+    // SVE Z registers
     uint i, saved_regs = 0;
     for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
         if (reg_skip != NULL && reg_skip[i])
             continue;
 
-        opnd_t mem =
-            get_mem_opnd(base_reg, true /* is_single_reg */, rtype, saved_regs, ci);
+        opnd_t mem = get_mem_opnd(base_reg, true /* is_single_reg */, SVE_ZREG_TYPE,
+                                  saved_regs, ci);
         /* disp should never be greater than MAX_SVE_STR_OFFSET because it
          * is the immediate multiplied by the current vector register size
          * in bytes: STR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}] and we only go up
@@ -301,6 +305,7 @@ insert_save_or_restore_sve_registers(
      */
     const bool handle_ffr =
         reg_skip == NULL || !reg_skip[MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS];
+    // SVE P and FFR registers.
     if (save) {
         insert_save_or_restore_svep_registers(dcontext, ilist, instr, reg_skip, base_reg,
                                               save, get_mem_opnd, ci);
@@ -309,13 +314,15 @@ insert_save_or_restore_sve_registers(
             PRE(ilist, instr,
                 INSTR_CREATE_rdffr_sve(
                     dcontext, opnd_create_reg_element_vector(DR_REG_P15, OPSZ_1)));
-            opnd_t mem = get_mem_opnd(base_reg, true /* is_single_reg */, rtype, 16, ci);
+            opnd_t mem =
+                get_mem_opnd(base_reg, true /* is_single_reg */, SVE_PREG_TYPE, 16, ci);
             PRE(ilist, instr,
                 create_load_or_store_instr(dcontext, DR_REG_P15, mem, save));
         }
     } else {
         if (handle_ffr) {
-            opnd_t mem = get_mem_opnd(base_reg, true /* is_single_reg */, rtype, 16, ci);
+            opnd_t mem =
+                get_mem_opnd(base_reg, true /* is_single_reg */, SVE_PREG_TYPE, 16, ci);
             PRE(ilist, instr,
                 create_load_or_store_instr(dcontext, DR_REG_P15, mem, save));
             PRE(ilist, instr,
@@ -344,10 +351,18 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
                                                   base_reg, first_reg, save, rtype,
                                                   get_mem_opnd, ci);
         break;
-    case SVE_REG_TYPE:
+    case SVE_ZREG_TYPE:
         insert_save_or_restore_sve_registers(dcontext, ilist, instr, reg_skip, base_reg,
                                              first_reg, save, rtype, get_mem_opnd, ci);
         break;
+    case SVE_PREG_TYPE:
+        /* SVE Z, P and FFR registers are saved/restored sequentially in
+         * insert_save_or_restore_sve_registers(). At this top level call layer
+         * we use SVE_ZREG_TYPE to indicate all of SVE register bank.
+         */
+        CLIENT_ASSERT(false,
+                      "internal error, use SVE_ZREG_TYPE for top level save/restore of "
+                      "SVE registers.");
     default: ASSERT_NOT_REACHED();
     }
 }
@@ -542,7 +557,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     if (proc_has_feature(FEATURE_SVE)) {
         /* Save the SVE regs */
         insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
-                              DR_REG_Z0, SVE_REG_TYPE);
+                              DR_REG_Z0, SVE_ZREG_TYPE);
     } else {
         /* Save the SIMD registers. */
         insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
@@ -675,7 +690,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     if (proc_has_feature(FEATURE_SVE)) {
         /* Restore the SVE regs */
         insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
-                                 DR_REG_Z0, SVE_REG_TYPE);
+                                 DR_REG_Z0, SVE_ZREG_TYPE);
     } else {
         /* Restore the SIMD registers. */
         insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,

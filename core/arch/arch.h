@@ -676,7 +676,7 @@ instr_t *
 convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 
 #ifdef AARCH64
-typedef enum { GPR_REG_TYPE, SIMD_REG_TYPE, SVE_REG_TYPE } reg_type;
+typedef enum { GPR_REG_TYPE, SIMD_REG_TYPE, SVE_ZREG_TYPE, SVE_PREG_TYPE } reg_type;
 
 void
 insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,

@@ -5158,7 +5158,8 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
         return false;
 
     // Transfer size depends on whether we are transferring a Z register or a P register.
-    opnd_size_t memory_transfer_size = TEST(1u << 14, enc) ? OPSZ_SVE_VL : OPSZ_SVE_PL;
+    opnd_size_t memory_transfer_size =
+        TEST(1u << 14, enc) ? OPSZ_SVE_VL_BYTES : OPSZ_SVE_PL_BYTES;
 
     *opnd = opnd_create_base_disp(decode_reg(extract_uint(enc, 5, 5), true, true),
                                   DR_REG_NULL, 0, offset9, memory_transfer_size);
@@ -5175,7 +5176,8 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
     uint rn;
 
     // Transfer size depends on whether we are transferring a Z register or a P register.
-    opnd_size_t memory_transfer_size = TEST(1u << 14, enc) ? OPSZ_SVE_VL : OPSZ_SVE_PL;
+    opnd_size_t memory_transfer_size =
+        TEST(1u << 14, enc) ? OPSZ_SVE_VL_BYTES : OPSZ_SVE_PL_BYTES;
 
     if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != memory_transfer_size)
         return false;
