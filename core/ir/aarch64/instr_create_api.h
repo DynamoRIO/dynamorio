@@ -17483,4 +17483,163 @@
 #define INSTR_CREATE_sqrdcmlah_sve_idx_imm_vector(dc, Zda, Zn, Zm, i1, rot) \
     instr_create_1dst_5src(dc, OP_sqrdcmlah, Zda, Zda, Zn, Zm, i1, rot)
 
+/**
+ * Creates a MATCH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      MATCH   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b or P.h.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector register. Can be Z.b or Z.h.
+ * \param Zm   The second source vector register. Can be Z.b or Z.h.
+ */
+#define INSTR_CREATE_match_sve_pred(dc, Pd, Pg, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_match, Pd, Pg, Zn, Zm)
+
+/**
+ * Creates a NMATCH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      NMATCH  <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b or P.h.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector register. Can be Z.b or Z.h.
+ * \param Zm   The second source vector register. Can be Z.b or Z.h.
+ */
+#define INSTR_CREATE_nmatch_sve_pred(dc, Pd, Pg, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_nmatch, Pd, Pg, Zn, Zm)
+
+/**
+ * Creates an URECPE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URECPE  <Zd>.S, <Pg>/M, <Zn>.S
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z.s.
+ */
+#define INSTR_CREATE_urecpe_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_urecpe, Zd, Pg, Zn)
+
+/**
+ * Creates an URSQRTE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URSQRTE <Zd>.S, <Pg>/M, <Zn>.S
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z.s.
+ */
+#define INSTR_CREATE_ursqrte_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_ursqrte, Zd, Pg, Zn)
+
+/**
+ * Creates a WHILEGE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEGE <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilege_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilege, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEGT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEGT <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilegt_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilegt, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEHI instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEHI <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilehi_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilehi, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEHS instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEHS <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilehs_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilehs, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILERW instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILERW <Pd>.<Ts>, <Xn>, <Xm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilerw_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilerw, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEWR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEWR <Pd>.<Ts>, <Xn>, <Xm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilewr_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilewr, Pd, Rn, Rm)
 #endif /* DR_IR_MACROS_AARCH64_H */
