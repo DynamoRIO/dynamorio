@@ -167,6 +167,8 @@
 ---------------x----------------  imm1_ew_16 # 1 bit symbolised imm, representing 90 or 270
 --------------?------??????xxxxx  z_imm13_bhsd_0 # sve vector reg, elsz depending on size value encoded within an 13 bit immediate from 5-17
 --------------xxxxxxxxxxxxx-----  imm13_const # Const value within a 13 bit immediate from 5-17
+-------------xx------------xxxxx  z_size17_hsd_0 # z register with the size determined by bits 17-18
+-------------xx-------xxxxx-----  z_size17_hsd_5 # z register with the size determined by bits 17-18
 -------------xxx----------------  imm3       # 3 bit immediate from 16-18
 -------------xxx----------------  z3_b_16    # Z0-7 register with b size elements at position 16
 -------------xxx----------------  z3_h_16    # Z0-7 register with h size elements at position 16

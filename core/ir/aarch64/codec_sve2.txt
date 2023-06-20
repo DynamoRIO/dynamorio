@@ -58,6 +58,13 @@
 01000101xx0xxxxx100100xxxxxxxxxx  n   1078 SVE2     eorbt  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16
 01000101xx0xxxxx100101xxxxxxxxxx  n   1079 SVE2     eortb  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16
 01100100xx010000100xxxxxxxxxxxxx  n   99   SVE2     faddp   z_size_hsd_0 : p10_mrg_lo z_size_hsd_0 z_size_hsd_5
+0110010010001001101xxxxxxxxxxxxx  n   1156 SVE2    fcvtlt          z_s_0 : p10_mrg_lo z_msz_bhsd_5
+0110010011001011101xxxxxxxxxxxxx  n   1156 SVE2    fcvtlt          z_d_0 : p10_mrg_lo z_s_5
+0110010011001010101xxxxxxxxxxxxx  n   1157 SVE2    fcvtnt          z_s_0 : z_s_0 p10_mrg_lo z_d_5
+0110010010001000101xxxxxxxxxxxxx  n   1157 SVE2    fcvtnt   z_msz_bhsd_0 : z_msz_bhsd_0 p10_mrg_lo z_s_5
+0110010100001010101xxxxxxxxxxxxx  n   1158 SVE2     fcvtx   z_msz_bhsd_0 : p10_mrg_lo z_d_5
+0110010000001010101xxxxxxxxxxxxx  n   1159 SVE2   fcvtxnt          z_s_0 : z_s_0 p10_mrg_lo z_d_5
+0110010100011xx0101xxxxxxxxxxxxx  n   1160 SVE2     flogb  z_size17_hsd_0 : p10_mrg_lo z_size17_hsd_5
 01100100xx010100100xxxxxxxxxxxxx  n   131  SVE2   fmaxnmp   z_size_hsd_0 : p10_mrg_lo z_size_hsd_0 z_size_hsd_5
 01100100xx010110100xxxxxxxxxxxxx  n   133  SVE2     fmaxp   z_size_hsd_0 : p10_mrg_lo z_size_hsd_0 z_size_hsd_5
 01100100xx010101100xxxxxxxxxxxxx  n   137  SVE2   fminnmp   z_size_hsd_0 : p10_mrg_lo z_size_hsd_0 z_size_hsd_5
@@ -86,6 +93,7 @@
 01000101xx0xxxxx110001xxxxxxxxxx  n   1091 SVE2    sabalt   z_size_hsd_0 : z_size_hsd_0 z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx001100xxxxxxxxxx  n   1092 SVE2    sabdlb   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx001101xxxxxxxxxx  n   1093 SVE2    sabdlt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
+01000100xx000100101xxxxxxxxxxxxx  n   352  SVE2    sadalp   z_size_hsd_0 : z_size_hsd_0 p10_mrg_lo z_sizep1_bhs_5
 01000101xx0xxxxx000000xxxxxxxxxx  n   1094 SVE2    saddlb   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx100000xxxxxxxxxx  n   1095 SVE2   saddlbt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx000001xxxxxxxxxx  n   1096 SVE2    saddlt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
@@ -120,6 +128,7 @@
 01000101xx0xxxxx011101xxxxxxxxxx  n   1104 SVE2    smullt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000100111xxxxx1100x1xxxxxxxxxx  n   1104 SVE2    smullt          z_d_0 : z_s_5 z4_s_16 i2_index_11
 01000100101xxxxx1100x1xxxxxxxxxx  n   1104 SVE2    smullt          z_s_0 : z_msz_bhsd_5 z3_msz_bhsd_16 i3_index_11
+01000100xx001000101xxxxxxxxxxxxx  n   402  SVE2     sqabs  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5
 01000100xx0xxxxx011000xxxxxxxxxx  n   1105 SVE2  sqdmlalb   z_size_hsd_0 : z_size_hsd_0 z_sizep1_bhs_5 z_sizep1_bhs_16
 01000100111xxxxx0010x0xxxxxxxxxx  n   1105 SVE2  sqdmlalb          z_d_0 : z_d_0 z_s_5 z4_s_16 i2_index_11
 01000100101xxxxx0010x0xxxxxxxxxx  n   1105 SVE2  sqdmlalb          z_s_0 : z_s_0 z_msz_bhsd_5 z3_msz_bhsd_16 i3_index_11
@@ -144,6 +153,7 @@
 01000101xx0xxxxx011001xxxxxxxxxx  n   1112 SVE2  sqdmullt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000100111xxxxx1110x1xxxxxxxxxx  n   1112 SVE2  sqdmullt          z_d_0 : z_s_5 z4_s_16 i2_index_11
 01000100101xxxxx1110x1xxxxxxxxxx  n   1112 SVE2  sqdmullt          z_s_0 : z_msz_bhsd_5 z3_msz_bhsd_16 i3_index_11
+01000100xx001001101xxxxxxxxxxxxx  n   411  SVE2     sqneg  z_size_bhsd_0 : p10_mrg_lo z_size_bhsd_5
 01000100xx0xxxxx011100xxxxxxxxxx  n   412  SVE2  sqrdmlah  z_size_bhsd_0 : z_size_bhsd_0 z_size_bhsd_5 z_size_bhsd_16
 01000100111xxxxx000100xxxxxxxxxx  n   412  SVE2  sqrdmlah          z_d_0 : z_d_0 z_d_5 z4_d_16 i1_index_20
 010001000x1xxxxx000100xxxxxxxxxx  n   412  SVE2  sqrdmlah          z_h_0 : z_h_0 z_h_5 z3_h_16 i3_index_19
@@ -183,6 +193,7 @@
 01000101xx0xxxxx110011xxxxxxxxxx  n   1122 SVE2    uabalt   z_size_hsd_0 : z_size_hsd_0 z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx001110xxxxxxxxxx  n   1123 SVE2    uabdlb   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx001111xxxxxxxxxx  n   1124 SVE2    uabdlt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
+01000100xx000101101xxxxxxxxxxxxx  n   502  SVE2    uadalp   z_size_hsd_0 : z_size_hsd_0 p10_mrg_lo z_sizep1_bhs_5
 01000101xx0xxxxx000010xxxxxxxxxx  n   1125 SVE2    uaddlb   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx000011xxxxxxxxxx  n   1126 SVE2    uaddlt   z_size_hsd_0 : z_sizep1_bhs_5 z_sizep1_bhs_16
 01000101xx0xxxxx010010xxxxxxxxxx  n   1127 SVE2    uaddwb   z_size_hsd_0 : z_size_hsd_5 z_sizep1_bhs_16
