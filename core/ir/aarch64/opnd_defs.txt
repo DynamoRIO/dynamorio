@@ -265,7 +265,6 @@
 ---------x------------xxxxx-----  wx_sz_5    # W/X register (or WZR/XZR) with size indicated in bit 22
 ---------x-xx-------------------  i3_index_19 # Index value from 22, 20:19
 ---------x-xx--------------xxxxx  z_wtszl19_bhsd_0 # z element register mediated by the tszl and tszh fields, writing out the size
----------x-xx---------xxxxx-----  z_wtszl19_bhsd_5 # z element register mediated by the tszl and tszh fields, writing out the size
 ---------x-xx---------xxxxx-----  z_wtszl19p1_bhsd_5 # z element register mediated by the tszl and tszh fields, writing out the size, plus 1
 ---------x-xxxxx----------------  wx_sz_16   # W/X register (or WZR/XZR) with size indicated in bit 22
 ---------x-xxxxxxxxx------------  mem_s_imm9_off # The offset part of memory address reg+offset mem_s_imm9
@@ -325,6 +324,7 @@
 --------xx-xxxxx----------------  bhsd_size_reg16  # bhsd register, depending on size opcode
 --------xx-xxxxx----------------  p_size_bhsd_16   # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_size_bhsd_16   # sve vector reg, elsz depending on size
+--------xx-xxxxx----------------  z_size_sd_16     # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_sizep1_bhs_16  # sve vector reg, elsz depending on size plus 1
 --------xx-xxxxx----------------  z_sizep1_bs_16   # sve vector reg, elsz depending on size plus 1
 --------xx-xxxxx----------------  z_size_hsd_16    # sve vector reg, elsz depending on size

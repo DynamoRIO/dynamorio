@@ -16159,4 +16159,563 @@
 #define INSTR_CREATE_umullt_sve_idx_vector(dc, Zd, Zn, Zm, i2) \
     instr_create_1dst_3src(dc, OP_umullt, Zd, Zn, Zm, i2)
 
+/**
+ * Creates an ADDP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ADDP    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_addp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_addp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FADDP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FADDP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.h,
+ *              Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_faddp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_faddp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FMAXNMP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMAXNMP <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.h,
+ *              Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_fmaxnmp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_fmaxnmp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FMAXP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMAXP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.h,
+ *              Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_fmaxp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_fmaxp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FMINNMP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMINNMP <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.h,
+ *              Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_fminnmp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_fminnmp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FMINP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMINP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.h,
+ *              Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_fminp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_fminp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a HISTCNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      HISTCNT <Zd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector register. Can be Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.s or Z.d.
+ */
+#define INSTR_CREATE_histcnt_sve_pred(dc, Zd, Pg, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_histcnt, Zd, Pg, Zn, Zm)
+
+/**
+ * Creates a SHADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SHADD   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_shadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_shadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SHSUB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SHSUB   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_shsub_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_shsub, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SHSUBR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SHSUBR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_shsubr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_shsubr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SMAXP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMAXP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_smaxp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_smaxp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SMINP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMINP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sminp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sminp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SQRSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRSHL  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqrshl_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sqrshl, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SQRSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRSHLR <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqrshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sqrshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SQSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSHL   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqshl_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sqshl, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SQSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSHLR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sqshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SQSUBR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSUBR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqsubr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sqsubr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SRHADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SRHADD  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_srhadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_srhadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SRSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SRSHL   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_srshl_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_srshl, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SRSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SRSHLR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_srshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_srshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SUQADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SUQADD  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_suqadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_suqadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UHADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UHADD   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uhadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uhadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UHSUB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UHSUB   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uhsub_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uhsub, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UHSUBR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UHSUBR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uhsubr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uhsubr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UMAXP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMAXP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_umaxp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_umaxp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UMINP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMINP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uminp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uminp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UQRSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQRSHL  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqrshl_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uqrshl, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UQRSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQRSHLR <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqrshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uqrshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UQSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQSHL   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqshl_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uqshl, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UQSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQSHLR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uqshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UQSUBR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQSUBR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqsubr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uqsubr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an URHADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URHADD  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_urhadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_urhadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an URSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URSHL   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_urshl_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_urshl, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an URSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URSHLR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_urshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_urshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an USQADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      USQADD  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_usqadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_usqadd, Zdn, Pg, Zdn, Zm)
 #endif /* DR_IR_MACROS_AARCH64_H */
