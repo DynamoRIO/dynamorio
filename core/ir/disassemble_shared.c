@@ -129,6 +129,9 @@ disassemble_options_init(void)
     if (DYNAMO_OPTION(syntax_arm)) {
         flags |= DR_DISASM_ARM;
     }
+    if (DYNAMO_OPTION(syntax_riscv)) {
+        flags |= DR_DISASM_RISCV;
+    }
     /* This option is separate as it's not strictly a disasm style */
     dynamo_options.decode_strict = TEST(DR_DISASM_STRICT_INVALID, flags);
     if (DYNAMO_OPTION(decode_strict))
@@ -154,7 +157,8 @@ disassemble_set_syntax(dr_disasm_flags_t flags)
 static inline bool
 dsts_first(void)
 {
-    return TESTANY(DR_DISASM_INTEL | DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask));
+    return TESTANY(DR_DISASM_INTEL | DR_DISASM_ARM | DR_DISASM_RISCV,
+                   DYNAMO_OPTION(disasm_mask));
 }
 
 static inline bool
@@ -170,7 +174,7 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 static inline const char *
 immed_prefix(void)
 {
-    return (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))
+    return (TEST(DR_DISASM_INTEL | DR_DISASM_RISCV, DYNAMO_OPTION(disasm_mask))
                 ? ""
                 : (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)) ? "#" : "$"));
 }
@@ -180,7 +184,8 @@ reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, reg_id_t reg,
                 dr_opnd_flags_t flags, const char *prefix, const char *suffix)
 {
     print_to_buffer(buf, bufsz, sofar,
-                    TESTANY(DR_DISASM_INTEL | DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask))
+                    TESTANY(DR_DISASM_INTEL | DR_DISASM_ARM | DR_DISASM_RISCV,
+                            DYNAMO_OPTION(disasm_mask))
                         ? "%s%s%s%s"
                         : "%s%s%%%s%s",
                     prefix, TEST(DR_OPND_NEGATED, flags) ? "-" : "", reg_names[reg],
@@ -399,12 +404,10 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
                 print_to_buffer(buf, bufsz, sofar, "-");
             }
         }
-#if defined(RISCV64)
-        const char *fmt =
-            TEST(opnd_get_flags(opnd), DR_OPND_IMM_PRINT_DECIMAL) ? "%d" : "0x%x";
-        print_to_buffer(buf, bufsz, sofar, fmt, disp);
-#else
         if (TEST(DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask)))
+            print_to_buffer(buf, bufsz, sofar, "%d", disp);
+        else if (TEST(DR_DISASM_RISCV, DYNAMO_OPTION(disasm_mask)) &&
+                 TEST(opnd_get_flags(opnd), DR_OPND_IMM_PRINT_DECIMAL))
             print_to_buffer(buf, bufsz, sofar, "%d", disp);
         else if ((unsigned)disp <= 0xff && !opnd_is_disp_force_full(opnd))
             print_to_buffer(buf, bufsz, sofar, "0x%02x", disp);
@@ -412,7 +415,6 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, opnd_t 
             print_to_buffer(buf, bufsz, sofar, "0x%04x", disp);
         else /* there are no 64-bit displacements */
             print_to_buffer(buf, bufsz, sofar, "0x%08x", disp);
-#endif
     }
 
     if (!TESTANY(DR_DISASM_INTEL | DR_DISASM_ARM, DYNAMO_OPTION(disasm_mask))) {

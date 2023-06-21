@@ -1,286 +1,286 @@
-lb     (%a1)[1byte] -> %a0
-lbu    -1(%a1)[1byte] -> %zero
-lh     +2047(%a1)[2byte] -> %a0
-lhu    (%zero)[2byte] -> %a0
-lw     -1(%a1)[4byte] -> %t6
-lwu    (%t6)[4byte] -> %a0
-ld     +42(%a1)[8byte] -> %a0
-sb     %a0 -> (%a1)[1byte]
-sh     %t6 -> -1(%zero)[2byte]
-sw     %zero -> +2047(%t6)[4byte]
-sd     %a0 -> +42(%a1)[8byte]
-c.ldsp (%sp)[8byte] -> %a0
-c.ld   +248(%a5)[8byte] -> %fp
-c.lwsp +124(%sp)[4byte] -> %zero
-c.lw   +124(%a5)[4byte] -> %fp
-c.sdsp %a0 -> (%sp)[8byte]
-c.sd   %fp -> +248(%a5)[8byte]
-c.swsp %zero -> +124(%sp)[4byte]
-c.sw   %fp -> +124(%a5)[4byte]
+lb     (a1)[1byte] -> a0
+lbu    -1(a1)[1byte] -> zero
+lh     +2047(a1)[2byte] -> a0
+lhu    (zero)[2byte] -> a0
+lw     -1(a1)[4byte] -> t6
+lwu    (t6)[4byte] -> a0
+ld     +42(a1)[8byte] -> a0
+sb     a0 -> (a1)[1byte]
+sh     t6 -> -1(zero)[2byte]
+sw     zero -> +2047(t6)[4byte]
+sd     a0 -> +42(a1)[8byte]
+c.ldsp (sp)[8byte] -> a0
+c.ld   +248(a5)[8byte] -> fp
+c.lwsp +124(sp)[4byte] -> zero
+c.lw   +124(a5)[4byte] -> fp
+c.sdsp a0 -> (sp)[8byte]
+c.sd   fp -> +248(a5)[8byte]
+c.swsp zero -> +124(sp)[4byte]
+c.sw   fp -> +124(a5)[4byte]
 test_integer_load_store complete
-flw    (%a1)[4byte] -> %ft0
-fld    -1(%zero)[8byte] -> %ft11
-flq    -1(%zero)[16byte] -> %ft11
-fsw    %ft1 -> +2047(%t6)[4byte]
-fsd    %ft11 -> +2047(%t6)[8byte]
-fsq    %ft11 -> +2047(%t6)[16byte]
-c.fldsp (%sp)[8byte] -> %ft0
-c.fld  +248(%a5)[8byte] -> %fs0
-c.fsdsp %ft11 -> (%sp)[8byte]
-c.fsd  %fs0 -> +248(%a5)[8byte]
+flw    (a1)[4byte] -> ft0
+fld    -1(zero)[8byte] -> ft11
+flq    -1(zero)[16byte] -> ft11
+fsw    ft1 -> +2047(t6)[4byte]
+fsd    ft11 -> +2047(t6)[8byte]
+fsq    ft11 -> +2047(t6)[16byte]
+c.fldsp (sp)[8byte] -> ft0
+c.fld  +248(a5)[8byte] -> fs0
+c.fsdsp ft11 -> (sp)[8byte]
+c.fsd  fs0 -> +248(a5)[8byte]
 test_float_load_store complete
-lr.w   %a1 0x0 -> %a0
-lr.d   %t6 0x2 -> %zero
-sc.w   %a1 %a2 0x1 -> %a0
-sc.d   %t6 %a1 0x3 -> %zero
-amoswap.w %ra %t6 0x0 -> %zero
-amoswap.d %ra %zero 0x1 -> %t6
-amoadd.w %t6 %a2 0x2 -> %zero
-amoadd.d %a1 %a2 0x3 -> %a0
-amoxor.w %a1 %a2 0x1 -> %a0
-amoxor.d %a1 %a2 0x1 -> %a0
-amoand.w %a1 %a2 0x1 -> %a0
-amoand.d %a1 %a2 0x1 -> %a0
-amoor.w %a1 %a2 0x1 -> %a0
-amoor.d %a1 %a2 0x1 -> %a0
-amomin.w %a1 %a2 0x1 -> %a0
-amomin.d %a1 %a2 0x1 -> %a0
-amomax.w %a1 %a2 0x1 -> %a0
-amomax.d %a1 %a2 0x1 -> %a0
-amominu.w %a1 %a2 0x1 -> %a0
-amominu.d %a1 %a2 0x1 -> %a0
-amomaxu.w %a1 %a2 0x1 -> %a0
-amomaxu.d %a1 %a2 0x1 -> %a0
+lr.w   a1 0x0 -> a0
+lr.d   t6 0x2 -> zero
+sc.w   a1 a2 0x1 -> a0
+sc.d   t6 a1 0x3 -> zero
+amoswap.w ra t6 0x0 -> zero
+amoswap.d ra zero 0x1 -> t6
+amoadd.w t6 a2 0x2 -> zero
+amoadd.d a1 a2 0x3 -> a0
+amoxor.w a1 a2 0x1 -> a0
+amoxor.d a1 a2 0x1 -> a0
+amoand.w a1 a2 0x1 -> a0
+amoand.d a1 a2 0x1 -> a0
+amoor.w a1 a2 0x1 -> a0
+amoor.d a1 a2 0x1 -> a0
+amomin.w a1 a2 0x1 -> a0
+amomin.d a1 a2 0x1 -> a0
+amomax.w a1 a2 0x1 -> a0
+amomax.d a1 a2 0x1 -> a0
+amominu.w a1 a2 0x1 -> a0
+amominu.d a1 a2 0x1 -> a0
+amomaxu.w a1 a2 0x1 -> a0
+amomaxu.d a1 a2 0x1 -> a0
 test_atomic complete
-fcvt.l.s 0x0 %ft0 -> %a0
-fcvt.lu.s 0x1 %ft0 -> %a0
-fcvt.s.l 0x2 %a0 -> %ft0
-fcvt.s.lu 0x3 %a0 -> %ft0
-fcvt.l.d 0x4 %ft0 -> %a0
-fcvt.lu.d 0x7 %ft0 -> %a0
-fcvt.d.l 0x0 %a0 -> %ft0
-fcvt.d.lu 0x0 %a0 -> %ft0
-fcvt.d.s 0x0 %ft0 -> %ft0
-fcvt.s.d 0x0 %ft0 -> %ft0
-fcvt.w.d 0x0 %ft0 -> %a0
-fcvt.wu.d 0x0 %ft0 -> %a0
-fcvt.d.w 0x0 %a0 -> %ft0
-fcvt.d.wu 0x0 %a0 -> %ft0
-fcvt.s.q 0x0 %ft0 -> %ft0
-fcvt.q.s 0x0 %ft0 -> %ft0
-fcvt.d.q 0x0 %ft0 -> %ft0
-fcvt.q.d 0x0 %ft0 -> %ft0
-fcvt.w.q 0x0 %ft0 -> %a0
-fcvt.q.w 0x0 %a0 -> %ft0
-fcvt.wu.q 0x0 %ft0 -> %a0
-fcvt.q.wu 0x0 %a0 -> %ft0
-fcvt.w.s 0x0 %ft0 -> %a0
-fcvt.s.w 0x0 %a0 -> %ft0
-fcvt.wu.s 0x0 %ft0 -> %a0
-fcvt.s.wu 0x0 %a0 -> %ft0
-fcvt.l.q 0x0 %ft0 -> %a0
-fcvt.lu.q 0x0 %ft0 -> %a0
-fcvt.q.l 0x0 %a0 -> %ft0
-fcvt.q.lu 0x0 %a0 -> %ft0
+fcvt.l.s 0x0 ft0 -> a0
+fcvt.lu.s 0x1 ft0 -> a0
+fcvt.s.l 0x2 a0 -> ft0
+fcvt.s.lu 0x3 a0 -> ft0
+fcvt.l.d 0x4 ft0 -> a0
+fcvt.lu.d 0x7 ft0 -> a0
+fcvt.d.l 0x0 a0 -> ft0
+fcvt.d.lu 0x0 a0 -> ft0
+fcvt.d.s 0x0 ft0 -> ft0
+fcvt.s.d 0x0 ft0 -> ft0
+fcvt.w.d 0x0 ft0 -> a0
+fcvt.wu.d 0x0 ft0 -> a0
+fcvt.d.w 0x0 a0 -> ft0
+fcvt.d.wu 0x0 a0 -> ft0
+fcvt.s.q 0x0 ft0 -> ft0
+fcvt.q.s 0x0 ft0 -> ft0
+fcvt.d.q 0x0 ft0 -> ft0
+fcvt.q.d 0x0 ft0 -> ft0
+fcvt.w.q 0x0 ft0 -> a0
+fcvt.q.w 0x0 a0 -> ft0
+fcvt.wu.q 0x0 ft0 -> a0
+fcvt.q.wu 0x0 a0 -> ft0
+fcvt.w.s 0x0 ft0 -> a0
+fcvt.s.w 0x0 a0 -> ft0
+fcvt.wu.s 0x0 ft0 -> a0
+fcvt.s.wu 0x0 a0 -> ft0
+fcvt.l.q 0x0 ft0 -> a0
+fcvt.lu.q 0x0 ft0 -> a0
+fcvt.q.l 0x0 a0 -> ft0
+fcvt.q.lu 0x0 a0 -> ft0
 test_fcvt complete
-fmv.x.d %ft0 -> %a0
-fmv.d.x %zero -> %ft11
-fmv.x.w %ft11 -> %zero
-fmv.w.x %a0 -> %ft0
+fmv.x.d ft0 -> a0
+fmv.d.x zero -> ft11
+fmv.x.w ft11 -> zero
+fmv.w.x a0 -> ft0
 test_fmv complete
-fmadd.d 0x0 %ft0 %ft2 %ft3 -> %ft11
-fmsub.d 0x1 %ft11 %ft0 %ft3 -> %ft0
-fnmadd.d 0x2 %ft1 %ft11 %ft0 -> %ft0
-fnmsub.d 0x3 %ft1 %ft2 %ft11 -> %ft0
-fmadd.q 0x0 %ft0 %ft2 %ft3 -> %ft11
-fmsub.q 0x1 %ft11 %ft0 %ft3 -> %ft0
-fnmadd.q 0x2 %ft1 %ft11 %ft0 -> %ft0
-fnmsub.q 0x3 %ft1 %ft2 %ft11 -> %ft0
-fmadd.s 0x0 %ft0 %ft2 %ft3 -> %ft11
-fmsub.s 0x1 %ft11 %ft0 %ft3 -> %ft0
-fnmadd.s 0x2 %ft1 %ft11 %ft0 -> %ft0
-fnmsub.s 0x3 %ft1 %ft2 %ft11 -> %ft0
-fadd.d 0x4 %ft11 %ft2 -> %ft0
-fsub.d 0x7 %ft0 %ft0 -> %ft11
-fmul.d 0x0 %ft1 %ft11 -> %ft0
-fdiv.d 0x0 %ft1 %ft2 -> %ft0
-fadd.q 0x4 %ft1 %ft2 -> %ft0
-fsub.q 0x7 %ft11 %ft0 -> %ft11
-fmul.q 0x0 %ft0 %ft11 -> %ft0
-fdiv.q 0x0 %ft1 %ft2 -> %ft0
-fadd.s 0x4 %ft1 %ft2 -> %ft0
-fsub.s 0x7 %ft11 %ft0 -> %ft11
-fmul.s 0x0 %ft0 %ft11 -> %ft0
-fdiv.s 0x0 %ft1 %ft2 -> %ft0
-fsqrt.d 0x0 %ft11 -> %ft0
-fsqrt.q 0x0 %ft0 -> %ft11
-fsqrt.s 0x0 %ft1 -> %ft0
-fsqrt.d 0x0 %ft11 -> %ft0
-fsqrt.q 0x0 %ft0 -> %ft11
-fsqrt.s 0x0 %ft1 -> %ft0
-fsgnj.d %ft0 %ft11 -> %ft0
-fsgnjn.d %ft0 %ft0 -> %ft11
-fsgnjx.d %ft0 %ft1 -> %ft0
-fsgnj.q %ft0 %ft11 -> %ft0
-fsgnjn.q %ft0 %ft0 -> %ft11
-fsgnjx.q %ft0 %ft1 -> %ft0
-fsgnj.s %ft0 %ft11 -> %ft0
-fsgnjn.s %ft0 %ft0 -> %ft11
-fsgnjx.s %ft0 %ft1 -> %ft0
-fmax.d %ft11 %ft2 -> %ft0
-fmin.d %ft1 %ft0 -> %ft11
-fmax.q %ft0 %ft11 -> %ft0
-fmin.q %ft1 %ft2 -> %ft0
-fmax.s %ft1 %ft2 -> %ft0
-fmin.s %ft1 %ft2 -> %ft0
-fclass.d %ft1 -> %a0
-fclass.q %ft1 -> %a0
-fclass.s %ft1 -> %a0
+fmadd.d 0x0 ft0 ft2 ft3 -> ft11
+fmsub.d 0x1 ft11 ft0 ft3 -> ft0
+fnmadd.d 0x2 ft1 ft11 ft0 -> ft0
+fnmsub.d 0x3 ft1 ft2 ft11 -> ft0
+fmadd.q 0x0 ft0 ft2 ft3 -> ft11
+fmsub.q 0x1 ft11 ft0 ft3 -> ft0
+fnmadd.q 0x2 ft1 ft11 ft0 -> ft0
+fnmsub.q 0x3 ft1 ft2 ft11 -> ft0
+fmadd.s 0x0 ft0 ft2 ft3 -> ft11
+fmsub.s 0x1 ft11 ft0 ft3 -> ft0
+fnmadd.s 0x2 ft1 ft11 ft0 -> ft0
+fnmsub.s 0x3 ft1 ft2 ft11 -> ft0
+fadd.d 0x4 ft11 ft2 -> ft0
+fsub.d 0x7 ft0 ft0 -> ft11
+fmul.d 0x0 ft1 ft11 -> ft0
+fdiv.d 0x0 ft1 ft2 -> ft0
+fadd.q 0x4 ft1 ft2 -> ft0
+fsub.q 0x7 ft11 ft0 -> ft11
+fmul.q 0x0 ft0 ft11 -> ft0
+fdiv.q 0x0 ft1 ft2 -> ft0
+fadd.s 0x4 ft1 ft2 -> ft0
+fsub.s 0x7 ft11 ft0 -> ft11
+fmul.s 0x0 ft0 ft11 -> ft0
+fdiv.s 0x0 ft1 ft2 -> ft0
+fsqrt.d 0x0 ft11 -> ft0
+fsqrt.q 0x0 ft0 -> ft11
+fsqrt.s 0x0 ft1 -> ft0
+fsqrt.d 0x0 ft11 -> ft0
+fsqrt.q 0x0 ft0 -> ft11
+fsqrt.s 0x0 ft1 -> ft0
+fsgnj.d ft0 ft11 -> ft0
+fsgnjn.d ft0 ft0 -> ft11
+fsgnjx.d ft0 ft1 -> ft0
+fsgnj.q ft0 ft11 -> ft0
+fsgnjn.q ft0 ft0 -> ft11
+fsgnjx.q ft0 ft1 -> ft0
+fsgnj.s ft0 ft11 -> ft0
+fsgnjn.s ft0 ft0 -> ft11
+fsgnjx.s ft0 ft1 -> ft0
+fmax.d ft11 ft2 -> ft0
+fmin.d ft1 ft0 -> ft11
+fmax.q ft0 ft11 -> ft0
+fmin.q ft1 ft2 -> ft0
+fmax.s ft1 ft2 -> ft0
+fmin.s ft1 ft2 -> ft0
+fclass.d ft1 -> a0
+fclass.q ft1 -> a0
+fclass.s ft1 -> a0
 test_float_arith complete
-feq.d  %ft0 %ft1 -> %a0
-flt.d  %ft11 %ft11 -> %zero
-flt.d  %ft1 %ft0 -> %t6
-feq.q  %ft1 %ft1 -> %a0
-flt.q  %ft1 %ft1 -> %a0
-flt.q  %ft1 %ft1 -> %a0
-feq.s  %ft1 %ft1 -> %a0
-flt.s  %ft1 %ft1 -> %a0
-flt.s  %ft1 %ft1 -> %a0
+feq.d  ft0 ft1 -> a0
+flt.d  ft11 ft11 -> zero
+flt.d  ft1 ft0 -> t6
+feq.q  ft1 ft1 -> a0
+flt.q  ft1 ft1 -> a0
+flt.q  ft1 ft1 -> a0
+feq.s  ft1 ft1 -> a0
+flt.s  ft1 ft1 -> a0
+flt.s  ft1 ft1 -> a0
 test_float_compare complete
-hlv.b  %a1 -> %a0
-hlv.bu %a1 -> %a0
-hlv.h  %a1 -> %a0
-hlv.hu %a1 -> %a0
-hlvx.hu %a1 -> %a0
-hlv.w  %a1 -> %a0
-hlv.wu %a1 -> %a0
-hlvx.wu %a1 -> %a0
-hlv.d  %a1 -> %a0
-hsv.b  %a0 %a1
-hsv.h  %a0 %a1
-hsv.w  %a0 %a1
-hsv.d  %a0 %a1
-hinval.vvma %a0 %a1
-hinval.gvma %a0 %a1
-hfence.vvma %a0 %a1
-hfence.gvma %a0 %a1
+hlv.b  a1 -> a0
+hlv.bu a1 -> a0
+hlv.h  a1 -> a0
+hlv.hu a1 -> a0
+hlvx.hu a1 -> a0
+hlv.w  a1 -> a0
+hlv.wu a1 -> a0
+hlvx.wu a1 -> a0
+hlv.d  a1 -> a0
+hsv.b  a0 a1
+hsv.h  a0 a1
+hsv.w  a0 a1
+hsv.d  a0 a1
+hinval.vvma a0 a1
+hinval.gvma a0 a1
+hfence.vvma a0 a1
+hfence.gvma a0 a1
 test_hypervisor complete
-addi   %a1 0 -> %a0
-addiw  %a1 0 -> %a0
-slti   %a1 -1 -> %a0
-sltiu  %a1 2047 -> %a0
-xori   %a1 2047 -> %a0
-ori    %a1 2047 -> %a0
-andi   %a1 2047 -> %a0
-slli   %a1 63 -> %a0
-slliw  %a1 31 -> %a0
-srli   %a1 63 -> %a0
-srliw  %a1 31 -> %a0
-srai   %a1 63 -> %a0
-sraiw  %a1 31 -> %a0
-add    %a1 %a1 -> %a0
-addw   %a1 %a1 -> %a0
-sub    %a1 %a1 -> %a0
-subw   %a1 %a1 -> %a0
-sll    %a1 %a1 -> %a0
-sllw   %a1 %a1 -> %a0
-slt    %a1 %a1 -> %a0
-sltu   %a1 %a1 -> %a0
-xor    %a1 %a1 -> %a0
-srl    %a1 %a1 -> %a0
-srlw   %a1 %a1 -> %a0
-sra    %a1 %a1 -> %a0
-sraw   %a1 %a1 -> %a0
-or     %a1 %a1 -> %a0
-and    %a1 %a1 -> %a0
-mul    %a1 %a1 -> %a0
-mulw   %a1 %a1 -> %a0
-mulh   %a1 %a1 -> %a0
-mulhsu %a1 %a1 -> %a0
-mulhu  %a1 %a1 -> %a0
-div    %a1 %a1 -> %a0
-divw   %a1 %a1 -> %a0
-divu   %a1 %a1 -> %a0
-divuw  %a1 %a1 -> %a0
-rem    %a1 %a1 -> %a0
-remw   %a1 %a1 -> %a0
-remu   %a1 %a1 -> %a0
-remuw  %a1 %a1 -> %a0
-c.addiw 31 -> %a0
-c.addw %a1 -> %a0
-c.subw %a1 -> %a0
-c.slli 63 -> %a1
-c.srli 63 -> %a1
-c.srai 63 -> %a1
-c.andi -1 -> %a1
-c.mv   %a1 -> %a1
-c.add  %a1 -> %a1
-c.and  %a5 -> %fp
-c.or   %a5 -> %fp
-c.xor  %a5 -> %fp
-c.sub  %a5 -> %fp
+addi   a1 0 -> a0
+addiw  a1 0 -> a0
+slti   a1 -1 -> a0
+sltiu  a1 2047 -> a0
+xori   a1 2047 -> a0
+ori    a1 2047 -> a0
+andi   a1 2047 -> a0
+slli   a1 63 -> a0
+slliw  a1 31 -> a0
+srli   a1 63 -> a0
+srliw  a1 31 -> a0
+srai   a1 63 -> a0
+sraiw  a1 31 -> a0
+add    a1 a1 -> a0
+addw   a1 a1 -> a0
+sub    a1 a1 -> a0
+subw   a1 a1 -> a0
+sll    a1 a1 -> a0
+sllw   a1 a1 -> a0
+slt    a1 a1 -> a0
+sltu   a1 a1 -> a0
+xor    a1 a1 -> a0
+srl    a1 a1 -> a0
+srlw   a1 a1 -> a0
+sra    a1 a1 -> a0
+sraw   a1 a1 -> a0
+or     a1 a1 -> a0
+and    a1 a1 -> a0
+mul    a1 a1 -> a0
+mulw   a1 a1 -> a0
+mulh   a1 a1 -> a0
+mulhsu a1 a1 -> a0
+mulhu  a1 a1 -> a0
+div    a1 a1 -> a0
+divw   a1 a1 -> a0
+divu   a1 a1 -> a0
+divuw  a1 a1 -> a0
+rem    a1 a1 -> a0
+remw   a1 a1 -> a0
+remu   a1 a1 -> a0
+remuw  a1 a1 -> a0
+c.addiw 31 -> a0
+c.addw a1 -> a0
+c.subw a1 -> a0
+c.slli 63 -> a1
+c.srli 63 -> a1
+c.srai 63 -> a1
+c.andi -1 -> a1
+c.mv   a1 -> a1
+c.add  a1 -> a1
+c.and  a5 -> fp
+c.or   a5 -> fp
+c.xor  a5 -> fp
+c.sub  a5 -> fp
 test_integer_arith complete
-lui    0x2a -> %a0
-auipc  0x2a -> %a0
-c.li   31 -> %a1
-c.lui  1 -> %a1
-c.addi 31 -> %a1
+lui    0x2a -> a0
+auipc  0x2a -> a0
+c.li   31 -> a1
+c.lui  1 -> a1
+c.addi 31 -> a1
 c.addi16sp 16
-c.addi4spn 4 -> %fp
+c.addi4spn 4 -> fp
 test_jump_and_branch complete
-csrrw  %a1 0x42 -> %a0
-csrrs  %a1 0x42 -> %a0
-csrrc  %a1 0x42 -> %a0
-csrrwi 1 0x42 -> %a0
-csrrsi 1 0x42 -> %a0
-csrrci 1 0x42 -> %a0
+csrrw  a1 0x42 -> a0
+csrrs  a1 0x42 -> a0
+csrrc  a1 0x42 -> a0
+csrrwi 1 0x42 -> a0
+csrrsi 1 0x42 -> a0
+csrrci 1 0x42 -> a0
 test_csr complete
-add.uw %a1 %a2 -> %a0
-sh1add %a1 %a2 -> %a0
-sh2add %a1 %a2 -> %a0
-sh3add %a1 %a2 -> %a0
-sh1add.uw %a1 %a2 -> %a0
-sh2add.uw %a1 %a2 -> %a0
-sh3add.uw %a1 %a2 -> %a0
-slli.uw %a1 63 -> %a0
-andn   %a1 %a1 -> %a0
-orn    %a1 %a1 -> %a0
-xnor   %a1 %a1 -> %a0
-clz    %a1 -> %a0
-clzw   %a1 -> %a0
-ctz    %a1 -> %a0
-ctzw   %a1 -> %a0
-cpop   %a1 -> %a0
-cpopw  %a1 -> %a0
-max    %a1 %a1 -> %a0
-maxu   %a1 %a1 -> %a0
-min    %a1 %a1 -> %a0
-minu   %a1 %a1 -> %a0
-sext.b %a1 -> %a0
-sext.h %a1 -> %a0
-zext.h %a1 -> %a0
-rol    %a1 %a1 -> %a0
-rolw   %a1 %a1 -> %a0
-ror    %a1 %a1 -> %a0
-rorw   %a1 %a1 -> %a0
-rori   %a1 63 -> %a0
-orc.b  %a1 -> %a0
-clmul  %a1 %a1 -> %a0
-clmulh %a1 %a1 -> %a0
-clmulr %a1 %a1 -> %a0
-rev8   %a1 -> %a0
-bclr   %a1 %a1 -> %a0
-bclri  %a1 63 -> %a0
-bext   %a1 %a1 -> %a0
-bexti  %a1 63 -> %a0
-binv   %a1 %a1 -> %a0
-binvi  %a1 63 -> %a0
-bset   %a1 %a1 -> %a0
-bseti  %a1 63 -> %a0
+add.uw a1 a2 -> a0
+sh1add a1 a2 -> a0
+sh2add a1 a2 -> a0
+sh3add a1 a2 -> a0
+sh1add.uw a1 a2 -> a0
+sh2add.uw a1 a2 -> a0
+sh3add.uw a1 a2 -> a0
+slli.uw a1 63 -> a0
+andn   a1 a1 -> a0
+orn    a1 a1 -> a0
+xnor   a1 a1 -> a0
+clz    a1 -> a0
+clzw   a1 -> a0
+ctz    a1 -> a0
+ctzw   a1 -> a0
+cpop   a1 -> a0
+cpopw  a1 -> a0
+max    a1 a1 -> a0
+maxu   a1 a1 -> a0
+min    a1 a1 -> a0
+minu   a1 a1 -> a0
+sext.b a1 -> a0
+sext.h a1 -> a0
+zext.h a1 -> a0
+rol    a1 a1 -> a0
+rolw   a1 a1 -> a0
+ror    a1 a1 -> a0
+rorw   a1 a1 -> a0
+rori   a1 63 -> a0
+orc.b  a1 -> a0
+clmul  a1 a1 -> a0
+clmulh a1 a1 -> a0
+clmulr a1 a1 -> a0
+rev8   a1 -> a0
+bclr   a1 a1 -> a0
+bclri  a1 63 -> a0
+bext   a1 a1 -> a0
+bexti  a1 63 -> a0
+binv   a1 a1 -> a0
+binvi  a1 63 -> a0
+bset   a1 a1 -> a0
+bseti  a1 63 -> a0
 print_bit complete
-prefetch.i  -> +96(%zero)
-prefetch.r  -> +160(%t6)
-prefetch.w  -> (%a1)
+prefetch.i  -> +96(zero)
+prefetch.r  -> +160(t6)
+prefetch.w  -> (a1)
 test_prefetch complete
 c.nop
 c.ebreak
@@ -291,13 +291,13 @@ mret
 wfi
 fence  0x0 0x0 0x0
 fence.i
-sfence.vma %a1 %a1
+sfence.vma a1 a1
 sfence.w.inval
-sinval.vma %a1 %a1
+sinval.vma a1 a1
 sfence.inval.ir
-cbo.zero (%a1)
-cbo.clean (%a1)
-cbo.flush (%a1)
-cbo.inval (%a1)
+cbo.zero (a1)
+cbo.clean (a1)
+cbo.flush (a1)
+cbo.inval (a1)
 test_misc complete
 All tests complete

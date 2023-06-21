@@ -1286,6 +1286,8 @@ main(int argc, char *argv[])
     void *dcontext = dr_standalone_init();
 #endif
 
+    disassemble_set_syntax(DR_DISASM_RISCV);
+
     test_integer_load_store(dcontext);
     print("test_integer_load_store complete\n");
 

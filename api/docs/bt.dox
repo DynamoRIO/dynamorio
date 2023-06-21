@@ -731,8 +731,9 @@ disassemble_from_copy(), and disassemble_to_buffer().
 
 The style of disassembly can be controlled through the
 \ref op_syntax_intel "-syntax_intel" (for Intel-style disassembly),
-\ref op_syntax_att "-syntax_att" (for AT&T-style disassembly), and
-\ref op_syntax_arm "-syntax_arm" (for ARM-style disassembly) runtime
+\ref op_syntax_att "-syntax_att" (for AT&T-style disassembly),
+\ref op_syntax_arm "-syntax_arm" (for ARM-style disassembly), and 
+\ref op_syntax_riscv "-syntax_riscv" (for RISC-V-style disassembly) runtime
 options, or the disassemble_set_syntax() function.  The default disassembly
 style is DynamoRIO's custom style, which lists all operands (both implicit
 and explicit).  The sources are listed first, followed by "->", and then

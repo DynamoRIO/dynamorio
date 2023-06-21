@@ -165,6 +165,10 @@ main(int argc, const char *argv[])
     }
 #endif
 
+#ifdef RISCV64
+    disassemble_set_syntax(DR_DISASM_RISCV);
+#endif
+
     // Turn the arguments into a series of hex values.
     std::vector<byte> bytes;
     for (int i = last_index; i < argc; ++i) {
