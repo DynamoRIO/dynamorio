@@ -856,6 +856,8 @@ protected:
         bool order_by_timestamp = false;
         // Global ready queue counter used to provide FIFO for same-priority inputs.
         uint64_t queue_counter = 0;
+        // Used to ensure we make progress past a blocking syscall.
+        bool processed_blocking_syscall = false;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -1026,7 +1028,13 @@ protected:
     // Finds the next input stream for the 'output_ordinal'-th output stream.
     // No input_info_t lock can be held on entry.
     stream_status_t
-    pick_next_input(output_ordinal_t output);
+    pick_next_input(output_ordinal_t output, bool in_wait_state);
+
+    // Helper for pick_next_input() for MAP_AS_PREVIOUSLY.
+    // No input_info_t lock can be held on entry.
+    // The sched_lock_ must be held on entry.
+    stream_status_t
+    pick_next_input_as_previously(output_ordinal_t output, input_ordinal_t &index);
 
     // If the given record has a thread id field, returns true and the value.
     bool
