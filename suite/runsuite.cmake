@@ -555,6 +555,7 @@ endif ()
 if (ARCH_IS_X86 AND UNIX)
   # TODO i#3544: Run tests under QEMU
   set(orig_extra_ctest_args ${extra_ctest_args})
+  # TODO i#3544: Get all the tests working.
   set(extra_ctest_args INCLUDE_LABEL RISCV64)
   set(prev_optional_cross_compile ${optional_cross_compile})
   set(prev_run_tests ${run_tests})
