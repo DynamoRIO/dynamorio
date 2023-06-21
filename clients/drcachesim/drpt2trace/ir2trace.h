@@ -42,6 +42,7 @@
  */
 
 #include <vector>
+#include <mutex>
 #include "drir.h"
 #include "../common/trace_entry.h"
 
@@ -79,14 +80,17 @@ public:
 
     /**
      * Converts DynamoRIO's IR format to trace entries.
-     * \param[in] drir DynamoRIO's IR format.
-     * \param[out] trace The converted trace entries.
-     * \return ir2trace_convert_status_t If the conversion is successful, the function
+     * @param drir DynamoRIO's IR format.
+     * @param trace The converted trace entries.
+     * @param verbosity  The verbosity level for notifications. If set to 0, only error
+     * logs are printed. If set to 1, all logs are printed. Default value is 0.
+     * @return ir2trace_convert_status_t If the conversion is successful, the function
      * returns #IR2TRACE_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.
      */
     static ir2trace_convert_status_t
-    convert(IN drir_t &drir, OUT std::vector<trace_entry_t> &trace);
+    convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
+            IN int verbosity = 0);
 };
 
 #endif /* _IR2TRACE_H_ */

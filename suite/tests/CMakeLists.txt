@@ -190,6 +190,7 @@ if (RUN_LONG_SUITE OR ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
                        "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master"))
   set(TEST_LONG ON)
 endif ()
+
 ###########################################################################
 # BUILDING
 
@@ -1516,8 +1517,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
     # Though we mostly use drrun's -s we set this too in case the requested
     # value is higher than ctest's default.
     set_tests_properties(${test} PROPERTIES TIMEOUT ${${key}_timeout})
+  elseif (is_runcmp)
+    # Runcmp generally doesn't use drrun or runstats so we need a ctest timeout.
+    set_tests_properties(${test} PROPERTIES TIMEOUT ${TEST_SECONDS})
   endif ()
 
+  # Though we use drrun and runstats -s timeout parameters, we have
   if (pass_opts_via_env)
     string(REPLACE ";" " " runops_string "${runops}")
     set_tests_properties(${test} PROPERTIES ENVIRONMENT "DYNAMORIO_OPTIONS=${runops_string}")
@@ -1627,6 +1632,10 @@ function(torunonly_native name realexe expect source exe_ops)
   strings2lists(${name} ops)
   set(${name}_expectbase ${expect})
   set(${name}_realtest ${realexe})
+  if (NOT DEFINED ${test}_timeout)
+    # We're not going through drrun with its timeout, so set the ctest timeout.
+    set(${test}_timeout ${TEST_SECONDS})
+  endif ()
   torun(${name} ${name} ${source} ON OFF "" "${exe_ops}" added OFF)
 endfunction(torunonly_native)
 
@@ -3765,6 +3774,13 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
     torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
 
+    if (LINUX) # Test uses Linux-specific timer code.
+      if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+        torunonly_drcacheoff(sysnums linux.signal_pre_syscall ""
+          "@-simulator_type@basic_counts@${test_mode_flag}" "")
+      endif ()
+    endif ()
+
     torunonly_drcacheoff(interval-count-output ${ci_shared_app} ""
       "@-simulator_type@basic_counts@-interval_microseconds@1M" "")
 
@@ -3773,6 +3789,7 @@ if (BUILD_CLIENTS)
       # Include function tracing to sanity test combining with delay and max.
       "-trace_after_instrs 20K -max_global_trace_refs 10K -record_heap"
       "@-simulator_type@basic_counts" "${annotation_test_args_shorter}")
+    set(tool.drcacheoff.max-global_timeout 240) # Can take >120s.
 
     torunonly_drcacheoff(delay-func ${ci_shared_app}
       # Delay enough that zero data should be logged to test that function
@@ -3789,6 +3806,7 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.delay-func_nopost ON)
     set(tool.drcacheoff.delay-func_postcmd
       "${CMAKE_COMMAND}@-E@echo@${dir_prefix}.*.dir/raw/*raw*")
+    set(tool.drcacheoff.delay-func_timeout 240) # Can take >90s.
 
     torunonly_drcacheoff(windows-simple ${ci_shared_app}
       "-no_split_windows -trace_after_instrs 20K -trace_for_instrs 5K -retrace_every_instrs 35K"
@@ -3984,7 +4002,7 @@ if (BUILD_CLIENTS)
       use_DynamoRIO_static_client(tool.drcacheoff.gencode drmemtrace_static)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.gencode)
       target_link_libraries(tool.drcacheoff.gencode drmemtrace_raw2trace
-        drmemtrace_analyzer)
+        drmemtrace_analyzer test_helpers)
       target_include_directories(tool.drcacheoff.gencode PUBLIC
         "${PROJECT_SOURCE_DIR}/clients/drcachesim"
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/common"
@@ -4025,6 +4043,12 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_traceopts_nodr ON)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
+
+      if (LINUX) # Futex is Linux-only.
+        set(tool.drcacheoff.burst_futex_nodr ON)
+        set(tool.drcacheoff.burst_futex_nopost ON)
+        torunonly_drcacheoff(burst_futex tool.drcacheoff.burst_futex "" "" "")
+      endif ()
 
       if (UNIX)
         # FIXME i#2040: this hits static client issues on Windows
@@ -4191,6 +4215,10 @@ if (BUILD_CLIENTS)
         "@-simulator_type@basic_counts" "")
     endif (NOT WIN32)
 
+    # Test syscall_mix.
+    torunonly_drcachesim(syscall-mix ${ci_shared_app} "-simulator_type syscall_mix" "")
+    torunonly_drcacheoff(syscall-mix ${ci_shared_app} "" "@-simulator_type@syscall_mix" "")
+
   endif (NOT ANDROID)
 
   # Test using our exported drmemtrace analysis framework (i#2006).
@@ -4252,9 +4280,6 @@ if (BUILD_CLIENTS)
   if (proc_supports_pt)
     if (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
       get_target_path_for_execution(drpt2trace_path drpt2trace "${location_suffix}")
-      # TODO i#5505: This test collects a PT trace using drmemtrace, and then decodes
-      # using pt2trace. When we have the raw2trace support this should decode using
-      # raw2trace.
       macro (torunonly_drcacheoff_kernel testname exetgt extra_ops app_args)
         set(testname_full "tool.drcacheoff.kernel.${testname}_SUDO")
         torunonly_ci(${testname_full} ${exetgt} drcachesim
@@ -4271,10 +4296,8 @@ if (BUILD_CLIENTS)
         set(cmd_pfx "sudo@")
         set(${testname_full}_precmd
           "foreach@${cmd_pfx}${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
-        set (${testname_full}_postcmd
-          "${cmd_pfx}chmod@777@-R@${testname_full}.*.dir")
-        set(${testname_full}_postcmd2
-          "firstglob@${cmd_pfx}${drpt2trace_path}@-mode@ELF@-raw_pt_format@DRMEMTRACE@-raw_pt@${testname_full}.*.dir/kernel.raw/*.pt@-elf@${testname_full}.*.dir/kernel.raw/kcore")
+        set(${testname_full}_postcmd
+          "firstglob@${cmd_pfx}${drcachesim_path}@-simulator_type@basic_counts@-indir@${testname_full}.*.dir${sim_atops}")
       endmacro ()
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
@@ -4699,6 +4722,9 @@ if (UNIX)
     endif ()
     tobuild(linux.signal_racesys linux/signal_racesys.c)
     target_link_libraries(linux.signal_racesys rt)
+
+    tobuild(linux.signal_pre_syscall linux/signal_pre_syscall.c)
+    target_link_libraries(linux.signal_pre_syscall rt)
   endif ()
 
   if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64

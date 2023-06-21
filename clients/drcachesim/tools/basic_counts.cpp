@@ -98,6 +98,13 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
+        if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, per_shard->filetype_)) {
+            if (per_shard->is_kernel) {
+                ++counters->kernel_instrs;
+            } else {
+                ++counters->user_instrs;
+            }
+        }
         counters->unique_pc_addrs.insert(memref.instr.addr);
         // The encoding entries aren't exposed at the memref_t level, but
         // we use encoding_is_new as a proxy.
@@ -156,6 +163,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
                 ++counters->phys_unavail_markers;
                 break;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+                per_shard->is_kernel = true;
+                break;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: per_shard->is_kernel = false; break;
             case TRACE_MARKER_TYPE_FILETYPE:
                 if (per_shard->filetype_ == -1) {
                     per_shard->filetype_ =
@@ -205,7 +216,7 @@ basic_counts_t::cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
 
 void
 basic_counts_t::print_counters(const counters_t &counters, int_least64_t num_threads,
-                               const std::string &prefix)
+                               const std::string &prefix, bool for_kernel_trace)
 {
     std::cerr << std::setw(12) << counters.instrs << prefix
               << " (fetched) instructions\n";
@@ -215,6 +226,12 @@ basic_counts_t::print_counters(const counters_t &counters, int_least64_t num_thr
     }
     std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
               << " non-fetched instructions\n";
+    if (for_kernel_trace) {
+        std::cerr << std::setw(12) << counters.user_instrs << prefix
+                  << " userspace instructions\n";
+        std::cerr << std::setw(12) << counters.kernel_instrs << prefix
+                  << " kernel instructions\n";
+    }
     std::cerr << std::setw(12) << counters.prefetches << prefix << " prefetches\n";
     std::cerr << std::setw(12) << counters.loads << prefix << " data loads\n";
     std::cerr << std::setw(12) << counters.stores << prefix << " data stores\n";
@@ -253,14 +270,20 @@ basic_counts_t::print_results()
     for (const auto &shard : shard_map_) {
         num_windows = std::max(num_windows, shard.second->counters.size());
     }
+
+    bool for_kernel_trace = false;
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
             total += ctr;
         }
+        if (!for_kernel_trace &&
+            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, shard.second->filetype_)) {
+            for_kernel_trace = true;
+        }
     }
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
-    print_counters(total, shard_map_.size(), " total");
+    print_counters(total, shard_map_.size(), " total", for_kernel_trace);
 
     if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";
@@ -268,7 +291,8 @@ basic_counts_t::print_results()
             std::cerr << "Window #" << i << ":\n";
             for (const auto &shard : shard_map_) {
                 if (shard.second->counters.size() > i) {
-                    print_counters(shard.second->counters[i], 0, " window");
+                    print_counters(shard.second->counters[i], 0, " window",
+                                   for_kernel_trace);
                 }
             }
         }
@@ -280,7 +304,7 @@ basic_counts_t::print_results()
     std::sort(sorted.begin(), sorted.end(), cmp_threads);
     for (const auto &keyvals : sorted) {
         std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
-        print_counters(keyvals.second->counters[0], 0, "");
+        print_counters(keyvals.second->counters[0], 0, "", for_kernel_trace);
     }
 
     // TODO i#3599: also print thread-per-window stats.
@@ -334,6 +358,13 @@ basic_counts_t::combine_interval_snapshots(
     uint64_t interval_end_timestamp)
 {
     count_snapshot_t *result = new count_snapshot_t;
+    // The snapshots in latest_shard_snapshots do not track unique_pc_addrs, so
+    // the combined result->counters also would not contain any element in the
+    // unique_pc_addrs set. But we still need to explicitly disable
+    // unique_pc_addrs tracking in result->counters using the following function
+    // call. This is so that printing of unique_pc_addrs count is skipped as
+    // intended during print_interval_results.
+    result->counters.stop_tracking_unique_pc_addrs();
     for (const auto snapshot : latest_shard_snapshots) {
         if (snapshot == nullptr)
             continue;

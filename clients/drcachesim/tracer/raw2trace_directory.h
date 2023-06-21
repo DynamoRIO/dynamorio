@@ -87,6 +87,9 @@ public:
     std::vector<archive_ostream_t *> out_archives_;
     std::ostream *serial_schedule_file_ = nullptr;
     archive_ostream_t *cpu_schedule_file_ = nullptr;
+    std::unordered_map<thread_id_t, std::istream *> in_kfiles_map_;
+    std::string kcoredir_;
+    std::string kallsymsdir_;
 
 private:
     std::string
@@ -99,7 +102,12 @@ private:
     open_serial_schedule_file();
     std::string
     open_cpu_schedule_file();
+#ifdef BUILD_PT_POST_PROCESSOR
+    std::string
+    open_kthread_files();
+#endif
     file_t modfile_;
+    std::string kernel_indir_;
     std::string indir_;
     std::string outdir_;
     unsigned int verbosity_;
