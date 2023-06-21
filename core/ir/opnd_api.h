@@ -1284,10 +1284,10 @@ enum {
     DR_REG_LAST_VALID_ENUM = DR_REG_FCSR, /**< Last valid register enum. */
     DR_REG_LAST_ENUM = DR_REG_FCSR,       /**< Last value of register enums. */
 
-    DR_REG_START_64 = DR_REG_X0,  /**< Start of 64-bit register enum values. */
-    DR_REG_STOP_64 = DR_REG_F31,  /**< End of 64-bit register enum values. */
-    DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit register enum values. */
-    DR_REG_STOP_32 = DR_REG_F31,  /**< End of 32-bit register enum values. */
+    DR_REG_START_64 = DR_REG_X0,  /**< Start of 64-bit general register enum values. */
+    DR_REG_STOP_64 = DR_REG_F31,  /**< End of 64-bit general register enum values. */
+    DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit general register enum values. */
+    DR_REG_STOP_32 = DR_REG_F31,  /**< End of 32-bit general register enum values. */
     DR_REG_START_GPR = DR_REG_X0, /**< Start of general register registers. */
     DR_REG_STOP_GPR = DR_REG_X31, /**< End of general register registers. */
     DR_REG_XSP = DR_REG_SP, /**< Platform-independent way to refer to stack pointer. */
@@ -2014,7 +2014,7 @@ DR_API
  * Returns a signed immediate integer operand with value \p i and size
  * \p data_size; \p data_size must be a OPSZ_ constant.
  *
- * The integer will be formatted as a decimal when disassemble.
+ * The integer will be formatted as a decimal when disassembled.
  */
 opnd_t
 opnd_create_immed_int_decimal(ptr_int_t i, opnd_size_t data_size);
@@ -2177,7 +2177,7 @@ DR_API
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
  * \p scale must be either 0, 1, 2, 4, or 8.
  *
- * The integer will be formatted as a decimal when disassemble.
+ * The integer will be formatted as a decimal when disassembled.
  */
 opnd_t
 opnd_create_base_disp_decimal(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
