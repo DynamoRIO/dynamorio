@@ -66,7 +66,7 @@ static byte *
 test_instr_encoding(void *dc, uint opcode, instr_t *instr)
 {
     instr_t *decin;
-    byte *pc, next_pc;
+    byte *pc, *next_pc;
 
     ASSERT(instr_get_opcode(instr) == opcode);
     instr_disassemble(dc, instr, STDERR);
@@ -100,7 +100,7 @@ test_instr_encoding_jump_or_branch(void *dc, uint opcode, instr_t *instr)
      * FIXME i#3544: For branch instructions, we should use relative offsets instead.
      */
     instr_t *decin;
-    byte *pc, next_pc;
+    byte *pc, *next_pc;
 
     ASSERT(instr_get_opcode(instr) == opcode);
     ASSERT(instr_is_encoding_possible(instr));
