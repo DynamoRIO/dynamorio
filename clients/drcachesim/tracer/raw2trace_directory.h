@@ -40,7 +40,11 @@
 #include "dr_api.h"
 #include "archive_ostream.h"
 
-#define DEFAULT_TRACE_COMPRESSION_TYPE "zlib"
+#ifdef HAS_ZIP
+    #define DEFAULT_TRACE_COMPRESSION_TYPE "gzip"
+#else
+    #define DEFAULT_TRACE_COMPRESSION_TYPE "zlib"
+#endif
 
 class raw2trace_directory_t {
 public:
