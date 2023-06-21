@@ -767,6 +767,9 @@ our_init(int argc, char **argv, char **envp)
  * like the app's exe or unit_tests, we add a pointer to our_init() to the
  * .init_array section.  We can't use the constructor attribute because not all
  * toolchains pass the args and environment to the constructor.
+ *
+ * RISC-V, as a new ISA, does not support obsolete .init section, so we always use
+ * .init_array section for RISC-V.
  */
 static init_fn_t
 #    ifdef MACOS
