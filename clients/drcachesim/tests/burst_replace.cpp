@@ -190,7 +190,7 @@ post_process()
          * scope to delete the drmodtrack state afterward.
          */
         raw2trace_directory_t dir;
-        std::string dir_err = dir.initialize(raw_dir, "");
+        std::string dir_err = dir.initialize(raw_dir, "", DEFAULT_TRACE_COMPRESSION_TYPE);
         assert(dir_err.empty());
         std::unique_ptr<module_mapper_t> module_mapper = module_mapper_t::create(
             dir.modfile_bytes_, parse_cb, process_cb, MAGIC_VALUE, free_cb);
@@ -217,7 +217,7 @@ post_process()
      * run by the outer test harness will find (TRACE_FILENAME).
      */
     raw2trace_directory_t dir;
-    std::string dir_err = dir.initialize(raw_dir, "");
+    std::string dir_err = dir.initialize(raw_dir, "", DEFAULT_TRACE_COMPRESSION_TYPE);
     assert(dir_err.empty());
     raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
                           dir.out_archives_, dir.encoding_file_,

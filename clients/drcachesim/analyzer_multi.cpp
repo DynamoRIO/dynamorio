@@ -112,7 +112,8 @@ analyzer_multi_t::analyzer_multi_t()
         }
         if (needs_processing) {
             raw2trace_directory_t dir(op_verbose.get_value());
-            std::string dir_err = dir.initialize(op_indir.get_value(), "");
+            std::string dir_err =
+                dir.initialize(op_indir.get_value(), "", DEFAULT_TRACE_COMPRESSION_TYPE);
             if (!dir_err.empty()) {
                 success_ = false;
                 error_string_ = "Directory setup failed: " + dir_err;

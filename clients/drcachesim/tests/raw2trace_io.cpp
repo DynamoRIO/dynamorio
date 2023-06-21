@@ -271,7 +271,8 @@ test_main(int argc, const char *argv[])
      * so they never get closed.
      */
     raw2trace_directory_t *dir = new raw2trace_directory_t;
-    std::string dir_err = dir->initialize(op_indir.get_value(), "");
+    std::string dir_err =
+        dir->initialize(op_indir.get_value(), "", DEFAULT_TRACE_COMPRESSION_TYPE);
     if (!dir_err.empty())
         std::cerr << "Directory setup failed: " << dir_err;
 

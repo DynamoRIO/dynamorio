@@ -36,6 +36,9 @@
 
 #include "scheduler.h"
 #include "file_reader.h"
+#ifdef HAS_LZ4
+#    include "lz4_file_reader.h"
+#endif
 #ifdef HAS_ZLIB
 #    include "compressed_file_reader.h"
 #endif
@@ -103,7 +106,12 @@ template <>
 std::unique_ptr<reader_t>
 scheduler_tmpl_t<memref_t, reader_t>::get_reader(const std::string &path, int verbosity)
 {
-#if defined(HAS_SNAPPY) || defined(HAS_ZIP)
+#if defined(HAS_SNAPPY) || defined(HAS_ZIP) || defined(HAS_LZ4)
+#    ifdef HAS_LZ4
+    if (ends_with(path, ".lz4")) {
+        return std::unique_ptr<reader_t>(new lz4_file_reader_t(path, verbosity));
+    }
+#    endif
 #    ifdef HAS_SNAPPY
     if (ends_with(path, ".sz"))
         return std::unique_ptr<reader_t>(new snappy_file_reader_t(path, verbosity));
@@ -142,6 +150,11 @@ scheduler_tmpl_t<memref_t, reader_t>::get_reader(const std::string &path, int ve
             if (ends_with(*iter, ".zip")) {
                 return std::unique_ptr<reader_t>(
                     new zipfile_file_reader_t(path, verbosity));
+            }
+#    endif
+#    ifdef HAS_LZ4
+            if (ends_with(path, ".lz4")) {
+                return std::unique_ptr<reader_t>(new lz4_file_reader_t(path, verbosity));
             }
 #    endif
         }

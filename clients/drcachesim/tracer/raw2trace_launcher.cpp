@@ -80,6 +80,15 @@ static droption_t<int>
             "disables concurrency and uses  single thread to perform all operations.  A "
             "negative value sets the job count to the number of hardware threads.");
 
+static droption_t<std::string> op_trace_compress(
+    DROPTION_SCOPE_FRONTEND, "compress", DEFAULT_TRACE_COMPRESSION_TYPE,
+    "Trace compression: \"gzip\",\"zlib\",\"lz4\",\"none\"",
+    "Specifies the compression type to use for trace files: \"gzip\", "
+    "\"zlib\", \"lz4\", or \"none\".  Whether this reduces overhead depends on the "
+    "storage type: "
+    "for an SSD, zlib and gzip typically add overhead and would only be used if space is "
+    "at a premium; lz4 are nearly always performance wins.");
+
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
         fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
@@ -105,7 +114,8 @@ _tmain(int argc, const TCHAR *targv[])
     }
 
     raw2trace_directory_t dir(op_verbose.get_value());
-    std::string dir_err = dir.initialize(op_indir.get_value(), op_outdir.get_value());
+    std::string dir_err = dir.initialize(op_indir.get_value(), op_outdir.get_value(),
+                                         op_trace_compress.get_value());
     if (!dir_err.empty())
         FATAL_ERROR("Directory parsing failed: %s", dir_err.c_str());
     raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,

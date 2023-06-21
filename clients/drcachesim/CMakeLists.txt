@@ -139,6 +139,7 @@ endif()
 
 if (liblz4)
   add_definitions(-DHAS_LZ4)
+  set(lz4_reader reader/lz4_file_reader.cpp)
 endif ()
 
 set(client_and_sim_srcs
@@ -252,6 +253,7 @@ set(drcachesim_srcs
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
+  ${lz4_reader}
   reader/ipc_reader.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp)
@@ -295,11 +297,16 @@ add_exported_library(drmemtrace_analyzer STATIC
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
+  ${lz4_reader}
   )
 target_link_libraries(drmemtrace_analyzer directory_iterator)
 if (libsnappy)
   target_link_libraries(drmemtrace_analyzer snappy)
 endif ()
+if (liblz4)
+  target_link_libraries(drmemtrace_analyzer lz4)
+endif ()
+
 link_with_pthread(drmemtrace_analyzer)
 # We get away w/ exporting the generically-named "utils.h" by putting into a
 # drmemtrace/ subdir.

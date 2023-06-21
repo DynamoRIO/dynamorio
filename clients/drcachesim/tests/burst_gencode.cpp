@@ -269,7 +269,8 @@ post_process()
             std::cerr << "Failed to create output dir";
             assert(false);
         }
-        std::string dir_err = dir.initialize(raw_dir, outdir);
+        std::string dir_err =
+            dir.initialize(raw_dir, outdir, DEFAULT_TRACE_COMPRESSION_TYPE);
         assert(dir_err.empty());
         raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
                               dir.out_archives_, dir.encoding_file_,
