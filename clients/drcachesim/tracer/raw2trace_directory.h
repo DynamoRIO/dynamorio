@@ -41,9 +41,9 @@
 #include "archive_ostream.h"
 
 #ifdef HAS_ZIP
-    #define DEFAULT_TRACE_COMPRESSION_TYPE "gzip"
+#    define DEFAULT_TRACE_COMPRESSION_TYPE "gzip"
 #else
-    #define DEFAULT_TRACE_COMPRESSION_TYPE "zlib"
+#    define DEFAULT_TRACE_COMPRESSION_TYPE "zlib"
 #endif
 
 class raw2trace_directory_t {
