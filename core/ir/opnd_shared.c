@@ -374,16 +374,6 @@ opnd_create_immed_int(ptr_int_t i, opnd_size_t size)
     return opnd;
 }
 
-#ifdef RISCV64
-opnd_t
-opnd_create_immed_int_decimal(ptr_int_t i, opnd_size_t size)
-{
-    opnd_t opnd = opnd_create_immed_int(i, size);
-    opnd.aux.flags |= DR_OPND_IMM_PRINT_DECIMAL;
-    return opnd;
-}
-#endif
-
 opnd_t
 opnd_create_immed_uint(ptr_uint_t i, opnd_size_t size)
 {
@@ -662,17 +652,6 @@ opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp
     return opnd_create_far_base_disp_ex(REG_NULL, base_reg, index_reg, scale, disp, size,
                                         false, false, false);
 }
-
-#ifdef RISCV64
-opnd_t
-opnd_create_base_disp_decimal(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
-                              opnd_size_t size)
-{
-    opnd_t opnd = opnd_create_base_disp(base_reg, index_reg, scale, disp, size);
-    opnd.aux.flags |= DR_OPND_IMM_PRINT_DECIMAL;
-    return opnd;
-}
-#endif
 
 static inline void
 opnd_set_disp_helper(opnd_t *opnd, int disp)

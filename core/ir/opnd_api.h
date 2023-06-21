@@ -2008,18 +2008,6 @@ DR_API
 opnd_t
 opnd_create_immed_int(ptr_int_t i, opnd_size_t data_size);
 
-#ifdef RISCV64
-DR_API
-/**
- * Returns a signed immediate integer operand with value \p i and size
- * \p data_size; \p data_size must be a OPSZ_ constant.
- *
- * The integer will be formatted as a decimal when disassembled.
- */
-opnd_t
-opnd_create_immed_int_decimal(ptr_int_t i, opnd_size_t data_size);
-#endif
-
 DR_API
 /**
  * Returns an unsigned immediate integer operand with value \p i and size
@@ -2163,26 +2151,6 @@ DR_API
 opnd_t
 opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
                       opnd_size_t data_size);
-
-#ifdef RISCV64
-DR_API
-/**
- * Returns a memory reference operand that refers to the address:
- * - disp(base_reg, index_reg, scale)
- *
- * or, in other words,
- * - base_reg + index_reg*scale + disp
- *
- * The operand has data size data_size (must be a OPSZ_ constant).
- * Both \p base_reg and \p index_reg must be DR_REG_ constants.
- * \p scale must be either 0, 1, 2, 4, or 8.
- *
- * The integer will be formatted as a decimal when disassembled.
- */
-opnd_t
-opnd_create_base_disp_decimal(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
-                              opnd_size_t data_size);
-#endif
 
 DR_API
 /**

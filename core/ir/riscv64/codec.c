@@ -354,7 +354,8 @@ decode_shamt_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
                   int idx, instr_t *out)
 {
     int32_t imm = GET_FIELD(inst, 25, 20);
-    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(imm, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -369,7 +370,8 @@ decode_shamt5_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
                    int idx, instr_t *out)
 {
     int32_t imm = GET_FIELD(inst, 24, 20);
-    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(imm, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -385,7 +387,8 @@ decode_shamt6_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
 {
     /* shamt6 >= 64 only makes sense on RV128 but let user take care of it. */
     int32_t imm = GET_FIELD(inst, 26, 20);
-    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(imm, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -403,7 +406,8 @@ decode_i_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
                   int idx, instr_t *out)
 {
     int32_t imm = SIGN_EXTEND(GET_FIELD(inst, 31, 20), 12);
-    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(imm, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -422,7 +426,8 @@ decode_s_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
 {
     int32_t imm = (GET_FIELD(inst, 31, 25) << 5) | (GET_FIELD(inst, 11, 7));
     imm = SIGN_EXTEND(imm, 12);
-    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(imm, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -677,7 +682,8 @@ decode_cshamt_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *ori
                    int idx, instr_t *out)
 {
     int32_t imm = (BIT(inst, 12) << 5) | GET_FIELD(inst, 6, 2);
-    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(imm, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -695,7 +701,8 @@ decode_csr_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
                     int idx, instr_t *out)
 {
     int32_t imm = GET_FIELD(inst, 19, 15);
-    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(imm, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -718,7 +725,8 @@ decode_caddi16sp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
     imm |= (BIT(inst, 2) << 5);
     imm |= (BIT(inst, 6) << 4);
     imm = SIGN_EXTEND(imm, 10);
-    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(imm, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -738,7 +746,9 @@ decode_clwsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *
     int32_t imm = GET_FIELD(inst, 3, 2) << 6;
     imm |= BIT(inst, 12) << 5;
     imm |= GET_FIELD(inst, 6, 4) << 2;
-    opnd_t opnd = opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, imm, OPSZ_4);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, imm, OPSZ_4),
+                       DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -758,7 +768,9 @@ decode_cldsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *
     int32_t imm = GET_FIELD(inst, 4, 2) << 6;
     imm |= BIT(inst, 12) << 5;
     imm |= GET_FIELD(inst, 6, 5) << 3;
-    opnd_t opnd = opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, imm, OPSZ_8);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, imm, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -794,7 +806,9 @@ decode_cswsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *
                       int idx, instr_t *out)
 {
     int32_t imm = (GET_FIELD(inst, 8, 7) << 6) | (GET_FIELD(inst, 12, 9) << 2);
-    opnd_t opnd = opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, imm, OPSZ_4);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, imm, OPSZ_4),
+                       DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_dst(out, idx, opnd);
     return true;
 }
@@ -812,7 +826,9 @@ decode_csdsp_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *
                       int idx, instr_t *out)
 {
     int32_t imm = (GET_FIELD(inst, 9, 7) << 6) | (GET_FIELD(inst, 12, 10) << 3);
-    opnd_t opnd = opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, imm, OPSZ_8);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, imm, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_dst(out, idx, opnd);
     return true;
 }
@@ -833,7 +849,8 @@ decode_ciw_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     imm |= GET_FIELD(inst, 12, 11) << 4;
     imm |= BIT(inst, 5) << 3;
     imm |= BIT(inst, 6) << 2;
-    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(imm, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -855,7 +872,8 @@ decode_clw_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     int32_t imm = BIT(inst, 5) << 6;
     imm |= GET_FIELD(inst, 12, 10) << 3;
     imm |= BIT(inst, 6) << 2;
-    opnd_t opnd = opnd_create_base_disp_decimal(reg, DR_REG_NULL, 0, imm, OPSZ_4);
+    opnd_t opnd = opnd_add_flags(opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, OPSZ_4),
+                                 DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -875,7 +893,8 @@ decode_cld_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
 {
     reg_t reg = DR_REG_X8 + GET_FIELD(inst, 9, 7);
     int32_t imm = (GET_FIELD(inst, 6, 5) << 6) | (GET_FIELD(inst, 12, 10) << 3);
-    opnd_t opnd = opnd_create_base_disp_decimal(reg, DR_REG_NULL, 0, imm, OPSZ_8);
+    opnd_t opnd = opnd_add_flags(opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, OPSZ_8),
+                                 DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -897,7 +916,8 @@ decode_csw_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
     int32_t imm = BIT(inst, 5) << 6;
     imm |= GET_FIELD(inst, 12, 10) << 3;
     imm |= BIT(inst, 6) << 2;
-    opnd_t opnd = opnd_create_base_disp_decimal(reg, DR_REG_NULL, 0, imm, OPSZ_4);
+    opnd_t opnd = opnd_add_flags(opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, OPSZ_4),
+                                 DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_dst(out, idx, opnd);
     return true;
 }
@@ -917,7 +937,8 @@ decode_csd_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
 {
     reg_t reg = DR_REG_X8 + GET_FIELD(inst, 9, 7);
     int32_t imm = (GET_FIELD(inst, 6, 5) << 6) | (GET_FIELD(inst, 12, 10) << 3);
-    opnd_t opnd = opnd_create_base_disp_decimal(reg, DR_REG_NULL, 0, imm, OPSZ_8);
+    opnd_t opnd = opnd_add_flags(opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, OPSZ_8),
+                                 DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_dst(out, idx, opnd);
     return true;
 }
@@ -935,7 +956,8 @@ decode_cimm5_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
                   int idx, instr_t *out)
 {
     int32_t imm = SIGN_EXTEND((BIT(inst, 12) << 5) | GET_FIELD(inst, 6, 2), 6);
-    opnd_t opnd = opnd_create_immed_int_decimal(imm, op_sz);
+    opnd_t opnd =
+        opnd_add_flags(opnd_create_immed_int(imm, op_sz), DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -1008,7 +1030,8 @@ decode_v_l_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
 {
     reg_t reg = DR_REG_X0 + GET_FIELD(inst, 19, 15);
     int32_t imm = SIGN_EXTEND(GET_FIELD(inst, 31, 20), 12);
-    opnd_t opnd = opnd_create_base_disp_decimal(reg, DR_REG_NULL, 0, imm, op_sz);
+    opnd_t opnd = opnd_add_flags(opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, op_sz),
+                                 DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -1031,7 +1054,8 @@ decode_v_s_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
     reg_t reg = DR_REG_X0 + GET_FIELD(inst, 19, 15);
     int32_t imm = (GET_FIELD(inst, 31, 25) << 5) | GET_FIELD(inst, 11, 7);
     imm = SIGN_EXTEND(imm, 12);
-    opnd_t opnd = opnd_create_base_disp_decimal(reg, DR_REG_NULL, 0, imm, op_sz);
+    opnd_t opnd = opnd_add_flags(opnd_create_base_disp(reg, DR_REG_NULL, 0, imm, op_sz),
+                                 DR_OPND_IMM_PRINT_DECIMAL);
     instr_set_dst(out, idx, opnd);
     return true;
 }

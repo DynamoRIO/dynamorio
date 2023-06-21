@@ -110,91 +110,120 @@ test_integer_load_store(void *dc)
     /* Load */
     instr = INSTR_CREATE_lb(
         dc, opnd_create_reg(DR_REG_A0),
-        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_1));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_1),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_lb, instr);
     instr = INSTR_CREATE_lbu(
         dc, opnd_create_reg(DR_REG_X0),
-        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, -1, OPSZ_1));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, -1, OPSZ_1),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_lbu, instr);
-    instr = INSTR_CREATE_lh(
-        dc, opnd_create_reg(DR_REG_A0),
-        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_2));
+    instr =
+        INSTR_CREATE_lh(dc, opnd_create_reg(DR_REG_A0),
+                        opnd_add_flags(opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0,
+                                                             (1 << 11) - 1, OPSZ_2),
+                                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_lh, instr);
     instr = INSTR_CREATE_lhu(
         dc, opnd_create_reg(DR_REG_A0),
-        opnd_create_base_disp_decimal(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_2));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_2),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_lhu, instr);
     instr = INSTR_CREATE_lw(
         dc, opnd_create_reg(DR_REG_X31),
-        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, -1, OPSZ_4));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, -1, OPSZ_4),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_lw, instr);
     instr = INSTR_CREATE_lwu(
         dc, opnd_create_reg(DR_REG_A0),
-        opnd_create_base_disp_decimal(DR_REG_X31, DR_REG_NULL, 0, 0, OPSZ_4));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0, 0, OPSZ_4),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_lwu, instr);
     instr = INSTR_CREATE_ld(
         dc, opnd_create_reg(DR_REG_A0),
-        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 42, OPSZ_8));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 42, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_ld, instr);
 
     /* Store */
     instr = INSTR_CREATE_sb(
-        dc, opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_1),
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_1),
+                       DR_OPND_IMM_PRINT_DECIMAL),
         opnd_create_reg(DR_REG_A0));
     test_instr_encoding(dc, OP_sb, instr);
     instr = INSTR_CREATE_sh(
-        dc, opnd_create_base_disp_decimal(DR_REG_X0, DR_REG_NULL, 0, -1, OPSZ_2),
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, -1, OPSZ_2),
+                       DR_OPND_IMM_PRINT_DECIMAL),
         opnd_create_reg(DR_REG_X31));
     test_instr_encoding(dc, OP_sh, instr);
-    instr = INSTR_CREATE_sw(
-        dc,
-        opnd_create_base_disp_decimal(DR_REG_X31, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_4),
-        opnd_create_reg(DR_REG_X0));
+    instr =
+        INSTR_CREATE_sw(dc,
+                        opnd_add_flags(opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0,
+                                                             (1 << 11) - 1, OPSZ_4),
+                                       DR_OPND_IMM_PRINT_DECIMAL),
+                        opnd_create_reg(DR_REG_X0));
     test_instr_encoding(dc, OP_sw, instr);
     instr = INSTR_CREATE_sd(
-        dc, opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 42, OPSZ_8),
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 42, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL),
         opnd_create_reg(DR_REG_A0));
     test_instr_encoding(dc, OP_sd, instr);
 
     /* Compressed Load */
     instr = INSTR_CREATE_c_ldsp(
         dc, opnd_create_reg(DR_REG_A0),
-        opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_ldsp, instr);
-    instr = INSTR_CREATE_c_ld(dc, opnd_create_reg(DR_REG_X8),
-                              opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
-                                                            ((1 << 5) - 1) << 3, OPSZ_8));
+    instr = INSTR_CREATE_c_ld(
+        dc, opnd_create_reg(DR_REG_X8),
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X15, DR_REG_NULL, 0,
+                                             ((1 << 5) - 1) << 3, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_ld, instr);
-    instr =
-        INSTR_CREATE_c_lwsp(dc, opnd_create_reg(DR_REG_X0),
-                            opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0,
-                                                          ((1 << 5) - 1) << 2, OPSZ_4));
+    instr = INSTR_CREATE_c_lwsp(
+        dc, opnd_create_reg(DR_REG_X0),
+        opnd_add_flags(
+            opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, ((1 << 5) - 1) << 2, OPSZ_4),
+            DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_lwsp, instr);
-    instr = INSTR_CREATE_c_lw(dc, opnd_create_reg(DR_REG_X8),
-                              opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
-                                                            ((1 << 5) - 1) << 2, OPSZ_4));
+    instr = INSTR_CREATE_c_lw(
+        dc, opnd_create_reg(DR_REG_X8),
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X15, DR_REG_NULL, 0,
+                                             ((1 << 5) - 1) << 2, OPSZ_4),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_lw, instr);
 
     /* Compressed Store */
     instr = INSTR_CREATE_c_sdsp(
-        dc, opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8),
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL),
         opnd_create_reg(DR_REG_A0));
     test_instr_encoding(dc, OP_c_sdsp, instr);
-    instr = INSTR_CREATE_c_sd(dc,
-                              opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
-                                                            ((1 << 5) - 1) << 3, OPSZ_8),
-                              opnd_create_reg(DR_REG_X8));
+    instr = INSTR_CREATE_c_sd(
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X15, DR_REG_NULL, 0,
+                                             ((1 << 5) - 1) << 3, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL),
+        opnd_create_reg(DR_REG_X8));
     test_instr_encoding(dc, OP_c_sd, instr);
-    instr =
-        INSTR_CREATE_c_swsp(dc,
-                            opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0,
-                                                          ((1 << 5) - 1) << 2, OPSZ_4),
-                            opnd_create_reg(DR_REG_X0));
+    instr = INSTR_CREATE_c_swsp(
+        dc,
+        opnd_add_flags(
+            opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, ((1 << 5) - 1) << 2, OPSZ_4),
+            DR_OPND_IMM_PRINT_DECIMAL),
+        opnd_create_reg(DR_REG_X0));
     test_instr_encoding(dc, OP_c_swsp, instr);
-    instr = INSTR_CREATE_c_sw(dc,
-                              opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
-                                                            ((1 << 5) - 1) << 2, OPSZ_4),
-                              opnd_create_reg(DR_REG_X8));
+    instr = INSTR_CREATE_c_sw(
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X15, DR_REG_NULL, 0,
+                                             ((1 << 5) - 1) << 2, OPSZ_4),
+                       DR_OPND_IMM_PRINT_DECIMAL),
+        opnd_create_reg(DR_REG_X8));
     test_instr_encoding(dc, OP_c_sw, instr);
 }
 
@@ -205,51 +234,66 @@ test_float_load_store(void *dc)
 
     instr = INSTR_CREATE_flw(
         dc, opnd_create_reg(DR_REG_F0),
-        opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_flw, instr);
     instr = INSTR_CREATE_fld(
         dc, opnd_create_reg(DR_REG_F31),
-        opnd_create_base_disp_decimal(DR_REG_X0, DR_REG_NULL, 0, -1, OPSZ_8));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, -1, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_fld, instr);
     instr = INSTR_CREATE_flq(
         dc, opnd_create_reg(DR_REG_F31),
-        opnd_create_base_disp_decimal(DR_REG_X0, DR_REG_NULL, 0, -1, OPSZ_16));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, -1, OPSZ_16),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_flq, instr);
-    instr = INSTR_CREATE_fsw(
-        dc,
-        opnd_create_base_disp_decimal(DR_REG_X31, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_4),
-        opnd_create_reg(DR_REG_F1));
+    instr =
+        INSTR_CREATE_fsw(dc,
+                         opnd_add_flags(opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0,
+                                                              (1 << 11) - 1, OPSZ_4),
+                                        DR_OPND_IMM_PRINT_DECIMAL),
+                         opnd_create_reg(DR_REG_F1));
     test_instr_encoding(dc, OP_fsw, instr);
-    instr = INSTR_CREATE_fsd(
-        dc,
-        opnd_create_base_disp_decimal(DR_REG_X31, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_8),
-        opnd_create_reg(DR_REG_F31));
+    instr =
+        INSTR_CREATE_fsd(dc,
+                         opnd_add_flags(opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0,
+                                                              (1 << 11) - 1, OPSZ_8),
+                                        DR_OPND_IMM_PRINT_DECIMAL),
+                         opnd_create_reg(DR_REG_F31));
     test_instr_encoding(dc, OP_fsd, instr);
-    instr = INSTR_CREATE_fsq(
-        dc,
-        opnd_create_base_disp_decimal(DR_REG_X31, DR_REG_NULL, 0, (1 << 11) - 1, OPSZ_16),
-        opnd_create_reg(DR_REG_F31));
+    instr =
+        INSTR_CREATE_fsq(dc,
+                         opnd_add_flags(opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0,
+                                                              (1 << 11) - 1, OPSZ_16),
+                                        DR_OPND_IMM_PRINT_DECIMAL),
+                         opnd_create_reg(DR_REG_F31));
     test_instr_encoding(dc, OP_fsq, instr);
 
     /* Compressed */
     instr = INSTR_CREATE_c_fldsp(
         dc, opnd_create_reg(DR_REG_F0),
-        opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8));
+        opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_fldsp, instr);
-    instr =
-        INSTR_CREATE_c_fld(dc, opnd_create_reg(DR_REG_F8),
-                           opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
-                                                         ((1 << 5) - 1) << 3, OPSZ_8));
+    instr = INSTR_CREATE_c_fld(
+        dc, opnd_create_reg(DR_REG_F8),
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X15, DR_REG_NULL, 0,
+                                             ((1 << 5) - 1) << 3, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_fld, instr);
     /* There is no c.flw* instructions in RV64. */
     instr = INSTR_CREATE_c_fsdsp(
-        dc, opnd_create_base_disp_decimal(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8),
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0, 0, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL),
         opnd_create_reg(DR_REG_F31));
     test_instr_encoding(dc, OP_c_fsdsp, instr);
-    instr = INSTR_CREATE_c_fsd(dc,
-                               opnd_create_base_disp_decimal(DR_REG_X15, DR_REG_NULL, 0,
-                                                             ((1 << 5) - 1) << 3, OPSZ_8),
-                               opnd_create_reg(DR_REG_F8));
+    instr = INSTR_CREATE_c_fsd(
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X15, DR_REG_NULL, 0,
+                                             ((1 << 5) - 1) << 3, OPSZ_8),
+                       DR_OPND_IMM_PRINT_DECIMAL),
+        opnd_create_reg(DR_REG_F8));
     test_instr_encoding(dc, OP_c_fsd, instr);
     /* There is no c.fsw* instructions in RV64. */
 }
@@ -817,44 +861,64 @@ static void
 test_integer(void *dc)
 {
     instr_t *instr;
-    instr = INSTR_CREATE_addi(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                              opnd_create_immed_int_decimal(0, OPSZ_12b));
+    instr = INSTR_CREATE_addi(
+        dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+        opnd_add_flags(opnd_create_immed_int(0, OPSZ_12b), DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_addi, instr);
-    instr = INSTR_CREATE_addiw(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                               opnd_create_immed_int_decimal(0, OPSZ_12b));
+    instr = INSTR_CREATE_addiw(
+        dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+        opnd_add_flags(opnd_create_immed_int(0, OPSZ_12b), DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_addiw, instr);
-    instr = INSTR_CREATE_slti(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                              opnd_create_immed_int_decimal(-1, OPSZ_12b));
+    instr = INSTR_CREATE_slti(
+        dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+        opnd_add_flags(opnd_create_immed_int(-1, OPSZ_12b), DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_slti, instr);
-    instr = INSTR_CREATE_sltiu(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                               opnd_create_immed_int_decimal((1 << 11) - 1, OPSZ_12b));
+    instr =
+        INSTR_CREATE_sltiu(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                           opnd_add_flags(opnd_create_immed_int((1 << 11) - 1, OPSZ_12b),
+                                          DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_sltiu, instr);
-    instr = INSTR_CREATE_xori(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                              opnd_create_immed_int_decimal((1 << 11) - 1, OPSZ_12b));
+    instr =
+        INSTR_CREATE_xori(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                          opnd_add_flags(opnd_create_immed_int((1 << 11) - 1, OPSZ_12b),
+                                         DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_xori, instr);
-    instr = INSTR_CREATE_ori(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                             opnd_create_immed_int_decimal((1 << 11) - 1, OPSZ_12b));
+    instr =
+        INSTR_CREATE_ori(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                         opnd_add_flags(opnd_create_immed_int((1 << 11) - 1, OPSZ_12b),
+                                        DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_ori, instr);
-    instr = INSTR_CREATE_andi(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                              opnd_create_immed_int_decimal((1 << 11) - 1, OPSZ_12b));
+    instr =
+        INSTR_CREATE_andi(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                          opnd_add_flags(opnd_create_immed_int((1 << 11) - 1, OPSZ_12b),
+                                         DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_andi, instr);
     instr = INSTR_CREATE_slli(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                              opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+                              opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                             DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_slli, instr);
-    instr = INSTR_CREATE_slliw(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                               opnd_create_immed_int_decimal((1 << 5) - 1, OPSZ_5b));
+    instr =
+        INSTR_CREATE_slliw(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                           opnd_add_flags(opnd_create_immed_int((1 << 5) - 1, OPSZ_5b),
+                                          DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_slliw, instr);
     instr = INSTR_CREATE_srli(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                              opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+                              opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                             DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_srli, instr);
-    instr = INSTR_CREATE_srliw(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                               opnd_create_immed_int_decimal((1 << 5) - 1, OPSZ_5b));
+    instr =
+        INSTR_CREATE_srliw(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                           opnd_add_flags(opnd_create_immed_int((1 << 5) - 1, OPSZ_5b),
+                                          DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_srliw, instr);
     instr = INSTR_CREATE_srai(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                              opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+                              opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                             DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_srai, instr);
-    instr = INSTR_CREATE_sraiw(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                               opnd_create_immed_int_decimal((1 << 5) - 1, OPSZ_5b));
+    instr =
+        INSTR_CREATE_sraiw(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                           opnd_add_flags(opnd_create_immed_int((1 << 5) - 1, OPSZ_5b),
+                                          DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_sraiw, instr);
 
     instr = INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
@@ -944,8 +1008,10 @@ test_integer(void *dc)
     test_instr_encoding(dc, OP_remuw, instr);
 
     /* Compressed */
-    instr = INSTR_CREATE_c_addiw(dc, opnd_create_reg(DR_REG_A0),
-                                 opnd_create_immed_int_decimal((1 << 5) - 1, OPSZ_5b));
+    instr =
+        INSTR_CREATE_c_addiw(dc, opnd_create_reg(DR_REG_A0),
+                             opnd_add_flags(opnd_create_immed_int((1 << 5) - 1, OPSZ_5b),
+                                            DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_addiw, instr);
     instr =
         INSTR_CREATE_c_addw(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
@@ -954,17 +1020,24 @@ test_integer(void *dc)
         INSTR_CREATE_c_subw(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
     test_instr_encoding(dc, OP_c_subw, instr);
 
-    instr = INSTR_CREATE_c_slli(dc, opnd_create_reg(DR_REG_A1),
-                                opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+    instr =
+        INSTR_CREATE_c_slli(dc, opnd_create_reg(DR_REG_A1),
+                            opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                           DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_slli, instr);
-    instr = INSTR_CREATE_c_srli(dc, opnd_create_reg(DR_REG_A1),
-                                opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+    instr =
+        INSTR_CREATE_c_srli(dc, opnd_create_reg(DR_REG_A1),
+                            opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                           DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_srli, instr);
-    instr = INSTR_CREATE_c_srai(dc, opnd_create_reg(DR_REG_A1),
-                                opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+    instr =
+        INSTR_CREATE_c_srai(dc, opnd_create_reg(DR_REG_A1),
+                            opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                           DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_srai, instr);
-    instr = INSTR_CREATE_c_andi(dc, opnd_create_reg(DR_REG_A1),
-                                opnd_create_immed_int_decimal(-1, OPSZ_6b));
+    instr = INSTR_CREATE_c_andi(
+        dc, opnd_create_reg(DR_REG_A1),
+        opnd_add_flags(opnd_create_immed_int(-1, OPSZ_6b), DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_andi, instr);
 
     instr = INSTR_CREATE_c_mv(dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1));
@@ -1037,20 +1110,29 @@ test_jump_and_branch(void *dc)
     instr = INSTR_CREATE_c_bnez(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_X8));
     test_instr_encoding_branch(dc, OP_c_bnez, instr);
     instr = INSTR_CREATE_c_li(dc, opnd_create_reg(DR_REG_A1),
-                              opnd_create_immed_int_decimal((1 << 5) - 1, OPSZ_5b));
+                              opnd_add_flags(opnd_create_immed_int((1 << 5) - 1, OPSZ_5b),
+                                             DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_li, instr);
 
     /* FIXME i#3544: Need to be better formatted. */
-    instr = INSTR_CREATE_c_lui(dc, opnd_create_reg(DR_REG_A1),
-                               opnd_create_immed_int_decimal(1, OPSZ_6b));
+    instr = INSTR_CREATE_c_lui(
+        dc, opnd_create_reg(DR_REG_A1),
+        opnd_add_flags(opnd_create_immed_int(1, OPSZ_6b), DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_lui, instr);
-    instr = INSTR_CREATE_c_addi(dc, opnd_create_reg(DR_REG_A1),
-                                opnd_create_immed_int_decimal((1 << 5) - 1, OPSZ_5b));
+    instr =
+        INSTR_CREATE_c_addi(dc, opnd_create_reg(DR_REG_A1),
+                            opnd_add_flags(opnd_create_immed_int((1 << 5) - 1, OPSZ_5b),
+                                           DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_addi, instr);
-    instr = INSTR_CREATE_c_addi16sp(dc, opnd_create_immed_int_decimal(1 << 4, OPSZ_10b));
+    instr =
+        INSTR_CREATE_c_addi16sp(dc,
+                                opnd_add_flags(opnd_create_immed_int(1 << 4, OPSZ_10b),
+                                               DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_addi16sp, instr);
-    instr = INSTR_CREATE_c_addi4spn(dc, opnd_create_reg(DR_REG_X8),
-                                    opnd_create_immed_int_decimal(1 << 2, OPSZ_10b));
+    instr =
+        INSTR_CREATE_c_addi4spn(dc, opnd_create_reg(DR_REG_X8),
+                                opnd_add_flags(opnd_create_immed_int(1 << 2, OPSZ_10b),
+                                               DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_c_addi4spn, instr);
 }
 
@@ -1067,17 +1149,20 @@ test_csr(void *dc)
     instr = INSTR_CREATE_csrrc(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                                opnd_create_immed_int(0x42, OPSZ_12b));
     test_instr_encoding(dc, OP_csrrc, instr);
-    instr = INSTR_CREATE_csrrwi(dc, opnd_create_reg(DR_REG_A0),
-                                opnd_create_immed_int_decimal(1, OPSZ_5b),
-                                opnd_create_immed_int(0x42, OPSZ_12b));
+    instr = INSTR_CREATE_csrrwi(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_add_flags(opnd_create_immed_int(1, OPSZ_5b), DR_OPND_IMM_PRINT_DECIMAL),
+        opnd_create_immed_int(0x42, OPSZ_12b));
     test_instr_encoding(dc, OP_csrrwi, instr);
-    instr = INSTR_CREATE_csrrsi(dc, opnd_create_reg(DR_REG_A0),
-                                opnd_create_immed_int_decimal(1, OPSZ_5b),
-                                opnd_create_immed_int(0x42, OPSZ_12b));
+    instr = INSTR_CREATE_csrrsi(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_add_flags(opnd_create_immed_int(1, OPSZ_5b), DR_OPND_IMM_PRINT_DECIMAL),
+        opnd_create_immed_int(0x42, OPSZ_12b));
     test_instr_encoding(dc, OP_csrrsi, instr);
-    instr = INSTR_CREATE_csrrci(dc, opnd_create_reg(DR_REG_A0),
-                                opnd_create_immed_int_decimal(1, OPSZ_5b),
-                                opnd_create_immed_int(0x42, OPSZ_12b));
+    instr = INSTR_CREATE_csrrci(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_add_flags(opnd_create_immed_int(1, OPSZ_5b), DR_OPND_IMM_PRINT_DECIMAL),
+        opnd_create_immed_int(0x42, OPSZ_12b));
     test_instr_encoding(dc, OP_csrrci, instr);
 }
 
@@ -1111,7 +1196,8 @@ test_bit(void *dc)
     test_instr_encoding(dc, OP_sh3add_uw, instr);
     instr =
         INSTR_CREATE_slli_uw(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                             opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+                             opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                            DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_slli_uw, instr);
 
     instr = INSTR_CREATE_andn(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
@@ -1170,7 +1256,8 @@ test_bit(void *dc)
                               opnd_create_reg(DR_REG_A1));
     test_instr_encoding(dc, OP_rorw, instr);
     instr = INSTR_CREATE_rori(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                              opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+                              opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                             DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_rori, instr);
     instr =
         INSTR_CREATE_orc_b(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
@@ -1189,26 +1276,34 @@ test_bit(void *dc)
     instr = INSTR_CREATE_bclr(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                               opnd_create_reg(DR_REG_A1));
     test_instr_encoding(dc, OP_bclr, instr);
-    instr = INSTR_CREATE_bclri(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                               opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+    instr =
+        INSTR_CREATE_bclri(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                           opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                          DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_bclri, instr);
     instr = INSTR_CREATE_bext(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                               opnd_create_reg(DR_REG_A1));
     test_instr_encoding(dc, OP_bext, instr);
-    instr = INSTR_CREATE_bexti(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                               opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+    instr =
+        INSTR_CREATE_bexti(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                           opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                          DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_bexti, instr);
     instr = INSTR_CREATE_binv(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                               opnd_create_reg(DR_REG_A1));
     test_instr_encoding(dc, OP_binv, instr);
-    instr = INSTR_CREATE_binvi(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                               opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+    instr =
+        INSTR_CREATE_binvi(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                           opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                          DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_binvi, instr);
     instr = INSTR_CREATE_bset(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                               opnd_create_reg(DR_REG_A1));
     test_instr_encoding(dc, OP_bset, instr);
-    instr = INSTR_CREATE_bseti(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
-                               opnd_create_immed_int_decimal((1 << 6) - 1, OPSZ_6b));
+    instr =
+        INSTR_CREATE_bseti(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
+                           opnd_add_flags(opnd_create_immed_int((1 << 6) - 1, OPSZ_6b),
+                                          DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_bseti, instr);
 }
 
@@ -1217,13 +1312,19 @@ test_prefetch(void *dc)
 {
     instr_t *instr;
     instr = INSTR_CREATE_prefetch_i(
-        dc, opnd_create_base_disp_decimal(DR_REG_X0, DR_REG_NULL, 0, 3 << 5, OPSZ_0));
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, 3 << 5, OPSZ_0),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_prefetch_i, instr);
     instr = INSTR_CREATE_prefetch_r(
-        dc, opnd_create_base_disp_decimal(DR_REG_X31, DR_REG_NULL, 0, 5 << 5, OPSZ_0));
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_X31, DR_REG_NULL, 0, 5 << 5, OPSZ_0),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_prefetch_r, instr);
     instr = INSTR_CREATE_prefetch_w(
-        dc, opnd_create_base_disp_decimal(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_0));
+        dc,
+        opnd_add_flags(opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_0),
+                       DR_OPND_IMM_PRINT_DECIMAL));
     test_instr_encoding(dc, OP_prefetch_w, instr);
 }
 
