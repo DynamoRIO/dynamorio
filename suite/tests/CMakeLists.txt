@@ -715,6 +715,7 @@ function(configure_app_api_build_flags test decoder use_static_DR)
   string(REGEX REPLACE "DR_HOST_AARCH64" "" prop_defs "${prop_defs}")
   string(REGEX REPLACE "DR_HOST_X86" "" prop_defs "${prop_defs}")
   string(REGEX REPLACE "DR_HOST_X64" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "DR_HOST_RISCV64" "" prop_defs "${prop_defs}")
   string(REGEX REPLACE "DR_HOST_NOT_TARGET" "" prop_defs "${prop_defs}")
   # Append to properties set by configure_DynamoRIO_standalone.
   get_target_property(prop_cflags ${test} COMPILE_FLAGS)
@@ -1851,16 +1852,16 @@ elseif (RISCV64)
 else ()
   set(sfx "x86")
 endif ()
-if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+if (NOT ANDROID)
   # XXX i#1874: get working on Android
   tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF OFF)
-  if (AARCH64)
+  if (AARCH64 OR RISCV64)
     # The ir_aarch64.expect file is too large for CMake's regexes.
     set(api.ir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
     set(api.ir_runcmp_capture "stderr")
   endif ()
   # XXX i#1686: add ARM's headers too once they are all created
-  if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
+  if (NOT ARM AND NOT AARCH64 AND NOT RISCV64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
     # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
     # and so doesn't find headers named via macros
     # (http://www.cmake.org/Bug/view.php?id=13718)
@@ -1898,11 +1899,8 @@ if (NOT ANDROID AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
 endif ()
 
 # test static decoder library
-if (NOT RISCV64)
-  # TODO i#3544: Port tests to RISC-V 64
-  tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
-endif (NOT RISCV64)
-if (AARCH64)
+tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
+if (AARCH64 OR RISCV64)
   # The ir_aarch64.expect file is too large for CMake's regexes.
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   set(api.ir-static_runcmp_capture "stderr")
@@ -5593,4 +5591,12 @@ if (LINUX AND X64 AND HAVE_RSEQ AND NOT RISCV64) # TODO i#3544: Port tests to RI
     code_api|linux.rseq_table
     code_api|tool.drcacheoff.rseq
     PROPERTIES LABELS UBUNTU_22)
+endif ()
+
+# XXX i#3544: Enable passed tests on riscv64.
+if (RISCV64)
+  set_tests_properties(
+    code_api|api.ir
+    code_api|api.ir-static
+    PROPERTIES LABELS RISCV64)
 endif ()

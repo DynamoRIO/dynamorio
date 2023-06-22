@@ -1174,7 +1174,6 @@ enum {
     DR_REG_X29,     /**< The x29(t4) register. */
     DR_REG_X30,     /**< The x30(t5) register. */
     DR_REG_X31,     /**< The x31(t6) register. */
-    DR_REG_PC,      /**< The program counter. */
     /* GPR aliases */
     DR_REG_ZERO = DR_REG_X0, /**< The hard-wired zero (x0) register. */
     DR_REG_RA = DR_REG_X1,   /**< The return address (x1) register. */
@@ -1209,6 +1208,7 @@ enum {
     DR_REG_T4 = DR_REG_X29,  /**< The 5th temporary (x29) register. */
     DR_REG_T5 = DR_REG_X30,  /**< The 6th temporary (x30) register. */
     DR_REG_T6 = DR_REG_X31,  /**< The 7th temporary (x31) register. */
+    DR_REG_PC,               /**< The program counter. */
     /* Floating point registers */
     DR_REG_F0,   /**< The f0(ft0) floating-point register. */
     DR_REG_F1,   /**< The f1(ft1) floating-point register. */
@@ -1285,9 +1285,9 @@ enum {
     DR_REG_LAST_ENUM = DR_REG_FCSR,       /**< Last value of register enums. */
 
     DR_REG_START_64 = DR_REG_X0,  /**< Start of 64-bit general register enum values. */
-    DR_REG_STOP_64 = DR_REG_X31,  /**< End of 64-bit general register enum values. */
+    DR_REG_STOP_64 = DR_REG_F31,  /**< End of 64-bit general register enum values. */
     DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit general register enum values. */
-    DR_REG_STOP_32 = DR_REG_X31,  /**< End of 32-bit general register enum values. */
+    DR_REG_STOP_32 = DR_REG_F31,  /**< End of 32-bit general register enum values. */
     DR_REG_START_GPR = DR_REG_X0, /**< Start of general register registers. */
     DR_REG_STOP_GPR = DR_REG_X31, /**< End of general register registers. */
     DR_REG_XSP = DR_REG_SP, /**< Platform-independent way to refer to stack pointer. */
@@ -1780,6 +1780,11 @@ typedef enum _dr_opnd_flags_t {
      * SVE predicate constraint
      */
     DR_OPND_IS_PREDICATE_CONSTRAINT = 0x800,
+
+    /**
+     * This is used by RISCV64 for immediates display format.
+     */
+    DR_OPND_IMM_PRINT_DECIMAL = 0x1000,
 } dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
@@ -2171,7 +2176,8 @@ DR_API
  *    needs to be specified for an absolute address; otherwise, simply
  *    use the desired short registers for base and/or index).
  *
- * (The encoding optimization flags are all false when using opnd_create_base_disp()).
+ * (The encoding optimization flags are all false when using
+ * opnd_create_base_disp()).
  */
 opnd_t
 opnd_create_base_disp_ex(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,

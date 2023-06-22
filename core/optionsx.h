@@ -229,6 +229,7 @@ OPTION_INTERNAL(bool, tracedump_origins, "write out original instructions for ea
 OPTION(bool, syntax_intel, "use Intel disassembly syntax")
 OPTION(bool, syntax_att, "use AT&T disassembly syntax")
 OPTION(bool, syntax_arm, "use ARM (32-bit) disassembly syntax")
+OPTION(bool, syntax_riscv, "use RISC-V disassembly syntax")
 /* TODO i#4382: Add syntax_aarch64. */
 /* whether to mark gray-area instrs as invalid when we know the length (i#1118) */
 OPTION(bool, decode_strict, "mark all known-invalid instructions as invalid")

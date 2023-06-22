@@ -920,6 +920,11 @@ they want to shrink memory usage
     ARM assembler syntax rather than the default show-implicit-operands
     syntax.  This can also be set using disassemble_set_syntax().
 
+ - \b -syntax_riscv: \anchor op_syntax_riscv
+    This option causes DynamoRIO to output all disassembly using
+    RISC-V assembler syntax rather than the default show-implicit-operands
+    syntax.  This can also be set using disassemble_set_syntax().
+
  - \b -disasm_mask:
     This option sets the disassembly style to the specified bitmask of
     dr_disasm_flags_t values.  This option overlaps with -syntax_intel,
