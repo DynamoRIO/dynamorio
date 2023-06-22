@@ -58,7 +58,11 @@
 #include "drtable.h"
 #include "modules.h"
 #include "drcovlib_private.h"
-#include "../../core/unix/include/syscall.h"
+#ifdef LINUX
+#    include "../../core/unix/include/syscall.h"
+#elif defined(UNIX)
+#    include <sys/syscall.h>
+#endif
 #include <limits.h>
 #include <string.h>
 
