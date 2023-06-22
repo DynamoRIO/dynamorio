@@ -168,7 +168,7 @@ main(int argc, const char *argv[])
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
             saw_futex_marker = true;
             assert(memref.marker.marker_value ==
-                   TRACE_FUNC_ID_SYSCALL_BASE +
+                   static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
                        IF_X64_ELSE(SYS_futex, SYS_futex & 0xffff));
         }
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ARG) {

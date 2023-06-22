@@ -56,7 +56,14 @@ def filter_lines(path, regex, ignore_until=''):
         return patterns
 
 
-def check(l1, l2):
+def check(l1, l2, duplicate_check=False):
+    if duplicate_check:
+        for item in l1:
+            if l1.count(item) > 1:
+                raise Exception("l1 has duplicate entry: {}".format(item))
+        for item in l2:
+            if l2.count(item) > 1:
+                raise Exception("l2 has duplicate entry: {}".format(item))
     if len(l1) != len(l2):
         raise Exception(
             "Lists of different length.\n"
@@ -95,9 +102,9 @@ def main():
         os.path.join( src_dir, 'opnd_defs.txt'),
         re.compile(r'^[x\-\?\+]+  ([a-z0-9A-Z_]+).+#.+'))
     op_names_c = filter_lines(os.path.join(src_dir, 'codec.c'), re.compile(
-        r'^decode_opnd_([^\(]+).+'), ignore_until='each type of operand')
+        r'^decode_opnd_([^\(]+)?(\(.*\)[^;])'), ignore_until='each type of operand')
     print('Checking if operand order in opnd_defs.txt matches codec.c')
-    check(op_names_txt, op_names_c)
+    check(op_names_txt, op_names_c, duplicate_check=True)
     print('  OK!')
 
     # The Arm AArch64's architecture versions supported by the DynamoRIO codec.

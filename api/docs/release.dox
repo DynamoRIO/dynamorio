@@ -259,6 +259,9 @@ Further non-compatibility-affecting changes include:
    #DR_NOTE_RSEQ_ENTRY.
  - Added instr_get_offset() API for getting the offset of an instr in an instrlist that
    has been encoded with instrlist_encode* set of APIs.
+ - Added a new drmemtrace analysis tool: syscall_mix, to count frequency of system
+   calls in a trace. This tool works in both the online and offline modes of
+   drmemtrace.
 
 **************************************************
 <hr>

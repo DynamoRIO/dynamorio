@@ -1610,6 +1610,10 @@ enum {
     /* 1431 */ OP_vcvtneps2bf16,  /**< IA-32/AMD64 vcvtneps2bf16 opcode. */
     /* 1432 */ OP_vdpbf16ps,      /**< IA-32/AMD64 vdpbf16ps opcode. */
 
+    /* AVX512 VPOPCNTDQ */
+    /* 1433 */ OP_vpopcntd, /**< IA-32/AMD64 vpopcntd opcode. */
+    /* 1434 */ OP_vpopcntq, /**< IA-32/AMD64 vpopcntd opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */

@@ -353,9 +353,12 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
         case TRACE_MARKER_TYPE_FUNC_ID:
-            if (memref.marker.marker_value >= TRACE_FUNC_ID_SYSCALL_BASE) {
+            if (memref.marker.marker_value >=
+                static_cast<intptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE)) {
                 std::cerr << "<marker: function==syscall #"
-                          << (memref.marker.marker_value - TRACE_FUNC_ID_SYSCALL_BASE)
+                          << (memref.marker.marker_value -
+                              static_cast<uintptr_t>(
+                                  func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE))
                           << ">\n";
             } else {
                 std::cerr << "<marker: function #" << memref.marker.marker_value << ">\n";
@@ -385,6 +388,12 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             break;
         case TRACE_MARKER_TYPE_WINDOW_ID:
             // Handled above.
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+            std::cerr << "<marker: system call trace start>\n";
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+            std::cerr << "<marker: system call trace end>\n";
             break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "

@@ -280,12 +280,12 @@ typedef enum {
      *
      * This marker is also used to record parameter values for certain system calls such
      * as for #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS.  These use large identifiers equal to
-     * #TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (for 32-bit marker values
-     * just the bottom 16 bits of the system call number are added to the base).  These
-     * identifiers are not stored in the function list file
+     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (for 32-bit
+     * marker values just the bottom 16 bits of the system call number are added to the
+     * base).  These identifiers are not stored in the function list file
      * (drmemtrace_get_funclist_path()).  The system call number used is the value
-     * passed to DynamoRIO's dr_register_pre_syscall_event() which is normalized
-     * to match SYS_ constants (see the dr_register_pre_syscall_event() documentation
+     * passed to DynamoRIO's dr_register_pre_syscall_event() which is normalized to
+     * match SYS_ constants (see the dr_register_pre_syscall_event() documentation
      * regarding MacOS).
      */
     TRACE_MARKER_TYPE_FUNC_ID,
@@ -313,9 +313,9 @@ typedef enum {
      * whose id is specified by the closest previous #TRACE_MARKER_TYPE_FUNC_ID
      * marker entry
      *
-     * The marker value for system calls (see #TRACE_FUNC_ID_SYSCALL_BASE) is either 0
-     * (failure) or 1 (success), as obtained from dr_syscall_get_result_ex() via the
-     * "succeeded" field of #dr_syscall_result_info_t.  See the corresponding
+     * The marker value for system calls (see #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE)
+     * is either 0 (failure) or 1 (success), as obtained from dr_syscall_get_result_ex()
+     * via the "succeeded" field of #dr_syscall_result_info_t.  See the corresponding
      * documentation for caveats about the accuracy of this value.
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
@@ -410,7 +410,12 @@ typedef enum {
 
     /**
      * This marker is emitted prior to each system call when -enable_kernel_tracing is
-     * specified. The marker value contains a unique system call identifier.
+     * specified. The marker value contains a unique identifier for the system call within
+     * a specific thread.
+     * \note This marker serves solely to indicate when to decode the syscall's PT trace
+     * and will not be included in the final complete trace. Instead, we utilize
+     * #TRACE_MARKER_TYPE_SYSCALL_TRACE_START and #TRACE_MARKER_TYPE_SYSCALL_TRACE_END to
+     * signify the beginning and end of a syscall's PT trace in the final trace.
      */
     TRACE_MARKER_TYPE_SYSCALL_IDX,
 
@@ -472,6 +477,16 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL,
 
+    /**
+     * Indicates a point in the trace where a syscall's kernel trace starts.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+
+    /**
+     * Indicates a point in the trace where a syscall's trace end.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -480,7 +495,7 @@ typedef enum {
 } trace_marker_type_t;
 
 /** Constants related to function or system call parameter tracing. */
-enum {
+enum class func_trace_t : uint64_t { // VS2019 won't infer 64-bit with "enum {".
 /**
  * When system call parameter and return values are provided, they use the function
  * tracing markers #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_ARG, and
@@ -490,7 +505,7 @@ enum {
  * of the system call number for 32-bit marker values.
  */
 #ifdef X64
-    TRACE_FUNC_ID_SYSCALL_BASE = 100000000UL,
+    TRACE_FUNC_ID_SYSCALL_BASE = 0x100000000ULL,
 #else
     TRACE_FUNC_ID_SYSCALL_BASE = 0x10000U,
 #endif
@@ -718,14 +733,19 @@ typedef enum {
      * and return values for kernel locks (SYS_futex on Linux) using the function tracing
      * markers #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_ARG, and
      * #TRACE_MARKER_TYPE_FUNC_RETVAL with an identifier equal to
-     * #TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (or its bottom 16 bits
-     * for 32-bit marker values).  These identifiers are not stored in the function
-     * list file (drmemtrace_get_funclist_path()).
+     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system call number (or its
+     * bottom 16 bits for 32-bit marker values).  These identifiers are not stored in
+     * the function list file (drmemtrace_get_funclist_path()).
      *
      * The #TRACE_MARKER_TYPE_FUNC_RETVAL for system calls is either 0 (failure) or
      * 1 (success).
      */
     OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS = 0x800,
+    /**
+     * Kernel traces of syscalls are included.
+     * The included kernel traces are in the Intel® Processor Trace format.
+     */
+    OFFLINE_FILE_TYPE_KERNEL_SYSCALLS = 0x1000,
 } offline_file_type_t;
 
 static inline const char *
@@ -846,7 +866,7 @@ struct schedule_entry_t {
     uint64_t start_instruction;
 } END_PACKED_STRUCTURE;
 
-#ifdef BUILD_PT_TRACER
+#if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
 /**
  * The type of a syscall PT entry in the raw offline output.
@@ -861,7 +881,7 @@ typedef enum {
      * The instances of this type store the thread Id, signifying which thread the data in
      * the buffer has been collected from.
      */
-    SYSCALL_PT_ENTRY_TYPE_THREAD,
+    SYSCALL_PT_ENTRY_TYPE_THREAD_ID,
     /**
      * The instance with this type demonstrates that the leftover portion of the buffer
      * holds metadata while also providing information about the metadata's size.
@@ -984,7 +1004,8 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
 typedef enum {
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
     PDB_HEADER_PID_IDX = 0,
-    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD in the PDB header.
+    /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD_ID in the PDB
+     * header.
      */
     PDB_HEADER_TID_IDX = 1,
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY in the
@@ -997,7 +1018,7 @@ typedef enum {
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX in the PDB
      * header.
      */
-    PDB_HEADER_SYSCALL_IDX = 4,
+    PDB_HEADER_SYSCALL_IDX_IDX = 4,
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_SYSCALL_ARGS_NUM in the
      * PDB header.
      */
@@ -1038,5 +1059,23 @@ typedef enum {
  * each cpu.
  */
 #define DRMEMTRACE_CPU_SCHEDULE_FILENAME "cpu_schedule.bin.zip"
+
+/**
+ * The name of the folder in -offline mode where the kernel's per thread PT data is
+ * stored. This data is captured during online tracing.
+ */
+#define DRMEMTRACE_KERNEL_PT_SUBDIR "kernel.raw"
+
+/**
+ * The name of the file in -offline mode where the kernel code segments are stored. This
+ * file is copied from '/proc/kcore' during tracing.
+ */
+#define DRMEMTRACE_KCORE_FILENAME "kcore"
+
+/**
+ * The name of the file in -offline mode where kallsyms is stored. This file is copied
+ * from '/proc/kallsyms' during tracing.
+ */
+#define DRMEMTRACE_KALLSYMS_FILENAME "kallsyms"
 
 #endif /* _TRACE_ENTRY_H_ */

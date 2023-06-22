@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* basic-counts tool creation */
+/* opcode-mix tool creation */
 
 #ifndef _OPCODE_MIX_CREATE_H_
 #define _OPCODE_MIX_CREATE_H_ 1
