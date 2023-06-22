@@ -1763,7 +1763,10 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
             // rseq aborts with timestamps (i#5954) nor rseq side exits (i#5953) for
             // such traces but we can at least fix up typical aborts.
             if (!tdata->rseq_ever_saw_entry_ &&
-                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT &&
+                // I-filtered don't have every instr so we can't roll back.
+                !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                         get_file_type(tdata))) {
                 // For the older version, we will not get here for Windows
                 // callbacks, the other event with a 0 modoffs, because they are
                 // always between bbs.  (Unfortunately there's no simple way to
