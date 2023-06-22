@@ -93,7 +93,7 @@ static void
 test_instr_encoding_jump_or_branch(void *dc, uint opcode, instr_t *instr)
 {
     /* XXX i#3544: For jump and branch instructions, current disassembler will print
-     * the complete jump address, that is, a address relative to `buf`. But the
+     * the complete jump address, that is, an address relative to `buf`. But the
      * value of `buf` is indeterminate at runtime, so we skip checking the disassembled
      * format for jump and branch instructions.
      *
