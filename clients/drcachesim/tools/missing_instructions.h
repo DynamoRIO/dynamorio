@@ -161,7 +161,8 @@ protected:
 //     bool has_modules_;
 //     memtrace_stream_t *serial_stream_ = nullptr;
 
-// private:
+private:
+  int current_instruction_id = 0;
 //     static constexpr int RECORD_COLUMN_WIDTH = 12;
 //     static constexpr int INSTR_COLUMN_WIDTH = 12;
 //     static constexpr int TID_COLUMN_WIDTH = 11;

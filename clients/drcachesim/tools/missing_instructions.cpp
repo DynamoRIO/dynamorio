@@ -528,7 +528,9 @@ missing_instructions_t::missing_instructions_t(const cache_simulator_knobs_t &kn
 bool
 missing_instructions_t::process_memref(const memref_t &memref)
 {
+  current_instruction_id++;
 
+  std::cout << "[" << current_instruction_id << "]";
   get_opcode(memref);
 
   // Data misses
