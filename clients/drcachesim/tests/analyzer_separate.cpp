@@ -46,6 +46,7 @@
 
 using dynamorio::drmemtrace::analysis_tool_t;
 using dynamorio::drmemtrace::analyzer_t;
+using dynamorio::drmemtrace::histogram_tool_create;
 
 namespace {
 
