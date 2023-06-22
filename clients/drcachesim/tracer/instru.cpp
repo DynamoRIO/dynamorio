@@ -50,6 +50,8 @@
 #    include <intrin.h>
 #endif
 
+std::atomic<uint64> attached_timestamp;
+
 unsigned short
 instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
 {
@@ -323,6 +325,19 @@ instru_t::get_timestamp()
     // If we want something faster we can try to use the VDSO gettimeofday (via
     // libc) or KUSER_SHARED_DATA on Windows (i#2842).
     return dr_get_microseconds();
+}
+
+uint64
+instru_t::get_attached_timestamp()
+{
+   uint64 attached = attached_timestamp.load(std::memory_order_acquire);
+   return attached;
+}
+
+void
+instru_t::set_attached_timestamp(const uint64 timestamp)
+{
+    attached_timestamp.store(timestamp, std::memory_order_release);
 }
 
 int

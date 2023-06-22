@@ -933,19 +933,21 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     if (data->has_thread_header && op_offline.get_value())
         header_size += data->init_header_size;
 
-    if (align_attach_detach_endpoints()) {
-        // This is the attach counterpart to instru_t::set_frozen_timestamp(): we place
-        // timestamps at buffer creation, but that can be before we're fully attached.
-        // We update any too-early timestamps to reflect when we actually started
-        // tracing.  (Switching back to timestamps at buffer output is actually
-        // worse as we then have the identical frozen timestamp for all the flushes
-        // during detach, plus they are all on the same cpu too.)
-        uint64 min_timestamp = attached_timestamp.load(std::memory_order_acquire);
-        if (min_timestamp == 0) {
-            // This data is too early: we drop it.
-            NOTIFY(1, "Dropping too-early data for T%zd\n", dr_get_thread_id(drcontext));
-            BUF_PTR(data->seg_base) = data->buf_base + header_size;
-            return;
+    if (align_attach_detach_endpoints() || has_tracing_windows()) {
+        uint64 min_timestamp = instru_t::get_attached_timestamp();
+        if (align_attach_detach_endpoints()) {
+            // This is the attach counterpart to instru_t::set_frozen_timestamp(): we place
+            // timestamps at buffer creation, but that can be before we're fully attached.
+            // We update any too-early timestamps to reflect when we actually started
+            // tracing.  (Switching back to timestamps at buffer output is actually
+            // worse as we then have the identical frozen timestamp for all the flushes
+            // during detach, plus they are all on the same cpu too.)
+            if (min_timestamp == 0) {
+                // This data is too early: we drop it.
+                NOTIFY(0, "Dropping too-early data for T%zd\n", dr_get_thread_id(drcontext));
+                BUF_PTR(data->seg_base) = data->buf_base + header_size;
+                return;
+            }
         }
         size_t stamp_offs =
             header_size > buf_hdr_slots_size ? header_size - buf_hdr_slots_size : 0;

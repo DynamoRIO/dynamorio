@@ -287,6 +287,10 @@ public:
     get_cpu_id();
     static uint64
     get_timestamp();
+    static uint64
+    get_attached_timestamp();
+    static void
+    set_attached_timestamp(const uint64 timestamp);
     static int
     count_app_instrs(instrlist_t *ilist);
     virtual void

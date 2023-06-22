@@ -419,7 +419,7 @@ event_post_attach()
     if (!align_attach_detach_endpoints())
         return;
     uint64 timestamp = instru_t::get_timestamp();
-    attached_timestamp.store(timestamp, std::memory_order_release);
+    instru_t::set_attached_timestamp(timestamp);
     NOTIFY(1, "Fully-attached timestamp is " UINT64_FORMAT_STRING "\n", timestamp);
     if (op_trace_after_instrs.get_value() != 0) {
         NOTIFY(1, "Switching to counting mode after attach\n");

@@ -121,6 +121,8 @@ hit_instr_count_threshold(app_pc next_pc)
         dr_mutex_unlock(mutex);
         return;
     }
+    auto timestamp = instru_t::get_timestamp();
+    instru_t::set_attached_timestamp(timestamp);
     if (op_trace_after_instrs.get_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire))
         NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
