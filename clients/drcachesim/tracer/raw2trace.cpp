@@ -41,6 +41,10 @@
 #include "instru.h"
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
+#ifdef LINUX
+// XXX: We should have the core export this to an include dir.
+#    include "../../core/unix/include/syscall.h"
+#endif
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include "../common/options.h"
 #    include "../drpt2trace/ir2trace.h"
