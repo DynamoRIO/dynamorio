@@ -3380,7 +3380,7 @@ if (BUILD_CLIENTS)
     set(tool.drcov.fib_expectbase "tool.drcov.fib")
     DynamoRIO_get_full_path(tool.drcov.fib_postcmd drcov2lcov "${location_suffix}")
 
-    if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+    if (UNIX AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
       # Test an app that executes a pipe syscall for i#5981.
       torunonly_ci(tool.drcov.eintr linux.eintr drcov linux/eintr.c "" "" "")
       set(tool.drcov.eintr_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
