@@ -680,7 +680,6 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             int file_type = get_file_type(tdata);
             file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
                            OFFLINE_FILE_TYPE_DFILTERED);
-            file_type |= OFFLINE_FILE_TYPE_DEFAULT;
             set_file_type(tdata, (offline_file_type_t)file_type);
         }
         std::string result = append_bb_entries(tdata, in_entry, last_bb_handled);

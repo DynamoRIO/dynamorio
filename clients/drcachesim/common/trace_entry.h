@@ -723,12 +723,14 @@ typedef enum {
         OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
         OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
     /**
+     * Instruction addresses filtered online.
      * Note: this file type may transition to non-filtered. This transition is indicated
-     * by the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. Each window (which is indicated by
-     * the TRACE_MARKER_TYPE_WINDOW_ID marker) starts out filtered.
-     * TODO: add a new file type for mixed traces.
+     * by the #TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. Each window (which is indicated
+     * by the #TRACE_MARKER_TYPE_WINDOW_ID marker) starts out filtered. This applies to
+     * #OFFLINE_FILE_TYPE_DFILTERED also.
      */
-    OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
+    /* TODO i#6164: add a new file type for mixed traces. */
+    OFFLINE_FILE_TYPE_IFILTERED = 0x80,
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
     OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
     /** System call number markers (#TRACE_MARKER_TYPE_SYSCALL) are included. */

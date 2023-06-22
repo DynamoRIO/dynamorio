@@ -795,8 +795,8 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
 
     if (op_L0_filter_until_instrs.get_value()) {
-        // Force a clean call when the tracing mode changes, so that the other
-        // threads can update their traces appropriately.
+        // Force a clean call when another thread changes tracing mode, so that
+        // we can update our trace appropriately.
         insert_mode_comparison(drcontext, ilist, where, reg_ptr, &tracing_mode,
                                MEMTRACE_TLS_OFFS_MODE);
     }
