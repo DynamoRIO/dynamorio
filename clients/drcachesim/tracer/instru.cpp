@@ -330,8 +330,8 @@ instru_t::get_timestamp()
 uint64
 instru_t::get_attached_timestamp()
 {
-   uint64 attached = attached_timestamp.load(std::memory_order_acquire);
-   return attached;
+    uint64 attached = attached_timestamp.load(std::memory_order_acquire);
+    return attached;
 }
 
 void
