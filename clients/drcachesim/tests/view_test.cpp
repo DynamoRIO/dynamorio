@@ -105,7 +105,9 @@ public:
     {
         module_mapper_->get_loaded_modules();
         dr_disasm_flags_t flags =
-            IF_X86_ELSE(DR_DISASM_ATT, IF_AARCH64_ELSE(DR_DISASM_DR, DR_DISASM_ARM));
+            IF_X86_ELSE(DR_DISASM_ATT,
+                        IF_AARCH64_ELSE(DR_DISASM_DR,
+                                        IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
         disassemble_set_syntax(flags);
         return "";
     }

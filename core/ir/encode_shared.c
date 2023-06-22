@@ -69,7 +69,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                   bool *has_instr_opnds /*OUT OPTIONAL*/
                       _IF_DEBUG(bool assert_reachable));
 
-#ifdef AARCH64
+#if defined(AARCH64) || defined(RISCV64)
 /* exported
  */
 bool

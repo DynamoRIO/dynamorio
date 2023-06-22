@@ -101,14 +101,17 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
     std::string error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;
-    dr_disasm_flags_t flags =
-        IF_X86_ELSE(DR_DISASM_ATT, IF_AARCH64_ELSE(DR_DISASM_DR, DR_DISASM_ARM));
+    dr_disasm_flags_t flags = IF_X86_ELSE(
+        DR_DISASM_ATT,
+        IF_AARCH64_ELSE(DR_DISASM_DR, IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
     if (knob_syntax_ == "intel") {
         flags = DR_DISASM_INTEL;
     } else if (knob_syntax_ == "dr") {
         flags = DR_DISASM_DR;
     } else if (knob_syntax_ == "arm") {
         flags = DR_DISASM_ARM;
+    } else if (knob_syntax_ == "riscv") {
+        flags = DR_DISASM_RISCV;
     }
     disassemble_set_syntax(flags);
     return "";

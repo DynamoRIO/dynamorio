@@ -244,8 +244,7 @@ check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist)
 void
 decode_debug_checks_arch(void)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* FIXME i#3544: NYI */
 }
 #endif /* DEBUG */
 
