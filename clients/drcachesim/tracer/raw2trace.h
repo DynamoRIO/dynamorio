@@ -766,10 +766,13 @@ public:
     {
         page_table.clear();
         page_table.reserve(BASIC_BUCKET_COUNT);
+        page_table.emplace(T(0), std::move(std::bitset<BLOCK_SIZE>()));
+        last_block = page_table.begin();
     }
 
     ~bitset_hash_table_t()
     {
+        clear();
     }
 };
 
