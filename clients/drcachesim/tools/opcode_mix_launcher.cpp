@@ -47,7 +47,6 @@
 
 using dynamorio::drmemtrace::analysis_tool_t;
 using dynamorio::drmemtrace::analyzer_t;
-using dynamorio::drmemtrace::disable_popups;
 using dynamorio::drmemtrace::opcode_mix_tool_create;
 
 namespace {
@@ -86,8 +85,6 @@ droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
 int
 _tmain(int argc, const TCHAR *targv[])
 {
-    disable_popups();
-
     // Convert to UTF-8 if necessary
     char **argv;
     drfront_status_t sc = drfront_convert_args(targv, &argv, argc);

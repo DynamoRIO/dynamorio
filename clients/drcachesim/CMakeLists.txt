@@ -387,13 +387,11 @@ set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_build_dir
 if (NOT APPLE)
   add_executable(opcode_mix_launcher
     tools/opcode_mix_launcher.cpp
-    tests/test_helpers.cpp
     )
   # We hit dup symbol errors on Windows so we need libc earlier before DR:
   _DR_get_static_libc_list(static_libc)
   target_link_libraries(opcode_mix_launcher drmemtrace_analyzer drmemtrace_opcode_mix
     drmemtrace_raw2trace drcovlib_static drfrontendlib ${static_libc})
-  append_property_list(TARGET opcode_mix_launcher COMPILE_DEFINITIONS "NO_HELPER_MAIN")
   use_DynamoRIO_extension(opcode_mix_launcher droption)
   add_dependencies(opcode_mix_launcher api_headers)
   configure_DynamoRIO_static(opcode_mix_launcher)
