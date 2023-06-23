@@ -3065,7 +3065,7 @@ raw2trace_t::raw2trace_t(
         }
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
-    // static work assigment.  This won't be as load balanced as a dynamic work
+    // static work assignment.  This won't be as load balanced as a dynamic work
     // queue but it is much simpler.
     if (worker_count_ < 0) {
         worker_count_ = std::thread::hardware_concurrency();

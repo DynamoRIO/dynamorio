@@ -116,7 +116,7 @@ enum pt2ir_convert_status_t {
     /** The conversion process ends with a failure to set the new image. */
     PT2IR_CONV_ERROR_SET_IMAGE,
 
-    /** The conversion process ends with a failure to decode the next intruction. */
+    /** The conversion process ends with a failure to decode the next instruction. */
     PT2IR_CONV_ERROR_DECODE_NEXT_INSTR,
 
     /**
@@ -355,7 +355,7 @@ public:
      * @param pt_data The PT raw trace.
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.
-     * @return pt2ir_convert_status_t. If the convertion is successful, the function
+     * @return pt2ir_convert_status_t. If the conversion is successful, the function
      * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.
      */

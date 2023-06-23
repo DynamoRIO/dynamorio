@@ -31,7 +31,7 @@
  */
 
 /* file_reader: obtains memory streams from DR clients running in
- * application processes and presents them via an interator interface
+ * application processes and presents them via an iterator interface
  * to the cache simulator.
  */
 
