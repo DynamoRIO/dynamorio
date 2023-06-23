@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::min.
 #undef NDEBUG
 #include <assert.h>
 #include <cstring>
