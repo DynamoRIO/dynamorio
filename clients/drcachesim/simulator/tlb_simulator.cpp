@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -234,8 +234,8 @@ tlb_t *
 tlb_simulator_t::create_tlb(std::string policy)
 {
     // XXX: how to implement different replacement policies?
-    // Should we extend tlb_t to tlb_XXX_t so as to avoid multiple inheritence?
-    // Or should we adopt multiple inheritence to have caching_device_XXX_t as one base
+    // Should we extend tlb_t to tlb_XXX_t so as to avoid multiple inheritance?
+    // Or should we adopt multiple inheritance to have caching_device_XXX_t as one base
     // and tlb_t as another base class?
     if (policy == REPLACE_POLICY_NON_SPECIFIED || // default LFU
         policy == REPLACE_POLICY_LFU)             // set to LFU

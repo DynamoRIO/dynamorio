@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google LLC  All rights reserved.
+ * Copyright (c) 2018-2023 Google LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,7 +40,7 @@
  * file called "rec.csv", perform the following:
  * * Compile the microbenchmark. Assuming g++ is the compiler being used:
  *   $ g++ -O3 -o stride_benchmark stride_benchmark.cpp
- * * Run the the analyzer:
+ * * Run the analyzer:
  *   $ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv -- \
  *     stride_benchmark
  *

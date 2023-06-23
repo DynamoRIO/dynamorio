@@ -35,7 +35,7 @@
  * process.
  * We aren't bothering to pack it as it won't be over the network or persisted.
  * It's already arranged to minimize padding.
- * We do save space using heterogenous data via the type field to send
+ * We do save space using heterogeneous data via the type field to send
  * thread id data only periodically rather than paying for the cost of a
  * thread id field in every entry.
  */
