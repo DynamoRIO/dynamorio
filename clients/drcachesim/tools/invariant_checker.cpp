@@ -160,9 +160,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
              shard->memrefs_until_interrupt_ == 0)) {
             report_if_false(
                 shard,
-                (memref.marker.type == TRACE_TYPE_MARKER &&
-                 (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                  memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
+                // I-filtered traces don't have all instrs so this doesn't apply.
+                TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                        shard->file_type_) ||
+                    (memref.marker.type == TRACE_TYPE_MARKER &&
+                     (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                      memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
                     // TODO i#3937: Online instr bundles currently violate this.
                     !knob_offline_,
                 "Interruption marker mis-placed");
