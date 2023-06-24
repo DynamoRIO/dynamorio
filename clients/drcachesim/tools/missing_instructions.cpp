@@ -533,6 +533,10 @@ missing_instructions_t::process_memref(const memref_t &memref)
   std::cout << "[" << current_instruction_id << "]";
   get_opcode(memref);
 
+  if (current_instruction_id > 200000){ // limit instrs. to first 200k
+    exit(0);
+  }
+
   // Data misses
   int data_misses_pre = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 0, 0, cache_split_t::DATA);
   int inst_misses_pre = cache_simulator_t::get_cache_metric(metric_name_t::MISSES, 0, 0, cache_split_t::INSTRUCTION);

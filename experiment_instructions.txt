@@ -6,7 +6,7 @@ To generate the data:
 * Following instructions and build dynamorio
   ?????
 * Run DR to generate a trace
-  ./build/bin64/drrun -t drcachesim -LL_size 1024k -cores 1 -offline -outdir traces -- matmult 20
+  ./build/bin64/drrun -t drcachesim -L1D_size 1k -cores 1 -offline -outdir traces -- matmult 100
 * Use the new simulator to generate data
   ./run.sh traces/name-of-the-trace-directory
 * The final output is in file called output
