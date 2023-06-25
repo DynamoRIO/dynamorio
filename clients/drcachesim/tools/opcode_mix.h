@@ -76,15 +76,19 @@ protected:
         std::unordered_map<app_pc, int> opcode_cache;
     };
 
+    enum branch_t { cbr, ubr, mbr, ret, dircall, indcall };
+
     struct shard_data_t {
         shard_data_t()
             : worker(nullptr)
             , instr_count(0)
+            , branch_instr_count(0)
         {
         }
         shard_data_t(worker_data_t *worker)
             : worker(worker)
             , instr_count(0)
+            , branch_instr_count(0)
             , last_trace_module_start(nullptr)
             , last_trace_module_size(0)
             , last_mapped_module_start(nullptr)
@@ -92,7 +96,11 @@ protected:
         }
         worker_data_t *worker;
         int_least64_t instr_count;
+        int_least64_t branch_instr_count;
         std::unordered_map<int, int_least64_t> opcode_counts;
+        std::unordered_map<int, std::unordered_map<branch_t, int_least64_t>>
+            opcode_branch_counts; // TODO: refactor to define new struct after design
+                                  // finalized.
         std::string error;
         app_pc last_trace_module_start;
         size_t last_trace_module_size;

@@ -207,6 +207,26 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         }
         opcode = instr_get_opcode(&instr);
         shard->worker->opcode_cache[trace_pc] = opcode;
+
+        if (instr_is_cbr(&instr)) {
+            ++shard->opcode_branch_counts[opcode][branch_t::cbr];
+        } else if (instr_is_ubr(&instr)) {
+            ++shard->opcode_branch_counts[opcode][branch_t::ubr];
+        } else if (instr_is_mbr(&instr)) {
+            ++shard->opcode_branch_counts[opcode][branch_t::mbr];
+        } else if (instr_is_call_direct(&instr)) {
+            ++shard->opcode_branch_counts[opcode][branch_t::dircall];
+        } else if (instr_is_call_indirect(&instr)) {
+            ++shard->opcode_branch_counts[opcode][branch_t::indcall];
+        } else if (instr_is_return(&instr)) {
+            ++shard->opcode_branch_counts[opcode][branch_t::ret];
+        }
+        // compute total, debug propose
+        if (instr_is_cbr(&instr) || instr_is_ubr(&instr) || instr_is_mbr(&instr) ||
+            instr_is_call_direct(&instr) || instr_is_call_indirect(&instr) ||
+            instr_is_return(&instr)) {
+            ++shard->branch_instr_count;
+        }
         instr_free(dcontext_.dcontext, &instr);
     }
     ++shard->opcode_counts[opcode];
@@ -245,19 +265,50 @@ opcode_mix_t::print_results()
     } else {
         for (const auto &shard : shard_map_) {
             total.instr_count += shard.second->instr_count;
+            total.branch_instr_count += shard.second->branch_instr_count;
             for (const auto &keyvals : shard.second->opcode_counts) {
                 total.opcode_counts[keyvals.first] += keyvals.second;
+            }
+            for (const auto &keyvals : shard.second->opcode_branch_counts) {
+                for (const auto &branch_info : keyvals.second) {
+                    total.opcode_branch_counts[keyvals.first][branch_info.first] +=
+                        branch_info.second;
+                }
             }
         }
     }
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << total.instr_count << " : total executed instructions\n";
+
     std::vector<std::pair<int, int_least64_t>> sorted(total.opcode_counts.begin(),
                                                       total.opcode_counts.end());
     std::sort(sorted.begin(), sorted.end(), cmp_val);
     for (const auto &keyvals : sorted) {
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
                   << decode_opcode_name(keyvals.first) << "\n";
+    }
+
+    std::cerr << std::setw(15) << total.branch_instr_count
+              << " : branch instructions count\n";
+    std::cerr << std::setw(15)
+              << (double)total.branch_instr_count / ((double)total.instr_count)
+              << " : branch density\n";
+    std::cerr << std::setw(15) << "opcode"
+              << " : " << std::setw(9) << "cbr"
+              << " : " << std::setw(9) << "ubr"
+              << " : " << std::setw(9) << "mbr"
+              << " : " << std::setw(9) << "ret"
+              << " : " << std::setw(9) << "dircall"
+              << " : " << std::setw(9) << "indcall"
+              << " : \n";
+    for (const auto &keyvals : total.opcode_branch_counts) {
+        std::cerr << std::setw(15) << decode_opcode_name(keyvals.first) << " : ";
+        for (branch_t bt = branch_t::cbr; bt <= branch_t::indcall;
+             bt = (branch_t)(bt + 1)) {
+            std::cerr << std::setw(9) << total.opcode_branch_counts[keyvals.first][bt]
+                      << " : ";
+        }
+        std::cerr << "\n";
     }
     return true;
 }
