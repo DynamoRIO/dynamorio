@@ -74,13 +74,241 @@ pt_iscache_autoclean_t::~pt_iscache_autoclean_t()
 
 pt_iscache_autoclean_t pt2ir_t::share_iscache_;
 
+enum pt2ir_data_buffer_state_t {
+    /* No data buffer is currently allocated.*/
+    PT2IR_DATA_BUFFER_STATE_EMPTY,
+    /* The data buffer has been allocated, but it contains no data. */
+    PT2IR_DATA_BUFFER_STATE_INIT,
+    /* The data in the buffer has just been expanded. */
+    PT2IR_DATA_BUFFER_STATE_EXTEND,
+    /* The data in the buffer has just been shrinked. */
+    PT2IR_DATA_BUFFER_STATE_SHRINK,
+    /* The data buffer is ready for use. */
+    PT2IR_DATA_BUFFER_STATE_READY
+};
+
+/* The buffer stores the PT data chunk retrieved from the trace file. Since the end of the
+ * data chunk may contain a partial packet,  we use 'data_size_' to denote the full size
+ * of the data chunk, while 'valid_data_size_' represents the size of the data excluding
+ * the partial packet at the end of the data.
+ * Given that the Intel Libipt decoder doesn't support streaming decoding and can only
+ * decode a chunk starting with a PSB packet, we define 'window_size_' to signify the size
+ * of the data chunk that the decoder can process.
+ *
+ * The buffer usage follows the below steps:
+ * (1) Initially, the data chunk retrieved from the trace file is appended to the buffer.
+ * The 'data_size_' and 'valid_data_size_' are then updated.
+ * (2) We determine the position of the last PSB Packet in the buffer, and set
+ * 'window_size_' equal to the size of the data chunk excluding the last PSB packet itself
+ * and the data after the last PSB packet.
+ * (3) The decoder is then employed to decode the data chunk within the window.
+ * (4) Upon completion of step 3, all data in the window is deleted. The data following
+ * the window is shifted to the buffer's start, and 'data_size_' and 'valid_data_size_'
+ * are updated accordingly. The window size is reset to the new 'valid_data_size_'.
+ * (5) Reset the decoder and decode the data chunk from the window's start position.
+ * (6) Once the end of the window is reached, the decoding process is halted and returns
+ * to step 1.
+ */
+class pt2ir_data_buffer_t {
+public:
+    pt2ir_data_buffer_t()
+        : raw_buffer_size_(0)
+        , data_size_(0)
+        , vaild_data_size_(0)
+        , window_size_(0)
+        , state_(PT2IR_DATA_BUFFER_STATE_EMPTY)
+        , verbosity_(0)
+    {
+    }
+
+    ~pt2ir_data_buffer_t()
+    {
+    }
+
+    void
+    init(IN size_t raw_buffer_size, IN int verbosity = 0)
+    {
+        raw_buffer_size_ = raw_buffer_size;
+        raw_buffer_ = std::unique_ptr<uint8_t[]>(new uint8_t[raw_buffer_size_]);
+        data_size_ = 0;
+        vaild_data_size_ = 0;
+        window_size_ = 0;
+        state_ = PT2IR_DATA_BUFFER_STATE_INIT;
+        verbosity_ = verbosity;
+    }
+
+    bool
+    extend_data(IN const uint8_t *data, IN size_t data_size)
+    {
+        if (state_ != PT2IR_DATA_BUFFER_STATE_INIT &&
+            state_ != PT2IR_DATA_BUFFER_STATE_READY) {
+            VPRINT(
+                0,
+                "Data can only be appended to the buffer when it has been initialized or "
+                "when the buffer is ready for use.\n");
+            return false;
+        }
+
+        if (data == nullptr || data_size == 0) {
+            VPRINT(0, "Attempt to append empty data.\n");
+            return false;
+        }
+
+        if (vaild_data_size_ + data_size > raw_buffer_size_) {
+            VPRINT(0,
+                   "Attempt to append data that exceeds the permissible size limit.\n");
+            return false;
+        }
+
+        memcpy(raw_buffer_.get() + vaild_data_size_, data, data_size);
+        data_size_ += data_size;
+        state_ = PT2IR_DATA_BUFFER_STATE_EXTEND;
+        return true;
+    }
+
+    bool
+    shrink_data()
+    {
+        if (state_ != PT2IR_DATA_BUFFER_STATE_READY) {
+            VPRINT(0, "Data can only be shrinked when the buffer is ready for use.\n");
+            return false;
+        }
+
+        if (vaild_data_size_ == 0) {
+            VPRINT(0, "Attempt to shrink empty data.\n");
+            return false;
+        }
+
+        memcpy(raw_buffer_.get(), raw_buffer_.get() + window_size_,
+               vaild_data_size_ - window_size_);
+        data_size_ -= window_size_;
+        state_ = PT2IR_DATA_BUFFER_STATE_SHRINK;
+        return true;
+    }
+
+    /* Each time new data is added to the buffer, it necessitates the expansion of the
+     * processing window.
+     */
+    bool
+    extend_window(IN size_t window_size, IN size_t vaild_data_size)
+    {
+        if (state_ != PT2IR_DATA_BUFFER_STATE_EXTEND) {
+            VPRINT(0,
+                   "Data window can only be extend when the buffer has been extended.\n");
+            return false;
+        }
+
+        if (window_size > data_size_ || vaild_data_size > data_size_ ||
+            window_size > vaild_data_size) {
+            VPRINT(0, "Invaild input arguments.\n");
+            return false;
+        }
+
+        window_size_ = window_size;
+        vaild_data_size_ = vaild_data_size;
+        state_ = PT2IR_DATA_BUFFER_STATE_READY;
+        return true;
+    }
+
+    /* Each time the data in the buffer diminishes, it's necessary to shrink the
+     * processing window correspondingly.
+     */
+    bool
+    shrink_window()
+    {
+        if (state_ != PT2IR_DATA_BUFFER_STATE_SHRINK) {
+            VPRINT(0,
+                   "Data window can only be shrink when the buffer has been shrinked.\n");
+            return false;
+        }
+        vaild_data_size_ -= window_size_;
+        window_size_ = vaild_data_size_;
+        state_ = PT2IR_DATA_BUFFER_STATE_READY;
+        return true;
+    }
+
+    uint8_t *
+    get_buffer_start() const
+    {
+        if (state_ == PT2IR_DATA_BUFFER_STATE_EMPTY | raw_buffer_.get() == nullptr) {
+            VPRINT(0, "The buffer is not initialized.\n");
+            return nullptr;
+        }
+
+        return raw_buffer_.get();
+    }
+
+    uint8_t *
+    get_buffer_end() const
+    {
+        if (state_ == PT2IR_DATA_BUFFER_STATE_EMPTY | raw_buffer_.get() == nullptr) {
+            VPRINT(0, "The buffer is not initialized.\n");
+            return nullptr;
+        }
+
+        return raw_buffer_.get() + raw_buffer_size_;
+    }
+
+    size_t
+    get_data_size() const
+    {
+        return data_size_;
+    }
+
+    size_t
+    get_window_size() const
+    {
+        return window_size_;
+    }
+
+    bool
+    can_shrink()
+    {
+        return window_size_ < vaild_data_size_;
+    }
+
+private:
+    /* Buffer for caching the PT raw trace. */
+    std::unique_ptr<uint8_t[]> raw_buffer_;
+
+    /* The size of the raw buffer. */
+    size_t raw_buffer_size_;
+
+    /* The size of the data in the buffer.
+     * The data at the end of the buffer may contain some invalid data. For example an
+     * incomplete packet.
+     */
+    size_t data_size_;
+
+    /* The size of the vaild data in the buffer.
+     * Valid data encompasses the last fully formed packet and all preceding data up to
+     * that packet.
+     */
+    size_t vaild_data_size_;
+
+    /* The size of the data window.
+     * There are two types windows:
+     * 1. The window start with a Packet Stream Boundary(PSB) packet and end with a packet
+     * before the last PSB packet.
+     * 2. The window start with a PSB packet and end with the last complete packet.
+     */
+    size_t window_size_;
+
+    /* The state of the data buffer. */
+    pt2ir_data_buffer_state_t state_;
+
+    /* Integer value representing the verbosity level for notifications. */
+    int verbosity_;
+};
+
 pt2ir_t::pt2ir_t()
     : pt2ir_initialized_(false)
-    , pt_raw_buffer_size_(0)
+    , pt_pkt_decoder_(nullptr)
     , pt_instr_decoder_(nullptr)
     , pt_sb_iscache_(nullptr)
     , pt_sb_session_(nullptr)
-    , pt_raw_buffer_data_size_(0)
+    , pt_instr_status_(0)
+    , pt_decoder_auto_sync_(true)
     , verbosity_(0)
 {
 }
@@ -91,6 +319,8 @@ pt2ir_t::~pt2ir_t()
         pt_sb_free(pt_sb_session_);
     if (pt_sb_iscache_ != nullptr)
         pt_iscache_free(pt_sb_iscache_);
+    if (pt_pkt_decoder_ != nullptr)
+        pt_pkt_free_decoder(pt_pkt_decoder_);
     if (pt_instr_decoder_ != nullptr)
         pt_insn_free_decoder(pt_instr_decoder_);
     pt2ir_initialized_ = false;
@@ -126,13 +356,20 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config, IN int verbosity)
             return false;
         }
     }
-    pt_raw_buffer_size_ = pt2ir_config.pt_raw_buffer_size;
-    pt_raw_buffer_ = std::unique_ptr<uint8_t[]>(new uint8_t[pt_raw_buffer_size_]);
-    pt_config.begin = pt_raw_buffer_.get();
-    pt_config.end = pt_raw_buffer_.get() + pt_raw_buffer_size_;
+
+    pt2ir_buffer_ = std::make_unique<pt2ir_data_buffer_t>();
+    pt2ir_buffer_.get()->init(pt2ir_config.pt_raw_buffer_size);
+    pt_config.begin = pt2ir_buffer_.get()->get_buffer_start();
+    pt_config.end = pt2ir_buffer_.get()->get_buffer_end();
     pt_instr_decoder_ = pt_insn_alloc_decoder(&pt_config);
     if (pt_instr_decoder_ == nullptr) {
         VPRINT(0, "Failed to create libipt instruction decoder.\n");
+        return false;
+    }
+
+    pt_pkt_decoder_ = pt_pkt_alloc_decoder(&pt_config);
+    if (pt_pkt_decoder_ == nullptr) {
+        VPRINT(0, "Failed to create libipt packet decoder.\n");
         return false;
     }
 
@@ -261,89 +498,144 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
         return PT2IR_CONV_ERROR_INVALID_INPUT;
     }
 
-    if (pt_raw_buffer_data_size_ + pt_data_size > pt_raw_buffer_size_) {
+    if (!pt2ir_buffer_.get()->extend_data(pt_data, pt_data_size)) {
         return PT2IR_CONV_ERROR_RAW_TRACE_TOO_LARGE;
     }
 
-    /* The Libipt decoder requires a fixed-size data block to be set for decoding before
-     * creation and does not offer an API to extend or modify the data being decoded. To
-     * decode multiple data chunks using a shared decoder, a workaround is needed. First,
-     * initialize an empty data block as a buffer. Next, each time we want to decode a
-     * chunk, reset the buffer and copy the data into it, and then set the decoder's
-     * decode position to the chunk's initial position.
-     */
+    int pkt_status = 0;
+    if (pt_decoder_auto_sync_) {
+        /* Sync decoder to next Packet Stream Boundary (PSB) packet, and then
+         * decode instructions. If there is no PSB packet, the decoder will be synced
+         * to the end of the trace. If an error occurs, we will call dx_decoding_error
+         * to print the error information.
+         * What are PSB packets? Below answer is quoted from Intel 64 and IA-32
+         * Architectures Software Developer’s Manual 32.1.1.1 Packet Summary:
+         * “Packet Stream Boundary (PSB) packets: PSB packets act as ‘heartbeats’ that are
+         * generated at regular intervals (e.g., every 4K trace packet bytes). These
+         * packets allow the packet decoder to find the packet boundaries within the
+         * output data stream; a PSB packet should be the first packet that a decoder
+         * looks for when beginning to decode a trace.”
+         */
+        int pkt_status = pkt_status = pt_pkt_sync_forward(pt_pkt_decoder_);
+        if (pkt_status < 0) {
+            VPRINT(0, "Failed to sync packet decoder: %s.\n",
+                   pt_errstr(pt_errcode(pkt_status)));
+            return PT2IR_CONV_ERROR_PKT_DECODER_SYNC;
+        }
+        pt_instr_status_ = pt_insn_sync_forward(pt_instr_decoder_);
+        if (pt_instr_status_ < 0) {
+            VPRINT(0, "Failed to sync instruction decoder: %s.\n",
+                   pt_errstr(pt_errcode(pt_instr_status_)));
+            return PT2IR_CONV_ERROR_INSTR_DECODER_SYNC;
+        }
+        pt_decoder_auto_sync_ = false;
+    }
 
-    /* Reset the raw buffer and copy the new data to the buffer. */
-    memset(pt_raw_buffer_.get(), 0, pt_raw_buffer_size_);
-    memcpy(pt_raw_buffer_.get(), pt_data, pt_data_size);
-    pt_raw_buffer_data_size_ = pt_data_size;
-
-    /* This flag indicates whether manual synchronization is required. */
-    bool manual_sync = true;
-
-    /* PT raw data consists of many packets. And PT trace data is surrounded by Packet
-     * Stream Boundary. So, in the outermost loop, this function first finds the PSB. Then
-     * it decodes the trace data.
-     */
+    uint64_t last_data_pkt_offset = 0;
+    uint64_t last_in_window_data_pkt_offset = 0;
+    uint64_t vaild_data_size = 0;
+    uint64_t last_psb_offset = 0;
+    uint64_t pkt_decoder_offset = 0;
+    enum pt_packet_type last_data_pkt_type = ppt_invalid;
+    enum pt_packet_type last_in_window_data_pkt_type = ppt_invalid;
     for (;;) {
+        struct pt_packet packet;
+        int errcode = pt_pkt_next(pt_pkt_decoder_, &packet, sizeof(packet));
+        if (errcode < 0) {
+            VPRINT(0, "Failed to get next packet: %s.\n", pt_errstr(pt_errcode(errcode)));
+            return PT2IR_CONV_ERROR_DECODE_NEXT_PKT;
+        }
+        if (packet.type == ppt_psb) {
+            last_psb_offset = pkt_decoder_offset;
+        }
+        vaild_data_size = pkt_decoder_offset;
+        if (packet.type > ppt_pad) {
+            if (last_psb_offset == 0) {
+                last_in_window_data_pkt_offset = pkt_decoder_offset;
+                last_in_window_data_pkt_type = packet.type;
+            }
+            last_data_pkt_offset = pkt_decoder_offset;
+            last_data_pkt_type = packet.type;
+        }
+        // if (packet.type == ppt_psb || packet.type == ppt_psbend) {
+        //     VPRINT(0, "pkt_decoder_offset: %lu, pkt_type: %d\n", pkt_decoder_offset,
+        //            packet.type);
+        // }
+        VPRINT(0, "pkt_decoder_offset: %lu, pkt_type: %d\n", pkt_decoder_offset,
+               packet.type);
+        errcode = pt_pkt_get_offset(pt_pkt_decoder_, &pkt_decoder_offset);
+        if (errcode < 0) {
+            VPRINT(0, "Failed to get offset of packet decoder: %s.\n",
+                   pt_errstr(pt_errcode(errcode)));
+            return PT2IR_CONV_ERROR_GET_PKT_DECODER_OFFSET;
+        }
+        if (pkt_decoder_offset > pt2ir_buffer_.get()->get_data_size()) {
+            break;
+        }
+    }
+    VPRINT(
+        0,
+        "last_psb_offset: %lu, last_data_pkt_offset: %lu, "
+        "last_in_window_data_pkt_offset: %lu, "
+        "vaild_data_size: %lu, last_data_pkt_type %d, last_in_window_data_pkt_type: %d\n",
+        last_psb_offset, last_data_pkt_offset, last_in_window_data_pkt_offset,
+        vaild_data_size, last_data_pkt_type, last_in_window_data_pkt_type);
+    if (last_psb_offset > 0) {
+        pt2ir_buffer_.get()->extend_window(last_psb_offset, vaild_data_size);
+    } else {
+        pt2ir_buffer_.get()->extend_window(vaild_data_size, vaild_data_size);
+    }
+
+    for (;;) {
+        VPRINT(0,
+               "last_in_window_data_pkt_offset: %lu,  windown_size: %lu, "
+               "vaild_data_size: %lu, pt_instr_status_ %d\n",
+               last_in_window_data_pkt_offset, pt2ir_buffer_.get()->get_window_size(),
+               pt2ir_buffer_.get()->get_data_size(), pt_instr_status_);
         struct pt_insn insn;
         memset(&insn, 0, sizeof(insn));
-        int status = 0;
-
-        /* Before decoding a new data block, the decoder must reset the decode position to
-         * the start of the buffer. Since Libipt does not provide an API to reset the
-         * decode position, pt_insn_sync_set() is used for manual synchronization.
-         */
-        if (manual_sync == true) {
-            status = pt_insn_sync_set(pt_instr_decoder_, 0);
-            manual_sync = false;
-        } else {
-            /* Sync decoder to next Packet Stream Boundary (PSB) packet, and then
-             * decode instructions. If there is no PSB packet, the decoder will be synced
-             * to the end of the trace. If an error occurs, we will call dx_decoding_error
-             * to print the error information. What are PSB packets? Below answer is
-             * quoted from Intel 64 and IA-32 Architectures Software Developer’s
-             * Manual 32.1.1.1 Packet Summary “Packet Stream Boundary (PSB) packets: PSB
-             * packets act as ‘heartbeats’ that are generated at regular intervals (e.g.,
-             * every 4K trace packet bytes). These packets allow the packet decoder to
-             * find the packet boundaries within the output data stream; a PSB packet
-             * should be the first packet that a decoder looks for when beginning to
-             * decode a trace.”
-             */
-            status = pt_insn_sync_forward(pt_instr_decoder_);
-        }
-
-        if (status < 0) {
-            if (status == -pte_eos)
-                break;
-            dx_decoding_error(status, "sync error", insn.ip);
-            return PT2IR_CONV_ERROR_SYNC_PACKET;
-        }
+        uint64_t insn_decoder_offset = 0;
         /* Decode the raw trace data surround by PSB. */
         for (;;) {
-            int nextstatus = status;
-            int errcode = 0;
-            struct pt_image *image;
+            int errcode = pt_insn_get_offset(pt_instr_decoder_, &insn_decoder_offset);
+            if (errcode < 0) {
+                VPRINT(0, "Failed to get offset of instruction decoder: %s.\n",
+                       pt_errstr(pt_errcode(errcode)));
+                return PT2IR_CONV_ERROR_GET_INSTR_DECODER_OFFSET;
+            }
+
+            if (insn_decoder_offset >= last_in_window_data_pkt_offset) {
+                VPRINT(0,
+                       "insn_decoder_offset: %lu, last_in_window_data_pkt_offset: %lu, "
+                       "pt_instr_status_ %d\n",
+                       insn_decoder_offset, last_in_window_data_pkt_offset,
+                       pt_instr_status_);
+                break;
+            }
+            // VPRINT(0, "insn_decoder_offset: %lx, last_in_window_data_pkt_offset:
+            // %lx\n",
+            //        insn_decoder_offset, last_in_window_data_pkt_offset);
 
             /* Before starting to decode instructions, we need to handle the event before
              * the instruction trace. For example, if a mmap2 event happens, we need to
              * switch the cached image.
              */
-            while ((nextstatus & pts_event_pending) != 0) {
+            while ((pt_instr_status_ & pts_event_pending) != 0) {
                 struct pt_event event;
 
-                nextstatus = pt_insn_event(pt_instr_decoder_, &event, sizeof(event));
-                if (nextstatus < 0) {
-                    errcode = nextstatus;
-                    dx_decoding_error(errcode, "get pending event error", insn.ip);
+                pt_instr_status_ =
+                    pt_insn_event(pt_instr_decoder_, &event, sizeof(event));
+                if (pt_instr_status_ < 0) {
+                    dx_decoding_error(pt_instr_status_, "get pending event error",
+                                      insn.ip);
                     return PT2IR_CONV_ERROR_GET_PENDING_EVENT;
                 }
 
                 /* Use a sideband session to check if pt_event is an image switch event.
                  * If so, change the image in 'pt_instr_decoder_' to the target image.
                  */
-                image = nullptr;
-                errcode =
+                struct pt_image *image = nullptr;
+                int errcode =
                     pt_sb_event(pt_sb_session_, &image, &event, sizeof(event), stdout, 0);
                 if (errcode < 0) {
                     dx_decoding_error(errcode, "handle sideband event error", insn.ip);
@@ -362,13 +654,12 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
                     return PT2IR_CONV_ERROR_SET_IMAGE;
                 }
             }
-            if ((nextstatus & pts_eos) != 0)
-                break;
 
             /* Decode PT raw trace to pt_insn. */
-            status = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
-            if (status < 0) {
-                dx_decoding_error(status, "get next instruction error", insn.ip);
+            pt_instr_status_ = pt_insn_next(pt_instr_decoder_, &insn, sizeof(insn));
+            if (pt_instr_status_ < 0) {
+                dx_decoding_error(pt_instr_status_, "get next instruction error",
+                                  insn.ip);
                 return PT2IR_CONV_ERROR_DECODE_NEXT_INSTR;
             }
 
@@ -408,7 +699,41 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
             }
             drir.append(instr);
         }
+        if (pt2ir_buffer_.get()->can_shrink()) {
+            last_in_window_data_pkt_offset =
+                last_data_pkt_offset - pt2ir_buffer_.get()->get_window_size();
+            last_data_pkt_offset = last_in_window_data_pkt_offset;
+            pt2ir_buffer_.get()->shrink_data();
+            pt2ir_buffer_.get()->shrink_window();
+            /* Before decoding a new data block, the decoder must reset the decode
+             * position to the start of the buffer. Since Libipt does not provide an API
+             * to reset the decode position, pt_insn_sync_set() is used for manual
+             * synchronization.
+             */
+            int pkt_status = pt_pkt_sync_set(pt_pkt_decoder_, 0);
+            if (pkt_status < 0) {
+                VPRINT(0, "Failed to sync packet decoder: %s.\n",
+                       pt_errstr(pt_errcode(pkt_status)));
+                return PT2IR_CONV_ERROR_PKT_DECODER_SYNC;
+            }
+            pt_instr_status_ = pt_insn_sync_set(pt_instr_decoder_, 0);
+            if (pt_instr_status_ < 0) {
+                VPRINT(0,
+                       "Failed to sync instruction decoder after data shrinking: %s.\n",
+                       pt_errstr(pt_errcode(pt_instr_status_)));
+                return PT2IR_CONV_ERROR_INSTR_DECODER_SYNC;
+            }
+        } else {
+            break;
+        }
     }
+    instr_t *instr = instrlist_first(drir.get_ilist());
+    uint64_t count = 0;
+    while (instr != NULL) {
+        count++;
+        instr = instr_get_next(instr);
+    }
+    VPRINT(0, "Decoding finished(%lu).\n", count);
     return PT2IR_CONV_SUCCESS;
 }
 
@@ -427,7 +752,7 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
         VPRINT(0, "[?, " HEX64_FORMAT_STRING "] %s: %s\n", ip, errtype,
                pt_errstr(pt_errcode(errcode)));
     } else {
-        VPRINT(0, "[" HEX64_FORMAT_STRING ", IP:" HEX64_FORMAT_STRING "] %s: %s\n", pos,
+        VPRINT(0, "[" UINT64_FORMAT_STRING ", IP:" HEX64_FORMAT_STRING "] %s: %s\n", pos,
                ip, errtype, pt_errstr(pt_errcode(errcode)));
     }
 }

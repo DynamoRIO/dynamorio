@@ -55,7 +55,6 @@ syscall_pt_trace_t::syscall_pt_trace_t()
     , pttracer_output_buffer_ { GLOBAL_DCONTEXT, nullptr }
     , traced_syscall_idx_(0)
     , cur_recording_sysnum_(-1)
-    , is_dumping_metadata_(false)
     , drcontext_(nullptr)
     , output_file_(INVALID_FILE)
 {
@@ -98,16 +97,9 @@ syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name,
         return false;
     }
 
-    is_initialized_ = true;
-    return true;
-}
-
-bool
-syscall_pt_trace_t::start_syscall_pt_trace(IN int sysnum)
-{
-    ASSERT(is_initialized_, "syscall_pt_trace_t is not initialized");
-    ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
-
+    /* To reduce the overhead caused by pttracer initialization, we need to
+     * share the same pttracer handle for all syscalls per thread.
+     */
     if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
                                  RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
                                  &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
@@ -118,16 +110,28 @@ syscall_pt_trace_t::start_syscall_pt_trace(IN int sysnum)
      * thus, the same pt_metadata. Metadata is dumped at the beginning of the output
      * file and occurs only once.
      */
-    if (!is_dumping_metadata_) {
-        pt_metadata_t pt_metadata;
-        if (drpttracer_get_pt_metadata(pttracer_handle_.handle, &pt_metadata)) {
-            return false;
-        }
-        if (!metadata_dump(pt_metadata)) {
-            return false;
-        }
-        is_dumping_metadata_ = true;
+    pt_metadata_t pt_metadata;
+    if (drpttracer_get_pt_metadata(pttracer_handle_.handle, &pt_metadata)) {
+        return false;
     }
+    if (!metadata_dump(pt_metadata)) {
+        return false;
+    }
+
+    is_initialized_ = true;
+    return true;
+}
+
+bool
+syscall_pt_trace_t::start_syscall_pt_trace(IN int sysnum)
+{
+    if (!is_initialized_) {
+        ASSERT(false, "syscall_pt_trace_t is not initialized");
+        return false;
+    }
+
+    ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
+    ASSERT(pttracer_handle_.handle != nullptr, "pttracer_handle_.handle is nullptr");
 
     /* Start tracing the current syscall. */
     if (drpttracer_start_tracing(drcontext_, pttracer_handle_.handle) !=
@@ -141,7 +145,10 @@ syscall_pt_trace_t::start_syscall_pt_trace(IN int sysnum)
 bool
 syscall_pt_trace_t::stop_syscall_pt_trace()
 {
-    ASSERT(is_initialized_, "syscall_pt_trace_t is not initialized");
+    if (!is_initialized_) {
+        ASSERT(false, "syscall_pt_trace_t is not initialized");
+        return false;
+    }
     ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
     ASSERT(pttracer_handle_.handle != nullptr, "pttracer_handle_.handle is nullptr");
     ASSERT(pttracer_output_buffer_.data != nullptr,
@@ -160,20 +167,14 @@ syscall_pt_trace_t::stop_syscall_pt_trace()
     traced_syscall_idx_++;
     cur_recording_sysnum_ = -1;
 
-    /* Reset the pttracer handle for next syscall.
-     * TODO i#5505: To reduce the overhead caused by pttracer initialization, we need to
-     * share the same pttracer handle for all syscalls per thread. And also, we need to
-     * improve the libpt2ir to support streaming decoding.
-     */
-    pttracer_handle_.reset();
     return true;
 }
 
 bool
 syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
 {
-    ASSERT(output_file_ != INVALID_FILE, "output_file_ is INVALID_FILE");
     if (output_file_ == INVALID_FILE) {
+        ASSERT(false, "output_file_ is INVALID_FILE");
         return false;
     }
 
@@ -206,8 +207,8 @@ syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
 bool
 syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
 {
-    ASSERT(output_file_ != INVALID_FILE, "output_file_ is INVALID_FILE");
     if (output_file_ == INVALID_FILE) {
+        ASSERT(false, "output_file_ is INVALID_FILE");
         return false;
     }
 

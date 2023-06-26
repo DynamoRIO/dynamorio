@@ -182,9 +182,6 @@ private:
     /* The sysnum of current recording syscall. */
     int cur_recording_sysnum_;
 
-    /* Flag to indicate if metadata is being dumped. */
-    bool is_dumping_metadata_;
-
     /* The drcontext.
      * We need ensure pass the same context to all drpttracer's APIs.
      */

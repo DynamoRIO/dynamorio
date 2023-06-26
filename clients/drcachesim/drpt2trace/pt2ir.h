@@ -89,35 +89,75 @@ public:
  * The type of pt2ir_t::convert() return value.
  */
 enum pt2ir_convert_status_t {
-    /** The conversion process is successful. */
+    /**
+     * The conversion process is successful.
+     */
     PT2IR_CONV_SUCCESS = 0,
 
-    /** The conversion process fail to initiate for invalid input. */
+    /**
+     * The conversion process fail to initiate for invalid input.
+     */
     PT2IR_CONV_ERROR_INVALID_INPUT,
 
-    /** The conversion process failed to initiate because the instance was not
-     *  initialized.
+    /**
+     * The conversion process failed to initiate because the instance was not initialized.
      */
     PT2IR_CONV_ERROR_NOT_INITIALIZED,
 
-    /** The conversion process failed to initiate because it attempted to copy a large
-     *  amount of PT data into the raw buffer that was too small to accommodate it.
+    /**
+     * The conversion process failed to initiate because it attempted to copy a large
+     * amount of PT data into the raw buffer that was too small to accommodate it.
      */
     PT2IR_CONV_ERROR_RAW_TRACE_TOO_LARGE,
-    /** The conversion process ends with a failure to sync to the PSB packet. */
-    PT2IR_CONV_ERROR_SYNC_PACKET,
 
-    /** The conversion process ends with a failure to handle a perf event. */
+    /**
+     * The conversion process failed to initiate because the Packet decoder failed to sync
+     * to a PSB packet.
+     */
+    PT2IR_CONV_ERROR_PKT_DECODER_SYNC,
+
+    /**
+     * The conversion process failed to initiate because the Instruction decoder failed to
+     * sync to a PSB packet.
+     */
+    PT2IR_CONV_ERROR_INSTR_DECODER_SYNC,
+
+    /**
+     * The conversion process ends with a failure to handle a perf event.
+     */
     PT2IR_CONV_ERROR_HANDLE_SIDEBAND_EVENT,
 
-    /** The conversion process ends with a failure to get the pending event. */
+    /**
+     * The conversion process ends with a failure to get the pending event.
+     */
     PT2IR_CONV_ERROR_GET_PENDING_EVENT,
 
-    /** The conversion process ends with a failure to set the new image. */
+    /**
+     * The conversion process ends with a failure to set the new image.
+     */
     PT2IR_CONV_ERROR_SET_IMAGE,
 
-    /** The conversion process ends with a failure to decode the next intruction. */
+    /**
+     * The conversion process ends with a failure to decode the next packet.
+     */
+    PT2IR_CONV_ERROR_DECODE_NEXT_PKT,
+
+    /**
+     * The conversion process ends with a failure to decode the next intruction.
+     */
     PT2IR_CONV_ERROR_DECODE_NEXT_INSTR,
+
+    /**
+     * The conversion process ends with a failure to get the offset that the packet
+     * decoder.
+     */
+    PT2IR_CONV_ERROR_GET_PKT_DECODER_OFFSET,
+
+    /**
+     * The conversion process ends with a failure to get the offset that the instruction
+     * decoder.
+     */
+    PT2IR_CONV_ERROR_GET_INSTR_DECODER_OFFSET,
 
     /**
      * The conversion process ends with a failure to convert the libipt's IR to
@@ -330,6 +370,8 @@ public:
     }
 };
 
+class pt2ir_data_buffer_t;
+
 /**
  * pt2ir_t is a class that can convert PT raw trace to DynamoRIO's IR.
  */
@@ -375,8 +417,18 @@ private:
     bool pt2ir_initialized_;
 
     /* Buffer for caching the PT raw trace. */
-    std::unique_ptr<uint8_t[]> pt_raw_buffer_;
-    size_t pt_raw_buffer_size_;
+    std::unique_ptr<pt2ir_data_buffer_t> pt2ir_buffer_;
+
+    /* The libipt packet decoder.
+     * The packet decoder is utilized for decoding streaming data. Each time this decoder
+     * attempts to process a new buffer of Intel PT (Processor Trace) data, its first step
+     * is to identify the last fully intact packet and the last Packet Stream
+     * Boundary(PSB) packet in the buffer. Then the instruction decoder designates the
+     * last packet as the stopping point of the current decoding process. Additionally, it
+     * employs the most recent PSB packet as the transition point between different
+     * decoding windows.
+     */
+    struct pt_packet_decoder *pt_pkt_decoder_;
 
     /* The libipt instruction decoder. */
     struct pt_insn_decoder *pt_instr_decoder_;
@@ -387,8 +439,13 @@ private:
     /* The libipt sideband session. */
     struct pt_sb_session *pt_sb_session_;
 
-    /* The size of the PT data within the raw buffer. */
-    uint64_t pt_raw_buffer_data_size_;
+    /* The state of the libipt instruction decoder since the last operation. */
+    int pt_instr_status_;
+
+    /* Determine whether the decoder needs to perform automatic synchronization after the
+     * pt2ir_buffer appends the next chunked data.
+     */
+    bool pt_decoder_auto_sync_;
 
     /* The shared image section cache.
      * The pt2ir_t instance is designed to work with a single thread, while the image is
