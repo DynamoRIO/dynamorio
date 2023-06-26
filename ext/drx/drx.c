@@ -118,8 +118,10 @@ drx_buf_exit_library(void);
  */
 
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
-    bool drx_scatter_gather_init();
-    void drx_scatter_gather_exit();
+bool
+drx_scatter_gather_init();
+void
+drx_scatter_gather_exit();
 #endif
 
 static int drx_init_count;

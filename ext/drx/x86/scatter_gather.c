@@ -156,7 +156,6 @@ drx_thread_exit(void *drcontext)
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 
-
 bool
 drx_scatter_gather_init()
 {
@@ -681,7 +680,7 @@ expand_avx512_scatter_store_scalar_value(void *drcontext, instrlist_t *bb,
         drreg_get_app_value(drcontext, bb, sg_instr, sg_info->base_reg,
                             sg_info->base_reg);
     }
-#    ifdef X64
+#ifdef X64
     if (sg_info->scalar_index_size == OPSZ_4) {
         PREXL8(bb, sg_instr,
                INSTR_XL8(
@@ -689,7 +688,7 @@ expand_avx512_scatter_store_scalar_value(void *drcontext, instrlist_t *bb,
                                        opnd_create_reg(reg_64_to_32(scalar_index_reg))),
                    orig_app_pc));
     }
-#    endif
+#endif
     if (sg_info->scalar_value_size == OPSZ_4) {
         PREXL8(bb, sg_instr,
                INSTR_XL8(INSTR_CREATE_mov_st(
@@ -730,7 +729,7 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
         drreg_get_app_value(drcontext, bb, sg_instr, sg_info->base_reg,
                             sg_info->base_reg);
     }
-#    ifdef X64
+#ifdef X64
     if (sg_info->scalar_index_size == OPSZ_4) {
         PREXL8(bb, sg_instr,
                INSTR_XL8(
@@ -738,7 +737,7 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
                                        opnd_create_reg(reg_64_to_32(scalar_index_reg))),
                    orig_app_pc));
     }
-#    endif
+#endif
     if (sg_info->scalar_value_size == OPSZ_4) {
         PREXL8(
             bb, sg_instr,
@@ -1027,14 +1026,14 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     bool res = false;
     /* XXX: we may want to make this function public, as it may be useful to clients. */
     get_scatter_gather_info(sg_instr, &sg_info);
-#    ifndef X64
+#ifndef X64
     if (sg_info.scalar_index_size == OPSZ_8 || sg_info.scalar_value_size == OPSZ_8) {
         /* FIXME i#2985: we do not yet support expansion of the qword index and value
          * scatter/gather versions in 32-bit mode.
          */
         return false;
     }
-#    endif
+#endif
     uint no_of_elements = opnd_size_in_bytes(sg_info.scatter_gather_size) /
         MAX(opnd_size_in_bytes(sg_info.scalar_index_size),
             opnd_size_in_bytes(sg_info.scalar_value_size));
@@ -1259,19 +1258,19 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     }
     if (drreg_unreserve_aflags(drcontext, bb, sg_instr) != DRREG_SUCCESS)
         goto drx_expand_scatter_gather_exit;
-#    if VERBOSE
+#if VERBOSE
     dr_print_instr(drcontext, STDERR, sg_instr, "\tThe instruction\n");
-#    endif
+#endif
 
     drmgr_insert_emulation_end(drcontext, bb, sg_instr);
     /* Remove and destroy the original scatter/gather. */
     instrlist_remove(bb, sg_instr);
-#    if VERBOSE
+#if VERBOSE
     dr_fprintf(STDERR, "\twas expanded to the following sequence:\n");
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         dr_print_instr(drcontext, STDERR, instr, "");
     }
-#    endif
+#endif
 
     if (expanded != NULL)
         *expanded = true;
@@ -1396,47 +1395,47 @@ drx_expand_scatter_gather_exit:
  *
  */
 
-#    define DRX_RESTORE_EVENT_SKIP_UNKNOWN_INSTR_MAX 32
+#define DRX_RESTORE_EVENT_SKIP_UNKNOWN_INSTR_MAX 32
 
 /* States of the AVX-512 gather detection state machine. */
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0 0
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1 1
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2 2
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3 3
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4 4
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5 5
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6 6
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7 7
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8 8
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_9 9
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_10 10
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_11 11
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0 0
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1 1
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2 2
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3 3
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4 4
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5 5
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6 6
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7 7
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8 8
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_9 9
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_10 10
+#define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_11 11
 
 /* States of the AVX-512 scatter detection state machine. */
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0 0
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1 1
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2 2
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_3 3
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_4 4
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_5 5
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_6 6
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_7 7
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_8 8
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9 9
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_10 10
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0 0
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1 1
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2 2
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_3 3
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_4 4
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_5 5
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_6 6
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_7 7
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_8 8
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9 9
+#define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_10 10
 
 /* States of the AVX2 gather detection state machine. */
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0 0
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1 1
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2 2
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_3 3
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_4 4
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_5 5
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_6 6
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_7 7
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_8 8
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_9 9
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_10 10
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0 0
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1 1
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2 2
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_3 3
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_4 4
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_5 5
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_6 6
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_7 7
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_8 8
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_9 9
+#define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_10 10
 
 typedef struct _drx_state_machine_params_t {
     byte *pc;
