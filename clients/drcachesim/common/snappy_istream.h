@@ -44,6 +44,9 @@
 #include <fstream>
 #include "../reader/snappy_file_reader.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /* We need to override the stream buffer class which is where the file
  * reads happen.  The stream buffer base class reads from eback()..egptr()
  * with the next to read at gptr().
@@ -107,5 +110,8 @@ public:
         delete rdbuf();
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _SNAPPY_ISTREAM_H_ */

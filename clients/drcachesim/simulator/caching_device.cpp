@@ -38,6 +38,9 @@
 #include "../common/utils.h"
 #include <assert.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 caching_device_t::caching_device_t()
     : blocks_(NULL)
     , stats_(NULL)
@@ -398,3 +401,6 @@ caching_device_t::record_access_stats(const memref_t &memref, bool hit,
     } else if (parent_ != nullptr)
         parent_->stats_->child_access(memref, hit, cache_block);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

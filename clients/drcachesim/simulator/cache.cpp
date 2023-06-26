@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,9 @@
 #include "cache.h"
 #include "../common/utils.h"
 #include <assert.h>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 bool
 cache_t::init(int associativity, int line_size, int total_size, caching_device_t *parent,
@@ -85,3 +88,6 @@ cache_t::flush(const memref_t &memref)
     if (stats_ != NULL)
         ((cache_stats_t *)stats_)->flush(memref);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -32,6 +32,9 @@
 
 #include "snappy_file_reader.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 snappy_reader_t::snappy_reader_t(std::ifstream *stream)
     : fstream_(stream)
     , uncompressed_buf_(max_block_size_ + checksum_size_)
@@ -240,3 +243,6 @@ file_reader_t<snappy_reader_t>::read_next_entry()
            entry_copy_.addr);
     return &entry_copy_;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

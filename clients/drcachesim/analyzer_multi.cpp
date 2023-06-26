@@ -59,6 +59,9 @@
 #include "tools/reuse_time_create.h"
 #include "tools/view_create.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 analyzer_multi_t::analyzer_multi_t()
 {
     worker_count_ = op_jobs.get_value();
@@ -446,3 +449,6 @@ analyzer_multi_t::get_cache_simulator_knobs()
     knobs->use_physical = op_use_physical.get_value();
     return knobs;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

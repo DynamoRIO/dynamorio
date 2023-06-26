@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,6 +47,9 @@
 #include "cache_simulator.h"
 #include "cache_stats.h"
 #include "../common/memref.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // Represents the SW prefetching recommendation passed to the compiler.
 struct prefetching_recommendation_t {
@@ -156,5 +159,8 @@ private:
     // Recommendations are written to this file for use by the LLVM compiler.
     std::string recommendation_file_ = "";
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHE_MISS_ANALYZER_H_ */

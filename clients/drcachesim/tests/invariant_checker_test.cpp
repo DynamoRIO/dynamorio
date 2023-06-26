@@ -44,9 +44,8 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 
-namespace {
-
-using namespace dynamorio::drmemtrace;
+namespace dynamorio {
+namespace drmemtrace {
 
 class checker_no_abort_t : public invariant_checker_t {
 public:
@@ -938,8 +937,6 @@ check_schedule_file()
     return true;
 }
 
-} // namespace
-
 int
 test_main(int argc, const char *argv[])
 {
@@ -953,3 +950,6 @@ test_main(int argc, const char *argv[])
     std::cerr << "invariant_checker_test FAILED\n";
     exit(1);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

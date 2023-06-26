@@ -48,6 +48,9 @@
 #include "common/utils.h"
 #include "memtrace_stream.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #ifdef HAS_ZLIB
 // Even if the file is uncompressed, zlib's gzip interface is faster than
 // file_reader_t's fstream in our measurements, so we always use it when
@@ -783,3 +786,6 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_interval(
 
 template class analyzer_tmpl_t<memref_t, reader_t>;
 template class analyzer_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>;
+
+} // namespace drmemtrace
+} // namespace dynamorio

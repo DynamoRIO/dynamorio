@@ -39,6 +39,9 @@
 #include <iostream>
 #include <memory>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #ifndef HAS_ZIP
 #    error zipfile reading is required for this test
 #endif
@@ -153,7 +156,7 @@ test_skip_initial()
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
@@ -169,3 +172,6 @@ main(int argc, const char *argv[])
     fprintf(stderr, "Success\n");
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -40,6 +40,9 @@
 #include "dr_api.h"
 #include "kcore_copy.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define MODULES_FILE_NAME "modules"
 #define MODULES_FILE_PATH "/proc/" MODULES_FILE_NAME
 #define KALLSYMS_FILE_PATH "/proc/" DRMEMTRACE_KALLSYMS_FILENAME
@@ -510,3 +513,6 @@ kcore_copy_t::read_kcore()
 
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

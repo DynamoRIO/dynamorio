@@ -70,6 +70,9 @@
 #    include "common/lz4_istream.h"
 #endif
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
         fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
@@ -582,3 +585,6 @@ raw2trace_directory_t::~raw2trace_directory_t()
     }
     dr_standalone_exit();
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -32,7 +32,8 @@
 
 #include "compressed_file_reader.h"
 
-namespace {
+namespace dynamorio {
+namespace drmemtrace {
 
 /**************************************************************************
  * Common logic used in the gzip_reader_t specializations for file_reader_t
@@ -65,8 +66,6 @@ read_next_entry_common(gzip_reader_t *gzip, bool *eof)
     ++gzip->cur_buf;
     return res;
 }
-
-} // namespace
 
 /**************************************************
  * gzip_reader_t specializations for file_reader_t.
@@ -118,9 +117,6 @@ file_reader_t<gzip_reader_t>::read_next_entry()
     entry_copy_ = *entry;
     return &entry_copy_;
 }
-
-namespace dynamorio {
-namespace drmemtrace {
 
 /*********************************************************
  * gzip_reader_t specializations for record_file_reader_t.

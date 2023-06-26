@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,9 @@
 #include "caching_device.h"
 #include "memref.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class caching_device_t;
 
 class prefetcher_t {
@@ -53,5 +56,8 @@ public:
 private:
     int block_size_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _PREFETCHER_H_ */

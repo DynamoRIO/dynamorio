@@ -48,6 +48,9 @@
 extern "C" {
 #endif
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /** Status return values from drmemtrace functions. */
 typedef enum {
     DRMEMTRACE_SUCCESS,                 /**< Operation succeeded. */
@@ -371,7 +374,11 @@ drmemtrace_status_t
 drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
                                             OUT uint64 *timestamp);
 
+} // namespace drmemtrace
+} // namespace dynamorio
+
 #ifdef __cplusplus
 }
 #endif
+
 #endif /* _DRMEMTRACE_H */

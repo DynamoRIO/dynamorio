@@ -43,6 +43,9 @@
 #include <vector>
 #include <assert.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 const std::string func_view_t::TOOL_NAME = "Function view tool";
 
 analysis_tool_t *
@@ -304,3 +307,6 @@ func_view_t::print_results()
     // XXX: Should we print out a per-thread breakdown?
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

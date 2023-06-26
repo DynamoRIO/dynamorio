@@ -49,7 +49,8 @@
 
 #include <iostream>
 
-using namespace dynamorio::drmemtrace;
+namespace dynamorio {
+namespace drmemtrace {
 
 static uint32_t futex_var;
 
@@ -136,7 +137,7 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     std::string tracedir = gather_trace("", "futex");
 
@@ -198,3 +199,6 @@ main(int argc, const char *argv[])
     std::cerr << "all done\n";
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

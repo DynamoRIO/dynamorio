@@ -40,6 +40,9 @@
 #include <iostream>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
         fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
@@ -655,3 +658,6 @@ test_main(int argc, const char *argv[])
     fprintf(stderr, "All done!\n");
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

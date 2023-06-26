@@ -43,6 +43,9 @@
 #include <iostream>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 const std::string view_t::TOOL_NAME = "View tool";
 
 analysis_tool_t *
@@ -538,3 +541,6 @@ view_t::print_results()
     std::cerr << std::setw(15) << num_disasm_instrs_ << " : total instructions\n";
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

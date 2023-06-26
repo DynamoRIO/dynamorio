@@ -662,10 +662,11 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   endif ()
 
   add_library(${test}.dll SHARED ${client_source})
-  if (NOT "${source}" MATCHES "cpp\\.cpp")
+  if (NOT DEFINED ${test}_no_reg_compat AND
+      NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
     set(DynamoRIO_REG_COMPATIBILITY ON)
-  endif (NOT "${source}" MATCHES "cpp\\.cpp")
+  endif ()
   setup_test_client_dll_basics(${test}.dll)
   get_client_path(client_path ${test}.dll ${test})
 
@@ -4888,17 +4889,18 @@ if (UNIX)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     # TODO i#3544: Port tests to RISC-V 64
-    tobuild(linux.rseq linux/rseq.c)
+    set(linux.rseq_no_reg_compat)
+    tobuild(linux.rseq linux/rseq.cpp)
     # Test the other sections.  Unfortunately we need a separate binary for each.
-    tobuild(linux.rseq_table linux/rseq.c)
+    tobuild(linux.rseq_table linux/rseq.cpp)
     append_property_list(TARGET linux.rseq_table
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_OLD_SECTION_NAME")
-    tobuild(linux.rseq_noarray linux/rseq.c)
+    tobuild(linux.rseq_noarray linux/rseq.cpp)
     append_property_list(TARGET linux.rseq_noarray
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
     # We build with static DR to also test client interactions.
-    tobuild_api(api.rseq linux/rseq.c "" "" OFF ON OFF)
+    tobuild_api(api.rseq linux/rseq.cpp "" "" OFF ON OFF)
     link_with_pthread(api.rseq)
     append_property_list(TARGET api.rseq COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH")
     use_DynamoRIO_static_client(api.rseq drmemtrace_static)

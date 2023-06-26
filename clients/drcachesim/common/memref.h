@@ -44,6 +44,9 @@
  * @brief DrMemtrace trace entry structures.
  */
 
+namespace dynamorio {  /**< General DynamoRIO namespace. */
+namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure namespace. */
+
 // On some platforms, like MacOS, a thread id is 64 bits.
 // We just make both 64 bits to cover all our bases.
 typedef int_least64_t memref_pid_t; /**< Process id type. */
@@ -139,5 +142,8 @@ typedef union _memref_t {
     struct _memref_thread_exit_t exit; /**< A thread exit. */
     struct _memref_marker_t marker;    /**< A marker holding metadata. */
 } memref_t;
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _MEMREF_H_ */

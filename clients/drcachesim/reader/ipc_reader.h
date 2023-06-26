@@ -43,6 +43,9 @@
 #include "../common/named_pipe.h"
 #include "../common/trace_entry.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class ipc_reader_t : public reader_t {
 public:
     ipc_reader_t();
@@ -73,5 +76,8 @@ private:
     trace_entry_t *cur_buf_;
     trace_entry_t *end_buf_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _IPC_READER_H_ */

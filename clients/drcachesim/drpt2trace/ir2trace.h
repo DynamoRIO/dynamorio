@@ -46,6 +46,9 @@
 #include "drir.h"
 #include "../common/trace_entry.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #ifndef IN
 #    define IN // nothing
 #endif
@@ -92,5 +95,8 @@ public:
     convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
             IN int verbosity = 0);
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _IR2TRACE_H_ */

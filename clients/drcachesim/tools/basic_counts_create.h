@@ -37,6 +37,9 @@
 
 #include "analysis_tool.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /**
  * @file drmemtrace/basic_counts_create.h
  * @brief DrMemtrace basic counting trace analysis tool creation.
@@ -48,5 +51,8 @@
  */
 analysis_tool_t *
 basic_counts_tool_create(unsigned int verbose = 0);
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _BASIC_COUNTS_CREATE_H_ */

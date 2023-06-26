@@ -43,6 +43,9 @@
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class func_view_t : public analysis_tool_t {
 public:
     func_view_t(const std::string &funclist_file_path, bool full_trace,
@@ -126,5 +129,8 @@ protected:
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _FUNC_VIEW_H_ */

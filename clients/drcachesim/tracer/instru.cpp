@@ -50,6 +50,9 @@
 #    include <intrin.h>
 #endif
 
+namespace dynamorio {
+namespace drmemtrace {
+
 unsigned short
 instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
 {
@@ -349,3 +352,6 @@ instru_t::count_app_instrs(instrlist_t *ilist)
     }
     return count;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

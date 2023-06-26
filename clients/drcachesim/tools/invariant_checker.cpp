@@ -38,6 +38,9 @@
 #include <cassert>
 #include <string.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 analysis_tool_t *
 invariant_checker_create(bool offline, unsigned int verbose)
 {
@@ -924,3 +927,6 @@ invariant_checker_t::check_for_pc_discontinuity(
 
     return error_msg;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

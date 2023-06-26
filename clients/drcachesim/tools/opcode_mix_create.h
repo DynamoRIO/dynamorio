@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,9 @@
 
 #include "analysis_tool.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /**
  * @file drmemtrace/opcode_mix_create.h
  * @brief DrMemtrace opcode mixture trace analysis tool creation.
@@ -52,5 +55,8 @@
 analysis_tool_t *
 opcode_mix_tool_create(const std::string &module_file_path, unsigned int verbose = 0,
                        const std::string &alt_module_dir = "");
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _OPCODE_MIX_CREATE_H_ */

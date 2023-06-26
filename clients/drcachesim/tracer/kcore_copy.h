@@ -40,6 +40,9 @@
 #include <elf.h>
 #include "drmemtrace.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 struct proc_module_t;
 struct proc_kcore_code_segment_t;
 
@@ -114,5 +117,8 @@ private:
     /* The ELF header of '/proc/kcore'. */
     Elf64_Ehdr proc_kcore_ehdr_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _KCORE_COPY_H_ */
