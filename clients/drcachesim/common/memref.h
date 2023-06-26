@@ -70,7 +70,7 @@ struct _memref_instr_t {
     addr_t addr;       /**< The address of the instruction (i.e., program counter). */
     size_t size;       /**< The length of the instruction. */
     /**
-     * The instruction's raw encoding.  This field is only valid when the the file type
+     * The instruction's raw encoding.  This field is only valid when the file type
      * (see #TRACE_MARKER_TYPE_FILETYPE) has #OFFLINE_FILE_TYPE_ENCODINGS set.
      * DynamoRIO's decode_from_copy() (or any other decoding library) can be used to
      * decode into a higher-level instruction representation.

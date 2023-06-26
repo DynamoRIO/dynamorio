@@ -337,7 +337,7 @@ test_cache_and_type_filter()
             return false;
         }
 
-        // Proccess each trace entry.
+        // Process each trace entry.
         for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
             // We need to emulate the stream for the tool.
             if (entries[i].entry.type == TRACE_TYPE_MARKER &&

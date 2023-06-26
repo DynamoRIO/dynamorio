@@ -387,7 +387,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: system call " << memref.marker.marker_value << ">\n";
             break;
         case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
-            std::cerr << "<marker: maybe-blocking sytem call>\n";
+            std::cerr << "<marker: maybe-blocking system call>\n";
             break;
         case TRACE_MARKER_TYPE_WINDOW_ID:
             // Handled above.
@@ -475,7 +475,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
         case TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
         case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
-        default: error_string_ = "Uknown instruction type\n"; return false;
+        default: error_string_ = "Unknown instruction type\n"; return false;
         }
         ++num_disasm_instrs_;
         return true;

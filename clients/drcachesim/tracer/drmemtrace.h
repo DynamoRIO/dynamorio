@@ -210,7 +210,7 @@ DR_EXPORT
 /**
  * Registers a function to replace the default file write operation
  * for offline tracing and requests that buffer ownership be
- * transfered.  The regular file open and close routines (or their
+ * transferred.  The regular file open and close routines (or their
  * replacements from drmemtrace_replace_file_ops()) will be called,
  * but instead of writing to the files (or calling the \p
  * write_file_func), the provided \p handoff_func will be called

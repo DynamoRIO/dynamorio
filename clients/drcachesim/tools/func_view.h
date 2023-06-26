@@ -85,6 +85,11 @@ protected:
         memref_tid_t tid = 0;
         std::unordered_map<int, func_stats_t> func_map;
         std::string error;
+        // We use the function markers to record arguments and return
+        // values in the trace also for some system calls like futex.
+        // func_view skips printing details for such system calls,
+        // because these are not specified by the user.
+        bool last_was_syscall = false;
         int last_func_id = -1;
         int nesting_level = 0;
         int arg_idx = -1;

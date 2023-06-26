@@ -193,7 +193,7 @@ struct line_ref_t {
 // If a cache line is accessed, its time stamp is set as current, and it is
 // added/moved to the front of the list.  The cache line reference
 // reuse distance is the cache line position in the list before moving.
-// We also keep a pointer (gate) pointing to the the earliest cache
+// We also keep a pointer (gate) pointing to the earliest cache
 // line referenced within the threshold.  Thus, we can quickly check
 // whether a cache line is recently accessed by comparing the time
 // stamp of the referenced cache line and the gate cache line.

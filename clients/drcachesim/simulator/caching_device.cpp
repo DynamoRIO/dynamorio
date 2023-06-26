@@ -393,7 +393,7 @@ caching_device_t::record_access_stats(const memref_t &memref, bool hit,
                                       caching_device_block_t *cache_block)
 {
     stats_->access(memref, hit, cache_block);
-    // We propagate hits all the way up the hierachy.
+    // We propagate hits all the way up the hierarchy.
     // But to avoid over-counting we only propagate misses one level up.
     if (hit) {
         for (caching_device_t *up = parent_; up != nullptr; up = up->parent_)

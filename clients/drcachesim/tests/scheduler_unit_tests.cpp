@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::min.
 #undef NDEBUG
 #include <assert.h>
 #include <cstring>
@@ -701,8 +702,8 @@ test_real_file_queries_and_filters(const char *testdir)
     static constexpr memref_tid_t TID_1_A = 23699;
     std::string trace2 = std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir";
     // This trace has many threads: we pick 2 of the smallest.
-    static constexpr memref_tid_t TID_2_A = 3018559;
-    static constexpr memref_tid_t TID_2_B = 3018555;
+    static constexpr memref_tid_t TID_2_A = 1257604;
+    static constexpr memref_tid_t TID_2_B = 1257602;
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(trace1);
@@ -734,13 +735,13 @@ test_real_file_queries_and_filters(const char *testdir)
            "chase.20190225.185346.23699.memtrace.sz");
     // These could be in any order (dir listing determines that).
     assert(scheduler.get_input_stream_name(1) ==
-               "drmemtrace.threadsig.3018559.5319.trace.zip" ||
+               "drmemtrace.threadsig.1257604.1983.trace.zip" ||
            scheduler.get_input_stream_name(1) ==
-               "drmemtrace.threadsig.3018555.0775.trace.zip");
+               "drmemtrace.threadsig.1257602.1021.trace.zip");
     assert(scheduler.get_input_stream_name(2) ==
-               "drmemtrace.threadsig.3018559.5319.trace.zip" ||
+               "drmemtrace.threadsig.1257604.1983.trace.zip" ||
            scheduler.get_input_stream_name(2) ==
-               "drmemtrace.threadsig.3018555.0775.trace.zip");
+               "drmemtrace.threadsig.1257602.1021.trace.zip");
     // Ensure all tids were seen.
     assert(tids_seen.size() == 3);
     assert(tids_seen.find(TID_1_A) != tids_seen.end() &&
@@ -1123,6 +1124,169 @@ test_synthetic_with_bindings_weighted()
     assert(sched_as_string[2] == "CCCCCCCCCAAAAAAAAA");
     assert(sched_as_string[3] == "HHHHHHHHHGGGGGGGGG");
     assert(sched_as_string[4] == "BBBBBBBBB");
+}
+
+static void
+test_synthetic_with_syscalls_multiple()
+{
+    std::cerr << "\n----------------\nTesting synthetic with blocking syscalls\n";
+    static constexpr int NUM_WORKLOADS = 3;
+    static constexpr int NUM_INPUTS_PER_WORKLOAD = 3;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    auto get_tid = [&](int workload_idx, int input_idx) {
+        return TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
+    };
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
+            memref_tid_t tid = get_tid(workload_idx, input_idx);
+            std::vector<trace_entry_t> inputs;
+            inputs.push_back(make_thread(tid));
+            inputs.push_back(make_pid(1));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                // Sprinkle timestamps every other instruction.  We use the
+                // same formula as test_synthetic_with_priorities().
+                if (instr_idx % 2 == 0) {
+                    inputs.push_back(make_timestamp(
+                        1000 * workload_idx +
+                        100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
+                }
+                inputs.push_back(make_instr(42 + instr_idx * 4));
+                // Insert some blocking syscalls in the high-priority (see below)
+                // middle threads.
+                if (input_idx == 1 && instr_idx % (workload_idx + 1) == workload_idx) {
+                    inputs.push_back(
+                        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                }
+            }
+            inputs.push_back(make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+        // Set some different priorities for the middle threads.
+        // The others retain the default 0 priority.
+        sched_inputs.back().thread_modifiers.emplace_back(
+            get_tid(workload_idx, /*input_idx=*/1), /*priority=*/1);
+    }
+    // We have one input 'J' with lower timestamps than everyone, to test that it never
+    // gets switched out once we get to it among the default-priority inputs.
+    memref_tid_t tid = TID_BASE + NUM_WORKLOADS * NUM_INPUTS_PER_WORKLOAD;
+    std::vector<trace_entry_t> inputs;
+    inputs.push_back(make_thread(tid));
+    inputs.push_back(make_pid(1));
+    for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+        if (instr_idx % 2 == 0)
+            inputs.push_back(make_timestamp(1 + instr_idx));
+        inputs.push_back(make_instr(42 + instr_idx * 4));
+    }
+    inputs.push_back(make_exit(tid));
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+    sched_inputs.emplace_back(std::move(readers));
+
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    sched_ops.quantum_duration = 3;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    // See the test_synthetic_with_priorities() test which has our base sequence.
+    // But now B hits a syscall every instr, and E every other instr, so neither
+    // reaches its 3-instr quantum.  (H's syscalls are every 3rd instr coinciding with its
+    // quantum.)  Furthermore, B isn't finished by the time E and H are done and we see
+    // the lower-priority C and F getting scheduled while B is in a wait state for its
+    // blocking syscall.
+    assert(sched_as_string[0] == "BHHHBEEBHHHBCCCBIIICCCFFFIIIFFFAAAGGGDDDAAAGGG");
+    assert(sched_as_string[1] == "EEBEEHHHEEBEBFFFBJJJJJJJJJCCCIIIDDDAAAGGGDDD");
+    // Sanity check that the same input isn't on both cores at once.
+    for (size_t i = 0; i < std::min(sched_as_string[0].size(), sched_as_string[1].size());
+         ++i) {
+        assert(sched_as_string[0][i] != sched_as_string[1][i]);
+    }
+}
+
+static void
+test_synthetic_with_syscalls_single()
+{
+    std::cerr
+        << "\n----------------\nTesting synthetic single-input with blocking syscalls\n";
+    // We just want to make sure that if there's only one input at a blocking
+    // syscall it will get scheduled and we won't just hang.
+    static constexpr int NUM_WORKLOADS = 1;
+    static constexpr int NUM_INPUTS_PER_WORKLOAD = 1;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int NUM_INSTRS = 9;
+    static constexpr memref_tid_t TID_BASE = 100;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    auto get_tid = [&](int workload_idx, int input_idx) {
+        return TID_BASE + workload_idx * NUM_INPUTS_PER_WORKLOAD + input_idx;
+    };
+    for (int workload_idx = 0; workload_idx < NUM_WORKLOADS; workload_idx++) {
+        std::vector<scheduler_t::input_reader_t> readers;
+        for (int input_idx = 0; input_idx < NUM_INPUTS_PER_WORKLOAD; input_idx++) {
+            memref_tid_t tid = get_tid(workload_idx, input_idx);
+            std::vector<trace_entry_t> inputs;
+            inputs.push_back(make_thread(tid));
+            inputs.push_back(make_pid(1));
+            for (int instr_idx = 0; instr_idx < NUM_INSTRS; instr_idx++) {
+                // Sprinkle timestamps every other instruction.  We use the
+                // same formula as test_synthetic_with_priorities().
+                if (instr_idx % 2 == 0) {
+                    inputs.push_back(make_timestamp(
+                        1000 * workload_idx +
+                        100 * (NUM_INPUTS_PER_WORKLOAD - input_idx) + 10 * instr_idx));
+                }
+                inputs.push_back(make_instr(42 + instr_idx * 4));
+                // Insert some blocking syscalls.
+                if (instr_idx % 3 == 1) {
+                    inputs.push_back(
+                        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0));
+                }
+            }
+            inputs.push_back(make_exit(tid));
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs)),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), tid);
+        }
+        sched_inputs.emplace_back(std::move(readers));
+    }
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/4);
+    sched_ops.quantum_duration = 3;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    assert(sched_as_string[0] == "AAAAAAAAA");
+    assert(sched_as_string[1] == "");
+}
+
+static void
+test_synthetic_with_syscalls()
+{
+    test_synthetic_with_syscalls_multiple();
+    test_synthetic_with_syscalls_single();
 }
 
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
@@ -1975,14 +2139,13 @@ test_replay_as_traced_from_file(const char *testdir)
     std::string path = std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir";
     std::string cpu_file =
         std::string(testdir) + "/drmemtrace.threadsig.x64.tracedir/cpu_schedule.bin.zip";
-    // This checked-in trace has 8 threads on 9 cores, with one core starting out in a
-    // wait state and many entries to merge in the cpu_schedule file.  It doesn't have
+    // This checked-in trace has 8 threads on 7 cores.  It doesn't have
     // much thread migration but our synthetic test above covers that.
     static const char *const SCHED_STRING =
-        "Core #0: 3018553 \nCore #1: 3018556 \nCore #2: 3018557 \nCore #3: 3018558 "
-        "\nCore #4: 3018520 \nCore #5: 3018520 \nCore #6: 3018554 \nCore #7: 3018555 "
-        "\nCore #8: 3018559 \n";
-    static constexpr int NUM_OUTPUTS = 9; // Matches the actual trace's core footprint.
+        "Core #0: 1257598 \nCore #1: 1257603 \nCore #2: 1257601 \n"
+        "Core #3: 1257599 1257604 \nCore #4: 1257600 \nCore #5: 1257596 \n"
+        "Core #6: 1257602 \n";
+    static constexpr int NUM_OUTPUTS = 7; // Matches the actual trace's core footprint.
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(path);
@@ -2039,6 +2202,7 @@ test_main(int argc, const char *argv[])
     test_synthetic_with_priorities();
     test_synthetic_with_bindings();
     test_synthetic_with_bindings_weighted();
+    test_synthetic_with_syscalls();
     test_synthetic_multi_threaded(argv[1]);
     test_speculation();
     test_replay();

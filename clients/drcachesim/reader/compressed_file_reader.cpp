@@ -52,7 +52,7 @@ read_next_entry_common(gzip_reader_t *gzip, bool *eof)
 {
     if (gzip->cur_buf >= gzip->max_buf) {
         int len = gzread(gzip->file, gzip->buf, sizeof(gzip->buf));
-        // Returns less than asked-for for end of file, or –1 for error.
+        // Returns less than asked-for if at end of file, or –1 for error.
         // We should always get a multiple of the record size.
         if (len < static_cast<int>(sizeof(trace_entry_t)) ||
             len % static_cast<int>(sizeof(trace_entry_t)) != 0) {
