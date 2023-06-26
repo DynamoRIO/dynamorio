@@ -741,6 +741,11 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
             return l.timestamp < r.timestamp;
         if (l.cpu != r.cpu)
             return l.cpu < r.cpu;
+        // We really need to sort by either (timestamp, cpu_id) or
+        // (timestamp, thread_id): a single thread cannot be on two CPUs at
+        // the same timestamp; also a single CPU cannot have two threads at the
+        // same timestamp. We still sort by (timestamp, cpu_id, thread_id)
+        // to prevent inadvertent issues with test data.
         return l.thread < r.thread;
     };
     std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
