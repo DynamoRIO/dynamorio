@@ -194,7 +194,8 @@ extern uint android_tls_base_offs;
 
 #ifdef RISCV64
 /* Re-using ARM's approach and store DR TLS in tcb_head_t::private,
- * with the only difference being tp register points at the end of TCB
+ * with the only difference being tp register points at the end of TCB.
+ *
  * typedef struct
  *   {
  *     dtv_t *dtv;
