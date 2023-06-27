@@ -114,7 +114,8 @@ raw2trace_directory_t::open_thread_files()
 }
 
 std::string
-raw2trace_directory_t::trace_suffix() {
+raw2trace_directory_t::trace_suffix()
+{
     if (compress_type_ == "zip") {
 #ifdef HAS_ZIP
         return TRACE_SUFFIX_ZIP;
