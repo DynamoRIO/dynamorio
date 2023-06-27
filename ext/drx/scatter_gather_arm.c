@@ -35,7 +35,6 @@
  * instructions.
  */
 
-
 #include "dr_api.h"
 #include "drx.h"
 #include "drmgr.h"
