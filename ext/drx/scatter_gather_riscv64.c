@@ -30,7 +30,10 @@
  * DAMAGE.
  */
 
-/* DynamoRio eXtension utilities */
+/* DynamoRio eXtension utilities: Support for expanding RISC-V 64 scatter and gather
+ * instructions.
+ */
+
 
 #include "dr_api.h"
 #include "drx.h"

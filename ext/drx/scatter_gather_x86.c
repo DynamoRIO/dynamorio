@@ -30,7 +30,9 @@
  * DAMAGE.
  */
 
-/* DynamoRio eXtension utilities */
+/* DynamoRio eXtension utilities: Support for expanding x86 scatter and gather
+ * instructions.
+ */
 
 #include "dr_api.h"
 #include "drx.h"
