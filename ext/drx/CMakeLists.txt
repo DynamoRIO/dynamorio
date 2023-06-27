@@ -42,7 +42,7 @@ set(DynamoRIO_USE_LIBC OFF)
 set(srcs
   drx.c
   drx_buf.c
-  ${ARCH_NAME}/scatter_gather.c
+  scatter_gather_${ARCH_NAME}.c
   # add more here
   )
 
