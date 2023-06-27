@@ -39,6 +39,7 @@
 
 #include "dr_api.h"
 #include "archive_ostream.h"
+#include "../common/options.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -61,7 +62,8 @@ public:
     // If outdir.empty() then a peer of indir's OUTFILE_SUBDIR named TRACE_SUBDIR
     // is used by default.  Returns "" on success or an error message on failure.
     std::string
-    initialize(const std::string &indir, const std::string &outdir);
+    initialize(const std::string &indir, const std::string &outdir,
+               const std::string &compress = DEFAULT_TRACE_COMPRESSION_TYPE);
     // Use this instead of initialize() to only fill in modfile_bytes, for
     // constructing a module_mapper_t.  Returns "" on success or an error message on
     // failure.
@@ -96,6 +98,8 @@ public:
 
 private:
     std::string
+    trace_suffix();
+    std::string
     read_module_file(const std::string &modfilename);
     std::string
     open_thread_files();
@@ -114,6 +118,7 @@ private:
     std::string indir_;
     std::string outdir_;
     unsigned int verbosity_;
+    std::string compress_type_;
 };
 
 } // namespace drmemtrace
