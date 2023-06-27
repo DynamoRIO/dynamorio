@@ -46,6 +46,9 @@
 #include <unordered_map>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /* The auto cleanup wrapper of instr_t.
  * This can ensure the instance of instr_t is cleaned up when it is out of scope.
  */
@@ -217,5 +220,8 @@ protected:
 
     memtrace_stream_t *serial_stream_ = nullptr;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _INVARIANT_CHECKER_H_ */

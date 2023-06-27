@@ -37,6 +37,9 @@
 #include "../common/memref.h"
 #include "../common/utils.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 // Work around clang-format bug: no newline after return type for single-char operator.
 // clang-format off
 const memref_t &
@@ -477,3 +480,6 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
     }
     return *this;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

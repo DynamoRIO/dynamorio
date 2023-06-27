@@ -41,6 +41,10 @@
 #include "instru.h"
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
+#ifdef LINUX
+// XXX: We should have the core export this to an include dir.
+#    include "../../core/unix/include/syscall.h"
+#endif
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include "../common/options.h"
 #    include "../drpt2trace/ir2trace.h"
@@ -57,6 +61,9 @@
 #endif
 
 #include <iostream>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // Assumes we return an error string by convention.
 #define CHECK(val, msg) \
@@ -1785,7 +1792,10 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
             // rseq aborts with timestamps (i#5954) nor rseq side exits (i#5953) for
             // such traces but we can at least fix up typical aborts.
             if (!tdata->rseq_ever_saw_entry_ &&
-                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT &&
+                // I-filtered don't have every instr so we can't roll back.
+                !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                         get_file_type(tdata))) {
                 // For the older version, we will not get here for Windows
                 // callbacks, the other event with a 0 modoffs, because they are
                 // always between bbs.  (Unfortunately there's no simple way to
@@ -3096,7 +3106,7 @@ raw2trace_t::raw2trace_t(
         }
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
-    // static work assigment.  This won't be as load balanced as a dynamic work
+    // static work assignment.  This won't be as load balanced as a dynamic work
     // queue but it is much simpler.
     if (worker_count_ < 0) {
         worker_count_ = std::thread::hardware_concurrency();
@@ -3356,3 +3366,6 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     return false;
 #endif
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

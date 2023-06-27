@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,11 @@
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 
+using dynamorio::drmemtrace::raw2trace_directory_t;
+using dynamorio::drmemtrace::raw2trace_t;
+
+namespace {
+
 // XXX: We're duplicating some options from common/options.cpp: we should be
 // able to share?!
 
@@ -86,6 +91,8 @@ static droption_t<int>
         fflush(stderr);                                     \
         exit(1);                                            \
     } while (0)
+
+} // namespace
 
 int
 _tmain(int argc, const TCHAR *targv[])

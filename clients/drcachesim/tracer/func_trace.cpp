@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,9 @@
 #include "trace_entry.h"
 #include "../common/options.h"
 #include "func_trace.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // The expected pattern for a single_op_value is:
 //     function_name|function_id|arguments_num
@@ -566,3 +569,6 @@ func_trace_exit()
     }
     drwrap_exit();
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -52,6 +52,9 @@
 #include <syscall.h>
 #include <unistd.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 static droption_t<std::string> op_indir(DROPTION_SCOPE_FRONTEND, "indir", "",
                                         "[Required] Directory with trace input files",
                                         "Specifies a directory with raw files.");
@@ -282,3 +285,6 @@ test_main(int argc, const char *argv[])
         return 1;
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

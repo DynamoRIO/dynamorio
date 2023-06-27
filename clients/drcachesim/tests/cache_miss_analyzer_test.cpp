@@ -36,6 +36,9 @@
 #include "../simulator/cache_simulator.h"
 #include "../common/memref.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 static memref_t
 generate_mem_ref(const addr_t addr, const addr_t pc)
 {
@@ -216,3 +219,6 @@ test_main(int argc, const char *argv[])
         exit(1);
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -39,6 +39,9 @@
 #include <iostream>
 #include <sstream>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #undef ASSERT
 #define ASSERT(cond, msg, ...)        \
     do {                              \
@@ -1990,3 +1993,6 @@ test_main(int argc, const char *argv[])
         return 1;
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

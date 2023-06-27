@@ -53,7 +53,8 @@
 #include "record_file_reader.h"
 #include "scheduler.h"
 
-using namespace dynamorio::drmemtrace;
+namespace dynamorio {
+namespace drmemtrace {
 
 /**
  * An analyzer is the top-level driver of a set of trace analysis tools.
@@ -61,22 +62,28 @@ using namespace dynamorio::drmemtrace;
  * trace and calls the process_memref() routine of each tool, or it exposes
  * an iteration interface to external control code.
  *
- * RecordType is the type of entry to be analyzed: #memref_t or #trace_entry_t.
- * ReaderType is the reader that allows reading entries of type T: #reader_t or
+ * RecordType is the type of entry to be analyzed: #dynamorio::drmemtrace::memref_t or
+ * #dynamorio::drmemtrace::trace_entry_t. ReaderType is the reader that allows reading
+ * entries of type T: #dynamorio::drmemtrace::reader_t or
  * #dynamorio::drmemtrace::record_reader_t respectively.
  *
- * #analyzer_tmpl_t<#memref_t, #reader_t> is the primary type of analyzer, which is used
- * for most purposes. It uses tools of type #analysis_tool_tmpl_t<#memref_t>. This
+ * #dynamorio::drmemtrace::analyzer_tmpl_t<#dynamorio::drmemtrace::memref_t,
+ * #dynamorio::drmemtrace::reader_t> is the primary type of analyzer, which is used for
+ * most purposes. It uses tools of type
+ * #dynamorio::drmemtrace::analysis_tool_tmpl_t<#dynamorio::drmemtrace::memref_t>. This
  * analyzer provides various features to support trace analysis, e.g. processing the
- * instruction encoding entries and making it available to the tool inside #memref_t.
+ * instruction encoding entries and making it available to the tool inside
+ * #dynamorio::drmemtrace::memref_t.
  *
- * #analyzer_tmpl_t<#trace_entry_t, #dynamorio::drmemtrace::record_reader_t> is used
- * in special cases where an offline trace needs to be observed exactly as stored on
- * disk, without hiding any internal entries. It uses tools of type
- * #analysis_tool_tmpl_t<#trace_entry_t>.
+ * #dynamorio::drmemtrace::analyzer_tmpl_t<#dynamorio::drmemtrace::trace_entry_t,
+ * #dynamorio::drmemtrace::record_reader_t> is used in special cases where an offline
+ * trace needs to be observed exactly as stored on disk, without hiding any internal
+ * entries. It uses tools of type
+ * #dynamorio::drmemtrace::analysis_tool_tmpl_t<#dynamorio::drmemtrace::trace_entry_t>.
  *
- * TODO i#5727: When we convert #reader_t into a template on RecordType, we can remove the
- * second template parameter to #analyzer_tmpl_t, and simply use reader_tmpl_t<RecordType>
+ * TODO i#5727: When we convert #dynamorio::drmemtrace::reader_t into a template on
+ * RecordType, we can remove the second template parameter to
+ * #dynamorio::drmemtrace::analyzer_tmpl_t, and simply use reader_tmpl_t<RecordType>
  * instead.
  */
 template <typename RecordType, typename ReaderType> class analyzer_tmpl_t {
@@ -318,10 +325,14 @@ private:
     serial_mode_supported();
 };
 
-/** See #analyzer_tmpl_t. */
+/** See #dynamorio::drmemtrace::analyzer_tmpl_t. */
 typedef analyzer_tmpl_t<memref_t, reader_t> analyzer_t;
 
-/** See #analyzer_tmpl_t. */
+/** See #dynamorio::drmemtrace::analyzer_tmpl_t. */
 typedef analyzer_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>
     record_analyzer_t;
+
+} // namespace drmemtrace
+} // namespace dynamorio
+
 #endif /* _ANALYZER_H_ */

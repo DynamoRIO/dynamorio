@@ -46,6 +46,9 @@
 #include <stddef.h> /* for offsetof */
 #include <string.h> /* for strlen */
 
+namespace dynamorio {
+namespace drmemtrace {
+
 static const uint MAX_INSTR_COUNT = 64 * 1024;
 
 void *(*offline_instru_t::user_load_)(module_data_t *module, int seg_idx);
@@ -996,3 +999,6 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         }
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

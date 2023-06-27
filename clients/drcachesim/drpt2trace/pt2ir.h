@@ -63,6 +63,7 @@
 #    define INOUT // nothing
 #endif
 
+// libipt global types.
 struct pt_config;
 struct pt_image;
 struct pt_image_section_cache;
@@ -70,6 +71,9 @@ struct pt_sb_pevent_config;
 struct pt_sb_session;
 struct pt_insn_decoder;
 struct pt_packet_decoder;
+
+namespace dynamorio {
+namespace drmemtrace {
 
 /**
  * The auto cleanup wrapper of struct pt_image_section_cache.
@@ -116,7 +120,7 @@ enum pt2ir_convert_status_t {
     /** The conversion process ends with a failure to set the new image. */
     PT2IR_CONV_ERROR_SET_IMAGE,
 
-    /** The conversion process ends with a failure to decode the next intruction. */
+    /** The conversion process ends with a failure to decode the next instruction. */
     PT2IR_CONV_ERROR_DECODE_NEXT_INSTR,
 
     /**
@@ -355,7 +359,7 @@ public:
      * @param pt_data The PT raw trace.
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.
-     * @return pt2ir_convert_status_t. If the convertion is successful, the function
+     * @return pt2ir_convert_status_t. If the conversion is successful, the function
      * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.
      */
@@ -400,5 +404,8 @@ private:
     /* Integer value representing the verbosity level for notifications. */
     int verbosity_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _PT2IR_H_ */

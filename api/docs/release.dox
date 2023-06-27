@@ -166,24 +166,14 @@ changes:
    INSTR_CREATE_eor_sve_pred(), INSTR_CREATE_and_sve_pred() and
    INSTR_CREATE_bic_sve_pred() to use the new vector element registers and to
    correctly encode the predicate mode.
- - Added a new drmemtrace analyzer option \p -interval_microseconds and various new
-   #analysis_tool_t APIs for producing per-interval results. The analyzer framework
-   invokes the generate_interval_snapshot() and generate_shard_interval_snapshot()
-   analysis tool APIs periodically every \p -interval_microseconds of the trace as
-   measured by the #TRACE_MARKER_TYPE_TIMESTAMP marker values. In these callbacks, the
-   tool creates and returns a snapshot of their internal state that is required to
-   produce and print per-interval results in a later print_interval_results() call.
-   The tool's internal state is a struct derived from the
-   #analysis_tool_tmpl_t::interval_state_snapshot_t base struct. Additionally, the tool
-   implements combine_interval_snapshot() to combine two interval snapshot structs,
-   which is required for producing whole-trace results in the parallel mode of analyzer
-   operation, and also release_interval_snapshot() which is used to release the
-   analyzer framework's claim to the interval snapshot objects.
  - ud2a and ud2b have been renamed to ud2 and ud1, respectively. The old constants
    #OP_ud2a and #OP_ud2b, as well as the #INSTR_CREATE_ud2a()/#INSTR_CREATE_ud2b()
    macros, are \#defined to the new names, #OP_ud2, #OP_ud1, #INSTR_CREATE_ud2(),
    and #INSTR_CREATE_ud1() respectively. ud1 now correctly accounts for its operands
    so manipulation of ud1 is not backwards compatible.
+ - All drcachesim/ code was changed to use the dynamorio::drmemtrace namespace.
+   External code using any drcachesim or drmemtrace library will need to be
+   recompiled.
 
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
@@ -200,14 +190,14 @@ Further non-compatibility-affecting changes include:
    default (if built with lz4 support).
  - Added drmodtrack_lookup_pc_from_index().
  - Added -use_physical support to drcachesim offline traces using three new
-   marker types: #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
-   #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, and
-   #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE.
+   marker types: #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS,
+   #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VIRTUAL_ADDRESS, and
+   #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE.
  - Added an open-address hashtable implementation for cases where third-party
    libraries must be avoided and open addressing is best: dr_hashtable_create(),
    dr_hashtable_destroy(), dr_hashtable_clear(), dr_hashtable_lookup(),
    dr_hashtable_add(), dr_hashtable_remove().
- - Added a new #TRACE_MARKER_TYPE_PAGE_SIZE record to drcachesim offline traces.
+ - Added a new #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE record to drcachesim offline traces.
  - Added new drmemtrace options -L0I_filter and -L0D_filter that allow enabling
    online filtering for only instruction or only data entries respectively. The
    old option -L0_filter is deprecated but still supported for backward
@@ -240,8 +230,8 @@ Further non-compatibility-affecting changes include:
    The stream interface passed to analysis tools provides tools with the
    record and instruction ordinals along with the values of top-level
    headers.
- - Added #record_analyzer_t and #record_analysis_tool_t for analyzing the
-   sequence of #trace_entry_t exactly as present in a stored offline trace.
+ - Added #dynamorio::drmemtrace::record_analyzer_t and #dynamorio::drmemtrace::record_analysis_tool_t for analyzing the
+   sequence of #dynamorio::drmemtrace::trace_entry_t exactly as present in a stored offline trace.
  - Added opnd_size_to_shift_amount() and opnd_create_base_disp_shift_aarch64()
    for explicitly specifying shift amounts in the creation of operands for
    AArch64 memory addresses.
@@ -254,7 +244,7 @@ Further non-compatibility-affecting changes include:
  - Added a new #dynamorio::drmemtrace::scheduler_tmpl_t interface providing scheduling
    of drmemtrace offline files onto configurable output streams, meant for use by
    microarchitectural simulators.
- - Added a #memtrace_stream_t interface for drmemtrace analysis tools to
+ - Added a #dynamorio::drmemtrace::memtrace_stream_t interface for drmemtrace analysis tools to
    query key attributes of each input trace.
  - Added instr_create_1dst_6src() convenience function that returns an instr_t
    with one destination and six sources.
@@ -262,6 +252,19 @@ Further non-compatibility-affecting changes include:
    #DR_NOTE_RSEQ_ENTRY.
  - Added instr_get_offset() API for getting the offset of an instr in an instrlist that
    has been encoded with instrlist_encode* set of APIs.
+ - Added a new drmemtrace analyzer option \p -interval_microseconds and various new
+   #dynamorio::drmemtrace::analysis_tool_t APIs for producing per-interval results. The analyzer framework
+   invokes the generate_interval_snapshot() and generate_shard_interval_snapshot()
+   analysis tool APIs periodically every \p -interval_microseconds of the trace as
+   measured by the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP marker values. In these callbacks, the
+   tool creates and returns a snapshot of their internal state that is required to
+   produce and print per-interval results in a later print_interval_results() call.
+   The tool's internal state is a struct derived from the
+   #dynamorio::drmemtrace::analysis_tool_tmpl_t::interval_state_snapshot_t base struct. Additionally, the tool
+   implements combine_interval_snapshot() to combine two interval snapshot structs,
+   which is required for producing whole-trace results in the parallel mode of analyzer
+   operation, and also release_interval_snapshot() which is used to release the
+   analyzer framework's claim to the interval snapshot objects.
  - Added a new drmemtrace analysis tool: syscall_mix, to count frequency of system
    calls in a trace. This tool works in both the online and offline modes of
    drmemtrace.
@@ -410,10 +413,10 @@ Further non-compatibility-affecting changes include:
    event callback(s) via the #dr_restore_state_info_t arg.
  - Added the source context for restartable sequence aborts (#DR_XFER_RSEQ_ABORT)
    which was previously missing.
- - Added a #TRACE_MARKER_TYPE_VERSION entry to drmemtrace traces.
- - Augmented drmemtrace #TRACE_MARKER_TYPE_KERNEL_EVENT entries with the absolute
+ - Added a #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION entry to drmemtrace traces.
+ - Augmented drmemtrace #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT entries with the absolute
    PC of the interruption point, including for restartable sequence aborts, which
-   now also have an additional #TRACE_MARKER_TYPE_RSEQ_ABORT identifier.
+   now also have an additional #dynamorio::drmemtrace::TRACE_MARKER_TYPE_RSEQ_ABORT identifier.
  - Added a fifth instrumentation phase (meta_instru) that executes after the
    insertion of instrumentation and instrumentation optimizations. Its primary purpose
    is to enable debugging of instrumentation sequences and detection of
@@ -718,15 +721,15 @@ Further non-compatibility-affecting changes include:
    setting up the code cache prior to execution.
  - Added support for Windows 10 1803. We provide an artificial version
    identifier #DR_WINDOWS_VERSION_10_1803 to distinguish this major update.
- - Generalization of the drcachesim #raw2trace_t API (Issue #3129):
-   - Added #module_mapper_t, which factors out the module mapping functionality
-     out of #raw2trace_t, replacing the following #raw2trace_t APIs:
-     #raw2trace_t::handle_custom_data(), #raw2trace_t::do_module_parsing(),
-     #raw2trace_t::do_module_parsing_and_mapping(), and
-     #raw2trace_t::find_mapped_trace_address().
-   - Added #trace_metadata_writer_t, a set of utility functions used by drcachesim's
-     #raw2trace_t for writing trace metadata: process/thread ids, timestamps, etc.
-   - Added #trace_metadata_reader_t, a set of utilities for checking and validating
+ - Generalization of the drcachesim #dynamorio::drmemtrace::raw2trace_t API (Issue #3129):
+   - Added #dynamorio::drmemtrace::module_mapper_t, which factors out the module mapping functionality
+     out of #dynamorio::drmemtrace::raw2trace_t, replacing the following #dynamorio::drmemtrace::raw2trace_t APIs:
+     #dynamorio::drmemtrace::raw2trace_t::handle_custom_data(), #dynamorio::drmemtrace::raw2trace_t::do_module_parsing(),
+     #dynamorio::drmemtrace::raw2trace_t::do_module_parsing_and_mapping(), and
+     #dynamorio::drmemtrace::raw2trace_t::find_mapped_trace_address().
+   - Added #dynamorio::drmemtrace::trace_metadata_writer_t, a set of utility functions used by drcachesim's
+     #dynamorio::drmemtrace::raw2trace_t for writing trace metadata: process/thread ids, timestamps, etc.
+   - Added #dynamorio::drmemtrace::trace_metadata_reader_t, a set of utilities for checking and validating
      thread start successions of offline entries in a raw data file.
    - Added trace_converter_t, an extensibility mechanism for raw trace conversion.
  - Added drmemtrace_get_timestamp_from_offline_trace(), an API for fetching the timestamp

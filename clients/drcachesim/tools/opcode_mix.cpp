@@ -44,6 +44,9 @@
 #include <vector>
 #include <string.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 const std::string opcode_mix_t::TOOL_NAME = "Opcode mix tool";
 
 analysis_tool_t *
@@ -261,3 +264,6 @@ opcode_mix_t::print_results()
     }
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

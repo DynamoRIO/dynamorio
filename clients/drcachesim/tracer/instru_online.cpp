@@ -43,6 +43,9 @@
 #include <stddef.h>  /* for offsetof */
 #include <algorithm> /* for std::min */
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define MAX_IMM_DISP_STUR 255
 
 online_instru_t::online_instru_t(
@@ -497,3 +500,6 @@ online_instru_t::bb_analysis_cleanup(void *drcontext, void *bb_field)
 {
     // Nothing to do.
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

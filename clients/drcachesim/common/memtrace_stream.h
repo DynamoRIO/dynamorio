@@ -51,6 +51,9 @@
  * tools on the full stream of memory reference records.
  */
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /**
  * This is an interface for obtaining information from analysis tools
  * on the full stream of memory reference records.
@@ -62,9 +65,9 @@ public:
     {
     }
     /**
-     * Returns the count of #memref_t records from the start of the trace to this point.
-     * This includes records skipped over and not presented to any tool.
-     * It does not include synthetic records (see is_record_synthetic()).
+     * Returns the count of #dynamorio::drmemtrace::memref_t records from the start of the
+     * trace to this point. This includes records skipped over and not presented to any
+     * tool. It does not include synthetic records (see is_record_synthetic()).
      */
     virtual uint64_t
     get_record_ordinal() const = 0;
@@ -84,49 +87,54 @@ public:
     get_stream_name() const = 0;
 
     /**
-     * Returns the value of the most recently seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+     * Returns the value of the most recently seen
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP marker.
      */
     virtual uint64_t
     get_last_timestamp() const = 0;
 
     /**
-     * Returns the value of the first seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+     * Returns the value of the first seen
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP marker.
      */
     virtual uint64_t
     get_first_timestamp() const = 0;
 
     /**
-     * Returns the #trace_version_t value from the #TRACE_MARKER_TYPE_VERSION record
-     * in the trace header.
+     * Returns the #dynamorio::drmemtrace::trace_version_t value from the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION record in the trace header.
      */
     virtual uint64_t
     get_version() const = 0;
 
     /**
-     * Returns the OFFLINE_FILE_TYPE_* bitfields of type #offline_file_type_t
-     * identifying the architecture and other key high-level attributes of the trace
-     * from the #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
+     * Returns the OFFLINE_FILE_TYPE_* bitfields of type
+     * #dynamorio::drmemtrace::offline_file_type_t identifying the architecture and other
+     * key high-level attributes of the trace from the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE record in the trace header.
      */
     virtual uint64_t
     get_filetype() const = 0;
 
     /**
-     * Returns the cache line size from the #TRACE_MARKER_TYPE_CACHE_LINE_SIZE record in
-     * the trace header.
+     * Returns the cache line size from the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE record in the trace
+     * header.
      */
     virtual uint64_t
     get_cache_line_size() const = 0;
 
     /**
-     * Returns the chunk instruction count from the #TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT
-     * record in the trace header.
+     * Returns the chunk instruction count from the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT record in the trace
+     * header.
      */
     virtual uint64_t
     get_chunk_instr_count() const = 0;
 
     /**
-     * Returns the page size from the #TRACE_MARKER_TYPE_PAGE_SIZE record in
-     * the trace header.
+     * Returns the page size from the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE
+     * record in the trace header.
      */
     virtual uint64_t
     get_page_size() const = 0;
@@ -217,4 +225,8 @@ public:
 private:
     uint64_t *record_ordinal_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
+
 #endif /* _MEMTRACE_STREAM_H_ */

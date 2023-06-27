@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,9 @@
 #include "tlb.h"
 #include "../common/utils.h"
 #include <assert.h>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 void
 tlb_t::init_blocks()
@@ -121,3 +124,6 @@ tlb_t::request(const memref_t &memref_in)
         last_pid_ = pid;
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

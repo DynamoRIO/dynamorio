@@ -44,6 +44,13 @@
 #include <fstream>
 #include <vector>
 
+// libipt global types.
+struct pt_image;
+struct pt_image_section_cache;
+
+namespace dynamorio {
+namespace drmemtrace {
+
 #ifndef IN
 #    define IN // nothing
 #endif
@@ -95,5 +102,8 @@ private:
                  IN uint64_t vaddr, INOUT struct pt_image_section_cache *iscache,
                  INOUT struct pt_image *image);
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ELF_LOADER_H_ */

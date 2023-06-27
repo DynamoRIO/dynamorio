@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,6 +41,9 @@
 #include "physaddr.h"
 #include "../common/options.h"
 #include "../common/utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #if defined(X86_32) || defined(ARM_32)
 #    define IF_X64_ELSE(x, y) y
@@ -273,3 +276,6 @@ physaddr_t::virtual2physical(void *drcontext, addr_t virt, OUT addr_t *phys,
     return false;
 #endif
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -44,6 +44,9 @@
 #include <math.h>
 #include <stdlib.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 bool
 my_setenv(const char *var, const char *value)
 {
@@ -131,3 +134,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 }
 #    endif
 #endif /* UNIX && TEST_APP_DR_CLIENT_MAIN */
+
+} // namespace drmemtrace
+} // namespace dynamorio

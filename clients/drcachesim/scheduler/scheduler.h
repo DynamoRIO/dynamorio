@@ -67,8 +67,9 @@ namespace drmemtrace {
  * Takes in a set of recorded traces and maps them onto a new set of output
  * streams, typically representing simulated cpus.
  *
- * This is a templated class to support not just operating over #memref_t inputs
- * read by #reader_t, but also over #trace_entry_t records read by
+ * This is a templated class to support not just operating over
+ * #dynamorio::drmemtrace::memref_t inputs read by #dynamorio::drmemtrace::reader_t, but
+ * also over #dynamorio::drmemtrace::trace_entry_t records read by
  * #dynamorio::drmemtrace::record_reader_t.
  */
 template <typename RecordType, typename ReaderType> class scheduler_tmpl_t {
@@ -192,10 +193,10 @@ public:
         /**
          * If non-empty, all input records outside of these ranges are skipped: it is as
          * though the input were constructed by concatenating these ranges together.  A
-         * #TRACE_MARKER_TYPE_WINDOW_ID marker is inserted between ranges (with a value
-         * equal to the range ordinal) to notify the client of the discontinuity (but
-         * not before the first range).  These ranges must be non-overlapping and in
-         * increasing order.
+         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID marker is inserted between
+         * ranges (with a value equal to the range ordinal) to notify the client of the
+         * discontinuity (but not before the first range).  These ranges must be
+         * non-overlapping and in increasing order.
          */
         std::vector<range_t> regions_of_interest;
     };
@@ -504,8 +505,8 @@ public:
     /**
      * Represents a stream of RecordType trace records derived from a
      * subset of a set of input recorded traces.  Provides more
-     * information about the record stream using the #memtrace_stream_t
-     * API.
+     * information about the record stream using the
+     * #dynamorio::drmemtrace::memtrace_stream_t API.
      */
     class stream_t : public memtrace_stream_t {
     public:
@@ -574,8 +575,9 @@ public:
         // memtrace_stream_t interface:
 
         /**
-         * Returns the count of #memref_t records from the start of the trace to this
-         * point. It does not include synthetic records (see is_record_synthetic()).
+         * Returns the count of #dynamorio::drmemtrace::memref_t records from the start of
+         * the trace to this point. It does not include synthetic records (see
+         * is_record_synthetic()).
          *
          * If
          * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS
@@ -638,8 +640,8 @@ public:
             return scheduler_->get_input_ordinal(ordinal_);
         }
         /**
-         * Returns the value of the most recently seen #TRACE_MARKER_TYPE_TIMESTAMP
-         * marker.
+         * Returns the value of the most recently seen
+         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP marker.
          */
         uint64_t
         get_last_timestamp() const override
@@ -650,7 +652,8 @@ public:
             return last_timestamp_;
         }
         /**
-         * Returns the value of the first seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
+         * Returns the value of the first seen
+         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP marker.
          */
         uint64_t
         get_first_timestamp() const override
@@ -661,8 +664,8 @@ public:
             return first_timestamp_;
         }
         /**
-         * Returns the #trace_version_t value from the #TRACE_MARKER_TYPE_VERSION record
-         * in the trace header.
+         * Returns the #dynamorio::drmemtrace::trace_version_t value from the
+         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION record in the trace header.
          */
         uint64_t
         get_version() const override
@@ -670,9 +673,10 @@ public:
             return version_;
         }
         /**
-         * Returns the OFFLINE_FILE_TYPE_* bitfields of type #offline_file_type_t
-         * identifying the architecture and other key high-level attributes of the trace
-         * from the #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
+         * Returns the OFFLINE_FILE_TYPE_* bitfields of type
+         * #dynamorio::drmemtrace::offline_file_type_t identifying the architecture and
+         * other key high-level attributes of the trace from the
+         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE record in the trace header.
          */
         uint64_t
         get_filetype() const override
@@ -680,8 +684,9 @@ public:
             return filetype_;
         }
         /**
-         * Returns the cache line size from the #TRACE_MARKER_TYPE_CACHE_LINE_SIZE record
-         * in the trace header.
+         * Returns the cache line size from the
+         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE record in the trace
+         * header.
          */
         uint64_t
         get_cache_line_size() const override
@@ -690,7 +695,8 @@ public:
         }
         /**
          * Returns the chunk instruction count from the
-         * #TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT record in the trace header.
+         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT record in the trace
+         * header.
          */
         uint64_t
         get_chunk_instr_count() const override
@@ -698,8 +704,8 @@ public:
             return chunk_instr_count_;
         }
         /**
-         * Returns the page size from the #TRACE_MARKER_TYPE_PAGE_SIZE record in
-         * the trace header.
+         * Returns the page size from the
+         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE record in the trace header.
          */
         uint64_t
         get_page_size() const override
@@ -770,7 +776,10 @@ public:
         return static_cast<input_ordinal_t>(inputs_.size());
     }
 
-    /** Returns the #memtrace_stream_t interface for the 'ordinal'-th input stream. */
+    /**
+     * Returns the #dynamorio::drmemtrace::memtrace_stream_t interface for the
+     * 'ordinal'-th input stream.
+     */
     virtual memtrace_stream_t *
     get_input_stream_interface(input_ordinal_t input) const
     {
@@ -856,6 +865,8 @@ protected:
         bool order_by_timestamp = false;
         // Global ready queue counter used to provide FIFO for same-priority inputs.
         uint64_t queue_counter = 0;
+        // Used to ensure we make progress past a blocking syscall.
+        bool processed_blocking_syscall = false;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -1026,7 +1037,13 @@ protected:
     // Finds the next input stream for the 'output_ordinal'-th output stream.
     // No input_info_t lock can be held on entry.
     stream_status_t
-    pick_next_input(output_ordinal_t output);
+    pick_next_input(output_ordinal_t output, bool in_wait_state);
+
+    // Helper for pick_next_input() for MAP_AS_PREVIOUSLY.
+    // No input_info_t lock can be held on entry.
+    // The sched_lock_ must be held on entry.
+    stream_status_t
+    pick_next_input_as_previously(output_ordinal_t output, input_ordinal_t &index);
 
     // If the given record has a thread id field, returns true and the value.
     bool

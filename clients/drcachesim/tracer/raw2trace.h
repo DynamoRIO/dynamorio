@@ -65,6 +65,9 @@
 #    include "../drpt2trace/pt2ir.h"
 #endif
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #ifdef DEBUG
 #    define DEBUG_ASSERT(x) DR_ASSERT(x)
 #else
@@ -793,7 +796,7 @@ public:
      * for every module in the list, and returns an empty string at the end.
      * Returns a non-empty error message on failure.
      *
-     * \deprecated #module_mapper_t should be used instead.
+     * \deprecated #dynamorio::drmemtrace::module_mapper_t should be used instead.
      */
     std::string
     do_module_parsing();
@@ -809,7 +812,8 @@ public:
      * the current process.
      * Returns a non-empty error message on failure.
      *
-     * \deprecated #module_mapper_t::get_loaded_modules() should be used instead.
+     * \deprecated #dynamorio::drmemtrace::module_mapper_t::get_loaded_modules() should be
+     * used instead.
      */
     std::string
     do_module_parsing_and_mapping();
@@ -823,7 +827,8 @@ public:
      * allowing decoding for obtaining further information than is stored in the trace.
      * Returns a non-empty error message on failure.
      *
-     * \deprecated #module_mapper_t::find_mapped_trace_address() should be used instead.
+     * \deprecated #dynamorio::drmemtrace::module_mapper_t::find_mapped_trace_address()
+     * should be used instead.
      */
     std::string
     find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address);
@@ -1497,5 +1502,8 @@ private:
     const std::string kcore_path_;
     const std::string kallsyms_path_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _RAW2TRACE_H_ */

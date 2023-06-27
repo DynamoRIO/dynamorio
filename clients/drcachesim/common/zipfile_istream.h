@@ -46,6 +46,9 @@
 #include "minizip/unzip.h"
 #include "archive_istream.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /* We need to override the stream buffer class which is where the file
  * reads happen.  The stream buffer base class reads from eback()..egptr()
  * with the next to read at gptr().
@@ -159,5 +162,8 @@ public:
         return zbuf->open_component(name);
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ZIPFILE_ISTREAM_H_ */

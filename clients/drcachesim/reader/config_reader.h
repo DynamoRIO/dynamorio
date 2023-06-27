@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, LLC  All rights reserved.
+ * Copyright (c) 2018-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,7 +45,8 @@
 #include "../simulator/cache.h"
 #include "../simulator/cache_simulator_create.h"
 
-using namespace std;
+namespace dynamorio {
+namespace drmemtrace {
 
 // Cache configuration settings.
 struct cache_params_t {
@@ -115,5 +116,8 @@ private:
         return false;
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CONFIG_READER_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,9 @@
 #include <iostream>
 #include <vector>
 #include <assert.h>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 const std::string func_view_t::TOOL_NAME = "Function view tool";
 
@@ -135,6 +138,12 @@ func_view_t::process_memref_for_markers(void *shard_data, const memref_t &memref
         shard->prev_pc = memref.instr.addr;
     if (memref.marker.type != TRACE_TYPE_MARKER)
         return;
+    if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
+        shard->last_was_syscall = memref.marker.marker_value >=
+            static_cast<int64_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE);
+    }
+    if (shard->last_was_syscall)
+        return;
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_ID:
         if (shard->last_func_id != -1)
@@ -184,7 +193,7 @@ func_view_t::process_memref(const memref_t &memref)
         else
             std::cerr << ") <no return>\n";
     }
-    if (memref.marker.type != TRACE_TYPE_MARKER)
+    if (memref.marker.type != TRACE_TYPE_MARKER || shard->last_was_syscall)
         return true;
     switch (memref.marker.marker_type) {
     case TRACE_MARKER_TYPE_FUNC_RETADDR: {
@@ -298,3 +307,6 @@ func_view_t::print_results()
     // XXX: Should we print out a per-thread breakdown?
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

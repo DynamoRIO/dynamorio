@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,9 @@
 #include "../common/trace_entry.h"
 #include "dr_api.h"
 #include "kcore_copy.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #define MODULES_FILE_NAME "modules"
 #define MODULES_FILE_PATH "/proc/" MODULES_FILE_NAME
@@ -297,7 +300,7 @@ kcore_copy_t::copy_kcore(const char *to_dir)
 bool
 kcore_copy_t::copy_kallsyms(const char *to_dir)
 {
-    /* We use DynamoRIO defult file operations functions to open and read /proc/kallsyms.
+    /* We use DynamoRIO default file operations functions to open and read /proc/kallsyms.
      */
     file_autoclose_t from_kallsyms_fd(
         KALLSYMS_FILE_PATH, DR_FILE_READ, dr_open_file, dr_close_file, dr_read_file,
@@ -510,3 +513,6 @@ kcore_copy_t::read_kcore()
 
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

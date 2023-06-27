@@ -87,8 +87,6 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
  */
 DR_DISALLOW_UNSAFE_STATIC
 
-using namespace dynamorio::drmemtrace;
-
 namespace dynamorio {
 namespace drmemtrace {
 
@@ -1943,13 +1941,6 @@ fork_init(void *drcontext)
 }
 #endif
 
-} // namespace drmemtrace
-} // namespace dynamorio
-
-/***************************************************************************
- * Outside of namespace.
- */
-
 drmemtrace_status_t
 drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
                             drmemtrace_read_file_func_t read_file_func,
@@ -2293,6 +2284,13 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #endif
 }
 
+} // namespace drmemtrace
+} // namespace dynamorio
+
+/***************************************************************************
+ * Outside of namespace.
+ */
+
 /* To support statically linked multiple clients, we add drmemtrace_client_main
  * as the real client init function and make dr_client_main a weak symbol.
  * We could also use alias to link dr_client_main to drmemtrace_client_main.
@@ -2303,5 +2301,5 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 DR_EXPORT WEAK void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drmemtrace_client_main(id, argc, argv);
+    dynamorio::drmemtrace::drmemtrace_client_main(id, argc, argv);
 }

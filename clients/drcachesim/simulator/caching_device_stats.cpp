@@ -36,6 +36,9 @@
 #include "../common/options.h"
 #include "caching_device_stats.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
                                                int block_size, bool warmup_enabled,
                                                bool is_coherent)
@@ -249,3 +252,6 @@ caching_device_stats_t::invalidate(invalidation_type_t invalidation_type)
         num_coherence_invalidates_++;
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

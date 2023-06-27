@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,9 @@
 #include <string>
 #include "caching_device_stats.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class cache_stats_t : public caching_device_stats_t {
 public:
     explicit cache_stats_t(int block_size, const std::string &miss_file = "",
@@ -70,5 +73,8 @@ protected:
     int_least64_t num_prefetch_hits_;
     int_least64_t num_prefetch_misses_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHE_STATS_H_ */
