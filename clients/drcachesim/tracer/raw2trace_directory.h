@@ -39,7 +39,12 @@
 
 #include "dr_api.h"
 #include "archive_ostream.h"
-#include "../common/options.h"
+
+#ifdef HAS_ZIP
+#    define DEFAULT_TRACE_COMPRESSION_TYPE "zip"
+#else
+#    define DEFAULT_TRACE_COMPRESSION_TYPE "gzip"
+#endif
 
 namespace dynamorio {
 namespace drmemtrace {
