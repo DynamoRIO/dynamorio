@@ -1966,7 +1966,7 @@ test_replay_as_traced()
 #ifdef HAS_ZIP
     std::cerr << "\n----------------\nTesting replay as-traced\n";
 
-    static constexpr int NUM_INPUTS = 4;
+    static constexpr int NUM_INPUTS = 5;
     static constexpr int NUM_OUTPUTS = 2;
     static constexpr int NUM_INSTRS = 9;
     static constexpr memref_tid_t TID_BASE = 100;
@@ -1977,17 +1977,21 @@ test_replay_as_traced()
         memref_tid_t tid = TID_BASE + i;
         inputs[i].push_back(make_thread(tid));
         inputs[i].push_back(make_pid(1));
-        for (int j = 0; j < NUM_INSTRS; j++)
+        // The last input will be earlier than all others. It will execute
+        // 3 instrs on each core. This is to test the case when an output
+        // begins in the wait state.
+        for (int j = 0; j < (i == NUM_INPUTS - 1 ? 6 : NUM_INSTRS); j++)
             inputs[i].push_back(make_instr(42 + j * 4));
         inputs[i].push_back(make_exit(tid));
     }
 
     // Synthesize a cpu-schedule file.
     std::string cpu_fname = "tmp_test_cpu_as_traced.zip";
-    static const char *const CORE0_SCHED_STRING = "AAACCCAAACCCBBBDDD";
-    static const char *const CORE1_SCHED_STRING = "BBBDDDBBBDDDAAACCC";
+    static const char *const CORE0_SCHED_STRING = "EEEAAACCCAAACCCBBBDDD";
+    static const char *const CORE1_SCHED_STRING = "EEEBBBDDDBBBDDDAAACCC";
     {
         std::vector<schedule_entry_t> sched0;
+        sched0.emplace_back(TID_BASE + 4, 10, CPU0, 0);
         sched0.emplace_back(TID_BASE, 101, CPU0, 0);
         sched0.emplace_back(TID_BASE + 2, 103, CPU0, 0);
         sched0.emplace_back(TID_BASE, 105, CPU0, 4);
@@ -1995,6 +1999,7 @@ test_replay_as_traced()
         sched0.emplace_back(TID_BASE + 1, 109, CPU0, 7);
         sched0.emplace_back(TID_BASE + 3, 111, CPU0, 7);
         std::vector<schedule_entry_t> sched1;
+        sched1.emplace_back(TID_BASE + 4, 20, CPU1, 4);
         sched1.emplace_back(TID_BASE + 1, 102, CPU1, 0);
         sched1.emplace_back(TID_BASE + 3, 104, CPU1, 0);
         sched1.emplace_back(TID_BASE + 1, 106, CPU1, 4);

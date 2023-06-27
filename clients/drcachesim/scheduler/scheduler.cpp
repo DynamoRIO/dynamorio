@@ -1461,10 +1461,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
         }
         if (inputs_[index].reader->get_instruction_ordinal() <
                 segment.start_instruction &&
-            // When we skip our separator+timestamp markers are at the
-            // prior instr ord so do not wait for that.
-            outputs_[output].record[outputs_[output].record_index].type !=
-                schedule_record_t::SKIP) {
+            // The output may have begun in the wait state.
+            (outputs_[output].record_index == -1 ||
+             // When we skip our separator+timestamp markers are at the
+             // prior instr ord so do not wait for that.
+             outputs_[output].record[outputs_[output].record_index].type !=
+                 schedule_record_t::SKIP)) {
             // Some other output stream has not advanced far enough, and we do
             // not support multiple positions in one input stream: we wait.
             // XXX i#5843: We may want to provide a kernel-mediated wait
