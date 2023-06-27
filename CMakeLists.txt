@@ -120,6 +120,7 @@ endif ()
 
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
+include(CheckIncludeFile)
 
 ###########################################################################
 # utility functions
@@ -649,11 +650,9 @@ set(cpp2asm_newline_script_path "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake")
 include(make/cpp2asm_support.cmake)
 if (UNIX)
   # We require gas >= 2.18.50 for --32, --64, and the new -msyntax=intel, etc.
-  # Since this is pretty recent we include a copy (built vs as old a glibc
-  # as was convenient)
   if (NOT CMAKE_ASM_SUPPORTS_INTEL_SYNTAX)
-    message("${CMAKE_ASM_COMPILER} too old: using ${PROJECT_SOURCE_DIR}/make/as-2.18.50")
-    set(CMAKE_ASM_COMPILER "${PROJECT_SOURCE_DIR}/make/as-2.18.50")
+    message(FATAL_ERROR
+      "${CMAKE_ASM_COMPILER} is too old and does not support -msyntax=intel")
   endif (NOT CMAKE_ASM_SUPPORTS_INTEL_SYNTAX)
 endif (UNIX)
 

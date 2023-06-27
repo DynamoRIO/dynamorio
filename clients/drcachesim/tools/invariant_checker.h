@@ -46,6 +46,9 @@
 #include <unordered_map>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /* The auto cleanup wrapper of instr_t.
  * This can ensure the instance of instr_t is cleaned up when it is out of scope.
  */
@@ -109,6 +112,8 @@ protected:
             prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
             last_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
         }
+        // Provide a virtual destructor to facilitate subclassing.
+        virtual ~per_shard_t() = default;
         memref_t last_branch_ = {};
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
@@ -116,6 +121,7 @@ protected:
         std::unique_ptr<instr_autoclean_t> prev_instr_decoded_ = nullptr;
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
+        uintptr_t prev_func_id_ = 0;
         addr_t last_retaddr_ = 0;
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
@@ -150,6 +156,9 @@ protected:
         bool found_cache_line_size_marker_ = false;
         bool found_instr_count_marker_ = false;
         bool found_page_size_marker_ = false;
+        bool found_syscall_marker_ = false;
+        bool found_blocking_marker_ = false;
+        uint64_t syscall_count_ = 0;
         uint64_t last_instr_count_marker_ = 0;
         std::string error_;
         // Track the location of errors.
@@ -182,8 +191,10 @@ protected:
     virtual void
     report_if_false(per_shard_t *shard, bool condition,
                     const std::string &invariant_name);
+    // This must be called at the end (typically from print_results) and passed in
+    // an empty shard structure.
     virtual void
-    check_schedule_data();
+    check_schedule_data(per_shard_t *global_shard);
 
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
@@ -209,5 +220,8 @@ protected:
 
     memtrace_stream_t *serial_stream_ = nullptr;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _INVARIANT_CHECKER_H_ */

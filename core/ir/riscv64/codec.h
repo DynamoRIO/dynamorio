@@ -45,6 +45,8 @@
  * (which might be used as vendor ISA extensions).
  */
 
+#define ENCFAIL (uint)0x0 /* An invalid instruction (a.k.a c.unimp). */
+
 /* List of ISA extensions handled by the codec. */
 typedef enum {
     RISCV64_ISA_EXT_RV32A,
@@ -192,7 +194,7 @@ typedef enum {
     RISCV64_FLD_BASE,
     RISCV64_FLD_RS2,
     RISCV64_FLD_RS2FP,
-    RISCV64_FLD_RS3,
+    RISCV64_FLD_RS3FP,
     RISCV64_FLD_FM,
     RISCV64_FLD_PRED,
     RISCV64_FLD_SUCC,
@@ -243,6 +245,7 @@ typedef enum {
 
 #define BIT(v, b) (((v) >> b) & 1)
 #define GET_FIELD(v, high, low) (((v) >> low) & ((1ULL << (high - low + 1)) - 1))
+#define SET_FIELD(v, high, low) (((v) & ((1ULL << (high - low + 1)) - 1)) << low)
 #define SIGN_EXTEND(val, val_sz) (((int32_t)(val) << (32 - (val_sz))) >> (32 - (val_sz)))
 
 /* Calculate instruction width.
@@ -278,5 +281,7 @@ get_instruction_info(uint opc);
 
 byte *
 decode_common(dcontext_t *dc, byte *pc, byte *orig_pc, instr_t *instr);
+uint
+encode_common(byte *pc, instr_t *i, decode_info_t *di);
 
 #endif /* CODEC_H */

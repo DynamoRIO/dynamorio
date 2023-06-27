@@ -46,6 +46,9 @@
 #include <signal.h>
 #include <setjmp.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define ASSERT_MSG(x, msg)                                                           \
     ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", __FILE__, \
                                  __LINE__, #x, msg),                                 \
@@ -53,8 +56,6 @@
                    : 0))
 #define ASSERT_NOT_REACHED() ASSERT_MSG(false, "Shouldn't be reached")
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
-
-using namespace dynamorio::drmemtrace;
 
 /*******************************************************************************
  * Begin application code.
@@ -212,7 +213,7 @@ is_dc_zva_instr(void *dr_context, memref_t memref)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     // App setup.
     signal(SIGILL, sigill_handler);
@@ -276,3 +277,6 @@ main(int argc, const char *argv[])
 
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

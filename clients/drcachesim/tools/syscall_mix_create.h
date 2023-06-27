@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Rivos, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,14 +13,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Rivos, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL RIVOS, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,47 +30,29 @@
  * DAMAGE.
  */
 
-/*
- * tls_linux_arm.c - thread-local storage for RISC-V Linux
+/* syscall-mix tool creation */
+
+#ifndef _SYSCALL_MIX_CREATE_H_
+#define _SYSCALL_MIX_CREATE_H_ 1
+
+#include "analysis_tool.h"
+
+/**
+ * @file drmemtrace/syscall_mix_create.h
+ * @brief DrMemtrace syscall mixture trace analysis tool creation.
  */
 
-#include "../globals.h"
-#include "tls.h"
+namespace dynamorio {
+namespace drmemtrace {
 
-#ifndef LINUX
-#    error Linux-only
-#endif
+/**
+ * Creates an analysis tool which counts the number of instances of each system call
+ * in the trace.
+ */
+analysis_tool_t *
+syscall_mix_tool_create(unsigned int verbose = 0);
 
-#ifndef RISCV64
-#    error RISC-V-only
-#endif
+} // namespace drmemtrace
+} // namespace dynamorio
 
-byte **
-get_dr_tls_base_addr(void)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
-}
-
-void
-tls_thread_init(os_local_state_t *os_tls, byte *segment)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-}
-
-bool
-tls_thread_preinit()
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
-}
-
-void
-tls_thread_free(tls_type_t tls_type, int index)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-}
+#endif /* _SYSCALL_MIX_CREATE_H_ */

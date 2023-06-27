@@ -41,12 +41,29 @@
 #include "instru.h"
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
+#ifdef LINUX
+// XXX: We should have the core export this to an include dir.
+#    include "../../core/unix/include/syscall.h"
+#endif
+#ifdef BUILD_PT_POST_PROCESSOR
+#    include "../common/options.h"
+#    include "../drpt2trace/ir2trace.h"
+#    include <unistd.h>
+#endif
 #include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <sstream>
 #include <thread>
 #include <vector>
+#ifdef LINUX
+#    include <syscall.h>
+#endif
+
+#include <iostream>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // Assumes we return an error string by convention.
 #define CHECK(val, msg) \
@@ -601,6 +618,11 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                     tdata->rseq_buffering_enabled_ = true;
                     tdata->rseq_end_pc_ = marker_val;
                 }
+            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL &&
+                       is_maybe_blocking_syscall(marker_val)) {
+                log(2, "Maybe-blocking syscall %zu\n", marker_val);
+                buf += trace_metadata_writer_t::write_marker(
+                    buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
             }
             // If there is currently a delayed branch that has not been emitted yet,
             // delay most markers since intra-block markers can cause issues with
@@ -739,6 +761,15 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     VPRINT(2, "File %u is process %u\n", tdata->index, (uint)header.pid);
     thread_id_t tid = header.tid;
     tdata->tid = tid;
+#ifdef BUILD_PT_POST_PROCESSOR
+    if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type)) {
+        DR_ASSERT(tdata->kthread_file == nullptr);
+        auto it = kthread_files_map_.find(tid);
+        if (it != kthread_files_map_.end()) {
+            tdata->kthread_file = it->second;
+        }
+    }
+#endif
     tdata->cache_line_size = header.cache_line_size;
     // We can't adjust filtered instructions, so we disable buffering.
     if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
@@ -784,6 +815,132 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     return "";
 }
 
+#ifdef BUILD_PT_POST_PROCESSOR
+std::string
+raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx)
+{
+    DR_ASSERT(tdata->kthread_file != nullptr);
+    DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type));
+
+    if (!tdata->pt_metadata_processed) {
+        DR_ASSERT(syscall_idx == 0);
+        syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
+        if (!tdata->kthread_file->read((char *)&header[0], PT_METADATA_PDB_HEADER_SIZE)) {
+            return "Unable to read the PDB header of PT metadate form kernel thread log "
+                   "file";
+        }
+        if (header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type !=
+            SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY) {
+            return "Invalid PT raw trace format";
+        }
+
+        struct {
+            uint16_t cpu_family;
+            uint8_t cpu_model;
+            uint8_t cpu_stepping;
+            uint16_t time_shift;
+            uint32_t time_mult;
+            uint64_t time_zero;
+        } __attribute__((__packed__)) metadata;
+        if (!tdata->kthread_file->read((char *)&metadata, sizeof(metadata))) {
+            return "Unable to read the PT metadate form kernel thread log file";
+        }
+
+        pt2ir_config_t config = {};
+        config.elf_file_path = kcore_path_;
+        config.init_with_metadata(&metadata);
+
+        /* Set the buffer size to be at least the maximum stream data size.
+         */
+#    define RING_BUFFER_SIZE_SHIFT 8
+        config.pt_raw_buffer_size =
+            (1L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
+        if (!tdata->pt2ir.init(config, verbosity_)) {
+            return "Unable to initialize PT2IR";
+        }
+        tdata->pt_metadata_processed = true;
+    }
+
+    if (tdata->pre_read_pt_entries.empty() && tdata->kthread_file->eof()) {
+        VPRINT(1, "Finished decoding all PT data for thread %d\n", tdata->tid);
+        return "";
+    }
+
+    if (tdata->pre_read_pt_entries.empty()) {
+        syscall_pt_entry_t header[PT_DATA_PDB_HEADER_ENTRY_NUM];
+        if (!tdata->kthread_file->read((char *)&header[0], PT_DATA_PDB_HEADER_SIZE)) {
+            if (tdata->kthread_file->eof()) {
+                VPRINT(1, "Finished decoding all PT data for thread %d\n", tdata->tid);
+                return "";
+            }
+            return "Unable to read the PDB header of next syscall's PT data form kernel "
+                   "thread log "
+                   "file";
+        }
+        tdata->pre_read_pt_entries.insert(tdata->pre_read_pt_entries.end(), header,
+                                          header + PT_DATA_PDB_HEADER_ENTRY_NUM);
+    }
+
+    if (tdata->pre_read_pt_entries[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.type !=
+            SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY ||
+        tdata->pre_read_pt_entries[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.type !=
+            SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX ||
+        tdata->pre_read_pt_entries[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx !=
+            syscall_idx) {
+        return "Invalid PT raw trace format";
+    }
+
+    uint64_t sysnum = tdata->pre_read_pt_entries[PDB_HEADER_SYSNUM_IDX].sysnum.sysnum;
+    uint64_t syscall_args_num =
+        tdata->pre_read_pt_entries[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num;
+    uint64_t pt_data_size = tdata->pre_read_pt_entries[PDB_HEADER_DATA_BOUNDARY_IDX]
+                                .pt_data_boundary.data_size -
+        SYSCALL_METADATA_SIZE - syscall_args_num * sizeof(uint64_t);
+    tdata->pre_read_pt_entries.clear();
+    std::unique_ptr<uint8_t[]> pt_data(new uint8_t[pt_data_size]);
+    if (!tdata->kthread_file->read((char *)pt_data.get(), pt_data_size)) {
+        return "Unable to read the PT data of syscall " + std::to_string(syscall_idx) +
+            " sysnum " + std::to_string(sysnum) + " form kernel thread log file";
+    }
+
+    /* Convert the PT Data to DR IR. */
+    drir_t drir(GLOBAL_DCONTEXT);
+    pt2ir_convert_status_t pt2ir_convert_status =
+        tdata->pt2ir.convert(pt_data.get(), pt_data_size, drir);
+    if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
+        return "Failed to convert PT raw trace to DR IR [error status: " +
+            std::to_string(pt2ir_convert_status) + "]";
+    }
+
+    /* Convert the DR IR to trace entries. */
+    std::vector<trace_entry_t> entries;
+    trace_entry_t start_entry = { .type = TRACE_TYPE_MARKER,
+                                  .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_START,
+                                  .addr = 0 };
+    entries.push_back(start_entry);
+    ir2trace_convert_status_t ir2trace_convert_status =
+        ir2trace_t::convert(drir, entries);
+    if (ir2trace_convert_status != IR2TRACE_CONV_SUCCESS) {
+        return "Failed to convert DR IR to trace entries [error status: " +
+            std::to_string(ir2trace_convert_status) + "]";
+    }
+    trace_entry_t end_entry = { .type = TRACE_TYPE_MARKER,
+                                .size = TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
+                                .addr = 0 };
+    entries.push_back(end_entry);
+    if (entries.size() == 2) {
+        return "No trace entries generated from PT data";
+    }
+
+    if (!tdata->out_file->write(reinterpret_cast<const char *>(entries.data()),
+                                sizeof(trace_entry_t) * entries.size())) {
+        return "Failed to write to output file";
+    }
+
+    return "";
+}
+#endif
+
 std::string
 raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                         OUT bool *end_of_record)
@@ -820,6 +977,10 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         if (entry.timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
             VPRINT(2, "Thread %u timestamp 0x" ZHEX64_FORMAT_STRING "\n",
                    (uint)tdata->tid, (uint64)entry.timestamp.usec);
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
+                                    static_cast<uint64>(entry.timestamp.usec));
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
+                                    static_cast<uint64>(entry.timestamp.usec));
             byte *buf = buf_base +
                 trace_metadata_writer_t::write_timestamp(buf_base,
                                                          (uintptr_t)entry.timestamp.usec);
@@ -831,6 +992,16 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                 return tdata->error;
             continue;
         }
+#ifdef BUILD_PT_POST_PROCESSOR
+        if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+            entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            entry.extended.valueB == TRACE_MARKER_TYPE_SYSCALL_IDX) {
+            tdata->error = process_syscall_pt(tdata, entry.extended.valueA);
+            if (!tdata->error.empty())
+                return tdata->error;
+            continue;
+        }
+#endif
         // Append delayed branches at the end or before xfer or window-change
         // markers; else, delay until we see a non-cti inside a block, to handle
         // double branches (i#5141) and to group all (non-xfer) markers with a new
@@ -907,6 +1078,39 @@ raw2trace_t::check_thread_file(std::istream *f)
     return trace_metadata_reader_t::check_entry_thread_start(&ver_entry);
 }
 
+#ifdef BUILD_PT_POST_PROCESSOR
+std::string
+raw2trace_t::get_kthread_file_tid(std::istream *f, thread_id_t *tid)
+{
+    syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
+    if (!f->read((char *)&header[0], PT_METADATA_PDB_HEADER_SIZE)) {
+        return "Unable to read kernel thread trace file";
+    }
+    f->seekg(-(std::streamoff)(PT_METADATA_PDB_HEADER_SIZE), f->cur);
+    if (header[PDB_HEADER_TID_IDX].tid.type != SYSCALL_PT_ENTRY_TYPE_THREAD_ID) {
+        *tid = INVALID_THREAD_ID;
+        return "Unable to read thread id from kernel thread trace file";
+    }
+    *tid = header[PDB_HEADER_TID_IDX].tid.tid;
+    return "";
+}
+
+std::string
+raw2trace_t::check_kthread_file(std::istream *f)
+{
+    syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
+    if (!f->read((char *)&header[0], PT_METADATA_PDB_HEADER_SIZE)) {
+        return "Unable to read kernel thread log file";
+    }
+    f->seekg(-(std::streamoff)(PT_METADATA_PDB_HEADER_SIZE), f->cur);
+    if (header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type !=
+        SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY) {
+        return "Kernel thread log file is corrupted: missing thread shared PT metadata";
+    }
+    return "";
+}
+#endif
+
 void
 raw2trace_t::process_tasks(std::vector<raw2trace_thread_data_t *> *tasks)
 {
@@ -943,8 +1147,13 @@ raw2trace_t::do_conversion()
                 return error;
             count_elided_ += thread_data_[i]->count_elided;
             count_duplicate_syscall_ += thread_data_[i]->count_duplicate_syscall;
+            count_false_syscall_ += thread_data_[i]->count_false_syscall;
             count_rseq_abort_ += thread_data_[i]->count_rseq_abort;
             count_rseq_side_exit_ += thread_data_[i]->count_rseq_side_exit;
+            earliest_trace_timestamp_ = std::min(
+                earliest_trace_timestamp_, thread_data_[i]->earliest_trace_timestamp);
+            latest_trace_timestamp_ = std::max(latest_trace_timestamp_,
+                                               thread_data_[i]->latest_trace_timestamp);
         }
     } else {
         // The files can be converted concurrently.
@@ -962,8 +1171,13 @@ raw2trace_t::do_conversion()
                 return tdata->error;
             count_elided_ += tdata->count_elided;
             count_duplicate_syscall_ += tdata->count_duplicate_syscall;
+            count_false_syscall_ += tdata->count_false_syscall;
             count_rseq_abort_ += tdata->count_rseq_abort;
             count_rseq_side_exit_ += tdata->count_rseq_side_exit;
+            earliest_trace_timestamp_ =
+                std::min(earliest_trace_timestamp_, tdata->earliest_trace_timestamp);
+            latest_trace_timestamp_ =
+                std::max(latest_trace_timestamp_, tdata->latest_trace_timestamp);
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -971,11 +1185,15 @@ raw2trace_t::do_conversion()
         return error;
     VPRINT(1, "Omitted " UINT64_FORMAT_STRING " duplicate system calls.\n",
            count_duplicate_syscall_);
+    VPRINT(1, "Omitted " UINT64_FORMAT_STRING " false system calls.\n",
+           count_false_syscall_);
     VPRINT(1, "Reconstructed " UINT64_FORMAT_STRING " elided addresses.\n",
            count_elided_);
     VPRINT(1, "Adjusted " UINT64_FORMAT_STRING " rseq aborts.\n", count_rseq_abort_);
     VPRINT(1, "Adjusted " UINT64_FORMAT_STRING " rseq side exits.\n",
            count_rseq_side_exit_);
+    VPRINT(1, "Trace duration %.3fs.\n",
+           (latest_trace_timestamp_ - earliest_trace_timestamp_) / 1000000.0);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
@@ -1259,16 +1477,48 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         DR_CHECK(pc > decode_pc, "error advancing inside block");
         DR_CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
+        if (instr->is_syscall() && should_omit_syscall(tdata)) {
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_FALSE_SYSCALL, 1);
+            log(3, "Omitting syscall instr without subsequent number marker.\n");
+            // Exit and do not append this syscall instruction.  It must be the
+            // final instruction in the block; since the tracer requests callbacks
+            // on all syscalls, none are inlined.
+            DR_CHECK(i == instr_count - 1, "syscall not last in block");
+            break;
+        }
         // TODO i#5934: This is a workaround for the trace invariant error triggered
         // by consecutive duplicate system call instructions. Remove this when the
         // error is fixed in the drmemtrace tracer.
+        // TODO i#6102: This actually does the wrong thing for SIG_IGN interrupting
+        // an auto-restart syscall; we live with that until we remove it after fixing
+        // the incorrect duplicate syscall error.
         if (instr->is_syscall() && get_last_pc_if_syscall(tdata) == orig_pc &&
             instr_count == 1) {
-            add_to_statistic(tdata, RAW2TRACE_STAT_DUPLICATE_SYSCALL, 1);
-            log(3, "Found block with duplicate system call instruction. Skipping.");
+            // Also remove the syscall marker.  It could be after a timestamp+cpuid
+            // pair; we're fine removing those too and having the prior timestamp
+            // go with the next block.
+            if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, tdata->file_type)) {
+                const offline_entry_t *entry = get_next_entry(tdata);
+                if (entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
+                    entry = get_next_entry(tdata);
+                    if (entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+                        entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+                        entry->extended.valueB == TRACE_MARKER_TYPE_CPU_ID) {
+                        entry = get_next_entry(tdata);
+                    }
+                }
+                DR_CHECK(entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+                             entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+                             entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL,
+                         "Syscall without marker should have been removed");
+                // We've consumed these records and we just drop them.
+            }
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_DUPLICATE_SYSCALL, 1);
+            log(3, "Found block with duplicate system call instruction. Skipping.\n");
             // Since this instr is in its own block, we're done.
             // Note that this will result in a pair of timestamp+cpu markers without
-            // anything before the next timestamp+cpu pair.
+            // anything before the next timestamp+cpu pair for legacy traces w/o
+            // syscall number markers.
             break;
         }
         if (!instr->is_cti()) {
@@ -1516,7 +1766,10 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
             // rseq aborts with timestamps (i#5954) nor rseq side exits (i#5953) for
             // such traces but we can at least fix up typical aborts.
             if (!tdata->rseq_ever_saw_entry_ &&
-                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT &&
+                // I-filtered don't have every instr so we can't roll back.
+                !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                         get_file_type(tdata))) {
                 // For the older version, we will not get here for Windows
                 // callbacks, the other event with a 0 modoffs, because they are
                 // always between bbs.  (Unfortunately there's no simple way to
@@ -1550,7 +1803,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
                     // there should be no (other) intra-bb markers not for the store.
                     log(4, "Rolling back %d entries for rseq abort\n",
                         *buf_in - buf_start);
-                    add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
+                    accumulate_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
                     // If we recorded and emitted an encoding we would not emit
                     // it next time and be missing the encoding so we must clear
                     // the cache for that entry.  This will only happen once
@@ -1602,6 +1855,49 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
         }
     } while (append);
     return "";
+}
+
+bool
+raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
+{
+    if (!TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, tdata->file_type))
+        return false;
+    // We have 2 scenarios where we record a syscall instr yet it doesn't
+    // execute right away and so there's no syscall number marker:
+    // 1) An asynchronous signal arrives during the block and is delivered
+    //    from dispatch before handling the syscall.
+    // 2) A syscall ends a tracing window and we disable tracing before the
+    //    syscall is handled.
+    // In both cases, we want to just remove the syscall instr: so we remove
+    // if we find no subsequent marker either immediately following or after
+    // a buffer header of timestamp+cpuid.
+    // (For the window case there are alternatives where we try to emit
+    // the marker by passing info to the pre-syscall event handler or by moving
+    // the marker to the block instrumentation but these all incur more complexity
+    // than this relatively simple solution.)
+    const offline_entry_t *in_entry = get_next_entry(tdata);
+    std::vector<offline_entry_t> saved;
+    if (in_entry->timestamp.type == OFFLINE_TYPE_TIMESTAMP) {
+        saved.push_back(*in_entry);
+        in_entry = get_next_entry(tdata);
+        if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            in_entry->extended.valueB == TRACE_MARKER_TYPE_CPU_ID) {
+            saved.push_back(*in_entry);
+            in_entry = get_next_entry(tdata);
+        }
+    }
+    bool omit = false;
+    if (in_entry->extended.type != OFFLINE_TYPE_EXTENDED ||
+        in_entry->extended.ext != OFFLINE_EXT_TYPE_MARKER ||
+        in_entry->extended.valueB != TRACE_MARKER_TYPE_SYSCALL) {
+        omit = true;
+    }
+    saved.push_back(*in_entry);
+    for (auto &entry : saved) {
+        queue_entry(tdata, entry);
+    }
+    return omit;
 }
 
 std::string
@@ -1679,7 +1975,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t *
                 get_register_name(base), buf->addr);
         }
         have_addr = true;
-        add_to_statistic(tdata, RAW2TRACE_STAT_COUNT_ELIDED, 1);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_COUNT_ELIDED, 1);
     }
     if (!have_addr) {
         if (memref.use_remembered_base)
@@ -1880,7 +2176,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
         // An abort.  It could have aborted earlier but we have no way of knowing
         // so we do the simplest thing and only roll back the committing store.
         log(4, "Rseq aborted\n");
-        add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_ABORT, 1);
         if (tdata->rseq_commit_idx_ < 0) {
             if (tdata->rseq_buffer_.empty()) {
                 // This is a graceful failure: we consider this a bug to
@@ -1911,7 +2207,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
         log(4, "Rseq instrumented side exit\n");
     } else {
         log(4, "Rseq exited on the side: searching for where\n");
-        add_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_SIDE_EXIT, 1);
+        accumulate_to_statistic(tdata, RAW2TRACE_STAT_RSEQ_SIDE_EXIT, 1);
         bool found_direct = false;
         bool found_skip = false;
         branch_info_t info;
@@ -2245,8 +2541,9 @@ raw2trace_t::get_next_entry(raw2trace_thread_data_t *tdata)
     // from the vector.
     tdata->last_entry_is_split = false;
     if (!tdata->pre_read.empty()) {
-        tdata->last_entry = tdata->pre_read[0];
-        tdata->pre_read.erase(tdata->pre_read.begin(), tdata->pre_read.begin() + 1);
+        tdata->last_entry = tdata->pre_read.front();
+        VPRINT(5, "Reading from queue\n");
+        tdata->pre_read.pop_front();
     } else {
         if (!tdata->thread_file->read((char *)&tdata->last_entry,
                                       sizeof(tdata->last_entry)))
@@ -2282,10 +2579,17 @@ raw2trace_t::unread_last_entry(raw2trace_thread_data_t *tdata)
     VPRINT(5, "Unreading last entry\n");
     if (tdata->last_entry_is_split) {
         VPRINT(4, "Unreading both parts of split entry at once\n");
-        tdata->pre_read.push_back(tdata->last_split_first_entry);
+        tdata->pre_read.push_front(tdata->last_split_first_entry);
         tdata->last_entry_is_split = false;
     }
-    tdata->pre_read.push_back(tdata->last_entry);
+    tdata->pre_read.push_front(tdata->last_entry);
+}
+
+void
+raw2trace_t::queue_entry(raw2trace_thread_data_t *tdata, offline_entry_t &entry)
+{
+    VPRINT(5, "Queueing a given entry type=%d\n", static_cast<int>(entry.addr.type));
+    tdata->pre_read.push_back(entry);
 }
 
 bool
@@ -2562,13 +2866,17 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
                     tdata->last_timestamp_ = it->addr;
                 else if (it->size == TRACE_MARKER_TYPE_CPU_ID) {
+                    DR_CHECK(tdata->chunk_count_ > 0,
+                             "chunk_count_ should have been incremented already");
+                    uint64_t instr_count =
+                        (tdata->chunk_count_ - 1) * chunk_instr_count_ +
+                        tdata->cur_chunk_instr_count;
                     tdata->last_cpu_ = static_cast<uint>(it->addr);
                     tdata->sched.emplace_back(tdata->tid, tdata->last_timestamp_,
-                                              tdata->last_cpu_,
-                                              tdata->cur_chunk_instr_count);
+                                              tdata->last_cpu_, instr_count);
                     tdata->cpu2sched[it->addr].emplace_back(
                         tdata->tid, tdata->last_timestamp_, tdata->last_cpu_,
-                        tdata->cur_chunk_instr_count);
+                        instr_count);
                 }
             }
         }
@@ -2707,14 +3015,15 @@ raw2trace_t::get_file_type(raw2trace_thread_data_t *tdata)
     return tdata->file_type;
 }
 
-raw2trace_t::raw2trace_t(const char *module_map,
-                         const std::vector<std::istream *> &thread_files,
-                         const std::vector<std::ostream *> &out_files,
-                         const std::vector<archive_ostream_t *> &out_archives,
-                         file_t encoding_file, std::ostream *serial_schedule_file,
-                         archive_ostream_t *cpu_schedule_file, void *dcontext,
-                         unsigned int verbosity, int worker_count,
-                         const std::string &alt_module_dir, uint64_t chunk_instr_count)
+raw2trace_t::raw2trace_t(
+    const char *module_map, const std::vector<std::istream *> &thread_files,
+    const std::vector<std::ostream *> &out_files,
+    const std::vector<archive_ostream_t *> &out_archives, file_t encoding_file,
+    std::ostream *serial_schedule_file, archive_ostream_t *cpu_schedule_file,
+    void *dcontext, unsigned int verbosity, int worker_count,
+    const std::string &alt_module_dir, uint64_t chunk_instr_count,
+    const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map,
+    const std::string &kcore_path, const std::string &kallsyms_path)
     : dcontext_(dcontext == nullptr ? dr_standalone_init() : dcontext)
     , passed_dcontext_(dcontext != nullptr)
     , worker_count_(worker_count)
@@ -2727,6 +3036,9 @@ raw2trace_t::raw2trace_t(const char *module_map,
     , verbosity_(verbosity)
     , alt_module_dir_(alt_module_dir)
     , chunk_instr_count_(chunk_instr_count)
+    , kthread_files_map_(kthread_files_map)
+    , kcore_path_(kcore_path)
+    , kallsyms_path_(kallsyms_path)
 {
     // Exactly one of out_files and out_archives should be non-empty.
     // If thread_files is not empty it must match the input size.
@@ -2759,7 +3071,7 @@ raw2trace_t::raw2trace_t(const char *module_map,
         }
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
-    // static work assigment.  This won't be as load balanced as a dynamic work
+    // static work assignment.  This won't be as load balanced as a dynamic work
     // queue but it is much simpler.
     if (worker_count_ < 0) {
         worker_count_ = std::thread::hardware_concurrency();
@@ -2887,14 +3199,22 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
 }
 
 void
-raw2trace_t::add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
-                              int value)
+raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
+                                     raw2trace_statistic_t stat, uint64 value)
 {
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: tdata->count_elided += value; break;
     case RAW2TRACE_STAT_DUPLICATE_SYSCALL: tdata->count_duplicate_syscall += value; break;
+    case RAW2TRACE_STAT_FALSE_SYSCALL: tdata->count_false_syscall += value; break;
     case RAW2TRACE_STAT_RSEQ_ABORT: tdata->count_rseq_abort += value; break;
     case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: tdata->count_rseq_side_exit += value; break;
+    case RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP:
+        tdata->earliest_trace_timestamp =
+            std::min(tdata->earliest_trace_timestamp, value);
+        break;
+    case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP:
+        tdata->latest_trace_timestamp = std::max(tdata->latest_trace_timestamp, value);
+        break;
     default: DR_ASSERT(false);
     }
 }
@@ -2905,8 +3225,112 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     switch (stat) {
     case RAW2TRACE_STAT_COUNT_ELIDED: return count_elided_;
     case RAW2TRACE_STAT_DUPLICATE_SYSCALL: return count_duplicate_syscall_;
-    case RAW2TRACE_STAT_RSEQ_ABORT: return count_rseq_abort_; break;
-    case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: return count_rseq_side_exit_; break;
+    case RAW2TRACE_STAT_FALSE_SYSCALL: return count_false_syscall_;
+    case RAW2TRACE_STAT_RSEQ_ABORT: return count_rseq_abort_;
+    case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: return count_rseq_side_exit_;
+    case RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP: return earliest_trace_timestamp_;
+    case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP: return latest_trace_timestamp_;
     default: DR_ASSERT(false); return 0;
     }
 }
+
+bool
+raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
+{
+#ifdef LINUX
+    // Some of these can be non-blocking if certain flags were set in prior system
+    // calls.  If we want to track such state it would have to be done in the tracer.
+    // For our purposes of adding context switches when scheduling user-mode threads,
+    // "maybe blocking" is close enough.
+    //
+    // TODO i#5843: This is not an exhaustive up-to-date list: there are newer variants
+    // of some of these and brand-new syscalls which may block.  We need to do a full
+    // audit to be comprehensive, but this should cover most cases.
+    switch (number) {
+#    ifdef SYS_accept
+    case SYS_accept:
+#    endif
+    case SYS_accept4:
+    case SYS_close:
+#    ifdef SYS_creat
+    case SYS_creat:
+#    endif
+    case SYS_epoll_pwait:
+#    ifdef SYS_epoll_wait
+    case SYS_epoll_wait:
+#    endif
+    case SYS_fcntl:
+    case SYS_flock:
+    case SYS_fsync:
+    case SYS_futex:
+#    ifdef SYS_getpmsg
+    case SYS_getpmsg:
+#    endif
+    case SYS_ioctl:
+    case SYS_mq_open:
+    case SYS_msgrcv:
+    case SYS_msgsnd:
+    case SYS_msync:
+    case SYS_nanosleep:
+#    ifdef SYS_open
+    case SYS_open:
+#    endif
+    case SYS_openat:
+#    ifdef SYS_openat2
+    case SYS_openat2:
+#    endif
+#    ifdef SYS_pause
+    case SYS_pause:
+#    endif
+#    ifdef SYS_poll
+    case SYS_poll:
+#    endif
+    case SYS_ppoll:
+    case SYS_pread64:
+    case SYS_preadv:
+    case SYS_pselect6:
+#    ifndef X64
+    case SYS_pselect6_time64:
+#    endif
+#    ifdef SYS_putpmsg
+    case SYS_putpmsg:
+#    endif
+    case SYS_pwrite64:
+    case SYS_pwritev:
+    case SYS_read:
+    case SYS_readv:
+    case SYS_recvfrom:
+    case SYS_recvmsg:
+    case SYS_sched_yield:
+#    ifdef SYS_select
+    case SYS_select:
+#    endif
+    case SYS_semctl:
+    case SYS_semget:
+#    ifdef SYS_semop
+    case SYS_semop:
+#    endif
+    case SYS_sendmsg:
+    case SYS_sendto:
+#    ifdef SYS_wait4
+    case SYS_wait4:
+#    endif
+#    ifdef SYS_waitid
+    case SYS_waitid:
+#    endif
+#    ifdef SYS_waitpid
+    case SYS_waitpid:
+#    endif
+    case SYS_write:
+    case SYS_writev: return true;
+    default: return false;
+    }
+#else
+    // XXX i#5843: We only support Linux for now.  For Windows we may want to
+    // link in drsyscall and add maybe-blocking info to the drsyscall database.
+    return false;
+#endif
+}
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,9 @@
 #include <inttypes.h>
 #include <fstream>
 #include <vector>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -334,7 +337,7 @@ test_cache_and_type_filter()
             return false;
         }
 
-        // Proccess each trace entry.
+        // Process each trace entry.
         for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
             // We need to emulate the stream for the tool.
             if (entries[i].entry.type == TRACE_TYPE_MARKER &&
@@ -429,7 +432,7 @@ test_null_filter()
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
@@ -445,3 +448,6 @@ main(int argc, const char *argv[])
     fprintf(stderr, "All done!\n");
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

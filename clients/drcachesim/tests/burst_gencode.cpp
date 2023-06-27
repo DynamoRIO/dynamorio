@@ -52,9 +52,8 @@
 #undef ALIGN_FORWARD // Conflicts with drcachesim utils.h.
 #include "tools.h"   // Included after system headers to avoid printf warning.
 
-using namespace dynamorio::drmemtrace;
-
-namespace {
+namespace dynamorio {
+namespace drmemtrace {
 
 /***************************************************************************
  * Code generation.
@@ -62,9 +61,9 @@ namespace {
 
 #ifdef LINUX
 #    ifdef X86
-static constexpr int UD2A_LENGTH = 2;
+static constexpr int UD2_LENGTH = 2;
 #    else
-static constexpr int UD2A_LENGTH = 4;
+static constexpr int UD2_LENGTH = 4;
 #    endif
 void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -74,7 +73,7 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
         return;
     }
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-    sc->SC_XIP += UD2A_LENGTH;
+    sc->SC_XIP += UD2_LENGTH;
     return;
 }
 #endif
@@ -155,7 +154,7 @@ private:
 #ifdef LINUX
         // Test a signal in non-module code.
 #    ifdef X86
-        instrlist_append(ilist, INSTR_CREATE_ud2a(dc));
+        instrlist_append(ilist, INSTR_CREATE_ud2(dc));
 #    elif defined(AARCH64)
         // TODO i#4562: creating UDF is not yet supported so we create a
         // privileged instruction to SIGILL for us.
@@ -375,11 +374,12 @@ look_for_gencode(std::string trace_dir)
     return 0;
 }
 
-} // namespace
-
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     std::string trace_dir = gather_trace();
     return look_for_gencode(trace_dir);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

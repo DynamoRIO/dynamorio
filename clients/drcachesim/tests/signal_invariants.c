@@ -194,7 +194,7 @@ GLOBAL_LABEL(FUNCNAME:)
         prefetcht2 [3]
         nop
         nop
-        ud2a
+        ud2
         nop
         nop
         nop
@@ -209,7 +209,7 @@ GLOBAL_LABEL(FUNCNAME:)
         prefetcht2 [2]
         jmp      new_bb
     new_bb:
-        ud2a
+        ud2
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME

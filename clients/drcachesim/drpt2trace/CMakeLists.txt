@@ -42,10 +42,10 @@ include_directories(
   ${PROJECT_BINARY_DIR}/third_party/include/libipt
 )
 
-# drpt2ir don't include configure.h so they don't get DR defines
+# drpt2ir don't include configure.h so they don't get DR defines.
 add_dr_defines()
 
-# We build drpt2ir to a static library. So we can link it in the independent
+# We build drpt2ir and drir2trace as static libraries so we can link it in the independent
 # clients drpt2trace and drraw2trace.
 set(drpt2ir_srcs
   pt2ir.cpp
@@ -57,19 +57,28 @@ add_dependencies(drpt2ir ipt ipt-sb api_headers)
 target_link_libraries(drpt2ir ipt ipt-sb)
 install_client_nonDR_header(drmemtrace elf_loader.h)
 install_client_nonDR_header(drmemtrace pt2ir.h)
+DR_export_target(drpt2ir)
+install_exported_target(drpt2ir ${INSTALL_CLIENTS_LIB})
+
+set(drir2trace_srcs
+  ir2trace.cpp
+)
+add_library(drir2trace STATIC ${drir2trace_srcs})
+configure_DynamoRIO_decoder(drir2trace)
+add_dependencies(drir2trace api_headers)
+install_client_nonDR_header(drmemtrace ir2trace.h)
+DR_export_target(drir2trace)
+install_exported_target(drir2trace ${INSTALL_CLIENTS_LIB})
 
 include_directories(${PROJECT_BINARY_DIR}/clients/include/drmemtrace)
+# drpt2trace is a client that uses drpt2ir and drir2trace to convert PT data to trace
+# entries.
 set(drpt2trace_srcs
   drpt2trace.cpp
 )
-add_definitions(-DBUILD_PT_TRACER)
+add_definitions(-DBUILD_PT_POST_PROCESSOR)
 add_executable(drpt2trace ${drpt2trace_srcs})
 configure_DynamoRIO_standalone(drpt2trace)
 use_DynamoRIO_extension(drpt2trace droption)
-add_dependencies(drpt2trace drpt2ir ipt)
-# Add the directory containing libipt.so and libipt-sb.so to the linker search path.
-set(libipt_install_dir "${PROJECT_BINARY_DIR}/third_party/${INSTALL_LIB}")
-SET(CMAKE_EXE_LINKER_FLAGS
-  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='${libipt_install_dir}'"
-)
-target_link_libraries(drpt2trace drpt2ir ipt)
+add_dependencies(drpt2trace ipt drpt2ir drir2trace)
+target_link_libraries(drpt2trace ipt drpt2ir drir2trace)

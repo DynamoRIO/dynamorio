@@ -45,6 +45,9 @@
 #include "../scheduler/scheduler.h"
 #include "memref_gen.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #undef ASSERT
 #define ASSERT(cond, msg, ...)        \
     do {                              \
@@ -86,10 +89,6 @@ file_reader_t<std::vector<trace_entry_t>>::read_next_entry()
     return nullptr;
 }
 
-namespace {
-
-using namespace dynamorio::drmemtrace;
-
 class view_test_t : public view_t {
 public:
     view_test_t(void *drcontext, instrlist_t &instrs, uint64_t skip_refs,
@@ -105,7 +104,9 @@ public:
     {
         module_mapper_->get_loaded_modules();
         dr_disasm_flags_t flags =
-            IF_X86_ELSE(DR_DISASM_ATT, IF_AARCH64_ELSE(DR_DISASM_DR, DR_DISASM_ARM));
+            IF_X86_ELSE(DR_DISASM_ATT,
+                        IF_AARCH64_ELSE(DR_DISASM_DR,
+                                        IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
         disassemble_set_syntax(flags);
         return "";
     }
@@ -585,10 +586,8 @@ run_chunk_tests(void *drcontext)
     return run_single_thread_chunk_test(drcontext) && run_serial_chunk_test(drcontext);
 }
 
-} // namespace
-
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     void *drcontext = dr_standalone_init();
     if (run_limit_tests(drcontext) && run_chunk_tests(drcontext)) {
@@ -598,3 +597,6 @@ main(int argc, const char *argv[])
     std::cerr << "view_test FAILED\n";
     exit(1);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -47,8 +47,10 @@
 #include "drcovlib.h"
 #include <array>
 #include <atomic>
+#include <limits>
 #include <list>
 #include <memory>
+#include <queue>
 #include <set>
 #include <unordered_map>
 #include "trace_entry.h"
@@ -59,6 +61,12 @@
 #include <fstream>
 #include "hashtable.h"
 #include <vector>
+#ifdef BUILD_PT_POST_PROCESSOR
+#    include "../drpt2trace/pt2ir.h"
+#endif
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #ifdef DEBUG
 #    define DEBUG_ASSERT(x) DR_ASSERT(x)
@@ -67,6 +75,9 @@
 #endif
 
 #define OUTFILE_SUFFIX "raw"
+#ifdef BUILD_PT_POST_PROCESSOR
+#    define OUTFILE_SUFFIX_PT "raw.pt"
+#endif
 #ifdef HAS_ZLIB
 #    define OUTFILE_SUFFIX_GZ "raw.gz"
 #    define OUTFILE_SUFFIX_ZLIB "raw.zlib"
@@ -78,9 +89,6 @@
 #    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
 #endif
 #define OUTFILE_SUBDIR "raw"
-#ifdef BUILD_PT_TRACER
-#    define KERNEL_PT_OUTFILE_SUBDIR "kernel.raw"
-#endif
 #define WINDOW_SUBDIR_PREFIX "window"
 #define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
 #define WINDOW_SUBDIR_FIRST "window.0000"
@@ -101,6 +109,9 @@ typedef enum {
     RAW2TRACE_STAT_DUPLICATE_SYSCALL,
     RAW2TRACE_STAT_RSEQ_ABORT,
     RAW2TRACE_STAT_RSEQ_SIDE_EXIT,
+    RAW2TRACE_STAT_FALSE_SYSCALL,
+    RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
+    RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP
 } raw2trace_statistic_t;
 
 struct module_t {
@@ -729,21 +740,26 @@ private:
  */
 class raw2trace_t {
 public:
+    /* TODO i#6145: The argument list of raw2trace_t has become excessively long. It would
+     * be more manageable to have an options struct instead.
+     */
     // Only one of out_files and out_archives should be non-empty: archives support fast
     // seeking and are preferred but require zlib.
     // module_map, encoding_file, serial_schedule_file, cpu_schedule_file, thread_files,
     // and out_files are all owned and opened/closed by the caller.  module_map is not a
     // string and can contain binary data.
     // If a nullptr dcontext is passed, creates a new DR context va dr_standalone_init().
-    raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
-                const std::vector<std::ostream *> &out_files,
-                const std::vector<archive_ostream_t *> &out_archives,
-                file_t encoding_file = INVALID_FILE,
-                std::ostream *serial_schedule_file = nullptr,
-                archive_ostream_t *cpu_schedule_file = nullptr, void *dcontext = nullptr,
-                unsigned int verbosity = 0, int worker_count = -1,
-                const std::string &alt_module_dir = "",
-                uint64_t chunk_instr_count = 10 * 1000 * 1000);
+    raw2trace_t(
+        const char *module_map, const std::vector<std::istream *> &thread_files,
+        const std::vector<std::ostream *> &out_files,
+        const std::vector<archive_ostream_t *> &out_archives,
+        file_t encoding_file = INVALID_FILE, std::ostream *serial_schedule_file = nullptr,
+        archive_ostream_t *cpu_schedule_file = nullptr, void *dcontext = nullptr,
+        unsigned int verbosity = 0, int worker_count = -1,
+        const std::string &alt_module_dir = "",
+        uint64_t chunk_instr_count = 10 * 1000 * 1000,
+        const std::unordered_map<thread_id_t, std::istream *> &kthread_files_map = {},
+        const std::string &kcore_path = "", const std::string &kallsyms_path = "");
     // If a nullptr dcontext_in was passed to the constructor, calls dr_standalone_exit().
     virtual ~raw2trace_t();
 
@@ -780,7 +796,7 @@ public:
      * for every module in the list, and returns an empty string at the end.
      * Returns a non-empty error message on failure.
      *
-     * \deprecated #module_mapper_t should be used instead.
+     * \deprecated #dynamorio::drmemtrace::module_mapper_t should be used instead.
      */
     std::string
     do_module_parsing();
@@ -796,7 +812,8 @@ public:
      * the current process.
      * Returns a non-empty error message on failure.
      *
-     * \deprecated #module_mapper_t::get_loaded_modules() should be used instead.
+     * \deprecated #dynamorio::drmemtrace::module_mapper_t::get_loaded_modules() should be
+     * used instead.
      */
     std::string
     do_module_parsing_and_mapping();
@@ -810,7 +827,8 @@ public:
      * allowing decoding for obtaining further information than is stored in the trace.
      * Returns a non-empty error message on failure.
      *
-     * \deprecated #module_mapper_t::find_mapped_trace_address() should be used instead.
+     * \deprecated #dynamorio::drmemtrace::module_mapper_t::find_mapped_trace_address()
+     * should be used instead.
      */
     std::string
     find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address);
@@ -824,6 +842,20 @@ public:
 
     static std::string
     check_thread_file(std::istream *f);
+
+#ifdef BUILD_PT_POST_PROCESSOR
+    /**
+     *  Checks whether the given file is a valid kernel PT file.
+     */
+    static std::string
+    check_kthread_file(std::istream *f);
+
+    /**
+     *  Return the tid of the given kernel PT file.
+     */
+    static std::string
+    get_kthread_file_tid(std::istream *f, OUT thread_id_t *tid);
+#endif
 
     uint64
     get_statistic(raw2trace_statistic_t stat);
@@ -882,6 +914,9 @@ protected:
             , last_decode_modidx(0)
             , last_decode_modoffs(0)
             , last_block_summary(nullptr)
+#ifdef BUILD_PT_POST_PROCESSOR
+            , kthread_file(nullptr)
+#endif
         {
         }
         // Support subclasses extending this struct.
@@ -899,7 +934,7 @@ protected:
         int version;
         offline_file_type_t file_type;
         size_t cache_line_size = 0;
-        std::vector<offline_entry_t> pre_read;
+        std::deque<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
         std::vector<trace_entry_t> delayed_branch;
@@ -925,8 +960,11 @@ protected:
         // Statistics on the processing.
         uint64 count_elided = 0;
         uint64 count_duplicate_syscall = 0;
+        uint64 count_false_syscall = 0;
         uint64 count_rseq_abort = 0;
         uint64 count_rseq_side_exit = 0;
+        uint64 earliest_trace_timestamp = (std::numeric_limits<uint64>::max)();
+        uint64 latest_trace_timestamp = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -954,6 +992,13 @@ protected:
         int rseq_commit_idx_ = -1; // Index into rseq_buffer_.
         std::vector<branch_info_t> rseq_branch_targets_;
         std::vector<app_pc> rseq_decode_pcs_;
+
+#ifdef BUILD_PT_POST_PROCESSOR
+        std::istream *kthread_file;
+        std::vector<syscall_pt_entry_t> pre_read_pt_entries;
+        bool pt_metadata_processed = false;
+        pt2ir_t pt2ir;
+#endif
     };
 
     /**
@@ -991,8 +1036,13 @@ protected:
     virtual const offline_entry_t *
     get_next_entry_keep_prior(raw2trace_thread_data_t *tdata);
 
+    /* Adds the last read entry to the front of the read queue for get_next_entry(). */
     virtual void
     unread_last_entry(raw2trace_thread_data_t *tdata);
+
+    /* Adds "entry" to the back of the read queue for get_next_entry(). */
+    void
+    queue_entry(raw2trace_thread_data_t *tdata, offline_entry_t &entry);
 
     /**
      * Callback notifying the currently-processed thread has exited. Subclasses are
@@ -1017,6 +1067,14 @@ protected:
 
     virtual std::string
     read_and_map_modules();
+
+#ifdef BUILD_PT_POST_PROCESSOR
+    /**
+     * Process the PT data associated with the provided syscall index.
+     */
+    std::string
+    process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx);
+#endif
 
     /**
      * Processes a raw buffer which must be the next buffer in the desired (typically
@@ -1092,8 +1150,11 @@ protected:
 
     uint64 count_elided_ = 0;
     uint64 count_duplicate_syscall_ = 0;
+    uint64 count_false_syscall_ = 0;
     uint64 count_rseq_abort_ = 0;
     uint64 count_rseq_side_exit_ = 0;
+    uint64 earliest_trace_timestamp_ = (std::numeric_limits<uint64>::max)();
+    uint64 latest_trace_timestamp_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 
@@ -1234,10 +1295,12 @@ private:
     size_t
     get_cache_line_size(raw2trace_thread_data_t *tdata);
 
-    // Increases the per-thread counter for the statistic identified by stat by value.
+    // Accumulates the given value into the per-thread value for the statistic
+    // identified by stat. This may involve a simple addition, or any other operation
+    // like std::min or std::max, depending on the statistic.
     void
-    add_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
-                     int value);
+    accumulate_to_statistic(raw2trace_thread_data_t *tdata, raw2trace_statistic_t stat,
+                            uint64 value);
     void
     log_instruction(app_pc decode_pc, app_pc orig_pc);
 
@@ -1297,6 +1360,12 @@ private:
                   const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                   bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
                   OUT bool *reached_end_of_memrefs);
+
+    bool
+    should_omit_syscall(raw2trace_thread_data_t *tdata);
+
+    bool
+    is_maybe_blocking_syscall(uintptr_t number);
 
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
@@ -1413,6 +1482,14 @@ private:
 
     offline_instru_t instru_offline_;
     const std::vector<module_t> *modvec_ptr_ = nullptr;
+
+    /* The following member variables are utilized for decoding kernel PT traces. */
+    const std::unordered_map<thread_id_t, std::istream *> kthread_files_map_;
+    const std::string kcore_path_;
+    const std::string kallsyms_path_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _RAW2TRACE_H_ */

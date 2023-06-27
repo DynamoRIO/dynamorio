@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,9 @@
 
 #include <string>
 #include "analysis_tool.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 /**
  * @file drmemtrace/tlb_simulator_create.h
@@ -89,5 +92,8 @@ struct tlb_simulator_knobs_t {
 /** Creates an instance of a TLB simulator. */
 analysis_tool_t *
 tlb_simulator_create(const tlb_simulator_knobs_t &knobs);
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _TLB_SIMULATOR_CREATE_H_ */

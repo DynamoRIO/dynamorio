@@ -1024,7 +1024,8 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
                        info->code <= REG_STOP_SEGMENT) {
                 CLIENT_ASSERT_TRUNCATE(di->seg_override, ushort, info->code,
                                        "decode error: invalid segment override");
-                di->seg_override = (reg_id_t)info->code;
+                if (!X64_MODE(di) || REG_START_SEGMENT_x64 <= info->code)
+                    di->seg_override = (reg_id_t)info->code;
             } else if (info->code == PREFIX_DATA) {
                 /* see if used as part of opcode before considering prefix */
                 di->data_prefix = true;

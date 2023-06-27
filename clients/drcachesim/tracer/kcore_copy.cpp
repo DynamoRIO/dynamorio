@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,15 +36,17 @@
 #include <fstream>
 
 #include "../common/utils.h"
+#include "../common/trace_entry.h"
 #include "dr_api.h"
 #include "kcore_copy.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define MODULES_FILE_NAME "modules"
 #define MODULES_FILE_PATH "/proc/" MODULES_FILE_NAME
-#define KALLSYMS_FILE_NAME "kallsyms"
-#define KALLSYMS_FILE_PATH "/proc/" KALLSYMS_FILE_NAME
-#define KCORE_FILE_NAME "kcore"
-#define KCORE_FILE_PATH "/proc/" KCORE_FILE_NAME
+#define KALLSYMS_FILE_PATH "/proc/" DRMEMTRACE_KALLSYMS_FILENAME
+#define KCORE_FILE_PATH "/proc/" DRMEMTRACE_KCORE_FILENAME
 
 #define KERNEL_SYMBOL_MAX_LEN 300
 
@@ -196,11 +198,11 @@ kcore_copy_t::copy(const char *to_dir)
         return false;
     }
     if (!copy_kcore(to_dir)) {
-        ASSERT(false, "failed to copy kcore");
+        ASSERT(false, "failed to copy " DRMEMTRACE_KCORE_FILENAME);
         return false;
     }
     if (!copy_kallsyms(to_dir)) {
-        ASSERT(false, "failed to copy kallsyms");
+        ASSERT(false, "failed to copy " DRMEMTRACE_KALLSYMS_FILENAME);
         return false;
     }
     return true;
@@ -226,7 +228,7 @@ kcore_copy_t::copy_kcore(const char *to_dir)
 {
     char to_kcore_path[MAXIMUM_PATH];
     dr_snprintf(to_kcore_path, BUFFER_SIZE_ELEMENTS(to_kcore_path), "%s/%s", to_dir,
-                KCORE_FILE_NAME);
+                DRMEMTRACE_KCORE_FILENAME);
     NULL_TERMINATE_BUFFER(to_kcore_path);
     /* We use drmemtrace file operations functions to dump out code segments in kcore. */
     file_autoclose_t fd(to_kcore_path, DR_FILE_WRITE_OVERWRITE, open_file_func_,
@@ -234,7 +236,7 @@ kcore_copy_t::copy_kcore(const char *to_dir)
                         nullptr /* seek_file_func */);
 
     if (!fd.is_open()) {
-        ASSERT(false, "failed to open " KCORE_FILE_NAME " for writing");
+        ASSERT(false, "failed to open " DRMEMTRACE_KCORE_FILENAME " for writing");
         return false;
     }
 
@@ -256,7 +258,7 @@ kcore_copy_t::copy_kcore(const char *to_dir)
 
     uint64_t offset = 0;
     if (!fd.write(&to_ehdr, sizeof(Elf64_Ehdr))) {
-        ASSERT(false, "failed to write " KCORE_FILE_NAME " header");
+        ASSERT(false, "failed to write " DRMEMTRACE_KCORE_FILENAME " header");
         return false;
     }
     offset += sizeof(Elf64_Ehdr);
@@ -276,7 +278,7 @@ kcore_copy_t::copy_kcore(const char *to_dir)
         code_segment_offset += to_phdrs[i].p_filesz;
     }
     if (!fd.write(to_phdrs, sizeof(Elf64_Phdr) * kcore_code_segments_num_)) {
-        ASSERT(false, "failed to write the program header to " KCORE_FILE_NAME);
+        ASSERT(false, "failed to write the program header to " DRMEMTRACE_KCORE_FILENAME);
         dr_global_free(to_phdrs, sizeof(Elf64_Phdr) * kcore_code_segments_num_);
         return false;
     }
@@ -285,7 +287,9 @@ kcore_copy_t::copy_kcore(const char *to_dir)
 
     for (int i = 0; i < kcore_code_segments_num_; ++i) {
         if (!fd.write(kcore_code_segments_[i].buf, kcore_code_segments_[i].len)) {
-            ASSERT(false, "failed to write the kernel code segment to " KCORE_FILE_NAME);
+            ASSERT(
+                false,
+                "failed to write the kernel code segment to " DRMEMTRACE_KCORE_FILENAME);
             return false;
         }
     }
@@ -296,7 +300,7 @@ kcore_copy_t::copy_kcore(const char *to_dir)
 bool
 kcore_copy_t::copy_kallsyms(const char *to_dir)
 {
-    /* We use DynamoRIO defult file operations functions to open and read /proc/kallsyms.
+    /* We use DynamoRIO default file operations functions to open and read /proc/kallsyms.
      */
     file_autoclose_t from_kallsyms_fd(
         KALLSYMS_FILE_PATH, DR_FILE_READ, dr_open_file, dr_close_file, dr_read_file,
@@ -308,7 +312,7 @@ kcore_copy_t::copy_kallsyms(const char *to_dir)
 
     char to_kallsyms_file_path[MAXIMUM_PATH];
     dr_snprintf(to_kallsyms_file_path, BUFFER_SIZE_ELEMENTS(to_kallsyms_file_path),
-                "%s%s%s", to_dir, DIRSEP, KALLSYMS_FILE_NAME);
+                "%s%s%s", to_dir, DIRSEP, DRMEMTRACE_KALLSYMS_FILENAME);
     NULL_TERMINATE_BUFFER(to_kallsyms_file_path);
 
     /* We use drmemtrace file operations functions to store the output kallsyms. */
@@ -316,7 +320,7 @@ kcore_copy_t::copy_kallsyms(const char *to_dir)
         to_kallsyms_file_path, DR_FILE_WRITE_OVERWRITE, open_file_func_, close_file_func_,
         nullptr /* read_file_func */, write_file_func_, nullptr /* seek_file_func */);
     if (!to_kallsyms_fd.is_open()) {
-        ASSERT(false, "failed to open " KALLSYMS_FILE_NAME " for writing");
+        ASSERT(false, "failed to open " DRMEMTRACE_KALLSYMS_FILENAME " for writing");
         return false;
     }
 
@@ -324,7 +328,7 @@ kcore_copy_t::copy_kallsyms(const char *to_dir)
     ssize_t bytes_read;
     while ((bytes_read = from_kallsyms_fd.read(buf, sizeof(buf))) > 0) {
         if (!to_kallsyms_fd.write(buf, bytes_read)) {
-            ASSERT(false, "failed to copy data to " KALLSYMS_FILE_NAME);
+            ASSERT(false, "failed to copy data to " DRMEMTRACE_KALLSYMS_FILENAME);
             return false;
         }
     }
@@ -509,3 +513,6 @@ kcore_copy_t::read_kcore()
 
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

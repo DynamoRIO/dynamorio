@@ -43,6 +43,9 @@
 #include <sstream>
 #include "minizip/zip.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 // We need to override the stream buffer class which is where the file
 // writes happen.  We go ahead and use a simple buffer.  The stream
 // buffer base class writes to pbase()..epptr() with the next slot at
@@ -146,5 +149,8 @@ public:
         return zbuf->open_new_component(name);
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ZIPFILE_OSTREAM_H_ */

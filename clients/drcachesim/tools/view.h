@@ -43,6 +43,9 @@
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class view_t : public analysis_tool_t {
 public:
     // The module_file_path is optional and unused for traces with
@@ -158,5 +161,8 @@ private:
     static constexpr int INSTR_COLUMN_WIDTH = 12;
     static constexpr int TID_COLUMN_WIDTH = 11;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _VIEW_H_ */

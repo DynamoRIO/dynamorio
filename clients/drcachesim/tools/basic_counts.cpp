@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,13 +30,19 @@
  * DAMAGE.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::max.
+
 #include <algorithm>
+#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <vector>
 
 #include "basic_counts.h"
 #include "../common/utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 const std::string basic_counts_t::TOOL_NAME = "Basic counts tool";
 
@@ -95,6 +101,13 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
+        if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, per_shard->filetype_)) {
+            if (per_shard->is_kernel) {
+                ++counters->kernel_instrs;
+            } else {
+                ++counters->user_instrs;
+            }
+        }
         counters->unique_pc_addrs.insert(memref.instr.addr);
         // The encoding entries aren't exposed at the memref_t level, but
         // we use encoding_is_new as a proxy.
@@ -153,6 +166,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
                 ++counters->phys_unavail_markers;
                 break;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+                per_shard->is_kernel = true;
+                break;
+            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: per_shard->is_kernel = false; break;
             case TRACE_MARKER_TYPE_FILETYPE:
                 if (per_shard->filetype_ == -1) {
                     per_shard->filetype_ =
@@ -202,14 +219,22 @@ basic_counts_t::cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
 
 void
 basic_counts_t::print_counters(const counters_t &counters, int_least64_t num_threads,
-                               const std::string &prefix)
+                               const std::string &prefix, bool for_kernel_trace)
 {
     std::cerr << std::setw(12) << counters.instrs << prefix
               << " (fetched) instructions\n";
-    std::cerr << std::setw(12) << counters.unique_pc_addrs.size() << prefix
-              << " unique (fetched) instructions\n";
+    if (counters.is_tracking_unique_pc_addrs()) {
+        std::cerr << std::setw(12) << counters.unique_pc_addrs.size() << prefix
+                  << " unique (fetched) instructions\n";
+    }
     std::cerr << std::setw(12) << counters.instrs_nofetch << prefix
               << " non-fetched instructions\n";
+    if (for_kernel_trace) {
+        std::cerr << std::setw(12) << counters.user_instrs << prefix
+                  << " userspace instructions\n";
+        std::cerr << std::setw(12) << counters.kernel_instrs << prefix
+                  << " kernel instructions\n";
+    }
     std::cerr << std::setw(12) << counters.prefetches << prefix << " prefetches\n";
     std::cerr << std::setw(12) << counters.loads << prefix << " data loads\n";
     std::cerr << std::setw(12) << counters.stores << prefix << " data stores\n";
@@ -248,14 +273,20 @@ basic_counts_t::print_results()
     for (const auto &shard : shard_map_) {
         num_windows = std::max(num_windows, shard.second->counters.size());
     }
+
+    bool for_kernel_trace = false;
     for (const auto &shard : shard_map_) {
         for (const auto &ctr : shard.second->counters) {
             total += ctr;
         }
+        if (!for_kernel_trace &&
+            TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, shard.second->filetype_)) {
+            for_kernel_trace = true;
+        }
     }
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
-    print_counters(total, shard_map_.size(), " total");
+    print_counters(total, shard_map_.size(), " total", for_kernel_trace);
 
     if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";
@@ -263,7 +294,8 @@ basic_counts_t::print_results()
             std::cerr << "Window #" << i << ":\n";
             for (const auto &shard : shard_map_) {
                 if (shard.second->counters.size() > i) {
-                    print_counters(shard.second->counters[i], 0, " window");
+                    print_counters(shard.second->counters[i], 0, " window",
+                                   for_kernel_trace);
                 }
             }
         }
@@ -275,7 +307,7 @@ basic_counts_t::print_results()
     std::sort(sorted.begin(), sorted.end(), cmp_threads);
     for (const auto &keyvals : sorted) {
         std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
-        print_counters(keyvals.second->counters[0], 0, "");
+        print_counters(keyvals.second->counters[0], 0, "", for_kernel_trace);
     }
 
     // TODO i#3599: also print thread-per-window stats.
@@ -294,3 +326,110 @@ basic_counts_t::get_total_counts()
     }
     return total;
 }
+
+analysis_tool_t::interval_state_snapshot_t *
+basic_counts_t::generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id)
+{
+    per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
+    count_snapshot_t *snapshot = new count_snapshot_t;
+    // Tracking unique pc addresses for each snapshot takes up excessive space.
+    snapshot->counters.stop_tracking_unique_pc_addrs();
+    for (const auto &ctr : per_shard->counters) {
+        snapshot->counters += ctr;
+    }
+    return snapshot;
+}
+
+analysis_tool_t::interval_state_snapshot_t *
+basic_counts_t::generate_interval_snapshot(uint64_t interval_id)
+{
+    count_snapshot_t *snapshot = new count_snapshot_t;
+    // Tracking unique pc addresses for each snapshot takes up excessive space.
+    snapshot->counters.stop_tracking_unique_pc_addrs();
+    for (const auto &shard : shard_map_) {
+        for (const auto &ctr : shard.second->counters) {
+            snapshot->counters += ctr;
+        }
+    }
+    return snapshot;
+}
+
+analysis_tool_t::interval_state_snapshot_t *
+basic_counts_t::combine_interval_snapshots(
+    const std::vector<const analysis_tool_t::interval_state_snapshot_t *>
+        latest_shard_snapshots,
+    uint64_t interval_end_timestamp)
+{
+    count_snapshot_t *result = new count_snapshot_t;
+    // The snapshots in latest_shard_snapshots do not track unique_pc_addrs, so
+    // the combined result->counters also would not contain any element in the
+    // unique_pc_addrs set. But we still need to explicitly disable
+    // unique_pc_addrs tracking in result->counters using the following function
+    // call. This is so that printing of unique_pc_addrs count is skipped as
+    // intended during print_interval_results.
+    result->counters.stop_tracking_unique_pc_addrs();
+    for (const auto snapshot : latest_shard_snapshots) {
+        if (snapshot == nullptr)
+            continue;
+        result->counters +=
+            dynamic_cast<const count_snapshot_t *const>(snapshot)->counters;
+        assert(result->counters.unique_pc_addrs.empty());
+    }
+    return result;
+}
+
+bool
+basic_counts_t::print_interval_results(
+    const std::vector<interval_state_snapshot_t *> &interval_snapshots)
+{
+    std::cerr << "Counts per trace interval for ";
+    if (!interval_snapshots.empty() &&
+        interval_snapshots[0]->shard_id !=
+            interval_state_snapshot_t::WHOLE_TRACE_SHARD_ID) {
+        std::cerr << "TID " << interval_snapshots[0]->shard_id << ":\n";
+    } else {
+        std::cerr << "whole trace:\n";
+    }
+    counters_t last;
+    for (const auto &snapshot_base : interval_snapshots) {
+        auto *snapshot = dynamic_cast<count_snapshot_t *>(snapshot_base);
+        std::cerr << "Interval #" << snapshot->interval_id << " ending at timestamp "
+                  << snapshot->interval_end_timestamp << ":\n";
+        counters_t diff = snapshot->counters;
+        diff -= last;
+        print_counters(diff, 0, " interval delta");
+        last = snapshot->counters;
+        if (knob_verbose_ > 0) {
+            if (snapshot->instr_count_cumulative !=
+                static_cast<uint64_t>(snapshot->counters.instrs)) {
+                std::stringstream err_stream;
+                err_stream << "Cumulative instr count value provided by framework ("
+                           << snapshot->instr_count_cumulative
+                           << ") not equal to tool value (" << snapshot->counters.instrs
+                           << ")\n";
+                error_string_ = err_stream.str();
+                return false;
+            }
+            if (snapshot->instr_count_delta != static_cast<uint64_t>(diff.instrs)) {
+                std::stringstream err_stream;
+                err_stream << "Delta instr count value provided by framework ("
+                           << snapshot->instr_count_delta << ") not equal to tool value ("
+                           << diff.instrs << ")\n";
+                error_string_ = err_stream.str();
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool
+basic_counts_t::release_interval_snapshot(
+    analysis_tool_t::interval_state_snapshot_t *snapshot)
+{
+    delete snapshot;
+    return true;
+}
+
+} // namespace drmemtrace
+} // namespace dynamorio

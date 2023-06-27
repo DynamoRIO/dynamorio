@@ -45,6 +45,7 @@
 
 #include <iterator>
 #include <memory>
+#include <queue>
 #include <string>
 #include <vector>
 #include "analysis_tool.h"
@@ -52,7 +53,8 @@
 #include "record_file_reader.h"
 #include "scheduler.h"
 
-using namespace dynamorio::drmemtrace;
+namespace dynamorio {
+namespace drmemtrace {
 
 /**
  * An analyzer is the top-level driver of a set of trace analysis tools.
@@ -60,22 +62,28 @@ using namespace dynamorio::drmemtrace;
  * trace and calls the process_memref() routine of each tool, or it exposes
  * an iteration interface to external control code.
  *
- * RecordType is the type of entry to be analyzed: #memref_t or #trace_entry_t.
- * ReaderType is the reader that allows reading entries of type T: #reader_t or
+ * RecordType is the type of entry to be analyzed: #dynamorio::drmemtrace::memref_t or
+ * #dynamorio::drmemtrace::trace_entry_t. ReaderType is the reader that allows reading
+ * entries of type T: #dynamorio::drmemtrace::reader_t or
  * #dynamorio::drmemtrace::record_reader_t respectively.
  *
- * #analyzer_tmpl_t<#memref_t, #reader_t> is the primary type of analyzer, which is used
- * for most purposes. It uses tools of type #analysis_tool_tmpl_t<#memref_t>. This
+ * #dynamorio::drmemtrace::analyzer_tmpl_t<#dynamorio::drmemtrace::memref_t,
+ * #dynamorio::drmemtrace::reader_t> is the primary type of analyzer, which is used for
+ * most purposes. It uses tools of type
+ * #dynamorio::drmemtrace::analysis_tool_tmpl_t<#dynamorio::drmemtrace::memref_t>. This
  * analyzer provides various features to support trace analysis, e.g. processing the
- * instruction encoding entries and making it available to the tool inside #memref_t.
+ * instruction encoding entries and making it available to the tool inside
+ * #dynamorio::drmemtrace::memref_t.
  *
- * #analyzer_tmpl_t<#trace_entry_t, #dynamorio::drmemtrace::record_reader_t> is used
- * in special cases where an offline trace needs to be observed exactly as stored on
- * disk, without hiding any internal entries. It uses tools of type
- * #analysis_tool_tmpl_t<#trace_entry_t>.
+ * #dynamorio::drmemtrace::analyzer_tmpl_t<#dynamorio::drmemtrace::trace_entry_t,
+ * #dynamorio::drmemtrace::record_reader_t> is used in special cases where an offline
+ * trace needs to be observed exactly as stored on disk, without hiding any internal
+ * entries. It uses tools of type
+ * #dynamorio::drmemtrace::analysis_tool_tmpl_t<#dynamorio::drmemtrace::trace_entry_t>.
  *
- * TODO i#5727: When we convert #reader_t into a template on RecordType, we can remove the
- * second template parameter to #analyzer_tmpl_t, and simply use reader_tmpl_t<RecordType>
+ * TODO i#5727: When we convert #dynamorio::drmemtrace::reader_t into a template on
+ * RecordType, we can remove the second template parameter to
+ * #dynamorio::drmemtrace::analyzer_tmpl_t, and simply use reader_tmpl_t<RecordType>
  * instead.
  */
 template <typename RecordType, typename ReaderType> class analyzer_tmpl_t {
@@ -103,7 +111,8 @@ public:
      */
     analyzer_tmpl_t(const std::string &trace_path,
                     analysis_tool_tmpl_t<RecordType> **tools, int num_tools,
-                    int worker_count = 0, uint64_t skip_instrs = 0, int verbosity = 0);
+                    int worker_count = 0, uint64_t skip_instrs = 0,
+                    uint64_t interval_microseconds = 0, int verbosity = 0);
     /** Launches the analysis process. */
     virtual bool
     run();
@@ -114,6 +123,57 @@ public:
 protected:
     typedef scheduler_tmpl_t<RecordType, ReaderType> sched_type_t;
 
+    // Tool data for one shard.
+    struct analyzer_tool_shard_data_t {
+        analyzer_tool_shard_data_t()
+            : shard_data(nullptr)
+        {
+        }
+        // Provide a move constructor for use with std::vector.
+        analyzer_tool_shard_data_t(analyzer_tool_shard_data_t &&src)
+        {
+            shard_data = src.shard_data;
+            interval_snapshot_data = std::move(src.interval_snapshot_data);
+        }
+
+        void *shard_data;
+        // This is a queue as merge_shard_interval_results processes the intervals in a
+        // FIFO manner. Using a queue also makes code a bit simpler.
+        std::queue<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
+            interval_snapshot_data;
+
+    private:
+        // Delete copy constructor and assignment operator to avoid overhead of
+        // copying, e.g. by std::vector.
+        analyzer_tool_shard_data_t(const analyzer_tool_shard_data_t &) = delete;
+        analyzer_tool_shard_data_t &
+        operator=(const analyzer_tool_shard_data_t &) = delete;
+    };
+
+    // Data for one trace shard.
+    struct analyzer_shard_data_t {
+        analyzer_shard_data_t()
+            : cur_interval_index(0)
+            , cur_interval_init_instr_count(0)
+            , shard_id(0)
+        {
+        }
+
+        uint64_t cur_interval_index;
+        uint64_t cur_interval_init_instr_count;
+        // Identifier for the shard. Currently, shards map only to threads, so this is
+        // the thread id.
+        int64_t shard_id;
+        std::vector<analyzer_tool_shard_data_t> tool_data;
+
+    private:
+        // Delete copy constructor and assignment operator to avoid overhead of
+        // copying. We can define a move constructor in future if needed.
+        analyzer_shard_data_t(const analyzer_shard_data_t &) = delete;
+        analyzer_shard_data_t &
+        operator=(const analyzer_shard_data_t &) = delete;
+    };
+
     // Data for one worker thread.  Our concurrency model has each input shard
     // analyzed by a single worker thread, eliminating the need for locks.
     struct analyzer_worker_data_t {
@@ -122,18 +182,23 @@ protected:
             , stream(stream)
         {
         }
+        // Provide a move constructor for use with std::vector.
         analyzer_worker_data_t(analyzer_worker_data_t &&src)
         {
             index = src.index;
             stream = src.stream;
+            shard_data = std::move(src.shard_data);
             error = std::move(src.error);
         }
 
         int index;
         typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream;
         std::string error;
+        std::unordered_map<int, analyzer_shard_data_t> shard_data;
 
     private:
+        // Delete copy constructor and assignment operator to avoid overhead of
+        // copying, e.g. by std::vector.
         analyzer_worker_data_t(const analyzer_worker_data_t &) = delete;
         analyzer_worker_data_t &
         operator=(const analyzer_worker_data_t &) = delete;
@@ -165,6 +230,71 @@ protected:
     bool
     record_is_thread_final(RecordType record);
 
+    bool
+    record_is_timestamp(const RecordType &record);
+
+    // Invoked when the given interval finishes during serial or parallel
+    // analysis of the trace. For parallel analysis, the shard_id
+    // parameter should be set to the shard_id for which the interval
+    // finished. For serial analysis, it should remain the default value.
+    bool
+    process_interval(uint64_t interval_id, uint64_t interval_init_instr_count,
+                     analyzer_worker_data_t *worker, bool parallel, int shard_idx = 0);
+
+    // Compute interval id for the given latest_timestamp, assuming the trace (or
+    // trace shard) starts at the given first_timestamp.
+    uint64_t
+    compute_interval_id(uint64_t first_timestamp, uint64_t latest_timestamp);
+
+    // Compute the interval end timestamp for the given interval_id, assuming the trace
+    // (or trace shard) starts at the given first_timestamp.
+    uint64_t
+    compute_interval_end_timestamp(uint64_t first_timestamp, uint64_t interval_id);
+
+    // Possibly advances the current interval id stored in the worker data, based
+    // on the most recent seen timestamp in the trace stream. Returns whether the
+    // current interval id was updated, and if so also sets the previous interval index
+    // in prev_interval_index.
+    bool
+    advance_interval_id(
+        typename scheduler_tmpl_t<RecordType, ReaderType>::stream_t *stream,
+        analyzer_shard_data_t *shard, uint64_t &prev_interval_index,
+        uint64_t &prev_interval_init_instr_count);
+
+    // Collects interval results for all shards from the workers, and then optional
+    // merges the shard-local intervals to form the whole-trace interval results using
+    // merge_shard_interval_results(). Derived classes may override this to change
+    // whether and how shard-local intervals are merged.
+    virtual bool
+    collect_and_maybe_merge_shard_interval_results();
+
+    // Computes and stores the interval results in merged_interval_snapshots_. For
+    // serial analysis where we already have only a single shard, this involves
+    // simply copying interval_state_snapshot_t* from the input. For parallel
+    // analysis, this involves merging results from multiple shards for intervals
+    // that map to the same final whole-trace interval.
+    bool
+    merge_shard_interval_results(
+        std::vector<std::queue<
+            typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
+            &intervals,
+        std::vector<typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t
+                        *> &merged_intervals,
+        int tool_idx);
+
+    // Combines all interval snapshots in the given vector to create the interval
+    // snapshot for the whole-trace interval ending at interval_end_timestamp and
+    // stores it in 'result'. These snapshots are for the tool at tool_idx. Returns
+    // whether it was successful. This routine also combines the instr count fields
+    // in analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t.
+    bool
+    combine_interval_snapshots(
+        const std::vector<
+            const typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>
+            &latest_shard_snapshots,
+        uint64_t interval_end_timestamp, int tool_idx,
+        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *&result);
+
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
     std::string error_string_;
@@ -173,10 +303,21 @@ protected:
     std::vector<analyzer_worker_data_t> worker_data_;
     int num_tools_;
     analysis_tool_tmpl_t<RecordType> **tools_;
+    // Stores the interval state snapshots for the whole trace, which for the parallel
+    // mode are the resulting interval state snapshots after merging from all shards
+    // in merge_shard_interval_results.
+    // merged_interval_snapshots_[tool_idx] is a vector of the interval snapshots
+    // (in order of the intervals) for that tool.
+    // This may not be set, depending on the derived class's implementation of
+    // collect_and_maybe_merge_shard_interval_results.
+    std::vector<std::vector<
+        typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *>>
+        merged_interval_snapshots_;
     bool parallel_;
     int worker_count_;
     const char *output_prefix_ = "[analyzer]";
     uint64_t skip_instrs_ = 0;
+    uint64_t interval_microseconds_ = 0;
     int verbosity_ = 0;
 
 private:
@@ -184,10 +325,14 @@ private:
     serial_mode_supported();
 };
 
-/** See #analyzer_tmpl_t. */
+/** See #dynamorio::drmemtrace::analyzer_tmpl_t. */
 typedef analyzer_tmpl_t<memref_t, reader_t> analyzer_t;
 
-/** See #analyzer_tmpl_t. */
+/** See #dynamorio::drmemtrace::analyzer_tmpl_t. */
 typedef analyzer_tmpl_t<trace_entry_t, dynamorio::drmemtrace::record_reader_t>
     record_analyzer_t;
+
+} // namespace drmemtrace
+} // namespace dynamorio
+
 #endif /* _ANALYZER_H_ */

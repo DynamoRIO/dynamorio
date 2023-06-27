@@ -38,17 +38,18 @@
 #include "../tools/reuse_distance_create.h"
 #include "../common/memref.h"
 
-namespace {
+namespace dynamorio {
+namespace drmemtrace {
 
 #define TEST_VERBOSE(N) (test_verbosity >= N)
 unsigned int test_verbosity = 0;
 
 // Helper routine to generate a basic memref for a specific address.
 static memref_t
-generate_memref(const addr_t addr)
+generate_memref(const addr_t addr, trace_type_t trace_type = TRACE_TYPE_READ)
 {
     memref_t memref;
-    memref.data.type = TRACE_TYPE_READ;
+    memref.data.type = trace_type;
     memref.data.pid = 1;
     memref.data.tid = 2;
     memref.data.addr = addr;
@@ -119,15 +120,17 @@ private:
 bool
 generate_target_distance_memrefs(int target_distance,
                                  reuse_distance_test_t &reuse_distance,
-                                 address_generator_t &address_generator)
+                                 address_generator_t &address_generator,
+                                 trace_type_t trace_type = TRACE_TYPE_READ)
 {
     auto start_addr = address_generator.next_address();
-    bool success = reuse_distance.process_memref(generate_memref(start_addr));
+    bool success = reuse_distance.process_memref(generate_memref(start_addr, trace_type));
     for (int i = 0; success && i < target_distance; ++i) {
         success = reuse_distance.process_memref(
-            generate_memref(address_generator.next_address()));
+            generate_memref(address_generator.next_address(), trace_type));
     }
-    return success && reuse_distance.process_memref(generate_memref(start_addr));
+    return success &&
+        reuse_distance.process_memref(generate_memref(start_addr, trace_type));
 }
 
 // Helper routine to verify all items in a vector of expected lines are in an istream,
@@ -143,9 +146,12 @@ find_strings_in_stream(const std::vector<std::string> &expected_strings, std::is
         for (std::string line; std::getline(in, line);) {
             if (line == expect) {
                 found = true;
+                if (TEST_VERBOSE(1)) {
+                    std::cerr << "  --> Got it!\n";
+                }
                 break;
             } else if (TEST_VERBOSE(1)) {
-                std::cerr << "  Skip '" << line << "'\n";
+                std::cerr << "   Skip '" << line << "'\n";
             }
         }
         if (!found) {
@@ -196,12 +202,16 @@ simple_reuse_distance_test()
 
     auto *shard = reuse_distance.get_aggregated_results();
     assert(shard->dist_map.size() == expected_histogram_size);
+    // All test accesses are data accesses.
+    assert(shard->dist_map_data.size() == expected_histogram_size);
     for (int tgt_dist = TEST_DISTANCE_START; tgt_dist < TEST_DISTANCE_END;
          tgt_dist += TEST_DISTANCE_INCREMENT) {
         const auto it = shard->dist_map.find(tgt_dist);
         // Should be exactly one access at each target distance.
         assert(it != shard->dist_map.end());
         assert(it->second == 1);
+        // This same entry should be in the data histogram.
+        assert(it->second == shard->dist_map_data.at(tgt_dist));
     }
 
     // When debugging, print the raw histogram data (unsorted).
@@ -272,6 +282,7 @@ reuse_distance_limit_test()
     // hits in the loop.
     assert(shard->cache_map.size() == DISTANCE_LIMIT);
     assert(shard->dist_map.size() < DISTANCE_LIMIT);
+    assert(shard->dist_map_data.size() < DISTANCE_LIMIT);
     assert(shard->pruned_address_hits == expected_pruned_address_hits);
     assert(shard->pruned_address_count > expected_pruned_address_hits);
     // Verify the distance histogram.
@@ -295,15 +306,15 @@ print_histogram_empty_test()
 
     // Create a reuse_distance test object.
     reuse_distance_knobs_t knobs;
-    knobs.verbose = 2;
     reuse_distance_test_t reuse_distance(knobs);
 
-    // Create an empty histogram vector.
+    // Create an empty histogram vector and distance histogram.
     std::vector<std::pair<int_least64_t, int_least64_t>> sorted;
+    reuse_distance_t::distance_histogram_t distance_map_data;
 
     // Make sure print_histogram handles this case without crashing.
     std::stringstream output_string;
-    reuse_distance.print_histogram(output_string, /*count=*/0, sorted);
+    reuse_distance.print_histogram(output_string, /*count=*/0, sorted, distance_map_data);
 
     // If the title string is in the output, that's good enough.
     std::vector<std::string> expected_strings = {
@@ -326,6 +337,8 @@ print_histogram_mult_1p0_test()
 
     // Fill in a sorted histogram vector.
     std::vector<std::pair<int_least64_t, int_least64_t>> sorted;
+    // Also put some matching entries in a data histogram.
+    reuse_distance_t::distance_histogram_t distance_map_data;
 
     constexpr int N = 100;
 
@@ -333,17 +346,24 @@ print_histogram_mult_1p0_test()
     for (int i = 0; i < N; ++i) {
         sorted.emplace_back(i, 1);
         count += sorted.back().second;
+        // Put 1/3 of these in the data map as well.
+        if (i % 3 == 0) {
+            distance_map_data[i] += sorted.back().second;
+        }
     }
 
     std::stringstream output_string;
-    reuse_distance.print_histogram(output_string, count, sorted);
+    reuse_distance.print_histogram(output_string, count, sorted, distance_map_data);
+    if (TEST_VERBOSE(2)) {
+        std::cout << output_string.str() << "\n";
+    }
 
     // Look for a few key strings in the output.
     std::vector<std::string> expected_strings = {
-        "Distance       Count  Percent  Cumulative",
-        "       0           1       1%       1%",
-        "       1           1       1%       2%",
-        "      99           1       1%     100%",
+        "Distance       Count  Percent  Cumulative  :       Count  Percent  Cumulative",
+        "       0           1       1%       1%     :           1       1%       1%",
+        "       1           1       1%       2%     :           0       0%       1%",
+        "      99           1       1%     100%     :           1       1%      34%",
     };
     bool test_passes = find_strings_in_stream(expected_strings, output_string);
     assert(test_passes);
@@ -358,11 +378,11 @@ print_histogram_mult_1p2_test()
     // Create the reuse_distance test object.
     reuse_distance_knobs_t knobs;
     knobs.histogram_bin_multiplier = 1.2;
-    knobs.verbose = 1;
     reuse_distance_test_t reuse_distance(knobs);
 
     // Fill in a sorted histogram vector.
     std::vector<std::pair<int_least64_t, int_least64_t>> sorted;
+    reuse_distance_t::distance_histogram_t distance_map_data;
 
     constexpr int N = 100;
 
@@ -370,32 +390,129 @@ print_histogram_mult_1p2_test()
     for (int i = 0; i < N; ++i) {
         sorted.emplace_back(i, 2);
         count += sorted.back().second;
+        // Put 1/4 of these in the data map as well.
+        if (i % 4 == 0) {
+            distance_map_data[i] += sorted.back().second;
+        }
     }
 
     std::stringstream output_string;
-    reuse_distance.print_histogram(output_string, count, sorted);
+    reuse_distance.print_histogram(output_string, count, sorted, distance_map_data);
+    if (TEST_VERBOSE(2)) {
+        std::cout << output_string.str() << "\n";
+    }
 
     // Look for a few key strings in the output.
     std::vector<std::string> expected_strings = {
         "Reuse distance histogram bin multiplier: 1.2",
-        "Distance [min-max]        Count  Percent  Cumulative",
-        "       0 -        0           2       1%       1%",
-        "       1 -        1           2       1%       2%",
-        "      80 -       97          36      18%      98%",
-        "      98 -       99           4       2%     100%",
+        "Distance [min-max]        Count  Percent  Cumulative  :"
+        "       Count  Percent  Cumulative",
+        "       0 -        0           2       1%       1%     :"
+        "           2       1%       1%",
+        "       1 -        1           2       1%       2%     :"
+        "           0       0%       1%",
+        "      80 -       97          36      18%      98%     :"
+        "          10       5%      25%",
+        "      98 -       99           4       2%     100%     :"
+        "           0       0%      25%",
     };
     bool test_passes = find_strings_in_stream(expected_strings, output_string);
     assert(test_passes);
 }
 
-} // namespace
+// Test the split of "everything" and "data" reuse-distance histogram.
+void
+data_histogram_test()
+{
+    std::cerr << "data_histogram_test()\n";
+
+    constexpr uint32_t LINE_SIZE = 32;
+
+    constexpr uint32_t TEST_ADDRESS = 0x1000; // Arbitrary.
+    constexpr uint32_t TEST_DISTANCE_START = 50;
+    constexpr uint32_t TEST_DISTANCE_END = 2000;
+    constexpr uint32_t TEST_DISTANCE_INCREMENT = 75;
+
+    // Create a reuse_distance test object.
+    reuse_distance_knobs_t knobs;
+    knobs.line_size = LINE_SIZE;
+    knobs.report_histogram = true;
+    knobs.verbose = 0;
+    reuse_distance_test_t reuse_distance(knobs);
+
+    // Create address generator with a predictable access pattern.
+    address_generator_t agen(TEST_ADDRESS, LINE_SIZE);
+
+    int instruction_hits = 0;
+    int data_hits = 0;
+    // Simple function to decide if a given access should be TRACE_TYPE_INSTR.
+    auto use_instr_type = [&](int distance) {
+        return (distance / TEST_DISTANCE_INCREMENT % 3) == 0;
+    };
+    for (int tgt_dist = TEST_DISTANCE_START; tgt_dist < TEST_DISTANCE_END;
+         tgt_dist += TEST_DISTANCE_INCREMENT) {
+        if (TEST_VERBOSE(1)) {
+            std::cerr << "Testing reuse dist=" << tgt_dist << "\n";
+        }
+        auto memref_type = use_instr_type(tgt_dist) ? TRACE_TYPE_INSTR : TRACE_TYPE_READ;
+        bool success =
+            generate_target_distance_memrefs(tgt_dist, reuse_distance, agen, memref_type);
+        if (use_instr_type(tgt_dist)) {
+            ++instruction_hits;
+        } else {
+            ++data_hits;
+        }
+        assert(success);
+    }
+    if (TEST_VERBOSE(1)) {
+        reuse_distance.print_results();
+    }
+
+    assert(reuse_distance.get_shard_map().size() == 1);
+
+    auto *shard = reuse_distance.get_aggregated_results();
+
+    assert(data_hits > 0);
+    assert(shard->data_refs > data_hits);
+    assert(shard->dist_map_data.size() == data_hits);
+    assert(shard->dist_map.size() == instruction_hits + data_hits);
+    for (int tgt_dist = TEST_DISTANCE_START; tgt_dist < TEST_DISTANCE_END;
+         tgt_dist += TEST_DISTANCE_INCREMENT) {
+        const auto it = shard->dist_map.find(tgt_dist);
+        // Should be exactly one access at each target distance.
+        assert(it != shard->dist_map.end());
+        assert(it->second == 1);
+
+        // If it's not an instruction, dist_map_data should have also
+        // recorded exactly 1 hit.
+        if (use_instr_type(tgt_dist)) {
+            assert(shard->dist_map_data.find(tgt_dist) == shard->dist_map_data.end());
+        } else {
+            assert(shard->dist_map_data.find(tgt_dist) != shard->dist_map_data.end());
+            assert(shard->dist_map_data.at(tgt_dist) == 1);
+        }
+    }
+
+    // When debugging, print the raw histogram data (unsorted).
+    if (TEST_VERBOSE(2)) {
+        for (const auto &dist_count : shard->dist_map_data) {
+            std::cerr << "Dist: " << std::setw(12) << dist_count.first
+                      << "  Count: " << std::setw(8) << dist_count.second << "\n";
+        }
+    }
+}
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     print_histogram_empty_test();
     print_histogram_mult_1p0_test();
     print_histogram_mult_1p2_test();
     simple_reuse_distance_test();
     reuse_distance_limit_test();
+    data_histogram_test();
+    return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

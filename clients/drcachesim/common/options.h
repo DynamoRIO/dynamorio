@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,6 +49,7 @@
 #define REUSE_TIME "reuse_time"
 #define BASIC_COUNTS "basic_counts"
 #define OPCODE_MIX "opcode_mix"
+#define SYSCALL_MIX "syscall_mix"
 #define VIEW "view"
 #define FUNC_VIEW "func_view"
 #define INVARIANT_CHECKER "invariant_checker"
@@ -59,6 +60,9 @@
 
 #include <string>
 #include "droption.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 extern droption_t<bool> op_offline;
 extern droption_t<std::string> op_ipc_name;
@@ -123,6 +127,7 @@ extern droption_t<std::string> op_dr_ops;
 extern droption_t<std::string> op_tracer;
 extern droption_t<std::string> op_tracer_alt;
 extern droption_t<std::string> op_tracer_ops;
+extern droption_t<bytesize_t> op_interval_microseconds;
 extern droption_t<int> op_only_thread;
 extern droption_t<bytesize_t> op_skip_instrs;
 extern droption_t<bytesize_t> op_skip_refs;
@@ -150,4 +155,7 @@ extern droption_t<bool> op_enable_drstatecmp;
 #ifdef BUILD_PT_TRACER
 extern droption_t<bool> op_enable_kernel_tracing;
 #endif
+} // namespace drmemtrace
+} // namespace dynamorio
+
 #endif /* _OPTIONS_H_ */

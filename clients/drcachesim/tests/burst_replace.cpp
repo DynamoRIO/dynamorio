@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,6 +48,9 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #define MAGIC_VALUE ((void *)(ptr_uint_t)0xdeadbeefUL)
 
@@ -232,7 +235,7 @@ post_process()
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     static int outer_iters = 2048;
     /* We trace a 4-iter burst of execution. */
@@ -277,3 +280,6 @@ main(int argc, const char *argv[])
     std::cerr << "all done\n";
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

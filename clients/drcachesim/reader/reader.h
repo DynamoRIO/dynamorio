@@ -47,6 +47,9 @@
 #include "memtrace_stream.h"
 #include "utils.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define OUT /* just a marker */
 
 #ifdef DEBUG
@@ -62,10 +65,10 @@
 #endif
 
 /**
- * Iterator over #memref_t trace entries. This class converts a trace
- * (offline or online) into a stream of #memref_t entries. It also
- * provides more information about the trace using the
- * #memtrace_stream_t API.
+ * Iterator over #dynamorio::drmemtrace::memref_t trace entries. This class converts a
+ * trace (offline or online) into a stream of #dynamorio::drmemtrace::memref_t entries. It
+ * also provides more information about the trace using the
+ * #dynamorio::drmemtrace::memtrace_stream_t API.
  */
 class reader_t : public std::iterator<std::input_iterator_tag, memref_t>,
                  public memtrace_stream_t {
@@ -148,6 +151,11 @@ public:
         return last_timestamp_;
     }
     uint64_t
+    get_first_timestamp() const override
+    {
+        return first_timestamp_;
+    }
+    uint64_t
     get_version() const override
     {
         return version_;
@@ -223,6 +231,7 @@ protected:
     uint64_t cur_instr_count_ = 0;
     std::unordered_set<memref_tid_t> skip_chunk_header_;
     uint64_t last_timestamp_ = 0;
+    uint64_t first_timestamp_ = 0;
     trace_entry_t *input_entry_ = nullptr;
     // Remember top-level headers for the memtrace_stream_t interface.
     uint64_t version_ = 0;
@@ -254,5 +263,8 @@ private:
     encoding_info_t last_encoding_;
     std::unordered_map<addr_t, encoding_info_t> encodings_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _READER_H_ */

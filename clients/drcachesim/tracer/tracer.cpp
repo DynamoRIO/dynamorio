@@ -64,6 +64,8 @@
 
 #ifdef ARM
 #    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
+#elif defined(LINUX)
+#    include <syscall.h>
 #endif
 
 #ifdef BUILD_PT_TRACER
@@ -85,14 +87,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
  */
 DR_DISALLOW_UNSAFE_STATIC
 
-using namespace dynamorio::drmemtrace;
-
 namespace dynamorio {
 namespace drmemtrace {
 
 char logsubdir[MAXIMUM_PATH];
 #ifdef BUILD_PT_TRACER
-static char kernel_pt_logsubdir[MAXIMUM_PATH];
+char kernel_pt_logsubdir[MAXIMUM_PATH];
 #endif
 char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 
@@ -1330,6 +1330,39 @@ event_pre_syscall(void *drcontext, int sysnum)
         return true;
     if (BUF_PTR(data->seg_base) == NULL)
         return true; /* This thread was filtered out. */
+
+    // If we just switched to BBDUP_MODE_TRACE in this thread in a block ending in a
+    // syscall, we can end up here without having traced the syscall instr, which we
+    // want to avoid.  We look for an empty new-window buffer (not just empty, because
+    // it could be empty just due to the syscall instr filling up the prior buffer).
+    // (The converse can happen, with a tracing window ending in a syscall but the mode
+    // having changed, causing us to exit up above and not emit a marker: we solve that
+    // by removing syscalls without markers in raw2trace.)
+    if (is_new_window_buffer_empty(data))
+        return true;
+
+    // Output system call numbers if we have a full instruction trace.
+    // Since the instruction fetch has already been output, this will be
+    // appended to the block-final syscall instr.
+    if (!op_L0I_filter.get_value()) {
+        BUF_PTR(data->seg_base) += instru->append_marker(
+            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
+#ifdef LINUX
+        if (sysnum == SYS_futex) {
+            static constexpr int FUTEX_ARG_COUNT = 6;
+            BUF_PTR(data->seg_base) += instru->append_marker(
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
+                static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                    IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
+            for (int i = 0; i < FUTEX_ARG_COUNT; ++i) {
+                BUF_PTR(data->seg_base) += instru->append_marker(
+                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ARG,
+                    dr_syscall_get_param(drcontext, i));
+            }
+        }
+#endif
+    }
+
 #ifdef ARM
     // On Linux ARM, cacheflush syscall takes 3 params: start, end, and 0.
     if (sysnum == SYS_cacheflush) {
@@ -1343,12 +1376,9 @@ event_pre_syscall(void *drcontext, int sysnum)
 #endif
     if (file_ops_func.handoff_buf == NULL)
         process_and_output_buffer(drcontext, false);
+
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
-            return true;
-        }
-
         if (data->syscall_pt_trace.get_cur_recording_sysnum() != INVALID_SYSNUM) {
             ASSERT(false, "last tracing isn't stopped");
             if (!data->syscall_pt_trace.stop_syscall_pt_trace()) {
@@ -1356,6 +1386,17 @@ event_pre_syscall(void *drcontext, int sysnum)
                 return false;
             }
         }
+
+        if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum)) {
+            return true;
+        }
+
+        /* Write a marker to userspace raw trace. */
+        trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
+        uintptr_t marker_val = data->syscall_pt_trace.get_traced_syscall_idx();
+        BUF_PTR(data->seg_base) +=
+            instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
+
         if (!data->syscall_pt_trace.start_syscall_pt_trace(sysnum)) {
             ASSERT(false, "failed to start syscall pt trace");
             return false;
@@ -1368,15 +1409,41 @@ event_pre_syscall(void *drcontext, int sysnum)
 static void
 event_post_syscall(void *drcontext, int sysnum)
 {
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
+        return;
+    if (BUF_PTR(data->seg_base) == NULL)
+        return; /* This thread was filtered out. */
+
+#ifdef LINUX
+    if (!op_L0I_filter.get_value()) { /* No syscall data unless full instr trace. */
+        if (sysnum == SYS_futex) {
+            dr_syscall_result_info_t info = {
+                sizeof(info),
+            };
+            dr_syscall_get_result_ex(drcontext, &info);
+            BUF_PTR(data->seg_base) += instru->append_marker(
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
+                static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
+                    IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
+            /* XXX i#5843: Return values are complex and can include more than just
+             * the primary register value.  Since we care mostly just about failure,
+             * we use the "succeeded" field.  However, this is not accurate for all
+             * syscalls.  Plus, would the scheduler want to know about various
+             * successful return values which indicate how many waiters were woken
+             * up and other data?
+             */
+            BUF_PTR(data->seg_base) += instru->append_marker(
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_RETVAL, info.succeeded);
+        }
+    }
+#endif
+
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
         return;
-    if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
-        return;
     if (!syscall_pt_trace_t::is_syscall_pt_trace_enabled(sysnum))
         return;
-
-    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
     if (data->syscall_pt_trace.get_cur_recording_sysnum() == INVALID_SYSNUM) {
         ASSERT(false, "last syscall is not traced");
@@ -1389,14 +1456,6 @@ event_post_syscall(void *drcontext, int sysnum)
         ASSERT(false, "failed to stop syscall pt trace");
         return;
     }
-
-    /* Write a marker to userspace raw trace. */
-    if (BUF_PTR(data->seg_base) == NULL)
-        return; /* This thread was filtered out. */
-    trace_marker_type_t marker_type = TRACE_MARKER_TYPE_SYSCALL_IDX;
-    uintptr_t marker_val = data->syscall_pt_trace.get_last_recorded_syscall_idx();
-    BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
 #endif
 }
 
@@ -1739,11 +1798,12 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(logsubdir);
     if (!file_ops_func.create_dir(logsubdir))
         return false;
+
 #ifdef BUILD_PT_TRACER
+    dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir), "%s%s%s",
+                buf, DIRSEP, DRMEMTRACE_KERNEL_PT_SUBDIR);
+    NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir),
-                    "%s%s%s", buf, DIRSEP, KERNEL_PT_OUTFILE_SUBDIR);
-        NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
         if (!file_ops_func.create_dir(kernel_pt_logsubdir))
             return false;
     }
@@ -1810,13 +1870,6 @@ fork_init(void *drcontext)
     init_thread_in_process(drcontext);
 }
 #endif
-
-} // namespace drmemtrace
-} // namespace dynamorio
-
-/***************************************************************************
- * Outside of namespace.
- */
 
 drmemtrace_status_t
 drmemtrace_replace_file_ops(drmemtrace_open_file_func_t open_file_func,
@@ -2153,6 +2206,13 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #endif
 }
 
+} // namespace drmemtrace
+} // namespace dynamorio
+
+/***************************************************************************
+ * Outside of namespace.
+ */
+
 /* To support statically linked multiple clients, we add drmemtrace_client_main
  * as the real client init function and make dr_client_main a weak symbol.
  * We could also use alias to link dr_client_main to drmemtrace_client_main.
@@ -2163,5 +2223,5 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 DR_EXPORT WEAK void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drmemtrace_client_main(id, argc, argv);
+    dynamorio::drmemtrace::drmemtrace_client_main(id, argc, argv);
 }

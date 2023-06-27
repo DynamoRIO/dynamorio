@@ -30,6 +30,11 @@
  * DAMAGE.
  */
 
+/* XXX: We undef this b/c it's easier than getting rid of from CMake with the
+ * global cflags config where all the other tests want this set.
+ */
+#undef DR_REG_ENUM_COMPATIBILITY
+
 #ifdef RSEQ_TEST_ATTACH
 #    include "configure.h"
 #    include "dr_api.h"
@@ -38,7 +43,7 @@
 #ifdef RSEQ_TEST_ATTACH
 #    include "thread.h"
 #    include "condvar.h"
-#    include <stdatomic.h>
+#    include <atomic>
 #    include "drmemtrace/drmemtrace.h"
 #endif
 #ifndef LINUX
@@ -102,11 +107,11 @@ static __thread volatile struct rseq rseq_tls;
 /* Make it harder to find rseq_tls for DR's heuristic by adding more static TLS. */
 static __thread volatile struct rseq fill_up_tls[128];
 
-extern void
+extern "C" void
 test_rseq_native_abort_handler();
 
 #ifdef RSEQ_TEST_ATTACH
-static atomic_int exit_requested;
+static std::atomic<int> exit_requested;
 static void *thread_ready;
 #endif
 
@@ -146,7 +151,8 @@ register_rseq()
 #        endif
 #    endif
         /* Already registered by glibc. Verify that it's there. */
-        struct rseq *reg_rseq = __builtin_thread_pointer() + __rseq_offset;
+        struct rseq *reg_rseq = reinterpret_cast<struct rseq *>(
+            reinterpret_cast<byte *>(__builtin_thread_pointer()) + __rseq_offset);
         /* Glibc uses RSEQ_SIG as the signature. The following will return
          * EBUSY if reg_rseq is the registered struct rseq and EINVAL otherwise.
          * FTR: if we use some other value as signature (like zero),  this
@@ -171,7 +177,8 @@ get_my_rseq()
 {
 #ifdef GLIBC_RSEQ
     if (__rseq_size > 0)
-        return (struct rseq *)(__builtin_thread_pointer() + __rseq_offset);
+        return reinterpret_cast<struct rseq *>(
+            reinterpret_cast<byte *>(__builtin_thread_pointer()) + __rseq_offset);
 #endif
     return &rseq_tls;
 }
@@ -235,14 +242,14 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "movq (%%rbx), %%rax\n\t"
         "movq (%%rdi), %%rax\n\t"
         "movq (%%rsi), %%rax\n\t"
-        /* Test a restart in the middle of the sequence via ud2a SIGILL. */
+        /* Test a restart in the middle of the sequence via ud2 SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
-        /* For -test_mode invariant_checker: expect a signal after ud2a.
+        /* For -test_mode invariant_checker: expect a signal after ud2.
          * (An alternative is to add decoding to invariant_checker.)
          */
         "prefetcht2 1\n\t"
-        "ud2a\n\t"
+        "ud2\n\t"
         "7:\n\t"
         "addl $1, %[completions]\n\t"
 
@@ -398,11 +405,11 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "je 12f\n\t"
         "cmp $2, %%rax\n\t"
         "je 13f\n\t"
-        /* Test a restart via ud2a SIGILL. */
+        /* Test a restart via ud2 SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
         "prefetcht2 1\n\t" /* See above: annotation for invariant_checker. */
-        "ud2a\n\t"
+        "ud2\n\t"
         "7:\n\t"
         "addl $1, %[completions]\n\t"
 
@@ -463,7 +470,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "b.eq 12f\n\t"
         "cmp x0, #2\n\t"
         "b.eq 13f\n\t"
-        /* Test a restart via ud2a SIGILL. */
+        /* Test a restart via ud2 SIGILL. */
         "ldrb w0, %[force_restart]\n\t"
         "cbz x0, 7f\n\t"
         "mov x0, #1\n\t"
@@ -561,7 +568,7 @@ test_rseq_native_fault(void)
         "cmp $2, %%rax\n\t"
         "jne 11f\n\t"
         /* Raise a signal on the native run. */
-        "ud2a\n\t"
+        "ud2\n\t"
         "11:\n\t"
         "nop\n\t"
 
@@ -1399,7 +1406,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     /* Ensure DR_XFER_RSEQ_ABORT is raised. */
     dr_register_kernel_xfer_event(kernel_xfer_event);
-    drmemtrace_client_main(id, argc, argv);
+    dynamorio::drmemtrace::drmemtrace_client_main(id, argc, argv);
 }
 #endif /* RSEQ_TEST_ATTACH */
 
@@ -1446,7 +1453,7 @@ main()
 #endif
 #ifdef RSEQ_TEST_ATTACH
         /* Detach while the thread is in its rseq region loop. */
-        atomic_store(&exit_requested, 1);
+        exit_requested.store(1, std::memory_order_release);
         dr_app_stop_and_cleanup();
         join_thread(mythread);
         destroy_cond_var(thread_ready);

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, LLC  All rights reserved.
+ * Copyright (c) 2018-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,9 @@
 #include "config_reader.h"
 
 #include <iostream>
-using namespace std;
+
+namespace dynamorio {
+namespace drmemtrace {
 
 config_reader_t::config_reader_t()
 {
@@ -50,7 +52,7 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
     while (!fin_->eof()) {
         std::string param;
 
-        if (!(*fin_ >> ws >> param)) {
+        if (!(*fin_ >> std::ws >> param)) {
             ERRMSG("Unable to read from the configuration file\n");
             return false;
         }
@@ -145,6 +147,18 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
             } else {
                 knobs.model_coherence = false;
             }
+        } else if (param == "use_physical") {
+            // Whether to use physical addresses
+            std::string bool_val;
+            if (!(*fin_ >> bool_val)) {
+                ERRMSG("Error reading use_physical from the configuration file\n");
+                return false;
+            }
+            if (is_true(bool_val)) {
+                knobs.use_physical = true;
+            } else {
+                knobs.use_physical = false;
+            }
         } else {
             // A cache unit.
             cache_params_t cache;
@@ -155,7 +169,7 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
             caches[cache.name] = cache;
         }
 
-        if (!(*fin_ >> ws)) {
+        if (!(*fin_ >> std::ws)) {
             ERRMSG("Unable to read from the configuration file\n");
             return false;
         }
@@ -172,7 +186,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
     std::string error_msg;
 
     char c;
-    if (!(*fin_ >> ws >> c)) {
+    if (!(*fin_ >> std::ws >> c)) {
         ERRMSG("Unable to read from the configuration file\n");
         return false;
     }
@@ -183,7 +197,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
 
     while (!fin_->eof()) {
         std::string param;
-        if (!(*fin_ >> ws >> param)) {
+        if (!(*fin_ >> std::ws >> param)) {
             ERRMSG("Unable to read from the configuration file\n");
             return false;
         }
@@ -304,7 +318,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
             return false;
         }
 
-        if (!(*fin_ >> ws)) {
+        if (!(*fin_ >> std::ws)) {
             ERRMSG("Unable to read from the configuration file\n");
             return false;
         }
@@ -425,3 +439,6 @@ config_reader_t::convert_string_to_size(const std::string &s, uint64_t &size)
     }
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -31,7 +31,11 @@
  */
 
 #include "../globals.h"
+#include "arch.h"
 #include "decode.h"
+#include "decode_private.h"
+#include "disassemble.h"
+#include "codec.h"
 
 /* Order corresponds to DR_REG_ enum. */
 /* clang-format off */
@@ -70,17 +74,18 @@ const reg_id_t dr_reg_fixer[] = { REG_NULL,
 void
 encode_debug_checks(void)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* FIXME i#3544: NYI */
 }
 #endif
 
 bool
 encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    uint enc;
+
+    byte tmp[RISCV64_INSTR_SIZE];
+    enc = encode_common(&tmp[0], in, di);
+    return enc != ENCFAIL;
 }
 
 void
@@ -96,16 +101,51 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                   bool *has_instr_opnds /*OUT OPTIONAL*/
                       _IF_DEBUG(bool assert_reachable))
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    decode_info_t di;
+    uint enc;
+
+    if (has_instr_opnds != NULL) {
+        *has_instr_opnds = false;
+    }
+
+    if (instr_is_label(instr)) {
+        return copy_pc;
+    }
+
+    /* First, handle the already-encoded instructions. */
+    if (instr_raw_bits_valid(instr)) {
+        CLIENT_ASSERT(check_reachable,
+                      "internal encode error: cannot encode raw "
+                      "bits and ignore reachability");
+        /* Copy raw bits, possibly re-relativizing */
+        return copy_and_re_relativize_raw_instr(dcontext, instr, copy_pc, final_pc);
+    }
+    CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
+    di.check_reachable = check_reachable;
+    enc = encode_common(final_pc, instr, &di);
+    if (enc == ENCFAIL) {
+        IF_DEBUG({
+            if (assert_reachable) {
+                char disas_instr[MAX_INSTR_DIS_SZ];
+                instr_disassemble_to_buffer(dcontext, instr, disas_instr,
+                                            MAX_INSTR_DIS_SZ);
+                SYSLOG_INTERNAL_ERROR("Internal Error: Failed to encode instruction:"
+                                      " '%s'\n",
+                                      disas_instr);
+            }
+        });
+        return NULL;
+    }
+    *(uint *)copy_pc = enc;
+    return copy_pc + 4;
 }
 
 byte *
 copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr, byte *dst_pc,
                                  byte *final_pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    /* TODO i#3544: re-relativizing is NYI */
+    ASSERT(instr_raw_bits_valid(instr));
+    memcpy(dst_pc, instr->bytes, instr->length);
+    return dst_pc + instr->length;
 }

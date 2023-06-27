@@ -36,6 +36,9 @@
 #include "elf_loader.h"
 #include "intel-pt.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define ERRMSG_HEADER "[elf_loader] "
 
 bool
@@ -169,3 +172,6 @@ elf_loader_t::load_section(IN const char *name, IN uint64_t offset, IN uint64_t 
     }
     return errcode == 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

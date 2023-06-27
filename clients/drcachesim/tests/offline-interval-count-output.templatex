@@ -1,0 +1,60 @@
+Hello, world!
+Basic counts tool results:
+Total counts:
+     [ 0-9]* total \(fetched\) instructions
+     [ 0-9]* total unique \(fetched\) instructions
+     [ 0-9]* total non-fetched instructions
+     [ 0-9]* total prefetches
+     [ 0-9]* total data loads
+     [ 0-9]* total data stores
+     [ 0-9]* total icache flushes
+     [ 0-9]* total dcache flushes
+           1 total threads
+     [ 0-9]* total scheduling markers
+     [ 0-9]* total transfer markers
+     [ 0-9]* total function id markers
+     [ 0-9]* total function return address markers
+     [ 0-9]* total function argument markers
+     [ 0-9]* total function return value markers
+           0 total physical address \+ virtual address marker pairs
+           0 total physical address unavailable markers
+     [ 0-9]* total other markers
+     [ 0-9]* total encodings
+Thread [0-9]* counts:
+     [ 0-9]* \(fetched\) instructions
+     [ 0-9]* unique \(fetched\) instructions
+     [ 0-9]* non-fetched instructions
+     [ 0-9]* prefetches
+     [ 0-9]* data loads
+     [ 0-9]* data stores
+     [ 0-9]* icache flushes
+     [ 0-9]* dcache flushes
+     [ 0-9]* scheduling markers
+     [ 0-9]* transfer markers
+     [ 0-9]* function id markers
+     [ 0-9]* function return address markers
+     [ 0-9]* function argument markers
+     [ 0-9]* function return value markers
+           0 physical address \+ virtual address marker pairs
+           0 physical address unavailable markers
+     [ 0-9]* other markers
+     [ 0-9]* encodings
+Counts per trace interval for whole trace:
+Interval #1 ending at timestamp [0-9]*:
+     [ 0-9]* interval delta \(fetched\) instructions
+     [ 0-9]* interval delta non-fetched instructions
+     [ 0-9]* interval delta prefetches
+     [ 0-9]* interval delta data loads
+     [ 0-9]* interval delta data stores
+     [ 0-9]* interval delta icache flushes
+     [ 0-9]* interval delta dcache flushes
+     [ 0-9]* interval delta scheduling markers
+     [ 0-9]* interval delta transfer markers
+     [ 0-9]* interval delta function id markers
+     [ 0-9]* interval delta function return address markers
+     [ 0-9]* interval delta function argument markers
+     [ 0-9]* interval delta function return value markers
+           0 interval delta physical address \+ virtual address marker pairs
+           0 interval delta physical address unavailable markers
+     [ 0-9]* interval delta other markers
+     [ 0-9]* interval delta encodings.*

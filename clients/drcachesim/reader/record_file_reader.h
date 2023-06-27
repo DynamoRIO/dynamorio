@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -67,17 +67,20 @@ namespace dynamorio {
 namespace drmemtrace {
 
 /**
- * Trace reader that provides the stream of #trace_entry_t exactly as present
- * in an offline trace stored on disk. The public API is similar to #reader_t,
- * except that it is an iterator over #trace_entry_t entries instead of #memref_t.
- * This does not yet support iteration over a serialized stream of multiple traces.
+ * Trace reader that provides the stream of #dynamorio::drmemtrace::trace_entry_t exactly
+ * as present in an offline trace stored on disk. The public API is similar to
+ * #dynamorio::drmemtrace::reader_t, except that it is an iterator over
+ * #dynamorio::drmemtrace::trace_entry_t entries instead of
+ * #dynamorio::drmemtrace::memref_t. This does not yet support iteration over a serialized
+ * stream of multiple traces.
  *
- * TODO i#5727: Convert #reader_t and file_reader_t into templates:
+ * TODO i#5727: Convert #dynamorio::drmemtrace::reader_t and file_reader_t into templates:
  * `reader_tmpl_t<RecordType>` and file_reader_tmpl_t<T, RecordType> where T is one of
  * gzip_reader_t, zipfile_reader_t, snappy_reader_t, std::ifstream*, and RecordType is one
- * of #memref_t, #trace_entry_t. Then, typedef the #trace_entry_t specializations as
- * record_reader_t and record_file_reader_t<T> respectively. This will allow significant
- * code reuse, particularly for serializing multiple thread traces into a single stream.
+ * of #dynamorio::drmemtrace::memref_t, #dynamorio::drmemtrace::trace_entry_t. Then,
+ * typedef the #dynamorio::drmemtrace::trace_entry_t specializations as record_reader_t
+ * and record_file_reader_t<T> respectively. This will allow significant code reuse,
+ * particularly for serializing multiple thread traces into a single stream.
  *
  * Since the current file_reader_t is already a template on T, adding the second template
  * parameter RecordType is complex. Note that we cannot have partial specialization of
@@ -87,9 +90,9 @@ namespace drmemtrace {
  *
  * We have two options:
  * 1. For each member function specialized for some T, duplicate the definition for
- *    file_reader_tmpl_t<T, #memref_t> and file_reader_tmpl_t<T, trace_entry_t>. This has
- *    the obvious disadvantage of code duplication, which can be mitigated to some
- *    extent by extracting common logic in static routines.
+ *    file_reader_tmpl_t<T, #dynamorio::drmemtrace::memref_t> and file_reader_tmpl_t<T,
+ * trace_entry_t>. This has the obvious disadvantage of code duplication, which can be
+ * mitigated to some extent by extracting common logic in static routines.
  * 2. For each specialization of T, create a subclass templatized on RecordType that
  *    inherits from file_reader_tmpl_t<_, RecordType>. E.g. for T = gzip_reader_t, create
  *    `class gzip_file_reader_t<RecordType>: public file_reader_tmpl_t<gzip_reader_t,
@@ -101,11 +104,12 @@ namespace drmemtrace {
  * We prefer Option 2, since it has higher merit.
  *
  * Currently we do not have any use-case that needs this design, but when we need to
- * support serial iteration over #trace_entry_t, we would want to do this to reuse the
- * existing multiple trace serialization code in file_reader_t. file_reader_t hides
- * some #trace_entry_t entries today (like TRACE_TYPE_THREAD, TRACE_TYPE_PID, etc); we
- * would also need to avoid doing that since record_reader_t is expected to provide
- * the exact stream of #trace_entry_t as stored on disk.
+ * support serial iteration over #dynamorio::drmemtrace::trace_entry_t, we would want to
+ * do this to reuse the existing multiple trace serialization code in file_reader_t.
+ * file_reader_t hides some #dynamorio::drmemtrace::trace_entry_t entries today (like
+ * TRACE_TYPE_THREAD, TRACE_TYPE_PID, etc); we would also need to avoid doing that since
+ * record_reader_t is expected to provide the exact stream of
+ * #dynamorio::drmemtrace::trace_entry_t as stored on disk.
  */
 class record_reader_t : public std::iterator<std::input_iterator_tag, trace_entry_t>,
                         public memtrace_stream_t {
@@ -160,6 +164,8 @@ public:
                     break;
                 case TRACE_MARKER_TYPE_TIMESTAMP:
                     last_timestamp_ = cur_entry_.addr;
+                    if (first_timestamp_ == 0)
+                        first_timestamp_ = last_timestamp_;
                     break;
                 }
             }
@@ -181,6 +187,11 @@ public:
     get_last_timestamp() const override
     {
         return last_timestamp_;
+    }
+    uint64_t
+    get_first_timestamp() const override
+    {
+        return first_timestamp_;
     }
     uint64_t
     get_version() const override
@@ -248,6 +259,7 @@ private:
     uint64_t cur_ref_count_ = 0;
     uint64_t cur_instr_count_ = 0;
     uint64_t last_timestamp_ = 0;
+    uint64_t first_timestamp_ = 0;
 
     // Remember top-level headers for the memtrace_stream_t interface.
     uint64_t version_ = 0;

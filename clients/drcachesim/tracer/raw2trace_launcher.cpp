@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,11 @@
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 
+using dynamorio::drmemtrace::raw2trace_directory_t;
+using dynamorio::drmemtrace::raw2trace_t;
+
+namespace {
+
 // XXX: We're duplicating some options from common/options.cpp: we should be
 // able to share?!
 
@@ -87,6 +92,8 @@ static droption_t<int>
         exit(1);                                            \
     } while (0)
 
+} // namespace
+
 int
 _tmain(int argc, const TCHAR *targv[])
 {
@@ -108,11 +115,12 @@ _tmain(int argc, const TCHAR *targv[])
     std::string dir_err = dir.initialize(op_indir.get_value(), op_outdir.get_value());
     if (!dir_err.empty())
         FATAL_ERROR("Directory parsing failed: %s", dir_err.c_str());
-    raw2trace_t raw2trace(
-        dir.modfile_bytes_, dir.in_files_, dir.out_files_, dir.out_archives_,
-        dir.encoding_file_, dir.serial_schedule_file_, dir.cpu_schedule_file_, nullptr,
-        op_verbose.get_value(), op_jobs.get_value(), op_alt_module_dir.get_value(),
-        op_chunk_instr_count.get_value());
+    raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
+                          dir.out_archives_, dir.encoding_file_,
+                          dir.serial_schedule_file_, dir.cpu_schedule_file_, nullptr,
+                          op_verbose.get_value(), op_jobs.get_value(),
+                          op_alt_module_dir.get_value(), op_chunk_instr_count.get_value(),
+                          dir.in_kfiles_map_, dir.kcoredir_, dir.kallsymsdir_);
     std::string error = raw2trace.do_conversion();
     if (!error.empty())
         FATAL_ERROR("Conversion failed: %s", error.c_str());

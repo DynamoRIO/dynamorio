@@ -33,6 +33,9 @@
 #include "zipfile_file_reader.h"
 #include <inttypes.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 // We use minizip, which is in the contrib/minizip directory in the zlib
 // sources.  The docs are the header files:
 // https://github.com/madler/zlib/blob/master/contrib/minizip/unzip.h
@@ -194,3 +197,6 @@ file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count)
     // Subtract 1 to pass the target instr itself.
     return skip_instructions_with_timestamp(stop_count - 1);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -45,6 +45,7 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
+#include <mutex>
 #ifndef DR_FAST_IR
 #    define DR_FAST_IR 1
 #endif
@@ -62,6 +63,7 @@
 #    define INOUT // nothing
 #endif
 
+// libipt global types.
 struct pt_config;
 struct pt_image;
 struct pt_image_section_cache;
@@ -69,6 +71,23 @@ struct pt_sb_pevent_config;
 struct pt_sb_session;
 struct pt_insn_decoder;
 struct pt_packet_decoder;
+
+namespace dynamorio {
+namespace drmemtrace {
+
+/**
+ * The auto cleanup wrapper of struct pt_image_section_cache.
+ * \note This can ensure the instance of pt_image_section_cache is cleaned up when it is
+ * out of scope.
+ */
+struct pt_iscache_autoclean_t {
+public:
+    pt_iscache_autoclean_t();
+
+    ~pt_iscache_autoclean_t();
+
+    struct pt_image_section_cache *iscache = nullptr;
+};
 
 /**
  * The type of pt2ir_t::convert() return value.
@@ -101,7 +120,7 @@ enum pt2ir_convert_status_t {
     /** The conversion process ends with a failure to set the new image. */
     PT2IR_CONV_ERROR_SET_IMAGE,
 
-    /** The conversion process ends with a failure to decode the next intruction. */
+    /** The conversion process ends with a failure to decode the next instruction. */
     PT2IR_CONV_ERROR_DECODE_NEXT_INSTR,
 
     /**
@@ -326,14 +345,12 @@ public:
     /**
      * Initialize the PT instruction decoder and the sideband session.
      * @param pt2ir_config The configuration of PT raw trace.
-     * @param shared_iscache The shared image section cache. \note The pt2ir_t instance is
-     * designed to work with a single thread, while the image is shared among all threads.
-     * Therefore, a shared image section cache must be provided.
+     * @param verbosity  The verbosity level for notifications. If set to 0, only error
+     * logs are printed. If set to 1, all logs are printed. Default value is 0.
      * @return true if the instance is successfully initialized.
      */
     bool
-    init(IN pt2ir_config_t &pt2ir_config,
-         IN struct pt_image_section_cache *shared_iscache);
+    init(IN pt2ir_config_t &pt2ir_config, IN int verbosity = 0);
 
     /**
      * The convert function performs two processes: (1) decode the PT raw trace into
@@ -342,7 +359,7 @@ public:
      * @param pt_data The PT raw trace.
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.
-     * @return pt2ir_convert_status_t. If the convertion is successful, the function
+     * @return pt2ir_convert_status_t. If the conversion is successful, the function
      * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.
      */
@@ -376,6 +393,19 @@ private:
 
     /* The size of the PT data within the raw buffer. */
     uint64_t pt_raw_buffer_data_size_;
+
+    /* The shared image section cache.
+     * The pt2ir_t instance is designed to work with a single thread, while the image is
+     * shared among all threads. And the libipt library incorporates pthread mutex to wrap
+     * all its data race operations, ensuring thread safety.
+     */
+    static pt_iscache_autoclean_t share_iscache_;
+
+    /* Integer value representing the verbosity level for notifications. */
+    int verbosity_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _PT2IR_H_ */

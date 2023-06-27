@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,9 @@
 #include "caching_device_stats.h"
 #include "memref.h"
 #include "prefetcher.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // Statistics collection is abstracted out into the caching_device_stats_t class.
 
@@ -156,8 +159,6 @@ protected:
         if (use_tag2block_table_)
             tag2block.erase(block->tag_);
         block->tag_ = TAG_INVALID;
-        // Xref cache_block_t constructor about why we set counter to 0.
-        block->counter_ = 0;
     }
 
     inline void
@@ -226,5 +227,8 @@ protected:
         tag2block;
     bool use_tag2block_table_ = false;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHING_DEVICE_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,9 @@
 #include <math.h>
 #include <stdlib.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 bool
 my_setenv(const char *var, const char *value)
 {
@@ -90,7 +93,7 @@ exit_cb(void *)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    "-stderr_mask 0xc"
@@ -146,3 +149,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 }
 #    endif
 #endif /* UNIX && TEST_APP_DR_CLIENT_MAIN */
+
+} // namespace drmemtrace
+} // namespace dynamorio

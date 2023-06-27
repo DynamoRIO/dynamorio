@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,6 +48,9 @@
 #include "reuse_distance_create.h"
 #include "memref.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 // We see noticeable overhead in release build with an if() that directly
 // checks knob_verbose, so for non-debug uses we eliminate it entirely.
 // Example usage:
@@ -90,6 +93,9 @@ public:
     // different verbosities.
     static unsigned int knob_verbose;
 
+    using distance_histogram_t = std::unordered_map<int_least64_t, int_least64_t>;
+    using distance_map_pair_t = std::pair<int_least64_t, int_least64_t>;
+
 protected:
     // We assume that the shard unit is the unit over which we should measure
     // distance.  By default this is a traced thread.  For serial operation we look
@@ -101,10 +107,22 @@ protected:
                      unsigned int distance_limit, bool verify);
         std::unordered_map<addr_t, line_ref_t *> cache_map;
         std::unordered_set<addr_t> pruned_addresses;
-        // This is our reuse distance histogram.
-        std::unordered_map<int_least64_t, int_least64_t> dist_map;
+        // These are our reuse distance histograms: one for all accesses and one
+        // only for data references.  An instruction histogram can be computed by
+        // subtracting data references from the full histogram.  The final histogram
+        // statistics need a full histogram to sort, and in most traces the majority of
+        // accesss are instruction references, so the histograms are split this way to
+        // provide the full histogram we need with the smallest secondary histogram.
+        // Furthermore, during analysis each reference is added to only one histogram
+        // to minimize the performance impact of dual histogram collection, with the data
+        // references added into the primary histogram during final result aggregation.
+        // This means dist_map is effectively instruction-only until aggregation.
+        distance_histogram_t dist_map;
+        distance_histogram_t dist_map_data;
+        bool dist_map_is_instr_only = true;
         std::unique_ptr<line_ref_list_t> ref_list;
         int_least64_t total_refs = 0;
+        int_least64_t data_refs = 0; // Non-instruction reference count.
         // Ideally the shard index would be the tid when shard==thread but that's
         // not the case today so we store the tid.
         memref_tid_t tid;
@@ -119,7 +137,8 @@ protected:
 
     void
     print_histogram(std::ostream &out, int_least64_t total_count,
-                    const std::vector<std::pair<int_least64_t, int_least64_t>> &sorted);
+                    const std::vector<distance_map_pair_t> &sorted,
+                    const distance_histogram_t &dist_map_data);
 
     void
     print_shard_results(const shard_data_t *shard);
@@ -174,7 +193,7 @@ struct line_ref_t {
 // If a cache line is accessed, its time stamp is set as current, and it is
 // added/moved to the front of the list.  The cache line reference
 // reuse distance is the cache line position in the list before moving.
-// We also keep a pointer (gate) pointing to the the earliest cache
+// We also keep a pointer (gate) pointing to the earliest cache
 // line referenced within the threshold.  Thus, we can quickly check
 // whether a cache line is recently accessed by comparing the time
 // stamp of the referenced cache line and the gate cache line.
@@ -421,5 +440,8 @@ struct line_ref_list_t {
         return dist;
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _REUSE_DISTANCE_H_ */

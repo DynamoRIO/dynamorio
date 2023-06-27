@@ -77,6 +77,10 @@ speculator_tmpl_t<memref_t>::next_record(addr_t &pc, memref_t &memref)
     // Supply nops.
     // Since this is just one encoding, we hardcoded it.
     // If we add more we'll want to pull in DR's encoder and use its IR.
+    // XXX i#5843: Once we add more complex schemes, we'll need to either save
+    // the last record for a given PC or have the scheduler do it, to ensure
+    // resuming a nested speculation layer where the user asked to see the same
+    // instruction again provides the right data.
     memref.instr.type = TRACE_TYPE_INSTR;
     memref.instr.addr = pc;
 

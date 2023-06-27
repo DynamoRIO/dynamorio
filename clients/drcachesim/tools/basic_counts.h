@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,12 +40,17 @@
 
 #include "analysis_tool.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class basic_counts_t : public analysis_tool_t {
 public:
     basic_counts_t(unsigned int verbose);
     ~basic_counts_t() override;
     bool
     process_memref(const memref_t &memref) override;
+    interval_state_snapshot_t *
+    generate_interval_snapshot(uint64_t interval_id) override;
     bool
     print_results() override;
     bool
@@ -58,6 +63,17 @@ public:
     parallel_shard_memref(void *shard_data, const memref_t &memref) override;
     std::string
     parallel_shard_error(void *shard_data) override;
+    interval_state_snapshot_t *
+    generate_shard_interval_snapshot(void *shard_data, uint64_t interval_id) override;
+    interval_state_snapshot_t *
+    combine_interval_snapshots(
+        std::vector<const interval_state_snapshot_t *> latest_shard_snapshots,
+        uint64_t interval_end_timestamp) override;
+    bool
+    print_interval_results(
+        const std::vector<interval_state_snapshot_t *> &interval_snapshots) override;
+    bool
+    release_interval_snapshot(interval_state_snapshot_t *snapshot) override;
 
     // i#3068: We use the following struct to also export the counters.
     struct counters_t {
@@ -69,6 +85,8 @@ public:
         {
             instrs += rhs.instrs;
             instrs_nofetch += rhs.instrs_nofetch;
+            user_instrs += rhs.user_instrs;
+            kernel_instrs += rhs.kernel_instrs;
             prefetches += rhs.prefetches;
             loads += rhs.loads;
             stores += rhs.stores;
@@ -84,8 +102,37 @@ public:
             icache_flushes += rhs.icache_flushes;
             dcache_flushes += rhs.dcache_flushes;
             encodings += rhs.encodings;
+            if (track_unique_pc_addrs) {
+                for (const uint64_t addr : rhs.unique_pc_addrs) {
+                    unique_pc_addrs.insert(addr);
+                }
+            }
+            return *this;
+        }
+        counters_t &
+        operator-=(const counters_t &rhs)
+        {
+            instrs -= rhs.instrs;
+            instrs_nofetch -= rhs.instrs_nofetch;
+            user_instrs -= rhs.user_instrs;
+            kernel_instrs -= rhs.kernel_instrs;
+            prefetches -= rhs.prefetches;
+            loads -= rhs.loads;
+            stores -= rhs.stores;
+            sched_markers -= rhs.sched_markers;
+            xfer_markers -= rhs.xfer_markers;
+            func_id_markers -= rhs.func_id_markers;
+            func_retaddr_markers -= rhs.func_retaddr_markers;
+            func_arg_markers -= rhs.func_arg_markers;
+            func_retval_markers -= rhs.func_retval_markers;
+            phys_addr_markers -= rhs.phys_addr_markers;
+            phys_unavail_markers -= rhs.phys_unavail_markers;
+            other_markers -= rhs.other_markers;
+            icache_flushes -= rhs.icache_flushes;
+            dcache_flushes -= rhs.dcache_flushes;
+            encodings -= rhs.encodings;
             for (const uint64_t addr : rhs.unique_pc_addrs) {
-                unique_pc_addrs.insert(addr);
+                unique_pc_addrs.erase(addr);
             }
             return *this;
         }
@@ -96,6 +143,7 @@ public:
             // cannot compare till offsetof(basic_counts_t::counters_t, unique_pc_addrs)
             // as it gives a non-standard-layout type warning on osx.
             return instrs == rhs.instrs && instrs_nofetch == rhs.instrs_nofetch &&
+                user_instrs == rhs.user_instrs && kernel_instrs == rhs.kernel_instrs &&
                 prefetches == rhs.prefetches && loads == rhs.loads &&
                 stores == rhs.stores && sched_markers == rhs.sched_markers &&
                 xfer_markers == rhs.xfer_markers &&
@@ -112,6 +160,8 @@ public:
         }
         int_least64_t instrs = 0;
         int_least64_t instrs_nofetch = 0;
+        int_least64_t user_instrs = 0;
+        int_least64_t kernel_instrs = 0;
         int_least64_t prefetches = 0;
         int_least64_t loads = 0;
         int_least64_t stores = 0;
@@ -130,6 +180,23 @@ public:
         // we use encoding_is_new as a proxy.
         int_least64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
+
+        // Stops tracking unique_pc_addrs. Tracking unique_pc_addrs can be very
+        // memory intensive. We skip it for interval state snapshots.
+        void
+        stop_tracking_unique_pc_addrs()
+        {
+            track_unique_pc_addrs = false;
+            unique_pc_addrs.clear();
+        }
+        bool
+        is_tracking_unique_pc_addrs() const
+        {
+            return track_unique_pc_addrs;
+        }
+
+    private:
+        bool track_unique_pc_addrs = true;
     };
     counters_t
     get_total_counts();
@@ -146,14 +213,34 @@ protected:
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
+        /* Indicates whether we're currently in the kernel region of the trace, which
+         * means we've seen a TRACE_MARKER_TYPE_SYSCALL_TRACE_START without its matching
+         * TRACE_MARKER_TYPE_SYSCALL_TRACE_STOP.
+         */
+        bool is_kernel = false;
     };
-
+    // Records a snapshot of counts for a trace interval.
+    struct count_snapshot_t : public interval_state_snapshot_t {
+        // Cumulative counters till the current interval.
+        // We could alternatively keep track of just the delta values vs
+        // the last interval. But that would require us to keep track of
+        // the last interval's counters in per_shard_t. So we simply track
+        // the cumulative values here and compute the delta at the end in
+        // print_interval_results().
+        // Note that we do not track unique pc addresses for interval snapshots.
+        counters_t counters;
+        // TODO i#6020: Add per-window counters to the snapshot, and also
+        // return interval counts separately per-window in a structured
+        // way and print under a flag.
+    };
     static bool
     cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
                 const std::pair<memref_tid_t, per_shard_t *> &r);
     static void
     print_counters(const counters_t &counters, int_least64_t num_threads,
-                   const std::string &prefix);
+                   const std::string &prefix, bool for_kernel_trace = false);
+    void
+    compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, per_shard_t *> shard_map_;
@@ -163,5 +250,8 @@ protected:
     unsigned int knob_verbose_;
     static const std::string TOOL_NAME;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _BASIC_COUNTS_H_ */
