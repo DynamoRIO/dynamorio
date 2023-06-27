@@ -4026,6 +4026,12 @@ client_thread_run(void)
     dcontext_t *dcontext;
     byte *xsp;
     GET_STACK_PTR(xsp);
+#ifdef AARCH64
+    /* AArch64's Scalable Vector Extension (SVE) requires more space on the
+     * stack. Align to page boundary, similar to that in get_clone_record().
+     */
+    xsp = (app_pc)ALIGN_BACKWARD(xsp, PAGE_SIZE);
+#endif
     void *crec = get_clone_record((reg_t)xsp);
     /* i#2335: we support setup separate from start, and we want to allow a client
      * to create a client thread during init, but we do not support that thread
