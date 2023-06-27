@@ -933,7 +933,6 @@ protected:
         std::string error;
         int version;
         offline_file_type_t file_type;
-        bool saw_filter_endpoint_ = false;
         size_t cache_line_size = 0;
         std::deque<offline_entry_t> pre_read;
 
