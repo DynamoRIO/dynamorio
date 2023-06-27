@@ -712,8 +712,8 @@ public:
             last_block_ = page_table_.find(block.first);
             if (last_block_ == page_table_.end()) {
                 last_block_ = (page_table_.emplace(std::make_pair(
-                                  block.first, std::move(std::bitset<BLOCK_SIZE>()))))
-                                 .first;
+                                   block.first, std::move(std::bitset<BLOCK_SIZE>()))))
+                                  .first;
                 last_block_->second[block.second] = 1;
                 return true;
             }
@@ -730,7 +730,7 @@ public:
         auto block = convert(pc);
         if (last_block_->first != block.first)
             last_block_ = page_table_.find(block.first);
-        if(last_block_ != page_table_.end())
+        if (last_block_ != page_table_.end())
             last_block_->second[block.second] = 0;
     }
 
