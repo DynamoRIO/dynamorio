@@ -447,7 +447,8 @@ main(int argc, const char *argv[])
 
         uint8_t *pt_data = pt_raw_buffer.data();
         size_t pt_data_size = pt_raw_buffer.size();
-        pt2ir_convert_status_t status = ptconverter->convert(pt_data, pt_data_size, drir);
+        pt2ir_convert_status_t status =
+            ptconverter->convert(pt_data, pt_data_size, drir, true);
         if (status != PT2IR_CONV_SUCCESS) {
             std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
                       << "[error status: " << status << "]" << std::endl;
@@ -468,11 +469,10 @@ main(int argc, const char *argv[])
                                      PT_METADATA_PDB_DATA_OFFSET);
         config.init_with_metadata(metadata_buffer);
 
-        /* Set the buffer size to be at least the maximum stream data size.
-         */
+        /* Set the buffer size at least twice the maximum stream data size. */
 #define RING_BUFFER_SIZE_SHIFT 8
         config.pt_raw_buffer_size =
-            (1L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
+            (2L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
 
         /* Initialize the ptconverter. */
         if (!ptconverter->init(config)) {

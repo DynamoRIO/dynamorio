@@ -111,16 +111,9 @@ enum pt2ir_convert_status_t {
     PT2IR_CONV_ERROR_RAW_TRACE_TOO_LARGE,
 
     /**
-     * The conversion process failed to initiate because the Packet decoder failed to sync
-     * to a PSB packet.
+     * The conversion process ends with a failure to sync to the PSB packet.
      */
-    PT2IR_CONV_ERROR_PKT_DECODER_SYNC,
-
-    /**
-     * The conversion process failed to initiate because the Instruction decoder failed to
-     * sync to a PSB packet.
-     */
-    PT2IR_CONV_ERROR_INSTR_DECODER_SYNC,
+    PT2IR_CONV_ERROR_SYNC_PACKET,
 
     /**
      * The conversion process ends with a failure to handle a perf event.
@@ -138,32 +131,24 @@ enum pt2ir_convert_status_t {
     PT2IR_CONV_ERROR_SET_IMAGE,
 
     /**
-     * The conversion process ends with a failure to decode the next packet.
-     */
-    PT2IR_CONV_ERROR_DECODE_NEXT_PKT,
-
-    /**
      * The conversion process ends with a failure to decode the next intruction.
      */
     PT2IR_CONV_ERROR_DECODE_NEXT_INSTR,
 
     /**
-     * The conversion process ends with a failure to get the offset that the packet
-     * decoder.
+     * The conversion process ends with a failure to get the decoding offset.
      */
-    PT2IR_CONV_ERROR_GET_PKT_DECODER_OFFSET,
+    PT2IR_CONV_ERROR_GET_DECODER_OFFSET,
 
     /**
-     * The conversion process ends with a failure to get the offset that the instruction
-     * decoder.
+     * The conversion process ends with a failure when execute the pre-decode function.
      */
-    PT2IR_CONV_ERROR_GET_INSTR_DECODER_OFFSET,
+    PT2IR_CONV_ERROR_PRE_DECODE,
 
     /**
-     * The conversion process ends with a failure to convert the libipt's IR to
-     * Dynamorio's IR.
+     * The conversion process ends with a failure when execute the post-decode function.
      */
-    PT2IR_CONV_ERROR_DR_IR_CONVERT
+    PT2IR_CONV_ERROR_POST_DECODE
 };
 
 /**
@@ -391,20 +376,37 @@ public:
     init(IN pt2ir_config_t &pt2ir_config, IN int verbosity = 0);
 
     /**
-     * The convert function performs two processes: (1) decode the PT raw trace into
-     * libipt's IR format pt_insn; (2) convert pt_insn into the DynamoRIO's IR format
-     * instr_t and append it to ilist inside the drir object.
+     * The convert function performs two processes:
+     * (1) decode the PT raw trace into libipt's IR format pt_insn;
+     * (2) convert pt_insn into the DynamoRIO's IR format instr_t and append it to ilist
+     * inside the drir object.
      * @param pt_data The PT raw trace.
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.
+     * @param last_chunk If set to true, the function will fully decode the last packet of
+     * the chunk.
      * @return pt2ir_convert_status_t. If the convertion is successful, the function
      * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.
      */
     pt2ir_convert_status_t
-    convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir);
+    convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir,
+            IN bool last_chunk = false);
 
 private:
+    /* Pre-decoding involves determining the final data packet's offset for setting a stop
+     * position and identifying the last Packet Stream Boundary (PSB) packet's offset in
+     * the current buffer for future buffer left shift operations.
+     */
+    bool
+    pre_decode();
+
+    /* If a Packet Stream Boundary (PSB) packet is detected in the middle of the buffer,
+     * the buffer is shifted to the left and the decoder is reset.
+     */
+    bool
+    post_decode();
+
     /* Diagnose converting errors and output diagnostic results.
      * It will used to generate the error message during the decoding process.
      */
@@ -417,18 +419,14 @@ private:
     bool pt2ir_initialized_;
 
     /* Buffer for caching the PT raw trace. */
-    std::unique_ptr<pt2ir_data_buffer_t> pt2ir_buffer_;
+    std::unique_ptr<uint8_t[]> pt_raw_buffer_;
+    size_t pt_raw_buffer_size_;
 
-    /* The libipt packet decoder.
-     * The packet decoder is utilized for decoding streaming data. Each time this decoder
-     * attempts to process a new buffer of Intel PT (Processor Trace) data, its first step
-     * is to identify the last fully intact packet and the last Packet Stream
-     * Boundary(PSB) packet in the buffer. Then the instruction decoder designates the
-     * last packet as the stopping point of the current decoding process. Additionally, it
-     * employs the most recent PSB packet as the transition point between different
-     * decoding windows.
-     */
-    struct pt_packet_decoder *pt_pkt_decoder_;
+    /* The size of the PT data within the raw buffer. */
+    uint64_t pt_raw_buffer_data_size_;
+
+    /* The offset for next time buffer left shifts. */
+    uint64_t pt_raw_buffer_lshift_offset_;
 
     /* The libipt instruction decoder. */
     struct pt_insn_decoder *pt_instr_decoder_;
@@ -442,10 +440,13 @@ private:
     /* The state of the libipt instruction decoder since the last operation. */
     int pt_instr_status_;
 
-    /* Determine whether the decoder needs to perform automatic synchronization after the
-     * pt2ir_buffer appends the next chunked data.
+    /* Determine whether the decoder has synchronization to the first Packet Stream
+     * Boundary(PSB) packet.
      */
-    bool pt_decoder_auto_sync_;
+    bool pt_decoder_has_sync_;
+
+    /* The offset for where the decoder will stop. */
+    uint64_t pt_decoder_stop_offset_;
 
     /* The shared image section cache.
      * The pt2ir_t instance is designed to work with a single thread, while the image is

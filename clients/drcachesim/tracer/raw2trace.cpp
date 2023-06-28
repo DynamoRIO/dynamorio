@@ -843,11 +843,10 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         config.elf_file_path = kcore_path_;
         config.init_with_metadata(&metadata);
 
-        /* Set the buffer size to be at least the maximum stream data size.
-         */
+        /* Set the buffer size at least twice the maximum stream data size. */
 #    define RING_BUFFER_SIZE_SHIFT 8
         config.pt_raw_buffer_size =
-            (1L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
+            (2L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);
         if (!tdata->pt2ir.init(config, verbosity_)) {
             return "Unable to initialize PT2IR";
         }
