@@ -52,6 +52,9 @@
 #include "ir2trace.h"
 #include "trace_entry.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define CLIENT_NAME "drpt2trace"
 #define SUCCESS 0
 #define FAILURE 1
@@ -385,6 +388,9 @@ load_file(IN const std::string &path, OUT std::vector<uint8_t> &buffer)
         }                                                           \
     } while (0)
 
+} // namespace drmemtrace
+} // namespace dynamorio
+
 /****************************************************************************
  * Main Function
  */
@@ -392,6 +398,8 @@ load_file(IN const std::string &path, OUT std::vector<uint8_t> &buffer)
 int
 main(int argc, const char *argv[])
 {
+    using namespace dynamorio::drmemtrace;
+
     /* Parse the command line. */
     if (!option_init(argc, argv)) {
         return FAILURE;

@@ -171,7 +171,7 @@ class Field(str, Enum):
              '',
              'The second input floating-point register (inst[24:20]).'
              )
-    RS3 = (8,
+    RS3FP = (8,
            'rs3',
            False,
            'OPSZ_PTR',
@@ -472,7 +472,9 @@ class Field(str, Enum):
                     {
                         '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
                         'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
-                        'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8'
+                        'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8',
+                        'flw': 'OPSZ_4', 'fld': 'OPSZ_8', 'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
+                        'flq': 'OPSZ_16', 'fsq': 'OPSZ_16'
                     },
                     'im(rs1)',
                     'The register-relative memory source location (reg+imm).'
@@ -483,7 +485,9 @@ class Field(str, Enum):
                     {
                         '': 'OPSZ_0', 'lb': 'OPSZ_1', 'lh': 'OPSZ_2', 'lw': 'OPSZ_4',
                         'ld': 'OPSZ_8', 'lbu': 'OPSZ_1', 'lhu': 'OPSZ_2', 'lwu': 'OPSZ_4',
-                        'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8'
+                        'sb': 'OPSZ_1', 'sh': 'OPSZ_2', 'sw': 'OPSZ_4', 'sd': 'OPSZ_8',
+                        'flw': 'OPSZ_4', 'fld': 'OPSZ_8', 'fsw': 'OPSZ_4', 'fsd': 'OPSZ_8',
+                        'flq': 'OPSZ_16', 'fsq': 'OPSZ_16'
                     },
                     'im(rs1)',
                     'The register-relative memory target location (reg+imm).'
@@ -599,10 +603,12 @@ class IslGenerator:
     def __fixup_compressed_inst(self, inst: Instruction):
         opc = (inst.match & inst.mask) & 0x3
         funct3 = (inst.match & inst.mask) >> 13
-        if opc == 0 and funct3 not in [0, 0b100]:  # LOAD/STORE instructions
+        if (opc == 0b00 or opc == 0b10) and funct3 not in [0, 0b100]:  # LOAD/STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
             # Immediate argument will handle the base+disp.
-            inst.flds.pop(1)
+            if opc == 0b00:
+                inst.flds.pop(1)
+            inst.flds.reverse()
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif Field.CB_IMM in inst.flds:
             # Compare-and-branch instructions need their branch operand moved
@@ -621,8 +627,8 @@ class IslGenerator:
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif opc in [0b0100011, 0b0100111]:  # STORE instructions
             dbg(f'fixup: {inst.name} {[f.name for f in inst.flds]}')
-            inst.flds[0] = Field.V_S_RS1_DISP
-            inst.flds.pop(2)
+            inst.flds[2] = Field.V_S_RS1_DISP
+            inst.flds.pop(0)
             dbg(f'    -> {" " * len(inst.name)} {[f.name for f in inst.flds]}')
         elif inst.mask == 0x1f07fff and inst.match in [0x6013, 0x106013, 0x306013]:
             # prefetch.[irw] instructions

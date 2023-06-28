@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,9 @@
 
 #include "cache.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class cache_fifo_t : public cache_t {
 public:
     bool
@@ -55,5 +58,8 @@ protected:
     int
     get_next_way_to_replace(const int block_idx) const override;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHE_FIFO_H_ */

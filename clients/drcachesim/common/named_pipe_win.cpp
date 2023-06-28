@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,9 @@
 #include <string>
 #include <windows.h>
 #include "named_pipe.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #define MAX_NAME_LEN 256 // From CreateNamedPipe docs.
 #define ALLOC_UNIT (64 * 1025)
@@ -169,3 +172,6 @@ named_pipe_t::get_atomic_write_size() const
     // FIXME i#1727: what's the atomic pipe write limit?
     return 512; // POSIX.1-2001 limit
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

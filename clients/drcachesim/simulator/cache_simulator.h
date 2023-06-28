@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,9 @@
 #include "cache.h"
 #include "snoop_filter.h"
 #include <limits.h>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 enum class cache_split_t { DATA, INSTRUCTION };
 
@@ -115,5 +118,8 @@ protected:
 private:
     bool is_warmed_up_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHE_SIMULATOR_H_ */

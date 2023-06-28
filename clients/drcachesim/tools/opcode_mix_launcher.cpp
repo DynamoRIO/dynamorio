@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,13 @@
 #include "dr_frontend.h"
 #include "analyzer.h"
 #include "opcode_mix_create.h"
+#include "../tests/test_helpers.h"
+
+using dynamorio::drmemtrace::analysis_tool_t;
+using dynamorio::drmemtrace::analyzer_t;
+using dynamorio::drmemtrace::opcode_mix_tool_create;
+
+namespace {
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -72,6 +79,8 @@ static droption_t<std::string> op_alt_module_dir(
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
                                     "Verbosity level for notifications.");
+
+} // namespace
 
 int
 _tmain(int argc, const TCHAR *targv[])

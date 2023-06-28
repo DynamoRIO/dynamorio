@@ -38,6 +38,9 @@
 #include "../../../core/unix/include/syscall_linux_x86.h"
 #include "syscall_pt_trace.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #ifndef BUILD_PT_TRACER
 #    error "This module requires the drpttracer extension."
 #endif
@@ -281,3 +284,6 @@ syscall_pt_trace_t::is_syscall_pt_trace_enabled(IN int sysnum)
     }
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

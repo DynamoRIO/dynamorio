@@ -1,57 +1,57 @@
 Reuse distance tool aggregated results:
-Total accesses: 2042272
-Instruction accesses: 639301
-Data accesses: 1402971
-Unique accesses: 1722789
-Unique cache lines accessed: 1308
+Total accesses: 2041797
+Instruction accesses: 638938
+Data accesses: 1402859
+Unique accesses: 1722472
+Unique cache lines accessed: 1307
 Distance limit: 0
 Pruned addresses: 0
 Pruned address hits: 0
 
 Reuse distance mean: 5.41
 Reuse distance median: 1
-Reuse distance standard deviation: 13.67
+Reuse distance standard deviation: 13.60
 Reuse distance histogram bin multiplier: 1.00
 Reuse distance histogram:
                       All References       :            Data References
 Distance       Count  Percent  Cumulative  :       Count  Percent  Cumulative
-       0      319483   15.66%   15.66%     :        8983    0.44%    0.44%
-       1     1292777   63.36%   79.02%     :     1072830   52.58%   53.02%
-       2       36394    1.78%   80.80%     :       27493    1.35%   54.37%
-       3       27179    1.33%   82.13%     :       18304    0.90%   55.27%
+       0      319325   15.65%   15.65%     :        8982    0.44%    0.44%
+       1     1292583   63.37%   79.02%     :     1072790   52.59%   53.03%
+       2       36368    1.78%   80.80%     :       27469    1.35%   54.38%
+       3       27102    1.33%   82.13%     :       18254    0.89%   55.27%
 .*
 Reuse distance threshold = 100 cache lines
 Top 10 frequently referenced cache lines
         cache line:     #references   #distant refs
-    0x7f2472183600:       138878,            5
-    0x7f2472183640:       112829,            5
-    0x7f246e7fbe80:       104101,            0
-    0x7f246e7fbe40:        95425,            0
-    0x7f2472183580:        52086,            5
-    0x7f246e7fbe00:        34770,            0
-    0x7f24721835c0:        34724,            5
-    0x7f246e7fbec0:        26077,            0
-    0x7f246e7fcfc0:        26031,            0
-    0x7f246e9fe140:        17522,           13
+    0x7f3e46383600:       138876,            5
+    0x7f3e46383640:       112825,            5
+    0x7f3e429fbe80:       104102,            0
+    0x7f3e429fbe40:        95425,            0
+    0x7f3e46383580:        52086,            5
+    0x7f3e429fbe00:        34770,            0
+    0x7f3e463835c0:        34724,            5
+    0x7f3e429fbec0:        26077,            0
+    0x7f3e429fcfc0:        26031,            0
+    0x7f3e42bfe140:        17540,           14
 Top 10 distant repeatedly referenced cache lines
         cache line:     #references   #distant refs
-    0x7f2472853740:          178,           15
-    0x7ffd99361f40:          812,           14
-    0x7ffd99361ec0:          624,           14
-    0x7f246e9fe140:        17522,           13
-    0x7ffd99361e80:          834,           13
-    0x7ffd99361f00:          361,           13
-    0x7f24721f0dc0:           37,           13
-    0x7f2472853680:           26,           13
-    0x7f247302ea80:          104,           12
-    0x7f2472976940:           21,           12
+    0x7f3e46a75740:          178,           16
+    0x7f3e42bfe140:        17540,           14
+    0x7ffefb03e340:          650,           14
+    0x7ffefb03e2c0:          544,           13
+    0x7f3e463f0dc0:           37,           13
+    0x7f3e46a75680:           26,           13
+    0x7ffefb03e280:          743,           12
+    0x7f3e47250a80:          104,           12
+    0x7f3e470a5940:           21,           12
+    0x7ffefb03e300:          462,           11
 .*==================================================
-Reuse distance tool results for shard [0-9]+ \(thread 3018559\):
-Total accesses: 288104
-Instruction accesses: 87890
+Reuse distance tool results for shard [0-9]+ \(thread 1257603\):
+Total accesses: 288105
+Instruction accesses: 87891
 Data accesses: 200214
-Unique accesses: 244194
-Unique cache lines accessed: 122
+Unique accesses: 244195
+Unique cache lines accessed: 123
 Distance limit: 0
 Pruned addresses: 0
 Pruned address hits: 0
@@ -64,7 +64,7 @@ Reuse distance histogram:
                       All References       :            Data References
 Distance       Count  Percent  Cumulative  :       Count  Percent  Cumulative
        0       43910   15.25%   15.25%     :        1259    0.44%    0.44%
-       1      183968   63.88%   79.13%     :      153815   53.41%   53.85%
-       2        5024    1.74%   80.87%     :        3771    1.31%   55.16%
+       1      183964   63.88%   79.13%     :      153811   53.41%   53.85%
+       2        5025    1.74%   80.87%     :        3772    1.31%   55.16%
        3        3772    1.31%   82.18%     :        2520    0.88%   56.03%
 .*

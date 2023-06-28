@@ -63,6 +63,7 @@
 #    define INOUT // nothing
 #endif
 
+// libipt global types.
 struct pt_config;
 struct pt_image;
 struct pt_image_section_cache;
@@ -70,6 +71,9 @@ struct pt_sb_pevent_config;
 struct pt_sb_session;
 struct pt_insn_decoder;
 struct pt_packet_decoder;
+
+namespace dynamorio {
+namespace drmemtrace {
 
 /**
  * The auto cleanup wrapper of struct pt_image_section_cache.
@@ -458,5 +462,8 @@ private:
     /* Integer value representing the verbosity level for notifications. */
     int verbosity_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _PT2IR_H_ */

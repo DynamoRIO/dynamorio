@@ -94,6 +94,7 @@ jobs:
         DYNAMORIO_CROSS_RISCV64_LINUX_ONLY: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
+        QEMU_LD_PREFIX: /usr/riscv64-linux-gnu/
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'

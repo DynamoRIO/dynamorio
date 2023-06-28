@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,9 @@
 #include <string>
 
 #include "analysis_tool.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class reuse_time_t : public analysis_tool_t {
 public:
@@ -85,5 +88,8 @@ protected:
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _REUSE_TIME_H_ */

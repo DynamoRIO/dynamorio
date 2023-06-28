@@ -32,6 +32,9 @@
 
 #include "snappy_file_reader.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 snappy_reader_t::snappy_reader_t(std::ifstream *stream)
     : fstream_(stream)
     , uncompressed_buf_(max_block_size_ + checksum_size_)
@@ -230,7 +233,7 @@ file_reader_t<snappy_reader_t>::read_next_entry()
     if (from_queue != nullptr)
         return from_queue;
     int len = input_file_.read(sizeof(entry_copy_), &entry_copy_);
-    // Returns less than asked-for for end of file, or –1 for error.
+    // Returns less than asked-for if at end of file, or –1 for error.
     if (len < (int)sizeof(entry_copy_)) {
         at_eof_ = input_file_.eof();
         return nullptr;
@@ -240,3 +243,6 @@ file_reader_t<snappy_reader_t>::read_next_entry()
            entry_copy_.addr);
     return &entry_copy_;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -38,6 +38,9 @@
 #include "simulator/cache_fifo.h"
 #include "simulator/cache_lru.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 // Indices for test address vector.
 enum {
     ADDR_A,
@@ -393,3 +396,6 @@ unit_test_cache_replacement_policy()
     unit_test_cache_lfu_eight_way();
     // XXX i#4842: Add more test sequences.
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

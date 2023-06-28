@@ -31,7 +31,7 @@
  */
 
 /* ipc_reader: obtains memory streams from DR clients running in
- * application processes and presents them via an interator interface
+ * application processes and presents them via an iterator interface
  * to the cache simulator.
  */
 
@@ -42,6 +42,9 @@
 #include "../common/memref.h"
 #include "../common/named_pipe.h"
 #include "../common/trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class ipc_reader_t : public reader_t {
 public:
@@ -73,5 +76,8 @@ private:
     trace_entry_t *cur_buf_;
     trace_entry_t *end_buf_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _IPC_READER_H_ */

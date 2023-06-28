@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,9 @@
 
 #include "dr_api.h"
 #include "trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #define MAX_FUNC_TRACE_ENTRY_VEC_CAP 16
 
@@ -83,5 +86,8 @@ dr_emit_flags_t
 func_trace_disabled_instrument_event(void *drcontext, void *tag, instrlist_t *bb,
                                      instr_t *instr, instr_t *where, bool for_trace,
                                      bool translating, void *user_data);
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _FUNC_TRACE_ */

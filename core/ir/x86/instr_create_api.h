@@ -2671,6 +2671,11 @@
 /* AVX512 BF16 */
 #define INSTR_CREATE_vcvtneps2bf16_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vcvtneps2bf16, (d), (k), (s))
+/* AVX512 VPOPCNTDQ */
+#define INSTR_CREATE_vpopcntd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpopcntd, (d), (k), (s))
+#define INSTR_CREATE_vpopcntq_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vpopcntq, (d), (k), (s))
 
 /** @} */ /* end doxygen group */
 

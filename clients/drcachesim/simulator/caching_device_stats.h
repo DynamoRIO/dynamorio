@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,6 +45,9 @@
 #    include <zlib.h>
 #endif
 #include "memref.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 enum invalidation_type_t {
     INVALIDATION_INCLUSIVE,
@@ -244,5 +247,8 @@ protected:
     FILE *file_;
 #endif
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHING_DEVICE_STATS_H_ */

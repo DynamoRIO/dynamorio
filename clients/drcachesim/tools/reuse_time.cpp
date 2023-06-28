@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,9 @@
 
 #include "reuse_time.h"
 #include "../common/utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #ifdef DEBUG
 #    define DEBUG_VERBOSE(level) (knob_verbose_ >= (level))
@@ -238,3 +241,6 @@ reuse_time_t::print_results()
 
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

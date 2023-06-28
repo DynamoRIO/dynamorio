@@ -39,6 +39,9 @@
 #include "dr_api.h"
 #include "../common/utils.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class drir_t {
 public:
     drir_t(void *drcontext)
@@ -85,5 +88,8 @@ private:
     void *drcontext_;
     instrlist_t *ilist_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _DRIR_H_ */

@@ -49,6 +49,9 @@
 #include <stdio.h>
 #include <string.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /* XXX: share these with suite/tests/tools.c and the core? */
 #define MAPS_LINE_LENGTH 4096
 #define MAPS_LINE_FORMAT4 "%08lx-%08lx %s %*x %*s %*u %4096s"
@@ -199,3 +202,6 @@ test_main(int argc, const char *argv[])
     }
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

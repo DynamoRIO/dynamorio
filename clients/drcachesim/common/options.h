@@ -61,6 +61,9 @@
 #include <string>
 #include "droption.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 extern droption_t<bool> op_offline;
 extern droption_t<std::string> op_ipc_name;
 extern droption_t<std::string> op_outdir;
@@ -152,4 +155,7 @@ extern droption_t<bool> op_enable_drstatecmp;
 #ifdef BUILD_PT_TRACER
 extern droption_t<bool> op_enable_kernel_tracing;
 #endif
+} // namespace drmemtrace
+} // namespace dynamorio
+
 #endif /* _OPTIONS_H_ */

@@ -44,6 +44,9 @@
 #include "elf_loader.h"
 #include "pt2ir.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #undef VPRINT_HEADER
 #define VPRINT_HEADER()               \
     do {                              \
@@ -109,6 +112,8 @@ pt_iscache_autoclean_t::~pt_iscache_autoclean_t()
 }
 
 pt_iscache_autoclean_t pt2ir_t::share_iscache_;
+
+#define ERRMSG_HEADER "[drpt2ir] "
 
 pt2ir_t::pt2ir_t()
     : pt2ir_initialized_(false)
@@ -613,3 +618,6 @@ pt2ir_t::dx_decoding_error(IN int errcode, IN const char *errtype, IN uint64_t i
                ip, errtype, pt_errstr(pt_errcode(errcode)));
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

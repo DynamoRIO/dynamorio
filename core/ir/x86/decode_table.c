@@ -1619,6 +1619,10 @@ const instr_info_t * const op_instr[] =
     /*  OP_vcvtne2ps2bf16, */ &evex_Wb_extensions[271][0],
     /*  OP_vcvtneps2bf16,  */ &evex_Wb_extensions[272][0],
     /*  OP_vdpbf16ps,      */ &evex_Wb_extensions[273][0],
+
+    /* AVX512 VPOPCNTDQ */
+    /* OP_vpopcntd, */ &evex_Wb_extensions[274][0],
+    /* OP_vpopcntq, */ &evex_Wb_extensions[274][2],
 };
 
 
@@ -7244,7 +7248,7 @@ const byte third_byte_38_index[256] = {
     20, 21, 22, 23,  24, 25,148,149,  26, 27, 28, 29,  92, 93, 94, 95,  /* 2 */
     30, 31, 32, 33,  34, 35,112, 36,  37, 38, 39, 40,  41, 42, 43, 44,  /* 3 */
     45, 46,142,143, 156,113,114,115,   0,  0,  0,  0, 129,130,150,151,  /* 4 */
-   166,167,168,169,   0,  0,  0,  0, 118,119,108,138,   0,  0,  0,  0,  /* 5 */
+   166,167,168,169,   0,171,  0,  0, 118,119,108,138,   0,  0,  0,  0,  /* 5 */
      0,  0,  0,  0, 145,139,144,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 6 */
      0,  0,170,  0,   0,123,122,121, 116,117,135,136, 137,124,125,126,  /* 7 */
     49, 50,103,  0,   0,  0,  0,  0, 141,147,140,146, 109,120,110,  0,  /* 8 */
@@ -7448,6 +7452,8 @@ const instr_info_t third_byte_38[] = {
   {PREFIX_EXT, 0x385208, "(prefix ext 189)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 189},/*168*/
   {E_VEX_EXT, 0x66385308, "(e_vex ext 152)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 152},/*169*/
   {PREFIX_EXT, 0x387208, "(prefix ext 190)", xx, xx, xx, xx, xx, mrm|evex, x, 190},/*170*/
+  /* AVX512 VPOPCNTDQ */
+  {EVEX_Wb_EXT, 0x66385518, "(evex_Wb ext 274)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 274}/*171*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed
@@ -9358,6 +9364,11 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vdpbf16ps, 0xf3385218, "vdpbf16ps", Ve, xx, KEd, He, Md, mrm|evex|ttfv, x, END_LIST},
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },{ /* evex_W_ext 274 */
+    {OP_vpopcntd, 0x66385508, "vpopcntd", Ve, xx, KEd, We, xx, mrm|evex|ttfv|reqp, x, tevexwb[274][1]},
+    {OP_vpopcntd, 0x66385518, "vpopcntd", Ve, xx, KEd, Md, xx, mrm|evex|ttfv|reqp, x, END_LIST},
+    {OP_vpopcntq, 0x66385548, "vpopcntq", Ve, xx, KEq, We, xx, mrm|evex|ttfv|reqp, x, tevexwb[274][3]},
+    {OP_vpopcntq, 0x66385558, "vpopcntq", Ve, xx, KEq, Mq, xx, mrm|evex|ttfv|reqp, x, END_LIST},
   },
 };
 

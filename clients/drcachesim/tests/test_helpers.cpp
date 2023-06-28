@@ -40,7 +40,12 @@
 #    endif
 #    include <stdio.h>
 #    include <stdlib.h>
+#endif
 
+namespace dynamorio {
+namespace drmemtrace {
+
+#ifdef WINDOWS
 // We use the same controls as in suite/tests/tools.h to disable popups.
 
 static LONG WINAPI
@@ -83,11 +88,16 @@ disable_popups()
 // The test implements this.
 int
 test_main(int argc, const char *argv[]);
+#endif
 
+} // namespace drmemtrace
+} // namespace dynamorio
+
+#ifndef NO_HELPER_MAIN
 int
 main(int argc, const char *argv[])
 {
-    disable_popups();
-    return test_main(argc, argv);
+    dynamorio::drmemtrace::disable_popups();
+    return dynamorio::drmemtrace::test_main(argc, argv);
 }
 #endif

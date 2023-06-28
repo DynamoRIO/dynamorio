@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,9 @@
 #include "../common/utils.h"
 #include "droption.h"
 #include "simulator.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 simulator_t::simulator_t(unsigned int num_cores, uint64_t skip_refs, uint64_t warmup_refs,
                          double warmup_fraction, uint64_t sim_refs, bool cpu_scheduling,
@@ -270,3 +273,6 @@ simulator_t::print_core(int core) const
         std::cerr << ")" << std::endl;
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

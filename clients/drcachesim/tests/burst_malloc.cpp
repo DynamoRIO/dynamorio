@@ -47,6 +47,9 @@
 #include <math.h>
 #include <stdlib.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 bool
 my_setenv(const char *var, const char *value)
 {
@@ -58,7 +61,7 @@ my_setenv(const char *var, const char *value)
 }
 
 // Test recording large values that require two entries.
-ptr_uint_t
+extern "C" ptr_uint_t
 return_big_value(int arg)
 {
     return (((ptr_uint_t)1 << (8 * sizeof(ptr_uint_t) - 1)) - 1) | arg;
@@ -205,3 +208,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 }
 #    endif
 #endif /* UNIX && TEST_APP_DR_CLIENT_MAIN */
+
+} // namespace drmemtrace
+} // namespace dynamorio
