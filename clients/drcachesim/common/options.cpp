@@ -382,7 +382,9 @@ droption_t<std::string> op_trace_compress(
     "on overhead varies: "
     "for SSDs, zip and gzip often increase overhead and should only be chosen "
     "if space is limited; lz4 compression generally improves performance "
-    "and is recommended in most cases");
+    "and is recommended in most cases."
+    "Be careful non zip incurs a loss of functionality by not supporting "
+    "fast skipping by instruction count.");
 
 droption_t<bool> op_online_instr_types(
     DROPTION_SCOPE_CLIENT, "online_instr_types", false,
