@@ -694,7 +694,6 @@ private:
     typename std::unordered_map<T, std::bitset<BLOCK_SIZE>>::iterator last_block_ =
         page_table_.end();
 
-
     inline std::pair<T, ushort>
     convert(T pc)
     {
