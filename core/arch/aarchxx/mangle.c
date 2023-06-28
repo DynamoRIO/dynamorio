@@ -687,12 +687,15 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_INT32(current_offs)));
 
-    if (proc_has_feature(FEATURE_SVE)) /* Restore the SVE regs */
+    if (proc_has_feature(FEATURE_SVE)) {
+        /* Restore the SVE regs */
         insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
                                  DR_REG_Z0, SVE_ZREG_TYPE);
-    else /* Restore the SIMD registers. */
+    } else {
+        /* Restore the SIMD registers. */
         insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
                                  DR_REG_Q0, SIMD_REG_TYPE);
+    }
 
     /* mov x0, sp */
     PRE(ilist, instr,
