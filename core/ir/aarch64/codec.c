@@ -7889,6 +7889,71 @@ encode_opnd_x16imm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return false;
 }
 
+/* svemem_vec_sd_gpr16: SVE memory address with GPR offset [<Zn>.S/D{, <Xm>}] */
+
+static inline bool
+decode_opnd_svemem_vec_sd_gpr16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const aarch64_reg_offset msz = BITS(enc, 24, 23);
+    const uint scale = 1 << msz;
+
+    const aarch64_reg_offset element_size =
+        BITS(enc, 30, 30) > 0 ? DOUBLE_REG : SINGLE_REG;
+
+    const opnd_size_t mem_transfer =
+        opnd_size_from_bytes(scale * get_elements_in_sve_vector(element_size));
+
+    const reg_id_t zn = decode_vreg(Z_REG, extract_uint(enc, 5, 5));
+    ASSERT(reg_is_z(zn));
+
+    const reg_id_t xm = decode_reg(extract_uint(enc, 16, 5), true, false /* XZR */);
+    ASSERT(reg_is_gpr(xm));
+
+    *opnd = opnd_create_vector_base_disp_aarch64(
+        zn, xm, get_opnd_size_from_offset(element_size), DR_EXTEND_UXTX, false, 0, 0,
+        mem_transfer, 0);
+    return true;
+}
+
+static inline bool
+encode_opnd_svemem_vec_sd_gpr16(uint enc, int opcode, byte *pc, opnd_t opnd,
+                                OUT uint *enc_out)
+{
+    // Element size is a part of the constant bits
+    const aarch64_reg_offset element_size =
+        BITS(enc, 30, 30) > 0 ? DOUBLE_REG : SINGLE_REG;
+
+    if (!opnd_is_base_disp(opnd) || opnd_get_index(opnd) == DR_REG_NULL ||
+        get_vector_element_reg_offset(opnd) != element_size)
+        return false;
+
+    bool index_scaled;
+    uint index_scale_amount;
+    if (opnd_get_index_extend(opnd, &index_scaled, &index_scale_amount) !=
+            DR_EXTEND_UXTX ||
+        index_scaled || index_scale_amount != 0)
+        return false;
+
+    uint zreg_number;
+    opnd_size_t reg_size = OPSZ_SCALABLE;
+    IF_RETURN_FALSE(!encode_vreg(&reg_size, &zreg_number, opnd_get_base(opnd)))
+
+    const aarch64_reg_offset msz = BITS(enc, 24, 23);
+    const uint scale = 1 << msz;
+
+    const opnd_size_t mem_transfer =
+        opnd_size_from_bytes(scale * get_elements_in_sve_vector(element_size));
+    IF_RETURN_FALSE(opnd_get_size(opnd) != mem_transfer)
+
+    uint xreg_number;
+    bool is_x = false;
+    IF_RETURN_FALSE(!encode_reg(&xreg_number, &is_x, opnd_get_index(opnd), false) ||
+                    !is_x)
+
+    *enc_out |= (xreg_number << 16) | (zreg_number << 5);
+    return true;
+}
+
 /* index3: index of D subreg in Q register: 0-1 */
 
 static inline bool

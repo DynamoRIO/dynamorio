@@ -1,4 +1,5 @@
 /* ***************************************************************************
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2013 Branden Clark  All rights reserved.
  * ***************************************************************************/
 
@@ -54,6 +55,9 @@
 #include "drgui_tool_interface.h"
 #include "drgui_options_interface.h"
 #include "drgui_options_window.h"
+
+namespace dynamorio {
+namespace drgui {
 
 /* Public
  * Constructor
@@ -182,3 +186,6 @@ drgui_options_window_t::cancel(void)
     if (sender() == cancel_button)
         close();
 }
+
+} // namespace drgui
+} // namespace dynamorio

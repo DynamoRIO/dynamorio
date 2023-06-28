@@ -342,7 +342,7 @@
 --------xx-xxxxx----------------  imm2_tsz_index   # Index encoded in imm2:tsz
 -------??--xxxxx------xxxxx-----  svemem_vec_s_imm5 # SVE memory address [<Zn>.S{, #<imm>}]
 -------??--xxxxx------xxxxx-----  svemem_vec_d_imm5 # SVE memory address [<Zn>.D{, #<imm>}]
--------??--xxxxx------xxxxx-----  sveprf_gpr_shf   # SVE memory address [<Xn|SP>, <Xm>, LSL #x] for prefetch operations
+-------??--xxxxx------xxxxx-----  sveprf_gpr_shf   # SVE memory address [<Xn|SP>, <Xm>, LSL #x] for prefetch operation
 -------??-?xxxxx------xxxxx-----  svemem_gpr_vec64 # SVE memory address (64-bit offset) [<Xn|SP>, <Zm>.D{, <mod>}]
 -------????-xxxx------xxxxx-----  svemem_gpr_simm4_vl_1reg # SVE memory operand [<Xn|SP>{, #<imm>, MUL VL}]
                                                            # 1 src/dest register
@@ -361,6 +361,7 @@
 -------xx--xxxxx----------------  z_msz_bhsd_16   # z register with element size determined by msz
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12
+-?-----??--xxxxx------xxxxx-----  svemem_vec_sd_gpr16  # SVE memory address with GPR offset [<Zn>.S/D{, <Xm>}]
 -x------------------------------  index3     # index of D subreg in Q: 0-1
 -x-------------------------xxxxx  wx0_30     # X register if bit 30 is set, else W
 -x-------------------------xxxxx  dq0        # Q register if bit 30 is set, else D
