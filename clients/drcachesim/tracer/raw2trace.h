@@ -676,6 +676,15 @@ struct trace_header_t {
             return msg;    \
     } while (0)
 
+/**
+ * Bitset hash table for balancing search time in case of enormous count of pc.
+ * Each pc represented as pair of high 64-BLOCK_SIZE_BIT bits and
+ * lower BLOCK_SIZE_BIT bits.
+ * High bits is the key in hash table and give bitset table with BLOCK_SIZE size.
+ * Lower bits set bit in bitset that means this pc was processed. 
+ * BLOCK_SIZE_BIT=13 was picked up to exclude hash collision and save speed up.
+ */
+
 template <typename T> class bitset_hash_table_t {
 private:
     const static size_t BLOCK_SIZE_BIT = 13;
@@ -685,13 +694,13 @@ private:
     typename std::unordered_map<T, std::bitset<BLOCK_SIZE>>::iterator last_block_ =
         page_table_.end();
 
+
     inline std::pair<T, ushort>
     convert(T pc)
     {
         return std::pair<T, ushort>(
             reinterpret_cast<T>(reinterpret_cast<size_t>(pc) & (~(BLOCK_SIZE - 1))),
-            static_cast<ushort>(reinterpret_cast<size_t>(pc) & (BLOCK_SIZE - 1) &
-                                0xFFFF));
+            static_cast<ushort>(reinterpret_cast<size_t>(pc) & (BLOCK_SIZE - 1)));
     }
 
 public:
