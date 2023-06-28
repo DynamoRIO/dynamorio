@@ -681,7 +681,7 @@ struct trace_header_t {
  * Each pc represented as pair of high 64-BLOCK_SIZE_BIT bits and
  * lower BLOCK_SIZE_BIT bits.
  * High bits is the key in hash table and give bitset table with BLOCK_SIZE size.
- * Lower bits set bit in bitset that means this pc was processed. 
+ * Lower bits set bit in bitset that means this pc was processed.
  * BLOCK_SIZE_BIT=13 was picked up to exclude hash collision and save speed up.
  */
 
