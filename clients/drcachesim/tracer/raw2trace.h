@@ -94,15 +94,21 @@ namespace drmemtrace {
 #define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
-#ifdef HAS_ZLIB
-#    ifdef HAS_ZIP
-#        define TRACE_SUFFIX "trace.zip"
-#    else
-#        define TRACE_SUFFIX "trace.gz"
-#    endif
-#else
-#    define TRACE_SUFFIX "trace"
+
+#ifdef HAS_LZ4
+#    define TRACE_SUFFIX_LZ4 "trace.lz4"
 #endif
+
+#ifdef HAS_ZIP
+#    define TRACE_SUFFIX_ZIP "trace.zip"
+#endif
+
+#ifdef HAS_ZLIB
+#    define TRACE_SUFFIX_GZ "trace.gz"
+#endif
+
+#define TRACE_SUFFIX "trace"
+
 #define TRACE_CHUNK_PREFIX "chunk."
 
 typedef enum {
