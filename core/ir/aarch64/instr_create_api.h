@@ -17411,4 +17411,60 @@
  */
 #define INSTR_CREATE_xar_sve(dc, Zdn, Zm, imm) \
     instr_create_1dst_3src(dc, OP_xar, Zdn, Zdn, Zm, imm)
+
+/**
+ * Creates a LDNT1SB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      LDNT1SB { <Zt>.D }, <Pg>/Z, [<Zn>.D{, <Xm>}]
+      LDNT1SB { <Zt>.S }, <Pg>/Z, [<Zn>.S{, <Xm>}]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register. Can be Z.d or Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_vector_base_disp_aarch64(Zn, Rm,
+ *             OPSZ_8, DR_EXTEND_UXTX, 0, 0, 0, OPSZ_4, 0)
+ */
+#define INSTR_CREATE_ldnt1sb_sve_pred(dc, Zt, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_ldnt1sb, Zt, Zn, Pg)
+
+/**
+ * Creates a LDNT1SH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      LDNT1SH { <Zt>.D }, <Pg>/Z, [<Zn>.D{, <Xm>}]
+      LDNT1SH { <Zt>.S }, <Pg>/Z, [<Zn>.S{, <Xm>}]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register. Can be Z.d or Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_vector_base_disp_aarch64(Zn, Rm,
+ *             OPSZ_8, DR_EXTEND_UXTX, 0, 0, 0, OPSZ_8, 0)
+ */
+#define INSTR_CREATE_ldnt1sh_sve_pred(dc, Zt, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_ldnt1sh, Zt, Zn, Pg)
+
+/**
+ * Creates a LDNT1SW instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      LDNT1SW { <Zt>.D }, <Pg>/Z, [<Zn>.D{, <Xm>}]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_vector_base_disp_aarch64(Zn, Rm,
+ *             OPSZ_8, DR_EXTEND_UXTX, 0, 0, 0, OPSZ_16, 0)
+ */
+#define INSTR_CREATE_ldnt1sw_sve_pred(dc, Zt, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_ldnt1sw, Zt, Zn, Pg)
 #endif /* DR_IR_MACROS_AARCH64_H */

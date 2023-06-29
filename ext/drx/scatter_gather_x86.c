@@ -50,7 +50,7 @@
 
 #ifdef UNIX
 #    ifdef LINUX
-#        include "../../../core/unix/include/syscall.h"
+#        include "../../core/unix/include/syscall.h"
 #    else
 #        include <sys/syscall.h>
 #    endif

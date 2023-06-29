@@ -1,6 +1,6 @@
 #!/usr/bin/tclsh
 # **********************************************************
-# Copyright (c) 2017-2023 Google, Inc.    All rights reserved.
+# Copyright (c) 2023 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -30,19 +30,50 @@
 # DAMAGE.
 
 # Code style checks for use with vera++:
+# Check for required namespaces in C++ code.
 
-## 1.3.0 syntax is "rule=<name>" but Travis has 1.2.1 so we use the old syntax.
-set rules {
-    line_length_content
-    multi_line_body
-    break_after_return_type
-    no_space_after_control
-    space_after_call
-    required_namespaces
+foreach fname [getSourceFileNames] {
+    set is_header false
+    if {[regexp {\.h$} $fname] } {
+        set is_header true
+    } elseif {! [regexp {\.cpp$} $fname] } {
+        continue
+    }
+    set found_dr_namespace false
+    set found_anon_namespace false
+    set found_main false
+    set found_non_main false
+    set found_class false
+    foreach line [getAllLines $fname] {
+        if [regexp {^namespace dynamorio} $line] {
+            set found_dr_namespace true
+        }
+        if [regexp {^namespace \{} $line] {
+            set found_anon_namespace true
+        }
+        if {[regexp {^main\(} $line] || [regexp {^_tmain\(} $line]} {
+            set found_main true
+        } elseif {[regexp {^[a-zA-Z_].*\(} $line]} {
+            set found_non_main true
+        }
+        if [regexp {^class} $line] {
+            set found_class true
+        }
+    }
+    if { $is_header && !$found_class } {
+        continue
+    }
+    if {[regexp {droption.h$} $fname] } {
+        # TODO i#4343: Remove this exclusion after adding a namespace
+        # to droption.
+        continue
+    }
+    # Allow small executable front-ends to have only an anoymous
+    # namespace, or even no namespace if there are no functions
+    # besides main.
+    if {! ($found_dr_namespace ||
+           ($found_main &&
+            ($found_anon_namespace || !$found_non_main))) } {
+        report $fname 1 "C++ file is missing namespace declarations."
+    }
 }
-
-# There are just too many instances of CamelCase, mostly in
-# Windows-related names and in some cases direct Windows API calls.
-# We disable it.  If we ran this on just a diff and not a whole file
-# perhaps we could enable it.
-#rule=camel_case
