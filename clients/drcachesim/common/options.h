@@ -60,8 +60,12 @@
 
 #ifdef HAS_ZIP
 #    define DEFAULT_TRACE_COMPRESSION_TYPE "zip"
-#else
+#elif defined(HAS_LZ4)
+#    define DEFAULT_TRACE_COMPRESSION_TYPE "lz4"
+#elif defined(HAS_ZLIB)
 #    define DEFAULT_TRACE_COMPRESSION_TYPE "gzip"
+#else
+#    define DEFAULT_TRACE_COMPRESSION_TYPE "none"
 #endif
 
 #include <string>
