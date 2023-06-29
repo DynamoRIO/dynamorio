@@ -463,10 +463,10 @@ DR_API
 bool
 proc_has_feature(feature_bit_t feature);
 
-#if defined(AARCH64) && (defined(BUILD_TESTS) || defined(STANDALONE_DECODER))
+#if defined(AARCH64) && defined(BUILD_TESTS)
 DR_API
 /**
- * Allows the overriding the available state of CPU features.
+ * Allows overriding the available state of CPU features.
  * This is only for unit testing and offline decode, and must be called after
  * proc_init_arch() (e.g. after dr_standalone_init() or dr_app_setup()).
  */

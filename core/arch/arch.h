@@ -435,7 +435,7 @@ typedef struct _clean_call_info_t {
     bool skip_clear_flags;
     int num_simd_skip;
 #if defined(AARCH64)
-    bool simd_skip[MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS];
+    bool simd_skip[MCXT_NUM_SIMD_SVE_SLOTS];
 #else
     bool simd_skip[MCXT_NUM_SIMD_SLOTS];
 #endif
@@ -676,16 +676,16 @@ instr_t *
 convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 
 #ifdef AARCH64
-typedef enum { GPR_REG_TYPE, SIMD_REG_TYPE, SVE_ZREG_TYPE, SVE_PREG_TYPE } reg_type;
+typedef enum { GPR_REG_TYPE, SIMD_REG_TYPE, SVE_ZREG_TYPE, SVE_PREG_TYPE } reg_type_t;
 
 void
 insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                             bool *reg_skip, reg_id_t first_reg, reg_type rtype,
+                             bool *reg_skip, reg_id_t first_reg, reg_type_t rtype,
                              void *ci);
 
 void
 insert_restore_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                                bool *reg_skip, reg_id_t first_reg, reg_type rtype,
+                                bool *reg_skip, reg_id_t first_reg, reg_type_t rtype,
                                 void *ci);
 
 #endif
@@ -1510,7 +1510,7 @@ typedef struct _callee_info_t {
      * uninitialized if proc_num_simd_registers() < MCXT_NUM_SIMD_SLOTS.
      */
 #if defined(AARCH64)
-    bool simd_used[MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS];
+    bool simd_used[MCXT_NUM_SIMD_SVE_SLOTS];
 #else
     bool simd_used[MCXT_NUM_SIMD_SLOTS];
 #endif

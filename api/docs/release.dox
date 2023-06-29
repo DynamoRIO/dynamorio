@@ -266,7 +266,7 @@ Further non-compatibility-affecting changes include:
    calls in a trace. This tool works in both the online and offline modes of
    drmemtrace.
  - Added proc_get_vector_length_bytes() for AArch64. This returns the current
-   vector length on all Arm hardware including hardware which supports the
+   vector length on all ARMv8 hardware including hardware which supports the
    Scalable Vector Extension (SVE).
 
 **************************************************

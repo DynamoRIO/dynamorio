@@ -183,9 +183,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     memset(ci->reg_used, 0, sizeof(bool) * DR_NUM_GPR_REGS);
     ci->num_simd_used = 0;
     /* num_opmask_used is not applicable to ARM/AArch64. */
-    memset(ci->simd_used, 0,
-           sizeof(bool) *
-               (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS));
+    memset(ci->simd_used, 0, sizeof(bool) * MCXT_NUM_SIMD_SVE_SLOTS);
     ci->write_flags = false;
 
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
@@ -213,7 +211,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
             }
         }
 
-        /* SIMD/SVE register usage */
+        /* SIMD/SVE register usage. */
         for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
             if (!ci->simd_used[i] &&
                 instr_uses_reg(instr,

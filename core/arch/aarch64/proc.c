@@ -226,7 +226,7 @@ proc_init_arch(void)
 #define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
 #define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
 
-#if defined(BUILD_TESTS) || defined(STANDALONE_DECODER)
+#if defined(BUILD_TESTS)
 void
 proc_set_feature(feature_bit_t f, bool enable)
 {
@@ -264,13 +264,13 @@ proc_set_feature(feature_bit_t f, bool enable)
     default: CLIENT_ASSERT(false, "proc_has_feature: invalid feature register");
     }
 
-    /* Clear the current feature state */
+    /* Clear the current feature state. */
     *freg_val &= ~(0xFULL << (feat_nibble * 4));
     if (enable) {
-        /* Write the feature value into the feature nibble */
+        /* Write the feature value into the feature nibble. */
         *freg_val |= feat_val << (feat_nibble * 4);
     } else if (feat_nsflag == 0xF) {
-        /* If the not-set flag is 0xF, then that needs manually setting */
+        /* If the not-set flag is 0xF, then that needs manually setting. */
         *freg_val |= feat_nsflag << (feat_nibble * 4);
     }
 }

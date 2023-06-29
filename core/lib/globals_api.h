@@ -692,23 +692,26 @@ typedef union _dr_simd_t {
 } dr_simd_t;
 #    endif
 #    ifdef X64
-#        define MCXT_NUM_SIMD_SLOTS                                     \
-            32 /**< Number of 128-bit SIMD Vn/Zn slots in dr_mcontext_t \
+#        define MCXT_NUM_SIMD_SLOTS                                      \
+            32 /**< Number of 128-bit SIMD Vn/Zn slots in dr_mcontext_t. \
                 */
-#        define MCXT_NUM_SVEP_SLOTS 16 /**< Number of SIMD Pn slots in dr_mcontext_t */
+#        define MCXT_NUM_SVEP_SLOTS 16 /**< Number of SIMD Pn slots in dr_mcontext_t. */
 #        define MCXT_NUM_FFR_SLOTS \
-            1 /**< Number of first-fault register slots in dr_mcontext_t */
+            1 /**< Number of first-fault register slots in dr_mcontext_t. */
+              /**< Total number of SIMD register slots in dr_mcontext_t. */
+#        define MCXT_NUM_SIMD_SVE_SLOTS \
+            (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
 #    else
-#        define MCXT_NUM_SIMD_SLOTS                                  \
-            16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
+#        define MCXT_NUM_SIMD_SLOTS                                   \
+            16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t. \
                 */
-/* 32bit ARM does not have these slots, but the they are defined for compatibility
+/* 32bit ARM does not have these slots, but they are defined for compatibility.
  */
 #        define MCXT_NUM_SVEP_SLOTS 0
 #        define MCXT_NUM_FFR_SLOTS 0
 #    endif
-#    define PRE_SIMD_PADDING                                       \
-        0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots \
+#    define PRE_SIMD_PADDING                                        \
+        0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots. \
            */
 #    define MCXT_NUM_OPMASK_SLOTS                                    \
         0 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \

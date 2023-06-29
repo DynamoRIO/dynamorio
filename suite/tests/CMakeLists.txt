@@ -2443,14 +2443,14 @@ if (ANNOTATIONS AND NOT ARM)
   endif (UNIX OR NOT X64)
 endif (ANNOTATIONS AND NOT ARM)
 
-#if (NOT ANDROID) # TODO i#38: Port test to Android.
-#  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
-#  if (UNIX)
-#    # Test attaching during a blocking syscall.
-#    torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
-#      client-interface/attach_blocking.runall "" "" "")
-#  endif ()
-#endif ()
+if (NOT ANDROID) # TODO i#38: Port test to Android.
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  if (UNIX)
+    # Test attaching during a blocking syscall.
+    torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
+      client-interface/attach_blocking.runall "" "" "")
+  endif ()
+endif ()
 
 if (UNIX)
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
