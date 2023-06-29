@@ -40,10 +40,16 @@
 #include "dr_api.h"
 #include "archive_ostream.h"
 
-#ifdef HAS_ZIP
-#    define DEFAULT_TRACE_COMPRESSION_TYPE "zip"
-#else
-#    define DEFAULT_TRACE_COMPRESSION_TYPE "gzip"
+#if !defined DEFAULT_TRACE_COMPRESSION_TYPE
+#    ifdef HAS_ZIP
+#        define DEFAULT_TRACE_COMPRESSION_TYPE "zip"
+#    elif defined(HAS_LZ4)
+#        define DEFAULT_TRACE_COMPRESSION_TYPE "lz4"
+#    elif defined(HAS_ZLIB)
+#        define DEFAULT_TRACE_COMPRESSION_TYPE "gzip"
+#    else
+#        define DEFAULT_TRACE_COMPRESSION_TYPE "none"
+#    endif
 #endif
 
 namespace dynamorio {
