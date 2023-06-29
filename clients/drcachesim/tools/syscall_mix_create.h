@@ -42,11 +42,17 @@
  * @brief DrMemtrace syscall mixture trace analysis tool creation.
  */
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /**
  * Creates an analysis tool which counts the number of instances of each system call
  * in the trace.
  */
 analysis_tool_t *
 syscall_mix_tool_create(unsigned int verbose = 0);
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _SYSCALL_MIX_CREATE_H_ */

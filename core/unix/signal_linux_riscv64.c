@@ -87,6 +87,5 @@ signal_frame_extra_size(bool include_alignment)
 void
 signal_arch_init(void)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* Nothing. */
 }

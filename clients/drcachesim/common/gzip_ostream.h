@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,9 @@
 #endif
 #include <fstream>
 #include <zlib.h>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 /* We need to override the stream buffer class which is where the file
  * writes happen.  We go ahead and use a simple buffer.  The stream
@@ -112,5 +115,8 @@ public:
         delete rdbuf();
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _GZIP_OSTREAM_H_ */

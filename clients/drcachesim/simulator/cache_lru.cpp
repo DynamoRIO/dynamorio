@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,6 +31,9 @@
  */
 
 #include "cache_lru.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // For LRU implementation, we use the cache line counter to represent
 // how recently a cache line is accessed.
@@ -102,3 +105,6 @@ cache_lru_t::get_next_way_to_replace(int block_idx) const
     }
     return max_way;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

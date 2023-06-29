@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,9 @@
  * @brief DrMemtrace trace entry structures.
  */
 
+namespace dynamorio {  /**< General DynamoRIO namespace. */
+namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure namespace. */
+
 // On some platforms, like MacOS, a thread id is 64 bits.
 // We just make both 64 bits to cover all our bases.
 typedef int_least64_t memref_pid_t; /**< Process id type. */
@@ -67,7 +70,7 @@ struct _memref_instr_t {
     addr_t addr;       /**< The address of the instruction (i.e., program counter). */
     size_t size;       /**< The length of the instruction. */
     /**
-     * The instruction's raw encoding.  This field is only valid when the the file type
+     * The instruction's raw encoding.  This field is only valid when the file type
      * (see #TRACE_MARKER_TYPE_FILETYPE) has #OFFLINE_FILE_TYPE_ENCODINGS set.
      * DynamoRIO's decode_from_copy() (or any other decoding library) can be used to
      * decode into a higher-level instruction representation.
@@ -139,5 +142,8 @@ typedef union _memref_t {
     struct _memref_thread_exit_t exit; /**< A thread exit. */
     struct _memref_marker_t marker;    /**< A marker holding metadata. */
 } memref_t;
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _MEMREF_H_ */

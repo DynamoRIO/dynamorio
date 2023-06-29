@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,8 +48,10 @@
 #include "cache_fifo.h"
 #include "cache_simulator.h"
 #include "droption.h"
-
 #include "snoop_filter.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 analysis_tool_t *
 cache_simulator_create(const cache_simulator_knobs_t &knobs)
@@ -664,3 +666,6 @@ cache_simulator_t::create_cache(const std::string &policy)
            "Please choose " REPLACE_POLICY_LRU " or " REPLACE_POLICY_LFU ".\n");
     return NULL;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

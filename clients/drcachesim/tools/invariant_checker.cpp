@@ -38,6 +38,9 @@
 #include <cassert>
 #include <string.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 analysis_tool_t *
 invariant_checker_create(bool offline, unsigned int verbose)
 {
@@ -160,9 +163,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
              shard->memrefs_until_interrupt_ == 0)) {
             report_if_false(
                 shard,
-                (memref.marker.type == TRACE_TYPE_MARKER &&
-                 (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                  memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
+                // I-filtered traces don't have all instrs so this doesn't apply.
+                TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                        shard->file_type_) ||
+                    (memref.marker.type == TRACE_TYPE_MARKER &&
+                     (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                      memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
                     // TODO i#3937: Online instr bundles currently violate this.
                     !knob_offline_,
                 "Interruption marker mis-placed");
@@ -729,51 +735,87 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
             vec.insert(vec.end(), keyval.second.begin(), keyval.second.end());
         }
     }
-    std::sort(serial.begin(), serial.end(),
-              [](const schedule_entry_t &l, const schedule_entry_t &r) {
-                  return l.timestamp < r.timestamp;
-              });
+    auto schedule_entry_comparator = [](const schedule_entry_t &l,
+                                        const schedule_entry_t &r) {
+        if (l.timestamp != r.timestamp)
+            return l.timestamp < r.timestamp;
+        if (l.cpu != r.cpu)
+            return l.cpu < r.cpu;
+        // We really need to sort by either (timestamp, cpu_id) or
+        // (timestamp, thread_id): a single thread cannot be on two CPUs at
+        // the same timestamp; also a single CPU cannot have two threads at the
+        // same timestamp. We still sort by (timestamp, cpu_id, thread_id)
+        // to prevent inadvertent issues with test data.
+        return l.thread < r.thread;
+    };
+    std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
+    // For entries with the same timestamp, the order can differ.  We could
+    // identify each such sequence and collect it into a set but it is simpler to
+    // read the whole file and sort it the same way.
     if (serial_schedule_file_ != nullptr) {
         schedule_entry_t next(0, 0, 0, 0);
+        std::vector<schedule_entry_t> serial_file;
         while (
             serial_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
-            report_if_false(global,
-                            memcmp(&serial[static_cast<size_t>(global->ref_count_)],
-                                   &next, sizeof(next)) == 0,
-                            "Serial schedule entry does not match trace");
-            ++global->ref_count_;
+            serial_file.push_back(next);
         }
-        report_if_false(global, global->ref_count_ == serial.size(),
+        std::sort(serial_file.begin(), serial_file.end(), schedule_entry_comparator);
+        if (knob_verbose_ >= 1) {
+            std::cerr << "Serial schedule: read " << serial_file.size()
+                      << " records from the file and observed " << serial.size()
+                      << " transition in the trace\n";
+        }
+        report_if_false(global, serial_file.size() == serial.size(),
                         "Serial schedule entry count does not match trace");
+        for (int i = 0; i < static_cast<int>(serial.size()) &&
+             i < static_cast<int>(serial_file.size());
+             ++i) {
+            global->ref_count_ = serial_file[i].start_instruction;
+            global->tid_ = serial_file[i].thread;
+            if (knob_verbose_ >= 1) {
+                std::cerr << "Saw T" << serial[i].thread << " on " << serial[i].cpu
+                          << " @" << serial[i].timestamp << " "
+                          << serial[i].start_instruction << " vs file T"
+                          << serial_file[i].thread << " on " << serial_file[i].cpu << " @"
+                          << serial_file[i].timestamp << " "
+                          << serial_file[i].start_instruction << "\n";
+            }
+            report_if_false(global,
+                            memcmp(&serial[i], &serial_file[i], sizeof(serial[i])) == 0,
+                            "Serial schedule entry does not match trace");
+        }
     }
     if (cpu_schedule_file_ == nullptr)
         return;
-    std::unordered_map<uint64_t, uint64_t> cpu2idx;
     for (auto &keyval : cpu2sched) {
-        std::sort(keyval.second.begin(), keyval.second.end(),
-                  [](const schedule_entry_t &l, const schedule_entry_t &r) {
-                      return l.timestamp < r.timestamp;
-                  });
-        cpu2idx[keyval.first] = 0;
+        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
     }
     // The zipfile reader will form a continuous stream from all elements in the
     // archive.  We figure out which cpu each one is from on the fly.
+    std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_file;
     schedule_entry_t next(0, 0, 0, 0);
     while (cpu_schedule_file_->read(reinterpret_cast<char *>(&next), sizeof(next))) {
-        global->ref_count_ = next.start_instruction;
-        global->tid_ = next.thread;
-        report_if_false(
-            global,
-            memcmp(&cpu2sched[next.cpu][static_cast<size_t>(cpu2idx[next.cpu])], &next,
-                   sizeof(next)) == 0,
-            "Cpu schedule entry does not match trace");
-        ++cpu2idx[next.cpu];
+        cpu2sched_file[next.cpu].push_back(next);
     }
-    for (auto &keyval : cpu2sched) {
-        global->ref_count_ = 0;
-        global->tid_ = keyval.first;
-        report_if_false(global, cpu2idx[keyval.first] == keyval.second.size(),
+    for (auto &keyval : cpu2sched_file) {
+        std::sort(keyval.second.begin(), keyval.second.end(),
+                  [](const schedule_entry_t &l, const schedule_entry_t &r) {
+                      if (l.timestamp == r.timestamp)
+                          return l.thread < r.thread;
+                      return l.timestamp < r.timestamp;
+                  });
+        report_if_false(global, keyval.second.size() == cpu2sched[keyval.first].size(),
                         "Cpu schedule entry count does not match trace");
+        for (int i = 0; i < static_cast<int>(cpu2sched[keyval.first].size()) &&
+             i < static_cast<int>(keyval.second.size());
+             ++i) {
+            global->ref_count_ = keyval.second[i].start_instruction;
+            global->tid_ = keyval.second[i].thread;
+            report_if_false(global,
+                            memcmp(&cpu2sched[keyval.first][i], &keyval.second[i],
+                                   sizeof(keyval.second[i])) == 0,
+                            "Cpu schedule entry does not match trace");
+        }
     }
 }
 
@@ -883,3 +925,6 @@ invariant_checker_t::check_for_pc_discontinuity(
 
     return error_msg;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

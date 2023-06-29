@@ -343,12 +343,12 @@ opnd_create_pc(app_pc pc)
              .value.reg_and_element_size.reg)
 #    define opnd_get_reg OPND_GET_REG
 
-#    if defined(X86) || defined(RISCV64)
+#    if defined(X86)
 #        define OPND_GET_FLAGS(opnd)                                                     \
             (CLIENT_ASSERT_(                                                             \
                 opnd_is_reg(opnd) || opnd_is_base_disp(opnd) || opnd_is_immed_int(opnd), \
                 "opnd_get_flags called on non-reg non-base-disp non-immed-int opnd") 0)
-#    elif defined(AARCHXX)
+#    elif defined(AARCHXX) || defined(RISCV64)
 #        define OPND_GET_FLAGS(opnd)                                                   \
             (CLIENT_ASSERT_(                                                           \
                  opnd_is_reg(opnd) || opnd_is_base_disp(opnd) ||                       \

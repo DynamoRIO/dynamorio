@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,8 +58,8 @@
 
 namespace dynamorio {
 namespace drmemtrace {
-namespace {
 
+namespace {
 bool
 is_any_instr_type(trace_type_t type)
 {

@@ -44,6 +44,9 @@
 #include "trace_entry.h"
 #include "dr_allocator.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define MINSERT instrlist_meta_preinsert
 
 // Versioning for our drmodtrack custom module fields.
@@ -564,5 +567,8 @@ private:
     uint64_t encoding_id_ = 0;
     uint64_t encoding_bytes_written_ = 0;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _INSTRU_H_ */

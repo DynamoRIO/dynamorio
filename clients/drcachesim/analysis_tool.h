@@ -49,6 +49,9 @@
 #include <string>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /**
  * The base class for a tool that analyzes a trace.  A new tool should subclass this
  * class.
@@ -457,9 +460,13 @@ protected:
     std::string error_string_;
 };
 
-/** See #analysis_tool_tmpl_t. */
+/** See #dynamorio::drmemtrace::analysis_tool_tmpl_t. */
 typedef analysis_tool_tmpl_t<memref_t> analysis_tool_t;
 
-/** See #analysis_tool_tmpl_t. */
+/** See #dynamorio::drmemtrace::analysis_tool_tmpl_t. */
 typedef analysis_tool_tmpl_t<trace_entry_t> record_analysis_tool_t;
+
+} // namespace drmemtrace
+} // namespace dynamorio
+
 #endif /* _ANALYSIS_TOOL_H_ */

@@ -33,6 +33,9 @@
 #include "ir2trace.h"
 #include "dr_api.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #undef VPRINT_HEADER
 #define VPRINT_HEADER()                  \
     do {                                 \
@@ -48,6 +51,8 @@
             fflush(stderr);               \
         }                                 \
     } while (0)
+
+#define ERRMSG_HEADER "[drpt2ir] "
 
 ir2trace_convert_status_t
 ir2trace_t::convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
@@ -98,3 +103,6 @@ ir2trace_t::convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
     }
     return IR2TRACE_CONV_SUCCESS;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

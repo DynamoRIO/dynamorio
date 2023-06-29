@@ -1,6 +1,6 @@
 #!/usr/bin/tclsh
 # **********************************************************
-# Copyright (c) 2017-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2017-2023 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@ set rules {
     break_after_return_type
     no_space_after_control
     space_after_call
+    required_namespaces
 }
 
 # There are just too many instances of CamelCase, mostly in

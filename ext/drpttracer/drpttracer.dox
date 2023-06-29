@@ -93,7 +93,7 @@ to ensure one thread only owns one pttracer handle.
 
 The client must ensure that the PT trace's ring buffer and the sideband data's ring buffer
 is large enough to hold the PT data. Insufficient buffer size will lead to lost data,
-which may cause issues in #pt2ir_t decoding.
+which may cause issues in #dynamorio::drmemtrace::pt2ir_t decoding.
 
 After creating a pttracer handle successfully, the client can start or stop a tracing
 session by calling drpttracer_start_tracing() and drpttracer_stop_tracing().
@@ -123,8 +123,8 @@ the output instances after using them:
  - drpttracer_destroy_output()
 
 Also, the client can dump the data in the output to different files for offline
-post-processing. The user can use the library #pt2ir_t in drcachesim to convert the PT
-trace to DynamoRIO's IR.
+post-processing. The user can use the library #dynamorio::drmemtrace::pt2ir_t in
+drcachesim to convert the PT trace to DynamoRIO's IR.
 
 \section sec_drpttracer_tracing_mode Tracing Mode
 

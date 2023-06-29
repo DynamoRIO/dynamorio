@@ -49,6 +49,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define MAGIC_VALUE ((void *)(ptr_uint_t)0xdeadbeefUL)
 
 bool
@@ -277,3 +280,6 @@ test_main(int argc, const char *argv[])
     std::cerr << "all done\n";
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

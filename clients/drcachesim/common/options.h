@@ -58,8 +58,21 @@
 #define CACHE_TYPE_UNIFIED "unified"
 #define CACHE_PARENT_MEMORY "memory"
 
+#ifdef HAS_ZIP
+#    define DEFAULT_TRACE_COMPRESSION_TYPE "zip"
+#elif defined(HAS_LZ4)
+#    define DEFAULT_TRACE_COMPRESSION_TYPE "lz4"
+#elif defined(HAS_ZLIB)
+#    define DEFAULT_TRACE_COMPRESSION_TYPE "gzip"
+#else
+#    define DEFAULT_TRACE_COMPRESSION_TYPE "none"
+#endif
+
 #include <string>
 #include "droption.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 extern droption_t<bool> op_offline;
 extern droption_t<std::string> op_ipc_name;
@@ -100,6 +113,7 @@ extern droption_t<bytesize_t> op_retrace_every_instrs;
 extern droption_t<bool> op_split_windows;
 extern droption_t<bytesize_t> op_exit_after_tracing;
 extern droption_t<std::string> op_raw_compress;
+extern droption_t<std::string> op_trace_compress;
 extern droption_t<bool> op_online_instr_types;
 extern droption_t<std::string> op_replace_policy;
 extern droption_t<std::string> op_data_prefetcher;
@@ -152,4 +166,7 @@ extern droption_t<bool> op_enable_drstatecmp;
 #ifdef BUILD_PT_TRACER
 extern droption_t<bool> op_enable_kernel_tracing;
 #endif
+} // namespace drmemtrace
+} // namespace dynamorio
+
 #endif /* _OPTIONS_H_ */

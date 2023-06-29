@@ -101,9 +101,9 @@ instr_is_mov(instr_t *instr)
 bool
 instr_is_call_arch(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_jal || opc == OP_jalr || opc == OP_c_j || opc == OP_c_jal ||
+            opc == OP_c_jr || opc == OP_c_jalr);
 }
 
 bool
@@ -149,15 +149,19 @@ instr_is_cbr_arch(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
     return opc == OP_beq || opc == OP_bne || opc == OP_blt || opc == OP_bltu ||
-        opc == OP_bge || opc == OP_bgeu;
+        opc == OP_bge || opc == OP_bgeu || opc == OP_c_beqz || opc == OP_c_bnez;
 }
 
 bool
 instr_is_mbr_arch(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    int opc = instr->opcode; /* caller ensures opcode is valid */
+    switch (opc) {
+    case OP_jalr:
+    case OP_c_jalr:
+    case OP_c_jr: return true;
+    default: return false;
+    }
 }
 
 bool
@@ -192,16 +196,12 @@ instr_is_cti_short(instr_t *instr)
 bool
 instr_is_cti_loop(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
@@ -330,88 +330,66 @@ reg_is_gpr(reg_id_t reg)
 bool
 reg_is_simd(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_vector_simd(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_opmask(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_bnd(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_strictly_zmm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_ymm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_strictly_ymm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_xmm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_strictly_xmm(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 reg_is_mmx(reg_id_t reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 instr_is_opmask(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
@@ -439,9 +417,7 @@ instr_is_nop(instr_t *instr)
 bool
 opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    return (s1 == s2);
 }
 
 instr_t *

@@ -37,6 +37,9 @@
 #include "droption.h"
 #include "options.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 droption_t<bool> op_offline(
     DROPTION_SCOPE_ALL, "offline", false, "Store trace files for offline analysis",
     "By default, traces are processed online, sent over a pipe to a simulator.  "
@@ -206,8 +209,8 @@ droption_t<bool> op_L0I_filter(
     "cache.  This cache is direct-mapped with size equal to L0I_size.  It uses virtual "
     "addresses regardless of -use_physical. The dynamic (pre-filtered) per-thread "
     "instruction count is tracked and supplied via a "
-    "#TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries and at "
-    "thread exit.");
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread "
+    "buffer boundaries and at thread exit.");
 
 droption_t<bool> op_L0D_filter(
     DROPTION_SCOPE_CLIENT, "L0D_filter", false,
@@ -246,11 +249,12 @@ droption_t<bool> op_use_physical(
     "If available, metadata with virtual-to-physical-address translation information "
     "is added to the trace.  This is not possible from user mode on all platforms.  "
     "The regular trace entries remain virtual, with a pair of markers of "
-    "types #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS "
+    "types #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_VIRTUAL_ADDRESS "
     "inserted at some prior point for each new or changed page mapping to show the "
     "corresponding physical addresses.  If translation fails, a "
-    "#TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is inserted. "
-    "This option may incur significant overhead "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is "
+    "inserted. This option may incur significant overhead "
     "both for the physical translation and as it requires disabling optimizations."
     "For -offline, this option must be passed to both the tracer (to insert the "
     "markers) and the simulator (to use the markers).");
@@ -369,6 +373,17 @@ droption_t<std::string> op_raw_compress(
     "storage type: "
     "for an SSD, zlib and gzip typically add overhead and would only be used if space is "
     "at a premium; snappy_nocrc and lz4 are nearly always performance wins.");
+
+droption_t<std::string> op_trace_compress(
+    DROPTION_SCOPE_FRONTEND, "compress", DEFAULT_TRACE_COMPRESSION_TYPE,
+    "Trace compression: \"zip\",\"gzip\",\"zlib\",\"lz4\",\"none\"",
+    "Specifies the compression type to use for trace files: \"zip\", "
+    "\"gzip\", \"zlib\", \"lz4\", or \"none\". "
+    "In most cases where fast skipping by instruction count is not needed "
+    "lz4 compression generally improves performance and is recommended. "
+    "When it comes to storage types, the impact on overhead varies: "
+    "for SSDs, zip and gzip often increase overhead and should only be chosen "
+    "if space is limited.");
 
 droption_t<bool> op_online_instr_types(
     DROPTION_SCOPE_CLIENT, "online_instr_types", false,
@@ -540,15 +555,16 @@ droption_t<bytesize_t>
                 "and the references following the simulated ones are dropped.");
 
 droption_t<std::string>
-    op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr",
+    op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr/riscv",
                    "Syntax to use for disassembly.",
                    "Specifies the syntax to use when viewing disassembled offline traces."
                    // TODO i#4382: Add aarch64 syntax support.
                    " The option can be set to one of \"att\" (AT&T style), \"intel\""
                    " (Intel style), \"dr\" (DynamoRIO's native style with all implicit"
-                   " operands listed), and \"arm\" (32-bit ARM style). An invalid"
-                   " specification falls back to the default, which is \"att\" for x86,"
-                   " \"arm\" for ARM (32-bit), and \"dr\" for AArch64.");
+                   " operands listed), \"arm\" (32-bit ARM style), and \"riscv\" (RISC-V "
+                   "style). An invalid specification falls back to the default, which is "
+                   "\"att\" for x86, \"arm\" for ARM (32-bit), \"dr\" for AArch64, "
+                   "and \"riscv\" for RISC-V.");
 
 droption_t<std::string>
     op_config_file(DROPTION_SCOPE_FRONTEND, "config_file", "",
@@ -731,3 +747,6 @@ droption_t<bool> op_enable_kernel_tracing(
     "analysis. And this feature is available only on Intel CPUs that support Intel@ "
     "Processor Trace.");
 #endif
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -33,6 +33,9 @@
 #include <fstream>
 #include "file_reader.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /* clang-format off */ /* (make vera++ newline-after-type check happy) */
 template <>
 /* clang-format on */
@@ -79,3 +82,6 @@ file_reader_t<std::ifstream *>::read_next_entry()
            entry_copy_.addr);
     return &entry_copy_;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

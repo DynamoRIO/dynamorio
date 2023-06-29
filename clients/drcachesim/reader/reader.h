@@ -47,6 +47,9 @@
 #include "memtrace_stream.h"
 #include "utils.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define OUT /* just a marker */
 
 #ifdef DEBUG
@@ -62,10 +65,10 @@
 #endif
 
 /**
- * Iterator over #memref_t trace entries. This class converts a trace
- * (offline or online) into a stream of #memref_t entries. It also
- * provides more information about the trace using the
- * #memtrace_stream_t API.
+ * Iterator over #dynamorio::drmemtrace::memref_t trace entries. This class converts a
+ * trace (offline or online) into a stream of #dynamorio::drmemtrace::memref_t entries. It
+ * also provides more information about the trace using the
+ * #dynamorio::drmemtrace::memtrace_stream_t API.
  */
 class reader_t : public std::iterator<std::input_iterator_tag, memref_t>,
                  public memtrace_stream_t {
@@ -260,5 +263,8 @@ private:
     encoding_info_t last_encoding_;
     std::unordered_map<addr_t, encoding_info_t> encodings_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _READER_H_ */

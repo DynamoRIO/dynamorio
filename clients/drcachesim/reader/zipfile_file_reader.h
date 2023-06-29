@@ -39,6 +39,9 @@
 #include "minizip/unzip.h"
 #include "file_reader.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 struct zipfile_reader_t {
     zipfile_reader_t()
         : file(nullptr)
@@ -65,5 +68,8 @@ typedef file_reader_t<zipfile_reader_t> zipfile_file_reader_t;
 template <>
 reader_t &
 file_reader_t<zipfile_reader_t>::skip_instructions(uint64_t instruction_count);
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ZIPFILE_FILE_READER_H_ */
