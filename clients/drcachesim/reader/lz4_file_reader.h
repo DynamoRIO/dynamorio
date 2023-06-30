@@ -1,6 +1,6 @@
-/* ***************************************************************************
- * Copyright (c) 2013 Branden Clark  All rights reserved.
- * ***************************************************************************/
+/* **********************************************************
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * **********************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -20,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,68 +30,34 @@
  * DAMAGE.
  */
 
-/* drgui_options_window.h
- *
- * Defines a main interface for users to adjust options for tools
- */
+/* lz4_file_reader: reads compressed files containing memory traces. */
 
-#ifndef DRGUI_OPTIONS_WINDOW_H
-#define DRGUI_OPTIONS_WINDOW_H
+#ifndef _LZ4_FILE_READER_H_
+#define _LZ4_FILE_READER_H_ 1
 
-#include <QDialog>
-
-class QListWidget;
-class QListWidgetItem;
-class QStackedWidget;
-class QHBoxLayout;
-class QVBoxLayout;
-class QActionGroup;
+#include "common/lz4_istream.h"
+#include "file_reader.h"
+#include "record_file_reader.h"
 
 namespace dynamorio {
-namespace drgui {
+namespace drmemtrace {
 
-class drgui_options_window_t : public QDialog {
-    Q_OBJECT
-
-public:
-    drgui_options_window_t(QActionGroup *tool_group_);
-
-    void
-    display(void);
-
-public slots:
-    void
-    change_page(QListWidgetItem *current, QListWidgetItem *previous);
-
-private slots:
-    void
-    save(void);
-
-    void
-    cancel(void);
-
-private:
-    void
-    create_tool_list(void);
-
-    void
-    read_settings(void);
-
-    /* GUI */
-    QVBoxLayout *main_layout;
-    QHBoxLayout *horizontal_layout;
-    QListWidget *tool_page_list;
-    QStackedWidget *tool_page_stack;
-
-    QHBoxLayout *buttons_layout;
-    QPushButton *save_button;
-    QPushButton *reset_button;
-    QPushButton *cancel_button;
-
-    QActionGroup *tool_action_group;
+struct lz4_reader_t {
+    lz4_reader_t()
+        : file(nullptr) {};
+    explicit lz4_reader_t(std::istream *file)
+        : file(file)
+    {
+    }
+    std::istream *file;
+    trace_entry_t buf[4096];
+    trace_entry_t *cur_buf = buf;
+    trace_entry_t *max_buf = buf;
 };
 
-} // namespace drgui
+typedef file_reader_t<lz4_reader_t> lz4_file_reader_t;
+
+} // namespace drmemtrace
 } // namespace dynamorio
 
-#endif
+#endif /* _LZ4_FILE_READER_H_ */

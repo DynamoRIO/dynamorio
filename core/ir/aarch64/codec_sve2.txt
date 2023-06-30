@@ -82,6 +82,11 @@
 01100100101xxxxx0110x1xxxxxxxxxx  n   1070 SVE2    fmlslt          z_s_0 : z_s_0 z_msz_bhsd_5 z3_msz_bhsd_16 i3_index_11
 01000101xx1xxxxx110xxxxxxxxxxxxx  n   1145 SVE2   histcnt    z_size_sd_0 : p10_zer_lo z_size_sd_5 z_size_sd_16
 01000101001xxxxx101000xxxxxxxxxx  n   1071 SVE2   histseg          z_b_0 : z_b_5 z_b_16
+11000100000xxxxx100xxxxxxxxxxxxx  n   1186 SVE2   ldnt1sb          z_d_0 : svemem_vec_sd_gpr16 p10_zer_lo
+10000100000xxxxx100xxxxxxxxxxxxx  n   1186 SVE2   ldnt1sb          z_s_0 : svemem_vec_sd_gpr16 p10_zer_lo
+11000100100xxxxx100xxxxxxxxxxxxx  n   1187 SVE2   ldnt1sh          z_d_0 : svemem_vec_sd_gpr16 p10_zer_lo
+10000100100xxxxx100xxxxxxxxxxxxx  n   1187 SVE2   ldnt1sh          z_s_0 : svemem_vec_sd_gpr16 p10_zer_lo
+11000101000xxxxx100xxxxxxxxxxxxx  n   1188 SVE2   ldnt1sw          z_d_0 : svemem_vec_sd_gpr16 p10_zer_lo
 00000100111xxxxx001111xxxxxxxxxx  n   1072 SVE2      nbsl          z_d_0 : z_d_0 z_d_16 z_d_5
 00000100001xxxxx011001xxxxxxxxxx  n   328  SVE2      pmul   z_msz_bhsd_0 : z_msz_bhsd_5 z_msz_bhsd_16
 01000101xx0xxxxx011010xxxxxxxxxx  n   1084 SVE2    pmullb    z_size_hd_0 : z_sizep1_bs_5 z_sizep1_bs_16

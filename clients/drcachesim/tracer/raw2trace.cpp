@@ -1624,7 +1624,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // In case handle_kernel_interrupt_and_markers() calls
             // adjust_and_emit_rseq_buffer() we need to have written this instr to the
             // rseq buffer.
-            error = write(tdata, buf_start, buf, { saved_decode_pc });
+            error = write(tdata, buf_start, buf, &saved_decode_pc, 1);
             if (!error.empty())
                 return error;
             buf = buf_start;
@@ -1719,7 +1719,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             if (!error.empty())
                 return error;
         } else if (buf > buf_start) {
-            error = write(tdata, buf_start, buf, { saved_decode_pc });
+            error = write(tdata, buf_start, buf, &saved_decode_pc, 1);
             if (!error.empty())
                 return error;
         }
@@ -2096,9 +2096,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t *
 bool
 raw2trace_t::record_encoding_emitted(raw2trace_thread_data_t *tdata, app_pc pc)
 {
-    if (tdata->encoding_emitted.find(pc) != tdata->encoding_emitted.end())
+    if (tdata->encoding_emitted.find_and_insert(pc) == false)
         return false;
-    tdata->encoding_emitted.insert(pc);
     tdata->last_encoding_emitted = pc;
     return true;
 }
@@ -2320,8 +2319,9 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
     tdata->rseq_buffering_enabled_ = false;
 
     log(4, "Writing out rseq buffer: %zd entries\n", tdata->rseq_buffer_.size());
-    std::string error = write(tdata, &tdata->rseq_buffer_[0],
-                              &tdata->rseq_buffer_.back() + 1, tdata->rseq_decode_pcs_);
+    std::string error =
+        write(tdata, &tdata->rseq_buffer_[0], &tdata->rseq_buffer_.back() + 1,
+              tdata->rseq_decode_pcs_.data(), tdata->rseq_decode_pcs_.size());
     if (!error.empty())
         return error;
 
@@ -2624,7 +2624,7 @@ raw2trace_t::thread_file_at_eof(raw2trace_thread_data_t *tdata)
 std::string
 raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata)
 {
-    if (tdata->delayed_branch.empty())
+    if (tdata->delayed_branch_empty_)
         return "";
     if (verbosity_ >= 4) {
         int instr_count = 0;
@@ -2646,11 +2646,13 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata)
     }
     std::string error = write(tdata, tdata->delayed_branch.data(),
                               tdata->delayed_branch.data() + tdata->delayed_branch.size(),
-                              tdata->delayed_branch_decode_pcs);
+                              tdata->delayed_branch_decode_pcs.data(),
+                              tdata->delayed_branch_decode_pcs.size());
     if (!error.empty())
         return error;
     tdata->delayed_branch.clear();
     tdata->delayed_branch_decode_pcs.clear();
+    tdata->delayed_branch_empty_ = true;
     return "";
 }
 
@@ -2801,7 +2803,7 @@ raw2trace_t::insert_post_chunk_encodings(raw2trace_thread_data_t *tdata,
 // extra processing here).
 std::string
 raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
-                   const trace_entry_t *end, std::vector<app_pc> decode_pcs)
+                   const trace_entry_t *end, app_pc *decode_pcs, size_t decode_pcs_size)
 {
     if (end == start)
         return "Empty buffer passed to write()";
@@ -2814,8 +2816,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         if (tdata->rseq_buffer_.size() > MAX_REASONABLE_RSEQ_LENGTH) {
             return "Runaway rseq buffer indicates an rseq exit was missed";
         }
-        tdata->rseq_decode_pcs_.insert(tdata->rseq_decode_pcs_.end(), decode_pcs.begin(),
-                                       decode_pcs.end());
+        tdata->rseq_decode_pcs_.insert(tdata->rseq_decode_pcs_.end(), decode_pcs,
+                                       decode_pcs + decode_pcs_size);
         return "";
     }
     if (tdata->out_archive != nullptr) {
@@ -2848,7 +2850,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 ++instr_ordinal;
                 if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
                     // We don't want encodings for the PC-only i-filtered entries.
-                    it->size > 0 && instr_ordinal >= static_cast<int>(decode_pcs.size()))
+                    it->size > 0 && instr_ordinal >= static_cast<int>(decode_pcs_size))
                     return "decode_pcs is missing entries for written instructions";
             }
             // Check for missing encodings after possibly opening a new chunk.
@@ -2865,7 +2867,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 type_is_instr(static_cast<trace_type_t>(it->type)) &&
                 // We don't want encodings for the PC-only i-filtered entries.
                 it->size > 0 && !prev_was_encoding &&
-                record_encoding_emitted(tdata, decode_pcs[instr_ordinal])) {
+                record_encoding_emitted(tdata, *(decode_pcs + instr_ordinal))) {
                 // Write any data we were waiting until post-loop to write.
                 if (it > start &&
                     !tdata->out_file->write(reinterpret_cast<const char *>(start),
@@ -2873,7 +2875,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                                                 reinterpret_cast<const char *>(start)))
                     return "Failed to write to output file";
                 std::string err =
-                    insert_post_chunk_encodings(tdata, it, decode_pcs[instr_ordinal]);
+                    insert_post_chunk_encodings(tdata, it, *(decode_pcs + instr_ordinal));
                 if (!err.empty())
                     return err;
                 if (!tdata->out_file->write(reinterpret_cast<const char *>(it),
@@ -2930,6 +2932,7 @@ raw2trace_t::write_delayed_branches(raw2trace_thread_data_t *tdata,
     int instr_count = 0;
     for (const trace_entry_t *it = start; it < end; ++it) {
         tdata->delayed_branch.push_back(*it);
+        tdata->delayed_branch_empty_ = false;
         if (type_is_instr(static_cast<trace_type_t>(it->type)))
             ++instr_count;
     }
@@ -2947,7 +2950,7 @@ raw2trace_t::write_delayed_branches(raw2trace_thread_data_t *tdata,
 bool
 raw2trace_t::delayed_branches_exist(raw2trace_thread_data_t *tdata)
 {
-    return !tdata->delayed_branch.empty();
+    return !tdata->delayed_branch_empty_;
 }
 
 std::string
