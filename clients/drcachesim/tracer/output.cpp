@@ -923,6 +923,35 @@ process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_s
     return skip;
 }
 
+offline_entry_t *
+find_unfiltered_record(byte *start, byte *end)
+{
+    // The end variable points to the next writable location.
+    offline_entry_t *last = (offline_entry_t *)(end - sizeof(offline_entry_t));
+
+    int num_memrefs = 0;
+
+    for (offline_entry_t *entry = last; entry >= (offline_entry_t *)start; entry--) {
+        if (entry->pc.type == OFFLINE_TYPE_PC) {
+            NOTIFY(4, "PC: instr count = %d, num_memrefs = %d\n", entry->pc.instr_count,
+                   num_memrefs);
+            if ((entry->pc.instr_count == 1 && num_memrefs > 0) ||
+                entry->pc.instr_count > 1) {
+                NOTIFY(4, "Found unfiltered entry=%d\n",
+                       entry - (offline_entry_t *)start);
+                return entry;
+            }
+            // We can stop once we reach a PC record
+            return NULL;
+        } else if (entry->addr.type == OFFLINE_TYPE_MEMREF ||
+                   entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH) {
+            num_memrefs++;
+        }
+    }
+
+    return NULL;
+}
+
 // Should be invoked only in the middle of an active tracing window.
 void
 process_and_output_buffer(void *drcontext, bool skip_size_cap)
@@ -1008,14 +1037,31 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     if (get_local_mode(data) != mode) {
         if (get_local_mode(data) == BBDUP_MODE_L0_FILTER) {
             NOTIFY(0, "Thread %d: filter mode changed\n", dr_get_thread_id(drcontext));
+
             // If a switch occurred, then it is possible that the buffer
             // contains a mix of filtered and unfiltered records. We discard
             // the buffer by resetting the buffer pointer.
-            buf_ptr = data->buf_base + header_size;
+            byte *end =
+                (byte *)find_unfiltered_record(data->buf_base + header_size, buf_ptr);
+            if (end == NULL) {
+                // Add a FILTER_ENDPOINT marker to indicate that filtering stops here.
+                buf_ptr +=
+                    instru->append_marker(buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+            } else {
+                // Write the filtered data.
+                write_trace_data(drcontext, data->buf_base, end, get_local_window(data));
+                // Add the FILTER_ENDPOINT.
+                offline_entry_t marker[2];
+                byte *marker_buf = (byte *)&marker[0];
+                int size = instru->append_marker(marker_buf,
+                                                 TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+                DR_ASSERT(size <= (int)sizeof(marker));
+                write_trace_data(drcontext, marker_buf, marker_buf + size,
+                                 get_local_window(data));
 
-            // Add a FILTER_ENDPOINT marker to indicate that filtering stops here.
-            buf_ptr +=
-                instru->append_marker(buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+                // Set the pointer to unfiltered data.
+                data->buf_base = end;
+            }
         }
         set_local_mode(data, mode);
     }
@@ -1163,6 +1209,7 @@ init_thread_io(void *drcontext)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *proc_info;
 
+    NOTIFY(1, "T%d: in init_thread_io.\n", dr_get_thread_id(drcontext));
 #ifdef HAS_ZLIB
     if (op_offline.get_value() &&
         (op_raw_compress.get_value() == "zlib" ||
