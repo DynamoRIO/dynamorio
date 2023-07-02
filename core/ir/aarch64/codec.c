@@ -9168,7 +9168,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
          */
         if ((enc & 0xfffff01f) == 0xd503201f) {
             SYSLOG_INTERNAL_WARNING("Undefined HINT instruction found: "
-                                    "encoding 0x%x (CRm:op2 0x%x)\n",
+                                    "encoding 0x%x (CRm:op2 0x%x)",
                                     enc, (enc & 0xfe0) >> 5);
             instr_set_opcode(instr, OP_nop);
             instr_set_num_opnds(dcontext, instr, 0, 0);

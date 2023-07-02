@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -104,6 +104,12 @@ DECL_EXTERN(dr_setjmp_sigmask)
 #endif
 
 DECL_EXTERN(d_r_internal_error)
+
+DECL_EXTERN(exiting_thread_count)
+DECL_EXTERN(d_r_initstack)
+DECL_EXTERN(initstack_mutex)
+DECL_EXTERN(icache_op_struct)
+DECL_EXTERN(linkstub_selfmod)
 
 /* For debugging: report an error if the function called by call_switch_stack()
  * unexpectedly returns.  Also used elsewhere.
@@ -325,7 +331,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
 #endif
 
         /* inc exiting_thread_count to avoid being killed once off all_threads list */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(exiting_thread_count), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(exiting_thread_count), x0)
         CALLC2(GLOBAL_REF(atomic_add), x0, #1)
 
         /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
@@ -349,7 +355,7 @@ cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
         /* switch to d_r_initstack for cleanup of dstack */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(initstack_mutex), x26)
+        AARCH64_ADRP_GOT(GLOBAL_REF(initstack_mutex), x26)
 cat_spin:
         CALLC2(GLOBAL_REF(atomic_swap), x26, #1)
         cbz      w0, cat_have_lock
@@ -358,7 +364,7 @@ cat_spin:
 
 cat_have_lock:
         /* switch stack */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(d_r_initstack), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(d_r_initstack), x0)
         ldr      x0, [x0]
         mov      sp, x0
 
@@ -366,12 +372,12 @@ cat_have_lock:
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), x24) /* pass dstack */
 
         /* give up initstack_mutex */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(initstack_mutex), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(initstack_mutex), x0)
         mov      x1, #0
         str      x1, [x0]
 
         /* dec exiting_thread_count (allows another thread to kill us) */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(exiting_thread_count), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(exiting_thread_count), x0)
         CALLC2(GLOBAL_REF(atomic_add), x0, #-1)
 
         /* put system call number in x8 */
@@ -401,7 +407,6 @@ GLOBAL_LABEL(atomic_add:)
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)
 #ifdef MACOS
-        mov      x16, #0
         svc      #0x80
 #else
         /* FIXME i#1569: NYI on AArch64 */
