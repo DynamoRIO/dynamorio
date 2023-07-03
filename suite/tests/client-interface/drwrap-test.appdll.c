@@ -426,5 +426,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
-/* clang-format on */
+        /* clang-format on */
 #endif /* ASM_CODE_ONLY */
