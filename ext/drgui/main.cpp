@@ -1,4 +1,5 @@
 /* ***************************************************************************
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2013 Branden Clark  All rights reserved.
  * ***************************************************************************/
 
@@ -40,6 +41,9 @@
 
 #include "drgui_main_window.h"
 
+namespace dynamorio {
+namespace drgui {
+
 struct tool_data_t {
     QString name;
     QStringList arguments;
@@ -49,23 +53,6 @@ static tool_data_t *
 process_arguments(int argc, char *argv[]);
 static void
 print_usage(char *arg_0);
-
-int
-main(int argc, char *argv[])
-{
-    QApplication app(argc, argv);
-    tool_data_t *tool = process_arguments(argc, argv);
-    QString tool_name = "";
-    QStringList tool_args;
-    if (tool != NULL) {
-        tool_name = tool->name;
-        tool_args = tool->arguments;
-        delete tool;
-    }
-    drgui_main_window_t main_win(tool_name, tool_args);
-    main_win.show();
-    return app.exec();
-}
 
 tool_data_t *
 process_arguments(int argc, char *argv[])
@@ -104,4 +91,24 @@ print_usage(char *arg_0)
     printf("  %-40s%s", "-t <tool_name> [options]",
            "Automatically load a tool with optional arguments");
     std::cout << std::endl;
+}
+
+} // namespace drgui
+} // namespace dynamorio
+
+int
+main(int argc, char *argv[])
+{
+    QApplication app(argc, argv);
+    dynamorio::drgui::tool_data_t *tool = dynamorio::drgui::process_arguments(argc, argv);
+    QString tool_name = "";
+    QStringList tool_args;
+    if (tool != NULL) {
+        tool_name = tool->name;
+        tool_args = tool->arguments;
+        delete tool;
+    }
+    dynamorio::drgui::drgui_main_window_t main_win(tool_name, tool_args);
+    main_win.show();
+    return app.exec();
 }

@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2013 Branden Clark  All rights reserved.
  * ***************************************************************************/
 
@@ -51,6 +51,9 @@ class QMdiArea;
 class QMdiSubWindow;
 class QActionGroup;
 class QPluginLoader;
+
+namespace dynamorio {
+namespace drgui {
 
 class drgui_options_window_t;
 class drgui_tool_interface_t;
@@ -175,5 +178,8 @@ private:
     QString custom_command_format;
     QList<QString> tool_files;
 };
+
+} // namespace drgui
+} // namespace dynamorio
 
 #endif

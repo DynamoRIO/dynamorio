@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,6 +45,8 @@
 #include "droption.h"
 #include <string>
 
+namespace dynamorio {
+namespace samples {
 namespace {
 
 static droption_t<std::string> trace_function(
@@ -149,6 +151,8 @@ event_exit()
 }
 
 } // namespace
+} // namespace samples
+} // namespace dynamorio
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
@@ -164,9 +168,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     // Initialize the libraries we're using.
     if (!drwrap_init() || drcallstack_init(&ops) != DRCALLSTACK_SUCCESS ||
         drsym_init(0) != DRSYM_SUCCESS ||
-        !drmgr_register_module_load_event(module_load_event))
+        !drmgr_register_module_load_event(dynamorio::samples::module_load_event))
         DR_ASSERT(false);
-    dr_register_exit_event(event_exit);
+    dr_register_exit_event(dynamorio::samples::event_exit);
     // Improve performance as we only need basic wrapping support.
     drwrap_set_global_flags(
         static_cast<drwrap_global_flags_t>(DRWRAP_NO_FRILLS | DRWRAP_FAST_CLEANCALLS));

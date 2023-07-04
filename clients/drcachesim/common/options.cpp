@@ -374,6 +374,17 @@ droption_t<std::string> op_raw_compress(
     "for an SSD, zlib and gzip typically add overhead and would only be used if space is "
     "at a premium; snappy_nocrc and lz4 are nearly always performance wins.");
 
+droption_t<std::string> op_trace_compress(
+    DROPTION_SCOPE_FRONTEND, "compress", DEFAULT_TRACE_COMPRESSION_TYPE,
+    "Trace compression: \"zip\",\"gzip\",\"zlib\",\"lz4\",\"none\"",
+    "Specifies the compression type to use for trace files: \"zip\", "
+    "\"gzip\", \"zlib\", \"lz4\", or \"none\". "
+    "In most cases where fast skipping by instruction count is not needed "
+    "lz4 compression generally improves performance and is recommended. "
+    "When it comes to storage types, the impact on overhead varies: "
+    "for SSDs, zip and gzip often increase overhead and should only be chosen "
+    "if space is limited.");
+
 droption_t<bool> op_online_instr_types(
     DROPTION_SCOPE_CLIENT, "online_instr_types", false,
     "Whether online traces should distinguish instr types",
