@@ -356,7 +356,7 @@ DECL_EXTERN(level2)
 # endif
 
 #define FUNCNAME makes_tailcall
-        DECLARE_FUNC(FUNCNAME)
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 # if defined(UNIX) && defined(X86) && defined(X64)
         push     REG_XBP  /* Needed only to maintain 16-byte alignment. */
@@ -375,7 +375,7 @@ GLOBAL_LABEL(FUNCNAME:)
 
 DECL_EXTERN(print_from_asm)
 #  define FUNCNAME tailcall_test2
-        DECLARE_FUNC(FUNCNAME)
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 # ifdef X86
         ADD_STACK_ALIGNMENT_NOSEH
@@ -426,5 +426,5 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 
 END_FILE
-        /* clang-format on */
+/* clang-format on */
 #endif /* ASM_CODE_ONLY */

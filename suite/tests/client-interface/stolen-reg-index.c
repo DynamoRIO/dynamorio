@@ -64,7 +64,7 @@ main(int argc, char *argv[])
 /* clang-format off */
 START_FILE
 #define FUNCNAME indexed_mem_test
-        DECLARE_FUNC(FUNCNAME)
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 
         stp      x0, x1, [sp, #-16]!

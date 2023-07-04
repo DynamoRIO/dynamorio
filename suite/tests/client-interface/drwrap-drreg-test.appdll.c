@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -82,7 +82,7 @@ int __attribute__((constructor)) so_init(void)
 /* clang-format off */
 START_FILE
 #define FUNCNAME reg_val_test
-        DECLARE_FUNC(FUNCNAME)
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 # ifdef X86
         push     REG_XBP  /* Needed only to maintain 16-byte alignment for x64. */
@@ -122,7 +122,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #  undef FUNCNAME
 
 #define FUNCNAME multipath_test
-        DECLARE_FUNC(FUNCNAME)
+        DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 # ifdef X86
         push     REG_XBP  /* Needed only to maintain 16-byte alignment for x64. */

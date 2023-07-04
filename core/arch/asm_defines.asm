@@ -115,7 +115,8 @@
 .globl _##symbol @N@ \
 .private_extern _##symbol @N@
 
-#  define DECLARE_EXPORTED_FUNC(symbol) \
+#  define DECLARE_EXPORTED_FUNC(symbol) DECLARE_EXPORTED_FUNC_EVAL(symbol)
+#  define DECLARE_EXPORTED_FUNC_EVAL(symbol) \
 .p2align 2 @N@ \
 .globl _##symbol @N@
 
