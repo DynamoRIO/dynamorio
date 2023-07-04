@@ -1039,8 +1039,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             NOTIFY(0, "Thread %d: filter mode changed\n", dr_get_thread_id(drcontext));
 
             // If a switch occurred, then it is possible that the buffer
-            // contains a mix of filtered and unfiltered records. We discard
-            // the buffer by resetting the buffer pointer.
+            // contains a mix of filtered and unfiltered records. We look for the first
+            // unfiltered record and if such a record is found, we insert the
+            // FILTER_ENDPOINT marker before it.
             byte *end =
                 (byte *)find_unfiltered_record(data->buf_base + header_size, buf_ptr);
             if (end == NULL) {

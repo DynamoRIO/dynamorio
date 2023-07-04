@@ -740,7 +740,8 @@ typedef enum {
      * Note: this file type may transition to non-filtered. This transition is indicated
      * by the #TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. Each window (which is indicated
      * by the #TRACE_MARKER_TYPE_WINDOW_ID marker) starts out filtered. This applies to
-     * #OFFLINE_FILE_TYPE_DFILTERED also.
+     * #OFFLINE_FILE_TYPE_DFILTERED also. Note that threads that created after the
+     * transition will also have this marker - right at the beginning.
      */
     /* TODO i#6164: add a new file type for mixed traces. */
     OFFLINE_FILE_TYPE_IFILTERED = 0x80,
