@@ -113,10 +113,8 @@ instrace(void *drcontext)
      */
     for (ins_ref = (ins_ref_t *)data->buf_base; ins_ref < buf_ptr; ins_ref++) {
         /* We use PIFX to avoid leading zeroes and shrink the resulting file. */
-#ifndef NO_TRACE_OUTPUT
         fprintf(data->logf, PIFX ",%s\n", (ptr_uint_t)ins_ref->pc,
                 decode_opcode_name(ins_ref->opcode));
-#endif
         data->num_refs++;
     }
     BUF_PTR(data->seg_base) = data->buf_base;
@@ -251,7 +249,6 @@ event_thread_init(void *drcontext)
 
     data->num_refs = 0;
 
-#ifndef NO_TRACE_OUTPUT
     /* We're going to dump our data to a per-thread file.
      * On Windows we need an absolute path so we place it in
      * the same directory as our library. We could also pass
@@ -265,7 +262,6 @@ event_thread_init(void *drcontext)
                           DR_FILE_ALLOW_LARGE);
     data->logf = log_stream_from_file(data->log);
     fprintf(data->logf, "Format: <instr address>,<opcode>\n");
-#endif
 }
 
 static void
@@ -277,9 +273,7 @@ event_thread_exit(void *drcontext)
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
-#ifndef NO_TRACE_OUTPUT
     log_stream_close(data->logf); /* closes fd too */
-#endif
     dr_raw_mem_free(data->buf_base, MEM_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }

@@ -138,13 +138,11 @@ memtrace(void *drcontext)
      */
     for (mem_ref = (mem_ref_t *)data->buf_base; mem_ref < buf_ptr; mem_ref++) {
         /* We use PIFX to avoid leading zeroes and shrink the resulting file. */
-#ifndef NO_TRACE_OUTPUT
         fprintf(data->logf, "" PIFX ": %2d, %s\n", (ptr_uint_t)mem_ref->addr,
                 mem_ref->size,
                 (mem_ref->type > REF_TYPE_WRITE)
                     ? decode_opcode_name(mem_ref->type) /* opcode for instr */
                     : (mem_ref->type == REF_TYPE_WRITE ? "w" : "r"));
-#endif
         data->num_refs++;
     }
     BUF_PTR(data->seg_base) = data->buf_base;
@@ -396,7 +394,6 @@ event_thread_init(void *drcontext)
 
     data->num_refs = 0;
 
-#ifndef NO_TRACE_OUTPUT
     if (log_to_stderr) {
         data->logf = stderr;
     } else {
@@ -414,7 +411,6 @@ event_thread_init(void *drcontext)
         data->logf = log_stream_from_file(data->log);
     }
     fprintf(data->logf, "Format: <data address>: <data size>, <(r)ead/(w)rite/opcode>\n");
-#endif
 }
 
 static void
@@ -426,10 +422,8 @@ event_thread_exit(void *drcontext)
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
-#ifndef NO_TRACE_OUTPUT
     if (!log_to_stderr)
         log_stream_close(data->logf); /* closes fd too */
-#endif
     dr_raw_mem_free(data->buf_base, MEM_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }

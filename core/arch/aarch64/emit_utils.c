@@ -580,12 +580,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                               opnd_create_reg(REG_DCXT),
                               OPND_CREATE_INTPTR(offsetof(priv_mcontext_t, simd))));
     for (i = 0; i < 32; i += 2) {
-        /* ldp q(i), q(i + 1), [x1, #(i * 16)]
-         * From the AArch64 manual:
-         * "The signed immediate byte offset is a multiple of 16 in the range
-         * -1024 to 1008, defaulting to 0 and encoded in the imm7 field as
-         * <imm>/16."
-         */
+        /* ldp q(i), q(i + 1), [x1, #(i * 16)] */
         APP(ilist,
             INSTR_CREATE_ldp(
                 dcontext, opnd_create_reg(DR_REG_Q0 + i),
