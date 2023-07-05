@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -2158,7 +2158,7 @@ get_local_state()
 void
 os_enter_dynamorio(void)
 {
-#    if defined(AARCHXX) || defined(RISCV64)
+#    if (defined(AARCHXX) || defined(RISCV64)) && !defined(MACOS)
     /* i#1578: check that app's tls value doesn't match our sentinel */
     ASSERT(*(byte **)get_dr_tls_base_addr() != TLS_SLOT_VAL_EXITED);
 #    endif

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc. All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -42,8 +42,12 @@ _start:
         sub      x0, x0, #1024 // x0 is bottom of region
         mov      sp, x0
 
-
+#ifdef __APPLE__
+        adrp     x0, helloworld@PAGE
+        add      x0, x0, helloworld@PAGEOFF
+#else
         adr      x0, helloworld
+#endif
         adr      x1, .
 
         // prefetch_read_l1
@@ -165,7 +169,12 @@ _start:
 
         // Exit.
         mov      w0, #1            // stdout
+#ifdef __APPLE__
+        adrp     x1, helloworld@PAGE
+        add      x1, x1, helloworld@PAGEOFF
+#else
         adr      x1, helloworld
+#endif
         mov      w2, #14           // sizeof(helloworld)
         mov      w8, #64           // SYS_write
         svc      #0
