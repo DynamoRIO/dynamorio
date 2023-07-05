@@ -1329,14 +1329,22 @@ uint
 query_time_seconds(void)
 {
     struct timeval current_time;
+#if defined(MACOS) && defined(AARCH64)
+    /* TODO i#5383: Replace with a system call (unless we're sure this library call
+     * is re-entrant, just a simple load from commpage).
+     */
+#    undef gettimeofday /* Remove "gettimeofday_forbidden_function". */
+    uint64 val = gettimeofday(&current_time, NULL);
+#else
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
-#ifdef MACOS
+#    ifdef MACOS
     /* MacOS before Sierra returns usecs:secs and does not set the timeval struct. */
     if (macos_version < MACOS_VERSION_SIERRA) {
         if ((int)val < 0)
             return 0;
         return (uint)val + UTC_TO_EPOCH_SECONDS;
     }
+#    endif
 #endif
     if ((int)val >= 0) {
         return current_time.tv_sec + UTC_TO_EPOCH_SECONDS;
@@ -1358,7 +1366,9 @@ query_time_millis()
 #if !(defined(MACOS) && defined(AARCH64))
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
 #else
-    /* TODO i#5383: Replace with a system call. */
+    /* TODO i#5383: Replace with a system call (unless we're sure this library call
+     * is re-entrant, just a simple load from commpage).
+     */
 #    undef gettimeofday /* Remove "gettimeofday_forbidden_function". */
     uint64 val = gettimeofday(&current_time, NULL);
 #endif
@@ -2103,7 +2113,7 @@ get_segment_base(uint seg)
 {
 #if defined(MACOS64) && defined(X86)
     ptr_uint_t *pthread_self = (ptr_uint_t *)read_thread_register(seg);
-    return (byte *)&pthread_self[SEG_TLS_BASE_OFFSET];
+    return (byte *)&pthread_self[SEG_TLS_BASE_SLOT];
 #elif defined(X86)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
