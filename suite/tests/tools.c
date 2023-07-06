@@ -42,6 +42,7 @@
 #        include <mach/mach.h>
 #        include <mach/semaphore.h>
 #        ifdef AARCH64
+/* Somehow including pthread.h is not surfacing this so we explicitly list it. */
 void
 pthread_jit_write_protect_np(int enabled);
 #        endif
@@ -176,12 +177,10 @@ allocate_mem(size_t size, int prot)
 #    ifdef UNIX
     int flags = MAP_PRIVATE | MAP_ANON;
 #        if defined(MACOS) && defined(AARCH64)
-#            ifdef MACOS
     if (TEST(ALLOW_EXEC, prot)) {
         flags |= MAP_JIT;
         pthread_jit_write_protect_np(0);
     }
-#            endif
 #        endif
     char *res = (char *)mmap((void *)0, size, get_os_prot_word(prot), flags, -1, 0);
     if (res == MAP_FAILED)
@@ -213,7 +212,7 @@ protect_mem(void *start, size_t len, int prot)
     void *page_start = (void *)(((ptr_int_t)start) & ~(PAGE_SIZE - 1));
     int page_len = (len + ((ptr_int_t)start - (ptr_int_t)page_start) + PAGE_SIZE - 1) &
         ~(PAGE_SIZE - 1);
-#        ifdef MACOS
+#        if defined(MACOS) && defined(AARCH64)
     if (TEST(ALLOW_EXEC, prot) && !TEST(ALLOW_WRITE, prot)) {
         pthread_jit_write_protect_np(1);
         return;
