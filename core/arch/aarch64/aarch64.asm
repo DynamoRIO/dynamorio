@@ -587,14 +587,14 @@ GLOBAL_LABEL(main_signal_handler:)
 #if defined(MACOS) && defined(AARCH64)
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-        /* TODO i#5383: Get correct syscall number for svc. */
-        brk 0xb001 /* For now we break with a unique code. */
+        mov      w16, #184 /* SYS_sigreturn. */
+        svc      #0x80
         END_FUNC(dynamorio_sigreturn)
 
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-        /* TODO i#5383: Get correct syscall number for svc. */
-        brk 0xb002 /* For now we break with a unique code. */
+        mov      w16, #1 /* SYS_exit. */
+        svc      #0x80
         END_FUNC(dynamorio_sys_exit)
 
         DECLARE_FUNC(new_bsdthread_intercept)
@@ -607,9 +607,17 @@ GLOBAL_LABEL(new_bsdthread_intercept:)
 #ifdef MACOS
         DECLARE_FUNC(main_signal_handler)
 GLOBAL_LABEL(main_signal_handler:)
-        /* see sendsig_set_thread_state64 in unix_signal.c */
-        mov      ARG6, sp
-        b        GLOBAL_REF(main_signal_handler_C) /* chain call */
+        /* See sendsig_set_thread_state64 in unix_signal.c */
+        mov      ARG7, sp
+        /* Save 3 args (ucxt=5th, style=2nd, token=6th) for sigreturn. */
+        stp      ARG5, ARG6, [sp, #-32]!
+        str      ARG2, [sp, #16]
+        mov      ARG6, ARG7
+        bl       GLOBAL_REF(main_signal_handler_C)
+        ldr      ARG2, [sp, #16]
+        ldp      ARG1, ARG3, [sp], #32
+        CALLC0(GLOBAL_REF(dynamorio_sigreturn))
+        bl       GLOBAL_REF(unexpected_return)
         END_FUNC(main_signal_handler)
 #endif
 
