@@ -5315,21 +5315,6 @@
     instr_create_1dst_3src(dc, OP_bic, Zdn, Pg, Zdn, Zm)
 
 /**
- * Creates a ZIP2 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The first destination vector register, Z (Scalable)
- * \param Zn   The second source vector register, Z (Scalable)
- * \param Zm   The third source vector register, Z (Scalable)
- */
-#define INSTR_CREATE_zip2_vector(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_zip2, Zd, Zn, Zm)
-
-/**
  * Creates a MOVPRFX instruction.
  *
  * This macro is used to encode the forms:
@@ -8974,21 +8959,6 @@
     instr_create_1dst_2src(dc, OP_uzp1, Pd, Pn, Pm)
 
 /**
- * Creates an UZP1 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    UZP1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The destination vector register, Z (Scalable).
- * \param Zn   The first source vector register, Z (Scalable).
- * \param Zm   The second source vector register, Z (Scalable).
- */
-#define INSTR_CREATE_uzp1_sve_vector(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_uzp1, Zd, Zn, Zm)
-
-/**
  * Creates an UZP2 instruction.
  *
  * This macro is used to encode the forms:
@@ -9009,6 +8979,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    UZP2    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    UZP2    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9039,6 +9010,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    ZIP1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    ZIP1    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9069,6 +9041,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    ZIP2    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9099,6 +9072,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    TRN1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    TRN1    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9129,6 +9103,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    TRN2    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    TRN2    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -14191,36 +14166,6 @@
         opnd_create_base_disp(opnd_get_reg(Rn), DR_REG_NULL, 0, 0, OPSZ_sys))
 
 /**
- * Creates a TRN1 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    TRN1    <Zd>.Q, <Zn>.Q, <Zm>.Q
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The destination vector register, Z (Scalable).
- * \param Zn   The first source vector register, Z (Scalable).
- * \param Zm   The second source vector register, Z (Scalable).
- */
-#define INSTR_CREATE_trn1_sve(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_trn1, Zd, Zn, Zm)
-
-/**
- * Creates a TRN2 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    TRN2    <Zd>.Q, <Zn>.Q, <Zm>.Q
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The destination vector register, Z (Scalable).
- * \param Zn   The first source vector register, Z (Scalable).
- * \param Zm   The second source vector register, Z (Scalable).
- */
-#define INSTR_CREATE_trn2_sve(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_trn2, Zd, Zn, Zm)
-
-/**
  * Creates a SDOT instruction.
  *
  * This macro is used to encode the forms:
@@ -17467,4 +17412,21 @@
  */
 #define INSTR_CREATE_ldnt1sw_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ldnt1sw, Zt, Zn, Pg)
+
+/**
+ * Creates an UZP1 instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UZP1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+      UZP1    <Zd>.Q, <Zn>.Q, <Zm>.Q
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_uzp1_sve_vector(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uzp1, Zd, Zn, Zm)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
