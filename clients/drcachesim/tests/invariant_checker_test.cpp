@@ -970,8 +970,7 @@ check_timestamp_increase_monotonically(void)
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
         };
         if (!run_checker(memrefs, false))
-            // return false;
-            return true;
+            return false;
     }
 #endif
     return true;
