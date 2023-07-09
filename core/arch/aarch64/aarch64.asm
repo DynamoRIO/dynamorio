@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2022 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2023 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -97,6 +97,12 @@ DECL_EXTERN(dr_setjmp_sigmask)
 #endif
 
 DECL_EXTERN(d_r_internal_error)
+
+DECL_EXTERN(exiting_thread_count)
+DECL_EXTERN(d_r_initstack)
+DECL_EXTERN(initstack_mutex)
+DECL_EXTERN(icache_op_struct)
+DECL_EXTERN(linkstub_selfmod)
 
 /* For debugging: report an error if the function called by call_switch_stack()
  * unexpectedly returns.  Also used elsewhere.
@@ -321,7 +327,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
 #endif
 
         /* inc exiting_thread_count to avoid being killed once off all_threads list */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(exiting_thread_count), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(exiting_thread_count), x0)
         CALLC2(GLOBAL_REF(atomic_add), x0, #1)
 
         /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
@@ -345,7 +351,7 @@ cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
         /* switch to d_r_initstack for cleanup of dstack */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(initstack_mutex), x26)
+        AARCH64_ADRP_GOT(GLOBAL_REF(initstack_mutex), x26)
 cat_spin:
         CALLC2(GLOBAL_REF(atomic_swap), x26, #1)
         cbz      w0, cat_have_lock
@@ -354,7 +360,7 @@ cat_spin:
 
 cat_have_lock:
         /* switch stack */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(d_r_initstack), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(d_r_initstack), x0)
         ldr      x0, [x0]
         mov      sp, x0
 
@@ -362,12 +368,12 @@ cat_have_lock:
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), x24) /* pass dstack */
 
         /* give up initstack_mutex */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(initstack_mutex), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(initstack_mutex), x0)
         mov      x1, #0
         str      x1, [x0]
 
         /* dec exiting_thread_count (allows another thread to kill us) */
-        AARCH64_ADRP_GOT_LDR(GLOBAL_REF(exiting_thread_count), x0)
+        AARCH64_ADRP_GOT(GLOBAL_REF(exiting_thread_count), x0)
         CALLC2(GLOBAL_REF(atomic_add), x0, #-1)
 
         /* put system call number in x8 */
@@ -397,7 +403,6 @@ GLOBAL_LABEL(atomic_add:)
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)
 #ifdef MACOS
-        mov      x16, #0
         svc      #0x80
 #else
         /* FIXME i#1569: NYI on AArch64 */
@@ -578,14 +583,14 @@ GLOBAL_LABEL(main_signal_handler:)
 #if defined(MACOS) && defined(AARCH64)
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
-        /* TODO i#5383: Get correct syscall number for svc. */
-        brk 0xb001 /* For now we break with a unique code. */
+        mov      w16, #184 /* SYS_sigreturn. */
+        svc      #0x80
         END_FUNC(dynamorio_sigreturn)
 
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-        /* TODO i#5383: Get correct syscall number for svc. */
-        brk 0xb002 /* For now we break with a unique code. */
+        mov      w16, #1 /* SYS_exit. */
+        svc      #0x80
         END_FUNC(dynamorio_sys_exit)
 
         DECLARE_FUNC(new_bsdthread_intercept)
@@ -598,9 +603,17 @@ GLOBAL_LABEL(new_bsdthread_intercept:)
 #ifdef MACOS
         DECLARE_FUNC(main_signal_handler)
 GLOBAL_LABEL(main_signal_handler:)
-        /* see sendsig_set_thread_state64 in unix_signal.c */
-        mov      ARG6, sp
-        b        GLOBAL_REF(main_signal_handler_C) /* chain call */
+        /* See sendsig_set_thread_state64 in unix_signal.c */
+        mov      ARG7, sp
+        /* Save 3 args (ucxt=5th, style=2nd, token=6th) for sigreturn. */
+        stp      ARG5, ARG6, [sp, #-32]!
+        str      ARG2, [sp, #16]
+        mov      ARG6, ARG7
+        bl       GLOBAL_REF(main_signal_handler_C)
+        ldr      ARG2, [sp, #16]
+        ldp      ARG1, ARG3, [sp], #32
+        CALLC0(GLOBAL_REF(dynamorio_sigreturn))
+        bl       GLOBAL_REF(unexpected_return)
         END_FUNC(main_signal_handler)
 #endif
 

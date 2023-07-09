@@ -77,7 +77,9 @@ DR_EXPORT void
 dr_init(client_id_t client_id)
 {
     int i;
+#ifdef SHOW_RESULTS
     bool success = true;
+#endif
 
     dr_set_client_name("DynamoRIO Sample Client 'stl_test'",
                        "http://dynamorio.org/issues");
@@ -109,10 +111,10 @@ dr_init(client_id_t client_id)
     for (i = 0; i < 5; i++) {
 #ifdef SHOW_RESULTS
         std::cout << (*v)[i];
-#endif
         if ((*v)[i] != i) {
             success = false;
         }
+#endif
     }
     delete v;
 
@@ -132,10 +134,10 @@ dr_init(client_id_t client_id)
     for (std::list<int>::iterator l_iter = l.begin(); l_iter != l.end(); l_iter++) {
 #ifdef SHOW_RESULTS
         std::cout << *l_iter;
-#endif
         if (*l_iter != i) {
             success = false;
         }
+#endif
         i++;
     }
 
@@ -154,10 +156,10 @@ dr_init(client_id_t client_id)
     for (i = 0; i < 5; i++) {
 #ifdef SHOW_RESULTS
         std::cout << m[i];
-#endif
         if (m[i] != i) {
             success = false;
         }
+#endif
     }
 
     //

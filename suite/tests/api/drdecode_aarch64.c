@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited.  All rights reserved.
  * **********************************************************/
 
@@ -86,13 +86,14 @@ test_mov_instr_addr(void)
      * can lead to SEGFAULTs or SIGILLS on the subsequent attempted
      * execution (i#5033)
      */
-    __builtin___clear_cache(generated_code, generated_code + gencode_max_size);
+    __builtin___clear_cache((char *)generated_code,
+                            (char *)generated_code + gencode_max_size);
 
     uint written = ((uint(*)(void))generated_code)();
     ASSERT(written == 0xdeadbeef);
 
     instrlist_clear_and_destroy(GD, ilist);
-    free_mem(generated_code, gencode_max_size);
+    free_mem((char *)generated_code, gencode_max_size);
 #endif
 }
 

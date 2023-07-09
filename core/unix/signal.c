@@ -340,7 +340,7 @@ dump_unmasked(dcontext_t *dcontext, const char *where)
     LOG(THREAD, LOG_ASYNCH, 3, "%s: threads_unmasked: ", where);
     for (int i = 1; i <= MAX_SIGNUM; i++) {
         LOG(THREAD, LOG_ASYNCH, 3, "[%d]=%d ", i, info->sighand->threads_unmasked[i]);
-        if (i % 16 == 0)
+        if (i % 16 == 0 || i == MAX_SIGNUM)
             LOG(THREAD, LOG_ASYNCH, 3, "\n");
     }
 }
@@ -3056,13 +3056,11 @@ set_sigcxt_stolen_reg(sigcontext_t *sc, reg_t val)
     *(&sc->SC_R0 + (dr_reg_stolen - DR_REG_R0)) = val;
 }
 
-#    ifndef MACOS /* TODO i#5383: Add full signal support. */
 static reg_t
 get_sigcxt_stolen_reg(sigcontext_t *sc)
 {
     return *(&sc->SC_R0 + (dr_reg_stolen - DR_REG_R0));
 }
-#    endif
 
 #    ifndef AARCH64
 static dr_isa_mode_t
@@ -4049,7 +4047,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
      * still go to the private fcache_return for simplicity.
      */
     sc->SC_XIP = (ptr_uint_t)fcache_return_routine(dcontext);
-#if defined(AARCHXX) && !defined(MACOS)
+#if defined(AARCHXX)
     /* We do not have to set dr_reg_stolen in dcontext's mcontext here
      * because dcontext's mcontext is stale and we used the mcontext
      * created from recreate_app_state_internal with the original sigcontext.
@@ -6282,10 +6280,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         dump_sigcontext(dcontext, sc);
         LOG(THREAD, LOG_ASYNCH, 3, "\n");
     }
-#    ifndef MACOS
     IF_AARCHXX(ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr()));
-#    endif
-
 #endif
     /* FIXME: other state?  debug regs?
      * if no syscall allowed between main_ (when frame created) and
@@ -6390,7 +6385,17 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* Set up args to handler: int sig, kernel_siginfo_t *siginfo,
      * kernel_ucontext_t *ucxt.
      */
-#if defined(MACOS64) && defined(X86)
+#if defined(MACOS64) && defined(AARCH64)
+    mcontext->r0 = (reg_t)info->sighand->action[sig]->handler;
+    int infostyle = TEST(SA_SIGINFO, info->sighand->action[sig]->flags)
+        ? SIGHAND_STYLE_UC_FLAVOR
+        : SIGHAND_STYLE_UC_TRAD;
+    mcontext->r1 = infostyle;
+    mcontext->r2 = sig;
+    mcontext->r3 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+    mcontext->r4 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+    mcontext->lr = (reg_t)dynamorio_sigreturn;
+#elif defined(MACOS64) && defined(X86)
     mcontext->xdi = (reg_t)info->sighand->action[sig]->handler;
     int infostyle = TEST(SA_SIGINFO, info->sighand->action[sig]->flags)
         ? SIGHAND_STYLE_UC_FLAVOR
@@ -7353,7 +7358,7 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      * look like whatever would happen to the app...
      */
     ASSERT((app_pc)sc->SC_XIP != next_pc);
-#    if defined(AARCHXX) && !defined(MACOS)
+#    if defined(AARCHXX)
     ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr());
     /* We're called from DR and are not yet in the cache, so we want to set the
      * mcontext slot, not the TLS slot, to set the stolen reg value.
