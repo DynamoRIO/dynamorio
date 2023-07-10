@@ -849,7 +849,7 @@ invariant_checker_t::check_for_pc_discontinuity(
     std::string error_msg = "";
     bool have_cond_branch_target = false;
     addr_t cond_branch_target = 0;
-    memref_t prev_instr = shard->prev_instr_;
+    memref_t prev_instr = shard->last_instr_in_cur_context_;
     bool memref_is_kernel_event_marker = false;
 #ifdef UNIX
     // Identify whether the current memref is a marker instead of an instruction. This
@@ -857,7 +857,6 @@ invariant_checker_t::check_for_pc_discontinuity(
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         memref_is_kernel_event_marker = true;
-        prev_instr = shard->last_instr_in_cur_context_;
     }
 #endif
     const addr_t current_memref_addr =
