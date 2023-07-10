@@ -646,6 +646,7 @@ public:
         uint64_t
         get_last_timestamp() const override
         {
+            // kyluk: check this one later
             if (TESTANY(sched_type_t::SCHEDULER_USE_INPUT_ORDINALS,
                         scheduler_->options_.flags))
                 return scheduler_->get_input_stream(ordinal_)->get_last_timestamp();

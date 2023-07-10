@@ -125,6 +125,7 @@ trace_metadata_writer_t::write_tid(byte *buffer, thread_id_t tid)
 int
 trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
 {
+    // kyluk: check callers
     return instru.append_marker(buffer, TRACE_MARKER_TYPE_TIMESTAMP,
                                 // XXX i#5634: Truncated for 32-bit, as documented.
                                 (uintptr_t)timestamp);
@@ -804,6 +805,10 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     if (header.timestamp != 0) {
         // Legacy traces have the timestamp in the header.
         buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)header.timestamp);
+        if (header.timestamp < tdata->last_timestamp_) {
+            std::cerr << "last_timestamp_ " << tdata->last_timestamp_ << " goes backward "
+                      << header.timestamp << " at raw2trace.cpp";
+        }
         tdata->last_timestamp_ = header.timestamp;
     }
     // We have to write this now before we append any bb entries.
@@ -984,6 +989,11 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             byte *buf = buf_base +
                 trace_metadata_writer_t::write_timestamp(buf_base,
                                                          (uintptr_t)entry.timestamp.usec);
+            if (entry.timestamp.usec < tdata->last_timestamp_) {
+                std::cerr << "last_timestamp_ " << tdata->last_timestamp_
+                          << " goes backward " << entry.timestamp.usec
+                          << " at raw2trace.cpp/2";
+            }
             tdata->last_timestamp_ = entry.timestamp.usec;
             CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
             tdata->error = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
@@ -2865,9 +2875,15 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             else
                 prev_was_encoding = false;
             if (it->type == TRACE_TYPE_MARKER) {
-                if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
+                if (it->size == TRACE_MARKER_TYPE_TIMESTAMP) {
+                    // kyluk: does it go backward?
+                    if (it->addr < tdata->last_timestamp_) {
+                        std::cerr << "last_timestamp_ " << tdata->last_timestamp_
+                                  << " goes backward " << it->addr
+                                  << " at raw2trace.cpp/3";
+                    }
                     tdata->last_timestamp_ = it->addr;
-                else if (it->size == TRACE_MARKER_TYPE_CPU_ID) {
+                } else if (it->size == TRACE_MARKER_TYPE_CPU_ID) {
                     DR_CHECK(tdata->chunk_count_ > 0,
                              "chunk_count_ should have been incremented already");
                     uint64_t instr_count =

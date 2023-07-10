@@ -163,6 +163,13 @@ public:
                     chunk_instr_count_ = cur_entry_.addr;
                     break;
                 case TRACE_MARKER_TYPE_TIMESTAMP:
+                    // kyluk check this
+                    if (cur_entry_.addr < last_timestamp_) {
+                        fprintf(
+                            stderr,
+                            "last_timestamp_ %x goes backward %x at record_file_reader.h",
+                            (int)last_timestamp_, (int)cur_entry_.addr);
+                    }
                     last_timestamp_ = cur_entry_.addr;
                     if (first_timestamp_ == 0)
                         first_timestamp_ = last_timestamp_;

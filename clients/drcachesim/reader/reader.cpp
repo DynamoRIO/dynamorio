@@ -293,6 +293,11 @@ reader_t::process_input_entry()
             // be future-proof, we want to avoid looking at timestamps that
             // won't be passed to the user as well.
             if (have_memref) {
+                // kyluk: check this
+                if (cur_ref_.marker.marker_value < last_timestamp_) {
+                    fprintf(stderr, "last_timestamp_ %x goes backward %x at reader.cpp",
+                            (int)last_timestamp_, (int)cur_ref_.marker.marker_value);
+                }
                 last_timestamp_ = cur_ref_.marker.marker_value;
                 if (first_timestamp_ == 0)
                     first_timestamp_ = last_timestamp_;
