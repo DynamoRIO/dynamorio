@@ -1221,8 +1221,13 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     prefix_cmd_if_necessary(cmd OFF ${cmd})
     # We set LD_LIBRARY_PATH for native api/ apps since we're not setting
     # rpath (to make it easier to try different trees)
-    set(cmd ${cmd} -env LD_LIBRARY_PATH
-      "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
+    if (APPLE)
+      set(libvar "DYLD_LIBRARY_PATH")
+    else ()
+      set(libvar "LD_LIBRARY_PATH")
+    endif ()
+    set(cmd ${cmd} -env ${libvar}
+      "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{${libvar}}")
     # add dr_ops last to avoid needing extra \ on ;
     string(REPLACE ";" " " dr_ops_string "${dr_ops}")
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops_string}" PARENT_SCOPE)

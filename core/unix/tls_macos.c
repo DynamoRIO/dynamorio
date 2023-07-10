@@ -193,6 +193,15 @@ get_app_tls_swap_slot_addr(void)
 }
 #endif
 
+#ifdef AARCH64
+/* Shared with Linux AArch64 code. */
+byte **
+get_dr_tls_base_addr(void)
+{
+    return get_app_tls_swap_slot_addr();
+}
+#endif
+
 void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
