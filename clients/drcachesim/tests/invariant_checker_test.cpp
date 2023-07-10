@@ -354,6 +354,20 @@ check_sane_control_flow()
             return false;
         }
     }
+    // Positive test: We should not report a PC discontinuity when the previous instr is
+    // of type TRACE_TYPE_INSTR_SYSENTER.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr_type(TRACE_TYPE_INSTR_SYSENTER, 1, 6),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(1, 101),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
 #endif
 
     return true;
