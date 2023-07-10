@@ -896,15 +896,6 @@ invariant_checker_t::check_for_pc_discontinuity(
                     shard->file_type_) ||
             // Regular fall-through.
             (prev_instr.instr.addr + prev_instr.instr.size == current_memref_addr) ||
-            // String loop.
-            (prev_instr.instr.addr == current_memref_addr &&
-             (memref_is_kernel_event_marker ||
-              memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
-              // Online incorrectly marks the 1st string instr across a thread
-              // switch as fetched.
-              // TODO i#4915, #4948: Eliminate non-fetched and remove the
-              // underlying instrs altogether, which would fix this for us.
-              (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
             // Kernel-mediated, but we can't tell if we had a thread swap.
             (shard->prev_xfer_marker_.instr.tid != 0 &&
              (shard->prev_xfer_marker_.marker.marker_type ==
@@ -917,7 +908,16 @@ invariant_checker_t::check_for_pc_discontinuity(
             shard->window_transition_ ||
             shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
-        if (!valid_nonbranch_flow) {
+        const bool string_loop_flow = prev_instr.instr.addr == current_memref_addr &&
+            (memref_is_kernel_event_marker ||
+             memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
+             // Online incorrectly marks the 1st string instr across a thread
+             // switch as fetched.
+             // TODO i#4915, #4948: Eliminate non-fetched and remove the
+             // underlying instrs altogether, which would fix this for us.
+             (!knob_offline_ && shard->saw_timestamp_but_no_instr_));
+
+        if (!valid_nonbranch_flow && !string_loop_flow) {
             // Check if the type is a branch instruction and there is a branch target
             // mismatch.
             if (type_is_instr_branch(shard->prev_instr_.instr.type)) {
