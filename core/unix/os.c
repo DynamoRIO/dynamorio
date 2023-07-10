@@ -5422,13 +5422,15 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
          * We defer to drsyscall.
          */
         return ((ptr_int_t)MCXT_SYSCALL_RES(mc) >= 0);
-    } else
+    } else {
 #    ifdef X86
         return !TEST(EFLAGS_CF, mc->xflags);
+#    elif defined(AARCH64)
+        return !TEST(EFLAGS_C, mc->xflags);
 #    else
-        return -1;
+#        error NYI
 #    endif
-
+    }
 #else
     if (normalized_sysnum == IF_X64_ELSE(SYS_mmap, SYS_mmap2) ||
 #    if !defined(ARM) && !defined(X64)
@@ -5450,11 +5452,17 @@ set_success_return_val(dcontext_t *dcontext, reg_t val)
 {
     /* since always coming from d_r_dispatch now, only need to set mcontext */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-#if defined(MACOS) && defined(X86)
+#ifdef MACOS
     /* On MacOS, success is determined by CF, except for Mach syscalls, but
      * there it doesn't hurt to set CF.
      */
+#    ifdef X86
     mc->xflags &= ~(EFLAGS_CF);
+#    elif defined(AARCH64)
+    mc->xflags &= ~(EFLAGS_C);
+#    else
+#        error NYI
+#    endif
 #endif
     MCXT_SYSCALL_RES(mc) = val;
 }
@@ -5464,9 +5472,15 @@ static inline void
 set_failure_return_val(dcontext_t *dcontext, uint errno_val)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-#if defined(MACOS) && defined(X86)
+#ifdef MACOS
     /* On MacOS, success is determined by CF, and errno is positive */
+#    ifdef X86
     mc->xflags |= EFLAGS_CF;
+#    elif defined(AARCH64)
+    mc->xflags |= EFLAGS_C;
+#    else
+#        error NYI
+#    endif
     MCXT_SYSCALL_RES(mc) = errno_val;
 #else
     MCXT_SYSCALL_RES(mc) = -(int)errno_val;
