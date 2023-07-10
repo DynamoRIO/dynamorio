@@ -342,6 +342,17 @@ check_sane_control_flow()
             return false;
         }
     }
+    // Positive test: Pre-signal instr continues after signal.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 2),   gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(1, 101), gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
 #endif
 
     return true;
