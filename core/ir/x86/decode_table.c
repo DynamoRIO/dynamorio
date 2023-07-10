@@ -3899,7 +3899,7 @@ const instr_info_t prefix_extensions[][12] = {
     {VEX_W_EXT, 0x660f7e10, "(vex_W ext 109)", xx, xx, xx, xx, xx, mrm|vex, x, 109},
     {INVALID, 0xf20f7e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovq, 0xf30f7e10, "vmovq", Vdq, xx, Wq_dq, xx, xx, mrm|evex, x, tpe[61][6]},
+    {OP_vmovq, 0xf30f7e40, "vmovq", Vdq, xx, Wq_dq, xx, xx, mrm|evex, x, tpe[61][6]},
     {EVEX_Wb_EXT, 0x660f7e10, "(evex_Wb ext 137)", xx, xx, xx, xx, xx, mrm|evex, x, 137},
     {INVALID, 0xf20f7e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 52: all assumed to have Ib */
@@ -4041,7 +4041,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20fd610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0fd610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fd610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovq, 0x660fd610, "vmovq", Wq_dq, xx, Vq_dq, xx, xx, mrm|evex, x, tvexw[108][1]},
+    {OP_vmovq, 0x660fd640, "vmovq", Wq_dq, xx, Vq_dq, xx, xx, mrm|evex, x, tvexw[108][1]},
     {INVALID, 0xf20fd610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 62 */
   {

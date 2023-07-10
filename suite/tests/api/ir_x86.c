@@ -1544,6 +1544,17 @@ test_x64_vmovq(void *dc)
                               false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
     ASSERT(pc == &b2[7]);
     ASSERT(strcmp(dbuf, "vmovq  (%rdx,%rcx)[8byte] -> %xmm25\n") == 0);
+
+    const char expected1[] = {0x62, 0xc1, 0xfe, 0x08, 0x7e, 0x45, 0x00};
+    const char expected2[] = {0x62, 0xc1, 0xfd, 0x08, 0xd6, 0x45, 0x00};
+
+    instr_t* instr = INSTR_CREATE_vmovq(dc, opnd_create_reg(DR_REG_XMM16), opnd_create_base_disp_ex(DR_REG_R13, DR_REG_NULL, 0, 0, OPSZ_8, true, false, false));
+    test_instr_encode(dc, instr, 7);
+    ASSERT(!memcmp(expected1, buf, 7));
+
+    instr = INSTR_CREATE_vmovq(dc, opnd_create_base_disp_ex(DR_REG_R13, DR_REG_NULL, 0, 0, OPSZ_8, true, false, false), opnd_create_reg_partial(DR_REG_XMM16, OPSZ_8));
+    test_instr_encode(dc, instr, 7);
+    ASSERT(!memcmp(expected2, buf, 7));
 }
 #endif
 
