@@ -302,13 +302,14 @@
 --------xx----------------------  shift4     # shift type for logical (shifted register)
 --------xx------------------xxxx  p_size_bhsd_0    # sve predicate vector reg, elsz depending on size
 --------xx------------------xxxx  p_size_bhs_0     # sve predicate vector reg, elsz depending on size
+--------xx------------------xxxx  p_size_bh_0      # sve predicate vector reg, elsz depending on size
 --------xx------------------xxxx  p_size_hsd_0     # sve predicate vector reg, elsz depending on size
 --------xx-----------------xxxxx  float_reg0       # H, S or D register
 --------xx-----------------xxxxx  hsd_size_reg0    # hsd register, depending on size opcode
 --------xx-----------------xxxxx  bhsd_size_reg0   # bhsd register, depending on size opcode
 --------xx-----------------xxxxx  z_size_bhsd_0    # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_bhs_0     # sve vector reg, elsz depending on size
---------xx-----------------xxxxx  z_sizep1_bhs_0     # sve vector reg, elsz depending on size, plus one
+--------xx-----------------xxxxx  z_sizep1_bhs_0   # sve vector reg, elsz depending on size, plus one
 --------xx-----------------xxxxx  z_size_hsd_0     # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_sd_0      # sve vector reg, elsz depending on size
 --------xx-----------------xxxxx  z_size_hd_0      # sve vector reg, elsz depending on size
@@ -319,6 +320,7 @@
 --------xx------------xxxxx-----  p_size_hsd_5     # sve predicate vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_bhsd_5    # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_size_bhs_5     # sve vector reg, elsz depending on size
+--------xx------------xxxxx-----  z_size_bh_5      # sve vector reg, elsz depending on size
 --------xx------------xxxxx-----  z_sizep1_bhs_5   # sve vector reg, elsz depending on size, plus 1
 --------xx------------xxxxx-----  z_sizep2_bh_5    # sve vector reg, elsz depending on size, plus 2
 --------xx------------xxxxx-----  z_sizep1_bs_5    # sve vector reg, elsz depending on size, plus 1
@@ -334,6 +336,7 @@
 --------xx-xxxxx----------------  bhsd_size_reg16  # bhsd register, depending on size opcode
 --------xx-xxxxx----------------  p_size_bhsd_16   # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_size_bhsd_16   # sve vector reg, elsz depending on size
+--------xx-xxxxx----------------  z_size_bh_16     # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_size_sd_16     # sve vector reg, elsz depending on size
 --------xx-xxxxx----------------  z_sizep1_bhs_16  # sve vector reg, elsz depending on size plus 1
 --------xx-xxxxx----------------  z_sizep2_bh_16   # sve vector reg, elsz depending on size plus 2
