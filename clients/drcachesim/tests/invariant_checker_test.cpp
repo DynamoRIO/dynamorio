@@ -311,7 +311,6 @@ check_sane_control_flow()
             gen_instr(1, 1),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
         };
-
         if (!run_checker(
                 memrefs, true, 1, 2,
                 "Non-explicit control flow has no marker - Discontinuity between "
@@ -328,7 +327,17 @@ check_sane_control_flow()
             gen_instr(1, 101), gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(1, 2),
         };
-
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Positive test: We should skip the check if there is no instruction before the
+    // kernel event. i.e. The previous instr address is zero.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
+        };
         if (!run_checker(memrefs, false)) {
             return false;
         }
