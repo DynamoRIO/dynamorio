@@ -588,12 +588,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // consecutive timestamps will never be more than 2^31 microseconds (
         // 2147 seconds) apart.
         if (memref.marker.marker_value < shard->last_timestamp_) {
+            char message[100];
+            sprintf(message,
+                    "Timestamp does not increase monotonically: last_timestamp %lx, "
+                    "marker_value %lx",
+                    shard->last_timestamp_, memref.marker.marker_value);
             report_if_false(shard,
                             shard->last_timestamp_ >
                                 (memref.marker.marker_value + UINT32_MAX / 2),
-                            sprintf("Timestamp does not increase monotonically: "
-                                    "last_timestamp %x, marker_value %x",
-                                    shard->last_timestamp_, memref.marker.marker_value));
+                            std::string(message));
         }
 #else
         report_if_false(shard, memref.marker.marker_value >= shard->last_timestamp_,
