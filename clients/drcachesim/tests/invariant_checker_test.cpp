@@ -333,10 +333,9 @@ check_sane_control_flow()
         }
     }
     // Positive test: We should skip the check if there is no instruction before the
-    // kernel event. i.e. The previous instr address is zero.
+    // kernel event.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 0),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
         };
         if (!run_checker(memrefs, false)) {
