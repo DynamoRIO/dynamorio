@@ -189,15 +189,17 @@ online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, intptr_t win
 {
     byte *new_buf = buf_ptr;
     new_buf += append_tid(new_buf, tid);
+    static uint64 static_frozen = 0;
     uint64 frozen = frozen_timestamp_.load(std::memory_order_acquire);
     // kyluk @@@
     new_buf += append_marker(
         new_buf, TRACE_MARKER_TYPE_TIMESTAMP,
         // Truncated to 32 bits for 32-bit: we live with it.
         static_cast<uintptr_t>(frozen != 0 ? frozen : instru_t::get_timestamp()));
-    if (frozen != 0) {
+    if (frozen != 0 && frozen != static_frozen) {
         fprintf(stderr, "use frozen timestamp %x, instead of get_timestamp %x",
                 (int)frozen, (int)instru_t::get_timestamp());
+        static_frozen = frozen;
     }
     if (window >= 0)
         new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_WINDOW_ID, (uintptr_t)window);
