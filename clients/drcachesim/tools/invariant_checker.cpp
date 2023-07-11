@@ -597,6 +597,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->last_timestamp_ >
                                 (memref.marker.marker_value + UINT32_MAX / 2),
                             std::string(message));
+            if (shard->last_timestamp_ > (memref.marker.marker_value + UINT32_MAX / 2)) {
+                std::cerr << "timestamp rollover: last_timestamp_ "
+                          << shard->last_timestamp_ << ". marker_value "
+                          << memref.marker.marker_value;
+            }
         }
 #else
         report_if_false(shard, memref.marker.marker_value >= shard->last_timestamp_,
