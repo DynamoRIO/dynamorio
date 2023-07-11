@@ -552,7 +552,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     // Nested signal.  XXX: This only works for our annotated test
                     // signal_invariants where we know shard->app_handler_pc_.
                     memref.instr.addr == shard->app_handler_pc_ ||
-                    // Marker for rseq abort handler.  Not as unique as a prefetch, but
+                    // Marker for rseq abort handler. Not as unique as a prefetch, but
                     // we need an instruction and not a data type.
                     memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
                     // Instruction-filtered can easily skip the return point.
@@ -849,7 +849,7 @@ invariant_checker_t::check_for_pc_discontinuity(
     std::string error_msg = "";
     bool have_cond_branch_target = false;
     addr_t cond_branch_target = 0;
-    const memref_t prev_instr = shard->last_instr_in_cur_context_;
+    memref_t prev_instr = shard->prev_instr_;
     bool memref_is_kernel_event_marker = false;
 #ifdef UNIX
     // Identify whether the current memref is a marker instead of an instruction. This
@@ -857,6 +857,7 @@ invariant_checker_t::check_for_pc_discontinuity(
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         memref_is_kernel_event_marker = true;
+        prev_instr = shard->last_instr_in_cur_context_;
     }
 #endif
     const addr_t current_memref_addr =
