@@ -69,6 +69,13 @@ namespace dynamorio {
 namespace drcov {
 namespace {
 
+using ::dynamorio::droption::DROPTION_FLAG_INTERNAL;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+using ::dynamorio::droption::twostring_t;
+
 #define PRINT(lvl, ...)                                         \
     do {                                                        \
         if (dynamorio::drcov::op_verbose.get_value() >= lvl) {  \

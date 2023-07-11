@@ -90,6 +90,10 @@ DR_DISALLOW_UNSAFE_STATIC
 namespace dynamorio {
 namespace drmemtrace {
 
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+
 char logsubdir[MAXIMUM_PATH];
 #ifdef BUILD_PT_TRACER
 char kernel_pt_logsubdir[MAXIMUM_PATH];
