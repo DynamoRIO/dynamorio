@@ -277,6 +277,10 @@ reader_t::process_input_entry()
             cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP &&
             skip_chunk_header_.find(cur_tid_) != skip_chunk_header_.end()) {
             VPRINT(this, 2, "skipping start-of-chunk dup timestamp\n");
+            fprintf(stderr,
+                    "skipping start-of-chunk dup timestamp. cur_tid_ %ld, "
+                    "cur_ref_.marker.marker_value %x, last_timestamp_ %x",
+                    cur_tid_, (int)cur_ref_.marker.marker_value, (int)last_timestamp_);
         } else if (chunk_instr_count_ > 0 &&
                    cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
                    skip_chunk_header_.find(cur_tid_) != skip_chunk_header_.end()) {
@@ -293,11 +297,31 @@ reader_t::process_input_entry()
             // be future-proof, we want to avoid looking at timestamps that
             // won't be passed to the user as well.
             if (have_memref) {
-                // kyluk: check this
-                if (cur_ref_.marker.marker_value < last_timestamp_) {
-                    fprintf(stderr, "last_timestamp_ %x goes backward %x at reader.cpp",
-                            (int)last_timestamp_, (int)cur_ref_.marker.marker_value);
-                }
+                // kyluk: check this. checked, not useful at the moment, it does
+                // go backward, but not sure what it means
+                // last_timestamp_ 4e1f4f70 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e2137bd goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e23d727 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e241432 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e2585f7 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e26babe goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e26f7ca goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e2734d4 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e2734d4 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e2771db goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e27aee3 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e286603 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e28e014 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e29d43a goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e2ac860 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e2ac860 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e2ac860 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e2ac860 goes backward 4e1f1267 at
+                // reader.cpplast_timestamp_ 4e2b056a goes backward 4e1f1267 at reader.cpp
+                // if (cur_ref_.marker.marker_value < last_timestamp_) {
+                //    fprintf(stderr, "last_timestamp_ %x goes backward %x at reader.cpp",
+                //            (int)last_timestamp_, (int)cur_ref_.marker.marker_value);
+                //}
                 last_timestamp_ = cur_ref_.marker.marker_value;
                 if (first_timestamp_ == 0)
                     first_timestamp_ = last_timestamp_;

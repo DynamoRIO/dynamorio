@@ -125,7 +125,7 @@ trace_metadata_writer_t::write_tid(byte *buffer, thread_id_t tid)
 int
 trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
 {
-    // kyluk: check callers
+    // kyluk: check callers @@@
     return instru.append_marker(buffer, TRACE_MARKER_TYPE_TIMESTAMP,
                                 // XXX i#5634: Truncated for 32-bit, as documented.
                                 (uintptr_t)timestamp);
@@ -2125,8 +2125,12 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
          type_is_data(static_cast<trace_type_t>(tdata->rseq_buffer_[remove_end].type)) ||
          (tdata->rseq_buffer_[remove_end].type == TRACE_TYPE_MARKER &&
           (tdata->rseq_buffer_[remove_end].size == TRACE_MARKER_TYPE_TIMESTAMP ||
-           tdata->rseq_buffer_[remove_end].size == TRACE_MARKER_TYPE_CPU_ID))))
+           tdata->rseq_buffer_[remove_end].size == TRACE_MARKER_TYPE_CPU_ID)))) {
+        if (tdata->rseq_buffer_[remove_end].size == TRACE_MARKER_TYPE_TIMESTAMP) {
+            std::cerr << "rseq rollback: advanced for timestamp ";
+        }
         ++remove_end;
+    }
     log(4, "rseq rollback: advanced rough %d-%d to %d-%d\n", remove_start_rough_idx,
         remove_end_rough_idx, remove_start, remove_end);
     // Now find the corresponding decode_pc start index.
