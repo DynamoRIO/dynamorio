@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -66,9 +66,6 @@ insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
     /* ldr dr_reg_stolen, [reg_base, DR_TLS_BASE_OFFSET] */
     PRE(ilist, where,
         XINST_CREATE_load(dcontext, opnd_create_reg(dr_reg_stolen),
-                          /* TODO i#5383: For MACOS && AARCH64 we need to verify the
-                           * offset: PR #5497 had an 8x multiplier here.
-                           */
                           OPND_CREATE_MEMPTR(reg_base, DR_TLS_BASE_OFFSET)));
 }
 

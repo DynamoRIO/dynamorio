@@ -61,6 +61,7 @@
 #include <fstream>
 #include "hashtable.h"
 #include <vector>
+#include <bitset>
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include "../drpt2trace/pt2ir.h"
 #endif
@@ -93,15 +94,21 @@ namespace drmemtrace {
 #define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
-#ifdef HAS_ZLIB
-#    ifdef HAS_ZIP
-#        define TRACE_SUFFIX "trace.zip"
-#    else
-#        define TRACE_SUFFIX "trace.gz"
-#    endif
-#else
-#    define TRACE_SUFFIX "trace"
+
+#ifdef HAS_LZ4
+#    define TRACE_SUFFIX_LZ4 "trace.lz4"
 #endif
+
+#ifdef HAS_ZIP
+#    define TRACE_SUFFIX_ZIP "trace.zip"
+#endif
+
+#ifdef HAS_ZLIB
+#    define TRACE_SUFFIX_GZ "trace.gz"
+#endif
+
+#define TRACE_SUFFIX "trace"
+
 #define TRACE_CHUNK_PREFIX "chunk."
 
 typedef enum {
@@ -675,6 +682,87 @@ struct trace_header_t {
             return msg;    \
     } while (0)
 
+/**
+ * Bitset hash table for balancing search time in case of enormous count of pc.
+ * Each pc represented as pair of high 64-BLOCK_SIZE_BIT bits and
+ * lower BLOCK_SIZE_BIT bits.
+ * High bits is the key in hash table and give bitset table with BLOCK_SIZE size.
+ * Lower bits set bit in bitset that means this pc was processed.
+ * BLOCK_SIZE_BIT=13 was picked up to exclude hash collision and save speed up.
+ */
+
+template <typename T> class bitset_hash_table_t {
+private:
+    const static size_t BLOCK_SIZE_BIT = 13;
+    const static size_t BLOCK_SIZE = (1 << BLOCK_SIZE_BIT);
+    const size_t BASIC_BUCKET_COUNT = (1 << 15);
+    std::unordered_map<T, std::bitset<BLOCK_SIZE>> page_table_;
+    typename std::unordered_map<T, std::bitset<BLOCK_SIZE>>::iterator last_block_ =
+        page_table_.end();
+
+    inline std::pair<T, ushort>
+    convert(T pc)
+    {
+        return std::pair<T, ushort>(
+            reinterpret_cast<T>(reinterpret_cast<size_t>(pc) & (~(BLOCK_SIZE - 1))),
+            static_cast<ushort>(reinterpret_cast<size_t>(pc) & (BLOCK_SIZE - 1)));
+    }
+
+public:
+    bitset_hash_table_t()
+    {
+        static_assert(std::is_pointer<T>::value || std::is_integral<T>::value,
+                      "Pointer or integral type required");
+        page_table_.reserve(BASIC_BUCKET_COUNT);
+        page_table_.emplace(T(0), std::move(std::bitset<BLOCK_SIZE>()));
+        last_block_ = page_table_.begin();
+    }
+
+    bool
+    find_and_insert(T pc)
+    {
+        auto block = convert(pc);
+        if (block.first != last_block_->first) {
+            last_block_ = page_table_.find(block.first);
+            if (last_block_ == page_table_.end()) {
+                last_block_ = (page_table_.emplace(std::make_pair(
+                                   block.first, std::move(std::bitset<BLOCK_SIZE>()))))
+                                  .first;
+                last_block_->second[block.second] = 1;
+                return true;
+            }
+        }
+        if (last_block_->second[block.second] == 1)
+            return false;
+        last_block_->second[block.second] = 1;
+        return true;
+    }
+
+    void
+    erase(T pc)
+    {
+        auto block = convert(pc);
+        if (last_block_->first != block.first)
+            last_block_ = page_table_.find(block.first);
+        if (last_block_ != page_table_.end())
+            last_block_->second[block.second] = 0;
+    }
+
+    void
+    clear()
+    {
+        page_table_.clear();
+        page_table_.reserve(BASIC_BUCKET_COUNT);
+        page_table_.emplace(T(0), std::move(std::bitset<BLOCK_SIZE>()));
+        last_block_ = page_table_.begin();
+    }
+
+    ~bitset_hash_table_t()
+    {
+        clear();
+    }
+};
+
 // We need to determine the memref_t record count for inserting a marker with
 // that count at the start of each chunk.
 class memref_counter_t : public reader_t {
@@ -938,6 +1026,10 @@ protected:
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
         std::vector<trace_entry_t> delayed_branch;
+        // This is the first step of optimization of using delayed_branch_ vector.
+        // Checking the bool value is cheaper than delayed_branch.empty().
+        // In general it's better to avoid this vector at all.
+        bool delayed_branch_empty_ = true;
         // Records the decode pcs for delayed_branch instructions for re-inserting
         // encodings across a chunk boundary.
         std::vector<app_pc> delayed_branch_decode_pcs;
@@ -974,7 +1066,7 @@ protected:
         uint last_cpu_ = 0;
         app_pc last_pc_if_syscall_ = 0;
 
-        std::set<app_pc> encoding_emitted;
+        bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
 
         std::vector<schedule_entry_t> sched;
@@ -1183,7 +1275,8 @@ private:
     // instruction.
     std::string
     write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
-          const trace_entry_t *end, std::vector<app_pc> decode_pcs = {});
+          const trace_entry_t *end, app_pc *decode_pcs = nullptr,
+          size_t decode_pcs_size = 0);
 
     // Similar to write(), but treat the provided traces as delayed branches: if they
     // are the last values in a record, they belong to the next record of the same

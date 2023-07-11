@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1329,14 +1329,22 @@ uint
 query_time_seconds(void)
 {
     struct timeval current_time;
+#if defined(MACOS) && defined(AARCH64)
+    /* TODO i#5383: Replace with a system call (unless we're sure this library call
+     * is re-entrant, just a simple load from commpage).
+     */
+#    undef gettimeofday /* Remove "gettimeofday_forbidden_function". */
+    uint64 val = gettimeofday(&current_time, NULL);
+#else
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
-#ifdef MACOS
+#    ifdef MACOS
     /* MacOS before Sierra returns usecs:secs and does not set the timeval struct. */
     if (macos_version < MACOS_VERSION_SIERRA) {
         if ((int)val < 0)
             return 0;
         return (uint)val + UTC_TO_EPOCH_SECONDS;
     }
+#    endif
 #endif
     if ((int)val >= 0) {
         return current_time.tv_sec + UTC_TO_EPOCH_SECONDS;
@@ -1358,7 +1366,9 @@ query_time_millis()
 #if !(defined(MACOS) && defined(AARCH64))
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
 #else
-    /* TODO i#5383: Replace with a system call. */
+    /* TODO i#5383: Replace with a system call (unless we're sure this library call
+     * is re-entrant, just a simple load from commpage).
+     */
 #    undef gettimeofday /* Remove "gettimeofday_forbidden_function". */
     uint64 val = gettimeofday(&current_time, NULL);
 #endif
@@ -2103,7 +2113,7 @@ get_segment_base(uint seg)
 {
 #if defined(MACOS64) && defined(X86)
     ptr_uint_t *pthread_self = (ptr_uint_t *)read_thread_register(seg);
-    return (byte *)&pthread_self[SEG_TLS_BASE_OFFSET];
+    return (byte *)&pthread_self[SEG_TLS_BASE_SLOT];
 #elif defined(X86)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
@@ -2158,7 +2168,7 @@ get_local_state()
 void
 os_enter_dynamorio(void)
 {
-#    if defined(AARCHXX) || defined(RISCV64)
+#    if (defined(AARCHXX) || defined(RISCV64)) && !defined(MACOS)
     /* i#1578: check that app's tls value doesn't match our sentinel */
     ASSERT(*(byte **)get_dr_tls_base_addr() != TLS_SLOT_VAL_EXITED);
 #    endif
@@ -5412,13 +5422,15 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
          * We defer to drsyscall.
          */
         return ((ptr_int_t)MCXT_SYSCALL_RES(mc) >= 0);
-    } else
+    } else {
 #    ifdef X86
         return !TEST(EFLAGS_CF, mc->xflags);
+#    elif defined(AARCH64)
+        return !TEST(EFLAGS_C, mc->xflags);
 #    else
-        return -1;
+#        error NYI
 #    endif
-
+    }
 #else
     if (normalized_sysnum == IF_X64_ELSE(SYS_mmap, SYS_mmap2) ||
 #    if !defined(ARM) && !defined(X64)
@@ -5440,11 +5452,17 @@ set_success_return_val(dcontext_t *dcontext, reg_t val)
 {
     /* since always coming from d_r_dispatch now, only need to set mcontext */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-#if defined(MACOS) && defined(X86)
+#ifdef MACOS
     /* On MacOS, success is determined by CF, except for Mach syscalls, but
      * there it doesn't hurt to set CF.
      */
+#    ifdef X86
     mc->xflags &= ~(EFLAGS_CF);
+#    elif defined(AARCH64)
+    mc->xflags &= ~(EFLAGS_C);
+#    else
+#        error NYI
+#    endif
 #endif
     MCXT_SYSCALL_RES(mc) = val;
 }
@@ -5454,9 +5472,15 @@ static inline void
 set_failure_return_val(dcontext_t *dcontext, uint errno_val)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-#if defined(MACOS) && defined(X86)
+#ifdef MACOS
     /* On MacOS, success is determined by CF, and errno is positive */
+#    ifdef X86
     mc->xflags |= EFLAGS_CF;
+#    elif defined(AARCH64)
+    mc->xflags |= EFLAGS_C;
+#    else
+#        error NYI
+#    endif
     MCXT_SYSCALL_RES(mc) = errno_val;
 #else
     MCXT_SYSCALL_RES(mc) = -(int)errno_val;

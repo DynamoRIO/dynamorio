@@ -45,9 +45,13 @@
 #include "opcode_mix_create.h"
 #include "../tests/test_helpers.h"
 
-using dynamorio::drmemtrace::analysis_tool_t;
-using dynamorio::drmemtrace::analyzer_t;
-using dynamorio::drmemtrace::opcode_mix_tool_create;
+using ::dynamorio::drmemtrace::analysis_tool_t;
+using ::dynamorio::drmemtrace::analyzer_t;
+using ::dynamorio::drmemtrace::opcode_mix_tool_create;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
 
 namespace {
 

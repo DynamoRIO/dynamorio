@@ -50,6 +50,10 @@ namespace dynamorio {
 namespace samples {
 namespace {
 
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+using ::dynamorio::droption::droption_t;
+
 #ifdef WINDOWS
 #    define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
@@ -152,7 +156,8 @@ DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     /* Parse command-line options. */
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
+    if (!dynamorio::droption::droption_parser_t::parse_argv(
+            dynamorio::droption::DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
         DR_ASSERT(false);
 
     /* Get opcode and check if valid. */

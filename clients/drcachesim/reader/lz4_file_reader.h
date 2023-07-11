@@ -1,6 +1,5 @@
 /* **********************************************************
  * Copyright (c) 2023 Google, Inc.  All rights reserved.
- * Copyright (c) 2022 Arm Limited   All rights reserved.
  * **********************************************************/
 
 /*
@@ -21,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -31,59 +30,34 @@
  * DAMAGE.
  */
 
-/* Executes two indexed memory instructions, one using X28 for index register,
- * the other W28. Intention is for DR to call drutil_insert_get_mem_addr() in
- * order to test the 'if (index == stolen)' clause in
- * drutil_insert_get_mem_addr_arm() in the case of W28.
- */
+/* lz4_file_reader: reads compressed files containing memory traces. */
 
-#ifndef ASM_CODE_ONLY /* C code */
+#ifndef _LZ4_FILE_READER_H_
+#define _LZ4_FILE_READER_H_ 1
 
-#    include "tools.h"
+#include "common/lz4_istream.h"
+#include "file_reader.h"
+#include "record_file_reader.h"
 
-/* In asm code. */
-void
-indexed_mem_test(int *val);
+namespace dynamorio {
+namespace drmemtrace {
 
-int
-main(int argc, char *argv[])
-{
-    int value = 41;
-    indexed_mem_test(&value);
-    if (value != 42)
-        print("indexed_mem_test() failed with %d, expected 42.\n", value);
-    else
-        print("indexed_mem_test() passed.\n");
+struct lz4_reader_t {
+    lz4_reader_t()
+        : file(nullptr) {};
+    explicit lz4_reader_t(std::istream *file)
+        : file(file)
+    {
+    }
+    std::istream *file;
+    trace_entry_t buf[4096];
+    trace_entry_t *cur_buf = buf;
+    trace_entry_t *max_buf = buf;
+};
 
-    print("Tested the use of stolen register as memory index register.\n");
-    return 0;
-}
+typedef file_reader_t<lz4_reader_t> lz4_file_reader_t;
 
-#else /* asm code *************************************************************/
-#    include "asm_defines.asm"
-/* clang-format off */
-START_FILE
-#define FUNCNAME indexed_mem_test
-        DECLARE_EXPORTED_FUNC(FUNCNAME)
-GLOBAL_LABEL(FUNCNAME:)
+} // namespace drmemtrace
+} // namespace dynamorio
 
-        stp      x0, x1, [sp, #-16]!
-
-        /* Load passed in value using index register X28, then increment. */
-        mov      x28, #0
-        ldr      x1, [x0, x28, lsl #0]
-        add      x1, x1, #1
-
-        /* Store incremented value using index register W28. */
-        mov      w28, #0
-        str      x1, [x0, w28, uxtw #0]
-
-        ldp      x0, x1, [sp], #16
-        ret
-
-        END_FUNC(FUNCNAME)
-#  undef FUNCNAME
-
-END_FILE
-/* clang-format on */
-#endif /* ASM_CODE_ONLY */
+#endif /* _LZ4_FILE_READER_H_ */

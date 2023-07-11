@@ -5878,21 +5878,6 @@ extract_tsz_offset(uint enc, uint tszh_pos, uint tszl_pos)
     return offset;
 }
 
-static inline aarch64_reg_offset
-extract_tsz3_offset(uint enc, uint tszh_pos, uint tszl_pos)
-{
-    int offset;
-
-    ASSERT(tszh_pos < 30);
-    uint tsz = (extract_uint(enc, tszh_pos, 1) << 2) | extract_uint(enc, tszl_pos, 2);
-
-    if (!highest_bit_set(tsz, 0, 3, &offset))
-        return NOT_A_REG;
-
-    ASSERT(offset < 4);
-    return offset;
-}
-
 static inline bool
 decode_opnd_z_wtszl19p1_bhsd_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
@@ -6778,6 +6763,18 @@ encode_opnd_p_size_bhs_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *
 }
 
 static inline bool
+decode_opnd_p_size_bh_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_p(0, 22, BYTE_REG, HALF_REG, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_p_size_bh_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_p(0, 22, BYTE_REG, HALF_REG, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_p_size_hsd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_sized_p(0, 22, HALF_REG, DOUBLE_REG, enc, pc, opnd);
@@ -6985,6 +6982,18 @@ static inline bool
 encode_opnd_z_size_bhs_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_sized_z(5, 22, BYTE_REG, SINGLE_REG, 0, 0, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_size_bh_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(5, 22, BYTE_REG, HALF_REG, 0, 0, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_size_bh_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(5, 22, BYTE_REG, HALF_REG, 0, 0, opnd, enc_out);
 }
 
 static inline bool
@@ -7238,6 +7247,18 @@ static inline bool
 encode_opnd_z_size_bhsd_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_sized_z(16, 22, BYTE_REG, DOUBLE_REG, 0, 0, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_size_bh_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(16, 22, BYTE_REG, HALF_REG, 0, 0, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_size_bh_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(16, 22, BYTE_REG, HALF_REG, 0, 0, opnd, enc_out);
 }
 
 static inline bool
@@ -7821,6 +7842,47 @@ encode_opnd_z3_msz_bhsd_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint
         return false;
 
     if (reg_number > 7)
+        return false;
+
+    *enc_out |= (reg_number << 16);
+    *enc_out |= (size << 23);
+
+    return true;
+}
+
+static inline bool
+decode_opnd_z4_msz_bhsd_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    aarch64_reg_offset bit_size = extract_uint(enc, 23, 2);
+    if (bit_size < BYTE_REG)
+        return false;
+    if (bit_size > DOUBLE_REG)
+        return false;
+
+    return decode_single_sized(DR_REG_Z0, DR_REG_Z15, 16, 4, bit_size, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z4_msz_bhsd_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_element_vector_reg(opnd));
+
+    const aarch64_reg_offset size = get_vector_element_reg_offset(opnd);
+    if (size == NOT_A_REG)
+        return false;
+
+    if (size > DOUBLE_REG)
+        return false;
+    if (size < BYTE_REG)
+        return false;
+
+    opnd_size_t reg_size = OPSZ_SCALABLE;
+
+    uint reg_number;
+    if (!is_vreg(&reg_size, &reg_number, opnd))
+        return false;
+
+    if (reg_number > 15)
         return false;
 
     *enc_out |= (reg_number << 16);
@@ -9183,7 +9245,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
          */
         if ((enc & 0xfffff01f) == 0xd503201f) {
             SYSLOG_INTERNAL_WARNING("Undefined HINT instruction found: "
-                                    "encoding 0x%x (CRm:op2 0x%x)\n",
+                                    "encoding 0x%x (CRm:op2 0x%x)",
                                     enc, (enc & 0xfe0) >> 5);
             instr_set_opcode(instr, OP_nop);
             instr_set_num_opnds(dcontext, instr, 0, 0);
