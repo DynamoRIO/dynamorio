@@ -368,7 +368,6 @@ check_sane_control_flow()
         }
     }
 #endif
-
     return true;
 }
 
