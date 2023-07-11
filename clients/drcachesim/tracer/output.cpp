@@ -923,6 +923,11 @@ process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_s
     return skip;
 }
 
+// We are looking for the first unfiltered record so that we can insert a FILTER_ENDPOINT
+// marker to demarcate filtered and unfiltered records. If there is a PC record with 1
+// instr, we cannot be sure if it is a filtered record or an unfiltered record (unless it
+// has memref records, in which case we know that it is unfiltered). For such records, we
+// err on the side of treating it as a filtered record.
 offline_entry_t *
 find_unfiltered_record(byte *start, byte *end)
 {
@@ -1042,6 +1047,14 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             // contains a mix of filtered and unfiltered records. We look for the first
             // unfiltered record and if such a record is found, we insert the
             // FILTER_ENDPOINT marker before it.
+            // Only the most recent basic block can have unfiltered data. Once the mode
+            // switch is made, it will take effect in some thread at the top of a block in
+            // the drbbdup mode dispatch. Then at the bottom of that block it will hit the
+            // new check and enter the clean call. So if we walk backward to the first PC
+            // entry we find (since unfiltered has just one PC at the start) that must be
+            // the transition point. However, if this PC has just 1 instr (and no
+            // memrefs), we assume it is a filtered record and assume that the transition
+            // occurred at a later point.
             byte *end =
                 (byte *)find_unfiltered_record(data->buf_base + header_size, buf_ptr);
             if (end == NULL) {
@@ -1050,15 +1063,14 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
                     instru->append_marker(buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
             } else {
                 // Write the filtered data.
-                write_trace_data(drcontext, data->buf_base, end, get_local_window(data));
+                output_buffer(drcontext, data, data->buf_base, end, 0);
                 // Add the FILTER_ENDPOINT.
                 offline_entry_t marker[2];
                 byte *marker_buf = (byte *)&marker[0];
                 int size = instru->append_marker(marker_buf,
                                                  TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
                 DR_ASSERT(size <= (int)sizeof(marker));
-                write_trace_data(drcontext, marker_buf, marker_buf + size,
-                                 get_local_window(data));
+                output_buffer(drcontext, data, marker_buf, marker_buf + size, 0);
 
                 // Set the pointer to unfiltered data.
                 data->buf_base = end;
@@ -1210,7 +1222,7 @@ init_thread_io(void *drcontext)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *proc_info;
 
-    NOTIFY(1, "T%d: in init_thread_io.\n", dr_get_thread_id(drcontext));
+    NOTIFY(1, "T" TIDFMT " in init_thread_io.\n", dr_get_thread_id(drcontext));
 #ifdef HAS_ZLIB
     if (op_offline.get_value() &&
         (op_raw_compress.get_value() == "zlib" ||
