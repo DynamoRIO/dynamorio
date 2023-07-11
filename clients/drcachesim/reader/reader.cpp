@@ -280,7 +280,7 @@ reader_t::process_input_entry()
             fprintf(stderr,
                     "skipping start-of-chunk dup timestamp. cur_tid_ %ld, "
                     "cur_ref_.marker.marker_value %x, last_timestamp_ %x",
-                    cur_tid_, (int)cur_ref_.marker.marker_value, (int)last_timestamp_);
+                    (long int)cur_tid_, (int)cur_ref_.marker.marker_value, (int)last_timestamp_);
         } else if (chunk_instr_count_ > 0 &&
                    cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
                    skip_chunk_header_.find(cur_tid_) != skip_chunk_header_.end()) {
