@@ -55,6 +55,7 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+using ::dynamorio::droption::DROPTION_FLAG_ACCUMULATE;
 using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_ALL;
 using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
