@@ -4225,7 +4225,7 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec, CONTEXT *
             recreate_success_t res;
             priv_mcontext_t mcontext;
             context_to_mcontext(&mcontext, cxt);
-            res = recreate_app_state(dcontext, &mcontext, true /*memory too*/, f);
+            res = recreate_app_state(dcontext, &mcontext, true /*memory too*/, f, false);
             if (res == RECREATE_SUCCESS_STATE) {
                 /* cxt came from the kernel, so it should already have ss and cs
                  * initialized. Thus there's no need to get them again.
@@ -5755,7 +5755,7 @@ intercept_exception(app_state_at_intercept_t *state)
                 pExcptRec->ExceptionAddress = (PVOID)translated_pc;
             }
             context_to_mcontext(&mcontext, cxt);
-            res = recreate_app_state(dcontext, &mcontext, true /*memory too*/, f);
+            res = recreate_app_state(dcontext, &mcontext, true /*memory too*/, f, false);
             if (res != RECREATE_SUCCESS_STATE) {
                 /* We don't expect to get here: means an exception from an
                  * instruction we added.  FIXME: today we do have some

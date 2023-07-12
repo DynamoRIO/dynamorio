@@ -465,7 +465,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
     LOG(THREAD_GET, LOG_SYNCH, 2,
         "translate context, thread " TIDFMT " at pc_recreatable spot translating\n",
         trec->id);
-    success = recreate_app_state(trec->dcontext, mcontext, restore_memory, f);
+    success = recreate_app_state(trec->dcontext, mcontext, restore_memory, f, false);
     if (success != RECREATE_SUCCESS_STATE) {
         /* should never happen right?
          * actually it does when deciding whether can deliver a signal
@@ -610,7 +610,7 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
                  * ask for the read lock (case 7493)
                  */
                 !READ_LOCK_HELD(&fcache_unit_areas->lock)) &&
-               recreate_app_state(trec->dcontext, mc, false /*just query*/, NULL) ==
+               recreate_app_state(trec->dcontext, mc, false /*just query*/, NULL, IF_AARCH64_ELSE(true,false)) ==
                    RECREATE_SUCCESS_STATE &&
                /* It's ok to call is_dynamo_address even though it grabs many
                 * locks because recreate_app_state succeeded.

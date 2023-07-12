@@ -927,7 +927,7 @@ recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *in
 static recreate_success_t
 recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *start_app,
                               byte *start_cache, byte *end_cache, priv_mcontext_t *mc,
-                              bool just_pc, uint flags)
+                              bool just_pc, uint flags, bool handle_epilogue)
 {
     byte *answer = NULL;
     byte *cpc, *prev_bytes;
@@ -935,6 +935,8 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
     cache_pc target_cache = mc->pc;
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
     translate_walk_t walk;
+    cache_pc last_orig_instr = NULL;
+    bool instr_is_epilogue = false;
 
     LOG(THREAD_GET, LOG_INTERP, 3,
         "recreate_app : looking for " PFX " in frag @ " PFX " (tag " PFX ")\n",
@@ -985,6 +987,13 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
          */
         if (len == 0)
             continue;
+                
+        // mark instr as epilogue
+        if(instr_is_app(inst)) last_orig_instr = instr_get_translation(inst);
+        if(!instr_is_app(inst) && instr_get_translation(inst) == last_orig_instr ) 
+            instr_is_epilogue = true;
+        if(!instr_is_app(inst) && instr_get_translation(inst) != last_orig_instr )
+            instr_is_epilogue = false;
 
         /* note this will be exercised for all instructions up to the answer */
 
@@ -1070,6 +1079,12 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                                       "\tprev instr"););
                 }
             } else {
+                if(instr_is_epilogue && handle_epilogue) {
+                    LOG(THREAD_GET, LOG_INTERP, 2,
+                        "recreate_app -- Fail , instr is epilogue , +%d " PFX "\n", cpc-start_cache,answer);  
+                    return RECREATE_FAILURE;
+                }   
+
                 answer = instr_get_translation(inst);
                 if (translate_walk_good_state(tdcontext, &walk, answer)) {
                     LOG(THREAD_GET, LOG_INTERP, 2,
@@ -1226,7 +1241,7 @@ restore_stolen_register(dcontext_t *dcontext, priv_mcontext_t *mcontext)
  * translation. */
 static recreate_success_t
 recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
-                            bool just_pc, fragment_t *owning_f, bool restore_memory)
+                            bool just_pc, fragment_t *owning_f, bool restore_memory, bool handle_epilogue)
 {
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
     dr_mcontext_t xl8_mcontext;
@@ -1521,7 +1536,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         } else {
             res = recreate_app_state_from_ilist(
                 tdcontext, ilist, (byte *)f->tag, (byte *)FCACHE_ENTRY_PC(f),
-                (byte *)f->start_pc + f->size, mcontext, just_pc, f->flags);
+                (byte *)f->start_pc + f->size, mcontext, just_pc, f->flags, handle_epilogue);
             STATS_INC(recreate_via_app_ilist);
         }
         DEBUG_DECLARE(ok =) dr_set_isa_mode(tdcontext, old_mode, NULL);
@@ -1597,7 +1612,7 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
     memset(&mc, 0, sizeof(mc)); /* ensures esp is NULL */
     mc.pc = pc;
 
-    res = recreate_app_state_internal(tdcontext, &mc, true, f, false);
+    res = recreate_app_state_internal(tdcontext, &mc, true, f, false, false);
     if (res != RECREATE_SUCCESS_PC) {
         ASSERT(res != RECREATE_SUCCESS_STATE); /* shouldn't return that for just_pc */
         ASSERT(in_fcache(pc));                 /* Make sure caller didn't screw up */
@@ -1651,7 +1666,7 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
 /* Use THREAD_GET instead of THREAD so log messages go to calling thread */
 recreate_success_t
 recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext, bool restore_memory,
-                   fragment_t *f)
+                   fragment_t *f, bool handle_epilogue)
 {
     recreate_success_t res;
 
@@ -1662,7 +1677,7 @@ recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext, bool restor
     }
 #endif
 
-    res = recreate_app_state_internal(tdcontext, mcontext, false, f, restore_memory);
+    res = recreate_app_state_internal(tdcontext, mcontext, false, f, restore_memory, handle_epilogue);
 
 #ifdef DEBUG
     if (res) {
@@ -2026,7 +2041,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             });
             LOG(THREAD, LOG_INTERP, 3, "  restoring cpc=" PFX ", xsp=" PFX "\n", mc.pc,
                 mc.xsp);
-            res = recreate_app_state(dcontext, &mc, false /*just registers*/, NULL);
+            res = recreate_app_state(dcontext, &mc, false /*just registers*/, NULL, false);
             LOG(THREAD, LOG_INTERP, 3,
                 "  restored res=%d pc=" PFX ", xsp=" PFX " vs " PFX ", ibreg=" PFX
                 " vs " PFX "\n",

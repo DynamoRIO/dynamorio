@@ -97,7 +97,7 @@ typedef enum {
 
 recreate_success_t
 recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext, bool restore_memory,
-                   fragment_t *f);
+                   fragment_t *f, bool handle_epilogue);
 
 void
 translation_info_free(dcontext_t *tdcontext, translation_info_t *info);
