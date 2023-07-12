@@ -49,6 +49,9 @@ namespace dynamorio {
 namespace samples {
 namespace {
 
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+using ::dynamorio::droption::droption_t;
+
 static droption_t<std::string> trace_function(
     DROPTION_SCOPE_CLIENT, "trace_function", "malloc", "Name of function to trace",
     "The name of the function to wrap and print callstacks on every call.");
@@ -160,7 +163,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_set_client_name("DynamoRIO Sample Client 'callstack'",
                        "http://dynamorio.org/issues");
     // Parse our option.
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
+    if (!dynamorio::droption::droption_parser_t::parse_argv(
+            dynamorio::droption::DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
         DR_ASSERT(false);
     drcallstack_options_t ops = {
         sizeof(ops),

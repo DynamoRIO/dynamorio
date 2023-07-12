@@ -41,13 +41,13 @@
 namespace dynamorio {
 namespace drcpusim {
 
-extern droption_t<std::string> op_cpu;
-extern droption_t<bool> op_continue;
-extern droption_t<bool> op_fool_cpuid;
-extern droption_t<bool> op_allow_prefetchw;
-extern droption_t<std::string> op_blocklist;
-extern droption_t<bool> op_ignore_all_libs;
-extern droption_t<unsigned int> op_verbose;
+extern dynamorio::droption::droption_t<std::string> op_cpu;
+extern dynamorio::droption::droption_t<bool> op_continue;
+extern dynamorio::droption::droption_t<bool> op_fool_cpuid;
+extern dynamorio::droption::droption_t<bool> op_allow_prefetchw;
+extern dynamorio::droption::droption_t<std::string> op_blocklist;
+extern dynamorio::droption::droption_t<bool> op_ignore_all_libs;
+extern dynamorio::droption::droption_t<unsigned int> op_verbose;
 
 } // namespace drcpusim
 } // namespace dynamorio

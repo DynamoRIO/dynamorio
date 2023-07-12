@@ -49,6 +49,9 @@
 #include <errno.h>
 #include <ctype.h>
 
+namespace dynamorio { /**< General DynamoRIO namespace. */
+namespace droption {  /**< DynamoRIO Option Parser namespace. */
+
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 
@@ -89,7 +92,7 @@ typedef enum {
      * std::string only.
      */
     // XXX: to support other types of accumulation, we should add explicit
-    // support for dr_option_t<std::vector<std::string> >.
+    // support for dr_option_t<std::vector<std::string>>.
     DROPTION_FLAG_ACCUMULATE = 0x0001,
     /**
      * By default, an option that does not match a known name and the
@@ -977,5 +980,8 @@ dr_parse_options(client_id_t client_id, std::string *error_msg, int *last_index)
                                          last_index);
 }
 #endif
+
+} // namespace droption
+} // namespace dynamorio
 
 #endif /* _DROPTION_H_ */

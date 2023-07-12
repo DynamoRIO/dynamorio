@@ -47,7 +47,6 @@
 #include "cache_lru.h"
 #include "cache_fifo.h"
 #include "cache_simulator.h"
-#include "droption.h"
 #include "snoop_filter.h"
 
 namespace dynamorio {

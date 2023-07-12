@@ -174,6 +174,7 @@ changes:
  - All drcachesim/ code was changed to use the dynamorio::drmemtrace namespace.
    External code using any drcachesim or drmemtrace library will need to be
    recompiled.
+ - The droption header library is now inside the dynamorio::droption namespace.
 
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
@@ -946,7 +947,7 @@ Further non-compatibility-affecting changes include:
    interface is subject to change in the next release.
  - Added easy-to-use option declaration and parsing for C++ clients
    and standalone applications via a new Extension, the \ref page_droption
-   and the #droption_t class.
+   and the #dynamorio::droption::droption_t class.
  - Added a new tool: \ref page_drcachesim, a multi-process cache simulator.
  - Added a new tool: \ref page_drcpusim, a CPU simulator for illegal
    instructions on legacy processors.

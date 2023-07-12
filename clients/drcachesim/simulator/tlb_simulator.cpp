@@ -39,7 +39,6 @@
 #include "../common/memref.h"
 #include "../common/options.h"
 #include "../common/utils.h"
-#include "droption.h"
 #include "tlb_stats.h"
 #include "tlb.h"
 #include "tlb_simulator.h"

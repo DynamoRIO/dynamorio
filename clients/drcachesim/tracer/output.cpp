@@ -42,7 +42,6 @@
 #include "drmemtrace.h"
 #include "drreg.h"
 #include "drx.h"
-#include "droption.h"
 #include "instru.h"
 #include "tracer.h"
 #include "physaddr.h"

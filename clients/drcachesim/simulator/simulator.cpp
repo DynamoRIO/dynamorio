@@ -37,7 +37,6 @@
 #include "../common/memref.h"
 #include "../common/options.h"
 #include "../common/utils.h"
-#include "droption.h"
 #include "simulator.h"
 
 namespace dynamorio {
