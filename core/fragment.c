@@ -3520,16 +3520,7 @@ fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
          * take advantage of this but we'll leave the power in place.
          */
 
-        /* FIXME: [perf] we could memoize this value in the table itself */
-        cache_pc pending_delete_pc =
-            PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, ftable));
-
         ASSERT(IBL_ENTRIES_ARE_EQUAL(*pg, fe));
-        ASSERT(pending_delete_pc != NULL);
-        LOG(THREAD, LOG_FRAGMENT, 3,
-            "fragment_prepare: remove F%d(" PFX ") from %s[%u] (table addr " PFX "), "
-            "set to " PFX "\n",
-            f->id, f->tag, ftable->name, hindex, ftable->table, pending_delete_pc);
 
         /* start_pc_fragment will not match start_pc for the table
          * consistency checks. However, the hashtable_fragment_check_consistency
@@ -3543,7 +3534,6 @@ fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
          * 1+ target_delete entries).
          * This isn't needed in a thread-private table but doesn't hurt.
          */
-        ftable->table[hindex].start_pc_fragment = pending_delete_pc;
         ftable->table[hindex].tag_fragment = FAKE_TAG;
         /* FIXME In a shared table, this means that the entry cannot
          * be overwritten for a fragment with the same tag. */
@@ -6437,8 +6427,9 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
     /* Case 9750: to specify a region of size 0, do not pass in NULL as the base!
      * Use EMPTY_REGION_{BASE,SIZE} instead.
      */
+#ifndef AARCH64
     ASSERT(base != NULL || size != 0);
-
+#endif
     ASSERT(dcontext == get_thread_private_dcontext());
 
     /* quick check for overlap first by using read lock and avoiding
