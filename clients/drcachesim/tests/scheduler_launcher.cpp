@@ -51,14 +51,18 @@
 #    include "zipfile_ostream.h"
 #endif
 
-using dynamorio::drmemtrace::disable_popups;
-using dynamorio::drmemtrace::memref_t;
-using dynamorio::drmemtrace::memref_tid_t;
-using dynamorio::drmemtrace::scheduler_t;
+using ::dynamorio::drmemtrace::disable_popups;
+using ::dynamorio::drmemtrace::memref_t;
+using ::dynamorio::drmemtrace::memref_tid_t;
+using ::dynamorio::drmemtrace::scheduler_t;
 #ifdef HAS_ZIP
-using dynamorio::drmemtrace::zipfile_istream_t;
-using dynamorio::drmemtrace::zipfile_ostream_t;
+using ::dynamorio::drmemtrace::zipfile_istream_t;
+using ::dynamorio::drmemtrace::zipfile_ostream_t;
 #endif
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
 
 namespace {
 

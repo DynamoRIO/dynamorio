@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,19 @@
 #include "client_tools.h"
 #include "droption.h"
 #include <string.h>
+
+namespace {
+
+using ::dynamorio::droption::bytesize_t;
+using ::dynamorio::droption::dr_parse_options;
+using ::dynamorio::droption::DROPTION_FLAG_ACCUMULATE;
+using ::dynamorio::droption::DROPTION_FLAG_SWEEP;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+using ::dynamorio::droption::twostring_t;
 
 static droption_t<long> op_l(DROPTION_SCOPE_CLIENT, "l", 0L, -64, 64, "Some param",
                              "Longer desc of some param.");
@@ -192,6 +205,8 @@ test_argv(int argc, const char *argv[])
     ASSERT(strcmp(argv[i++], "-xull") == 0);
     ASSERT(strcmp(argv[i++], "0xa") == 0);
 }
+
+} // namespace
 
 DR_EXPORT void
 dr_client_main(client_id_t client_id, int argc, const char *argv[])

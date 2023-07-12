@@ -44,9 +44,13 @@
 #include "drmemtrace/analyzer.h"
 #include "drmemtrace/histogram_create.h"
 
-using dynamorio::drmemtrace::analysis_tool_t;
-using dynamorio::drmemtrace::analyzer_t;
-using dynamorio::drmemtrace::histogram_tool_create;
+using ::dynamorio::drmemtrace::analysis_tool_t;
+using ::dynamorio::drmemtrace::analyzer_t;
+using ::dynamorio::drmemtrace::histogram_tool_create;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
 
 namespace {
 

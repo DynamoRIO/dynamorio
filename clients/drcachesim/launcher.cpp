@@ -60,7 +60,11 @@
 #include "common/options.h"
 #include "common/utils.h"
 
-using namespace dynamorio::drmemtrace;
+using namespace ::dynamorio::drmemtrace;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
 
 namespace {
 

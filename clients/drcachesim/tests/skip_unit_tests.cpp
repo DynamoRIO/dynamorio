@@ -42,6 +42,11 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
 #ifndef HAS_ZIP
 #    error zipfile reading is required for this test
 #endif

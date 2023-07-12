@@ -39,6 +39,9 @@
 namespace dynamorio {
 namespace drcpusim {
 
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+using ::dynamorio::droption::droption_t;
+
 #ifdef WINDOWS
 #    define IF_WINDOWS_ELSE(x, y) x
 #else

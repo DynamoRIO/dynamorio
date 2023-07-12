@@ -59,8 +59,8 @@
 #include "speculator.h"
 #include "utils.h"
 
-namespace dynamorio {
-namespace drmemtrace {
+namespace dynamorio {  /**< General DynamoRIO namespace. */
+namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure namespace. */
 
 /**
  * Schedules traced software threads onto simulated cpus.
@@ -100,12 +100,10 @@ public:
          * For dynamic scheduling with cross-stream dependencies, the scheduler may pause
          * a stream if it gets ahead of another stream it should have a dependence on.
          * This value is also used for schedules following the recorded timestamps
-         * (#dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS) to
-         * avoid one stream getting ahead of another.  For replaying a schedule
-         * as it was traced with
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT
-         * this can indicate an idle period on a core where the traced workload was
-         * not currently scheduled.
+         * (#DEPENDENCY_TIMESTAMPS) to avoid one stream getting ahead of another.  For
+         * replaying a schedule as it was traced with #MAP_TO_RECORDED_OUTPUT this can
+         * indicate an idle period on a core where the traced workload was not currently
+         * scheduled.
          */
         STATUS_WAIT,
         STATUS_INVALID,         /**< Error condition. */
@@ -186,14 +184,13 @@ public:
         /**
          * Relative priority for scheduling.  The default is 0.  Higher values have
          * higher priorities and will starve lower-priority inputs.
-         * Higher priorities out-weigh dependencies such as
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS.
+         * Higher priorities out-weigh dependencies such as #DEPENDENCY_TIMESTAMPS.
          */
         int priority = 0;
         /**
          * If non-empty, all input records outside of these ranges are skipped: it is as
          * though the input were constructed by concatenating these ranges together.  A
-         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID marker is inserted between
+         * #TRACE_MARKER_TYPE_WINDOW_ID marker is inserted between
          * ranges (with a value equal to the range ordinal) to notify the client of the
          * discontinuity (but not before the first range).  These ranges must be
          * non-overlapping and in increasing order.
@@ -301,7 +298,7 @@ public:
         /**
          * Each input stream is mapped to a single output stream (i.e., no input will
          * appear on more than one output), supporting lock-free parallel analysis when
-         * combined with #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_IGNORE.
+         * combined with #DEPENDENCY_IGNORE.
          */
         MAP_TO_CONSISTENT_OUTPUT,
         // TODO i#5843: Currently it is up to the user to figure out the original core
@@ -315,7 +312,7 @@ public:
          * number (considered to correspond to output stream ordinal) an input is
          * scheduled into.  This requires an output stream count equal to the number of
          * cores occupied by the input stream set.  When combined with
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS, this will
+         * #DEPENDENCY_TIMESTAMPS, this will
          * precisely replay the recorded schedule; for this mode,
          * #dynamorio::drmemtrace::scheduler_tmpl_t::
          * scheduler_options_t.replay_as_traced_istream
@@ -351,14 +348,11 @@ public:
         DEPENDENCY_IGNORE,
         /**
          * Ensures timestamps in the inputs arrive at the outputs in timestamp order.
-         * For
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_ANY_OUTPUT, enforcing
-         * asked-for context switch rates is more important that honoring precise
-         * trace-buffer-based timestamp inter-input dependencies: thus, timestamp
-         * ordering will be followed at context switch points for picking the next
-         * input, but timestamps will not preempt an input.  To precisely follow
-         * the recorded timestamps, use
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT.
+         * For #MAP_TO_ANY_OUTPUT, enforcing asked-for context switch rates is more
+         * important that honoring precise trace-buffer-based timestamp inter-input
+         * dependencies: thus, timestamp ordering will be followed at context switch
+         * points for picking the next input, but timestamps will not preempt an input.
+         * To precisely follow the recorded timestamps, use #MAP_TO_RECORDED_OUTPUT.
          */
         DEPENDENCY_TIMESTAMPS,
         // TODO i#5843: Add inferred data dependencies.
@@ -405,8 +399,7 @@ public:
         // whether to request SCHEDULER_USE_INPUT_ORDINALS.
         /**
          * If there is just one input and just one output stream, this sets
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS;
-         * otherwise, it has no effect.
+         * #SCHEDULER_USE_INPUT_ORDINALS; otherwise, it has no effect.
          */
         SCHEDULER_USE_SINGLE_INPUT_ORDINALS = 0x8,
         // TODO i#5843: Add more speculation flags for other strategies.
@@ -461,17 +454,15 @@ public:
         archive_ostream_t *schedule_record_ostream = nullptr;
         /**
          * Input stream for replaying a previously recorded schedule when
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_AS_PREVIOUSLY is specified.  If
-         * this is non-nullptr and MAP_AS_PREVIOUSLY is specified, schedule_record_ostream
-         * must be nullptr, and most other fields in this struct controlling scheduling
-         * are ignored.
+         * #MAP_AS_PREVIOUSLY is specified.  If this is non-nullptr and
+         * #MAP_AS_PREVIOUSLY is specified, schedule_record_ostream must be nullptr, and
+         * most other fields in this struct controlling scheduling are ignored.
          */
         archive_istream_t *schedule_replay_istream = nullptr;
         /**
-         * Input stream for replaying the traced schedule when
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT is specified
-         * for more than one output stream (whose count must match the number of
-         * traced cores).
+         * Input stream for replaying the traced schedule when #MAP_TO_RECORDED_OUTPUT is
+         * specified for more than one output stream (whose count must match the number
+         * of traced cores).
          */
         archive_istream_t *replay_as_traced_istream = nullptr;
     };
@@ -536,10 +527,8 @@ public:
         next_record(RecordType &record);
 
         /**
-         * Reports the current time to the scheduler.  This is unitless: it just
-         * needs to be called regularly and consistently.
-         * This is used for
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::QUANTUM_TIME.
+         * Reports the current time to the scheduler.  This is unitless: it just needs to
+         * be called regularly and consistently.  This is used for #QUANTUM_TIME.
          */
         virtual stream_status_t
         report_time(uint64_t cur_time);
@@ -566,8 +555,7 @@ public:
          * start_speculation() call was made, either repeating the current record at that
          * time (if "true" was passed for "queue_current_record" to start_speculation())
          * or continuing on the subsequent record (if "false" was passed).  Returns
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::STATUS_INVALID if there was no
-         * prior start_speculation() call.
+         * #STATUS_INVALID if there was no prior start_speculation() call.
          */
         virtual stream_status_t
         stop_speculation();
@@ -575,21 +563,20 @@ public:
         // memtrace_stream_t interface:
 
         /**
-         * Returns the count of #dynamorio::drmemtrace::memref_t records from the start of
+         * Returns the count of #memref_t records from the start of
          * the trace to this point. It does not include synthetic records (see
          * is_record_synthetic()).
          *
-         * If
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS
-         * is set, then this value matches the record ordinal for the current input stream
-         * (and thus might decrease or not change across records if the input changed).
-         * Otherwise, if multiple input streams fed into this output stream, this
-         * includes the records from all those streams that were presented here: thus,
-         * this may be larger than what the current input stream reports (see
-         * get_input_stream_interface() and get_input_stream_ordinal()).  This does not
-         * advance across skipped records in an input stream from a region of interest
-         * (see #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if
-         * the output stream skipped ahead.
+         * If #SCHEDULER_USE_INPUT_ORDINALS is set, then this value matches the record
+         * ordinal for the current input stream (and thus might decrease or not change
+         * across records if the input changed).  Otherwise, if multiple input streams
+         * fed into this output stream, this includes the records from all those streams
+         * that were presented here: thus, this may be larger than what the current input
+         * stream reports (see get_input_stream_interface() and
+         * get_input_stream_ordinal()).  This does not advance across skipped records in
+         * an input stream from a region of interest (see
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if the
+         * output stream skipped ahead.
          */
         uint64_t
         get_record_ordinal() const override
@@ -601,17 +588,16 @@ public:
         }
         /**
          * Returns the count of instructions from the start of the trace to this point.
-         * If
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS
-         * is set, then this value matches the instruction ordinal for the current input
-         * stream (and thus might decrease or not change across records if the input
-         * changed). Otherwise, if multiple input streams fed into this output stream,
-         * this includes the records from all those streams that were presented here:
-         * thus, this may be larger than what the current input stream reports (see
-         * get_input_stream_interface() and get_input_stream_ordinal()).  This does not
-         * advance across skipped records in an input stream from a region of interest
-         * (see #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if
-         * the output stream skipped ahead.
+         * If #SCHEDULER_USE_INPUT_ORDINALS is set, then this value matches the
+         * instruction ordinal for the current input stream (and thus might decrease or
+         * not change across records if the input changed). Otherwise, if multiple input
+         * streams fed into this output stream, this includes the records from all those
+         * streams that were presented here: thus, this may be larger than what the
+         * current input stream reports (see get_input_stream_interface() and
+         * get_input_stream_ordinal()).  This does not advance across skipped records in
+         * an input stream from a region of interest (see
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if the
+         * output stream skipped ahead.
          */
         uint64_t
         get_instruction_ordinal() const override
@@ -640,8 +626,8 @@ public:
             return scheduler_->get_input_ordinal(ordinal_);
         }
         /**
-         * Returns the value of the most recently seen
-         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP marker.
+         * Returns the value of the most recently seen #TRACE_MARKER_TYPE_TIMESTAMP
+         * marker.
          */
         uint64_t
         get_last_timestamp() const override
@@ -653,8 +639,7 @@ public:
             return last_timestamp_;
         }
         /**
-         * Returns the value of the first seen
-         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP marker.
+         * Returns the value of the first seen #TRACE_MARKER_TYPE_TIMESTAMP marker.
          */
         uint64_t
         get_first_timestamp() const override
@@ -665,8 +650,8 @@ public:
             return first_timestamp_;
         }
         /**
-         * Returns the #dynamorio::drmemtrace::trace_version_t value from the
-         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_VERSION record in the trace header.
+         * Returns the #trace_version_t value from the
+         * #TRACE_MARKER_TYPE_VERSION record in the trace header.
          */
         uint64_t
         get_version() const override
@@ -675,9 +660,9 @@ public:
         }
         /**
          * Returns the OFFLINE_FILE_TYPE_* bitfields of type
-         * #dynamorio::drmemtrace::offline_file_type_t identifying the architecture and
+         * #offline_file_type_t identifying the architecture and
          * other key high-level attributes of the trace from the
-         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILETYPE record in the trace header.
+         * #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
          */
         uint64_t
         get_filetype() const override
@@ -686,7 +671,7 @@ public:
         }
         /**
          * Returns the cache line size from the
-         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CACHE_LINE_SIZE record in the trace
+         * #TRACE_MARKER_TYPE_CACHE_LINE_SIZE record in the trace
          * header.
          */
         uint64_t
@@ -696,7 +681,7 @@ public:
         }
         /**
          * Returns the chunk instruction count from the
-         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT record in the trace
+         * #TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT record in the trace
          * header.
          */
         uint64_t
@@ -706,7 +691,7 @@ public:
         }
         /**
          * Returns the page size from the
-         * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PAGE_SIZE record in the trace header.
+         * #TRACE_MARKER_TYPE_PAGE_SIZE record in the trace header.
          */
         uint64_t
         get_page_size() const override

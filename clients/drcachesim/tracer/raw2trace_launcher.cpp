@@ -44,8 +44,13 @@
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 
-using dynamorio::drmemtrace::raw2trace_directory_t;
-using dynamorio::drmemtrace::raw2trace_t;
+using ::dynamorio::drmemtrace::raw2trace_directory_t;
+using ::dynamorio::drmemtrace::raw2trace_t;
+using ::dynamorio::droption::bytesize_t;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
 
 namespace {
 
