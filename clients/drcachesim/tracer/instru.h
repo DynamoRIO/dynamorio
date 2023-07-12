@@ -422,6 +422,9 @@ public:
     uint64_t
     get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx);
 
+    bool
+    check_modindx(void *drcontext, app_pc pc);
+
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;
     int

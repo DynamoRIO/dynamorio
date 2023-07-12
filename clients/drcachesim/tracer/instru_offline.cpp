@@ -459,6 +459,16 @@ offline_instru_t::get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx)
     return pc - modbase;
 }
 
+bool
+offline_instru_t::check_modindx(void *drcontext, app_pc pc)
+{
+    app_pc modbase;
+    uint modindx = PC_MODIDX_INVALID;
+    if (drmodtrack_lookup(drcontext, pc, &modindx, &modbase) == DRCOVLIB_ERROR_NOT_FOUND)
+        return true;
+    return modindx == PC_MODIDX_INVALID;
+}
+
 // Caller must hold the encoding_lock.
 void
 offline_instru_t::flush_instr_encodings()

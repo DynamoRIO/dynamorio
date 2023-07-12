@@ -1469,30 +1469,21 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     trace_marker_type_t marker_type;
     uintptr_t marker_val = 0;
+    bool event_from_jit  = false;
+
     if (tracing_mode.load(std::memory_order_acquire) != BBDUP_MODE_TRACE)
         return;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
-    switch (info->type) {
-    case DR_XFER_APC_DISPATCHER:
-        /* Do not bother with a marker for the thread init routine. */
-        if (data->num_refs == 0 &&
-            BUF_PTR(data->seg_base) == data->buf_base + data->init_header_size)
-            return;
-        ANNOTATE_FALLTHROUGH;
-    case DR_XFER_SIGNAL_DELIVERY:
-    case DR_XFER_EXCEPTION_DISPATCHER:
-    case DR_XFER_RAISE_DISPATCHER:
-    case DR_XFER_CALLBACK_DISPATCHER:
-    case DR_XFER_RSEQ_ABORT: marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT; break;
-    case DR_XFER_SIGNAL_RETURN:
-    case DR_XFER_CALLBACK_RETURN:
-    case DR_XFER_CONTINUE:
-    case DR_XFER_SET_CONTEXT_THREAD: marker_type = TRACE_MARKER_TYPE_KERNEL_XFER; break;
-    case DR_XFER_CLIENT_REDIRECT: return;
-    default: DR_ASSERT(false && "unknown kernel xfer type"); return;
+    // We have splitted corner cases and general type definition.
+    if ( info->type == DR_XFER_APC_DISPATCHER && data->num_refs == 0 &&
+            BUF_PTR(data->seg_base) == data->buf_base + data->init_header_size ) {
+        return;
     }
-    NOTIFY(2, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
+    if( info->type == DR_XFER_CLIENT_REDIRECT ){
+        return;
+    }
+
     /* TODO i#3937: We need something similar to what raw2trace does with this info
      * for online too, to place signals inside instr bundles.
      */
@@ -1519,13 +1510,74 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
          * unambiguously points to the most recently executed encoding at
          * that PC, even if another thread modifies it right after the signal.
          */
-        marker_val = reinterpret_cast<uintptr_t>(mcontext_pc);
+#ifdef X64 /* For 32-bit we can fit the abs pc but not modix:modoffs. */
+        if(op_offline.get_value()){
+            event_from_jit = reinterpret_cast<offline_instru_t *>(instru)->check_modindx(
+                drcontext, info->source_mcontext->pc);
+        }
+        if (op_offline.get_value() && event_from_jit == false ) {
+            uint modidx;
+            /* Just like PC entries, this is the offset from the base, not from
+             * the indexed segment.
+             */
+            uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
+                drcontext, mcontext_pc, &modidx);
+            /* We save space by using the modidx,modoffs format instead of a raw PC.
+             * These 49 bits will always fit into the 48-bit value field unless the
+             * module index is very large, when it will take two entries, while using
+             * an absolute PC here might always take two entries for some modules.
+             * We'll turn this into an absolute PC in the final trace.
+             */
+            // TODO i#2062: For non-module code we don't have the block id.
+            // Plus, PC_MODIDX_INVALID is the highest value and so will always take
+            // 2 entries.  The simplest solution is to abandon this whole
+            // kernel_interrupted_raw_pc_t scheme and pay the cost of 2 entries to
+            // store the absolute PC: this is only on rare events after all.
+            // This will require a version bump.
+            DR_ASSERT(modoffs != 0 && "non-module rseq code not supported");
+            kernel_interrupted_raw_pc_t raw_pc = {};
+            raw_pc.pc.modidx = modidx;
+            raw_pc.pc.modoffs = modoffs;
+            marker_val = raw_pc.combined_value;
+            NOTIFY(4, "%s: modidx=%d modoffs= " PIFX "\n", __FUNCTION__, modidx, modoffs);
+        } else
+#endif
+            marker_val = reinterpret_cast<uintptr_t>(mcontext_pc);
         NOTIFY(3, "%s: source pc " PFX " => marker val " PIFX "\n", __FUNCTION__,
                mcontext_pc, marker_val);
     }
+
+    switch (info->type) {
+    case DR_XFER_APC_DISPATCHER:
+        /* Do not bother with a marker for the thread init routine. */
+        if (data->num_refs == 0 &&
+            BUF_PTR(data->seg_base) == data->buf_base + data->init_header_size)
+            return;
+        ANNOTATE_FALLTHROUGH;
+    case DR_XFER_SIGNAL_DELIVERY:
+    case DR_XFER_EXCEPTION_DISPATCHER:
+    case DR_XFER_RAISE_DISPATCHER:
+    case DR_XFER_CALLBACK_DISPATCHER:
+    case DR_XFER_RSEQ_ABORT: marker_type = event_from_jit ?
+                                 TRACE_MARKER_TYPE_DCG_KERNEL_EVENT :
+                                 TRACE_MARKER_TYPE_KERNEL_EVENT;
+                             break;
+    case DR_XFER_SIGNAL_RETURN:
+    case DR_XFER_CALLBACK_RETURN:
+    case DR_XFER_CONTINUE:
+    case DR_XFER_SET_CONTEXT_THREAD: marker_type = event_from_jit ?
+                                         TRACE_MARKER_TYPE_DCG_KERNEL_XFER :
+                                         TRACE_MARKER_TYPE_KERNEL_XFER;
+                                     break;
+    case DR_XFER_CLIENT_REDIRECT: return;
+    default: DR_ASSERT(false && "unknown kernel xfer type"); return;
+    }
+
+    NOTIFY(2, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
     if (info->type == DR_XFER_RSEQ_ABORT) {
         BUF_PTR(data->seg_base) += instru->append_marker(
-            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_RSEQ_ABORT, marker_val);
+            BUF_PTR(data->seg_base), ((event_from_jit)? TRACE_MARKER_TYPE_DCG_RSEQ_ABORT : TRACE_MARKER_TYPE_RSEQ_ABORT)
+                    , marker_val);
     }
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);

@@ -253,12 +253,16 @@ typedef enum {
      * marker of type #TRACE_MARKER_TYPE_RSEQ_ABORT.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
+    // Event verson for DCG (Dynamic Code Gen)
+    TRACE_MARKER_TYPE_DCG_KERNEL_EVENT,
     /**
      * The subsequent instruction is the target of a system call that changes the
      * context: a signal return on UNIX, or a callback return or NtContinue or
      * NtSetContextThread on Windows.
      */
     TRACE_MARKER_TYPE_KERNEL_XFER,
+    // Event verson for DCG (Dynamic Code Gen)
+    TRACE_MARKER_TYPE_DCG_KERNEL_XFER,
     // XXX i#5634: Add 64-bit marker value support to 32-bit to avoid truncating.
     /**
      * The marker value contains a timestamp for this point in the trace, in units
@@ -372,6 +376,8 @@ typedef enum {
      * sequence is not provided by the kernel.)
      */
     TRACE_MARKER_TYPE_RSEQ_ABORT,
+    // Event verson for DCG (Dynamic Code Gen)
+    TRACE_MARKER_TYPE_DCG_RSEQ_ABORT,
 
     /**
      * Identifies in the marker value the ordinal of a window during a multi-window

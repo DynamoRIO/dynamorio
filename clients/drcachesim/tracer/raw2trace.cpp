@@ -1928,7 +1928,7 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
             // legacy traces.
             kernel_interrupted_raw_pc_t raw_pc;
             raw_pc.combined_value = marker_val;
-            DR_ASSERT(raw_pc.pc.modidx != PC_MODIDX_INVALID);
+            DR_ASSERT_MSG(raw_pc.pc.modidx != PC_MODIDX_INVALID, "Not valid pc for kernel marker\n");
             app_pc pc = modvec_()[raw_pc.pc.modidx].orig_seg_base +
                 (raw_pc.pc.modoffs - modvec_()[raw_pc.pc.modidx].seg_offs);
             log(3,
@@ -1939,6 +1939,20 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
             marker_val = reinterpret_cast<uintptr_t>(pc);
         } // For really old, we've already marked as TRACE_ENTRY_VERSION_NO_KERNEL_PC.
     }
+
+        // If event happend in jit code, we won't have a module. In such case
+        // just store the abs PC.
+        if ((*entry)->extended.valueB == TRACE_MARKER_TYPE_DCG_KERNEL_EVENT ||
+            (*entry)->extended.valueB == TRACE_MARKER_TYPE_DCG_RSEQ_ABORT ||
+            (*entry)->extended.valueB == TRACE_MARKER_TYPE_DCG_KERNEL_XFER) {
+            if (impl()->get_version(tls) >= OFFLINE_FILE_VERSION_KERNEL_INT_PC) {
+                app_pc pc = reinterpret_cast<app_pc>((*entry)->extended.valueA);
+                impl()->log(3,
+                            "Kernel marker from DGC: the absolute addr 0x%p\n",
+                            pc);
+                marker_val = reinterpret_cast<uintptr_t>(pc);
+            }
+        }
 #endif
     *value = marker_val;
     return "";
