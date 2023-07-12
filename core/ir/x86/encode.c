@@ -1285,15 +1285,6 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
     }
     case TYPE_O:
         return ((opnd_is_abs_addr(opnd) ||
-#ifdef X64
-                 /* We'll take a relative address that rip-rel won't reach:
-                  * after all, OPND_CREATE_ABSMEM() makes a rip-rel.
-                  */
-                 (opnd_is_rel_addr(opnd) &&
-                  (!REL32_REACHABLE(di->final_pc + MAX_INSTR_LENGTH,
-                                    (byte *)opnd_get_addr(opnd)) ||
-                   !REL32_REACHABLE(di->final_pc + 4, (byte *)opnd_get_addr(opnd)))) ||
-#endif
                  (!X64_MODE(di) && opnd_is_mem_instr(opnd))) &&
                 size_ok(di, opnd_get_size(opnd), opsize, false /*!addr*/));
     case TYPE_X:
