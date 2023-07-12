@@ -805,10 +805,6 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     if (header.timestamp != 0) {
         // Legacy traces have the timestamp in the header.
         buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)header.timestamp);
-        if (header.timestamp < tdata->last_timestamp_) {
-            std::cerr << "last_timestamp_ " << tdata->last_timestamp_ << " goes backward "
-                      << header.timestamp << " at raw2trace.cpp";
-        }
         tdata->last_timestamp_ = header.timestamp;
     }
     // We have to write this now before we append any bb entries.
