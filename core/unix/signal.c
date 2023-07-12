@@ -3290,6 +3290,16 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
     sig_full_initialize(&sc_full, &ucxt);
 #if defined(LINUX) && defined(X86)
     sc_full.sc->fpstate = NULL; /* for mcontext_to_sigcontext */
+/* 
+ * Restore SSE register context during signals.
+ * They were not hadles correctly and were empty.
+*/
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    if (dcontext) {
+        byte *xstate = get_and_initialize_xstate_buffer(dcontext);
+        sc_full.sc->fpstate = &((kernel_xstate_t *)xstate)->fpstate;
+    }
+    LOG(THREAD_GET, LOG_ASYNCH, 3, "explicit fpstate = %p\n", sc_full.sc->fpstate);
 #endif
     mcontext_to_sigcontext(&sc_full, mc, DR_MC_ALL);
     thread_set_segment_registers(sc_full.sc);
