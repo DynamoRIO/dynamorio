@@ -60,6 +60,11 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: true
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      with:
+        detached: true
+        sudo: false
 
     # Cancel any prior runs for a PR (but do not cancel master branch runs).
     - uses: n1hility/cancel-previous-runs@v2
