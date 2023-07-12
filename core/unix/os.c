@@ -3761,7 +3761,8 @@ os_thread_sleep(uint64 milliseconds)
         /* not unusual for client threads to use itimers and have their run
          * routine sleep forever
          */
-        if (count++ > 3 && !IS_CLIENT_THREAD(get_thread_private_dcontext())) {
+        //original value was 3
+        if (count++ > 100 && !IS_CLIENT_THREAD(get_thread_private_dcontext())) {
             ASSERT_NOT_REACHED();
             break; /* paranoid */
         }
