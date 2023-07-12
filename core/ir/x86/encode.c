@@ -1284,8 +1284,7 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
         return (opnd_is_far_pc(opnd) || opnd_is_far_instr(opnd));
     }
     case TYPE_O:
-        return ((opnd_is_abs_addr(opnd) ||
-                 (!X64_MODE(di) && opnd_is_mem_instr(opnd))) &&
+        return ((opnd_is_abs_addr(opnd) || (!X64_MODE(di) && opnd_is_mem_instr(opnd))) &&
                 size_ok(di, opnd_get_size(opnd), opsize, false /*!addr*/));
     case TYPE_X:
         /* this means the memory address DS:(RE)(E)SI */
