@@ -1046,14 +1046,19 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             // contains a mix of filtered and unfiltered records. We look for the first
             // unfiltered record and if such a record is found, we insert the
             // FILTER_ENDPOINT marker before it.
+            //
             // Only the most recent basic block can have unfiltered data. Once the mode
             // switch is made, it will take effect in some thread at the top of a block in
             // the drbbdup mode dispatch. Then at the bottom of that block it will hit the
             // new check and enter the clean call. So if we walk backward to the first PC
             // entry we find (since unfiltered has just one PC at the start) that must be
-            // the transition point. However, if this PC has just 1 instr (and no
-            // memrefs), we assume it is a filtered record and assume that the transition
-            // occurred at a later point.
+            // the transition point. However, if the mode change occurred after dispatch
+            // and before the end of block check, then we will have filtered entries in
+            // the buffer.
+            //
+            // So if this PC has just 1 instr (and no memrefs), it coule be either a
+            // filtered or an unfiltered entry. We assume it is a filtered record and
+            // assume that the transition occurred at a later point.
             byte *end =
                 (byte *)find_unfiltered_record(data->buf_base + header_size, buf_ptr);
             if (end == NULL) {
