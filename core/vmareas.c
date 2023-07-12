@@ -1510,7 +1510,7 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
     /* We support an empty range start==end in general but we do
      * complain about 0..0 to catch bugs like i#4097.
      */
-    ASSERT(start != NULL || end != NULL);
+    if(start == NULL && end == NULL) return false;
     ASSERT(start <= end || end == NULL /* wraparound */);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, READWRITE);
