@@ -2199,8 +2199,22 @@ drbbdup_event_restore_state(void *drcontext, bool restore_memory,
     bool found_copy = false;
     for (instr_t *inst = instrlist_first(info->fragment_info.ilist); inst != NULL;
          inst = instr_get_next(inst)) {
-        if (pc == info->raw_mcontext->pc) {
+
+        if (
+#ifdef X86 
+        /* jecxz/loop* converting into single instr_t within 3 real instructions
+         * that's why we should handle it separatly 
+         */
+        ((pc + 2 == info->raw_mcontext->pc  || pc + 4 == info->raw_mcontext->pc ) && instr_is_cti_short_rewrite(inst, pc))  ||
+#endif
+        /*TODO: Handle the same situation for AARCHXX*/
+         pc + instr_length(drcontext,inst) > info->raw_mcontext->pc) {
             /* We found the faulting instruction. */
+#ifdef X86
+            if (instr_is_cti_short_rewrite(inst, pc)) {
+                return false;
+            }
+#endif
             for (int i = 0; i < DRBBDUP_SLOT_COUNT; i++) {
                 if (slots[i] == DR_REG_NULL)
                     continue;
