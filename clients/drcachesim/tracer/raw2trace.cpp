@@ -985,11 +985,11 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             byte *buf = buf_base +
                 trace_metadata_writer_t::write_timestamp(buf_base,
                                                          (uintptr_t)entry.timestamp.usec);
-            if (entry.timestamp.usec < tdata->last_timestamp_) {
-                std::cerr << "last_timestamp_ " << tdata->last_timestamp_
-                          << " goes backward " << entry.timestamp.usec
-                          << " at raw2trace.cpp/2";
-            }
+// kyluk   if (entry.timestamp.usec < tdata->last_timestamp_) {
+//              std::cerr << "last_timestamp_ " << tdata->last_timestamp_
+//                        << " goes backward " << entry.timestamp.usec
+//                        << " at raw2trace.cpp/2";
+//          }
             tdata->last_timestamp_ = entry.timestamp.usec;
             CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
             tdata->error = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
@@ -2877,11 +2877,11 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             if (it->type == TRACE_TYPE_MARKER) {
                 if (it->size == TRACE_MARKER_TYPE_TIMESTAMP) {
                     // kyluk: does it go backward?
-                    if (it->addr < tdata->last_timestamp_) {
-                        std::cerr << "last_timestamp_ " << tdata->last_timestamp_
-                                  << " goes backward " << it->addr
-                                  << " at raw2trace.cpp/3";
-                    }
+//                  if (it->addr < tdata->last_timestamp_) {
+//                      std::cerr << "last_timestamp_ " << tdata->last_timestamp_
+//                                << " goes backward " << it->addr
+//                                << " at raw2trace.cpp/3";
+//                  }
                     tdata->last_timestamp_ = it->addr;
                 } else if (it->size == TRACE_MARKER_TYPE_CPU_ID) {
                     DR_CHECK(tdata->chunk_count_ > 0,
