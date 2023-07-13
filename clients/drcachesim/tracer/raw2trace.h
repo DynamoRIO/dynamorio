@@ -647,7 +647,7 @@ public:
         // avoiding null pointer manipulation complaints (xref i#6196).
         byte *pc = instrlist_encode_to_copy(
             drcontext, instrs, decode_buf_,
-            reinterpret_cast<byte *>(static_cast<ptr_uint_t>(1)), nullptr, true);
+            reinterpret_cast<byte *>(static_cast<ptr_uint_t>(4)), nullptr, true);
         DR_ASSERT(pc != nullptr);
         DR_ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE);
         // Clear do_module_parsing error; we can't cleanly make virtual b/c it's
