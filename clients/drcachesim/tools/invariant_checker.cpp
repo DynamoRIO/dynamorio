@@ -76,13 +76,13 @@ void
 invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
                                      const std::string &invariant_name)
 {
-    // TODO(sahil): Add the reporting metadata here.
     if (!condition) {
         std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
                   << shard->stream->get_record_ordinal() << ": " << invariant_name
                   << "\n";
         std::cerr << "Last recorded timestamp: " << shard->last_timestamp_ << "\n";
-        std::cerr << "Instructions since last timestamp: " << shard->instr_count_ << "\n";
+        std::cerr << "Instructions since last timestamp: "
+                  << shard->instr_count_since_last_timestamp_ << "\n";
         abort();
     }
 }
@@ -138,8 +138,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     // per-shard counts for error reporting; XXX: we could add our own global
     // counts to compare to the serial stream).
     ++shard->ref_count_;
-    if (type_is_instr(memref.instr.type))
+    if (type_is_instr(memref.instr.type)) {
         ++shard->instr_count_;
+        ++shard->instr_count_since_last_timestamp_;
+    }
     // XXX: We also can't verify counts with a skip invoked from the middle, but
     // we have no simple way to detect that here.
     if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && shard->stream != nullptr &&

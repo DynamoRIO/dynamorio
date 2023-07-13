@@ -174,6 +174,7 @@ protected:
         uint64_t chunk_instr_count_ = 0;
         uint64_t instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
+        uint64_t instr_count_since_last_timestamp_ = 0;
         std::vector<schedule_entry_t> sched_;
         std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_;
         bool skipped_instrs_ = false;
