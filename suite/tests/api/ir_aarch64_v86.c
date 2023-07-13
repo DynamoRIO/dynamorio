@@ -580,6 +580,112 @@ TEST_INSTR(stgp)
               opnd_create_reg(Xn_six_offset_0[i]), opnd_create_reg(Xn_six_offset_1[i]));
 }
 
+TEST_INSTR(gmi)
+{
+    /* Testing GMI     <Xd>, <Xn|SP>, <Xm> */
+    const char *const expected_0_0[6] = {
+        "gmi    %x0 %x0 -> %x0",    "gmi    %x6 %x7 -> %x5",
+        "gmi    %x11 %x12 -> %x10", "gmi    %x16 %x17 -> %x15",
+        "gmi    %x21 %x22 -> %x20", "gmi    %sp %x30 -> %x30",
+    };
+    TEST_LOOP(gmi, gmi, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]),
+              opnd_create_reg(Xn_six_offset_2[i]));
+}
+
+TEST_INSTR(irg)
+{
+    /* Testing IRG     <Xd|SP>, <Xn|SP>, <Xm> */
+    const char *const expected_0_0[6] = {
+        "irg    %x0 %x0 -> %x0",    "irg    %x6 %x7 -> %x5",
+        "irg    %x11 %x12 -> %x10", "irg    %x16 %x17 -> %x15",
+        "irg    %x21 %x22 -> %x20", "irg    %sp %x30 -> %sp",
+    };
+    TEST_LOOP(irg, irg, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0_sp[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]),
+              opnd_create_reg(Xn_six_offset_2[i]));
+}
+
+TEST_INSTR(subp)
+{
+    /* Testing SUBP    <Xd>, <Xn|SP>, <Xm|SP> */
+    const char *const expected_0_0[6] = {
+        "subp   %x0 %x0 -> %x0",    "subp   %x6 %x7 -> %x5",
+        "subp   %x11 %x12 -> %x10", "subp   %x16 %x17 -> %x15",
+        "subp   %x21 %x22 -> %x20", "subp   %sp %sp -> %x30",
+    };
+    TEST_LOOP(subp, subp, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]),
+              opnd_create_reg(Xn_six_offset_2_sp[i]));
+}
+
+TEST_INSTR(subps)
+{
+    /* Testing SUBPS   <Xd>, <Xn|SP>, <Xm|SP> */
+    const char *const expected_0_0[6] = {
+        "subps  %x0 %x0 -> %x0",    "subps  %x6 %x7 -> %x5",
+        "subps  %x11 %x12 -> %x10", "subps  %x16 %x17 -> %x15",
+        "subps  %x21 %x22 -> %x20", "subps  %sp %sp -> %x30",
+    };
+    TEST_LOOP(subps, subps, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]),
+              opnd_create_reg(Xn_six_offset_2_sp[i]));
+}
+
+TEST_INSTR(addg)
+{
+    /* Testing ADDG    <Xd|SP>, <Xn|SP>, #<imm1>, #<imm2> */
+    static const uint uimm6_0_0[6] = { 0, 192, 368, 544, 704, 1008 };
+    static const uint uimm4_0_0[6] = { 0, 5, 8, 11, 13, 15 };
+    const char *const expected_0_0[6] = {
+        "addg   %x0 $0x0000 $0x00 -> %x0",   "addg   %x6 $0x00c0 $0x05 -> %x5",
+        "addg   %x11 $0x0170 $0x08 -> %x10", "addg   %x16 $0x0220 $0x0b -> %x15",
+        "addg   %x21 $0x02c0 $0x0d -> %x20", "addg   %sp $0x03f0 $0x0f -> %sp",
+    };
+    TEST_LOOP(addg, addg, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0_sp[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]),
+              opnd_create_immed_uint(uimm6_0_0[i], OPSZ_10b),
+              opnd_create_immed_uint(uimm4_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(subg)
+{
+    /* Testing SUBG    <Xd|SP>, <Xn|SP>, #<imm1>, #<imm2> */
+    static const uint uimm6_0_0[6] = { 0, 192, 368, 544, 704, 1008 };
+    static const uint uimm4_0_0[6] = { 0, 5, 8, 11, 13, 15 };
+    const char *const expected_0_0[6] = {
+        "subg   %x0 $0x0000 $0x00 -> %x0",   "subg   %x6 $0x00c0 $0x05 -> %x5",
+        "subg   %x11 $0x0170 $0x08 -> %x10", "subg   %x16 $0x0220 $0x0b -> %x15",
+        "subg   %x21 $0x02c0 $0x0d -> %x20", "subg   %sp $0x03f0 $0x0f -> %sp",
+    };
+    TEST_LOOP(subg, subg, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0_sp[i]),
+              opnd_create_reg(Xn_six_offset_1_sp[i]),
+              opnd_create_immed_uint(uimm6_0_0[i], OPSZ_10b),
+              opnd_create_immed_uint(uimm4_0_0[i], OPSZ_4b));
+}
+
+TEST_INSTR(dc_gva)
+{
+    /* Testing DC      GVA, <Xt> */
+    const char *const expected_0_0[6] = {
+        "dc_gva  -> (%x0)[1byte]",  "dc_gva  -> (%x5)[1byte]",
+        "dc_gva  -> (%x10)[1byte]", "dc_gva  -> (%x15)[1byte]",
+        "dc_gva  -> (%x20)[1byte]", "dc_gva  -> (%x30)[1byte]",
+    };
+    TEST_LOOP(dc_gva, dc_gva, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
+TEST_INSTR(dc_gzva)
+{
+    /* Testing DC      GZVA, <Xt> */
+    const char *const expected_0_0[6] = {
+        "dc_gzva  -> (%x0)[1byte]",  "dc_gzva  -> (%x5)[1byte]",
+        "dc_gzva  -> (%x10)[1byte]", "dc_gzva  -> (%x15)[1byte]",
+        "dc_gzva  -> (%x20)[1byte]", "dc_gzva  -> (%x30)[1byte]",
+    };
+    TEST_LOOP(dc_gzva, dc_gzva, 6, expected_0_0[i], opnd_create_reg(Xn_six_offset_0[i]));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -616,6 +722,15 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(stz2g);
     RUN_INSTR_TEST(stzg);
     RUN_INSTR_TEST(stgp);
+
+    RUN_INSTR_TEST(gmi);
+    RUN_INSTR_TEST(irg);
+    RUN_INSTR_TEST(subp);
+    RUN_INSTR_TEST(subps);
+    RUN_INSTR_TEST(addg);
+    RUN_INSTR_TEST(subg);
+    RUN_INSTR_TEST(dc_gva);
+    RUN_INSTR_TEST(dc_gzva);
 
     print("All v8.6 tests complete.\n");
 #ifndef STANDALONE_DECODER
