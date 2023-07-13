@@ -589,7 +589,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         shard->last_timestamp_ = memref.marker.marker_value;
         shard->saw_timestamp_but_no_instr_ = true;
-        // Reset this since we just saw a timstamp marker.
+        // Reset this since we just saw a timestamp marker.
         shard->instr_count_since_last_timestamp_ = 0;
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
