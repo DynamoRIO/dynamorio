@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,9 @@
 
 #include "caching_device_block.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class tlb_entry_t : public caching_device_block_t {
 public:
     // process ID to differentiate virtual pages
@@ -46,5 +49,8 @@ public:
 
     // XXX: support page privilege and MMU-related exceptions
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _TLB_ENTRY_H_ */

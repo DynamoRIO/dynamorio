@@ -36,6 +36,9 @@
 #include "simulator/cache.h"
 #include "simulator/cache_simulator_create.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 static void
 check_cache(const std::map<std::string, cache_params_t> &caches, std::string name,
             std::string type, int core, uint64_t size, unsigned int assoc, bool inclusive,
@@ -108,3 +111,6 @@ unit_test_config_reader(const char *testdir)
         }
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -1,5 +1,8 @@
 #include "crc32c.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /*
  * Copyright 2001, D. Otis.  Use this program, code or tables
  * extracted from it, as desired without restriction.
@@ -70,3 +73,6 @@ crc32c(const char *buf, const uint32_t len)
 
     return crc ^ 0xffffffff;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

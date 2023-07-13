@@ -43,6 +43,9 @@
 #include <iostream>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 const std::string view_t::TOOL_NAME = "View tool";
 
 analysis_tool_t *
@@ -101,14 +104,17 @@ view_t::initialize_stream(memtrace_stream_t *serial_stream)
     std::string error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;
-    dr_disasm_flags_t flags =
-        IF_X86_ELSE(DR_DISASM_ATT, IF_AARCH64_ELSE(DR_DISASM_DR, DR_DISASM_ARM));
+    dr_disasm_flags_t flags = IF_X86_ELSE(
+        DR_DISASM_ATT,
+        IF_AARCH64_ELSE(DR_DISASM_DR, IF_RISCV64_ELSE(DR_DISASM_RISCV, DR_DISASM_ARM)));
     if (knob_syntax_ == "intel") {
         flags = DR_DISASM_INTEL;
     } else if (knob_syntax_ == "dr") {
         flags = DR_DISASM_DR;
     } else if (knob_syntax_ == "arm") {
         flags = DR_DISASM_ARM;
+    } else if (knob_syntax_ == "riscv") {
+        flags = DR_DISASM_RISCV;
     }
     disassemble_set_syntax(flags);
     return "";
@@ -350,7 +356,16 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
         case TRACE_MARKER_TYPE_FUNC_ID:
-            std::cerr << "<marker: function #" << memref.marker.marker_value << ">\n";
+            if (memref.marker.marker_value >=
+                static_cast<intptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE)) {
+                std::cerr << "<marker: function==syscall #"
+                          << (memref.marker.marker_value -
+                              static_cast<uintptr_t>(
+                                  func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE))
+                          << ">\n";
+            } else {
+                std::cerr << "<marker: function #" << memref.marker.marker_value << ">\n";
+            }
             break;
         case TRACE_MARKER_TYPE_FUNC_RETADDR:
             std::cerr << "<marker: function return address 0x" << std::hex
@@ -368,8 +383,20 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: record ordinal 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
+        case TRACE_MARKER_TYPE_SYSCALL:
+            std::cerr << "<marker: system call " << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
+            std::cerr << "<marker: maybe-blocking system call>\n";
+            break;
         case TRACE_MARKER_TYPE_WINDOW_ID:
             // Handled above.
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
+            std::cerr << "<marker: system call trace start>\n";
+            break;
+        case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
+            std::cerr << "<marker: system call trace end>\n";
             break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
@@ -448,7 +475,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
         case TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
         case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
-        default: error_string_ = "Uknown instruction type\n"; return false;
+        default: error_string_ = "Unknown instruction type\n"; return false;
         }
         ++num_disasm_instrs_;
         return true;
@@ -514,3 +541,6 @@ view_t::print_results()
     std::cerr << std::setw(15) << num_disasm_instrs_ << " : total instructions\n";
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

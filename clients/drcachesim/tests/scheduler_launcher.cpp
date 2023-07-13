@@ -45,12 +45,26 @@
 #include "droption.h"
 #include "dr_frontend.h"
 #include "scheduler.h"
+#include "test_helpers.h"
 #ifdef HAS_ZIP
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
 #endif
 
-using namespace dynamorio::drmemtrace;
+using ::dynamorio::drmemtrace::disable_popups;
+using ::dynamorio::drmemtrace::memref_t;
+using ::dynamorio::drmemtrace::memref_tid_t;
+using ::dynamorio::drmemtrace::scheduler_t;
+#ifdef HAS_ZIP
+using ::dynamorio::drmemtrace::zipfile_istream_t;
+using ::dynamorio::drmemtrace::zipfile_ostream_t;
+#endif
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
+namespace {
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -58,8 +72,6 @@ using namespace dynamorio::drmemtrace;
         fflush(stderr);                                     \
         exit(1);                                            \
     } while (0)
-
-namespace {
 
 droption_t<std::string>
     op_trace_dir(DROPTION_SCOPE_FRONTEND, "trace_dir", "",
@@ -140,6 +152,8 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
 int
 _tmain(int argc, const TCHAR *targv[])
 {
+    disable_popups();
+
     // Convert to UTF-8 if necessary
     char **argv;
     drfront_status_t sc = drfront_convert_args(targv, &argv, argc);

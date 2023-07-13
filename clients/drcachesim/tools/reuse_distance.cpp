@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,9 @@
 #include <vector>
 #include "reuse_distance.h"
 #include "../common/utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 const std::string reuse_distance_t::TOOL_NAME = "Reuse distance tool";
 
@@ -496,3 +499,6 @@ reuse_distance_t::print_results()
     std::cerr << std::dec;
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

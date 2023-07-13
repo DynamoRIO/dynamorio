@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,9 +49,11 @@
 #    include <signal.h>
 #endif
 
-using namespace std;
+namespace dynamorio {
+namespace samples {
+namespace {
 
-#ifdef UNIX
+#if defined(UNIX) && defined(SHOW_RESULTS)
 __thread int tls_var;
 #endif
 
@@ -60,50 +62,59 @@ event_exit(void)
 {
 #ifdef SHOW_RESULTS
 #    ifdef UNIX
-    cout << "value of tls_var on exit: " << tls_var << endl;
+    std::cout << "value of tls_var on exit: " << tls_var << "\n";
 #    endif
-    cout << "Exit..." << endl;
+    std::cout << "Exit..."
+              << "\n";
 #endif
 }
+
+} // namespace
+} // namespace samples
+} // namespace dynamorio
 
 DR_EXPORT void
 dr_init(client_id_t client_id)
 {
     int i;
+#ifdef SHOW_RESULTS
     bool success = true;
+#endif
 
     dr_set_client_name("DynamoRIO Sample Client 'stl_test'",
                        "http://dynamorio.org/issues");
 
 #ifdef SHOW_RESULTS
-    cout << "Start..." << endl;
+    std::cout << "Start..."
+              << "\n";
 #endif
-    dr_register_exit_event(event_exit);
+    dr_register_exit_event(dynamorio::samples::event_exit);
 #if defined(UNIX) && defined(SHOW_RESULTS)
-    cout << "input a tls value" << endl;
-    cin >> tls_var;
-    cout << "Set tls var to " << tls_var << endl;
+    std::cout << "input a tls value"
+              << "\n";
+    std::cin >> dynamorio::samples::tls_var;
+    std::cout << "Set tls var to " << dynamorio::samples::tls_var << "\n";
 #endif
 
     //
     // Put values in a vector and read them out
     //
 #ifdef SHOW_RESULTS
-    cout << "testing vector...";
+    std::cout << "testing vector...";
 #endif
 
-    vector<int> *v = new vector<int>();
+    std::vector<int> *v = new std::vector<int>();
     for (i = 0; i < 5; i++) {
         v->push_back(i);
     }
 
     for (i = 0; i < 5; i++) {
 #ifdef SHOW_RESULTS
-        cout << (*v)[i];
-#endif
+        std::cout << (*v)[i];
         if ((*v)[i] != i) {
             success = false;
         }
+#endif
     }
     delete v;
 
@@ -111,22 +122,22 @@ dr_init(client_id_t client_id)
     // Put values in a list and read them out
     //
 #ifdef SHOW_RESULTS
-    cout << "\ntesting list...";
+    std::cout << "\ntesting list...";
 #endif
 
-    list<int> l;
+    std::list<int> l;
     for (i = 0; i < 5; i++) {
         l.push_back(i);
     }
 
     i = 0;
-    for (list<int>::iterator l_iter = l.begin(); l_iter != l.end(); l_iter++) {
+    for (std::list<int>::iterator l_iter = l.begin(); l_iter != l.end(); l_iter++) {
 #ifdef SHOW_RESULTS
-        cout << *l_iter;
-#endif
+        std::cout << *l_iter;
         if (*l_iter != i) {
             success = false;
         }
+#endif
         i++;
     }
 
@@ -134,21 +145,21 @@ dr_init(client_id_t client_id)
     // Put values in a map and read them out
     //
 #ifdef SHOW_RESULTS
-    cout << "\ntesting map...";
+    std::cout << "\ntesting map...";
 #endif
 
-    map<int, int> m;
+    std::map<int, int> m;
     for (i = 0; i < 5; i++) {
         m[i] = i;
     }
 
     for (i = 0; i < 5; i++) {
 #ifdef SHOW_RESULTS
-        cout << m[i];
-#endif
+        std::cout << m[i];
         if (m[i] != i) {
             success = false;
         }
+#endif
     }
 
     //
@@ -159,13 +170,13 @@ dr_init(client_id_t client_id)
 #    ifdef WINDOWS
         dr_messagebox("SUCCESS");
 #    else
-        cout << "\nSUCCESS\n";
+        std::cout << "\nSUCCESS\n";
 #    endif
     } else {
 #    ifdef WINDOWS
         dr_messagebox("FAILURE");
 #    else
-        cout << "\nFAILURE\n";
+        std::cout << "\nFAILURE\n";
 #    endif
     }
 #endif

@@ -30,14 +30,33 @@
  * DAMAGE.
  */
 
-#include "../common/utils.h"
 #include "ir2trace.h"
 #include "dr_api.h"
+
+namespace dynamorio {
+namespace drmemtrace {
+
+#undef VPRINT_HEADER
+#define VPRINT_HEADER()                  \
+    do {                                 \
+        fprintf(stderr, "drir2trace: "); \
+    } while (0)
+
+#undef VPRINT
+#define VPRINT(level, ...)                \
+    do {                                  \
+        if (verbosity >= (level)) {       \
+            VPRINT_HEADER();              \
+            fprintf(stderr, __VA_ARGS__); \
+            fflush(stderr);               \
+        }                                 \
+    } while (0)
 
 #define ERRMSG_HEADER "[drpt2ir] "
 
 ir2trace_convert_status_t
-ir2trace_t::convert(IN drir_t &drir, OUT std::vector<trace_entry_t> &trace)
+ir2trace_t::convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
+                    IN int verbosity)
 {
     if (drir.get_ilist() == NULL) {
         return IR2TRACE_CONV_ERROR_INVALID_PARAMETER;
@@ -72,9 +91,7 @@ ir2trace_t::convert(IN drir_t &drir, OUT std::vector<trace_entry_t> &trace)
                 entry.type = TRACE_TYPE_INSTR_MAYBE_FETCH;
             }
         } else {
-#ifdef DEBUG
-            ERRMSG(ERRMSG_HEADER "Try to convert an invalid instruction.\n");
-#endif
+            VPRINT(1, "Trying to convert an invalid instruction.\n");
         }
 
         entry.size = instr_length(GLOBAL_DCONTEXT, instr);
@@ -86,3 +103,6 @@ ir2trace_t::convert(IN drir_t &drir, OUT std::vector<trace_entry_t> &trace)
     }
     return IR2TRACE_CONV_SUCCESS;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

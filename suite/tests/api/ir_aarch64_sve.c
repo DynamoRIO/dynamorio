@@ -200,20 +200,6 @@ TEST_INSTR(add_sve)
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
 }
 
-TEST_INSTR(zip2_vector)
-{
-    /* Testing ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q */
-    const char *expected_0_0[6] = {
-        "zip2   %z0.q %z0.q -> %z0.q",    "zip2   %z6.q %z7.q -> %z5.q",
-        "zip2   %z11.q %z12.q -> %z10.q", "zip2   %z17.q %z18.q -> %z16.q",
-        "zip2   %z22.q %z23.q -> %z21.q", "zip2   %z31.q %z31.q -> %z31.q",
-    };
-    TEST_LOOP(zip2, zip2_vector, 6, expected_0_0[i],
-              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_16),
-              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_16),
-              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_16));
-}
-
 TEST_INSTR(movprfx_vector)
 {
     /* Testing MOVPRFX <Zd>, <Zn> */
@@ -8331,13 +8317,13 @@ TEST_INSTR(str)
     /* STR <Pt>, [<Xn|SP>{, #<simm>, MUL VL}] */
     int simm_1[6] = { 0, 255, -256, 127, -128, -1 };
     const char *expected_1[6] = {
-        "str    %p0 -> (%x0)[32byte]",         "str    %p2 -> +0xff(%x5)[32byte]",
-        "str    %p5 -> -0x0100(%x10)[32byte]", "str    %p8 -> +0x7f(%x15)[32byte]",
-        "str    %p10 -> -0x80(%x20)[32byte]",  "str    %p15 -> -0x01(%x30)[32byte]"
+        "str    %p0 -> (%x0)[4byte]",         "str    %p2 -> +0xff(%x5)[4byte]",
+        "str    %p5 -> -0x0100(%x10)[4byte]", "str    %p8 -> +0x7f(%x15)[4byte]",
+        "str    %p10 -> -0x80(%x20)[4byte]",  "str    %p15 -> -0x01(%x30)[4byte]"
     };
     TEST_LOOP(str, str, 6, expected_1[i],
               opnd_create_base_disp_aarch64(Xn_six_offset_0[i], DR_REG_NULL, 0, false,
-                                            simm_1[i], 0, OPSZ_32),
+                                            simm_1[i], 0, OPSZ_4),
               opnd_create_reg(Pn_six_offset_0[i]));
 }
 
@@ -8357,13 +8343,13 @@ TEST_INSTR(ldr)
     /* LDR <Pt>, [<Xn|SP>{, #<simm>, MUL VL}] */
     int simm_1[6] = { 0, 255, -256, 127, -128, -1 };
     const char *expected_1[6] = {
-        "ldr    (%x0)[32byte] -> %p0",         "ldr    +0xff(%x6)[32byte] -> %p3",
-        "ldr    -0x0100(%x11)[32byte] -> %p6", "ldr    +0x7f(%x16)[32byte] -> %p9",
-        "ldr    -0x80(%x21)[32byte] -> %p11",  "ldr    -0x01(%x30)[32byte] -> %p15",
+        "ldr    (%x0)[4byte] -> %p0",         "ldr    +0xff(%x6)[4byte] -> %p3",
+        "ldr    -0x0100(%x11)[4byte] -> %p6", "ldr    +0x7f(%x16)[4byte] -> %p9",
+        "ldr    -0x80(%x21)[4byte] -> %p11",  "ldr    -0x01(%x30)[4byte] -> %p15",
     };
     TEST_LOOP(ldr, ldr, 6, expected_1[i], opnd_create_reg(Pn_six_offset_1[i]),
               opnd_create_base_disp_aarch64(Xn_six_offset_1[i], DR_REG_NULL, 0, false,
-                                            simm_1[i], 0, OPSZ_32));
+                                            simm_1[i], 0, OPSZ_4));
 }
 
 TEST_INSTR(punpkhi_sve)
@@ -8600,6 +8586,17 @@ TEST_INSTR(uzp1_sve_vector)
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing UZP1    <Zd>.Q, <Zn>.Q, <Zm>.Q */
+    const char *const expected_0_0[6] = {
+        "uzp1   %z0.q %z0.q -> %z0.q",    "uzp1   %z6.q %z7.q -> %z5.q",
+        "uzp1   %z11.q %z12.q -> %z10.q", "uzp1   %z17.q %z18.q -> %z16.q",
+        "uzp1   %z22.q %z23.q -> %z21.q", "uzp1   %z31.q %z31.q -> %z31.q",
+    };
+    TEST_LOOP(uzp1, uzp1_sve_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_16));
 }
 
 TEST_INSTR(uzp2_sve_pred)
@@ -8688,6 +8685,17 @@ TEST_INSTR(uzp2_sve_vector)
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing UZP2    <Zd>.Q, <Zn>.Q, <Zm>.Q */
+    const char *const expected_0_0[6] = {
+        "uzp2   %z0.q %z0.q -> %z0.q",    "uzp2   %z6.q %z7.q -> %z5.q",
+        "uzp2   %z11.q %z12.q -> %z10.q", "uzp2   %z17.q %z18.q -> %z16.q",
+        "uzp2   %z22.q %z23.q -> %z21.q", "uzp2   %z31.q %z31.q -> %z31.q",
+    };
+    TEST_LOOP(uzp2, uzp2_sve_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_16));
 }
 
 TEST_INSTR(zip1_sve_pred)
@@ -8776,6 +8784,17 @@ TEST_INSTR(zip1_sve_vector)
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing ZIP1    <Zd>.Q, <Zn>.Q, <Zm>.Q */
+    const char *const expected_0_0[6] = {
+        "zip1   %z0.q %z0.q -> %z0.q",    "zip1   %z6.q %z7.q -> %z5.q",
+        "zip1   %z11.q %z12.q -> %z10.q", "zip1   %z17.q %z18.q -> %z16.q",
+        "zip1   %z22.q %z23.q -> %z21.q", "zip1   %z31.q %z31.q -> %z31.q",
+    };
+    TEST_LOOP(zip1, zip1_sve_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_16));
 }
 
 TEST_INSTR(zip2_sve_pred)
@@ -8864,6 +8883,17 @@ TEST_INSTR(zip2_sve_vector)
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q */
+    const char *expected_0_0[6] = {
+        "zip2   %z0.q %z0.q -> %z0.q",    "zip2   %z6.q %z7.q -> %z5.q",
+        "zip2   %z11.q %z12.q -> %z10.q", "zip2   %z17.q %z18.q -> %z16.q",
+        "zip2   %z22.q %z23.q -> %z21.q", "zip2   %z31.q %z31.q -> %z31.q",
+    };
+    TEST_LOOP(zip2, zip2_sve_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_16));
 }
 
 TEST_INSTR(trn1_sve_pred)
@@ -8952,6 +8982,17 @@ TEST_INSTR(trn1_sve_vector)
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing TRN1    <Zd>.Q, <Zn>.Q, <Zm>.Q */
+    const char *const expected_0_0[6] = {
+        "trn1   %z0.q %z0.q -> %z0.q",    "trn1   %z6.q %z7.q -> %z5.q",
+        "trn1   %z11.q %z12.q -> %z10.q", "trn1   %z17.q %z18.q -> %z16.q",
+        "trn1   %z22.q %z23.q -> %z21.q", "trn1   %z31.q %z31.q -> %z31.q",
+    };
+    TEST_LOOP(trn1, trn1_sve_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_16));
 }
 
 TEST_INSTR(trn2_sve_pred)
@@ -9040,6 +9081,17 @@ TEST_INSTR(trn2_sve_vector)
               opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_8),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_8));
+
+    /* Testing TRN2    <Zd>.Q, <Zn>.Q, <Zm>.Q */
+    const char *const expected_0_0[6] = {
+        "trn2   %z0.q %z0.q -> %z0.q",    "trn2   %z6.q %z7.q -> %z5.q",
+        "trn2   %z11.q %z12.q -> %z10.q", "trn2   %z17.q %z18.q -> %z16.q",
+        "trn2   %z22.q %z23.q -> %z21.q", "trn2   %z31.q %z31.q -> %z31.q",
+    };
+    TEST_LOOP(trn2, trn2_sve_vector, 6, expected_0_0[i],
+              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_16),
+              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_16));
 }
 
 TEST_INSTR(dupm_sve)
@@ -20114,36 +20166,6 @@ TEST_INSTR(stnt1w_sve_pred)
         opnd_create_base_disp(Xn_six_offset_2_sp[i], DR_REG_NULL, 0, imm4[i], OPSZ_32));
 }
 
-TEST_INSTR(trn1_sve)
-{
-
-    /* Testing TRN1    <Zd>.Q, <Zn>.Q, <Zm>.Q */
-    const char *const expected_0_0[6] = {
-        "trn1   %z0.q %z0.q -> %z0.q",    "trn1   %z6.q %z7.q -> %z5.q",
-        "trn1   %z11.q %z12.q -> %z10.q", "trn1   %z17.q %z18.q -> %z16.q",
-        "trn1   %z22.q %z23.q -> %z21.q", "trn1   %z31.q %z31.q -> %z31.q",
-    };
-    TEST_LOOP(trn1, trn1_sve, 6, expected_0_0[i],
-              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_16),
-              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_16),
-              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_16));
-}
-
-TEST_INSTR(trn2_sve)
-{
-
-    /* Testing TRN2    <Zd>.Q, <Zn>.Q, <Zm>.Q */
-    const char *const expected_0_0[6] = {
-        "trn2   %z0.q %z0.q -> %z0.q",    "trn2   %z6.q %z7.q -> %z5.q",
-        "trn2   %z11.q %z12.q -> %z10.q", "trn2   %z17.q %z18.q -> %z16.q",
-        "trn2   %z22.q %z23.q -> %z21.q", "trn2   %z31.q %z31.q -> %z31.q",
-    };
-    TEST_LOOP(trn2, trn2_sve, 6, expected_0_0[i],
-              opnd_create_reg_element_vector(Zn_six_offset_0[i], OPSZ_16),
-              opnd_create_reg_element_vector(Zn_six_offset_1[i], OPSZ_16),
-              opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_16));
-}
-
 TEST_INSTR(sdot_sve)
 {
     /* Testing SDOT    <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb> */
@@ -20505,6 +20527,7 @@ TEST_INSTR(bfcvtnt_sve_pred)
               opnd_create_predicate_reg(Pn_half_six_offset_0[i], true),
               opnd_create_reg_element_vector(Zn_six_offset_2[i], OPSZ_4));
 }
+
 int
 main(int argc, char *argv[])
 {
@@ -20520,8 +20543,6 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(add_sve_pred);
     RUN_INSTR_TEST(add_sve_shift);
     RUN_INSTR_TEST(add_sve);
-
-    RUN_INSTR_TEST(zip2_vector);
 
     RUN_INSTR_TEST(movprfx_vector);
 
@@ -21008,9 +21029,6 @@ main(int argc, char *argv[])
     RUN_INSTR_TEST(ld1rqd_sve_pred);
     RUN_INSTR_TEST(ld1rqh_sve_pred);
     RUN_INSTR_TEST(ld1rqw_sve_pred);
-
-    RUN_INSTR_TEST(trn1_sve);
-    RUN_INSTR_TEST(trn2_sve);
 
     RUN_INSTR_TEST(sdot_sve);
     RUN_INSTR_TEST(sdot_sve_idx);

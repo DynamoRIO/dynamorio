@@ -36,6 +36,7 @@
  * we will notice if the literals get out of sync as the test will fail.
  */
 
+#include <fstream>
 #include <iostream>
 #include <vector>
 
@@ -43,19 +44,31 @@
 #include "../common/memref.h"
 #include "memref_gen.h"
 
-namespace {
-
-using namespace dynamorio::drmemtrace;
+namespace dynamorio {
+namespace drmemtrace {
 
 class checker_no_abort_t : public invariant_checker_t {
 public:
-    checker_no_abort_t(bool offline)
+    explicit checker_no_abort_t(bool offline)
         : invariant_checker_t(offline)
     {
     }
+    checker_no_abort_t(bool offline, std::istream *serial_schedule_file)
+        : invariant_checker_t(offline, 1, "invariant_checker_test", serial_schedule_file)
+    {
+    }
+
     std::vector<std::string> errors;
     std::vector<memref_tid_t> error_tids;
     std::vector<uint64_t> error_refs; // Memref count (ordinal) at error point.
+
+    bool
+    print_results() override
+    {
+        per_shard_t global;
+        check_schedule_data(&global);
+        return true;
+    }
 
 protected:
     void
@@ -63,6 +76,8 @@ protected:
                     const std::string &invariant_name) override
     {
         if (!condition) {
+            std::cerr << "Recording |" << invariant_name << "| in T" << shard->tid_
+                      << " @" << shard->ref_count_ << "\n";
             errors.push_back(invariant_name);
             error_tids.push_back(shard->tid_);
             error_refs.push_back(shard->ref_count_);
@@ -75,14 +90,16 @@ bool
 run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
             memref_tid_t error_tid = 0, uint64_t error_refs = 0,
             const std::string &expected_message = "",
-            const std::string &toprint_if_fail = "")
+            const std::string &toprint_if_fail = "",
+            std::istream *serial_schedule_file = nullptr)
 {
     // Serial.
     {
-        checker_no_abort_t checker(true /*offline*/);
+        checker_no_abort_t checker(true /*offline*/, serial_schedule_file);
         for (const auto &memref : memrefs) {
             checker.process_memref(memref);
         }
+        checker.print_results();
         if (expect_error) {
             if (checker.errors.size() != 1 || checker.errors[0] != expected_message ||
                 checker.error_tids[0] != error_tid ||
@@ -100,7 +117,12 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
     }
     // Parallel.
     {
-        checker_no_abort_t checker(true /*offline*/);
+        if (serial_schedule_file != nullptr) {
+            // Reset to the start of the file.
+            serial_schedule_file->clear();
+            serial_schedule_file->seekg(0, std::ios::beg);
+        }
+        checker_no_abort_t checker(true /*offline*/, serial_schedule_file);
         void *shard1 = checker.parallel_shard_init(1, NULL);
         void *shard2 = checker.parallel_shard_init(2, NULL);
         void *shard3 = checker.parallel_shard_init(3, NULL);
@@ -119,6 +141,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         checker.parallel_shard_exit(shard1);
         checker.parallel_shard_exit(shard2);
         checker.parallel_shard_exit(shard3);
+        checker.print_results();
         if (expect_error) {
             if (checker.errors.size() != 1 || checker.errors[0] != expected_message ||
                 checker.error_tids[0] != error_tid ||
@@ -139,6 +162,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
 bool
 check_branch_target_after_branch()
 {
+    std::cerr << "Testing branch targets\n";
     // Positive simple test.
     {
         std::vector<memref_t> memrefs = {
@@ -186,6 +210,7 @@ check_branch_target_after_branch()
 bool
 check_sane_control_flow()
 {
+    std::cerr << "Testing control flow\n";
     // Negative simple test.
     {
         std::vector<memref_t> memrefs = {
@@ -285,6 +310,7 @@ bool
 check_kernel_xfer()
 {
 #ifdef UNIX
+    std::cerr << "Testing kernel xfers\n";
     // Return to recorded interruption point.
     {
         std::vector<memref_t> memrefs = {
@@ -455,6 +481,7 @@ bool
 check_rseq()
 {
 #ifdef UNIX
+    std::cerr << "Testing rseq\n";
     // Roll back rseq final instr.
     {
         std::vector<memref_t> memrefs = {
@@ -507,6 +534,7 @@ check_rseq()
 bool
 check_function_markers()
 {
+    std::cerr << "Testing function markers\n";
     constexpr memref_tid_t TID = 1;
     constexpr addr_t CALL_PC = 2;
     constexpr size_t CALL_SZ = 2;
@@ -593,6 +621,7 @@ check_function_markers()
 bool
 check_duplicate_syscall_with_same_pc()
 {
+    std::cerr << "Testing duplicate syscall\n";
     // Negative: syscalls with the same PC.
 #if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     constexpr addr_t ADDR = 0x7fcf3b9d;
@@ -649,8 +678,96 @@ check_duplicate_syscall_with_same_pc()
 }
 
 bool
+check_false_syscalls()
+{
+    // Ensure missing syscall markers (from "false syscalls") are detected.
+#if defined(WINDOWS) && !defined(X64)
+    // TODO i#5949: For WOW64 instr_is_syscall() always returns false, so our
+    // checks do not currently work properly there.
+    return true;
+#else
+    // XXX: Just like raw2trace_unit_tests, we need to create a syscall instruction and
+    // it turns out there is no simple cross-platform way.
+#    ifdef X86
+    instr_t *sys = INSTR_CREATE_syscall(GLOBAL_DCONTEXT);
+#    elif defined(AARCHXX)
+    instr_t *sys =
+        INSTR_CREATE_svc(GLOBAL_DCONTEXT, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
+#    elif defined(RISCV64)
+    instr_t *sys = INSTR_CREATE_ecall(GLOBAL_DCONTEXT);
+#    else
+#        error Unsupported architecture.
+#    endif
+    instr_t *move1 =
+        XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+    instrlist_append(ilist, sys);
+    instrlist_append(ilist, move1);
+    static constexpr addr_t BASE_ADDR = 0x123450;
+    static constexpr uintptr_t FILE_TYPE =
+        OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
+    bool res = true;
+    {
+        // Correct: syscall followed by marker.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(1), sys },
+            { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    {
+        // Correct: syscall followed by marker with timestamp+cpu in between.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(1), sys },
+            { gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 101), nullptr },
+            { gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3), nullptr },
+            { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    {
+        // Incorrect: syscall with no marker.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(1), sys },
+            { gen_instr(1), move1 }
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true, 1, 3,
+                         "Syscall instruction not followed by syscall marker",
+                         "Failed to catch syscall without number marker")) {
+            res = false;
+        }
+    }
+    {
+        // Incorrect: marker with no syscall.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(1), move1 },
+            { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true, 1, 3,
+                         "Syscall marker not placed after syscall instruction",
+                         "Failed to catch misplaced syscall marker")) {
+            res = false;
+        }
+    }
+    instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+    return res;
+#endif
+}
+
+bool
 check_rseq_side_exit_discontinuity()
 {
+    std::cerr << "Testing rseq side exits\n";
     // Negative test: Seemingly missing instructions in a basic block due to rseq side
     // exit.
     instr_t *store = XINST_CREATE_store(GLOBAL_DCONTEXT, OPND_CREATE_MEMPTR(REG2, 0),
@@ -684,6 +801,7 @@ check_rseq_side_exit_discontinuity()
     // TODO i#6023: Use this IR based encoder in other tests as well.
     static constexpr addr_t BASE_ADDR = 0xeba4ad4;
     auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+    instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
     if (!run_checker(memrefs, true, 1, 5, "PC discontinuity due to rseq side exit",
                      "Failed to catch PC discontinuity from rseq side exit")) {
         return false;
@@ -691,17 +809,147 @@ check_rseq_side_exit_discontinuity()
     return true;
 }
 
-} // namespace
+bool
+check_schedule_file()
+{
+    std::cerr << "Testing schedule files\n";
+    // Synthesize a serial schedule file.
+    // We leave the cpu-schedule testing to the real-app tests.
+    static constexpr memref_tid_t TID_BASE = 1; // Assumed by run_checker.
+    static constexpr memref_tid_t TIMESTAMP_BASE = 100;
+    static constexpr int CPU_BASE = 6;
+    std::string serial_fname = "tmp_inv_check_serial.bin";
+    std::vector<schedule_entry_t> sched;
+    sched.emplace_back(TID_BASE, TIMESTAMP_BASE, CPU_BASE, 0);
+    // Include same-timestamp records to stress handling that.
+    sched.emplace_back(TID_BASE + 2, TIMESTAMP_BASE, CPU_BASE + 1, 0);
+    sched.emplace_back(TID_BASE + 1, TIMESTAMP_BASE, CPU_BASE + 2, 0);
+    sched.emplace_back(TID_BASE, TIMESTAMP_BASE + 1, CPU_BASE + 1, 2);
+    sched.emplace_back(TID_BASE + 1, TIMESTAMP_BASE + 2, CPU_BASE, 1);
+    sched.emplace_back(TID_BASE + 2, TIMESTAMP_BASE + 3, CPU_BASE + 2, 3);
+    {
+        std::ofstream serial_file(serial_fname, std::ofstream::binary);
+        if (!serial_file)
+            return false;
+        if (!serial_file.write(reinterpret_cast<char *>(sched.data()),
+                               sched.size() * sizeof(sched[0])))
+            return false;
+    }
+    {
+        // Create a schedule that matches the file.
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE),
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE),
+            gen_instr(TID_BASE, 1),
+            gen_instr(TID_BASE, 2),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 1),
+            gen_instr(TID_BASE + 2, 1),
+            gen_instr(TID_BASE + 2, 2),
+            gen_instr(TID_BASE + 2, 3),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
+            gen_instr(TID_BASE + 1, 1),
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 1),
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 1),
+            gen_instr(TID_BASE, 3),
+            gen_instr(TID_BASE, 4),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 2),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE),
+            gen_instr(TID_BASE + 1, 2),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 3),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
+            gen_instr(TID_BASE + 2, 4),
+        };
+        std::ifstream serial_read(serial_fname, std::ifstream::binary);
+        if (!serial_read)
+            return false;
+        if (!run_checker(memrefs, false, 0, 0, "", "", &serial_read))
+            return false;
+    }
+    {
+        // Create a schedule that does not match the file in record count.
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE),
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE),
+            gen_instr(TID_BASE, 1),
+            gen_instr(TID_BASE, 2),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 1),
+            gen_instr(TID_BASE + 2, 1),
+            gen_instr(TID_BASE + 2, 2),
+            gen_instr(TID_BASE + 2, 3),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
+            gen_instr(TID_BASE + 1, 1),
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 1),
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 1),
+            gen_instr(TID_BASE, 3),
+            gen_instr(TID_BASE, 4),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 2),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE),
+            gen_instr(TID_BASE + 1, 2),
+            // Missing the final timestamp+cpu.
+        };
+        std::ifstream serial_read(serial_fname, std::ifstream::binary);
+        if (!serial_read)
+            return false;
+        if (!run_checker(memrefs, true, -1, 0,
+                         "Serial schedule entry count does not match trace",
+                         "Failed to catch incorrect serial schedule count", &serial_read))
+            return false;
+    }
+    {
+        // Create a schedule that does not match the file in one record.
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE),
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE),
+            gen_instr(TID_BASE, 1),
+            gen_instr(TID_BASE, 2),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 1),
+            gen_instr(TID_BASE + 2, 1),
+            gen_instr(TID_BASE + 2, 2),
+            // Missing one instruction here.
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
+            gen_instr(TID_BASE + 1, 1),
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 1),
+            gen_marker(TID_BASE, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 1),
+            gen_instr(TID_BASE, 3),
+            gen_instr(TID_BASE, 4),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 2),
+            gen_marker(TID_BASE + 1, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE),
+            gen_instr(TID_BASE + 1, 2),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 3),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
+            gen_instr(TID_BASE + 2, 3),
+        };
+        std::ifstream serial_read(serial_fname, std::ifstream::binary);
+        if (!serial_read)
+            return false;
+        if (!run_checker(memrefs, true, TID_BASE + 2, 3,
+                         "Serial schedule entry does not match trace",
+                         "Failed to catch incorrect serial schedule entry", &serial_read))
+            return false;
+    }
+
+    return true;
+}
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
-        check_duplicate_syscall_with_same_pc() && check_rseq_side_exit_discontinuity()) {
+        check_duplicate_syscall_with_same_pc() && check_false_syscalls() &&
+        check_rseq_side_exit_discontinuity() && check_schedule_file()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
     std::cerr << "invariant_checker_test FAILED\n";
     exit(1);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

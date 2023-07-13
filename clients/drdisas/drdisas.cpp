@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,11 @@
 
 namespace {
 
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
 // XXX i#1684: We want cross-arch decoding support so a single build can decode
 // AArchXX and x86.  For now, a separate build is needed.
 // XXX i#4021: -syntax option not yet supported on ARM.
@@ -67,7 +72,7 @@ droption_t<bool> op_show_bytes(DROPTION_SCOPE_FRONTEND, "show_bytes", true,
                                "Display the instruction encoding bytes.",
                                "Display the instruction encoding bytes.");
 
-#if defined(AARCH64) || defined(ARM)
+#if defined(AARCH64) || defined(ARM) || defined(RISCV64)
 #    define MAX_INSTR_LENGTH 4
 #else
 #    define MAX_INSTR_LENGTH 17
@@ -95,7 +100,7 @@ parse_bytes(std::string token, std::vector<byte> &bytes)
     }
     return true;
 }
-};
+}; // namespace
 
 int
 main(int argc, const char *argv[])
@@ -163,6 +168,10 @@ main(int argc, const char *argv[])
         }
         disassemble_set_syntax(syntax);
     }
+#endif
+
+#ifdef RISCV64
+    disassemble_set_syntax(DR_DISASM_RISCV);
 #endif
 
     // Turn the arguments into a series of hex values.

@@ -40,6 +40,9 @@
 #include <iostream>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
         fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
@@ -647,7 +650,7 @@ test_non_zero_interval(bool parallel, bool combine_only_active_shards = true)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     if (!test_non_zero_interval(false) || !test_non_zero_interval(true, true) ||
         !test_non_zero_interval(true, false))
@@ -655,3 +658,6 @@ main(int argc, const char *argv[])
     fprintf(stderr, "All done!\n");
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

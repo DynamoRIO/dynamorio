@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,15 +39,21 @@
 
 #include <string>
 #ifdef WINDOWS
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h>
+#else
+#    include <unistd.h> // for ssize_t
+#endif
+
+namespace dynamorio {
+namespace drmemtrace {
+
+#ifdef WINDOWS
 #    ifdef X64
 typedef __int64 ssize_t;
 #    else
 typedef int ssize_t;
 #    endif
-#    define WIN32_LEAN_AND_MEAN
-#    include <windows.h>
-#else
-#    include <unistd.h> // for ssize_t
 #endif
 
 #ifndef OUT
@@ -122,5 +128,8 @@ private:
 #endif
     std::string pipe_name_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _NAMED_PIPE_H_ */

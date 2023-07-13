@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,6 +38,10 @@
 #define _ANALYZER_MULTI_H_ 1
 
 #include "analyzer.h"
+#include "simulator/cache_simulator_create.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class analyzer_multi_t : public analyzer_t {
 public:
@@ -54,10 +58,31 @@ protected:
     void
     destroy_analysis_tools();
 
+    analysis_tool_t *
+    create_analysis_tool_from_options();
+
+    analysis_tool_t *
+    create_invariant_checker();
+
+    std::string
+    get_aux_file_path(std::string option_val, std::string default_filename);
+
+    std::string
+    get_module_file_path();
+
+    /* Get the cache simulator knobs used by the cache simulator
+     * and the cache miss analyzer.
+     */
+    cache_simulator_knobs_t *
+    get_cache_simulator_knobs();
+
     std::unique_ptr<std::istream> serial_schedule_file_;
     std::unique_ptr<std::istream> cpu_schedule_file_;
 
     static const int max_num_tools_ = 8;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _ANALYZER_MULTI_H_ */

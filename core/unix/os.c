@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -762,11 +762,14 @@ our_init(int argc, char **argv, char **envp)
     return 0;
 }
 
-#if defined(STATIC_LIBRARY) || defined(STANDALONE_UNIT_TEST)
+#if defined(STATIC_LIBRARY) || defined(STANDALONE_UNIT_TEST) || defined(RISCV64)
 /* If we're getting linked into a binary that already has an _init definition
  * like the app's exe or unit_tests, we add a pointer to our_init() to the
  * .init_array section.  We can't use the constructor attribute because not all
  * toolchains pass the args and environment to the constructor.
+ *
+ * RISC-V, as a new ISA, does not support obsolete .init section, so we always use
+ * .init_array section for RISC-V.
  */
 static init_fn_t
 #    ifdef MACOS
@@ -1326,14 +1329,22 @@ uint
 query_time_seconds(void)
 {
     struct timeval current_time;
+#if defined(MACOS) && defined(AARCH64)
+    /* TODO i#5383: Replace with a system call (unless we're sure this library call
+     * is re-entrant, just a simple load from commpage).
+     */
+#    undef gettimeofday /* Remove "gettimeofday_forbidden_function". */
+    uint64 val = gettimeofday(&current_time, NULL);
+#else
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
-#ifdef MACOS
+#    ifdef MACOS
     /* MacOS before Sierra returns usecs:secs and does not set the timeval struct. */
     if (macos_version < MACOS_VERSION_SIERRA) {
         if ((int)val < 0)
             return 0;
         return (uint)val + UTC_TO_EPOCH_SECONDS;
     }
+#    endif
 #endif
     if ((int)val >= 0) {
         return current_time.tv_sec + UTC_TO_EPOCH_SECONDS;
@@ -1355,7 +1366,9 @@ query_time_millis()
 #if !(defined(MACOS) && defined(AARCH64))
     uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
 #else
-    /* TODO i#5383: Replace with a system call. */
+    /* TODO i#5383: Replace with a system call (unless we're sure this library call
+     * is re-entrant, just a simple load from commpage).
+     */
 #    undef gettimeofday /* Remove "gettimeofday_forbidden_function". */
     uint64 val = gettimeofday(&current_time, NULL);
 #endif
@@ -1730,7 +1743,7 @@ os_timeout(int time_in_milliseconds)
             ASSERT(sizeof(var) == sizeof(void *));                     \
             __asm__ __volatile__("ld %0, %1(tp) \n\t"                  \
                                  "ld %0, %2(%0) \n\t"                  \
-                                 : "=r"(var)                           \
+                                 : "+r"(var)                           \
                                  : "i"(DR_TLS_BASE_OFFSET), "i"(imm)); \
         } while (0)
 #    define WRITE_TLS_INT_SLOT_IMM(imm, var)                                   \
@@ -1868,7 +1881,7 @@ is_thread_tls_initialized(void)
         } else
             return false;
     }
-#elif defined(AARCHXX)
+#elif defined(AARCHXX) || defined(RISCV64)
     byte **dr_tls_base_addr;
     if (tls_global_type == TLS_TYPE_NONE)
         return false;
@@ -1883,10 +1896,6 @@ is_thread_tls_initialized(void)
      * deadlock_avoidance_unlock() which calls get_thread_private_dcontext()
      * which comes here.
      */
-    return true;
-#else
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return true;
 #endif
     return true;
@@ -1982,7 +1991,7 @@ os_get_priv_tls_base(dcontext_t *dcontext, reg_id_t reg)
 os_local_state_t *
 get_os_tls(void)
 {
-    os_local_state_t *os_tls;
+    os_local_state_t *os_tls = NULL;
     ASSERT(is_thread_tls_initialized());
     READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
     return os_tls;
@@ -2104,7 +2113,7 @@ get_segment_base(uint seg)
 {
 #if defined(MACOS64) && defined(X86)
     ptr_uint_t *pthread_self = (ptr_uint_t *)read_thread_register(seg);
-    return (byte *)&pthread_self[SEG_TLS_BASE_OFFSET];
+    return (byte *)&pthread_self[SEG_TLS_BASE_SLOT];
 #elif defined(X86)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
@@ -2139,7 +2148,7 @@ get_app_segment_base(uint seg)
 local_state_extended_t *
 get_local_state_extended()
 {
-    os_local_state_t *os_tls;
+    os_local_state_t *os_tls = NULL;
     ASSERT(is_thread_tls_initialized());
     READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
     return &(os_tls->state);
@@ -2159,7 +2168,7 @@ get_local_state()
 void
 os_enter_dynamorio(void)
 {
-#    ifdef ARM
+#    if (defined(AARCHXX) || defined(RISCV64)) && !defined(MACOS)
     /* i#1578: check that app's tls value doesn't match our sentinel */
     ASSERT(*(byte **)get_dr_tls_base_addr() != TLS_SLOT_VAL_EXITED);
 #    endif
@@ -3051,7 +3060,7 @@ d_r_get_thread_id(void)
 thread_id_t
 get_tls_thread_id(void)
 {
-    ptr_int_t tid; /* can't use thread_id_t since it's 32-bits */
+    ptr_int_t tid = 0; /* can't use thread_id_t since it's 32-bits */
     if (!is_thread_tls_initialized())
         return INVALID_THREAD_ID;
     READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, tid);
@@ -3068,7 +3077,7 @@ dcontext_t *
 get_thread_private_dcontext(void)
 {
 #ifdef HAVE_TLS
-    dcontext_t *dcontext;
+    dcontext_t *dcontext = NULL;
     /* We have to check this b/c this is called from __errno_location prior
      * to os_tls_init, as well as after os_tls_exit, and early in a new
      * thread's initialization (see comments below on that).
@@ -3182,7 +3191,7 @@ replace_thread_id(thread_id_t old, thread_id_t new)
     thread_id_t new_tid = new;
     ASSERT(is_thread_tls_initialized());
     DOCHECK(1, {
-        thread_id_t old_tid;
+        thread_id_t old_tid = 0;
         IF_LINUX_ELSE(READ_TLS_INT_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid),
                       READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid));
         ASSERT(old_tid == old);
@@ -5413,13 +5422,15 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
          * We defer to drsyscall.
          */
         return ((ptr_int_t)MCXT_SYSCALL_RES(mc) >= 0);
-    } else
+    } else {
 #    ifdef X86
         return !TEST(EFLAGS_CF, mc->xflags);
+#    elif defined(AARCH64)
+        return !TEST(EFLAGS_C, mc->xflags);
 #    else
-        return -1;
+#        error NYI
 #    endif
-
+    }
 #else
     if (normalized_sysnum == IF_X64_ELSE(SYS_mmap, SYS_mmap2) ||
 #    if !defined(ARM) && !defined(X64)
@@ -5441,11 +5452,17 @@ set_success_return_val(dcontext_t *dcontext, reg_t val)
 {
     /* since always coming from d_r_dispatch now, only need to set mcontext */
     priv_mcontext_t *mc = get_mcontext(dcontext);
-#if defined(MACOS) && defined(X86)
+#ifdef MACOS
     /* On MacOS, success is determined by CF, except for Mach syscalls, but
      * there it doesn't hurt to set CF.
      */
+#    ifdef X86
     mc->xflags &= ~(EFLAGS_CF);
+#    elif defined(AARCH64)
+    mc->xflags &= ~(EFLAGS_C);
+#    else
+#        error NYI
+#    endif
 #endif
     MCXT_SYSCALL_RES(mc) = val;
 }
@@ -5455,9 +5472,15 @@ static inline void
 set_failure_return_val(dcontext_t *dcontext, uint errno_val)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-#if defined(MACOS) && defined(X86)
+#ifdef MACOS
     /* On MacOS, success is determined by CF, and errno is positive */
+#    ifdef X86
     mc->xflags |= EFLAGS_CF;
+#    elif defined(AARCH64)
+    mc->xflags |= EFLAGS_C;
+#    else
+#        error NYI
+#    endif
     MCXT_SYSCALL_RES(mc) = errno_val;
 #else
     MCXT_SYSCALL_RES(mc) = -(int)errno_val;

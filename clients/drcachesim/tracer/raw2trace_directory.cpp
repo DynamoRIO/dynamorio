@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -68,7 +68,11 @@
 #endif
 #ifdef HAS_LZ4
 #    include "common/lz4_istream.h"
+#    include "common/lz4_ostream.h"
 #endif
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -110,6 +114,25 @@ raw2trace_directory_t::open_thread_files()
 }
 
 std::string
+raw2trace_directory_t::trace_suffix()
+{
+    if (compress_type_ == "zip") {
+#ifdef HAS_ZIP
+        return TRACE_SUFFIX_ZIP;
+#endif
+    } else if (compress_type_ == "gzip") {
+#ifdef HAS_ZLIB
+        return TRACE_SUFFIX_GZ;
+#endif
+    } else if (compress_type_ == "lz4") {
+#ifdef HAS_LZ4
+        return TRACE_SUFFIX_LZ4;
+#endif
+    }
+    return TRACE_SUFFIX;
+}
+
+std::string
 raw2trace_directory_t::open_thread_log_file(const char *basename)
 {
     char path[MAXIMUM_PATH];
@@ -127,38 +150,50 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     const char *basename_pre_suffix = nullptr;
 #ifdef HAS_ZLIB
     bool is_gzipped = false, is_zlib = false;
-    basename_pre_suffix =
-        strstr(basename_dot - strlen(OUTFILE_SUFFIX_GZ), OUTFILE_SUFFIX_GZ);
-    if (basename_pre_suffix != nullptr) {
-        is_gzipped = true;
-    } else {
-        basename_pre_suffix =
-            strstr(basename_dot - strlen(OUTFILE_SUFFIX_ZLIB), OUTFILE_SUFFIX_ZLIB);
+    if (strlen(basename) > strlen(OUTFILE_SUFFIX_GZ) + 1) {
+        basename_pre_suffix = strstr(
+            basename + strlen(basename) - strlen(OUTFILE_SUFFIX_GZ), OUTFILE_SUFFIX_GZ);
         if (basename_pre_suffix != nullptr) {
-            is_zlib = true;
+            is_gzipped = true;
+        } else {
+            if (strlen(basename) > strlen(OUTFILE_SUFFIX_ZLIB) + 1) {
+                basename_pre_suffix =
+                    strstr(basename + strlen(basename) - strlen(OUTFILE_SUFFIX_ZLIB),
+                           OUTFILE_SUFFIX_ZLIB);
+                if (basename_pre_suffix != nullptr) {
+                    is_zlib = true;
+                }
+            }
         }
     }
 #endif
 #ifdef HAS_SNAPPY
     bool is_snappy = false;
-    if (basename_pre_suffix == nullptr) {
-        basename_pre_suffix =
-            strstr(basename_dot - strlen(OUTFILE_SUFFIX_SZ), OUTFILE_SUFFIX_SZ);
-        if (basename_pre_suffix != nullptr) {
-            is_snappy = true;
+    if (strlen(basename) > strlen(OUTFILE_SUFFIX_SZ) + 1) {
+        if (basename_pre_suffix == nullptr) {
+            basename_pre_suffix =
+                strstr(basename + strlen(basename) - strlen(OUTFILE_SUFFIX_SZ),
+                       OUTFILE_SUFFIX_SZ);
+            if (basename_pre_suffix != nullptr) {
+                is_snappy = true;
+            }
         }
     }
 #endif
 #ifdef HAS_LZ4
     bool is_lz4 = false;
-    if (basename_pre_suffix == nullptr) {
-        basename_pre_suffix =
-            strstr(basename_dot - strlen(OUTFILE_SUFFIX_LZ4), OUTFILE_SUFFIX_LZ4);
-        if (basename_pre_suffix != nullptr) {
-            is_lz4 = true;
+    if (strlen(basename) > strlen(OUTFILE_SUFFIX_LZ4) + 1) {
+        if (basename_pre_suffix == nullptr) {
+            basename_pre_suffix =
+                strstr(basename + strlen(basename) - strlen(OUTFILE_SUFFIX_LZ4),
+                       OUTFILE_SUFFIX_LZ4);
+            if (basename_pre_suffix != nullptr) {
+                is_lz4 = true;
+            }
         }
     }
 #endif
+
     if (basename_pre_suffix == nullptr)
         basename_pre_suffix = strstr(basename_dot, OUTFILE_SUFFIX);
     if (basename_pre_suffix == nullptr)
@@ -208,52 +243,137 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
         return "Failed to compute output name for file " + std::string(basename);
     }
     if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s.%s", outdir_.c_str(),
-                    DIRSEP, outname, TRACE_SUFFIX) <= 0) {
+                    DIRSEP, outname, trace_suffix().c_str()) <= 0) {
         return "Failed to compute full path of output file for " + std::string(basename);
     }
+
+    std::ostream *ofile = nullptr;
+    if (compress_type_ == "zip") {
 #ifdef HAS_ZIP
-    archive_ostream_t *ofile = new zipfile_ostream_t(path);
-    out_archives_.push_back(ofile);
-    if (!(*out_archives_.back()))
-        return "Failed to open output file " + std::string(path);
-#else
-    std::ostream *ofile;
-#    ifdef HAS_ZLIB
-    ofile = new gzip_ostream_t(path);
-#    else
-    ofile = new std::ofstream(path, std::ofstream::binary);
-#    endif
+        ofile = new zipfile_ostream_t(path);
+        out_archives_.push_back(reinterpret_cast<archive_ostream_t *>(ofile));
+        if (!(*out_archives_.back()))
+            return "Failed to open output file " + std::string(path);
+
+        VPRINT(1, "Opened output file %s\n", path);
+        return "";
+#endif
+    } else if (compress_type_ == "gzip") {
+#ifdef HAS_ZLIB
+        ofile = new gzip_ostream_t(path);
+#endif
+    } else if (compress_type_ == "lz4") {
+#ifdef HAS_LZ4
+        ofile = new lz4_ostream_t(path);
+#endif
+    }
+    if (!ofile) {
+        ofile = new std::ofstream(path, std::ofstream::binary);
+    }
     out_files_.push_back(ofile);
     if (!(*out_files_.back()))
         return "Failed to open output file " + std::string(path);
-#endif
+
     VPRINT(1, "Opened output file %s\n", path);
     return "";
 }
 
+#ifdef BUILD_PT_POST_PROCESSOR
+std::string
+raw2trace_directory_t::open_kthread_files()
+{
+    VPRINT(1, "Iterating dir %s\n", kernel_indir_.c_str());
+    directory_iterator_t end;
+    directory_iterator_t iter(kernel_indir_);
+    if (!iter) {
+        return "Failed to list directory " + kernel_indir_ + ": " + iter.error_string();
+    }
+    for (; iter != end; ++iter) {
+        const char *basename = (*iter).c_str();
+        char path[MAXIMUM_PATH];
+        CHECK(basename[0] != '/',
+              "dir iterator entry %s should not be an absolute path\n", basename);
+
+        /* Skip kcore and kallsys. */
+        if (strcmp(basename, DRMEMTRACE_KCORE_FILENAME) == 0 ||
+            strcmp(basename, DRMEMTRACE_KALLSYMS_FILENAME) == 0)
+            continue;
+
+        /* Skip any non-.raw.pt in case someone put some other file in there. */
+        const char *basename_pre_suffix = nullptr;
+        if (strlen(basename) > strlen(OUTFILE_SUFFIX_PT) + 1) {
+            basename_pre_suffix =
+                strstr(basename + strlen(basename) - strlen(OUTFILE_SUFFIX_PT),
+                       OUTFILE_SUFFIX_PT);
+        }
+        if (basename_pre_suffix == nullptr)
+            continue;
+
+        /* Get the complete file path for this kernel file. */
+        if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s", kernel_indir_.c_str(),
+                        DIRSEP, basename) <= 0) {
+            return "Failed to get full path of file " + std::string(basename);
+        }
+        NULL_TERMINATE_BUFFER(path);
+
+        std::istream *ifile = nullptr;
+        if (ifile == nullptr)
+            ifile = new std::ifstream(path, std::ifstream::binary);
+        if (!((std::ifstream *)ifile)->is_open()) {
+            delete ifile;
+            return "Failed to open kernel thread file " + std::string(path);
+        }
+        std::string error = raw2trace_t::check_kthread_file(ifile);
+        if (!error.empty()) {
+            delete ifile;
+            return "Failed sanity checks for kernel thread file " + std::string(path) +
+                ": " + error;
+        }
+        thread_id_t tid = INVALID_THREAD_ID;
+        error = raw2trace_t::get_kthread_file_tid(ifile, &tid);
+        if (!error.empty()) {
+            delete ifile;
+            return "Failed to get thread id for kernel thread file " + std::string(path) +
+                ": " + error;
+        }
+
+        in_kfiles_map_[tid] = ifile;
+        VPRINT(1, "Opened input kernel thread file %s\n", path);
+    }
+    return "";
+}
+#endif
+
 std::string
 raw2trace_directory_t::open_serial_schedule_file()
 {
-#ifdef HAS_ZLIB
-    const char *suffix = ".gz";
+#ifndef HAS_ZIP
+    // We could support writing this out by refactoring the raw2trace code,
+    // but it's mostly for fast skipping which requires zip files anyway: thus we
+    // just leave serial_schedule_file_ as nullptr and don't write out a file.
+    return "";
 #else
+#    ifdef HAS_ZLIB
+    const char *suffix = ".gz";
+#    else
     const char *suffix = "";
-#endif
+#    endif
     char path[MAXIMUM_PATH];
     if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s%s", outdir_.c_str(), DIRSEP,
                     DRMEMTRACE_SERIAL_SCHEDULE_FILENAME, suffix) <= 0) {
         return "Failed to compute full path for " +
             std::string(DRMEMTRACE_SERIAL_SCHEDULE_FILENAME);
     }
-#ifdef HAS_ZLIB
+#    ifdef HAS_ZLIB
     serial_schedule_file_ = new gzip_ostream_t(path);
-#else
+#    else
     serial_schedule_file_ = new std::ofstream(path, std::ofstream::binary);
-#endif
+#    endif
     if (!*serial_schedule_file_)
         return "Failed to open serial schedule file " + std::string(path);
     VPRINT(1, "Opened serial schedule file %s\n", path);
     return "";
+#endif
 }
 
 std::string
@@ -351,10 +471,12 @@ raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
 }
 
 std::string
-raw2trace_directory_t::initialize(const std::string &indir, const std::string &outdir)
+raw2trace_directory_t::initialize(const std::string &indir, const std::string &outdir,
+                                  const std::string &compress)
 {
     indir_ = indir;
     outdir_ = outdir;
+    compress_type_ = compress;
 #ifdef WINDOWS
     // Canonicalize.
     std::replace(indir_.begin(), indir_.end(), ALT_DIRSEP[0], DIRSEP[0]);
@@ -418,6 +540,26 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
     if (!err.empty())
         return err;
 
+    kcoredir_ = "";
+    kallsymsdir_ = "";
+#ifdef BUILD_PT_POST_PROCESSOR
+    /* Open the kernel files. */
+    kernel_indir_ = modfile_dir + std::string(DIRSEP) + ".." + std::string(DIRSEP) +
+        DRMEMTRACE_KERNEL_PT_SUBDIR;
+    /* If the -enable_kernel_tracing option is not specified during tracing, the output
+     * directory will not include a kernel directory, and raw2trace will not process it.
+     */
+    if (directory_iterator_t::is_directory(kernel_indir_)) {
+        kcoredir_ = kernel_indir_ + std::string(DIRSEP) + DRMEMTRACE_KCORE_FILENAME;
+        kallsymsdir_ = kernel_indir_ + std::string(DIRSEP) + DRMEMTRACE_KALLSYMS_FILENAME;
+        err = open_kthread_files();
+        if (!err.empty())
+            return err;
+    }
+#else
+    kernel_indir_ = "";
+#endif
+
     return open_thread_files();
 }
 
@@ -472,5 +614,11 @@ raw2trace_directory_t::~raw2trace_directory_t()
         delete serial_schedule_file_;
     if (cpu_schedule_file_ != nullptr)
         delete cpu_schedule_file_;
+    for (auto kfi : in_kfiles_map_) {
+        delete kfi.second;
+    }
     dr_standalone_exit();
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

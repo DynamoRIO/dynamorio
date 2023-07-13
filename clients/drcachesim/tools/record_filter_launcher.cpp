@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,8 +39,21 @@
 #include "tools/filter/cache_filter.h"
 #include "tools/filter/type_filter.h"
 #include "tools/filter/record_filter.h"
+#include "tests/test_helpers.h"
 
 #include <limits>
+
+using ::dynamorio::drmemtrace::disable_popups;
+using ::dynamorio::drmemtrace::record_analysis_tool_t;
+using ::dynamorio::drmemtrace::record_analyzer_t;
+using ::dynamorio::drmemtrace::trace_marker_type_t;
+using ::dynamorio::drmemtrace::trace_type_t;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
+namespace {
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -105,9 +118,13 @@ parse_string(const std::string &s, char sep = ',')
     return vec;
 }
 
+} // namespace
+
 int
 _tmain(int argc, const TCHAR *targv[])
 {
+    disable_popups();
+
     char **argv;
     drfront_status_t sc = drfront_convert_args(targv, &argv, argc);
     if (sc != DRFRONT_SUCCESS)

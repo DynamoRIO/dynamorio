@@ -40,6 +40,9 @@
 
 #include "analysis_tool.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class basic_counts_t : public analysis_tool_t {
 public:
     basic_counts_t(unsigned int verbose);
@@ -82,6 +85,8 @@ public:
         {
             instrs += rhs.instrs;
             instrs_nofetch += rhs.instrs_nofetch;
+            user_instrs += rhs.user_instrs;
+            kernel_instrs += rhs.kernel_instrs;
             prefetches += rhs.prefetches;
             loads += rhs.loads;
             stores += rhs.stores;
@@ -109,6 +114,8 @@ public:
         {
             instrs -= rhs.instrs;
             instrs_nofetch -= rhs.instrs_nofetch;
+            user_instrs -= rhs.user_instrs;
+            kernel_instrs -= rhs.kernel_instrs;
             prefetches -= rhs.prefetches;
             loads -= rhs.loads;
             stores -= rhs.stores;
@@ -136,6 +143,7 @@ public:
             // cannot compare till offsetof(basic_counts_t::counters_t, unique_pc_addrs)
             // as it gives a non-standard-layout type warning on osx.
             return instrs == rhs.instrs && instrs_nofetch == rhs.instrs_nofetch &&
+                user_instrs == rhs.user_instrs && kernel_instrs == rhs.kernel_instrs &&
                 prefetches == rhs.prefetches && loads == rhs.loads &&
                 stores == rhs.stores && sched_markers == rhs.sched_markers &&
                 xfer_markers == rhs.xfer_markers &&
@@ -152,6 +160,8 @@ public:
         }
         int_least64_t instrs = 0;
         int_least64_t instrs_nofetch = 0;
+        int_least64_t user_instrs = 0;
+        int_least64_t kernel_instrs = 0;
         int_least64_t prefetches = 0;
         int_least64_t loads = 0;
         int_least64_t stores = 0;
@@ -203,6 +213,11 @@ protected:
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
+        /* Indicates whether we're currently in the kernel region of the trace, which
+         * means we've seen a TRACE_MARKER_TYPE_SYSCALL_TRACE_START without its matching
+         * TRACE_MARKER_TYPE_SYSCALL_TRACE_STOP.
+         */
+        bool is_kernel = false;
     };
     // Records a snapshot of counts for a trace interval.
     struct count_snapshot_t : public interval_state_snapshot_t {
@@ -223,7 +238,7 @@ protected:
                 const std::pair<memref_tid_t, per_shard_t *> &r);
     static void
     print_counters(const counters_t &counters, int_least64_t num_threads,
-                   const std::string &prefix);
+                   const std::string &prefix, bool for_kernel_trace = false);
     void
     compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id);
 
@@ -235,5 +250,8 @@ protected:
     unsigned int knob_verbose_;
     static const std::string TOOL_NAME;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _BASIC_COUNTS_H_ */

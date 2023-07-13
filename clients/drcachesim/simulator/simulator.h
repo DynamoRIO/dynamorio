@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,9 @@
 #include "caching_device.h"
 #include "analysis_tool.h"
 #include "memref.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class simulator_t : public analysis_tool_t {
 public:
@@ -111,5 +114,8 @@ protected:
     std::unordered_map<addr_t, addr_t> virt2phys_;
     addr_t prior_phys_addr_ = 0;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _SIMULATOR_H_ */

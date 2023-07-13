@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,6 +51,14 @@
 #include <sys/wait.h>
 #include <syscall.h>
 #include <unistd.h>
+
+namespace dynamorio {
+namespace drmemtrace {
+
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
 
 static droption_t<std::string> op_indir(DROPTION_SCOPE_FRONTEND, "indir", "",
                                         "[Required] Directory with trace input files",
@@ -256,7 +264,7 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     std::string parse_err;
     if (!droption_parser_t::parse_argv(DROPTION_SCOPE_FRONTEND, argc, (const char **)argv,
@@ -282,3 +290,6 @@ main(int argc, const char *argv[])
         return 1;
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

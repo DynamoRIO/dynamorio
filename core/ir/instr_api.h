@@ -131,7 +131,7 @@ typedef enum _dr_pred_type_t {
     DR_PRED_VS, /**< ARM condition: 0110 Overflow                (V == 1)           */
     DR_PRED_VC, /**< ARM condition: 0111 No overflow             (V == 0)           */
     DR_PRED_HI, /**< ARM condition: 1000 Unsigned higher         (C == 1 and Z == 0)*/
-    DR_PRED_LS, /**< ARM condition: 1001 Unsigned lower or same  (C == 0 or Z == 1) */
+    DR_PRED_LS, /**< ARM condition: 1001 Unsigned lower or same  (C == 1 or Z == 0) */
     DR_PRED_GE, /**< ARM condition: 1010 Signed >=               (N == V)           */
     DR_PRED_LT, /**< ARM condition: 1011 Signed less than        (N != V)           */
     DR_PRED_GT, /**< ARM condition: 1100 Signed greater than     (Z == 0 and N == V)*/
@@ -146,6 +146,36 @@ typedef enum _dr_pred_type_t {
     /* Aliases */
     DR_PRED_HS = DR_PRED_CS, /**< ARM condition: alias for DR_PRED_CS. */
     DR_PRED_LO = DR_PRED_CC, /**< ARM condition: alias for DR_PRED_CC. */
+#    ifdef AARCH64
+    /* Some SVE instructions use the NZCV condition flags in a different way to the base
+     * AArch64 instruction set, and SVE introduces aliases for the condition codes based
+     * on the SVE interpretation of the flags. The state of predicate registers can be
+     * used to alter control flow with condition flags being set or cleared by an explicit
+     * test of a predicate register or by instructions which generate a predicate result.
+     *
+     *  N   First   Set if the first active element was true.
+     *  Z   None    Cleared if any active element was true.
+     *  C   !Last   Cleared if the last active element was true.
+     *  V           Cleared by all flag setting SVE instructions except CTERMEQ and
+     *              CTERMNE, for scalarised loops.
+     */
+    DR_PRED_SVE_NONE = DR_PRED_EQ, /**<  0000 All active elements were false
+                                              or no active elements            (Z == 1) */
+    DR_PRED_SVE_ANY = DR_PRED_NE, /**<   0001 An active element was true       (Z == 0) */
+    DR_PRED_SVE_NLAST = DR_PRED_CS, /**< 0010 Last active element was false
+                                              or no active elements            (C == 1) */
+    DR_PRED_SVE_LAST = DR_PRED_CC, /**<  0011 Last active element was true     (C == 0) */
+    DR_PRED_SVE_FIRST = DR_PRED_MI, /**< 0100 First active element was true    (N == 1) */
+    DR_PRED_SVE_NFRST = DR_PRED_PL, /**< 0101 First active element was false
+                                              or no active elements            (N == 0) */
+    DR_PRED_SVE_PLAST = DR_PRED_LS, /**< 1001 Last active element was true,
+                                              all active elements were false,
+                                              or no active elements   (C == 1 or Z == 0)*/
+    DR_PRED_SVE_TCONT = DR_PRED_GE, /**< 1010 CTERM termination condition
+                                              not detected, continue loop      (N == V) */
+    DR_PRED_SVE_TSTOP = DR_PRED_LT, /**< 1011 CTERM termination condition
+                                              detected, terminate loop         (N != V) */
+#    endif
 #endif
 #ifdef RISCV64
     /* FIXME i#3544: RISC-V does not have compare flag register! */

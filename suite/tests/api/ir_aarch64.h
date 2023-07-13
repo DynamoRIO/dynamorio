@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2022 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -107,9 +107,9 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, const char *expected)
         return false;
     }
 
-    pc = instr_encode(dc, instr, buf);
+    pc = instr_encode(dc, instr, (byte *)buf);
     decin = instr_create(dc);
-    decode(dc, buf, decin);
+    decode(dc, (byte *)buf, decin);
     if (!instr_same(instr, decin)) {
         print("Reencoding failed, dissassembled as:\n   ");
         instr_disassemble(dc, decin, STDERR);

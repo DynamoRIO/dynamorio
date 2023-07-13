@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,21 @@
 #include "dr_api.h"
 #include "archive_ostream.h"
 
+#if !defined DEFAULT_TRACE_COMPRESSION_TYPE
+#    ifdef HAS_ZIP
+#        define DEFAULT_TRACE_COMPRESSION_TYPE "zip"
+#    elif defined(HAS_LZ4)
+#        define DEFAULT_TRACE_COMPRESSION_TYPE "lz4"
+#    elif defined(HAS_ZLIB)
+#        define DEFAULT_TRACE_COMPRESSION_TYPE "gzip"
+#    else
+#        define DEFAULT_TRACE_COMPRESSION_TYPE "none"
+#    endif
+#endif
+
+namespace dynamorio {
+namespace drmemtrace {
+
 class raw2trace_directory_t {
 public:
     raw2trace_directory_t(unsigned int verbosity = 0)
@@ -58,7 +73,8 @@ public:
     // If outdir.empty() then a peer of indir's OUTFILE_SUBDIR named TRACE_SUBDIR
     // is used by default.  Returns "" on success or an error message on failure.
     std::string
-    initialize(const std::string &indir, const std::string &outdir);
+    initialize(const std::string &indir, const std::string &outdir,
+               const std::string &compress = DEFAULT_TRACE_COMPRESSION_TYPE);
     // Use this instead of initialize() to only fill in modfile_bytes, for
     // constructing a module_mapper_t.  Returns "" on success or an error message on
     // failure.
@@ -87,8 +103,13 @@ public:
     std::vector<archive_ostream_t *> out_archives_;
     std::ostream *serial_schedule_file_ = nullptr;
     archive_ostream_t *cpu_schedule_file_ = nullptr;
+    std::unordered_map<thread_id_t, std::istream *> in_kfiles_map_;
+    std::string kcoredir_;
+    std::string kallsymsdir_;
 
 private:
+    std::string
+    trace_suffix();
     std::string
     read_module_file(const std::string &modfilename);
     std::string
@@ -99,10 +120,19 @@ private:
     open_serial_schedule_file();
     std::string
     open_cpu_schedule_file();
+#ifdef BUILD_PT_POST_PROCESSOR
+    std::string
+    open_kthread_files();
+#endif
     file_t modfile_;
+    std::string kernel_indir_;
     std::string indir_;
     std::string outdir_;
     unsigned int verbosity_;
+    std::string compress_type_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _RAW2TRACE_DIRECTORY_H_ */

@@ -52,9 +52,8 @@
 #undef ALIGN_FORWARD // Conflicts with drcachesim utils.h.
 #include "tools.h"   // Included after system headers to avoid printf warning.
 
-using namespace dynamorio::drmemtrace;
-
-namespace {
+namespace dynamorio {
+namespace drmemtrace {
 
 /***************************************************************************
  * Code generation.
@@ -375,11 +374,12 @@ look_for_gencode(std::string trace_dir)
     return 0;
 }
 
-} // namespace
-
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     std::string trace_dir = gather_trace();
     return look_for_gencode(trace_dir);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

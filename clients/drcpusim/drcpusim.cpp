@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -47,11 +47,18 @@
 #include <string>
 #include <sstream>
 
+namespace dynamorio {
+namespace drcpusim {
+
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+
 // XXX i#1732: make a msgbox on Windows (controlled by option for batch runs)
-#define NOTIFY(level, ...)                     \
-    do {                                       \
-        if (op_verbose.get_value() >= (level)) \
-            dr_fprintf(STDERR, __VA_ARGS__);   \
+#define NOTIFY(level, ...)                                          \
+    do {                                                            \
+        if (dynamorio::drcpusim::op_verbose.get_value() >= (level)) \
+            dr_fprintf(STDERR, __VA_ARGS__);                        \
     } while (0)
 
 static bool (*opcode_supported)(instr_t *);
@@ -772,28 +779,9 @@ event_exit(void)
     drmgr_exit();
 }
 
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
+static void
+set_opcode_and_model()
 {
-    dr_set_client_name("DynamoRIO CPU Simulator", "http://dynamorio.org/issues");
-
-#ifdef WINDOWS
-    dr_enable_console_printing();
-#endif
-
-    std::string parse_err;
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, &parse_err,
-                                       NULL)) {
-        NOTIFY(0, "Usage error: %s\nUsage:\n%s", parse_err.c_str(),
-               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        dr_abort();
-    }
-    if (op_cpu.get_value().empty()) {
-        NOTIFY(0, "Usage error: cpu is required\nUsage:\n%s",
-               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
-        dr_abort();
-    }
-
 #ifdef X86
     if (op_cpu.get_value() == "Pentium") {
         opcode_supported = opcode_supported_Pentium;
@@ -854,18 +842,50 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     NOTIFY(0, "ARM not supported yet\n");
     dr_abort();
 #endif
+}
 
-    if (!op_blocklist.get_value().empty()) {
-        std::stringstream stream(op_blocklist.get_value());
-        std::string entry;
-        while (std::getline(stream, entry, ':'))
-            blocklist.push_back(entry);
+} // namespace drcpusim
+} // namespace dynamorio
+
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    using ::dynamorio::droption::droption_parser_t;
+    using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+    using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+
+    dr_set_client_name("DynamoRIO CPU Simulator", "http://dynamorio.org/issues");
+
+#ifdef WINDOWS
+    dr_enable_console_printing();
+#endif
+
+    std::string parse_err;
+    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, &parse_err,
+                                       NULL)) {
+        NOTIFY(0, "Usage error: %s\nUsage:\n%s", parse_err.c_str(),
+               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+        dr_abort();
+    }
+    if (dynamorio::drcpusim::op_cpu.get_value().empty()) {
+        NOTIFY(0, "Usage error: cpu is required\nUsage:\n%s",
+               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+        dr_abort();
     }
 
-    if (op_ignore_all_libs.get_value()) {
+    dynamorio::drcpusim::set_opcode_and_model();
+
+    if (!dynamorio::drcpusim::op_blocklist.get_value().empty()) {
+        std::stringstream stream(dynamorio::drcpusim::op_blocklist.get_value());
+        std::string entry;
+        while (std::getline(stream, entry, ':'))
+            dynamorio::drcpusim::blocklist.push_back(entry);
+    }
+
+    if (dynamorio::drcpusim::op_ignore_all_libs.get_value()) {
         module_data_t *exe = dr_get_main_module();
         DR_ASSERT(exe != NULL);
-        exe_start = exe->start;
+        dynamorio::drcpusim::exe_start = exe->start;
         dr_free_module_data(exe);
     }
 
@@ -873,7 +893,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* register events */
-    dr_register_exit_event(event_exit);
-    if (!drmgr_register_bb_instrumentation_event(NULL, event_app_instruction, NULL))
+    dr_register_exit_event(dynamorio::drcpusim::event_exit);
+    if (!drmgr_register_bb_instrumentation_event(
+            NULL, dynamorio::drcpusim::event_app_instruction, NULL))
         DR_ASSERT(false);
 }

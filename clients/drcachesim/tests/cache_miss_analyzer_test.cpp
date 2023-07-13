@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,9 @@
 #include "../simulator/cache_miss_analyzer.h"
 #include "../simulator/cache_simulator.h"
 #include "../common/memref.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 static memref_t
 generate_mem_ref(const addr_t addr, const addr_t pc)
@@ -207,7 +210,7 @@ two_dominant_strides()
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     if (no_dominant_stride() && one_dominant_stride() && two_dominant_strides()) {
         return 0;
@@ -216,3 +219,6 @@ main(int argc, const char *argv[])
         exit(1);
     }
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

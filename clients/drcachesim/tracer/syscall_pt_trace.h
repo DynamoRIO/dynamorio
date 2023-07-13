@@ -45,6 +45,9 @@
 #include "drmemtrace.h"
 #include "drpttracer.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 /* The auto cleanup wrapper of pttracer handle.
  * This can ensure the pttracer handle is cleaned up when it is out of scope.
  */
@@ -129,12 +132,12 @@ public:
         return cur_recording_sysnum_;
     }
 
-    /* Get the index of the last recorded syscall in this thread's recorded syscall list.
+    /* Get the index of the traced syscall.
      */
     int
-    get_last_recorded_syscall_idx()
+    get_traced_syscall_idx()
     {
-        return recorded_syscall_count_;
+        return traced_syscall_idx_;
     }
 
     /* Check whether the syscall's PT need to be recorded.
@@ -176,8 +179,8 @@ private:
      */
     drpttracer_output_autoclean_t pttracer_output_buffer_;
 
-    /* The number of recorded syscall. */
-    int recorded_syscall_count_;
+    /* The index of the traced syscall. */
+    int traced_syscall_idx_;
 
     /* The sysnum of current recording syscall. */
     int cur_recording_sysnum_;
@@ -196,5 +199,8 @@ private:
      */
     file_t output_file_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _SYSCALL_PT_TRACE_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,6 +51,9 @@
 #    include <process.h>
 #endif
 #include "../../../suite/tests/condvar.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 static const int num_threads = 8;
 static const int num_idle_threads = 40;
@@ -176,7 +179,7 @@ void *
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
 #ifdef UNIX
     pthread_t thread[num_threads];
@@ -255,3 +258,6 @@ main(int argc, const char *argv[])
     destroy_cond_var(idle_should_exit);
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

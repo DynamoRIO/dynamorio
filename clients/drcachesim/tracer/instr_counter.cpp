@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -42,7 +42,6 @@
 #include "drmemtrace.h"
 #include "drreg.h"
 #include "drx.h"
-#include "droption.h"
 #include "instr_counter.h"
 #include "instru.h"
 #include "tracer.h"

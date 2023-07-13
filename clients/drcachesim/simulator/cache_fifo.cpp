@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,6 +32,9 @@
 
 #include "cache_fifo.h"
 #include <assert.h>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // For the FIFO/Round-Robin implementation, all the cache blocks in a set are organized
 // as a FIFO. The counters of a set of blocks simulate the replacement pointer.
@@ -102,3 +105,6 @@ cache_fifo_t::get_next_way_to_replace(const int block_idx) const
     assert(false);
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

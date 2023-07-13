@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, LLC  All rights reserved.
+ * Copyright (c) 2015-2023 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -34,6 +34,9 @@
 
 #include <iostream>
 #include <stdint.h>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 const char *cache_miss_stats_t::kNTA = "nta";
 const char *cache_miss_stats_t::kT0 = "t0";
@@ -209,3 +212,6 @@ cache_miss_analyzer_t::print_results()
     std::cerr << std::dec;
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

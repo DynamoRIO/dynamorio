@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -41,6 +41,9 @@
 #include "simulator/cache_lru.h"
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 static cache_simulator_knobs_t
 make_test_knobs()
@@ -548,7 +551,7 @@ unit_test_cache_bad_configs()
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     // Takes in a path to the tests/ src dir.
     assert(argc == 2);
@@ -567,3 +570,6 @@ main(int argc, const char *argv[])
     unit_test_cache_replacement_policy();
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

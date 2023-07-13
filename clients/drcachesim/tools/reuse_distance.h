@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,6 +47,9 @@
 #include "analysis_tool.h"
 #include "reuse_distance_create.h"
 #include "memref.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // We see noticeable overhead in release build with an if() that directly
 // checks knob_verbose, so for non-debug uses we eliminate it entirely.
@@ -190,7 +193,7 @@ struct line_ref_t {
 // If a cache line is accessed, its time stamp is set as current, and it is
 // added/moved to the front of the list.  The cache line reference
 // reuse distance is the cache line position in the list before moving.
-// We also keep a pointer (gate) pointing to the the earliest cache
+// We also keep a pointer (gate) pointing to the earliest cache
 // line referenced within the threshold.  Thus, we can quickly check
 // whether a cache line is recently accessed by comparing the time
 // stamp of the referenced cache line and the gate cache line.
@@ -437,5 +440,8 @@ struct line_ref_list_t {
         return dist;
     }
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _REUSE_DISTANCE_H_ */

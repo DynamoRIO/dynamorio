@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,9 @@
 #include "snoop_filter.h"
 #include "../common/utils.h"
 #include <assert.h>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 caching_device_t::caching_device_t()
     : blocks_(NULL)
@@ -390,7 +393,7 @@ caching_device_t::record_access_stats(const memref_t &memref, bool hit,
                                       caching_device_block_t *cache_block)
 {
     stats_->access(memref, hit, cache_block);
-    // We propagate hits all the way up the hierachy.
+    // We propagate hits all the way up the hierarchy.
     // But to avoid over-counting we only propagate misses one level up.
     if (hit) {
         for (caching_device_t *up = parent_; up != nullptr; up = up->parent_)
@@ -398,3 +401,6 @@ caching_device_t::record_access_stats(const memref_t &memref, bool hit,
     } else if (parent_ != nullptr)
         parent_->stats_->child_access(memref, hit, cache_block);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

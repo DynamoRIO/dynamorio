@@ -5315,21 +5315,6 @@
     instr_create_1dst_3src(dc, OP_bic, Zdn, Pg, Zdn, Zm)
 
 /**
- * Creates a ZIP2 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The first destination vector register, Z (Scalable)
- * \param Zn   The second source vector register, Z (Scalable)
- * \param Zm   The third source vector register, Z (Scalable)
- */
-#define INSTR_CREATE_zip2_vector(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_zip2, Zd, Zn, Zm)
-
-/**
  * Creates a MOVPRFX instruction.
  *
  * This macro is used to encode the forms:
@@ -8974,21 +8959,6 @@
     instr_create_1dst_2src(dc, OP_uzp1, Pd, Pn, Pm)
 
 /**
- * Creates an UZP1 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    UZP1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The destination vector register, Z (Scalable).
- * \param Zn   The first source vector register, Z (Scalable).
- * \param Zm   The second source vector register, Z (Scalable).
- */
-#define INSTR_CREATE_uzp1_sve_vector(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_uzp1, Zd, Zn, Zm)
-
-/**
  * Creates an UZP2 instruction.
  *
  * This macro is used to encode the forms:
@@ -9009,6 +8979,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    UZP2    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    UZP2    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9039,6 +9010,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    ZIP1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    ZIP1    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9069,6 +9041,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    ZIP2    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9099,6 +9072,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    TRN1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    TRN1    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9129,6 +9103,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    TRN2    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    TRN2    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -14191,36 +14166,6 @@
         opnd_create_base_disp(opnd_get_reg(Rn), DR_REG_NULL, 0, 0, OPSZ_sys))
 
 /**
- * Creates a TRN1 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    TRN1    <Zd>.Q, <Zn>.Q, <Zm>.Q
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The destination vector register, Z (Scalable).
- * \param Zn   The first source vector register, Z (Scalable).
- * \param Zm   The second source vector register, Z (Scalable).
- */
-#define INSTR_CREATE_trn1_sve(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_trn1, Zd, Zn, Zm)
-
-/**
- * Creates a TRN2 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    TRN2    <Zd>.Q, <Zn>.Q, <Zm>.Q
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The destination vector register, Z (Scalable).
- * \param Zn   The first source vector register, Z (Scalable).
- * \param Zm   The second source vector register, Z (Scalable).
- */
-#define INSTR_CREATE_trn2_sve(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_trn2, Zd, Zn, Zm)
-
-/**
  * Creates a SDOT instruction.
  *
  * This macro is used to encode the forms:
@@ -14793,4 +14738,2908 @@
  */
 #define INSTR_CREATE_uaba_sve(dc, Zda, Zn, Zm) \
     instr_create_1dst_3src(dc, OP_uaba, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates an ADDHNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ADDHNB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_addhnb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_addhnb, Zd, Zn, Zm)
+
+/**
+ * Creates an ADDHNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ADDHNT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The third source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_addhnt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_addhnt, Zd, Zd, Zn, Zm)
+
+/**
+ * Creates a PMULLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      PMULLB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b or Z.s.
+ */
+#define INSTR_CREATE_pmullb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_pmullb, Zd, Zn, Zm)
+
+/**
+ * Creates a PMULLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      PMULLT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b or Z.s.
+ */
+#define INSTR_CREATE_pmullt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_pmullt, Zd, Zn, Zm)
+
+/**
+ * Creates a RADDHNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      RADDHNB <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_raddhnb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_raddhnb, Zd, Zn, Zm)
+
+/**
+ * Creates a RADDHNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      RADDHNT <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The third source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_raddhnt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_raddhnt, Zd, Zd, Zn, Zm)
+
+/**
+ * Creates a RSUBHNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      RSUBHNB <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_rsubhnb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_rsubhnb, Zd, Zn, Zm)
+
+/**
+ * Creates a RSUBHNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      RSUBHNT <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The third source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_rsubhnt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_rsubhnt, Zd, Zd, Zn, Zm)
+
+/**
+ * Creates a SABALB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SABALB  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sabalb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_sabalb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SABALT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SABALT  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sabalt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_sabalt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SABDLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SABDLB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sabdlb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_sabdlb, Zd, Zn, Zm)
+
+/**
+ * Creates a SABDLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SABDLT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sabdlt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_sabdlt, Zd, Zn, Zm)
+
+/**
+ * Creates a SADDLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SADDLB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_saddlb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_saddlb, Zd, Zn, Zm)
+
+/**
+ * Creates a SADDLBT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SADDLBT <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_saddlbt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_saddlbt, Zd, Zn, Zm)
+
+/**
+ * Creates a SADDLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SADDLT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_saddlt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_saddlt, Zd, Zn, Zm)
+
+/**
+ * Creates a SADDWB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SADDWB  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_saddwb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_saddwb, Zd, Zn, Zm)
+
+/**
+ * Creates a SADDWT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SADDWT  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_saddwt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_saddwt, Zd, Zn, Zm)
+
+/**
+ * Creates a SMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMLALB  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_smlalb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_smlalb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMLALT  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_smlalt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_smlalt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SMLSLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMLSLB  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_smlslb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_smlslb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SMLSLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMLSLT  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_smlslt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_smlslt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SMULLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMULLB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_smullb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_smullb, Zd, Zn, Zm)
+
+/**
+ * Creates a SMULLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMULLT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_smullt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_smullt, Zd, Zn, Zm)
+
+/**
+ * Creates a SQDMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMLALB <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sqdmlalb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_sqdmlalb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SQDMLALBT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMLALBT <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sqdmlalbt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_sqdmlalbt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SQDMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMLALT <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sqdmlalt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_sqdmlalt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SQDMLSLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMLSLB <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sqdmlslb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_sqdmlslb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SQDMLSLBT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMLSLBT <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sqdmlslbt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_sqdmlslbt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SQDMLSLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMLSLT <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sqdmlslt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_sqdmlslt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates a SQDMULLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMULLB <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sqdmullb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_sqdmullb, Zd, Zn, Zm)
+
+/**
+ * Creates a SQDMULLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMULLT <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sqdmullt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_sqdmullt, Zd, Zn, Zm)
+
+/**
+ * Creates a SSUBLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SSUBLB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_ssublb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_ssublb, Zd, Zn, Zm)
+
+/**
+ * Creates a SSUBLBT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SSUBLBT <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_ssublbt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_ssublbt, Zd, Zn, Zm)
+
+/**
+ * Creates a SSUBLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SSUBLT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_ssublt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_ssublt, Zd, Zn, Zm)
+
+/**
+ * Creates a SSUBLTB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SSUBLTB <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_ssubltb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_ssubltb, Zd, Zn, Zm)
+
+/**
+ * Creates a SSUBWB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SSUBWB  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_ssubwb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_ssubwb, Zd, Zn, Zm)
+
+/**
+ * Creates a SSUBWT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SSUBWT  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_ssubwt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_ssubwt, Zd, Zn, Zm)
+
+/**
+ * Creates a SUBHNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SUBHNB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_subhnb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_subhnb, Zd, Zn, Zm)
+
+/**
+ * Creates a SUBHNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SUBHNT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The third source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_subhnt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_subhnt, Zd, Zd, Zn, Zm)
+
+/**
+ * Creates an UABALB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UABALB  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_uabalb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_uabalb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates an UABALT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UABALT  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_uabalt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_uabalt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates an UABDLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UABDLB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_uabdlb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uabdlb, Zd, Zn, Zm)
+
+/**
+ * Creates an UABDLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UABDLT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_uabdlt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uabdlt, Zd, Zn, Zm)
+
+/**
+ * Creates an UADDLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UADDLB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_uaddlb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uaddlb, Zd, Zn, Zm)
+
+/**
+ * Creates an UADDLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UADDLT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_uaddlt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uaddlt, Zd, Zn, Zm)
+
+/**
+ * Creates an UADDWB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UADDWB  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_uaddwb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uaddwb, Zd, Zn, Zm)
+
+/**
+ * Creates an UADDWT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UADDWT  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_uaddwt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uaddwt, Zd, Zn, Zm)
+
+/**
+ * Creates an UMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMLALB  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_umlalb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_umlalb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates an UMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMLALT  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_umlalt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_umlalt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates an UMLSLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMLSLB  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_umlslb_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_umlslb, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates an UMLSLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMLSLT  <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_umlslt_sve(dc, Zda, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_umlslt, Zda, Zda, Zn, Zm)
+
+/**
+ * Creates an UMULLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMULLB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_umullb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_umullb, Zd, Zn, Zm)
+
+/**
+ * Creates an UMULLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMULLT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_umullt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_umullt, Zd, Zn, Zm)
+
+/**
+ * Creates an USUBLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      USUBLB  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_usublb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_usublb, Zd, Zn, Zm)
+
+/**
+ * Creates an USUBLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      USUBLT  <Zd>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_usublt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_usublt, Zd, Zn, Zm)
+
+/**
+ * Creates an USUBWB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      USUBWB  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_usubwb_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_usubwb, Zd, Zn, Zm)
+
+/**
+ * Creates an USUBWT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      USUBWT  <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_usubwt_sve(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_usubwt, Zd, Zn, Zm)
+
+/**
+ * Creates an AESIMC instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      AESIMC  <Zdn>.B, <Zdn>.B   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The source and destination vector register, Z.b.
+ */
+#define INSTR_CREATE_aesimc_sve(dc, Zdn) instr_create_1dst_1src(dc, OP_aesimc, Zdn, Zdn)
+
+/**
+ * Creates an AESMC instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      AESMC   <Zdn>.B, <Zdn>.B   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The source and destination vector register, Z.b.
+ */
+#define INSTR_CREATE_aesmc_sve(dc, Zdn) instr_create_1dst_1src(dc, OP_aesmc, Zdn, Zdn)
+
+/**
+ * Creates a SQXTNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQXTNB  <Zd>.<Ts>, <Zn>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqxtnb_sve(dc, Zd, Zn) instr_create_1dst_1src(dc, OP_sqxtnb, Zd, Zn)
+
+/**
+ * Creates a SQXTNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQXTNT  <Zd>.<Ts>, <Zn>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqxtnt_sve(dc, Zd, Zn) \
+    instr_create_1dst_2src(dc, OP_sqxtnt, Zd, Zd, Zn)
+
+/**
+ * Creates a SQXTUNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQXTUNB <Zd>.<Ts>, <Zn>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqxtunb_sve(dc, Zd, Zn) \
+    instr_create_1dst_1src(dc, OP_sqxtunb, Zd, Zn)
+
+/**
+ * Creates a SQXTUNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQXTUNT <Zd>.<Ts>, <Zn>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqxtunt_sve(dc, Zd, Zn) \
+    instr_create_1dst_2src(dc, OP_sqxtunt, Zd, Zd, Zn)
+
+/**
+ * Creates an UQXTNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQXTNB  <Zd>.<Ts>, <Zn>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqxtnb_sve(dc, Zd, Zn) instr_create_1dst_1src(dc, OP_uqxtnb, Zd, Zn)
+
+/**
+ * Creates an UQXTNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQXTNT  <Zd>.<Ts>, <Zn>.<Tb>   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqxtnt_sve(dc, Zd, Zn) \
+    instr_create_1dst_2src(dc, OP_uqxtnt, Zd, Zd, Zn)
+
+/*
+ * Creates a FMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMLALB  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z.s.
+ * \param Zn   The second source vector register, Z.h.
+ * \param Zm   The third source vector register, Z.h.
+ * \param i3   The immediate index for Zm.
+ */
+#define INSTR_CREATE_fmlalb_sve_idx(dc, Zda, Zn, Zm, i3) \
+    instr_create_1dst_4src(dc, OP_fmlalb, Zda, Zda, Zn, Zm, i3)
+
+/**
+ * Creates a FMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMLALT  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z.s.
+ * \param Zn   The second source vector register, Z.h.
+ * \param Zm   The third source vector register, Z.h.
+ * \param i3   The immediate index for Zm.
+ */
+#define INSTR_CREATE_fmlalt_sve_idx(dc, Zda, Zn, Zm, i3) \
+    instr_create_1dst_4src(dc, OP_fmlalt, Zda, Zda, Zn, Zm, i3)
+
+/**
+ * Creates a FMLSLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMLSLB  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z.s.
+ * \param Zn   The second source vector register, Z.h.
+ * \param Zm   The third source vector register, Z.h.
+ * \param i3   The immediate index for Zm.
+ */
+#define INSTR_CREATE_fmlslb_sve_idx(dc, Zda, Zn, Zm, i3) \
+    instr_create_1dst_4src(dc, OP_fmlslb, Zda, Zda, Zn, Zm, i3)
+
+/**
+ * Creates a FMLSLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMLSLT  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register, Z.s.
+ * \param Zn   The second source vector register, Z.h.
+ * \param Zm   The third source vector register, Z.h.
+ * \param i3   The immediate index for Zm.
+ */
+#define INSTR_CREATE_fmlslt_sve_idx(dc, Zda, Zn, Zm, i3) \
+    instr_create_1dst_4src(dc, OP_fmlslt, Zda, Zda, Zn, Zm, i3)
+
+/**
+ * Creates a SMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMLALB  <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      SMLALB  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_smlalb_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_smlalb, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates a SMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMLALT  <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      SMLALT  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_smlalt_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_smlalt, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates a SMLSLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMLSLB  <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      SMLSLB  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_smlslb_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_smlslb, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates a SMLSLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMLSLT  <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      SMLSLT  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_smlslt_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_smlslt, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates a SMULLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMULLB  <Zd>.D, <Zn>.S, <Zm>.S[<index>]
+      SMULLB  <Zd>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The first source vector register. Can be Z.s or Z.h.
+ * \param Zm   The second source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_smullb_sve_idx_vector(dc, Zd, Zn, Zm, i2) \
+    instr_create_1dst_3src(dc, OP_smullb, Zd, Zn, Zm, i2)
+
+/**
+ * Creates a SMULLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMULLT  <Zd>.D, <Zn>.S, <Zm>.S[<index>]
+      SMULLT  <Zd>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The first source vector register. Can be Z.s or Z.h.
+ * \param Zm   The second source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_smullt_sve_idx_vector(dc, Zd, Zn, Zm, i2) \
+    instr_create_1dst_3src(dc, OP_smullt, Zd, Zn, Zm, i2)
+
+/**
+ * Creates a SQDMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMLALB <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      SQDMLALB <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_sqdmlalb_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_sqdmlalb, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates a SQDMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMLALT <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      SQDMLALT <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_sqdmlalt_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_sqdmlalt, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates a SQDMLSLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMLSLB <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      SQDMLSLB <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_sqdmlslb_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_sqdmlslb, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates a SQDMLSLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMLSLT <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      SQDMLSLT <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_sqdmlslt_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_sqdmlslt, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates a SQDMULH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMULH <Zd>.D, <Zn>.D, <Zm>.D[<index>]
+      SQDMULH <Zd>.S, <Zn>.S, <Zm>.S[<index>]
+      SQDMULH <Zd>.H, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.d, Z.s or Z.h.
+ * \param Zn   The first source vector register. Can be Z.d, Z.s or Z.h.
+ * \param Zm   The second source vector register. Can be Z.d, Z.s or Z.h.
+ * \param i1   The immediate index for Zm.
+ */
+#define INSTR_CREATE_sqdmulh_sve_idx(dc, Zd, Zn, Zm, i1) \
+    instr_create_1dst_3src(dc, OP_sqdmulh, Zd, Zn, Zm, i1)
+
+/**
+ * Creates a SQDMULLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMULLB <Zd>.D, <Zn>.S, <Zm>.S[<index>]
+      SQDMULLB <Zd>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The first source vector register. Can be Z.s or Z.h.
+ * \param Zm   The second source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_sqdmullb_sve_idx_vector(dc, Zd, Zn, Zm, i2) \
+    instr_create_1dst_3src(dc, OP_sqdmullb, Zd, Zn, Zm, i2)
+
+/**
+ * Creates a SQDMULLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQDMULLT <Zd>.D, <Zn>.S, <Zm>.S[<index>]
+      SQDMULLT <Zd>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The first source vector register. Can be Z.s or Z.h.
+ * \param Zm   The second source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_sqdmullt_sve_idx_vector(dc, Zd, Zn, Zm, i2) \
+    instr_create_1dst_3src(dc, OP_sqdmullt, Zd, Zn, Zm, i2)
+
+/**
+ * Creates a SQRDMLAH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRDMLAH <Zda>.D, <Zn>.D, <Zm>.D[<index>]
+      SQRDMLAH <Zda>.S, <Zn>.S, <Zm>.S[<index>]
+      SQRDMLAH <Zda>.H, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d, Z.s or
+ *              Z.h.
+ * \param Zn   The second source vector register. Can be Z.d, Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.d, Z.s or Z.h.
+ * \param i1   The immediate index for Zm.
+ */
+#define INSTR_CREATE_sqrdmlah_sve_idx(dc, Zda, Zn, Zm, i1) \
+    instr_create_1dst_4src(dc, OP_sqrdmlah, Zda, Zda, Zn, Zm, i1)
+
+/**
+ * Creates a SQRDMLSH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRDMLSH <Zda>.D, <Zn>.D, <Zm>.D[<index>]
+      SQRDMLSH <Zda>.S, <Zn>.S, <Zm>.S[<index>]
+      SQRDMLSH <Zda>.H, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d, Z.s or
+ *              Z.h.
+ * \param Zn   The second source vector register. Can be Z.d, Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.d, Z.s or Z.h.
+ * \param i1   The immediate index for Zm.
+ */
+#define INSTR_CREATE_sqrdmlsh_sve_idx(dc, Zda, Zn, Zm, i1) \
+    instr_create_1dst_4src(dc, OP_sqrdmlsh, Zda, Zda, Zn, Zm, i1)
+
+/**
+ * Creates a SQRDMULH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRDMULH <Zd>.D, <Zn>.D, <Zm>.D[<index>]
+      SQRDMULH <Zd>.S, <Zn>.S, <Zm>.S[<index>]
+      SQRDMULH <Zd>.H, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.d, Z.s or Z.h.
+ * \param Zn   The first source vector register. Can be Z.d, Z.s or Z.h.
+ * \param Zm   The second source vector register. Can be Z.d, Z.s or Z.h.
+ * \param i1   The immediate index for Zm.
+ */
+#define INSTR_CREATE_sqrdmulh_sve_idx(dc, Zd, Zn, Zm, i1) \
+    instr_create_1dst_3src(dc, OP_sqrdmulh, Zd, Zn, Zm, i1)
+
+/**
+ * Creates an UMLALB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMLALB  <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      UMLALB  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_umlalb_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_umlalb, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates an UMLALT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMLALT  <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      UMLALT  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_umlalt_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_umlalt, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates an UMLSLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMLSLB  <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      UMLSLB  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_umlslb_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_umlslb, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates an UMLSLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMLSLT  <Zda>.D, <Zn>.S, <Zm>.S[<index>]
+      UMLSLT  <Zda>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_umlslt_sve_idx_vector(dc, Zda, Zn, Zm, i2) \
+    instr_create_1dst_4src(dc, OP_umlslt, Zda, Zda, Zn, Zm, i2)
+
+/**
+ * Creates an UMULLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMULLB  <Zd>.D, <Zn>.S, <Zm>.S[<index>]
+      UMULLB  <Zd>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The first source vector register. Can be Z.s or Z.h.
+ * \param Zm   The second source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_umullb_sve_idx_vector(dc, Zd, Zn, Zm, i2) \
+    instr_create_1dst_3src(dc, OP_umullb, Zd, Zn, Zm, i2)
+
+/**
+ * Creates an UMULLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMULLT  <Zd>.D, <Zn>.S, <Zm>.S[<index>]
+      UMULLT  <Zd>.S, <Zn>.H, <Zm>.H[<index>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The first source vector register. Can be Z.s or Z.h.
+ * \param Zm   The second source vector register. Can be Z.s or Z.h.
+ * \param i2   The immediate index for Zm.
+ */
+#define INSTR_CREATE_umullt_sve_idx_vector(dc, Zd, Zn, Zm, i2) \
+    instr_create_1dst_3src(dc, OP_umullt, Zd, Zn, Zm, i2)
+
+/**
+ * Creates an ADDP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ADDP    <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_addp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_addp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FADDP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FADDP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.h,
+ *              Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_faddp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_faddp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FMAXNMP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMAXNMP <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.h,
+ *              Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_fmaxnmp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_fmaxnmp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FMAXP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMAXP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.h,
+ *              Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_fmaxp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_fmaxp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FMINNMP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMINNMP <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.h,
+ *              Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_fminnmp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_fminnmp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FMINP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FMINP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.h,
+ *              Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_fminp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_fminp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a HISTCNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      HISTCNT <Zd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector register. Can be Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.s or Z.d.
+ */
+#define INSTR_CREATE_histcnt_sve_pred(dc, Zd, Pg, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_histcnt, Zd, Pg, Zn, Zm)
+
+/**
+ * Creates a SHADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SHADD   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_shadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_shadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SHSUB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SHSUB   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_shsub_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_shsub, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SHSUBR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SHSUBR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_shsubr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_shsubr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SMAXP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMAXP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_smaxp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_smaxp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SMINP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SMINP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sminp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sminp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SQRSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRSHL  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqrshl_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sqrshl, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SQRSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRSHLR <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqrshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sqrshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SQSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSHL   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+      SQSHL <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm_imm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d
+ *             or an immediate
+ */
+#define INSTR_CREATE_sqshl_sve_pred(dc, Zdn, Pg, Zm_imm) \
+    instr_create_1dst_3src(dc, OP_sqshl, Zdn, Pg, Zdn, Zm_imm)
+
+/**
+ * Creates a SQSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSHLR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sqshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SQSUBR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSUBR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqsubr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_sqsubr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SRHADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SRHADD  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_srhadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_srhadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SRSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SRSHL   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_srshl_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_srshl, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SRSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SRSHLR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_srshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_srshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a SUQADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SUQADD  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_suqadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_suqadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UHADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UHADD   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uhadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uhadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UHSUB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UHSUB   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uhsub_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uhsub, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UHSUBR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UHSUBR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uhsubr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uhsubr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UMAXP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMAXP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_umaxp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_umaxp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UMINP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UMINP   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uminp_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uminp, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UQRSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQRSHL  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqrshl_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uqrshl, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UQRSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQRSHLR <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqrshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uqrshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UQSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQSHL   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+      SQSHL <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm_imm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d
+ *                 or can be an immediate.
+ */
+#define INSTR_CREATE_uqshl_sve_pred(dc, Zdn, Pg, Zm_imm) \
+    instr_create_1dst_3src(dc, OP_uqshl, Zdn, Pg, Zdn, Zm_imm)
+
+/**
+ * Creates an UQSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQSHLR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uqshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an UQSUBR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQSUBR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_uqsubr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_uqsubr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an URHADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URHADD  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_urhadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_urhadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an URSHL instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URSHL   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_urshl_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_urshl, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an URSHLR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URSHLR  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_urshlr_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_urshlr, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates an USQADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      USQADD  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_usqadd_sve_pred(dc, Zdn, Pg, Zm) \
+    instr_create_1dst_3src(dc, OP_usqadd, Zdn, Pg, Zdn, Zm)
+
+/**
+ * Creates a FCVTLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FCVTLT  <Zd>.S, <Pg>/M, <Zn>.H
+      FCVTLT  <Zd>.D, <Pg>/M, <Zn>.S
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register. Can be Z.h or Z.s.
+ */
+#define INSTR_CREATE_fcvtlt_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_fcvtlt, Zd, Pg, Zn)
+
+/**
+ * Creates a FCVTNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FCVTNT  <Zd>.S, <Pg>/M, <Zn>.D
+      FCVTNT  <Zd>.H, <Pg>/M, <Zn>.S
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.s or Z.h.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The second source vector register. Can be Z.d or Z.s.
+ */
+#define INSTR_CREATE_fcvtnt_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_3src(dc, OP_fcvtnt, Zd, Zd, Pg, Zn)
+
+/**
+ * Creates a FCVTX instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FCVTX   <Zd>.S, <Pg>/M, <Zn>.D
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z.d.
+ */
+#define INSTR_CREATE_fcvtx_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_fcvtx, Zd, Pg, Zn)
+
+/**
+ * Creates a FCVTXNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FCVTXNT <Zd>.S, <Pg>/M, <Zn>.D
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register, Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The second source vector register, Z.d.
+ */
+#define INSTR_CREATE_fcvtxnt_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_3src(dc, OP_fcvtxnt, Zd, Zd, Pg, Zn)
+
+/**
+ * Creates a FLOGB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      FLOGB   <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register. Can be Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_flogb_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_flogb, Zd, Pg, Zn)
+
+/**
+ * Creates a SADALP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SADALP  <Zda>.<Ts>, <Pg>/M, <Zn>.<Tb>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_sadalp_sve_pred(dc, Zda, Pg, Zn) \
+    instr_create_1dst_3src(dc, OP_sadalp, Zda, Zda, Pg, Zn)
+
+/**
+ * Creates a SQABS instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQABS   <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqabs_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_sqabs, Zd, Pg, Zn)
+
+/**
+ * Creates a SQNEG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQNEG   <Zd>.<Ts>, <Pg>/M, <Zn>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ */
+#define INSTR_CREATE_sqneg_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_sqneg, Zd, Pg, Zn)
+
+/**
+ * Creates an UADALP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UADALP  <Zda>.<Ts>, <Pg>/M, <Zn>.<Tb>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.h, Z.s or
+ *              Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The second source vector register. Can be Z.b, Z.h or Z.s.
+ */
+#define INSTR_CREATE_uadalp_sve_pred(dc, Zda, Pg, Zn) \
+    instr_create_1dst_3src(dc, OP_uadalp, Zda, Zda, Pg, Zn)
+
+/**
+ * Creates a CADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      CADD    <Zdn>.<Ts>, <Zdn>.<Ts>, <Zm>.<Ts>, <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param rot   The immediate rotation which must be 90 or 270.
+ */
+#define INSTR_CREATE_cadd_sve(dc, Zdn, Zm, rot) \
+    instr_create_1dst_3src(dc, OP_cadd, Zdn, Zdn, Zm, rot)
+
+/**
+ * Creates a CDOT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      CDOT    <Zda>.<Ts>, <Zn>.<Tb>, <Zm>.<Tb>, <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.s or Z.d.
+ * \param Zn   The second source vector register. Can be Z.b or Z.h.
+ * \param Zm   The third source vector register. Can be Z.b or Z.h.
+ * \param rot   The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_cdot_sve(dc, Zda, Zn, Zm, rot) \
+    instr_create_1dst_4src(dc, OP_cdot, Zda, Zda, Zn, Zm, rot)
+
+/**
+ * Creates a CMLA instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      CMLA    <Zda>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>, <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.b, Z.h, Z.s
+ *              or Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param rot   The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_cmla_sve(dc, Zda, Zn, Zm, rot) \
+    instr_create_1dst_4src(dc, OP_cmla, Zda, Zda, Zn, Zm, rot)
+
+/**
+ * Creates a RSHRNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      RSHRNB  <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_rshrnb_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_rshrnb, Zd, Zn, imm)
+
+/**
+ * Creates a RSHRNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      RSHRNT  <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_rshrnt_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_rshrnt, Zd, Zd, Zn, imm)
+
+/**
+ * Creates a SHRNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SHRNB   <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_shrnb_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_shrnb, Zd, Zn, imm)
+
+/**
+ * Creates a SHRNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SHRNT   <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_shrnt_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_shrnt, Zd, Zd, Zn, imm)
+
+/**
+ * Creates a SLI instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SLI     <Zd>.<Ts>, <Zn>.<Ts>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h, Z.s
+ *             or Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm.
+ */
+#define INSTR_CREATE_sli_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_sli, Zd, Zd, Zn, imm)
+
+/**
+ * Creates a SQCADD instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQCADD  <Zdn>.<Ts>, <Zdn>.<Ts>, <Zm>.<Ts>, <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param rot   The immediate imm.
+ */
+#define INSTR_CREATE_sqcadd_sve(dc, Zdn, Zm, rot) \
+    instr_create_1dst_3src(dc, OP_sqcadd, Zdn, Zdn, Zm, rot)
+
+/**
+ * Creates a SQRDCMLAH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRDCMLAH <Zda>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>, <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.b, Z.h, Z.s
+ *              or Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param Zm   The third source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param rot   The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_sqrdcmlah_sve(dc, Zda, Zn, Zm, rot) \
+    instr_create_1dst_4src(dc, OP_sqrdcmlah, Zda, Zda, Zn, Zm, rot)
+
+/**
+ * Creates a SQRSHRNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRSHRNB <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_sqrshrnb_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_sqrshrnb, Zd, Zn, imm)
+
+/**
+ * Creates a SQRSHRNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRSHRNT <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_sqrshrnt_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_sqrshrnt, Zd, Zd, Zn, imm)
+
+/**
+ * Creates a SQRSHRUNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRSHRUNB <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_sqrshrunb_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_sqrshrunb, Zd, Zn, imm)
+
+/**
+ * Creates a SQRSHRUNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRSHRUNT <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_sqrshrunt_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_sqrshrunt, Zd, Zd, Zn, imm)
+
+/**
+ * Creates a SQSHLU instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSHLU  <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param imm   The immediate imm.
+ */
+#define INSTR_CREATE_sqshlu_sve_pred(dc, Zdn, Pg, imm) \
+    instr_create_1dst_3src(dc, OP_sqshlu, Zdn, Pg, Zdn, imm)
+
+/**
+ * Creates a SQSHRNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSHRNB <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_sqshrnb_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_sqshrnb, Zd, Zn, imm)
+
+/**
+ * Creates a SQSHRNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSHRNT <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_sqshrnt_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_sqshrnt, Zd, Zd, Zn, imm)
+
+/**
+ * Creates a SQSHRUNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSHRUNB <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_sqshrunb_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_sqshrunb, Zd, Zn, imm)
+
+/**
+ * Creates a SQSHRUNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQSHRUNT <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_sqshrunt_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_sqshrunt, Zd, Zd, Zn, imm)
+
+/**
+ * Creates a SRI instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SRI     <Zd>.<Ts>, <Zn>.<Ts>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h, Z.s
+ *             or Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_sri_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_sri, Zd, Zd, Zn, imm)
+
+/**
+ * Creates a SRSHR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SRSHR   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_srshr_sve_pred(dc, Zdn, Pg, imm) \
+    instr_create_1dst_3src(dc, OP_srshr, Zdn, Pg, Zdn, imm)
+
+/**
+ * Creates a SRSRA instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SRSRA   <Zda>.<Ts>, <Zn>.<Ts>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.b, Z.h, Z.s
+ *              or Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_srsra_sve(dc, Zda, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_srsra, Zda, Zda, Zn, imm)
+
+/**
+ * Creates a SSHLLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SSHLLB  <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param imm   The immediate imm.
+ */
+#define INSTR_CREATE_sshllb_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_sshllb, Zd, Zn, imm)
+
+/**
+ * Creates a SSHLLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SSHLLT  <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param imm   The immediate imm.
+ */
+#define INSTR_CREATE_sshllt_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_sshllt, Zd, Zn, imm)
+
+/**
+ * Creates a SSRA instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SSRA    <Zda>.<Ts>, <Zn>.<Ts>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.b, Z.h, Z.s
+ *              or Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_ssra_sve(dc, Zda, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_ssra, Zda, Zda, Zn, imm)
+
+/**
+ * Creates an UQRSHRNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQRSHRNB <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_uqrshrnb_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_uqrshrnb, Zd, Zn, imm)
+
+/**
+ * Creates an UQRSHRNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQRSHRNT <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_uqrshrnt_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_uqrshrnt, Zd, Zd, Zn, imm)
+
+/**
+ * Creates an UQSHRNB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQSHRNB <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.b, Z.h or Z.s.
+ * \param Zn   The first source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_uqshrnb_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_uqshrnb, Zd, Zn, imm)
+
+/**
+ * Creates an UQSHRNT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UQSHRNT <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The source and destination vector register. Can be Z.b, Z.h or
+ *             Z.s.
+ * \param Zn   The second source vector register. Can be Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_uqshrnt_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_uqshrnt, Zd, Zd, Zn, imm)
+
+/**
+ * Creates an URSHR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URSHR   <Zdn>.<Ts>, <Pg>/M, <Zdn>.<Ts>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_urshr_sve_pred(dc, Zdn, Pg, imm) \
+    instr_create_1dst_3src(dc, OP_urshr, Zdn, Pg, Zdn, imm)
+
+/**
+ * Creates an URSRA instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URSRA   <Zda>.<Ts>, <Zn>.<Ts>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.b, Z.h, Z.s
+ *              or Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_ursra_sve(dc, Zda, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_ursra, Zda, Zda, Zn, imm)
+
+/**
+ * Creates an USHLLB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      USHLLB  <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param imm   The immediate imm.
+ */
+#define INSTR_CREATE_ushllb_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_ushllb, Zd, Zn, imm)
+
+/**
+ * Creates an USHLLT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      USHLLT  <Zd>.<Ts>, <Zn>.<Tb>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register. Can be Z.h, Z.s or Z.d.
+ * \param Zn   The first source vector register. Can be Z.b, Z.h or Z.s.
+ * \param imm   The immediate imm.
+ */
+#define INSTR_CREATE_ushllt_sve(dc, Zd, Zn, imm) \
+    instr_create_1dst_2src(dc, OP_ushllt, Zd, Zn, imm)
+
+/**
+ * Creates an USRA instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      USRA    <Zda>.<Ts>, <Zn>.<Ts>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.b, Z.h, Z.s
+ *              or Z.d.
+ * \param Zn   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_usra_sve(dc, Zda, Zn, imm) \
+    instr_create_1dst_3src(dc, OP_usra, Zda, Zda, Zn, imm)
+
+/**
+ * Creates a XAR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      XAR     <Zdn>.<Ts>, <Zdn>.<Ts>, <Zm>.<Ts>, #<const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zdn   The first source and destination vector register. Can be Z.b,
+ *              Z.h, Z.s or Z.d.
+ * \param Zm   The second source vector register. Can be Z.b, Z.h, Z.s or Z.d.
+ * \param imm   The immediate imm1.
+ */
+#define INSTR_CREATE_xar_sve(dc, Zdn, Zm, imm) \
+    instr_create_1dst_3src(dc, OP_xar, Zdn, Zdn, Zm, imm)
+
+/**
+ * Creates a LDNT1SB instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      LDNT1SB { <Zt>.D }, <Pg>/Z, [<Zn>.D{, <Xm>}]
+      LDNT1SB { <Zt>.S }, <Pg>/Z, [<Zn>.S{, <Xm>}]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register. Can be Z.d or Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_vector_base_disp_aarch64(Zn, Rm,
+ *             OPSZ_8, DR_EXTEND_UXTX, 0, 0, 0, OPSZ_4, 0)
+ */
+#define INSTR_CREATE_ldnt1sb_sve_pred(dc, Zt, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_ldnt1sb, Zt, Zn, Pg)
+
+/**
+ * Creates a LDNT1SH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      LDNT1SH { <Zt>.D }, <Pg>/Z, [<Zn>.D{, <Xm>}]
+      LDNT1SH { <Zt>.S }, <Pg>/Z, [<Zn>.S{, <Xm>}]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register. Can be Z.d or Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_vector_base_disp_aarch64(Zn, Rm,
+ *             OPSZ_8, DR_EXTEND_UXTX, 0, 0, 0, OPSZ_8, 0)
+ */
+#define INSTR_CREATE_ldnt1sh_sve_pred(dc, Zt, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_ldnt1sh, Zt, Zn, Pg)
+
+/**
+ * Creates a LDNT1SW instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      LDNT1SW { <Zt>.D }, <Pg>/Z, [<Zn>.D{, <Xm>}]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zt   The destination vector register, Z.d.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector base register with a register offset,
+ *             constructed with the function:
+ *             opnd_create_vector_base_disp_aarch64(Zn, Rm,
+ *             OPSZ_8, DR_EXTEND_UXTX, 0, 0, 0, OPSZ_16, 0)
+ */
+#define INSTR_CREATE_ldnt1sw_sve_pred(dc, Zt, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_ldnt1sw, Zt, Zn, Pg)
+
+/**
+ * Creates an UZP1 instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UZP1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+      UZP1    <Zd>.Q, <Zn>.Q, <Zm>.Q
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_uzp1_sve_vector(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uzp1, Zd, Zn, Zm)
+
+/*
+ * Creates a CDOT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      CDOT    <Zda>.D, <Zn>.H, <Zm>.H[<imm>], <const>
+      CDOT    <Zda>.S, <Zn>.B, <Zm>.B[<imm>], <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.h or Z.b.
+ * \param Zm   The third source vector register. Can be Z.h or Z.b.
+ * \param i1   The immediate index for Zm.
+ * \param rot  The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_cdot_sve_idx_imm_vector(dc, Zda, Zn, Zm, i1, rot) \
+    instr_create_1dst_5src(dc, OP_cdot, Zda, Zda, Zn, Zm, i1, rot)
+
+/**
+ * Creates a CMLA instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      CMLA    <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const>
+      CMLA    <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.s or Z.h.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i1   The immediate index for Zm.
+ * \param rot  The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_cmla_sve_idx_imm_vector(dc, Zda, Zn, Zm, i1, rot) \
+    instr_create_1dst_5src(dc, OP_cmla, Zda, Zda, Zn, Zm, i1, rot)
+
+/**
+ * Creates a SQRDCMLAH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRDCMLAH <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const>
+      SQRDCMLAH <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.s or Z.h.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i1   The immediate index for Zm.
+ * \param rot  The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_sqrdcmlah_sve_idx_imm_vector(dc, Zda, Zn, Zm, i1, rot) \
+    instr_create_1dst_5src(dc, OP_sqrdcmlah, Zda, Zda, Zn, Zm, i1, rot)
+
+/**
+ * Creates a MATCH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      MATCH   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b or P.h.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector register. Can be Z.b or Z.h.
+ * \param Zm   The second source vector register. Can be Z.b or Z.h.
+ */
+#define INSTR_CREATE_match_sve_pred(dc, Pd, Pg, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_match, Pd, Pg, Zn, Zm)
+
+/**
+ * Creates a NMATCH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      NMATCH  <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b or P.h.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector register. Can be Z.b or Z.h.
+ * \param Zm   The second source vector register. Can be Z.b or Z.h.
+ */
+#define INSTR_CREATE_nmatch_sve_pred(dc, Pd, Pg, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_nmatch, Pd, Pg, Zn, Zm)
+
+/**
+ * Creates an URECPE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URECPE  <Zd>.S, <Pg>/M, <Zn>.S
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z.s.
+ */
+#define INSTR_CREATE_urecpe_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_urecpe, Zd, Pg, Zn)
+
+/**
+ * Creates an URSQRTE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URSQRTE <Zd>.S, <Pg>/M, <Zn>.S
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z.s.
+ */
+#define INSTR_CREATE_ursqrte_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_ursqrte, Zd, Pg, Zn)
+
+/**
+ * Creates a WHILEGE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEGE <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilege_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilege, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEGT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEGT <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilegt_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilegt, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEHI instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEHI <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilehi_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilehi, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEHS instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEHS <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilehs_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilehs, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILERW instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILERW <Pd>.<Ts>, <Xn>, <Xm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilerw_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilerw, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEWR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEWR <Pd>.<Ts>, <Xn>, <Xm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilewr_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilewr, Pd, Rn, Rm)
 #endif /* DR_IR_MACROS_AARCH64_H */
