@@ -643,9 +643,11 @@ public:
     test_module_mapper_t(instrlist_t *instrs, void *drcontext)
         : module_mapper_t(nullptr)
     {
-        // We encode for 0-based addresses for simpler tests with low values.
-        byte *pc = instrlist_encode_to_copy(drcontext, instrs, decode_buf_, nullptr,
-                                            nullptr, true);
+        // We encode for 1-based addresses for simpler tests with low values while
+        // avoiding null pointer manipulation complaints (xref i#6196).
+        byte *pc = instrlist_encode_to_copy(
+            drcontext, instrs, decode_buf_,
+            reinterpret_cast<byte *>(static_cast<ptr_uint_t>(1)), nullptr, true);
         DR_ASSERT(pc != nullptr);
         DR_ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE);
         // Clear do_module_parsing error; we can't cleanly make virtual b/c it's
