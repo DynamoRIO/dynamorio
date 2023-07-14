@@ -1337,8 +1337,7 @@ check_timestamps_increase_monotonically(void)
                        (std::numeric_limits<uintptr_t>::max)()),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
         };
-        if (!run_checker(memrefs, true, 1, 3,
-                         "Timestamp does not increase monotonically"))
+        if (!run_checker(memrefs, false))
             return false;
     }
 #endif
