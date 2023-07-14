@@ -937,6 +937,7 @@ check_schedule_file()
 }
 
 bool
+<<<<<<< HEAD
 check_branch_decoration()
 {
     std::cerr << "Testing branch decoration\n";
