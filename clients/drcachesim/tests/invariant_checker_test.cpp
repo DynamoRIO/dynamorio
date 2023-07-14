@@ -1244,45 +1244,6 @@ check_branch_decoration()
 }
 
 bool
-check_timestamps_increase_monotonically(void)
-{
-    // Positive test: timestamps increase monotonically.
-    {
-        std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
-        };
-        if (!run_checker(memrefs, false))
-            return false;
-    }
-    // Negative test: timestamp does not increase monotonically.
-    {
-        std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 5),
-        };
-        if (!run_checker(memrefs, true, 1, 3,
-                         "Timestamp does not increase monotonically"))
-            return false;
-    }
-#ifdef X86_32
-    // Positive test: timestamp rollovers.
-    {
-        std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, UINT32_MAX - 10),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, UINT32_MAX),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
-        };
-        if (!run_checker(memrefs, false))
-            return false;
-    }
-#endif
-    return true;
-}
-
-bool
 check_filter_endpoint()
 {
     std::cerr << "Testing filter end-point marker and file type\n";
@@ -1351,6 +1312,7 @@ check_timestamps_increase_monotonically(void)
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+        };
         if (!run_checker(memrefs, false))
             return false;
     }
@@ -1369,12 +1331,13 @@ check_timestamps_increase_monotonically(void)
     // Positive test: timestamp rollovers.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, UINT32_MAX - 10),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, UINT32_MAX),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP,
+                       (std::numeric_limits<uintptr_t>::max)() - 10),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP,
+                       (std::numeric_limits<uintptr_t>::max)()),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
         };
-        if (!run_checker(memrefs, true, 1, 3,
-                         "Timestamp does not increase monotonically"))
+        if (!run_checker(memrefs, false))
             return false;
     }
 #endif
