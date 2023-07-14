@@ -45,6 +45,10 @@ namespace drmemtrace {
 
 class cache_t : public caching_device_t {
 public:
+    explicit cache_t(const std::string &name = "cache")
+        : caching_device_t(name)
+    {
+    }
     // Size, line size and associativity are generally used
     // to describe a CPU cache.
     // The id is an index into the snoop filter's array of caches for coherent caches.
