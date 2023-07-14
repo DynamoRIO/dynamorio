@@ -240,6 +240,9 @@ const char *options_list_str =
 #endif
 #ifdef DRCONFIG
     "\n"
+    "       -detach <pid> \n"
+    "                         Detach to the process with the given pid.\n"
+    "\n"
 #    ifdef WINDOWS
     "       Note that nudging 64-bit processes is not yet supported.\n"
     "       -nudge <process> <client ID> <argument>\n"
@@ -1179,6 +1182,7 @@ _tmain(int argc, TCHAR *targv[])
     uint64 nudge_arg = 0;
     bool list_registered = false;
     uint nudge_timeout = INFINITE;
+    uint detach_timeout = DETACH_RECOMMENDED_TIMEOUT;
     bool syswide_on = false;
     bool syswide_off = false;
 #endif /* WINDOWS */
@@ -1205,6 +1209,11 @@ _tmain(int argc, TCHAR *targv[])
     void *inject_data;
     bool success;
     bool exit0 = false;
+#endif
+#if defined(DRCONFIG)
+#    ifdef WINDOWS
+    process_id_t detach_pid = 0;
+#    endif
 #endif
     char *drlib_path = NULL;
 #if defined(DRCONFIG) || defined(DRRUN)
@@ -1499,6 +1508,18 @@ _tmain(int argc, TCHAR *targv[])
                 nudge_all = true;
             nudge_id = strtoul(argv[++i], NULL, 16);
             nudge_arg = _strtoui64(argv[++i], NULL, 16);
+        }else if (strcmp(argv[i], "-detach") == 0)
+        {
+            if (i + 1 >= argc)
+                usage(false, "detach requires a process id");
+            const char *pid_str = argv[++i];
+            process_id_t pid = strtoul(pid_str, NULL, 10);
+            if (pid == ULONG_MAX)
+                usage(false, "detach expects an integer pid: '%s'", pid_str);
+            if (pid == 0) {
+                usage(false, "detach passed an invalid pid: '%s'", pid_str);
+            }
+            detach_pid = pid;
         }
 #    endif
 #endif
@@ -1857,6 +1878,10 @@ done_with_options:
                 list_process(NULL, global, dr_platform, iter);
             dr_registered_process_iterator_stop(iter);
         }
+    }
+    /* FIXME i#2644: Process detach NYI for Linux. */
+    else if (detach_pid != 0) {
+        detach(detach_pid, TRUE, detach_timeout);
     }
 #        endif
     else if (!syswide_on && !syswide_off) {
