@@ -1303,7 +1303,6 @@ check_filter_endpoint()
     return true;
 }
 
-<<<<<<< HEAD
 bool
 check_timestamps_increase_monotonically(void)
 {
