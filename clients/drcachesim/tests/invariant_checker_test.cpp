@@ -1244,7 +1244,7 @@ check_branch_decoration()
 }
 
 bool
-check_timestamp_increase_monotonically(void)
+check_timestamps_increase_monotonically(void)
 {
     // Positive test: timestamps increase monotonically.
     {
