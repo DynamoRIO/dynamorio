@@ -100,6 +100,8 @@ extern dynamorio::droption::droption_t<bool> op_L0_filter_deprecated;
 extern dynamorio::droption::droption_t<bool> op_L0I_filter;
 extern dynamorio::droption::droption_t<bool> op_L0D_filter;
 extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t> op_L0D_size;
+extern dynamorio::droption::droption_t<dynamorio::droption::bytesize_t>
+    op_L0_filter_until_instrs;
 extern dynamorio::droption::droption_t<bool> op_instr_only_trace;
 extern dynamorio::droption::droption_t<bool> op_coherence;
 extern dynamorio::droption::droption_t<bool> op_use_physical;

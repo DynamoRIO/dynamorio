@@ -1104,7 +1104,7 @@ protected:
     std::string
     process_offline_entry(raw2trace_thread_data_t *tdata, const offline_entry_t *in_entry,
                           thread_id_t tid, OUT bool *end_of_record,
-                          OUT bool *last_bb_handled);
+                          OUT bool *last_bb_handled, OUT bool *flush_decode_cache);
 
     /**
      * Read the header of a thread, by calling get_next_entry() successively to
@@ -1385,7 +1385,10 @@ private:
 
     // Returns the trace file type (a combination of OFFLINE_FILE_TYPE* constants).
     offline_file_type_t
+
     get_file_type(raw2trace_thread_data_t *tdata);
+    void
+    set_file_type(raw2trace_thread_data_t *tdata, offline_file_type_t file_type);
 
     size_t
     get_cache_line_size(raw2trace_thread_data_t *tdata);
@@ -1527,6 +1530,16 @@ private:
                           block);
 #else
             table[hash_key(modidx, modoffs)].reset(block);
+#endif
+        }
+
+        void
+        clear()
+        {
+#ifdef X64
+            hashtable_clear(&table);
+#else
+            table.clear();
 #endif
         }
 
