@@ -578,15 +578,15 @@ cache_simulator_t::print_results()
         print_core(i);
         if (thread_ever_counts_[i] > 0) {
             if (l1_icaches_[i] != l1_dcaches_[i]) {
-                std::cerr << "  " << l1_icaches_[i]->get_name()
-                          << " stats: " << l1_icaches_[i]->get_description() << std::endl;
+                std::cerr << "  " << l1_icaches_[i]->get_name() << " ("
+                          << l1_icaches_[i]->get_description() << ") stats:" << std::endl;
                 l1_icaches_[i]->get_stats()->print_stats("    ");
-                std::cerr << "  " << l1_dcaches_[i]->get_name()
-                          << " stats: " << l1_dcaches_[i]->get_description() << std::endl;
+                std::cerr << "  " << l1_dcaches_[i]->get_name() << " ("
+                          << l1_dcaches_[i]->get_description() << ") stats:" << std::endl;
                 l1_dcaches_[i]->get_stats()->print_stats("    ");
             } else {
-                std::cerr << "  unified " << l1_icaches_[i]->get_name()
-                          << " stats: " << l1_icaches_[i]->get_description() << std::endl;
+                std::cerr << "  unified " << l1_icaches_[i]->get_name() << " ("
+                          << l1_icaches_[i]->get_description() << ") stats:" << std::endl;
                 l1_icaches_[i]->get_stats()->print_stats("    ");
             }
         }
@@ -594,15 +594,15 @@ cache_simulator_t::print_results()
 
     // Print non-L1, non-LLC cache stats.
     for (auto &caches_it : other_caches_) {
-        std::cerr << caches_it.first << " stats: " << caches_it.second->get_description()
-                  << std::endl;
+        std::cerr << caches_it.first << " (" << caches_it.second->get_description()
+                  << ") stats:" << std::endl;
         caches_it.second->get_stats()->print_stats("    ");
     }
 
     // Print LLC stats.
     for (auto &caches_it : llcaches_) {
-        std::cerr << caches_it.first << " stats: " << caches_it.second->get_description()
-                  << std::endl;
+        std::cerr << caches_it.first << " (" << caches_it.second->get_description()
+                  << ") stats:" << std::endl;
         caches_it.second->get_stats()->print_stats("    ");
     }
 
