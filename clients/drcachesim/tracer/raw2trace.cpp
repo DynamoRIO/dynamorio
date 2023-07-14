@@ -94,7 +94,7 @@ namespace drmemtrace {
         }                                  \
     } while (0)
 
-static online_instru_t instru(NULL, NULL, false, NULL);
+static online_instru_t instru(NULL, NULL, NULL);
 
 int
 trace_metadata_writer_t::write_thread_exit(byte *buffer, thread_id_t tid)
@@ -561,7 +561,8 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
 std::string
 raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                                    const offline_entry_t *in_entry, thread_id_t tid,
-                                   OUT bool *end_of_record, OUT bool *last_bb_handled)
+                                   OUT bool *end_of_record, OUT bool *last_bb_handled,
+                                   OUT bool *flush_decode_cache)
 {
     trace_entry_t *buf_base = get_write_buffer(tdata);
     byte *buf = reinterpret_cast<byte *>(buf_base);
@@ -618,6 +619,22 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                     tdata->rseq_buffering_enabled_ = true;
                     tdata->rseq_end_pc_ = marker_val;
                 }
+            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
+                log(2, "Reached filter endpoint\n");
+
+                // The file type needs to be updated during the switch to correctly
+                // process the entries that follow after. This does not affect the
+                // written-out type.
+                int file_type = get_file_type(tdata);
+                file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                               OFFLINE_FILE_TYPE_DFILTERED);
+                set_file_type(tdata, (offline_file_type_t)file_type);
+
+                // For the full trace, the cache contains block-level info unlike the
+                // filtered trace which contains instr-level info. Since we cannot use
+                // the decode cache entries after the transition, we need to flush the
+                // cache here.
+                *flush_decode_cache = true;
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL &&
                        is_maybe_blocking_syscall(marker_val)) {
                 log(2, "Maybe-blocking syscall %zu\n", marker_val);
@@ -1020,8 +1037,11 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
             entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
             tdata->last_window = entry.extended.valueA;
+        bool flush_decode_cache = false;
         tdata->error = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
-                                             &last_bb_handled);
+                                             &last_bb_handled, &flush_decode_cache);
+        if (flush_decode_cache)
+            decode_cache_[tdata->worker].clear();
         if (!tdata->error.empty())
             return tdata->error;
     }
@@ -1045,9 +1065,12 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
                 offline_entry_t entry;
                 entry.extended.type = OFFLINE_TYPE_EXTENDED;
                 entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
-                bool last_bb_handled = true;
-                tdata->error = process_offline_entry(tdata, &entry, tdata->tid,
-                                                     &end_of_file, &last_bb_handled);
+                bool last_bb_handled = true, flush_decode_cache = false;
+                tdata->error =
+                    process_offline_entry(tdata, &entry, tdata->tid, &end_of_file,
+                                          &last_bb_handled, &flush_decode_cache);
+                if (flush_decode_cache)
+                    decode_cache_[tdata->worker].clear();
                 CHECK(end_of_file, "Synthetic footer failed");
                 if (!tdata->error.empty())
                     return tdata->error;
@@ -1272,7 +1295,7 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         instrlist_append(ilist, inst);
     }
 
-    instru_offline_.identify_elidable_addresses(dcontext_, ilist, version);
+    instru_offline_.identify_elidable_addresses(dcontext_, ilist, version, false);
 
     for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
          inst = instr_get_next(inst)) {
@@ -3016,6 +3039,15 @@ offline_file_type_t
 raw2trace_t::get_file_type(raw2trace_thread_data_t *tdata)
 {
     return tdata->file_type;
+}
+
+void
+raw2trace_t::set_file_type(raw2trace_thread_data_t *tdata, offline_file_type_t file_type)
+{
+    // The file type needs to be updated during the switch to correctly process the
+    // entries that follow after TRACE_MARKER_TYPE_FILTER_ENDPOINT. This does not affect
+    // the written-out type.
+    tdata->file_type = file_type;
 }
 
 raw2trace_t::raw2trace_t(
