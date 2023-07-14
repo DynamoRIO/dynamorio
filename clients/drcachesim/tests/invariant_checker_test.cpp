@@ -938,7 +938,7 @@ check_schedule_file()
 }
 
 bool
-check_timestamp_increase_monotonically(void)
+check_timestamps_increase_monotonically(void)
 {
     // Positive test: timestamps increase monotonically.
     {
@@ -950,7 +950,7 @@ check_timestamp_increase_monotonically(void)
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Negative test: timestamp does not increase monotonically .
+    // Negative test: timestamp does not increase monotonically.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
@@ -962,7 +962,7 @@ check_timestamp_increase_monotonically(void)
             return false;
     }
 #ifdef X86_32
-    // Positive test: timestamp rollovers
+    // Positive test: timestamp rollovers.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, UINT32_MAX - 10),
@@ -983,7 +983,7 @@ test_main(int argc, const char *argv[])
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
         check_duplicate_syscall_with_same_pc() && check_false_syscalls() &&
         check_rseq_side_exit_discontinuity() && check_schedule_file() &&
-        check_timestamp_increase_monotonically()) {
+        check_timestamps_increase_monotonically()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
