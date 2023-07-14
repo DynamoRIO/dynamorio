@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1290,6 +1290,13 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
                   * after all, OPND_CREATE_ABSMEM() makes a rip-rel.
                   */
                  (opnd_is_rel_addr(opnd) &&
+                  /* If we don't know the final PC we bypass this template in
+                   * favor of the general template which should always match
+                   * and generally be what is expected.  get_encoding_info()
+                   * is the caller for this case and it documents that its
+                   * result is not perfect.
+                   */
+                  di->final_pc != NULL &&
                   (!REL32_REACHABLE(di->final_pc + MAX_INSTR_LENGTH,
                                     (byte *)opnd_get_addr(opnd)) ||
                    !REL32_REACHABLE(di->final_pc + 4, (byte *)opnd_get_addr(opnd)))) ||
