@@ -1508,8 +1508,7 @@ _tmain(int argc, TCHAR *targv[])
                 nudge_all = true;
             nudge_id = strtoul(argv[++i], NULL, 16);
             nudge_arg = _strtoui64(argv[++i], NULL, 16);
-        }else if (strcmp(argv[i], "-detach") == 0)
-        {
+        }else if (strcmp(argv[i], "-detach") == 0){
             if (i + 1 >= argc)
                 usage(false, "detach requires a process id");
             const char *pid_str = argv[++i];
