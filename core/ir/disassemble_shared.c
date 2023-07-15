@@ -1192,7 +1192,7 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         name = get_opcode_name(instr_get_opcode(instr));
 #else
         const instr_info_t *info = instr_get_instr_info(instr);
-        name = info->name;
+        name = stroffstr(info->name);
 #endif
     } else
         name = "<RAW>";

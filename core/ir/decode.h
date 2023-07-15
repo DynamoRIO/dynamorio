@@ -41,6 +41,7 @@
 #define DECODE_H
 
 #include "decode_api.h"
+#include "stroff.h"
 
 /* Public PREFIX_ constants are in instr_api.h.
  * decode_private.h may define additional constants only used during decoding.
@@ -83,7 +84,7 @@ typedef struct instr_info_t {
      * stored here varies by arch.
      */
     uint opcode;
-    const char *name;
+    stroff_t name;
     /* Operands: each has a type and a size.
      * The opnd_size_t will instead be reg_id_t for TYPE_*REG*.
      * We have room for 2 dsts and 3 srcs, which covers the vast majority of

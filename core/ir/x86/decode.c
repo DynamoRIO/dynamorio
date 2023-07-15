@@ -80,20 +80,20 @@
 
 /* used for VEX decoding */
 #define xx TYPE_NONE, OPSZ_NA
-static const instr_info_t escape_instr = { ESCAPE, 0x000000, "(bad)", xx, xx, xx,
+static const instr_info_t escape_instr = { ESCAPE, 0x000000, STROFF(BAD), xx, xx, xx,
                                            xx,     xx,       0,       0,  0 };
 static const instr_info_t escape_38_instr = {
-    ESCAPE_3BYTE_38, 0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0
+    ESCAPE_3BYTE_38, 0x000000, STROFF(BAD), xx, xx, xx, xx, xx, 0, 0, 0
 };
 static const instr_info_t escape_3a_instr = {
-    ESCAPE_3BYTE_3a, 0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0
+    ESCAPE_3BYTE_3a, 0x000000, STROFF(BAD), xx, xx, xx, xx, xx, 0, 0, 0
 };
 /* used for XOP decoding */
-static const instr_info_t xop_8_instr = { XOP_8_EXT, 0x000000, "(bad)", xx, xx, xx,
+static const instr_info_t xop_8_instr = { XOP_8_EXT, 0x000000, STROFF(BAD), xx, xx, xx,
                                           xx,        xx,       0,       0,  0 };
-static const instr_info_t xop_9_instr = { XOP_9_EXT, 0x000000, "(bad)", xx, xx, xx,
+static const instr_info_t xop_9_instr = { XOP_9_EXT, 0x000000, STROFF(BAD), xx, xx, xx,
                                           xx,        xx,       0,       0,  0 };
-static const instr_info_t xop_a_instr = { XOP_A_EXT, 0x000000, "(bad)", xx, xx, xx,
+static const instr_info_t xop_a_instr = { XOP_A_EXT, 0x000000, STROFF(BAD), xx, xx, xx,
                                           xx,        xx,       0,       0,  0 };
 #undef xx
 
@@ -2725,7 +2725,7 @@ const char *
 decode_opcode_name(int opcode)
 {
     const instr_info_t *info = op_instr[opcode];
-    return info->name;
+    return stroffstr(info->name);
 }
 
 const instr_info_t *
