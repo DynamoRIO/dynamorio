@@ -140,8 +140,11 @@ proc_has_feature(feature_bit_t f)
 void
 machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache)
 {
-    /* FIXME i#3544: Not implemented. FENCE.I ? Maybe a syscall to clean icache? */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /*
+     * RISC-V doesn't have an instruction to flush parts of the instruction cache,
+     * so instead we just flush the whole thing.
+     */
+    __asm__ __volatile__("fence.i" : : : "memory");
 }
 
 DR_API
