@@ -1447,6 +1447,10 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // We should have set a flag to avoid peeking forward on instr entries
         // based on OFFLINE_FILE_TYPE_FILTERED and
         // OFFLINE_FILE_TYPE_IFILTERED.
+        if(instrs_are_separate == false) {
+            *handled = true;
+            return "";
+        }
         DR_ASSERT(instrs_are_separate);
     } else {
         if (!instr_summary_exists(tdata, in_entry->pc.modidx, in_entry->pc.modoffs,
