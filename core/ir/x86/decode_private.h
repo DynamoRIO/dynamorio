@@ -562,6 +562,11 @@ extern const instr_info_t evex_prefix_extensions[][2];
 extern const instr_info_t evex_Wb_extensions[][4];
 
 /* table that translates opcode enums into pointers into decoding tables */
-extern const instr_info_t *const op_instr[];
+extern const ptr_int_t op_instr[];
+
+static const instr_info_t* code_to_instr(ptr_int_t code)
+{
+	return (const instr_info_t*)code;
+}
 
 #endif /* DECODE_PRIVATE_H */

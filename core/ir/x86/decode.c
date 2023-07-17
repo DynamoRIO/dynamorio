@@ -2600,7 +2600,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
          */
         if ((info->flags & HAS_EXTRA_OPERANDS) != 0) {
             if ((info->flags & EXTRAS_IN_CODE_FIELD) != 0)
-                info = (const instr_info_t *)(info->code);
+                info = code_to_instr(info->code);
             else /* extra operands are in next entry */
                 info = info + 1;
         } else
@@ -2710,13 +2710,13 @@ decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 const instr_info_t *
 get_next_instr_info(const instr_info_t *info)
 {
-    return (const instr_info_t *)(info->code);
+    return code_to_instr(info->code);
 }
 
 byte
 decode_first_opcode_byte(int opcode)
 {
-    const instr_info_t *info = op_instr[opcode];
+    const instr_info_t *info = opcode_to_encoding_info(opcode, 0);
     return (byte)((info->opcode & 0x00ff0000) >> 16);
 }
 
@@ -2724,14 +2724,14 @@ DR_API
 const char *
 decode_opcode_name(int opcode)
 {
-    const instr_info_t *info = op_instr[opcode];
+    const instr_info_t *info = opcode_to_encoding_info(opcode, 0);
     return info->name;
 }
 
 const instr_info_t *
 opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
 {
-    return op_instr[opc];
+    return code_to_instr(op_instr[opc]);
 }
 
 app_pc

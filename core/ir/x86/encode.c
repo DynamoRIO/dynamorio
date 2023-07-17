@@ -1472,7 +1472,7 @@ instr_info_extra_opnds(const instr_info_t *info)
 {
     if (TEST(HAS_EXTRA_OPERANDS, info->flags)) {
         if (TEST(EXTRAS_IN_CODE_FIELD, info->flags))
-            return (const instr_info_t *)(info->code);
+            return code_to_instr(info->code);
         else /* extra operands are in next entry */
             return (info + 1);
     }
