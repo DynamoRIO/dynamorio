@@ -590,9 +590,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // 2147 seconds) apart.
         const uintptr_t last_timestamp = static_cast<uintptr_t>(shard->last_timestamp_);
         if (memref.marker.marker_value < last_timestamp) {
-            report_if_false(
-                shard, last_timestamp > (memref.marker.marker_value + UINT32_MAX / 2),
-                "Timestamp does not increase monotonically");
+            report_if_false(shard,
+                            last_timestamp > (memref.marker.marker_value +
+                                              std::numeric_limits<uintptr_t>::max() / 2),
+                            "Timestamp does not increase monotonically");
         }
 #else
         report_if_false(shard, memref.marker.marker_value >= shard->last_timestamp_,
