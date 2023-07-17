@@ -111,7 +111,7 @@ typedef struct instr_info_t {
      * or contain an index into an extension table, or hold a prefix value.
      * The type field indicates how to interpret it.
      */
-    ptr_int_t code;
+    uint code;
 } instr_info_t;
 
 /* instr_info_t is used for table entries, it holds info that is constant

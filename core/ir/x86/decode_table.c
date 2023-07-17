@@ -66,32 +66,37 @@
 /* clang-format off */
 
 /* for constructing linked lists of table entries and op_instr table */
+
+#define INSTR_CODE(T, I) (uint)((TABLE_ ## T << 24) | (I))
+#define INSTR_CODE2(T, I, J) (uint)((TABLE_ ## T << 24) | \
+  ((I) * sizeof(T[0]) / sizeof(T[0][0])) | (J))
+
 #define NA 0
 #define END_LIST  0
-#define tfb(I) (ptr_int_t)&first_byte[I]
-#define tsb(I) (ptr_int_t)&second_byte[I]
-#define tex(I, J) (ptr_int_t)&base_extensions[I][J]
-#define t38(I) (ptr_int_t)&third_byte_38[I]
-#define t3a(I) (ptr_int_t)&third_byte_3a[I]
-#define tpe(I, J) (ptr_int_t)&prefix_extensions[I][J]
-#define tvex(I, J) (ptr_int_t)&e_vex_extensions[I][J]
-#define modx(I, J) (ptr_int_t)&mod_extensions[I][J]
-#define tre(I, J) (ptr_int_t)&rep_extensions[I][J]
-#define tne(I, J) (ptr_int_t)&repne_extensions[I][J]
-#define tfl(I) (ptr_int_t)&float_low_modrm[I]
-#define tfh(I, J) (ptr_int_t)&float_high_modrm[I][J]
-#define exop(I) (ptr_int_t)&extra_operands[I]
-#define t64e(I, J) (ptr_int_t)&x64_extensions[I][J]
-#define trexb(I, J) (ptr_int_t)&rex_b_extensions[I][J]
-#define trexw(I, J) (ptr_int_t)&rex_w_extensions[I][J]
-#define tvexw(I, J) (ptr_int_t)&vex_W_extensions[I][J]
-#define tvexl(I, J) (ptr_int_t)&vex_L_extensions[I][J]
-#define txop(I) (ptr_int_t)&xop_extensions[I]
-#define tevexwb(I, J) (ptr_int_t)&evex_Wb_extensions[I][J]
-#define tpvex(I, J) (ptr_int_t)&vex_prefix_extensions[I][J]
-#define tpevex(I, J) (ptr_int_t)&evex_prefix_extensions[I][J]
-#define trme(I, J) (ptr_int_t)&rm_extensions[I][J]
-#define tse(I) (ptr_int_t)&suffix_extensions[I]
+#define tfb(I) INSTR_CODE(first_byte, I)
+#define tsb(I) INSTR_CODE(second_byte, I)
+#define tex(I, J) INSTR_CODE2(base_extensions, I, J)
+#define t38(I) INSTR_CODE(third_byte_38, I)
+#define t3a(I) INSTR_CODE(third_byte_3a, I)
+#define tpe(I, J) INSTR_CODE2(prefix_extensions, I, J)
+#define tvex(I, J) INSTR_CODE2(e_vex_extensions, I, J)
+#define modx(I, J) INSTR_CODE2(mod_extensions, I, J)
+#define tre(I, J) INSTR_CODE2(rep_extensions, I, J)
+#define tne(I, J) INSTR_CODE2(repne_extensions, I, J)
+#define tfl(I) INSTR_CODE(float_low_modrm, I)
+#define tfh(I, J) INSTR_CODE2(float_high_modrm, I, J)
+#define exop(I) INSTR_CODE(extra_operands, I)
+#define t64e(I, J) INSTR_CODE2(x64_extensions, I, J)
+#define trexb(I, J) INSTR_CODE2(rex_b_extensions, I, J)
+#define trexw(I, J) INSTR_CODE2(rex_w_extensions, I, J)
+#define tvexw(I, J) INSTR_CODE2(vex_W_extensions, I, J)
+#define tvexl(I, J) INSTR_CODE2(vex_L_extensions, I, J)
+#define txop(I) INSTR_CODE(xop_extensions, I)
+#define tevexwb(I, J) INSTR_CODE2(evex_Wb_extensions, I, J)
+#define tpvex(I, J) INSTR_CODE2(vex_prefix_extensions, I, J)
+#define tpevex(I, J) INSTR_CODE2(evex_prefix_extensions, I, J)
+#define trme(I, J) INSTR_CODE2(rm_extensions, I, J)
+#define tse(I) INSTR_CODE(suffix_extensions, I)
 
 /****************************************************************************
  * Operand pointers into tables
@@ -100,7 +105,7 @@
  * This array corresponds with the enum in opcode_api.h
  * IF YOU CHANGE ONE YOU MUST CHANGE THE OTHER
  */
-const ptr_int_t op_instr[] =
+const uint op_instr[] =
 {
     /* OP_INVALID */   NA,
     /* OP_UNDECODED */ NA,
