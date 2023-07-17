@@ -473,6 +473,24 @@ decode_u_imm_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig
     return true;
 }
 
+/* Decode the immediate field of the U-type format (PC-relative):
+ * |31        12|11   7|6      0|
+ * | imm[31:12] |  rd  | opcode |
+ *  ^----------^
+ * Into:
+ * |31        12|11  0|
+ * | imm[31:12] |  0  |
+ */
+static bool
+decode_u_immpc_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                    int idx, instr_t *out)
+{
+    uint uimm = GET_FIELD(inst, 31, 12);
+    opnd_t opnd = opnd_create_pc(orig_pc + (uimm << 12));
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
 /* Decode the immediate field of the J-type format as a pc-relative offset:
  * |   31    |30       21|   20    |19        12|11   7|6      0|
  * | imm[20] | imm[10:1] | imm[11] | imm[19:12] |  rd  | opcode |
@@ -1088,6 +1106,7 @@ opnd_dec_func_t opnd_decoders[] = {
     [RISCV64_FLD_S_IMM] = decode_s_imm_opnd,
     [RISCV64_FLD_B_IMM] = decode_b_imm_opnd,
     [RISCV64_FLD_U_IMM] = decode_u_imm_opnd,
+    [RISCV64_FLD_U_IMMPC] = decode_u_immpc_opnd,
     [RISCV64_FLD_J_IMM] = decode_j_imm_opnd,
     [RISCV64_FLD_CRD] = decode_crd_opnd,
     [RISCV64_FLD_CRDFP] = decode_crdfp_opnd,
@@ -1777,6 +1796,29 @@ encode_u_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
     return true;
 }
 
+/* Encode the immediate field of the U-type format (PC-relative):
+ * |31        12|11   7|6      0|
+ * | imm[31:12] |  rd  | opcode |
+ *  ^----------^
+ * From:
+ * |31        12|11  0|
+ * | imm[31:12] |  0  |
+ */
+static bool
+encode_u_immpc_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+{
+    opnd_t opnd = instr_get_src(instr, idx);
+    uint32_t imm;
+    if (opnd.kind == PC_kind)
+        imm = opnd_get_pc(opnd) - pc;
+    else if (opnd.kind == INSTR_kind)
+        imm = (byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset;
+    else
+        return false;
+    *out |= SET_FIELD(imm >> 12, 31, 12);
+    return true;
+}
+
 /* Encode the immediate field of the J-type format as a pc-relative offset:
  * |   31    |30       21|   20    |19        12|11   7|6      0|
  * | imm[20] | imm[10:1] | imm[11] | imm[19:12] |  rd  | opcode |
@@ -2348,6 +2390,7 @@ opnd_enc_func_t opnd_encoders[] = {
     [RISCV64_FLD_S_IMM] = encode_s_imm_opnd,
     [RISCV64_FLD_B_IMM] = encode_b_imm_opnd,
     [RISCV64_FLD_U_IMM] = encode_u_imm_opnd,
+    [RISCV64_FLD_U_IMMPC] = encode_u_immpc_opnd,
     [RISCV64_FLD_J_IMM] = encode_j_imm_opnd,
     [RISCV64_FLD_CRD] = encode_crd_opnd,
     [RISCV64_FLD_CRDFP] = encode_crdfp_opnd,

@@ -269,49 +269,56 @@ class Field(str, Enum):
              '',
              'The 20-bit immediate field in the U-type format.'
              )
-    J_IMM = (22,
+    U_IMMPC = (22,
+               'imm',
+               False,
+               'OPSZ_20b',
+               '',
+               'The 20-bit immediate field in the U-type format (PC-relative).'
+               )
+    J_IMM = (23,
              'pc_rel',
              False,
              'OPSZ_2',
              '',
              'The immediate field in the J-type format.'
              )
-    IMM = (23,  # Used only for parsing ISA files. Concatenated into V_RS1_DISP.
+    IMM = (24,  # Used only for parsing ISA files. Concatenated into V_RS1_DISP.
            'imm',
            False,
            'OPSZ_12b',
            '',
            'The immediate field in PREFETCH instructions.'
            )
-    CRD = (24,
+    CRD = (25,
            'rd',
            True,
            'OPSZ_PTR',
            '',
            'The output register in `CR`, `CI` RVC formats (inst[11:7])'
            )
-    CRDFP = (25,
+    CRDFP = (26,
              'rd',
              True,
              'OPSZ_PTR',
              '',
              'The output floating-point register in `CR`, `CI` RVC formats (inst[11:7])'
              )
-    CRS1 = (26,
+    CRS1 = (27,
             'rs1',
             False,
             'OPSZ_PTR',
             '',
             'The first input register in `CR`, `CI` RVC formats (inst[11:7]).'
             )
-    CRS2 = (27,
+    CRS2 = (28,
             'rs2',
             False,
             'OPSZ_PTR',
             '',
             'The second input register in `CR`, `CSS` RVC formats (inst[6:2]).'
             )
-    CRS2FP = (28,
+    CRS2FP = (29,
               'rs2',
               False,
               'OPSZ_PTR',
@@ -319,146 +326,146 @@ class Field(str, Enum):
               'The second input floating-point register in `CR`, `CSS` RVC formats (inst[6:2]).'
               )
     # Fields in compressed instructions.
-    CRD_ = (29,
+    CRD_ = (30,
             'rd',
             True,
             'OPSZ_PTR',
             '',
             'The output register in `CIW`, `CL` RVC formats (inst[4:2])'
             )
-    CRD_FP = (30,
+    CRD_FP = (31,
               'rd',
               True,
               'OPSZ_PTR',
               '',
               'The output floating-point register in `CIW`, `CL` RVC formats (inst[4:2])'
               )
-    CRS1_ = (31,
+    CRS1_ = (32,
              'rs1',
              False,
              'OPSZ_PTR',
              '',
              'The first input register in `CL`, `CS`, `CA`, `CB` RVC formats (inst[9:7]).'
              )
-    CRS2_ = (32,
+    CRS2_ = (33,
              'rs2',
              False,
              'OPSZ_PTR',
              '',
              'The second input register in `CS`, `CA` RVC formats (inst[4:2]).'
              )
-    CRS2_FP = (33,
+    CRS2_FP = (34,
                'rs2',
                False,
                'OPSZ_PTR',
                '',
                'The second input floating-point register in `CS`, `CA` RVC formats (inst[4:2]).'
                )
-    CRD__ = (34,
+    CRD__ = (35,
              'rd',
              True,
              'OPSZ_PTR',
              '',
              'The output register in `CA` RVC format (inst[9:7])'
              )
-    CSHAMT = (35,
+    CSHAMT = (36,
               'shamt',
               False,
               'OPSZ_6b',
               '',
               'The `shamt` field in the RVC format.'
               )
-    CSR_IMM = (36,
+    CSR_IMM = (37,
                'imm',
                False,
                'OPSZ_5b',
                '',
                'The immediate field in a CSR instruction.'
                )
-    CADDI16SP_IMM = (37,
+    CADDI16SP_IMM = (38,
                      'imm',
                      False,
                      'OPSZ_10b',
                      '',
                      'The immediate field in a C.ADDI16SP instruction.'
                      )
-    CLWSP_IMM = (38,
+    CLWSP_IMM = (39,
                  'sp_offset',
                  False,
                  'OPSZ_1',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x3 == 0).'
                  )
-    CLDSP_IMM = (39,
+    CLDSP_IMM = (40,
                  'sp_offset',
                  False,
                  'OPSZ_9b',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x7 == 0).'
                  )
-    CLUI_IMM = (40,
+    CLUI_IMM = (41,
                 'imm',
                 False,
                 'OPSZ_6b',
                 '',
                 'The immediate field in a C.LUI instruction.'
                 )
-    CSWSP_IMM = (41,
+    CSWSP_IMM = (42,
                  'sp_offset',
                  True,
                  'OPSZ_1',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x3 == 0).'
                  )
-    CSDSP_IMM = (42,
+    CSDSP_IMM = (43,
                  'sp_offset',
                  True,
                  'OPSZ_9b',
                  '',
                  'The SP-relative memory location (sp+imm: imm & 0x7 == 0).'
                  )
-    CIW_IMM = (43,
+    CIW_IMM = (44,
                'imm',
                False,
                'OPSZ_10b',
                '',
                'The immediate field in a CIW format instruction.'
                )
-    CLW_IMM = (44,
+    CLW_IMM = (45,
                'mem',
                False,
                'OPSZ_7b',
                'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
-    CLD_IMM = (45,
+    CLD_IMM = (46,
                'mem',
                False,
                'OPSZ_1',
                'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
-    CSW_IMM = (46,
+    CSW_IMM = (47,
                'mem',
                True,
                'OPSZ_7b',
                'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x3 == 0).')
-    CSD_IMM = (47,
+    CSD_IMM = (48,
                'mem',
                True,
                'OPSZ_1',
                'im(rs1)', 'The register-relative memory location (reg+imm: imm & 0x7 == 0).')
-    CIMM5 = (48,
+    CIMM5 = (49,
              'imm',
              False,
              'OPSZ_6b',
              '',
              'The immediate field in a C.ADDI, C.ADDIW, C.LI, and C.ANDI instruction.'
              )
-    CB_IMM = (49,
+    CB_IMM = (50,
               'pc_rel',
               False,
               'OPSZ_2',
               '',
               'The immediate field in a a CB format instruction (C.BEQZ and C.BNEZ).'
               )
-    CJ_IMM = (50,
+    CJ_IMM = (51,
               'pc_rel',
               False,
               'OPSZ_2',
@@ -466,7 +473,7 @@ class Field(str, Enum):
               'The immediate field in a CJ format instruction.'
               )
     # Virtual fields en/decoding special cases.
-    V_L_RS1_DISP = (51,
+    V_L_RS1_DISP = (52,
                     'mem',
                     False,
                     {
@@ -479,7 +486,7 @@ class Field(str, Enum):
                     'im(rs1)',
                     'The register-relative memory source location (reg+imm).'
                     )
-    V_S_RS1_DISP = (52,
+    V_S_RS1_DISP = (53,
                     'mem',
                     True,
                     {
