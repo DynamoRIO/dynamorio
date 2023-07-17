@@ -1880,7 +1880,9 @@ done_with_options:
     }
     /* FIXME i#2644: Process detach NYI for Linux. */
     else if (detach_pid != 0) {
-        detach(detach_pid, TRUE, detach_timeout);
+        dr_config_status_t res=detach(detach_pid, TRUE, detach_timeout);
+        if (res != DR_SUCCESS)
+            error("unable to detach: check pid and system ptrace permissions");
     }
 #        endif
     else if (!syswide_on && !syswide_off) {
