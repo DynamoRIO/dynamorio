@@ -1878,7 +1878,7 @@ done_with_options:
             dr_registered_process_iterator_stop(iter);
         }
     }
-    /* FIXME i#95: Process detach NYI for Linux. */
+    /* FIXME i#95: Process detach NYI for UNIX. */
     else if (detach_pid != 0) {
         dr_config_status_t res = detach(detach_pid, TRUE, detach_timeout);
         if (res != DR_SUCCESS)
