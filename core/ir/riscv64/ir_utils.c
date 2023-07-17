@@ -31,6 +31,14 @@
  */
 
 #include "../globals.h"
+#include "instr_create_shared.h"
+#include "instrument.h"
+
+/* Make code more readable by shortening long lines.
+ * We mark everything we add as non-app instr.
+ */
+#define POST instrlist_meta_postinsert
+#define PRE instrlist_meta_preinsert
 
 byte *
 remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc target)
@@ -48,14 +56,123 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     return NULL;
 }
 
-/* Keep this in sync with patch_mov_immed_arch(). */
+static const byte debruijn64tab[64] = {
+    0,  1,  56, 2,  57, 49, 28, 3,  61, 58, 42, 50, 38, 29, 17, 4,
+    62, 47, 59, 36, 45, 43, 51, 22, 53, 39, 33, 30, 24, 18, 12, 5,
+    63, 55, 48, 27, 60, 41, 37, 16, 46, 35, 44, 21, 52, 32, 23, 11,
+    54, 26, 40, 15, 34, 20, 31, 10, 25, 14, 19, 9,  13, 8,  7,  6,
+};
+
+static int
+trailing_zeros_64(uint64 x)
+{
+    static const uint64 debruijn64 = 0x03f79d71b4ca8b09ULL;
+    if (x == 0) {
+        return 64;
+    }
+
+    return (int)debruijn64tab[(x & -x) * debruijn64 >> (64 - 6)];
+}
+
+static void
+mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int32_t val,
+      OUT instr_t **first, OUT instr_t **last, OUT bool *first_set)
+{
+    // Depending on val, the following instructions are emitted.
+    // val == 0               -> ADDI
+    // lo12 != 0 && hi20 == 0 -> ADDI
+    // lo12 == 0 && hi20 != 0 -> LUI
+    // else                   -> LUI+ADDI
+    int32_t hi20 = (val + 0x800) >> 12 & 0xfffff;
+    int32_t lo12 = val & 0xfff;
+
+    instr_t *tmp;
+    opnd_t src = opnd_create_reg(DR_REG_X0);
+    if (hi20) {
+        tmp = INSTR_CREATE_lui(dcontext, dst, opnd_create_immed_int(hi20, OPSZ_20b));
+        PRE(ilist, instr, tmp);
+        src = dst;
+        if (first != NULL && !*first_set) {
+            *first = tmp;
+            *first_set = true;
+        }
+        if (last != NULL)
+            *last = tmp;
+    }
+    if (lo12 || !hi20) {
+        tmp = INSTR_CREATE_addiw(dcontext, dst, src,
+                                 opnd_add_flags(opnd_create_immed_int(lo12, OPSZ_12b),
+                                                DR_OPND_IMM_PRINT_DECIMAL));
+        PRE(ilist, instr, tmp);
+        if (first != NULL && !*first_set) {
+            *first = tmp;
+            *first_set = true;
+        }
+        if (last != NULL)
+            *last = tmp;
+    }
+}
+
+static void
+mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_int_t val,
+      OUT instr_t **first, OUT instr_t **last, OUT bool *first_set)
+{
+    instr_t *tmp;
+    if (((val << 32) >> 32) == val) {
+        mov32(dcontext, ilist, instr, dst, val, first, last, first_set);
+        return;
+    }
+
+    int64_t lo12 = (val << 52) >> 52;
+    int64_t hi52 = (val + 0x800) >> 12;
+    int shift = 12 + trailing_zeros_64((uint64)hi52);
+    hi52 = ((hi52 >> (shift - 12)) << shift) >> shift;
+
+    mov64(dcontext, ilist, instr, dst, hi52, first, last, first_set);
+    tmp = INSTR_CREATE_slli(
+        dcontext, dst, dst,
+        opnd_add_flags(opnd_create_immed_int(shift, OPSZ_6b), DR_OPND_IMM_PRINT_DECIMAL));
+    PRE(ilist, instr, tmp);
+    if (last != NULL)
+        *last = tmp;
+
+    if (lo12) {
+        tmp = INSTR_CREATE_addi(dcontext, dst, dst,
+                                opnd_add_flags(opnd_create_immed_int(lo12, OPSZ_12b),
+                                               DR_OPND_IMM_PRINT_DECIMAL));
+        PRE(ilist, instr, tmp);
+        if (last != NULL)
+            *last = tmp;
+    }
+}
+
+/* FIXME i#3544: Keep this in sync with patch_mov_immed_arch(), which is not implemented
+ * yet. */
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,
                       OUT instr_t **first, OUT instr_t **last)
 {
     /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_IMPLEMENTED(src_inst == NULL && encode_estimate == NULL);
+
+    CLIENT_ASSERT(opnd_is_reg(dst), "RISC-V cannot store an immediate direct to memory");
+
+    if (opnd_get_reg(dst) == DR_REG_X0) {
+        /* Moving a value to the zero register is a no-op. We insert nothing,
+         * so *first and *last are set to NULL. Caller beware!
+         */
+        if (first != NULL)
+            *first = NULL;
+        if (last != NULL)
+            *last = NULL;
+        return;
+    }
+
+    ASSERT((uint)(opnd_get_reg(dst) - DR_REG_X0) < 32);
+
+    bool first_set = false;
+    mov64(dcontext, ilist, instr, dst, val, first, last, &first_set);
 }
 
 void
