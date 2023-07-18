@@ -46,6 +46,7 @@
 #include <assert.h>
 #include <iostream>
 #include <math.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <set>

@@ -56,6 +56,7 @@ caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
     , is_coherent_(is_coherent)
     , access_count_(block_size)
     , file_(nullptr)
+    , caching_device_(nullptr)
 {
     if (miss_file.empty()) {
         dump_misses_ = false;

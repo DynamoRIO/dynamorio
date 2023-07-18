@@ -1747,6 +1747,10 @@ instr_shrink_to_16_bits(instr_t *instr)
     const instr_info_t *info;
     byte optype;
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_shrink_to_16_bits: invalid opnds");
+    /* Our use of get_encoding_info() with no final PC specified works
+     * as there are no encoding template choices involving reachability
+     * which affect whether an operand has an indirect register.
+     */
     info = get_encoding_info(instr);
     for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
@@ -2050,6 +2054,10 @@ bool
 instr_zeroes_ymmh(instr_t *instr)
 {
     int i;
+    /* Our use of get_encoding_info() with no final PC specified works
+     * as there are no encoding template choices involving reachability
+     * which affect whether ymmh is zeroed.
+     */
     const instr_info_t *info = get_encoding_info(instr);
     if (info == NULL)
         return false;

@@ -31,14 +31,14 @@
 ---- <application exited with code 0> ----
 Cache simulation results:
 Core #0 \(.*\)
-  L1I stats:
+  L1I0 .* stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
     Compulsory misses:          *[0-9,\.]*
     Parent invalidations:       *[0-9,\.]*
     Write invalidations:        *[0-9,\.]*
 .*    Miss rate:                *[0-9,\.]*%
-  L1D stats:
+  L1D0 .* stats:
     Hits:                       *[0-9,\.]*
     Misses:                     *[0-9,\.]*
     Compulsory misses:          *[0-9,\.]*
@@ -48,7 +48,7 @@ Core #0 \(.*\)
 Core #1 \(.*\).*
 Core #2 \(.*\).*
 Core #3 \(.*\).*
-LL stats:
+LL .* stats:
     Hits:                    *[0-9,\.]*
     Misses:                  *[0-9,\.]*
     Compulsory misses:       *[0-9,\.]*
