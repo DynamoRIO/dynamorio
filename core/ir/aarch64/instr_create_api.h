@@ -10999,7 +10999,7 @@
  * \param Pg   The governing predicate register, P (Predicate).
  * \param Rn   The first source base register with a register offset,
  *             constructed with the function:
- *             For the [\<Xn|SP\>{, \<Xm\>, LSL #3}] viriant:
+ *             For the [\<Xn|SP\>{, \<Xm\>, LSL #3}] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
  *             DR_EXTEND_UXTX, 1, 0, 0, OPSZ_32, 3)
  *             For the  [\<Zn\>.D{, #\<imm\>}] variant:
@@ -17642,4 +17642,295 @@
  */
 #define INSTR_CREATE_whilewr_sve(dc, Pd, Rn, Rm) \
     instr_create_1dst_2src(dc, OP_whilewr, Pd, Rn, Rm)
+
+/**
+ * Creates a LDG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      LDG     <Xt>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source and destination register, X (Extended, 64 bits).
+ * \param Rn   The source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_0)
+ */
+#define INSTR_CREATE_ldg(dc, Rt, Rn) instr_create_1dst_2src(dc, OP_ldg, Rt, Rt, Rn)
+
+/**
+ * Creates a ST2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ST2G    <Xt>, [<Xn|SP>], #<simm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param simm The immediate integer offset, must be a multiple of 16 between -4096 and
+ *             4080.
+ */
+#define INSTR_CREATE_st2g_post(dc, Rn, Rt, simm)                                    \
+    instr_create_2dst_3src(dc, OP_st2g, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)), simm)
+
+/**
+ * Creates a ST2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ST2G    <Xt>, [<Xn|SP>, #<simm>]!
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_st2g_pre(dc, Rn, Rt)                                           \
+    instr_create_2dst_3src(dc, OP_st2g, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)),                      \
+                           OPND_CREATE_INT(opnd_get_disp(Rn)))
+
+/**
+ * Creates a ST2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ST2G    <Xt>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_st2g_offset(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_st2g, Rn, Rt)
+
+/**
+ * Creates a STG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STG     <Xt>, [<Xn|SP>], #<simm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param simm The immediate integer offset, must be a multiple of 16 between -4096 and
+ *             4080.
+ */
+#define INSTR_CREATE_stg_post(dc, Rn, Rt, simm)                                    \
+    instr_create_2dst_3src(dc, OP_stg, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)), simm)
+
+/**
+ * Creates a STG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STG     <Xt>, [<Xn|SP>, #<simm>]!
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stg_pre(dc, Rn, Rt)                                           \
+    instr_create_2dst_3src(dc, OP_stg, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)),                     \
+                           OPND_CREATE_INT(opnd_get_disp(Rn)))
+
+/**
+ * Creates a STG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STG     <Xt>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stg_offset(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_stg, Rn, Rt)
+
+/**
+ * Creates a STZ2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZ2G   <Xt>, [<Xn|SP>], #<simm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_32)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param simm The immediate integer offset, must be a multiple of 16 between -4096 and
+ *             4080.
+ */
+#define INSTR_CREATE_stz2g_post(dc, Rn, Rt, simm)                                    \
+    instr_create_2dst_3src(dc, OP_stz2g, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)), simm)
+
+/**
+ * Creates a STZ2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZ2G   <Xt>, [<Xn|SP>, #<simm>]!
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_32)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stz2g_pre(dc, Rn, Rt)                                           \
+    instr_create_2dst_3src(dc, OP_stz2g, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)),                       \
+                           OPND_CREATE_INT(opnd_get_disp(Rn)))
+
+/**
+ * Creates a STZ2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZ2G   <Xt>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_32)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stz2g_offset(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_stz2g, Rn, Rt)
+
+/**
+ * Creates a STZG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZG    <Xt>, [<Xn|SP>], #<simm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param simm The immediate integer offset, must be a multiple of 16 between -4096 and
+ *             4080.
+ */
+#define INSTR_CREATE_stzg_post(dc, Rn, Rt, simm)                                    \
+    instr_create_2dst_3src(dc, OP_stzg, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)), simm)
+
+/**
+ * Creates a STZG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZG    <Xt>, [<Xn|SP>, #<simm>]!
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stzg_pre(dc, Rn, Rt)                                           \
+    instr_create_2dst_3src(dc, OP_stzg, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)),                      \
+                           OPND_CREATE_INT(opnd_get_disp(Rn)))
+
+/**
+ * Creates a STZG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZG    <Xt>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stzg_offset(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_stzg, Rn, Rt)
+
+/**
+ * Creates a STGP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STGP    <Xt>, <Xt2>, [<Xn|SP>], #<simm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The third source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param Rt2  The second source register, X (Extended, 64 bits).
+ * \param simm The immediate integer offset, must be a multiple of 16 between -1024 and
+ *             1008.
+ */
+#define INSTR_CREATE_stgp_post(dc, Rn, Rt, Rt2, simm)                                    \
+    instr_create_2dst_4src(dc, OP_stgp, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, Rt2, \
+                           opnd_create_reg(opnd_get_base(Rn)), simm)
+
+/**
+ * Creates a STGP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STGP    <Xt>, <Xt2>, [<Xn|SP>, #<simm>]!
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The third source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param Rt2  The second source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stgp_pre(dc, Rn, Rt, Rt2)                                           \
+    instr_create_2dst_4src(dc, OP_stgp, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, Rt2, \
+                           opnd_create_reg(opnd_get_base(Rn)),                           \
+                           OPND_CREATE_INT(opnd_get_disp(Rn)))
+
+/**
+ * Creates a STGP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STGP    <Xt>, <Xt2>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The third source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param Rt2  The second source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stgp_offset(dc, Rn, Rt, Rt2) \
+    instr_create_1dst_2src(dc, OP_stgp, Rn, Rt, Rt2)
+
 #endif /* DR_IR_MACROS_AARCH64_H */
