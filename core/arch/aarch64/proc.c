@@ -59,6 +59,7 @@ read_feature_regs(uint64 isa_features[])
     MRS(ID_AA64PFR0_EL1, AA64PFR0, isa_features);
     MRS(ID_AA64MMFR1_EL1, AA64MMFR1, isa_features);
     MRS(ID_AA64DFR0_EL1, AA64DFR0, isa_features);
+    MRS(ID_AA64PFR1_EL1, AA64PFR1, isa_features);
 
     /* TODO i#3044: Can't use the MRS macro with id_aa64zfr0_el1 as current GCC
      * binutils assembler fails to recognise it without -march=armv9-a+bf16+i8mm
@@ -89,7 +90,7 @@ get_processor_specific_info(void)
 
     /* Reads instruction attribute and preocessor feature registers
      * ID_AA64ISAR0_EL1, ID_AA64ISAR1_EL1, ID_AA64PFR0_EL1, ID_AA64MMFR1_EL1,
-     * ID_AA64DFR0_EL1, ID_AA64ZFR0_EL1.
+     * ID_AA64DFR0_EL1, ID_AA64ZFR0_EL1, ID_AA64PFR1_EL1.
      */
     read_feature_regs(isa_features);
     cpu_info.features.flags_aa64isar0 = isa_features[AA64ISAR0];
@@ -98,6 +99,7 @@ get_processor_specific_info(void)
     cpu_info.features.flags_aa64mmfr1 = isa_features[AA64MMFR1];
     cpu_info.features.flags_aa64dfr0 = isa_features[AA64DFR0];
     cpu_info.features.flags_aa64zfr0 = isa_features[AA64ZFR0];
+    cpu_info.features.flags_aa64pfr1 = isa_features[AA64PFR1];
 
 #        if !defined(DR_HOST_NOT_TARGET) && defined(SVE)
     /* TODO i#3044: Vector length will be set by reading value from h/w. */
@@ -182,6 +184,10 @@ proc_init_arch(void)
         LOG_FEATURE(FEATURE_BF16);
         LOG_FEATURE(FEATURE_I8MM);
         LOG_FEATURE(FEATURE_F64MM);
+
+        LOG(GLOBAL, LOG_TOP, 1, "Processor features:\n ID_AA64PFR1_EL1 = 0x%016lx\n",
+            cpu_info.features.flags_aa64pfr1);
+        LOG_FEATURE(FEATURE_MTE);
     });
 #    endif
 #endif
@@ -228,7 +234,8 @@ proc_has_feature(feature_bit_t f)
     case FEATURE_SVEAES:
     case FEATURE_SVESHA3:
     case FEATURE_SVESM4:
-    case FEATURE_SVEBitPerm: return true;
+    case FEATURE_SVEBitPerm:
+    case FEATURE_MTE: return true;
 
     case FEATURE_AESX:
     case FEATURE_PMULL:
@@ -266,6 +273,10 @@ proc_has_feature(feature_bit_t f)
     }
     case AA64ZFR0: {
         freg_val = cpu_info.features.flags_aa64zfr0;
+        break;
+    }
+    case AA64PFR1: {
+        freg_val = cpu_info.features.flags_aa64pfr1;
         break;
     }
     default: CLIENT_ASSERT(false, "proc_has_feature: invalid feature register");
