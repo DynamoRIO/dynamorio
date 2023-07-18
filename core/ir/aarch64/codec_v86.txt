@@ -46,7 +46,23 @@
 01101110110xxxxx111111xxxxxxxxxx  n   956  BF16 bfmlalt   q0 : q0 q5 q16 h_sz
 0100111111xxxxxx1111x0xxxxxxxxxx  n   956  BF16 bfmlalt   q0 : q0 q5 q4_16 vindex_H h_sz
 01101110010xxxxx111011xxxxxxxxxx  n   957  BF16  bfmmla   q0 : q0 q5 q16 h_sz
+11011001011xxxxxxxxx00xxxxxxxxxx  n   1201 MTE    ldg     x0 : x0 mem9_ldg_tag
 01001110100xxxxx101001xxxxxxxxxx  n   958  I8MM   smmla   q0 : q0 q5 q16 b_const_sz
+11011001101xxxxxxxxx01xxxxxxxxxx  n   1197 MTE    st2g  mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001101xxxxxxxxx11xxxxxxxxxx  n   1197 MTE    st2g      mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001101xxxxxxxxx10xxxxxxxxxx  n   1197 MTE    st2g           mem9_tag : x0sp
+11011001001xxxxxxxxx01xxxxxxxxxx  n   1198 MTE    stg   mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001001xxxxxxxxx11xxxxxxxxxx  n   1198 MTE    stg       mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001001xxxxxxxxx10xxxxxxxxxx  n   1198 MTE    stg            mem9_tag : x0sp
+0110100010xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE    stgp  mem7post_tag x5sp : x0 x10 x5sp mem7off_tag
+0110100110xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE    stgp      mem7_tag x5sp : x0 x10 x5sp mem7off_tag
+0110100100xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE    stgp           mem7_tag : x0 x10
+11011001111xxxxxxxxx01xxxxxxxxxx  n   1199 MTE    stz2g mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001111xxxxxxxxx11xxxxxxxxxx  n   1199 MTE    stz2g     mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001111xxxxxxxxx10xxxxxxxxxx  n   1199 MTE    stz2g          mem9_tag : x0sp
+11011001011xxxxxxxxx01xxxxxxxxxx  n   1200 MTE    stzg  mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001011xxxxxxxxx11xxxxxxxxxx  n   1200 MTE    stzg      mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001011xxxxxxxxx10xxxxxxxxxx  n   1200 MTE    stzg           mem9_tag : x0sp
 0x00111100xxxxxx1111x0xxxxxxxxxx  n   959  I8MM   sudot  dq0 : dq0 dq5 q16 vindex_S b_const_sz
 01101110100xxxxx101001xxxxxxxxxx  n   960  I8MM   ummla   q0 : q0 q5 q16 b_const_sz
 0x001110100xxxxx100111xxxxxxxxxx  n   961  I8MM   usdot  dq0 : dq0 dq5 dq16 b_const_sz
