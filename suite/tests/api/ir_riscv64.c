@@ -90,9 +90,9 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
 }
 
 static void
-test_instr_encoding_pc_related(void *dc, uint opcode, instr_t *instr)
+test_instr_encoding_pc_relative(void *dc, uint opcode, instr_t *instr)
 {
-    /* XXX i#3544: For pc related instructions, current disassembler will print
+    /* XXX i#3544: For pc relative instructions, current disassembler will print
      * the complete jump address, that is, an address relative to `buf`. But the
      * value of `buf` is indeterminate at runtime, so we skip checking the disassembled
      * format for jump and branch instructions.
@@ -1089,44 +1089,44 @@ test_jump_and_branch(void *dc)
     pc = test_instr_encoding(dc, OP_lui, instr);
     instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
                                opnd_create_pc((app_pc)ALIGN_FORWARD(pc, 1 << 13)));
-    test_instr_encoding_pc_related(dc, OP_auipc, instr);
+    test_instr_encoding_pc_relative(dc, OP_auipc, instr);
     instr = INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_A0), opnd_create_pc(pc));
-    test_instr_encoding_pc_related(dc, OP_jal, instr);
+    test_instr_encoding_pc_relative(dc, OP_jal, instr);
     instr = INSTR_CREATE_jalr(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                               opnd_create_immed_int(42, OPSZ_12b));
     test_instr_encoding(dc, OP_jalr, instr);
 
     instr = INSTR_CREATE_beq(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_pc_related(dc, OP_beq, instr);
+    test_instr_encoding_pc_relative(dc, OP_beq, instr);
     instr = INSTR_CREATE_bne(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_pc_related(dc, OP_bne, instr);
+    test_instr_encoding_pc_relative(dc, OP_bne, instr);
     instr = INSTR_CREATE_blt(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_pc_related(dc, OP_blt, instr);
+    test_instr_encoding_pc_relative(dc, OP_blt, instr);
     instr = INSTR_CREATE_bge(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_pc_related(dc, OP_bge, instr);
+    test_instr_encoding_pc_relative(dc, OP_bge, instr);
     instr = INSTR_CREATE_bltu(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                               opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_pc_related(dc, OP_bltu, instr);
+    test_instr_encoding_pc_relative(dc, OP_bltu, instr);
     instr = INSTR_CREATE_bgeu(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                               opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_pc_related(dc, OP_bgeu, instr);
+    test_instr_encoding_pc_relative(dc, OP_bgeu, instr);
 
     /* Compressed */
     instr = INSTR_CREATE_c_j(dc, opnd_create_pc(pc));
-    test_instr_encoding_pc_related(dc, OP_c_j, instr);
+    test_instr_encoding_pc_relative(dc, OP_c_j, instr);
     instr = INSTR_CREATE_c_jr(dc, opnd_create_reg(DR_REG_A0));
-    test_instr_encoding_pc_related(dc, OP_c_jr, instr);
+    test_instr_encoding_pc_relative(dc, OP_c_jr, instr);
     /* There is no c.jal in RV64. */
     instr = INSTR_CREATE_c_jalr(dc, opnd_create_reg(DR_REG_A0));
-    test_instr_encoding_pc_related(dc, OP_c_jalr, instr);
+    test_instr_encoding_pc_relative(dc, OP_c_jalr, instr);
     instr = INSTR_CREATE_c_beqz(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_X8));
-    test_instr_encoding_pc_related(dc, OP_c_beqz, instr);
+    test_instr_encoding_pc_relative(dc, OP_c_beqz, instr);
     instr = INSTR_CREATE_c_bnez(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_X8));
-    test_instr_encoding_pc_related(dc, OP_c_bnez, instr);
+    test_instr_encoding_pc_relative(dc, OP_c_bnez, instr);
     instr = INSTR_CREATE_c_li(dc, opnd_create_reg(DR_REG_A1),
                               opnd_add_flags(opnd_create_immed_int((1 << 5) - 1, OPSZ_5b),
                                              DR_OPND_IMM_PRINT_DECIMAL));
