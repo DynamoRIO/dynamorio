@@ -860,8 +860,6 @@ invariant_checker_t::check_for_pc_discontinuity(
         prev_instr = shard->last_instr_in_cur_context_;
     }
 #endif
-    const addr_t current_memref_addr =
-        memref_is_kernel_event_marker ? memref.marker.marker_value : memref.instr.addr;
 
     if (prev_instr.instr.addr != 0 /*first*/ &&
         // We do not bother to support legacy traces without encodings.
@@ -896,7 +894,9 @@ invariant_checker_t::check_for_pc_discontinuity(
             TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                     shard->file_type_) ||
             // Regular fall-through.
-            (prev_instr.instr.addr + prev_instr.instr.size == current_memref_addr) ||
+            (prev_instr.instr.addr + prev_instr.instr.size ==
+             (memref_is_kernel_event_marker ? memref.marker.marker_value
+                                            : memref.instr.addr)) ||
             // Kernel-mediated, but we can't tell if we had a thread swap.
             (shard->prev_xfer_marker_.instr.tid != 0 &&
              (shard->prev_xfer_marker_.marker.marker_type ==
@@ -909,7 +909,9 @@ invariant_checker_t::check_for_pc_discontinuity(
             shard->window_transition_ ||
             shard->prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
-        const bool string_loop_flow = prev_instr.instr.addr == current_memref_addr &&
+        const bool string_loop_flow = prev_instr.instr.addr ==
+                (memref_is_kernel_event_marker ? memref.marker.marker_value
+                                               : memref.instr.addr) &&
             (memref_is_kernel_event_marker ||
              memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
              // Online incorrectly marks the 1st string instr across a thread
@@ -926,7 +928,10 @@ invariant_checker_t::check_for_pc_discontinuity(
                     // Indirect branches we cannot check.
                     !type_is_instr_direct_branch(shard->prev_instr_.instr.type) ||
                     // Conditional fall-through hits the regular case above.
-                    !have_cond_branch_target || current_memref_addr == cond_branch_target;
+                    !have_cond_branch_target ||
+                    (memref_is_kernel_event_marker
+                         ? memref.marker.marker_value
+                         : memref.instr.addr) == cond_branch_target;
 
                 if (!valid_branch_flow) {
                     error_msg = "Direct branch does not go to the correct target";
@@ -934,7 +939,9 @@ invariant_checker_t::check_for_pc_discontinuity(
             } else if (cur_instr_decoded != nullptr &&
                        shard->prev_instr_decoded_ != nullptr &&
                        instr_is_syscall(cur_instr_decoded->data) &&
-                       current_memref_addr == prev_instr.instr.addr &&
+                       (memref_is_kernel_event_marker
+                            ? memref.marker.marker_value
+                            : memref.instr.addr) == prev_instr.instr.addr &&
                        instr_is_syscall(shard->prev_instr_decoded_->data)) {
                 error_msg = "Duplicate syscall instrs with the same PC";
             } else if (shard->prev_instr_decoded_ != nullptr &&
