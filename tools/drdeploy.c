@@ -240,8 +240,10 @@ const char *options_list_str =
 #endif
 #ifdef DRCONFIG
     "\n"
+    "       -detach <pid> \n"
+    "                         Detach from the process with the given pid.\n"
+    "\n"
 #    ifdef WINDOWS
-    "       Note that nudging 64-bit processes is not yet supported.\n"
     "       -nudge <process> <client ID> <argument>\n"
     "                          Nudge the client with ID <client ID> in all running\n"
     "                          processes with name <process>, and pass <argument>\n"
