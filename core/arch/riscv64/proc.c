@@ -32,6 +32,11 @@
 
 #include "../globals.h"
 #include "proc.h"
+#ifdef UNIX
+#    include "../../unix/include/syscall.h"
+#else
+#    error NYI
+#endif
 
 static int num_simd_saved;
 static int num_simd_registers;
@@ -140,11 +145,12 @@ proc_has_feature(feature_bit_t f)
 void
 machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache)
 {
-    /*
-     * RISC-V doesn't have an instruction to flush parts of the instruction cache,
-     * so instead we just flush the whole thing.
+    /* We need to flush the icache on all harts, which is not feasible for FENCE.I, so we
+     * use SYS_riscv_flush_icache to let the kernel do this.
+     * The flag here is set to SYS_RISCV_FLUSH_ICACHE_LOCAL, which is defined as 1 in the
+     * Linux kernel.
      */
-    __asm__ __volatile__("fence.i" : : : "memory");
+    dynamorio_syscall(SYS_riscv_flush_icache, 3, pc_start, pc_end, /* flag */ 1);
 }
 
 DR_API
