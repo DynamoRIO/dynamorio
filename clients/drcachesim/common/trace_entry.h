@@ -732,8 +732,19 @@ typedef enum {
     OFFLINE_FILE_TYPE_ARCH_X86_64 = 0x40,      /**< Recorded on x86 (64-bit). */
     OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
         OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
-        OFFLINE_FILE_TYPE_ARCH_X86_64,   /**< All possible architecture types. */
-    OFFLINE_FILE_TYPE_IFILTERED = 0x80,  /**< Instruction addresses filtered online. */
+        OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
+    /**
+     * Instruction addresses filtered online.
+     * Note: this file type may transition to non-filtered. This transition is indicated
+     * by the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. Each
+     * window (which is indicated by the
+     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID marker) starts out filtered.
+     * This applies to #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_DFILTERED also. Note that
+     * threads that were created after the transition will also have this marker - right
+     * at the beginning.
+     */
+    /* TODO i#6164: add a new file type for mixed traces. */
+    OFFLINE_FILE_TYPE_IFILTERED = 0x80,
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
     OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
     /** System call number markers (#TRACE_MARKER_TYPE_SYSCALL) are

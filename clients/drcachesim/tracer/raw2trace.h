@@ -643,9 +643,11 @@ public:
     test_module_mapper_t(instrlist_t *instrs, void *drcontext)
         : module_mapper_t(nullptr)
     {
-        // We encode for 0-based addresses for simpler tests with low values.
-        byte *pc = instrlist_encode_to_copy(drcontext, instrs, decode_buf_, nullptr,
-                                            nullptr, true);
+        // We encode for 1-based addresses for simpler tests with low values while
+        // avoiding null pointer manipulation complaints (xref i#6196).
+        byte *pc = instrlist_encode_to_copy(
+            drcontext, instrs, decode_buf_,
+            reinterpret_cast<byte *>(static_cast<ptr_uint_t>(4)), nullptr, true);
         DR_ASSERT(pc != nullptr);
         DR_ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE);
         // Clear do_module_parsing error; we can't cleanly make virtual b/c it's
@@ -1102,7 +1104,7 @@ protected:
     std::string
     process_offline_entry(raw2trace_thread_data_t *tdata, const offline_entry_t *in_entry,
                           thread_id_t tid, OUT bool *end_of_record,
-                          OUT bool *last_bb_handled);
+                          OUT bool *last_bb_handled, OUT bool *flush_decode_cache);
 
     /**
      * Read the header of a thread, by calling get_next_entry() successively to
@@ -1383,7 +1385,10 @@ private:
 
     // Returns the trace file type (a combination of OFFLINE_FILE_TYPE* constants).
     offline_file_type_t
+
     get_file_type(raw2trace_thread_data_t *tdata);
+    void
+    set_file_type(raw2trace_thread_data_t *tdata, offline_file_type_t file_type);
 
     size_t
     get_cache_line_size(raw2trace_thread_data_t *tdata);
@@ -1525,6 +1530,16 @@ private:
                           block);
 #else
             table[hash_key(modidx, modoffs)].reset(block);
+#endif
+        }
+
+        void
+        clear()
+        {
+#ifdef X64
+            hashtable_clear(&table);
+#else
+            table.clear();
 #endif
         }
 
