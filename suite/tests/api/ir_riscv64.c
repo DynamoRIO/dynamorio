@@ -104,10 +104,10 @@ test_instr_encoding_pc_relative(void *dc, uint opcode, app_pc instr_pc, instr_t 
 
     ASSERT(instr_get_opcode(instr) == opcode);
     ASSERT(opcode == OP_auipc || instr_is_encoding_possible(instr));
-    pc = instr_encode(dc, instr, instr_pc);
+    pc = instr_encode_to_copy(dc, instr, buf, instr_pc);
     ASSERT(pc != NULL);
     decin = instr_create(dc);
-    next_pc = decode(dc, instr_pc, decin);
+    next_pc = decode_from_copy(dc, buf, instr_pc, decin);
     ASSERT(next_pc != NULL);
     ASSERT(instr_same(instr, decin));
     instr_destroy(dc, instr);
