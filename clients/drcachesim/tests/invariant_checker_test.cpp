@@ -357,11 +357,37 @@ check_sane_control_flow()
     // of type TRACE_TYPE_INSTR_SYSENTER.
     {
         std::vector<memref_t> memrefs = {
+            gen_instr(1, 5),
             gen_instr_type(TRACE_TYPE_INSTR_SYSENTER, 1, 6),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 101),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(1, 2),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Positive test: RSEQ abort in last signal context.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+            // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
+            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 40),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 40),
+            // A new signal, so that the RSEQ abort is in the last signal context.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(1, 5),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Positive test: Branch before signal.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),
+            gen_branch(1, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 50),
+            gen_instr(1, 5),
         };
         if (!run_checker(memrefs, false)) {
             return false;
