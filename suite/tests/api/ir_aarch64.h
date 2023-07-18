@@ -153,10 +153,12 @@ const reg_id_t Pn_six_offset_2[6] = { DR_REG_P0,  DR_REG_P4,  DR_REG_P7,
                                       DR_REG_P10, DR_REG_P12, DR_REG_P15 };
 const reg_id_t Xn_six_offset_1_zr[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
                                          DR_REG_X16, DR_REG_X21, DR_REG_XZR };
+const reg_id_t Xn_six_offset_0_sp[6] = { DR_REG_X0,  DR_REG_X5,  DR_REG_X10,
+                                         DR_REG_X15, DR_REG_X20, DR_REG_XSP };
 const reg_id_t Xn_six_offset_1_sp[6] = { DR_REG_X0,  DR_REG_X6,  DR_REG_X11,
                                          DR_REG_X16, DR_REG_X21, DR_REG_XSP };
 const reg_id_t Xn_six_offset_2_sp[6] = { DR_REG_X0,  DR_REG_X7,  DR_REG_X12,
-                                         DR_REG_X17, DR_REG_X22, DR_REG_SP };
+                                         DR_REG_X17, DR_REG_X22, DR_REG_XSP };
 const reg_id_t Wn_six_offset_0[6] = { DR_REG_W0,  DR_REG_W5,  DR_REG_W10,
                                       DR_REG_W15, DR_REG_W20, DR_REG_W30 };
 const reg_id_t Wn_six_offset_1[6] = { DR_REG_W0,  DR_REG_W6,  DR_REG_W11,
