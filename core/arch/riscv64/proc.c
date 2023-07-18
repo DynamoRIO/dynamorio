@@ -38,6 +38,9 @@
 #    error NYI
 #endif
 
+/* From Linux kernel, it's the only option available. */
+#define SYS_RISCV_FLUSH_ICACHE_LOCAL 1
+
 static int num_simd_saved;
 static int num_simd_registers;
 static int num_opmask_registers;
@@ -147,10 +150,9 @@ machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache)
 {
     /* We need to flush the icache on all harts, which is not feasible for FENCE.I, so we
      * use SYS_riscv_flush_icache to let the kernel do this.
-     * The flag here is set to SYS_RISCV_FLUSH_ICACHE_LOCAL, which is defined as 1 in the
-     * Linux kernel.
      */
-    dynamorio_syscall(SYS_riscv_flush_icache, 3, pc_start, pc_end, /* flag */ 1);
+    dynamorio_syscall(SYS_riscv_flush_icache, 3, pc_start, pc_end,
+                      SYS_RISCV_FLUSH_ICACHE_LOCAL);
 }
 
 DR_API
