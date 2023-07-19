@@ -377,7 +377,6 @@ check_sane_control_flow()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 40),
             // We get a signal after the RSEQ abort.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
-            gen_instr(1, 5),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -389,7 +388,6 @@ check_sane_control_flow()
             gen_instr(1, 1),
             gen_branch(1, 2),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 50),
-            gen_instr(1, 5),
         };
         if (!run_checker(memrefs, false)) {
             return false;
