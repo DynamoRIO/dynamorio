@@ -359,6 +359,8 @@ check_sane_control_flow()
         std::vector<memref_t> memrefs = {
             gen_instr(1, 5),
             gen_instr_type(TRACE_TYPE_INSTR_SYSENTER, 1, 6),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
+            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 101),
         };
