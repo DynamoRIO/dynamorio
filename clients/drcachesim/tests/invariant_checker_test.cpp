@@ -375,7 +375,7 @@ check_sane_control_flow()
             // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
             gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 40),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 40),
-            // A new signal, so that the RSEQ abort is in the last signal context.
+            // We get a signal after the RSEQ abort.
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
             gen_instr(1, 5),
         };
