@@ -895,6 +895,8 @@ invariant_checker_t::check_for_pc_discontinuity(
                     shard->file_type_) ||
             // Regular fall-through.
             (prev_instr.instr.addr + prev_instr.instr.size ==
+             // If we have a kernel event marker then the next PC is denoted by the
+             // marker's value, otherwise it is the addr of the instruction.
              (memref_is_kernel_event_marker ? memref.marker.marker_value
                                             : memref.instr.addr)) ||
             // Kernel-mediated, but we can't tell if we had a thread swap.
