@@ -150,6 +150,7 @@
 ------------------xxxx----------  p10        # SVE predicate registers p0-p15
 ------------------xxxx----------  p10_mrg    # SVE predicate registers p0-p15, merging
 ------------------xxxx----------  p10_zer    # SVE predicate registers p0-p15, zeroing
+------------------xxxx----------  imm4_10 # 4 bit immediate from 10:13
 -----------------xx-------------  cmode_s_sz # Vector shift for 32 bit elements
 -----------------xx-------------  imm2_nesw_13 # 2 bit symbolised imm, representing 0, 90, 180, or 270
 -----------------xx-------------  len        # imm2 len
@@ -240,6 +241,7 @@
 ----------x----------------xxxxx  z_sz21_sd_0  # SVE vector reg, elsz depending on bit 21
 ----------x---------x-----------  vindex_S   # Index for vector with single
 ----------xx--------x-----------  vindex_H   # Index for vector with half elements (0-7)
+----------xxxxxx----------------  imm6_16_tag # 6 bit immediate from 16:21 with tagged memory scaling
 ----------xxxxxx------xxxxx-----  svemem_gpr_simm6_vl # imm offset and base reg for SVE
 ----------xxxxxx------xxxxx-----  svememx6_b_5    # vector memory reg with 6 bit imm for byte value
 ----------xxxxxx------xxxxx-----  svememx6_h_5    # vector memory reg with 6 bit imm for half value
