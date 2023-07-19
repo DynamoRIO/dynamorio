@@ -84,6 +84,8 @@ const char *const trace_type_names[] = {
     "prefetch_write_l3",
     "prefetch_write_l3_nt",
     "encoding",
+    "taken_jump",
+    "untaken_jump",
 };
 
 } // namespace drmemtrace

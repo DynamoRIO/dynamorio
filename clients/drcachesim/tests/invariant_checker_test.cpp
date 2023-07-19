@@ -254,8 +254,7 @@ check_sane_control_flow()
 #    endif
         };
 
-        if (!run_checker(memrefs, true, 1, 3,
-                         "Direct branch does not go to the correct target",
+        if (!run_checker(memrefs, true, 1, 3, "Branch does not go to the correct target",
                          "Failed to catch branch not going to its target")) {
             return false;
         }
@@ -937,13 +936,329 @@ check_schedule_file()
     return true;
 }
 
+bool
+check_branch_decoration()
+{
+    std::cerr << "Testing branch decoration\n";
+    // Indirect branch target: correct.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                       TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr(/*tid=*/1, /*pc=*/1),
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_BRANCH_TARGET, 32),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, /*tid=*/1, /*pc=*/2),
+            gen_instr(/*tid=*/1, /*pc=*/32),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Indirect branch target with kernel event: correct.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                       TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr(/*tid=*/1, /*pc=*/1),
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_BRANCH_TARGET, 32),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, /*tid=*/1, /*pc=*/2),
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_KERNEL_EVENT, 32),
+            gen_instr(/*tid=*/1, /*pc=*/999),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Indirect branch target: no marker.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                       TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr(/*tid=*/1, /*pc=*/1),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, /*tid=*/1, /*pc=*/2),
+            gen_instr(/*tid=*/1, /*pc=*/32),
+        };
+        if (!run_checker(memrefs, true, 1, 3,
+                         "Indirect branches must be preceded by their targets",
+                         "Failed to catch missing indirect branch target marker"))
+            return false;
+    }
+    // Indirect branch target: marker value incorrect.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                       TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr(/*tid=*/1, /*pc=*/1),
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_BRANCH_TARGET, 32),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, /*tid=*/1, /*pc=*/2),
+            gen_instr(/*tid=*/1, /*pc=*/33),
+        };
+        if (!run_checker(memrefs, true, 1, 5, "Branch does not go to the correct target",
+                         "Failed to catch bad indirect branch target marker"))
+            return false;
+    }
+    // Indirect branch target with kernel event: marker value incorrect.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                       TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr(/*tid=*/1, /*pc=*/1),
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_BRANCH_TARGET, 32),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, /*tid=*/1, /*pc=*/2),
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_KERNEL_EVENT, 999),
+            gen_instr(/*tid=*/1, /*pc=*/32),
+        };
+        if (!run_checker(memrefs, true, 1, 5, "Branch does not go to the correct target",
+                         "Failed to catch bad indirect branch target marker"))
+            return false;
+    }
+    // Deprecated branch type.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                       TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr(/*tid=*/1, /*pc=*/1),
+            gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, /*tid=*/1, /*pc=*/2),
+        };
+        if (!run_checker(memrefs, true, 1, 3,
+                         "The CONDITIONAL_JUMP type is deprecated and should not appear",
+                         "Failed to catch deprecated branch type"))
+            return false;
+    }
+    // Taken branch target: correct.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, /*tid=*/1), cbr },
+            { gen_instr(/*tid=*/1), move },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Taken branch target with kernel event: correct.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, /*tid=*/1), cbr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), move },
+            { gen_instr(/*tid=*/1), nop },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Taken branch target: incorrect.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, /*tid=*/1), cbr },
+            { gen_instr(/*tid=*/1), nop },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, true, 1, 4, "Branch does not go to the correct target",
+                         "Failed to catch taken branch falling through"))
+            return false;
+    }
+    // Taken branch target with kernel event: incorrect.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, /*tid=*/1), cbr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), nop },
+            { gen_instr(/*tid=*/1), move },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, true, 1, 4, "Branch does not go to the correct target",
+                         "Failed to catch taken branch falling through to signal"))
+            return false;
+    }
+    // Untaken branch target: correct.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_UNTAKEN_JUMP, /*tid=*/1), cbr },
+            { gen_instr(/*tid=*/1), nop },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Untaken branch target with kernel event: correct.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_UNTAKEN_JUMP, /*tid=*/1), cbr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), nop },
+            { gen_instr(/*tid=*/1), move },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Untaken branch target: incorrect.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_UNTAKEN_JUMP, /*tid=*/1), cbr },
+            { gen_instr(/*tid=*/1), move },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, true, 1, 4, "Branch does not go to the correct target",
+                         "Failed to catch untaken branch going to taken target"))
+            return false;
+    }
+    // Untaken branch target with kernel event: incorrect.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_FILETYPE,
+                         OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_UNTAKEN_JUMP, /*tid=*/1), cbr },
+            { gen_marker(/*tid=*/1, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), move },
+            { gen_instr(/*tid=*/1), nop },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(
+                memrefs, true, 1, 4, "Branch does not go to the correct target",
+                "Failed to catch untaken branch going to taken target at signal"))
+            return false;
+    }
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
         check_duplicate_syscall_with_same_pc() && check_false_syscalls() &&
-        check_rseq_side_exit_discontinuity() && check_schedule_file()) {
+        check_rseq_side_exit_discontinuity() && check_schedule_file() &&
+        check_branch_decoration()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

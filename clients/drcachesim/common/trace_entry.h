@@ -78,8 +78,17 @@ typedef enum {
      * if #OFFLINE_FILE_TYPE_ENCODINGS is set.
      */
     TRACE_ENTRY_VERSION_ENCODINGS = 4,
+    /**
+     * The trace includes branch taken and target information up front.  This means that
+     * conditional branches use either #TRACE_TYPE_INSTR_TAKEN_JUMP or
+     * #TRACE_TYPE_INSTR_UNTAKEN_JUMP and that the target of indirect branches is in a
+     * marker of type #TRACE_MARKER_TYPE_BRANCH_TARGET prior to the indirect branch
+     * instrution entry itself.  This only applies to offline traces; online traces,
+     * even at this version, do not contain this information.
+     */
+    TRACE_ENTRY_VERSION_BRANCH_INFO = 5,
     /** The latest version of the trace format. */
-    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_ENCODINGS,
+    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_BRANCH_INFO,
 } trace_version_t;
 
 /** The type of a trace entry in a #memref_t structure. */
@@ -127,12 +136,18 @@ typedef enum {
     // Enum value == 10.
     TRACE_TYPE_INSTR, /**< A non-branch instruction. */
     // Particular categories of instructions:
-    TRACE_TYPE_INSTR_DIRECT_JUMP,      /**< A direct unconditional jump instruction. */
-    TRACE_TYPE_INSTR_INDIRECT_JUMP,    /**< An indirect jump instruction. */
-    TRACE_TYPE_INSTR_CONDITIONAL_JUMP, /**< A conditional jump instruction. */
-    TRACE_TYPE_INSTR_DIRECT_CALL,      /**< A direct call instruction. */
-    TRACE_TYPE_INSTR_INDIRECT_CALL,    /**< An indirect call instruction. */
-    TRACE_TYPE_INSTR_RETURN,           /**< A return instruction. */
+    TRACE_TYPE_INSTR_DIRECT_JUMP,   /**< A direct unconditional jump instruction. */
+    TRACE_TYPE_INSTR_INDIRECT_JUMP, /**< An indirect jump instruction. */
+    /**
+     * A direct conditional jump instruction.  \deprecated For offline traces, this is
+     * deprecated and is only present in versions below
+     * #TRACE_ENTRY_VERSION_BRANCH_INFO.  Newer version used
+     * #TRACE_TYPE_INSTR_TAKEN_JUMP and #TRACE_TYPE_INSTR_UNTAKEN_JUMP instead.
+     */
+    TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
+    TRACE_TYPE_INSTR_DIRECT_CALL,   /**< A direct call instruction. */
+    TRACE_TYPE_INSTR_INDIRECT_CALL, /**< An indirect call instruction. */
+    TRACE_TYPE_INSTR_RETURN,        /**< A return instruction. */
     // These entries describe a bundle of consecutive instruction fetch
     // memory references.  The trace stream always has a single instr fetch
     // prior to instr bundles which the reader can use to obtain the starting PC.
@@ -228,6 +243,17 @@ typedef enum {
     // XXX i#5520: Add to online traces, but under an option since extra
     // encoding entries add runtime overhead.
     TRACE_TYPE_ENCODING,
+
+    /**
+     * A direct conditional jump instruction which was taken.
+     * This is only used in offline traces.
+     */
+    TRACE_TYPE_INSTR_TAKEN_JUMP,
+    /**
+     * A direct conditional jump instruction which was not taken.
+     * This is only used in offline traces.
+     */
+    TRACE_TYPE_INSTR_UNTAKEN_JUMP,
 
     // Update trace_type_names[] when adding here.
 } trace_type_t;
@@ -496,6 +522,13 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
+    /**
+     * This marker is present just before each indirect branch instruction in offline
+     * un-instruction-filtered traces.  The marker value holds the actual target of the
+     * branch.
+     */
+    TRACE_MARKER_TYPE_BRANCH_TARGET,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -530,14 +563,16 @@ static inline bool
 type_is_instr(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_INSTR && type <= TRACE_TYPE_INSTR_RETURN) ||
-        type == TRACE_TYPE_INSTR_SYSENTER;
+        type == TRACE_TYPE_INSTR_SYSENTER || type == TRACE_TYPE_INSTR_TAKEN_JUMP ||
+        type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
 }
 
 /** Returns whether the type represents the fetch of a branch instruction. */
 static inline bool
 type_is_instr_branch(const trace_type_t type)
 {
-    return (type >= TRACE_TYPE_INSTR_DIRECT_JUMP && type <= TRACE_TYPE_INSTR_RETURN);
+    return (type >= TRACE_TYPE_INSTR_DIRECT_JUMP && type <= TRACE_TYPE_INSTR_RETURN) ||
+        type == TRACE_TYPE_INSTR_TAKEN_JUMP || type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
 }
 
 /** Returns whether the type represents the fetch of a direct branch instruction. */
@@ -545,14 +580,17 @@ static inline bool
 type_is_instr_direct_branch(const trace_type_t type)
 {
     return type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
-        type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP || type == TRACE_TYPE_INSTR_DIRECT_CALL;
+        type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP ||
+        type == TRACE_TYPE_INSTR_DIRECT_CALL || type == TRACE_TYPE_INSTR_TAKEN_JUMP ||
+        type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
 }
 
 /** Returns whether the type represents the fetch of a conditional branch instruction. */
 static inline bool
 type_is_instr_conditional_branch(const trace_type_t type)
 {
-    return type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP;
+    return type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP ||
+        type == TRACE_TYPE_INSTR_TAKEN_JUMP || type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
 }
 
 /** Returns whether the type represents a prefetch request. */
