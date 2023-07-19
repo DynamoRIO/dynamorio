@@ -78,38 +78,48 @@ static void
 mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int32_t val,
       OUT instr_t **first, OUT instr_t **last, OUT bool *first_set)
 {
-    // Depending on val, the following instructions are emitted.
-    // val == 0               -> ADDI
-    // lo12 != 0 && hi20 == 0 -> ADDI
-    // lo12 == 0 && hi20 != 0 -> LUI
-    // else                   -> LUI+ADDI
+
+    /* `ADDIW rd, rs, imm12` encodes a 12-bit signed extended number;
+     * `LUI   rd, uimm20` places the 20-bit signed value in the top 52 bits of rd, filling
+     * in the lowest 12 bits with zeros.
+     * Combined with these two instructions, we can load an arbitray 32-bit value into a
+     * register.
+     * Depending on val, the following instructions are emitted.
+     * hi20 == 0              -> ADDIW
+     * lo12 == 0 && hi20 != 0 -> LUI
+     * else                   -> LUI+ADDIW
+     */
+
+    /* Add 0x800 to cancel out the signed extention of ADDIW. */
     int32_t hi20 = (val + 0x800) >> 12 & 0xfffff;
     int32_t lo12 = val & 0xfff;
 
-    instr_t *tmp;
-    opnd_t src = opnd_create_reg(DR_REG_X0);
+    instr_t *instr_lui, *instr_addiw;
+    opnd_t src;
     if (hi20) {
-        tmp = INSTR_CREATE_lui(dcontext, dst, opnd_create_immed_int(hi20, OPSZ_20b));
-        PRE(ilist, instr, tmp);
-        src = dst;
+        instr_lui =
+            INSTR_CREATE_lui(dcontext, dst, opnd_create_immed_int(hi20, OPSZ_20b));
+        PRE(ilist, instr, instr_lui);
         if (first != NULL && !*first_set) {
-            *first = tmp;
+            *first = instr_lui;
             *first_set = true;
         }
         if (last != NULL)
-            *last = tmp;
+            *last = instr_lui;
     }
     if (lo12 || !hi20) {
-        tmp = INSTR_CREATE_addiw(dcontext, dst, src,
-                                 opnd_add_flags(opnd_create_immed_int(lo12, OPSZ_12b),
-                                                DR_OPND_IMM_PRINT_DECIMAL));
-        PRE(ilist, instr, tmp);
+        src = hi20 ? dst : opnd_create_reg(DR_REG_X0);
+        instr_addiw =
+            INSTR_CREATE_addiw(dcontext, dst, src,
+                               opnd_add_flags(opnd_create_immed_int(lo12, OPSZ_12b),
+                                              DR_OPND_IMM_PRINT_DECIMAL));
+        PRE(ilist, instr, instr_addiw);
         if (first != NULL && !*first_set) {
-            *first = tmp;
+            *first = instr_addiw;
             *first_set = true;
         }
         if (last != NULL)
-            *last = tmp;
+            *last = instr_addiw;
     }
 }
 
@@ -118,12 +128,23 @@ mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_
       OUT instr_t **first, OUT instr_t **last, OUT bool *first_set)
 {
     instr_t *tmp;
-    if (((val << 32) >> 32) == val) {
+    if ((val & 0xffffffffL) == val) {
         mov32(dcontext, ilist, instr, dst, val, first, last, first_set);
         return;
     }
 
+    /*
+     * For 64-bit val, a sequence of up to 8 instructions (i.e.,
+     * LUI+ADDIW+SLLI+ADDI+SLLI+ADDI+SLLI+ADDI) is emitted.
+     *
+     * In the following, val is processed from LSB to MSB while instruction emission is
+     * performed from MSB to LSB by calling mov64 recursively. In each recursion,
+     * the lowest 12 bits are removed from val and the optimal shift amount is calculated.
+     * Then, the remaining part of val is processed recursively and mov32 get called as
+     * soon as it fits into 32 bits.
+     */
     int64_t lo12 = (val << 52) >> 52;
+    /* Add 0x800 to cancel out the signed extention of ADDI. */
     int64_t hi52 = (val + 0x800) >> 12;
     int shift = 12 + trailing_zeros_64((uint64)hi52);
     hi52 = ((hi52 >> (shift - 12)) << shift) >> shift;
