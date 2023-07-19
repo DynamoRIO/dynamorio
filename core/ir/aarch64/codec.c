@@ -3149,6 +3149,20 @@ encode_opnd_p10_zer(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_opnd_p(10, 15, opnd, enc_out);
 }
 
+/* imm4_10: 4 bit immediate from 10:13 */
+
+static inline bool
+decode_opnd_imm4_10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(10, 4, false /*signed*/, 0, OPSZ_4b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_imm4_10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(10, 4, false /*signed*/, 0, 0, opnd, enc_out);
+}
+
 /* cmode_s_sz: Operand for 32 bit elements' shift amount */
 
 static inline bool
@@ -5125,6 +5139,21 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     // index=H:L:M
     *enc_out = (val >> 2 & 1) << H | (val >> 1 & 1) << L | (val & 1) << M;
     return true;
+}
+
+/* imm6_16_tag: 6 bit immediate from 16:21 with tagged memory scaling */
+
+static inline bool
+decode_opnd_imm6_16_tag(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(16, 6, false /*signed*/, log2_tag_granule, OPSZ_10b, 0, enc,
+                           opnd);
+}
+
+static inline bool
+encode_opnd_imm6_16_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(16, 6, false /*signed*/, log2_tag_granule, 0, opnd, enc_out);
 }
 
 /* svemem_gpr_simm6_vl: 6 bit signed immediate offset added to base register
