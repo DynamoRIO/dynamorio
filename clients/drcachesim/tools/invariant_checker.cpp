@@ -648,7 +648,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 saw_rseq_abort = true;
             } else {
                 // TODO i#3937: We need to exclude this check for "kernel_xfer_app" when
-                // running online.
+                // running online. Online traces are missing instructions after sigreturns
+                // which causes the PC discontinuity checks to be violated.
                 if (knob_test_name_ != "kernel_xfer_app" || knob_offline_) {
                     const std::string pc_discontinuity_error_string =
                         check_for_pc_discontinuity(shard, memref, nullptr, false);
