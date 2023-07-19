@@ -37,7 +37,6 @@
 /* Make code more readable by shortening long lines.
  * We mark everything we add as non-app instr.
  */
-#define POST instrlist_meta_postinsert
 #define PRE instrlist_meta_preinsert
 
 byte *
