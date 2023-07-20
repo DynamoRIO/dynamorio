@@ -152,10 +152,11 @@
  * limited interoperability w/ code targeting the Windows x64 ABI. We steal slot 6
  * for our own use.
  */
-#    define SEG_TLS_BASE_OFFSET 28 /* offset from pthread_t struct to segment base */
-#    define DR_TLS_BASE_SLOT 6     /* the TLS slot for DR's TLS base */
+/* XXX i#5383: This is used as *8 so it's really a slot not a byte offset. */
+#    define SEG_TLS_BASE_SLOT 28 /* offset from pthread_t struct to segment base */
+#    define DR_TLS_BASE_SLOT 6   /* the TLS slot for DR's TLS base */
 /* offset from pthread_t struct to slot 6 */
-#    define DR_TLS_BASE_OFFSET (SEG_TLS_BASE_OFFSET + DR_TLS_BASE_SLOT)
+#    define DR_TLS_BASE_OFFSET (sizeof(void *) * (SEG_TLS_BASE_SLOT + DR_TLS_BASE_SLOT))
 #endif
 
 #if defined(AARCHXX) && !defined(MACOS64)
@@ -193,14 +194,16 @@ extern uint android_tls_base_offs;
 #endif
 
 #ifdef RISCV64
-/* FIXME i#3544: We might need to re-use ARM's approach and store DR TLS in
- * tcb_head_t::private field: typedef struct
+/* Re-using ARM's approach and store DR TLS in tcb_head_t::private,
+ * with the only difference being tp register points at the end of TCB.
+ *
+ * typedef struct
  *   {
  *     dtv_t *dtv;
  *     void *private;
  *   } tcb_head_t;
  */
-#    define DR_TLS_BASE_OFFSET IF_X64_ELSE(8, 4) /* skip dtv */
+#    define DR_TLS_BASE_OFFSET IF_X64_ELSE(-8, -4) /* tcb->private, skip dtv */
 #endif
 
 #ifdef LINUX

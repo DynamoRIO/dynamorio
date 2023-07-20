@@ -43,6 +43,9 @@
 #include <iostream>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 const std::string view_t::TOOL_NAME = "View tool";
 
 analysis_tool_t *
@@ -340,6 +343,9 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_MARKER_TYPE_CHUNK_FOOTER:
             std::cerr << "<marker: chunk footer #" << memref.marker.marker_value << ">\n";
             break;
+        case TRACE_MARKER_TYPE_FILTER_ENDPOINT:
+            std::cerr << "<marker: filter endpoint>\n";
+            break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
             std::cerr << "<marker: physical address for following virtual: 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
@@ -384,7 +390,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: system call " << memref.marker.marker_value << ">\n";
             break;
         case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
-            std::cerr << "<marker: maybe-blocking sytem call>\n";
+            std::cerr << "<marker: maybe-blocking system call>\n";
             break;
         case TRACE_MARKER_TYPE_WINDOW_ID:
             // Handled above.
@@ -472,7 +478,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
         case TRACE_TYPE_INSTR_NO_FETCH: std::cerr << "non-fetched instruction\n"; break;
         case TRACE_TYPE_INSTR_SYSENTER: std::cerr << "sysenter\n"; break;
-        default: error_string_ = "Uknown instruction type\n"; return false;
+        default: error_string_ = "Unknown instruction type\n"; return false;
         }
         ++num_disasm_instrs_;
         return true;
@@ -538,3 +544,6 @@ view_t::print_results()
     std::cerr << std::setw(15) << num_disasm_instrs_ << " : total instructions\n";
     return true;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

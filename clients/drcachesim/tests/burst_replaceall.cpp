@@ -46,9 +46,14 @@
 #include <assert.h>
 #include <iostream>
 #include <math.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <set>
+
+namespace dynamorio {
+namespace drmemtrace {
+
 // XXX i#2040: Static client limitations on Windows prevent the thread
 // aspect of this test from working today.  Once that is fixed we can
 // re-enable by removing all of the "ifndef WINDOWS" with this comment:
@@ -347,3 +352,6 @@ test_main(int argc, const char *argv[])
     std::cerr << "all done\n";
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

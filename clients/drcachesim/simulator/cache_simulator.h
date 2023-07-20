@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,9 @@
 #include "cache.h"
 #include "snoop_filter.h"
 #include <limits.h>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 enum class cache_split_t { DATA, INSTRUCTION };
 
@@ -90,7 +93,7 @@ public:
 protected:
     // Create a cache_t object with a specific replacement policy.
     virtual cache_t *
-    create_cache(const std::string &policy);
+    create_cache(const std::string &name, const std::string &policy);
 
     cache_simulator_knobs_t knobs_;
 
@@ -115,5 +118,8 @@ protected:
 private:
     bool is_warmed_up_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHE_SIMULATOR_H_ */

@@ -38,7 +38,8 @@
 #include "../tools/reuse_distance_create.h"
 #include "../common/memref.h"
 
-namespace {
+namespace dynamorio {
+namespace drmemtrace {
 
 #define TEST_VERBOSE(N) (test_verbosity >= N)
 unsigned int test_verbosity = 0;
@@ -501,8 +502,6 @@ data_histogram_test()
     }
 }
 
-} // namespace
-
 int
 test_main(int argc, const char *argv[])
 {
@@ -514,3 +513,6 @@ test_main(int argc, const char *argv[])
     data_histogram_test();
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

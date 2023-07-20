@@ -35,9 +35,15 @@
 #ifndef _TEST_HELPERS_H_
 #define _TEST_HELPERS_H_ 1
 
+namespace dynamorio {
+namespace drmemtrace {
+
 // Tests with a main() should use test_main() which calls this.  This is declared
 // separately for use with _tmain().
 void
 disable_popups();
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _TEST_HELPERS_H_ */

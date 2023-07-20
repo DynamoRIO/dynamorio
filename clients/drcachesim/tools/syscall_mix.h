@@ -39,6 +39,9 @@
 
 #include "analysis_tool.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class syscall_mix_t : public analysis_tool_t {
 public:
     syscall_mix_t(unsigned int verbose);
@@ -77,5 +80,8 @@ protected:
 
     static const std::string TOOL_NAME;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _SYSCALL_MIX_H_ */

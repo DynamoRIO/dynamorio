@@ -45,6 +45,14 @@
 #include <fstream>
 #include <vector>
 
+namespace dynamorio {
+namespace drmemtrace {
+
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
         fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
@@ -334,7 +342,7 @@ test_cache_and_type_filter()
             return false;
         }
 
-        // Proccess each trace entry.
+        // Process each trace entry.
         for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
             // We need to emulate the stream for the tool.
             if (entries[i].entry.type == TRACE_TYPE_MARKER &&
@@ -445,3 +453,6 @@ test_main(int argc, const char *argv[])
     fprintf(stderr, "All done!\n");
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

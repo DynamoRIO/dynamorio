@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,9 @@
 
 #include "analysis_tool.h"
 #include "memref.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 class histogram_t : public analysis_tool_t {
 public:
@@ -90,5 +93,8 @@ protected:
     // The combined data from all the shards.
     shard_data_t reduced_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _HISTOGRAM_H_ */

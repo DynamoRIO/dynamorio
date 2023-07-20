@@ -662,10 +662,11 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   endif ()
 
   add_library(${test}.dll SHARED ${client_source})
-  if (NOT "${source}" MATCHES "cpp\\.cpp")
+  if (NOT DEFINED ${test}_no_reg_compat AND
+      NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
     set(DynamoRIO_REG_COMPATIBILITY ON)
-  endif (NOT "${source}" MATCHES "cpp\\.cpp")
+  endif ()
   setup_test_client_dll_basics(${test}.dll)
   get_client_path(client_path ${test}.dll ${test})
 
@@ -909,11 +910,15 @@ endmacro(tobuild_csharp)
 macro(append_pure_asm_app_link_flags target)
   set_target_properties(${target} PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(${target} "-nostartfiles -nodefaultlibs -static")
-  append_property_string(TARGET ${target} LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-    # is not properly static. Adding --no-export-dynamic avoids the problem.
-    "-Wl,--no-export-dynamic")
+  if (APPLE)
+    append_property_string(TARGET ${target} LINK_FLAGS "-e _start")
+  else ()
+    append_property_string(TARGET ${target} LINK_FLAGS
+      # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+      # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+      # is not properly static. Adding --no-export-dynamic avoids the problem.
+      "-Wl,--no-export-dynamic")
+  endif ()
 endmacro(append_pure_asm_app_link_flags)
 
 function(tobind target)
@@ -1216,8 +1221,13 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     prefix_cmd_if_necessary(cmd OFF ${cmd})
     # We set LD_LIBRARY_PATH for native api/ apps since we're not setting
     # rpath (to make it easier to try different trees)
-    set(cmd ${cmd} -env LD_LIBRARY_PATH
-      "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
+    if (APPLE)
+      set(libvar "DYLD_LIBRARY_PATH")
+    else ()
+      set(libvar "LD_LIBRARY_PATH")
+    endif ()
+    set(cmd ${cmd} -env ${libvar}
+      "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{${libvar}}")
     # add dr_ops last to avoid needing extra \ on ;
     string(REPLACE ";" " " dr_ops_string "${dr_ops}")
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops_string}" PARENT_SCOPE)
@@ -2108,11 +2118,13 @@ if (DR_HOST_ARM AND NOT ANDROID)
 endif ()
 
 if (DR_HOST_AARCH64)
-  tobuild_ops(common.allasm_aarch64_isa common/allasm_aarch64_isa.asm
-    "-early_inject" "") # FIXME i#1569: -enable_traces here
-  set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
-  append_link_flags(common.allasm_aarch64_isa
-    "-nostartfiles -nodefaultlibs -static")
+  if (NOT APPLE) # TODO i#5383: Port to Mac M1.
+    tobuild_ops(common.allasm_aarch64_isa common/allasm_aarch64_isa.asm
+      "-early_inject" "") # FIXME i#1569: -enable_traces here
+    set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
+    append_link_flags(common.allasm_aarch64_isa
+      "-nostartfiles -nodefaultlibs -static")
+  endif ()
 
   tobuild_ops(common.allasm_aarch64_cache common/allasm_aarch64_cache.asm
     "-early_inject" "")
@@ -2525,8 +2537,10 @@ else (UNIX)
 
   tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
-tobuild_ci(client.file_io client-interface/file_io.c
-  "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
+if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
+  tobuild_ci(client.file_io client-interface/file_io.c
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
+endif ()
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
     # we add custom option to flush test based on dr ops in torun_ci()
@@ -2747,12 +2761,14 @@ if (UNIX)
 endif (UNIX)
 
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
   use_DynamoRIO_extension(client.drreg-test.dll drreg)
   use_DynamoRIO_extension(client.drreg-test.dll drx)
   target_include_directories(client.drreg-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+  endif ()
 
   tobuild_ci(client.drreg-end-restore client-interface/drreg-end-restore.c "" "" "")
   use_DynamoRIO_extension(client.drreg-end-restore.dll drmgr)
@@ -2867,7 +2883,7 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.drwrap-drreg-test.dll drmgr)
 endif (NOT RISCV64)
 
-if (AARCH64)
+if (AARCH64 AND NOT APPLE) # TODO i#5383: Port to Mac M1.
   # Create a fuzzing application for stress-testing via drstatecmp.
   add_api_exe(drstatecmp-fuzz-app client-interface/drstatecmp-fuzz-app.c ON OFF)
 endif ()
@@ -3379,6 +3395,14 @@ if (BUILD_CLIENTS)
     set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
     set(tool.drcov.fib_expectbase "tool.drcov.fib")
     DynamoRIO_get_full_path(tool.drcov.fib_postcmd drcov2lcov "${location_suffix}")
+
+    if (UNIX AND NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+      # Test an app that executes a pipe syscall for i#5981.
+      torunonly_ci(tool.drcov.eintr linux.eintr drcov linux/eintr.c "" "" "")
+      set(tool.drcov.eintr_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
+      set(tool.drcov.eintr_expectbase "tool.drcov.eintr")
+      DynamoRIO_get_full_path(tool.drcov.eintr_postcmd drcov2lcov "${location_suffix}")
+    endif ()
   endif ()
 
   ###########################################################################
@@ -3596,7 +3620,7 @@ if (BUILD_CLIENTS)
         set(tool.reuse_time_offline_rawtemp ON) # no preprocessor
 
         torunonly_simtool(counts_only_thread ${ci_shared_app}
-          "-indir ${thread_trace_dir} -simulator_type basic_counts -only_thread 3018559"
+          "-indir ${thread_trace_dir} -simulator_type basic_counts -only_thread 1257604"
           "")
         set(tool.counts_only_thread_rawtemp ON) # no preprocessor
       endif ()
@@ -3842,6 +3866,59 @@ if (BUILD_CLIENTS)
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
     set(tool.drcacheoff.windows-split_postcmd3
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
+
+    # Test L0_filter_until_instrs
+    torunonly_drcacheoff(L0-filter-until-instrs-windows-split ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
+    set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-2 ${ci_shared_app}
+        "-trace_after_instrs 10 -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-exit-after ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -exit_after_tracing 10K"
+      "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-max-refs ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 10K"
+      "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-max-trace-size ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 10K"
+      "@-simulator_type@basic_counts" "")
+
+    # pthreads not available with MSVC
+    if (NOT MSVC)
+    set(ci_pthreads_app pthreads.pthreads)
+    # pthreads tests
+    torunonly_drcacheoff(warmup-pthreads-windows-split ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 100K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.warmup-pthreads-windows-split_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
+    set(tool.drcacheoff.warmup-pthreads-windows-split_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
+
+    torunonly_drcacheoff(warmup-pthreads-2 ${ci_pthreads_app}
+        "-trace_after_instrs 10 -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(warmup-pthreads-max-refs ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 300K"
+      "@-simulator_type@basic_counts" "20000")
+
+    torunonly_drcacheoff(warmup-pthreads-max-trace-size ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 100K"
+      "@-simulator_type@basic_counts" "")
+    endif ()
+
 
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)
@@ -4880,17 +4957,18 @@ if (UNIX)
     # The rseq kernel feature is Linux-only.
     # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     # TODO i#3544: Port tests to RISC-V 64
-    tobuild(linux.rseq linux/rseq.c)
+    set(linux.rseq_no_reg_compat)
+    tobuild(linux.rseq linux/rseq.cpp)
     # Test the other sections.  Unfortunately we need a separate binary for each.
-    tobuild(linux.rseq_table linux/rseq.c)
+    tobuild(linux.rseq_table linux/rseq.cpp)
     append_property_list(TARGET linux.rseq_table
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_OLD_SECTION_NAME")
-    tobuild(linux.rseq_noarray linux/rseq.c)
+    tobuild(linux.rseq_noarray linux/rseq.cpp)
     append_property_list(TARGET linux.rseq_noarray
       COMPILE_DEFINITIONS "RSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
     # We build with static DR to also test client interactions.
-    tobuild_api(api.rseq linux/rseq.c "" "" OFF ON OFF)
+    tobuild_api(api.rseq linux/rseq.cpp "" "" OFF ON OFF)
     link_with_pthread(api.rseq)
     append_property_list(TARGET api.rseq COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH")
     use_DynamoRIO_static_client(api.rseq drmemtrace_static)
@@ -5471,7 +5549,6 @@ if (NOT ANDROID AND AARCHXX)
   if (AARCH64)
     set_tests_properties(
       code_api|common.allasm_aarch64_cache
-      code_api|common.allasm_aarch64_isa
       code_api|linux.mangle_asynch
       code_api|linux.mmap
       code_api|pthreads.pthreads_exit
@@ -5485,7 +5562,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|client.drreg-cross
       code_api|client.drreg-end-restore
       code_api|client.drreg-flow
-      code_api|client.drreg-test
       code_api|client.drutil-test
       code_api|client.drx_buf-test
       code_api|client.emulation_api_simple
@@ -5505,6 +5581,12 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memtrace_simple
       code_api|sample.memval_simple
       PROPERTIES LABELS RUNS_ON_QEMU)
+    if (NOT APPLE) # TODO i#5383: Port to Mac M1.
+      set_tests_properties(
+        code_api|common.allasm_aarch64_isa
+        code_api|client.drreg-test
+        PROPERTIES LABELS RUNS_ON_QEMU)
+    endif ()
     if (NOT CMAKE_COMPILER_IS_CLANG)
       set_tests_properties(
         code_api|security-linux.trampoline

@@ -59,6 +59,12 @@
 #include "tools/reuse_time_create.h"
 #include "tools/view_create.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+
 analyzer_multi_t::analyzer_multi_t()
 {
     worker_count_ = op_jobs.get_value();
@@ -112,7 +118,8 @@ analyzer_multi_t::analyzer_multi_t()
         }
         if (needs_processing) {
             raw2trace_directory_t dir(op_verbose.get_value());
-            std::string dir_err = dir.initialize(op_indir.get_value(), "");
+            std::string dir_err =
+                dir.initialize(op_indir.get_value(), "", op_trace_compress.get_value());
             if (!dir_err.empty()) {
                 success_ = false;
                 error_string_ = "Directory setup failed: " + dir_err;
@@ -446,3 +453,6 @@ analyzer_multi_t::get_cache_simulator_knobs()
     knobs->use_physical = op_use_physical.get_value();
     return knobs;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

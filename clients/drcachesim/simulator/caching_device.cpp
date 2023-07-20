@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,6 +30,8 @@
  * DAMAGE.
  */
 
+#include <string>
+
 #include "caching_device.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
@@ -38,7 +40,10 @@
 #include "../common/utils.h"
 #include <assert.h>
 
-caching_device_t::caching_device_t()
+namespace dynamorio {
+namespace drmemtrace {
+
+caching_device_t::caching_device_t(const std::string &name)
     : blocks_(NULL)
     , stats_(NULL)
     , prefetcher_(NULL)
@@ -46,6 +51,7 @@ caching_device_t::caching_device_t()
     // an identity hash is plenty good enough and nice and fast.
     // We set the size and load factor only if being used, in set_hashtable_use().
     , tag2block(0, [](addr_t key) { return static_cast<unsigned long>(key); })
+    , name_(name)
 {
 }
 
@@ -90,7 +96,7 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
     if (block_size_bits_ == -1 || !IS_POWER_OF_2(blocks_per_way_))
         return false;
     parent_ = parent;
-    stats_ = stats;
+    set_stats(stats);
     prefetcher_ = prefetcher;
     id_ = id;
     snoop_filter_ = snoop_filter;
@@ -105,6 +111,16 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
     children_ = children;
 
     return true;
+}
+
+std::string
+caching_device_t::get_description() const
+{
+    // One-line human-readable string describing the cache configuration.
+    return "size=" + std::to_string(get_size_bytes()) +
+        ", assoc=" + std::to_string(get_associativity()) +
+        ", block=" + std::to_string(get_block_size()) + ", " + get_replace_policy() +
+        (is_coherent() ? ", coherent" : "") + (is_inclusive() ? ", inclusive" : "");
 }
 
 std::pair<caching_device_block_t *, int>
@@ -390,7 +406,7 @@ caching_device_t::record_access_stats(const memref_t &memref, bool hit,
                                       caching_device_block_t *cache_block)
 {
     stats_->access(memref, hit, cache_block);
-    // We propagate hits all the way up the hierachy.
+    // We propagate hits all the way up the hierarchy.
     // But to avoid over-counting we only propagate misses one level up.
     if (hit) {
         for (caching_device_t *up = parent_; up != nullptr; up = up->parent_)
@@ -398,3 +414,6 @@ caching_device_t::record_access_stats(const memref_t &memref, bool hit,
     } else if (parent_ != nullptr)
         parent_->stats_->child_access(memref, hit, cache_block);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

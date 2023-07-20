@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,9 @@
 #include "dr_api.h"
 #include "hashtable.h"
 #include "../common/trace_entry.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // This class is not thread-safe: the caller should create a separate instance
 // per thread.
@@ -111,5 +114,8 @@ private:
     static std::atomic<bool> has_privileges_;
 #endif
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _PHYSADDR_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,6 +49,9 @@
 #ifdef WINDOWS
 #    include <intrin.h>
 #endif
+
+namespace dynamorio {
+namespace drmemtrace {
 
 std::atomic<uint64> attached_timestamp;
 
@@ -353,7 +356,7 @@ instru_t::count_app_instrs(instrlist_t *ilist)
             ++count;
         }
         if (!in_emulation_region && instr_is_app(inst)) {
-            // Hooked native functions end up with an artifical jump whose translation
+            // Hooked native functions end up with an artificial jump whose translation
             // is its target.  We do not want to count these.
             if (!(instr_is_ubr(inst) && opnd_is_pc(instr_get_target(inst)) &&
                   opnd_get_pc(instr_get_target(inst)) == instr_get_app_pc(inst)))
@@ -364,3 +367,6 @@ instru_t::count_app_instrs(instrlist_t *ilist)
     }
     return count;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

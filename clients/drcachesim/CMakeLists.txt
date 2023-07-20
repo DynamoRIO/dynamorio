@@ -139,6 +139,7 @@ endif()
 
 if (liblz4)
   add_definitions(-DHAS_LZ4)
+  set(lz4_reader reader/lz4_file_reader.cpp)
 endif ()
 
 set(client_and_sim_srcs
@@ -252,6 +253,7 @@ set(drcachesim_srcs
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
+  ${lz4_reader}
   reader/ipc_reader.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp)
@@ -295,11 +297,16 @@ add_exported_library(drmemtrace_analyzer STATIC
   ${zlib_reader}
   ${zip_reader}
   ${snappy_reader}
+  ${lz4_reader}
   )
 target_link_libraries(drmemtrace_analyzer directory_iterator)
 if (libsnappy)
   target_link_libraries(drmemtrace_analyzer snappy)
 endif ()
+if (liblz4)
+  target_link_libraries(drmemtrace_analyzer lz4)
+endif ()
+
 link_with_pthread(drmemtrace_analyzer)
 # We get away w/ exporting the generically-named "utils.h" by putting into a
 # drmemtrace/ subdir.
@@ -343,14 +350,19 @@ add_dependencies(histogram_launcher api_headers)
 add_executable(prefetch_analyzer_launcher
   tests/prefetch_analyzer_launcher.cpp
   tests/prefetch_analyzer.cpp
+  tests/test_helpers.cpp
   )
 target_link_libraries(prefetch_analyzer_launcher drmemtrace_analyzer drfrontendlib)
+append_property_list(TARGET prefetch_analyzer_launcher
+  COMPILE_DEFINITIONS "NO_HELPER_MAIN")
 use_DynamoRIO_extension(prefetch_analyzer_launcher droption)
 add_dependencies(prefetch_analyzer_launcher api_headers)
 
 add_executable(record_filter_launcher
-  tools/record_filter_launcher.cpp)
+  tools/record_filter_launcher.cpp
+  tests/test_helpers.cpp)
 target_link_libraries(record_filter_launcher drmemtrace_analyzer drmemtrace_record_filter)
+append_property_list(TARGET record_filter_launcher COMPILE_DEFINITIONS "NO_HELPER_MAIN")
 use_DynamoRIO_extension(record_filter_launcher droption)
 
 # We want to use test_helper's disable_popups() but we have _tmain and so do not want
@@ -985,7 +997,7 @@ if (BUILD_TESTS)
       configure_DynamoRIO_static(tool.drcacheoff.burst_futex)
       use_DynamoRIO_static_client(tool.drcacheoff.burst_futex drmemtrace_static)
       target_link_libraries(tool.drcacheoff.burst_futex drmemtrace_raw2trace
-        drmemtrace_analyzer)
+        drmemtrace_analyzer test_helpers)
       if (WIN32)
         # Just like for burst_replace, linking everything together takes effort.
         target_link_libraries(tool.drcacheoff.burst_futex ${static_libc})

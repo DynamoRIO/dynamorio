@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,8 +40,15 @@
 #include "cache_line.h"
 #include "cache_stats.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class cache_t : public caching_device_t {
 public:
+    explicit cache_t(const std::string &name = "cache")
+        : caching_device_t(name)
+    {
+    }
     // Size, line size and associativity are generally used
     // to describe a CPU cache.
     // The id is an index into the snoop filter's array of caches for coherent caches.
@@ -61,5 +68,8 @@ protected:
     void
     init_blocks() override;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHE_H_ */

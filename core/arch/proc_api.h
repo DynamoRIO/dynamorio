@@ -180,6 +180,7 @@ typedef struct {
     uint64 flags_aa64mmfr1; /**< AArch64 feature flags stored in ID_AA64MMFR1_EL1 */
     uint64 flags_aa64dfr0;  /**< AArch64 feature flags stored in ID_AA64DFR0_EL1 */
     uint64 flags_aa64zfr0;  /**< AArch64 feature flags stored in ID_AA64ZFR0_EL1 */
+    uint64 flags_aa64pfr1;  /**< AArch64 feature flags stored in ID_AA64PFR1_EL1 */
 } features_t;
 typedef enum {
     AA64ISAR0 = 0,
@@ -188,6 +189,7 @@ typedef enum {
     AA64MMFR1 = 3,
     AA64DFR0 = 4,
     AA64ZFR0 = 5,
+    AA64PFR1 = 6,
 } feature_reg_idx_t;
 #endif
 #ifdef RISCV64
@@ -361,6 +363,7 @@ typedef enum {
     FEATURE_SVESHA3 = DEF_FEAT(AA64ZFR0, 8, 1, 0), /**< SVE2 + SHA3(AArch64) */
     FEATURE_SVESM4 = DEF_FEAT(AA64ZFR0, 10, 1, 0), /**< SVE2 + SM4(AArch64) */
     FEATURE_SVEBitPerm = DEF_FEAT(AA64ZFR0, 4, 1, 0), /**< SVE2 + BitPerm(AArch64) */
+    FEATURE_MTE = DEF_FEAT(AA64PFR1, 2, 1, 0),        /**< Memory Tagging Extension */
 } feature_bit_t;
 #endif
 #ifdef RISCV64

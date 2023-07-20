@@ -37,6 +37,18 @@
 #include "droption.h"
 #include "options.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
+using ::dynamorio::droption::bytesize_t;
+using ::dynamorio::droption::DROPTION_FLAG_ACCUMULATE;
+using ::dynamorio::droption::DROPTION_FLAG_INTERNAL;
+using ::dynamorio::droption::DROPTION_FLAG_SWEEP;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
 droption_t<bool> op_offline(
     DROPTION_SCOPE_ALL, "offline", false, "Store trace files for offline analysis",
     "By default, traces are processed online, sent over a pipe to a simulator.  "
@@ -206,8 +218,8 @@ droption_t<bool> op_L0I_filter(
     "cache.  This cache is direct-mapped with size equal to L0I_size.  It uses virtual "
     "addresses regardless of -use_physical. The dynamic (pre-filtered) per-thread "
     "instruction count is tracked and supplied via a "
-    "#TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries and at "
-    "thread exit.");
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread "
+    "buffer boundaries and at thread exit.");
 
 droption_t<bool> op_L0D_filter(
     DROPTION_SCOPE_CLIENT, "L0D_filter", false,
@@ -246,11 +258,12 @@ droption_t<bool> op_use_physical(
     "If available, metadata with virtual-to-physical-address translation information "
     "is added to the trace.  This is not possible from user mode on all platforms.  "
     "The regular trace entries remain virtual, with a pair of markers of "
-    "types #TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and #TRACE_MARKER_TYPE_VIRTUAL_ADDRESS "
+    "types #dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS and "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_VIRTUAL_ADDRESS "
     "inserted at some prior point for each new or changed page mapping to show the "
     "corresponding physical addresses.  If translation fails, a "
-    "#TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is inserted. "
-    "This option may incur significant overhead "
+    "#dynamorio::drmemtrace::TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE is "
+    "inserted. This option may incur significant overhead "
     "both for the physical translation and as it requires disabling optimizations."
     "For -offline, this option must be passed to both the tracer (to insert the "
     "markers) and the simulator (to use the markers).");
@@ -369,6 +382,17 @@ droption_t<std::string> op_raw_compress(
     "storage type: "
     "for an SSD, zlib and gzip typically add overhead and would only be used if space is "
     "at a premium; snappy_nocrc and lz4 are nearly always performance wins.");
+
+droption_t<std::string> op_trace_compress(
+    DROPTION_SCOPE_FRONTEND, "compress", DEFAULT_TRACE_COMPRESSION_TYPE,
+    "Trace compression: \"zip\",\"gzip\",\"zlib\",\"lz4\",\"none\"",
+    "Specifies the compression type to use for trace files: \"zip\", "
+    "\"gzip\", \"zlib\", \"lz4\", or \"none\". "
+    "In most cases where fast skipping by instruction count is not needed "
+    "lz4 compression generally improves performance and is recommended. "
+    "When it comes to storage types, the impact on overhead varies: "
+    "for SSDs, zip and gzip often increase overhead and should only be chosen "
+    "if space is limited.");
 
 droption_t<bool> op_online_instr_types(
     DROPTION_SCOPE_CLIENT, "online_instr_types", false,
@@ -516,6 +540,23 @@ droption_t<bytesize_t>
                  "application execution. These memory references are dropped instead "
                  "of being simulated.  This skipping may be slow for large skip values; "
                  "consider -skip_instrs for a faster method of skipping.");
+
+droption_t<bytesize_t> op_L0_filter_until_instrs(
+    DROPTION_SCOPE_CLIENT, "L0_filter_until_instrs", 0,
+    "Number of instructions for warmup trace",
+    "Specifies the number of instructions to run in warmup mode. This instruction count "
+    "is per-thread. In warmup mode, we "
+    "filter accesses through the -L0{D,I}_filter caches. If neither -L0D_filter nor "
+    "-L0I_filter are specified then both are assumed to be true. The size of these can "
+    "be specified using -L0{D,I}_size. The filter instructions come after the "
+    "-trace_after_instrs count and before the full trace. This is intended to be "
+    "used together with other trace options (e.g., -trace_for_instrs, "
+    "-exit_after_tracing, -max_trace_size etc.) but with the difference that a filter "
+    "trace is also collected. The filter trace and full trace are stored in a single "
+    "file separated by a TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. When used with "
+    "windows (i.e., -retrace_every_instrs), each window contains a filter trace and a "
+    "full trace. Therefore TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of "
+    "filtered records.");
 
 droption_t<bytesize_t> op_warmup_refs(
     DROPTION_SCOPE_FRONTEND, "warmup_refs", 0,
@@ -732,3 +773,6 @@ droption_t<bool> op_enable_kernel_tracing(
     "analysis. And this feature is available only on Intel CPUs that support Intel@ "
     "Processor Trace.");
 #endif
+
+} // namespace drmemtrace
+} // namespace dynamorio

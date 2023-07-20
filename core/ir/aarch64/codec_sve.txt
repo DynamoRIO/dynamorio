@@ -835,8 +835,10 @@
 0000010011010101101xxxxxxxxxxxxx  n   804  SVE     uxtw          z_d_0 : p10_mrg_lo z_d_5
 00000101xx10xxxx0100100xxxx0xxxx  n   557  SVE     uzp1  p_size_bhsd_0 : p_size_bhsd_5 p_size_bhsd_16
 00000101xx1xxxxx011010xxxxxxxxxx  n   557  SVE     uzp1  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
+00000101101xxxxx000010xxxxxxxxxx  n   557  F64MM   uzp1          z_q_0 : z_q_5 z_q_16
 00000101xx10xxxx0100110xxxx0xxxx  n   558  SVE     uzp2  p_size_bhsd_0 : p_size_bhsd_5 p_size_bhsd_16
 00000101xx1xxxxx011011xxxxxxxxxx  n   558  SVE     uzp2  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
+00000101101xxxxx000011xxxxxxxxxx  n   558  F64MM   uzp2          z_q_0 : z_q_5 z_q_16
 00100101xx1xxxxx000001xxxxx1xxxx  w   877  SVE  whilele  p_size_bhsd_0 : w5 w16
 00100101xx1xxxxx000101xxxxx1xxxx  w   877  SVE  whilele  p_size_bhsd_0 : x5 x16
 00100101xx1xxxxx000011xxxxx0xxxx  w   878  SVE  whilelo  p_size_bhsd_0 : w5 w16
@@ -848,6 +850,7 @@
 00100101001010001001000xxxx00000  n   820  SVE    wrffr                : p_b_5
 00000101xx10xxxx0100000xxxx0xxxx  n   565  SVE     zip1  p_size_bhsd_0 : p_size_bhsd_5 p_size_bhsd_16
 00000101xx1xxxxx011000xxxxxxxxxx  n   565  SVE     zip1  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16
+00000101101xxxxx000000xxxxxxxxxx  n   565  F64MM   zip1          z_q_0 : z_q_5 z_q_16
 00000101101xxxxx000001xxxxxxxxxx  n   566  SVE     zip2          z_q_0 : z_q_5 z_q_16
 00000101xx10xxxx0100010xxxx0xxxx  n   566  SVE     zip2  p_size_bhsd_0 : p_size_bhsd_5 p_size_bhsd_16
 00000101xx1xxxxx011001xxxxxxxxxx  n   566  SVE     zip2  z_size_bhsd_0 : z_size_bhsd_5 z_size_bhsd_16

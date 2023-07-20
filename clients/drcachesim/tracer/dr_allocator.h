@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,6 +39,9 @@
 #include "dr_api.h"
 #include <cstdlib>
 #include <new>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #if defined(WINDOWS) && _MSC_VER < 1910
 #    define NOEXCEPT /* nothing: not supported */
@@ -82,5 +85,8 @@ operator!=(const dr_allocator_t<T> &, const dr_allocator_t<U> &)
 {
     return false;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _DR_ALLOCATOR_H_ */

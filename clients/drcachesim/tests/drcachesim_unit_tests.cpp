@@ -41,6 +41,10 @@
 #include "simulator/cache_lru.h"
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
+#include "../common/utils.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 static cache_simulator_knobs_t
 make_test_knobs()
@@ -385,6 +389,7 @@ unit_test_cache_associativity()
             bool initialized =
                 cache.init(assoc, LINE_SIZE, total_size, /*parent=*/nullptr, &stats);
             assert(initialized);
+            assert(cache.get_associativity() == assoc);
             // Test start address is arbitrary.
             addr_t start_address = test_assoc * total_size;
 
@@ -433,6 +438,7 @@ unit_test_cache_size()
             bool initialized = cache.init(associativity, LINE_SIZE, cache_size,
                                           /*parent=*/nullptr, &stats);
             assert(initialized);
+            assert(cache.get_size_bytes() == cache_size);
             static constexpr int NUM_LOOPS = 3; // Anything >=2 should work.
             auto read_count = generate_1D_accesses(cache, 0, LINE_SIZE,
                                                    buffer_size / LINE_SIZE, NUM_LOOPS);
@@ -547,12 +553,56 @@ unit_test_cache_bad_configs()
     }
 }
 
+// Tests cache attribute accessors.
+void
+unit_test_cache_accessors()
+{
+    static const int TEST_ASSOCIATIVITIES[] = { 1, 7, 16 };
+    static const int TEST_SET_COUNTS[] = { 16, 128, 512 }; // Must be PO2.
+    static const int TEST_LINE_SIZES[] = { 16, 64, 256 };  // Must be PO2.
+
+    int loop_count = 0;
+    for (int associativity : TEST_ASSOCIATIVITIES) {
+        for (int set_count : TEST_SET_COUNTS) {
+            for (int line_size : TEST_LINE_SIZES) {
+                // Just cycle through these combinations.  No need to be exhaustive.
+                bool inclusive = TESTANY(0x1, loop_count);
+                bool coherent = TESTANY(0x2, loop_count);
+                ++loop_count;
+
+                int total_size = associativity * set_count * line_size;
+                std::string cache_name = "Test" + std::to_string(total_size);
+                caching_device_stats_t stats(/*miss_file=*/"", line_size);
+                // Only test LRU here.  Other replacement policy accessors are
+                // tested in the cache_replacement_policy_unit_test.
+                cache_lru_t cache(cache_name);
+                bool initialized =
+                    cache.init(associativity, line_size, total_size,
+                               /*parent=*/nullptr, &stats,
+                               /*prefetcher=*/nullptr, inclusive, coherent);
+                assert(initialized);
+                assert(cache.get_stats() == &stats);
+                assert(stats.get_caching_device() == &cache);
+                assert(cache.get_name() == cache_name);
+                assert(cache.get_replace_policy() == "LRU");
+                assert(cache.get_associativity() == associativity);
+                assert(cache.get_size_bytes() == total_size);
+                assert(cache.get_block_size() == line_size);
+                assert(cache.get_num_blocks() == total_size / line_size);
+                assert(cache.is_inclusive() == inclusive);
+                assert(cache.is_coherent() == coherent);
+            }
+        }
+    }
+}
+
 int
 test_main(int argc, const char *argv[])
 {
     // Takes in a path to the tests/ src dir.
     assert(argc == 2);
 
+    unit_test_cache_accessors();
     unit_test_config_reader(argv[1]);
     unit_test_cache_associativity();
     unit_test_cache_size();
@@ -567,3 +617,6 @@ test_main(int argc, const char *argv[])
     unit_test_cache_replacement_policy();
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

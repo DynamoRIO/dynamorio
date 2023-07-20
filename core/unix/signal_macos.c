@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -152,10 +152,14 @@ void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
 #ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif
-
-#ifdef X86
+    _STRUCT_ARM_NEON_STATE64 *fpc = (_STRUCT_ARM_NEON_STATE64 *)sc_full->fp_simd_state;
+    if (fpc == NULL)
+        return;
+    mc->fpsr = fpc->__fpsr;
+    mc->fpcr = fpc->__fpcr;
+    ASSERT(sizeof(mc->simd) == sizeof(fpc->__v));
+    memcpy(&mc->simd, &fpc->__v, sizeof(mc->simd));
+#elif defined(X86)
     /* We assume that _STRUCT_X86_FLOAT_STATE* matches exactly the first
      * half of _STRUCT_X86_AVX_STATE*, and similarly for AVX and AVX512.
      */
@@ -190,8 +194,15 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 void
 mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
-    IF_AARCHXX(ASSERT_NOT_REACHED());
-#ifdef X86
+#ifdef AARCH64
+    _STRUCT_ARM_NEON_STATE64 *fpc = (_STRUCT_ARM_NEON_STATE64 *)sc_full->fp_simd_state;
+    if (fpc == NULL)
+        return;
+    fpc->__fpsr = mc->fpsr;
+    fpc->__fpcr = mc->fpcr;
+    ASSERT(sizeof(mc->simd) == sizeof(fpc->__v));
+    memcpy(&fpc->__v, &mc->simd, sizeof(mc->simd));
+#elif defined(X86)
     sigcontext_t *sc = sc_full->sc;
     int i;
     for (i = 0; i < proc_num_simd_registers(); i++) {
@@ -223,8 +234,19 @@ mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 static void
 dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
 {
-    IF_AARCHXX(ASSERT_NOT_REACHED());
-#ifdef X86
+#ifdef AARCH64
+    _STRUCT_ARM_NEON_STATE64 *fpc = &sc->__ns;
+    LOG(THREAD, LOG_ASYNCH, 1, "\tfpsr=0x%08x\n", fpc->__fpsr);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tfpcr=0x%08x\n", fpc->__fpcr);
+    int i, j;
+    for (i = 0; i < sizeof(fpc->__v) / sizeof(fpc->__v[0]); i++) {
+        LOG(THREAD, LOG_ASYNCH, 1, "\tv[%d] = 0x", i);
+        for (j = 0; j < 4; j++) {
+            LOG(THREAD, LOG_ASYNCH, 1, "%08x", *(((uint *)&fpc->__v[i]) + j));
+        }
+        LOG(THREAD, LOG_ASYNCH, 1, "\n");
+    }
+#elif defined(X86)
     int i, j;
     LOG(THREAD, LOG_ASYNCH, 1, "\tfcw=0x%04x\n", *(ushort *)&sc->__fs.__fpu_fcw);
     LOG(THREAD, LOG_ASYNCH, 1, "\tfsw=0x%04x\n", *(ushort *)&sc->__fs.__fpu_fsw);
@@ -306,8 +328,17 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\terr=0x%08x\n", sc->__es.__err);
     LOG(THREAD, LOG_ASYNCH, 1, "\tfaultvaddr=" PFX "\n", sc->__es.__faultvaddr);
 #else
-    /* TODO i#5383: NYI. */
-    LOG(THREAD, LOG_ASYNCH, 1, "\tTODO: AARCH64 DUMP\n");
+    LOG(THREAD, LOG_ASYNCH, 1, "\tfault=" PFX "\n", sc->__es.__far);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tesr=0x08x\n", sc->__es.__esr);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tcount=0x%08x\n", sc->__es.__exception);
+    int i;
+    for (i = 0; i < 29; i++)
+        LOG(THREAD, LOG_ASYNCH, 1, "\tr%d=" PFX "\n", i, sc->__ss.__x[i]);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tfp=" PFX "\n", sc->__ss.__fp);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tlr=" PFX "\n", sc->__ss.__lr);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tsp=" PFX "\n", sc->__ss.__sp);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tpc=" PFX "\n", sc->__ss.__pc);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tcpsr=0x%08x\n", sc->__ss.__cpsr);
 #endif
 
     dump_fpstate(dcontext, sc);

@@ -41,6 +41,9 @@
 #include "../common/trace_entry.h"
 #include <map>
 
+namespace dynamorio {
+namespace drmemtrace {
+
 class prefetch_analyzer_t : public analysis_tool_t {
 public:
     bool
@@ -51,5 +54,8 @@ public:
 protected:
     std::map<trace_type_t, int> trace_type_freq_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _PREFETCH_ANALYZER_H_ */

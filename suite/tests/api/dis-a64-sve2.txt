@@ -708,6 +708,42 @@
 44dd1f9b : cdot z27.d, z28.h, z29.h, #0x10e          : cdot   %z27.d %z28.h %z29.h $0x010e -> %z27.d
 44df1fff : cdot z31.d, z31.h, z31.h, #0x10e          : cdot   %z31.d %z31.h %z31.h $0x010e -> %z31.d
 
+# CDOT    <Zda>.S, <Zn>.B, <Zm>.B[<imm>], <const> (CDOT-Z.ZZZi-S)
+44a04000 : cdot z0.s, z0.b, z0.b[0], #0x0            : cdot   %z0.s %z0.b %z0.b $0x00 $0x0000 -> %z0.s
+44a24062 : cdot z2.s, z3.b, z2.b[0], #0x0            : cdot   %z2.s %z3.b %z2.b $0x00 $0x0000 -> %z2.s
+44a340a4 : cdot z4.s, z5.b, z3.b[0], #0x0            : cdot   %z4.s %z5.b %z3.b $0x00 $0x0000 -> %z4.s
+44ab44e6 : cdot z6.s, z7.b, z3.b[1], #0x5a           : cdot   %z6.s %z7.b %z3.b $0x01 $0x005a -> %z6.s
+44ac4528 : cdot z8.s, z9.b, z4.b[1], #0x5a           : cdot   %z8.s %z9.b %z4.b $0x01 $0x005a -> %z8.s
+44ac456a : cdot z10.s, z11.b, z4.b[1], #0x5a         : cdot   %z10.s %z11.b %z4.b $0x01 $0x005a -> %z10.s
+44ad45ac : cdot z12.s, z13.b, z5.b[1], #0x5a         : cdot   %z12.s %z13.b %z5.b $0x01 $0x005a -> %z12.s
+44ad45ee : cdot z14.s, z15.b, z5.b[1], #0x5a         : cdot   %z14.s %z15.b %z5.b $0x01 $0x005a -> %z14.s
+44b64a30 : cdot z16.s, z17.b, z6.b[2], #0xb4         : cdot   %z16.s %z17.b %z6.b $0x02 $0x00b4 -> %z16.s
+44b64a51 : cdot z17.s, z18.b, z6.b[2], #0xb4         : cdot   %z17.s %z18.b %z6.b $0x02 $0x00b4 -> %z17.s
+44b64a93 : cdot z19.s, z20.b, z6.b[2], #0xb4         : cdot   %z19.s %z20.b %z6.b $0x02 $0x00b4 -> %z19.s
+44b74ad5 : cdot z21.s, z22.b, z7.b[2], #0xb4         : cdot   %z21.s %z22.b %z7.b $0x02 $0x00b4 -> %z21.s
+44b74b17 : cdot z23.s, z24.b, z7.b[2], #0xb4         : cdot   %z23.s %z24.b %z7.b $0x02 $0x00b4 -> %z23.s
+44b04b59 : cdot z25.s, z26.b, z0.b[2], #0xb4         : cdot   %z25.s %z26.b %z0.b $0x02 $0x00b4 -> %z25.s
+44b84f9b : cdot z27.s, z28.b, z0.b[3], #0x10e        : cdot   %z27.s %z28.b %z0.b $0x03 $0x010e -> %z27.s
+44bf4fff : cdot z31.s, z31.b, z7.b[3], #0x10e        : cdot   %z31.s %z31.b %z7.b $0x03 $0x010e -> %z31.s
+
+# CDOT    <Zda>.D, <Zn>.H, <Zm>.H[<imm>], <const> (CDOT-Z.ZZZi-D)
+44e04000 : cdot z0.d, z0.h, z0.h[0], #0x0            : cdot   %z0.d %z0.h %z0.h $0x00 $0x0000 -> %z0.d
+44e34062 : cdot z2.d, z3.h, z3.h[0], #0x0            : cdot   %z2.d %z3.h %z3.h $0x00 $0x0000 -> %z2.d
+44e440a4 : cdot z4.d, z5.h, z4.h[0], #0x0            : cdot   %z4.d %z5.h %z4.h $0x00 $0x0000 -> %z4.d
+44e544e6 : cdot z6.d, z7.h, z5.h[0], #0x5a           : cdot   %z6.d %z7.h %z5.h $0x00 $0x005a -> %z6.d
+44e64528 : cdot z8.d, z9.h, z6.h[0], #0x5a           : cdot   %z8.d %z9.h %z6.h $0x00 $0x005a -> %z8.d
+44e7456a : cdot z10.d, z11.h, z7.h[0], #0x5a         : cdot   %z10.d %z11.h %z7.h $0x00 $0x005a -> %z10.d
+44e845ac : cdot z12.d, z13.h, z8.h[0], #0x5a         : cdot   %z12.d %z13.h %z8.h $0x00 $0x005a -> %z12.d
+44e945ee : cdot z14.d, z15.h, z9.h[0], #0x5a         : cdot   %z14.d %z15.h %z9.h $0x00 $0x005a -> %z14.d
+44ea4a30 : cdot z16.d, z17.h, z10.h[0], #0xb4        : cdot   %z16.d %z17.h %z10.h $0x00 $0x00b4 -> %z16.d
+44fa4a51 : cdot z17.d, z18.h, z10.h[1], #0xb4        : cdot   %z17.d %z18.h %z10.h $0x01 $0x00b4 -> %z17.d
+44fb4a93 : cdot z19.d, z20.h, z11.h[1], #0xb4        : cdot   %z19.d %z20.h %z11.h $0x01 $0x00b4 -> %z19.d
+44fc4ad5 : cdot z21.d, z22.h, z12.h[1], #0xb4        : cdot   %z21.d %z22.h %z12.h $0x01 $0x00b4 -> %z21.d
+44fd4b17 : cdot z23.d, z24.h, z13.h[1], #0xb4        : cdot   %z23.d %z24.h %z13.h $0x01 $0x00b4 -> %z23.d
+44fe4b59 : cdot z25.d, z26.h, z14.h[1], #0xb4        : cdot   %z25.d %z26.h %z14.h $0x01 $0x00b4 -> %z25.d
+44ff4f9b : cdot z27.d, z28.h, z15.h[1], #0x10e       : cdot   %z27.d %z28.h %z15.h $0x01 $0x010e -> %z27.d
+44ff4fff : cdot z31.d, z31.h, z15.h[1], #0x10e       : cdot   %z31.d %z31.h %z15.h $0x01 $0x010e -> %z31.d
+
 # CMLA    <Zda>.<T>, <Zn>.<T>, <Zm>.<T>, <const> (CMLA-Z.ZZZ-_)
 44002000 : cmla z0.b, z0.b, z0.b, #0x0               : cmla   %z0.b %z0.b %z0.b $0x0000 -> %z0.b
 44042062 : cmla z2.b, z3.b, z4.b, #0x0               : cmla   %z2.b %z3.b %z4.b $0x0000 -> %z2.b
@@ -773,6 +809,42 @@
 44db2b59 : cmla z25.d, z26.d, z27.d, #0xb4           : cmla   %z25.d %z26.d %z27.d $0x00b4 -> %z25.d
 44dd2f9b : cmla z27.d, z28.d, z29.d, #0x10e          : cmla   %z27.d %z28.d %z29.d $0x010e -> %z27.d
 44df2fff : cmla z31.d, z31.d, z31.d, #0x10e          : cmla   %z31.d %z31.d %z31.d $0x010e -> %z31.d
+
+# CMLA    <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const> (CMLA-Z.ZZZi-H)
+44a06000 : cmla z0.h, z0.h, z0.h[0], #0x0            : cmla   %z0.h %z0.h %z0.h $0x00 $0x0000 -> %z0.h
+44a26062 : cmla z2.h, z3.h, z2.h[0], #0x0            : cmla   %z2.h %z3.h %z2.h $0x00 $0x0000 -> %z2.h
+44a360a4 : cmla z4.h, z5.h, z3.h[0], #0x0            : cmla   %z4.h %z5.h %z3.h $0x00 $0x0000 -> %z4.h
+44ab64e6 : cmla z6.h, z7.h, z3.h[1], #0x5a           : cmla   %z6.h %z7.h %z3.h $0x01 $0x005a -> %z6.h
+44ac6528 : cmla z8.h, z9.h, z4.h[1], #0x5a           : cmla   %z8.h %z9.h %z4.h $0x01 $0x005a -> %z8.h
+44ac656a : cmla z10.h, z11.h, z4.h[1], #0x5a         : cmla   %z10.h %z11.h %z4.h $0x01 $0x005a -> %z10.h
+44ad65ac : cmla z12.h, z13.h, z5.h[1], #0x5a         : cmla   %z12.h %z13.h %z5.h $0x01 $0x005a -> %z12.h
+44ad65ee : cmla z14.h, z15.h, z5.h[1], #0x5a         : cmla   %z14.h %z15.h %z5.h $0x01 $0x005a -> %z14.h
+44b66a30 : cmla z16.h, z17.h, z6.h[2], #0xb4         : cmla   %z16.h %z17.h %z6.h $0x02 $0x00b4 -> %z16.h
+44b66a51 : cmla z17.h, z18.h, z6.h[2], #0xb4         : cmla   %z17.h %z18.h %z6.h $0x02 $0x00b4 -> %z17.h
+44b66a93 : cmla z19.h, z20.h, z6.h[2], #0xb4         : cmla   %z19.h %z20.h %z6.h $0x02 $0x00b4 -> %z19.h
+44b76ad5 : cmla z21.h, z22.h, z7.h[2], #0xb4         : cmla   %z21.h %z22.h %z7.h $0x02 $0x00b4 -> %z21.h
+44b76b17 : cmla z23.h, z24.h, z7.h[2], #0xb4         : cmla   %z23.h %z24.h %z7.h $0x02 $0x00b4 -> %z23.h
+44b06b59 : cmla z25.h, z26.h, z0.h[2], #0xb4         : cmla   %z25.h %z26.h %z0.h $0x02 $0x00b4 -> %z25.h
+44b86f9b : cmla z27.h, z28.h, z0.h[3], #0x10e        : cmla   %z27.h %z28.h %z0.h $0x03 $0x010e -> %z27.h
+44bf6fff : cmla z31.h, z31.h, z7.h[3], #0x10e        : cmla   %z31.h %z31.h %z7.h $0x03 $0x010e -> %z31.h
+
+# CMLA    <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const> (CMLA-Z.ZZZi-S)
+44e06000 : cmla z0.s, z0.s, z0.s[0], #0x0            : cmla   %z0.s %z0.s %z0.s $0x00 $0x0000 -> %z0.s
+44e36062 : cmla z2.s, z3.s, z3.s[0], #0x0            : cmla   %z2.s %z3.s %z3.s $0x00 $0x0000 -> %z2.s
+44e460a4 : cmla z4.s, z5.s, z4.s[0], #0x0            : cmla   %z4.s %z5.s %z4.s $0x00 $0x0000 -> %z4.s
+44e564e6 : cmla z6.s, z7.s, z5.s[0], #0x5a           : cmla   %z6.s %z7.s %z5.s $0x00 $0x005a -> %z6.s
+44e66528 : cmla z8.s, z9.s, z6.s[0], #0x5a           : cmla   %z8.s %z9.s %z6.s $0x00 $0x005a -> %z8.s
+44e7656a : cmla z10.s, z11.s, z7.s[0], #0x5a         : cmla   %z10.s %z11.s %z7.s $0x00 $0x005a -> %z10.s
+44e865ac : cmla z12.s, z13.s, z8.s[0], #0x5a         : cmla   %z12.s %z13.s %z8.s $0x00 $0x005a -> %z12.s
+44e965ee : cmla z14.s, z15.s, z9.s[0], #0x5a         : cmla   %z14.s %z15.s %z9.s $0x00 $0x005a -> %z14.s
+44ea6a30 : cmla z16.s, z17.s, z10.s[0], #0xb4        : cmla   %z16.s %z17.s %z10.s $0x00 $0x00b4 -> %z16.s
+44fa6a51 : cmla z17.s, z18.s, z10.s[1], #0xb4        : cmla   %z17.s %z18.s %z10.s $0x01 $0x00b4 -> %z17.s
+44fb6a93 : cmla z19.s, z20.s, z11.s[1], #0xb4        : cmla   %z19.s %z20.s %z11.s $0x01 $0x00b4 -> %z19.s
+44fc6ad5 : cmla z21.s, z22.s, z12.s[1], #0xb4        : cmla   %z21.s %z22.s %z12.s $0x01 $0x00b4 -> %z21.s
+44fd6b17 : cmla z23.s, z24.s, z13.s[1], #0xb4        : cmla   %z23.s %z24.s %z13.s $0x01 $0x00b4 -> %z23.s
+44fe6b59 : cmla z25.s, z26.s, z14.s[1], #0xb4        : cmla   %z25.s %z26.s %z14.s $0x01 $0x00b4 -> %z25.s
+44ff6f9b : cmla z27.s, z28.s, z15.s[1], #0x10e       : cmla   %z27.s %z28.s %z15.s $0x01 $0x010e -> %z27.s
+44ff6fff : cmla z31.s, z31.s, z15.s[1], #0x10e       : cmla   %z31.s %z31.s %z15.s $0x01 $0x010e -> %z31.s
 
 # EOR3    <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D (EOR3-Z.ZZZ-_)
 04203800 : eor3 z0.d, z0.d, z0.d, z0.d               : eor3   %z0.d %z0.d %z0.d -> %z0.d
@@ -1528,6 +1600,130 @@
 453da39b : histseg z27.b, z28.b, z29.b               : histseg %z28.b %z29.b -> %z27.b
 453fa3ff : histseg z31.b, z31.b, z31.b               : histseg %z31.b %z31.b -> %z31.b
 
+# LDNT1SB { <Zt>.S }, <Pg>/Z, [<Zn>.S{, <Xm>}] (LDNT1SB-Z.P.AR-S.x32.unscaled)
+84008000 : ldnt1sb z0.s, p0/Z, [z0.s, x0]            : ldnt1sb (%z0.s,%x0)[8byte] %p0/z -> %z0.s
+84058482 : ldnt1sb z2.s, p1/Z, [z4.s, x5]            : ldnt1sb (%z4.s,%x5)[8byte] %p1/z -> %z2.s
+840788c4 : ldnt1sb z4.s, p2/Z, [z6.s, x7]            : ldnt1sb (%z6.s,%x7)[8byte] %p2/z -> %z4.s
+84098906 : ldnt1sb z6.s, p2/Z, [z8.s, x9]            : ldnt1sb (%z8.s,%x9)[8byte] %p2/z -> %z6.s
+840b8d48 : ldnt1sb z8.s, p3/Z, [z10.s, x11]          : ldnt1sb (%z10.s,%x11)[8byte] %p3/z -> %z8.s
+840c8d8a : ldnt1sb z10.s, p3/Z, [z12.s, x12]         : ldnt1sb (%z12.s,%x12)[8byte] %p3/z -> %z10.s
+840e91cc : ldnt1sb z12.s, p4/Z, [z14.s, x14]         : ldnt1sb (%z14.s,%x14)[8byte] %p4/z -> %z12.s
+8410920e : ldnt1sb z14.s, p4/Z, [z16.s, x16]         : ldnt1sb (%z16.s,%x16)[8byte] %p4/z -> %z14.s
+84129650 : ldnt1sb z16.s, p5/Z, [z18.s, x18]         : ldnt1sb (%z18.s,%x18)[8byte] %p5/z -> %z16.s
+84149671 : ldnt1sb z17.s, p5/Z, [z19.s, x20]         : ldnt1sb (%z19.s,%x20)[8byte] %p5/z -> %z17.s
+841696b3 : ldnt1sb z19.s, p5/Z, [z21.s, x22]         : ldnt1sb (%z21.s,%x22)[8byte] %p5/z -> %z19.s
+84189af5 : ldnt1sb z21.s, p6/Z, [z23.s, x24]         : ldnt1sb (%z23.s,%x24)[8byte] %p6/z -> %z21.s
+84199b37 : ldnt1sb z23.s, p6/Z, [z25.s, x25]         : ldnt1sb (%z25.s,%x25)[8byte] %p6/z -> %z23.s
+841b9f79 : ldnt1sb z25.s, p7/Z, [z27.s, x27]         : ldnt1sb (%z27.s,%x27)[8byte] %p7/z -> %z25.s
+841d9fbb : ldnt1sb z27.s, p7/Z, [z29.s, x29]         : ldnt1sb (%z29.s,%x29)[8byte] %p7/z -> %z27.s
+841e9fff : ldnt1sb z31.s, p7/Z, [z31.s, x30]         : ldnt1sb (%z31.s,%x30)[8byte] %p7/z -> %z31.s
+
+# LDNT1SB { <Zt>.D }, <Pg>/Z, [<Zn>.D{, <Xm>}] (LDNT1SB-Z.P.AR-D.64.unscaled)
+c4008000 : ldnt1sb z0.d, p0/Z, [z0.d, x0]            : ldnt1sb (%z0.d,%x0)[4byte] %p0/z -> %z0.d
+c4058482 : ldnt1sb z2.d, p1/Z, [z4.d, x5]            : ldnt1sb (%z4.d,%x5)[4byte] %p1/z -> %z2.d
+c40788c4 : ldnt1sb z4.d, p2/Z, [z6.d, x7]            : ldnt1sb (%z6.d,%x7)[4byte] %p2/z -> %z4.d
+c4098906 : ldnt1sb z6.d, p2/Z, [z8.d, x9]            : ldnt1sb (%z8.d,%x9)[4byte] %p2/z -> %z6.d
+c40b8d48 : ldnt1sb z8.d, p3/Z, [z10.d, x11]          : ldnt1sb (%z10.d,%x11)[4byte] %p3/z -> %z8.d
+c40c8d8a : ldnt1sb z10.d, p3/Z, [z12.d, x12]         : ldnt1sb (%z12.d,%x12)[4byte] %p3/z -> %z10.d
+c40e91cc : ldnt1sb z12.d, p4/Z, [z14.d, x14]         : ldnt1sb (%z14.d,%x14)[4byte] %p4/z -> %z12.d
+c410920e : ldnt1sb z14.d, p4/Z, [z16.d, x16]         : ldnt1sb (%z16.d,%x16)[4byte] %p4/z -> %z14.d
+c4129650 : ldnt1sb z16.d, p5/Z, [z18.d, x18]         : ldnt1sb (%z18.d,%x18)[4byte] %p5/z -> %z16.d
+c4149671 : ldnt1sb z17.d, p5/Z, [z19.d, x20]         : ldnt1sb (%z19.d,%x20)[4byte] %p5/z -> %z17.d
+c41696b3 : ldnt1sb z19.d, p5/Z, [z21.d, x22]         : ldnt1sb (%z21.d,%x22)[4byte] %p5/z -> %z19.d
+c4189af5 : ldnt1sb z21.d, p6/Z, [z23.d, x24]         : ldnt1sb (%z23.d,%x24)[4byte] %p6/z -> %z21.d
+c4199b37 : ldnt1sb z23.d, p6/Z, [z25.d, x25]         : ldnt1sb (%z25.d,%x25)[4byte] %p6/z -> %z23.d
+c41b9f79 : ldnt1sb z25.d, p7/Z, [z27.d, x27]         : ldnt1sb (%z27.d,%x27)[4byte] %p7/z -> %z25.d
+c41d9fbb : ldnt1sb z27.d, p7/Z, [z29.d, x29]         : ldnt1sb (%z29.d,%x29)[4byte] %p7/z -> %z27.d
+c41e9fff : ldnt1sb z31.d, p7/Z, [z31.d, x30]         : ldnt1sb (%z31.d,%x30)[4byte] %p7/z -> %z31.d
+
+# LDNT1SH { <Zt>.S }, <Pg>/Z, [<Zn>.S{, <Xm>}] (LDNT1SH-Z.P.AR-S.x32.unscaled)
+84808000 : ldnt1sh z0.s, p0/Z, [z0.s, x0]            : ldnt1sh (%z0.s,%x0)[16byte] %p0/z -> %z0.s
+84858482 : ldnt1sh z2.s, p1/Z, [z4.s, x5]            : ldnt1sh (%z4.s,%x5)[16byte] %p1/z -> %z2.s
+848788c4 : ldnt1sh z4.s, p2/Z, [z6.s, x7]            : ldnt1sh (%z6.s,%x7)[16byte] %p2/z -> %z4.s
+84898906 : ldnt1sh z6.s, p2/Z, [z8.s, x9]            : ldnt1sh (%z8.s,%x9)[16byte] %p2/z -> %z6.s
+848b8d48 : ldnt1sh z8.s, p3/Z, [z10.s, x11]          : ldnt1sh (%z10.s,%x11)[16byte] %p3/z -> %z8.s
+848c8d8a : ldnt1sh z10.s, p3/Z, [z12.s, x12]         : ldnt1sh (%z12.s,%x12)[16byte] %p3/z -> %z10.s
+848e91cc : ldnt1sh z12.s, p4/Z, [z14.s, x14]         : ldnt1sh (%z14.s,%x14)[16byte] %p4/z -> %z12.s
+8490920e : ldnt1sh z14.s, p4/Z, [z16.s, x16]         : ldnt1sh (%z16.s,%x16)[16byte] %p4/z -> %z14.s
+84929650 : ldnt1sh z16.s, p5/Z, [z18.s, x18]         : ldnt1sh (%z18.s,%x18)[16byte] %p5/z -> %z16.s
+84949671 : ldnt1sh z17.s, p5/Z, [z19.s, x20]         : ldnt1sh (%z19.s,%x20)[16byte] %p5/z -> %z17.s
+849696b3 : ldnt1sh z19.s, p5/Z, [z21.s, x22]         : ldnt1sh (%z21.s,%x22)[16byte] %p5/z -> %z19.s
+84989af5 : ldnt1sh z21.s, p6/Z, [z23.s, x24]         : ldnt1sh (%z23.s,%x24)[16byte] %p6/z -> %z21.s
+84999b37 : ldnt1sh z23.s, p6/Z, [z25.s, x25]         : ldnt1sh (%z25.s,%x25)[16byte] %p6/z -> %z23.s
+849b9f79 : ldnt1sh z25.s, p7/Z, [z27.s, x27]         : ldnt1sh (%z27.s,%x27)[16byte] %p7/z -> %z25.s
+849d9fbb : ldnt1sh z27.s, p7/Z, [z29.s, x29]         : ldnt1sh (%z29.s,%x29)[16byte] %p7/z -> %z27.s
+849e9fff : ldnt1sh z31.s, p7/Z, [z31.s, x30]         : ldnt1sh (%z31.s,%x30)[16byte] %p7/z -> %z31.s
+
+# LDNT1SH { <Zt>.D }, <Pg>/Z, [<Zn>.D{, <Xm>}] (LDNT1SH-Z.P.AR-D.64.unscaled)
+c4808000 : ldnt1sh z0.d, p0/Z, [z0.d, x0]            : ldnt1sh (%z0.d,%x0)[8byte] %p0/z -> %z0.d
+c4858482 : ldnt1sh z2.d, p1/Z, [z4.d, x5]            : ldnt1sh (%z4.d,%x5)[8byte] %p1/z -> %z2.d
+c48788c4 : ldnt1sh z4.d, p2/Z, [z6.d, x7]            : ldnt1sh (%z6.d,%x7)[8byte] %p2/z -> %z4.d
+c4898906 : ldnt1sh z6.d, p2/Z, [z8.d, x9]            : ldnt1sh (%z8.d,%x9)[8byte] %p2/z -> %z6.d
+c48b8d48 : ldnt1sh z8.d, p3/Z, [z10.d, x11]          : ldnt1sh (%z10.d,%x11)[8byte] %p3/z -> %z8.d
+c48c8d8a : ldnt1sh z10.d, p3/Z, [z12.d, x12]         : ldnt1sh (%z12.d,%x12)[8byte] %p3/z -> %z10.d
+c48e91cc : ldnt1sh z12.d, p4/Z, [z14.d, x14]         : ldnt1sh (%z14.d,%x14)[8byte] %p4/z -> %z12.d
+c490920e : ldnt1sh z14.d, p4/Z, [z16.d, x16]         : ldnt1sh (%z16.d,%x16)[8byte] %p4/z -> %z14.d
+c4929650 : ldnt1sh z16.d, p5/Z, [z18.d, x18]         : ldnt1sh (%z18.d,%x18)[8byte] %p5/z -> %z16.d
+c4949671 : ldnt1sh z17.d, p5/Z, [z19.d, x20]         : ldnt1sh (%z19.d,%x20)[8byte] %p5/z -> %z17.d
+c49696b3 : ldnt1sh z19.d, p5/Z, [z21.d, x22]         : ldnt1sh (%z21.d,%x22)[8byte] %p5/z -> %z19.d
+c4989af5 : ldnt1sh z21.d, p6/Z, [z23.d, x24]         : ldnt1sh (%z23.d,%x24)[8byte] %p6/z -> %z21.d
+c4999b37 : ldnt1sh z23.d, p6/Z, [z25.d, x25]         : ldnt1sh (%z25.d,%x25)[8byte] %p6/z -> %z23.d
+c49b9f79 : ldnt1sh z25.d, p7/Z, [z27.d, x27]         : ldnt1sh (%z27.d,%x27)[8byte] %p7/z -> %z25.d
+c49d9fbb : ldnt1sh z27.d, p7/Z, [z29.d, x29]         : ldnt1sh (%z29.d,%x29)[8byte] %p7/z -> %z27.d
+c49e9fff : ldnt1sh z31.d, p7/Z, [z31.d, x30]         : ldnt1sh (%z31.d,%x30)[8byte] %p7/z -> %z31.d
+
+# LDNT1SW { <Zt>.D }, <Pg>/Z, [<Zn>.D{, <Xm>}] (LDNT1SW-Z.P.AR-D.64.unscaled)
+c5008000 : ldnt1sw z0.d, p0/Z, [z0.d, x0]            : ldnt1sw (%z0.d,%x0)[16byte] %p0/z -> %z0.d
+c5058482 : ldnt1sw z2.d, p1/Z, [z4.d, x5]            : ldnt1sw (%z4.d,%x5)[16byte] %p1/z -> %z2.d
+c50788c4 : ldnt1sw z4.d, p2/Z, [z6.d, x7]            : ldnt1sw (%z6.d,%x7)[16byte] %p2/z -> %z4.d
+c5098906 : ldnt1sw z6.d, p2/Z, [z8.d, x9]            : ldnt1sw (%z8.d,%x9)[16byte] %p2/z -> %z6.d
+c50b8d48 : ldnt1sw z8.d, p3/Z, [z10.d, x11]          : ldnt1sw (%z10.d,%x11)[16byte] %p3/z -> %z8.d
+c50c8d8a : ldnt1sw z10.d, p3/Z, [z12.d, x12]         : ldnt1sw (%z12.d,%x12)[16byte] %p3/z -> %z10.d
+c50e91cc : ldnt1sw z12.d, p4/Z, [z14.d, x14]         : ldnt1sw (%z14.d,%x14)[16byte] %p4/z -> %z12.d
+c510920e : ldnt1sw z14.d, p4/Z, [z16.d, x16]         : ldnt1sw (%z16.d,%x16)[16byte] %p4/z -> %z14.d
+c5129650 : ldnt1sw z16.d, p5/Z, [z18.d, x18]         : ldnt1sw (%z18.d,%x18)[16byte] %p5/z -> %z16.d
+c5149671 : ldnt1sw z17.d, p5/Z, [z19.d, x20]         : ldnt1sw (%z19.d,%x20)[16byte] %p5/z -> %z17.d
+c51696b3 : ldnt1sw z19.d, p5/Z, [z21.d, x22]         : ldnt1sw (%z21.d,%x22)[16byte] %p5/z -> %z19.d
+c5189af5 : ldnt1sw z21.d, p6/Z, [z23.d, x24]         : ldnt1sw (%z23.d,%x24)[16byte] %p6/z -> %z21.d
+c5199b37 : ldnt1sw z23.d, p6/Z, [z25.d, x25]         : ldnt1sw (%z25.d,%x25)[16byte] %p6/z -> %z23.d
+c51b9f79 : ldnt1sw z25.d, p7/Z, [z27.d, x27]         : ldnt1sw (%z27.d,%x27)[16byte] %p7/z -> %z25.d
+c51d9fbb : ldnt1sw z27.d, p7/Z, [z29.d, x29]         : ldnt1sw (%z29.d,%x29)[16byte] %p7/z -> %z27.d
+c51e9fff : ldnt1sw z31.d, p7/Z, [z31.d, x30]         : ldnt1sw (%z31.d,%x30)[16byte] %p7/z -> %z31.d
+
+# MATCH   <Pd>.<T>, <Pg>/Z, <Zn>.<T>, <Zm>.<T> (MATCH-P.P.ZZ-_)
+45208000 : match p0.b, p0/Z, z0.b, z0.b              : match  %p0/z %z0.b %z0.b -> %p0.b
+45258481 : match p1.b, p1/Z, z4.b, z5.b              : match  %p1/z %z4.b %z5.b -> %p1.b
+452788c2 : match p2.b, p2/Z, z6.b, z7.b              : match  %p2/z %z6.b %z7.b -> %p2.b
+45298903 : match p3.b, p2/Z, z8.b, z9.b              : match  %p2/z %z8.b %z9.b -> %p3.b
+452b8d44 : match p4.b, p3/Z, z10.b, z11.b            : match  %p3/z %z10.b %z11.b -> %p4.b
+452d8d85 : match p5.b, p3/Z, z12.b, z13.b            : match  %p3/z %z12.b %z13.b -> %p5.b
+452f91c6 : match p6.b, p4/Z, z14.b, z15.b            : match  %p4/z %z14.b %z15.b -> %p6.b
+45319207 : match p7.b, p4/Z, z16.b, z17.b            : match  %p4/z %z16.b %z17.b -> %p7.b
+45339648 : match p8.b, p5/Z, z18.b, z19.b            : match  %p5/z %z18.b %z19.b -> %p8.b
+45349668 : match p8.b, p5/Z, z19.b, z20.b            : match  %p5/z %z19.b %z20.b -> %p8.b
+453696a9 : match p9.b, p5/Z, z21.b, z22.b            : match  %p5/z %z21.b %z22.b -> %p9.b
+45389aea : match p10.b, p6/Z, z23.b, z24.b           : match  %p6/z %z23.b %z24.b -> %p10.b
+453a9b2b : match p11.b, p6/Z, z25.b, z26.b           : match  %p6/z %z25.b %z26.b -> %p11.b
+453c9f6c : match p12.b, p7/Z, z27.b, z28.b           : match  %p7/z %z27.b %z28.b -> %p12.b
+453e9fad : match p13.b, p7/Z, z29.b, z30.b           : match  %p7/z %z29.b %z30.b -> %p13.b
+453f9fef : match p15.b, p7/Z, z31.b, z31.b           : match  %p7/z %z31.b %z31.b -> %p15.b
+45608000 : match p0.h, p0/Z, z0.h, z0.h              : match  %p0/z %z0.h %z0.h -> %p0.h
+45658481 : match p1.h, p1/Z, z4.h, z5.h              : match  %p1/z %z4.h %z5.h -> %p1.h
+456788c2 : match p2.h, p2/Z, z6.h, z7.h              : match  %p2/z %z6.h %z7.h -> %p2.h
+45698903 : match p3.h, p2/Z, z8.h, z9.h              : match  %p2/z %z8.h %z9.h -> %p3.h
+456b8d44 : match p4.h, p3/Z, z10.h, z11.h            : match  %p3/z %z10.h %z11.h -> %p4.h
+456d8d85 : match p5.h, p3/Z, z12.h, z13.h            : match  %p3/z %z12.h %z13.h -> %p5.h
+456f91c6 : match p6.h, p4/Z, z14.h, z15.h            : match  %p4/z %z14.h %z15.h -> %p6.h
+45719207 : match p7.h, p4/Z, z16.h, z17.h            : match  %p4/z %z16.h %z17.h -> %p7.h
+45739648 : match p8.h, p5/Z, z18.h, z19.h            : match  %p5/z %z18.h %z19.h -> %p8.h
+45749668 : match p8.h, p5/Z, z19.h, z20.h            : match  %p5/z %z19.h %z20.h -> %p8.h
+457696a9 : match p9.h, p5/Z, z21.h, z22.h            : match  %p5/z %z21.h %z22.h -> %p9.h
+45789aea : match p10.h, p6/Z, z23.h, z24.h           : match  %p6/z %z23.h %z24.h -> %p10.h
+457a9b2b : match p11.h, p6/Z, z25.h, z26.h           : match  %p6/z %z25.h %z26.h -> %p11.h
+457c9f6c : match p12.h, p7/Z, z27.h, z28.h           : match  %p7/z %z27.h %z28.h -> %p12.h
+457e9fad : match p13.h, p7/Z, z29.h, z30.h           : match  %p7/z %z29.h %z30.h -> %p13.h
+457f9fef : match p15.h, p7/Z, z31.h, z31.h           : match  %p7/z %z31.h %z31.h -> %p15.h
+
 # NBSL    <Zdn>.D, <Zdn>.D, <Zm>.D, <Zk>.D (NBSL-Z.ZZZ-_)
 04e03c00 : nbsl z0.d, z0.d, z0.d, z0.d               : nbsl   %z0.d %z0.d %z0.d -> %z0.d
 04e33c82 : nbsl z2.d, z2.d, z3.d, z4.d               : nbsl   %z2.d %z3.d %z4.d -> %z2.d
@@ -1545,6 +1741,40 @@
 04fa3f79 : nbsl z25.d, z25.d, z26.d, z27.d           : nbsl   %z25.d %z26.d %z27.d -> %z25.d
 04fc3fbb : nbsl z27.d, z27.d, z28.d, z29.d           : nbsl   %z27.d %z28.d %z29.d -> %z27.d
 04ff3fff : nbsl z31.d, z31.d, z31.d, z31.d           : nbsl   %z31.d %z31.d %z31.d -> %z31.d
+
+# NMATCH  <Pd>.<T>, <Pg>/Z, <Zn>.<T>, <Zm>.<T> (NMATCH-P.P.ZZ-_)
+45208010 : nmatch p0.b, p0/Z, z0.b, z0.b             : nmatch %p0/z %z0.b %z0.b -> %p0.b
+45258491 : nmatch p1.b, p1/Z, z4.b, z5.b             : nmatch %p1/z %z4.b %z5.b -> %p1.b
+452788d2 : nmatch p2.b, p2/Z, z6.b, z7.b             : nmatch %p2/z %z6.b %z7.b -> %p2.b
+45298913 : nmatch p3.b, p2/Z, z8.b, z9.b             : nmatch %p2/z %z8.b %z9.b -> %p3.b
+452b8d54 : nmatch p4.b, p3/Z, z10.b, z11.b           : nmatch %p3/z %z10.b %z11.b -> %p4.b
+452d8d95 : nmatch p5.b, p3/Z, z12.b, z13.b           : nmatch %p3/z %z12.b %z13.b -> %p5.b
+452f91d6 : nmatch p6.b, p4/Z, z14.b, z15.b           : nmatch %p4/z %z14.b %z15.b -> %p6.b
+45319217 : nmatch p7.b, p4/Z, z16.b, z17.b           : nmatch %p4/z %z16.b %z17.b -> %p7.b
+45339658 : nmatch p8.b, p5/Z, z18.b, z19.b           : nmatch %p5/z %z18.b %z19.b -> %p8.b
+45349678 : nmatch p8.b, p5/Z, z19.b, z20.b           : nmatch %p5/z %z19.b %z20.b -> %p8.b
+453696b9 : nmatch p9.b, p5/Z, z21.b, z22.b           : nmatch %p5/z %z21.b %z22.b -> %p9.b
+45389afa : nmatch p10.b, p6/Z, z23.b, z24.b          : nmatch %p6/z %z23.b %z24.b -> %p10.b
+453a9b3b : nmatch p11.b, p6/Z, z25.b, z26.b          : nmatch %p6/z %z25.b %z26.b -> %p11.b
+453c9f7c : nmatch p12.b, p7/Z, z27.b, z28.b          : nmatch %p7/z %z27.b %z28.b -> %p12.b
+453e9fbd : nmatch p13.b, p7/Z, z29.b, z30.b          : nmatch %p7/z %z29.b %z30.b -> %p13.b
+453f9fff : nmatch p15.b, p7/Z, z31.b, z31.b          : nmatch %p7/z %z31.b %z31.b -> %p15.b
+45608010 : nmatch p0.h, p0/Z, z0.h, z0.h             : nmatch %p0/z %z0.h %z0.h -> %p0.h
+45658491 : nmatch p1.h, p1/Z, z4.h, z5.h             : nmatch %p1/z %z4.h %z5.h -> %p1.h
+456788d2 : nmatch p2.h, p2/Z, z6.h, z7.h             : nmatch %p2/z %z6.h %z7.h -> %p2.h
+45698913 : nmatch p3.h, p2/Z, z8.h, z9.h             : nmatch %p2/z %z8.h %z9.h -> %p3.h
+456b8d54 : nmatch p4.h, p3/Z, z10.h, z11.h           : nmatch %p3/z %z10.h %z11.h -> %p4.h
+456d8d95 : nmatch p5.h, p3/Z, z12.h, z13.h           : nmatch %p3/z %z12.h %z13.h -> %p5.h
+456f91d6 : nmatch p6.h, p4/Z, z14.h, z15.h           : nmatch %p4/z %z14.h %z15.h -> %p6.h
+45719217 : nmatch p7.h, p4/Z, z16.h, z17.h           : nmatch %p4/z %z16.h %z17.h -> %p7.h
+45739658 : nmatch p8.h, p5/Z, z18.h, z19.h           : nmatch %p5/z %z18.h %z19.h -> %p8.h
+45749678 : nmatch p8.h, p5/Z, z19.h, z20.h           : nmatch %p5/z %z19.h %z20.h -> %p8.h
+457696b9 : nmatch p9.h, p5/Z, z21.h, z22.h           : nmatch %p5/z %z21.h %z22.h -> %p9.h
+45789afa : nmatch p10.h, p6/Z, z23.h, z24.h          : nmatch %p6/z %z23.h %z24.h -> %p10.h
+457a9b3b : nmatch p11.h, p6/Z, z25.h, z26.h          : nmatch %p6/z %z25.h %z26.h -> %p11.h
+457c9f7c : nmatch p12.h, p7/Z, z27.h, z28.h          : nmatch %p7/z %z27.h %z28.h -> %p12.h
+457e9fbd : nmatch p13.h, p7/Z, z29.h, z30.h          : nmatch %p7/z %z29.h %z30.h -> %p13.h
+457f9fff : nmatch p15.h, p7/Z, z31.h, z31.h          : nmatch %p7/z %z31.h %z31.h -> %p15.h
 
 # PMUL    <Zd>.B, <Zn>.B, <Zm>.B (PMUL-Z.ZZ-_)
 04206400 : pmul z0.b, z0.b, z0.b                     : pmul   %z0.b %z0.b -> %z0.b
@@ -4631,6 +4861,42 @@
 44db3b59 : sqrdcmlah z25.d, z26.d, z27.d, #0xb4      : sqrdcmlah %z25.d %z26.d %z27.d $0x00b4 -> %z25.d
 44dd3f9b : sqrdcmlah z27.d, z28.d, z29.d, #0x10e     : sqrdcmlah %z27.d %z28.d %z29.d $0x010e -> %z27.d
 44df3fff : sqrdcmlah z31.d, z31.d, z31.d, #0x10e     : sqrdcmlah %z31.d %z31.d %z31.d $0x010e -> %z31.d
+
+# SQRDCMLAH <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const> (SQRDCMLAH-Z.ZZZi-H)
+44a07000 : sqrdcmlah z0.h, z0.h, z0.h[0], #0x0       : sqrdcmlah %z0.h %z0.h %z0.h $0x00 $0x0000 -> %z0.h
+44a27062 : sqrdcmlah z2.h, z3.h, z2.h[0], #0x0       : sqrdcmlah %z2.h %z3.h %z2.h $0x00 $0x0000 -> %z2.h
+44a370a4 : sqrdcmlah z4.h, z5.h, z3.h[0], #0x0       : sqrdcmlah %z4.h %z5.h %z3.h $0x00 $0x0000 -> %z4.h
+44ab74e6 : sqrdcmlah z6.h, z7.h, z3.h[1], #0x5a      : sqrdcmlah %z6.h %z7.h %z3.h $0x01 $0x005a -> %z6.h
+44ac7528 : sqrdcmlah z8.h, z9.h, z4.h[1], #0x5a      : sqrdcmlah %z8.h %z9.h %z4.h $0x01 $0x005a -> %z8.h
+44ac756a : sqrdcmlah z10.h, z11.h, z4.h[1], #0x5a    : sqrdcmlah %z10.h %z11.h %z4.h $0x01 $0x005a -> %z10.h
+44ad75ac : sqrdcmlah z12.h, z13.h, z5.h[1], #0x5a    : sqrdcmlah %z12.h %z13.h %z5.h $0x01 $0x005a -> %z12.h
+44ad75ee : sqrdcmlah z14.h, z15.h, z5.h[1], #0x5a    : sqrdcmlah %z14.h %z15.h %z5.h $0x01 $0x005a -> %z14.h
+44b67a30 : sqrdcmlah z16.h, z17.h, z6.h[2], #0xb4    : sqrdcmlah %z16.h %z17.h %z6.h $0x02 $0x00b4 -> %z16.h
+44b67a51 : sqrdcmlah z17.h, z18.h, z6.h[2], #0xb4    : sqrdcmlah %z17.h %z18.h %z6.h $0x02 $0x00b4 -> %z17.h
+44b67a93 : sqrdcmlah z19.h, z20.h, z6.h[2], #0xb4    : sqrdcmlah %z19.h %z20.h %z6.h $0x02 $0x00b4 -> %z19.h
+44b77ad5 : sqrdcmlah z21.h, z22.h, z7.h[2], #0xb4    : sqrdcmlah %z21.h %z22.h %z7.h $0x02 $0x00b4 -> %z21.h
+44b77b17 : sqrdcmlah z23.h, z24.h, z7.h[2], #0xb4    : sqrdcmlah %z23.h %z24.h %z7.h $0x02 $0x00b4 -> %z23.h
+44b07b59 : sqrdcmlah z25.h, z26.h, z0.h[2], #0xb4    : sqrdcmlah %z25.h %z26.h %z0.h $0x02 $0x00b4 -> %z25.h
+44b87f9b : sqrdcmlah z27.h, z28.h, z0.h[3], #0x10e   : sqrdcmlah %z27.h %z28.h %z0.h $0x03 $0x010e -> %z27.h
+44bf7fff : sqrdcmlah z31.h, z31.h, z7.h[3], #0x10e   : sqrdcmlah %z31.h %z31.h %z7.h $0x03 $0x010e -> %z31.h
+
+# SQRDCMLAH <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const> (SQRDCMLAH-Z.ZZZi-S)
+44e07000 : sqrdcmlah z0.s, z0.s, z0.s[0], #0x0       : sqrdcmlah %z0.s %z0.s %z0.s $0x00 $0x0000 -> %z0.s
+44e37062 : sqrdcmlah z2.s, z3.s, z3.s[0], #0x0       : sqrdcmlah %z2.s %z3.s %z3.s $0x00 $0x0000 -> %z2.s
+44e470a4 : sqrdcmlah z4.s, z5.s, z4.s[0], #0x0       : sqrdcmlah %z4.s %z5.s %z4.s $0x00 $0x0000 -> %z4.s
+44e574e6 : sqrdcmlah z6.s, z7.s, z5.s[0], #0x5a      : sqrdcmlah %z6.s %z7.s %z5.s $0x00 $0x005a -> %z6.s
+44e67528 : sqrdcmlah z8.s, z9.s, z6.s[0], #0x5a      : sqrdcmlah %z8.s %z9.s %z6.s $0x00 $0x005a -> %z8.s
+44e7756a : sqrdcmlah z10.s, z11.s, z7.s[0], #0x5a    : sqrdcmlah %z10.s %z11.s %z7.s $0x00 $0x005a -> %z10.s
+44e875ac : sqrdcmlah z12.s, z13.s, z8.s[0], #0x5a    : sqrdcmlah %z12.s %z13.s %z8.s $0x00 $0x005a -> %z12.s
+44e975ee : sqrdcmlah z14.s, z15.s, z9.s[0], #0x5a    : sqrdcmlah %z14.s %z15.s %z9.s $0x00 $0x005a -> %z14.s
+44ea7a30 : sqrdcmlah z16.s, z17.s, z10.s[0], #0xb4   : sqrdcmlah %z16.s %z17.s %z10.s $0x00 $0x00b4 -> %z16.s
+44fa7a51 : sqrdcmlah z17.s, z18.s, z10.s[1], #0xb4   : sqrdcmlah %z17.s %z18.s %z10.s $0x01 $0x00b4 -> %z17.s
+44fb7a93 : sqrdcmlah z19.s, z20.s, z11.s[1], #0xb4   : sqrdcmlah %z19.s %z20.s %z11.s $0x01 $0x00b4 -> %z19.s
+44fc7ad5 : sqrdcmlah z21.s, z22.s, z12.s[1], #0xb4   : sqrdcmlah %z21.s %z22.s %z12.s $0x01 $0x00b4 -> %z21.s
+44fd7b17 : sqrdcmlah z23.s, z24.s, z13.s[1], #0xb4   : sqrdcmlah %z23.s %z24.s %z13.s $0x01 $0x00b4 -> %z23.s
+44fe7b59 : sqrdcmlah z25.s, z26.s, z14.s[1], #0xb4   : sqrdcmlah %z25.s %z26.s %z14.s $0x01 $0x00b4 -> %z25.s
+44ff7f9b : sqrdcmlah z27.s, z28.s, z15.s[1], #0x10e  : sqrdcmlah %z27.s %z28.s %z15.s $0x01 $0x010e -> %z27.s
+44ff7fff : sqrdcmlah z31.s, z31.s, z15.s[1], #0x10e  : sqrdcmlah %z31.s %z31.s %z15.s $0x01 $0x010e -> %z31.s
 
 # SQRDMLAH <Zda>.<T>, <Zn>.<T>, <Zm>.<T> (SQRDMLAH-Z.ZZZ-_)
 44007000 : sqrdmlah z0.b, z0.b, z0.b                 : sqrdmlah %z0.b %z0.b %z0.b -> %z0.b
@@ -9206,6 +9472,24 @@
 45604f9b : uqxtnt z27.s, z28.d                       : uqxtnt %z27.s %z28.d -> %z27.s
 45604fff : uqxtnt z31.s, z31.d                       : uqxtnt %z31.s %z31.d -> %z31.s
 
+# URECPE  <Zd>.S, <Pg>/M, <Zn>.S (URECPE-Z.P.Z-_)
+4480a000 : urecpe z0.s, p0/M, z0.s                   : urecpe %p0/m %z0.s -> %z0.s
+4480a482 : urecpe z2.s, p1/M, z4.s                   : urecpe %p1/m %z4.s -> %z2.s
+4480a8c4 : urecpe z4.s, p2/M, z6.s                   : urecpe %p2/m %z6.s -> %z4.s
+4480a906 : urecpe z6.s, p2/M, z8.s                   : urecpe %p2/m %z8.s -> %z6.s
+4480ad48 : urecpe z8.s, p3/M, z10.s                  : urecpe %p3/m %z10.s -> %z8.s
+4480ad8a : urecpe z10.s, p3/M, z12.s                 : urecpe %p3/m %z12.s -> %z10.s
+4480b1cc : urecpe z12.s, p4/M, z14.s                 : urecpe %p4/m %z14.s -> %z12.s
+4480b20e : urecpe z14.s, p4/M, z16.s                 : urecpe %p4/m %z16.s -> %z14.s
+4480b650 : urecpe z16.s, p5/M, z18.s                 : urecpe %p5/m %z18.s -> %z16.s
+4480b671 : urecpe z17.s, p5/M, z19.s                 : urecpe %p5/m %z19.s -> %z17.s
+4480b6b3 : urecpe z19.s, p5/M, z21.s                 : urecpe %p5/m %z21.s -> %z19.s
+4480baf5 : urecpe z21.s, p6/M, z23.s                 : urecpe %p6/m %z23.s -> %z21.s
+4480bb37 : urecpe z23.s, p6/M, z25.s                 : urecpe %p6/m %z25.s -> %z23.s
+4480bf79 : urecpe z25.s, p7/M, z27.s                 : urecpe %p7/m %z27.s -> %z25.s
+4480bfbb : urecpe z27.s, p7/M, z29.s                 : urecpe %p7/m %z29.s -> %z27.s
+4480bfff : urecpe z31.s, p7/M, z31.s                 : urecpe %p7/m %z31.s -> %z31.s
+
 # URHADD  <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (URHADD-Z.P.ZZ-_)
 44158000 : urhadd z0.b, p0/M, z0.b, z0.b             : urhadd %p0/m %z0.b %z0.b -> %z0.b
 44158482 : urhadd z2.b, p1/M, z2.b, z4.b             : urhadd %p1/m %z2.b %z4.b -> %z2.b
@@ -9469,6 +9753,24 @@
 048d9d99 : urshr z25.d, p7/M, z25.d, #0x34           : urshr  %p7/m %z25.d $0x34 -> %z25.d
 048d9d1b : urshr z27.d, p7/M, z27.d, #0x38           : urshr  %p7/m %z27.d $0x38 -> %z27.d
 048d9c1f : urshr z31.d, p7/M, z31.d, #0x40           : urshr  %p7/m %z31.d $0x40 -> %z31.d
+
+# URSQRTE <Zd>.S, <Pg>/M, <Zn>.S (URSQRTE-Z.P.Z-_)
+4481a000 : ursqrte z0.s, p0/M, z0.s                  : ursqrte %p0/m %z0.s -> %z0.s
+4481a482 : ursqrte z2.s, p1/M, z4.s                  : ursqrte %p1/m %z4.s -> %z2.s
+4481a8c4 : ursqrte z4.s, p2/M, z6.s                  : ursqrte %p2/m %z6.s -> %z4.s
+4481a906 : ursqrte z6.s, p2/M, z8.s                  : ursqrte %p2/m %z8.s -> %z6.s
+4481ad48 : ursqrte z8.s, p3/M, z10.s                 : ursqrte %p3/m %z10.s -> %z8.s
+4481ad8a : ursqrte z10.s, p3/M, z12.s                : ursqrte %p3/m %z12.s -> %z10.s
+4481b1cc : ursqrte z12.s, p4/M, z14.s                : ursqrte %p4/m %z14.s -> %z12.s
+4481b20e : ursqrte z14.s, p4/M, z16.s                : ursqrte %p4/m %z16.s -> %z14.s
+4481b650 : ursqrte z16.s, p5/M, z18.s                : ursqrte %p5/m %z18.s -> %z16.s
+4481b671 : ursqrte z17.s, p5/M, z19.s                : ursqrte %p5/m %z19.s -> %z17.s
+4481b6b3 : ursqrte z19.s, p5/M, z21.s                : ursqrte %p5/m %z21.s -> %z19.s
+4481baf5 : ursqrte z21.s, p6/M, z23.s                : ursqrte %p6/m %z23.s -> %z21.s
+4481bb37 : ursqrte z23.s, p6/M, z25.s                : ursqrte %p6/m %z25.s -> %z23.s
+4481bf79 : ursqrte z25.s, p7/M, z27.s                : ursqrte %p7/m %z27.s -> %z25.s
+4481bfbb : ursqrte z27.s, p7/M, z29.s                : ursqrte %p7/m %z29.s -> %z27.s
+4481bfff : ursqrte z31.s, p7/M, z31.s                : ursqrte %p7/m %z31.s -> %z31.s
 
 # URSRA   <Zda>.<T>, <Zn>.<T>, #<const> (URSRA-Z.ZI-_)
 450fec00 : ursra z0.b, z0.b, #0x1                    : ursra  %z0.b %z0.b $0x01 -> %z0.b
@@ -9967,6 +10269,658 @@
 45db5f59 : usubwt z25.d, z26.d, z27.s                : usubwt %z26.d %z27.s -> %z25.d
 45dd5f9b : usubwt z27.d, z28.d, z29.s                : usubwt %z28.d %z29.s -> %z27.d
 45df5fff : usubwt z31.d, z31.d, z31.s                : usubwt %z31.d %z31.s -> %z31.d
+
+# WHILEGE <Pd>.<T>, <R><n>, <R><m> (WHILEGE-P.P.RR-_)
+25200000 : whilege p0.b, w0, w0                      : whilege %w0 %w0 -> %p0.b
+25240061 : whilege p1.b, w3, w4                      : whilege %w3 %w4 -> %p1.b
+252600a2 : whilege p2.b, w5, w6                      : whilege %w5 %w6 -> %p2.b
+252800e3 : whilege p3.b, w7, w8                      : whilege %w7 %w8 -> %p3.b
+252a0124 : whilege p4.b, w9, w10                     : whilege %w9 %w10 -> %p4.b
+252b0145 : whilege p5.b, w10, w11                    : whilege %w10 %w11 -> %p5.b
+252d0186 : whilege p6.b, w12, w13                    : whilege %w12 %w13 -> %p6.b
+252f01c7 : whilege p7.b, w14, w15                    : whilege %w14 %w15 -> %p7.b
+25310208 : whilege p8.b, w16, w17                    : whilege %w16 %w17 -> %p8.b
+25330248 : whilege p8.b, w18, w19                    : whilege %w18 %w19 -> %p8.b
+25350289 : whilege p9.b, w20, w21                    : whilege %w20 %w21 -> %p9.b
+253702ca : whilege p10.b, w22, w23                   : whilege %w22 %w23 -> %p10.b
+253802eb : whilege p11.b, w23, w24                   : whilege %w23 %w24 -> %p11.b
+253a032c : whilege p12.b, w25, w26                   : whilege %w25 %w26 -> %p12.b
+253c036d : whilege p13.b, w27, w28                   : whilege %w27 %w28 -> %p13.b
+253e03cf : whilege p15.b, w30, w30                   : whilege %w30 %w30 -> %p15.b
+25201000 : whilege p0.b, x0, x0                      : whilege %x0 %x0 -> %p0.b
+25241061 : whilege p1.b, x3, x4                      : whilege %x3 %x4 -> %p1.b
+252610a2 : whilege p2.b, x5, x6                      : whilege %x5 %x6 -> %p2.b
+252810e3 : whilege p3.b, x7, x8                      : whilege %x7 %x8 -> %p3.b
+252a1124 : whilege p4.b, x9, x10                     : whilege %x9 %x10 -> %p4.b
+252b1145 : whilege p5.b, x10, x11                    : whilege %x10 %x11 -> %p5.b
+252d1186 : whilege p6.b, x12, x13                    : whilege %x12 %x13 -> %p6.b
+252f11c7 : whilege p7.b, x14, x15                    : whilege %x14 %x15 -> %p7.b
+25311208 : whilege p8.b, x16, x17                    : whilege %x16 %x17 -> %p8.b
+25331248 : whilege p8.b, x18, x19                    : whilege %x18 %x19 -> %p8.b
+25351289 : whilege p9.b, x20, x21                    : whilege %x20 %x21 -> %p9.b
+253712ca : whilege p10.b, x22, x23                   : whilege %x22 %x23 -> %p10.b
+253812eb : whilege p11.b, x23, x24                   : whilege %x23 %x24 -> %p11.b
+253a132c : whilege p12.b, x25, x26                   : whilege %x25 %x26 -> %p12.b
+253c136d : whilege p13.b, x27, x28                   : whilege %x27 %x28 -> %p13.b
+253e13cf : whilege p15.b, x30, x30                   : whilege %x30 %x30 -> %p15.b
+25600000 : whilege p0.h, w0, w0                      : whilege %w0 %w0 -> %p0.h
+25640061 : whilege p1.h, w3, w4                      : whilege %w3 %w4 -> %p1.h
+256600a2 : whilege p2.h, w5, w6                      : whilege %w5 %w6 -> %p2.h
+256800e3 : whilege p3.h, w7, w8                      : whilege %w7 %w8 -> %p3.h
+256a0124 : whilege p4.h, w9, w10                     : whilege %w9 %w10 -> %p4.h
+256b0145 : whilege p5.h, w10, w11                    : whilege %w10 %w11 -> %p5.h
+256d0186 : whilege p6.h, w12, w13                    : whilege %w12 %w13 -> %p6.h
+256f01c7 : whilege p7.h, w14, w15                    : whilege %w14 %w15 -> %p7.h
+25710208 : whilege p8.h, w16, w17                    : whilege %w16 %w17 -> %p8.h
+25730248 : whilege p8.h, w18, w19                    : whilege %w18 %w19 -> %p8.h
+25750289 : whilege p9.h, w20, w21                    : whilege %w20 %w21 -> %p9.h
+257702ca : whilege p10.h, w22, w23                   : whilege %w22 %w23 -> %p10.h
+257802eb : whilege p11.h, w23, w24                   : whilege %w23 %w24 -> %p11.h
+257a032c : whilege p12.h, w25, w26                   : whilege %w25 %w26 -> %p12.h
+257c036d : whilege p13.h, w27, w28                   : whilege %w27 %w28 -> %p13.h
+257e03cf : whilege p15.h, w30, w30                   : whilege %w30 %w30 -> %p15.h
+25601000 : whilege p0.h, x0, x0                      : whilege %x0 %x0 -> %p0.h
+25641061 : whilege p1.h, x3, x4                      : whilege %x3 %x4 -> %p1.h
+256610a2 : whilege p2.h, x5, x6                      : whilege %x5 %x6 -> %p2.h
+256810e3 : whilege p3.h, x7, x8                      : whilege %x7 %x8 -> %p3.h
+256a1124 : whilege p4.h, x9, x10                     : whilege %x9 %x10 -> %p4.h
+256b1145 : whilege p5.h, x10, x11                    : whilege %x10 %x11 -> %p5.h
+256d1186 : whilege p6.h, x12, x13                    : whilege %x12 %x13 -> %p6.h
+256f11c7 : whilege p7.h, x14, x15                    : whilege %x14 %x15 -> %p7.h
+25711208 : whilege p8.h, x16, x17                    : whilege %x16 %x17 -> %p8.h
+25731248 : whilege p8.h, x18, x19                    : whilege %x18 %x19 -> %p8.h
+25751289 : whilege p9.h, x20, x21                    : whilege %x20 %x21 -> %p9.h
+257712ca : whilege p10.h, x22, x23                   : whilege %x22 %x23 -> %p10.h
+257812eb : whilege p11.h, x23, x24                   : whilege %x23 %x24 -> %p11.h
+257a132c : whilege p12.h, x25, x26                   : whilege %x25 %x26 -> %p12.h
+257c136d : whilege p13.h, x27, x28                   : whilege %x27 %x28 -> %p13.h
+257e13cf : whilege p15.h, x30, x30                   : whilege %x30 %x30 -> %p15.h
+25a00000 : whilege p0.s, w0, w0                      : whilege %w0 %w0 -> %p0.s
+25a40061 : whilege p1.s, w3, w4                      : whilege %w3 %w4 -> %p1.s
+25a600a2 : whilege p2.s, w5, w6                      : whilege %w5 %w6 -> %p2.s
+25a800e3 : whilege p3.s, w7, w8                      : whilege %w7 %w8 -> %p3.s
+25aa0124 : whilege p4.s, w9, w10                     : whilege %w9 %w10 -> %p4.s
+25ab0145 : whilege p5.s, w10, w11                    : whilege %w10 %w11 -> %p5.s
+25ad0186 : whilege p6.s, w12, w13                    : whilege %w12 %w13 -> %p6.s
+25af01c7 : whilege p7.s, w14, w15                    : whilege %w14 %w15 -> %p7.s
+25b10208 : whilege p8.s, w16, w17                    : whilege %w16 %w17 -> %p8.s
+25b30248 : whilege p8.s, w18, w19                    : whilege %w18 %w19 -> %p8.s
+25b50289 : whilege p9.s, w20, w21                    : whilege %w20 %w21 -> %p9.s
+25b702ca : whilege p10.s, w22, w23                   : whilege %w22 %w23 -> %p10.s
+25b802eb : whilege p11.s, w23, w24                   : whilege %w23 %w24 -> %p11.s
+25ba032c : whilege p12.s, w25, w26                   : whilege %w25 %w26 -> %p12.s
+25bc036d : whilege p13.s, w27, w28                   : whilege %w27 %w28 -> %p13.s
+25be03cf : whilege p15.s, w30, w30                   : whilege %w30 %w30 -> %p15.s
+25a01000 : whilege p0.s, x0, x0                      : whilege %x0 %x0 -> %p0.s
+25a41061 : whilege p1.s, x3, x4                      : whilege %x3 %x4 -> %p1.s
+25a610a2 : whilege p2.s, x5, x6                      : whilege %x5 %x6 -> %p2.s
+25a810e3 : whilege p3.s, x7, x8                      : whilege %x7 %x8 -> %p3.s
+25aa1124 : whilege p4.s, x9, x10                     : whilege %x9 %x10 -> %p4.s
+25ab1145 : whilege p5.s, x10, x11                    : whilege %x10 %x11 -> %p5.s
+25ad1186 : whilege p6.s, x12, x13                    : whilege %x12 %x13 -> %p6.s
+25af11c7 : whilege p7.s, x14, x15                    : whilege %x14 %x15 -> %p7.s
+25b11208 : whilege p8.s, x16, x17                    : whilege %x16 %x17 -> %p8.s
+25b31248 : whilege p8.s, x18, x19                    : whilege %x18 %x19 -> %p8.s
+25b51289 : whilege p9.s, x20, x21                    : whilege %x20 %x21 -> %p9.s
+25b712ca : whilege p10.s, x22, x23                   : whilege %x22 %x23 -> %p10.s
+25b812eb : whilege p11.s, x23, x24                   : whilege %x23 %x24 -> %p11.s
+25ba132c : whilege p12.s, x25, x26                   : whilege %x25 %x26 -> %p12.s
+25bc136d : whilege p13.s, x27, x28                   : whilege %x27 %x28 -> %p13.s
+25be13cf : whilege p15.s, x30, x30                   : whilege %x30 %x30 -> %p15.s
+25e00000 : whilege p0.d, w0, w0                      : whilege %w0 %w0 -> %p0.d
+25e40061 : whilege p1.d, w3, w4                      : whilege %w3 %w4 -> %p1.d
+25e600a2 : whilege p2.d, w5, w6                      : whilege %w5 %w6 -> %p2.d
+25e800e3 : whilege p3.d, w7, w8                      : whilege %w7 %w8 -> %p3.d
+25ea0124 : whilege p4.d, w9, w10                     : whilege %w9 %w10 -> %p4.d
+25eb0145 : whilege p5.d, w10, w11                    : whilege %w10 %w11 -> %p5.d
+25ed0186 : whilege p6.d, w12, w13                    : whilege %w12 %w13 -> %p6.d
+25ef01c7 : whilege p7.d, w14, w15                    : whilege %w14 %w15 -> %p7.d
+25f10208 : whilege p8.d, w16, w17                    : whilege %w16 %w17 -> %p8.d
+25f30248 : whilege p8.d, w18, w19                    : whilege %w18 %w19 -> %p8.d
+25f50289 : whilege p9.d, w20, w21                    : whilege %w20 %w21 -> %p9.d
+25f702ca : whilege p10.d, w22, w23                   : whilege %w22 %w23 -> %p10.d
+25f802eb : whilege p11.d, w23, w24                   : whilege %w23 %w24 -> %p11.d
+25fa032c : whilege p12.d, w25, w26                   : whilege %w25 %w26 -> %p12.d
+25fc036d : whilege p13.d, w27, w28                   : whilege %w27 %w28 -> %p13.d
+25fe03cf : whilege p15.d, w30, w30                   : whilege %w30 %w30 -> %p15.d
+25e01000 : whilege p0.d, x0, x0                      : whilege %x0 %x0 -> %p0.d
+25e41061 : whilege p1.d, x3, x4                      : whilege %x3 %x4 -> %p1.d
+25e610a2 : whilege p2.d, x5, x6                      : whilege %x5 %x6 -> %p2.d
+25e810e3 : whilege p3.d, x7, x8                      : whilege %x7 %x8 -> %p3.d
+25ea1124 : whilege p4.d, x9, x10                     : whilege %x9 %x10 -> %p4.d
+25eb1145 : whilege p5.d, x10, x11                    : whilege %x10 %x11 -> %p5.d
+25ed1186 : whilege p6.d, x12, x13                    : whilege %x12 %x13 -> %p6.d
+25ef11c7 : whilege p7.d, x14, x15                    : whilege %x14 %x15 -> %p7.d
+25f11208 : whilege p8.d, x16, x17                    : whilege %x16 %x17 -> %p8.d
+25f31248 : whilege p8.d, x18, x19                    : whilege %x18 %x19 -> %p8.d
+25f51289 : whilege p9.d, x20, x21                    : whilege %x20 %x21 -> %p9.d
+25f712ca : whilege p10.d, x22, x23                   : whilege %x22 %x23 -> %p10.d
+25f812eb : whilege p11.d, x23, x24                   : whilege %x23 %x24 -> %p11.d
+25fa132c : whilege p12.d, x25, x26                   : whilege %x25 %x26 -> %p12.d
+25fc136d : whilege p13.d, x27, x28                   : whilege %x27 %x28 -> %p13.d
+25fe13cf : whilege p15.d, x30, x30                   : whilege %x30 %x30 -> %p15.d
+
+# WHILEGT <Pd>.<T>, <R><n>, <R><m> (WHILEGT-P.P.RR-_)
+25200010 : whilegt p0.b, w0, w0                      : whilegt %w0 %w0 -> %p0.b
+25240071 : whilegt p1.b, w3, w4                      : whilegt %w3 %w4 -> %p1.b
+252600b2 : whilegt p2.b, w5, w6                      : whilegt %w5 %w6 -> %p2.b
+252800f3 : whilegt p3.b, w7, w8                      : whilegt %w7 %w8 -> %p3.b
+252a0134 : whilegt p4.b, w9, w10                     : whilegt %w9 %w10 -> %p4.b
+252b0155 : whilegt p5.b, w10, w11                    : whilegt %w10 %w11 -> %p5.b
+252d0196 : whilegt p6.b, w12, w13                    : whilegt %w12 %w13 -> %p6.b
+252f01d7 : whilegt p7.b, w14, w15                    : whilegt %w14 %w15 -> %p7.b
+25310218 : whilegt p8.b, w16, w17                    : whilegt %w16 %w17 -> %p8.b
+25330258 : whilegt p8.b, w18, w19                    : whilegt %w18 %w19 -> %p8.b
+25350299 : whilegt p9.b, w20, w21                    : whilegt %w20 %w21 -> %p9.b
+253702da : whilegt p10.b, w22, w23                   : whilegt %w22 %w23 -> %p10.b
+253802fb : whilegt p11.b, w23, w24                   : whilegt %w23 %w24 -> %p11.b
+253a033c : whilegt p12.b, w25, w26                   : whilegt %w25 %w26 -> %p12.b
+253c037d : whilegt p13.b, w27, w28                   : whilegt %w27 %w28 -> %p13.b
+253e03df : whilegt p15.b, w30, w30                   : whilegt %w30 %w30 -> %p15.b
+25201010 : whilegt p0.b, x0, x0                      : whilegt %x0 %x0 -> %p0.b
+25241071 : whilegt p1.b, x3, x4                      : whilegt %x3 %x4 -> %p1.b
+252610b2 : whilegt p2.b, x5, x6                      : whilegt %x5 %x6 -> %p2.b
+252810f3 : whilegt p3.b, x7, x8                      : whilegt %x7 %x8 -> %p3.b
+252a1134 : whilegt p4.b, x9, x10                     : whilegt %x9 %x10 -> %p4.b
+252b1155 : whilegt p5.b, x10, x11                    : whilegt %x10 %x11 -> %p5.b
+252d1196 : whilegt p6.b, x12, x13                    : whilegt %x12 %x13 -> %p6.b
+252f11d7 : whilegt p7.b, x14, x15                    : whilegt %x14 %x15 -> %p7.b
+25311218 : whilegt p8.b, x16, x17                    : whilegt %x16 %x17 -> %p8.b
+25331258 : whilegt p8.b, x18, x19                    : whilegt %x18 %x19 -> %p8.b
+25351299 : whilegt p9.b, x20, x21                    : whilegt %x20 %x21 -> %p9.b
+253712da : whilegt p10.b, x22, x23                   : whilegt %x22 %x23 -> %p10.b
+253812fb : whilegt p11.b, x23, x24                   : whilegt %x23 %x24 -> %p11.b
+253a133c : whilegt p12.b, x25, x26                   : whilegt %x25 %x26 -> %p12.b
+253c137d : whilegt p13.b, x27, x28                   : whilegt %x27 %x28 -> %p13.b
+253e13df : whilegt p15.b, x30, x30                   : whilegt %x30 %x30 -> %p15.b
+25600010 : whilegt p0.h, w0, w0                      : whilegt %w0 %w0 -> %p0.h
+25640071 : whilegt p1.h, w3, w4                      : whilegt %w3 %w4 -> %p1.h
+256600b2 : whilegt p2.h, w5, w6                      : whilegt %w5 %w6 -> %p2.h
+256800f3 : whilegt p3.h, w7, w8                      : whilegt %w7 %w8 -> %p3.h
+256a0134 : whilegt p4.h, w9, w10                     : whilegt %w9 %w10 -> %p4.h
+256b0155 : whilegt p5.h, w10, w11                    : whilegt %w10 %w11 -> %p5.h
+256d0196 : whilegt p6.h, w12, w13                    : whilegt %w12 %w13 -> %p6.h
+256f01d7 : whilegt p7.h, w14, w15                    : whilegt %w14 %w15 -> %p7.h
+25710218 : whilegt p8.h, w16, w17                    : whilegt %w16 %w17 -> %p8.h
+25730258 : whilegt p8.h, w18, w19                    : whilegt %w18 %w19 -> %p8.h
+25750299 : whilegt p9.h, w20, w21                    : whilegt %w20 %w21 -> %p9.h
+257702da : whilegt p10.h, w22, w23                   : whilegt %w22 %w23 -> %p10.h
+257802fb : whilegt p11.h, w23, w24                   : whilegt %w23 %w24 -> %p11.h
+257a033c : whilegt p12.h, w25, w26                   : whilegt %w25 %w26 -> %p12.h
+257c037d : whilegt p13.h, w27, w28                   : whilegt %w27 %w28 -> %p13.h
+257e03df : whilegt p15.h, w30, w30                   : whilegt %w30 %w30 -> %p15.h
+25601010 : whilegt p0.h, x0, x0                      : whilegt %x0 %x0 -> %p0.h
+25641071 : whilegt p1.h, x3, x4                      : whilegt %x3 %x4 -> %p1.h
+256610b2 : whilegt p2.h, x5, x6                      : whilegt %x5 %x6 -> %p2.h
+256810f3 : whilegt p3.h, x7, x8                      : whilegt %x7 %x8 -> %p3.h
+256a1134 : whilegt p4.h, x9, x10                     : whilegt %x9 %x10 -> %p4.h
+256b1155 : whilegt p5.h, x10, x11                    : whilegt %x10 %x11 -> %p5.h
+256d1196 : whilegt p6.h, x12, x13                    : whilegt %x12 %x13 -> %p6.h
+256f11d7 : whilegt p7.h, x14, x15                    : whilegt %x14 %x15 -> %p7.h
+25711218 : whilegt p8.h, x16, x17                    : whilegt %x16 %x17 -> %p8.h
+25731258 : whilegt p8.h, x18, x19                    : whilegt %x18 %x19 -> %p8.h
+25751299 : whilegt p9.h, x20, x21                    : whilegt %x20 %x21 -> %p9.h
+257712da : whilegt p10.h, x22, x23                   : whilegt %x22 %x23 -> %p10.h
+257812fb : whilegt p11.h, x23, x24                   : whilegt %x23 %x24 -> %p11.h
+257a133c : whilegt p12.h, x25, x26                   : whilegt %x25 %x26 -> %p12.h
+257c137d : whilegt p13.h, x27, x28                   : whilegt %x27 %x28 -> %p13.h
+257e13df : whilegt p15.h, x30, x30                   : whilegt %x30 %x30 -> %p15.h
+25a00010 : whilegt p0.s, w0, w0                      : whilegt %w0 %w0 -> %p0.s
+25a40071 : whilegt p1.s, w3, w4                      : whilegt %w3 %w4 -> %p1.s
+25a600b2 : whilegt p2.s, w5, w6                      : whilegt %w5 %w6 -> %p2.s
+25a800f3 : whilegt p3.s, w7, w8                      : whilegt %w7 %w8 -> %p3.s
+25aa0134 : whilegt p4.s, w9, w10                     : whilegt %w9 %w10 -> %p4.s
+25ab0155 : whilegt p5.s, w10, w11                    : whilegt %w10 %w11 -> %p5.s
+25ad0196 : whilegt p6.s, w12, w13                    : whilegt %w12 %w13 -> %p6.s
+25af01d7 : whilegt p7.s, w14, w15                    : whilegt %w14 %w15 -> %p7.s
+25b10218 : whilegt p8.s, w16, w17                    : whilegt %w16 %w17 -> %p8.s
+25b30258 : whilegt p8.s, w18, w19                    : whilegt %w18 %w19 -> %p8.s
+25b50299 : whilegt p9.s, w20, w21                    : whilegt %w20 %w21 -> %p9.s
+25b702da : whilegt p10.s, w22, w23                   : whilegt %w22 %w23 -> %p10.s
+25b802fb : whilegt p11.s, w23, w24                   : whilegt %w23 %w24 -> %p11.s
+25ba033c : whilegt p12.s, w25, w26                   : whilegt %w25 %w26 -> %p12.s
+25bc037d : whilegt p13.s, w27, w28                   : whilegt %w27 %w28 -> %p13.s
+25be03df : whilegt p15.s, w30, w30                   : whilegt %w30 %w30 -> %p15.s
+25a01010 : whilegt p0.s, x0, x0                      : whilegt %x0 %x0 -> %p0.s
+25a41071 : whilegt p1.s, x3, x4                      : whilegt %x3 %x4 -> %p1.s
+25a610b2 : whilegt p2.s, x5, x6                      : whilegt %x5 %x6 -> %p2.s
+25a810f3 : whilegt p3.s, x7, x8                      : whilegt %x7 %x8 -> %p3.s
+25aa1134 : whilegt p4.s, x9, x10                     : whilegt %x9 %x10 -> %p4.s
+25ab1155 : whilegt p5.s, x10, x11                    : whilegt %x10 %x11 -> %p5.s
+25ad1196 : whilegt p6.s, x12, x13                    : whilegt %x12 %x13 -> %p6.s
+25af11d7 : whilegt p7.s, x14, x15                    : whilegt %x14 %x15 -> %p7.s
+25b11218 : whilegt p8.s, x16, x17                    : whilegt %x16 %x17 -> %p8.s
+25b31258 : whilegt p8.s, x18, x19                    : whilegt %x18 %x19 -> %p8.s
+25b51299 : whilegt p9.s, x20, x21                    : whilegt %x20 %x21 -> %p9.s
+25b712da : whilegt p10.s, x22, x23                   : whilegt %x22 %x23 -> %p10.s
+25b812fb : whilegt p11.s, x23, x24                   : whilegt %x23 %x24 -> %p11.s
+25ba133c : whilegt p12.s, x25, x26                   : whilegt %x25 %x26 -> %p12.s
+25bc137d : whilegt p13.s, x27, x28                   : whilegt %x27 %x28 -> %p13.s
+25be13df : whilegt p15.s, x30, x30                   : whilegt %x30 %x30 -> %p15.s
+25e00010 : whilegt p0.d, w0, w0                      : whilegt %w0 %w0 -> %p0.d
+25e40071 : whilegt p1.d, w3, w4                      : whilegt %w3 %w4 -> %p1.d
+25e600b2 : whilegt p2.d, w5, w6                      : whilegt %w5 %w6 -> %p2.d
+25e800f3 : whilegt p3.d, w7, w8                      : whilegt %w7 %w8 -> %p3.d
+25ea0134 : whilegt p4.d, w9, w10                     : whilegt %w9 %w10 -> %p4.d
+25eb0155 : whilegt p5.d, w10, w11                    : whilegt %w10 %w11 -> %p5.d
+25ed0196 : whilegt p6.d, w12, w13                    : whilegt %w12 %w13 -> %p6.d
+25ef01d7 : whilegt p7.d, w14, w15                    : whilegt %w14 %w15 -> %p7.d
+25f10218 : whilegt p8.d, w16, w17                    : whilegt %w16 %w17 -> %p8.d
+25f30258 : whilegt p8.d, w18, w19                    : whilegt %w18 %w19 -> %p8.d
+25f50299 : whilegt p9.d, w20, w21                    : whilegt %w20 %w21 -> %p9.d
+25f702da : whilegt p10.d, w22, w23                   : whilegt %w22 %w23 -> %p10.d
+25f802fb : whilegt p11.d, w23, w24                   : whilegt %w23 %w24 -> %p11.d
+25fa033c : whilegt p12.d, w25, w26                   : whilegt %w25 %w26 -> %p12.d
+25fc037d : whilegt p13.d, w27, w28                   : whilegt %w27 %w28 -> %p13.d
+25fe03df : whilegt p15.d, w30, w30                   : whilegt %w30 %w30 -> %p15.d
+25e01010 : whilegt p0.d, x0, x0                      : whilegt %x0 %x0 -> %p0.d
+25e41071 : whilegt p1.d, x3, x4                      : whilegt %x3 %x4 -> %p1.d
+25e610b2 : whilegt p2.d, x5, x6                      : whilegt %x5 %x6 -> %p2.d
+25e810f3 : whilegt p3.d, x7, x8                      : whilegt %x7 %x8 -> %p3.d
+25ea1134 : whilegt p4.d, x9, x10                     : whilegt %x9 %x10 -> %p4.d
+25eb1155 : whilegt p5.d, x10, x11                    : whilegt %x10 %x11 -> %p5.d
+25ed1196 : whilegt p6.d, x12, x13                    : whilegt %x12 %x13 -> %p6.d
+25ef11d7 : whilegt p7.d, x14, x15                    : whilegt %x14 %x15 -> %p7.d
+25f11218 : whilegt p8.d, x16, x17                    : whilegt %x16 %x17 -> %p8.d
+25f31258 : whilegt p8.d, x18, x19                    : whilegt %x18 %x19 -> %p8.d
+25f51299 : whilegt p9.d, x20, x21                    : whilegt %x20 %x21 -> %p9.d
+25f712da : whilegt p10.d, x22, x23                   : whilegt %x22 %x23 -> %p10.d
+25f812fb : whilegt p11.d, x23, x24                   : whilegt %x23 %x24 -> %p11.d
+25fa133c : whilegt p12.d, x25, x26                   : whilegt %x25 %x26 -> %p12.d
+25fc137d : whilegt p13.d, x27, x28                   : whilegt %x27 %x28 -> %p13.d
+25fe13df : whilegt p15.d, x30, x30                   : whilegt %x30 %x30 -> %p15.d
+
+# WHILEHI <Pd>.<T>, <R><n>, <R><m> (WHILEHI-P.P.RR-_)
+25200810 : whilehi p0.b, w0, w0                      : whilehi %w0 %w0 -> %p0.b
+25240871 : whilehi p1.b, w3, w4                      : whilehi %w3 %w4 -> %p1.b
+252608b2 : whilehi p2.b, w5, w6                      : whilehi %w5 %w6 -> %p2.b
+252808f3 : whilehi p3.b, w7, w8                      : whilehi %w7 %w8 -> %p3.b
+252a0934 : whilehi p4.b, w9, w10                     : whilehi %w9 %w10 -> %p4.b
+252b0955 : whilehi p5.b, w10, w11                    : whilehi %w10 %w11 -> %p5.b
+252d0996 : whilehi p6.b, w12, w13                    : whilehi %w12 %w13 -> %p6.b
+252f09d7 : whilehi p7.b, w14, w15                    : whilehi %w14 %w15 -> %p7.b
+25310a18 : whilehi p8.b, w16, w17                    : whilehi %w16 %w17 -> %p8.b
+25330a58 : whilehi p8.b, w18, w19                    : whilehi %w18 %w19 -> %p8.b
+25350a99 : whilehi p9.b, w20, w21                    : whilehi %w20 %w21 -> %p9.b
+25370ada : whilehi p10.b, w22, w23                   : whilehi %w22 %w23 -> %p10.b
+25380afb : whilehi p11.b, w23, w24                   : whilehi %w23 %w24 -> %p11.b
+253a0b3c : whilehi p12.b, w25, w26                   : whilehi %w25 %w26 -> %p12.b
+253c0b7d : whilehi p13.b, w27, w28                   : whilehi %w27 %w28 -> %p13.b
+253e0bdf : whilehi p15.b, w30, w30                   : whilehi %w30 %w30 -> %p15.b
+25201810 : whilehi p0.b, x0, x0                      : whilehi %x0 %x0 -> %p0.b
+25241871 : whilehi p1.b, x3, x4                      : whilehi %x3 %x4 -> %p1.b
+252618b2 : whilehi p2.b, x5, x6                      : whilehi %x5 %x6 -> %p2.b
+252818f3 : whilehi p3.b, x7, x8                      : whilehi %x7 %x8 -> %p3.b
+252a1934 : whilehi p4.b, x9, x10                     : whilehi %x9 %x10 -> %p4.b
+252b1955 : whilehi p5.b, x10, x11                    : whilehi %x10 %x11 -> %p5.b
+252d1996 : whilehi p6.b, x12, x13                    : whilehi %x12 %x13 -> %p6.b
+252f19d7 : whilehi p7.b, x14, x15                    : whilehi %x14 %x15 -> %p7.b
+25311a18 : whilehi p8.b, x16, x17                    : whilehi %x16 %x17 -> %p8.b
+25331a58 : whilehi p8.b, x18, x19                    : whilehi %x18 %x19 -> %p8.b
+25351a99 : whilehi p9.b, x20, x21                    : whilehi %x20 %x21 -> %p9.b
+25371ada : whilehi p10.b, x22, x23                   : whilehi %x22 %x23 -> %p10.b
+25381afb : whilehi p11.b, x23, x24                   : whilehi %x23 %x24 -> %p11.b
+253a1b3c : whilehi p12.b, x25, x26                   : whilehi %x25 %x26 -> %p12.b
+253c1b7d : whilehi p13.b, x27, x28                   : whilehi %x27 %x28 -> %p13.b
+253e1bdf : whilehi p15.b, x30, x30                   : whilehi %x30 %x30 -> %p15.b
+25600810 : whilehi p0.h, w0, w0                      : whilehi %w0 %w0 -> %p0.h
+25640871 : whilehi p1.h, w3, w4                      : whilehi %w3 %w4 -> %p1.h
+256608b2 : whilehi p2.h, w5, w6                      : whilehi %w5 %w6 -> %p2.h
+256808f3 : whilehi p3.h, w7, w8                      : whilehi %w7 %w8 -> %p3.h
+256a0934 : whilehi p4.h, w9, w10                     : whilehi %w9 %w10 -> %p4.h
+256b0955 : whilehi p5.h, w10, w11                    : whilehi %w10 %w11 -> %p5.h
+256d0996 : whilehi p6.h, w12, w13                    : whilehi %w12 %w13 -> %p6.h
+256f09d7 : whilehi p7.h, w14, w15                    : whilehi %w14 %w15 -> %p7.h
+25710a18 : whilehi p8.h, w16, w17                    : whilehi %w16 %w17 -> %p8.h
+25730a58 : whilehi p8.h, w18, w19                    : whilehi %w18 %w19 -> %p8.h
+25750a99 : whilehi p9.h, w20, w21                    : whilehi %w20 %w21 -> %p9.h
+25770ada : whilehi p10.h, w22, w23                   : whilehi %w22 %w23 -> %p10.h
+25780afb : whilehi p11.h, w23, w24                   : whilehi %w23 %w24 -> %p11.h
+257a0b3c : whilehi p12.h, w25, w26                   : whilehi %w25 %w26 -> %p12.h
+257c0b7d : whilehi p13.h, w27, w28                   : whilehi %w27 %w28 -> %p13.h
+257e0bdf : whilehi p15.h, w30, w30                   : whilehi %w30 %w30 -> %p15.h
+25601810 : whilehi p0.h, x0, x0                      : whilehi %x0 %x0 -> %p0.h
+25641871 : whilehi p1.h, x3, x4                      : whilehi %x3 %x4 -> %p1.h
+256618b2 : whilehi p2.h, x5, x6                      : whilehi %x5 %x6 -> %p2.h
+256818f3 : whilehi p3.h, x7, x8                      : whilehi %x7 %x8 -> %p3.h
+256a1934 : whilehi p4.h, x9, x10                     : whilehi %x9 %x10 -> %p4.h
+256b1955 : whilehi p5.h, x10, x11                    : whilehi %x10 %x11 -> %p5.h
+256d1996 : whilehi p6.h, x12, x13                    : whilehi %x12 %x13 -> %p6.h
+256f19d7 : whilehi p7.h, x14, x15                    : whilehi %x14 %x15 -> %p7.h
+25711a18 : whilehi p8.h, x16, x17                    : whilehi %x16 %x17 -> %p8.h
+25731a58 : whilehi p8.h, x18, x19                    : whilehi %x18 %x19 -> %p8.h
+25751a99 : whilehi p9.h, x20, x21                    : whilehi %x20 %x21 -> %p9.h
+25771ada : whilehi p10.h, x22, x23                   : whilehi %x22 %x23 -> %p10.h
+25781afb : whilehi p11.h, x23, x24                   : whilehi %x23 %x24 -> %p11.h
+257a1b3c : whilehi p12.h, x25, x26                   : whilehi %x25 %x26 -> %p12.h
+257c1b7d : whilehi p13.h, x27, x28                   : whilehi %x27 %x28 -> %p13.h
+257e1bdf : whilehi p15.h, x30, x30                   : whilehi %x30 %x30 -> %p15.h
+25a00810 : whilehi p0.s, w0, w0                      : whilehi %w0 %w0 -> %p0.s
+25a40871 : whilehi p1.s, w3, w4                      : whilehi %w3 %w4 -> %p1.s
+25a608b2 : whilehi p2.s, w5, w6                      : whilehi %w5 %w6 -> %p2.s
+25a808f3 : whilehi p3.s, w7, w8                      : whilehi %w7 %w8 -> %p3.s
+25aa0934 : whilehi p4.s, w9, w10                     : whilehi %w9 %w10 -> %p4.s
+25ab0955 : whilehi p5.s, w10, w11                    : whilehi %w10 %w11 -> %p5.s
+25ad0996 : whilehi p6.s, w12, w13                    : whilehi %w12 %w13 -> %p6.s
+25af09d7 : whilehi p7.s, w14, w15                    : whilehi %w14 %w15 -> %p7.s
+25b10a18 : whilehi p8.s, w16, w17                    : whilehi %w16 %w17 -> %p8.s
+25b30a58 : whilehi p8.s, w18, w19                    : whilehi %w18 %w19 -> %p8.s
+25b50a99 : whilehi p9.s, w20, w21                    : whilehi %w20 %w21 -> %p9.s
+25b70ada : whilehi p10.s, w22, w23                   : whilehi %w22 %w23 -> %p10.s
+25b80afb : whilehi p11.s, w23, w24                   : whilehi %w23 %w24 -> %p11.s
+25ba0b3c : whilehi p12.s, w25, w26                   : whilehi %w25 %w26 -> %p12.s
+25bc0b7d : whilehi p13.s, w27, w28                   : whilehi %w27 %w28 -> %p13.s
+25be0bdf : whilehi p15.s, w30, w30                   : whilehi %w30 %w30 -> %p15.s
+25a01810 : whilehi p0.s, x0, x0                      : whilehi %x0 %x0 -> %p0.s
+25a41871 : whilehi p1.s, x3, x4                      : whilehi %x3 %x4 -> %p1.s
+25a618b2 : whilehi p2.s, x5, x6                      : whilehi %x5 %x6 -> %p2.s
+25a818f3 : whilehi p3.s, x7, x8                      : whilehi %x7 %x8 -> %p3.s
+25aa1934 : whilehi p4.s, x9, x10                     : whilehi %x9 %x10 -> %p4.s
+25ab1955 : whilehi p5.s, x10, x11                    : whilehi %x10 %x11 -> %p5.s
+25ad1996 : whilehi p6.s, x12, x13                    : whilehi %x12 %x13 -> %p6.s
+25af19d7 : whilehi p7.s, x14, x15                    : whilehi %x14 %x15 -> %p7.s
+25b11a18 : whilehi p8.s, x16, x17                    : whilehi %x16 %x17 -> %p8.s
+25b31a58 : whilehi p8.s, x18, x19                    : whilehi %x18 %x19 -> %p8.s
+25b51a99 : whilehi p9.s, x20, x21                    : whilehi %x20 %x21 -> %p9.s
+25b71ada : whilehi p10.s, x22, x23                   : whilehi %x22 %x23 -> %p10.s
+25b81afb : whilehi p11.s, x23, x24                   : whilehi %x23 %x24 -> %p11.s
+25ba1b3c : whilehi p12.s, x25, x26                   : whilehi %x25 %x26 -> %p12.s
+25bc1b7d : whilehi p13.s, x27, x28                   : whilehi %x27 %x28 -> %p13.s
+25be1bdf : whilehi p15.s, x30, x30                   : whilehi %x30 %x30 -> %p15.s
+25e00810 : whilehi p0.d, w0, w0                      : whilehi %w0 %w0 -> %p0.d
+25e40871 : whilehi p1.d, w3, w4                      : whilehi %w3 %w4 -> %p1.d
+25e608b2 : whilehi p2.d, w5, w6                      : whilehi %w5 %w6 -> %p2.d
+25e808f3 : whilehi p3.d, w7, w8                      : whilehi %w7 %w8 -> %p3.d
+25ea0934 : whilehi p4.d, w9, w10                     : whilehi %w9 %w10 -> %p4.d
+25eb0955 : whilehi p5.d, w10, w11                    : whilehi %w10 %w11 -> %p5.d
+25ed0996 : whilehi p6.d, w12, w13                    : whilehi %w12 %w13 -> %p6.d
+25ef09d7 : whilehi p7.d, w14, w15                    : whilehi %w14 %w15 -> %p7.d
+25f10a18 : whilehi p8.d, w16, w17                    : whilehi %w16 %w17 -> %p8.d
+25f30a58 : whilehi p8.d, w18, w19                    : whilehi %w18 %w19 -> %p8.d
+25f50a99 : whilehi p9.d, w20, w21                    : whilehi %w20 %w21 -> %p9.d
+25f70ada : whilehi p10.d, w22, w23                   : whilehi %w22 %w23 -> %p10.d
+25f80afb : whilehi p11.d, w23, w24                   : whilehi %w23 %w24 -> %p11.d
+25fa0b3c : whilehi p12.d, w25, w26                   : whilehi %w25 %w26 -> %p12.d
+25fc0b7d : whilehi p13.d, w27, w28                   : whilehi %w27 %w28 -> %p13.d
+25fe0bdf : whilehi p15.d, w30, w30                   : whilehi %w30 %w30 -> %p15.d
+25e01810 : whilehi p0.d, x0, x0                      : whilehi %x0 %x0 -> %p0.d
+25e41871 : whilehi p1.d, x3, x4                      : whilehi %x3 %x4 -> %p1.d
+25e618b2 : whilehi p2.d, x5, x6                      : whilehi %x5 %x6 -> %p2.d
+25e818f3 : whilehi p3.d, x7, x8                      : whilehi %x7 %x8 -> %p3.d
+25ea1934 : whilehi p4.d, x9, x10                     : whilehi %x9 %x10 -> %p4.d
+25eb1955 : whilehi p5.d, x10, x11                    : whilehi %x10 %x11 -> %p5.d
+25ed1996 : whilehi p6.d, x12, x13                    : whilehi %x12 %x13 -> %p6.d
+25ef19d7 : whilehi p7.d, x14, x15                    : whilehi %x14 %x15 -> %p7.d
+25f11a18 : whilehi p8.d, x16, x17                    : whilehi %x16 %x17 -> %p8.d
+25f31a58 : whilehi p8.d, x18, x19                    : whilehi %x18 %x19 -> %p8.d
+25f51a99 : whilehi p9.d, x20, x21                    : whilehi %x20 %x21 -> %p9.d
+25f71ada : whilehi p10.d, x22, x23                   : whilehi %x22 %x23 -> %p10.d
+25f81afb : whilehi p11.d, x23, x24                   : whilehi %x23 %x24 -> %p11.d
+25fa1b3c : whilehi p12.d, x25, x26                   : whilehi %x25 %x26 -> %p12.d
+25fc1b7d : whilehi p13.d, x27, x28                   : whilehi %x27 %x28 -> %p13.d
+25fe1bdf : whilehi p15.d, x30, x30                   : whilehi %x30 %x30 -> %p15.d
+
+# WHILEHS <Pd>.<T>, <R><n>, <R><m> (WHILEHS-P.P.RR-_)
+25200800 : whilehs p0.b, w0, w0                      : whilehs %w0 %w0 -> %p0.b
+25240861 : whilehs p1.b, w3, w4                      : whilehs %w3 %w4 -> %p1.b
+252608a2 : whilehs p2.b, w5, w6                      : whilehs %w5 %w6 -> %p2.b
+252808e3 : whilehs p3.b, w7, w8                      : whilehs %w7 %w8 -> %p3.b
+252a0924 : whilehs p4.b, w9, w10                     : whilehs %w9 %w10 -> %p4.b
+252b0945 : whilehs p5.b, w10, w11                    : whilehs %w10 %w11 -> %p5.b
+252d0986 : whilehs p6.b, w12, w13                    : whilehs %w12 %w13 -> %p6.b
+252f09c7 : whilehs p7.b, w14, w15                    : whilehs %w14 %w15 -> %p7.b
+25310a08 : whilehs p8.b, w16, w17                    : whilehs %w16 %w17 -> %p8.b
+25330a48 : whilehs p8.b, w18, w19                    : whilehs %w18 %w19 -> %p8.b
+25350a89 : whilehs p9.b, w20, w21                    : whilehs %w20 %w21 -> %p9.b
+25370aca : whilehs p10.b, w22, w23                   : whilehs %w22 %w23 -> %p10.b
+25380aeb : whilehs p11.b, w23, w24                   : whilehs %w23 %w24 -> %p11.b
+253a0b2c : whilehs p12.b, w25, w26                   : whilehs %w25 %w26 -> %p12.b
+253c0b6d : whilehs p13.b, w27, w28                   : whilehs %w27 %w28 -> %p13.b
+253e0bcf : whilehs p15.b, w30, w30                   : whilehs %w30 %w30 -> %p15.b
+25201800 : whilehs p0.b, x0, x0                      : whilehs %x0 %x0 -> %p0.b
+25241861 : whilehs p1.b, x3, x4                      : whilehs %x3 %x4 -> %p1.b
+252618a2 : whilehs p2.b, x5, x6                      : whilehs %x5 %x6 -> %p2.b
+252818e3 : whilehs p3.b, x7, x8                      : whilehs %x7 %x8 -> %p3.b
+252a1924 : whilehs p4.b, x9, x10                     : whilehs %x9 %x10 -> %p4.b
+252b1945 : whilehs p5.b, x10, x11                    : whilehs %x10 %x11 -> %p5.b
+252d1986 : whilehs p6.b, x12, x13                    : whilehs %x12 %x13 -> %p6.b
+252f19c7 : whilehs p7.b, x14, x15                    : whilehs %x14 %x15 -> %p7.b
+25311a08 : whilehs p8.b, x16, x17                    : whilehs %x16 %x17 -> %p8.b
+25331a48 : whilehs p8.b, x18, x19                    : whilehs %x18 %x19 -> %p8.b
+25351a89 : whilehs p9.b, x20, x21                    : whilehs %x20 %x21 -> %p9.b
+25371aca : whilehs p10.b, x22, x23                   : whilehs %x22 %x23 -> %p10.b
+25381aeb : whilehs p11.b, x23, x24                   : whilehs %x23 %x24 -> %p11.b
+253a1b2c : whilehs p12.b, x25, x26                   : whilehs %x25 %x26 -> %p12.b
+253c1b6d : whilehs p13.b, x27, x28                   : whilehs %x27 %x28 -> %p13.b
+253e1bcf : whilehs p15.b, x30, x30                   : whilehs %x30 %x30 -> %p15.b
+25600800 : whilehs p0.h, w0, w0                      : whilehs %w0 %w0 -> %p0.h
+25640861 : whilehs p1.h, w3, w4                      : whilehs %w3 %w4 -> %p1.h
+256608a2 : whilehs p2.h, w5, w6                      : whilehs %w5 %w6 -> %p2.h
+256808e3 : whilehs p3.h, w7, w8                      : whilehs %w7 %w8 -> %p3.h
+256a0924 : whilehs p4.h, w9, w10                     : whilehs %w9 %w10 -> %p4.h
+256b0945 : whilehs p5.h, w10, w11                    : whilehs %w10 %w11 -> %p5.h
+256d0986 : whilehs p6.h, w12, w13                    : whilehs %w12 %w13 -> %p6.h
+256f09c7 : whilehs p7.h, w14, w15                    : whilehs %w14 %w15 -> %p7.h
+25710a08 : whilehs p8.h, w16, w17                    : whilehs %w16 %w17 -> %p8.h
+25730a48 : whilehs p8.h, w18, w19                    : whilehs %w18 %w19 -> %p8.h
+25750a89 : whilehs p9.h, w20, w21                    : whilehs %w20 %w21 -> %p9.h
+25770aca : whilehs p10.h, w22, w23                   : whilehs %w22 %w23 -> %p10.h
+25780aeb : whilehs p11.h, w23, w24                   : whilehs %w23 %w24 -> %p11.h
+257a0b2c : whilehs p12.h, w25, w26                   : whilehs %w25 %w26 -> %p12.h
+257c0b6d : whilehs p13.h, w27, w28                   : whilehs %w27 %w28 -> %p13.h
+257e0bcf : whilehs p15.h, w30, w30                   : whilehs %w30 %w30 -> %p15.h
+25601800 : whilehs p0.h, x0, x0                      : whilehs %x0 %x0 -> %p0.h
+25641861 : whilehs p1.h, x3, x4                      : whilehs %x3 %x4 -> %p1.h
+256618a2 : whilehs p2.h, x5, x6                      : whilehs %x5 %x6 -> %p2.h
+256818e3 : whilehs p3.h, x7, x8                      : whilehs %x7 %x8 -> %p3.h
+256a1924 : whilehs p4.h, x9, x10                     : whilehs %x9 %x10 -> %p4.h
+256b1945 : whilehs p5.h, x10, x11                    : whilehs %x10 %x11 -> %p5.h
+256d1986 : whilehs p6.h, x12, x13                    : whilehs %x12 %x13 -> %p6.h
+256f19c7 : whilehs p7.h, x14, x15                    : whilehs %x14 %x15 -> %p7.h
+25711a08 : whilehs p8.h, x16, x17                    : whilehs %x16 %x17 -> %p8.h
+25731a48 : whilehs p8.h, x18, x19                    : whilehs %x18 %x19 -> %p8.h
+25751a89 : whilehs p9.h, x20, x21                    : whilehs %x20 %x21 -> %p9.h
+25771aca : whilehs p10.h, x22, x23                   : whilehs %x22 %x23 -> %p10.h
+25781aeb : whilehs p11.h, x23, x24                   : whilehs %x23 %x24 -> %p11.h
+257a1b2c : whilehs p12.h, x25, x26                   : whilehs %x25 %x26 -> %p12.h
+257c1b6d : whilehs p13.h, x27, x28                   : whilehs %x27 %x28 -> %p13.h
+257e1bcf : whilehs p15.h, x30, x30                   : whilehs %x30 %x30 -> %p15.h
+25a00800 : whilehs p0.s, w0, w0                      : whilehs %w0 %w0 -> %p0.s
+25a40861 : whilehs p1.s, w3, w4                      : whilehs %w3 %w4 -> %p1.s
+25a608a2 : whilehs p2.s, w5, w6                      : whilehs %w5 %w6 -> %p2.s
+25a808e3 : whilehs p3.s, w7, w8                      : whilehs %w7 %w8 -> %p3.s
+25aa0924 : whilehs p4.s, w9, w10                     : whilehs %w9 %w10 -> %p4.s
+25ab0945 : whilehs p5.s, w10, w11                    : whilehs %w10 %w11 -> %p5.s
+25ad0986 : whilehs p6.s, w12, w13                    : whilehs %w12 %w13 -> %p6.s
+25af09c7 : whilehs p7.s, w14, w15                    : whilehs %w14 %w15 -> %p7.s
+25b10a08 : whilehs p8.s, w16, w17                    : whilehs %w16 %w17 -> %p8.s
+25b30a48 : whilehs p8.s, w18, w19                    : whilehs %w18 %w19 -> %p8.s
+25b50a89 : whilehs p9.s, w20, w21                    : whilehs %w20 %w21 -> %p9.s
+25b70aca : whilehs p10.s, w22, w23                   : whilehs %w22 %w23 -> %p10.s
+25b80aeb : whilehs p11.s, w23, w24                   : whilehs %w23 %w24 -> %p11.s
+25ba0b2c : whilehs p12.s, w25, w26                   : whilehs %w25 %w26 -> %p12.s
+25bc0b6d : whilehs p13.s, w27, w28                   : whilehs %w27 %w28 -> %p13.s
+25be0bcf : whilehs p15.s, w30, w30                   : whilehs %w30 %w30 -> %p15.s
+25a01800 : whilehs p0.s, x0, x0                      : whilehs %x0 %x0 -> %p0.s
+25a41861 : whilehs p1.s, x3, x4                      : whilehs %x3 %x4 -> %p1.s
+25a618a2 : whilehs p2.s, x5, x6                      : whilehs %x5 %x6 -> %p2.s
+25a818e3 : whilehs p3.s, x7, x8                      : whilehs %x7 %x8 -> %p3.s
+25aa1924 : whilehs p4.s, x9, x10                     : whilehs %x9 %x10 -> %p4.s
+25ab1945 : whilehs p5.s, x10, x11                    : whilehs %x10 %x11 -> %p5.s
+25ad1986 : whilehs p6.s, x12, x13                    : whilehs %x12 %x13 -> %p6.s
+25af19c7 : whilehs p7.s, x14, x15                    : whilehs %x14 %x15 -> %p7.s
+25b11a08 : whilehs p8.s, x16, x17                    : whilehs %x16 %x17 -> %p8.s
+25b31a48 : whilehs p8.s, x18, x19                    : whilehs %x18 %x19 -> %p8.s
+25b51a89 : whilehs p9.s, x20, x21                    : whilehs %x20 %x21 -> %p9.s
+25b71aca : whilehs p10.s, x22, x23                   : whilehs %x22 %x23 -> %p10.s
+25b81aeb : whilehs p11.s, x23, x24                   : whilehs %x23 %x24 -> %p11.s
+25ba1b2c : whilehs p12.s, x25, x26                   : whilehs %x25 %x26 -> %p12.s
+25bc1b6d : whilehs p13.s, x27, x28                   : whilehs %x27 %x28 -> %p13.s
+25be1bcf : whilehs p15.s, x30, x30                   : whilehs %x30 %x30 -> %p15.s
+25e00800 : whilehs p0.d, w0, w0                      : whilehs %w0 %w0 -> %p0.d
+25e40861 : whilehs p1.d, w3, w4                      : whilehs %w3 %w4 -> %p1.d
+25e608a2 : whilehs p2.d, w5, w6                      : whilehs %w5 %w6 -> %p2.d
+25e808e3 : whilehs p3.d, w7, w8                      : whilehs %w7 %w8 -> %p3.d
+25ea0924 : whilehs p4.d, w9, w10                     : whilehs %w9 %w10 -> %p4.d
+25eb0945 : whilehs p5.d, w10, w11                    : whilehs %w10 %w11 -> %p5.d
+25ed0986 : whilehs p6.d, w12, w13                    : whilehs %w12 %w13 -> %p6.d
+25ef09c7 : whilehs p7.d, w14, w15                    : whilehs %w14 %w15 -> %p7.d
+25f10a08 : whilehs p8.d, w16, w17                    : whilehs %w16 %w17 -> %p8.d
+25f30a48 : whilehs p8.d, w18, w19                    : whilehs %w18 %w19 -> %p8.d
+25f50a89 : whilehs p9.d, w20, w21                    : whilehs %w20 %w21 -> %p9.d
+25f70aca : whilehs p10.d, w22, w23                   : whilehs %w22 %w23 -> %p10.d
+25f80aeb : whilehs p11.d, w23, w24                   : whilehs %w23 %w24 -> %p11.d
+25fa0b2c : whilehs p12.d, w25, w26                   : whilehs %w25 %w26 -> %p12.d
+25fc0b6d : whilehs p13.d, w27, w28                   : whilehs %w27 %w28 -> %p13.d
+25fe0bcf : whilehs p15.d, w30, w30                   : whilehs %w30 %w30 -> %p15.d
+25e01800 : whilehs p0.d, x0, x0                      : whilehs %x0 %x0 -> %p0.d
+25e41861 : whilehs p1.d, x3, x4                      : whilehs %x3 %x4 -> %p1.d
+25e618a2 : whilehs p2.d, x5, x6                      : whilehs %x5 %x6 -> %p2.d
+25e818e3 : whilehs p3.d, x7, x8                      : whilehs %x7 %x8 -> %p3.d
+25ea1924 : whilehs p4.d, x9, x10                     : whilehs %x9 %x10 -> %p4.d
+25eb1945 : whilehs p5.d, x10, x11                    : whilehs %x10 %x11 -> %p5.d
+25ed1986 : whilehs p6.d, x12, x13                    : whilehs %x12 %x13 -> %p6.d
+25ef19c7 : whilehs p7.d, x14, x15                    : whilehs %x14 %x15 -> %p7.d
+25f11a08 : whilehs p8.d, x16, x17                    : whilehs %x16 %x17 -> %p8.d
+25f31a48 : whilehs p8.d, x18, x19                    : whilehs %x18 %x19 -> %p8.d
+25f51a89 : whilehs p9.d, x20, x21                    : whilehs %x20 %x21 -> %p9.d
+25f71aca : whilehs p10.d, x22, x23                   : whilehs %x22 %x23 -> %p10.d
+25f81aeb : whilehs p11.d, x23, x24                   : whilehs %x23 %x24 -> %p11.d
+25fa1b2c : whilehs p12.d, x25, x26                   : whilehs %x25 %x26 -> %p12.d
+25fc1b6d : whilehs p13.d, x27, x28                   : whilehs %x27 %x28 -> %p13.d
+25fe1bcf : whilehs p15.d, x30, x30                   : whilehs %x30 %x30 -> %p15.d
+
+# WHILERW <Pd>.<T>, <Xn>, <Xm> (WHILERW-P.RR-_)
+25203010 : whilerw p0.b, x0, x0                      : whilerw %x0 %x0 -> %p0.b
+25243071 : whilerw p1.b, x3, x4                      : whilerw %x3 %x4 -> %p1.b
+252630b2 : whilerw p2.b, x5, x6                      : whilerw %x5 %x6 -> %p2.b
+252830f3 : whilerw p3.b, x7, x8                      : whilerw %x7 %x8 -> %p3.b
+252a3134 : whilerw p4.b, x9, x10                     : whilerw %x9 %x10 -> %p4.b
+252b3155 : whilerw p5.b, x10, x11                    : whilerw %x10 %x11 -> %p5.b
+252d3196 : whilerw p6.b, x12, x13                    : whilerw %x12 %x13 -> %p6.b
+252f31d7 : whilerw p7.b, x14, x15                    : whilerw %x14 %x15 -> %p7.b
+25313218 : whilerw p8.b, x16, x17                    : whilerw %x16 %x17 -> %p8.b
+25333258 : whilerw p8.b, x18, x19                    : whilerw %x18 %x19 -> %p8.b
+25353299 : whilerw p9.b, x20, x21                    : whilerw %x20 %x21 -> %p9.b
+253732da : whilerw p10.b, x22, x23                   : whilerw %x22 %x23 -> %p10.b
+253832fb : whilerw p11.b, x23, x24                   : whilerw %x23 %x24 -> %p11.b
+253a333c : whilerw p12.b, x25, x26                   : whilerw %x25 %x26 -> %p12.b
+253c337d : whilerw p13.b, x27, x28                   : whilerw %x27 %x28 -> %p13.b
+253e33df : whilerw p15.b, x30, x30                   : whilerw %x30 %x30 -> %p15.b
+25603010 : whilerw p0.h, x0, x0                      : whilerw %x0 %x0 -> %p0.h
+25643071 : whilerw p1.h, x3, x4                      : whilerw %x3 %x4 -> %p1.h
+256630b2 : whilerw p2.h, x5, x6                      : whilerw %x5 %x6 -> %p2.h
+256830f3 : whilerw p3.h, x7, x8                      : whilerw %x7 %x8 -> %p3.h
+256a3134 : whilerw p4.h, x9, x10                     : whilerw %x9 %x10 -> %p4.h
+256b3155 : whilerw p5.h, x10, x11                    : whilerw %x10 %x11 -> %p5.h
+256d3196 : whilerw p6.h, x12, x13                    : whilerw %x12 %x13 -> %p6.h
+256f31d7 : whilerw p7.h, x14, x15                    : whilerw %x14 %x15 -> %p7.h
+25713218 : whilerw p8.h, x16, x17                    : whilerw %x16 %x17 -> %p8.h
+25733258 : whilerw p8.h, x18, x19                    : whilerw %x18 %x19 -> %p8.h
+25753299 : whilerw p9.h, x20, x21                    : whilerw %x20 %x21 -> %p9.h
+257732da : whilerw p10.h, x22, x23                   : whilerw %x22 %x23 -> %p10.h
+257832fb : whilerw p11.h, x23, x24                   : whilerw %x23 %x24 -> %p11.h
+257a333c : whilerw p12.h, x25, x26                   : whilerw %x25 %x26 -> %p12.h
+257c337d : whilerw p13.h, x27, x28                   : whilerw %x27 %x28 -> %p13.h
+257e33df : whilerw p15.h, x30, x30                   : whilerw %x30 %x30 -> %p15.h
+25a03010 : whilerw p0.s, x0, x0                      : whilerw %x0 %x0 -> %p0.s
+25a43071 : whilerw p1.s, x3, x4                      : whilerw %x3 %x4 -> %p1.s
+25a630b2 : whilerw p2.s, x5, x6                      : whilerw %x5 %x6 -> %p2.s
+25a830f3 : whilerw p3.s, x7, x8                      : whilerw %x7 %x8 -> %p3.s
+25aa3134 : whilerw p4.s, x9, x10                     : whilerw %x9 %x10 -> %p4.s
+25ab3155 : whilerw p5.s, x10, x11                    : whilerw %x10 %x11 -> %p5.s
+25ad3196 : whilerw p6.s, x12, x13                    : whilerw %x12 %x13 -> %p6.s
+25af31d7 : whilerw p7.s, x14, x15                    : whilerw %x14 %x15 -> %p7.s
+25b13218 : whilerw p8.s, x16, x17                    : whilerw %x16 %x17 -> %p8.s
+25b33258 : whilerw p8.s, x18, x19                    : whilerw %x18 %x19 -> %p8.s
+25b53299 : whilerw p9.s, x20, x21                    : whilerw %x20 %x21 -> %p9.s
+25b732da : whilerw p10.s, x22, x23                   : whilerw %x22 %x23 -> %p10.s
+25b832fb : whilerw p11.s, x23, x24                   : whilerw %x23 %x24 -> %p11.s
+25ba333c : whilerw p12.s, x25, x26                   : whilerw %x25 %x26 -> %p12.s
+25bc337d : whilerw p13.s, x27, x28                   : whilerw %x27 %x28 -> %p13.s
+25be33df : whilerw p15.s, x30, x30                   : whilerw %x30 %x30 -> %p15.s
+25e03010 : whilerw p0.d, x0, x0                      : whilerw %x0 %x0 -> %p0.d
+25e43071 : whilerw p1.d, x3, x4                      : whilerw %x3 %x4 -> %p1.d
+25e630b2 : whilerw p2.d, x5, x6                      : whilerw %x5 %x6 -> %p2.d
+25e830f3 : whilerw p3.d, x7, x8                      : whilerw %x7 %x8 -> %p3.d
+25ea3134 : whilerw p4.d, x9, x10                     : whilerw %x9 %x10 -> %p4.d
+25eb3155 : whilerw p5.d, x10, x11                    : whilerw %x10 %x11 -> %p5.d
+25ed3196 : whilerw p6.d, x12, x13                    : whilerw %x12 %x13 -> %p6.d
+25ef31d7 : whilerw p7.d, x14, x15                    : whilerw %x14 %x15 -> %p7.d
+25f13218 : whilerw p8.d, x16, x17                    : whilerw %x16 %x17 -> %p8.d
+25f33258 : whilerw p8.d, x18, x19                    : whilerw %x18 %x19 -> %p8.d
+25f53299 : whilerw p9.d, x20, x21                    : whilerw %x20 %x21 -> %p9.d
+25f732da : whilerw p10.d, x22, x23                   : whilerw %x22 %x23 -> %p10.d
+25f832fb : whilerw p11.d, x23, x24                   : whilerw %x23 %x24 -> %p11.d
+25fa333c : whilerw p12.d, x25, x26                   : whilerw %x25 %x26 -> %p12.d
+25fc337d : whilerw p13.d, x27, x28                   : whilerw %x27 %x28 -> %p13.d
+25fe33df : whilerw p15.d, x30, x30                   : whilerw %x30 %x30 -> %p15.d
+
+# WHILEWR <Pd>.<T>, <Xn>, <Xm> (WHILEWR-P.RR-_)
+25203000 : whilewr p0.b, x0, x0                      : whilewr %x0 %x0 -> %p0.b
+25243061 : whilewr p1.b, x3, x4                      : whilewr %x3 %x4 -> %p1.b
+252630a2 : whilewr p2.b, x5, x6                      : whilewr %x5 %x6 -> %p2.b
+252830e3 : whilewr p3.b, x7, x8                      : whilewr %x7 %x8 -> %p3.b
+252a3124 : whilewr p4.b, x9, x10                     : whilewr %x9 %x10 -> %p4.b
+252b3145 : whilewr p5.b, x10, x11                    : whilewr %x10 %x11 -> %p5.b
+252d3186 : whilewr p6.b, x12, x13                    : whilewr %x12 %x13 -> %p6.b
+252f31c7 : whilewr p7.b, x14, x15                    : whilewr %x14 %x15 -> %p7.b
+25313208 : whilewr p8.b, x16, x17                    : whilewr %x16 %x17 -> %p8.b
+25333248 : whilewr p8.b, x18, x19                    : whilewr %x18 %x19 -> %p8.b
+25353289 : whilewr p9.b, x20, x21                    : whilewr %x20 %x21 -> %p9.b
+253732ca : whilewr p10.b, x22, x23                   : whilewr %x22 %x23 -> %p10.b
+253832eb : whilewr p11.b, x23, x24                   : whilewr %x23 %x24 -> %p11.b
+253a332c : whilewr p12.b, x25, x26                   : whilewr %x25 %x26 -> %p12.b
+253c336d : whilewr p13.b, x27, x28                   : whilewr %x27 %x28 -> %p13.b
+253e33cf : whilewr p15.b, x30, x30                   : whilewr %x30 %x30 -> %p15.b
+25603000 : whilewr p0.h, x0, x0                      : whilewr %x0 %x0 -> %p0.h
+25643061 : whilewr p1.h, x3, x4                      : whilewr %x3 %x4 -> %p1.h
+256630a2 : whilewr p2.h, x5, x6                      : whilewr %x5 %x6 -> %p2.h
+256830e3 : whilewr p3.h, x7, x8                      : whilewr %x7 %x8 -> %p3.h
+256a3124 : whilewr p4.h, x9, x10                     : whilewr %x9 %x10 -> %p4.h
+256b3145 : whilewr p5.h, x10, x11                    : whilewr %x10 %x11 -> %p5.h
+256d3186 : whilewr p6.h, x12, x13                    : whilewr %x12 %x13 -> %p6.h
+256f31c7 : whilewr p7.h, x14, x15                    : whilewr %x14 %x15 -> %p7.h
+25713208 : whilewr p8.h, x16, x17                    : whilewr %x16 %x17 -> %p8.h
+25733248 : whilewr p8.h, x18, x19                    : whilewr %x18 %x19 -> %p8.h
+25753289 : whilewr p9.h, x20, x21                    : whilewr %x20 %x21 -> %p9.h
+257732ca : whilewr p10.h, x22, x23                   : whilewr %x22 %x23 -> %p10.h
+257832eb : whilewr p11.h, x23, x24                   : whilewr %x23 %x24 -> %p11.h
+257a332c : whilewr p12.h, x25, x26                   : whilewr %x25 %x26 -> %p12.h
+257c336d : whilewr p13.h, x27, x28                   : whilewr %x27 %x28 -> %p13.h
+257e33cf : whilewr p15.h, x30, x30                   : whilewr %x30 %x30 -> %p15.h
+25a03000 : whilewr p0.s, x0, x0                      : whilewr %x0 %x0 -> %p0.s
+25a43061 : whilewr p1.s, x3, x4                      : whilewr %x3 %x4 -> %p1.s
+25a630a2 : whilewr p2.s, x5, x6                      : whilewr %x5 %x6 -> %p2.s
+25a830e3 : whilewr p3.s, x7, x8                      : whilewr %x7 %x8 -> %p3.s
+25aa3124 : whilewr p4.s, x9, x10                     : whilewr %x9 %x10 -> %p4.s
+25ab3145 : whilewr p5.s, x10, x11                    : whilewr %x10 %x11 -> %p5.s
+25ad3186 : whilewr p6.s, x12, x13                    : whilewr %x12 %x13 -> %p6.s
+25af31c7 : whilewr p7.s, x14, x15                    : whilewr %x14 %x15 -> %p7.s
+25b13208 : whilewr p8.s, x16, x17                    : whilewr %x16 %x17 -> %p8.s
+25b33248 : whilewr p8.s, x18, x19                    : whilewr %x18 %x19 -> %p8.s
+25b53289 : whilewr p9.s, x20, x21                    : whilewr %x20 %x21 -> %p9.s
+25b732ca : whilewr p10.s, x22, x23                   : whilewr %x22 %x23 -> %p10.s
+25b832eb : whilewr p11.s, x23, x24                   : whilewr %x23 %x24 -> %p11.s
+25ba332c : whilewr p12.s, x25, x26                   : whilewr %x25 %x26 -> %p12.s
+25bc336d : whilewr p13.s, x27, x28                   : whilewr %x27 %x28 -> %p13.s
+25be33cf : whilewr p15.s, x30, x30                   : whilewr %x30 %x30 -> %p15.s
+25e03000 : whilewr p0.d, x0, x0                      : whilewr %x0 %x0 -> %p0.d
+25e43061 : whilewr p1.d, x3, x4                      : whilewr %x3 %x4 -> %p1.d
+25e630a2 : whilewr p2.d, x5, x6                      : whilewr %x5 %x6 -> %p2.d
+25e830e3 : whilewr p3.d, x7, x8                      : whilewr %x7 %x8 -> %p3.d
+25ea3124 : whilewr p4.d, x9, x10                     : whilewr %x9 %x10 -> %p4.d
+25eb3145 : whilewr p5.d, x10, x11                    : whilewr %x10 %x11 -> %p5.d
+25ed3186 : whilewr p6.d, x12, x13                    : whilewr %x12 %x13 -> %p6.d
+25ef31c7 : whilewr p7.d, x14, x15                    : whilewr %x14 %x15 -> %p7.d
+25f13208 : whilewr p8.d, x16, x17                    : whilewr %x16 %x17 -> %p8.d
+25f33248 : whilewr p8.d, x18, x19                    : whilewr %x18 %x19 -> %p8.d
+25f53289 : whilewr p9.d, x20, x21                    : whilewr %x20 %x21 -> %p9.d
+25f732ca : whilewr p10.d, x22, x23                   : whilewr %x22 %x23 -> %p10.d
+25f832eb : whilewr p11.d, x23, x24                   : whilewr %x23 %x24 -> %p11.d
+25fa332c : whilewr p12.d, x25, x26                   : whilewr %x25 %x26 -> %p12.d
+25fc336d : whilewr p13.d, x27, x28                   : whilewr %x27 %x28 -> %p13.d
+25fe33cf : whilewr p15.d, x30, x30                   : whilewr %x30 %x30 -> %p15.d
 
 # XAR     <Zdn>.<T>, <Zdn>.<T>, <Zm>.<T>, #<const> (XAR-Z.ZZI-_)
 042f3400 : xar z0.b, z0.b, z0.b, #0x1                : xar    %z0.b %z0.b $0x01 -> %z0.b

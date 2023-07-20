@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,12 @@
 #include <string>
 #include "droption.h"
 #include "options.h"
+
+namespace dynamorio {
+namespace drcpusim {
+
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+using ::dynamorio::droption::droption_t;
 
 #ifdef WINDOWS
 #    define IF_WINDOWS_ELSE(x, y) x
@@ -145,3 +151,6 @@ droption_t<bool> op_ignore_all_libs(
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_CLIENT, "verbose", 0, 0, 64,
                                     "Verbosity level",
                                     "Verbosity level for notifications.");
+
+} // namespace drcpusim
+} // namespace dynamorio

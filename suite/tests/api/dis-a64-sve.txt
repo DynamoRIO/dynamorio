@@ -26099,6 +26099,24 @@ e5ac57df : str z31, [x30, #-155, mul vl]            : str    %z31 -> -0x9b(%x30)
 05fd6b9b : uzp1 z27.d, z28.d, z29.d                  : uzp1   %z28.d %z29.d -> %z27.d
 05ff6bff : uzp1 z31.d, z31.d, z31.d                  : uzp1   %z31.d %z31.d -> %z31.d
 
+# UZP1    <Zd>.Q, <Zn>.Q, <Zm>.Q (UZP1-Z.ZZ-Q)
+05a00800 : uzp1 z0.q, z0.q, z0.q                     : uzp1   %z0.q %z0.q -> %z0.q
+05a40862 : uzp1 z2.q, z3.q, z4.q                     : uzp1   %z3.q %z4.q -> %z2.q
+05a608a4 : uzp1 z4.q, z5.q, z6.q                     : uzp1   %z5.q %z6.q -> %z4.q
+05a808e6 : uzp1 z6.q, z7.q, z8.q                     : uzp1   %z7.q %z8.q -> %z6.q
+05aa0928 : uzp1 z8.q, z9.q, z10.q                    : uzp1   %z9.q %z10.q -> %z8.q
+05ac096a : uzp1 z10.q, z11.q, z12.q                  : uzp1   %z11.q %z12.q -> %z10.q
+05ae09ac : uzp1 z12.q, z13.q, z14.q                  : uzp1   %z13.q %z14.q -> %z12.q
+05b009ee : uzp1 z14.q, z15.q, z16.q                  : uzp1   %z15.q %z16.q -> %z14.q
+05b20a30 : uzp1 z16.q, z17.q, z18.q                  : uzp1   %z17.q %z18.q -> %z16.q
+05b30a51 : uzp1 z17.q, z18.q, z19.q                  : uzp1   %z18.q %z19.q -> %z17.q
+05b50a93 : uzp1 z19.q, z20.q, z21.q                  : uzp1   %z20.q %z21.q -> %z19.q
+05b70ad5 : uzp1 z21.q, z22.q, z23.q                  : uzp1   %z22.q %z23.q -> %z21.q
+05b90b17 : uzp1 z23.q, z24.q, z25.q                  : uzp1   %z24.q %z25.q -> %z23.q
+05bb0b59 : uzp1 z25.q, z26.q, z27.q                  : uzp1   %z26.q %z27.q -> %z25.q
+05bd0b9b : uzp1 z27.q, z28.q, z29.q                  : uzp1   %z28.q %z29.q -> %z27.q
+05bf0bff : uzp1 z31.q, z31.q, z31.q                  : uzp1   %z31.q %z31.q -> %z31.q
+
 # UZP2    <Pd>.<T>, <Pn>.<T>, <Pm>.<T> (UZP2-P.PP-_)
 05204c00 : uzp2 p0.b, p0.b, p0.b                     : uzp2   %p0.b %p0.b -> %p0.b
 05234c41 : uzp2 p1.b, p2.b, p3.b                     : uzp2   %p2.b %p3.b -> %p1.b
@@ -26230,6 +26248,24 @@ e5ac57df : str z31, [x30, #-155, mul vl]            : str    %z31 -> -0x9b(%x30)
 05fb6f59 : uzp2 z25.d, z26.d, z27.d                  : uzp2   %z26.d %z27.d -> %z25.d
 05fd6f9b : uzp2 z27.d, z28.d, z29.d                  : uzp2   %z28.d %z29.d -> %z27.d
 05ff6fff : uzp2 z31.d, z31.d, z31.d                  : uzp2   %z31.d %z31.d -> %z31.d
+
+# UZP2    <Zd>.Q, <Zn>.Q, <Zm>.Q (UZP2-Z.ZZ-Q)
+05a00c00 : uzp2 z0.q, z0.q, z0.q                     : uzp2   %z0.q %z0.q -> %z0.q
+05a40c62 : uzp2 z2.q, z3.q, z4.q                     : uzp2   %z3.q %z4.q -> %z2.q
+05a60ca4 : uzp2 z4.q, z5.q, z6.q                     : uzp2   %z5.q %z6.q -> %z4.q
+05a80ce6 : uzp2 z6.q, z7.q, z8.q                     : uzp2   %z7.q %z8.q -> %z6.q
+05aa0d28 : uzp2 z8.q, z9.q, z10.q                    : uzp2   %z9.q %z10.q -> %z8.q
+05ac0d6a : uzp2 z10.q, z11.q, z12.q                  : uzp2   %z11.q %z12.q -> %z10.q
+05ae0dac : uzp2 z12.q, z13.q, z14.q                  : uzp2   %z13.q %z14.q -> %z12.q
+05b00dee : uzp2 z14.q, z15.q, z16.q                  : uzp2   %z15.q %z16.q -> %z14.q
+05b20e30 : uzp2 z16.q, z17.q, z18.q                  : uzp2   %z17.q %z18.q -> %z16.q
+05b30e51 : uzp2 z17.q, z18.q, z19.q                  : uzp2   %z18.q %z19.q -> %z17.q
+05b50e93 : uzp2 z19.q, z20.q, z21.q                  : uzp2   %z20.q %z21.q -> %z19.q
+05b70ed5 : uzp2 z21.q, z22.q, z23.q                  : uzp2   %z22.q %z23.q -> %z21.q
+05b90f17 : uzp2 z23.q, z24.q, z25.q                  : uzp2   %z24.q %z25.q -> %z23.q
+05bb0f59 : uzp2 z25.q, z26.q, z27.q                  : uzp2   %z26.q %z27.q -> %z25.q
+05bd0f9b : uzp2 z27.q, z28.q, z29.q                  : uzp2   %z28.q %z29.q -> %z27.q
+05bf0fff : uzp2 z31.q, z31.q, z31.q                  : uzp2   %z31.q %z31.q -> %z31.q
 
 # WHILELE <Pd>.<T>, <R><n>, <R><m> (WHILELE-P.P.RR-_)
 25200410 : whilele p0.b, w0, w0                      : whilele %w0 %w0 -> %p0.b
@@ -26900,6 +26936,24 @@ e5ac57df : str z31, [x30, #-155, mul vl]            : str    %z31 -> -0x9b(%x30)
 05fb6359 : zip1 z25.d, z26.d, z27.d                  : zip1   %z26.d %z27.d -> %z25.d
 05fd639b : zip1 z27.d, z28.d, z29.d                  : zip1   %z28.d %z29.d -> %z27.d
 05ff63ff : zip1 z31.d, z31.d, z31.d                  : zip1   %z31.d %z31.d -> %z31.d
+
+# ZIP1    <Zd>.Q, <Zn>.Q, <Zm>.Q (ZIP1-Z.ZZ-Q)
+05a00000 : zip1 z0.q, z0.q, z0.q                     : zip1   %z0.q %z0.q -> %z0.q
+05a40062 : zip1 z2.q, z3.q, z4.q                     : zip1   %z3.q %z4.q -> %z2.q
+05a600a4 : zip1 z4.q, z5.q, z6.q                     : zip1   %z5.q %z6.q -> %z4.q
+05a800e6 : zip1 z6.q, z7.q, z8.q                     : zip1   %z7.q %z8.q -> %z6.q
+05aa0128 : zip1 z8.q, z9.q, z10.q                    : zip1   %z9.q %z10.q -> %z8.q
+05ac016a : zip1 z10.q, z11.q, z12.q                  : zip1   %z11.q %z12.q -> %z10.q
+05ae01ac : zip1 z12.q, z13.q, z14.q                  : zip1   %z13.q %z14.q -> %z12.q
+05b001ee : zip1 z14.q, z15.q, z16.q                  : zip1   %z15.q %z16.q -> %z14.q
+05b20230 : zip1 z16.q, z17.q, z18.q                  : zip1   %z17.q %z18.q -> %z16.q
+05b30251 : zip1 z17.q, z18.q, z19.q                  : zip1   %z18.q %z19.q -> %z17.q
+05b50293 : zip1 z19.q, z20.q, z21.q                  : zip1   %z20.q %z21.q -> %z19.q
+05b702d5 : zip1 z21.q, z22.q, z23.q                  : zip1   %z22.q %z23.q -> %z21.q
+05b90317 : zip1 z23.q, z24.q, z25.q                  : zip1   %z24.q %z25.q -> %z23.q
+05bb0359 : zip1 z25.q, z26.q, z27.q                  : zip1   %z26.q %z27.q -> %z25.q
+05bd039b : zip1 z27.q, z28.q, z29.q                  : zip1   %z28.q %z29.q -> %z27.q
+05bf03ff : zip1 z31.q, z31.q, z31.q                  : zip1   %z31.q %z31.q -> %z31.q
 
 # ZIP2    <Pd>.<T>, <Pn>.<T>, <Pm>.<T> (ZIP2-P.PP-_)
 05204400 : zip2 p0.b, p0.b, p0.b                     : zip2   %p0.b %p0.b -> %p0.b

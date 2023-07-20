@@ -68,7 +68,11 @@
 #endif
 #ifdef HAS_LZ4
 #    include "common/lz4_istream.h"
+#    include "common/lz4_ostream.h"
 #endif
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -107,6 +111,25 @@ raw2trace_directory_t::open_thread_files()
             return error;
     }
     return "";
+}
+
+std::string
+raw2trace_directory_t::trace_suffix()
+{
+    if (compress_type_ == "zip") {
+#ifdef HAS_ZIP
+        return TRACE_SUFFIX_ZIP;
+#endif
+    } else if (compress_type_ == "gzip") {
+#ifdef HAS_ZLIB
+        return TRACE_SUFFIX_GZ;
+#endif
+    } else if (compress_type_ == "lz4") {
+#ifdef HAS_LZ4
+        return TRACE_SUFFIX_LZ4;
+#endif
+    }
+    return TRACE_SUFFIX;
 }
 
 std::string
@@ -220,25 +243,37 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
         return "Failed to compute output name for file " + std::string(basename);
     }
     if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%s%s%s.%s", outdir_.c_str(),
-                    DIRSEP, outname, TRACE_SUFFIX) <= 0) {
+                    DIRSEP, outname, trace_suffix().c_str()) <= 0) {
         return "Failed to compute full path of output file for " + std::string(basename);
     }
+
+    std::ostream *ofile = nullptr;
+    if (compress_type_ == "zip") {
 #ifdef HAS_ZIP
-    archive_ostream_t *ofile = new zipfile_ostream_t(path);
-    out_archives_.push_back(ofile);
-    if (!(*out_archives_.back()))
-        return "Failed to open output file " + std::string(path);
-#else
-    std::ostream *ofile;
-#    ifdef HAS_ZLIB
-    ofile = new gzip_ostream_t(path);
-#    else
-    ofile = new std::ofstream(path, std::ofstream::binary);
-#    endif
+        ofile = new zipfile_ostream_t(path);
+        out_archives_.push_back(reinterpret_cast<archive_ostream_t *>(ofile));
+        if (!(*out_archives_.back()))
+            return "Failed to open output file " + std::string(path);
+
+        VPRINT(1, "Opened output file %s\n", path);
+        return "";
+#endif
+    } else if (compress_type_ == "gzip") {
+#ifdef HAS_ZLIB
+        ofile = new gzip_ostream_t(path);
+#endif
+    } else if (compress_type_ == "lz4") {
+#ifdef HAS_LZ4
+        ofile = new lz4_ostream_t(path);
+#endif
+    }
+    if (!ofile) {
+        ofile = new std::ofstream(path, std::ofstream::binary);
+    }
     out_files_.push_back(ofile);
     if (!(*out_files_.back()))
         return "Failed to open output file " + std::string(path);
-#endif
+
     VPRINT(1, "Opened output file %s\n", path);
     return "";
 }
@@ -436,10 +471,12 @@ raw2trace_directory_t::tracedir_from_rawdir(const std::string &rawdir_in)
 }
 
 std::string
-raw2trace_directory_t::initialize(const std::string &indir, const std::string &outdir)
+raw2trace_directory_t::initialize(const std::string &indir, const std::string &outdir,
+                                  const std::string &compress)
 {
     indir_ = indir;
     outdir_ = outdir;
+    compress_type_ = compress;
 #ifdef WINDOWS
     // Canonicalize.
     std::replace(indir_.begin(), indir_.end(), ALT_DIRSEP[0], DIRSEP[0]);
@@ -582,3 +619,6 @@ raw2trace_directory_t::~raw2trace_directory_t()
     }
     dr_standalone_exit();
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

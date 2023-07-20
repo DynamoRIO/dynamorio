@@ -45,6 +45,9 @@
 #include "../scheduler/scheduler.h"
 #include "memref_gen.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 #undef ASSERT
 #define ASSERT(cond, msg, ...)        \
     do {                              \
@@ -85,10 +88,6 @@ file_reader_t<std::vector<trace_entry_t>>::read_next_entry()
 {
     return nullptr;
 }
-
-namespace {
-
-using namespace dynamorio::drmemtrace;
 
 class view_test_t : public view_t {
 public:
@@ -587,8 +586,6 @@ run_chunk_tests(void *drcontext)
     return run_single_thread_chunk_test(drcontext) && run_serial_chunk_test(drcontext);
 }
 
-} // namespace
-
 int
 test_main(int argc, const char *argv[])
 {
@@ -600,3 +597,6 @@ test_main(int argc, const char *argv[])
     std::cerr << "view_test FAILED\n";
     exit(1);
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

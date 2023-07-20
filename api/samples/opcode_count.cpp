@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,6 +45,14 @@
 #include "drreg.h"
 #include "drx.h"
 #include "droption.h"
+
+namespace dynamorio {
+namespace samples {
+namespace {
+
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+using ::dynamorio::droption::droption_t;
 
 #ifdef WINDOWS
 #    define DISPLAY_STRING(msg) dr_messagebox(msg)
@@ -140,15 +148,20 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     return DR_EMIT_DEFAULT;
 }
 
+} // namespace
+} // namespace samples
+} // namespace dynamorio
+
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     /* Parse command-line options. */
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
+    if (!dynamorio::droption::droption_parser_t::parse_argv(
+            dynamorio::droption::DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
         DR_ASSERT(false);
 
     /* Get opcode and check if valid. */
-    int valid_opcode = opcode.get_value();
+    int valid_opcode = dynamorio::samples::opcode.get_value();
     if (valid_opcode < OP_FIRST || valid_opcode > OP_LAST) {
 #ifdef SHOW_RESULTS
         dr_fprintf(STDERR, "Error: give a valid opcode as a parameter.\n");
@@ -163,11 +176,12 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
 
     /* Register opcode event. */
-    dr_register_exit_event(event_exit);
-    if (!drmgr_register_opcode_instrumentation_event(event_opcode_instruction,
-                                                     valid_opcode, NULL, NULL) ||
-        !drmgr_register_bb_instrumentation_event(event_bb_analysis, event_app_instruction,
-                                                 NULL))
+    dr_register_exit_event(dynamorio::samples::event_exit);
+    if (!drmgr_register_opcode_instrumentation_event(
+            dynamorio::samples::event_opcode_instruction, valid_opcode, NULL, NULL) ||
+        !drmgr_register_bb_instrumentation_event(
+            dynamorio::samples::event_bb_analysis,
+            dynamorio::samples::event_app_instruction, NULL))
         DR_ASSERT(false);
 
     /* Make it easy to tell, by looking at log file, which client executed. */

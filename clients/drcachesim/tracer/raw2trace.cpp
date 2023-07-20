@@ -41,6 +41,10 @@
 #include "instru.h"
 #include "../common/memref.h"
 #include "../common/trace_entry.h"
+#ifdef LINUX
+// XXX: We should have the core export this to an include dir.
+#    include "../../core/unix/include/syscall.h"
+#endif
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include "../common/options.h"
 #    include "../drpt2trace/ir2trace.h"
@@ -57,6 +61,9 @@
 #endif
 
 #include <iostream>
+
+namespace dynamorio {
+namespace drmemtrace {
 
 // Assumes we return an error string by convention.
 #define CHECK(val, msg) \
@@ -87,7 +94,7 @@
         }                                  \
     } while (0)
 
-static online_instru_t instru(NULL, NULL, false, NULL);
+static online_instru_t instru(NULL, NULL, NULL);
 
 int
 trace_metadata_writer_t::write_thread_exit(byte *buffer, thread_id_t tid)
@@ -554,7 +561,8 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
 std::string
 raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                                    const offline_entry_t *in_entry, thread_id_t tid,
-                                   OUT bool *end_of_record, OUT bool *last_bb_handled)
+                                   OUT bool *end_of_record, OUT bool *last_bb_handled,
+                                   OUT bool *flush_decode_cache)
 {
     trace_entry_t *buf_base = get_write_buffer(tdata);
     byte *buf = reinterpret_cast<byte *>(buf_base);
@@ -611,6 +619,22 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                     tdata->rseq_buffering_enabled_ = true;
                     tdata->rseq_end_pc_ = marker_val;
                 }
+            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
+                log(2, "Reached filter endpoint\n");
+
+                // The file type needs to be updated during the switch to correctly
+                // process the entries that follow after. This does not affect the
+                // written-out type.
+                int file_type = get_file_type(tdata);
+                file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                               OFFLINE_FILE_TYPE_DFILTERED);
+                set_file_type(tdata, (offline_file_type_t)file_type);
+
+                // For the full trace, the cache contains block-level info unlike the
+                // filtered trace which contains instr-level info. Since we cannot use
+                // the decode cache entries after the transition, we need to flush the
+                // cache here.
+                *flush_decode_cache = true;
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL &&
                        is_maybe_blocking_syscall(marker_val)) {
                 log(2, "Maybe-blocking syscall %zu\n", marker_val);
@@ -1013,8 +1037,11 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
         if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
             entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
             tdata->last_window = entry.extended.valueA;
+        bool flush_decode_cache = false;
         tdata->error = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
-                                             &last_bb_handled);
+                                             &last_bb_handled, &flush_decode_cache);
+        if (flush_decode_cache)
+            decode_cache_[tdata->worker].clear();
         if (!tdata->error.empty())
             return tdata->error;
     }
@@ -1038,9 +1065,12 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
                 offline_entry_t entry;
                 entry.extended.type = OFFLINE_TYPE_EXTENDED;
                 entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
-                bool last_bb_handled = true;
-                tdata->error = process_offline_entry(tdata, &entry, tdata->tid,
-                                                     &end_of_file, &last_bb_handled);
+                bool last_bb_handled = true, flush_decode_cache = false;
+                tdata->error =
+                    process_offline_entry(tdata, &entry, tdata->tid, &end_of_file,
+                                          &last_bb_handled, &flush_decode_cache);
+                if (flush_decode_cache)
+                    decode_cache_[tdata->worker].clear();
                 CHECK(end_of_file, "Synthetic footer failed");
                 if (!tdata->error.empty())
                     return tdata->error;
@@ -1265,7 +1295,7 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         instrlist_append(ilist, inst);
     }
 
-    instru_offline_.identify_elidable_addresses(dcontext_, ilist, version);
+    instru_offline_.identify_elidable_addresses(dcontext_, ilist, version, false);
 
     for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
          inst = instr_get_next(inst)) {
@@ -1594,7 +1624,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // In case handle_kernel_interrupt_and_markers() calls
             // adjust_and_emit_rseq_buffer() we need to have written this instr to the
             // rseq buffer.
-            error = write(tdata, buf_start, buf, { saved_decode_pc });
+            error = write(tdata, buf_start, buf, &saved_decode_pc, 1);
             if (!error.empty())
                 return error;
             buf = buf_start;
@@ -1689,7 +1719,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             if (!error.empty())
                 return error;
         } else if (buf > buf_start) {
-            error = write(tdata, buf_start, buf, { saved_decode_pc });
+            error = write(tdata, buf_start, buf, &saved_decode_pc, 1);
             if (!error.empty())
                 return error;
         }
@@ -1759,7 +1789,10 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
             // rseq aborts with timestamps (i#5954) nor rseq side exits (i#5953) for
             // such traces but we can at least fix up typical aborts.
             if (!tdata->rseq_ever_saw_entry_ &&
-                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+                in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT &&
+                // I-filtered don't have every instr so we can't roll back.
+                !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                         get_file_type(tdata))) {
                 // For the older version, we will not get here for Windows
                 // callbacks, the other event with a 0 modoffs, because they are
                 // always between bbs.  (Unfortunately there's no simple way to
@@ -2063,9 +2096,8 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t *
 bool
 raw2trace_t::record_encoding_emitted(raw2trace_thread_data_t *tdata, app_pc pc)
 {
-    if (tdata->encoding_emitted.find(pc) != tdata->encoding_emitted.end())
+    if (tdata->encoding_emitted.find_and_insert(pc) == false)
         return false;
-    tdata->encoding_emitted.insert(pc);
     tdata->last_encoding_emitted = pc;
     return true;
 }
@@ -2287,8 +2319,9 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
     tdata->rseq_buffering_enabled_ = false;
 
     log(4, "Writing out rseq buffer: %zd entries\n", tdata->rseq_buffer_.size());
-    std::string error = write(tdata, &tdata->rseq_buffer_[0],
-                              &tdata->rseq_buffer_.back() + 1, tdata->rseq_decode_pcs_);
+    std::string error =
+        write(tdata, &tdata->rseq_buffer_[0], &tdata->rseq_buffer_.back() + 1,
+              tdata->rseq_decode_pcs_.data(), tdata->rseq_decode_pcs_.size());
     if (!error.empty())
         return error;
 
@@ -2591,7 +2624,7 @@ raw2trace_t::thread_file_at_eof(raw2trace_thread_data_t *tdata)
 std::string
 raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata)
 {
-    if (tdata->delayed_branch.empty())
+    if (tdata->delayed_branch_empty_)
         return "";
     if (verbosity_ >= 4) {
         int instr_count = 0;
@@ -2613,11 +2646,13 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata)
     }
     std::string error = write(tdata, tdata->delayed_branch.data(),
                               tdata->delayed_branch.data() + tdata->delayed_branch.size(),
-                              tdata->delayed_branch_decode_pcs);
+                              tdata->delayed_branch_decode_pcs.data(),
+                              tdata->delayed_branch_decode_pcs.size());
     if (!error.empty())
         return error;
     tdata->delayed_branch.clear();
     tdata->delayed_branch_decode_pcs.clear();
+    tdata->delayed_branch_empty_ = true;
     return "";
 }
 
@@ -2768,7 +2803,7 @@ raw2trace_t::insert_post_chunk_encodings(raw2trace_thread_data_t *tdata,
 // extra processing here).
 std::string
 raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
-                   const trace_entry_t *end, std::vector<app_pc> decode_pcs)
+                   const trace_entry_t *end, app_pc *decode_pcs, size_t decode_pcs_size)
 {
     if (end == start)
         return "Empty buffer passed to write()";
@@ -2781,8 +2816,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         if (tdata->rseq_buffer_.size() > MAX_REASONABLE_RSEQ_LENGTH) {
             return "Runaway rseq buffer indicates an rseq exit was missed";
         }
-        tdata->rseq_decode_pcs_.insert(tdata->rseq_decode_pcs_.end(), decode_pcs.begin(),
-                                       decode_pcs.end());
+        tdata->rseq_decode_pcs_.insert(tdata->rseq_decode_pcs_.end(), decode_pcs,
+                                       decode_pcs + decode_pcs_size);
         return "";
     }
     if (tdata->out_archive != nullptr) {
@@ -2815,7 +2850,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 ++instr_ordinal;
                 if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
                     // We don't want encodings for the PC-only i-filtered entries.
-                    it->size > 0 && instr_ordinal >= static_cast<int>(decode_pcs.size()))
+                    it->size > 0 && instr_ordinal >= static_cast<int>(decode_pcs_size))
                     return "decode_pcs is missing entries for written instructions";
             }
             // Check for missing encodings after possibly opening a new chunk.
@@ -2832,7 +2867,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 type_is_instr(static_cast<trace_type_t>(it->type)) &&
                 // We don't want encodings for the PC-only i-filtered entries.
                 it->size > 0 && !prev_was_encoding &&
-                record_encoding_emitted(tdata, decode_pcs[instr_ordinal])) {
+                record_encoding_emitted(tdata, *(decode_pcs + instr_ordinal))) {
                 // Write any data we were waiting until post-loop to write.
                 if (it > start &&
                     !tdata->out_file->write(reinterpret_cast<const char *>(start),
@@ -2840,7 +2875,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                                                 reinterpret_cast<const char *>(start)))
                     return "Failed to write to output file";
                 std::string err =
-                    insert_post_chunk_encodings(tdata, it, decode_pcs[instr_ordinal]);
+                    insert_post_chunk_encodings(tdata, it, *(decode_pcs + instr_ordinal));
                 if (!err.empty())
                     return err;
                 if (!tdata->out_file->write(reinterpret_cast<const char *>(it),
@@ -2897,6 +2932,7 @@ raw2trace_t::write_delayed_branches(raw2trace_thread_data_t *tdata,
     int instr_count = 0;
     for (const trace_entry_t *it = start; it < end; ++it) {
         tdata->delayed_branch.push_back(*it);
+        tdata->delayed_branch_empty_ = false;
         if (type_is_instr(static_cast<trace_type_t>(it->type)))
             ++instr_count;
     }
@@ -2914,7 +2950,7 @@ raw2trace_t::write_delayed_branches(raw2trace_thread_data_t *tdata,
 bool
 raw2trace_t::delayed_branches_exist(raw2trace_thread_data_t *tdata)
 {
-    return !tdata->delayed_branch.empty();
+    return !tdata->delayed_branch_empty_;
 }
 
 std::string
@@ -3005,6 +3041,15 @@ raw2trace_t::get_file_type(raw2trace_thread_data_t *tdata)
     return tdata->file_type;
 }
 
+void
+raw2trace_t::set_file_type(raw2trace_thread_data_t *tdata, offline_file_type_t file_type)
+{
+    // The file type needs to be updated during the switch to correctly process the
+    // entries that follow after TRACE_MARKER_TYPE_FILTER_ENDPOINT. This does not affect
+    // the written-out type.
+    tdata->file_type = file_type;
+}
+
 raw2trace_t::raw2trace_t(
     const char *module_map, const std::vector<std::istream *> &thread_files,
     const std::vector<std::ostream *> &out_files,
@@ -3061,7 +3106,7 @@ raw2trace_t::raw2trace_t(
         }
     }
     // Since we know the traced-thread count up front, we use a simple round-robin
-    // static work assigment.  This won't be as load balanced as a dynamic work
+    // static work assignment.  This won't be as load balanced as a dynamic work
     // queue but it is much simpler.
     if (worker_count_ < 0) {
         worker_count_ = std::thread::hardware_concurrency();
@@ -3321,3 +3366,6 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     return false;
 #endif
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

@@ -51,6 +51,9 @@
 #endif
 #include "../../../suite/tests/condvar.h"
 
+namespace dynamorio {
+namespace drmemtrace {
+
 static const int num_threads = 8;
 static const int burst_owner = 4;
 static bool finished[num_threads];
@@ -248,3 +251,6 @@ test_main(int argc, const char *argv[])
     destroy_cond_var(burst_owner_finished);
     return 0;
 }
+
+} // namespace drmemtrace
+} // namespace dynamorio

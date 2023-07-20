@@ -42,7 +42,6 @@
 #include "drmemtrace.h"
 #include "drreg.h"
 #include "drx.h"
-#include "droption.h"
 #include "instru.h"
 #include "tracer.h"
 #include "physaddr.h"
@@ -81,31 +80,42 @@ get_local_window(per_thread_t *data)
     return *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_WINDOW);
 }
 
-static uint64
-local_instr_count_threshold()
+static ptr_int_t
+get_local_mode(per_thread_t *data)
 {
-    uint64 limit = op_trace_for_instrs.get_value();
-    if (limit > INSTR_COUNT_LOCAL_UNIT * 10)
+    return *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_MODE);
+}
+
+static void
+set_local_mode(per_thread_t *data, ptr_int_t mode)
+{
+    *(ptr_int_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_MODE) = mode;
+}
+
+static uint64
+local_instr_count_threshold(uint64 trace_for_instrs)
+{
+    if (trace_for_instrs > INSTR_COUNT_LOCAL_UNIT * 10)
         return INSTR_COUNT_LOCAL_UNIT;
     else {
         /* For small windows, use a smaller add-to-global trigger. */
-        return limit / 10;
+        return trace_for_instrs / 10;
     }
 }
 
 // Returns whether we've reached the end of this tracing window.
 static bool
-count_traced_instrs(void *drcontext, int toadd)
+count_traced_instrs(void *drcontext, uintptr_t toadd, uint64 trace_for_instrs)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     data->cur_window_instr_count += toadd;
-    if (data->cur_window_instr_count >= local_instr_count_threshold()) {
+    if (data->cur_window_instr_count >= local_instr_count_threshold(trace_for_instrs)) {
         uint64 newval = cur_window_instr_count.fetch_add(data->cur_window_instr_count,
                                                          std::memory_order_release) +
             // fetch_add returns old value.
             data->cur_window_instr_count;
         data->cur_window_instr_count = 0;
-        if (newval >= op_trace_for_instrs.get_value())
+        if (newval >= trace_for_instrs)
             return true;
     }
     return false;
@@ -749,7 +759,9 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
     DR_ASSERT(span % instru->sizeof_entry() == 0);
     uint current_num_refs = (uint)(span / instru->sizeof_entry());
     data->num_refs += current_num_refs;
-    data->bytes_written += buf_ptr - pipe_start;
+    uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
+    if (mode != BBDUP_MODE_L0_FILTER)
+        data->bytes_written += buf_ptr - pipe_start;
     bool is_v2p = false;
     if (buf_base >= data->v2p_buf && buf_base < data->v2p_buf + get_v2p_buffer_size())
         is_v2p = true;
@@ -910,6 +922,40 @@ process_buffer_for_physaddr(void *drcontext, per_thread_t *data, size_t header_s
     return skip;
 }
 
+// We are looking for the first unfiltered record so that we can insert a FILTER_ENDPOINT
+// marker to demarcate filtered and unfiltered records. If there is a PC record with 1
+// instr, we cannot be sure if it is a filtered record or an unfiltered record (unless it
+// has memref records, in which case we know that it is unfiltered). For such records, we
+// err on the side of treating it as a filtered record.
+offline_entry_t *
+find_unfiltered_record(byte *start, byte *end)
+{
+    // The end variable points to the next writable location.
+    offline_entry_t *last = (offline_entry_t *)(end - sizeof(offline_entry_t));
+
+    int num_memrefs = 0;
+
+    for (offline_entry_t *entry = last; entry >= (offline_entry_t *)start; entry--) {
+        if (entry->pc.type == OFFLINE_TYPE_PC) {
+            NOTIFY(4, "PC: instr count = %d, num_memrefs = %d\n", entry->pc.instr_count,
+                   num_memrefs);
+            if ((entry->pc.instr_count == 1 && num_memrefs > 0) ||
+                entry->pc.instr_count > 1) {
+                NOTIFY(4, "Found unfiltered entry=%d\n",
+                       entry - (offline_entry_t *)start);
+                return entry;
+            }
+            // We can stop once we reach a PC record
+            return NULL;
+        } else if (entry->addr.type == OFFLINE_TYPE_MEMREF ||
+                   entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH) {
+            num_memrefs++;
+        }
+    }
+
+    return NULL;
+}
+
 // Should be invoked only in the middle of an active tracing window.
 void
 process_and_output_buffer(void *drcontext, bool skip_size_cap)
@@ -992,7 +1038,57 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         if (op_offline.get_value() && op_split_windows.get_value())
             buf_ptr += instru->append_thread_exit(buf_ptr, dr_get_thread_id(drcontext));
     }
-    if (!skip_size_cap &&
+    // Switch to instruction-tracing mode by adding FILTER_ENDPOINT marker if another
+    // thread triggered the switch.
+    ptr_int_t mode = tracing_mode.load(std::memory_order_acquire);
+    if (get_local_mode(data) != mode) {
+        if (get_local_mode(data) == BBDUP_MODE_L0_FILTER) {
+            NOTIFY(0, "Thread %d: filter mode changed\n", dr_get_thread_id(drcontext));
+
+            // If a switch occurred, then it is possible that the buffer
+            // contains a mix of filtered and unfiltered records. We look for the first
+            // unfiltered record and if such a record is found, we insert the
+            // FILTER_ENDPOINT marker before it.
+            //
+            // Only the most recent basic block can have unfiltered data. Once the mode
+            // switch is made, it will take effect in some thread at the top of a block in
+            // the drbbdup mode dispatch. Then at the bottom of that block it will hit the
+            // new check and enter the clean call. So if we walk backward to the first PC
+            // entry we find (since unfiltered has just one PC at the start) that must be
+            // the transition point. However, if the mode change occurred after dispatch
+            // and before the end of block check, then we will have filtered entries in
+            // the buffer.
+            //
+            // So if this PC has just 1 instr (and no memrefs), it coule be either a
+            // filtered or an unfiltered entry. We assume it is a filtered record and
+            // assume that the transition occurred at a later point.
+            byte *end =
+                (byte *)find_unfiltered_record(data->buf_base + header_size, buf_ptr);
+            if (end == NULL) {
+                // Add a FILTER_ENDPOINT marker to indicate that filtering stops here.
+                buf_ptr +=
+                    instru->append_marker(buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+            } else {
+                // Write the filtered data.
+                output_buffer(drcontext, data, data->buf_base, end, 0);
+                // Add the FILTER_ENDPOINT.
+                offline_entry_t marker[2];
+                byte *marker_buf = (byte *)&marker[0];
+                int size = instru->append_marker(marker_buf,
+                                                 TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+                DR_ASSERT(size <= (int)sizeof(marker));
+                output_buffer(drcontext, data, marker_buf, marker_buf + size, 0);
+
+                // Set the pointer to unfiltered data.
+                data->buf_base = end;
+            }
+        }
+        set_local_mode(data, mode);
+    }
+    // When -L0_filter_until_instrs is used with -max_trace_size/-max_global_trace_refs,
+    // the max size/refs limit applies to the full trace and not the filtered trace so we
+    // can skip the check in filter mode.
+    if (!skip_size_cap && mode != BBDUP_MODE_L0_FILTER &&
         (is_bytes_written_beyond_trace_max(data) || is_num_refs_beyond_global_max())) {
         /* We don't guarantee to match the limit exactly so we allow one buffer
          * beyond.  We also don't put much effort into reducing overhead once
@@ -1021,14 +1117,33 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     }
 
     if (do_write) {
-        bool hit_window_end = false;
-        if (op_trace_for_instrs.get_value() > 0) {
+
+        if (op_L0_filter_until_instrs.get_value() && mode == BBDUP_MODE_L0_FILTER) {
+            uintptr_t toadd =
+                *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
+            bool reached_L0_filter_until_instrs_limit = count_traced_instrs(
+                drcontext, toadd, op_L0_filter_until_instrs.get_value());
+            if (reached_L0_filter_until_instrs_limit) {
+                NOTIFY(0, "Adding filter endpoint marker for -L0_filter_until_instrs\n");
+                size_t add =
+                    instru->append_marker(buf_ptr, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+                buf_ptr += add;
+                NOTIFY(0,
+                       "Hit tracing window #%zd filter limit: switching to full trace.\n",
+                       tracing_window.load(std::memory_order_acquire));
+
+                tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
+                set_local_mode(data, BBDUP_MODE_TRACE);
+            }
+        } else if (op_trace_for_instrs.get_value() > 0) {
+            bool hit_window_end = false;
             for (mem_ref = data->buf_base + header_size; mem_ref < buf_ptr;
                  mem_ref += instru->sizeof_entry()) {
                 if (!window_changed && !hit_window_end &&
                     op_trace_for_instrs.get_value() > 0) {
                     hit_window_end =
-                        count_traced_instrs(drcontext, instru->get_instr_count(mem_ref));
+                        count_traced_instrs(drcontext, instru->get_instr_count(mem_ref),
+                                            op_trace_for_instrs.get_value());
                     // We have to finish this buffer so we'll go a little beyond the
                     // precise requested window length.
                     // XXX: For small windows this may be significant: we could go
@@ -1076,8 +1191,14 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     BUF_PTR(data->seg_base) += append_unit_header(drcontext, BUF_PTR(data->seg_base),
                                                   dr_get_thread_id(drcontext), window);
     num_refs_racy += current_num_refs;
-    if (op_exit_after_tracing.get_value() > 0 &&
-        num_refs_racy > op_exit_after_tracing.get_value()) {
+    if (mode == BBDUP_MODE_L0_FILTER) {
+        num_filter_refs_racy += current_num_refs;
+    }
+    // When -L0_filter_until_instrs is used with -exit_after_tracing, the
+    // exit_after_tracing limit applies to the full trace and not the filtered trace so we
+    // can skip this check in filter mode.
+    if (mode != BBDUP_MODE_L0_FILTER && op_exit_after_tracing.get_value() > 0 &&
+        (num_refs_racy - num_filter_refs_racy) > op_exit_after_tracing.get_value()) {
         dr_mutex_lock(mutex);
         if (!exited_process) {
             exited_process = true;
@@ -1086,7 +1207,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
             // the process but that requires a client-triggered detach so for now
             // we settle for exiting.
             NOTIFY(0, "Exiting process after ~" UINT64_FORMAT_STRING " references.\n",
-                   num_refs_racy);
+                   num_refs_racy - num_filter_refs_racy);
             dr_exit_process(0);
         }
         dr_mutex_unlock(mutex);
@@ -1108,6 +1229,7 @@ init_thread_io(void *drcontext)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *proc_info;
 
+    NOTIFY(1, "T" TIDFMT " in init_thread_io.\n", dr_get_thread_id(drcontext));
 #ifdef HAS_ZLIB
     if (op_offline.get_value() &&
         (op_raw_compress.get_value() == "zlib" ||
@@ -1136,9 +1258,10 @@ init_thread_io(void *drcontext)
     set_local_window(drcontext, -1);
     if (has_tracing_windows())
         set_local_window(drcontext, tracing_window.load(std::memory_order_acquire));
+    set_local_mode(data, tracing_mode.load(std::memory_order_acquire));
 
     if (op_offline.get_value()) {
-        if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
+        if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire))) {
             open_new_thread_file(drcontext, get_local_window(data));
         }
         if (!has_tracing_windows()) {
@@ -1149,6 +1272,16 @@ init_thread_io(void *drcontext)
         BUF_PTR(data->seg_base) +=
             append_unit_header(drcontext, BUF_PTR(data->seg_base),
                                dr_get_thread_id(drcontext), get_local_window(data));
+        if (op_L0_filter_until_instrs.get_value()) {
+            // If we have switched to instruction trace already, then add a
+            // FILTER_ENDPOINT marker.
+            uintptr_t mode = tracing_mode.load(std::memory_order_acquire);
+            if (mode == BBDUP_MODE_TRACE) {
+                BUF_PTR(data->seg_base) += instru->append_marker(
+                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0);
+            }
+        }
+
     } else {
         /* pass pid and tid to the simulator to register current thread */
         char buf[MAXIMUM_PATH];
@@ -1187,7 +1320,7 @@ exit_thread_io(void *drcontext)
     }
 #endif
 
-    if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE ||
+    if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) ||
         (has_tracing_windows() && !op_split_windows.get_value()) ||
         // For attach we switch to BBDUP_MODE_NOP but still need to finalize
         // each thread.  However, we omit threads that did nothing the entire time

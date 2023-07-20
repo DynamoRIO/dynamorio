@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -59,6 +59,14 @@
 #include "droption.h"
 #include "common/options.h"
 #include "common/utils.h"
+
+using namespace ::dynamorio::drmemtrace;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
+namespace {
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -190,6 +198,8 @@ configure_application(char *app_name, char **app_argv, std::string tracer_ops,
     }
     return true;
 }
+
+} // namespace
 
 int
 _tmain(int argc, const TCHAR *targv[])

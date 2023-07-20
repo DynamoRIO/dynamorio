@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,6 +45,9 @@
 #    include <zlib.h>
 #endif
 #include "memref.h"
+
+namespace dynamorio {
+namespace drmemtrace {
 
 enum invalidation_type_t {
     INVALIDATION_INCLUSIVE,
@@ -149,6 +152,8 @@ private:
     int block_size_;
 };
 
+class caching_device_t;
+
 class caching_device_stats_t {
 public:
     explicit caching_device_stats_t(const std::string &miss_file, int block_size,
@@ -172,7 +177,8 @@ public:
     virtual void
     reset();
 
-    virtual bool operator!()
+    virtual bool
+    operator!()
     {
         return !success_;
     }
@@ -190,6 +196,21 @@ public:
             ERRMSG("Wrong metric name.\n");
             return 0;
         }
+    }
+
+    // Returns the address of the caching device last linked to this stats
+    // object.  It is up to the user to ensure the caching device still exists
+    // before dereferencing this pointer.
+    caching_device_t *
+    get_caching_device() const
+    {
+        return caching_device_;
+    }
+
+    void
+    set_caching_device(caching_device_t *caching_device)
+    {
+        caching_device_ = caching_device;
     }
 
 protected:
@@ -243,6 +264,12 @@ protected:
 #else
     FILE *file_;
 #endif
+
+    // Convenience pointer to the caching_device last linked to this stats object.
+    caching_device_t *caching_device_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _CACHING_DEVICE_STATS_H_ */

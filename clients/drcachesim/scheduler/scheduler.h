@@ -59,16 +59,17 @@
 #include "speculator.h"
 #include "utils.h"
 
-namespace dynamorio {
-namespace drmemtrace {
+namespace dynamorio {  /**< General DynamoRIO namespace. */
+namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure namespace. */
 
 /**
  * Schedules traced software threads onto simulated cpus.
  * Takes in a set of recorded traces and maps them onto a new set of output
  * streams, typically representing simulated cpus.
  *
- * This is a templated class to support not just operating over #memref_t inputs
- * read by #reader_t, but also over #trace_entry_t records read by
+ * This is a templated class to support not just operating over
+ * #dynamorio::drmemtrace::memref_t inputs read by #dynamorio::drmemtrace::reader_t, but
+ * also over #dynamorio::drmemtrace::trace_entry_t records read by
  * #dynamorio::drmemtrace::record_reader_t.
  */
 template <typename RecordType, typename ReaderType> class scheduler_tmpl_t {
@@ -99,12 +100,10 @@ public:
          * For dynamic scheduling with cross-stream dependencies, the scheduler may pause
          * a stream if it gets ahead of another stream it should have a dependence on.
          * This value is also used for schedules following the recorded timestamps
-         * (#dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS) to
-         * avoid one stream getting ahead of another.  For replaying a schedule
-         * as it was traced with
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT
-         * this can indicate an idle period on a core where the traced workload was
-         * not currently scheduled.
+         * (#DEPENDENCY_TIMESTAMPS) to avoid one stream getting ahead of another.  For
+         * replaying a schedule as it was traced with #MAP_TO_RECORDED_OUTPUT this can
+         * indicate an idle period on a core where the traced workload was not currently
+         * scheduled.
          */
         STATUS_WAIT,
         STATUS_INVALID,         /**< Error condition. */
@@ -185,17 +184,16 @@ public:
         /**
          * Relative priority for scheduling.  The default is 0.  Higher values have
          * higher priorities and will starve lower-priority inputs.
-         * Higher priorities out-weigh dependencies such as
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS.
+         * Higher priorities out-weigh dependencies such as #DEPENDENCY_TIMESTAMPS.
          */
         int priority = 0;
         /**
          * If non-empty, all input records outside of these ranges are skipped: it is as
          * though the input were constructed by concatenating these ranges together.  A
-         * #TRACE_MARKER_TYPE_WINDOW_ID marker is inserted between ranges (with a value
-         * equal to the range ordinal) to notify the client of the discontinuity (but
-         * not before the first range).  These ranges must be non-overlapping and in
-         * increasing order.
+         * #TRACE_MARKER_TYPE_WINDOW_ID marker is inserted between
+         * ranges (with a value equal to the range ordinal) to notify the client of the
+         * discontinuity (but not before the first range).  These ranges must be
+         * non-overlapping and in increasing order.
          */
         std::vector<range_t> regions_of_interest;
     };
@@ -300,7 +298,7 @@ public:
         /**
          * Each input stream is mapped to a single output stream (i.e., no input will
          * appear on more than one output), supporting lock-free parallel analysis when
-         * combined with #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_IGNORE.
+         * combined with #DEPENDENCY_IGNORE.
          */
         MAP_TO_CONSISTENT_OUTPUT,
         // TODO i#5843: Currently it is up to the user to figure out the original core
@@ -314,7 +312,7 @@ public:
          * number (considered to correspond to output stream ordinal) an input is
          * scheduled into.  This requires an output stream count equal to the number of
          * cores occupied by the input stream set.  When combined with
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::DEPENDENCY_TIMESTAMPS, this will
+         * #DEPENDENCY_TIMESTAMPS, this will
          * precisely replay the recorded schedule; for this mode,
          * #dynamorio::drmemtrace::scheduler_tmpl_t::
          * scheduler_options_t.replay_as_traced_istream
@@ -350,14 +348,11 @@ public:
         DEPENDENCY_IGNORE,
         /**
          * Ensures timestamps in the inputs arrive at the outputs in timestamp order.
-         * For
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_ANY_OUTPUT, enforcing
-         * asked-for context switch rates is more important that honoring precise
-         * trace-buffer-based timestamp inter-input dependencies: thus, timestamp
-         * ordering will be followed at context switch points for picking the next
-         * input, but timestamps will not preempt an input.  To precisely follow
-         * the recorded timestamps, use
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT.
+         * For #MAP_TO_ANY_OUTPUT, enforcing asked-for context switch rates is more
+         * important that honoring precise trace-buffer-based timestamp inter-input
+         * dependencies: thus, timestamp ordering will be followed at context switch
+         * points for picking the next input, but timestamps will not preempt an input.
+         * To precisely follow the recorded timestamps, use #MAP_TO_RECORDED_OUTPUT.
          */
         DEPENDENCY_TIMESTAMPS,
         // TODO i#5843: Add inferred data dependencies.
@@ -404,8 +399,7 @@ public:
         // whether to request SCHEDULER_USE_INPUT_ORDINALS.
         /**
          * If there is just one input and just one output stream, this sets
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS;
-         * otherwise, it has no effect.
+         * #SCHEDULER_USE_INPUT_ORDINALS; otherwise, it has no effect.
          */
         SCHEDULER_USE_SINGLE_INPUT_ORDINALS = 0x8,
         // TODO i#5843: Add more speculation flags for other strategies.
@@ -460,17 +454,15 @@ public:
         archive_ostream_t *schedule_record_ostream = nullptr;
         /**
          * Input stream for replaying a previously recorded schedule when
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_AS_PREVIOUSLY is specified.  If
-         * this is non-nullptr and MAP_AS_PREVIOUSLY is specified, schedule_record_ostream
-         * must be nullptr, and most other fields in this struct controlling scheduling
-         * are ignored.
+         * #MAP_AS_PREVIOUSLY is specified.  If this is non-nullptr and
+         * #MAP_AS_PREVIOUSLY is specified, schedule_record_ostream must be nullptr, and
+         * most other fields in this struct controlling scheduling are ignored.
          */
         archive_istream_t *schedule_replay_istream = nullptr;
         /**
-         * Input stream for replaying the traced schedule when
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::MAP_TO_RECORDED_OUTPUT is specified
-         * for more than one output stream (whose count must match the number of
-         * traced cores).
+         * Input stream for replaying the traced schedule when #MAP_TO_RECORDED_OUTPUT is
+         * specified for more than one output stream (whose count must match the number
+         * of traced cores).
          */
         archive_istream_t *replay_as_traced_istream = nullptr;
     };
@@ -504,8 +496,8 @@ public:
     /**
      * Represents a stream of RecordType trace records derived from a
      * subset of a set of input recorded traces.  Provides more
-     * information about the record stream using the #memtrace_stream_t
-     * API.
+     * information about the record stream using the
+     * #dynamorio::drmemtrace::memtrace_stream_t API.
      */
     class stream_t : public memtrace_stream_t {
     public:
@@ -535,10 +527,8 @@ public:
         next_record(RecordType &record);
 
         /**
-         * Reports the current time to the scheduler.  This is unitless: it just
-         * needs to be called regularly and consistently.
-         * This is used for
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::QUANTUM_TIME.
+         * Reports the current time to the scheduler.  This is unitless: it just needs to
+         * be called regularly and consistently.  This is used for #QUANTUM_TIME.
          */
         virtual stream_status_t
         report_time(uint64_t cur_time);
@@ -565,8 +555,7 @@ public:
          * start_speculation() call was made, either repeating the current record at that
          * time (if "true" was passed for "queue_current_record" to start_speculation())
          * or continuing on the subsequent record (if "false" was passed).  Returns
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::STATUS_INVALID if there was no
-         * prior start_speculation() call.
+         * #STATUS_INVALID if there was no prior start_speculation() call.
          */
         virtual stream_status_t
         stop_speculation();
@@ -574,20 +563,20 @@ public:
         // memtrace_stream_t interface:
 
         /**
-         * Returns the count of #memref_t records from the start of the trace to this
-         * point. It does not include synthetic records (see is_record_synthetic()).
+         * Returns the count of #memref_t records from the start of
+         * the trace to this point. It does not include synthetic records (see
+         * is_record_synthetic()).
          *
-         * If
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS
-         * is set, then this value matches the record ordinal for the current input stream
-         * (and thus might decrease or not change across records if the input changed).
-         * Otherwise, if multiple input streams fed into this output stream, this
-         * includes the records from all those streams that were presented here: thus,
-         * this may be larger than what the current input stream reports (see
-         * get_input_stream_interface() and get_input_stream_ordinal()).  This does not
-         * advance across skipped records in an input stream from a region of interest
-         * (see #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if
-         * the output stream skipped ahead.
+         * If #SCHEDULER_USE_INPUT_ORDINALS is set, then this value matches the record
+         * ordinal for the current input stream (and thus might decrease or not change
+         * across records if the input changed).  Otherwise, if multiple input streams
+         * fed into this output stream, this includes the records from all those streams
+         * that were presented here: thus, this may be larger than what the current input
+         * stream reports (see get_input_stream_interface() and
+         * get_input_stream_ordinal()).  This does not advance across skipped records in
+         * an input stream from a region of interest (see
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if the
+         * output stream skipped ahead.
          */
         uint64_t
         get_record_ordinal() const override
@@ -599,17 +588,16 @@ public:
         }
         /**
          * Returns the count of instructions from the start of the trace to this point.
-         * If
-         * #dynamorio::drmemtrace::scheduler_tmpl_t::SCHEDULER_USE_INPUT_ORDINALS
-         * is set, then this value matches the instruction ordinal for the current input
-         * stream (and thus might decrease or not change across records if the input
-         * changed). Otherwise, if multiple input streams fed into this output stream,
-         * this includes the records from all those streams that were presented here:
-         * thus, this may be larger than what the current input stream reports (see
-         * get_input_stream_interface() and get_input_stream_ordinal()).  This does not
-         * advance across skipped records in an input stream from a region of interest
-         * (see #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if
-         * the output stream skipped ahead.
+         * If #SCHEDULER_USE_INPUT_ORDINALS is set, then this value matches the
+         * instruction ordinal for the current input stream (and thus might decrease or
+         * not change across records if the input changed). Otherwise, if multiple input
+         * streams fed into this output stream, this includes the records from all those
+         * streams that were presented here: thus, this may be larger than what the
+         * current input stream reports (see get_input_stream_interface() and
+         * get_input_stream_ordinal()).  This does not advance across skipped records in
+         * an input stream from a region of interest (see
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::range_t), but it does advance if the
+         * output stream skipped ahead.
          */
         uint64_t
         get_instruction_ordinal() const override
@@ -661,8 +649,8 @@ public:
             return first_timestamp_;
         }
         /**
-         * Returns the #trace_version_t value from the #TRACE_MARKER_TYPE_VERSION record
-         * in the trace header.
+         * Returns the #trace_version_t value from the
+         * #TRACE_MARKER_TYPE_VERSION record in the trace header.
          */
         uint64_t
         get_version() const override
@@ -670,9 +658,10 @@ public:
             return version_;
         }
         /**
-         * Returns the OFFLINE_FILE_TYPE_* bitfields of type #offline_file_type_t
-         * identifying the architecture and other key high-level attributes of the trace
-         * from the #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
+         * Returns the OFFLINE_FILE_TYPE_* bitfields of type
+         * #offline_file_type_t identifying the architecture and
+         * other key high-level attributes of the trace from the
+         * #TRACE_MARKER_TYPE_FILETYPE record in the trace header.
          */
         uint64_t
         get_filetype() const override
@@ -680,8 +669,9 @@ public:
             return filetype_;
         }
         /**
-         * Returns the cache line size from the #TRACE_MARKER_TYPE_CACHE_LINE_SIZE record
-         * in the trace header.
+         * Returns the cache line size from the
+         * #TRACE_MARKER_TYPE_CACHE_LINE_SIZE record in the trace
+         * header.
          */
         uint64_t
         get_cache_line_size() const override
@@ -690,7 +680,8 @@ public:
         }
         /**
          * Returns the chunk instruction count from the
-         * #TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT record in the trace header.
+         * #TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT record in the trace
+         * header.
          */
         uint64_t
         get_chunk_instr_count() const override
@@ -698,8 +689,8 @@ public:
             return chunk_instr_count_;
         }
         /**
-         * Returns the page size from the #TRACE_MARKER_TYPE_PAGE_SIZE record in
-         * the trace header.
+         * Returns the page size from the
+         * #TRACE_MARKER_TYPE_PAGE_SIZE record in the trace header.
          */
         uint64_t
         get_page_size() const override
@@ -770,7 +761,10 @@ public:
         return static_cast<input_ordinal_t>(inputs_.size());
     }
 
-    /** Returns the #memtrace_stream_t interface for the 'ordinal'-th input stream. */
+    /**
+     * Returns the #dynamorio::drmemtrace::memtrace_stream_t interface for the
+     * 'ordinal'-th input stream.
+     */
     virtual memtrace_stream_t *
     get_input_stream_interface(input_ordinal_t input) const
     {
@@ -856,6 +850,8 @@ protected:
         bool order_by_timestamp = false;
         // Global ready queue counter used to provide FIFO for same-priority inputs.
         uint64_t queue_counter = 0;
+        // Used to ensure we make progress past a blocking syscall.
+        bool processed_blocking_syscall = false;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -1026,7 +1022,13 @@ protected:
     // Finds the next input stream for the 'output_ordinal'-th output stream.
     // No input_info_t lock can be held on entry.
     stream_status_t
-    pick_next_input(output_ordinal_t output);
+    pick_next_input(output_ordinal_t output, bool in_wait_state);
+
+    // Helper for pick_next_input() for MAP_AS_PREVIOUSLY.
+    // No input_info_t lock can be held on entry.
+    // The sched_lock_ must be held on entry.
+    stream_status_t
+    pick_next_input_as_previously(output_ordinal_t output, input_ordinal_t &index);
 
     // If the given record has a thread id field, returns true and the value.
     bool

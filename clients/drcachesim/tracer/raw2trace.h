@@ -61,9 +61,13 @@
 #include <fstream>
 #include "hashtable.h"
 #include <vector>
+#include <bitset>
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include "../drpt2trace/pt2ir.h"
 #endif
+
+namespace dynamorio {
+namespace drmemtrace {
 
 #ifdef DEBUG
 #    define DEBUG_ASSERT(x) DR_ASSERT(x)
@@ -90,15 +94,21 @@
 #define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
-#ifdef HAS_ZLIB
-#    ifdef HAS_ZIP
-#        define TRACE_SUFFIX "trace.zip"
-#    else
-#        define TRACE_SUFFIX "trace.gz"
-#    endif
-#else
-#    define TRACE_SUFFIX "trace"
+
+#ifdef HAS_LZ4
+#    define TRACE_SUFFIX_LZ4 "trace.lz4"
 #endif
+
+#ifdef HAS_ZIP
+#    define TRACE_SUFFIX_ZIP "trace.zip"
+#endif
+
+#ifdef HAS_ZLIB
+#    define TRACE_SUFFIX_GZ "trace.gz"
+#endif
+
+#define TRACE_SUFFIX "trace"
+
 #define TRACE_CHUNK_PREFIX "chunk."
 
 typedef enum {
@@ -633,9 +643,11 @@ public:
     test_module_mapper_t(instrlist_t *instrs, void *drcontext)
         : module_mapper_t(nullptr)
     {
-        // We encode for 0-based addresses for simpler tests with low values.
-        byte *pc = instrlist_encode_to_copy(drcontext, instrs, decode_buf_, nullptr,
-                                            nullptr, true);
+        // We encode for 1-based addresses for simpler tests with low values while
+        // avoiding null pointer manipulation complaints (xref i#6196).
+        byte *pc = instrlist_encode_to_copy(
+            drcontext, instrs, decode_buf_,
+            reinterpret_cast<byte *>(static_cast<ptr_uint_t>(4)), nullptr, true);
         DR_ASSERT(pc != nullptr);
         DR_ASSERT(pc - decode_buf_ < MAX_DECODE_SIZE);
         // Clear do_module_parsing error; we can't cleanly make virtual b/c it's
@@ -671,6 +683,87 @@ struct trace_header_t {
         if (!(val))        \
             return msg;    \
     } while (0)
+
+/**
+ * Bitset hash table for balancing search time in case of enormous count of pc.
+ * Each pc represented as pair of high 64-BLOCK_SIZE_BIT bits and
+ * lower BLOCK_SIZE_BIT bits.
+ * High bits is the key in hash table and give bitset table with BLOCK_SIZE size.
+ * Lower bits set bit in bitset that means this pc was processed.
+ * BLOCK_SIZE_BIT=13 was picked up to exclude hash collision and save speed up.
+ */
+
+template <typename T> class bitset_hash_table_t {
+private:
+    const static size_t BLOCK_SIZE_BIT = 13;
+    const static size_t BLOCK_SIZE = (1 << BLOCK_SIZE_BIT);
+    const size_t BASIC_BUCKET_COUNT = (1 << 15);
+    std::unordered_map<T, std::bitset<BLOCK_SIZE>> page_table_;
+    typename std::unordered_map<T, std::bitset<BLOCK_SIZE>>::iterator last_block_ =
+        page_table_.end();
+
+    inline std::pair<T, ushort>
+    convert(T pc)
+    {
+        return std::pair<T, ushort>(
+            reinterpret_cast<T>(reinterpret_cast<size_t>(pc) & (~(BLOCK_SIZE - 1))),
+            static_cast<ushort>(reinterpret_cast<size_t>(pc) & (BLOCK_SIZE - 1)));
+    }
+
+public:
+    bitset_hash_table_t()
+    {
+        static_assert(std::is_pointer<T>::value || std::is_integral<T>::value,
+                      "Pointer or integral type required");
+        page_table_.reserve(BASIC_BUCKET_COUNT);
+        page_table_.emplace(T(0), std::move(std::bitset<BLOCK_SIZE>()));
+        last_block_ = page_table_.begin();
+    }
+
+    bool
+    find_and_insert(T pc)
+    {
+        auto block = convert(pc);
+        if (block.first != last_block_->first) {
+            last_block_ = page_table_.find(block.first);
+            if (last_block_ == page_table_.end()) {
+                last_block_ = (page_table_.emplace(std::make_pair(
+                                   block.first, std::move(std::bitset<BLOCK_SIZE>()))))
+                                  .first;
+                last_block_->second[block.second] = 1;
+                return true;
+            }
+        }
+        if (last_block_->second[block.second] == 1)
+            return false;
+        last_block_->second[block.second] = 1;
+        return true;
+    }
+
+    void
+    erase(T pc)
+    {
+        auto block = convert(pc);
+        if (last_block_->first != block.first)
+            last_block_ = page_table_.find(block.first);
+        if (last_block_ != page_table_.end())
+            last_block_->second[block.second] = 0;
+    }
+
+    void
+    clear()
+    {
+        page_table_.clear();
+        page_table_.reserve(BASIC_BUCKET_COUNT);
+        page_table_.emplace(T(0), std::move(std::bitset<BLOCK_SIZE>()));
+        last_block_ = page_table_.begin();
+    }
+
+    ~bitset_hash_table_t()
+    {
+        clear();
+    }
+};
 
 // We need to determine the memref_t record count for inserting a marker with
 // that count at the start of each chunk.
@@ -793,7 +886,7 @@ public:
      * for every module in the list, and returns an empty string at the end.
      * Returns a non-empty error message on failure.
      *
-     * \deprecated #module_mapper_t should be used instead.
+     * \deprecated #dynamorio::drmemtrace::module_mapper_t should be used instead.
      */
     std::string
     do_module_parsing();
@@ -809,7 +902,8 @@ public:
      * the current process.
      * Returns a non-empty error message on failure.
      *
-     * \deprecated #module_mapper_t::get_loaded_modules() should be used instead.
+     * \deprecated #dynamorio::drmemtrace::module_mapper_t::get_loaded_modules() should be
+     * used instead.
      */
     std::string
     do_module_parsing_and_mapping();
@@ -823,7 +917,8 @@ public:
      * allowing decoding for obtaining further information than is stored in the trace.
      * Returns a non-empty error message on failure.
      *
-     * \deprecated #module_mapper_t::find_mapped_trace_address() should be used instead.
+     * \deprecated #dynamorio::drmemtrace::module_mapper_t::find_mapped_trace_address()
+     * should be used instead.
      */
     std::string
     find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_address);
@@ -933,6 +1028,10 @@ protected:
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
         std::vector<trace_entry_t> delayed_branch;
+        // This is the first step of optimization of using delayed_branch_ vector.
+        // Checking the bool value is cheaper than delayed_branch.empty().
+        // In general it's better to avoid this vector at all.
+        bool delayed_branch_empty_ = true;
         // Records the decode pcs for delayed_branch instructions for re-inserting
         // encodings across a chunk boundary.
         std::vector<app_pc> delayed_branch_decode_pcs;
@@ -969,7 +1068,7 @@ protected:
         uint last_cpu_ = 0;
         app_pc last_pc_if_syscall_ = 0;
 
-        std::set<app_pc> encoding_emitted;
+        bitset_hash_table_t<app_pc> encoding_emitted;
         app_pc last_encoding_emitted = nullptr;
 
         std::vector<schedule_entry_t> sched;
@@ -1005,7 +1104,7 @@ protected:
     std::string
     process_offline_entry(raw2trace_thread_data_t *tdata, const offline_entry_t *in_entry,
                           thread_id_t tid, OUT bool *end_of_record,
-                          OUT bool *last_bb_handled);
+                          OUT bool *last_bb_handled, OUT bool *flush_decode_cache);
 
     /**
      * Read the header of a thread, by calling get_next_entry() successively to
@@ -1178,7 +1277,8 @@ private:
     // instruction.
     std::string
     write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
-          const trace_entry_t *end, std::vector<app_pc> decode_pcs = {});
+          const trace_entry_t *end, app_pc *decode_pcs = nullptr,
+          size_t decode_pcs_size = 0);
 
     // Similar to write(), but treat the provided traces as delayed branches: if they
     // are the last values in a record, they belong to the next record of the same
@@ -1285,7 +1385,10 @@ private:
 
     // Returns the trace file type (a combination of OFFLINE_FILE_TYPE* constants).
     offline_file_type_t
+
     get_file_type(raw2trace_thread_data_t *tdata);
+    void
+    set_file_type(raw2trace_thread_data_t *tdata, offline_file_type_t file_type);
 
     size_t
     get_cache_line_size(raw2trace_thread_data_t *tdata);
@@ -1430,6 +1533,16 @@ private:
 #endif
         }
 
+        void
+        clear()
+        {
+#ifdef X64
+            hashtable_clear(&table);
+#else
+            table.clear();
+#endif
+        }
+
     private:
         static void
         free_payload(void *ptr)
@@ -1483,5 +1596,8 @@ private:
     const std::string kcore_path_;
     const std::string kallsyms_path_;
 };
+
+} // namespace drmemtrace
+} // namespace dynamorio
 
 #endif /* _RAW2TRACE_H_ */

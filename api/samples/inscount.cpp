@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -50,6 +50,15 @@
 #include "droption.h"
 #include <string.h>
 
+namespace dynamorio {
+namespace samples {
+namespace {
+
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+using ::dynamorio::droption::droption_t;
+
 #ifdef WINDOWS
 #    define DISPLAY_STRING(msg) dr_messagebox(msg)
 #else
@@ -84,44 +93,6 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                       bool for_trace, bool translating, void *user_data);
-
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
-{
-    dr_set_client_name("DynamoRIO Sample Client 'inscount'",
-                       "http://dynamorio.org/issues");
-
-    /* Options */
-    if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
-        DR_ASSERT(false);
-    drmgr_init();
-
-    /* Get main module address */
-    if (only_from_app.get_value()) {
-        module_data_t *exe = dr_get_main_module();
-        if (exe != NULL)
-            exe_start = exe->start;
-        dr_free_module_data(exe);
-    }
-
-    /* register events */
-    dr_register_exit_event(event_exit);
-    drmgr_register_bb_instrumentation_event(event_bb_analysis, event_app_instruction,
-                                            NULL);
-
-    /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, DR_LOG_ALL, 1, "Client 'inscount' initializing\n");
-#ifdef SHOW_RESULTS
-    /* also give notification to stderr */
-    if (dr_is_notify_on()) {
-#    ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called at init. */
-        dr_enable_console_printing();
-#    endif
-        dr_fprintf(STDERR, "Client inscount is running\n");
-    }
-#endif
-}
 
 static void
 event_exit(void)
@@ -226,4 +197,48 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb), (void *)inscount,
                          false /* save fpstate */, 1, OPND_CREATE_INT32(num_instrs));
     return DR_EMIT_DEFAULT;
+}
+
+} // namespace
+} // namespace samples
+} // namespace dynamorio
+
+DR_EXPORT void
+dr_client_main(client_id_t id, int argc, const char *argv[])
+{
+    dr_set_client_name("DynamoRIO Sample Client 'inscount'",
+                       "http://dynamorio.org/issues");
+
+    /* Options */
+    if (!dynamorio::droption::droption_parser_t::parse_argv(
+            dynamorio::droption::DROPTION_SCOPE_CLIENT, argc, argv, NULL, NULL))
+        DR_ASSERT(false);
+    drmgr_init();
+
+    /* Get main module address */
+    if (dynamorio::samples::only_from_app.get_value()) {
+        module_data_t *exe = dr_get_main_module();
+        if (exe != NULL)
+            dynamorio::samples::exe_start = exe->start;
+        dr_free_module_data(exe);
+    }
+
+    /* register events */
+    dr_register_exit_event(dynamorio::samples::event_exit);
+    drmgr_register_bb_instrumentation_event(dynamorio::samples::event_bb_analysis,
+                                            dynamorio::samples::event_app_instruction,
+                                            NULL);
+
+    /* make it easy to tell, by looking at log file, which client executed */
+    dr_log(NULL, DR_LOG_ALL, 1, "Client 'inscount' initializing\n");
+#ifdef SHOW_RESULTS
+    /* also give notification to stderr */
+    if (dr_is_notify_on()) {
+#    ifdef WINDOWS
+        /* ask for best-effort printing to cmd window.  must be called at init. */
+        dr_enable_console_printing();
+#    endif
+        dr_fprintf(STDERR, "Client inscount is running\n");
+    }
+#endif
 }

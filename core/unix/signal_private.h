@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -288,7 +288,11 @@ typedef struct rt_sigframe {
 #    endif
 
 #elif defined(MACOS)
-#    ifdef X64
+#    ifdef AARCH64
+    kernel_siginfo_t info;
+    struct __darwin_ucontext64 uc;
+    struct __darwin_mcontext64 mc;
+#    elif defined(X64)
     /* Kernel places padding to align to 16 (via an inefficient alignment macro!),
      * and then skips the retaddr slot to align to 8.
      */
@@ -299,13 +303,9 @@ typedef struct rt_sigframe {
      * like on Linux?  We would get the size by counting from "info".
      * Also, should we change this to sigcontext_t.
      */
-#        if defined(AARCH64)
-    struct __darwin_mcontext64 mc;
-#        else
     struct __darwin_mcontext_avx64 mc; /* sigcontext, "struct mcontext_avx64" to kernel */
-#        endif
-    kernel_siginfo_t info;         /* matches user-mode sys/signal.h struct */
-    struct __darwin_ucontext64 uc; /* "struct user_ucontext64" to kernel */
+    kernel_siginfo_t info;             /* matches user-mode sys/signal.h struct */
+    struct __darwin_ucontext64 uc;     /* "struct user_ucontext64" to kernel */
 #    else
     app_pc retaddr;
     app_pc handler;
