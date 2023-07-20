@@ -79,9 +79,8 @@ invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
     if (!condition) {
         std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
                   << shard->stream->get_record_ordinal() << ": " << invariant_name
-                  << "\n";
-        std::cerr << "Last recorded timestamp: " << shard->last_timestamp_ << "\n";
-        std::cerr << "Instructions since last timestamp: "
+                  << "\nLast timestamp before invariant faiure: "
+                  << shard->last_timestamp_ << "  # instructions since last timestamp: "
                   << shard->instr_count_since_last_timestamp_ << "\n";
         abort();
     }
