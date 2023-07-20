@@ -118,8 +118,6 @@ size_t trace_buf_size;
 size_t redzone_size;
 size_t max_buf_size;
 
-std::atomic<uint64> attached_timestamp;
-
 static drvector_t scratch_reserve_vec;
 
 /* per bb user data during instrumentation */

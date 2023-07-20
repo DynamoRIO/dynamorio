@@ -185,6 +185,6 @@ main(int argc, const char *argv[])
     std::cerr << "window_test passed\n";
     return 0;
 }
-#endif
 } // namespace drmemtrace
 } // namespace dynamorio
+#endif
