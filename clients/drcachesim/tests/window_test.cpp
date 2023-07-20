@@ -45,7 +45,8 @@
 #    include <stdlib.h>
 #    include <string.h>
 
-using namespace dynamorio::drmemtrace;
+namespace dynamorio {
+namespace drmemtrace {
 
 constexpr int SECONDS_TO_SLEEP = 4;
 
@@ -185,3 +186,5 @@ main(int argc, const char *argv[])
     return 0;
 }
 #endif
+} // namespace drmemtrace
+} // namespace dynamorio
