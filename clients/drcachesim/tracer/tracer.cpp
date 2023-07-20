@@ -1225,18 +1225,32 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr_operands); i++) {
-            if (opnd_is_memory_reference(instr_get_src(instr_operands, i))) {
-                adjust = instrument_memref(
-                    drcontext, ud, bb, where, reg_ptr, adjust, instr_operands,
-                    instr_get_src(instr_operands, i), i, false, pred);
+            const opnd_t src = instr_get_src(instr_operands, i);
+            if (opnd_is_memory_reference(src)) {
+#ifdef AARCH64
+                /* Memory references involving SVE registers are not supported yet, that
+                 * work is coming in i#5844.
+                 */
+                if (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src)))
+                    continue;
+#endif
+                adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
+                                           instr_operands, src, i, false, pred);
             }
         }
 
         for (i = 0; i < instr_num_dsts(instr_operands); i++) {
-            if (opnd_is_memory_reference(instr_get_dst(instr_operands, i))) {
-                adjust = instrument_memref(
-                    drcontext, ud, bb, where, reg_ptr, adjust, instr_operands,
-                    instr_get_dst(instr_operands, i), i, true, pred);
+            const opnd_t dst = instr_get_dst(instr_operands, i);
+            if (opnd_is_memory_reference(dst)) {
+#ifdef AARCH64
+                /* Memory references involving SVE registers are not supported yet, that
+                 * work is coming in i#5844.
+                 */
+                if (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst)))
+                    continue;
+#endif
+                adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
+                                           instr_operands, dst, i, true, pred);
             }
         }
         if (adjust != 0)
