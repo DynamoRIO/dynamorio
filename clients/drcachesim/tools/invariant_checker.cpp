@@ -862,12 +862,12 @@ invariant_checker_t::check_for_pc_discontinuity(
     }
 #endif
 
-    if (prev_instr.instr.addr != 0 /*first*/ &&
+    if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
         // We do not bother to support legacy traces without encodings.
         expect_encoding && type_is_instr_direct_branch(shard->prev_instr_.instr.type)) {
         if (shard->prev_instr_.instr.encoding_is_new)
-            shard->branch_target_cache.erase(prev_instr.instr.addr);
-        auto cached = shard->branch_target_cache.find(prev_instr.instr.addr);
+            shard->branch_target_cache.erase(shard->prev_instr_.instr.addr);
+        auto cached = shard->branch_target_cache.find(shard->prev_instr_.instr.addr);
         if (cached != shard->branch_target_cache.end()) {
             have_cond_branch_target = true;
             cond_branch_target = cached->second;
@@ -882,7 +882,8 @@ invariant_checker_t::check_for_pc_discontinuity(
                 have_cond_branch_target = true;
                 cond_branch_target = reinterpret_cast<addr_t>(
                     opnd_get_pc(instr_get_target(shard->prev_instr_decoded_->data)));
-                shard->branch_target_cache[prev_instr.instr.addr] = cond_branch_target;
+                shard->branch_target_cache[shard->prev_instr_.instr.addr] =
+                    cond_branch_target;
             }
         }
     }
