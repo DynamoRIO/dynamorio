@@ -862,7 +862,7 @@ invariant_checker_t::check_for_pc_discontinuity(
     }
 #endif
 
-    if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
+    if (!memref_is_kernel_event_marker && shard->prev_instr_.instr.addr != 0 /*first*/ &&
         // We do not bother to support legacy traces without encodings.
         expect_encoding && type_is_instr_direct_branch(shard->prev_instr_.instr.type)) {
         if (shard->prev_instr_.instr.encoding_is_new)
