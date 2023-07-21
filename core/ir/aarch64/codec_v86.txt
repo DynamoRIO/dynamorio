@@ -36,19 +36,41 @@
 
 # Instruction definitions:
 
-0001111001100011010000xxxxxxxxxx  n   953  BF16   bfcvt   h0 : s5
-0000111010100001011010xxxxxxxxxx  n   973  BF16  bfcvtn   d0 : q5 s_const_sz
-0100111010100001011010xxxxxxxxxx  n   974  BF16 bfcvtn2   q0 : q5 s_const_sz
-0x101110010xxxxx111111xxxxxxxxxx  n   954  BF16   bfdot  dq0 : dq0 dq5 dq16 h_sz
-0x00111101xxxxxx1111x0xxxxxxxxxx  n   954  BF16   bfdot  dq0 : dq0 dq5 q16 vindex_S h_sz
-00101110110xxxxx111111xxxxxxxxxx  n   955  BF16 bfmlalb   q0 : q0 q5 q16 h_sz
-0000111111xxxxxx1111x0xxxxxxxxxx  n   955  BF16 bfmlalb   q0 : q0 q5 q4_16 vindex_H h_sz
-01101110110xxxxx111111xxxxxxxxxx  n   956  BF16 bfmlalt   q0 : q0 q5 q16 h_sz
-0100111111xxxxxx1111x0xxxxxxxxxx  n   956  BF16 bfmlalt   q0 : q0 q5 q4_16 vindex_H h_sz
-01101110010xxxxx111011xxxxxxxxxx  n   957  BF16  bfmmla   q0 : q0 q5 q16 h_sz
-01001110100xxxxx101001xxxxxxxxxx  n   958  I8MM   smmla   q0 : q0 q5 q16 b_const_sz
-0x00111100xxxxxx1111x0xxxxxxxxxx  n   959  I8MM   sudot  dq0 : dq0 dq5 q16 vindex_S b_const_sz
-01101110100xxxxx101001xxxxxxxxxx  n   960  I8MM   ummla   q0 : q0 q5 q16 b_const_sz
-0x001110100xxxxx100111xxxxxxxxxx  n   961  I8MM   usdot  dq0 : dq0 dq5 dq16 b_const_sz
-0x00111110xxxxxx1111x0xxxxxxxxxx  n   961  I8MM   usdot  dq0 : dq0 dq5 q16 vindex_S b_const_sz
-01001110100xxxxx101011xxxxxxxxxx  n   962  I8MM  usmmla   q0 : q0 q5 q16 b_const_sz
+1001000110xxxxxx^^xxxxxxxxxxxxxx  n   1207 MTE     addg           x0sp : x5sp imm6_16_tag imm4_10
+0001111001100011010000xxxxxxxxxx  n   953  BF16   bfcvt             h0 : s5
+0000111010100001011010xxxxxxxxxx  n   973  BF16  bfcvtn             d0 : q5 s_const_sz
+0100111010100001011010xxxxxxxxxx  n   974  BF16 bfcvtn2             q0 : q5 s_const_sz
+0x101110010xxxxx111111xxxxxxxxxx  n   954  BF16   bfdot            dq0 : dq0 dq5 dq16 h_sz
+0x00111101xxxxxx1111x0xxxxxxxxxx  n   954  BF16   bfdot            dq0 : dq0 dq5 q16 vindex_S h_sz
+00101110110xxxxx111111xxxxxxxxxx  n   955  BF16 bfmlalb             q0 : q0 q5 q16 h_sz
+0000111111xxxxxx1111x0xxxxxxxxxx  n   955  BF16 bfmlalb             q0 : q0 q5 q4_16 vindex_H h_sz
+01101110110xxxxx111111xxxxxxxxxx  n   956  BF16 bfmlalt             q0 : q0 q5 q16 h_sz
+0100111111xxxxxx1111x0xxxxxxxxxx  n   956  BF16 bfmlalt             q0 : q0 q5 q4_16 vindex_H h_sz
+01101110010xxxxx111011xxxxxxxxxx  n   957  BF16  bfmmla             q0 : q0 q5 q16 h_sz
+10011010110xxxxx000101xxxxxxxxxx  n   1203 MTE      gmi             x0 : x5sp x16
+10011010110xxxxx000100xxxxxxxxxx  n   1204 MTE      irg           x0sp : x5sp x16
+11011001011xxxxxxxxx00xxxxxxxxxx  n   1201 MTE      ldg             x0 : x0 mem9_ldg_tag
+01001110100xxxxx101001xxxxxxxxxx  n   958  I8MM   smmla             q0 : q0 q5 q16 b_const_sz
+11011001101xxxxxxxxx01xxxxxxxxxx  n   1197 MTE     st2g  mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001101xxxxxxxxx11xxxxxxxxxx  n   1197 MTE     st2g  mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001101xxxxxxxxx10xxxxxxxxxx  n   1197 MTE     st2g       mem9_tag : x0sp
+11011001001xxxxxxxxx01xxxxxxxxxx  n   1198 MTE      stg  mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001001xxxxxxxxx11xxxxxxxxxx  n   1198 MTE      stg  mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001001xxxxxxxxx10xxxxxxxxxx  n   1198 MTE      stg       mem9_tag : x0sp
+0110100010xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE     stgp  mem7post_tag x5sp : x0 x10 x5sp mem7off_tag
+0110100110xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE     stgp  mem7_tag x5sp : x0 x10 x5sp mem7off_tag
+0110100100xxxxxxxxxxxxxxxxxxxxxx  n   1202 MTE     stgp       mem7_tag : x0 x10
+11011001111xxxxxxxxx01xxxxxxxxxx  n   1199 MTE    stz2g  mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001111xxxxxxxxx11xxxxxxxxxx  n   1199 MTE    stz2g  mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001111xxxxxxxxx10xxxxxxxxxx  n   1199 MTE    stz2g       mem9_tag : x0sp
+11011001011xxxxxxxxx01xxxxxxxxxx  n   1200 MTE     stzg  mem9post_tag x5sp : x0sp x5sp mem9off_tag
+11011001011xxxxxxxxx11xxxxxxxxxx  n   1200 MTE     stzg  mem9_tag x5sp : x0sp x5sp mem9off_tag
+11011001011xxxxxxxxx10xxxxxxxxxx  n   1200 MTE     stzg       mem9_tag : x0sp
+1101000110xxxxxx^^xxxxxxxxxxxxxx  n   1208 MTE     subg           x0sp : x5sp imm6_16_tag imm4_10
+10011010110xxxxx000000xxxxxxxxxx  n   1205 MTE     subp             x0 : x5sp x16sp
+10111010110xxxxx000000xxxxxxxxxx  n   1206 MTE    subps             x0 : x5sp x16sp
+0x00111100xxxxxx1111x0xxxxxxxxxx  n   959  I8MM   sudot            dq0 : dq0 dq5 q16 vindex_S b_const_sz
+01101110100xxxxx101001xxxxxxxxxx  n   960  I8MM   ummla             q0 : q0 q5 q16 b_const_sz
+0x001110100xxxxx100111xxxxxxxxxx  n   961  I8MM   usdot            dq0 : dq0 dq5 dq16 b_const_sz
+0x00111110xxxxxx1111x0xxxxxxxxxx  n   961  I8MM   usdot            dq0 : dq0 dq5 q16 vindex_S b_const_sz
+01001110100xxxxx101011xxxxxxxxxx  n   962  I8MM  usmmla             q0 : q0 q5 q16 b_const_sz

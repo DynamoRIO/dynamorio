@@ -177,6 +177,8 @@ changes:
  - The droption header library is now inside the dynamorio::droption namespace.
 
 Further non-compatibility-affecting changes include:
+ - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
+   for the specified instruction count before switching to full instruction tracing.
  - Added AArchXX support for attaching to a running process.
  - Added new fields analyze_case_ex and instrument_instr_ex to #drbbdup_options_t.
  - Added drbbdup support to drwrap via #DRWRAP_INVERT_CONTROL, drwrap_invoke_insert(),
