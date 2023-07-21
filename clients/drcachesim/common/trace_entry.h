@@ -83,8 +83,9 @@ typedef enum {
      * conditional branches use either #TRACE_TYPE_INSTR_TAKEN_JUMP or
      * #TRACE_TYPE_INSTR_UNTAKEN_JUMP and that the target of indirect branches is in a
      * marker of type #TRACE_MARKER_TYPE_BRANCH_TARGET prior to the indirect branch
-     * instrution entry itself.  This only applies to offline traces; online traces,
-     * even at this version, do not contain this information.
+     * instrution entry itself.  This only applies to offline traces whose instructions
+     * are not filtered; online traces, and i-filtered offline traces, even at this
+     * version, do not contain this information.
      */
     TRACE_ENTRY_VERSION_BRANCH_INFO = 5,
     /** The latest version of the trace format. */
@@ -139,8 +140,8 @@ typedef enum {
     TRACE_TYPE_INSTR_DIRECT_JUMP,   /**< A direct unconditional jump instruction. */
     TRACE_TYPE_INSTR_INDIRECT_JUMP, /**< An indirect jump instruction. */
     /**
-     * A direct conditional jump instruction.  \deprecated For offline traces, this is
-     * deprecated and is only present in versions below
+     * A direct conditional jump instruction.  \deprecated For offline non-i-filtered
+     * traces, this is deprecated and is only present in versions below
      * #TRACE_ENTRY_VERSION_BRANCH_INFO.  Newer version used
      * #TRACE_TYPE_INSTR_TAKEN_JUMP and #TRACE_TYPE_INSTR_UNTAKEN_JUMP instead.
      */
@@ -246,12 +247,12 @@ typedef enum {
 
     /**
      * A direct conditional jump instruction which was taken.
-     * This is only used in offline traces.
+     * This is only used in offline non-i-filtered traces.
      */
     TRACE_TYPE_INSTR_TAKEN_JUMP,
     /**
      * A direct conditional jump instruction which was not taken.
-     * This is only used in offline traces.
+     * This is only used in offline non-i-filtered traces.
      */
     TRACE_TYPE_INSTR_UNTAKEN_JUMP,
 

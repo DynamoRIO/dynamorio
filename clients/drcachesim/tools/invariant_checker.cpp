@@ -452,7 +452,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->last_indirect_target_ = memref.marker.marker_value;
     }
     if (knob_offline_ && shard->version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO &&
-        type_is_instr_branch(memref.instr.type)) {
+        type_is_instr_branch(memref.instr.type) &&
+        // I-filtered traces don't mark branch targets.
+        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                 shard->file_type_)) {
         report_if_false(shard, memref.instr.type != TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
                         "The CONDITIONAL_JUMP type is deprecated and should not appear");
         if (!type_is_instr_direct_branch(memref.instr.type)) {

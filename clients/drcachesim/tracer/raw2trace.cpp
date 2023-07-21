@@ -2665,7 +2665,7 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
     int instr_index = instr_count - 1;
     // Walk backward so we have the next pc for stacked branches.
     app_pc next_instr_pc = next_pc;
-    for (int i = tdata->delayed_branch.size() - 1; i >= 0; --i) {
+    for (int i = static_cast<int>(tdata->delayed_branch.size()) - 1; i >= 0; --i) {
         auto &entry = tdata->delayed_branch[i];
         // We can't infer branch targets for filtered instructions.
         if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
@@ -2720,7 +2720,7 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
                     } else {
                         branch_type = TRACE_TYPE_INSTR_UNTAKEN_JUMP;
                     }
-                    entry.type = branch_type;
+                    entry.type = static_cast<unsigned short>(branch_type);
                 }
                 VPRINT(4,
                        "Appending delayed branch type=%d pc=%p decode=%p target=%p for "
