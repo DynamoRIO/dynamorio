@@ -447,27 +447,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Physical addr bottom 12 bits do not match virtual");
     }
 
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
-        shard->last_indirect_target_ = memref.marker.marker_value;
-    }
-    if (knob_offline_ && shard->version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO &&
-        type_is_instr_branch(memref.instr.type) &&
-        // I-filtered traces don't mark branch targets.
-        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                 shard->file_type_)) {
-        report_if_false(shard, memref.instr.type != TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
-                        "The CONDITIONAL_JUMP type is deprecated and should not appear");
-        if (!type_is_instr_direct_branch(memref.instr.type)) {
-            report_if_false(shard,
-                            shard->last_indirect_target_ != 0 &&
-                                shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
-                                shard->prev_entry_.marker.marker_type ==
-                                    TRACE_MARKER_TYPE_BRANCH_TARGET,
-                            "Indirect branches must be preceded by their targets");
-        }
-    }
-
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
@@ -606,6 +585,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                   << " type " << memref.instr.type << "\n";
     }
+
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         shard->last_timestamp_ = memref.marker.marker_value;
@@ -710,6 +690,28 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (shard->last_window_ != memref.marker.marker_value)
             shard->window_transition_ = true;
         shard->last_window_ = memref.marker.marker_value;
+    }
+
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
+        shard->last_branch_marker_value_ = memref.marker.marker_value;
+    }
+    if (knob_offline_ && shard->version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO &&
+        type_is_instr_branch(memref.instr.type) &&
+        // I-filtered traces don't mark branch targets.
+        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                 shard->file_type_)) {
+        report_if_false(shard, memref.instr.type != TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
+                        "The CONDITIONAL_JUMP type is deprecated and should not appear");
+        if (!type_is_instr_direct_branch(memref.instr.type)) {
+            shard->last_indirect_target_ = shard->last_branch_marker_value_;
+            report_if_false(shard,
+                            shard->last_indirect_target_ != 0 &&
+                                shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+                                shard->prev_entry_.marker.marker_type ==
+                                    TRACE_MARKER_TYPE_BRANCH_TARGET,
+                            "Indirect branches must be preceded by their targets");
+        }
     }
 
 #ifdef UNIX
