@@ -953,6 +953,7 @@ check_branch_decoration()
         if (!run_checker(memrefs, false))
             return false;
     }
+#ifdef UNIX
     // Indirect branch target with kernel event: correct.
     {
         std::vector<memref_t> memrefs = {
@@ -967,6 +968,7 @@ check_branch_decoration()
         if (!run_checker(memrefs, false))
             return false;
     }
+#endif
     // Indirect branch target: no marker.
     {
         std::vector<memref_t> memrefs = {
@@ -995,6 +997,7 @@ check_branch_decoration()
                          "Failed to catch bad indirect branch target marker"))
             return false;
     }
+#ifdef UNIX
     // Indirect branch target with kernel event: marker value incorrect.
     {
         std::vector<memref_t> memrefs = {
@@ -1010,6 +1013,7 @@ check_branch_decoration()
                          "Failed to catch bad indirect branch target marker"))
             return false;
     }
+#endif
     // Deprecated branch type.
     {
         std::vector<memref_t> memrefs = {
@@ -1050,6 +1054,7 @@ check_branch_decoration()
         if (!run_checker(memrefs, false))
             return false;
     }
+#ifdef UNIX
     // Taken branch target with kernel event: correct.
     {
         instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
@@ -1078,6 +1083,7 @@ check_branch_decoration()
         if (!run_checker(memrefs, false))
             return false;
     }
+#endif
     // Taken branch target: incorrect.
     {
         instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
@@ -1106,6 +1112,7 @@ check_branch_decoration()
                          "Failed to catch taken branch falling through"))
             return false;
     }
+#ifdef UNIX
     // Taken branch target with kernel event: incorrect.
     {
         instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
@@ -1135,6 +1142,7 @@ check_branch_decoration()
                          "Failed to catch taken branch falling through to signal"))
             return false;
     }
+#endif
     // Untaken branch target: correct.
     {
         instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
@@ -1162,6 +1170,7 @@ check_branch_decoration()
         if (!run_checker(memrefs, false))
             return false;
     }
+#ifdef UNIX
     // Untaken branch target with kernel event: correct.
     {
         instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
@@ -1190,6 +1199,7 @@ check_branch_decoration()
         if (!run_checker(memrefs, false))
             return false;
     }
+#endif
     // Untaken branch target: incorrect.
     {
         instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
@@ -1218,6 +1228,7 @@ check_branch_decoration()
                          "Failed to catch untaken branch going to taken target"))
             return false;
     }
+#ifdef UNIX
     // Untaken branch target with kernel event: incorrect.
     {
         instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
@@ -1248,6 +1259,7 @@ check_branch_decoration()
                 "Failed to catch untaken branch going to taken target at signal"))
             return false;
     }
+#endif
     return true;
 }
 

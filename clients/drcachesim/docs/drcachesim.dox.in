@@ -656,7 +656,7 @@ $ $ bin64/drrun -t drcachesim -simulator_type view -indir drmemtrace.*.dir -sim_
 Output format:
 <--record#-> <--instr#->: <---tid---> <record details>
 ------------------------------------------------------------
-           1           0:     3256418 <marker: version 4>
+           1           0:     3256418 <marker: version 5>
            2           0:     3256418 <marker: filetype 0x240>
            3           0:     3256418 <marker: cache line size 64>
            4           0:     3256418 <marker: chunk instruction count 1024>
