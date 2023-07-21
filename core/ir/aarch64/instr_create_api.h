@@ -17933,4 +17933,132 @@
 #define INSTR_CREATE_stgp_offset(dc, Rn, Rt, Rt2) \
     instr_create_1dst_2src(dc, OP_stgp, Rn, Rt, Rt2)
 
+/**
+ * Creates a GMI instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      GMI     <Xd>, <Xn|SP>, <Xm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_gmi(dc, Rd, Rn, Rm) instr_create_1dst_2src(dc, OP_gmi, Rd, Rn, Rm)
+
+/**
+ * Creates an IRG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      IRG     <Xd|SP>, <Xn|SP>{, <Xm>}
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_irg(dc, Rd, Rn, Rm) instr_create_1dst_2src(dc, OP_irg, Rd, Rn, Rm)
+
+/**
+ * Creates a SUBP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SUBP    <Xd>, <Xn|SP>, <Xm|SP>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_subp(dc, Rd, Rn, Rm) instr_create_1dst_2src(dc, OP_subp, Rd, Rn, Rm)
+
+/**
+ * Creates a SUBPS instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SUBPS   <Xd>, <Xn|SP>, <Xm|SP>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_subps(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_subps, Rd, Rn, Rm)
+
+/**
+ * Creates an ADDG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ADDG    <Xd|SP>, <Xn|SP>, #<imm1>, #<imm2>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param imm1 The immediate unsigned imm (must be a multiple of 16).
+ * \param imm2 The immediate unsigned imm.
+ */
+#define INSTR_CREATE_addg(dc, Rd, Rn, imm1, imm2) \
+    instr_create_1dst_3src(dc, OP_addg, Rd, Rn, imm1, imm2)
+
+/**
+ * Creates a SUBG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SUBG    <Xd|SP>, <Xn|SP>, #<imm1>, #<imm2>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param imm1 The immediate unsigned imm (must be a multiple of 16).
+ * \param imm2 The immediate unsigned imm.
+ */
+#define INSTR_CREATE_subg(dc, Rd, Rn, imm1, imm2) \
+    instr_create_1dst_3src(dc, OP_subg, Rd, Rn, imm1, imm2)
+
+/**
+ * Creates a DC GVA instruction.
+ *
+ * Writes allocation tags of a naturally aligned block of N bytes, where N is identified
+ * in DCZID_EL0 system register.
+ * This macro is used to encode the forms:
+   \verbatim
+      DC      GVA, <Xt>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory
+ *             for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             There is no alignment restriction on the address within the
+ *             block of N bytes that is used.
+ */
+#define INSTR_CREATE_dc_gva(dc, Rn) \
+    instr_create_1dst_0src(         \
+        dc, OP_dc_gva,              \
+        opnd_create_base_disp(opnd_get_reg(Rn), DR_REG_NULL, 0, 0, OPSZ_sys))
+
+/**
+ * Creates a DC GZVA instruction.
+ *
+ * Writes zeros and allocation tags of a naturally aligned block of N bytes, where N is
+ * identified in DCZID_EL0 system register.
+ * This macro is used to encode the forms:
+   \verbatim
+      DC      GZVA, <Xt>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use. There is no
+ *             alignment restriction on the address within the block of N bytes that is
+ *             used.
+ */
+#define INSTR_CREATE_dc_gzva(dc, Rn) \
+    instr_create_1dst_0src(          \
+        dc, OP_dc_gzva,              \
+        opnd_create_base_disp(opnd_get_reg(Rn), DR_REG_NULL, 0, 0, OPSZ_sys))
+
 #endif /* DR_IR_MACROS_AARCH64_H */
