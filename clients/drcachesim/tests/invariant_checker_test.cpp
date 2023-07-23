@@ -62,8 +62,7 @@ public:
     struct error {
         std::string invariant_name;
         memref_tid_t tid;
-        // Memref count (ordinal) at error point.
-        uint64_t refs;
+        uint64_t refs; // Memref count (ordinal) at error point.
         uint64_t last_timestamp;
         uint64_t instrs_since_last_timestamp;
     };
