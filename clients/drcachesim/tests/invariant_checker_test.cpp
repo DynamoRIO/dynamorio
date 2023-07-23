@@ -644,13 +644,13 @@ check_duplicate_syscall_with_same_pc()
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
             gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 6),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR, { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
 #    elif defined(ARM_64)
             gen_instr_encoded(ADDR,
                               0xd4000001), // 0x7fcf3b9d: 0xd4000001 svc #0x0
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 6),
             gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR,
                               0xd4000001), // 0x7fcf3b9d: 0xd4000001 svc #0x0
@@ -658,7 +658,7 @@ check_duplicate_syscall_with_same_pc()
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
         };
-        if (!run_checker(memrefs, true, 1, 5, 0, 1,
+        if (!run_checker(memrefs, true, 1, 5, 6, 1,
                          "Duplicate syscall instrs with the same PC",
                          "Failed to catch duplicate syscall instrs with the same PC"))
             return false;
