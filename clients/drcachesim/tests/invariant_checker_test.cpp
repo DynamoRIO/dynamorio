@@ -58,7 +58,6 @@ public:
     {
     }
 
-    // TODO(sahil): Check the style guide for this.
     struct error {
         std::string invariant_name;
         memref_tid_t tid;
