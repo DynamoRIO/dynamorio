@@ -190,12 +190,12 @@ check_branch_target_after_branch()
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
             gen_branch(1, 2),
-            gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 3),
             gen_instr(2, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 3),
             gen_instr(1, 3),
         };
-        if (!run_checker(memrefs, true, 1, 4, 0, 1,
+        if (!run_checker(memrefs, true, 1, 4, 3, 1,
                          "Branch target not immediately after branch",
                          "Failed to catch bad branch target position"))
             return false;
