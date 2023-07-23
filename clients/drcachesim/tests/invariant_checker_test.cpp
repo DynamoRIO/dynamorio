@@ -234,6 +234,20 @@ check_sane_control_flow()
                          "Failed to catch bad control flow"))
             return false;
     }
+    // Negative test with timestamp markers.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
+            gen_instr(1, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 3),
+            gen_instr(1, 3),
+        };
+        if (!run_checker(memrefs, true, 1, 4, 3, 1,
+                         "Non-explicit control flow has no marker",
+                         "Failed to catch bad control flow")) {
+            return false;
+        }
+    }
     // Positive test: branches with no encodings.
     {
         std::vector<memref_t> memrefs = {
