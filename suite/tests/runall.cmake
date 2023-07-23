@@ -212,6 +212,32 @@ elseif ("${nudge}" MATCHES "<attach>")
     kill_background_process(ON)
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
+elseif ("${nudge}" MATCHES "<detach>")
+  set(nudge_cmd run_in_bg)
+  string(REGEX REPLACE "<detach>"
+    "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@1000"
+    nudge "${nudge}")
+  string(REGEX REPLACE "@" ";" nudge "${nudge}")
+  execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
+   RESULT_VARIABLE nudge_result
+   ERROR_VARIABLE nudge_err
+   OUTPUT_VARIABLE nudge_out
+   )
+  # combine out and err
+  set(nudge_err "${nudge_out}${nudge_err}")
+  if (nudge_result)
+    kill_background_process(ON)
+    message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
+  endif (nudge_result)
+  do_sleep(5000)
+  execute_process(COMMAND "${toolbindir}/drconfig.exe" "-detach" ${pid}
+  RESULT_VARIABLE detach_result
+  ERROR_VARIABLE  detach_err
+  OUTPUT_VARIABLE detach_out)
+  set(detach_err "${detach_out}${detach_err}")
+  if (detach_result)
+    message(FATAL_ERROR "*** detach failed (${detach_result}): ${detach_err}***\n")
+  endif (detach_result)
 else ()
   # drnudgeunix and drconfig have different syntax:
   if (WIN32)

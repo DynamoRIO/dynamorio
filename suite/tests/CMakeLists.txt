@@ -1338,6 +1338,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         # a starting message to the output file. This allows us to detect when it is
         # up and running and we can start the attach process.
         get_target_path_for_execution(app_path win32.attachee "${location_suffix}")
+        # For detach we use detachee, which is identical to infloop, aside for writing
+        # a starting message to the output file. This allows us to detect when it is
+        # up and running and we can start the attach and detach process.
+      elseif ("${runall}" MATCHES "<detach>")
+        get_target_path_for_execution(app_path win32.detachee "${location_suffix}")
       else ()
         # It's easier to run our own infloop, which prints so we know when it's up,
         # than to run notepad or sthg.
@@ -1383,6 +1388,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       string(REGEX MATCH ";-quiet;(.*);--" nudge_arg "${rundr}")
       string(REGEX REPLACE ";--" "" nudge_arg "${nudge_arg}")
       string(PREPEND nudge_arg "<attach>")
+      string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
+      # clear client from dr command and run native
+      string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
+    elseif ("${runall}" MATCHES "<detach>")
+      # move params to nudge
+      string(REGEX MATCH ";-quiet;(.*);--" nudge_arg "${rundr}")
+      string(REGEX REPLACE ";--" "" nudge_arg "${nudge_arg}")
+      string(PREPEND nudge_arg "<detach>")
       string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
       # clear client from dr command and run native
       string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
@@ -2456,6 +2469,9 @@ endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  if (WIN32)
+    tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
+  endif (WIN32)
   if (UNIX)
     # Test attaching during a blocking syscall.
     torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
@@ -4980,6 +4996,7 @@ if (UNIX)
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
   add_exe(win32.attachee win32/attachee.c)
+  add_exe(win32.detachee win32/detachee.c)
   if (PROGRAM_SHEPHERDING)
     # too flaky across platforms so we limit to security mode only: not too useful
     # for other than testing our ASLR anyway
