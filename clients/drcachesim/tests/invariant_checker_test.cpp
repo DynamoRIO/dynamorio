@@ -58,9 +58,16 @@ public:
     {
     }
 
-    std::vector<std::string> errors;
-    std::vector<memref_tid_t> error_tids;
-    std::vector<uint64_t> error_refs; // Memref count (ordinal) at error point.
+    // TODO(sahil): Check the style guide for this.
+    struct error {
+        std::string invariant_name;
+        memref_tid_t tid;
+        // Memref count (ordinal) at error point.
+        uint64_t refs;
+        uint64_t last_timestamp;
+        uint64_t instrs_since_last_timestamp;
+    };
+    std::vector<error> errors;
 
     bool
     print_results() override
@@ -78,13 +85,14 @@ protected:
         if (!condition) {
             std::cerr << "Recording |" << invariant_name << "| in T" << shard->tid_
                       << " @" << shard->ref_count_ << "\n";
-            errors.push_back(invariant_name);
-            error_tids.push_back(shard->tid_);
-            error_refs.push_back(shard->ref_count_);
+            errors.push_back({ invariant_name, shard->tid_, shard->ref_count_,
+                               shard->last_timestamp_,
+                               shard->instr_count_since_last_timestamp_ });
         }
     }
 };
 
+// TODO(sahil): Modify the checker to check for instrs since timestamp.
 /* Assumes there are at most 3 threads with tids 1, 2, and 3 in memrefs. */
 bool
 run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
@@ -101,16 +109,17 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         }
         checker.print_results();
         if (expect_error) {
-            if (checker.errors.size() != 1 || checker.errors[0] != expected_message ||
-                checker.error_tids[0] != error_tid ||
-                checker.error_refs[0] != error_refs) {
+            if (checker.errors.size() != 1 ||
+                checker.errors[0].invariant_name != expected_message ||
+                checker.errors[0].tid != error_tid ||
+                checker.errors[0].refs != error_refs) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
         } else if (!checker.errors.empty()) {
             for (unsigned int i = 0; i < checker.errors.size(); ++i) {
-                std::cerr << "Unexpected error: " << checker.errors[i]
-                          << " at ref: " << checker.error_refs[i] << "\n";
+                std::cerr << "Unexpected error: " << checker.errors[0].invariant_name
+                          << " at ref: " << checker.errors[0].refs << "\n";
             }
             return false;
         }
@@ -143,15 +152,16 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         checker.parallel_shard_exit(shard3);
         checker.print_results();
         if (expect_error) {
-            if (checker.errors.size() != 1 || checker.errors[0] != expected_message ||
-                checker.error_tids[0] != error_tid ||
-                checker.error_refs[0] != error_refs) {
+            if (checker.errors.size() != 1 ||
+                checker.errors[0].invariant_name != expected_message ||
+                checker.errors[0].tid != error_tid ||
+                checker.errors[0].refs != error_refs) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
         } else if (!checker.errors.empty()) {
-            for (const auto &error : checker.errors) {
-                std::cerr << "Unexpected error: " << error << "\n";
+            for (auto &error : checker.errors) {
+                std::cerr << "Unexpected error: " << error.invariant_name << "\n";
             }
             return false;
         }
