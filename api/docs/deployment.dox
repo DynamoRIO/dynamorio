@@ -221,7 +221,7 @@ feature and is not yet as well-supported as launching a new process:
 bin32/drrun.exe -attach <notepad_pid> -c samples/bin32/bbsize.dll
 \endcode
 
-Then, you can also detach DynamoRIO from the process of \c notepad.exe 
+Then, you can also detach DynamoRIO from the process of \c notepad.exe
 without affecting the normal execution of \c notepad.exe.
 \code
 bin32/drconfig.exe -detach <notepad_pid>
