@@ -82,8 +82,22 @@ bool
 exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                         cache_pc target_pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    cache_pc branch_pc = EXIT_CTI_PC(f, l);
+    /* Compute offset as unsigned, modulo arithmetic. */
+    ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)branch_pc;
+    uint enc = *(uint *)branch_pc;
+    ASSERT(ALIGNED(branch_pc, 2) && ALIGNED(target_pc, 2));
+
+    if ((enc & 0x7f) == 0b1100011 &&
+        /* BEQ, BNE */
+        (((enc >> 12) & 0x7) <= 0x1 ||
+         /* BLT, BGE, BLTU, BGEU */
+         ((enc >> 12) & 0x7) >= 0x4))
+        return (off < 0x1000);
+    else if ((enc & 0x7f) == 0b1101111) /* JAL */
+        return (off < 0x100000);
+    /* TODO: i#3544: Add support for compressed instructions.  */
+    ASSERT(false);
     return false;
 }
 
@@ -115,8 +129,29 @@ void
 patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
              bool hot_patch)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* Compute offset as unsigned, modulo arithmetic. */
+    ptr_int_t off = (ptr_uint_t)target_pc - (ptr_uint_t)branch_pc;
+    uint *pc_writable = (uint *)vmcode_get_writable_addr(branch_pc);
+    uint enc = *pc_writable;
+    ASSERT(ALIGNED(branch_pc, 4) && ALIGNED(target_pc, 4));
+    if ((enc & 0x7f) == 0b1100011 &&
+        /* BEQ, BNE */
+        (((enc >> 12) & 0x7) <= 0x1 ||
+         /* BLT, BGE, BLTU, BGEU */
+         ((enc >> 12) & 0x7) >= 0x4)) {
+        ASSERT(((off << (64 - 13)) >> (64 - 13)) == off);
+        *pc_writable = (enc & 0b00000001111111111111000001111111) |
+            (((off >> 12) & 1) << 31) | (((off >> 5) & 63) << 25) |
+            (((off >> 1) & 15) << 8) | (((off >> 11) & 1) << 7);
+    } else if ((enc & 0xfff) == 0b000001101111) { /* J */
+        ASSERT(((off << (64 - 21)) >> (64 - 21)) == off);
+        *pc_writable = 0b000001101111 | (((off >> 1) & 0b1111111111) << 21) |
+            (((off >> 11) & 1) << 20) | (((off >> 12) & 0b11111111) << 12);
+    } else
+        /* TODO: i#3544: Add support for compressed instructions.  */
+        ASSERT(false);
+    if (hot_patch)
+        machine_cache_sync(branch_pc, branch_pc + 4, true);
     return;
 }
 
