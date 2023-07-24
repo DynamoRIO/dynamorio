@@ -104,7 +104,8 @@ protected:
 /* Assumes there are at most 3 threads with tids 1, 2, and 3 in memrefs. */
 bool
 run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
-            error_info_t error_info = {}, const std::string &toprint_if_fail = "",
+            error_info_t expected_error_info = {},
+            const std::string &toprint_if_fail = "",
             std::istream *serial_schedule_file = nullptr)
 {
     // Serial.
@@ -115,7 +116,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         }
         checker.print_results();
         if (expect_error) {
-            if (checker.errors.size() != 1 || error_info != checker.errors[0]) {
+            if (checker.errors.size() != 1 || expected_error_info != checker.errors[0]) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
@@ -155,7 +156,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         checker.parallel_shard_exit(shard3);
         checker.print_results();
         if (expect_error) {
-            if (checker.errors.size() != 1 || checker.errors[0] != error_info) {
+            if (checker.errors.size() != 1 || checker.errors[0] != expected_error_info) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
