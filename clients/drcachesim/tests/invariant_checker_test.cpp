@@ -47,6 +47,22 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+struct error_info_t {
+    std::string invariant_name;
+    memref_tid_t tid;
+    uint64_t ref_ordinal;
+    uint64_t last_timestamp;
+    uint64_t instrs_since_last_timestamp;
+
+    const bool
+    operator==(const error_info_t &rhs)
+    {
+        return rhs.invariant_name == invariant_name && rhs.tid == tid &&
+            rhs.ref_ordinal == ref_ordinal && rhs.last_timestamp == last_timestamp &&
+            rhs.instrs_since_last_timestamp == instrs_since_last_timestamp;
+    }
+};
+
 class checker_no_abort_t : public invariant_checker_t {
 public:
     explicit checker_no_abort_t(bool offline)
@@ -58,14 +74,7 @@ public:
     {
     }
 
-    struct error {
-        std::string invariant_name;
-        memref_tid_t tid;
-        uint64_t refs; // Memref count (ordinal) at error point.
-        uint64_t last_timestamp;
-        uint64_t instrs_since_last_timestamp;
-    };
-    std::vector<error> errors;
+    std::vector<error_info_t> errors;
 
     bool
     print_results() override
@@ -95,10 +104,7 @@ protected:
 /* Assumes there are at most 3 threads with tids 1, 2, and 3 in memrefs. */
 bool
 run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
-            memref_tid_t error_tid = 0, uint64_t error_refs = 0,
-            uint64_t error_last_timestamp = 0, uint64_t error_instr_count = 0,
-            const std::string &expected_message = "",
-            const std::string &toprint_if_fail = "",
+            error_info_t error_info = {}, const std::string &toprint_if_fail = "",
             std::istream *serial_schedule_file = nullptr)
 {
     // Serial.
@@ -109,19 +115,14 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         }
         checker.print_results();
         if (expect_error) {
-            if (checker.errors.size() != 1 ||
-                checker.errors[0].invariant_name != expected_message ||
-                checker.errors[0].tid != error_tid ||
-                checker.errors[0].refs != error_refs ||
-                checker.errors[0].last_timestamp != error_last_timestamp ||
-                checker.errors[0].instrs_since_last_timestamp != error_instr_count) {
+            if (checker.errors.size() != 1 || !(error_info == checker.errors[0])) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
         } else if (!checker.errors.empty()) {
             for (unsigned int i = 0; i < checker.errors.size(); ++i) {
                 std::cerr << "Unexpected error: " << checker.errors[0].invariant_name
-                          << " at ref: " << checker.errors[0].refs << "\n";
+                          << " at ref: " << checker.errors[0].ref_ordinal << "\n";
             }
             return false;
         }
@@ -154,12 +155,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         checker.parallel_shard_exit(shard3);
         checker.print_results();
         if (expect_error) {
-            if (checker.errors.size() != 1 ||
-                checker.errors[0].invariant_name != expected_message ||
-                checker.errors[0].tid != error_tid ||
-                checker.errors[0].refs != error_refs ||
-                checker.errors[0].last_timestamp != error_last_timestamp ||
-                checker.errors[0].instrs_since_last_timestamp != error_instr_count) {
+            if (checker.errors.size() != 1 || !(checker.errors[0] == error_info)) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
@@ -197,10 +193,11 @@ check_branch_target_after_branch()
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 3),
             gen_instr(1, 3),
         };
-        if (!run_checker(memrefs, true, 1, 4, 3, 1,
-                         "Branch target not immediately after branch",
-                         "Failed to catch bad branch target position"))
+        if (!run_checker(memrefs, true,
+                         { "Branch target not immediately after branch", 1, 4, 3, 1 },
+                         "Failed to catch bad branch target position")) {
             return false;
+        }
     }
     // Invariant relaxed for thread exit or signal.
     {
@@ -231,8 +228,8 @@ check_sane_control_flow()
             gen_instr(1, 1),
             gen_instr(1, 3),
         };
-        if (!run_checker(memrefs, true, 1, 2, 0, 2,
-                         "Non-explicit control flow has no marker",
+        if (!run_checker(memrefs, true,
+                         { "Non-explicit control flow has no marker", 1, 2, 0, 2 },
                          "Failed to catch bad control flow"))
             return false;
     }
@@ -244,8 +241,8 @@ check_sane_control_flow()
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 3),
             gen_instr(1, 3),
         };
-        if (!run_checker(memrefs, true, 1, 4, 3, 1,
-                         "Non-explicit control flow has no marker",
+        if (!run_checker(memrefs, true,
+                         { "Non-explicit control flow has no marker", 1, 4, 3, 1 },
                          "Failed to catch bad control flow")) {
             return false;
         }
@@ -283,9 +280,10 @@ check_sane_control_flow()
 #    endif
         };
 
-        if (!run_checker(memrefs, true, 1, 3, 0, 2,
-                         "Direct branch does not go to the correct target",
-                         "Failed to catch branch not going to its target")) {
+        if (!run_checker(
+                memrefs, true,
+                { "Direct branch does not go to the correct target", 1, 3, 0, 2 },
+                "Failed to catch branch not going to its target")) {
             return false;
         }
     }
@@ -305,7 +303,7 @@ check_sane_control_flow()
             gen_instr(1, 0x71019df0),
         };
 
-        if (!run_checker(memrefs, false, 1)) {
+        if (!run_checker(memrefs, false)) {
             return false;
         }
     }
@@ -498,8 +496,8 @@ check_kernel_xfer()
             gen_instr(1, 101), gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(1, 3),
         };
-        if (!run_checker(memrefs, true, 1, 5, 0, 3,
-                         "Signal handler return point incorrect",
+        if (!run_checker(memrefs, true,
+                         { "Signal handler return point incorrect", 1, 5, 0, 3 },
                          "Failed to catch bad signal handler return"))
             return false;
     }
@@ -552,8 +550,8 @@ check_rseq()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
             gen_instr(1, 4),
         };
-        if (!run_checker(memrefs, true, 1, 4, 0, 2,
-                         "Rseq post-abort instruction not rolled back",
+        if (!run_checker(memrefs, true,
+                         { "Rseq post-abort instruction not rolled back", 1, 4, 0, 2 },
                          "Failed to catch bad rseq abort"))
             return false;
     }
@@ -578,9 +576,10 @@ check_function_markers()
             gen_marker(1, TRACE_MARKER_TYPE_FUNC_ARG, 2),
             gen_data(1, true, 42, 8),
         };
-        if (!run_checker(memrefs, true, TID, 5, 0, 1,
-                         "Function marker misplaced between instr and memref",
-                         "Failed to catch misplaced function marker"))
+        if (!run_checker(
+                memrefs, true,
+                { "Function marker misplaced between instr and memref", TID, 5, 0, 1 },
+                "Failed to catch misplaced function marker"))
             return false;
     }
     // Incorrectly not after a branch.
@@ -589,8 +588,8 @@ check_function_markers()
             gen_instr(TID, 1),
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
         };
-        if (!run_checker(memrefs, true, TID, 2, 0, 1,
-                         "Function marker should be after a branch",
+        if (!run_checker(memrefs, true,
+                         { "Function marker should be after a branch", TID, 2, 0, 1 },
                          "Failed to catch function marker not after branch"))
             return false;
     }
@@ -602,9 +601,10 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ + 1),
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ARG, 2),
         };
-        if (!run_checker(memrefs, true, TID, 3, 0, 1,
-                         "Function marker retaddr should match prior call",
-                         "Failed to catch wrong function retaddr"))
+        if (!run_checker(
+                memrefs, true,
+                { "Function marker retaddr should match prior call", TID, 3, 0, 1 },
+                "Failed to catch wrong function retaddr"))
             return false;
     }
     // Incorrectly not after a branch with a load in between.
@@ -614,8 +614,8 @@ check_function_markers()
             gen_data(TID, true, 42, 8),
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
         };
-        if (!run_checker(memrefs, true, TID, 3, 0, 1,
-                         "Function marker should be after a branch",
+        if (!run_checker(memrefs, true,
+                         { "Function marker should be after a branch", TID, 3, 0, 1 },
                          "Failed to catch function marker after non-branch with load"))
             return false;
     }
@@ -674,8 +674,8 @@ check_duplicate_syscall_with_same_pc()
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
         };
-        if (!run_checker(memrefs, true, 1, 5, 6, 1,
-                         "Duplicate syscall instrs with the same PC",
+        if (!run_checker(memrefs, true,
+                         { "Duplicate syscall instrs with the same PC", 1, 5, 6, 1 },
                          "Failed to catch duplicate syscall instrs with the same PC"))
             return false;
     }
@@ -770,9 +770,10 @@ check_false_syscalls()
             { gen_instr(1), move1 }
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
-        if (!run_checker(memrefs, true, 1, 3, 0, 2,
-                         "Syscall instruction not followed by syscall marker",
-                         "Failed to catch syscall without number marker")) {
+        if (!run_checker(
+                memrefs, true,
+                { "Syscall instruction not followed by syscall marker", 1, 3, 0, 2 },
+                "Failed to catch syscall without number marker")) {
             res = false;
         }
     }
@@ -784,9 +785,10 @@ check_false_syscalls()
             { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
-        if (!run_checker(memrefs, true, 1, 3, 0, 1,
-                         "Syscall marker not placed after syscall instruction",
-                         "Failed to catch misplaced syscall marker")) {
+        if (!run_checker(
+                memrefs, true,
+                { "Syscall marker not placed after syscall instruction", 1, 3, 0, 1 },
+                "Failed to catch misplaced syscall marker")) {
             res = false;
         }
     }
@@ -833,7 +835,8 @@ check_rseq_side_exit_discontinuity()
     static constexpr addr_t BASE_ADDR = 0xeba4ad4;
     auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
     instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
-    if (!run_checker(memrefs, true, 1, 5, 0, 3, "PC discontinuity due to rseq side exit",
+    if (!run_checker(memrefs, true,
+                     { "PC discontinuity due to rseq side exit", 1, 5, 0, 3 },
                      "Failed to catch PC discontinuity from rseq side exit")) {
         return false;
     }
@@ -895,7 +898,7 @@ check_schedule_file()
         std::ifstream serial_read(serial_fname, std::ifstream::binary);
         if (!serial_read)
             return false;
-        if (!run_checker(memrefs, false, 0, 0, 0, 0, "", "", &serial_read))
+        if (!run_checker(memrefs, false, {}, "", &serial_read))
             return false;
     }
     {
@@ -925,9 +928,10 @@ check_schedule_file()
         std::ifstream serial_read(serial_fname, std::ifstream::binary);
         if (!serial_read)
             return false;
-        if (!run_checker(memrefs, true, -1, 0, 0, 0,
-                         "Serial schedule entry count does not match trace",
-                         "Failed to catch incorrect serial schedule count", &serial_read))
+        if (!run_checker(
+                memrefs, true,
+                { "Serial schedule entry count does not match trace", -1, 0, 0, 0 },
+                "Failed to catch incorrect serial schedule count", &serial_read))
             return false;
     }
     {
@@ -959,9 +963,10 @@ check_schedule_file()
         std::ifstream serial_read(serial_fname, std::ifstream::binary);
         if (!serial_read)
             return false;
-        if (!run_checker(memrefs, true, TID_BASE + 2, 3, 0, 0,
-                         "Serial schedule entry does not match trace",
-                         "Failed to catch incorrect serial schedule entry", &serial_read))
+        if (!run_checker(
+                memrefs, true,
+                { "Serial schedule entry does not match trace", TID_BASE + 2, 3, 0, 0 },
+                "Failed to catch incorrect serial schedule entry", &serial_read))
             return false;
     }
 
