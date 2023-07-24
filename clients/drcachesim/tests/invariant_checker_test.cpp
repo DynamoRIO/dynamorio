@@ -121,9 +121,9 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
                 return false;
             }
         } else if (!checker.errors.empty()) {
-            for (unsigned int i = 0; i < checker.errors.size(); ++i) {
-                std::cerr << "Unexpected error: " << checker.errors[0].invariant_name
-                          << " at ref: " << checker.errors[0].ref_ordinal << "\n";
+            for (auto &error : checker.errors) {
+                std::cerr << "Unexpected error: " << error.invariant_name
+                          << " at ref: " << error.ref_ordinal << "\n";
             }
             return false;
         }
@@ -162,7 +162,8 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
             }
         } else if (!checker.errors.empty()) {
             for (auto &error : checker.errors) {
-                std::cerr << "Unexpected error: " << error.invariant_name << "\n";
+                std::cerr << "Unexpected error: " << error.invariant_name
+                          << " at ref: " << error.ref_ordinal << "\n";
             }
             return false;
         }
