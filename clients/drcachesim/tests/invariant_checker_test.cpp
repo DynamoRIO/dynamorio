@@ -55,11 +55,11 @@ struct error_info_t {
     uint64_t instrs_since_last_timestamp;
 
     const bool
-    operator==(const error_info_t &rhs)
+    operator!=(const error_info_t &rhs)
     {
-        return rhs.invariant_name == invariant_name && rhs.tid == tid &&
-            rhs.ref_ordinal == ref_ordinal && rhs.last_timestamp == last_timestamp &&
-            rhs.instrs_since_last_timestamp == instrs_since_last_timestamp;
+        return rhs.invariant_name != invariant_name || rhs.tid != tid ||
+            rhs.ref_ordinal != ref_ordinal || rhs.last_timestamp != last_timestamp ||
+            rhs.instrs_since_last_timestamp != instrs_since_last_timestamp;
     }
 };
 
@@ -115,7 +115,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         }
         checker.print_results();
         if (expect_error) {
-            if (checker.errors.size() != 1 || !(error_info == checker.errors[0])) {
+            if (checker.errors.size() != 1 || error_info != checker.errors[0]) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
@@ -155,7 +155,7 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         checker.parallel_shard_exit(shard3);
         checker.print_results();
         if (expect_error) {
-            if (checker.errors.size() != 1 || !(checker.errors[0] == error_info)) {
+            if (checker.errors.size() != 1 || checker.errors[0] != error_info) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
