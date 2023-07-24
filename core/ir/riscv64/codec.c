@@ -1815,6 +1815,9 @@ encode_u_immpc_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
         imm = (byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset;
     else
         return false;
+    /* FIXME i#3544: Add an assertion here to ensure that the lower 12 bits of imm are all
+     * 0. Assert only if decode_info_t.check_reachable is true. We should mark it as false
+     * to skip the check in get_encoding_info(), as we did for AARCHXX. */
     *out |= SET_FIELD(imm >> 12, 31, 12);
     return true;
 }
