@@ -82,7 +82,9 @@ protected:
     {
         if (!condition) {
             std::cerr << "Recording |" << invariant_name << "| in T" << shard->tid_
-                      << " @" << shard->ref_count_ << "\n";
+                      << " @ ref # " << shard->ref_count_ << " ("
+                      << shard->instr_count_since_last_timestamp_
+                      << " instrs since timestamp " << shard->last_timestamp_ << ")\n";
             errors.push_back({ invariant_name, shard->tid_, shard->ref_count_,
                                shard->last_timestamp_,
                                shard->instr_count_since_last_timestamp_ });
