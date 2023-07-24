@@ -133,7 +133,7 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
     ptr_int_t off = (ptr_uint_t)target_pc - (ptr_uint_t)branch_pc;
     uint *pc_writable = (uint *)vmcode_get_writable_addr(branch_pc);
     uint enc = *pc_writable;
-    ASSERT(ALIGNED(branch_pc, 4) && ALIGNED(target_pc, 4));
+    ASSERT(ALIGNED(branch_pc, 2) && ALIGNED(target_pc, 2));
     if ((enc & 0x7f) == 0b1100011 &&
         /* BEQ, BNE */
         (((enc >> 12) & 0x7) <= 0x1 ||
