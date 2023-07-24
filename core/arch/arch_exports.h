@@ -165,6 +165,7 @@ typedef struct _spill_state_t {
      * tp. So in insert_load_dr_tls_base() we put the original value of tp into the x0
      * slot of the dcontext, and in append_save_gpr() we restore the original value back
      * to tp.
+     * We'll also need to mangle any instructions that use tp.
      */
     reg_t reg_stolen;
 #endif
