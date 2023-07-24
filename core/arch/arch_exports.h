@@ -135,7 +135,7 @@ typedef struct _table_stat_state_t {
 #endif
 } table_stat_state_t;
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 typedef struct _ibl_entry_pc_t {
     byte *ibl;
     byte *unlinked;
@@ -157,10 +157,20 @@ typedef struct _spill_state_t {
     reg_t reg_stolen; /* slot for the stolen register */
 #elif defined(RISCV64)
     reg_t a0, a1, a2, a3;
+    /* Slot for the "stolen" register.
+     * Note that on RISC-V, tp is the thread pointer, and it is also a general-purpose
+     * register, so unlike AARCHXX, we don't actually need to steal any register to store
+     * DR's tls, we can just use tp directly.
+     * But this also introduces another issue, we will lose the original value of
+     * tp. So in insert_load_dr_tls_base() we put the original value of tp into the x0
+     * slot of the dcontext, and in append_save_gpr() we restore the original value back
+     * to tp.
+     */
+    reg_t reg_stolen;
 #endif
     /* XXX: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
-#ifdef AARCHXX
+#if defined(RISCV64) || defined(ARCHXX)
     /* We store addresses here so we can load pointer-sized addresses into
      * registers with a single instruction in our exit stubs and gencode.
      */
@@ -168,6 +178,8 @@ typedef struct _spill_state_t {
     byte *fcache_return;
     ibl_entry_pc_t trace_ibl[IBL_BRANCH_TYPE_END];
     ibl_entry_pc_t bb_ibl[IBL_BRANCH_TYPE_END];
+#endif
+#ifdef AARCHXX
     /* State for converting exclusive monitors into compare-and-swap (-ldstex2cas). */
     ptr_uint_t ldstex_addr;
     ptr_uint_t ldstex_value;
@@ -227,6 +239,7 @@ typedef struct _local_state_extended_t {
 #    define TLS_REG1_SLOT ((ushort)offsetof(spill_state_t, a1))
 #    define TLS_REG2_SLOT ((ushort)offsetof(spill_state_t, a2))
 #    define TLS_REG3_SLOT ((ushort)offsetof(spill_state_t, a3))
+#    define TLS_REG_STOLEN_SLOT ((ushort)offsetof(spill_state_t, reg_stolen))
 #    define SCRATCH_REG0 DR_REG_A0
 #    define SCRATCH_REG1 DR_REG_A1
 #    define SCRATCH_REG2 DR_REG_A2
@@ -244,6 +257,8 @@ typedef struct _local_state_extended_t {
 #    ifdef ARM
 #        define TLS_LDSTEX_FLAGS_SLOT ((ushort)offsetof(spill_state_t, ldstex_flags))
 #    endif
+#elif defined(RISCV64)
+#    define TLS_FCACHE_RETURN_SLOT ((ushort)offsetof(spill_state_t, fcache_return))
 #endif
 
 #define TABLE_OFFSET (offsetof(local_state_extended_t, table_space))
@@ -833,18 +848,20 @@ use_addr_prefix_on_short_disp(void)
 #include "encode_api.h"
 
 /* static version for drdecodelib */
-#define DEFAULT_ISA_MODE_STATIC                         \
-    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
-                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
+#define DEFAULT_ISA_MODE_STATIC                                                \
+    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32),                        \
+                IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB), \
+                                DR_ISA_RV64IMAFDC))
 
 /* Use this one in DR proper.
  * This one is now static as well after we removed the runtime option that
  * used to be here: but I'm leaving the split to make it easier to add
  * an option in the future.
  */
-#define DEFAULT_ISA_MODE                                \
-    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
-                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB))
+#define DEFAULT_ISA_MODE                                                       \
+    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32),                        \
+                IF_AARCHXX_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_THUMB), \
+                                DR_ISA_RV64IMAFDC))
 
 /* For converting back from PC_AS_JMP_TGT on Thumb */
 #ifdef ARM
@@ -1051,18 +1068,19 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define PC_LOAD_ADDR_ALIGN 4
 
 #elif defined(RISCV64)
-/* FIXME i#3544: This can be 2B in C. */
+/* Instructions from C extensions are 2 bytes in size and we will never use this macro on
+ * these instructions. */
 #    define RISCV64_INSTR_SIZE 4
-/* FIXME i#3544: Not implemented */
-#    define FRAGMENT_BASE_PREFIX_SIZE(flags) RISCV64_INSTR_SIZE
-/* FIXME i#3544: Not implemented */
+#    define RISCV64_INSTR_COMPRESSED_SIZE 2
+#    define FRAGMENT_BASE_PREFIX_SIZE(flags) RISCV64_INSTR_SIZE * 2
 #    define DIRECT_EXIT_STUB_SIZE(flags) \
-        (10 * RISCV64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
+        (16 * RISCV64_INSTR_SIZE) /* see insert_exit_stub_other_flags() */
 #    define FRAG_IS_32(flags) false
 #    define PC_AS_JMP_TGT(isa_mode, pc) pc
 #    define PC_AS_LOAD_TGT(isa_mode, pc) pc
-/* FIXME i#3544: Not implemented */
-#    define DIRECT_EXIT_STUB_DATA_SZ 0
+#    define DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING 4
+#    define DIRECT_EXIT_STUB_DATA_SZ \
+        (sizeof(app_pc) + DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING)
 #    define STUB_COARSE_DIRECT_SIZE(flags) (ASSERT_NOT_IMPLEMENTED(false), 0)
 #    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 #    define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
