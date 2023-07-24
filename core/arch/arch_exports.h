@@ -171,7 +171,7 @@ typedef struct _spill_state_t {
 #endif
     /* XXX: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
-#if defined(RISCV64) || defined(ARCHXX)
+#if defined(RISCV64) || defined(AARCHXX)
     /* We store addresses here so we can load pointer-sized addresses into
      * registers with a single instruction in our exit stubs and gencode.
      */
