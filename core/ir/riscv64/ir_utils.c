@@ -128,7 +128,7 @@ mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_
       OUT instr_t **first, OUT instr_t **last, OUT bool *first_set)
 {
     instr_t *tmp;
-    if ((val & 0xffffffffL) == val) {
+    if (((val << 32) >> 32) == val) {
         mov32(dcontext, ilist, instr, dst, val, first, last, first_set);
         return;
     }
