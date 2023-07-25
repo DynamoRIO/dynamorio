@@ -127,9 +127,9 @@ protected:
         // We treat 0 as a sentinel; thus we do not support a trace deliberately
         // jumping to 0 and handling the fault.
         addr_t last_indirect_target_ = 0;
-        // We need an "on-deck" value to handle consecutive indirect branches.
+        // We need a dedicated variable to handle consecutive indirect branches.
         addr_t last_branch_marker_value_ = 0;
-        uintptr_t version_ = 0;
+        uintptr_t trace_version_ = 0;
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
         struct signal_context {

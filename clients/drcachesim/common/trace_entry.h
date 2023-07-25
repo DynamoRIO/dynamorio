@@ -83,7 +83,7 @@ typedef enum {
      * conditional branches use either #TRACE_TYPE_INSTR_TAKEN_JUMP or
      * #TRACE_TYPE_INSTR_UNTAKEN_JUMP and that the target of indirect branches is in a
      * marker of type #TRACE_MARKER_TYPE_BRANCH_TARGET prior to the indirect branch
-     * instrution entry itself.  This only applies to offline traces whose instructions
+     * instruction entry itself.  This only applies to offline traces whose instructions
      * are not filtered; online traces, and i-filtered offline traces, even at this
      * version, do not contain this information.
      */
@@ -525,7 +525,7 @@ typedef enum {
 
     /**
      * This marker is present just before each indirect branch instruction in offline
-     * un-instruction-filtered traces.  The marker value holds the actual target of the
+     * non-i-filtered traces.  The marker value holds the actual target of the
      * branch.
      */
     TRACE_MARKER_TYPE_BRANCH_TARGET,

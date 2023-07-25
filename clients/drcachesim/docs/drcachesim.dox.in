@@ -1384,17 +1384,6 @@ behavior for rseq aborts):
      2212820     1648447:     1249326 ifetch       5 byte(s) @ 0x00007f34066a8b37 4c 8b 54 24 48       mov    0x48(%rsp), %r10
 ```
 
-Offline traces further guarantee that a branch target instruction
-entry in a trace must immediately follow the branch instruction with
-no intervening thread switch.  This allows a core simulator to
-identify the target of a branch by looking at the subsequent trace
-entry in most cases, though as mentioned the target should be
-available from the taken/untaken type plus the decoding and indirect
-branch marker.  This guarantee does not hold when a kernel event such
-as a signal is delivered immediately after a branch; however, each
-marker indicating such a kernel transfer includes the interrupted PC,
-explicitly providing the branch target, for all but rseq aborts.
-
 Filtered traces (filtered via -L0_filter) include the dynamic
 (pre-filtered) per-thread instruction count in a
 #dynamorio::drmemtrace::TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at

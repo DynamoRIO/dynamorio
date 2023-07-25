@@ -295,7 +295,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_VERSION) {
-        shard->version_ = memref.marker.marker_value;
+        shard->trace_version_ = memref.marker.marker_value;
         report_if_false(shard,
                         shard->stream == nullptr ||
                             memref.marker.marker_value == shard->stream->get_version(),
@@ -502,10 +502,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 "Branch target not immediately after branch");
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
-        // by markers.
+        // by markers.  Checks are relaxed if a kernel event occurred but we pass
+        // last_instr_in_cur_context_ to avoid any confusion.
+        // XXX i#5912: For adding checks across every part of a signal handler should
+        // we change this to last_instr_in_cur_context_ and remove/adjust the
+        // check relaxations inside check_for_pc_discontinuity()?
         const std::string non_explicit_flow_violation_msg = check_for_pc_discontinuity(
-            shard, memref, shard->prev_instr_, memref.instr.addr, cur_instr_decoded,
-            expect_encoding, /*at_kernel_event=*/false);
+            shard, memref, shard->last_instr_in_cur_context_, memref.instr.addr,
+            cur_instr_decoded, expect_encoding, /*at_kernel_event=*/false);
         report_if_false(shard, non_explicit_flow_violation_msg.empty(),
                         non_explicit_flow_violation_msg);
 
@@ -696,21 +700,27 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
         shard->last_branch_marker_value_ = memref.marker.marker_value;
     }
-    if (knob_offline_ && shard->version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO &&
-        type_is_instr_branch(memref.instr.type) &&
-        // I-filtered traces don't mark branch targets.
-        !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                 shard->file_type_)) {
-        report_if_false(shard, memref.instr.type != TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
-                        "The CONDITIONAL_JUMP type is deprecated and should not appear");
-        if (!type_is_instr_direct_branch(memref.instr.type)) {
-            shard->last_indirect_target_ = shard->last_branch_marker_value_;
-            report_if_false(shard,
-                            shard->last_indirect_target_ != 0 &&
-                                shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
-                                shard->prev_entry_.marker.marker_type ==
-                                    TRACE_MARKER_TYPE_BRANCH_TARGET,
-                            "Indirect branches must be preceded by their targets");
+    if (knob_offline_ && shard->trace_version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO) {
+        if (type_is_instr_branch(memref.instr.type) &&
+            // I-filtered traces don't mark branch targets.
+            !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                     shard->file_type_)) {
+            report_if_false(
+                shard, memref.instr.type != TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
+                "The CONDITIONAL_JUMP type is deprecated and should not appear");
+            if (!type_is_instr_direct_branch(memref.instr.type)) {
+                shard->last_indirect_target_ = shard->last_branch_marker_value_;
+                report_if_false(shard,
+                                shard->last_indirect_target_ != 0 &&
+                                    shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+                                    shard->prev_entry_.marker.marker_type ==
+                                        TRACE_MARKER_TYPE_BRANCH_TARGET,
+                                "Indirect branches must be preceded by their targets");
+            }
+        }
+        if (!type_is_instr_branch(memref.instr.type) ||
+            type_is_instr_direct_branch(memref.instr.type)) {
+            shard->last_indirect_target_ = 0;
         }
     }
 
@@ -917,7 +927,7 @@ invariant_checker_t::check_for_pc_discontinuity(
     // Check for all valid transitions except taken branches. We consider taken
     // branches later so that we can provide a different message for those
     // invariant violations.
-    bool fall_through_ok = !type_is_instr_branch(prev_instr.instr.type) ||
+    bool fall_through_allowed = !type_is_instr_branch(prev_instr.instr.type) ||
         prev_instr.instr.type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP ||
         prev_instr.instr.type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
     const bool valid_nonbranch_flow =
@@ -925,7 +935,7 @@ invariant_checker_t::check_for_pc_discontinuity(
         TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                 shard->file_type_) ||
         // Regular fall-through.
-        (fall_through_ok && prev_instr_trace_pc + prev_instr.instr.size == cur_pc) ||
+        (fall_through_allowed && prev_instr_trace_pc + prev_instr.instr.size == cur_pc) ||
         // String loop.
         (prev_instr_trace_pc == cur_pc &&
          (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
@@ -938,6 +948,9 @@ invariant_checker_t::check_for_pc_discontinuity(
         // same instruction.
         (prev_instr_trace_pc == cur_pc && at_kernel_event) ||
         // Kernel-mediated, but we can't tell if we had a thread swap.
+        // TODO i#5912: Isn't this relaxation too loose since we really only want
+        // to relax if a kernel event happened immediately prior, while prev_xfer_marker_
+        // could be many records back?
         (shard->prev_xfer_marker_.instr.tid != 0 && !at_kernel_event &&
          (shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
           shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
@@ -949,7 +962,8 @@ invariant_checker_t::check_for_pc_discontinuity(
         // Check if the type is a branch instruction and there is a branch target
         // mismatch.
         if (type_is_instr_branch(prev_instr.instr.type)) {
-            if (knob_offline_ && shard->version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO) {
+            if (knob_offline_ &&
+                shard->trace_version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO) {
                 // We have precise branch target info.
                 if (prev_instr.instr.type == TRACE_TYPE_INSTR_UNTAKEN_JUMP) {
                     branch_target = prev_instr_trace_pc + prev_instr.instr.size;

@@ -1983,7 +1983,7 @@ test_branch_decoration(void *drcontext)
     // We focus on signals, rseq rollbacks to branches, and terminal branches here.
     bool res = true;
     {
-        // Branch before signal.
+        // Taken branch before signal.
         instrlist_t *ilist = instrlist_create(drcontext);
         instr_t *nop1 = XINST_CREATE_nop(drcontext); // Avoid offset of 0.
         instr_t *move =
@@ -2030,6 +2030,56 @@ test_branch_decoration(void *drcontext)
             check_entry(entries, idx, TRACE_TYPE_INSTR_TAKEN_JUMP, -1, offs_jcc) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
                         offs_mov) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1);
+    }
+    {
+        // Untaken branch before signal.
+        instrlist_t *ilist = instrlist_create(drcontext);
+        instr_t *nop1 = XINST_CREATE_nop(drcontext); // Avoid offset of 0.
+        instr_t *move =
+            XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+        instr_t *jcc =
+            XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop2 = XINST_CREATE_nop(drcontext);
+        instrlist_append(ilist, nop1);
+        instrlist_append(ilist, jcc);
+        instrlist_append(ilist, nop2);
+        instrlist_append(ilist, move);
+        size_t offs_nop1 = 0;
+        size_t offs_jcc = offs_nop1 + instr_length(drcontext, nop1);
+        size_t offs_nop2 = offs_jcc + instr_length(drcontext, jcc);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        raw.push_back(make_block(offs_jcc, 1));
+        raw.push_back(make_marker(TRACE_MARKER_TYPE_KERNEL_EVENT, offs_nop2));
+        raw.push_back(make_exit());
+
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries))
+            return false;
+        int idx = 0;
+        res = res && check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+            // An extra encoding entry is needed.
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+            check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                        offs_nop2) &&
             check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
             check_entry(entries, idx, TRACE_TYPE_FOOTER, -1);
     }
