@@ -937,7 +937,6 @@ check_schedule_file()
 }
 
 bool
-<<<<<<< HEAD
 check_branch_decoration()
 {
     std::cerr << "Testing branch decoration\n";
@@ -1245,6 +1244,7 @@ check_branch_decoration()
 }
 
 bool
+<<<<<<< HEAD
 check_filter_endpoint()
 {
     std::cerr << "Testing filter end-point marker and file type\n";
