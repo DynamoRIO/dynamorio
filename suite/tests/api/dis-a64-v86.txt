@@ -32,6 +32,24 @@
 # See dis-a64-sve.txt for the formatting.
 
 # Tests:
+# ADDG    <Xd|SP>, <Xn|SP>, #<imm1>, #<imm2> (ADDG-R.RII-tag)
+9180c000 : addg x0, x0, #0x0, #0x0                   : addg   %x0 $0x0000 $0x00 -> %x0
+9184c462 : addg x2, x3, #0x40, #0x1                  : addg   %x3 $0x0040 $0x01 -> %x2
+9188c8a4 : addg x4, x5, #0x80, #0x2                  : addg   %x5 $0x0080 $0x02 -> %x4
+918ccce6 : addg x6, x7, #0xc0, #0x3                  : addg   %x7 $0x00c0 $0x03 -> %x6
+9190d128 : addg x8, x9, #0x100, #0x4                 : addg   %x9 $0x0100 $0x04 -> %x8
+9194d549 : addg x9, x10, #0x140, #0x5                : addg   %x10 $0x0140 $0x05 -> %x9
+9198d98b : addg x11, x12, #0x180, #0x6               : addg   %x12 $0x0180 $0x06 -> %x11
+919cddcd : addg x13, x14, #0x1c0, #0x7               : addg   %x14 $0x01c0 $0x07 -> %x13
+91a0e20f : addg x15, x16, #0x200, #0x8               : addg   %x16 $0x0200 $0x08 -> %x15
+91a3e251 : addg x17, x18, #0x230, #0x8               : addg   %x18 $0x0230 $0x08 -> %x17
+91a7e693 : addg x19, x20, #0x270, #0x9               : addg   %x20 $0x0270 $0x09 -> %x19
+91abead5 : addg x21, x22, #0x2b0, #0xa               : addg   %x22 $0x02b0 $0x0a -> %x21
+91afeef6 : addg x22, x23, #0x2f0, #0xb               : addg   %x23 $0x02f0 $0x0b -> %x22
+91b3f338 : addg x24, x25, #0x330, #0xc               : addg   %x25 $0x0330 $0x0c -> %x24
+91b7f77a : addg x26, x27, #0x370, #0xd               : addg   %x27 $0x0370 $0x0d -> %x26
+91bfffff : addg sp, sp, #0x3f0, #0xf                 : addg   %sp $0x03f0 $0x0f -> %sp
+
 # BFCVT   <Hd>, <Sn> (BFCVT-V.V-H_floatdp1)
 1e634000 : bfcvt h0, s0                              : bfcvt  %s0 -> %h0
 1e634062 : bfcvt h2, s3                              : bfcvt  %s3 -> %h2
@@ -244,6 +262,96 @@
 6e5def9b : bfmmla v27.4s, v28.8h, v29.8h             : bfmmla %q27 %q28 %q29 $0x01 -> %q27
 6e5fefff : bfmmla v31.4s, v31.8h, v31.8h             : bfmmla %q31 %q31 %q31 $0x01 -> %q31
 
+# DC GVA, <Xt>
+d50b7460 : dc gva x0                                 : dc_gva  -> (%x0)[1byte]
+d50b7462 : dc gva x2                                 : dc_gva  -> (%x2)[1byte]
+d50b7464 : dc gva x4                                 : dc_gva  -> (%x4)[1byte]
+d50b7466 : dc gva x6                                 : dc_gva  -> (%x6)[1byte]
+d50b7468 : dc gva x8                                 : dc_gva  -> (%x8)[1byte]
+d50b746a : dc gva x10                                : dc_gva  -> (%x10)[1byte]
+d50b746c : dc gva x12                                : dc_gva  -> (%x12)[1byte]
+d50b746e : dc gva x14                                : dc_gva  -> (%x14)[1byte]
+d50b7470 : dc gva x16                                : dc_gva  -> (%x16)[1byte]
+d50b7471 : dc gva x17                                : dc_gva  -> (%x17)[1byte]
+d50b7473 : dc gva x19                                : dc_gva  -> (%x19)[1byte]
+d50b7475 : dc gva x21                                : dc_gva  -> (%x21)[1byte]
+d50b7477 : dc gva x23                                : dc_gva  -> (%x23)[1byte]
+d50b7479 : dc gva x25                                : dc_gva  -> (%x25)[1byte]
+d50b747b : dc gva x27                                : dc_gva  -> (%x27)[1byte]
+d50b747e : dc gva x30                                : dc_gva  -> (%x30)[1byte]
+
+# DC GZVA, <Xt>
+d50b7480 : dc gzva x0                                : dc_gzva  -> (%x0)[1byte]
+d50b7482 : dc gzva x2                                : dc_gzva  -> (%x2)[1byte]
+d50b7484 : dc gzva x4                                : dc_gzva  -> (%x4)[1byte]
+d50b7486 : dc gzva x6                                : dc_gzva  -> (%x6)[1byte]
+d50b7488 : dc gzva x8                                : dc_gzva  -> (%x8)[1byte]
+d50b748a : dc gzva x10                               : dc_gzva  -> (%x10)[1byte]
+d50b748c : dc gzva x12                               : dc_gzva  -> (%x12)[1byte]
+d50b748e : dc gzva x14                               : dc_gzva  -> (%x14)[1byte]
+d50b7490 : dc gzva x16                               : dc_gzva  -> (%x16)[1byte]
+d50b7491 : dc gzva x17                               : dc_gzva  -> (%x17)[1byte]
+d50b7493 : dc gzva x19                               : dc_gzva  -> (%x19)[1byte]
+d50b7495 : dc gzva x21                               : dc_gzva  -> (%x21)[1byte]
+d50b7497 : dc gzva x23                               : dc_gzva  -> (%x23)[1byte]
+d50b7499 : dc gzva x25                               : dc_gzva  -> (%x25)[1byte]
+d50b749b : dc gzva x27                               : dc_gzva  -> (%x27)[1byte]
+d50b749e : dc gzva x30                               : dc_gzva  -> (%x30)[1byte]
+
+# GMI     <Xd>, <Xn|SP>, <Xm> (GMI-R.RR-64_dp_2src)
+9ac01400 : gmi x0, x0, x0                            : gmi    %x0 %x0 -> %x0
+9ac41462 : gmi x2, x3, x4                            : gmi    %x3 %x4 -> %x2
+9ac614a4 : gmi x4, x5, x6                            : gmi    %x5 %x6 -> %x4
+9ac814e6 : gmi x6, x7, x8                            : gmi    %x7 %x8 -> %x6
+9aca1528 : gmi x8, x9, x10                           : gmi    %x9 %x10 -> %x8
+9acb1549 : gmi x9, x10, x11                          : gmi    %x10 %x11 -> %x9
+9acd158b : gmi x11, x12, x13                         : gmi    %x12 %x13 -> %x11
+9acf15cd : gmi x13, x14, x15                         : gmi    %x14 %x15 -> %x13
+9ad1160f : gmi x15, x16, x17                         : gmi    %x16 %x17 -> %x15
+9ad31651 : gmi x17, x18, x19                         : gmi    %x18 %x19 -> %x17
+9ad51693 : gmi x19, x20, x21                         : gmi    %x20 %x21 -> %x19
+9ad716d5 : gmi x21, x22, x23                         : gmi    %x22 %x23 -> %x21
+9ad816f6 : gmi x22, x23, x24                         : gmi    %x23 %x24 -> %x22
+9ada1738 : gmi x24, x25, x26                         : gmi    %x25 %x26 -> %x24
+9adc177a : gmi x26, x27, x28                         : gmi    %x27 %x28 -> %x26
+9ade17fe : gmi x30, sp, x30                          : gmi    %sp %x30 -> %x30
+
+# IRG     <Xd|SP>, <Xn|SP>, <Xm> (IRG-R.RR-64_dp_2src)
+9ac01000 : irg x0, x0, x0                            : irg    %x0 %x0 -> %x0
+9ac41062 : irg x2, x3, x4                            : irg    %x3 %x4 -> %x2
+9ac610a4 : irg x4, x5, x6                            : irg    %x5 %x6 -> %x4
+9ac810e6 : irg x6, x7, x8                            : irg    %x7 %x8 -> %x6
+9aca1128 : irg x8, x9, x10                           : irg    %x9 %x10 -> %x8
+9acb1149 : irg x9, x10, x11                          : irg    %x10 %x11 -> %x9
+9acd118b : irg x11, x12, x13                         : irg    %x12 %x13 -> %x11
+9acf11cd : irg x13, x14, x15                         : irg    %x14 %x15 -> %x13
+9ad1120f : irg x15, x16, x17                         : irg    %x16 %x17 -> %x15
+9ad31251 : irg x17, x18, x19                         : irg    %x18 %x19 -> %x17
+9ad51293 : irg x19, x20, x21                         : irg    %x20 %x21 -> %x19
+9ad712d5 : irg x21, x22, x23                         : irg    %x22 %x23 -> %x21
+9ad812f6 : irg x22, x23, x24                         : irg    %x23 %x24 -> %x22
+9ada1338 : irg x24, x25, x26                         : irg    %x25 %x26 -> %x24
+9adc137a : irg x26, x27, x28                         : irg    %x27 %x28 -> %x26
+9ade13ff : irg sp, sp, x30                           : irg    %sp %x30 -> %sp
+
+# LDG     <Xt>, [<Xn|SP>, #<simm>] (LDG-R.RI-offset)
+d9700000 : ldg x0, [x0, #-4096]                      : ldg    %x0 -0x1000(%x0) -> %x0
+d9720062 : ldg x2, [x3, #-3584]                      : ldg    %x2 -0x0e00(%x3) -> %x2
+d97400a4 : ldg x4, [x5, #-3072]                      : ldg    %x4 -0x0c00(%x5) -> %x4
+d97600e6 : ldg x6, [x7, #-2560]                      : ldg    %x6 -0x0a00(%x7) -> %x6
+d9780128 : ldg x8, [x9, #-2048]                      : ldg    %x8 -0x0800(%x9) -> %x8
+d97a0149 : ldg x9, [x10, #-1536]                     : ldg    %x9 -0x0600(%x10) -> %x9
+d97c018b : ldg x11, [x12, #-1024]                    : ldg    %x11 -0x0400(%x12) -> %x11
+d97e01cd : ldg x13, [x14, #-512]                     : ldg    %x13 -0x0200(%x14) -> %x13
+d960020f : ldg x15, [x16]                            : ldg    %x15 (%x16) -> %x15
+d961f251 : ldg x17, [x18, #496]                      : ldg    %x17 +0x01f0(%x18) -> %x17
+d963f293 : ldg x19, [x20, #1008]                     : ldg    %x19 +0x03f0(%x20) -> %x19
+d965f2d5 : ldg x21, [x22, #1520]                     : ldg    %x21 +0x05f0(%x22) -> %x21
+d967f2f6 : ldg x22, [x23, #2032]                     : ldg    %x22 +0x07f0(%x23) -> %x22
+d969f338 : ldg x24, [x25, #2544]                     : ldg    %x24 +0x09f0(%x25) -> %x24
+d96bf37a : ldg x26, [x27, #3056]                     : ldg    %x26 +0x0bf0(%x27) -> %x26
+d96ff3fe : ldg x30, [sp, #4080]                      : ldg    %x30 +0x0ff0(%sp) -> %x30
+
 # SMMLA   <Vd>.4S, <Vn>.16B, <Vm>.16B (SMMLA-Q.QQ-Vec)
 4e80a400 : smmla v0.4s, v0.16b, v0.16b               : smmla  %q0 %q0 %q0 $0x00 -> %q0
 4e84a462 : smmla v2.4s, v3.16b, v4.16b               : smmla  %q2 %q3 %q4 $0x00 -> %q2
@@ -261,6 +369,330 @@
 4e9ba759 : smmla v25.4s, v26.16b, v27.16b            : smmla  %q25 %q26 %q27 $0x00 -> %q25
 4e9da79b : smmla v27.4s, v28.16b, v29.16b            : smmla  %q27 %q28 %q29 $0x00 -> %q27
 4e9fa7ff : smmla v31.4s, v31.16b, v31.16b            : smmla  %q31 %q31 %q31 $0x00 -> %q31
+
+# ST2G    <Xt|SP>, [<Xn|SP>], #<simm>
+d9b00400 : st2g x0, [x0], #-4096                     : st2g   %x0 %x0 $0xfffffffffffff000 -> (%x0) %x0
+d9b20462 : st2g x2, [x3], #-3584                     : st2g   %x2 %x3 $0xfffffffffffff200 -> (%x3) %x3
+d9b404a4 : st2g x4, [x5], #-3072                     : st2g   %x4 %x5 $0xfffffffffffff400 -> (%x5) %x5
+d9b604e6 : st2g x6, [x7], #-2560                     : st2g   %x6 %x7 $0xfffffffffffff600 -> (%x7) %x7
+d9b80528 : st2g x8, [x9], #-2048                     : st2g   %x8 %x9 $0xfffffffffffff800 -> (%x9) %x9
+d9ba0549 : st2g x9, [x10], #-1536                    : st2g   %x9 %x10 $0xfffffffffffffa00 -> (%x10) %x10
+d9bc058b : st2g x11, [x12], #-1024                   : st2g   %x11 %x12 $0xfffffffffffffc00 -> (%x12) %x12
+d9be05cd : st2g x13, [x14], #-512                    : st2g   %x13 %x14 $0xfffffffffffffe00 -> (%x14) %x14
+d9a0060f : st2g x15, [x16], #0                       : st2g   %x15 %x16 $0x0000000000000000 -> (%x16) %x16
+d9a1f651 : st2g x17, [x18], #496                     : st2g   %x17 %x18 $0x00000000000001f0 -> (%x18) %x18
+d9a3f693 : st2g x19, [x20], #1008                    : st2g   %x19 %x20 $0x00000000000003f0 -> (%x20) %x20
+d9a5f6d5 : st2g x21, [x22], #1520                    : st2g   %x21 %x22 $0x00000000000005f0 -> (%x22) %x22
+d9a7f6f6 : st2g x22, [x23], #2032                    : st2g   %x22 %x23 $0x00000000000007f0 -> (%x23) %x23
+d9a9f738 : st2g x24, [x25], #2544                    : st2g   %x24 %x25 $0x00000000000009f0 -> (%x25) %x25
+d9abf77a : st2g x26, [x27], #3056                    : st2g   %x26 %x27 $0x0000000000000bf0 -> (%x27) %x27
+d9aff7fe : st2g x30, [sp], #4080                     : st2g   %x30 %sp $0x0000000000000ff0 -> (%sp) %sp
+
+# ST2G    <Xt|SP>, [<Xn|SP>, #<simm>]
+d9b00800 : st2g x0, [x0, #-4096]                     : st2g   %x0 -> -0x1000(%x0)
+d9b20862 : st2g x2, [x3, #-3584]                     : st2g   %x2 -> -0x0e00(%x3)
+d9b408a4 : st2g x4, [x5, #-3072]                     : st2g   %x4 -> -0x0c00(%x5)
+d9b608e6 : st2g x6, [x7, #-2560]                     : st2g   %x6 -> -0x0a00(%x7)
+d9b80928 : st2g x8, [x9, #-2048]                     : st2g   %x8 -> -0x0800(%x9)
+d9ba0949 : st2g x9, [x10, #-1536]                    : st2g   %x9 -> -0x0600(%x10)
+d9bc098b : st2g x11, [x12, #-1024]                   : st2g   %x11 -> -0x0400(%x12)
+d9be09cd : st2g x13, [x14, #-512]                    : st2g   %x13 -> -0x0200(%x14)
+d9a00a0f : st2g x15, [x16, #0]                       : st2g   %x15 -> (%x16)
+d9a1fa51 : st2g x17, [x18, #496]                     : st2g   %x17 -> +0x01f0(%x18)
+d9a3fa93 : st2g x19, [x20, #1008]                    : st2g   %x19 -> +0x03f0(%x20)
+d9a5fad5 : st2g x21, [x22, #1520]                    : st2g   %x21 -> +0x05f0(%x22)
+d9a7faf6 : st2g x22, [x23, #2032]                    : st2g   %x22 -> +0x07f0(%x23)
+d9a9fb38 : st2g x24, [x25, #2544]                    : st2g   %x24 -> +0x09f0(%x25)
+d9abfb7a : st2g x26, [x27, #3056]                    : st2g   %x26 -> +0x0bf0(%x27)
+d9affbfe : st2g x30, [sp, #4080]                     : st2g   %x30 -> +0x0ff0(%sp)
+
+# ST2G    <Xt|SP>, [<Xn|SP>, #<simm>]!
+d9b00c00 : st2g x0, [x0, #-4096]!                    : st2g   %x0 %x0 $0xfffffffffffff000 -> -0x1000(%x0) %x0
+d9b20c62 : st2g x2, [x3, #-3584]!                    : st2g   %x2 %x3 $0xfffffffffffff200 -> -0x0e00(%x3) %x3
+d9b40ca4 : st2g x4, [x5, #-3072]!                    : st2g   %x4 %x5 $0xfffffffffffff400 -> -0x0c00(%x5) %x5
+d9b60ce6 : st2g x6, [x7, #-2560]!                    : st2g   %x6 %x7 $0xfffffffffffff600 -> -0x0a00(%x7) %x7
+d9b80d28 : st2g x8, [x9, #-2048]!                    : st2g   %x8 %x9 $0xfffffffffffff800 -> -0x0800(%x9) %x9
+d9ba0d49 : st2g x9, [x10, #-1536]!                   : st2g   %x9 %x10 $0xfffffffffffffa00 -> -0x0600(%x10) %x10
+d9bc0d8b : st2g x11, [x12, #-1024]!                  : st2g   %x11 %x12 $0xfffffffffffffc00 -> -0x0400(%x12) %x12
+d9be0dcd : st2g x13, [x14, #-512]!                   : st2g   %x13 %x14 $0xfffffffffffffe00 -> -0x0200(%x14) %x14
+d9a00e0f : st2g x15, [x16, #0]!                      : st2g   %x15 %x16 $0x0000000000000000 -> (%x16) %x16
+d9a1fe51 : st2g x17, [x18, #496]!                    : st2g   %x17 %x18 $0x00000000000001f0 -> +0x01f0(%x18) %x18
+d9a3fe93 : st2g x19, [x20, #1008]!                   : st2g   %x19 %x20 $0x00000000000003f0 -> +0x03f0(%x20) %x20
+d9a5fed5 : st2g x21, [x22, #1520]!                   : st2g   %x21 %x22 $0x00000000000005f0 -> +0x05f0(%x22) %x22
+d9a7fef6 : st2g x22, [x23, #2032]!                   : st2g   %x22 %x23 $0x00000000000007f0 -> +0x07f0(%x23) %x23
+d9a9ff38 : st2g x24, [x25, #2544]!                   : st2g   %x24 %x25 $0x00000000000009f0 -> +0x09f0(%x25) %x25
+d9abff7a : st2g x26, [x27, #3056]!                   : st2g   %x26 %x27 $0x0000000000000bf0 -> +0x0bf0(%x27) %x27
+d9affffe : st2g x30, [sp, #4080]!                    : st2g   %x30 %sp $0x0000000000000ff0 -> +0x0ff0(%sp) %sp
+
+# STG     <Xt|SP>, [<Xn|SP>], #<simm>
+d9300400 : stg  x0, [x0], #-4096                     : stg    %x0 %x0 $0xfffffffffffff000 -> (%x0) %x0
+d9320462 : stg  x2, [x3], #-3584                     : stg    %x2 %x3 $0xfffffffffffff200 -> (%x3) %x3
+d93404a4 : stg  x4, [x5], #-3072                     : stg    %x4 %x5 $0xfffffffffffff400 -> (%x5) %x5
+d93604e6 : stg  x6, [x7], #-2560                     : stg    %x6 %x7 $0xfffffffffffff600 -> (%x7) %x7
+d9380528 : stg  x8, [x9], #-2048                     : stg    %x8 %x9 $0xfffffffffffff800 -> (%x9) %x9
+d93a0549 : stg  x9, [x10], #-1536                    : stg    %x9 %x10 $0xfffffffffffffa00 -> (%x10) %x10
+d93c058b : stg  x11, [x12], #-1024                   : stg    %x11 %x12 $0xfffffffffffffc00 -> (%x12) %x12
+d93e05cd : stg  x13, [x14], #-512                    : stg    %x13 %x14 $0xfffffffffffffe00 -> (%x14) %x14
+d920060f : stg  x15, [x16], #0                       : stg    %x15 %x16 $0x0000000000000000 -> (%x16) %x16
+d921f651 : stg  x17, [x18], #496                     : stg    %x17 %x18 $0x00000000000001f0 -> (%x18) %x18
+d923f693 : stg  x19, [x20], #1008                    : stg    %x19 %x20 $0x00000000000003f0 -> (%x20) %x20
+d925f6d5 : stg  x21, [x22], #1520                    : stg    %x21 %x22 $0x00000000000005f0 -> (%x22) %x22
+d927f6f6 : stg  x22, [x23], #2032                    : stg    %x22 %x23 $0x00000000000007f0 -> (%x23) %x23
+d929f738 : stg  x24, [x25], #2544                    : stg    %x24 %x25 $0x00000000000009f0 -> (%x25) %x25
+d92bf77a : stg  x26, [x27], #3056                    : stg    %x26 %x27 $0x0000000000000bf0 -> (%x27) %x27
+d92ff7fe : stg  x30, [sp], #4080                     : stg    %x30 %sp $0x0000000000000ff0 -> (%sp) %sp
+
+# STG     <Xt|SP>, [<Xn|SP>, #<simm>]
+d9300800 : stg  x0, [x0, #-4096]                     : stg    %x0 -> -0x1000(%x0)
+d9320862 : stg  x2, [x3, #-3584]                     : stg    %x2 -> -0x0e00(%x3)
+d93408a4 : stg  x4, [x5, #-3072]                     : stg    %x4 -> -0x0c00(%x5)
+d93608e6 : stg  x6, [x7, #-2560]                     : stg    %x6 -> -0x0a00(%x7)
+d9380928 : stg  x8, [x9, #-2048]                     : stg    %x8 -> -0x0800(%x9)
+d93a0949 : stg  x9, [x10, #-1536]                    : stg    %x9 -> -0x0600(%x10)
+d93c098b : stg  x11, [x12, #-1024]                   : stg    %x11 -> -0x0400(%x12)
+d93e09cd : stg  x13, [x14, #-512]                    : stg    %x13 -> -0x0200(%x14)
+d9200a0f : stg  x15, [x16, #0]                       : stg    %x15 -> (%x16)
+d921fa51 : stg  x17, [x18, #496]                     : stg    %x17 -> +0x01f0(%x18)
+d923fa93 : stg  x19, [x20, #1008]                    : stg    %x19 -> +0x03f0(%x20)
+d925fad5 : stg  x21, [x22, #1520]                    : stg    %x21 -> +0x05f0(%x22)
+d927faf6 : stg  x22, [x23, #2032]                    : stg    %x22 -> +0x07f0(%x23)
+d929fb38 : stg  x24, [x25, #2544]                    : stg    %x24 -> +0x09f0(%x25)
+d92bfb7a : stg  x26, [x27, #3056]                    : stg    %x26 -> +0x0bf0(%x27)
+d92ffbfe : stg  x30, [sp, #4080]                     : stg    %x30 -> +0x0ff0(%sp)
+
+# STG     <Xt|SP>, [<Xn|SP>, #<simm>]!
+d9300c00 : stg  x0, [x0, #-4096]!                    : stg    %x0 %x0 $0xfffffffffffff000 -> -0x1000(%x0) %x0
+d9320c62 : stg  x2, [x3, #-3584]!                    : stg    %x2 %x3 $0xfffffffffffff200 -> -0x0e00(%x3) %x3
+d9340ca4 : stg  x4, [x5, #-3072]!                    : stg    %x4 %x5 $0xfffffffffffff400 -> -0x0c00(%x5) %x5
+d9360ce6 : stg  x6, [x7, #-2560]!                    : stg    %x6 %x7 $0xfffffffffffff600 -> -0x0a00(%x7) %x7
+d9380d28 : stg  x8, [x9, #-2048]!                    : stg    %x8 %x9 $0xfffffffffffff800 -> -0x0800(%x9) %x9
+d93a0d49 : stg  x9, [x10, #-1536]!                   : stg    %x9 %x10 $0xfffffffffffffa00 -> -0x0600(%x10) %x10
+d93c0d8b : stg  x11, [x12, #-1024]!                  : stg    %x11 %x12 $0xfffffffffffffc00 -> -0x0400(%x12) %x12
+d93e0dcd : stg  x13, [x14, #-512]!                   : stg    %x13 %x14 $0xfffffffffffffe00 -> -0x0200(%x14) %x14
+d9200e0f : stg  x15, [x16, #0]!                      : stg    %x15 %x16 $0x0000000000000000 -> (%x16) %x16
+d921fe51 : stg  x17, [x18, #496]!                    : stg    %x17 %x18 $0x00000000000001f0 -> +0x01f0(%x18) %x18
+d923fe93 : stg  x19, [x20, #1008]!                   : stg    %x19 %x20 $0x00000000000003f0 -> +0x03f0(%x20) %x20
+d925fed5 : stg  x21, [x22, #1520]!                   : stg    %x21 %x22 $0x00000000000005f0 -> +0x05f0(%x22) %x22
+d927fef6 : stg  x22, [x23, #2032]!                   : stg    %x22 %x23 $0x00000000000007f0 -> +0x07f0(%x23) %x23
+d929ff38 : stg  x24, [x25, #2544]!                   : stg    %x24 %x25 $0x00000000000009f0 -> +0x09f0(%x25) %x25
+d92bff7a : stg  x26, [x27, #3056]!                   : stg    %x26 %x27 $0x0000000000000bf0 -> +0x0bf0(%x27) %x27
+d92ffffe : stg  x30, [sp, #4080]!                    : stg    %x30 %sp $0x0000000000000ff0 -> +0x0ff0(%sp) %sp
+
+# STGP    <Xt>, <Xt2>, [<Xn|SP>], #<simm>
+68a00000 : stgp x0, x0, [x0], #-1024                 : stgp   %x0 %x0 %x0 $0xfffffffffffffc00 -> (%x0)[16byte] %x0
+68a40c82 : stgp x2, x3, [x4], #-896                  : stgp   %x2 %x3 %x4 $0xfffffffffffffc80 -> (%x4)[16byte] %x4
+68a814c4 : stgp x4, x5, [x6], #-768                  : stgp   %x4 %x5 %x6 $0xfffffffffffffd00 -> (%x6)[16byte] %x6
+68ac1d06 : stgp x6, x7, [x8], #-640                  : stgp   %x6 %x7 %x8 $0xfffffffffffffd80 -> (%x8)[16byte] %x8
+68b02548 : stgp x8, x9, [x10], #-512                 : stgp   %x8 %x9 %x10 $0xfffffffffffffe00 -> (%x10)[16byte] %x10
+68b42969 : stgp x9, x10, [x11], #-384                : stgp   %x9 %x10 %x11 $0xfffffffffffffe80 -> (%x11)[16byte] %x11
+68b831ab : stgp x11, x12, [x13], #-256               : stgp   %x11 %x12 %x13 $0xffffffffffffff00 -> (%x13)[16byte] %x13
+68bc39ed : stgp x13, x14, [x15], #-128               : stgp   %x13 %x14 %x15 $0xffffffffffffff80 -> (%x15)[16byte] %x15
+6880422f : stgp x15, x16, [x17], #0                  : stgp   %x15 %x16 %x17 $0x0000000000000000 -> (%x17)[16byte] %x17
+6883ca71 : stgp x17, x18, [x19], #112                : stgp   %x17 %x18 %x19 $0x0000000000000070 -> (%x19)[16byte] %x19
+6887d2b3 : stgp x19, x20, [x21], #240                : stgp   %x19 %x20 %x21 $0x00000000000000f0 -> (%x21)[16byte] %x21
+688bdaf5 : stgp x21, x22, [x23], #368                : stgp   %x21 %x22 %x23 $0x0000000000000170 -> (%x23)[16byte] %x23
+688fdf16 : stgp x22, x23, [x24], #496                : stgp   %x22 %x23 %x24 $0x00000000000001f0 -> (%x24)[16byte] %x24
+6893e758 : stgp x24, x25, [x26], #624                : stgp   %x24 %x25 %x26 $0x0000000000000270 -> (%x26)[16byte] %x26
+6897ef9a : stgp x26, x27, [x28], #752                : stgp   %x26 %x27 %x28 $0x00000000000002f0 -> (%x28)[16byte] %x28
+689ffbfe : stgp x30, x30, [sp], #1008                : stgp   %x30 %x30 %sp $0x00000000000003f0 -> (%sp)[16byte] %sp
+
+# STGP    <Xt>, <Xt2>, [<Xn|SP>, #<simm>]
+69200000 : stgp x0, x0, [x0, #-1024]                 : stgp   %x0 %x0 -> -0x0400(%x0)[16byte]
+69240c82 : stgp x2, x3, [x4, #-896]                  : stgp   %x2 %x3 -> -0x0380(%x4)[16byte]
+692814c4 : stgp x4, x5, [x6, #-768]                  : stgp   %x4 %x5 -> -0x0300(%x6)[16byte]
+692c1d06 : stgp x6, x7, [x8, #-640]                  : stgp   %x6 %x7 -> -0x0280(%x8)[16byte]
+69302548 : stgp x8, x9, [x10, #-512]                 : stgp   %x8 %x9 -> -0x0200(%x10)[16byte]
+69342969 : stgp x9, x10, [x11, #-384]                : stgp   %x9 %x10 -> -0x0180(%x11)[16byte]
+693831ab : stgp x11, x12, [x13, #-256]               : stgp   %x11 %x12 -> -0x0100(%x13)[16byte]
+693c39ed : stgp x13, x14, [x15, #-128]               : stgp   %x13 %x14 -> -0x80(%x15)[16byte]
+6900422f : stgp x15, x16, [x17, #0]                  : stgp   %x15 %x16 -> (%x17)[16byte]
+6903ca71 : stgp x17, x18, [x19, #112]                : stgp   %x17 %x18 -> +0x70(%x19)[16byte]
+6907d2b3 : stgp x19, x20, [x21, #240]                : stgp   %x19 %x20 -> +0xf0(%x21)[16byte]
+690bdaf5 : stgp x21, x22, [x23, #368]                : stgp   %x21 %x22 -> +0x0170(%x23)[16byte]
+690fdf16 : stgp x22, x23, [x24, #496]                : stgp   %x22 %x23 -> +0x01f0(%x24)[16byte]
+6913e758 : stgp x24, x25, [x26, #624]                : stgp   %x24 %x25 -> +0x0270(%x26)[16byte]
+6917ef9a : stgp x26, x27, [x28, #752]                : stgp   %x26 %x27 -> +0x02f0(%x28)[16byte]
+691ffbfe : stgp x30, x30, [sp, #1008]                : stgp   %x30 %x30 -> +0x03f0(%sp)[16byte]
+
+# STGP    <Xt>, <Xt2>, [<Xn|SP>, #<simm>]!
+69a00000 : stgp x0, x0, [x0, #-1024]!                : stgp   %x0 %x0 %x0 $0xfffffffffffffc00 -> -0x0400(%x0)[16byte] %x0
+69a40c82 : stgp x2, x3, [x4, #-896]!                 : stgp   %x2 %x3 %x4 $0xfffffffffffffc80 -> -0x0380(%x4)[16byte] %x4
+69a814c4 : stgp x4, x5, [x6, #-768]!                 : stgp   %x4 %x5 %x6 $0xfffffffffffffd00 -> -0x0300(%x6)[16byte] %x6
+69ac1d06 : stgp x6, x7, [x8, #-640]!                 : stgp   %x6 %x7 %x8 $0xfffffffffffffd80 -> -0x0280(%x8)[16byte] %x8
+69b02548 : stgp x8, x9, [x10, #-512]!                : stgp   %x8 %x9 %x10 $0xfffffffffffffe00 -> -0x0200(%x10)[16byte] %x10
+69b42969 : stgp x9, x10, [x11, #-384]!               : stgp   %x9 %x10 %x11 $0xfffffffffffffe80 -> -0x0180(%x11)[16byte] %x11
+69b831ab : stgp x11, x12, [x13, #-256]!              : stgp   %x11 %x12 %x13 $0xffffffffffffff00 -> -0x0100(%x13)[16byte] %x13
+69bc39ed : stgp x13, x14, [x15, #-128]!              : stgp   %x13 %x14 %x15 $0xffffffffffffff80 -> -0x80(%x15)[16byte] %x15
+6980422f : stgp x15, x16, [x17, #0]!                 : stgp   %x15 %x16 %x17 $0x0000000000000000 -> (%x17)[16byte] %x17
+6983ca71 : stgp x17, x18, [x19, #112]!               : stgp   %x17 %x18 %x19 $0x0000000000000070 -> +0x70(%x19)[16byte] %x19
+6987d2b3 : stgp x19, x20, [x21, #240]!               : stgp   %x19 %x20 %x21 $0x00000000000000f0 -> +0xf0(%x21)[16byte] %x21
+698bdaf5 : stgp x21, x22, [x23, #368]!               : stgp   %x21 %x22 %x23 $0x0000000000000170 -> +0x0170(%x23)[16byte] %x23
+698fdf16 : stgp x22, x23, [x24, #496]!               : stgp   %x22 %x23 %x24 $0x00000000000001f0 -> +0x01f0(%x24)[16byte] %x24
+6993e758 : stgp x24, x25, [x26, #624]!               : stgp   %x24 %x25 %x26 $0x0000000000000270 -> +0x0270(%x26)[16byte] %x26
+6997ef9a : stgp x26, x27, [x28, #752]!               : stgp   %x26 %x27 %x28 $0x00000000000002f0 -> +0x02f0(%x28)[16byte] %x28
+699ffbfe : stgp x30, x30, [sp, #1008]!               : stgp   %x30 %x30 %sp $0x00000000000003f0 -> +0x03f0(%sp)[16byte] %sp
+
+# STZ2G   <Xt|SP>, [<Xn|SP>], #<simm>
+d9f00400 : stz2g x0, [x0], #-4096                    : stz2g  %x0 %x0 $0xfffffffffffff000 -> (%x0)[32byte] %x0
+d9f20462 : stz2g x2, [x3], #-3584                    : stz2g  %x2 %x3 $0xfffffffffffff200 -> (%x3)[32byte] %x3
+d9f404a4 : stz2g x4, [x5], #-3072                    : stz2g  %x4 %x5 $0xfffffffffffff400 -> (%x5)[32byte] %x5
+d9f604e6 : stz2g x6, [x7], #-2560                    : stz2g  %x6 %x7 $0xfffffffffffff600 -> (%x7)[32byte] %x7
+d9f80528 : stz2g x8, [x9], #-2048                    : stz2g  %x8 %x9 $0xfffffffffffff800 -> (%x9)[32byte] %x9
+d9fa0549 : stz2g x9, [x10], #-1536                   : stz2g  %x9 %x10 $0xfffffffffffffa00 -> (%x10)[32byte] %x10
+d9fc058b : stz2g x11, [x12], #-1024                  : stz2g  %x11 %x12 $0xfffffffffffffc00 -> (%x12)[32byte] %x12
+d9fe05cd : stz2g x13, [x14], #-512                   : stz2g  %x13 %x14 $0xfffffffffffffe00 -> (%x14)[32byte] %x14
+d9e0060f : stz2g x15, [x16], #0                      : stz2g  %x15 %x16 $0x0000000000000000 -> (%x16)[32byte] %x16
+d9e1f651 : stz2g x17, [x18], #496                    : stz2g  %x17 %x18 $0x00000000000001f0 -> (%x18)[32byte] %x18
+d9e3f693 : stz2g x19, [x20], #1008                   : stz2g  %x19 %x20 $0x00000000000003f0 -> (%x20)[32byte] %x20
+d9e5f6d5 : stz2g x21, [x22], #1520                   : stz2g  %x21 %x22 $0x00000000000005f0 -> (%x22)[32byte] %x22
+d9e7f6f6 : stz2g x22, [x23], #2032                   : stz2g  %x22 %x23 $0x00000000000007f0 -> (%x23)[32byte] %x23
+d9e9f738 : stz2g x24, [x25], #2544                   : stz2g  %x24 %x25 $0x00000000000009f0 -> (%x25)[32byte] %x25
+d9ebf77a : stz2g x26, [x27], #3056                   : stz2g  %x26 %x27 $0x0000000000000bf0 -> (%x27)[32byte] %x27
+d9eff7fe : stz2g x30, [sp], #4080                    : stz2g  %x30 %sp $0x0000000000000ff0 -> (%sp)[32byte] %sp
+
+# STZ2G   <Xt|SP>, [<Xn|SP>, #<simm>]
+d9f00800 : stz2g x0, [x0, #-4096]                    : stz2g  %x0 -> -0x1000(%x0)[32byte]
+d9f20862 : stz2g x2, [x3, #-3584]                    : stz2g  %x2 -> -0x0e00(%x3)[32byte]
+d9f408a4 : stz2g x4, [x5, #-3072]                    : stz2g  %x4 -> -0x0c00(%x5)[32byte]
+d9f608e6 : stz2g x6, [x7, #-2560]                    : stz2g  %x6 -> -0x0a00(%x7)[32byte]
+d9f80928 : stz2g x8, [x9, #-2048]                    : stz2g  %x8 -> -0x0800(%x9)[32byte]
+d9fa0949 : stz2g x9, [x10, #-1536]                   : stz2g  %x9 -> -0x0600(%x10)[32byte]
+d9fc098b : stz2g x11, [x12, #-1024]                  : stz2g  %x11 -> -0x0400(%x12)[32byte]
+d9fe09cd : stz2g x13, [x14, #-512]                   : stz2g  %x13 -> -0x0200(%x14)[32byte]
+d9e00a0f : stz2g x15, [x16, #0]                      : stz2g  %x15 -> (%x16)[32byte]
+d9e1fa51 : stz2g x17, [x18, #496]                    : stz2g  %x17 -> +0x01f0(%x18)[32byte]
+d9e3fa93 : stz2g x19, [x20, #1008]                   : stz2g  %x19 -> +0x03f0(%x20)[32byte]
+d9e5fad5 : stz2g x21, [x22, #1520]                   : stz2g  %x21 -> +0x05f0(%x22)[32byte]
+d9e7faf6 : stz2g x22, [x23, #2032]                   : stz2g  %x22 -> +0x07f0(%x23)[32byte]
+d9e9fb38 : stz2g x24, [x25, #2544]                   : stz2g  %x24 -> +0x09f0(%x25)[32byte]
+d9ebfb7a : stz2g x26, [x27, #3056]                   : stz2g  %x26 -> +0x0bf0(%x27)[32byte]
+d9effbfe : stz2g x30, [sp, #4080]                    : stz2g  %x30 -> +0x0ff0(%sp)[32byte]
+
+# STZ2G   <Xt|SP>, [<Xn|SP>, #<simm>]!
+d9f00c00 : stz2g x0, [x0, #-4096]!                   : stz2g  %x0 %x0 $0xfffffffffffff000 -> -0x1000(%x0)[32byte] %x0
+d9f20c62 : stz2g x2, [x3, #-3584]!                   : stz2g  %x2 %x3 $0xfffffffffffff200 -> -0x0e00(%x3)[32byte] %x3
+d9f40ca4 : stz2g x4, [x5, #-3072]!                   : stz2g  %x4 %x5 $0xfffffffffffff400 -> -0x0c00(%x5)[32byte] %x5
+d9f60ce6 : stz2g x6, [x7, #-2560]!                   : stz2g  %x6 %x7 $0xfffffffffffff600 -> -0x0a00(%x7)[32byte] %x7
+d9f80d28 : stz2g x8, [x9, #-2048]!                   : stz2g  %x8 %x9 $0xfffffffffffff800 -> -0x0800(%x9)[32byte] %x9
+d9fa0d49 : stz2g x9, [x10, #-1536]!                  : stz2g  %x9 %x10 $0xfffffffffffffa00 -> -0x0600(%x10)[32byte] %x10
+d9fc0d8b : stz2g x11, [x12, #-1024]!                 : stz2g  %x11 %x12 $0xfffffffffffffc00 -> -0x0400(%x12)[32byte] %x12
+d9fe0dcd : stz2g x13, [x14, #-512]!                  : stz2g  %x13 %x14 $0xfffffffffffffe00 -> -0x0200(%x14)[32byte] %x14
+d9e00e0f : stz2g x15, [x16, #0]!                     : stz2g  %x15 %x16 $0x0000000000000000 -> (%x16)[32byte] %x16
+d9e1fe51 : stz2g x17, [x18, #496]!                   : stz2g  %x17 %x18 $0x00000000000001f0 -> +0x01f0(%x18)[32byte] %x18
+d9e3fe93 : stz2g x19, [x20, #1008]!                  : stz2g  %x19 %x20 $0x00000000000003f0 -> +0x03f0(%x20)[32byte] %x20
+d9e5fed5 : stz2g x21, [x22, #1520]!                  : stz2g  %x21 %x22 $0x00000000000005f0 -> +0x05f0(%x22)[32byte] %x22
+d9e7fef6 : stz2g x22, [x23, #2032]!                  : stz2g  %x22 %x23 $0x00000000000007f0 -> +0x07f0(%x23)[32byte] %x23
+d9e9ff38 : stz2g x24, [x25, #2544]!                  : stz2g  %x24 %x25 $0x00000000000009f0 -> +0x09f0(%x25)[32byte] %x25
+d9ebff7a : stz2g x26, [x27, #3056]!                  : stz2g  %x26 %x27 $0x0000000000000bf0 -> +0x0bf0(%x27)[32byte] %x27
+d9effffe : stz2g x30, [sp, #4080]!                   : stz2g  %x30 %sp $0x0000000000000ff0 -> +0x0ff0(%sp)[32byte] %sp
+
+# STZG    <Xt|SP>, [<Xn|SP>], #<simm>
+d9700400 : stzg x0, [x0], #-4096                     : stzg   %x0 %x0 $0xfffffffffffff000 -> (%x0)[16byte] %x0
+d9720462 : stzg x2, [x3], #-3584                     : stzg   %x2 %x3 $0xfffffffffffff200 -> (%x3)[16byte] %x3
+d97404a4 : stzg x4, [x5], #-3072                     : stzg   %x4 %x5 $0xfffffffffffff400 -> (%x5)[16byte] %x5
+d97604e6 : stzg x6, [x7], #-2560                     : stzg   %x6 %x7 $0xfffffffffffff600 -> (%x7)[16byte] %x7
+d9780528 : stzg x8, [x9], #-2048                     : stzg   %x8 %x9 $0xfffffffffffff800 -> (%x9)[16byte] %x9
+d97a0549 : stzg x9, [x10], #-1536                    : stzg   %x9 %x10 $0xfffffffffffffa00 -> (%x10)[16byte] %x10
+d97c058b : stzg x11, [x12], #-1024                   : stzg   %x11 %x12 $0xfffffffffffffc00 -> (%x12)[16byte] %x12
+d97e05cd : stzg x13, [x14], #-512                    : stzg   %x13 %x14 $0xfffffffffffffe00 -> (%x14)[16byte] %x14
+d960060f : stzg x15, [x16], #0                       : stzg   %x15 %x16 $0x0000000000000000 -> (%x16)[16byte] %x16
+d961f651 : stzg x17, [x18], #496                     : stzg   %x17 %x18 $0x00000000000001f0 -> (%x18)[16byte] %x18
+d963f693 : stzg x19, [x20], #1008                    : stzg   %x19 %x20 $0x00000000000003f0 -> (%x20)[16byte] %x20
+d965f6d5 : stzg x21, [x22], #1520                    : stzg   %x21 %x22 $0x00000000000005f0 -> (%x22)[16byte] %x22
+d967f6f6 : stzg x22, [x23], #2032                    : stzg   %x22 %x23 $0x00000000000007f0 -> (%x23)[16byte] %x23
+d969f738 : stzg x24, [x25], #2544                    : stzg   %x24 %x25 $0x00000000000009f0 -> (%x25)[16byte] %x25
+d96bf77a : stzg x26, [x27], #3056                    : stzg   %x26 %x27 $0x0000000000000bf0 -> (%x27)[16byte] %x27
+d96ff7fe : stzg x30, [sp], #4080                     : stzg   %x30 %sp $0x0000000000000ff0 -> (%sp)[16byte] %sp
+
+# STZG    <Xt|SP>, [<Xn|SP>, #<simm>]
+d9700800 : stzg x0, [x0, #-4096]                     : stzg   %x0 -> -0x1000(%x0)[16byte]
+d9720862 : stzg x2, [x3, #-3584]                     : stzg   %x2 -> -0x0e00(%x3)[16byte]
+d97408a4 : stzg x4, [x5, #-3072]                     : stzg   %x4 -> -0x0c00(%x5)[16byte]
+d97608e6 : stzg x6, [x7, #-2560]                     : stzg   %x6 -> -0x0a00(%x7)[16byte]
+d9780928 : stzg x8, [x9, #-2048]                     : stzg   %x8 -> -0x0800(%x9)[16byte]
+d97a0949 : stzg x9, [x10, #-1536]                    : stzg   %x9 -> -0x0600(%x10)[16byte]
+d97c098b : stzg x11, [x12, #-1024]                   : stzg   %x11 -> -0x0400(%x12)[16byte]
+d97e09cd : stzg x13, [x14, #-512]                    : stzg   %x13 -> -0x0200(%x14)[16byte]
+d9600a0f : stzg x15, [x16, #0]                       : stzg   %x15 -> (%x16)[16byte]
+d961fa51 : stzg x17, [x18, #496]                     : stzg   %x17 -> +0x01f0(%x18)[16byte]
+d963fa93 : stzg x19, [x20, #1008]                    : stzg   %x19 -> +0x03f0(%x20)[16byte]
+d965fad5 : stzg x21, [x22, #1520]                    : stzg   %x21 -> +0x05f0(%x22)[16byte]
+d967faf6 : stzg x22, [x23, #2032]                    : stzg   %x22 -> +0x07f0(%x23)[16byte]
+d969fb38 : stzg x24, [x25, #2544]                    : stzg   %x24 -> +0x09f0(%x25)[16byte]
+d96bfb7a : stzg x26, [x27, #3056]                    : stzg   %x26 -> +0x0bf0(%x27)[16byte]
+d96ffbfe : stzg x30, [sp, #4080]                     : stzg   %x30 -> +0x0ff0(%sp)[16byte]
+
+# STZG    <Xt|SP>, [<Xn|SP>, #<simm>]!
+d9700c00 : stzg x0, [x0, #-4096]!                    : stzg   %x0 %x0 $0xfffffffffffff000 -> -0x1000(%x0)[16byte] %x0
+d9720c62 : stzg x2, [x3, #-3584]!                    : stzg   %x2 %x3 $0xfffffffffffff200 -> -0x0e00(%x3)[16byte] %x3
+d9740ca4 : stzg x4, [x5, #-3072]!                    : stzg   %x4 %x5 $0xfffffffffffff400 -> -0x0c00(%x5)[16byte] %x5
+d9760ce6 : stzg x6, [x7, #-2560]!                    : stzg   %x6 %x7 $0xfffffffffffff600 -> -0x0a00(%x7)[16byte] %x7
+d9780d28 : stzg x8, [x9, #-2048]!                    : stzg   %x8 %x9 $0xfffffffffffff800 -> -0x0800(%x9)[16byte] %x9
+d97a0d49 : stzg x9, [x10, #-1536]!                   : stzg   %x9 %x10 $0xfffffffffffffa00 -> -0x0600(%x10)[16byte] %x10
+d97c0d8b : stzg x11, [x12, #-1024]!                  : stzg   %x11 %x12 $0xfffffffffffffc00 -> -0x0400(%x12)[16byte] %x12
+d97e0dcd : stzg x13, [x14, #-512]!                   : stzg   %x13 %x14 $0xfffffffffffffe00 -> -0x0200(%x14)[16byte] %x14
+d9600e0f : stzg x15, [x16, #0]!                      : stzg   %x15 %x16 $0x0000000000000000 -> (%x16)[16byte] %x16
+d961fe51 : stzg x17, [x18, #496]!                    : stzg   %x17 %x18 $0x00000000000001f0 -> +0x01f0(%x18)[16byte] %x18
+d963fe93 : stzg x19, [x20, #1008]!                   : stzg   %x19 %x20 $0x00000000000003f0 -> +0x03f0(%x20)[16byte] %x20
+d965fed5 : stzg x21, [x22, #1520]!                   : stzg   %x21 %x22 $0x00000000000005f0 -> +0x05f0(%x22)[16byte] %x22
+d967fef6 : stzg x22, [x23, #2032]!                   : stzg   %x22 %x23 $0x00000000000007f0 -> +0x07f0(%x23)[16byte] %x23
+d969ff38 : stzg x24, [x25, #2544]!                   : stzg   %x24 %x25 $0x00000000000009f0 -> +0x09f0(%x25)[16byte] %x25
+d96bff7a : stzg x26, [x27, #3056]!                   : stzg   %x26 %x27 $0x0000000000000bf0 -> +0x0bf0(%x27)[16byte] %x27
+d96ffffe : stzg x30, [sp, #4080]!                    : stzg   %x30 %sp $0x0000000000000ff0 -> +0x0ff0(%sp)[16byte] %sp
+
+# SUBG    <Xd|SP>, <Xn|SP>, #<imm1>, #<imm2> (SUBG-R.RII-tag)
+d180c000 : subg x0, x0, #0x0, #0x0                   : subg   %x0 $0x0000 $0x00 -> %x0
+d184c462 : subg x2, x3, #0x40, #0x1                  : subg   %x3 $0x0040 $0x01 -> %x2
+d188c8a4 : subg x4, x5, #0x80, #0x2                  : subg   %x5 $0x0080 $0x02 -> %x4
+d18ccce6 : subg x6, x7, #0xc0, #0x3                  : subg   %x7 $0x00c0 $0x03 -> %x6
+d190d128 : subg x8, x9, #0x100, #0x4                 : subg   %x9 $0x0100 $0x04 -> %x8
+d194d549 : subg x9, x10, #0x140, #0x5                : subg   %x10 $0x0140 $0x05 -> %x9
+d198d98b : subg x11, x12, #0x180, #0x6               : subg   %x12 $0x0180 $0x06 -> %x11
+d19cddcd : subg x13, x14, #0x1c0, #0x7               : subg   %x14 $0x01c0 $0x07 -> %x13
+d1a0e20f : subg x15, x16, #0x200, #0x8               : subg   %x16 $0x0200 $0x08 -> %x15
+d1a3e251 : subg x17, x18, #0x230, #0x8               : subg   %x18 $0x0230 $0x08 -> %x17
+d1a7e693 : subg x19, x20, #0x270, #0x9               : subg   %x20 $0x0270 $0x09 -> %x19
+d1abead5 : subg x21, x22, #0x2b0, #0xa               : subg   %x22 $0x02b0 $0x0a -> %x21
+d1afeef6 : subg x22, x23, #0x2f0, #0xb               : subg   %x23 $0x02f0 $0x0b -> %x22
+d1b3f338 : subg x24, x25, #0x330, #0xc               : subg   %x25 $0x0330 $0x0c -> %x24
+d1b7f77a : subg x26, x27, #0x370, #0xd               : subg   %x27 $0x0370 $0x0d -> %x26
+d1bfffff : subg sp, sp, #0x3f0, #0xf                 : subg   %sp $0x03f0 $0x0f -> %sp
+
+# SUBP    <Xd>, <Xn|SP>, <Xm|SP> (SUBP-R.RR-64_dp_2src)
+9ac00000 : subp x0, x0, x0                           : subp   %x0 %x0 -> %x0
+9ac40062 : subp x2, x3, x4                           : subp   %x3 %x4 -> %x2
+9ac600a4 : subp x4, x5, x6                           : subp   %x5 %x6 -> %x4
+9ac800e6 : subp x6, x7, x8                           : subp   %x7 %x8 -> %x6
+9aca0128 : subp x8, x9, x10                          : subp   %x9 %x10 -> %x8
+9acb0149 : subp x9, x10, x11                         : subp   %x10 %x11 -> %x9
+9acd018b : subp x11, x12, x13                        : subp   %x12 %x13 -> %x11
+9acf01cd : subp x13, x14, x15                        : subp   %x14 %x15 -> %x13
+9ad1020f : subp x15, x16, x17                        : subp   %x16 %x17 -> %x15
+9ad30251 : subp x17, x18, x19                        : subp   %x18 %x19 -> %x17
+9ad50293 : subp x19, x20, x21                        : subp   %x20 %x21 -> %x19
+9ad702d5 : subp x21, x22, x23                        : subp   %x22 %x23 -> %x21
+9ad802f6 : subp x22, x23, x24                        : subp   %x23 %x24 -> %x22
+9ada0338 : subp x24, x25, x26                        : subp   %x25 %x26 -> %x24
+9adc037a : subp x26, x27, x28                        : subp   %x27 %x28 -> %x26
+9adf03fe : subp x30, sp, sp                          : subp   %sp %sp -> %x30
+
+# SUBPS   <Xd>, <Xn|SP>, <Xm|SP> (SUBPS-R.RR-64_dp_2src)
+bac00000 : subps x0, x0, x0                          : subps  %x0 %x0 -> %x0
+bac40062 : subps x2, x3, x4                          : subps  %x3 %x4 -> %x2
+bac600a4 : subps x4, x5, x6                          : subps  %x5 %x6 -> %x4
+bac800e6 : subps x6, x7, x8                          : subps  %x7 %x8 -> %x6
+baca0128 : subps x8, x9, x10                         : subps  %x9 %x10 -> %x8
+bacb0149 : subps x9, x10, x11                        : subps  %x10 %x11 -> %x9
+bacd018b : subps x11, x12, x13                       : subps  %x12 %x13 -> %x11
+bacf01cd : subps x13, x14, x15                       : subps  %x14 %x15 -> %x13
+bad1020f : subps x15, x16, x17                       : subps  %x16 %x17 -> %x15
+bad30251 : subps x17, x18, x19                       : subps  %x18 %x19 -> %x17
+bad50293 : subps x19, x20, x21                       : subps  %x20 %x21 -> %x19
+bad702d5 : subps x21, x22, x23                       : subps  %x22 %x23 -> %x21
+bad802f6 : subps x22, x23, x24                       : subps  %x23 %x24 -> %x22
+bada0338 : subps x24, x25, x26                       : subps  %x25 %x26 -> %x24
+badc037a : subps x26, x27, x28                       : subps  %x27 %x28 -> %x26
+badf03fe : subps x30, sp, sp                         : subps  %sp %sp -> %x30
 
 # SUDOT   <Vd>.<T>, <Vn>.<Tb>, <Vm>.4B[<imm>] (SUDOT-Q.QQi-asimdelem_L)
 0f00f000 : sudot v0.2s, v0.8b, v0.4b[0]              : sudot  %d0 %d0 %q0 $0x00 $0x00 -> %d0

@@ -62,6 +62,9 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+
 analyzer_multi_t::analyzer_multi_t()
 {
     worker_count_ = op_jobs.get_value();

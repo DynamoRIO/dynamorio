@@ -93,7 +93,7 @@ public:
 protected:
     // Create a cache_t object with a specific replacement policy.
     virtual cache_t *
-    create_cache(const std::string &policy);
+    create_cache(const std::string &name, const std::string &policy);
 
     cache_simulator_knobs_t knobs_;
 

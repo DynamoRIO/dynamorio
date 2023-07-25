@@ -48,6 +48,16 @@
 
 #include "codec.h"
 
+/* Tag granule scaling */
+const uint log2_tag_granule = 4;
+
+/* Memory op indexing type */
+enum mem_op_index_t {
+    MEM_OP_INDEX_POST = 1,
+    MEM_OP_INDEX_NONE = 2, // AKA offset
+    MEM_OP_INDEX_PRE = 3,
+};
+
 /* Decode immediate argument of bitwise operations.
  * Returns zero if the encoding is invalid.
  */
@@ -3139,6 +3149,20 @@ encode_opnd_p10_zer(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_opnd_p(10, 15, opnd, enc_out);
 }
 
+/* imm4_10: 4 bit immediate from 10:13 */
+
+static inline bool
+decode_opnd_imm4_10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(10, 4, false /*signed*/, 0, OPSZ_4b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_imm4_10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(10, 4, false /*signed*/, 0, 0, opnd, enc_out);
+}
+
 /* cmode_s_sz: Operand for 32 bit elements' shift amount */
 
 static inline bool
@@ -4764,6 +4788,20 @@ encode_opnd_mem9off(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_opnd_int(12, 9, true, 0, 0, opnd, enc_out);
 }
 
+/* mem9off_tag: Same as mem9off, but performs memory tag scaling */
+
+static inline bool
+decode_opnd_mem9off_tag(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(12, 9, true, log2_tag_granule, OPSZ_PTR, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_mem9off_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(12, 9, true, log2_tag_granule, 0, opnd, enc_out);
+}
+
 /* mem9q: memory operand with 9-bit offset; size is 16 bytes */
 
 static inline bool
@@ -4776,6 +4814,37 @@ static inline bool
 encode_opnd_mem9q(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_mem9_bytes(16, false, opnd, enc_out);
+}
+
+/* mem9_ldg_tag: Same as mem9_tag but fixed at offset with 0 bytes transferred */
+
+static inline bool
+decode_opnd_mem9_ldg_tag(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    const reg_id_t Xn = decode_reg(extract_uint(enc, 5, 5), true, true);
+    const uint disp = extract_int(enc, 12, 9) << log2_tag_granule;
+
+    *opnd = opnd_create_base_disp_aarch64(Xn, DR_REG_NULL, DR_EXTEND_UXTX, false, disp, 0,
+                                          OPSZ_0);
+    return true;
+}
+
+static inline bool
+encode_opnd_mem9_ldg_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint xn;
+    if (!is_base_imm(opnd, &xn) || opnd_get_size(opnd) != OPSZ_0)
+        return false;
+
+    /* Disp must be multiple of 16 */
+    int disp = (int)opnd_get_disp(opnd);
+    IF_RETURN_FALSE((disp % (1 << log2_tag_granule)) != 0)
+
+    disp >>= log2_tag_granule;
+    IF_RETURN_FALSE(disp < -256 || disp > 255)
+
+    *enc_out = xn << 5 | (disp & 0x1ff) << 12;
+    return true;
 }
 
 /* prf9: prefetch variant of mem9 */
@@ -5072,6 +5141,21 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
+/* imm6_16_tag: 6 bit immediate from 16:21 with tagged memory scaling */
+
+static inline bool
+decode_opnd_imm6_16_tag(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(16, 6, false /*signed*/, log2_tag_granule, OPSZ_10b, 0, enc,
+                           opnd);
+}
+
+static inline bool
+encode_opnd_imm6_16_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(16, 6, false /*signed*/, log2_tag_granule, 0, opnd, enc_out);
+}
+
 /* svemem_gpr_simm6_vl: 6 bit signed immediate offset added to base register
  * defined in bits 5 to 9.
  */
@@ -5252,6 +5336,20 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
         return false;
     *enc_out = (rn << 5) | (BITS(disp, 8, 3) << 16) | (BITS(disp, 2, 0) << 10);
     return true;
+}
+
+/* mem7off_tag: Same as mem7off, but performs memory tag scaling */
+
+static inline bool
+decode_opnd_mem7off_tag(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(15, 7, true, log2_tag_granule, OPSZ_PTR, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_mem7off_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(15, 7, true, log2_tag_granule, 0, opnd, enc_out);
 }
 
 /* imm12: 12-bit immediate operand of ADD/SUB */
@@ -6266,6 +6364,139 @@ encode_opnd_z_tb_bhs_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
     return encode_sized_z_tb(5, BYTE_REG, SINGLE_REG, opnd, enc_out);
 }
 
+static inline bool
+decode_mem7_tag(uint enc, OUT opnd_t *opnd)
+{
+    // Post/Pre/None
+    const uint index_type = extract_uint(enc, 23, 2);
+    switch (index_type) {
+    case MEM_OP_INDEX_POST:
+    case MEM_OP_INDEX_NONE:
+    case MEM_OP_INDEX_PRE: break;
+    default: ASSERT_NOT_REACHED();
+    }
+
+    const reg_id_t Xn = decode_reg(extract_uint(enc, 5, 5), true, true);
+    // Disp is zero for post-indexed
+    const uint disp = index_type == MEM_OP_INDEX_POST
+        ? 0
+        : (extract_int(enc, 15, 7) << log2_tag_granule);
+
+    *opnd = opnd_create_base_disp_aarch64(Xn, DR_REG_NULL, DR_EXTEND_UXTX, false, disp, 0,
+                                          OPSZ_16);
+    if (index_type == MEM_OP_INDEX_PRE)
+        opnd->value.base_disp.pre_index = true;
+
+    return true;
+}
+
+static inline bool
+encode_mem7_base_tag(uint enc, opnd_t opnd, OUT enum mem_op_index_t *index_type_out,
+                     OUT uint *enc_out)
+{
+    uint xn;
+    if (!is_base_imm(opnd, &xn) || opnd_get_size(opnd) != OPSZ_16)
+        return false;
+
+    /* Check the indexed state matches the expected pre_index value */
+    const uint index_type = extract_uint(enc, 23, 2);
+    if ((index_type == MEM_OP_INDEX_POST || index_type == MEM_OP_INDEX_NONE) &&
+        opnd.value.base_disp.pre_index)
+        return false;
+    if (index_type == MEM_OP_INDEX_PRE && !opnd.value.base_disp.pre_index)
+        return false;
+
+    if (index_type_out)
+        *index_type_out = index_type;
+
+    *enc_out = xn << 5;
+    return true;
+}
+
+static inline bool
+decode_mem9_tag(uint enc, OUT opnd_t *opnd)
+{
+    // Post/Pre/None
+    const uint index_type = extract_uint(enc, 10, 2);
+    switch (index_type) {
+    case MEM_OP_INDEX_POST:
+    case MEM_OP_INDEX_NONE:
+    case MEM_OP_INDEX_PRE: break;
+    default: ASSERT_NOT_REACHED();
+    }
+
+    // Bytes to write
+    opnd_size_t bytes;
+    switch (extract_uint(enc, 22, 2)) {
+    case 0x1: bytes = OPSZ_16; break;
+    case 0x3: bytes = OPSZ_32; break;
+    default: bytes = OPSZ_0; break;
+    }
+
+    const reg_id_t Xn = decode_reg(extract_uint(enc, 5, 5), true, true);
+    // Disp is zero for post-indexed
+    const uint disp = index_type == MEM_OP_INDEX_POST
+        ? 0
+        : (extract_int(enc, 12, 9) << log2_tag_granule);
+
+    *opnd = opnd_create_base_disp_aarch64(Xn, DR_REG_NULL, DR_EXTEND_UXTX, false, disp, 0,
+                                          bytes);
+    if (index_type == MEM_OP_INDEX_PRE)
+        opnd->value.base_disp.pre_index = true;
+
+    return true;
+}
+
+static inline bool
+encode_mem9_base_tag(uint enc, opnd_t opnd, OUT enum mem_op_index_t *index_type_out,
+                     OUT uint *enc_out)
+{
+    /* Bytes to write */
+    opnd_size_t bytes;
+    switch (extract_uint(enc, 22, 2)) {
+    case 0x1: bytes = OPSZ_16; break;
+    case 0x3: bytes = OPSZ_32; break;
+    default: bytes = OPSZ_0; break;
+    }
+
+    uint xn;
+    if (!is_base_imm(opnd, &xn) || opnd_get_size(opnd) != bytes)
+        return false;
+
+    /* Check the indexed state matches the expected pre_index value */
+    const uint index_type = extract_uint(enc, 10, 2);
+    if ((index_type == MEM_OP_INDEX_POST || index_type == MEM_OP_INDEX_NONE) &&
+        opnd.value.base_disp.pre_index)
+        return false;
+    if (index_type == MEM_OP_INDEX_PRE && !opnd.value.base_disp.pre_index)
+        return false;
+
+    if (index_type_out)
+        *index_type_out = index_type;
+
+    *enc_out = xn << 5;
+    return true;
+}
+
+/* mem9post_tag: Same as mem9_tag but specifically post-indexed */
+
+static inline bool
+decode_opnd_mem9post_tag(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_mem9_tag(enc, opnd);
+}
+
+static inline bool
+encode_opnd_mem9post_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    enum mem_op_index_t index_type;
+    const bool result = encode_mem9_base_tag(enc, opnd, &index_type, enc_out);
+
+    /* Operand only for post-index */
+    IF_RETURN_FALSE(result && (index_type != MEM_OP_INDEX_POST))
+    return result;
+}
+
 /* fpimm8_5: floating-point 8 bit imm at pos 5 */
 
 static inline bool
@@ -6537,6 +6768,48 @@ encode_opnd_fpimm8_13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     }
 }
 
+static inline bool
+extract_memtag_disp(opnd_t opnd, enum mem_op_index_t index_type, OUT int *disp_out)
+{
+    /* Disp must be multiple of 16 and be zero for post-indexed */
+    int disp = opnd_get_disp(opnd);
+    IF_RETURN_FALSE((disp % (1 << log2_tag_granule)) != 0)
+    IF_RETURN_FALSE(index_type == MEM_OP_INDEX_POST && disp != 0)
+
+    disp >>= log2_tag_granule;
+    IF_RETURN_FALSE(disp < -256 || disp > 255)
+
+    if (disp_out)
+        *disp_out = disp;
+
+    return true;
+}
+
+/* mem9_tag: memory operand with written bytes in 23:22, post/pre/offset is in 11:10, with
+ * memory tag scaling
+ */
+
+static inline bool
+decode_opnd_mem9_tag(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_mem9_tag(enc, opnd);
+}
+
+static inline bool
+encode_opnd_mem9_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    enum mem_op_index_t index_type;
+    if (!encode_mem9_base_tag(enc, opnd, &index_type, enc_out))
+        return false;
+
+    int disp;
+    if (!extract_memtag_disp(opnd, index_type, &disp))
+        return false;
+
+    *enc_out |= BITS((uint)disp, 8, 0) << 12;
+    return true;
+}
+
 /* b_sz: Vector element width for SIMD instructions. */
 
 static inline bool
@@ -6766,6 +7039,18 @@ encode_opnd_p_size_bhs_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *
 }
 
 static inline bool
+decode_opnd_p_size_bh_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_p(0, 22, BYTE_REG, HALF_REG, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_p_size_bh_0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_p(0, 22, BYTE_REG, HALF_REG, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_p_size_hsd_0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_sized_p(0, 22, HALF_REG, DOUBLE_REG, enc, pc, opnd);
@@ -6973,6 +7258,18 @@ static inline bool
 encode_opnd_z_size_bhs_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_sized_z(5, 22, BYTE_REG, SINGLE_REG, 0, 0, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_z_size_bh_5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(5, 22, BYTE_REG, HALF_REG, 0, 0, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_size_bh_5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(5, 22, BYTE_REG, HALF_REG, 0, 0, opnd, enc_out);
 }
 
 static inline bool
@@ -7229,6 +7526,18 @@ encode_opnd_z_size_bhsd_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint
 }
 
 static inline bool
+decode_opnd_z_size_bh_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_sized_z(16, 22, BYTE_REG, HALF_REG, 0, 0, enc, pc, opnd);
+}
+
+static inline bool
+encode_opnd_z_size_bh_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_sized_z(16, 22, BYTE_REG, HALF_REG, 0, 0, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_z_size_sd_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_sized_z(16, 22, SINGLE_REG, DOUBLE_REG, 0, 0, enc, pc, opnd);
@@ -7414,6 +7723,25 @@ encode_svemem_vec_imm5(uint enc, aarch64_reg_offset element_size, bool is_prefet
     return true;
 }
 
+/* mem7post_tag: Same as mem7_tag but specifically post-indexed */
+
+static inline bool
+decode_opnd_mem7post_tag(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_mem7_tag(enc, opnd);
+}
+
+static inline bool
+encode_opnd_mem7post_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint index_type;
+    const bool result = encode_mem7_base_tag(enc, opnd, &index_type, enc_out);
+
+    /* Operand only for post-index */
+    IF_RETURN_FALSE(result && (index_type != MEM_OP_INDEX_POST))
+    return result;
+}
+
 /* SVE memory address [<Zn>.S{, #<imm>}] */
 static inline bool
 decode_opnd_svemem_vec_s_imm5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -7481,6 +7809,31 @@ encode_opnd_svemem_gpr_vec64(uint enc, int opcode, byte *pc, opnd_t opnd,
 
     return opnd_get_index_extend(opnd, NULL, NULL) == DR_EXTEND_UXTX &&
         encode_svemem_gpr_vec(enc, DOUBLE_REG, msz, scaled, opnd, enc_out);
+}
+
+/* mem7_tag: Write bytes is fixed at 16bytes, post/pre/offset is in 24:23, with memory tag
+ * scaling
+ */
+
+static inline bool
+decode_opnd_mem7_tag(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_mem7_tag(enc, opnd);
+}
+
+static inline bool
+encode_opnd_mem7_tag(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    enum mem_op_index_t index_type;
+    if (!encode_mem7_base_tag(enc, opnd, &index_type, enc_out))
+        return false;
+
+    int disp;
+    if (!extract_memtag_disp(opnd, index_type, &disp))
+        return false;
+
+    *enc_out |= BITS((uint)disp, 6, 0) << 15;
+    return true;
 }
 
 static inline bool
@@ -7809,6 +8162,47 @@ encode_opnd_z3_msz_bhsd_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint
         return false;
 
     if (reg_number > 7)
+        return false;
+
+    *enc_out |= (reg_number << 16);
+    *enc_out |= (size << 23);
+
+    return true;
+}
+
+static inline bool
+decode_opnd_z4_msz_bhsd_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    aarch64_reg_offset bit_size = extract_uint(enc, 23, 2);
+    if (bit_size < BYTE_REG)
+        return false;
+    if (bit_size > DOUBLE_REG)
+        return false;
+
+    return decode_single_sized(DR_REG_Z0, DR_REG_Z15, 16, 4, bit_size, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_z4_msz_bhsd_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    IF_RETURN_FALSE(!opnd_is_element_vector_reg(opnd));
+
+    const aarch64_reg_offset size = get_vector_element_reg_offset(opnd);
+    if (size == NOT_A_REG)
+        return false;
+
+    if (size > DOUBLE_REG)
+        return false;
+    if (size < BYTE_REG)
+        return false;
+
+    opnd_size_t reg_size = OPSZ_SCALABLE;
+
+    uint reg_number;
+    if (!is_vreg(&reg_size, &reg_number, opnd))
+        return false;
+
+    if (reg_number > 15)
         return false;
 
     *enc_out |= (reg_number << 16);

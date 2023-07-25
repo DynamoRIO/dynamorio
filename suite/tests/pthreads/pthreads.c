@@ -86,16 +86,12 @@ main(int argc, char **argv)
     pthread_t thread0, thread1;
     void *retval;
 
-#if 0
     /* Get the number of intervals */
     if (argc != 2) {
-        print("Usage: %s <intervals>\n", argv[0]);
-        exit(0);
+        intervals = 10;
+    } else {
+        intervals = atoi(argv[1]);
     }
-    intervals = atoi(argv[1]);
-#else /* for batch mode */
-    intervals = 10;
-#endif
 
     /* Initialize the lock on pi */
     pthread_mutex_init(&pi_lock, NULL);
