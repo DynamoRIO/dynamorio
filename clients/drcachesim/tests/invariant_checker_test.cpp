@@ -55,7 +55,7 @@ struct error_info_t {
     uint64_t instrs_since_last_timestamp;
 
     const bool
-    operator!=(const error_info_t &rhs)
+    operator!=(const error_info_t &rhs) const
     {
         return rhs.invariant_name != invariant_name || rhs.tid != tid ||
             rhs.ref_ordinal != ref_ordinal || rhs.last_timestamp != last_timestamp ||
@@ -104,7 +104,7 @@ protected:
 /* Assumes there are at most 3 threads with tids 1, 2, and 3 in memrefs. */
 bool
 run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
-            error_info_t expected_error_info = {},
+            const error_info_t &expected_error_info = {},
             const std::string &toprint_if_fail = "",
             std::istream *serial_schedule_file = nullptr)
 {
