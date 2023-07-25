@@ -224,27 +224,28 @@ bool
 check_sane_control_flow()
 {
     std::cerr << "Testing control flow\n";
+    constexpr memref_tid_t TID = 1;
     // Negative simple test.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-            gen_instr(1, 3),
+            gen_instr(TID, 1),
+            gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, true,
-                         { "Non-explicit control flow has no marker", 1, 2, 0, 2 },
+                         { "Non-explicit control flow has no marker", TID, 2, 0, 2 },
                          "Failed to catch bad control flow"))
             return false;
     }
     // Negative test with timestamp markers.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
-            gen_instr(1, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 3),
-            gen_instr(1, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 2),
+            gen_instr(TID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 3),
+            gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, true,
-                         { "Non-explicit control flow has no marker", 1, 4, 3, 1 },
+                         { "Non-explicit control flow has no marker", TID, 4, 3, 1 },
                          "Failed to catch bad control flow")) {
             return false;
         }
@@ -252,9 +253,9 @@ check_sane_control_flow()
     // Positive test: branches with no encodings.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),   gen_branch(1, 2),  gen_instr(1, 3), // Not taken.
-            gen_branch(1, 4),  gen_instr(1, 101),                  // Taken.
-            gen_instr(1, 102),
+            gen_instr(TID, 1),   gen_branch(TID, 2),  gen_instr(TID, 3), // Not taken.
+            gen_branch(TID, 4),  gen_instr(TID, 101),                    // Taken.
+            gen_instr(TID, 102),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -268,15 +269,15 @@ check_sane_control_flow()
     // Negative test: branches with encodings which do not go to their targets.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
             // 0x74 is "je" with the 2nd byte the offset.
-            gen_branch_encoded(1, 0x71019dbc, { 0x74, 0x32 }),
-            gen_instr_encoded(0x71019ded, { 0x01 }),
+            gen_branch_encoded(TID, 0x71019dbc, { 0x74, 0x32 }),
+            gen_instr_encoded(0x71019ded, { 0x01 }, TID),
 #    elif defined(ARM_64)
             // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
-            gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
-            gen_instr_encoded(0x71019ded, 0x01),
+            gen_branch_encoded(TID, 0x71019dbc, 0x540001a1),
+            gen_instr_encoded(0x71019ded, 0x01, TID),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
@@ -284,7 +285,7 @@ check_sane_control_flow()
 
         if (!run_checker(
                 memrefs, true,
-                { "Direct branch does not go to the correct target", 1, 3, 0, 2 },
+                { "Direct branch does not go to the correct target", TID, 3, 0, 2 },
                 "Failed to catch branch not going to its target")) {
             return false;
         }
@@ -292,17 +293,17 @@ check_sane_control_flow()
     // Positive test: branches with encodings which go to their targets.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
             // 0x74 is "je" with the 2nd byte the offset.
-            gen_branch_encoded(1, 0x71019dbc, { 0x74, 0x32 }),
+            gen_branch_encoded(TID, 0x71019dbc, { 0x74, 0x32 }),
 #    elif defined(ARM_64)
             // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
-            gen_branch_encoded(1, 0x71019dbc, 0x540001a1),
+            gen_branch_encoded(TID, 0x71019dbc, 0x540001a1),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
-            gen_instr(1, 0x71019df0),
+            gen_instr(TID, 0x71019df0),
         };
 
         if (!run_checker(memrefs, false)) {
@@ -313,11 +314,11 @@ check_sane_control_flow()
     // String loop.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, 1, 1),
-            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, 1, 1),
-            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, 1, 1),
-            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, 1, 1),
-            gen_instr(1, 2),
+            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, TID, 1),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -325,9 +326,9 @@ check_sane_control_flow()
     // Kernel-mediated.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 101),
+            gen_instr(TID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 101),
         };
         if (!run_checker(memrefs, false))
             return false;
