@@ -219,10 +219,10 @@ elseif ("${nudge}" MATCHES "<detach>")
     nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
-   RESULT_VARIABLE nudge_result
-   ERROR_VARIABLE nudge_err
-   OUTPUT_VARIABLE nudge_out
-   )
+    RESULT_VARIABLE nudge_result
+    ERROR_VARIABLE nudge_err
+    OUTPUT_VARIABLE nudge_out
+    )
   # combine out and err
   set(nudge_err "${nudge_out}${nudge_err}")
   if (nudge_result)
@@ -231,9 +231,9 @@ elseif ("${nudge}" MATCHES "<detach>")
   endif (nudge_result)
   do_sleep(5000)
   execute_process(COMMAND "${toolbindir}/drconfig.exe" "-detach" ${pid}
-  RESULT_VARIABLE detach_result
-  ERROR_VARIABLE  detach_err
-  OUTPUT_VARIABLE detach_out)
+    RESULT_VARIABLE detach_result
+    ERROR_VARIABLE  detach_err
+    OUTPUT_VARIABLE detach_out)
   set(detach_err "${detach_out}${detach_err}")
   if (detach_result)
     message(FATAL_ERROR "*** detach failed (${detach_result}): ${detach_err}***\n")
