@@ -2687,8 +2687,14 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
                 DEBUG_ASSERT(instr_index == instr_count - 1);
                 int erase_from = i;
                 while (erase_from > 0 &&
-                       tdata->delayed_branch[erase_from - 1].type == TRACE_TYPE_ENCODING)
+                       tdata->delayed_branch[erase_from - 1].type ==
+                           TRACE_TYPE_ENCODING) {
+                    log(4, "Erasing cached encoding for %p\n",
+                        tdata->delayed_branch_decode_pcs[instr_index]);
+                    tdata->encoding_emitted.erase(
+                        tdata->delayed_branch_decode_pcs[instr_index]);
                     --erase_from;
+                }
                 VPRINT(
                     4,
                     "Discarded %zd entries for final branch without subsequent instr\n",

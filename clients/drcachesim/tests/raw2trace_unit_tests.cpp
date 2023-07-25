@@ -2206,10 +2206,74 @@ test_branch_decoration(void *drcontext)
                         TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
             check_entry(entries, idx, TRACE_TYPE_MARKER,
                         TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
-
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_mov) &&
             // The branch and its encoding should be removed.
+            check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_FOOTER, -1);
+    }
+    {
+        // Window-final branch.
+        instrlist_t *ilist = instrlist_create(drcontext);
+        instr_t *nop1 = XINST_CREATE_nop(drcontext); // Avoid offset of 0.
+        instr_t *nop2 = XINST_CREATE_nop(drcontext);
+        instr_t *store = XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0),
+                                            opnd_create_reg(REG1));
+        instr_t *jcc =
+            XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(store));
+        instr_t *move =
+            XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+        instrlist_append(ilist, nop1);
+        instrlist_append(ilist, move);
+        instrlist_append(ilist, jcc);
+        instrlist_append(ilist, nop2);
+        instrlist_append(ilist, store);
+        size_t offs_nop1 = 0;
+        size_t offs_mov = offs_nop1 + instr_length(drcontext, nop1);
+        size_t offs_jcc = offs_mov + instr_length(drcontext, move);
+        size_t offs_nop2 = offs_jcc + instr_length(drcontext, jcc);
+        size_t offs_store = offs_nop2 + instr_length(drcontext, nop2);
+
+        std::vector<offline_entry_t> raw;
+        raw.push_back(make_header());
+        raw.push_back(make_tid());
+        raw.push_back(make_pid());
+        raw.push_back(make_line_size());
+        raw.push_back(make_block(offs_mov, 2));
+        // Test a branch at the end of a window.
+        raw.push_back(make_window_id(1));
+        // Now repeat that branch to test encodings.
+        raw.push_back(make_block(offs_mov, 2));
+        raw.push_back(make_block(offs_store, 1));
+        raw.push_back(make_exit());
+
+        std::vector<trace_entry_t> entries;
+        if (!run_raw2trace(drcontext, raw, ilist, entries))
+            return false;
+        int idx = 0;
+        res = res && check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
+            check_entry(entries, idx, TRACE_TYPE_THREAD, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_PID, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CACHE_LINE_SIZE) &&
+            check_entry(entries, idx, TRACE_TYPE_MARKER,
+                        TRACE_MARKER_TYPE_CHUNK_INSTR_COUNT) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_mov) &&
+            // The branch and its encoding should be removed.
+            check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_mov) &&
+            // The branch should have an encoding here.
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+            // An extra encoding entry is needed.
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+            check_entry(entries, idx, TRACE_TYPE_INSTR_TAKEN_JUMP, -1, offs_jcc) &&
+            check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
             check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
             check_entry(entries, idx, TRACE_TYPE_FOOTER, -1);
     }
