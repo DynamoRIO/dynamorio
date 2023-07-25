@@ -502,19 +502,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 "Branch target not immediately after branch");
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
-        // by markers.  Checks are relaxed if a kernel event occurred but we pass
-        // last_instr_in_cur_context_ to avoid any confusion.
-        // XXX i#5912: For adding checks across every part of a signal handler should
-        // we change this to last_instr_in_cur_context_ and remove/adjust the
-        // check relaxations inside check_for_pc_discontinuity()?
+        // by markers.  Checks are relaxed if a kernel event occurred so prev_instr_
+        // is sufficient for now.
+        // XXX i#5912: For adding checks across every part of a signal handler we
+        // should change this to last_instr_in_cur_context_ and remove/adjust the
+        // check relaxations inside check_for_pc_discontinuity().  We will have to
+        // remove/adjust prev_instr_decoded_ as well as currently it is assumed to
+        // match the prev_instr passed in here.
         const std::string non_explicit_flow_violation_msg = check_for_pc_discontinuity(
-            shard, memref,
-#ifdef UNIX
-            shard->last_instr_in_cur_context_,
-#else
-            shard->prev_instr_,
-#endif
-            memref.instr.addr, cur_instr_decoded, expect_encoding,
+            shard, memref, shard->prev_instr_, memref.instr.addr, cur_instr_decoded,
+            expect_encoding,
             /*at_kernel_event=*/false);
         report_if_false(shard, non_explicit_flow_violation_msg.empty(),
                         non_explicit_flow_violation_msg);
