@@ -1333,16 +1333,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         set(exe_ops "${exe_ops};-block")
       endif ()
     else ()
-      if ("${runall}" MATCHES "<attach>")
+      if ("${runall}" MATCHES "<attach>" OR "${runall}" MATCHES "<detach>")
         # For attach we use attachee, which is identical to infloop, aside for writing
         # a starting message to the output file. This allows us to detect when it is
         # up and running and we can start the attach process.
         get_target_path_for_execution(app_path win32.attachee "${location_suffix}")
-        # For detach we use detachee, which is identical to infloop, aside for writing
-        # a starting message to the output file. This allows us to detect when it is
-        # up and running and we can start the attach and detach process.
-      elseif ("${runall}" MATCHES "<detach>")
-        get_target_path_for_execution(app_path win32.detachee "${location_suffix}")
       else ()
         # It's easier to run our own infloop, which prints so we know when it's up,
         # than to run notepad or sthg.
@@ -4996,7 +4991,6 @@ if (UNIX)
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
   add_exe(win32.attachee win32/attachee.c)
-  add_exe(win32.detachee win32/detachee.c)
   if (PROGRAM_SHEPHERDING)
     # too flaky across platforms so we limit to security mode only: not too useful
     # for other than testing our ASLR anyway

@@ -44,7 +44,7 @@ static void
 dr_exit(void)
 {
 #ifdef WINDOWS
-    dr_fprintf(STDERR, "detach\n");
+    dr_fprintf(STDERR, "done\n");
 #endif
 }
 
@@ -92,6 +92,12 @@ event_post_attach(void)
     dr_fprintf(STDERR, "attach\n");
 }
 
+static void
+event_pre_detach(void)
+{
+    dr_fprintf(STDERR, "detach\n");
+}
+
 DR_EXPORT
 void
 dr_init(client_id_t id)
@@ -100,6 +106,7 @@ dr_init(client_id_t id)
     injection_tid = dr_get_thread_id(drcontext);
     dr_register_exit_event(dr_exit);
     dr_register_thread_init_event(dr_thread_init);
+    dr_register_pre_detach_event(event_pre_detach);
 #ifdef WINDOWS
     dr_register_exception_event(dr_exception_event);
 #endif
