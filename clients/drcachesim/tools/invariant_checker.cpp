@@ -508,8 +508,14 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // we change this to last_instr_in_cur_context_ and remove/adjust the
         // check relaxations inside check_for_pc_discontinuity()?
         const std::string non_explicit_flow_violation_msg = check_for_pc_discontinuity(
-            shard, memref, shard->last_instr_in_cur_context_, memref.instr.addr,
-            cur_instr_decoded, expect_encoding, /*at_kernel_event=*/false);
+            shard, memref,
+#ifdef UNIX
+            shard->last_instr_in_cur_context_,
+#else
+            shard->prev_instr_,
+#endif
+            memref.instr.addr, cur_instr_decoded, expect_encoding,
+            /*at_kernel_event=*/false);
         report_if_false(shard, non_explicit_flow_violation_msg.empty(),
                         non_explicit_flow_violation_msg);
 
