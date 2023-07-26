@@ -175,6 +175,10 @@ changes:
    External code using any drcachesim or drmemtrace library will need to be
    recompiled.
  - The droption header library is now inside the dynamorio::droption namespace.
+ - The drmemtrace record type #dynamorio::drmemtrace::TRACE_TYPE_INSTR_CONDITIONAL_JUMP
+   is deprecated in offline traces where it is replaced by
+   #dynamorio::drmemtrace::TRACE_TYPE_INSTR_TAKEN_JUMP and
+   #dynamorio::drmemtrace::TRACE_TYPE_INSTR_UNTAKEN_JUMP.
 
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
@@ -268,6 +272,10 @@ Further non-compatibility-affecting changes include:
  - Added a new drmemtrace analysis tool: syscall_mix, to count frequency of system
    calls in a trace. This tool works in both the online and offline modes of
    drmemtrace.
+ - Indirect branches in drmemtrace traces now contain a marker holding the
+   actual target
+   (#dynamorio::drmemtrace::TRACE_MARKER_TYPE_BRANCH_TARGET), which immediately
+   precedes the branch record.
 
 **************************************************
 <hr>
