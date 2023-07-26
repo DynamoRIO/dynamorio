@@ -173,6 +173,7 @@ public:
         int_least64_t func_retval_markers = 0;
         int_least64_t phys_addr_markers = 0;
         int_least64_t phys_unavail_markers = 0;
+        // XXX i#5490: Add a counter for indirect branch target markers?
         int_least64_t other_markers = 0;
         int_least64_t icache_flushes = 0;
         int_least64_t dcache_flushes = 0;

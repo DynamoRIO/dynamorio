@@ -401,6 +401,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
             std::cerr << "<marker: system call trace end>\n";
             break;
+        case TRACE_MARKER_TYPE_BRANCH_TARGET:
+            std::cerr << "<marker: indirect branch target 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
+            break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
                       << memref.marker.marker_value << ">\n";
@@ -473,6 +477,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_TYPE_INSTR_DIRECT_JUMP: std::cerr << "jump\n"; break;
         case TRACE_TYPE_INSTR_INDIRECT_JUMP: std::cerr << "indirect jump\n"; break;
         case TRACE_TYPE_INSTR_CONDITIONAL_JUMP: std::cerr << "conditional jump\n"; break;
+        case TRACE_TYPE_INSTR_TAKEN_JUMP: std::cerr << "taken conditional jump\n"; break;
+        case TRACE_TYPE_INSTR_UNTAKEN_JUMP:
+            std::cerr << "untaken conditional jump\n";
+            break;
         case TRACE_TYPE_INSTR_DIRECT_CALL: std::cerr << "call\n"; break;
         case TRACE_TYPE_INSTR_INDIRECT_CALL: std::cerr << "indirect call\n"; break;
         case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
@@ -521,6 +529,11 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             return false;
         }
         disasm = buf;
+        auto newline = disasm.find('\n');
+        if (memref.instr.type == TRACE_TYPE_INSTR_TAKEN_JUMP)
+            disasm.insert(newline, " (taken)");
+        else if (memref.instr.type == TRACE_TYPE_INSTR_UNTAKEN_JUMP)
+            disasm.insert(newline, " (untaken)");
         disasm_cache_.insert({ orig_pc, disasm });
     }
     // Put our prefix on raw byte spillover, and skip the other columns.

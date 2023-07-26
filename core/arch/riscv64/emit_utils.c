@@ -82,8 +82,22 @@ bool
 exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                         cache_pc target_pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    cache_pc branch_pc = EXIT_CTI_PC(f, l);
+    /* Compute offset as unsigned, modulo arithmetic. */
+    ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)branch_pc;
+    uint enc = *(uint *)branch_pc;
+    ASSERT(ALIGNED(branch_pc, 2) && ALIGNED(target_pc, 2));
+
+    if ((enc & 0x7f) == 0x63 &&
+        /* BEQ, BNE */
+        (((enc >> 12) & 0x7) <= 0x1 ||
+         /* BLT, BGE, BLTU, BGEU */
+         ((enc >> 12) & 0x7) >= 0x4))
+        return (off < 0x1000);
+    else if ((enc & 0x7f) == 0x6f) /* JAL */
+        return (off < 0x100000);
+    /* TODO: i#3544: Add support for compressed instructions.  */
+    ASSERT(false);
     return false;
 }
 
@@ -115,8 +129,41 @@ void
 patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
              bool hot_patch)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* Compute offset as unsigned, modulo arithmetic. */
+    ptr_int_t off = (ptr_uint_t)target_pc - (ptr_uint_t)branch_pc;
+    uint *pc_writable = (uint *)vmcode_get_writable_addr(branch_pc);
+    uint enc = *pc_writable;
+    ASSERT(ALIGNED(branch_pc, 2) && ALIGNED(target_pc, 2));
+    if ((enc & 0x7f) == 0x63 &&
+        /* BEQ, BNE */
+        (((enc >> 12) & 0x7) <= 0x1 ||
+         /* BLT, BGE, BLTU, BGEU */
+         ((enc >> 12) & 0x7) >= 0x4)) {
+        ASSERT(((off << (64 - 13)) >> (64 - 13)) == off);
+
+        /* Format of the B-type instruction:
+         * |  31   |30     25|24   20|19   15|14    12|11     8|   7   |6      0|
+         * |imm[12]|imm[10:5]|  rs2  |  rs1  | funct3 |imm[4:1]|imm[11]| opcode |
+         *  ^---------------^                          ^--------------^
+         */
+        *pc_writable = (enc & 0x1fff07f) | (((off >> 12) & 1) << 31) |
+            (((off >> 5) & 63) << 25) | (((off >> 1) & 15) << 8) |
+            (((off >> 11) & 1) << 7);
+    } else if ((enc & 0xfff) == 0x6f) { /* J */
+        ASSERT(((off << (64 - 21)) >> (64 - 21)) == off);
+
+        /* Format of the J-type instruction:
+         * |   31    |30       21|   20    |19        12|11   7|6      0|
+         * | imm[20] | imm[10:1] | imm[11] | imm[19:12] |  rd  | opcode |
+         *  ^------------------------------------------^
+         */
+        *pc_writable = 0x6f | (((off >> 20) & 1) << 31) | (((off >> 1) & 0x3ff) << 21) |
+            (((off >> 11) & 1) << 20) | (((off >> 12) & 0xff) << 12);
+    } else
+        /* TODO: i#3544: Add support for compressed instructions.  */
+        ASSERT(false);
+    if (hot_patch)
+        machine_cache_sync(branch_pc, branch_pc + 4, true);
     return;
 }
 
