@@ -31,7 +31,8 @@
  */
 
 #ifndef ASM_CODE_ONLY /* C code */
-#    include <unistd.h>
+#    include <chrono>
+#    include <thread>
 #    include "dr_api.h"
 #    include "drmemtrace/drmemtrace.h"
 #    include "drcovlib.h"
@@ -77,7 +78,7 @@ int
 fib_with_sleep(int n)
 {
     std::cerr << "Sleeping for " << SECONDS_TO_SLEEP << " seconds\n";
-    sleep(SECONDS_TO_SLEEP);
+    std::this_thread::sleep_for(std::chrono::seconds(SECONDS_TO_SLEEP));
     if (n <= 1)
         return 1;
     noret_func(n, n + 1);
@@ -173,8 +174,6 @@ test_main(int argc, const char *argv[])
                     SECONDS_TO_SLEEP * 1000000) {
                     std::cerr << "window_test FAILED\n";
                     exit(1);
-                } else {
-                    std::cerr << "Did not find a window bug\n";
                 }
                 break;
             }
