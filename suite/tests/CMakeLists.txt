@@ -4118,6 +4118,11 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_traceopts_nodr ON)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
+      set(tool.drcacheoff.window_test_nodr ON)
+      set(tool.drcacheoff.window_test_nopost ON)
+      torunonly_drcacheoff(window_test tool.drcacheoff.window_test "" "" "")
+      set(tool.drcacheoff.window_test-expectbase "offline-window-test")
+      set(tool.drcacheoff.window_test_timeout 180)
 
       if (LINUX) # Futex is Linux-only.
         set(tool.drcacheoff.burst_futex_nodr ON)
