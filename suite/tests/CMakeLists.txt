@@ -1387,12 +1387,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       # clear client from dr command and run native
       string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
     elseif ("${runall}" MATCHES "<detach>")
-      # move params to nudge
+      # Move params to nudge.
       string(REGEX MATCH ";-quiet;(.*);--" nudge_arg "${rundr}")
       string(REGEX REPLACE ";--" "" nudge_arg "${nudge_arg}")
       string(PREPEND nudge_arg "<detach>")
       string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
-      # clear client from dr command and run native
+      # Clear client from dr command and run native.
       string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
     endif ()
     set(cmd_with_at ${rundr} ${app_path} ${exe_ops})

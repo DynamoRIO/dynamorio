@@ -223,7 +223,7 @@ elseif ("${nudge}" MATCHES "<detach>")
     ERROR_VARIABLE nudge_err
     OUTPUT_VARIABLE nudge_out
     )
-  # combine out and err
+  # Combine out and err.
   set(nudge_err "${nudge_out}${nudge_err}")
   if (nudge_result)
     kill_background_process(ON)
@@ -268,7 +268,7 @@ if ("${orig_nudge}" MATCHES "-client")
     endif ()
   endwhile()
 elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>")
-  # wait until attached
+  # Wait until attached.
   set(iters 0)
   while (NOT "${output}" MATCHES "attach\n")
     do_sleep(0.1)
@@ -279,7 +279,7 @@ elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>"
       message(FATAL_ERROR "Timed out waiting for attach")
     endif ()
   endwhile()
-  # wait until thread init
+  # Wait until thread init.
   set(iters 0)
   while (NOT "${output}" MATCHES "thread init\n")
     do_sleep(0.1)
@@ -306,7 +306,7 @@ if ("${orig_nudge}" MATCHES "<detach>")
   if (detach_result)
     message(FATAL_ERROR "*** detach failed (${detach_result}): ${detach_err}***\n")
   endif (detach_result)
-  # wait until detach
+  # Wait until detach.
   set(iters 0)
   while (NOT "${output}" MATCHES "detach\n")
     do_sleep(0.1)
