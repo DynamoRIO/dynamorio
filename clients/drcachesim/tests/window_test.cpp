@@ -187,4 +187,25 @@ test_main(int argc, const char *argv[])
 
 } // namespace drmemtrace
 } // namespace dynamorio
+
+#else
+#    undef UNIX
+#    undef LINUX
+#    undef MACOS
+#    undef WINDOWS
+#    undef X86_64
+#    undef X86_32
+#    undef ARM_32
+#    undef ARM_64
+#    undef DR_APP_EXPORTS
+#    undef DR_HOST_X64
+#    undef DR_HOST_X86
+#    undef DR_HOST_ARM
+#    undef DR_HOST_AARCH64
+#    include "asm_defines.asm"
+/* clang-format off */
+START_FILE
+
+END_FILE
+/* clang-format on */
 #endif
