@@ -213,12 +213,13 @@ elseif ("${nudge}" MATCHES "<attach>")
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
 elseif ("${nudge}" MATCHES "<detach>")
-  set(nudge_cmd run_in_bg)
+  #set(nudge_cmd run_in_bg)
   string(REGEX REPLACE "<detach>"
     "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@1000"
     nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
-  execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
+  #execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
+  execute_process(COMMAND ${nudge}
     RESULT_VARIABLE nudge_result
     ERROR_VARIABLE nudge_err
     OUTPUT_VARIABLE nudge_out
@@ -229,7 +230,6 @@ elseif ("${nudge}" MATCHES "<detach>")
     kill_background_process(ON)
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
-  do_sleep(5000)
   execute_process(COMMAND "${toolbindir}/drconfig.exe" "-detach" ${pid}
     RESULT_VARIABLE detach_result
     ERROR_VARIABLE  detach_err
