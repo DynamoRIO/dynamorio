@@ -43,9 +43,7 @@ static bool first_thread = true;
 static void
 dr_exit(void)
 {
-#ifdef WINDOWS
     dr_fprintf(STDERR, "done\n");
-#endif
 }
 
 static void
