@@ -284,6 +284,7 @@ basic_counts_t::print_results()
             for_kernel_trace = true;
         }
     }
+    total.shard_count = shard_map_.size();
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
     print_counters(total, shard_map_.size(), " total", for_kernel_trace);
@@ -324,6 +325,7 @@ basic_counts_t::get_total_counts()
             total += ctr;
         }
     }
+    total.shard_count = shard_map_.size();
     return total;
 }
 
@@ -368,11 +370,13 @@ basic_counts_t::combine_interval_snapshots(
     // call. This is so that printing of unique_pc_addrs count is skipped as
     // intended during print_interval_results.
     result->counters.stop_tracking_unique_pc_addrs();
+    result->counters.shard_count = 0;
     for (const auto snapshot : latest_shard_snapshots) {
         if (snapshot == nullptr)
             continue;
         result->counters +=
             dynamic_cast<const count_snapshot_t *const>(snapshot)->counters;
+        ++result->counters.shard_count;
         assert(result->counters.unique_pc_addrs.empty());
     }
     return result;
