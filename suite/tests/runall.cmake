@@ -213,13 +213,12 @@ elseif ("${nudge}" MATCHES "<attach>")
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
 elseif ("${nudge}" MATCHES "<detach>")
-  #set(nudge_cmd run_in_bg)
+  set(nudge_cmd run_in_bg)
   string(REGEX REPLACE "<detach>"
     "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@1000"
     nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
-  #execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
-  execute_process(COMMAND ${nudge}
+  execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
     RESULT_VARIABLE nudge_result
     ERROR_VARIABLE nudge_err
     OUTPUT_VARIABLE nudge_out
