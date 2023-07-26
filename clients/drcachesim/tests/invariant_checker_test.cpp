@@ -393,6 +393,46 @@ check_sane_control_flow()
             return false;
         }
     }
+    // Positive test: back-to-back signals without any intervening instruction.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 101),
+            // First signal.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // Second signal.
+            // The Marker value for this signal needs to be 102.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // TODO(sahil): Check that this matches the previous kernel event.
+            gen_instr(1, 102),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Negative test: back-to-back signals without any intervening instruction.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 101),
+            // First signal.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // Second signal.
+            // There will be a PC discontinuity here since the marker value is 500, and
+            // the previous PC is 101.
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 500),
+            gen_instr(1, 201),
+            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+        };
+        if (!run_checker(memrefs, false)) {
+            // TODO(sahil): Fix this.
+            return false;
+        }
+    }
 #endif
     return true;
 }

@@ -647,6 +647,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 saw_rseq_abort = true;
             } else {
+                // TODO(sahil): Check if we can remove this condition.
                 // TODO i#3937: We need to exclude this check for "kernel_xfer_app" when
                 // running online. Online traces are missing instructions after sigreturns
                 // which causes the PC discontinuity checks to be violated.
@@ -861,7 +862,7 @@ invariant_checker_t::check_for_pc_discontinuity(
         prev_instr = shard->last_instr_in_cur_context_;
     }
 #endif
-
+    // TODO:
     if (!memref_is_kernel_event_marker && shard->prev_instr_.instr.addr != 0 /*first*/ &&
         // We do not bother to support legacy traces without encodings.
         expect_encoding && type_is_instr_direct_branch(shard->prev_instr_.instr.type)) {
