@@ -229,14 +229,6 @@ elseif ("${nudge}" MATCHES "<detach>")
     kill_background_process(ON)
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
-  execute_process(COMMAND "${toolbindir}/drconfig.exe" "-detach" ${pid}
-    RESULT_VARIABLE detach_result
-    ERROR_VARIABLE  detach_err
-    OUTPUT_VARIABLE detach_out)
-  set(detach_err "${detach_out}${detach_err}")
-  if (detach_result)
-    message(FATAL_ERROR "*** detach failed (${detach_result}): ${detach_err}***\n")
-  endif (detach_result)
 else ()
   # drnudgeunix and drconfig have different syntax:
   if (WIN32)
@@ -275,7 +267,7 @@ if ("${orig_nudge}" MATCHES "-client")
       message(FATAL_ERROR "Timed out waiting for more output")
     endif ()
   endwhile()
-elseif ("${orig_nudge}" MATCHES "<attach>")
+elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>")
   # wait until attached
   set(iters 0)
   while (NOT "${output}" MATCHES "attach\n")
@@ -304,6 +296,17 @@ else ()
   # FIXME: should we instead turn on stderr_mask?
   do_sleep(0.5)
 endif ()
+
+if ("${orig_nudge}" MATCHES "<detach>")
+  execute_process(COMMAND "${toolbindir}/drconfig.exe" "-detach" ${pid}
+    RESULT_VARIABLE detach_result
+    ERROR_VARIABLE  detach_err
+    OUTPUT_VARIABLE detach_out)
+  set(detach_err "${detach_out}${detach_err}")
+  if (detach_result)
+    message(FATAL_ERROR "*** detach failed (${detach_result}): ${detach_err}***\n")
+  endif (detach_result)
+endif()
 
 kill_background_process(OFF)
 
