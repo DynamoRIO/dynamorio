@@ -306,7 +306,7 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
  */
         DECLARE_FUNC(cleanup_and_terminate)
 GLOBAL_LABEL(cleanup_and_terminate:)
-        /* move argument registers to callee saved registers */
+        /* Move argument registers to callee saved registers. */
         mv       s0, ARG1  /* dcontext ptr size */
         mv       s1, ARG2  /* sysnum */
         mv       s2, ARG3  /* sys_arg1 */
@@ -316,11 +316,11 @@ GLOBAL_LABEL(cleanup_and_terminate:)
                           /* s6 reserved for syscall ptr */
 
         li       a1, 1
-        /* inc exiting_thread_count to avoid being killed once off all_threads list */
+        /* Inc exiting_thread_count to avoid being killed once off all_threads list. */
         la       a0, GLOBAL_REF(exiting_thread_count)
         amoadd.w zero, a1, (a0)
 
-        /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
+        /* Save dcontext->dstack for freeing later and set dcontext->is_exiting. */
         sw       a1, is_exiting_OFFSET(s0) /* dcontext->is_exiting = 1 */
         CALLC1(GLOBAL_REF(is_currently_on_dstack), s0)
         bnez     a0, cat_save_dstack
@@ -337,37 +337,37 @@ cat_done_saving_dstack:
 cat_thread_only:
         CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
-        /* switch to d_r_initstack for cleanup of dstack */
+        /* Switch to d_r_initstack for cleanup of dstack. */
         la       s7, GLOBAL_REF(initstack_mutex)
 cat_spin:
         li       a0, 1
         amoswap.w a0, a0, (s7)
         bnez     a0, cat_spin
 
-        /* we have the spin lock */
+        /* We have the spin lock. */
 
-        /* switch stack */
+        /* Switch stack. */
         la       a0, GLOBAL_REF(d_r_initstack)
         ld       sp, 0(a0)
 
-        /* free dstack and call the EXIT_DR_HOOK */
+        /* Free dstack and call the EXIT_DR_HOOK. */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), s5) /* pass dstack */
 
-        /* give up initstack_mutex */
+        /* Give up initstack_mutex. */
         la       a0, GLOBAL_REF(initstack_mutex)
         sd       zero, 0(a0)
 
-        /* dec exiting_thread_count (allows another thread to kill us) */
+        /* Dec exiting_thread_count (allows another thread to kill us). */
         la       a0, GLOBAL_REF(exiting_thread_count)
         li       a1, -1
         amoadd.w zero, a1, (a0)
 
-        /* put system call number in a7 */
+        /* Put system call number in a7. */
         mv       a0, s2 /* sys_arg1 */
         mv       a1, s3 /* sys_arg2 */
         mv       SYSNUM_REG, s1 /* sys_call */
 
-        jr       s6  /* go do the syscall! */
+        jr       s6  /* Go do the syscall! */
         jal      GLOBAL_REF(unexpected_return)
         END_FUNC(cleanup_and_terminate)
 
