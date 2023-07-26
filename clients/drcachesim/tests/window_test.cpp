@@ -146,7 +146,7 @@ gather_trace(const std::string &out_subdir)
 }
 
 int
-main(int argc, const char *argv[])
+test_main(int argc, const char *argv[])
 {
     std::string dir_fib = gather_trace("window.0001");
     void *dr_context = dr_standalone_init();
@@ -185,6 +185,7 @@ main(int argc, const char *argv[])
     std::cerr << "window_test passed\n";
     return 0;
 }
+
 } // namespace drmemtrace
 } // namespace dynamorio
 #endif

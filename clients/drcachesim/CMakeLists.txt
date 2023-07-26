@@ -981,11 +981,12 @@ if (BUILD_TESTS)
       endif ()
       use_DynamoRIO_static_client(tool.drcacheoff.window_test drmemtrace_static)
       target_link_libraries(tool.drcacheoff.window_test drmemtrace_raw2trace
-        drmemtrace_analyzer)
+        drmemtrace_analyzer test_helpers)
       if (WIN32)
         # Just like for burst_replace, linking everything together takes effort.
         target_link_libraries(tool.drcacheoff.window_test ${static_libc})
       endif ()
+      set(tool.drcacheoff.window_test_uses_configure ON) # Avoid dup DEBUG.
       add_win32_flags(tool.drcacheoff.window_test)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.window_test)
       use_DynamoRIO_extension(tool.drcacheoff.window_test drcovlib_static)
