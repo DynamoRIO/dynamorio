@@ -808,6 +808,14 @@ typedef enum {
      * The included kernel traces are in the Intel® Processor Trace format.
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALLS = 0x1000,
+    /**
+     * Partially filtered trace. The initial part upto the
+     * #TRACE_MARKER_TYPE_FILTER_ENDPOINT marker is filtered, and the later part is not.
+     * Look for other filtering-related file types (#OFFLINE_FILE_TYPE_IFILTERED and
+     * #OFFLINE_FILE_TYPE_DFILTERED) to determine how the initial part was filtered.
+     * The initial part can be used by a simulator for warmup.
+     */
+    OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP = 0x2000,
 } offline_file_type_t;
 
 static inline const char *

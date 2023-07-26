@@ -202,7 +202,8 @@ test_cache_and_type_filter()
         { { TRACE_TYPE_MARKER,
             TRACE_MARKER_TYPE_FILETYPE,
             { OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS | OFFLINE_FILE_TYPE_ENCODINGS |
-              OFFLINE_FILE_TYPE_DFILTERED | OFFLINE_FILE_TYPE_IFILTERED } },
+              OFFLINE_FILE_TYPE_DFILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+              OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP } },
           false,
           { false, true } },
         { { TRACE_TYPE_THREAD, 0, { 0x4 } }, true, { true, true } },

@@ -173,6 +173,10 @@ get_file_type()
         file_type =
             static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_DFILTERED);
     }
+    if (op_L0_filter_until_instrs.get_value()) {
+        file_type = static_cast<offline_file_type_t>(
+            file_type | OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP);
+    }
     if (op_disable_optimizations.get_value()) {
         file_type = static_cast<offline_file_type_t>(file_type |
                                                      OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
@@ -1114,7 +1118,6 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     }
 
     if (do_write) {
-
         if (op_L0_filter_until_instrs.get_value() && mode == BBDUP_MODE_L0_FILTER) {
             uintptr_t toadd =
                 *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
