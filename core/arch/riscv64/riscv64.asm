@@ -348,16 +348,14 @@ cat_spin:
 
         /* switch stack */
         la       a0, GLOBAL_REF(d_r_initstack)
-        ld       a0, 0(a0)
-        mv       sp, a0
+        ld       sp, 0(a0)
 
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), s5) /* pass dstack */
 
         /* give up initstack_mutex */
         la       a0, GLOBAL_REF(initstack_mutex)
-        li       a1, 0
-        sd       a1, 0(a0)
+        sd       zero, 0(a0)
 
         /* dec exiting_thread_count (allows another thread to kill us) */
         la       a0, GLOBAL_REF(exiting_thread_count)
