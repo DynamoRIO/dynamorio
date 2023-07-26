@@ -1035,6 +1035,10 @@ protected:
         // Records the decode pcs for delayed_branch instructions for re-inserting
         // encodings across a chunk boundary.
         std::vector<app_pc> delayed_branch_decode_pcs;
+        // Records the targets for delayed branches.  We don't merge this with
+        // delayed_branch and delayed_branch_decode_pcs as the other vectors are
+        // passed as raw arrays to write().
+        std::vector<app_pc> delayed_branch_target_pcs;
 
         // Current trace conversion state.
         bool saw_header;
@@ -1285,7 +1289,8 @@ private:
     // thread.  The start..end sequence must contain one instruction.
     std::string
     write_delayed_branches(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
-                           const trace_entry_t *end, app_pc decode_pc = nullptr);
+                           const trace_entry_t *end, app_pc decode_pc = nullptr,
+                           app_pc target_pc = nullptr);
 
     // Writes encoding entries for pc..pc+instr_length to buf.
     std::string
@@ -1404,7 +1409,7 @@ private:
 
     // Flush the branches sent to write_delayed_branches().
     std::string
-    append_delayed_branch(raw2trace_thread_data_t *tdata);
+    append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_pc);
 
     bool
     thread_file_at_eof(raw2trace_thread_data_t *tdata);
