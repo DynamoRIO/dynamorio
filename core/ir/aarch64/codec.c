@@ -5211,7 +5211,8 @@ encode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
      * encoding.
      */
     int vl_bytes = dr_get_sve_vl() / 8;
-    ASSERT((opnd_get_disp(opnd) % vl_bytes) == 0);
+    if ((opnd_get_disp(opnd) % vl_bytes) != 0)
+        return false;
     int disp = opnd_get_disp(opnd) / vl_bytes;
     IF_RETURN_FALSE(disp < -32 || disp > 31)
 
@@ -5368,10 +5369,13 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
      */
     int vl_bytes = dr_get_sve_vl() / 8;
     int pl_bytes = vl_bytes / 8;
-    if (is_vector)
-        ASSERT((opnd_get_disp(opnd) % vl_bytes) == 0);
-    else
-        ASSERT((opnd_get_disp(opnd) % pl_bytes) == 0);
+    if (is_vector) {
+        if ((opnd_get_disp(opnd) % vl_bytes) != 0)
+            return false;
+    } else {
+        if ((opnd_get_disp(opnd) % pl_bytes) != 0)
+            return false;
+    }
 
     disp =
         is_vector ? (opnd_get_disp(opnd) / vl_bytes) : (opnd_get_disp(opnd) / pl_bytes);
