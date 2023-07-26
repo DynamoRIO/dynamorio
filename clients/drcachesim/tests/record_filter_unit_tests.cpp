@@ -413,7 +413,7 @@ test_null_filter()
         filter_funcs;
     filter_funcs.push_back(std::move(null_filter));
     // We use a very small stop_timestamp for the record filter. This is to verify that
-    // we emit the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker for each thread even if
+    // we emit the TRACE_MARKER_TYPE_FILTER_ENDPOINT marker for each thread even if it
     // starts after the given stop_timestamp. Since the stop_timestamp is so small, all
     // other entries are expected to stay.
     static constexpr uint64_t stop_timestamp_us = 1;
