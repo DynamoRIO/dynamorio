@@ -235,7 +235,9 @@ check_sane_control_flow()
             gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, true,
-                         { "Non-explicit control flow has no marker", TID, 2, 0, 2 },
+                         { "Non-explicit control flow has no marker", /*tid=*/TID,
+                           /*ref_ordinal=*/2, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch bad control flow"))
             return false;
     }
@@ -248,7 +250,9 @@ check_sane_control_flow()
             gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, true,
-                         { "Non-explicit control flow has no marker", TID, 4, 3, 1 },
+                         { "Non-explicit control flow has no marker",
+                           /*tid=*/TID, /*ref_ordinal=*/4, /*last_timestamp=*/3,
+                           /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch bad control flow")) {
             return false;
         }
@@ -278,7 +282,8 @@ check_sane_control_flow()
             gen_branch_encoded(TID, 0x71019dbc, { 0x74, 0x32 }),
             gen_instr_encoded(0x71019ded, { 0x01 }, TID),
 #    elif defined(ARM_64)
-            // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
+            // 71019dbc:   540001a1        b.ne    71019df0
+            // <__executable_start+0x19df0>
             gen_branch_encoded(TID, 0x71019dbc, 0x540001a1),
             gen_instr_encoded(0x71019ded, 0x01, TID),
 #    else
@@ -300,7 +305,8 @@ check_sane_control_flow()
             // 0x74 is "je" with the 2nd byte the offset.
             gen_branch_encoded(TID, 0x71019dbc, { 0x74, 0x32 }),
 #    elif defined(ARM_64)
-            // 71019dbc:   540001a1        b.ne    71019df0 <__executable_start+0x19df0>
+            // 71019dbc:   540001a1        b.ne    71019df0
+            // <__executable_start+0x19df0>
             gen_branch_encoded(TID, 0x71019dbc, 0x540001a1),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
@@ -503,7 +509,9 @@ check_kernel_xfer()
             gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, true,
-                         { "Signal handler return point incorrect", TID, 5, 0, 3 },
+                         { "Signal handler return point incorrect", /*tid=*/TID,
+                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
                          "Failed to catch bad signal handler return"))
             return false;
     }
@@ -583,10 +591,12 @@ check_function_markers()
             gen_marker(1, TRACE_MARKER_TYPE_FUNC_ARG, 2),
             gen_data(1, true, 42, 8),
         };
-        if (!run_checker(
-                memrefs, true,
-                { "Function marker misplaced between instr and memref", TID, 5, 0, 1 },
-                "Failed to catch misplaced function marker"))
+        if (!run_checker(memrefs, true,
+                         { "Function marker misplaced between instr and memref",
+                           /*tid=*/TID,
+                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch misplaced function marker"))
             return false;
     }
     // Incorrectly not after a branch.
@@ -596,7 +606,9 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
         };
         if (!run_checker(memrefs, true,
-                         { "Function marker should be after a branch", TID, 2, 0, 1 },
+                         { "Function marker should be after a branch", /*tid=*/TID,
+                           /*ref_ordinal=*/2, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch function marker not after branch"))
             return false;
     }
@@ -682,7 +694,9 @@ check_duplicate_syscall_with_same_pc()
 #    endif
         };
         if (!run_checker(memrefs, true,
-                         { "Duplicate syscall instrs with the same PC", 1, 5, 6, 1 },
+                         { "Duplicate syscall instrs with the same PC", /*tid=*/1,
+                           /*ref_ordinal=*/5, /*last_timestamp=*/6,
+                           /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch duplicate syscall instrs with the same PC"))
             return false;
     }
@@ -724,8 +738,8 @@ check_false_syscalls()
     // checks do not currently work properly there.
     return true;
 #else
-    // XXX: Just like raw2trace_unit_tests, we need to create a syscall instruction and
-    // it turns out there is no simple cross-platform way.
+    // XXX: Just like raw2trace_unit_tests, we need to create a syscall instruction
+    // and it turns out there is no simple cross-platform way.
 #    ifdef X86
     instr_t *sys = INSTR_CREATE_syscall(GLOBAL_DCONTEXT);
 #    elif defined(AARCHXX)
@@ -843,7 +857,9 @@ check_rseq_side_exit_discontinuity()
     auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
     instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
     if (!run_checker(memrefs, true,
-                     { "PC discontinuity due to rseq side exit", 1, 5, 0, 3 },
+                     { "PC discontinuity due to rseq side exit", /*tid=*/1,
+                       /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                       /*instrs_since_last_timestamp=*/3 },
                      "Failed to catch PC discontinuity from rseq side exit")) {
         return false;
     }
@@ -1037,7 +1053,9 @@ check_branch_decoration()
             gen_instr(TID, /*pc=*/33),
         };
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", 1, 5, 0, 3 },
+                         { "Branch does not go to the correct target", /*tid=*/TID,
+                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/3 },
                          "Failed to catch bad indirect branch target marker"))
             return false;
     }
@@ -1053,7 +1071,9 @@ check_branch_decoration()
             gen_instr(TID, /*pc=*/32),
         };
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", 1, 5, 0, 2 },
+                         { "Branch does not go to the correct target", /*tid=*/TID,
+                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch bad indirect branch target marker"))
             return false;
     }
@@ -1148,7 +1168,9 @@ check_branch_decoration()
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", 1, 4, 0, 2 },
+                         { "Branch does not go to the correct target", /*tid=*/1,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch taken branch falling through"))
             return false;
     }
@@ -1177,7 +1199,9 @@ check_branch_decoration()
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", 1, 4, 0, 1 },
+                         { "Branch does not go to the correct target", /*tid=*/1,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch taken branch falling through to signal"))
             return false;
     }
@@ -1258,7 +1282,9 @@ check_branch_decoration()
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", 1, 4, 0, 2 },
+                         { "Branch does not go to the correct target", /*tid=*/1,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch untaken branch going to taken target"))
             return false;
     }
@@ -1330,7 +1356,8 @@ check_filter_endpoint()
         };
         if (!run_checker(
                 memrefs, true,
-                { "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given file "
+                { "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given "
+                  "file "
                   "type",
                   1, 6, 0, 1 },
                 "Failed to catch missing TRACE_MARKER_TYPE_FILTER_ENDPOINT marker"))
@@ -1347,11 +1374,14 @@ check_filter_endpoint()
             gen_instr(TID),
             gen_exit(TID),
         };
-        if (!run_checker(
-                memrefs, true,
-                { "Found TRACE_MARKER_TYPE_FILTER_ENDPOINT without the correct file type",
-                  1, 5, 0, 0 },
-                "Failed to catch unexpected TRACE_MARKER_TYPE_FILTER_ENDPOINT marker"))
+        if (!run_checker(memrefs, true,
+                         { "Found TRACE_MARKER_TYPE_FILTER_ENDPOINT without the "
+                           "correct file type",
+                           /*tid=*/1,
+                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch unexpected "
+                         "TRACE_MARKER_TYPE_FILTER_ENDPOINT marker"))
             return false;
     }
     return true;
