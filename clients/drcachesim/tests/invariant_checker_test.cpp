@@ -344,16 +344,17 @@ check_kernel_xfer()
 {
 #ifdef UNIX
     std::cerr << "Testing kernel xfers\n";
+    constexpr memref_tid_t TID = 1;
     // Return to recorded interruption point.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 101),
+            gen_instr(TID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 101),
             // XXX: This marker value is actually not guaranteed, yet the checker
             // requires it and the view tool prints it.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(1, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -363,12 +364,12 @@ check_kernel_xfer()
         std::vector<memref_t> memrefs = {
             // No instr in the beginning here. Should skip pre-signal instr check
             // on return.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 101),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 101),
             // XXX: This marker value is actually not guaranteed, yet the checker
             // requires it and the view tool prints it.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(1, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -376,18 +377,18 @@ check_kernel_xfer()
     // Nested signals without any intervening instr.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             // No intervening instr here. Should skip pre-signal instr check on
             // return.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 101),
-            gen_instr(1, 201),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 101),
+            gen_instr(TID, 201),
             // XXX: This marker value is actually not guaranteed, yet the checker
             // requires it and the view tool prints it.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
-            gen_instr(1, 101),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(1, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(TID, 101),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -396,15 +397,15 @@ check_kernel_xfer()
     {
         std::vector<memref_t> memrefs = {
             // No initial instr. Should skip pre-signal instr check on return.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             // No intervening instr here. Should skip pre-signal instr check on
             // return.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 101),
-            gen_instr(1, 201),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
-            gen_instr(1, 101),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(1, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 101),
+            gen_instr(TID, 201),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(TID, 101),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -413,22 +414,22 @@ check_kernel_xfer()
     // intervening instr between them.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 101),
+            gen_instr(TID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 101),
             // First signal.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
-            gen_instr(1, 201),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(TID, 201),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             // Second signal.
             // No intervening instr here. Should use instr at pc = 101 for
             // pre-signal instr check on return.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
-            gen_instr(1, 201),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
-            gen_instr(1, 102),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
-            gen_instr(1, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(TID, 201),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(TID, 102),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -438,26 +439,26 @@ check_kernel_xfer()
     // and its outer signal.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
+            gen_instr(TID, 1),
             // Outer signal.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             // First signal.
             // No intervening instr here. Should skip pre-signal instr check
             // on return.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
-            gen_instr(1, 201),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(TID, 201),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             // Second signal.
             // No intervening instr here. Since there's no pre-signal instr
             // for the first signal as well, we did not see any instr at this
             // signal-depth. So the pre-signal check should be skipped on return
             // of this signal too.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
-            gen_instr(1, 201),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
-            gen_instr(1, 102),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
-            gen_instr(1, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(TID, 201),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(TID, 102),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 103),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -466,12 +467,12 @@ check_kernel_xfer()
     {
         std::vector<memref_t> memrefs = {
             // Already inside the first signal.
-            gen_instr(1, 11),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 12),
+            gen_instr(TID, 11),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 12),
             // Should skip the pre-signal instr check and the kernel_event marker
             // equality check, since we did not see the beginning of the signal in
             // the trace.
-            gen_instr(1, 2),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -481,16 +482,16 @@ check_kernel_xfer()
     {
         std::vector<memref_t> memrefs = {
             // Already inside the first signal.
-            gen_instr(1, 11),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 12),
+            gen_instr(TID, 11),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 12),
             // No intervening instr here. Should skip pre-signal instr check on
             // return; this is a special case as it would require *removing* the
             // pc = 11 instr from pre_signal_instr_ as it was not in this newly
             // discovered outermost scope.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 21),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 22),
-            gen_instr(1, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 21),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 22),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -498,12 +499,12 @@ check_kernel_xfer()
     // Fail to return to recorded interruption point.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),   gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 101), gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(1, 3),
+            gen_instr(TID, 1),   gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 101), gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, true,
-                         { "Signal handler return point incorrect", 1, 5, 0, 3 },
+                         { "Signal handler return point incorrect", TID, 5, 0, 3 },
                          "Failed to catch bad signal handler return"))
             return false;
     }
