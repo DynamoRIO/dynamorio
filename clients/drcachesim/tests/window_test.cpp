@@ -30,21 +30,20 @@
  * DAMAGE.
  */
 
-#ifndef ASM_CODE_ONLY /* C code */
-#    include <chrono>
-#    include <thread>
-#    include "dr_api.h"
-#    include "drmemtrace/drmemtrace.h"
-#    include "drcovlib.h"
-#    include "analysis_tool.h"
-#    include "scheduler.h"
-#    include "tracer/raw2trace.h"
-#    include "tracer/raw2trace_directory.h"
-#    include <assert.h>
-#    include <iostream>
-#    include <math.h>
-#    include <stdlib.h>
-#    include <string.h>
+#include <chrono>
+#include <thread>
+#include "dr_api.h"
+#include "drmemtrace/drmemtrace.h"
+#include "drcovlib.h"
+#include "analysis_tool.h"
+#include "scheduler.h"
+#include "tracer/raw2trace.h"
+#include "tracer/raw2trace_directory.h"
+#include <assert.h>
+#include <iostream>
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -54,11 +53,11 @@ constexpr int SECONDS_TO_SLEEP = 4;
 bool
 my_setenv(const char *var, const char *value)
 {
-#    ifdef UNIX
+#ifdef UNIX
     return setenv(var, value, 1 /*override*/) == 0;
-#    else
+#else
     return SetEnvironmentVariable(var, value) == TRUE;
-#    endif
+#endif
 }
 
 char
@@ -109,13 +108,13 @@ post_process(const std::string &out_subdir)
                               dir.serial_schedule_file_, dir.cpu_schedule_file_,
                               dr_context,
                               0
-#    ifdef WINDOWS
+#ifdef WINDOWS
                               /* TODO i#3983: Creating threads in standalone mode
                                * causes problems.  We disable the pool for now.
                                */
                               ,
                               0
-#    endif
+#endif
         );
         std::string error = raw2trace.do_conversion();
         if (!error.empty()) {
@@ -187,25 +186,3 @@ test_main(int argc, const char *argv[])
 
 } // namespace drmemtrace
 } // namespace dynamorio
-
-#else
-#    undef UNIX
-#    undef LINUX
-#    undef MACOS
-#    undef WINDOWS
-#    undef X86_64
-#    undef X86_32
-#    undef ARM_32
-#    undef ARM_64
-#    undef DR_APP_EXPORTS
-#    undef DR_HOST_X64
-#    undef DR_HOST_X86
-#    undef DR_HOST_ARM
-#    undef DR_HOST_AARCH64
-#    include "asm_defines.asm"
-/* clang-format off */
-START_FILE
-
-END_FILE
-/* clang-format on */
-#endif

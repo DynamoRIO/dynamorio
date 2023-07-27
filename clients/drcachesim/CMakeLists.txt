@@ -967,17 +967,10 @@ if (BUILD_TESTS)
 
     if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
       set(source_abs "${CMAKE_CURRENT_SOURCE_DIR}/tests/window_test.cpp")
-      set(asm_deps
-        "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
-        "${PROJECT_BINARY_DIR}/configure.h")
-      include_directories(${PROJECT_SOURCE_DIR}/core/arch) # asm_defines.asm
-      add_split_asm_target("${source_abs}" asm_source gen_asm_tgt
-        "_asm" "" "${asm_deps}")
-      add_executable(tool.drcacheoff.window_test ${source_abs}
-        ${asm_source})
+      add_executable(tool.drcacheoff.window_test ${source_abs})
       configure_DynamoRIO_static(tool.drcacheoff.window_test)
       if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-        add_dependencies(tool.drcacheoff.window_test ${gen_asm_tgt})
+        add_dependencies(tool.drcacheoff.window_test)
       endif ()
       use_DynamoRIO_static_client(tool.drcacheoff.window_test drmemtrace_static)
       target_link_libraries(tool.drcacheoff.window_test drmemtrace_raw2trace
