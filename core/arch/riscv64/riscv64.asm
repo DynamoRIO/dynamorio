@@ -340,6 +340,9 @@ cat_no_thread:
         /* Switch to d_r_initstack for cleanup of dstack. */
         la       s7, GLOBAL_REF(initstack_mutex)
 cat_spin:
+        /* We don't have a YIELD-like hint instruction like what's available on
+         * Aarch64, so we use a plain spin lock here.
+         */
         li       a0, 1
         amoswap.w a0, a0, (s7)
         bnez     a0, cat_spin
