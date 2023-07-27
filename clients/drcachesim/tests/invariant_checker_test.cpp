@@ -188,17 +188,18 @@ check_branch_target_after_branch()
     // Negative simple test.
     {
         constexpr uintptr_t TIMESTAMP = 3;
+        constexpr memref_tid_t TID = 1;
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-            gen_branch(1, 2),
-            gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP),
-            gen_instr(2, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP),
-            gen_instr(1, 3),
+            gen_instr(TID, 1),
+            gen_branch(TID, 2),
+            gen_marker(TID + 1, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP),
+            gen_instr(TID + 1, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP),
+            gen_instr(TID, 3),
         };
         if (!run_checker(
                 memrefs, true,
-                { "Branch target not immediately after branch", 1, 4, TIMESTAMP, 1 },
+                { "Branch target not immediately after branch", TID, 4, TIMESTAMP, 1 },
                 "Failed to catch bad branch target position")) {
             return false;
         }
