@@ -967,22 +967,22 @@ if (BUILD_TESTS)
 
     if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
       set(source_abs "${CMAKE_CURRENT_SOURCE_DIR}/tests/window_test.cpp")
-      add_executable(tool.drcacheoff.window_test ${source_abs})
-      configure_DynamoRIO_static(tool.drcacheoff.window_test)
+      add_executable(tool.drcacheoff.windows-timestamps ${source_abs})
+      configure_DynamoRIO_static(tool.drcacheoff.windows-timestamps)
       if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-        add_dependencies(tool.drcacheoff.window_test)
+        add_dependencies(tool.drcacheoff.windows-timestamps)
       endif ()
-      use_DynamoRIO_static_client(tool.drcacheoff.window_test drmemtrace_static)
-      target_link_libraries(tool.drcacheoff.window_test drmemtrace_raw2trace
+      use_DynamoRIO_static_client(tool.drcacheoff.windows-timestamps drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.windows-timestamps drmemtrace_raw2trace
         drmemtrace_analyzer test_helpers)
       if (WIN32)
         # Just like for burst_replace, linking everything together takes effort.
-        target_link_libraries(tool.drcacheoff.window_test ${static_libc})
+        target_link_libraries(tool.drcacheoff.windows-timestamps ${static_libc})
       endif ()
-      set(tool.drcacheoff.window_test_uses_configure ON) # Avoid dup DEBUG.
-      add_win32_flags(tool.drcacheoff.window_test)
-      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.window_test)
-      use_DynamoRIO_extension(tool.drcacheoff.window_test drcovlib_static)
+      set(tool.drcacheoff.windows-timestamps_uses_configure ON) # Avoid dup DEBUG.
+      add_win32_flags(tool.drcacheoff.windows-timestamps)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.windows-timestamps)
+      use_DynamoRIO_extension(tool.drcacheoff.windows-timestamps drcovlib_static)
     endif (NOT RISCV64)
 
     if (LINUX) # Futex is Linux-only.
