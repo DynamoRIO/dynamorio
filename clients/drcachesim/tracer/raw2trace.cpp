@@ -626,6 +626,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 // process the entries that follow after. This does not affect the
                 // written-out type.
                 int file_type = get_file_type(tdata);
+                // We do not remove OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP here
+                // because that still stands true for this trace.
                 file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
                                OFFLINE_FILE_TYPE_DFILTERED);
                 set_file_type(tdata, (offline_file_type_t)file_type);

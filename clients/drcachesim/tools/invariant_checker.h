@@ -192,6 +192,7 @@ protected:
         bool in_rseq_region_ = false;
         addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
+        bool saw_filter_endpoint_marker_ = false;
     };
 
     // We provide this for subclasses to run these invariants with custom
