@@ -197,10 +197,11 @@ check_branch_target_after_branch()
             gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP),
             gen_instr(TID, 3),
         };
-        if (!run_checker(
-                memrefs, true,
-                { "Branch target not immediately after branch", TID, 4, TIMESTAMP, 1 },
-                "Failed to catch bad branch target position")) {
+        if (!run_checker(memrefs, true,
+                         { "Branch target not immediately after branch", /*tid=*/TID,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/TIMESTAMP,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch bad branch target position")) {
             return false;
         }
     }
