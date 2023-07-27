@@ -600,7 +600,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 INSTR_CREATE_ldr(
                     dcontext, opnd_create_reg(DR_REG_Z0 + i),
                     opnd_create_base_disp(
-                        DR_REG_X1, DR_REG_NULL, 0, i,
+                        DR_REG_X1, DR_REG_NULL, 0, i * proc_get_vector_length_bytes(),
                         opnd_size_from_bytes(proc_get_vector_length_bytes()))));
         }
         /* add x1, x(dcxt), #(offset svep) */
@@ -617,7 +617,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 INSTR_CREATE_ldr(
                     dcontext, opnd_create_reg(DR_REG_P0 + i),
                     opnd_create_base_disp(
-                        DR_REG_X1, DR_REG_NULL, 0, i,
+                        DR_REG_X1, DR_REG_NULL, 0, i * (proc_get_vector_length_bytes() / 8),
                         opnd_size_from_bytes(proc_get_vector_length_bytes() / 8))));
         }
         /* There is no load instruction for the first-fault register (FFR). Use
@@ -644,7 +644,7 @@ append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             INSTR_CREATE_ldr(
                 dcontext, opnd_create_reg(DR_REG_P15),
                 opnd_create_base_disp(
-                    DR_REG_X1, DR_REG_NULL, 0, 15,
+                    DR_REG_X1, DR_REG_NULL, 0, 15 * (proc_get_vector_length_bytes() / 8),
                     opnd_size_from_bytes(proc_get_vector_length_bytes() / 8))));
     }
 }
@@ -814,7 +814,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 INSTR_CREATE_str(
                     dcontext,
                     opnd_create_base_disp(
-                        DR_REG_X1, DR_REG_NULL, 0, i,
+                        DR_REG_X1, DR_REG_NULL, 0, i * proc_get_vector_length_bytes(),
                         opnd_size_from_bytes(proc_get_vector_length_bytes())),
                     opnd_create_reg(DR_REG_Z0 + i)));
         }
@@ -829,7 +829,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
                 INSTR_CREATE_str(
                     dcontext,
                     opnd_create_base_disp(
-                        DR_REG_X1, DR_REG_NULL, 0, i,
+                        DR_REG_X1, DR_REG_NULL, 0, i * (proc_get_vector_length_bytes() / 8),
                         opnd_size_from_bytes(proc_get_vector_length_bytes() / 8)),
                     opnd_create_reg(DR_REG_P0 + i)));
         }
@@ -858,7 +858,7 @@ append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
             INSTR_CREATE_ldr(
                 dcontext, opnd_create_reg(DR_REG_P15),
                 opnd_create_base_disp(
-                    DR_REG_X1, DR_REG_NULL, 0, 15,
+                    DR_REG_X1, DR_REG_NULL, 0, 15 * (proc_get_vector_length_bytes() / 8),
                     opnd_size_from_bytes(proc_get_vector_length_bytes() / 8))));
     }
 }

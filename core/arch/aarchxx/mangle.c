@@ -127,11 +127,11 @@ create_base_disp_for_save_restore(uint base_reg, bool is_single_reg, reg_type_t 
         break;
     case SVE_ZREG_TYPE:
         opsz = opnd_size_from_bytes(proc_get_vector_length_bytes());
-        offset = num_saved;
+        offset = num_saved * proc_get_vector_length_bytes();
         break;
     case SVE_PREG_TYPE:
         opsz = opnd_size_from_bytes(proc_get_vector_length_bytes() / 8);
-        offset = num_saved;
+        offset = num_saved * (proc_get_vector_length_bytes() / 8);
         break;
     default: ASSERT_NOT_REACHED();
     }
@@ -249,7 +249,7 @@ insert_save_or_restore_svep_registers(
          * in bytes: STR <Pn>, [<Xn|SP>{, #<imm>, MUL VL}] and we only go up
          * num_regs registers.
          */
-        ASSERT(opnd_get_disp(mem) <= MAX_SVE_STR_OFFSET);
+        ASSERT(opnd_get_disp(mem) / proc_get_vector_length_bytes() <= MAX_SVE_STR_OFFSET);
         PRE(ilist, instr, create_load_or_store_instr(dcontext, DR_REG_P0 + i, mem, save));
         saved_regs++;
     }
@@ -279,7 +279,7 @@ insert_save_or_restore_sve_registers(
          * in bytes: STR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}] and we only go up
          * MCXT_NUM_SIMD_SLOTS registers.
          */
-        ASSERT(opnd_get_disp(mem) <= MAX_SVE_STR_OFFSET);
+        ASSERT(opnd_get_disp(mem) / proc_get_vector_length_bytes() <= MAX_SVE_STR_OFFSET);
         PRE(ilist, instr, create_load_or_store_instr(dcontext, DR_REG_Z0 + i, mem, save));
         saved_regs++;
     }
