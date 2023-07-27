@@ -1244,7 +1244,6 @@ check_branch_decoration()
 }
 
 bool
-<<<<<<< HEAD
 check_filter_endpoint()
 {
     std::cerr << "Testing filter end-point marker and file type\n";
@@ -1338,7 +1337,8 @@ check_timestamps_increase_monotonically(void)
                        (std::numeric_limits<uintptr_t>::max)()),
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
         };
-        if (!run_checker(memrefs, false))
+        if (!run_checker(memrefs, true, 1, 3,
+                         "Timestamp does not increase monotonically"))
             return false;
     }
 #endif
