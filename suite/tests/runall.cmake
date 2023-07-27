@@ -345,12 +345,10 @@ endwhile()
 string(REGEX REPLACE "[ \n]+$" "" output "${output}")
 message("${output}")
 
+# Sometimes infloop keeps running: FIXME: figure out why.
 if (UNIX)
-  # sometimes infloop keeps running: FIXME: figure out why
   execute_process(COMMAND "${KILL}" -9 ${pid} ERROR_QUIET OUTPUT_QUIET)
   # we can't run pkill b/c there are other tests running infloop (i#1341)
 else ()
-  # We could run "${toolbindir}/DRkill.exe" -pid ${pid} but we shouldn't need to
-  # as the app itself has a timeout.
   execute_process(COMMAND "${toolbindir}/DRkill.exe" -pid ${pid} ERROR_QUIET OUTPUT_QUIET)
 endif ()
