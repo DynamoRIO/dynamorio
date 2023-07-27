@@ -286,10 +286,9 @@ check_sane_control_flow()
 #    endif
         };
 
-        if (!run_checker(
-                memrefs, true,
-                { "Branch does not go to the correct target", TID, 3, 0, 2 },
-                "Failed to catch branch not going to its target")) {
+        if (!run_checker(memrefs, true,
+                         { "Branch does not go to the correct target", TID, 3, 0, 2 },
+                         "Failed to catch branch not going to its target")) {
             return false;
         }
     }
@@ -1022,9 +1021,10 @@ check_branch_decoration()
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2),
             gen_instr(TID, /*pc=*/32),
         };
-        if (!run_checker(memrefs, true, 1, 3,
-                         "Indirect branches must be preceded by their targets",
-                         "Failed to catch missing indirect branch target marker"))
+        if (!run_checker(
+                memrefs, true,
+                { "Indirect branches must be preceded by their targets", 1, 3, 0, 2 },
+                "Failed to catch missing indirect branch target marker"))
             return false;
     }
     // Indirect branch target: marker value incorrect.
@@ -1036,7 +1036,8 @@ check_branch_decoration()
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2),
             gen_instr(TID, /*pc=*/33),
         };
-        if (!run_checker(memrefs, true, 1, 5, "Branch does not go to the correct target",
+        if (!run_checker(memrefs, true,
+                         { "Branch does not go to the correct target", 1, 5, 0, 3 },
                          "Failed to catch bad indirect branch target marker"))
             return false;
     }
@@ -1051,7 +1052,8 @@ check_branch_decoration()
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 999),
             gen_instr(TID, /*pc=*/32),
         };
-        if (!run_checker(memrefs, true, 1, 5, "Branch does not go to the correct target",
+        if (!run_checker(memrefs, true,
+                         { "Branch does not go to the correct target", 1, 5, 0, 2 },
                          "Failed to catch bad indirect branch target marker"))
             return false;
     }
@@ -1063,9 +1065,11 @@ check_branch_decoration()
             gen_instr(TID, /*pc=*/1),
             gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, TID, /*pc=*/2),
         };
-        if (!run_checker(memrefs, true, 1, 3,
-                         "The CONDITIONAL_JUMP type is deprecated and should not appear",
-                         "Failed to catch deprecated branch type"))
+        if (!run_checker(
+                memrefs, true,
+                { "The CONDITIONAL_JUMP type is deprecated and should not appear", 1, 3,
+                  0, 2 },
+                "Failed to catch deprecated branch type"))
             return false;
     }
     // Taken branch target: correct.
@@ -1143,7 +1147,8 @@ check_branch_decoration()
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
-        if (!run_checker(memrefs, true, 1, 4, "Branch does not go to the correct target",
+        if (!run_checker(memrefs, true,
+                         { "Branch does not go to the correct target", 1, 4, 0, 2 },
                          "Failed to catch taken branch falling through"))
             return false;
     }
@@ -1171,7 +1176,8 @@ check_branch_decoration()
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
-        if (!run_checker(memrefs, true, 1, 4, "Branch does not go to the correct target",
+        if (!run_checker(memrefs, true,
+                         { "Branch does not go to the correct target", 1, 4, 0, 1 },
                          "Failed to catch taken branch falling through to signal"))
             return false;
     }
@@ -1251,7 +1257,8 @@ check_branch_decoration()
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
-        if (!run_checker(memrefs, true, 1, 4, "Branch does not go to the correct target",
+        if (!run_checker(memrefs, true,
+                         { "Branch does not go to the correct target", 1, 4, 0, 2 },
                          "Failed to catch untaken branch going to taken target"))
             return false;
     }
@@ -1280,7 +1287,7 @@ check_branch_decoration()
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(
-                memrefs, true, 1, 4, "Branch does not go to the correct target",
+                memrefs, true, { "Branch does not go to the correct target", 1, 4, 0, 1 },
                 "Failed to catch untaken branch going to taken target at signal"))
             return false;
     }
@@ -1322,9 +1329,10 @@ check_filter_endpoint()
             gen_exit(TID),
         };
         if (!run_checker(
-                memrefs, true, 1, 6,
-                "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given file "
-                "type",
+                memrefs, true,
+                { "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given file "
+                  "type",
+                  1, 6, 0, 1 },
                 "Failed to catch missing TRACE_MARKER_TYPE_FILTER_ENDPOINT marker"))
             return false;
     }
@@ -1340,8 +1348,9 @@ check_filter_endpoint()
             gen_exit(TID),
         };
         if (!run_checker(
-                memrefs, true, 1, 5,
-                "Found TRACE_MARKER_TYPE_FILTER_ENDPOINT without the correct file type",
+                memrefs, true,
+                { "Found TRACE_MARKER_TYPE_FILTER_ENDPOINT without the correct file type",
+                  1, 5, 0, 0 },
                 "Failed to catch unexpected TRACE_MARKER_TYPE_FILTER_ENDPOINT marker"))
             return false;
     }
