@@ -293,7 +293,9 @@ check_sane_control_flow()
         };
 
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", TID, 3, 0, 2 },
+                         { "Branch does not go to the correct target", /*tid=*/TID,
+                           /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch branch not going to its target")) {
             return false;
         }
@@ -567,7 +569,9 @@ check_rseq()
             gen_instr(TID, 4),
         };
         if (!run_checker(memrefs, true,
-                         { "Rseq post-abort instruction not rolled back", TID, 4, 0, 2 },
+                         { "Rseq post-abort instruction not rolled back", /*tid=*/TID,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch bad rseq abort"))
             return false;
     }
@@ -621,10 +625,11 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ + 1),
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ARG, 2),
         };
-        if (!run_checker(
-                memrefs, true,
-                { "Function marker retaddr should match prior call", TID, 3, 0, 1 },
-                "Failed to catch wrong function retaddr"))
+        if (!run_checker(memrefs, true,
+                         { "Function marker retaddr should match prior call", /*tid=*/TID,
+                           /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch wrong function retaddr"))
             return false;
     }
     // Incorrectly not after a branch with a load in between.
@@ -635,7 +640,9 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
         };
         if (!run_checker(memrefs, true,
-                         { "Function marker should be after a branch", TID, 3, 0, 1 },
+                         { "Function marker should be after a branch", /*tid=*/TID,
+                           /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch function marker after non-branch with load"))
             return false;
     }
@@ -792,10 +799,12 @@ check_false_syscalls()
             { gen_instr(1), move1 }
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
-        if (!run_checker(
-                memrefs, true,
-                { "Syscall instruction not followed by syscall marker", 1, 3, 0, 2 },
-                "Failed to catch syscall without number marker")) {
+        if (!run_checker(memrefs, true,
+                         { "Syscall instruction not followed by syscall marker",
+                           /*tid=*/1,
+                           /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch syscall without number marker")) {
             res = false;
         }
     }
@@ -807,10 +816,12 @@ check_false_syscalls()
             { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
-        if (!run_checker(
-                memrefs, true,
-                { "Syscall marker not placed after syscall instruction", 1, 3, 0, 1 },
-                "Failed to catch misplaced syscall marker")) {
+        if (!run_checker(memrefs, true,
+                         { "Syscall marker not placed after syscall instruction",
+                           /*tid=*/1,
+                           /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch misplaced syscall marker")) {
             res = false;
         }
     }
