@@ -1333,7 +1333,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         set(exe_ops "${exe_ops};-block")
       endif ()
     else ()
-      if ("${runall}" MATCHES "<attach>")
+      if ("${runall}" MATCHES "<attach>" OR "${runall}" MATCHES "<detach>")
+        # For detach we use attachee to attach firstly, and "-detach" option is used
+        # for differentiating between attach and detach.
+        if ("${runall}" MATCHES "<detach>")
+          set(exe_ops "${exe_ops};-detach")
+        endif ()
         # For attach we use attachee, which is identical to infloop, aside for writing
         # a starting message to the output file. This allows us to detect when it is
         # up and running and we can start the attach process.
@@ -1385,6 +1390,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       string(PREPEND nudge_arg "<attach>")
       string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
       # clear client from dr command and run native
+      string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
+    elseif ("${runall}" MATCHES "<detach>")
+      # Move params to nudge.
+      string(REGEX MATCH ";-quiet;(.*);--" nudge_arg "${rundr}")
+      string(REGEX REPLACE ";--" "" nudge_arg "${nudge_arg}")
+      string(PREPEND nudge_arg "<detach>")
+      string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
+      # Clear client from dr command and run native.
       string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
     endif ()
     set(cmd_with_at ${rundr} ${app_path} ${exe_ops})
@@ -2456,6 +2469,9 @@ endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  if (WIN32)
+    tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
+  endif (WIN32)
   if (UNIX)
     # Test attaching during a blocking syscall.
     torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
