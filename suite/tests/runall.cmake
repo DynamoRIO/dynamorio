@@ -213,6 +213,8 @@ elseif ("${nudge}" MATCHES "<attach>")
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
   endif (nudge_result)
 elseif ("${nudge}" MATCHES "<detach>")
+  file(READ "${out}" output)
+  message("${output}")
   set(nudge_cmd run_in_bg)
   string(REGEX REPLACE "<detach>"
     "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@1000"
@@ -279,6 +281,8 @@ elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>"
       message(FATAL_ERROR "Timed out waiting for attach")
     endif ()
   endwhile()
+  file(READ "${out}" output)
+  message("${output}")
   # Wait until thread init.
   set(iters 0)
   while (NOT "${output}" MATCHES "thread init\n")
@@ -290,6 +294,8 @@ elseif ("${orig_nudge}" MATCHES "<attach>" OR "${orig_nudge}" MATCHES "<detach>"
       message(FATAL_ERROR "Timed out waiting for attach")
     endif ()
   endwhile()
+  file(READ "${out}" output)
+  message("${output}")
 else ()
   # for reset or other DR tests there won't be further output
   # so we have to guess how long to wait.
@@ -317,6 +323,8 @@ if ("${orig_nudge}" MATCHES "<detach>")
       message(FATAL_ERROR "Timed out waiting for attach")
     endif ()
   endwhile()
+  file(READ "${out}" output)
+  message("${output}")
 endif()
 
 kill_background_process(OFF)
