@@ -517,32 +517,33 @@ check_rseq()
 {
 #ifdef UNIX
     std::cerr << "Testing rseq\n";
+    constexpr memref_tid_t TID = 1;
     // Roll back rseq final instr.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
-            gen_instr(1, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
+            gen_instr(TID, 1),
             // Rolled back instr at pc=2 size=1.
             // Point to the abort handler.
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 4),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
-            gen_instr(1, 4),
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 4),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(TID, 4),
         };
         if (!run_checker(memrefs, false))
             return false;
     }
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
-            gen_instr(1, 1),
-            gen_instr(1, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
+            gen_instr(TID, 1),
+            gen_instr(TID, 2),
             // A fault in the instrumented execution.
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
-            gen_instr(1, 10),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 11),
-            gen_instr(1, 4),
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(TID, 10),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 11),
+            gen_instr(TID, 4),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -550,15 +551,15 @@ check_rseq()
     // Fail to roll back rseq final instr.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
-            gen_instr(1, 1),
-            gen_instr(1, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 4),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
-            gen_instr(1, 4),
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ENTRY, 3),
+            gen_instr(TID, 1),
+            gen_instr(TID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 4),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_instr(TID, 4),
         };
         if (!run_checker(memrefs, true,
-                         { "Rseq post-abort instruction not rolled back", 1, 4, 0, 2 },
+                         { "Rseq post-abort instruction not rolled back", TID, 4, 0, 2 },
                          "Failed to catch bad rseq abort"))
             return false;
     }
