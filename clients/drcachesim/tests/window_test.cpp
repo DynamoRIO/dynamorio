@@ -30,25 +30,31 @@
  * DAMAGE.
  */
 
+/* Test for multi-window traces where it inserts sleep between windows and
+ * checks that the timestamp for second buffer in a new window is closer to the
+ * previous timestamp than the sleep time.
+ */
+
+#include <assert.h>
 #include <chrono>
+#include <iostream>
+#include <string.h>
 #include <thread>
-#include "dr_api.h"
-#include "drmemtrace/drmemtrace.h"
-#include "drcovlib.h"
 #include "analysis_tool.h"
+#include "dr_api.h"
 #include "scheduler.h"
 #include "tracer/raw2trace.h"
 #include "tracer/raw2trace_directory.h"
-#include <assert.h>
-#include <iostream>
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
 
 namespace dynamorio {
 namespace drmemtrace {
 
+namespace {
+
 constexpr int SECONDS_TO_SLEEP = 4;
+constexpr int SECONDS_TO_TIMESTAMP = 1000000;
+
+} // namespace
 
 bool
 my_setenv(const char *var, const char *value)
@@ -60,40 +66,23 @@ my_setenv(const char *var, const char *value)
 #endif
 }
 
-char
-noargs(void)
-{
-    return 'B';
-}
-
-void
-noret_func(int x, int y)
-{
-    if (x != y)
-        noret_func(x + 1, y);
-}
-
 int
 fib_with_sleep(int n)
 {
-    std::cerr << "Sleeping for " << SECONDS_TO_SLEEP << " seconds\n";
+    std::cout << "Sleeping for " << SECONDS_TO_SLEEP << " seconds\n";
     std::this_thread::sleep_for(std::chrono::seconds(SECONDS_TO_SLEEP));
     if (n <= 1)
         return 1;
-    noret_func(n, n + 1);
-    noargs();
     return fib_with_sleep(n - 1) + fib_with_sleep(n - 2);
 }
 
 static std::string
-post_process(const std::string &out_subdir)
+post_process()
 {
     const char *raw_dir;
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
     assert(mem_res == DRMEMTRACE_SUCCESS);
     std::string outdir = std::string(raw_dir) + DIRSEP + "../trace";
-    std::cerr << "rawdir: " << raw_dir << "\n";
-    std::cerr << "outdir: " << outdir << "\n";
     void *dr_context = dr_standalone_init();
     {
         raw2trace_directory_t dir;
@@ -127,12 +116,11 @@ post_process(const std::string &out_subdir)
 }
 
 static std::string
-gather_trace(const std::string &out_subdir)
+gather_trace()
 {
     std::string dr_ops(
         "-stderr_mask 0xc -client_lib ';;-offline -offline -trace_after_instrs 10000 "
         "-trace_for_instrs 2000 -retrace_every_instrs 1000");
-    std::cerr << "dr_ops: " << dr_ops << "\n";
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
         std::cerr << "failed to set env var!\n";
     dr_app_setup();
@@ -142,41 +130,50 @@ gather_trace(const std::string &out_subdir)
     fib_with_sleep(6);
     dr_app_stop_and_cleanup();
     assert(!dr_app_running_under_dynamorio());
-    return post_process(out_subdir);
+    return post_process();
 }
 
 int
 test_main(int argc, const char *argv[])
 {
-    std::string dir_fib = gather_trace("window.0001");
+    std::string dir = gather_trace();
     void *dr_context = dr_standalone_init();
-    scheduler_t scheduler_fib;
-    std::vector<scheduler_t::input_workload_t> sched_opt_inputs;
-    sched_opt_inputs.emplace_back(dir_fib);
-    if (scheduler_fib.init(sched_opt_inputs, 1,
-                           scheduler_t::make_scheduler_serial_options()) !=
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(dir);
+    if (scheduler.init(sched_inputs, 1, scheduler_t::make_scheduler_serial_options()) !=
         scheduler_t::STATUS_SUCCESS) {
-        std::cerr << "Failed to initialize scheduler " << scheduler_fib.get_error_string()
+        std::cerr << "Failed to initialize scheduler " << scheduler.get_error_string()
                   << "\n";
     }
 
-    auto *stream_fib = scheduler_fib.get_stream(0);
-    uint64_t first_timestamp = 0;
+    auto *stream = scheduler.get_stream(0);
+    uint64_t prior_timestamp = 0;
     while (true) {
-        memref_t memref_fib;
-        scheduler_t::stream_status_t status_fib = stream_fib->next_record(memref_fib);
-        assert(status_fib == scheduler_t::STATUS_OK);
-        if (memref_fib.marker.type == TRACE_TYPE_MARKER &&
-            memref_fib.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
-            if (first_timestamp != 0) {
-                if ((memref_fib.marker.marker_value - first_timestamp) >
-                    SECONDS_TO_SLEEP * 1000000) {
+        memref_t memref;
+        scheduler_t::stream_status_t status = stream->next_record(memref);
+        if (status == scheduler_t::STATUS_EOF) {
+            break;
+        }
+        assert(status == scheduler_t::STATUS_OK);
+        if (memref.marker.type == TRACE_TYPE_MARKER &&
+            memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+            // Looks at the gap between the current and the previous timestamps
+            // and checks if it's less than the sleep added between windows in
+            // the test app. This ensures that a large gap in wall-clock time
+            // introduced during window-tracing doesn't result in timestamps so
+            // far apart that leads to a low activity trace.
+            if (prior_timestamp != 0) {
+                if ((memref.marker.marker_value - prior_timestamp) >
+                    // Timestamps are in microseconds so convert sleep time to
+                    // microseconds.
+                    SECONDS_TO_SLEEP * SECONDS_TO_TIMESTAMP) {
                     std::cerr << "window_test FAILED\n";
                     exit(1);
                 }
                 break;
             }
-            first_timestamp = memref_fib.marker.marker_value;
+            prior_timestamp = memref.marker.marker_value;
         }
     }
     dr_standalone_exit();
