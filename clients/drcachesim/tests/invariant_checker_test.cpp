@@ -1243,6 +1243,66 @@ check_branch_decoration()
     return true;
 }
 
+bool
+check_filter_endpoint()
+{
+    std::cerr << "Testing filter end-point marker and file type\n";
+    static constexpr memref_tid_t TID = 1;
+    // Matching marker and file type: correct.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE,
+                       OFFLINE_FILE_TYPE_IFILTERED |
+                           OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP),
+            gen_marker(TID, TRACE_MARKER_TYPE_INSTRUCTION_COUNT, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0),
+            gen_instr(TID),
+            gen_exit(TID),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Missing TRACE_MARKER_TYPE_FILTER_ENDPOINT marker: incorrect.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE,
+                       OFFLINE_FILE_TYPE_IFILTERED |
+                           OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP),
+            gen_marker(TID, TRACE_MARKER_TYPE_INSTRUCTION_COUNT, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_instr(TID),
+            gen_exit(TID),
+        };
+        if (!run_checker(
+                memrefs, true, 1, 6,
+                "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given file "
+                "type",
+                "Failed to catch missing TRACE_MARKER_TYPE_FILTER_ENDPOINT marker"))
+            return false;
+    }
+    // Unexpected TRACE_MARKER_TYPE_FILTER_ENDPOINT marker: incorrect.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_IFILTERED),
+            gen_marker(TID, TRACE_MARKER_TYPE_INSTRUCTION_COUNT, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_marker(TID, TRACE_MARKER_TYPE_FILTER_ENDPOINT, 0),
+            gen_instr(TID),
+            gen_exit(TID),
+        };
+        if (!run_checker(
+                memrefs, true, 1, 5,
+                "Found TRACE_MARKER_TYPE_FILTER_ENDPOINT without the correct file type",
+                "Failed to catch unexpected TRACE_MARKER_TYPE_FILTER_ENDPOINT marker"))
+            return false;
+    }
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -1250,7 +1310,7 @@ test_main(int argc, const char *argv[])
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
         check_duplicate_syscall_with_same_pc() && check_false_syscalls() &&
         check_rseq_side_exit_discontinuity() && check_schedule_file() &&
-        check_branch_decoration()) {
+        check_branch_decoration() && check_filter_endpoint()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }

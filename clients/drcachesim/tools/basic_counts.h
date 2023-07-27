@@ -182,6 +182,12 @@ public:
         int_least64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
 
+        // Metadata for the counts. These are not used for the equality, increment,
+        // or decrement operation, and must be set explicitly.
+
+        // Count of shards that were combined to produce the above counts.
+        int_least64_t shard_count = 1;
+
         // Stops tracking unique_pc_addrs. Tracking unique_pc_addrs can be very
         // memory intensive. We skip it for interval state snapshots.
         void
