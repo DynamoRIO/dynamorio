@@ -998,10 +998,12 @@ check_schedule_file()
         std::ifstream serial_read(serial_fname, std::ifstream::binary);
         if (!serial_read)
             return false;
-        if (!run_checker(
-                memrefs, true,
-                { "Serial schedule entry does not match trace", TID_BASE + 2, 3, 0, 0 },
-                "Failed to catch incorrect serial schedule entry", &serial_read))
+        if (!run_checker(memrefs, true,
+                         { "Serial schedule entry does not match trace",
+                           /*tid=*/TID_BASE + 2,
+                           /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch incorrect serial schedule entry", &serial_read))
             return false;
     }
 
@@ -1049,10 +1051,12 @@ check_branch_decoration()
             gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2),
             gen_instr(TID, /*pc=*/32),
         };
-        if (!run_checker(
-                memrefs, true,
-                { "Indirect branches must be preceded by their targets", 1, 3, 0, 2 },
-                "Failed to catch missing indirect branch target marker"))
+        if (!run_checker(memrefs, true,
+                         { "Indirect branches must be preceded by their targets",
+                           /*tid=*/TID,
+                           /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch missing indirect branch target marker"))
             return false;
     }
     // Indirect branch target: marker value incorrect.
@@ -1099,8 +1103,10 @@ check_branch_decoration()
         };
         if (!run_checker(
                 memrefs, true,
-                { "The CONDITIONAL_JUMP type is deprecated and should not appear", 1, 3,
-                  0, 2 },
+                { "The CONDITIONAL_JUMP type is deprecated and should not appear",
+                  /*tid=*/TID,
+                  /*ref_ordinal=*/3, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/2 },
                 "Failed to catch deprecated branch type"))
             return false;
     }
@@ -1294,7 +1300,7 @@ check_branch_decoration()
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", /*tid=*/1,
+                         { "Branch does not go to the correct target", /*tid=*/TID,
                            /*ref_ordinal=*/4, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch untaken branch going to taken target"))
@@ -1325,7 +1331,10 @@ check_branch_decoration()
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(
-                memrefs, true, { "Branch does not go to the correct target", 1, 4, 0, 1 },
+                memrefs, true,
+                { "Branch does not go to the correct target", /*tid=*/TID,
+                  /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/1 },
                 "Failed to catch untaken branch going to taken target at signal"))
             return false;
     }
@@ -1369,9 +1378,10 @@ check_filter_endpoint()
         if (!run_checker(
                 memrefs, true,
                 { "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given "
-                  "file "
-                  "type",
-                  1, 6, 0, 1 },
+                  "file type",
+                  /*tid=*/TID,
+                  /*ref_ordinal=*/6, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/1 },
                 "Failed to catch missing TRACE_MARKER_TYPE_FILTER_ENDPOINT marker"))
             return false;
     }
