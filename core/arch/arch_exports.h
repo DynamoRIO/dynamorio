@@ -160,10 +160,6 @@ typedef struct _spill_state_t {
     /* Slot for the stolen register, which is tp.
      * Note that on RISC-V, tp is the thread pointer, and it is also a general-purpose
      * register, so we steal tp to store DR's tls.
-     * But this also introduces another issue, we will lose the original value of tp. So
-     * in insert_load_dr_tls_base() we put the original value of tp into the x0 slot of
-     * the dcontext, and in append_save_gpr() we restore the original value back to tp.
-     * We'll also need to mangle any instructions that use tp.
      */
     reg_t reg_stolen;
 #endif
