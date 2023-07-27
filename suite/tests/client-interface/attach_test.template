@@ -4,8 +4,13 @@ starting attachee
 starting
 #endif
 thank you for testing attach
+#ifdef WINDOWS
+event_post_attach
+thread init
+#else
 thread init
 event_post_attach
+#endif
 #ifdef WINDOWS
 MessageBox closed
 #endif
