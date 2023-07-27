@@ -425,6 +425,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             !shard->found_blocking_marker_ ||
                 TESTANY(OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS, shard->file_type_),
             "Kernel scheduling marker presence does not match filetype");
+        report_if_false(
+            shard,
+            !TESTANY(OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP, shard->file_type_) ||
+                shard->saw_filter_endpoint_marker_,
+            "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given file type");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
@@ -721,6 +726,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
         shard->last_branch_marker_value_ = memref.marker.marker_value;
     }
+
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
+        shard->saw_filter_endpoint_marker_ = true;
+        report_if_false(
+            shard, TESTANY(OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP, shard->file_type_),
+            "Found TRACE_MARKER_TYPE_FILTER_ENDPOINT without the correct file type");
+    }
+
     if (knob_offline_ && shard->trace_version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO) {
         if (type_is_instr_branch(memref.instr.type) &&
             // I-filtered traces don't mark branch targets.
