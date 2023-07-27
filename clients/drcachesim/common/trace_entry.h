@@ -78,8 +78,18 @@ typedef enum {
      * if #OFFLINE_FILE_TYPE_ENCODINGS is set.
      */
     TRACE_ENTRY_VERSION_ENCODINGS = 4,
+    /**
+     * The trace includes branch taken and target information up front.  This means that
+     * conditional branches use either #TRACE_TYPE_INSTR_TAKEN_JUMP or
+     * #TRACE_TYPE_INSTR_UNTAKEN_JUMP and that the target of indirect branches is in a
+     * marker of type #TRACE_MARKER_TYPE_BRANCH_TARGET prior to the indirect branch
+     * instruction entry itself.  This only applies to offline traces whose instructions
+     * are not filtered; online traces, and i-filtered offline traces, even at this
+     * version, do not contain this information.
+     */
+    TRACE_ENTRY_VERSION_BRANCH_INFO = 5,
     /** The latest version of the trace format. */
-    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_ENCODINGS,
+    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_BRANCH_INFO,
 } trace_version_t;
 
 /** The type of a trace entry in a #memref_t structure. */
@@ -127,12 +137,18 @@ typedef enum {
     // Enum value == 10.
     TRACE_TYPE_INSTR, /**< A non-branch instruction. */
     // Particular categories of instructions:
-    TRACE_TYPE_INSTR_DIRECT_JUMP,      /**< A direct unconditional jump instruction. */
-    TRACE_TYPE_INSTR_INDIRECT_JUMP,    /**< An indirect jump instruction. */
-    TRACE_TYPE_INSTR_CONDITIONAL_JUMP, /**< A conditional jump instruction. */
-    TRACE_TYPE_INSTR_DIRECT_CALL,      /**< A direct call instruction. */
-    TRACE_TYPE_INSTR_INDIRECT_CALL,    /**< An indirect call instruction. */
-    TRACE_TYPE_INSTR_RETURN,           /**< A return instruction. */
+    TRACE_TYPE_INSTR_DIRECT_JUMP,   /**< A direct unconditional jump instruction. */
+    TRACE_TYPE_INSTR_INDIRECT_JUMP, /**< An indirect jump instruction. */
+    /**
+     * A direct conditional jump instruction.  \deprecated For offline non-i-filtered
+     * traces, this is deprecated and is only present in versions below
+     * #TRACE_ENTRY_VERSION_BRANCH_INFO.  Newer version used
+     * #TRACE_TYPE_INSTR_TAKEN_JUMP and #TRACE_TYPE_INSTR_UNTAKEN_JUMP instead.
+     */
+    TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
+    TRACE_TYPE_INSTR_DIRECT_CALL,   /**< A direct call instruction. */
+    TRACE_TYPE_INSTR_INDIRECT_CALL, /**< An indirect call instruction. */
+    TRACE_TYPE_INSTR_RETURN,        /**< A return instruction. */
     // These entries describe a bundle of consecutive instruction fetch
     // memory references.  The trace stream always has a single instr fetch
     // prior to instr bundles which the reader can use to obtain the starting PC.
@@ -228,6 +244,17 @@ typedef enum {
     // XXX i#5520: Add to online traces, but under an option since extra
     // encoding entries add runtime overhead.
     TRACE_TYPE_ENCODING,
+
+    /**
+     * A direct conditional jump instruction which was taken.
+     * This is only used in offline non-i-filtered traces.
+     */
+    TRACE_TYPE_INSTR_TAKEN_JUMP,
+    /**
+     * A direct conditional jump instruction which was not taken.
+     * This is only used in offline non-i-filtered traces.
+     */
+    TRACE_TYPE_INSTR_UNTAKEN_JUMP,
 
     // Update trace_type_names[] when adding here.
 } trace_type_t;
@@ -447,9 +474,11 @@ typedef enum {
     TRACE_MARKER_TYPE_RECORD_ORDINAL,
 
     /**
-     * Indicates a point in the trace where filtering ended.
-     * This is currently added by the record_filter tool to annotate when the
-     * warmup part of the trace ends.
+     * Indicates the point in the trace where filtering ended. It is accompanied by
+     * #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP in the file
+     * type. This is added by the record_filter tool and also by the drmemtrace tracer
+     * (with -L0_filter_until_instrs) to annotate when the warmup part of the trace
+     * ended.
      */
     TRACE_MARKER_TYPE_FILTER_ENDPOINT,
 
@@ -496,6 +525,13 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
+    /**
+     * This marker is present just before each indirect branch instruction in offline
+     * non-i-filtered traces.  The marker value holds the actual target of the
+     * branch.
+     */
+    TRACE_MARKER_TYPE_BRANCH_TARGET,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -530,14 +566,16 @@ static inline bool
 type_is_instr(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_INSTR && type <= TRACE_TYPE_INSTR_RETURN) ||
-        type == TRACE_TYPE_INSTR_SYSENTER;
+        type == TRACE_TYPE_INSTR_SYSENTER || type == TRACE_TYPE_INSTR_TAKEN_JUMP ||
+        type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
 }
 
 /** Returns whether the type represents the fetch of a branch instruction. */
 static inline bool
 type_is_instr_branch(const trace_type_t type)
 {
-    return (type >= TRACE_TYPE_INSTR_DIRECT_JUMP && type <= TRACE_TYPE_INSTR_RETURN);
+    return (type >= TRACE_TYPE_INSTR_DIRECT_JUMP && type <= TRACE_TYPE_INSTR_RETURN) ||
+        type == TRACE_TYPE_INSTR_TAKEN_JUMP || type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
 }
 
 /** Returns whether the type represents the fetch of a direct branch instruction. */
@@ -545,14 +583,17 @@ static inline bool
 type_is_instr_direct_branch(const trace_type_t type)
 {
     return type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
-        type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP || type == TRACE_TYPE_INSTR_DIRECT_CALL;
+        type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP ||
+        type == TRACE_TYPE_INSTR_DIRECT_CALL || type == TRACE_TYPE_INSTR_TAKEN_JUMP ||
+        type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
 }
 
 /** Returns whether the type represents the fetch of a conditional branch instruction. */
 static inline bool
 type_is_instr_conditional_branch(const trace_type_t type)
 {
-    return type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP;
+    return type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP ||
+        type == TRACE_TYPE_INSTR_TAKEN_JUMP || type == TRACE_TYPE_INSTR_UNTAKEN_JUMP;
 }
 
 /** Returns whether the type represents a prefetch request. */
@@ -735,15 +776,14 @@ typedef enum {
         OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
     /**
      * Instruction addresses filtered online.
-     * Note: this file type may transition to non-filtered. This transition is indicated
-     * by the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. Each
-     * window (which is indicated by the
-     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID marker) starts out filtered.
-     * This applies to #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_DFILTERED also. Note that
-     * threads that were created after the transition will also have this marker - right
-     * at the beginning.
+     * Note: this file type may transition to non-filtered. If so, the transition is
+     * indicated by the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILTER_ENDPOINT marker
+     * and the #OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP file type. Each window (which is
+     * indicated by the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID marker) starts
+     * out filtered. This applies to #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_DFILTERED
+     * also. Note that threads that were created after the transition will also have this
+     * marker - right at the beginning.
      */
-    /* TODO i#6164: add a new file type for mixed traces. */
     OFFLINE_FILE_TYPE_IFILTERED = 0x80,
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
     OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
@@ -769,6 +809,14 @@ typedef enum {
      * The included kernel traces are in the Intel® Processor Trace format.
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALLS = 0x1000,
+    /**
+     * Partially filtered trace. The initial part up to the
+     * #TRACE_MARKER_TYPE_FILTER_ENDPOINT marker is filtered, and the later part is not.
+     * Look for other filtering-related file types (#OFFLINE_FILE_TYPE_IFILTERED and
+     * #OFFLINE_FILE_TYPE_DFILTERED) to determine how the initial part was filtered.
+     * The initial part can be used by a simulator for warmup.
+     */
+    OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP = 0x2000,
 } offline_file_type_t;
 
 static inline const char *

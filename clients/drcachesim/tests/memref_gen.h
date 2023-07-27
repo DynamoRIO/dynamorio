@@ -73,7 +73,7 @@ gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
 }
 
 inline memref_t
-gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc, size_t size = 1)
+gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc = 1, size_t size = 1)
 {
     memref_t memref = {};
     memref.instr.type = type;
@@ -92,7 +92,7 @@ gen_instr(memref_tid_t tid, addr_t pc = 1, size_t size = 1)
 inline memref_t
 gen_branch(memref_tid_t tid, addr_t pc = 1)
 {
-    return gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
+    return gen_instr_type(TRACE_TYPE_INSTR_UNTAKEN_JUMP, tid, pc);
 }
 
 // We use these client defines which are the target and so drdecode's target arch.
@@ -168,6 +168,7 @@ gen_exit(memref_tid_t tid)
  * field in memref_instr_vec's elements needs to be constructed using DR's IR
  * API for creating instructions. Any PC-relative instr in ilist is encoded as
  * though the final instruction list were located at base_addr.
+ * Markers with instr fields will have their values replaced with the instr's PC.
  */
 std::vector<memref_t>
 add_encodings_to_memrefs(instrlist_t *ilist,
@@ -191,7 +192,11 @@ add_encodings_to_memrefs(instrlist_t *ilist,
             pair.memref.instr.size = instr_size;
             memcpy(pair.memref.instr.encoding, &decode_buf[offset], instr_size);
             pair.memref.instr.encoding_is_new = true;
-        }
+        } else if (pair.memref.marker.type == TRACE_TYPE_MARKER &&
+                   pair.instr != nullptr) {
+            pair.memref.marker.marker_value = instr_get_offset(pair.instr) + base_addr;
+        } else
+            assert(pair.instr == nullptr);
         memrefs.push_back(pair.memref);
     }
     return memrefs;

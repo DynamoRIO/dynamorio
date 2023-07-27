@@ -5178,9 +5178,19 @@ static inline bool
 decode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     const int offset = extract_int(enc, 16, 6);
+    IF_RETURN_FALSE(offset < -32 || offset > 31)
     const reg_id_t rn = decode_reg(extract_uint(enc, 5, 5), true, true);
-    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL_BYTES;
-    *opnd = opnd_create_base_disp(rn, DR_REG_NULL, 0, offset, mem_transfer);
+    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL;
+
+    /* As specified in the AArch64 SVE reference manual for contiguous prefetch
+     * instructions, the immediate index value is a vector index into memory, NOT
+     * an element or byte index. In DynamoRIO's IR, base-displacement operands
+     * should always refer to the address as a base register value + the linear
+     * memory displacement. So when creating the address operand here, it should be
+     * multiplied by the current vector register length in bytes.
+     */
+    int vl_bytes = dr_get_sve_vl() / 8;
+    *opnd = opnd_create_base_disp(rn, DR_REG_NULL, 0, offset * vl_bytes, mem_transfer);
 
     return true;
 }
@@ -5193,9 +5203,21 @@ encode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
     if (!opnd_is_base_disp(opnd) || opnd_get_index(opnd) != DR_REG_NULL ||
         opnd_get_size(opnd) != mem_transfer)
         return false;
+    if (!reg_is_gpr(opnd_get_base(opnd)))
+        return false;
+
+    /* As described in decode_opnd_svemem_gpr_simm6_vl(), disp is a multiple of
+     * vector length at the IR level, transformed to a vector index in the
+     * encoding.
+     */
+    int vl_bytes = dr_get_sve_vl() / 8;
+    if ((opnd_get_disp(opnd) % vl_bytes) != 0)
+        return false;
+    int disp = opnd_get_disp(opnd) / vl_bytes;
+    IF_RETURN_FALSE(disp < -32 || disp > 31)
 
     uint imm6;
-    if (!try_encode_int(&imm6, 6, 0, opnd_get_disp(opnd)))
+    if (!try_encode_int(&imm6, 6, 0, disp))
         return false;
 
     uint rn;
@@ -5302,16 +5324,27 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
 {
     uint simm9 = (extract_uint(enc, 16, 6) << 3) | extract_uint(enc, 10, 3);
     int offset9 = extract_int(simm9, 0, 9);
-    if (offset9 < -256 || offset9 > 255)
-        return false;
+    IF_RETURN_FALSE(offset9 < -256 || offset9 > 255)
 
-    // Transfer size depends on whether we are transferring a Z register or a P register.
-    opnd_size_t memory_transfer_size =
-        TEST(1u << 14, enc) ? OPSZ_SVE_VL_BYTES : OPSZ_SVE_PL_BYTES;
+    bool is_vector = TEST(1u << 14, enc);
 
-    *opnd = opnd_create_base_disp(decode_reg(extract_uint(enc, 5, 5), true, true),
-                                  DR_REG_NULL, 0, offset9, memory_transfer_size);
+    /* Transfer size depends on whether we are transferring a Z or a P register. */
+    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL : OPSZ_SVE_PL;
 
+    /* As specified in the AArch64 SVE reference manual for unpredicated vector
+     * register load LDR and store STR instructions, the immediate index value is a
+     * vector index into memory, NOT an element or byte index. In DynamoRIO's IR,
+     * base-displacement operands should always refer to the address as a base
+     * register value + the linear memory displacement. So when creating the
+     * address operand here, it should be multiplied by the current vector or
+     * predicate register length in bytes.
+     */
+    int vl_bytes = dr_get_sve_vl() / 8;
+    int pl_bytes = vl_bytes / 8;
+    int mul_len = is_vector ? vl_bytes : pl_bytes;
+    *opnd =
+        opnd_create_base_disp(decode_reg(extract_uint(enc, 5, 5), true, true),
+                              DR_REG_NULL, 0, offset9 * mul_len, memory_transfer_size);
     return true;
 }
 
@@ -5323,17 +5356,32 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
     bool is_x;
     uint rn;
 
-    // Transfer size depends on whether we are transferring a Z register or a P register.
-    opnd_size_t memory_transfer_size =
-        TEST(1u << 14, enc) ? OPSZ_SVE_VL_BYTES : OPSZ_SVE_PL_BYTES;
+    bool is_vector = TEST(1u << 14, enc);
+
+    /* Transfer size depends on whether we are transferring a Z or a P register. */
+    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL : OPSZ_SVE_PL;
 
     if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != memory_transfer_size)
         return false;
-    disp = opnd_get_disp(opnd);
-    if (disp < -256 || disp > 255)
-        return false;
-    if (!encode_reg(&rn, &is_x, opnd_get_base(opnd), true) || !is_x)
-        return false;
+    /* As described in decode_opnd_svemem_gpr_simm9_vl(), disp is a multiple of
+     * vector or predicate length at the IR level, transformed to a vector or
+     * predicate index in the encoding.
+     */
+    int vl_bytes = dr_get_sve_vl() / 8;
+    int pl_bytes = vl_bytes / 8;
+    if (is_vector) {
+        if ((opnd_get_disp(opnd) % vl_bytes) != 0)
+            return false;
+    } else {
+        if ((opnd_get_disp(opnd) % pl_bytes) != 0)
+            return false;
+    }
+
+    disp =
+        is_vector ? (opnd_get_disp(opnd) / vl_bytes) : (opnd_get_disp(opnd) / pl_bytes);
+    IF_RETURN_FALSE(disp < -256 || disp > 255)
+    IF_RETURN_FALSE(!encode_reg(&rn, &is_x, opnd_get_base(opnd), true) || !is_x)
+
     *enc_out = (rn << 5) | (BITS(disp, 8, 3) << 16) | (BITS(disp, 2, 0) << 10);
     return true;
 }
