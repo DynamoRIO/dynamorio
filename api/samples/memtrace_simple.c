@@ -121,6 +121,10 @@ static int tls_idx;
 
 #define MINSERT instrlist_meta_preinsert
 
+#ifdef AARCH64
+bool reported_sg_warning = false;
+#endif
+
 static void
 memtrace(void *drcontext)
 {
@@ -320,8 +324,15 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
             /* Memory references involving SVE registers are not supported yet, that work
              * is coming in i#5844.
              */
-            if (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src)))
+            if (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src))) {
+                if (!reported_sg_warning) {
+                    dr_fprintf(STDERR,
+                               "WARNING: Scatter/gather is not supported, results will "
+                               "be inaccurate\n");
+                    reported_sg_warning = true;
+                }
                 continue;
+            }
 #endif
             instrument_mem(drcontext, bb, where, src, false);
         }
@@ -334,8 +345,15 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
             /* Memory references involving SVE registers are not supported yet, that work
              * is coming in i#5844.
              */
-            if (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst)))
+            if (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst))) {
+                if (!reported_sg_warning) {
+                    dr_fprintf(STDERR,
+                               "WARNING: Scatter/gather is not supported, results will "
+                               "be inaccurate\n");
+                    reported_sg_warning = true;
+                }
                 continue;
+            }
 #endif
             instrument_mem(drcontext, bb, where, dst, true);
         }

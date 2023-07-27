@@ -143,10 +143,10 @@ named_pipe_t ipc_pipe;
 instru_t *instru;
 
 static client_id_t client_id;
-void *mutex;            /* for multithread support */
-uint64 num_refs_racy;   /* racy global memory reference count */
+void *mutex;                 /* for multithread support */
+uint64 num_refs_racy;        /* racy global memory reference count */
 uint64 num_filter_refs_racy; /* racy global memory reference count in warmup mode */
-static uint64 num_refs; /* keep a global memory reference count */
+static uint64 num_refs;      /* keep a global memory reference count */
 static uint64 num_writeouts;
 static uint64 num_v2p_writeouts;
 static uint64 num_phys_markers;
@@ -165,6 +165,10 @@ static bool (*should_trace_thread_cb)(thread_id_t tid, void *user_data);
 static void *trace_thread_cb_user_data;
 static bool thread_filtering_enabled;
 bool attached_midway;
+
+#ifdef AARCH64
+bool reported_sg_warning = false;
+#endif
 
 static bool
 bbdup_instr_counting_enabled()
@@ -1295,18 +1299,48 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr_operands); i++) {
-            if (opnd_is_memory_reference(instr_get_src(instr_operands, i))) {
-                adjust = instrument_memref(
-                    drcontext, ud, bb, where, reg_ptr, adjust, instr_operands,
-                    instr_get_src(instr_operands, i), i, false, pred, mode);
+            const opnd_t src = instr_get_src(instr_operands, i);
+            if (opnd_is_memory_reference(src)) {
+#ifdef AARCH64
+                /* Memory references involving SVE registers are not supported yet, that
+                 * work is coming in i#5844.
+                 */
+                if (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src))) {
+                    if (!reported_sg_warning) {
+                        NOTIFY(
+                            0,
+                            "WARNING: Scatter/gather is not supported, results will be "
+                            "inaccurate\n");
+                        reported_sg_warning = true;
+                    }
+                    continue;
+                }
+#endif
+                adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
+                                           instr_operands, src, i, false, pred, mode);
             }
         }
 
         for (i = 0; i < instr_num_dsts(instr_operands); i++) {
-            if (opnd_is_memory_reference(instr_get_dst(instr_operands, i))) {
-                adjust = instrument_memref(
-                    drcontext, ud, bb, where, reg_ptr, adjust, instr_operands,
-                    instr_get_dst(instr_operands, i), i, true, pred, mode);
+            const opnd_t dst = instr_get_dst(instr_operands, i);
+            if (opnd_is_memory_reference(dst)) {
+#ifdef AARCH64
+                /* Memory references involving SVE registers are not supported yet, that
+                 * work is coming in i#5844.
+                 */
+                if (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst))) {
+                    if (!reported_sg_warning) {
+                        NOTIFY(
+                            0,
+                            "WARNING: Scatter/gather is not supported, results will be "
+                            "inaccurate\n");
+                        reported_sg_warning = true;
+                    }
+                    continue;
+                }
+#endif
+                adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
+                                           instr_operands, dst, i, true, pred, mode);
             }
         }
         if (adjust != 0)
