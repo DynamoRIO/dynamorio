@@ -963,10 +963,11 @@ check_schedule_file()
         std::ifstream serial_read(serial_fname, std::ifstream::binary);
         if (!serial_read)
             return false;
-        if (!run_checker(
-                memrefs, true,
-                { "Serial schedule entry count does not match trace", -1, 0, 0, 0 },
-                "Failed to catch incorrect serial schedule count", &serial_read))
+        if (!run_checker(memrefs, true,
+                         { "Serial schedule entry count does not match trace", /*tid=*/-1,
+                           /*ref_ordinal=*/0, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch incorrect serial schedule count", &serial_read))
             return false;
     }
     {
