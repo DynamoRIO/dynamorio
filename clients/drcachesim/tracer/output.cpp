@@ -1001,7 +1001,7 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     }
 
     if (has_tracing_windows()) {
-        min_timestamp = retrace_attached_timestamp.load(std::memory_order_acquire);
+        min_timestamp = retrace_start_timestamp.load(std::memory_order_acquire);
         instru->clamp_unit_header_timestamp(data->buf_base + stamp_offs, min_timestamp);
     }
 
