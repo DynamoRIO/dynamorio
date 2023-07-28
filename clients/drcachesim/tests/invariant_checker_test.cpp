@@ -198,7 +198,7 @@ check_branch_target_after_branch()
             gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, true,
-                         { "Branch target not immediately after branch", /*tid=*/TID,
+                         { "Branch target not immediately after branch", TID,
                            /*ref_ordinal=*/4, /*last_timestamp=*/TIMESTAMP,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch bad branch target position")) {
@@ -236,7 +236,7 @@ check_sane_control_flow()
             gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, true,
-                         { "Non-explicit control flow has no marker", /*tid=*/TID,
+                         { "Non-explicit control flow has no marker", TID,
                            /*ref_ordinal=*/2, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch bad control flow"))
@@ -251,8 +251,8 @@ check_sane_control_flow()
             gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, true,
-                         { "Non-explicit control flow has no marker",
-                           /*tid=*/TID, /*ref_ordinal=*/4, /*last_timestamp=*/3,
+                         { "Non-explicit control flow has no marker", TID,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/3,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch bad control flow")) {
             return false;
@@ -293,7 +293,7 @@ check_sane_control_flow()
         };
 
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", /*tid=*/TID,
+                         { "Branch does not go to the correct target", TID,
                            /*ref_ordinal=*/3, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch branch not going to its target")) {
@@ -512,7 +512,7 @@ check_kernel_xfer()
             gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, true,
-                         { "Signal handler return point incorrect", /*tid=*/TID,
+                         { "Signal handler return point incorrect", TID,
                            /*ref_ordinal=*/5, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/3 },
                          "Failed to catch bad signal handler return"))
@@ -569,7 +569,7 @@ check_rseq()
             gen_instr(TID, 4),
         };
         if (!run_checker(memrefs, true,
-                         { "Rseq post-abort instruction not rolled back", /*tid=*/TID,
+                         { "Rseq post-abort instruction not rolled back", TID,
                            /*ref_ordinal=*/4, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch bad rseq abort"))
@@ -597,8 +597,7 @@ check_function_markers()
             gen_data(1, true, 42, 8),
         };
         if (!run_checker(memrefs, true,
-                         { "Function marker misplaced between instr and memref",
-                           /*tid=*/TID,
+                         { "Function marker misplaced between instr and memref", TID,
                            /*ref_ordinal=*/5, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch misplaced function marker"))
@@ -611,7 +610,7 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
         };
         if (!run_checker(memrefs, true,
-                         { "Function marker should be after a branch", /*tid=*/TID,
+                         { "Function marker should be after a branch", TID,
                            /*ref_ordinal=*/2, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch function marker not after branch"))
@@ -626,7 +625,7 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ARG, 2),
         };
         if (!run_checker(memrefs, true,
-                         { "Function marker retaddr should match prior call", /*tid=*/TID,
+                         { "Function marker retaddr should match prior call", TID,
                            /*ref_ordinal=*/3, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch wrong function retaddr"))
@@ -640,7 +639,7 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
         };
         if (!run_checker(memrefs, true,
-                         { "Function marker should be after a branch", /*tid=*/TID,
+                         { "Function marker should be after a branch", TID,
                            /*ref_ordinal=*/3, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch function marker after non-branch with load"))
@@ -999,8 +998,7 @@ check_schedule_file()
         if (!serial_read)
             return false;
         if (!run_checker(memrefs, true,
-                         { "Serial schedule entry does not match trace",
-                           /*tid=*/TID_BASE + 2,
+                         { "Serial schedule entry does not match trace", TID_BASE + 2,
                            /*ref_ordinal=*/3, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/0 },
                          "Failed to catch incorrect serial schedule entry", &serial_read))
@@ -1052,8 +1050,7 @@ check_branch_decoration()
             gen_instr(TID, /*pc=*/32),
         };
         if (!run_checker(memrefs, true,
-                         { "Indirect branches must be preceded by their targets",
-                           /*tid=*/TID,
+                         { "Indirect branches must be preceded by their targets", TID,
                            /*ref_ordinal=*/3, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch missing indirect branch target marker"))
@@ -1069,7 +1066,7 @@ check_branch_decoration()
             gen_instr(TID, /*pc=*/33),
         };
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", /*tid=*/TID,
+                         { "Branch does not go to the correct target", TID,
                            /*ref_ordinal=*/5, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/3 },
                          "Failed to catch bad indirect branch target marker"))
@@ -1087,7 +1084,7 @@ check_branch_decoration()
             gen_instr(TID, /*pc=*/32),
         };
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", /*tid=*/TID,
+                         { "Branch does not go to the correct target", TID,
                            /*ref_ordinal=*/5, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch bad indirect branch target marker"))
@@ -1103,8 +1100,7 @@ check_branch_decoration()
         };
         if (!run_checker(
                 memrefs, true,
-                { "The CONDITIONAL_JUMP type is deprecated and should not appear",
-                  /*tid=*/TID,
+                { "The CONDITIONAL_JUMP type is deprecated and should not appear", TID,
                   /*ref_ordinal=*/3, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/2 },
                 "Failed to catch deprecated branch type"))
@@ -1300,7 +1296,7 @@ check_branch_decoration()
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", /*tid=*/TID,
+                         { "Branch does not go to the correct target", TID,
                            /*ref_ordinal=*/4, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch untaken branch going to taken target"))
@@ -1332,7 +1328,7 @@ check_branch_decoration()
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(
                 memrefs, true,
-                { "Branch does not go to the correct target", /*tid=*/TID,
+                { "Branch does not go to the correct target", TID,
                   /*ref_ordinal=*/4, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/1 },
                 "Failed to catch untaken branch going to taken target at signal"))
@@ -1379,7 +1375,7 @@ check_filter_endpoint()
                 memrefs, true,
                 { "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given "
                   "file type",
-                  /*tid=*/TID,
+                  TID,
                   /*ref_ordinal=*/6, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/1 },
                 "Failed to catch missing TRACE_MARKER_TYPE_FILTER_ENDPOINT marker"))
