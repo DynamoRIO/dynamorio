@@ -46,6 +46,16 @@ TimerProc(HWND hwnd, UINT msg, UINT_PTR id, DWORD time)
 int
 main(int argc, const char *argv[])
 {
+    int arg_offs = 1;
+    bool for_detach = false;
+    while (arg_offs < argc && argv[arg_offs][0] == '-') {
+        if (strcmp(argv[arg_offs], "-detach") == 0) {
+            for_detach = true;
+            arg_offs++;
+        } else
+            return 1;
+    }
+
     /* We put the pid into the title so that tools/closewnd can target it
      * uniquely when run in a parallel test suite.
      * runall.cmake assumes this precise title.
@@ -57,6 +67,8 @@ main(int argc, const char *argv[])
 
     print("starting attachee\n");
     MessageBoxA(NULL, "DynamoRIO test: will be auto-closed", title, MB_OK);
-    print("MessageBox closed\n");
+    if (!for_detach) {
+        print("MessageBox closed\n");
+    }
     return 0;
 }
