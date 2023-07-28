@@ -268,6 +268,10 @@ proc_set_feature(feature_bit_t f, bool enable)
         freg_val = &cpu_info.features.flags_aa64zfr0;
         break;
     }
+    case AA64PFR1: {
+        freg_val = &cpu_info.features.flags_aa64pfr1;
+        break;
+    }
     default: CLIENT_ASSERT(false, "proc_has_feature: invalid feature register");
     }
 
@@ -292,7 +296,8 @@ enable_all_test_cpu_features()
         FEATURE_SPE,    FEATURE_PAUTH,      FEATURE_LRCPC,   FEATURE_LRCPC2,
         FEATURE_BF16,   FEATURE_I8MM,       FEATURE_F64MM,   FEATURE_FlagM,
         FEATURE_JSCVT,  FEATURE_DPB,        FEATURE_DPB2,    FEATURE_SVE2,
-        FEATURE_SVEAES, FEATURE_SVEBitPerm, FEATURE_SVESHA3, FEATURE_SVESM4
+        FEATURE_SVEAES, FEATURE_SVEBitPerm, FEATURE_SVESHA3, FEATURE_SVESM4,
+        FEATURE_MTE
     };
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
         proc_set_feature(features[i], true);

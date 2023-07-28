@@ -324,7 +324,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
             /* Memory references involving SVE registers are not supported yet, that work
              * is coming in i#5844.
              */
-            if (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src))) {
+            if (opnd_is_base_disp(src) &&
+                (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src)))) {
                 if (!reported_sg_warning) {
                     dr_fprintf(STDERR,
                                "WARNING: Scatter/gather is not supported, results will "
@@ -345,7 +346,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
             /* Memory references involving SVE registers are not supported yet, that work
              * is coming in i#5844.
              */
-            if (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst))) {
+            if (opnd_is_base_disp(dst) &&
+                (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst)))) {
                 if (!reported_sg_warning) {
                     dr_fprintf(STDERR,
                                "WARNING: Scatter/gather is not supported, results will "
