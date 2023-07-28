@@ -78,8 +78,10 @@ invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
 {
     if (!condition) {
         std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
-                  << shard->stream->get_record_ordinal() << ": " << invariant_name
-                  << "\n";
+                  << shard->stream->get_record_ordinal() << " ("
+                  << shard->instr_count_since_last_timestamp_
+                  << " instrs since timestamp " << shard->last_timestamp_
+                  << "): " << invariant_name << "\n";
         abort();
     }
 }
@@ -135,8 +137,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     // per-shard counts for error reporting; XXX: we could add our own global
     // counts to compare to the serial stream).
     ++shard->ref_count_;
-    if (type_is_instr(memref.instr.type))
+    if (type_is_instr(memref.instr.type)) {
         ++shard->instr_count_;
+        ++shard->instr_count_since_last_timestamp_;
+    }
     // XXX: We also can't verify counts with a skip invoked from the middle, but
     // we have no simple way to detect that here.
     if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && shard->stream != nullptr &&
@@ -602,6 +606,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         shard->last_timestamp_ = memref.marker.marker_value;
         shard->saw_timestamp_but_no_instr_ = true;
+        // Reset this since we just saw a timestamp marker.
+        shard->instr_count_since_last_timestamp_ = 0;
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                       << " timestamp " << memref.marker.marker_value << "\n";
