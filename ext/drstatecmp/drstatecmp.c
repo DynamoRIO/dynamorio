@@ -617,7 +617,7 @@ drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc
 #endif
 
     drstatecmp_check_gpr_value("xsp", tag, mc_instrumented->xsp, mc_expected->xsp);
-    for (int i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+    for (int i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
         drstatecmp_check_simd_value(tag, &mc_instrumented->simd[i],
                                     &mc_expected->simd[i]);
     }

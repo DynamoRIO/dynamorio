@@ -135,7 +135,7 @@
      * all.  We do not need anything more than word alignment for OP_vldm/OP_vstm,
      * and dr_simd_t has no fields larger than 32 bits, so we have no padding.
      */
-    dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
+    dr_simd_t simd[MCXT_NUM_SIMD_SVE_SLOTS];
 #    ifdef X64 /* 64-bit */
     dr_simd_t svep[MCXT_NUM_SVEP_SLOTS];
     dr_simd_t ffr;

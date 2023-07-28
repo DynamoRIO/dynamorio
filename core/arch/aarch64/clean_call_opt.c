@@ -183,7 +183,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     memset(ci->reg_used, 0, sizeof(bool) * DR_NUM_GPR_REGS);
     ci->num_simd_used = 0;
     /* num_opmask_used is not applicable to ARM/AArch64. */
-    memset(ci->simd_used, 0, sizeof(bool) * MCXT_NUM_SIMD_SVE_SLOTS);
+    memset(ci->simd_used, 0, sizeof(bool) * MCXT_NUM_SIMD_SLOTS);
     ci->write_flags = false;
 
     num_regparm = MIN(ci->num_args, NUM_REGPARM);
@@ -212,7 +212,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         }
 
         /* SIMD/SVE register usage. */
-        for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+        for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
             if (!ci->simd_used[i] &&
                 instr_uses_reg(instr,
                                (proc_has_feature(FEATURE_SVE) ? DR_REG_Z0 : DR_REG_Q0) +
@@ -227,9 +227,9 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 
         if (proc_has_feature(FEATURE_SVE)) {
             /* SVE predicate register usage */
-            for (i = MCXT_NUM_SIMD_SLOTS; i < (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS);
-                 i++) {
-                const uint reg_idx = i - MCXT_NUM_SIMD_SLOTS;
+            for (i = MCXT_NUM_SIMD_SVE_SLOTS;
+                 i < (MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS); i++) {
+                const uint reg_idx = i - MCXT_NUM_SIMD_SVE_SLOTS;
                 if (!ci->simd_used[i] &&
                     instr_uses_reg(instr, DR_REG_P0 + (reg_id_t)reg_idx)) {
                     LOG(THREAD, LOG_CLEANCALL, 2,
@@ -241,7 +241,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
             }
 
             /* SVE FFR register usage */
-            const uint ffr_index = MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS;
+            const uint ffr_index = MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS;
             if (!ci->simd_used[ffr_index] && instr_uses_reg(instr, DR_REG_FFR)) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee " PFX " uses FFR at " PFX "\n", ci->start,

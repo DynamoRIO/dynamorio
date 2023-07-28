@@ -434,9 +434,7 @@ typedef struct _clean_call_info_t {
     bool skip_save_flags;
     bool skip_clear_flags;
     int num_simd_skip;
-#if defined(AARCH64)
-    bool simd_skip[MCXT_NUM_SIMD_SVE_SLOTS];
-#else
+#if defined(AARCHXX)
     bool simd_skip[MCXT_NUM_SIMD_SLOTS];
 #endif
 #ifdef X86
@@ -1509,9 +1507,7 @@ typedef struct _callee_info_t {
     /* SIMD ([xyz]mm) registers usage. Part of the array might be left
      * uninitialized if proc_num_simd_registers() < MCXT_NUM_SIMD_SLOTS.
      */
-#if defined(AARCH64)
-    bool simd_used[MCXT_NUM_SIMD_SVE_SLOTS];
-#else
+#if defined(AARCHXX)
     bool simd_used[MCXT_NUM_SIMD_SLOTS];
 #endif
 #ifdef X86

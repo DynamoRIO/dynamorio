@@ -287,7 +287,7 @@ mcontexts_equal(dr_mcontext_t *mc_a, dr_mcontext_t *mc_b, int func_index)
     }
 #elif defined(AARCH64)
     size_t vl = proc_get_vector_length_bytes();
-    for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+    for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
         if (memcmp(&mc_a->simd[i], &mc_b->simd[i], vl) != 0)
             return false;
     }
@@ -356,14 +356,14 @@ dump_diff_mcontexts(void)
         const size_t mmsz = proc_get_vector_length_bytes();
         dr_simd_t before_reg, after_reg;
         char reg_name[4];
-        if (i >= (MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS)) {
+        if (i >= (MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS)) {
             strcpy(reg_name, "FFR");
             before_reg = before_mcontext.ffr;
             after_reg = after_mcontext.ffr;
-        } else if (i >= MCXT_NUM_SIMD_SLOTS) {
-            dr_snprintf(reg_name, 4, "P%2d", i - MCXT_NUM_SIMD_SLOTS);
-            before_reg = before_mcontext.svep[i - MCXT_NUM_SIMD_SLOTS];
-            after_reg = after_mcontext.svep[i - MCXT_NUM_SIMD_SLOTS];
+        } else if (i >= MCXT_NUM_SIMD_SVE_SLOTS) {
+            dr_snprintf(reg_name, 4, "P%2d", i - MCXT_NUM_SIMD_SVE_SLOTS);
+            before_reg = before_mcontext.svep[i - MCXT_NUM_SIMD_SVE_SLOTS];
+            after_reg = after_mcontext.svep[i - MCXT_NUM_SIMD_SVE_SLOTS];
         } else {
             dr_snprintf(reg_name, 4, "Z%2d", i);
             before_reg = before_mcontext.simd[i];

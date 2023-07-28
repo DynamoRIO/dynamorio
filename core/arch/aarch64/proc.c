@@ -153,8 +153,8 @@ get_processor_specific_info(void)
 void
 proc_init_arch(void)
 {
-    num_simd_saved = MCXT_NUM_SIMD_SLOTS;
-    num_simd_registers = MCXT_NUM_SIMD_SLOTS;
+    num_simd_saved = MCXT_NUM_SIMD_SVE_SLOTS;
+    num_simd_registers = MCXT_NUM_SIMD_SVE_SLOTS;
     num_svep_registers = MCXT_NUM_SVEP_SLOTS;
     num_ffr_registers = MCXT_NUM_FFR_SLOTS;
     num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;

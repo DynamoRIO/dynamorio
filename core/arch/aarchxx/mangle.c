@@ -163,7 +163,7 @@ insert_save_or_restore_gpr_simd_registers(
     ASSERT(rtype == GPR_REG_TYPE || rtype == SIMD_REG_TYPE);
 
     uint i, reg1 = UINT_MAX,
-            num_regs = (rtype == GPR_REG_TYPE) ? 30 : MCXT_NUM_SIMD_SLOTS;
+            num_regs = (rtype == GPR_REG_TYPE) ? 30 : MCXT_NUM_SIMD_SVE_SLOTS;
     uint saved_regs = 0;
     instr_t *new_instr;
     /* Use stp/ldp to save/restore as many register pairs to memory, skipping
@@ -239,7 +239,7 @@ insert_save_or_restore_svep_registers(
 {
     uint i, saved_regs = 0;
     for (i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
-        if (reg_skip != NULL && reg_skip[MCXT_NUM_SIMD_SLOTS + i])
+        if (reg_skip != NULL && reg_skip[MCXT_NUM_SIMD_SVE_SLOTS + i])
             continue;
 
         opnd_t mem =
@@ -268,7 +268,7 @@ insert_save_or_restore_sve_registers(
 
     // SVE Z registers
     uint i, saved_regs = 0;
-    for (i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+    for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
         if (reg_skip != NULL && reg_skip[i])
             continue;
 
@@ -277,7 +277,7 @@ insert_save_or_restore_sve_registers(
         /* disp should never be greater than MAX_SVE_STR_OFFSET because it
          * is the immediate multiplied by the current vector register size
          * in bytes: STR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}] and we only go up
-         * MCXT_NUM_SIMD_SLOTS registers.
+         * MCXT_NUM_SIMD_SVE_SLOTS registers.
          */
         ASSERT(opnd_get_disp(mem) / proc_get_vector_length_bytes() <= MAX_SVE_STR_OFFSET);
         PRE(ilist, instr, create_load_or_store_instr(dcontext, DR_REG_Z0 + i, mem, save));
@@ -287,7 +287,7 @@ insert_save_or_restore_sve_registers(
     /* add base_reg, base_reg, #(SVE register offset) */
     PRE(ilist, instr,
         XINST_CREATE_add(dcontext, opnd_create_reg(base_reg),
-                         OPND_CREATE_INT16(MCXT_NUM_SIMD_SLOTS * sizeof(dr_simd_t))));
+                         OPND_CREATE_INT16(MCXT_NUM_SIMD_SVE_SLOTS * sizeof(dr_simd_t))));
 
     /* The FFR register cannot be loaded directly into the base as the ld/str register has
      * to be a predicate.  Which means that the FFR saving has to be after the predicates,
@@ -304,7 +304,7 @@ insert_save_or_restore_sve_registers(
      * - Restore preds
      */
     const bool handle_ffr =
-        reg_skip == NULL || !reg_skip[MCXT_NUM_SIMD_SLOTS + MCXT_NUM_SVEP_SLOTS];
+        reg_skip == NULL || !reg_skip[MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS];
     // SVE P and FFR registers.
     if (save) {
         insert_save_or_restore_svep_registers(dcontext, ilist, instr, reg_skip, base_reg,
@@ -446,7 +446,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
 #ifdef AARCH64
     ASSERT(proc_num_simd_registers() ==
-           (MCXT_NUM_SIMD_SLOTS +
+           (MCXT_NUM_SIMD_SVE_SLOTS +
             (proc_has_feature(FEATURE_SVE) ? (MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
                                            : 0)));
 
@@ -565,7 +565,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                               DR_REG_Q0, SIMD_REG_TYPE);
     }
 
-    dstack_offs += MCXT_NUM_SIMD_SVE_SLOTS * sizeof(dr_simd_t);
+    dstack_offs += MCXT_NUM_SIMD_SLOTS * sizeof(dr_simd_t);
 
     /* Restore the registers we used. */
     /* ldp x0, x1, [sp] */
@@ -587,7 +587,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                             SIMD_REG_LIST_0_15));
 
     dstack_offs += proc_num_simd_registers() * sizeof(dr_simd_t);
-    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SVE_SLOTS);
 
     /* pc and aflags */
     if (cci->skip_save_flags) {
@@ -678,8 +678,8 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                           opnd_create_reg(DR_REG_SP)));
 
-    current_offs = get_clean_call_switch_stack_size() -
-        (MCXT_NUM_SIMD_SVE_SLOTS * sizeof(dr_simd_t));
+    current_offs =
+        get_clean_call_switch_stack_size() - (MCXT_NUM_SIMD_SLOTS * sizeof(dr_simd_t));
 
     /* add x0, x0, current_offs */
     PRE(ilist, instr,
