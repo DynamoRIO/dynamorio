@@ -54,7 +54,7 @@ struct error_info_t {
     uint64_t last_timestamp;
     uint64_t instrs_since_last_timestamp;
 
-    const bool
+    bool
     operator!=(const error_info_t &rhs) const
     {
         return rhs.invariant_name != invariant_name || rhs.tid != tid ||
@@ -73,8 +73,7 @@ public:
         : invariant_checker_t(offline, 1, "invariant_checker_test", serial_schedule_file)
     {
     }
-
-    std::vector<error_info_t> errors;
+    std::vector<error_info_t> errors_;
 
     bool
     print_results() override
@@ -94,9 +93,9 @@ protected:
                       << " @ ref # " << shard->ref_count_ << " ("
                       << shard->instr_count_since_last_timestamp_
                       << " instrs since timestamp " << shard->last_timestamp_ << ")\n";
-            errors.push_back({ invariant_name, shard->tid_, shard->ref_count_,
-                               shard->last_timestamp_,
-                               shard->instr_count_since_last_timestamp_ });
+            errors_.push_back({ invariant_name, shard->tid_, shard->ref_count_,
+                                shard->last_timestamp_,
+                                shard->instr_count_since_last_timestamp_ });
         }
     }
 };
@@ -116,12 +115,13 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         }
         checker.print_results();
         if (expect_error) {
-            if (checker.errors.size() != 1 || expected_error_info != checker.errors[0]) {
+            if (checker.errors_.size() != 1 ||
+                expected_error_info != checker.errors_[0]) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
-        } else if (!checker.errors.empty()) {
-            for (auto &error : checker.errors) {
+        } else if (!checker.errors_.empty()) {
+            for (auto &error : checker.errors_) {
                 std::cerr << "Unexpected error: " << error.invariant_name
                           << " at ref: " << error.ref_ordinal << "\n";
             }
@@ -156,12 +156,13 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         checker.parallel_shard_exit(shard3);
         checker.print_results();
         if (expect_error) {
-            if (checker.errors.size() != 1 || checker.errors[0] != expected_error_info) {
+            if (checker.errors_.size() != 1 ||
+                checker.errors_[0] != expected_error_info) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
-        } else if (!checker.errors.empty()) {
-            for (auto &error : checker.errors) {
+        } else if (!checker.errors_.empty()) {
+            for (auto &error : checker.errors_) {
                 std::cerr << "Unexpected error: " << error.invariant_name
                           << " at ref: " << error.ref_ordinal << "\n";
             }
