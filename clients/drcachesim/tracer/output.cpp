@@ -984,16 +984,16 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
         header_size > buf_hdr_slots_size ? header_size - buf_hdr_slots_size : 0;
     uint64 min_timestamp;
     if (align_attach_detach_endpoints()) {
+        // This is the attach counterpart to instru_t::set_frozen_timestamp(): we place
+        // timestamps at buffer creation, but that can be before we're fully attached.
+        // We update any too-early timestamps to reflect when we actually started
+        // tracing.  (Switching back to timestamps at buffer output is actually
+        // worse as we then have the identical frozen timestamp for all the flushes
+        // during detach, plus they are all on the same cpu too.)
         min_timestamp = attached_timestamp.load(std::memory_order_acquire);
-        // This is the attach counterpart to instru_t::set_frozen_timestamp(): we
-        // place timestamps at buffer creation, but that can be before we're fully
-        // attached. We update any too-early timestamps to reflect when we actually
-        // started tracing.  (Switching back to timestamps at buffer output is
-        // actually worse as we then have the identical frozen timestamp for all the
-        // flushes during detach, plus they are all on the same cpu too.)
         if (min_timestamp == 0) {
             // This data is too early: we drop it.
-            NOTIFY(0, "Dropping too-early data for T%zd\n", dr_get_thread_id(drcontext));
+            NOTIFY(1, "Dropping too-early data for T%zd\n", dr_get_thread_id(drcontext));
             BUF_PTR(data->seg_base) = data->buf_base + header_size;
             return;
         }
@@ -1121,7 +1121,6 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     }
 
     if (do_write) {
-
         if (op_L0_filter_until_instrs.get_value() && mode == BBDUP_MODE_L0_FILTER) {
             uintptr_t toadd =
                 *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
