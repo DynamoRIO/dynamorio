@@ -39,6 +39,8 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+extern std::atomic<uint64> retrace_attached_timestamp;
+
 dr_emit_flags_t
 event_inscount_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                            bool translating, void **user_data);

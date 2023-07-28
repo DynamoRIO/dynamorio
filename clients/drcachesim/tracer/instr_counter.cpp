@@ -67,6 +67,7 @@ static uint64 instr_count;
 #define DELAY_FOREVER_THRESHOLD (1024 * 1024 * 1024)
 
 static std::atomic<bool> reached_trace_after_instrs;
+std::atomic<uint64> retrace_attached_timestamp;
 
 static bool
 has_instr_count_threshold_to_enable_tracing()
@@ -121,14 +122,14 @@ hit_instr_count_threshold(app_pc next_pc)
         dr_mutex_unlock(mutex);
         return;
     }
-    auto timestamp = instru_t::get_timestamp();
-    instru_t::set_attached_timestamp(timestamp);
     if (op_trace_after_instrs.get_value() > 0 &&
         !reached_trace_after_instrs.load(std::memory_order_acquire))
         NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
     else {
         NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
                tracing_window.load(std::memory_order_acquire));
+        auto timestamp = instru_t::get_timestamp();
+        retrace_attached_timestamp.store(timestamp);
         if (op_offline.get_value())
             open_new_window_dir(tracing_window.load(std::memory_order_acquire));
     }

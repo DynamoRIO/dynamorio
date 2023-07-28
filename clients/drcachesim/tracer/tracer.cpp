@@ -118,6 +118,8 @@ size_t trace_buf_size;
 size_t redzone_size;
 size_t max_buf_size;
 
+std::atomic<uint64> attached_timestamp;
+
 static drvector_t scratch_reserve_vec;
 
 /* per bb user data during instrumentation */
@@ -450,7 +452,7 @@ event_post_attach()
     if (!align_attach_detach_endpoints())
         return;
     uint64 timestamp = instru_t::get_timestamp();
-    instru_t::set_attached_timestamp(timestamp);
+    attached_timestamp.store(timestamp, std::memory_order_release);
     NOTIFY(1, "Fully-attached timestamp is " UINT64_FORMAT_STRING "\n", timestamp);
     if (op_trace_after_instrs.get_value() != 0) {
         NOTIFY(1, "Switching to counting mode after attach\n");
