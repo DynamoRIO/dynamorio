@@ -69,7 +69,7 @@ my_setenv(const char *var, const char *value)
 int
 fib_with_sleep(int n)
 {
-    std::cout << "Sleeping for " << SECONDS_TO_SLEEP << " seconds\n";
+    std::cerr << "Sleeping for " << SECONDS_TO_SLEEP << " seconds\n";
     std::this_thread::sleep_for(std::chrono::seconds(SECONDS_TO_SLEEP));
     if (n <= 1)
         return 1;
