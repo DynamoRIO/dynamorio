@@ -69,6 +69,7 @@ my_setenv(const char *var, const char *value)
 int
 fib_with_sleep(int n)
 {
+    dr_fprintf(STDERR, "Calculating fibonacci of: %d\n", n);
     std::this_thread::sleep_for(std::chrono::seconds(SECONDS_TO_SLEEP));
     if (n <= 1)
         return 1;
