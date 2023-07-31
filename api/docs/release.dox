@@ -183,6 +183,9 @@ changes:
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
    for the specified instruction count before switching to full instruction tracing.
+   Such bimodal filtered traces have #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP
+   in their file type, and a #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILTER_ENDPOINT marker
+   at the point in the trace when filtering ended.
  - Added AArchXX support for attaching to a running process.
  - Added new fields analyze_case_ex and instrument_instr_ex to #drbbdup_options_t.
  - Added drbbdup support to drwrap via #DRWRAP_INVERT_CONTROL, drwrap_invoke_insert(),

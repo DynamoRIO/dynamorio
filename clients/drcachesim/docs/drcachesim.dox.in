@@ -48,9 +48,10 @@ multiple processes each with multiple threads.  The analysis tool framework
 is extensible, supporting the creation of new tools which can operate both
 online and offline.
 
-\b News: There are some new features coming to drmemtrace traces:
-embedded instruction encodings and fast seeking.  Please see the
-[slides introducing these features](docs/new-features-encodings-seek.pdf).
+\b News: There are some new features in drmemtrace traces: conditional
+branches are now marked as taken or untaken, and indirect branch
+targets are provided up front.  These join the recent features of
+[embedded instruction encodings and fast seeking](docs/new-features-encodings-seek.pdf).
 
  - \subpage sec_drcachesim
  - \subpage sec_drcachesim_format
@@ -136,9 +137,13 @@ copies of the binaries and reading the raw bytes for each instruction
 in order to obtain the opcode and full operand information.
 See also \ref sec_drcachesim_core.
 
-Branch targets are also not explicitly recorded (a design decision). The executed target
-as well as branch direction can be obtained by examining the address of the instruction
-immediately following a branch. If the program flow is changed by the kernel such as by
+Whether conditional branches are taken or untaken is indicated by the
+instruction types #dynamorio::drmemtrace::TRACE_TYPE_INSTR_TAKEN_JUMP
+and #dynamorio::drmemtrace::TRACE_TYPE_INSTR_UNTAKEN_JUMP.  The target
+of each indirect branch is explicitly provided by a metadata marker
+record of type #dynamorio::drmemtrace::TRACE_MARKER_TYPE_BRANCH_TARGET
+just prior to the branch record itself.
+If the program flow is changed by the kernel such as by
 signal delivery, the branch target is explicitly recorded in the trace in a metadata
 marker entry of type #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT.
 

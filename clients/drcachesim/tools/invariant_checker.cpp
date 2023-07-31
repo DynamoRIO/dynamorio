@@ -78,8 +78,10 @@ invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
 {
     if (!condition) {
         std::cerr << "Trace invariant failure in T" << shard->tid_ << " at ref # "
-                  << shard->stream->get_record_ordinal() << ": " << invariant_name
-                  << "\n";
+                  << shard->stream->get_record_ordinal() << " ("
+                  << shard->instr_count_since_last_timestamp_
+                  << " instrs since timestamp " << shard->last_timestamp_
+                  << "): " << invariant_name << "\n";
         abort();
     }
 }
@@ -135,8 +137,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     // per-shard counts for error reporting; XXX: we could add our own global
     // counts to compare to the serial stream).
     ++shard->ref_count_;
-    if (type_is_instr(memref.instr.type))
+    if (type_is_instr(memref.instr.type)) {
         ++shard->instr_count_;
+        ++shard->instr_count_since_last_timestamp_;
+    }
     // XXX: We also can't verify counts with a skip invoked from the middle, but
     // we have no simple way to detect that here.
     if (shard->instr_count_ <= 1 && !shard->skipped_instrs_ && shard->stream != nullptr &&
@@ -425,6 +429,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             !shard->found_blocking_marker_ ||
                 TESTANY(OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS, shard->file_type_),
             "Kernel scheduling marker presence does not match filetype");
+        report_if_false(
+            shard,
+            !TESTANY(OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP, shard->file_type_) ||
+                shard->saw_filter_endpoint_marker_,
+            "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given file type");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
@@ -597,6 +606,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         shard->last_timestamp_ = memref.marker.marker_value;
         shard->saw_timestamp_but_no_instr_ = true;
+        // Reset this since we just saw a timestamp marker.
+        shard->instr_count_since_last_timestamp_ = 0;
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                       << " timestamp " << memref.marker.marker_value << "\n";
@@ -703,6 +714,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
         shard->last_branch_marker_value_ = memref.marker.marker_value;
     }
+
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
+        shard->saw_filter_endpoint_marker_ = true;
+        report_if_false(
+            shard, TESTANY(OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP, shard->file_type_),
+            "Found TRACE_MARKER_TYPE_FILTER_ENDPOINT without the correct file type");
+    }
+
     if (knob_offline_ && shard->trace_version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO) {
         if (type_is_instr_branch(memref.instr.type) &&
             // I-filtered traces don't mark branch targets.

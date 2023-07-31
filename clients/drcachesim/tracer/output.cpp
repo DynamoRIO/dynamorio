@@ -174,6 +174,10 @@ get_file_type()
         file_type =
             static_cast<offline_file_type_t>(file_type | OFFLINE_FILE_TYPE_DFILTERED);
     }
+    if (op_L0_filter_until_instrs.get_value()) {
+        file_type = static_cast<offline_file_type_t>(
+            file_type | OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP);
+    }
     if (op_disable_optimizations.get_value()) {
         file_type = static_cast<offline_file_type_t>(file_type |
                                                      OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);

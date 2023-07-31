@@ -474,9 +474,11 @@ typedef enum {
     TRACE_MARKER_TYPE_RECORD_ORDINAL,
 
     /**
-     * Indicates a point in the trace where filtering ended.
-     * This is currently added by the record_filter tool to annotate when the
-     * warmup part of the trace ends.
+     * Indicates the point in the trace where filtering ended. It is accompanied by
+     * #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP in the file
+     * type. This is added by the record_filter tool and also by the drmemtrace tracer
+     * (with -L0_filter_until_instrs) to annotate when the warmup part of the trace
+     * ended.
      */
     TRACE_MARKER_TYPE_FILTER_ENDPOINT,
 
@@ -774,15 +776,14 @@ typedef enum {
         OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
     /**
      * Instruction addresses filtered online.
-     * Note: this file type may transition to non-filtered. This transition is indicated
-     * by the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. Each
-     * window (which is indicated by the
-     * #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID marker) starts out filtered.
-     * This applies to #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_DFILTERED also. Note that
-     * threads that were created after the transition will also have this marker - right
-     * at the beginning.
+     * Note: this file type may transition to non-filtered. If so, the transition is
+     * indicated by the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILTER_ENDPOINT marker
+     * and the #OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP file type. Each window (which is
+     * indicated by the #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID marker) starts
+     * out filtered. This applies to #dynamorio::drmemtrace::OFFLINE_FILE_TYPE_DFILTERED
+     * also. Note that threads that were created after the transition will also have this
+     * marker - right at the beginning.
      */
-    /* TODO i#6164: add a new file type for mixed traces. */
     OFFLINE_FILE_TYPE_IFILTERED = 0x80,
     OFFLINE_FILE_TYPE_DFILTERED = 0x100, /**< Data addresses filtered online. */
     OFFLINE_FILE_TYPE_ENCODINGS = 0x200, /**< Instruction encodings are included. */
@@ -808,6 +809,14 @@ typedef enum {
      * The included kernel traces are in the Intel® Processor Trace format.
      */
     OFFLINE_FILE_TYPE_KERNEL_SYSCALLS = 0x1000,
+    /**
+     * Partially filtered trace. The initial part up to the
+     * #TRACE_MARKER_TYPE_FILTER_ENDPOINT marker is filtered, and the later part is not.
+     * Look for other filtering-related file types (#OFFLINE_FILE_TYPE_IFILTERED and
+     * #OFFLINE_FILE_TYPE_DFILTERED) to determine how the initial part was filtered.
+     * The initial part can be used by a simulator for warmup.
+     */
+    OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP = 0x2000,
 } offline_file_type_t;
 
 static inline const char *
