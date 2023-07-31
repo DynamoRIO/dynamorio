@@ -587,7 +587,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                             SIMD_REG_LIST_0_15));
 
     dstack_offs += proc_num_simd_registers() * sizeof(dr_simd_t);
-    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SVE_SLOTS);
+    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
 
     /* pc and aflags */
     if (cci->skip_save_flags) {
