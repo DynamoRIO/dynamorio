@@ -1410,22 +1410,23 @@ check_filter_endpoint()
 bool
 check_timestamps_increase_monotonically(void)
 {
-    // Positive test: timestamps increase monotonically.
+    static constexpr memref_tid_t TID = 1;
+    // Correct: timestamps increase monotonically.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 10),
         };
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Negative test: timestamp does not increase monotonically.
+    // Incorrect: timestamp does not increase monotonically.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 5),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 5),
         };
         if (!run_checker(memrefs, true,
                          { "Timestamp does not increase monotonically",
@@ -1437,14 +1438,14 @@ check_timestamps_increase_monotonically(void)
             return false;
     }
 #ifdef X86_32
-    // Positive test: timestamp rollovers.
+    // Correct: timestamp rollovers.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP,
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP,
                        (std::numeric_limits<uintptr_t>::max)() - 10),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP,
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP,
                        (std::numeric_limits<uintptr_t>::max)()),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 10),
         };
         if (!run_checker(memrefs, false))
             return false;
