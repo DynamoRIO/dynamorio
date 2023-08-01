@@ -1407,6 +1407,53 @@ check_filter_endpoint()
     return true;
 }
 
+bool
+check_timestamps_increase_monotonically(void)
+{
+    static constexpr memref_tid_t TID = 1;
+    // Correct: timestamps increase monotonically.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Incorrect: timestamp does not increase monotonically.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 5),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Timestamp does not increase monotonically",
+                           /*tid=*/1,
+                           /*ref_ordinal=*/3, /*last_timestamp=*/10,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch timestamps not increasing "
+                         "monotonically"))
+            return false;
+    }
+#ifdef X86_32
+    // Correct: timestamp rollovers.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP,
+                       (std::numeric_limits<uintptr_t>::max)() - 10),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP,
+                       (std::numeric_limits<uintptr_t>::max)()),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 10),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+#endif
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -1414,7 +1461,8 @@ test_main(int argc, const char *argv[])
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
         check_duplicate_syscall_with_same_pc() && check_false_syscalls() &&
         check_rseq_side_exit_discontinuity() && check_schedule_file() &&
-        check_branch_decoration() && check_filter_endpoint()) {
+        check_branch_decoration() && check_filter_endpoint() &&
+        check_timestamps_increase_monotonically()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
