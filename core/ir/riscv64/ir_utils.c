@@ -90,13 +90,13 @@ mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int3
      * else                   -> LUI+ADDIW
      */
 
-    /* Add 0x800 to cancel out the signed extention of ADDIW. */
+    /* Add 0x800 to cancel out the signed extension of ADDIW. */
     int32_t hi20 = (val + 0x800) >> 12 & 0xfffff;
     int32_t lo12 = val & 0xfff;
 
     instr_t *instr_lui, *instr_addiw;
     opnd_t src;
-    if (hi20) {
+    if (hi20 != 0) {
         instr_lui =
             INSTR_CREATE_lui(dcontext, dst, opnd_create_immed_int(hi20, OPSZ_20b));
         PRE(ilist, instr, instr_lui);
@@ -107,8 +107,8 @@ mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int3
         if (last != NULL)
             *last = instr_lui;
     }
-    if (lo12 || !hi20) {
-        src = hi20 ? dst : opnd_create_reg(DR_REG_X0);
+    if (lo12 != 0 || hi20 == 0) {
+        src = hi20 != 0 ? dst : opnd_create_reg(DR_REG_X0);
         instr_addiw =
             INSTR_CREATE_addiw(dcontext, dst, src,
                                opnd_add_flags(opnd_create_immed_int(lo12, OPSZ_12b),
@@ -144,7 +144,7 @@ mov64(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, ptr_
      * soon as it fits into 32 bits.
      */
     int64_t lo12 = (val << 52) >> 52;
-    /* Add 0x800 to cancel out the signed extention of ADDI. */
+    /* Add 0x800 to cancel out the signed extension of ADDI. */
     int64_t hi52 = (val + 0x800) >> 12;
     int shift = 12 + trailing_zeros_64((uint64)hi52);
     hi52 = ((hi52 >> (shift - 12)) << shift) >> shift;
