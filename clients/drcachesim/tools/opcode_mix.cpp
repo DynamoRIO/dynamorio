@@ -208,7 +208,7 @@ opcode_mix_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
                 "Failed to decode instruction " + to_hex_string(memref.instr.addr);
             return false;
         }
-        opcode = instr_get_opcode(&instr);
+        opcode = instr_get_category(&instr);
         shard->worker->opcode_cache[trace_pc] = opcode;
         instr_free(dcontext_.dcontext, &instr);
     }
@@ -260,7 +260,7 @@ opcode_mix_t::print_results()
     std::sort(sorted.begin(), sorted.end(), cmp_val);
     for (const auto &keyvals : sorted) {
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
-                  << decode_opcode_name(keyvals.first) << "\n";
+                  << std::hex << " (0x" << keyvals.first << ")\n";
     }
     return true;
 }

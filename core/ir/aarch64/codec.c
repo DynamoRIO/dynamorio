@@ -9561,6 +9561,81 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     return ENCFAIL;
 }
 
+static inline uint
+decode_load_store_category(uint enc)
+{
+    uint res = DR_INSTR_CATEGORY_OTHER;
+    uint op0 = BITS(enc, 31, 28);
+    uint opc = BITS(enc, 23, 22);
+    if((op0 & 0x3) == 0x3) { // xx11
+        if(BITS(enc, 10, 10) == 1 && BITS(enc, 21, 21) == 1) {
+            res = DR_INSTR_CATEGORY_LOAD;
+        } else { // Should check bits 22, 23, 26
+            if(opc == 0 || (opc == 0x2 && BITS(enc, 26, 26) == 1)) {
+                res = DR_INSTR_CATEGORY_STORE;
+            } else {
+                res = DR_INSTR_CATEGORY_LOAD;
+            }
+        }
+    } else if((op0 & 0x3) == 0) { // xx00
+        res = (BITS(enc, 22, 22) == 0) ? DR_INSTR_CATEGORY_STORE : DR_INSTR_CATEGORY_LOAD;
+        if((op0 & 0xc) == 0 && BITS(enc, 26, 26) == 1) {
+            res |= DR_INSTR_CATEGORY_SIMD;
+        }
+    } else { // xx01
+        if(BITS(enc, 24, 24) == 0) {
+            res = DR_INSTR_CATEGORY_LOAD;
+        } else {
+            if(BITS(enc, 21, 21) == 0) {
+                res = (opc == 0) ? DR_INSTR_CATEGORY_STORE : DR_INSTR_CATEGORY_LOAD;
+            } else {
+                if((opc == 0x1 || opc == 0x3) && BITS(enc, 11, 10) == 0) {
+                    res = DR_INSTR_CATEGORY_LOAD;
+                } else {
+                    res = DR_INSTR_CATEGORY_STORE;
+                }
+            }
+        }
+    }
+    return res;
+}
+
+static inline bool
+decode_category(uint enc, instr_t *instr)
+{
+    int cat = DR_INSTR_CATEGORY_OTHER;
+    uint op1 = BITS(enc, 28, 25);
+    if((BITS(enc, 31, 31) == 1 && op1 == 0) || op1 == 0x2) { // SME || SVE
+        cat = DR_INSTR_CATEGORY_SIMD;
+    } else {
+        if((op1 & 0x4) == 0) { // x0xx
+            if((op1 & 0x2) == 0) { // 100x, Data processing Immediate
+                cat = DR_INSTR_CATEGORY_MATH_INT;
+            } else { // 101x, Branches
+                cat = DR_INSTR_CATEGORY_BRANCH;
+            }
+        } else { // x1xx
+            uint op0 = BITS(enc, 31, 28);
+            if((op1 & 0x1) == 0) { // x1x0, LOAD/STORE
+                cat = decode_load_store_category(enc);
+            } else { // x1x1, Data processing
+                if((op1 & 0x2) == 0) { // x101
+                    cat = DR_INSTR_CATEGORY_MATH_INT;
+                } else { // x111, Scalar Floating-Point and Advances SIMD
+                    if((op0 & 0x9) == 0 || (op0 & 0x5) == 0x5) { // 0xx0 || 01x1
+                        cat = DR_INSTR_CATEGORY_SIMD;
+                    } else {
+                        cat = DR_INSTR_CATEGORY_MATH_FLOAT;
+                    }
+                }
+            }
+        }
+    }
+
+    instr_set_category(instr, cat);
+    return true;
+}
+
 /******************************************************************************/
 
 /* Include automatically generated decoder and encoder files. Decode and encode
@@ -9639,6 +9714,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
             instr->dsts[3] = opnd_create_reg(DR_REG_X0 + (enc >> 16 & 31));
         }
     }
+
+    decode_category(enc, instr);
 
     /* XXX i#2374: This determination of flag usage should be separate from the
      * decoding of operands.
