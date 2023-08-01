@@ -80,8 +80,8 @@ mov32(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, opnd_t dst, int3
 {
 
     /* `ADDIW rd, rs, imm12` encodes a 12-bit signed extended number;
-     * `LUI   rd, uimm20` places the 20-bit signed value in the top 52 bits of rd, filling
-     * in the lowest 12 bits with zeros.
+     * `LUI   rd, uimm20` places the 20-bit signed value at [31, 12], sign-extends the top
+     * 32 bits, and zeroes the bottom 12 bits.
      * Combined with these two instructions, we can load an arbitray 32-bit value into a
      * register.
      * Depending on val, the following instructions are emitted.
