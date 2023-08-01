@@ -173,6 +173,7 @@ public:
         int_least64_t func_retval_markers = 0;
         int_least64_t phys_addr_markers = 0;
         int_least64_t phys_unavail_markers = 0;
+        // XXX i#5490: Add a counter for indirect branch target markers?
         int_least64_t other_markers = 0;
         int_least64_t icache_flushes = 0;
         int_least64_t dcache_flushes = 0;
@@ -180,6 +181,12 @@ public:
         // we use encoding_is_new as a proxy.
         int_least64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
+
+        // Metadata for the counts. These are not used for the equality, increment,
+        // or decrement operation, and must be set explicitly.
+
+        // Count of shards that were combined to produce the above counts.
+        int_least64_t shard_count = 1;
 
         // Stops tracking unique_pc_addrs. Tracking unique_pc_addrs can be very
         // memory intensive. We skip it for interval state snapshots.

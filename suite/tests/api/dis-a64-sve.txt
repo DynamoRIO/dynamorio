@@ -15206,101 +15206,101 @@ a507ffff : ldnt1w z31.s, p7/Z, [sp, #7, MUL VL]      : ldnt1w +0x07(%sp)[32byte]
 # LDR <Pt>, [<Xn|SP>{, #<imm>, MUL VL}]
 858003c0 : ldr p0, [x30]                            : ldr    (%x30)[4byte] -> %p0
 858003c0 : ldr p0, [x30]                            : ldr    (%x30)[4byte] -> %p0
-858017a1 : ldr p1, [x29, #5, mul vl]                : ldr    +0x05(%x29)[4byte] -> %p1
-85bf0fa1 : ldr p1, [x29, #-5, mul vl]               : ldr    -0x05(%x29)[4byte] -> %p1
-85810b82 : ldr p2, [x28, #10, mul vl]               : ldr    +0x0a(%x28)[4byte] -> %p2
-85be1b82 : ldr p2, [x28, #-10, mul vl]              : ldr    -0x0a(%x28)[4byte] -> %p2
-85811f63 : ldr p3, [x27, #15, mul vl]               : ldr    +0x0f(%x27)[4byte] -> %p3
-85be0763 : ldr p3, [x27, #-15, mul vl]              : ldr    -0x0f(%x27)[4byte] -> %p3
-85821344 : ldr p4, [x26, #20, mul vl]               : ldr    +0x14(%x26)[4byte] -> %p4
-85bd1344 : ldr p4, [x26, #-20, mul vl]              : ldr    -0x14(%x26)[4byte] -> %p4
-85830725 : ldr p5, [x25, #25, mul vl]               : ldr    +0x19(%x25)[4byte] -> %p5
-85bc1f25 : ldr p5, [x25, #-25, mul vl]              : ldr    -0x19(%x25)[4byte] -> %p5
-85831b06 : ldr p6, [x24, #30, mul vl]               : ldr    +0x1e(%x24)[4byte] -> %p6
-85bc0b06 : ldr p6, [x24, #-30, mul vl]              : ldr    -0x1e(%x24)[4byte] -> %p6
-85840ee7 : ldr p7, [x23, #35, mul vl]               : ldr    +0x23(%x23)[4byte] -> %p7
-85bb16e7 : ldr p7, [x23, #-35, mul vl]              : ldr    -0x23(%x23)[4byte] -> %p7
-858502c8 : ldr p8, [x22, #40, mul vl]               : ldr    +0x28(%x22)[4byte] -> %p8
-85bb02c8 : ldr p8, [x22, #-40, mul vl]              : ldr    -0x28(%x22)[4byte] -> %p8
-858516a9 : ldr p9, [x21, #45, mul vl]               : ldr    +0x2d(%x21)[4byte] -> %p9
-85ba0ea9 : ldr p9, [x21, #-45, mul vl]              : ldr    -0x2d(%x21)[4byte] -> %p9
-85860a8a : ldr p10, [x20, #50, mul vl]              : ldr    +0x32(%x20)[4byte] -> %p10
-85b91a8a : ldr p10, [x20, #-50, mul vl]             : ldr    -0x32(%x20)[4byte] -> %p10
-85861e6b : ldr p11, [x19, #55, mul vl]              : ldr    +0x37(%x19)[4byte] -> %p11
-85b9066b : ldr p11, [x19, #-55, mul vl]             : ldr    -0x37(%x19)[4byte] -> %p11
-8587124c : ldr p12, [x18, #60, mul vl]              : ldr    +0x3c(%x18)[4byte] -> %p12
-85b8124c : ldr p12, [x18, #-60, mul vl]             : ldr    -0x3c(%x18)[4byte] -> %p12
-8588062d : ldr p13, [x17, #65, mul vl]              : ldr    +0x41(%x17)[4byte] -> %p13
-85b71e2d : ldr p13, [x17, #-65, mul vl]             : ldr    -0x41(%x17)[4byte] -> %p13
-85881a0e : ldr p14, [x16, #70, mul vl]              : ldr    +0x46(%x16)[4byte] -> %p14
-85b70a0e : ldr p14, [x16, #-70, mul vl]             : ldr    -0x46(%x16)[4byte] -> %p14
-85890def : ldr p15, [x15, #75, mul vl]              : ldr    +0x4b(%x15)[4byte] -> %p15
-85b615ef : ldr p15, [x15, #-75, mul vl]             : ldr    -0x4b(%x15)[4byte] -> %p15
+858017a1 : ldr p1, [x29, #5, mul vl]                : ldr    +0x14(%x29)[4byte] -> %p1
+85bf0fa1 : ldr p1, [x29, #-5, mul vl]               : ldr    -0x14(%x29)[4byte] -> %p1
+85810b82 : ldr p2, [x28, #10, mul vl]               : ldr    +0x28(%x28)[4byte] -> %p2
+85be1b82 : ldr p2, [x28, #-10, mul vl]              : ldr    -0x28(%x28)[4byte] -> %p2
+85811f63 : ldr p3, [x27, #15, mul vl]               : ldr    +0x3c(%x27)[4byte] -> %p3
+85be0763 : ldr p3, [x27, #-15, mul vl]              : ldr    -0x3c(%x27)[4byte] -> %p3
+85821344 : ldr p4, [x26, #20, mul vl]               : ldr    +0x50(%x26)[4byte] -> %p4
+85bd1344 : ldr p4, [x26, #-20, mul vl]              : ldr    -0x50(%x26)[4byte] -> %p4
+85830725 : ldr p5, [x25, #25, mul vl]               : ldr    +0x64(%x25)[4byte] -> %p5
+85bc1f25 : ldr p5, [x25, #-25, mul vl]              : ldr    -0x64(%x25)[4byte] -> %p5
+85831b06 : ldr p6, [x24, #30, mul vl]               : ldr    +0x78(%x24)[4byte] -> %p6
+85bc0b06 : ldr p6, [x24, #-30, mul vl]              : ldr    -0x78(%x24)[4byte] -> %p6
+85840ee7 : ldr p7, [x23, #35, mul vl]               : ldr    +0x8c(%x23)[4byte] -> %p7
+85bb16e7 : ldr p7, [x23, #-35, mul vl]              : ldr    -0x8c(%x23)[4byte] -> %p7
+858502c8 : ldr p8, [x22, #40, mul vl]               : ldr    +0xa0(%x22)[4byte] -> %p8
+85bb02c8 : ldr p8, [x22, #-40, mul vl]              : ldr    -0xa0(%x22)[4byte] -> %p8
+858516a9 : ldr p9, [x21, #45, mul vl]               : ldr    +0xb4(%x21)[4byte] -> %p9
+85ba0ea9 : ldr p9, [x21, #-45, mul vl]              : ldr    -0xb4(%x21)[4byte] -> %p9
+85860a8a : ldr p10, [x20, #50, mul vl]              : ldr    +0xc8(%x20)[4byte] -> %p10
+85b91a8a : ldr p10, [x20, #-50, mul vl]             : ldr    -0xc8(%x20)[4byte] -> %p10
+85861e6b : ldr p11, [x19, #55, mul vl]              : ldr    +0xdc(%x19)[4byte] -> %p11
+85b9066b : ldr p11, [x19, #-55, mul vl]             : ldr    -0xdc(%x19)[4byte] -> %p11
+8587124c : ldr p12, [x18, #60, mul vl]              : ldr    +0xf0(%x18)[4byte] -> %p12
+85b8124c : ldr p12, [x18, #-60, mul vl]             : ldr    -0xf0(%x18)[4byte] -> %p12
+8588062d : ldr p13, [x17, #65, mul vl]              : ldr    +0x0104(%x17)[4byte] -> %p13
+85b71e2d : ldr p13, [x17, #-65, mul vl]             : ldr    -0x0104(%x17)[4byte] -> %p13
+85881a0e : ldr p14, [x16, #70, mul vl]              : ldr    +0x0118(%x16)[4byte] -> %p14
+85b70a0e : ldr p14, [x16, #-70, mul vl]             : ldr    -0x0118(%x16)[4byte] -> %p14
+85890def : ldr p15, [x15, #75, mul vl]              : ldr    +0x012c(%x15)[4byte] -> %p15
+85b615ef : ldr p15, [x15, #-75, mul vl]             : ldr    -0x012c(%x15)[4byte] -> %p15
 
 # LDR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}]
 858043c0 : ldr z0, [x30]                            : ldr    (%x30)[32byte] -> %z0
-858057a1 : ldr z1, [x29, #5, mul vl]                : ldr    +0x05(%x29)[32byte] -> %z1
-85bf4fa1 : ldr z1, [x29, #-5, mul vl]               : ldr    -0x05(%x29)[32byte] -> %z1
-85814b82 : ldr z2, [x28, #10, mul vl]               : ldr    +0x0a(%x28)[32byte] -> %z2
-85be5b82 : ldr z2, [x28, #-10, mul vl]              : ldr    -0x0a(%x28)[32byte] -> %z2
-85815f63 : ldr z3, [x27, #15, mul vl]               : ldr    +0x0f(%x27)[32byte] -> %z3
-85be4763 : ldr z3, [x27, #-15, mul vl]              : ldr    -0x0f(%x27)[32byte] -> %z3
-85825344 : ldr z4, [x26, #20, mul vl]               : ldr    +0x14(%x26)[32byte] -> %z4
-85bd5344 : ldr z4, [x26, #-20, mul vl]              : ldr    -0x14(%x26)[32byte] -> %z4
-85834725 : ldr z5, [x25, #25, mul vl]               : ldr    +0x19(%x25)[32byte] -> %z5
-85bc5f25 : ldr z5, [x25, #-25, mul vl]              : ldr    -0x19(%x25)[32byte] -> %z5
-85835b06 : ldr z6, [x24, #30, mul vl]               : ldr    +0x1e(%x24)[32byte] -> %z6
-85bc4b06 : ldr z6, [x24, #-30, mul vl]              : ldr    -0x1e(%x24)[32byte] -> %z6
-85844ee7 : ldr z7, [x23, #35, mul vl]               : ldr    +0x23(%x23)[32byte] -> %z7
-85bb56e7 : ldr z7, [x23, #-35, mul vl]              : ldr    -0x23(%x23)[32byte] -> %z7
-858542c8 : ldr z8, [x22, #40, mul vl]               : ldr    +0x28(%x22)[32byte] -> %z8
-85bb42c8 : ldr z8, [x22, #-40, mul vl]              : ldr    -0x28(%x22)[32byte] -> %z8
-858556a9 : ldr z9, [x21, #45, mul vl]               : ldr    +0x2d(%x21)[32byte] -> %z9
-85ba4ea9 : ldr z9, [x21, #-45, mul vl]              : ldr    -0x2d(%x21)[32byte] -> %z9
-85864a8a : ldr z10, [x20, #50, mul vl]              : ldr    +0x32(%x20)[32byte] -> %z10
-85b95a8a : ldr z10, [x20, #-50, mul vl]             : ldr    -0x32(%x20)[32byte] -> %z10
-85865e6b : ldr z11, [x19, #55, mul vl]              : ldr    +0x37(%x19)[32byte] -> %z11
-85b9466b : ldr z11, [x19, #-55, mul vl]             : ldr    -0x37(%x19)[32byte] -> %z11
-8587524c : ldr z12, [x18, #60, mul vl]              : ldr    +0x3c(%x18)[32byte] -> %z12
-85b8524c : ldr z12, [x18, #-60, mul vl]             : ldr    -0x3c(%x18)[32byte] -> %z12
-8588462d : ldr z13, [x17, #65, mul vl]              : ldr    +0x41(%x17)[32byte] -> %z13
-85b75e2d : ldr z13, [x17, #-65, mul vl]             : ldr    -0x41(%x17)[32byte] -> %z13
-85885a0e : ldr z14, [x16, #70, mul vl]              : ldr    +0x46(%x16)[32byte] -> %z14
-85b74a0e : ldr z14, [x16, #-70, mul vl]             : ldr    -0x46(%x16)[32byte] -> %z14
-85894def : ldr z15, [x15, #75, mul vl]              : ldr    +0x4b(%x15)[32byte] -> %z15
-85b655ef : ldr z15, [x15, #-75, mul vl]             : ldr    -0x4b(%x15)[32byte] -> %z15
-858a41d0 : ldr z16, [x14, #80, mul vl]              : ldr    +0x50(%x14)[32byte] -> %z16
-85b641d0 : ldr z16, [x14, #-80, mul vl]             : ldr    -0x50(%x14)[32byte] -> %z16
-858a55b1 : ldr z17, [x13, #85, mul vl]              : ldr    +0x55(%x13)[32byte] -> %z17
-85b54db1 : ldr z17, [x13, #-85, mul vl]             : ldr    -0x55(%x13)[32byte] -> %z17
-858b4992 : ldr z18, [x12, #90, mul vl]              : ldr    +0x5a(%x12)[32byte] -> %z18
-85b45992 : ldr z18, [x12, #-90, mul vl]             : ldr    -0x5a(%x12)[32byte] -> %z18
-858b5d73 : ldr z19, [x11, #95, mul vl]              : ldr    +0x5f(%x11)[32byte] -> %z19
-85b44573 : ldr z19, [x11, #-95, mul vl]             : ldr    -0x5f(%x11)[32byte] -> %z19
-858c5154 : ldr z20, [x10, #100, mul vl]             : ldr    +0x64(%x10)[32byte] -> %z20
-85b35154 : ldr z20, [x10, #-100, mul vl]            : ldr    -0x64(%x10)[32byte] -> %z20
-858d4535 : ldr z21, [x9, #105, mul vl]              : ldr    +0x69(%x9)[32byte] -> %z21
-85b25d35 : ldr z21, [x9, #-105, mul vl]             : ldr    -0x69(%x9)[32byte] -> %z21
-858d5916 : ldr z22, [x8, #110, mul vl]              : ldr    +0x6e(%x8)[32byte] -> %z22
-85b24916 : ldr z22, [x8, #-110, mul vl]             : ldr    -0x6e(%x8)[32byte] -> %z22
-858e4cf7 : ldr z23, [x7, #115, mul vl]              : ldr    +0x73(%x7)[32byte] -> %z23
-85b154f7 : ldr z23, [x7, #-115, mul vl]             : ldr    -0x73(%x7)[32byte] -> %z23
-858f40d8 : ldr z24, [x6, #120, mul vl]              : ldr    +0x78(%x6)[32byte] -> %z24
-85b140d8 : ldr z24, [x6, #-120, mul vl]             : ldr    -0x78(%x6)[32byte] -> %z24
-858f54b9 : ldr z25, [x5, #125, mul vl]              : ldr    +0x7d(%x5)[32byte] -> %z25
-85b04cb9 : ldr z25, [x5, #-125, mul vl]             : ldr    -0x7d(%x5)[32byte] -> %z25
-8590489a : ldr z26, [x4, #130, mul vl]              : ldr    +0x82(%x4)[32byte] -> %z26
-85af589a : ldr z26, [x4, #-130, mul vl]             : ldr    -0x82(%x4)[32byte] -> %z26
-85905c7b : ldr z27, [x3, #135, mul vl]              : ldr    +0x87(%x3)[32byte] -> %z27
-85af447b : ldr z27, [x3, #-135, mul vl]             : ldr    -0x87(%x3)[32byte] -> %z27
-8591505c : ldr z28, [x2, #140, mul vl]              : ldr    +0x8c(%x2)[32byte] -> %z28
-85ae505c : ldr z28, [x2, #-140, mul vl]             : ldr    -0x8c(%x2)[32byte] -> %z28
-8592443d : ldr z29, [x1, #145, mul vl]              : ldr    +0x91(%x1)[32byte] -> %z29
-85ad5c3d : ldr z29, [x1, #-145, mul vl]             : ldr    -0x91(%x1)[32byte] -> %z29
-8592581e : ldr z30, [x0, #150, mul vl]              : ldr    +0x96(%x0)[32byte] -> %z30
-85ad481e : ldr z30, [x0, #-150, mul vl]             : ldr    -0x96(%x0)[32byte] -> %z30
-85934fdf : ldr z31, [x30, #155, mul vl]             : ldr    +0x9b(%x30)[32byte] -> %z31
-85ac57df : ldr z31, [x30, #-155, mul vl]            : ldr    -0x9b(%x30)[32byte] -> %z31
+858057a1 : ldr z1, [x29, #5, mul vl]                : ldr    +0xa0(%x29)[32byte] -> %z1
+85bf4fa1 : ldr z1, [x29, #-5, mul vl]               : ldr    -0xa0(%x29)[32byte] -> %z1
+85814b82 : ldr z2, [x28, #10, mul vl]               : ldr    +0x0140(%x28)[32byte] -> %z2
+85be5b82 : ldr z2, [x28, #-10, mul vl]              : ldr    -0x0140(%x28)[32byte] -> %z2
+85815f63 : ldr z3, [x27, #15, mul vl]               : ldr    +0x01e0(%x27)[32byte] -> %z3
+85be4763 : ldr z3, [x27, #-15, mul vl]              : ldr    -0x01e0(%x27)[32byte] -> %z3
+85825344 : ldr z4, [x26, #20, mul vl]               : ldr    +0x0280(%x26)[32byte] -> %z4
+85bd5344 : ldr z4, [x26, #-20, mul vl]              : ldr    -0x0280(%x26)[32byte] -> %z4
+85834725 : ldr z5, [x25, #25, mul vl]               : ldr    +0x0320(%x25)[32byte] -> %z5
+85bc5f25 : ldr z5, [x25, #-25, mul vl]              : ldr    -0x0320(%x25)[32byte] -> %z5
+85835b06 : ldr z6, [x24, #30, mul vl]               : ldr    +0x03c0(%x24)[32byte] -> %z6
+85bc4b06 : ldr z6, [x24, #-30, mul vl]              : ldr    -0x03c0(%x24)[32byte] -> %z6
+85844ee7 : ldr z7, [x23, #35, mul vl]               : ldr    +0x0460(%x23)[32byte] -> %z7
+85bb56e7 : ldr z7, [x23, #-35, mul vl]              : ldr    -0x0460(%x23)[32byte] -> %z7
+858542c8 : ldr z8, [x22, #40, mul vl]               : ldr    +0x0500(%x22)[32byte] -> %z8
+85bb42c8 : ldr z8, [x22, #-40, mul vl]              : ldr    -0x0500(%x22)[32byte] -> %z8
+858556a9 : ldr z9, [x21, #45, mul vl]               : ldr    +0x05a0(%x21)[32byte] -> %z9
+85ba4ea9 : ldr z9, [x21, #-45, mul vl]              : ldr    -0x05a0(%x21)[32byte] -> %z9
+85864a8a : ldr z10, [x20, #50, mul vl]              : ldr    +0x0640(%x20)[32byte] -> %z10
+85b95a8a : ldr z10, [x20, #-50, mul vl]             : ldr    -0x0640(%x20)[32byte] -> %z10
+85865e6b : ldr z11, [x19, #55, mul vl]              : ldr    +0x06e0(%x19)[32byte] -> %z11
+85b9466b : ldr z11, [x19, #-55, mul vl]             : ldr    -0x06e0(%x19)[32byte] -> %z11
+8587524c : ldr z12, [x18, #60, mul vl]              : ldr    +0x0780(%x18)[32byte] -> %z12
+85b8524c : ldr z12, [x18, #-60, mul vl]             : ldr    -0x0780(%x18)[32byte] -> %z12
+8588462d : ldr z13, [x17, #65, mul vl]              : ldr    +0x0820(%x17)[32byte] -> %z13
+85b75e2d : ldr z13, [x17, #-65, mul vl]             : ldr    -0x0820(%x17)[32byte] -> %z13
+85885a0e : ldr z14, [x16, #70, mul vl]              : ldr    +0x08c0(%x16)[32byte] -> %z14
+85b74a0e : ldr z14, [x16, #-70, mul vl]             : ldr    -0x08c0(%x16)[32byte] -> %z14
+85894def : ldr z15, [x15, #75, mul vl]              : ldr    +0x0960(%x15)[32byte] -> %z15
+85b655ef : ldr z15, [x15, #-75, mul vl]             : ldr    -0x0960(%x15)[32byte] -> %z15
+858a41d0 : ldr z16, [x14, #80, mul vl]              : ldr    +0x0a00(%x14)[32byte] -> %z16
+85b641d0 : ldr z16, [x14, #-80, mul vl]             : ldr    -0x0a00(%x14)[32byte] -> %z16
+858a55b1 : ldr z17, [x13, #85, mul vl]              : ldr    +0x0aa0(%x13)[32byte] -> %z17
+85b54db1 : ldr z17, [x13, #-85, mul vl]             : ldr    -0x0aa0(%x13)[32byte] -> %z17
+858b4992 : ldr z18, [x12, #90, mul vl]              : ldr    +0x0b40(%x12)[32byte] -> %z18
+85b45992 : ldr z18, [x12, #-90, mul vl]             : ldr    -0x0b40(%x12)[32byte] -> %z18
+858b5d73 : ldr z19, [x11, #95, mul vl]              : ldr    +0x0be0(%x11)[32byte] -> %z19
+85b44573 : ldr z19, [x11, #-95, mul vl]             : ldr    -0x0be0(%x11)[32byte] -> %z19
+858c5154 : ldr z20, [x10, #100, mul vl]             : ldr    +0x0c80(%x10)[32byte] -> %z20
+85b35154 : ldr z20, [x10, #-100, mul vl]            : ldr    -0x0c80(%x10)[32byte] -> %z20
+858d4535 : ldr z21, [x9, #105, mul vl]              : ldr    +0x0d20(%x9)[32byte] -> %z21
+85b25d35 : ldr z21, [x9, #-105, mul vl]             : ldr    -0x0d20(%x9)[32byte] -> %z21
+858d5916 : ldr z22, [x8, #110, mul vl]              : ldr    +0x0dc0(%x8)[32byte] -> %z22
+85b24916 : ldr z22, [x8, #-110, mul vl]             : ldr    -0x0dc0(%x8)[32byte] -> %z22
+858e4cf7 : ldr z23, [x7, #115, mul vl]              : ldr    +0x0e60(%x7)[32byte] -> %z23
+85b154f7 : ldr z23, [x7, #-115, mul vl]             : ldr    -0x0e60(%x7)[32byte] -> %z23
+858f40d8 : ldr z24, [x6, #120, mul vl]              : ldr    +0x0f00(%x6)[32byte] -> %z24
+85b140d8 : ldr z24, [x6, #-120, mul vl]             : ldr    -0x0f00(%x6)[32byte] -> %z24
+858f54b9 : ldr z25, [x5, #125, mul vl]              : ldr    +0x0fa0(%x5)[32byte] -> %z25
+85b04cb9 : ldr z25, [x5, #-125, mul vl]             : ldr    -0x0fa0(%x5)[32byte] -> %z25
+8590489a : ldr z26, [x4, #130, mul vl]              : ldr    +0x1040(%x4)[32byte] -> %z26
+85af589a : ldr z26, [x4, #-130, mul vl]             : ldr    -0x1040(%x4)[32byte] -> %z26
+85905c7b : ldr z27, [x3, #135, mul vl]              : ldr    +0x10e0(%x3)[32byte] -> %z27
+85af447b : ldr z27, [x3, #-135, mul vl]             : ldr    -0x10e0(%x3)[32byte] -> %z27
+8591505c : ldr z28, [x2, #140, mul vl]              : ldr    +0x1180(%x2)[32byte] -> %z28
+85ae505c : ldr z28, [x2, #-140, mul vl]             : ldr    -0x1180(%x2)[32byte] -> %z28
+8592443d : ldr z29, [x1, #145, mul vl]              : ldr    +0x1220(%x1)[32byte] -> %z29
+85ad5c3d : ldr z29, [x1, #-145, mul vl]             : ldr    -0x1220(%x1)[32byte] -> %z29
+8592581e : ldr z30, [x0, #150, mul vl]              : ldr    +0x12c0(%x0)[32byte] -> %z30
+85ad481e : ldr z30, [x0, #-150, mul vl]             : ldr    -0x12c0(%x0)[32byte] -> %z30
+85934fdf : ldr z31, [x30, #155, mul vl]             : ldr    +0x1360(%x30)[32byte] -> %z31
+85ac57df : ldr z31, [x30, #-155, mul vl]            : ldr    -0x1360(%x30)[32byte] -> %z31
 
 # LSL     <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, #<const> (LSL-Z.P.ZI-_)
 04038100 : lsl z0.b, p0/M, z0.b, #0x0                : lsl    %p0/m %z0.b $0x00 -> %z0.b
@@ -17235,22 +17235,22 @@ a507ffff : ldnt1w z31.s, p7/Z, [sp, #7, MUL VL]      : ldnt1w +0x07(%sp)[32byte]
 847f1fef : prfb 15, p7, [sp, z31.s, SXTW]            : prfb   $0x0f %p7 (%sp,%z31.s,sxtw)
 
 # PRFB    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] (PRFB-I.P.BI-S)
-85e00000 : prfb PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfb   $0x00 %p0 -0x20(%x0)
-85e40481 : prfb PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfb   $0x01 %p1 -0x1c(%x4)
-85e808c2 : prfb PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfb   $0x02 %p2 -0x18(%x6)
-85ec0903 : prfb PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfb   $0x03 %p2 -0x14(%x8)
-85f00d44 : prfb PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfb   $0x04 %p3 -0x10(%x10)
-85f40d65 : prfb PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfb   $0x05 %p3 -0x0c(%x11)
-85f811a6 : prfb 6, p4, [x13, #-8, MUL VL]            : prfb   $0x06 %p4 -0x08(%x13)
-85fc11e7 : prfb 7, p4, [x15, #-4, MUL VL]            : prfb   $0x07 %p4 -0x04(%x15)
+85e00000 : prfb PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfb   $0x00 %p0 -0x0400(%x0)
+85e40481 : prfb PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfb   $0x01 %p1 -0x0380(%x4)
+85e808c2 : prfb PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfb   $0x02 %p2 -0x0300(%x6)
+85ec0903 : prfb PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfb   $0x03 %p2 -0x0280(%x8)
+85f00d44 : prfb PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfb   $0x04 %p3 -0x0200(%x10)
+85f40d65 : prfb PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfb   $0x05 %p3 -0x0180(%x11)
+85f811a6 : prfb 6, p4, [x13, #-8, MUL VL]            : prfb   $0x06 %p4 -0x0100(%x13)
+85fc11e7 : prfb 7, p4, [x15, #-4, MUL VL]            : prfb   $0x07 %p4 -0x80(%x15)
 85c01628 : prfb PSTL1KEEP, p5, [x17, #0, MUL VL]     : prfb   $0x08 %p5 (%x17)
-85c31669 : prfb PSTL1STRM, p5, [x19, #3, MUL VL]     : prfb   $0x09 %p5 +0x03(%x19)
-85c716aa : prfb PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfb   $0x0a %p5 +0x07(%x21)
-85cb1aeb : prfb PSTL2STRM, p6, [x23, #11, MUL VL]    : prfb   $0x0b %p6 +0x0b(%x23)
-85cf1b0c : prfb PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfb   $0x0c %p6 +0x0f(%x24)
-85d31f4d : prfb PSTL3STRM, p7, [x26, #19, MUL VL]    : prfb   $0x0d %p7 +0x13(%x26)
-85d71f8e : prfb 14, p7, [x28, #23, MUL VL]           : prfb   $0x0e %p7 +0x17(%x28)
-85df1fef : prfb 15, p7, [sp, #31, MUL VL]            : prfb   $0x0f %p7 +0x1f(%sp)
+85c31669 : prfb PSTL1STRM, p5, [x19, #3, MUL VL]     : prfb   $0x09 %p5 +0x60(%x19)
+85c716aa : prfb PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfb   $0x0a %p5 +0xe0(%x21)
+85cb1aeb : prfb PSTL2STRM, p6, [x23, #11, MUL VL]    : prfb   $0x0b %p6 +0x0160(%x23)
+85cf1b0c : prfb PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfb   $0x0c %p6 +0x01e0(%x24)
+85d31f4d : prfb PSTL3STRM, p7, [x26, #19, MUL VL]    : prfb   $0x0d %p7 +0x0260(%x26)
+85d71f8e : prfb 14, p7, [x28, #23, MUL VL]           : prfb   $0x0e %p7 +0x02e0(%x28)
+85df1fef : prfb 15, p7, [sp, #31, MUL VL]            : prfb   $0x0f %p7 +0x03e0(%sp)
 
 # PRFB    <prfop>, <Pg>, [<Zn>.D{, #<imm>}] (PRFB-I.P.AI-D)
 c400e000 : prfb PLDL1KEEP, p0, [z0.d, #0]            : prfb   $0x00 %p0 (%z0.d)
@@ -17393,22 +17393,22 @@ c47f9fef : prfb 15, p7, [sp, z31.d]                  : prfb   $0x0f %p7 (%sp,%z3
 859fffef : prfd 15, p7, [z31.s, #248]                : prfd   $0x0f %p7 +0xf8(%z31.s)
 
 # PRFD    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] (PRFD-I.P.BI-S)
-85e06000 : prfd PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfd   $0x00 %p0 -0x20(%x0)
-85e46481 : prfd PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfd   $0x01 %p1 -0x1c(%x4)
-85e868c2 : prfd PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfd   $0x02 %p2 -0x18(%x6)
-85ec6903 : prfd PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfd   $0x03 %p2 -0x14(%x8)
-85f06d44 : prfd PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfd   $0x04 %p3 -0x10(%x10)
-85f46d65 : prfd PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfd   $0x05 %p3 -0x0c(%x11)
-85f871a6 : prfd 6, p4, [x13, #-8, MUL VL]            : prfd   $0x06 %p4 -0x08(%x13)
-85fc71e7 : prfd 7, p4, [x15, #-4, MUL VL]            : prfd   $0x07 %p4 -0x04(%x15)
+85e06000 : prfd PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfd   $0x00 %p0 -0x0400(%x0)
+85e46481 : prfd PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfd   $0x01 %p1 -0x0380(%x4)
+85e868c2 : prfd PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfd   $0x02 %p2 -0x0300(%x6)
+85ec6903 : prfd PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfd   $0x03 %p2 -0x0280(%x8)
+85f06d44 : prfd PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfd   $0x04 %p3 -0x0200(%x10)
+85f46d65 : prfd PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfd   $0x05 %p3 -0x0180(%x11)
+85f871a6 : prfd 6, p4, [x13, #-8, MUL VL]            : prfd   $0x06 %p4 -0x0100(%x13)
+85fc71e7 : prfd 7, p4, [x15, #-4, MUL VL]            : prfd   $0x07 %p4 -0x80(%x15)
 85c07628 : prfd PSTL1KEEP, p5, [x17, #0, MUL VL]     : prfd   $0x08 %p5 (%x17)
-85c37669 : prfd PSTL1STRM, p5, [x19, #3, MUL VL]     : prfd   $0x09 %p5 +0x03(%x19)
-85c776aa : prfd PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfd   $0x0a %p5 +0x07(%x21)
-85cb7aeb : prfd PSTL2STRM, p6, [x23, #11, MUL VL]    : prfd   $0x0b %p6 +0x0b(%x23)
-85cf7b0c : prfd PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfd   $0x0c %p6 +0x0f(%x24)
-85d37f4d : prfd PSTL3STRM, p7, [x26, #19, MUL VL]    : prfd   $0x0d %p7 +0x13(%x26)
-85d77f8e : prfd 14, p7, [x28, #23, MUL VL]           : prfd   $0x0e %p7 +0x17(%x28)
-85df7fef : prfd 15, p7, [sp, #31, MUL VL]            : prfd   $0x0f %p7 +0x1f(%sp)
+85c37669 : prfd PSTL1STRM, p5, [x19, #3, MUL VL]     : prfd   $0x09 %p5 +0x60(%x19)
+85c776aa : prfd PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfd   $0x0a %p5 +0xe0(%x21)
+85cb7aeb : prfd PSTL2STRM, p6, [x23, #11, MUL VL]    : prfd   $0x0b %p6 +0x0160(%x23)
+85cf7b0c : prfd PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfd   $0x0c %p6 +0x01e0(%x24)
+85d37f4d : prfd PSTL3STRM, p7, [x26, #19, MUL VL]    : prfd   $0x0d %p7 +0x0260(%x26)
+85d77f8e : prfd 14, p7, [x28, #23, MUL VL]           : prfd   $0x0e %p7 +0x02e0(%x28)
+85df7fef : prfd 15, p7, [sp, #31, MUL VL]            : prfd   $0x0f %p7 +0x03e0(%sp)
 
 # PRFD    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #3] (PRFD-I.P.BZ-D.x32.scaled)
 c4206000 : prfd PLDL1KEEP, p0, [x0, z0.d, UXTW #3]   : prfd   $0x00 %p0 (%x0,%z0.d,uxtw #3)
@@ -17551,22 +17551,22 @@ c59fffef : prfd 15, p7, [z31.d, #248]                : prfd   $0x0f %p7 +0xf8(%z
 849fffef : prfh 15, p7, [z31.s, #62]                 : prfh   $0x0f %p7 +0x3e(%z31.s)
 
 # PRFH    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] (PRFH-I.P.BI-S)
-85e02000 : prfh PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfh   $0x00 %p0 -0x20(%x0)
-85e42481 : prfh PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfh   $0x01 %p1 -0x1c(%x4)
-85e828c2 : prfh PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfh   $0x02 %p2 -0x18(%x6)
-85ec2903 : prfh PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfh   $0x03 %p2 -0x14(%x8)
-85f02d44 : prfh PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfh   $0x04 %p3 -0x10(%x10)
-85f42d65 : prfh PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfh   $0x05 %p3 -0x0c(%x11)
-85f831a6 : prfh 6, p4, [x13, #-8, MUL VL]            : prfh   $0x06 %p4 -0x08(%x13)
-85fc31e7 : prfh 7, p4, [x15, #-4, MUL VL]            : prfh   $0x07 %p4 -0x04(%x15)
+85e02000 : prfh PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfh   $0x00 %p0 -0x0400(%x0)
+85e42481 : prfh PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfh   $0x01 %p1 -0x0380(%x4)
+85e828c2 : prfh PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfh   $0x02 %p2 -0x0300(%x6)
+85ec2903 : prfh PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfh   $0x03 %p2 -0x0280(%x8)
+85f02d44 : prfh PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfh   $0x04 %p3 -0x0200(%x10)
+85f42d65 : prfh PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfh   $0x05 %p3 -0x0180(%x11)
+85f831a6 : prfh 6, p4, [x13, #-8, MUL VL]            : prfh   $0x06 %p4 -0x0100(%x13)
+85fc31e7 : prfh 7, p4, [x15, #-4, MUL VL]            : prfh   $0x07 %p4 -0x80(%x15)
 85c03628 : prfh PSTL1KEEP, p5, [x17, #0, MUL VL]     : prfh   $0x08 %p5 (%x17)
-85c33669 : prfh PSTL1STRM, p5, [x19, #3, MUL VL]     : prfh   $0x09 %p5 +0x03(%x19)
-85c736aa : prfh PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfh   $0x0a %p5 +0x07(%x21)
-85cb3aeb : prfh PSTL2STRM, p6, [x23, #11, MUL VL]    : prfh   $0x0b %p6 +0x0b(%x23)
-85cf3b0c : prfh PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfh   $0x0c %p6 +0x0f(%x24)
-85d33f4d : prfh PSTL3STRM, p7, [x26, #19, MUL VL]    : prfh   $0x0d %p7 +0x13(%x26)
-85d73f8e : prfh 14, p7, [x28, #23, MUL VL]           : prfh   $0x0e %p7 +0x17(%x28)
-85df3fef : prfh 15, p7, [sp, #31, MUL VL]            : prfh   $0x0f %p7 +0x1f(%sp)
+85c33669 : prfh PSTL1STRM, p5, [x19, #3, MUL VL]     : prfh   $0x09 %p5 +0x60(%x19)
+85c736aa : prfh PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfh   $0x0a %p5 +0xe0(%x21)
+85cb3aeb : prfh PSTL2STRM, p6, [x23, #11, MUL VL]    : prfh   $0x0b %p6 +0x0160(%x23)
+85cf3b0c : prfh PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfh   $0x0c %p6 +0x01e0(%x24)
+85d33f4d : prfh PSTL3STRM, p7, [x26, #19, MUL VL]    : prfh   $0x0d %p7 +0x0260(%x26)
+85d73f8e : prfh 14, p7, [x28, #23, MUL VL]           : prfh   $0x0e %p7 +0x02e0(%x28)
+85df3fef : prfh 15, p7, [sp, #31, MUL VL]            : prfh   $0x0f %p7 +0x03e0(%sp)
 
 # PRFH    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #1] (PRFH-I.P.BZ-D.x32.scaled)
 c4202000 : prfh PLDL1KEEP, p0, [x0, z0.d, UXTW #1]   : prfh   $0x00 %p0 (%x0,%z0.d,uxtw #1)
@@ -17709,22 +17709,22 @@ c49fffef : prfh 15, p7, [z31.d, #62]                 : prfh   $0x0f %p7 +0x3e(%z
 851fffef : prfw 15, p7, [z31.s, #124]                : prfw   $0x0f %p7 +0x7c(%z31.s)
 
 # PRFW    <prfop>, <Pg>, [<Xn|SP>{, #<imm>, MUL VL}] (PRFW-I.P.BI-S)
-85e04000 : prfw PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfw   $0x00 %p0 -0x20(%x0)
-85e44481 : prfw PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfw   $0x01 %p1 -0x1c(%x4)
-85e848c2 : prfw PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfw   $0x02 %p2 -0x18(%x6)
-85ec4903 : prfw PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfw   $0x03 %p2 -0x14(%x8)
-85f04d44 : prfw PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfw   $0x04 %p3 -0x10(%x10)
-85f44d65 : prfw PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfw   $0x05 %p3 -0x0c(%x11)
-85f851a6 : prfw 6, p4, [x13, #-8, MUL VL]            : prfw   $0x06 %p4 -0x08(%x13)
-85fc51e7 : prfw 7, p4, [x15, #-4, MUL VL]            : prfw   $0x07 %p4 -0x04(%x15)
+85e04000 : prfw PLDL1KEEP, p0, [x0, #-32, MUL VL]    : prfw   $0x00 %p0 -0x0400(%x0)
+85e44481 : prfw PLDL1STRM, p1, [x4, #-28, MUL VL]    : prfw   $0x01 %p1 -0x0380(%x4)
+85e848c2 : prfw PLDL2KEEP, p2, [x6, #-24, MUL VL]    : prfw   $0x02 %p2 -0x0300(%x6)
+85ec4903 : prfw PLDL2STRM, p2, [x8, #-20, MUL VL]    : prfw   $0x03 %p2 -0x0280(%x8)
+85f04d44 : prfw PLDL3KEEP, p3, [x10, #-16, MUL VL]   : prfw   $0x04 %p3 -0x0200(%x10)
+85f44d65 : prfw PLDL3STRM, p3, [x11, #-12, MUL VL]   : prfw   $0x05 %p3 -0x0180(%x11)
+85f851a6 : prfw 6, p4, [x13, #-8, MUL VL]            : prfw   $0x06 %p4 -0x0100(%x13)
+85fc51e7 : prfw 7, p4, [x15, #-4, MUL VL]            : prfw   $0x07 %p4 -0x80(%x15)
 85c05628 : prfw PSTL1KEEP, p5, [x17, #0, MUL VL]     : prfw   $0x08 %p5 (%x17)
-85c35669 : prfw PSTL1STRM, p5, [x19, #3, MUL VL]     : prfw   $0x09 %p5 +0x03(%x19)
-85c756aa : prfw PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfw   $0x0a %p5 +0x07(%x21)
-85cb5aeb : prfw PSTL2STRM, p6, [x23, #11, MUL VL]    : prfw   $0x0b %p6 +0x0b(%x23)
-85cf5b0c : prfw PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfw   $0x0c %p6 +0x0f(%x24)
-85d35f4d : prfw PSTL3STRM, p7, [x26, #19, MUL VL]    : prfw   $0x0d %p7 +0x13(%x26)
-85d75f8e : prfw 14, p7, [x28, #23, MUL VL]           : prfw   $0x0e %p7 +0x17(%x28)
-85df5fef : prfw 15, p7, [sp, #31, MUL VL]            : prfw   $0x0f %p7 +0x1f(%sp)
+85c35669 : prfw PSTL1STRM, p5, [x19, #3, MUL VL]     : prfw   $0x09 %p5 +0x60(%x19)
+85c756aa : prfw PSTL2KEEP, p5, [x21, #7, MUL VL]     : prfw   $0x0a %p5 +0xe0(%x21)
+85cb5aeb : prfw PSTL2STRM, p6, [x23, #11, MUL VL]    : prfw   $0x0b %p6 +0x0160(%x23)
+85cf5b0c : prfw PSTL3KEEP, p6, [x24, #15, MUL VL]    : prfw   $0x0c %p6 +0x01e0(%x24)
+85d35f4d : prfw PSTL3STRM, p7, [x26, #19, MUL VL]    : prfw   $0x0d %p7 +0x0260(%x26)
+85d75f8e : prfw 14, p7, [x28, #23, MUL VL]           : prfw   $0x0e %p7 +0x02e0(%x28)
+85df5fef : prfw 15, p7, [sp, #31, MUL VL]            : prfw   $0x0f %p7 +0x03e0(%sp)
 
 # PRFW    <prfop>, <Pg>, [<Xn|SP>, <Zm>.D, <extend> #2] (PRFW-I.P.BZ-D.x32.scaled)
 c4204000 : prfw PLDL1KEEP, p0, [x0, z0.d, UXTW #2]   : prfw   $0x00 %p0 (%x0,%z0.d,uxtw #2)
@@ -22446,102 +22446,101 @@ e517ffff : stnt1w z31.s, p7, [sp, #7, MUL VL]        : stnt1w %z31.s %p7 -> +0x0
 # STR <Pt>, [<Xn|SP>{, #<imm>, MUL VL}]
 e58003c0 : str p0, [x30]                            : str    %p0 -> (%x30)[4byte]
 e58003c0 : str p0, [x30]                            : str    %p0 -> (%x30)[4byte]
-e58017a1 : str p1, [x29, #5, mul vl]                : str    %p1 -> +0x05(%x29)[4byte]
-e5bf0fa1 : str p1, [x29, #-5, mul vl]               : str    %p1 -> -0x05(%x29)[4byte]
-e5810b82 : str p2, [x28, #10, mul vl]               : str    %p2 -> +0x0a(%x28)[4byte]
-e5be1b82 : str p2, [x28, #-10, mul vl]              : str    %p2 -> -0x0a(%x28)[4byte]
-e5811f63 : str p3, [x27, #15, mul vl]               : str    %p3 -> +0x0f(%x27)[4byte]
-e5be0763 : str p3, [x27, #-15, mul vl]              : str    %p3 -> -0x0f(%x27)[4byte]
-e5821344 : str p4, [x26, #20, mul vl]               : str    %p4 -> +0x14(%x26)[4byte]
-e5bd1344 : str p4, [x26, #-20, mul vl]              : str    %p4 -> -0x14(%x26)[4byte]
-e5830725 : str p5, [x25, #25, mul vl]               : str    %p5 -> +0x19(%x25)[4byte]
-e5bc1f25 : str p5, [x25, #-25, mul vl]              : str    %p5 -> -0x19(%x25)[4byte]
-e5831b06 : str p6, [x24, #30, mul vl]               : str    %p6 -> +0x1e(%x24)[4byte]
-e5bc0b06 : str p6, [x24, #-30, mul vl]              : str    %p6 -> -0x1e(%x24)[4byte]
-e5840ee7 : str p7, [x23, #35, mul vl]               : str    %p7 -> +0x23(%x23)[4byte]
-e5bb16e7 : str p7, [x23, #-35, mul vl]              : str    %p7 -> -0x23(%x23)[4byte]
-e58502c8 : str p8, [x22, #40, mul vl]               : str    %p8 -> +0x28(%x22)[4byte]
-e5bb02c8 : str p8, [x22, #-40, mul vl]              : str    %p8 -> -0x28(%x22)[4byte]
-e58516a9 : str p9, [x21, #45, mul vl]               : str    %p9 -> +0x2d(%x21)[4byte]
-e5ba0ea9 : str p9, [x21, #-45, mul vl]              : str    %p9 -> -0x2d(%x21)[4byte]
-e5860a8a : str p10, [x20, #50, mul vl]              : str    %p10 -> +0x32(%x20)[4byte]
-e5b91a8a : str p10, [x20, #-50, mul vl]             : str    %p10 -> -0x32(%x20)[4byte]
-e5861e6b : str p11, [x19, #55, mul vl]              : str    %p11 -> +0x37(%x19)[4byte]
-e5b9066b : str p11, [x19, #-55, mul vl]             : str    %p11 -> -0x37(%x19)[4byte]
-e587124c : str p12, [x18, #60, mul vl]              : str    %p12 -> +0x3c(%x18)[4byte]
-e5b8124c : str p12, [x18, #-60, mul vl]             : str    %p12 -> -0x3c(%x18)[4byte]
-e588062d : str p13, [x17, #65, mul vl]              : str    %p13 -> +0x41(%x17)[4byte]
-e5b71e2d : str p13, [x17, #-65, mul vl]             : str    %p13 -> -0x41(%x17)[4byte]
-e5881a0e : str p14, [x16, #70, mul vl]              : str    %p14 -> +0x46(%x16)[4byte]
-e5b70a0e : str p14, [x16, #-70, mul vl]             : str    %p14 -> -0x46(%x16)[4byte]
-e5890def : str p15, [x15, #75, mul vl]              : str    %p15 -> +0x4b(%x15)[4byte]
-e5b615ef : str p15, [x15, #-75, mul vl]             : str    %p15 -> -0x4b(%x15)[4byte]
+e58017a1 : str p1, [x29, #5, mul vl]                : str    %p1 -> +0x14(%x29)[4byte]
+e5bf0fa1 : str p1, [x29, #-5, mul vl]               : str    %p1 -> -0x14(%x29)[4byte]
+e5810b82 : str p2, [x28, #10, mul vl]               : str    %p2 -> +0x28(%x28)[4byte]
+e5be1b82 : str p2, [x28, #-10, mul vl]              : str    %p2 -> -0x28(%x28)[4byte]
+e5811f63 : str p3, [x27, #15, mul vl]               : str    %p3 -> +0x3c(%x27)[4byte]
+e5be0763 : str p3, [x27, #-15, mul vl]              : str    %p3 -> -0x3c(%x27)[4byte]
+e5821344 : str p4, [x26, #20, mul vl]               : str    %p4 -> +0x50(%x26)[4byte]
+e5bd1344 : str p4, [x26, #-20, mul vl]              : str    %p4 -> -0x50(%x26)[4byte]
+e5830725 : str p5, [x25, #25, mul vl]               : str    %p5 -> +0x64(%x25)[4byte]
+e5bc1f25 : str p5, [x25, #-25, mul vl]              : str    %p5 -> -0x64(%x25)[4byte]
+e5831b06 : str p6, [x24, #30, mul vl]               : str    %p6 -> +0x78(%x24)[4byte]
+e5bc0b06 : str p6, [x24, #-30, mul vl]              : str    %p6 -> -0x78(%x24)[4byte]
+e5840ee7 : str p7, [x23, #35, mul vl]               : str    %p7 -> +0x8c(%x23)[4byte]
+e5bb16e7 : str p7, [x23, #-35, mul vl]              : str    %p7 -> -0x8c(%x23)[4byte]
+e58502c8 : str p8, [x22, #40, mul vl]               : str    %p8 -> +0xa0(%x22)[4byte]
+e5bb02c8 : str p8, [x22, #-40, mul vl]              : str    %p8 -> -0xa0(%x22)[4byte]
+e58516a9 : str p9, [x21, #45, mul vl]               : str    %p9 -> +0xb4(%x21)[4byte]
+e5ba0ea9 : str p9, [x21, #-45, mul vl]              : str    %p9 -> -0xb4(%x21)[4byte]
+e5860a8a : str p10, [x20, #50, mul vl]              : str    %p10 -> +0xc8(%x20)[4byte]
+e5b91a8a : str p10, [x20, #-50, mul vl]             : str    %p10 -> -0xc8(%x20)[4byte]
+e5861e6b : str p11, [x19, #55, mul vl]              : str    %p11 -> +0xdc(%x19)[4byte]
+e5b9066b : str p11, [x19, #-55, mul vl]             : str    %p11 -> -0xdc(%x19)[4byte]
+e587124c : str p12, [x18, #60, mul vl]              : str    %p12 -> +0xf0(%x18)[4byte]
+e5b8124c : str p12, [x18, #-60, mul vl]             : str    %p12 -> -0xf0(%x18)[4byte]
+e588062d : str p13, [x17, #65, mul vl]              : str    %p13 -> +0x0104(%x17)[4byte]
+e5b71e2d : str p13, [x17, #-65, mul vl]             : str    %p13 -> -0x0104(%x17)[4byte]
+e5881a0e : str p14, [x16, #70, mul vl]              : str    %p14 -> +0x0118(%x16)[4byte]
+e5b70a0e : str p14, [x16, #-70, mul vl]             : str    %p14 -> -0x0118(%x16)[4byte]
+e5890def : str p15, [x15, #75, mul vl]              : str    %p15 -> +0x012c(%x15)[4byte]
+e5b615ef : str p15, [x15, #-75, mul vl]             : str    %p15 -> -0x012c(%x15)[4byte]
 
 # STR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}]
 e58043c0 : str z0, [x30]                            : str    %z0 -> (%x30)[32byte]
-e58043c0 : str z0, [x30]                            : str    %z0 -> (%x30)[32byte]
-e58057a1 : str z1, [x29, #5, mul vl]                : str    %z1 -> +0x05(%x29)[32byte]
-e5bf4fa1 : str z1, [x29, #-5, mul vl]               : str    %z1 -> -0x05(%x29)[32byte]
-e5814b82 : str z2, [x28, #10, mul vl]               : str    %z2 -> +0x0a(%x28)[32byte]
-e5be5b82 : str z2, [x28, #-10, mul vl]              : str    %z2 -> -0x0a(%x28)[32byte]
-e5815f63 : str z3, [x27, #15, mul vl]               : str    %z3 -> +0x0f(%x27)[32byte]
-e5be4763 : str z3, [x27, #-15, mul vl]              : str    %z3 -> -0x0f(%x27)[32byte]
-e5825344 : str z4, [x26, #20, mul vl]               : str    %z4 -> +0x14(%x26)[32byte]
-e5bd5344 : str z4, [x26, #-20, mul vl]              : str    %z4 -> -0x14(%x26)[32byte]
-e5834725 : str z5, [x25, #25, mul vl]               : str    %z5 -> +0x19(%x25)[32byte]
-e5bc5f25 : str z5, [x25, #-25, mul vl]              : str    %z5 -> -0x19(%x25)[32byte]
-e5835b06 : str z6, [x24, #30, mul vl]               : str    %z6 -> +0x1e(%x24)[32byte]
-e5bc4b06 : str z6, [x24, #-30, mul vl]              : str    %z6 -> -0x1e(%x24)[32byte]
-e5844ee7 : str z7, [x23, #35, mul vl]               : str    %z7 -> +0x23(%x23)[32byte]
-e5bb56e7 : str z7, [x23, #-35, mul vl]              : str    %z7 -> -0x23(%x23)[32byte]
-e58542c8 : str z8, [x22, #40, mul vl]               : str    %z8 -> +0x28(%x22)[32byte]
-e5bb42c8 : str z8, [x22, #-40, mul vl]              : str    %z8 -> -0x28(%x22)[32byte]
-e58556a9 : str z9, [x21, #45, mul vl]               : str    %z9 -> +0x2d(%x21)[32byte]
-e5ba4ea9 : str z9, [x21, #-45, mul vl]              : str    %z9 -> -0x2d(%x21)[32byte]
-e5864a8a : str z10, [x20, #50, mul vl]              : str    %z10 -> +0x32(%x20)[32byte]
-e5b95a8a : str z10, [x20, #-50, mul vl]             : str    %z10 -> -0x32(%x20)[32byte]
-e5865e6b : str z11, [x19, #55, mul vl]              : str    %z11 -> +0x37(%x19)[32byte]
-e5b9466b : str z11, [x19, #-55, mul vl]             : str    %z11 -> -0x37(%x19)[32byte]
-e587524c : str z12, [x18, #60, mul vl]              : str    %z12 -> +0x3c(%x18)[32byte]
-e5b8524c : str z12, [x18, #-60, mul vl]             : str    %z12 -> -0x3c(%x18)[32byte]
-e588462d : str z13, [x17, #65, mul vl]              : str    %z13 -> +0x41(%x17)[32byte]
-e5b75e2d : str z13, [x17, #-65, mul vl]             : str    %z13 -> -0x41(%x17)[32byte]
-e5885a0e : str z14, [x16, #70, mul vl]              : str    %z14 -> +0x46(%x16)[32byte]
-e5b74a0e : str z14, [x16, #-70, mul vl]             : str    %z14 -> -0x46(%x16)[32byte]
-e5894def : str z15, [x15, #75, mul vl]              : str    %z15 -> +0x4b(%x15)[32byte]
-e5b655ef : str z15, [x15, #-75, mul vl]             : str    %z15 -> -0x4b(%x15)[32byte]
-e58a41d0 : str z16, [x14, #80, mul vl]              : str    %z16 -> +0x50(%x14)[32byte]
-e5b641d0 : str z16, [x14, #-80, mul vl]             : str    %z16 -> -0x50(%x14)[32byte]
-e58a55b1 : str z17, [x13, #85, mul vl]              : str    %z17 -> +0x55(%x13)[32byte]
-e5b54db1 : str z17, [x13, #-85, mul vl]             : str    %z17 -> -0x55(%x13)[32byte]
-e58b4992 : str z18, [x12, #90, mul vl]              : str    %z18 -> +0x5a(%x12)[32byte]
-e5b45992 : str z18, [x12, #-90, mul vl]             : str    %z18 -> -0x5a(%x12)[32byte]
-e58b5d73 : str z19, [x11, #95, mul vl]              : str    %z19 -> +0x5f(%x11)[32byte]
-e5b44573 : str z19, [x11, #-95, mul vl]             : str    %z19 -> -0x5f(%x11)[32byte]
-e58c5154 : str z20, [x10, #100, mul vl]             : str    %z20 -> +0x64(%x10)[32byte]
-e5b35154 : str z20, [x10, #-100, mul vl]            : str    %z20 -> -0x64(%x10)[32byte]
-e58d4535 : str z21, [x9, #105, mul vl]              : str    %z21 -> +0x69(%x9)[32byte]
-e5b25d35 : str z21, [x9, #-105, mul vl]             : str    %z21 -> -0x69(%x9)[32byte]
-e58d5916 : str z22, [x8, #110, mul vl]              : str    %z22 -> +0x6e(%x8)[32byte]
-e5b24916 : str z22, [x8, #-110, mul vl]             : str    %z22 -> -0x6e(%x8)[32byte]
-e58e4cf7 : str z23, [x7, #115, mul vl]              : str    %z23 -> +0x73(%x7)[32byte]
-e5b154f7 : str z23, [x7, #-115, mul vl]             : str    %z23 -> -0x73(%x7)[32byte]
-e58f40d8 : str z24, [x6, #120, mul vl]              : str    %z24 -> +0x78(%x6)[32byte]
-e5b140d8 : str z24, [x6, #-120, mul vl]             : str    %z24 -> -0x78(%x6)[32byte]
-e58f54b9 : str z25, [x5, #125, mul vl]              : str    %z25 -> +0x7d(%x5)[32byte]
-e5b04cb9 : str z25, [x5, #-125, mul vl]             : str    %z25 -> -0x7d(%x5)[32byte]
-e590489a : str z26, [x4, #130, mul vl]              : str    %z26 -> +0x82(%x4)[32byte]
-e5af589a : str z26, [x4, #-130, mul vl]             : str    %z26 -> -0x82(%x4)[32byte]
-e5905c7b : str z27, [x3, #135, mul vl]              : str    %z27 -> +0x87(%x3)[32byte]
-e5af447b : str z27, [x3, #-135, mul vl]             : str    %z27 -> -0x87(%x3)[32byte]
-e591505c : str z28, [x2, #140, mul vl]              : str    %z28 -> +0x8c(%x2)[32byte]
-e5ae505c : str z28, [x2, #-140, mul vl]             : str    %z28 -> -0x8c(%x2)[32byte]
-e592443d : str z29, [x1, #145, mul vl]              : str    %z29 -> +0x91(%x1)[32byte]
-e5ad5c3d : str z29, [x1, #-145, mul vl]             : str    %z29 -> -0x91(%x1)[32byte]
-e592581e : str z30, [x0, #150, mul vl]              : str    %z30 -> +0x96(%x0)[32byte]
-e5ad481e : str z30, [x0, #-150, mul vl]             : str    %z30 -> -0x96(%x0)[32byte]
-e5934fdf : str z31, [x30, #155, mul vl]             : str    %z31 -> +0x9b(%x30)[32byte]
-e5ac57df : str z31, [x30, #-155, mul vl]            : str    %z31 -> -0x9b(%x30)[32byte]
+e58057a1 : str z1, [x29, #5, mul vl]                : str    %z1 -> +0xa0(%x29)[32byte]
+e5bf4fa1 : str z1, [x29, #-5, mul vl]               : str    %z1 -> -0xa0(%x29)[32byte]
+e5814b82 : str z2, [x28, #10, mul vl]               : str    %z2 -> +0x0140(%x28)[32byte]
+e5be5b82 : str z2, [x28, #-10, mul vl]              : str    %z2 -> -0x0140(%x28)[32byte]
+e5815f63 : str z3, [x27, #15, mul vl]               : str    %z3 -> +0x01e0(%x27)[32byte]
+e5be4763 : str z3, [x27, #-15, mul vl]              : str    %z3 -> -0x01e0(%x27)[32byte]
+e5825344 : str z4, [x26, #20, mul vl]               : str    %z4 -> +0x0280(%x26)[32byte]
+e5bd5344 : str z4, [x26, #-20, mul vl]              : str    %z4 -> -0x0280(%x26)[32byte]
+e5834725 : str z5, [x25, #25, mul vl]               : str    %z5 -> +0x0320(%x25)[32byte]
+e5bc5f25 : str z5, [x25, #-25, mul vl]              : str    %z5 -> -0x0320(%x25)[32byte]
+e5835b06 : str z6, [x24, #30, mul vl]               : str    %z6 -> +0x03c0(%x24)[32byte]
+e5bc4b06 : str z6, [x24, #-30, mul vl]              : str    %z6 -> -0x03c0(%x24)[32byte]
+e5844ee7 : str z7, [x23, #35, mul vl]               : str    %z7 -> +0x0460(%x23)[32byte]
+e5bb56e7 : str z7, [x23, #-35, mul vl]              : str    %z7 -> -0x0460(%x23)[32byte]
+e58542c8 : str z8, [x22, #40, mul vl]               : str    %z8 -> +0x0500(%x22)[32byte]
+e5bb42c8 : str z8, [x22, #-40, mul vl]              : str    %z8 -> -0x0500(%x22)[32byte]
+e58556a9 : str z9, [x21, #45, mul vl]               : str    %z9 -> +0x05a0(%x21)[32byte]
+e5ba4ea9 : str z9, [x21, #-45, mul vl]              : str    %z9 -> -0x05a0(%x21)[32byte]
+e5864a8a : str z10, [x20, #50, mul vl]              : str    %z10 -> +0x0640(%x20)[32byte]
+e5b95a8a : str z10, [x20, #-50, mul vl]             : str    %z10 -> -0x0640(%x20)[32byte]
+e5865e6b : str z11, [x19, #55, mul vl]              : str    %z11 -> +0x06e0(%x19)[32byte]
+e5b9466b : str z11, [x19, #-55, mul vl]             : str    %z11 -> -0x06e0(%x19)[32byte]
+e587524c : str z12, [x18, #60, mul vl]              : str    %z12 -> +0x0780(%x18)[32byte]
+e5b8524c : str z12, [x18, #-60, mul vl]             : str    %z12 -> -0x0780(%x18)[32byte]
+e588462d : str z13, [x17, #65, mul vl]              : str    %z13 -> +0x0820(%x17)[32byte]
+e5b75e2d : str z13, [x17, #-65, mul vl]             : str    %z13 -> -0x0820(%x17)[32byte]
+e5885a0e : str z14, [x16, #70, mul vl]              : str    %z14 -> +0x08c0(%x16)[32byte]
+e5b74a0e : str z14, [x16, #-70, mul vl]             : str    %z14 -> -0x08c0(%x16)[32byte]
+e5894def : str z15, [x15, #75, mul vl]              : str    %z15 -> +0x0960(%x15)[32byte]
+e5b655ef : str z15, [x15, #-75, mul vl]             : str    %z15 -> -0x0960(%x15)[32byte]
+e58a41d0 : str z16, [x14, #80, mul vl]              : str    %z16 -> +0x0a00(%x14)[32byte]
+e5b641d0 : str z16, [x14, #-80, mul vl]             : str    %z16 -> -0x0a00(%x14)[32byte]
+e58a55b1 : str z17, [x13, #85, mul vl]              : str    %z17 -> +0x0aa0(%x13)[32byte]
+e5b54db1 : str z17, [x13, #-85, mul vl]             : str    %z17 -> -0x0aa0(%x13)[32byte]
+e58b4992 : str z18, [x12, #90, mul vl]              : str    %z18 -> +0x0b40(%x12)[32byte]
+e5b45992 : str z18, [x12, #-90, mul vl]             : str    %z18 -> -0x0b40(%x12)[32byte]
+e58b5d73 : str z19, [x11, #95, mul vl]              : str    %z19 -> +0x0be0(%x11)[32byte]
+e5b44573 : str z19, [x11, #-95, mul vl]             : str    %z19 -> -0x0be0(%x11)[32byte]
+e58c5154 : str z20, [x10, #100, mul vl]             : str    %z20 -> +0x0c80(%x10)[32byte]
+e5b35154 : str z20, [x10, #-100, mul vl]            : str    %z20 -> -0x0c80(%x10)[32byte]
+e58d4535 : str z21, [x9, #105, mul vl]              : str    %z21 -> +0x0d20(%x9)[32byte]
+e5b25d35 : str z21, [x9, #-105, mul vl]             : str    %z21 -> -0x0d20(%x9)[32byte]
+e58d5916 : str z22, [x8, #110, mul vl]              : str    %z22 -> +0x0dc0(%x8)[32byte]
+e5b24916 : str z22, [x8, #-110, mul vl]             : str    %z22 -> -0x0dc0(%x8)[32byte]
+e58e4cf7 : str z23, [x7, #115, mul vl]              : str    %z23 -> +0x0e60(%x7)[32byte]
+e5b154f7 : str z23, [x7, #-115, mul vl]             : str    %z23 -> -0x0e60(%x7)[32byte]
+e58f40d8 : str z24, [x6, #120, mul vl]              : str    %z24 -> +0x0f00(%x6)[32byte]
+e5b140d8 : str z24, [x6, #-120, mul vl]             : str    %z24 -> -0x0f00(%x6)[32byte]
+e58f54b9 : str z25, [x5, #125, mul vl]              : str    %z25 -> +0x0fa0(%x5)[32byte]
+e5b04cb9 : str z25, [x5, #-125, mul vl]             : str    %z25 -> -0x0fa0(%x5)[32byte]
+e590489a : str z26, [x4, #130, mul vl]              : str    %z26 -> +0x1040(%x4)[32byte]
+e5af589a : str z26, [x4, #-130, mul vl]             : str    %z26 -> -0x1040(%x4)[32byte]
+e5905c7b : str z27, [x3, #135, mul vl]              : str    %z27 -> +0x10e0(%x3)[32byte]
+e5af447b : str z27, [x3, #-135, mul vl]             : str    %z27 -> -0x10e0(%x3)[32byte]
+e591505c : str z28, [x2, #140, mul vl]              : str    %z28 -> +0x1180(%x2)[32byte]
+e5ae505c : str z28, [x2, #-140, mul vl]             : str    %z28 -> -0x1180(%x2)[32byte]
+e592443d : str z29, [x1, #145, mul vl]              : str    %z29 -> +0x1220(%x1)[32byte]
+e5ad5c3d : str z29, [x1, #-145, mul vl]             : str    %z29 -> -0x1220(%x1)[32byte]
+e592581e : str z30, [x0, #150, mul vl]              : str    %z30 -> +0x12c0(%x0)[32byte]
+e5ad481e : str z30, [x0, #-150, mul vl]             : str    %z30 -> -0x12c0(%x0)[32byte]
+e5934fdf : str z31, [x30, #155, mul vl]             : str    %z31 -> +0x1360(%x30)[32byte]
+e5ac57df : str z31, [x30, #-155, mul vl]            : str    %z31 -> -0x1360(%x30)[32byte]
 
 # SUB     <Zdn>.<T>, <Pg>/M, <Zdn>.<T>, <Zm>.<T> (SUB-Z.P.ZZ-_)
 04010000 : sub z0.b, p0/M, z0.b, z0.b                : sub    %p0/m %z0.b %z0.b -> %z0.b

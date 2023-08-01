@@ -114,6 +114,7 @@ protected:
         }
         // Provide a virtual destructor to facilitate subclassing.
         virtual ~per_shard_t() = default;
+
         memref_t last_branch_ = {};
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
@@ -123,6 +124,13 @@ protected:
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         uintptr_t prev_func_id_ = 0;
         addr_t last_retaddr_ = 0;
+        // We treat 0 as a sentinel; thus we do not support a trace deliberately
+        // jumping to 0 and handling the fault.
+        addr_t last_indirect_target_ = 0;
+        // We need a dedicated variable to handle consecutive indirect branches
+        // where we can't just use the value from the last marker record.
+        addr_t last_branch_marker_value_ = 0;
+        uintptr_t trace_version_ = 0;
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
         struct signal_context {
@@ -174,6 +182,7 @@ protected:
         uint64_t chunk_instr_count_ = 0;
         uint64_t instr_count_ = 0;
         uint64_t last_timestamp_ = 0;
+        uint64_t instr_count_since_last_timestamp_ = 0;
         std::vector<schedule_entry_t> sched_;
         std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_;
         bool skipped_instrs_ = false;
@@ -184,6 +193,7 @@ protected:
         bool in_rseq_region_ = false;
         addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
+        bool saw_filter_endpoint_marker_ = false;
     };
 
     // We provide this for subclasses to run these invariants with custom
@@ -200,9 +210,9 @@ protected:
     // for such violations.
     std::string
     check_for_pc_discontinuity(
-        per_shard_t *shard, const memref_t &memref,
-        const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded,
-        const bool expect_encoding);
+        per_shard_t *shard, const memref_t &memref, const memref_t &prev_instr,
+        addr_t cur_pc, const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded,
+        bool expect_encoding, bool at_kernel_event);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;

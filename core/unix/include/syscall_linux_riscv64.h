@@ -11,13 +11,13 @@
 #    error Only use this file on Linux
 #endif
 
+#ifndef __NR_riscv_flush_icache
+#    define __NR_riscv_flush_icache (__NR_arch_specific_syscall + 15)
+#endif
+
 /* Derived from /usr/riscv64-linux-gnu/include/asm/unistd.h
  * on Ubuntu GLIBC 2.36.1-6ubuntu on Linux 5.15.0-1008-generic
  */
 #include "syscall_linux_uapi.h"
-
-#ifndef __NR_riscv_flush_icache
-#    define __NR_riscv_flush_icache (__NR_arch_specific_syscall + 15)
-#endif
 
 #endif /* SYSCALL_LINUX_RISCV64_H */
