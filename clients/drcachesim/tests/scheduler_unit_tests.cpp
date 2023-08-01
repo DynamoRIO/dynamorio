@@ -90,6 +90,7 @@ private:
     int index_ = -1;
 };
 
+#if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
 struct trace_position_t {
     trace_position_t(uint64_t record, uint64_t instr, uint64_t timestamp)
         : record_ordinal(record)
@@ -152,6 +153,7 @@ operator<<(std::ostream &o, const context_switch_t &cs)
     return o << cs.prev_tid << " => " << cs.new_tid << " @ " << cs.output_position << " ("
              << cs.prev_input_position << " => " << cs.new_input_position << ")";
 }
+#endif /* (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP) */
 
 static trace_entry_t
 make_instr(addr_t pc, trace_type_t type = TRACE_TYPE_INSTR)

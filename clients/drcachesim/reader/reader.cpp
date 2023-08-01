@@ -392,7 +392,7 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
     // instr, so we look for the 1st unskipped instr: but we do not want to
     // process it so we do not use the ++ operator function.
     uint64_t stop_count = stop_instruction_count + 1;
-    trace_entry_t timestamp;
+    trace_entry_t timestamp = {};
     // Use the most recent timestamp.
     if (last_timestamp_ != 0) {
         timestamp.type = TRACE_TYPE_MARKER;
