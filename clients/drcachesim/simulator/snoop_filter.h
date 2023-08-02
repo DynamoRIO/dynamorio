@@ -65,9 +65,9 @@ protected:
     std::unordered_map<addr_t, coherence_table_entry_t> coherence_table_;
     cache_t **caches_;
     int num_snooped_caches_;
-    int_least64_t num_writes_;
-    int_least64_t num_writebacks_;
-    int_least64_t num_invalidates_;
+    int64_t num_writes_;
+    int64_t num_writebacks_;
+    int64_t num_invalidates_;
 };
 
 } // namespace drmemtrace
