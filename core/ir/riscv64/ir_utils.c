@@ -190,7 +190,7 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
         return;
     }
 
-    ASSERT((uint)(opnd_get_reg(dst) - DR_REG_X0) < 32);
+    ASSERT(reg_is_gpr(opnd_get_reg(dst)));
 
     bool first_set = false;
     mov64(dcontext, ilist, instr, dst, val, first, last, &first_set);
