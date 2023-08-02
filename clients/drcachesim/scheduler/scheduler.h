@@ -852,7 +852,7 @@ protected:
         // Global ready queue counter used to provide FIFO for same-priority inputs.
         uint64_t queue_counter = 0;
         // Used to switch on the insruction *after* a blocking syscall.
-        bool saw_blocking_syscall = false;
+        bool processing_blocking_syscall = false;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records

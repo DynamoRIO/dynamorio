@@ -1348,12 +1348,20 @@ test_synthetic_with_syscalls_single()
 
 static bool
 check_ref(std::vector<memref_t> &refs, int &idx, memref_tid_t expected_tid,
-          trace_type_t expected_type)
+          trace_type_t expected_type,
+          trace_marker_type_t expected_marker = TRACE_MARKER_TYPE_RESERVED_END)
 {
     if (expected_tid != refs[idx].instr.tid || expected_type != refs[idx].instr.type) {
         std::cerr << "Record " << idx << " has tid " << refs[idx].instr.tid
                   << " and type " << refs[idx].instr.type << " != expected tid "
                   << expected_tid << " and expected type " << expected_type << "\n";
+        return false;
+    }
+    if (expected_type == TRACE_TYPE_MARKER &&
+        expected_marker != refs[idx].marker.marker_type) {
+        std::cerr << "Record " << idx << " has marker type "
+                  << refs[idx].marker.marker_type << " but expected " << expected_marker
+                  << "\n";
         return false;
     }
     ++idx;
@@ -1371,17 +1379,12 @@ test_synthetic_with_syscalls_precise()
         /* clang-format off */
         make_thread(TID_A),
         make_pid(1),
-        make_version(4),
+        make_version(TRACE_ENTRY_VERSION),
         make_timestamp(20),
         make_instr(10),
         make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
         make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
         make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
-        make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
         make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
         make_timestamp(50),
         make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
@@ -1395,7 +1398,7 @@ test_synthetic_with_syscalls_precise()
         /* clang-format off */
         make_thread(TID_B),
         make_pid(1),
-        make_version(4),
+        make_version(TRACE_ENTRY_VERSION),
         make_timestamp(120),
         make_instr(20),
         make_instr(21),
@@ -1427,25 +1430,22 @@ test_synthetic_with_syscalls_precise()
     std::vector<trace_entry_t> entries;
     int idx = 0;
     bool res = true;
-    res = res && check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
+    res = res &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_ref(refs, idx, TID_A, TRACE_TYPE_INSTR) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER) &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL) &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER,
+                  TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG) &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&
+        check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_RETVAL) &&
         // Shouldn't switch until after all the syscall's markers.
-        check_ref(refs, idx, TID_B, TRACE_TYPE_MARKER) &&
-        check_ref(refs, idx, TID_B, TRACE_TYPE_MARKER) &&
+        check_ref(refs, idx, TID_B, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+        check_ref(refs, idx, TID_B, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_ref(refs, idx, TID_B, TRACE_TYPE_INSTR) &&
         check_ref(refs, idx, TID_B, TRACE_TYPE_INSTR) &&
         check_ref(refs, idx, TID_B, TRACE_TYPE_THREAD_EXIT) &&
