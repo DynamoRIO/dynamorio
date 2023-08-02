@@ -1055,6 +1055,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_timestamps()
                 RecordType record = **input.reader;
                 if (record_type_is_timestamp(record, input.next_timestamp))
                     break;
+                // If we see an instruction, there may be no timestamp (a malformed
+                // synthetic trace in a test) or we may have to read thousands of records
+                // to find it if it were somehow missing, which we do not want to do.  We
+                // assume our queued records are few and do not include instructions when
+                // we skip (see skip_instrutions()).  Thus, we abort with an error.
                 if (record_type_is_instr(record))
                     break;
                 input.queue.push_back(record);
@@ -1723,7 +1728,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 record = **input->reader;
             }
         }
-        VPRINT(this, 5, "next_record_mid[%d]: from %d: ", output, input->index);
+        VPRINT(this, 5, "next_record[%d]: candidate record from %d: ", output,
+               input->index);
         VDO(this, 5, print_record(record););
         bool need_new_input = false;
         bool in_wait_state = false;
@@ -1742,11 +1748,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // The stop is exclusive.  0 does mean to do nothing (easiest
                 // to have an empty record to share the next-entry for a start skip
                 // or other cases).
-                VPRINT(this, 5,
-                       "next_record_cmp[%d]: for %d: at instr#=%" PRId64
-                       " vs stop#=%" PRId64 "\n",
-                       output, input->index, input->reader->get_instruction_ordinal(),
-                       stop);
                 if (input->reader->get_instruction_ordinal() >= stop) {
                     need_new_input = true;
                 }
