@@ -1739,21 +1739,22 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         } else if (options_.mapping == MAP_TO_ANY_OUTPUT) {
             trace_marker_type_t marker_type;
             uintptr_t marker_value;
-            if (input->saw_blocking_syscall) {
+            if (input->processing_blocking_syscall) {
                 // Wait until we're past all the markers associated with the syscall.
-                // If a signal arrives we would like the kernel xfer markers to go
-                // the next instr: but our recorded format is on instr boundaries.
+                // XXX: We may prefer to stop before the return value marker for futex,
+                // or a kernel xfer marker, but our recorded format is on instr
+                // boundaries so we live with those being before the switch.
                 if (record_type_is_instr(record)) {
                     // Assume it will block and we should switch to a different input.
                     need_new_input = true;
                     in_wait_state = true;
-                    input->saw_blocking_syscall = false;
+                    input->processing_blocking_syscall = false;
                     VPRINT(this, 3, "next_record[%d]: hit blocking syscall in input %d\n",
                            output, input->index);
                 }
             } else if (record_type_is_marker(record, marker_type, marker_value) &&
                        marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
-                input->saw_blocking_syscall = true;
+                input->processing_blocking_syscall = true;
             } else if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
                        record_type_is_instr(record)) {
                 ++input->instrs_in_quantum;
