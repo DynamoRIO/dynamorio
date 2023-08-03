@@ -198,7 +198,7 @@ private:
 #ifdef X86
         replace = INSTR_CREATE_lahf(dc);
 #elif defined(AARCH64)
-        /* OP_psb requires SPE feature. */
+        // OP_psb requires SPE feature.
         proc_set_feature(FEATURE_SPE, true);
         replace = INSTR_CREATE_psb_csync(dc);
 #elif defined(ARM)

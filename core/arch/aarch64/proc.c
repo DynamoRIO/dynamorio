@@ -233,7 +233,6 @@ proc_init_arch(void)
 #define GET_FEAT_VAL(FEATURE) (((ushort)FEATURE) & 0x000F)
 #define GET_FEAT_NSFLAG(FEATURE) ((((ushort)FEATURE) & 0x8000) >> 15)
 
-#if defined(BUILD_TESTS)
 void
 proc_set_feature(feature_bit_t f, bool enable)
 {
@@ -303,7 +302,6 @@ enable_all_test_cpu_features()
         proc_set_feature(features[i], true);
     }
 }
-#endif
 
 bool
 proc_has_feature(feature_bit_t f)
