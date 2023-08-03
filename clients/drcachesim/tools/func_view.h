@@ -77,8 +77,8 @@ protected:
             num_returns += rhs.num_returns;
             return *this;
         }
-        int_least64_t num_calls = 0;
-        int_least64_t num_returns = 0;
+        int64_t num_calls = 0;
+        int64_t num_returns = 0;
         // TODO i#4083: Record the arg and retval distributions.
     };
     struct shard_data_t {

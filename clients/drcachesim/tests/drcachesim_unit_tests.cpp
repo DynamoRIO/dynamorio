@@ -352,9 +352,9 @@ generate_1D_accesses(cache_t &cache, addr_t start_address, int step_size, int st
 
 // Helper code to grab a snapshot of cache stats.
 struct cache_stats_snapshot_t {
-    int_least64_t hits;
-    int_least64_t misses;
-    int_least64_t child_hits;
+    int64_t hits;
+    int64_t misses;
+    int64_t child_hits;
 };
 
 static cache_stats_snapshot_t

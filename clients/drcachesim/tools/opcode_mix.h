@@ -94,8 +94,8 @@ protected:
         {
         }
         worker_data_t *worker;
-        int_least64_t instr_count;
-        std::unordered_map<int, int_least64_t> opcode_counts;
+        int64_t instr_count;
+        std::unordered_map<int, int64_t> opcode_counts;
         std::string error;
         app_pc last_trace_module_start;
         size_t last_trace_module_size;

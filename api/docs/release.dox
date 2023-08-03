@@ -179,6 +179,8 @@ changes:
    is deprecated in offline traces where it is replaced by
    #dynamorio::drmemtrace::TRACE_TYPE_INSTR_TAKEN_JUMP and
    #dynamorio::drmemtrace::TRACE_TYPE_INSTR_UNTAKEN_JUMP.
+ - All int_least64_t and uint_least64_t types in drcachesim were replaced with
+   their precise counterparts int64_t and uint64_t.
 
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
