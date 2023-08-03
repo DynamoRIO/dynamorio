@@ -930,13 +930,13 @@ invariant_checker_t::check_for_pc_discontinuity(
     std::string error_msg = "";
     bool have_branch_target = false;
     addr_t branch_target = 0;
-    const addr_t prev_instr_trace_pc = shard->last_instr_in_cur_context_.instr.addr;
+    addr_t prev_instr_trace_pc = prev_instr.instr.addr;
     bool memref_is_kernel_event_marker = false;
 #ifdef UNIX
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
         memref_is_kernel_event_marker = true;
-        //        prev_instr = shard->last_instr_in_cur_context_;
+        prev_instr_trace_pc = shard->last_instr_in_cur_context_.instr.addr;
     }
 #endif
 
