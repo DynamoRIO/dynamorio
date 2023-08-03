@@ -562,6 +562,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
         sched_type_t::scheduler_status_t status = read_recorded_schedule();
         if (status != sched_type_t::STATUS_SUCCESS)
             return STATUS_ERROR_INVALID_PARAMETER;
+        if (options_.deps == DEPENDENCY_TIMESTAMPS) {
+            // Match the ordinals from the original run by pre-reading the timestamps.
+            sched_type_t::scheduler_status_t res = get_initial_timestamps();
+            if (res != STATUS_SUCCESS)
+                return res;
+        }
     } else if (options_.schedule_replay_istream != nullptr) {
         return STATUS_ERROR_INVALID_PARAMETER;
     } else if (options_.mapping == MAP_TO_CONSISTENT_OUTPUT) {
@@ -1048,6 +1054,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_initial_timestamps()
             while (input.reader != input.reader_end) {
                 RecordType record = **input.reader;
                 if (record_type_is_timestamp(record, input.next_timestamp))
+                    break;
+                // If we see an instruction, there may be no timestamp (a malformed
+                // synthetic trace in a test) or we may have to read thousands of records
+                // to find it if it were somehow missing, which we do not want to do.  We
+                // assume our queued records are few and do not include instructions when
+                // we skip (see skip_instrutions()).  Thus, we abort with an error.
+                if (record_type_is_instr(record))
                     break;
                 input.queue.push_back(record);
                 ++(*input.reader);
@@ -1715,6 +1728,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 record = **input->reader;
             }
         }
+        VPRINT(this, 5, "next_record[%d]: candidate record from %d: ", output,
+               input->index);
+        VDO(this, 5, print_record(record););
         bool need_new_input = false;
         bool in_wait_state = false;
         if (options_.mapping == MAP_AS_PREVIOUSLY) {
@@ -1792,6 +1808,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // for instr count too) -- but what about output during speculation?
                 // Decrement counts instead to undo?
                 lock.lock();
+                VPRINT(this, 5, "next_record_mid[%d]: from %d: queueing ", output,
+                       input->index);
+                VDO(this, 5, print_record(record););
                 input->queue.push_back(record);
                 if (res == sched_type_t::STATUS_WAIT)
                     return res;
