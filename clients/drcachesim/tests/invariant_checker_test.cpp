@@ -354,9 +354,10 @@ check_sane_control_flow()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
         };
         if (!run_checker(
-                memrefs, true, 1, 2,
-                "Non-explicit control flow has no marker - Discontinuity between "
-                "instruction and kernel event marker",
+                memrefs, true,
+                { "Non-explicit control flow has no marker - Discontinuity between "
+                  "instruction and kernel event marker",
+                  1, 2, 0, 1 },
                 "Failed to catch PC discontinuity for an instruction followed by "
                 "kernel xfer marker")) {
             return false;
