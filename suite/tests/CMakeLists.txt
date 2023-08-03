@@ -3944,6 +3944,7 @@ if (BUILD_CLIENTS)
 
     if (X86 AND X64 AND ZLIB_FOUND)
       # XXX i#5538: Add trace files for other arches.
+      # XXX: Should we fold these allasm-using ones into skip_unit_tests?
       set(zip_path
         "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.allasm_x86_64.trace.zip")
       torunonly_api(tool.drcacheoff.skip "${drcachesim_path}" "offline-skip" ""

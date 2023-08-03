@@ -1427,7 +1427,6 @@ test_synthetic_with_syscalls_precise()
         assert(status == scheduler_t::STATUS_OK);
         refs.push_back(memref);
     }
-    std::vector<trace_entry_t> entries;
     int idx = 0;
     bool res = true;
     res = res &&
@@ -2387,6 +2386,144 @@ test_replay_as_traced_from_file(const char *testdir)
 #endif
 }
 
+static void
+test_replay_indirect_marker()
+{
+    // Test that context switches on instruction boundaries back up to
+    // any indirect branch marker prior to a target instruction.
+#ifdef HAS_ZIP
+    std::cerr << "\n----------------\nTesting replay indirect branch markers\n";
+    static constexpr memref_tid_t TID_A = 42;
+    static constexpr memref_tid_t TID_B = 99;
+    static constexpr int SYSNUM = 202;
+    std::vector<trace_entry_t> refs_A = {
+        /* clang-format off */
+        make_thread(TID_A),
+        make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
+        make_timestamp(20),
+        make_instr(10),
+        make_marker(TRACE_MARKER_TYPE_SYSCALL, SYSNUM),
+        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
+        make_marker(TRACE_MARKER_TYPE_FUNC_ARG, 42),
+        make_timestamp(50),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 1),
+        make_marker(TRACE_MARKER_TYPE_FUNC_ID, 100),
+        make_marker(TRACE_MARKER_TYPE_FUNC_RETVAL, 0),
+        // This is what we're testing: that the recorded instr ordinal of
+        // the branch backs up one to include the target marker.
+        make_marker(TRACE_MARKER_TYPE_BRANCH_TARGET, 20),
+        make_instr(11, TRACE_TYPE_INSTR_INDIRECT_JUMP),
+        make_instr(20),
+        make_exit(TID_A),
+        /* clang-format on */
+    };
+    std::vector<trace_entry_t> refs_B = {
+        /* clang-format off */
+        make_thread(TID_B),
+        make_pid(1),
+        make_version(TRACE_ENTRY_VERSION),
+        make_timestamp(120),
+        make_instr(20),
+        make_instr(21),
+        make_exit(TID_B),
+        /* clang-format on */
+    };
+    // The expected schedule.
+    auto check_schedule = [](std::vector<memref_t> refs) {
+        int idx = 0;
+        bool res = true;
+        res = res &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_INSTR) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_SYSCALL) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ARG) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_FUNC_RETVAL) &&
+            // Shouldn't switch until after all the syscall's markers.
+            check_ref(refs, idx, TID_B, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
+            check_ref(refs, idx, TID_B, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+            check_ref(refs, idx, TID_B, TRACE_TYPE_INSTR) &&
+            check_ref(refs, idx, TID_B, TRACE_TYPE_INSTR) &&
+            check_ref(refs, idx, TID_B, TRACE_TYPE_THREAD_EXIT) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER,
+                      TRACE_MARKER_TYPE_BRANCH_TARGET) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_INSTR_INDIRECT_JUMP) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_INSTR) &&
+            check_ref(refs, idx, TID_A, TRACE_TYPE_THREAD_EXIT);
+        assert(res);
+    };
+
+    std::string record_fname = "tmp_test_ind_br_replay.zip";
+    // Record.
+    {
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/4);
+        zipfile_ostream_t outfile(record_fname);
+        sched_ops.schedule_record_ostream = &outfile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        std::vector<memref_t> refs;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            refs.push_back(memref);
+        }
+        if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        check_schedule(refs);
+    }
+    // Replay.
+    {
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/4);
+        zipfile_istream_t infile(record_fname);
+        sched_ops.schedule_replay_istream = &infile;
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        std::vector<memref_t> refs;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            refs.push_back(memref);
+        }
+        check_schedule(refs);
+    }
+#endif // HAS_ZIP
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -2416,6 +2553,7 @@ test_main(int argc, const char *argv[])
     test_replay_as_traced_from_file(argv[1]);
     test_replay_as_traced();
     test_replay_as_traced_i6107_workaround();
+    test_replay_indirect_marker();
 
     dr_standalone_exit();
     return 0;
