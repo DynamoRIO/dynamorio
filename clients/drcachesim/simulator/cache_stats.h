@@ -69,9 +69,9 @@ protected:
 
     // A CPU cache handles flushes and prefetching requests
     // as well as regular memory accesses.
-    int_least64_t num_flushes_;
-    int_least64_t num_prefetch_hits_;
-    int_least64_t num_prefetch_misses_;
+    int64_t num_flushes_;
+    int64_t num_prefetch_hits_;
+    int64_t num_prefetch_misses_;
 };
 
 } // namespace drmemtrace

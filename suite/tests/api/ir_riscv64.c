@@ -45,6 +45,8 @@
 #include "configure.h"
 #include "dr_api.h"
 #include "tools.h"
+#include "dr_ir_utils.h"
+#include "dr_defines.h"
 
 static byte buf[8192];
 
@@ -90,12 +92,12 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
 }
 
 static void
-test_instr_encoding_jump_or_branch(void *dc, uint opcode, instr_t *instr)
+test_instr_encoding_jal_or_branch(void *dc, uint opcode, instr_t *instr)
 {
-    /* XXX i#3544: For jump and branch instructions, current disassembler will print
+    /* XXX i#3544: For jal and branch instructions, current disassembler will print
      * the complete jump address, that is, an address relative to `buf`. But the
      * value of `buf` is indeterminate at runtime, so we skip checking the disassembled
-     * format for jump and branch instructions.
+     * format for these instructions. Same for test_instr_encoding_auipc().
      *
      * FIXME i#3544: For branch instructions, we should use relative offsets instead.
      */
@@ -108,6 +110,24 @@ test_instr_encoding_jump_or_branch(void *dc, uint opcode, instr_t *instr)
     ASSERT(pc != NULL);
     decin = instr_create(dc);
     next_pc = decode(dc, buf, decin);
+    ASSERT(next_pc != NULL);
+    ASSERT(instr_same(instr, decin));
+    instr_destroy(dc, instr);
+    instr_destroy(dc, decin);
+}
+
+static void
+test_instr_encoding_auipc(void *dc, uint opcode, app_pc instr_pc, instr_t *instr)
+{
+    instr_t *decin;
+    byte *pc, *next_pc;
+
+    ASSERT(instr_get_opcode(instr) == opcode);
+    ASSERT(instr_is_encoding_possible(instr));
+    pc = instr_encode_to_copy(dc, instr, buf, instr_pc);
+    ASSERT(pc != NULL);
+    decin = instr_create(dc);
+    next_pc = decode_from_copy(dc, buf, instr_pc, decin);
     ASSERT(next_pc != NULL);
     ASSERT(instr_same(instr, decin));
     instr_destroy(dc, instr);
@@ -1082,45 +1102,45 @@ test_jump_and_branch(void *dc)
                              opnd_create_immed_int(42, OPSZ_20b));
     pc = test_instr_encoding(dc, OP_lui, instr);
     instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
-                               opnd_create_immed_int(42, OPSZ_20b));
-    test_instr_encoding(dc, OP_auipc, instr);
+                               opnd_create_pc(pc + (3 << 12)));
+    test_instr_encoding_auipc(dc, OP_auipc, pc, instr);
     instr = INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_A0), opnd_create_pc(pc));
-    test_instr_encoding_jump_or_branch(dc, OP_jal, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_jal, instr);
     instr = INSTR_CREATE_jalr(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
                               opnd_create_immed_int(42, OPSZ_12b));
-    test_instr_encoding_jump_or_branch(dc, OP_jalr, instr);
+    test_instr_encoding(dc, OP_jalr, instr);
 
     instr = INSTR_CREATE_beq(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jump_or_branch(dc, OP_beq, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_beq, instr);
     instr = INSTR_CREATE_bne(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jump_or_branch(dc, OP_bne, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_bne, instr);
     instr = INSTR_CREATE_blt(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jump_or_branch(dc, OP_blt, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_blt, instr);
     instr = INSTR_CREATE_bge(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                              opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jump_or_branch(dc, OP_bge, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_bge, instr);
     instr = INSTR_CREATE_bltu(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                               opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jump_or_branch(dc, OP_bltu, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_bltu, instr);
     instr = INSTR_CREATE_bgeu(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_A0),
                               opnd_create_reg(DR_REG_A1));
-    test_instr_encoding_jump_or_branch(dc, OP_bgeu, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_bgeu, instr);
 
     /* Compressed */
     instr = INSTR_CREATE_c_j(dc, opnd_create_pc(pc));
-    test_instr_encoding_jump_or_branch(dc, OP_c_j, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_c_j, instr);
     instr = INSTR_CREATE_c_jr(dc, opnd_create_reg(DR_REG_A0));
-    test_instr_encoding_jump_or_branch(dc, OP_c_jr, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_c_jr, instr);
     /* There is no c.jal in RV64. */
     instr = INSTR_CREATE_c_jalr(dc, opnd_create_reg(DR_REG_A0));
-    test_instr_encoding_jump_or_branch(dc, OP_c_jalr, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_c_jalr, instr);
     instr = INSTR_CREATE_c_beqz(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_X8));
-    test_instr_encoding_jump_or_branch(dc, OP_c_beqz, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_c_beqz, instr);
     instr = INSTR_CREATE_c_bnez(dc, opnd_create_pc(pc), opnd_create_reg(DR_REG_X8));
-    test_instr_encoding_jump_or_branch(dc, OP_c_bnez, instr);
+    test_instr_encoding_jal_or_branch(dc, OP_c_bnez, instr);
     instr = INSTR_CREATE_c_li(dc, opnd_create_reg(DR_REG_A1),
                               opnd_add_flags(opnd_create_immed_int((1 << 5) - 1, OPSZ_5b),
                                              DR_OPND_IMM_PRINT_DECIMAL));
@@ -1390,6 +1410,281 @@ test_misc(void *dc)
     test_instr_encoding(dc, OP_cbo_inval, instr);
 }
 
+static void
+test_insert_mov_immed_arch(void *dc)
+{
+    instr_t *instr;
+    int i;
+    instrlist_t *ilist = instrlist_create(dc);
+
+    /* Single ADDIW cases. */
+
+#define MOV(imm, addiw)                                                                \
+    do {                                                                               \
+        i = 0;                                                                         \
+        instrlist_insert_mov_immed_ptrsz(dc, (imm), opnd_create_reg(DR_REG_A0), ilist, \
+                                         NULL, NULL, NULL);                            \
+        for (instr = instrlist_first(ilist); instr != NULL;                            \
+             instr = instr_get_next(instr)) {                                          \
+            switch (i) {                                                               \
+            case 0:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_addiw);                           \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_ZERO);          \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (addiw));        \
+                break;                                                                 \
+            }                                                                          \
+            i++;                                                                       \
+        }                                                                              \
+        ASSERT(i == 1);                                                                \
+        instrlist_clear(dc, ilist);                                                    \
+    } while (false)
+
+    MOV(0, 0);
+    MOV(42, 42);
+    MOV(-42, -42 & 0xfff);
+    MOV((1 << 11) - 1, (1 << 11) - 1);
+    MOV(-(1 << 11), -(1 << 11) & 0xfff);
+
+#undef MOV
+
+    /* Single LUI case. */
+
+#define MOV(imm, lui)                                                                  \
+    do {                                                                               \
+        i = 0;                                                                         \
+        instrlist_insert_mov_immed_ptrsz(dc, (imm), opnd_create_reg(DR_REG_A0), ilist, \
+                                         NULL, NULL, NULL);                            \
+        for (instr = instrlist_first(ilist); instr != NULL;                            \
+             instr = instr_get_next(instr)) {                                          \
+            switch (i) {                                                               \
+            case 0:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_lui);                             \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 0)) == (lui));          \
+                break;                                                                 \
+            }                                                                          \
+            i++;                                                                       \
+        }                                                                              \
+        ASSERT(i == 1);                                                                \
+        instrlist_clear(dc, ilist);                                                    \
+    } while (false)
+
+    MOV(42 << 12, 42);
+    MOV(-42 << 12, -42 & 0xfffff);
+    MOV(~0xfff, 0xfffff);
+    MOV(INT_MIN, 0x80000);
+
+#undef MOV
+
+    /* LUI+ADDIW cases. */
+
+#define MOV(imm, lui, addiw)                                                           \
+    do {                                                                               \
+        i = 0;                                                                         \
+        instrlist_insert_mov_immed_ptrsz(dc, (imm), opnd_create_reg(DR_REG_A0), ilist, \
+                                         NULL, NULL, NULL);                            \
+        for (instr = instrlist_first(ilist); instr != NULL;                            \
+             instr = instr_get_next(instr)) {                                          \
+            switch (i) {                                                               \
+            case 0:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_lui);                             \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 0)) == (lui));          \
+                break;                                                                 \
+            case 1:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_addiw);                           \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (addiw));        \
+                break;                                                                 \
+            }                                                                          \
+            i++;                                                                       \
+        }                                                                              \
+        ASSERT(i == 2);                                                                \
+        instrlist_clear(dc, ilist);                                                    \
+    } while (false)
+
+    MOV(INT_MAX, 0x80000, 0xfff);
+    MOV(0x12abcdef, 0x12abd, 0xdef);
+
+#undef MOV
+
+    /* ADDIW+SLLI cases. */
+
+#define MOV(imm, addiw, slli)                                                          \
+    do {                                                                               \
+        i = 0;                                                                         \
+        instrlist_insert_mov_immed_ptrsz(dc, (imm), opnd_create_reg(DR_REG_A0), ilist, \
+                                         NULL, NULL, NULL);                            \
+        for (instr = instrlist_first(ilist); instr != NULL;                            \
+             instr = instr_get_next(instr)) {                                          \
+            switch (i) {                                                               \
+            case 0:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_addiw);                           \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_ZERO);          \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (addiw));        \
+                break;                                                                 \
+            case 1:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_slli);                            \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (slli));         \
+                break;                                                                 \
+            }                                                                          \
+            i++;                                                                       \
+        }                                                                              \
+        ASSERT(i == 2);                                                                \
+        instrlist_clear(dc, ilist);                                                    \
+    } while (false)
+
+    MOV(0x7ff0000000, 0x7ff, 28);
+    MOV(0xabc00000, 0x2af, 22);
+
+#undef MOV
+
+    /* LUI+ADDIW+SLLI cases. */
+
+#define MOV(imm, lui, addiw, slli)                                                     \
+    do {                                                                               \
+        i = 0;                                                                         \
+        instrlist_insert_mov_immed_ptrsz(dc, (imm), opnd_create_reg(DR_REG_A0), ilist, \
+                                         NULL, NULL, NULL);                            \
+        for (instr = instrlist_first(ilist); instr != NULL;                            \
+             instr = instr_get_next(instr)) {                                          \
+            switch (i) {                                                               \
+            case 0:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_lui);                             \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 0)) == (lui));          \
+                break;                                                                 \
+            case 1:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_addiw);                           \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (addiw));        \
+                break;                                                                 \
+            case 2:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_slli);                            \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (slli));         \
+                break;                                                                 \
+            }                                                                          \
+            i++;                                                                       \
+        }                                                                              \
+        ASSERT(i == 3);                                                                \
+        instrlist_clear(dc, ilist);                                                    \
+    } while (false)
+
+    MOV(0x7fffffff0000, 0x80000, 0xfff, 16);
+    MOV((int64_t)INT_MAX << 13, 0x80000, 0xfff, 13);
+
+#undef MOV
+
+    /* LUI+ADDIW+SLLI+ADDI cases. */
+
+#define MOV(imm, lui, addiw, slli, addi)                                               \
+    do {                                                                               \
+        i = 0;                                                                         \
+        instrlist_insert_mov_immed_ptrsz(dc, (imm), opnd_create_reg(DR_REG_A0), ilist, \
+                                         NULL, NULL, NULL);                            \
+        for (instr = instrlist_first(ilist); instr != NULL;                            \
+             instr = instr_get_next(instr)) {                                          \
+            switch (i) {                                                               \
+            case 0:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_lui);                             \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 0)) == (lui));          \
+                break;                                                                 \
+            case 1:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_addiw);                           \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (addiw));        \
+                break;                                                                 \
+            case 2:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_slli);                            \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (slli));         \
+                break;                                                                 \
+            case 3:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_addi);                            \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (addi));         \
+                break;                                                                 \
+            }                                                                          \
+            i++;                                                                       \
+        }                                                                              \
+        ASSERT(i == 4);                                                                \
+        instrlist_clear(dc, ilist);                                                    \
+    } while (false)
+
+    MOV(0x7fffffff0123, 0x80000, 0xfff, 16, 0x123);
+    MOV(((int64_t)INT_MAX << 26) + 0x7ff, 0x80000, 0xfff, 26, 0x7ff);
+
+#undef MOV
+
+    /* ADDIW+SLLI+ADDI+SLLI+ADDI cases. */
+
+#define MOV(imm, addiw, slli, addi, slli2, addi2)                                      \
+    do {                                                                               \
+        i = 0;                                                                         \
+        instrlist_insert_mov_immed_ptrsz(dc, (imm), opnd_create_reg(DR_REG_A0), ilist, \
+                                         NULL, NULL, NULL);                            \
+        for (instr = instrlist_first(ilist); instr != NULL;                            \
+             instr = instr_get_next(instr)) {                                          \
+            switch (i) {                                                               \
+            case 0:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_addiw);                           \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_ZERO);          \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (addiw));        \
+                break;                                                                 \
+            case 1:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_slli);                            \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (slli));         \
+                break;                                                                 \
+            case 2:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_addi);                            \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (addi));         \
+                break;                                                                 \
+            case 3:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_slli);                            \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (slli2));        \
+                break;                                                                 \
+            case 4:                                                                    \
+                ASSERT(instr_get_opcode(instr) == OP_addi);                            \
+                ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);            \
+                ASSERT(opnd_get_immed_int(instr_get_src(instr, 1)) == (addi2));        \
+                break;                                                                 \
+            }                                                                          \
+            i++;                                                                       \
+        }                                                                              \
+        ASSERT(i == 5);                                                                \
+        instrlist_clear(dc, ilist);                                                    \
+    } while (false)
+
+    MOV(((int64_t)INT_MAX << 13) + 0x8ff, 1, 32, -1, 12, -1793);
+    MOV(0x8000000080000001L, 0xfff, 32, 1, 31, 1);
+
+#undef MOV
+
+    /* Enough cases have been covered, stop testing more complex numbers. */
+
+    instrlist_destroy(dc, ilist);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1400,6 +1695,8 @@ main(int argc, char *argv[])
 #endif
 
     disassemble_set_syntax(DR_DISASM_RISCV);
+
+    test_insert_mov_immed_arch(dcontext);
 
     test_integer_load_store(dcontext);
     print("test_integer_load_store complete\n");

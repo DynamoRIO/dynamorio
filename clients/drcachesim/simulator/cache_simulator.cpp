@@ -615,7 +615,7 @@ cache_simulator_t::print_results()
 
 // All valid metrics are returned as a positive number.
 // Negative return value is an error and is of type stats_error_t.
-int_least64_t
+int64_t
 cache_simulator_t::get_cache_metric(metric_name_t metric, unsigned level, unsigned core,
                                     cache_split_t split) const
 {
