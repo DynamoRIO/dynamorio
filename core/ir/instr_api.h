@@ -289,6 +289,8 @@ struct _instr_t {
 
     uint opcode;
 
+    uint category;
+
 #    ifdef X86
     /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
     byte rip_rel_pos;
@@ -722,6 +724,11 @@ DR_API
 int
 instr_get_opcode(instr_t *instr);
 
+DR_API
+/** Returns \p instr's set of categories (set of DR_INSTR_CATEGORY_ constants). */
+uint
+instr_get_category(instr_t *instr);
+
 /**
  * Get the relative offset of \p instr in an encoded instruction list.
  *
@@ -737,6 +744,13 @@ DR_API
 /** Assumes \p opcode is an OP_ constant and sets it to be instr's opcode. */
 void
 instr_set_opcode(instr_t *instr, int opcode);
+
+DR_API
+/** Assumes \p category is an set of DR_INSTR_CATEGORY_ constants
+ * and sets it to be instr's category.
+ */
+void
+instr_set_category(instr_t *instr, uint category);
 
 DR_API
 INSTR_INLINE

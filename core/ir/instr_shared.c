@@ -449,6 +449,19 @@ instr_get_opcode(instr_t *instr)
 /* in rest of file, directly de-reference for performance (PR 622253) */
 #define instr_get_opcode inlined_instr_get_opcode
 
+#define inlined_instr_get_category(instr)                                         \
+    (IF_DEBUG_(CLIENT_ASSERT(sizeof(*instr) == sizeof(instr_t), "invalid type"))( \
+        ((instr)->category == DR_INSTR_CATEGORY_UNCATEGORIZED)                    \
+            ? (instr_decode_with_current_dcontext(instr), (instr)->category)      \
+            : (instr)->category))
+uint
+instr_get_category(instr_t *instr)
+{
+    return inlined_instr_get_category(instr);
+}
+/* in rest of file, directly de-reference for performance (PR 622253) */
+#define instr_get_category inlined_instr_get_category
+
 static inline void
 instr_being_modified(instr_t *instr, bool raw_bits_valid)
 {
@@ -458,6 +471,12 @@ instr_being_modified(instr_t *instr, bool raw_bits_valid)
     }
     /* PR 214962: if client changes our mangling, un-mark to avoid bad translation */
     instr_set_our_mangling(instr, false);
+}
+
+void
+instr_set_category(instr_t *instr, uint category)
+{
+    instr->category = category;
 }
 
 void
