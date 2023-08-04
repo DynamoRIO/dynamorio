@@ -301,6 +301,7 @@ enable_all_test_cpu_features()
     for (int i = 0; i < BUFFER_SIZE_ELEMENTS(features); ++i) {
         proc_set_feature(features[i], true);
     }
+    dr_set_sve_vector_length(256);
 }
 
 bool
