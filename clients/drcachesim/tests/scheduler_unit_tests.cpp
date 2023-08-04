@@ -2528,6 +2528,7 @@ test_replay_indirect_marker()
 static void
 test_inactive()
 {
+#ifdef HAS_ZIP
     std::cerr << "\n----------------\nTesting inactive cores\n";
     static constexpr memref_tid_t TID_A = 42;
     static constexpr memref_tid_t TID_B = TID_A + 1;
@@ -2662,6 +2663,7 @@ test_inactive()
         assert(sched_as_string[0] == "AABBA");
         assert(sched_as_string[1] == "BB");
     }
+#endif // HAS_ZIP
 }
 
 int
