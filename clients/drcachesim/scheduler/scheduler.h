@@ -561,6 +561,17 @@ public:
         virtual stream_status_t
         stop_speculation();
 
+        /**
+         * Disables or re-enables this output stream.  If "active" is false, this
+         * stream becomes inactive and its currently assigned input is moved to the
+         * ready queue to be scheduled on other outputs.  The #STATUS_WAIT code is
+         * returned to next_record() for inactive streams.  If "active" is true,
+         * this stream becomes active again.
+         * This is only supported for #MAP_TO_ANY_OUTPUT.
+         */
+        virtual stream_status_t
+        set_active(bool active);
+
         // memtrace_stream_t interface:
 
         /**
@@ -940,6 +951,7 @@ protected:
         std::vector<schedule_record_t> record;
         int record_index = 0;
         bool waiting = false;
+        bool active = true;
     };
 
     // Called just once at initialization time to set the initial input-to-output
@@ -1096,6 +1108,9 @@ protected:
 
     stream_status_t
     stop_speculation(output_ordinal_t output);
+
+    stream_status_t
+    set_output_active(output_ordinal_t output, bool active);
 
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:
