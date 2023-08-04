@@ -816,6 +816,8 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         return;
     // We can't verify for a partial trace (this happens when running the checker
     // with -skip_instrs, often in -test_mode combined with another tool).
+    // XXX: We need to extend skipped_instrs_ to also detect a skip in the middle,
+    // which also prevents verification here.
     for (auto &shard_keyval : shard_map_) {
         if (shard_keyval.second->skipped_instrs_)
             return;

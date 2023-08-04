@@ -2448,12 +2448,13 @@ test_replay_indirect_marker()
             check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FUNC_ID) &&
             check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_FUNC_RETVAL) &&
-            // Shouldn't switch until after all the syscall's markers.
             check_ref(refs, idx, TID_B, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
             check_ref(refs, idx, TID_B, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
             check_ref(refs, idx, TID_B, TRACE_TYPE_INSTR) &&
             check_ref(refs, idx, TID_B, TRACE_TYPE_INSTR) &&
             check_ref(refs, idx, TID_B, TRACE_TYPE_THREAD_EXIT) &&
+            // When we switch back we should be at the target marker and not all
+            // the way to the indirect branch itself.
             check_ref(refs, idx, TID_A, TRACE_TYPE_MARKER,
                       TRACE_MARKER_TYPE_BRANCH_TARGET) &&
             check_ref(refs, idx, TID_A, TRACE_TYPE_INSTR_INDIRECT_JUMP) &&

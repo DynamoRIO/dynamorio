@@ -420,8 +420,8 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
         VPRINT(this, 4, "SKIP: type=%s (%d), size=%d, addr=0x%zx\n",
                trace_type_names[next->type], next->type, next->size, next->addr);
         // We need to pass up memrefs for the final skipped instr, but we don't
-        // want to process_input_entry() on the first unskipped instr (or its target
-        // marker) so we can insert the timestamp+cpu first.
+        // want to process_input_entry() on the first unskipped instr (or, if it's an
+        // indirect branch: its target marker) so we can insert the timestamp+cpu first.
         if (cur_instr_count_ + 1 == stop_count &&
             (type_is_instr(static_cast<trace_type_t>(next->type)) ||
              (next->type == TRACE_TYPE_MARKER &&

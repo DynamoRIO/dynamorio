@@ -178,7 +178,8 @@ test_skip_indirect_marker()
     if (!run_view_tool(skip_instrs, res))
         return false;
     std::stringstream res_stream(res);
-    // What we expect:
+    // What we expect is to see the "indirect branch target" marker and not
+    // skip over it to the branch itself:
     //   Output format:
     //   <--record#-> <--instr#->: <---tid---> <record details>
     //   ------------------------------------------------------------
@@ -186,6 +187,8 @@ test_skip_indirect_marker()
     //            203         131:     1260485 <marker: tid 1260485 on core 1>
     //            204         131:     1260485 <marker: indirect branch target 0x401037>
     //            205         132:     1260485 ifetch       1 byte(s) @ 0x... ret
+    // (XXX i#6242: The timestamp+cpuid should not display ordinals as their real
+    // ordinals are earlier in the trace.)
     std::string line;
     // First we expect "Output format:"
     std::getline(res_stream, line, '\n');
