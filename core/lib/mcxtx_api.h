@@ -129,20 +129,32 @@
         uint cpsr; /**< The current program status registers in AArch32. */
     }; /**< The anonymous union of alternative names for apsr/cpsr register. */
 #    endif /* 64/32-bit */
-    /**
-     * The SIMD registers.  We would probably be ok if we did not preserve the
-     * callee-saved registers (q4-q7 == d8-d15) but to be safe we preserve them
-     * all.  We do not need anything more than word alignment for OP_vldm/OP_vstm,
-     * and dr_simd_t has no fields larger than 32 bits, so we have no padding.
-     */
-#ifdef AARCH64
-    dr_simd_t simd[MCXT_NUM_SIMD_SVE_SLOTS];
-#else
-    dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
-#endif
+
 #    ifdef X64 /* 64-bit */
+    /**
+     * The Arm AArch64 SIMD (DR_REG_Q0->DR_REG_Q31) and Scalable Vector
+     * Extension (SVE) vector registers (DR_REG_Z0->DR_REG_Z31).
+     */
+    dr_simd_t simd[MCXT_NUM_SIMD_SVE_SLOTS];
+    /**
+     * The Arm AArch64 Scalable Vector Extension (SVE) predicate registers
+     * DR_REG_P0 to DR_REG_P15.
+     */
     dr_simd_t svep[MCXT_NUM_SVEP_SLOTS];
+    /**
+     * The Arm AArch64 Scalable Vector Extension (SVE) first fault register
+     * DR_REG_FFR, for vector load instrcutions.
+     */
     dr_simd_t ffr;
+#   else
+    /**
+     * The Arm AArch32 SIMD registers. We would probably be ok if we did not
+     * preserve the callee-saved registers (q4-q7 == d8-d15) but to be safe we
+     * preserve them all. We do not need anything more than word alignment for
+     * OP_vldm/OP_vstm, and dr_simd_t has no fields larger than 32 bits, so we
+     * have no padding.
+     */
+    dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
 #   endif
 #elif defined(X86)
     /* Our inlined ibl uses eax-edx, so we place them together to fit

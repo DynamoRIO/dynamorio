@@ -9695,10 +9695,5 @@ uint
 encode_common(byte *pc, instr_t *i, decode_info_t *di)
 {
     ASSERT(((ptr_int_t)pc & 3) == 0);
-
-#if defined(DR_HOST_NOT_TARGET) || defined(STANDALONE_DECODER)
-    dr_set_sve_vector_length(256);
-#endif
-
     return encoder_v80(pc, i, di);
 }

@@ -167,7 +167,7 @@ static bool thread_filtering_enabled;
 bool attached_midway;
 
 #ifdef AARCH64
-bool reported_sg_warning = false;
+static bool reported_sg_warning = false;
 #endif
 
 static bool
@@ -1302,8 +1302,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             const opnd_t src = instr_get_src(instr_operands, i);
             if (opnd_is_memory_reference(src)) {
 #ifdef AARCH64
-                /* Memory references involving SVE registers are not supported yet, that
-                 * work is coming in i#5844.
+                /* TODO i#5844: Memory references involving SVE registers are not
+                 * supported yet. To be implemented as part of scatter/gather work.
                  */
                 if (opnd_is_base_disp(src) &&
                     (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src)))) {
@@ -1326,8 +1326,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             const opnd_t dst = instr_get_dst(instr_operands, i);
             if (opnd_is_memory_reference(dst)) {
 #ifdef AARCH64
-                /* Memory references involving SVE registers are not supported yet, that
-                 * work is coming in i#5844.
+                /* TODO i#5844: Memory references involving SVE registers are not
+                 * supported yet. To be implemented as part of scatter/gather work.
                  */
                 if (opnd_is_base_disp(dst) &&
                     (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst)))) {
