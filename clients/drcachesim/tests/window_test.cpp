@@ -120,7 +120,7 @@ gather_trace()
 {
     std::string dr_ops(
         "-stderr_mask 0xc -client_lib ';;-offline -offline -trace_after_instrs 1000 "
-        "-trace_for_instrs 2500 -retrace_every_instrs 2500");
+        "-trace_for_instrs 2500 -retrace_every_instrs 100");
     if (!my_setenv("DYNAMORIO_OPTIONS", dr_ops.c_str()))
         std::cerr << "failed to set env var!\n";
     dr_app_setup();
