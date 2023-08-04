@@ -629,8 +629,9 @@ public:
         /**
          * Returns the ordinal for the workload which is the source of the current input
          * stream feeding this output stream.  This workload ordinal is the index into the
-         * vector of #input_workload_t passed to init().  Returns -1 if there is no
-         * current input for this output stream.
+         * vector of type #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t
+         * passed to init().  Returns -1 if there is no current input for this output
+         * stream.
          */
         virtual int
         get_input_workload_ordinal()
