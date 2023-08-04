@@ -2464,6 +2464,32 @@ test_replay_indirect_marker()
     };
 
     std::string record_fname = "tmp_test_ind_br_replay.zip";
+    // No recording (tested separately to check switching_pre_instruction assert).
+    {
+        std::vector<scheduler_t::input_reader_t> readers;
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+        readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                             std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        sched_inputs.emplace_back(std::move(readers));
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_TIMESTAMPS,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/4);
+        scheduler_t scheduler;
+        if (scheduler.init(sched_inputs, 1, sched_ops) != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        auto *stream = scheduler.get_stream(0);
+        memref_t memref;
+        std::vector<memref_t> refs;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            assert(status == scheduler_t::STATUS_OK);
+            refs.push_back(memref);
+        }
+        check_schedule(refs);
+    }
     // Record.
     {
         std::vector<scheduler_t::input_reader_t> readers;

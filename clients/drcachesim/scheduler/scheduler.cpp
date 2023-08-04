@@ -1806,7 +1806,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     need_new_input = true;
                     in_wait_state = true;
                     input->processing_blocking_syscall = false;
-                    if (pre_instruction)
+                    if (pre_instruction && options_.schedule_record_ostream != nullptr)
                         input->switching_pre_instruction = true;
                     VPRINT(this, 3, "next_record[%d]: hit blocking syscall in input %d\n",
                            output, input->index);
@@ -1822,7 +1822,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     // input has the oldest timestamp, prioritizing context switches
                     // over timestamp ordering.
                     need_new_input = true;
-                    if (pre_instruction)
+                    if (pre_instruction && options_.schedule_record_ostream != nullptr)
                         input->switching_pre_instruction = true;
                 }
             }
