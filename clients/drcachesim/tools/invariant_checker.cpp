@@ -435,7 +435,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->saw_filter_endpoint_marker_,
             "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given file type");
         if (knob_test_name_ == "filter_asm_instr_count") {
-            static constexpr int ASM_INSTR_COUNT = 133;
+            static constexpr int ASM_INSTR_COUNT = 136;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
                             "Incorrect instr count marker value");
         }
