@@ -1356,14 +1356,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::close_schedule_segment(output_ordinal_
         // The end is exclusive, so use the max int value.
         instr_ord = std::numeric_limits<uint64_t>::max();
     }
-    if (input.switching_pre_instruction) {
-        input.switching_pre_instruction = false;
-        // We want to skip to the next instr on replay.
-        // reader_t::skip_instructions() will then back up one to this marker.
-        VPRINT(this, 3, "set_cur_input: +1 to instr_ord for indir branch for input=%d\n",
-               input.index);
-        ++instr_ord;
-    }
     VPRINT(this, 3,
            "close_schedule_segment: input=%d start=%" PRId64 " stop=%" PRId64 "\n",
            input.index, outputs_[output].record.back().start_instruction, instr_ord);
@@ -1669,34 +1661,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
 }
 
 template <typename RecordType, typename ReaderType>
-bool
-scheduler_tmpl_t<RecordType, ReaderType>::at_pre_instruction_boundary(RecordType &record)
-{
-    trace_marker_type_t marker_type;
-    uintptr_t marker_value;
-    if (record_type_is_marker(record, marker_type, marker_value) &&
-        marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
-        return true;
-    }
-    return false;
-}
-
-template <typename RecordType, typename ReaderType>
-bool
-scheduler_tmpl_t<RecordType, ReaderType>::at_instruction_boundary(RecordType &record,
-                                                                  bool &pre_instruction)
-{
-    pre_instruction = false;
-    if (record_type_is_instr(record))
-        return true;
-    if (at_pre_instruction_boundary(record)) {
-        pre_instruction = true;
-        return true;
-    }
-    return false;
-}
-
-template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                                                       RecordType &record,
@@ -1784,30 +1748,23 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // The stop is exclusive.  0 does mean to do nothing (easiest
                 // to have an empty record to share the next-entry for a start skip
                 // or other cases).
-                uint64_t ord = input->reader->get_instruction_ordinal();
-                if (ord >= stop ||
-                    (ord + 1 >= stop && at_pre_instruction_boundary(record))) {
+                if (input->reader->get_instruction_ordinal() >= stop) {
                     need_new_input = true;
                 }
             }
         } else if (options_.mapping == MAP_TO_ANY_OUTPUT) {
             trace_marker_type_t marker_type;
             uintptr_t marker_value;
-            bool pre_instruction = false;
             if (input->processing_blocking_syscall) {
                 // Wait until we're past all the markers associated with the syscall.
                 // XXX: We may prefer to stop before the return value marker for futex,
                 // or a kernel xfer marker, but our recorded format is on instr
                 // boundaries so we live with those being before the switch.
-                // We do stop before an indirect branch marker; this is also done
-                // in reader_t::skip_instructions(), so replay matches.
-                if (at_instruction_boundary(record, pre_instruction)) {
+                if (record_type_is_instr(record)) {
                     // Assume it will block and we should switch to a different input.
                     need_new_input = true;
                     in_wait_state = true;
                     input->processing_blocking_syscall = false;
-                    if (pre_instruction)
-                        input->switching_pre_instruction = true;
                     VPRINT(this, 3, "next_record[%d]: hit blocking syscall in input %d\n",
                            output, input->index);
                 }
@@ -1815,15 +1772,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                        marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
                 input->processing_blocking_syscall = true;
             } else if (options_.quantum_unit == QUANTUM_INSTRUCTIONS &&
-                       at_instruction_boundary(record, pre_instruction)) {
+                       record_type_is_instr(record)) {
                 ++input->instrs_in_quantum;
                 if (input->instrs_in_quantum > options_.quantum_duration) {
                     // We again prefer to switch to another input even if the current
                     // input has the oldest timestamp, prioritizing context switches
                     // over timestamp ordering.
                     need_new_input = true;
-                    if (pre_instruction)
-                        input->switching_pre_instruction = true;
                 }
             }
         }
@@ -1887,7 +1842,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
         }
         break;
     }
-    assert(!input->switching_pre_instruction); // Should only be locally set.
     VPRINT(this, 4, "next_record[%d]: from %d: ", output, input->index);
     VDO(this, 4, print_record(record););
 

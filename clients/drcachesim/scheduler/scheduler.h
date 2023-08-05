@@ -853,8 +853,6 @@ protected:
         uint64_t queue_counter = 0;
         // Used to switch on the insruction *after* a blocking syscall.
         bool processing_blocking_syscall = false;
-        // Used to switch on an indirect branch marker instead of the branch.
-        bool switching_pre_instruction = false;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -976,15 +974,6 @@ protected:
     // Advances the 'output_ordinal'-th output stream.
     stream_status_t
     next_record(output_ordinal_t output, RecordType &record, input_info_t *&input);
-
-    // If "record" is an instruction or an instruction-tied marker, returns true.  For
-    // the marker case, sets pre_instruction to true; otherwise, to false.
-    bool
-    at_instruction_boundary(RecordType &record, bool &pre_instruction);
-
-    // Returns whether "record" is an instruction-tied marker.
-    bool
-    at_pre_instruction_boundary(RecordType &record);
 
     // Skips ahead to the next region of interest if necessary.
     // The caller must hold the input.lock.
