@@ -298,6 +298,8 @@ test_serial()
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
+        // There is just one workload so we expect to always see 0 as the ordinal.
+        assert(stream->get_input_workload_ordinal() == 0);
         if (memref.marker.type == TRACE_TYPE_MARKER &&
             memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
             assert(memref.marker.marker_value > last_timestamp);
@@ -784,6 +786,7 @@ test_real_file_queries_and_filters(const char *testdir)
         assert(false);
     auto *stream = scheduler.get_stream(0);
     memref_t memref;
+    int max_workload_index = 0;
     int max_input_index = 0;
     std::set<memref_tid_t> tids_seen;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
@@ -792,10 +795,17 @@ test_real_file_queries_and_filters(const char *testdir)
         assert(memref.instr.tid == TID_1_A || memref.instr.tid == TID_2_A ||
                memref.instr.tid == TID_2_B);
         tids_seen.insert(memref.instr.tid);
+        if (stream->get_input_workload_ordinal() > max_workload_index)
+            max_workload_index = stream->get_input_workload_ordinal();
         if (stream->get_input_stream_ordinal() > max_input_index)
             max_input_index = stream->get_input_stream_ordinal();
+        if (stream->get_input_stream_ordinal() == 0)
+            assert(stream->get_input_workload_ordinal() == 0);
+        else
+            assert(stream->get_input_workload_ordinal() == 1);
     }
-    // Ensure 3 input streams and test input queries.
+    // Ensure 2 input workloads with 3 streams with proper names.
+    assert(max_workload_index == 1);
     assert(max_input_index == 2);
     assert(scheduler.get_input_stream_count() == 3);
     assert(scheduler.get_input_stream_name(0) ==

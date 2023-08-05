@@ -627,6 +627,18 @@ public:
             return scheduler_->get_input_ordinal(ordinal_);
         }
         /**
+         * Returns the ordinal for the workload which is the source of the current input
+         * stream feeding this output stream.  This workload ordinal is the index into the
+         * vector of type #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t
+         * passed to init().  Returns -1 if there is no current input for this output
+         * stream.
+         */
+        virtual int
+        get_input_workload_ordinal()
+        {
+            return scheduler_->get_workload_ordinal(ordinal_);
+        }
+        /**
          * Returns the value of the most recently seen #TRACE_MARKER_TYPE_TIMESTAMP
          * marker.
          */
@@ -1079,6 +1091,11 @@ protected:
     // the 'output_ordinal'-th output stream.
     input_ordinal_t
     get_input_ordinal(output_ordinal_t output);
+
+    // Returns the workload ordinal value for the current input stream scheduled on
+    // the 'output_ordinal'-th output stream.
+    int
+    get_workload_ordinal(output_ordinal_t output);
 
     // Returns whether the current record for the current input stream scheduled on
     // the 'output_ordinal'-th output stream is synthetic.
