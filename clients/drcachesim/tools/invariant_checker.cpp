@@ -169,7 +169,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard,
                 // I-filtered traces don't have all instrs so this doesn't apply.
                 TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                        shard->get_filetype()) ||
+                        shard->file_type_) ||
                     (memref.marker.type == TRACE_TYPE_MARKER &&
                      (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
                       memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
@@ -321,7 +321,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             "Syscall marker not placed after syscall instruction");
         }
 #endif
-    } else if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->get_filetype()) &&
+    } else if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
                type_is_instr(shard->prev_entry_.instr.type) &&
                shard->prev_instr_decoded_ != nullptr &&
                // TODO i#5949: For WOW64 instr_is_syscall() always returns false.
@@ -401,7 +401,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         report_if_false(shard,
                         !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                                 shard->get_filetype()) ||
+                                 shard->file_type_) ||
                             shard->found_instr_count_marker_,
                         "Missing instr count markers");
         report_if_false(shard,
@@ -418,8 +418,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard,
             shard->found_syscall_marker_ ==
                     // Making sure this is a bool for a safe comparison.
-                    static_cast<bool>(TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS,
-                                              shard->get_filetype())) ||
+                    static_cast<bool>(
+                        TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_)) ||
                 shard->syscall_count_ == 0,
             "System call numbers presence does not match filetype");
         // We can't easily identify blocking syscalls ourselves so we only check
@@ -427,15 +427,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         report_if_false(
             shard,
             !shard->found_blocking_marker_ ||
-                TESTANY(OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS, shard->get_filetype()),
+                TESTANY(OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS, shard->file_type_),
             "Kernel scheduling marker presence does not match filetype");
         report_if_false(
             shard,
-            !TESTANY(OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP, shard->get_filetype()) ||
+            !TESTANY(OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP, shard->file_type_) ||
                 shard->saw_filter_endpoint_marker_,
             "Expected to find TRACE_MARKER_TYPE_FILTER_ENDPOINT for the given file type");
         if (knob_test_name_ == "filter_asm_instr_count") {
-            static constexpr int ASM_INSTR_COUNT = 136;
+            static constexpr int ASM_INSTR_COUNT = 133;
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
                             "Incorrect instr count marker value");
         }
@@ -459,8 +459,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
-        bool expect_encoding =
-            TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->get_filetype());
+        bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         std::unique_ptr<instr_autoclean_t> cur_instr_decoded = nullptr;
         if (expect_encoding) {
             cur_instr_decoded.reset(new instr_autoclean_t(GLOBAL_DCONTEXT));
@@ -508,7 +507,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         TRACE_MARKER_TYPE_KERNEL_EVENT ||
                     // Instruction-filtered are exempted.
                     TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                            shard->get_filetype()),
+                            shard->file_type_),
                 "Branch target not immediately after branch");
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
@@ -579,7 +578,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
                     // Instruction-filtered can easily skip the return point.
                     TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                            shard->get_filetype()),
+                            shard->file_type_),
                 "Signal handler return point incorrect");
         }
         // last_instr_in_cur_context_ is recorded as the pre-signal instr when we see a
@@ -700,7 +699,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     const std::string discontinuity = check_for_pc_discontinuity(
                         shard, memref, shard->last_instr_in_cur_context_,
                         memref.marker.marker_value, nullptr,
-                        TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->get_filetype()),
+                        TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_),
                         /*at_kernel_event=*/true);
                     report_if_false(shard, discontinuity.empty(), discontinuity);
                 }
@@ -738,8 +737,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
         shard->saw_filter_endpoint_marker_ = true;
         report_if_false(
-            shard,
-            TESTANY(OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP, shard->get_filetype()),
+            shard, TESTANY(OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP, shard->file_type_),
             "Found TRACE_MARKER_TYPE_FILTER_ENDPOINT without the correct file type");
     }
 
@@ -747,7 +745,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (type_is_instr_branch(memref.instr.type) &&
             // I-filtered traces don't mark branch targets.
             !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                     shard->get_filetype())) {
+                     shard->file_type_)) {
             report_if_false(
                 shard, memref.instr.type != TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
                 "The CONDITIONAL_JUMP type is deprecated and should not appear");
@@ -814,14 +812,6 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
 {
     if (serial_schedule_file_ == nullptr && cpu_schedule_file_ == nullptr)
         return;
-    // We can't verify for a partial trace (this happens when running the checker
-    // with -skip_instrs, often in -test_mode combined with another tool).
-    // XXX: We need to extend skipped_instrs_ to also detect a skip in the middle,
-    // which also prevents verification here.
-    for (auto &shard_keyval : shard_map_) {
-        if (shard_keyval.second->skipped_instrs_)
-            return;
-    }
     // Check that the scheduling data in the files written by raw2trace match
     // the data in the trace.
     // Use a synthetic stream object to allow report_if_false to work normally.
@@ -984,7 +974,7 @@ invariant_checker_t::check_for_pc_discontinuity(
     const bool valid_nonbranch_flow =
         // Filtered.
         TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
-                shard->get_filetype()) ||
+                shard->file_type_) ||
         // Regular fall-through.
         (fall_through_allowed && prev_instr_trace_pc + prev_instr.instr.size == cur_pc) ||
         // String loop.

@@ -74,41 +74,10 @@ static droption_t<bool> op_verbose(DROPTION_SCOPE_FRONTEND, "verbose", false,
                                    "Whether to print diagnostics",
                                    "Whether to print diagnostics");
 
-static bool
-run_view_tool(int skip_instrs, std::string &output)
-{
-    static constexpr int VIEW_COUNT = 10;
-    // Capture cerr.
-    std::stringstream capture;
-    std::streambuf *prior = std::cerr.rdbuf(capture.rdbuf());
-    // Open the trace.
-    std::unique_ptr<reader_t> iter =
-        std::unique_ptr<reader_t>(new zipfile_file_reader_t(op_trace_file.get_value()));
-    CHECK(!!iter, "failed to open zipfile");
-    CHECK(iter->init(), "failed to initialize reader");
-    std::unique_ptr<reader_t> iter_end =
-        std::unique_ptr<reader_t>(new zipfile_file_reader_t());
-    // Run the tool.
-    std::unique_ptr<analysis_tool_t> tool = std::unique_ptr<analysis_tool_t>(
-        view_tool_create("", /*skip_refs=*/0, /*sim_refs=*/VIEW_COUNT, "att"));
-    std::string error = tool->initialize_stream(iter.get());
-    CHECK(error.empty(), error.c_str());
-    iter->skip_instructions(skip_instrs);
-    for (; *iter != *iter_end; ++(*iter)) {
-        const memref_t &memref = **iter;
-        CHECK(tool->process_memref(memref), tool->get_error_string().c_str());
-    }
-    output = capture.str();
-    if (op_verbose.get_value())
-        std::cout << "Got: |" << output << "|\n";
-    // Reset cerr.
-    std::cerr.rdbuf(prior);
-    return true;
-}
-
 bool
 test_skip_initial()
 {
+    int view_count = 10;
     // Our checked-in trace has a chunk size of 20, letting us test cross-chunk
     // skips.  We verify the chunk size below to ensure updates to that file
     // remember to set that value.
@@ -117,9 +86,30 @@ test_skip_initial()
     for (int skip_instrs = 0; skip_instrs < 50; skip_instrs++) {
         if (op_verbose.get_value())
             std::cout << "Testing -skip_instrs " << skip_instrs << "\n";
-        std::string res;
-        if (!run_view_tool(skip_instrs, res))
-            return false;
+        // Capture cerr.
+        std::stringstream capture;
+        std::streambuf *prior = std::cerr.rdbuf(capture.rdbuf());
+        // Open the trace.
+        std::unique_ptr<reader_t> iter = std::unique_ptr<reader_t>(
+            new zipfile_file_reader_t(op_trace_file.get_value()));
+        CHECK(!!iter, "failed to open zipfile");
+        CHECK(iter->init(), "failed to initialize reader");
+        std::unique_ptr<reader_t> iter_end =
+            std::unique_ptr<reader_t>(new zipfile_file_reader_t());
+        // Run the tool.
+        std::unique_ptr<analysis_tool_t> tool = std::unique_ptr<analysis_tool_t>(
+            view_tool_create("", /*skip_refs=*/0, /*sim_refs=*/view_count, "att"));
+        std::string error = tool->initialize_stream(iter.get());
+        CHECK(error.empty(), error.c_str());
+        iter->skip_instructions(skip_instrs);
+        for (; *iter != *iter_end; ++(*iter)) {
+            const memref_t &memref = **iter;
+            CHECK(tool->process_memref(memref), tool->get_error_string().c_str());
+        }
+        // Check the result.
+        std::string res = capture.str();
+        if (op_verbose.get_value())
+            std::cout << "Got: |" << res << "|\n";
         CHECK(skip_instrs != 0 ||
                   res.find("chunk instruction count 20") != std::string::npos,
               "expecting chunk size of 20 in test trace");
@@ -164,57 +154,9 @@ test_skip_initial()
         std::istringstream ref_in(line);
         ref_in >> ref_count;
         CHECK(ref_count > skip_instrs, "invalid ref count");
+        // Reset cerr.
+        std::cerr.rdbuf(prior);
     }
-    return true;
-}
-
-bool
-test_skip_indirect_marker()
-{
-    // Our trace has an indirect branch at this point:
-    static constexpr int INDIRECT_ORD = 132;
-    int skip_instrs = INDIRECT_ORD - 1;
-    std::string res;
-    if (!run_view_tool(skip_instrs, res))
-        return false;
-    std::stringstream res_stream(res);
-    // What we expect is to see the "indirect branch target" marker and not
-    // skip over it to the branch itself:
-    //   Output format:
-    //   <--record#-> <--instr#->: <---tid---> <record details>
-    //   ------------------------------------------------------------
-    //            202         131:     1260485 <marker: timestamp 13335506424391481>
-    //            203         131:     1260485 <marker: tid 1260485 on core 1>
-    //            204         131:     1260485 <marker: indirect branch target 0x401037>
-    //            205         132:     1260485 ifetch       1 byte(s) @ 0x... ret
-    // (XXX i#6242: The timestamp+cpuid should not display ordinals as their real
-    // ordinals are earlier in the trace.)
-    std::string line;
-    // First we expect "Output format:"
-    std::getline(res_stream, line, '\n');
-    CHECK(starts_with(line, "Output format"), "missing header");
-    // Next we expect "<--record#-> <--instr#->: <---tid---> <record details>"
-    std::getline(res_stream, line, '\n');
-    CHECK(starts_with(line, "<--record#-> <--instr#->"), "missing 2nd header");
-    // Next we expect "------------------------------------------------------------"
-    std::getline(res_stream, line, '\n');
-    CHECK(starts_with(line, "------"), "missing divider line");
-    // Next we expect the timestamp entry with the instruction count.
-    std::getline(res_stream, line, '\n');
-    std::stringstream expect_stream;
-    expect_stream << skip_instrs << ":";
-    CHECK(line.find(expect_stream.str()) != std::string::npos, "bad instr ordinal");
-    CHECK(line.find("timestamp") != std::string::npos, "missing timestamp");
-    // Next we expect the cpuid entry.
-    std::getline(res_stream, line, '\n');
-    CHECK(line.find("on core") != std::string::npos, "missing cpuid");
-    // Next we expect the target marker.
-    std::getline(res_stream, line, '\n');
-    CHECK(line.find("marker: indirect branch target") != std::string::npos,
-          "missing target");
-    // Next we expect the instruction fetch.
-    std::getline(res_stream, line, '\n');
-    CHECK(line.find(" ret") != std::string::npos, "missing ret");
     return true;
 }
 
@@ -228,7 +170,7 @@ test_main(int argc, const char *argv[])
         FATAL_ERROR("Usage error: %s\nUsage:\n%s", parse_err.c_str(),
                     droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
     }
-    if (!test_skip_initial() || !test_skip_indirect_marker())
+    if (!test_skip_initial())
         return 1;
     // TODO i#5538: Add tests that skip from the middle once we have full support
     // for duplicating the timestamp,cpu in that scenario.

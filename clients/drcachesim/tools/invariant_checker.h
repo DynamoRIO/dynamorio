@@ -105,8 +105,7 @@ protected:
     // For performance we support parallel analysis.
     // Most checks are thread-local; for thread switch checks we rely
     // on identifying thread switch points via timestamp entries.
-    class per_shard_t {
-    public:
+    struct per_shard_t {
         per_shard_t()
         {
             // We need a sentinel different from type 0.
@@ -115,20 +114,6 @@ protected:
         }
         // Provide a virtual destructor to facilitate subclassing.
         virtual ~per_shard_t() = default;
-
-        offline_file_type_t
-        get_filetype()
-        {
-            // To support skipped_instrs_ we want to query the stream if possible.
-            // The invariant_checker_test has no stream, though.
-            // XXX: We should add state update support to default_memtrace_stream_t
-            // and use it in the test to avoid stream ever being null and to
-            // eliminate the need for the file_type_ variable.
-            if (stream == nullptr)
-                return file_type_;
-            else
-                return static_cast<offline_file_type_t>(stream->get_filetype());
-        }
 
         memref_t last_branch_ = {};
         memtrace_stream_t *stream = nullptr;
@@ -191,7 +176,6 @@ protected:
         // separate values per thread as we discover their values during parallel
         // operation.
         addr_t app_handler_pc_ = 0;
-        // Use get_filetype() to access, as this is only valid in some modes.
         offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
         uintptr_t last_window_ = 0;
         bool window_transition_ = false;
