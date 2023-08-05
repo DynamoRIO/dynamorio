@@ -1170,6 +1170,17 @@ scheduler_tmpl_t<RecordType, ReaderType>::get_input_ordinal(output_ordinal_t out
 }
 
 template <typename RecordType, typename ReaderType>
+int
+scheduler_tmpl_t<RecordType, ReaderType>::get_workload_ordinal(output_ordinal_t output)
+{
+    if (output < 0 || output >= static_cast<output_ordinal_t>(outputs_.size()))
+        return -1;
+    if (outputs_[output].cur_input < 0)
+        return -1;
+    return inputs_[outputs_[output].cur_input].workload;
+}
+
+template <typename RecordType, typename ReaderType>
 bool
 scheduler_tmpl_t<RecordType, ReaderType>::is_record_synthetic(output_ordinal_t output)
 {
