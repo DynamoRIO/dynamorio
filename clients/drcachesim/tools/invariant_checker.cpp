@@ -701,7 +701,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         memref.marker.marker_value, nullptr,
                         TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_),
                         /*at_kernel_event=*/true);
-                    report_if_false(shard, discontinuity.empty(), discontinuity);
+                    const std::string error_msg_suffix =
+                        "Discontinuity between instruction and kernel event marker";
+                    report_if_false(shard, discontinuity.empty(),
+                                    discontinuity + " - " + error_msg_suffix);
                 }
                 shard->signal_stack_.push({ memref.marker.marker_value,
                                             shard->last_instr_in_cur_context_,
@@ -931,11 +934,8 @@ invariant_checker_t::check_for_pc_discontinuity(
     bool have_branch_target = false;
     addr_t branch_target = 0;
     addr_t prev_instr_trace_pc = prev_instr.instr.addr;
-    bool memref_is_kernel_event_marker = false;
 #ifdef UNIX
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-        memref_is_kernel_event_marker = true;
+    if (at_kernel_event) {
         prev_instr_trace_pc = shard->last_instr_in_cur_context_.instr.addr;
     }
 #endif
