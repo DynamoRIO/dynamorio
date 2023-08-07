@@ -935,9 +935,7 @@ invariant_checker_t::check_for_pc_discontinuity(
     addr_t branch_target = 0;
     addr_t prev_instr_trace_pc = prev_instr.instr.addr;
 #ifdef UNIX
-    if (at_kernel_event) {
-        prev_instr_trace_pc = shard->last_instr_in_cur_context_.instr.addr;
-    }
+    prev_instr_trace_pc = shard->last_instr_in_cur_context_.instr.addr;
 #endif
 
     if (prev_instr_trace_pc == 0 /*first*/)
