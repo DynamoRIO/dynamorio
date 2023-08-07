@@ -701,10 +701,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         memref.marker.marker_value, nullptr,
                         TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_),
                         /*at_kernel_event=*/true);
-                    const std::string error_msg_suffix =
-                        "Discontinuity between instruction and kernel event marker";
+                    const std::string error_msg_suffix = " @ kernel_event marker";
                     report_if_false(shard, discontinuity.empty(),
-                                    discontinuity + " - " + error_msg_suffix);
+                                    discontinuity + error_msg_suffix);
                 }
                 shard->signal_stack_.push({ memref.marker.marker_value,
                                             shard->last_instr_in_cur_context_,

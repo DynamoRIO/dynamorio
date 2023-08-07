@@ -355,9 +355,8 @@ check_sane_control_flow()
         };
         if (!run_checker(
                 memrefs, true,
-                { "Non-explicit control flow has no marker - Discontinuity between "
-                  "instruction and kernel event marker",
-                  TID, /*ref_ordinal=*/2, /*last_timestamp=*/0,
+                { "Non-explicit control flow has no marker @ kernel_event marker", TID,
+                  /*ref_ordinal=*/2, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/1 },
                 "Failed to catch PC discontinuity for an instruction followed by "
                 "kernel xfer marker")) {
@@ -473,9 +472,8 @@ check_sane_control_flow()
         };
         if (!run_checker(
                 memrefs, true,
-                { "Non-explicit control flow has no marker - Discontinuity between "
-                  "instruction and kernel event marker",
-                  TID, /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                { "Non-explicit control flow has no marker @ kernel_event marker", TID,
+                  /*ref_ordinal=*/5, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/2 },
                 "Failed to catch PC discontinuity for an instruction followed by "
                 "kernel xfer marker")) {
@@ -1223,13 +1221,12 @@ check_branch_decoration()
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 999),
             gen_instr(TID, /*pc=*/32),
         };
-        if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target - Discontinuity "
-                           "between instruction and kernel event marker",
-                           TID,
-                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/2 },
-                         "Failed to catch bad indirect branch target marker"))
+        if (!run_checker(
+                memrefs, true,
+                { "Branch does not go to the correct target @ kernel_event marker", TID,
+                  /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/2 },
+                "Failed to catch bad indirect branch target marker"))
             return false;
     }
 #endif
@@ -1354,13 +1351,13 @@ check_branch_decoration()
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
-        if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target - Discontinuity "
-                           "between instruction and kernel event marker",
-                           /*tid=*/1,
-                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/1 },
-                         "Failed to catch taken branch falling through to signal"))
+        if (!run_checker(
+                memrefs, true,
+                { "Branch does not go to the correct target @ kernel_event marker",
+                  /*tid=*/1,
+                  /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/1 },
+                "Failed to catch taken branch falling through to signal"))
             return false;
     }
 #endif
@@ -1472,9 +1469,7 @@ check_branch_decoration()
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(
                 memrefs, true,
-                { "Branch does not go to the correct target - Discontinuity between "
-                  "instruction and kernel event marker",
-                  TID,
+                { "Branch does not go to the correct target @ kernel_event marker", TID,
                   /*ref_ordinal=*/4, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/1 },
                 "Failed to catch untaken branch going to taken target at signal"))
