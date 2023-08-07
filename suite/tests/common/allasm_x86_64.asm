@@ -1,5 +1,5 @@
  /* **********************************************************
- * Copyright (c) 2021-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,12 +49,7 @@ loop:
         sub      rbx, 1
         cmp      rbx, 0
         jne      loop
-        // Test an indirect branch.
-        call     callee
-        jmp exit
-callee:
-        ret
-exit:
+// exit:
         mov      rdi, 0           // exit code
         mov      eax, 231         // SYS_exit_group
         syscall

@@ -25,9 +25,9 @@ Core #0 \(1 thread\(s\)\)
     Miss rate:                      100.00%
   L1D0 .* stats:
     Hits:                                0
-    Misses:                             .*
+    Misses:                              0
     Compulsory misses:                   *[0-9,\.]*
-    Invalidations:                       0.*
+    Invalidations:                       0
 Core #1 \(0 thread\(s\)\)
 Core #2 \(0 thread\(s\)\)
 Core #3 \(0 thread\(s\)\)
@@ -35,7 +35,7 @@ LL .* stats:
     Hits:                                0
     Misses:                             .*
     Compulsory misses:                  *[0-9,\.]*
-    Invalidations:                       0.*
+    Invalidations:                       0
     Miss rate:                      100.00%
 
 ===========================================================================

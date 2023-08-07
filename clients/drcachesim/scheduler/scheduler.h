@@ -638,6 +638,18 @@ public:
             return scheduler_->get_input_ordinal(ordinal_);
         }
         /**
+         * Returns the ordinal for the workload which is the source of the current input
+         * stream feeding this output stream.  This workload ordinal is the index into the
+         * vector of type #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t
+         * passed to init().  Returns -1 if there is no current input for this output
+         * stream.
+         */
+        virtual int
+        get_input_workload_ordinal()
+        {
+            return scheduler_->get_workload_ordinal(ordinal_);
+        }
+        /**
          * Returns the value of the most recently seen #TRACE_MARKER_TYPE_TIMESTAMP
          * marker.
          */
@@ -864,8 +876,6 @@ protected:
         uint64_t queue_counter = 0;
         // Used to switch on the insruction *after* a blocking syscall.
         bool processing_blocking_syscall = false;
-        // Used to switch on an indirect branch marker instead of the branch.
-        bool switching_pre_instruction = false;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -989,15 +999,6 @@ protected:
     stream_status_t
     next_record(output_ordinal_t output, RecordType &record, input_info_t *&input);
 
-    // If "record" is an instruction or an instruction-tied marker, returns true.  For
-    // the marker case, sets pre_instruction to true; otherwise, to false.
-    bool
-    at_instruction_boundary(RecordType &record, bool &pre_instruction);
-
-    // Returns whether "record" is an instruction-tied marker.
-    bool
-    at_pre_instruction_boundary(RecordType &record);
-
     // Skips ahead to the next region of interest if necessary.
     // The caller must hold the input.lock.
     stream_status_t
@@ -1091,6 +1092,11 @@ protected:
     // the 'output_ordinal'-th output stream.
     input_ordinal_t
     get_input_ordinal(output_ordinal_t output);
+
+    // Returns the workload ordinal value for the current input stream scheduled on
+    // the 'output_ordinal'-th output stream.
+    int
+    get_workload_ordinal(output_ordinal_t output);
 
     // Returns whether the current record for the current input stream scheduled on
     // the 'output_ordinal'-th output stream is synthetic.
