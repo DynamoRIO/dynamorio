@@ -876,6 +876,8 @@ protected:
         uint64_t queue_counter = 0;
         // Used to switch on the insruction *after* a blocking syscall.
         bool processing_blocking_syscall = false;
+        // Used to switch before we've read the next instruction.
+        bool switching_pre_instruction = false;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records

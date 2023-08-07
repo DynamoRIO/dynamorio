@@ -2486,6 +2486,10 @@ test_inactive()
         status = stream1->set_active(false);
         assert(status == scheduler_t::STATUS_OK);
         check_next(stream1, scheduler_t::STATUS_WAIT);
+        // Test making cpu1 inactive while it's already inactive.
+        status = stream1->set_active(false);
+        assert(status == scheduler_t::STATUS_OK);
+        check_next(stream1, scheduler_t::STATUS_WAIT);
         // Advance cpu0 to its quantum end.
         check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
         // Ensure cpu0 now picks up the input that was on cpu1.

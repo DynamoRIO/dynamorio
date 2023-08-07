@@ -1374,6 +1374,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::close_schedule_segment(output_ordinal_
         // The end is exclusive, so use the max int value.
         instr_ord = std::numeric_limits<uint64_t>::max();
     }
+    if (input.switching_pre_instruction) {
+        input.switching_pre_instruction = false;
+        // We aren't switching after reading a new instruction that we do not pass
+        // to the consumer, so to have an exclusive stop instr ordinal we need +1.
+        VPRINT(
+            this, 3,
+            "set_cur_input: +1 to instr_ord for not-yet-processed instr for input=%d\n",
+            input.index);
+        ++instr_ord;
+    }
     VPRINT(this, 3,
            "close_schedule_segment: input=%d start=%" PRId64 " stop=%" PRId64 "\n",
            input.index, outputs_[output].record.back().start_instruction, instr_ord);
@@ -1589,7 +1599,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
         options_.mapping == MAP_TO_ANY_OUTPUT || options_.mapping == MAP_AS_PREVIOUSLY;
     auto scoped_lock = need_lock ? std::unique_lock<std::mutex>(sched_lock_)
                                  : std::unique_lock<std::mutex>();
-    int prev_index = outputs_[output].cur_input;
+    input_ordinal_t prev_index = outputs_[output].cur_input;
     input_ordinal_t index = INVALID_INPUT_ORDINAL;
     while (true) {
         if (index < 0) {
@@ -1600,7 +1610,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     return res;
             } else if (options_.mapping == MAP_TO_ANY_OUTPUT) {
                 if (ready_queue_empty()) {
-                    if (prev_index == -1)
+                    if (prev_index == INVALID_INPUT_ORDINAL)
                         return sched_type_t::STATUS_EOF;
                     std::lock_guard<std::mutex> lock(*inputs_[prev_index].lock);
                     if (inputs_[prev_index].at_eof)
@@ -1667,7 +1677,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
             *inputs_[index].reader == *inputs_[index].reader_end) {
             VPRINT(this, 2, "next_record[%d]: local index %d == input #%d at eof\n",
                    output, outputs_[output].input_indices_index, index);
-            if (options_.schedule_record_ostream != nullptr && prev_index != -1)
+            if (options_.schedule_record_ostream != nullptr &&
+                prev_index != INVALID_INPUT_ORDINAL)
                 close_schedule_segment(output, inputs_[prev_index]);
             inputs_[index].at_eof = true;
             index = INVALID_INPUT_ORDINAL;
@@ -1926,6 +1937,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_output_active(output_ordinal_t out
 {
     if (options_.mapping != MAP_TO_ANY_OUTPUT)
         return sched_type_t::STATUS_INVALID;
+    if (outputs_[output].active == active)
+        return sched_type_t::STATUS_OK;
     outputs_[output].active = active;
     VPRINT(this, 2, "Output stream %d is now %s\n", output,
            active ? "active" : "inactive");
@@ -1933,7 +1946,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_output_active(output_ordinal_t out
     if (!active) {
         // Make the now-inactive output's input available for other cores.
         // This will reset its quantum too.
-        // We haven't read ahead so we're "pre_instruction" vs regular switches.
+        // We aren't switching on a just-read instruction not passed to the consumer.
         inputs_[outputs_[output].cur_input].switching_pre_instruction = true;
         set_cur_input(output, INVALID_INPUT_ORDINAL);
     } else {
