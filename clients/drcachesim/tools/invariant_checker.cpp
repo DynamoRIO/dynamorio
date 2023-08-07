@@ -932,15 +932,7 @@ invariant_checker_t::check_for_pc_discontinuity(
     std::string error_msg = "";
     bool have_branch_target = false;
     addr_t branch_target = 0;
-#ifdef UNIX
-    // This needs to be last_instr_in_cur_context_ because we want to check continuity
-    // with the last instruction at the same signal nesting depth as the current instr
-    // instead of the previous executed instr (which may be from an inner nested signal if
-    // a signal just ended).
-    addr_t prev_instr_trace_pc = shard->last_instr_in_cur_context_.instr.addr;
-#else
     addr_t prev_instr_trace_pc = prev_instr.instr.addr;
-#endif
 
     if (prev_instr_trace_pc == 0 /*first*/)
         return "";
@@ -1000,9 +992,6 @@ invariant_checker_t::check_for_pc_discontinuity(
         // same instruction.
         (prev_instr_trace_pc == cur_pc && at_kernel_event) ||
         // Kernel-mediated, but we can't tell if we had a thread swap.
-        // TODO i#5912: Isn't this relaxation too loose since we really only want
-        // to relax if a kernel event happened immediately prior, while prev_xfer_marker_
-        // could be many records back?
         (shard->prev_xfer_marker_.instr.tid != 0 && !at_kernel_event &&
          (shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
           shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
