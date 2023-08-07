@@ -423,6 +423,13 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::stop_speculation()
     return scheduler_->stop_speculation(ordinal_);
 }
 
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::stream_t::set_active(bool active)
+{
+    return scheduler_->set_output_active(ordinal_, active);
+}
+
 /***************************************************************************
  * Scheduler.
  */
@@ -1367,6 +1374,16 @@ scheduler_tmpl_t<RecordType, ReaderType>::close_schedule_segment(output_ordinal_
         // The end is exclusive, so use the max int value.
         instr_ord = std::numeric_limits<uint64_t>::max();
     }
+    if (input.switching_pre_instruction) {
+        input.switching_pre_instruction = false;
+        // We aren't switching after reading a new instruction that we do not pass
+        // to the consumer, so to have an exclusive stop instr ordinal we need +1.
+        VPRINT(
+            this, 3,
+            "set_cur_input: +1 to instr_ord for not-yet-processed instr for input=%d\n",
+            input.index);
+        ++instr_ord;
+    }
     VPRINT(this, 3,
            "close_schedule_segment: input=%d start=%" PRId64 " stop=%" PRId64 "\n",
            input.index, outputs_[output].record.back().start_instruction, instr_ord);
@@ -1582,7 +1599,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
         options_.mapping == MAP_TO_ANY_OUTPUT || options_.mapping == MAP_AS_PREVIOUSLY;
     auto scoped_lock = need_lock ? std::unique_lock<std::mutex>(sched_lock_)
                                  : std::unique_lock<std::mutex>();
-    int prev_index = outputs_[output].cur_input;
+    input_ordinal_t prev_index = outputs_[output].cur_input;
     input_ordinal_t index = INVALID_INPUT_ORDINAL;
     while (true) {
         if (index < 0) {
@@ -1593,6 +1610,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                     return res;
             } else if (options_.mapping == MAP_TO_ANY_OUTPUT) {
                 if (ready_queue_empty()) {
+                    if (prev_index == INVALID_INPUT_ORDINAL)
+                        return sched_type_t::STATUS_EOF;
                     std::lock_guard<std::mutex> lock(*inputs_[prev_index].lock);
                     if (inputs_[prev_index].at_eof)
                         return sched_type_t::STATUS_EOF;
@@ -1658,7 +1677,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
             *inputs_[index].reader == *inputs_[index].reader_end) {
             VPRINT(this, 2, "next_record[%d]: local index %d == input #%d at eof\n",
                    output, outputs_[output].input_indices_index, index);
-            if (options_.schedule_record_ostream != nullptr)
+            if (options_.schedule_record_ostream != nullptr &&
+                prev_index != INVALID_INPUT_ORDINAL)
                 close_schedule_segment(output, inputs_[prev_index]);
             inputs_[index].at_eof = true;
             index = INVALID_INPUT_ORDINAL;
@@ -1677,6 +1697,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                                                       RecordType &record,
                                                       input_info_t *&input)
 {
+    if (!outputs_[output].active)
+        return sched_type_t::STATUS_WAIT;
     if (outputs_[output].waiting) {
         sched_type_t::stream_status_t res = pick_next_input(output, true);
         if (res != sched_type_t::STATUS_OK)
@@ -1905,6 +1927,31 @@ scheduler_tmpl_t<RecordType, ReaderType>::stop_speculation(output_ordinal_t outp
     VPRINT(this, 2, "stop_speculation layer=%zu (resume=0x%zx)\n",
            outinfo.speculation_stack.size(), outinfo.speculate_pc);
     outinfo.speculation_stack.pop();
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::set_output_active(output_ordinal_t output,
+                                                            bool active)
+{
+    if (options_.mapping != MAP_TO_ANY_OUTPUT)
+        return sched_type_t::STATUS_INVALID;
+    if (outputs_[output].active == active)
+        return sched_type_t::STATUS_OK;
+    outputs_[output].active = active;
+    VPRINT(this, 2, "Output stream %d is now %s\n", output,
+           active ? "active" : "inactive");
+    std::lock_guard<std::mutex> guard(sched_lock_);
+    if (!active) {
+        // Make the now-inactive output's input available for other cores.
+        // This will reset its quantum too.
+        // We aren't switching on a just-read instruction not passed to the consumer.
+        inputs_[outputs_[output].cur_input].switching_pre_instruction = true;
+        set_cur_input(output, INVALID_INPUT_ORDINAL);
+    } else {
+        outputs_[output].waiting = true;
+    }
     return sched_type_t::STATUS_OK;
 }
 
