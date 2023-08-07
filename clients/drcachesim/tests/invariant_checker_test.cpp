@@ -450,7 +450,6 @@ check_sane_control_flow()
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
             gen_instr(TID, 201),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
-            // TODO(sahil): Check that this matches the previous kernel event.
             gen_instr(TID, 102),
         };
         if (!run_checker(memrefs, false)) {
