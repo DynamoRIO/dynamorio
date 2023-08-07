@@ -475,8 +475,8 @@ check_sane_control_flow()
                 { "Non-explicit control flow has no marker @ kernel_event marker", TID,
                   /*ref_ordinal=*/5, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/2 },
-                "Failed to catch PC discontinuity for an instruction followed by "
-                "kernel xfer marker")) {
+                "Failed to catch PC discontinuity for back-to-back signals without any "
+                "intervening instruction")) {
             return false;
         }
     }
