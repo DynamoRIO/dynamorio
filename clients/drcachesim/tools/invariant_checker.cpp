@@ -933,6 +933,10 @@ invariant_checker_t::check_for_pc_discontinuity(
     bool have_branch_target = false;
     addr_t branch_target = 0;
 #ifdef UNIX
+    // This needs to be last_instr_in_cur_context_ because we want to check continuity
+    // with the last instruction at the same signal nesting depth as the current instr
+    // instead of the previous executed instr (which may be from an inner nested signal if
+    // a signal just ended).
     addr_t prev_instr_trace_pc = shard->last_instr_in_cur_context_.instr.addr;
 #else
     addr_t prev_instr_trace_pc = prev_instr.instr.addr;
