@@ -1341,12 +1341,13 @@ exit_thread_io(void *drcontext)
 
         ptr_int_t window = get_local_window(data);
         if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) &&
-            get_local_window(data) == window)
+            get_local_window(data) == window) {
             process_and_output_buffer(drcontext,
                                       /* If this thread already wrote some data, include
                                        * its exit even if we're over a size limit.
                                        */
                                       data->bytes_written > 0);
+        }
         if (get_local_window(data) != window) {
             BUF_PTR(data->seg_base) += instru->append_thread_exit(
                 BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
