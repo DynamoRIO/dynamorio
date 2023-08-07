@@ -206,8 +206,10 @@ online_instru_t::clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp
     stamp++; // Skip the tid added by append_unit_header() before the timestamp.
     DR_ASSERT(stamp->type == TRACE_TYPE_MARKER &&
               stamp->size == TRACE_MARKER_TYPE_TIMESTAMP);
-    if (stamp->addr < min_timestamp) {
-        stamp->addr = static_cast<uintptr_t>(min_timestamp);
+    // i#5634: Truncated for 32-bit, as documented.
+    const uintptr_t new_timestamp = static_cast<uintptr_t>(min_timestamp);
+    if (stamp->addr < new_timestamp) {
+        stamp->addr = new_timestamp;
         return true;
     }
     return false;

@@ -79,7 +79,7 @@ reader_t::operator++()
             // We've already presented the thread exit entry to the analyzer.
             continue;
         }
-        VPRINT(this, 4, "RECV: type=%s (%d), size=%d, addr=0x%zx\n",
+        VPRINT(this, 5, "RECV: type=%s (%d), size=%d, addr=0x%zx\n",
                trace_type_names[input_entry_->type], input_entry_->type,
                input_entry_->size, input_entry_->addr);
         if (process_input_entry())
@@ -393,6 +393,12 @@ reader_t::skip_instructions_with_timestamp(uint64_t stop_instruction_count)
     // process it so we do not use the ++ operator function.
     uint64_t stop_count = stop_instruction_count + 1;
     trace_entry_t timestamp = {};
+    // Use the most recent timestamp.
+    if (last_timestamp_ != 0) {
+        timestamp.type = TRACE_TYPE_MARKER;
+        timestamp.size = TRACE_MARKER_TYPE_TIMESTAMP;
+        timestamp.addr = static_cast<addr_t>(last_timestamp_);
+    }
     trace_entry_t cpu = {};
     trace_entry_t next_instr = {};
     bool prev_was_record_ord = false;

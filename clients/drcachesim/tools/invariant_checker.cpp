@@ -604,6 +604,24 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
+#ifdef X86_32
+        // i#5634: Truncated for 32-bit, as documented.
+        // A 32 bit timestamp rolls over every 4294 seconds, so it needs to be
+        // considered when timestamps are compared. The check assumes two
+        // consecutive timestamps will never be more than 2^31 microseconds
+        // (2147 seconds) apart.
+        const uintptr_t last_timestamp = static_cast<uintptr_t>(shard->last_timestamp_);
+        if (memref.marker.marker_value < last_timestamp) {
+            report_if_false(shard,
+                            last_timestamp >
+                                (memref.marker.marker_value +
+                                 (std::numeric_limits<uintptr_t>::max)() / 2),
+                            "Timestamp does not increase monotonically");
+        }
+#else
+        report_if_false(shard, memref.marker.marker_value >= shard->last_timestamp_,
+                        "Timestamp does not increase monotonically");
+#endif
         shard->last_timestamp_ = memref.marker.marker_value;
         shard->saw_timestamp_but_no_instr_ = true;
         // Reset this since we just saw a timestamp marker.

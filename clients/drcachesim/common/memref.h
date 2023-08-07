@@ -49,8 +49,8 @@ namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure names
 
 // On some platforms, like MacOS, a thread id is 64 bits.
 // We just make both 64 bits to cover all our bases.
-typedef int_least64_t memref_pid_t; /**< Process id type. */
-typedef int_least64_t memref_tid_t; /**< Thread id type. */
+typedef int64_t memref_pid_t; /**< Process id type. */
+typedef int64_t memref_tid_t; /**< Thread id type. */
 
 /** A trace entry representing a data load, store, or prefetch. */
 struct _memref_data_t {

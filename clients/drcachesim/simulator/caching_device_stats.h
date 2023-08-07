@@ -187,7 +187,7 @@ public:
     virtual void
     invalidate(invalidation_type_t invalidation_type);
 
-    int_least64_t
+    int64_t
     get_metric(metric_name_t metric) const
     {
         if (stats_map_.find(metric) != stats_map_.end()) {
@@ -232,19 +232,19 @@ protected:
     void
     check_compulsory_miss(addr_t addr);
 
-    int_least64_t num_hits_;
-    int_least64_t num_misses_;
-    int_least64_t num_compulsory_misses_;
-    int_least64_t num_child_hits_;
+    int64_t num_hits_;
+    int64_t num_misses_;
+    int64_t num_compulsory_misses_;
+    int64_t num_child_hits_;
 
-    int_least64_t num_inclusive_invalidates_;
-    int_least64_t num_coherence_invalidates_;
+    int64_t num_inclusive_invalidates_;
+    int64_t num_coherence_invalidates_;
 
     // Stats saved when the last reset was called. This helps us get insight
     // into what the stats were when the cache was warmed up.
-    int_least64_t num_hits_at_reset_;
-    int_least64_t num_misses_at_reset_;
-    int_least64_t num_child_hits_at_reset_;
+    int64_t num_hits_at_reset_;
+    int64_t num_misses_at_reset_;
+    int64_t num_child_hits_at_reset_;
     // Enabled if options warmup_refs > 0 || warmup_fraction > 0
     bool warmup_enabled_;
 
@@ -253,7 +253,7 @@ protected:
 
     // References to the properties with statistics are held in the map with the
     // statistic name as the key. Sample map element: {HITS, num_hits_}
-    std::map<metric_name_t, int_least64_t &> stats_map_;
+    std::map<metric_name_t, int64_t &> stats_map_;
 
     // We provide a feature of dumping misses to a file.
     bool dump_misses_;

@@ -234,7 +234,7 @@ opcode_mix_t::process_memref(const memref_t &memref)
 }
 
 static bool
-cmp_val(const std::pair<int, int_least64_t> &l, const std::pair<int, int_least64_t> &r)
+cmp_val(const std::pair<int, int64_t> &l, const std::pair<int, int64_t> &r)
 {
     return (l.second > r.second);
 }
@@ -255,8 +255,8 @@ opcode_mix_t::print_results()
     }
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << total.instr_count << " : total executed instructions\n";
-    std::vector<std::pair<int, int_least64_t>> sorted(total.opcode_counts.begin(),
-                                                      total.opcode_counts.end());
+    std::vector<std::pair<int, int64_t>> sorted(total.opcode_counts.begin(),
+                                                total.opcode_counts.end());
     std::sort(sorted.begin(), sorted.end(), cmp_val);
     for (const auto &keyvals : sorted) {
         std::cerr << std::setw(15) << keyvals.second << " : " << std::setw(9)
