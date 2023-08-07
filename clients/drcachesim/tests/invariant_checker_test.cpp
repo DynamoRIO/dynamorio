@@ -350,14 +350,15 @@ check_sane_control_flow()
     // marker.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
+            gen_instr(TID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
         };
         if (!run_checker(
                 memrefs, true,
                 { "Non-explicit control flow has no marker - Discontinuity between "
                   "instruction and kernel event marker",
-                  1, 2, 0, 1 },
+                  TID, /*ref_ordinal=*/2, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/1 },
                 "Failed to catch PC discontinuity for an instruction followed by "
                 "kernel xfer marker")) {
             return false;
@@ -367,9 +368,9 @@ check_sane_control_flow()
     // instruction.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),   gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 101), gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(1, 2),
+            gen_instr(TID, 1),   gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 101), gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -379,7 +380,7 @@ check_sane_control_flow()
     // kernel event.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -388,9 +389,9 @@ check_sane_control_flow()
     // Positive test: Pre-signal instr continues after signal.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 2),   gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 101), gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(1, 2),
+            gen_instr(TID, 2),   gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 101), gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -400,12 +401,12 @@ check_sane_control_flow()
     // of type TRACE_TYPE_INSTR_SYSENTER.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 5),
-            gen_instr_type(TRACE_TYPE_INSTR_SYSENTER, 1, 6),
-            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(1, 101),
+            gen_instr(TID, 5),
+            gen_instr_type(TRACE_TYPE_INSTR_SYSENTER, TID, 6),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 101),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -414,12 +415,12 @@ check_sane_control_flow()
     // Positive test: RSEQ abort in last signal context.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
+            gen_instr(TID, 1),
             // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
-            gen_marker(1, TRACE_MARKER_TYPE_RSEQ_ABORT, 40),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 40),
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 40),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 40),
             // We get a signal after the RSEQ abort.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -428,9 +429,9 @@ check_sane_control_flow()
     // Positive test: Branch before signal.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1),
-            gen_branch(1, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 50),
+            gen_instr(TID, 1),
+            gen_branch(TID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 50),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -439,18 +440,18 @@ check_sane_control_flow()
     // Positive test: back-to-back signals without any intervening instruction.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 101),
+            gen_instr(TID, 101),
             // First signal.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
-            gen_instr(1, 201),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(TID, 201),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             // Second signal.
             // The Marker value for this signal needs to be 102.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
-            gen_instr(1, 201),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(TID, 201),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             // TODO(sahil): Check that this matches the previous kernel event.
-            gen_instr(1, 102),
+            gen_instr(TID, 102),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -459,23 +460,24 @@ check_sane_control_flow()
     // Negative test: back-to-back signals without any intervening instruction.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 101),
+            gen_instr(TID, 101),
             // First signal.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
-            gen_instr(1, 201),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(TID, 201),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             // Second signal.
             // There will be a PC discontinuity here since the marker value is 500, and
             // the previous PC is 101.
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 500),
-            gen_instr(1, 201),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 500),
+            gen_instr(TID, 201),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
         };
         if (!run_checker(
                 memrefs, true,
                 { "Non-explicit control flow has no marker - Discontinuity between "
                   "instruction and kernel event marker",
-                  1, 5, 0, 2 },
+                  TID, /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/2 },
                 "Failed to catch PC discontinuity for an instruction followed by "
                 "kernel xfer marker")) {
             return false;
