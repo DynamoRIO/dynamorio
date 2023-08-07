@@ -176,7 +176,7 @@ bool
 check_branch_target_after_branch()
 {
     std::cerr << "Testing branch targets\n";
-    // Positive simple test.
+    // Correct simple test.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1), gen_branch(1, 2),
@@ -186,7 +186,7 @@ check_branch_target_after_branch()
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Negative simple test.
+    // Incorrect simple test.
     {
         constexpr uintptr_t TIMESTAMP = 3;
         constexpr memref_tid_t TID = 1;
@@ -230,7 +230,7 @@ check_sane_control_flow()
 {
     std::cerr << "Testing control flow\n";
     constexpr memref_tid_t TID = 1;
-    // Negative simple test.
+    // Incorrect simple test.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, 1),
@@ -243,7 +243,7 @@ check_sane_control_flow()
                          "Failed to catch bad control flow"))
             return false;
     }
-    // Negative test with timestamp markers.
+    // Incorrect test with timestamp markers.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 2),
@@ -259,7 +259,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: branches with no encodings.
+    // Correct test: branches with no encodings.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, 1),   gen_branch(TID, 2),  gen_instr(TID, 3), // Not taken.
@@ -275,7 +275,7 @@ check_sane_control_flow()
     // XXX: We hardcode encodings here.  If we need many more we should generate them
     // from DR IR.
 
-    // Negative test: branches with encodings which do not go to their targets.
+    // Incorrect test: branches with encodings which do not go to their targets.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
@@ -301,7 +301,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: branches with encodings which go to their targets.
+    // Correct test: branches with encodings which go to their targets.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
@@ -346,7 +346,7 @@ check_sane_control_flow()
             return false;
     }
 #ifdef UNIX
-    // Negative test (PC discontinuity): Transition from instr to kernel_xfer event
+    // Incorrect test (PC discontinuity): Transition from instr to kernel_xfer event
     // marker.
     {
         std::vector<memref_t> memrefs = {
@@ -364,7 +364,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: Transition from instr to kernel_xfer event marker. goes to the next
+    // Correct test: Transition from instr to kernel_xfer event marker. goes to the next
     // instruction.
     {
         std::vector<memref_t> memrefs = {
@@ -376,7 +376,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: We should skip the check if there is no instruction before the
+    // Correct test: We should skip the check if there is no instruction before the
     // kernel event.
     {
         std::vector<memref_t> memrefs = {
@@ -386,7 +386,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: Pre-signal instr continues after signal.
+    // Correct test: Pre-signal instr continues after signal.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, 2),   gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
@@ -397,7 +397,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: We should not report a PC discontinuity when the previous instr is
+    // Correct test: We should not report a PC discontinuity when the previous instr is
     // of type TRACE_TYPE_INSTR_SYSENTER.
     {
         std::vector<memref_t> memrefs = {
@@ -412,7 +412,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: RSEQ abort in last signal context.
+    // Correct test: RSEQ abort in last signal context.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, 1),
@@ -426,7 +426,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: Branch before signal.
+    // Correct test: Branch before signal.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, 1),
@@ -437,7 +437,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: back-to-back signals without any intervening instruction.
+    // Correct test: back-to-back signals without any intervening instruction.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, 101),
@@ -456,7 +456,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Negative test: back-to-back signals without any intervening instruction.
+    // Incorrect test: back-to-back signals without any intervening instruction.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, 101),
@@ -817,7 +817,7 @@ bool
 check_duplicate_syscall_with_same_pc()
 {
     std::cerr << "Testing duplicate syscall\n";
-    // Negative: syscalls with the same PC.
+    // Incorrect: syscalls with the same PC.
 #if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     constexpr addr_t ADDR = 0x7fcf3b9d;
     {
@@ -847,7 +847,7 @@ check_duplicate_syscall_with_same_pc()
             return false;
     }
 
-    // Positive test: syscalls with different PCs.
+    // Correct: syscalls with different PCs.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
@@ -972,7 +972,7 @@ bool
 check_rseq_side_exit_discontinuity()
 {
     std::cerr << "Testing rseq side exits\n";
-    // Negative test: Seemingly missing instructions in a basic block due to rseq side
+    // Incorrect test: Seemingly missing instructions in a basic block due to rseq side
     // exit.
     instr_t *store = XINST_CREATE_store(GLOBAL_DCONTEXT, OPND_CREATE_MEMPTR(REG2, 0),
                                         opnd_create_reg(REG1));
