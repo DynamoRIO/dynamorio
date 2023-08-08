@@ -725,7 +725,11 @@ int
 instr_get_opcode(instr_t *instr);
 
 DR_API
-/** Returns \p instr's set of categories (set of DR_INSTR_CATEGORY_ constants). */
+/**
+ * Returns \p instr's set of categories (set of DR_INSTR_CATEGORY_ constants).
+ * See #dr_instr_category_type_t
+ * AArch64 support only.
+ */
 uint
 instr_get_category(instr_t *instr);
 
