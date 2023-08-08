@@ -3633,8 +3633,35 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
                     return false;
                 memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
             }
+#elif defined(AARCHXX)
+#    ifdef X64
+            /* The first and so far (August 2023) only DR_MC_MULTIMEDIA related
+             * change to AARCH64's machine context was addition of the Scalable
+             * Vector Extension (SVE) vector registers (DR_REG_Z0->DR_REG_Z31),
+             * predicate registers (DR_REG_P0->DR_REG_P15) and first fault
+             * register (DR_REG_FFR). Further SVE2 support did not change
+             * these. To avoid breaking backward compatibility with pre-SVE
+             * clients, we only copy the first 128 bits of each vector, i.e.
+             * the v8 NEON SIMD registers DR_REG_Q0->DR_REG_Q31.
+             */
+            if (sizeof(dst->simd) < sizeof(src->simd)) {
+                /* For pre-SVE and SVE builds:
+                 * MCXT_NUM_SIMD_SLOTS = MCXT_NUM_SIMD_SVE_SLOTS = 32.
+                 * with the only difference in simd[] being the size of each
+                 * simd slot.
+                 */
+                for (int i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; ++i)
+                    memcpy(&dst->simd[i], &src->simd[i], 16);
+            } else if (sizeof(dst->simd) > sizeof(src->simd))
+                CLIENT_ASSERT(false, "An SVE client is running on a pre-SVE DR build!");
+            else
+                return false;
+#    else
+            /* TODO i#1551: NYI on AARCH32. */
+            ASSERT_NOT_IMPLEMENTED(false);
+#    endif
 #else
-            /* FIXME i#1551: NYI on ARM */
+            /* TODO i#3544: NYI on RISC-V. */
             ASSERT_NOT_IMPLEMENTED(false);
 #endif
         }
