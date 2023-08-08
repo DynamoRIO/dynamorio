@@ -135,6 +135,9 @@ jobs:
         to: dynamorio-devs@googlegroups.com
         from: Github Action CI
 
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
   # 64-bit Linux build with gcc and run tests.
   x86-64:
     runs-on: ubuntu-20.04
@@ -196,6 +199,9 @@ jobs:
           See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
         to: dynamorio-devs@googlegroups.com
         from: Github Action CI
+
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
 
   # Ubuntu22 64-bit Linux build with gcc and run tests.
   # XXX: A matrix could combine this with the 20.04 but our auto-cancel
