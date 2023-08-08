@@ -451,7 +451,8 @@ instr_get_opcode(instr_t *instr)
 
 #define inlined_instr_get_category(instr)                                         \
     (IF_DEBUG_(CLIENT_ASSERT(sizeof(*instr) == sizeof(instr_t), "invalid type"))( \
-        ((instr)->category == DR_INSTR_CATEGORY_UNCATEGORIZED)                    \
+        ((instr)->category == DR_INSTR_CATEGORY_UNCATEGORIZED ||                  \
+         !instr_operands_valid(instr))                                            \
             ? (instr_decode_with_current_dcontext(instr), (instr)->category)      \
             : (instr)->category))
 uint

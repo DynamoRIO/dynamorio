@@ -287,9 +287,10 @@ struct _instr_t {
     /* translation target for this instr */
     app_pc translation;
 
-    uint opcode;
+    uint opcode : 16;
 
-    uint category;
+    /* category of this instr (e.g. branch, load/store, etc.) */
+    uint category : 16;
 
 #    ifdef X86
     /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */

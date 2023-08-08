@@ -101,6 +101,9 @@ extern "C" {
 /* Annotation handler registration routines */
 #include "dr_annotation.h"
 
+/* Instruction category constants */
+#include "dr_ir_categories.h"
+
 #ifndef DYNAMORIO_STANDALONE
 /**
  * When registering a process, users must provide a list of paths to
