@@ -746,7 +746,7 @@ void
 instr_set_opcode(instr_t *instr, int opcode);
 
 DR_API
-/** 
+/**
  * Assumes \p category is a set of DR_INSTR_CATEGORY_ constants
  * and sets it to be instr's category.
  * See #dr_instr_category_type_t
