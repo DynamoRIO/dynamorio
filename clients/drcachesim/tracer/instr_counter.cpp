@@ -35,20 +35,27 @@
  * Instruction counting mode where we do not record any trace data.
  */
 
+#include "instr_counter.h"
+
 #include <limits.h>
+#include <stddef.h>
+
 #include <atomic>
+#include <cstdint>
+
 #include "dr_api.h"
 #include "drmgr.h"
-#include "drmemtrace.h"
 #include "drreg.h"
-#include "drx.h"
 #include "instr_counter.h"
-#include "instru.h"
-#include "tracer.h"
+#include "options.h"
+#include "utils.h"
+#include "drmemtrace.h"
 #include "func_trace.h"
+#include "instru.h"
 #include "output.h"
-#include "../common/options.h"
-#include "../common/utils.h"
+#include "tracer.h"
+#include "droption.h"
+#include "drx.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -33,9 +33,14 @@
 #ifndef _SNOOP_FILTER_H_
 #define _SNOOP_FILTER_H_ 1
 
-#include "cache.h"
+#include <stdint.h>
+
 #include <unordered_map>
 #include <vector>
+
+#include "cache.h"
+#include "cache.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

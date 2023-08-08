@@ -36,13 +36,23 @@
 #ifndef _CACHE_SIMULATOR_H_
 #define _CACHE_SIMULATOR_H_ 1
 
+#include <limits.h>
+#include <stdint.h>
+
+#include <istream>
+#include <string>
 #include <unordered_map>
-#include "simulator.h"
+
+#include "cache.h"
 #include "cache_simulator_create.h"
 #include "cache_stats.h"
-#include "cache.h"
+#include "simulator.h"
 #include "snoop_filter.h"
-#include <limits.h>
+#include "cache.h"
+#include "cache_simulator_create.h"
+#include "cache_stats.h"
+#include "simulator.h"
+#include "snoop_filter.h"
 
 namespace dynamorio {
 namespace drmemtrace {

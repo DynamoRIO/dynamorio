@@ -30,12 +30,22 @@
  * DAMAGE.
  */
 
+#include "reader.h"
+
 #include <assert.h>
 #include <inttypes.h>
+#include <stdint.h>
 #include <string.h>
+
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+
 #include "reader.h"
-#include "../common/memref.h"
-#include "../common/utils.h"
+#include "memref.h"
+#include "utils.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

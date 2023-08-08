@@ -36,10 +36,17 @@
 #ifndef _CACHE_FIFO_H_
 #define _CACHE_FIFO_H_ 1
 
+#include <string>
+#include <vector>
+
 #include "cache.h"
+#include "cache.h"
+#include "prefetcher.h"
 
 namespace dynamorio {
 namespace drmemtrace {
+
+class snoop_filter_t;
 
 class cache_fifo_t : public cache_t {
 public:

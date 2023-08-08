@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * **********************************************************/
 
@@ -34,14 +34,22 @@
 #ifndef _TRACER_
 #define _TRACER_ 1
 
+#include <stddef.h>
+
 #include <atomic>
+#include <cstdint>
+
 #include "dr_api.h"
-#include "physaddr.h"
+#include "drmemtrace.h"
 #include "instru.h"
-#include "../common/options.h"
-#include "../common/named_pipe.h"
+#include "physaddr.h"
+#include "named_pipe.h"
+#include "options.h"
+#include "instru.h"
+#include "physaddr.h"
 #ifdef HAS_SNAPPY
 #    include <snappy.h>
+
 #    include "snappy_file_writer.h"
 #endif
 #ifdef HAS_ZLIB

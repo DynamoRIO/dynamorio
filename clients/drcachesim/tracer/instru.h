@@ -38,11 +38,17 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <sys/types.h>
+
 #include <atomic>
+#include <iterator>
+#include <utility>
+
+#include "dr_allocator.h"
 #include "dr_api.h"
 #include "drvector.h"
-#include "trace_entry.h"
 #include "dr_allocator.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

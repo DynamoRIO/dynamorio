@@ -30,10 +30,15 @@
  * DAMAGE.
  */
 
-#include <algorithm>
 #include "directory_iterator.h"
-#include "utils.h"
+
+#include <dirent.h>
+
+#include <string>
+
+#include "directory_iterator.h"
 #include "dr_frontend.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

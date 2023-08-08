@@ -33,15 +33,20 @@
 /* instru_online: inserts instrumentation for online traces.
  */
 
-#define NOMINMAX // Avoid windows.h messing up std::min.
+#define NOMINMAX    // Avoid windows.h messing up std::min.
+#include <limits.h> /* for USHRT_MAX */
+#include <stddef.h> /* for offsetof */
+
+#include <algorithm> /* for std::min */
+#include <atomic>
+#include <cstdint>
+
 #include "dr_api.h"
 #include "drreg.h"
 #include "drutil.h"
+#include "drvector.h"
+#include "trace_entry.h"
 #include "instru.h"
-#include "../common/trace_entry.h"
-#include <limits.h>  /* for USHRT_MAX */
-#include <stddef.h>  /* for offsetof */
-#include <algorithm> /* for std::min */
 
 namespace dynamorio {
 namespace drmemtrace {

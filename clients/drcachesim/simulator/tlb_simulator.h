@@ -36,11 +36,18 @@
 #ifndef _TLB_SIMULATOR_H_
 #define _TLB_SIMULATOR_H_ 1
 
+#include <string>
 #include <unordered_map>
+
+#include "memref.h"
 #include "simulator.h"
+#include "simulator.h"
+#include "tlb.h"
 #include "tlb_simulator_create.h"
 #include "tlb_stats.h"
 #include "tlb.h"
+#include "tlb_simulator_create.h"
+#include "tlb_stats.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -31,8 +31,21 @@
  */
 
 #include "config_reader.h"
+#include "config_reader.h"
 
+#include <stdint.h>
+
+#include <cstdlib>
 #include <iostream>
+#include <iterator>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "options.h"
+#include "cache_simulator_create.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

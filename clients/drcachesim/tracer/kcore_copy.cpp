@@ -30,15 +30,21 @@
  * DAMAGE.
  */
 
-#include <inttypes.h>
-#include <string.h>
-#include <stdio.h>
-#include <fstream>
+#include "kcore_copy.h"
 
-#include "../common/utils.h"
-#include "../common/trace_entry.h"
+#include <elf.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/types.h>
+
+#include <fstream>
+#include <string>
+
 #include "dr_api.h"
 #include "kcore_copy.h"
+#include "trace_entry.h"
+#include "utils.h"
+#include "drmemtrace.h"
 
 namespace dynamorio {
 namespace drmemtrace {

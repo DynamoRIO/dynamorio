@@ -31,7 +31,17 @@
  */
 
 #include "cache_filter.h"
+#include "cache_filter.h"
+
+#include <string>
+
 #include "cache_lru.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "cache_stats.h"
+#include "caching_device_block.h"
+#include "caching_device_stats.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

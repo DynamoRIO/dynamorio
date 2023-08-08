@@ -32,10 +32,13 @@
 
 /* shared options for both the frontend and the client */
 
-#include <string>
-#include "dr_api.h" // For IF_X86_ELSE.
-#include "droption.h"
 #include "options.h"
+
+#include <string>
+
+#include "dr_api.h" // For IF_X86_ELSE.
+#include "options.h"
+#include "droption.h"
 
 namespace dynamorio {
 namespace drmemtrace {

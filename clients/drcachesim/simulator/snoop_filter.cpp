@@ -31,10 +31,23 @@
  */
 
 #include "snoop_filter.h"
-#include <iostream>
-#include <iomanip>
+#include "snoop_filter.h"
+
 #include <assert.h>
+#include <stdint.h>
+
 #include <algorithm>
+#include <iomanip>
+#include <iostream>
+#include <locale>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "cache.h"
+#include "caching_device_block.h"
+#include "caching_device_stats.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

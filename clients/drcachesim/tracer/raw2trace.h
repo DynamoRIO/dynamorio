@@ -42,26 +42,37 @@
  */
 
 #define NOMINMAX // Avoid windows.h messing up std::min.
-#include "dr_api.h"
-#include "drmemtrace.h"
-#include "drcovlib.h"
+#include <stddef.h>
+#include <stdint.h>
+
 #include <array>
 #include <atomic>
+#include <bitset>
+#include <deque>
+#include <fstream>
 #include <limits>
 #include <list>
 #include <memory>
 #include <queue>
 #include <set>
+#include <string>
+#include <type_traits>
 #include <unordered_map>
-#include "trace_entry.h"
-#include "instru.h"
-#include "archive_ostream.h"
-#include "reader.h"
-#include "utils.h"
-#include <fstream>
-#include "hashtable.h"
+#include <utility>
 #include <vector>
-#include <bitset>
+
+#include "archive_ostream.h"
+#include "dr_api.h"
+#include "drcovlib.h"
+#include "drmemtrace.h"
+#include "hashtable.h"
+#include "instru.h"
+#include "reader.h"
+#include "drmemtrace.h"
+#include "instru.h"
+#include "hashtable.h"
+#include "trace_entry.h"
+#include "utils.h"
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include "../drpt2trace/pt2ir.h"
 #endif

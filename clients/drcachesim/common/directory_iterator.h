@@ -37,7 +37,9 @@
 #define _DIRECTORY_ITERATOR_H_ 1
 
 #include <assert.h>
+
 #include <iterator>
+#include <string>
 #ifdef WINDOWS
 #    define UNICODE
 #    define _UNICODE
@@ -47,6 +49,7 @@
 #    include <dirent.h> /* opendir, readdir */
 #endif
 
+#include "utils.h"
 #include "utils.h"
 
 namespace dynamorio {

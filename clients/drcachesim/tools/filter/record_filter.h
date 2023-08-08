@@ -33,11 +33,19 @@
 #ifndef _RECORD_FILTER_H_
 #define _RECORD_FILTER_H_ 1
 
-#include "analysis_tool.h"
+#include <stdint.h>
+
 #include <memory>
 #include <mutex>
+#include <ostream>
+#include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "analysis_tool.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

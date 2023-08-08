@@ -30,9 +30,18 @@
  * DAMAGE.
  */
 
-#include <iostream>
-#include <iomanip>
 #include "cache_stats.h"
+
+#include <iomanip>
+#include <iostream>
+#include <map>
+#include <string>
+
+#include "cache_stats.h"
+#include "memref.h"
+#include "caching_device_block.h"
+#include "caching_device_stats.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

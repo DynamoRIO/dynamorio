@@ -31,8 +31,16 @@
  */
 
 #include "tlb.h"
-#include "../common/utils.h"
+#include "tlb.h"
+
 #include <assert.h>
+#include <stddef.h>
+
+#include "memref.h"
+#include "caching_device.h"
+#include "caching_device_block.h"
+#include "tlb_entry.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

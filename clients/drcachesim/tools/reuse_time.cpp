@@ -30,14 +30,25 @@
  * DAMAGE.
  */
 
+#include "reuse_time.h"
+
+#include <stdint.h>
+
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include "reuse_time.h"
 #include "../common/utils.h"
+#include "analysis_tool.h"
+#include "memref.h"
+#include "reuse_time.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

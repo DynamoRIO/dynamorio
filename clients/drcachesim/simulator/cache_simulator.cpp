@@ -30,24 +30,38 @@
  * DAMAGE.
  */
 
-#include <iostream>
-#include <iterator>
-#include <string>
-#include <assert.h>
-#include <limits.h>
-#include <stdint.h> /* for supporting 64-bit integers*/
-#include "../common/memref.h"
-#include "../common/options.h"
-#include "../common/utils.h"
-#include "../reader/config_reader.h"
-#include "../reader/file_reader.h"
-#include "../reader/ipc_reader.h"
-#include "cache_stats.h"
-#include "cache.h"
-#include "cache_lru.h"
-#include "cache_fifo.h"
 #include "cache_simulator.h"
+
+#include <stddef.h>
+#include <stdint.h> /* for supporting 64-bit integers*/
+
+#include <functional>
+#include <iostream>
+#include <map>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "analysis_tool.h"
+#include "cache_simulator.h"
+#include "memref.h"
+#include "options.h"
+#include "trace_entry.h"
+#include "config_reader.h"
+#include "file_reader.h"
+#include "ipc_reader.h"
+#include "cache.h"
+#include "cache_fifo.h"
+#include "cache_lru.h"
+#include "cache_simulator_create.h"
+#include "cache_stats.h"
+#include "caching_device.h"
+#include "caching_device_stats.h"
+#include "prefetcher.h"
+#include "simulator.h"
 #include "snoop_filter.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

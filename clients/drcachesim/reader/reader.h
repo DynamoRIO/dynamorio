@@ -38,13 +38,18 @@
 #define _READER_H_ 1
 
 #include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <iterator>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
+
 // For exporting we avoid "../common" and rely on -I.
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "trace_entry.h"
 #include "utils.h"
 
 namespace dynamorio {

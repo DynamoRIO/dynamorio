@@ -36,8 +36,12 @@
 #define _COMPRESSED_FILE_READER_H_ 1
 
 #include <zlib.h>
+
 #include "file_reader.h"
 #include "record_file_reader.h"
+#include "file_reader.h"
+#include "record_file_reader.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

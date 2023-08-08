@@ -35,13 +35,29 @@
  * to qualify function names for offline traces.
  */
 
-#include "dr_api.h"
 #include "func_view.h"
+
+#include <assert.h>
+#include <stdint.h>
+
 #include <algorithm>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
+#include <mutex>
+#include <set>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
 #include <vector>
-#include <assert.h>
+
+#include "analysis_tool.h"
+#include "func_view.h"
+#include "memref.h"
+#include "raw2trace_directory.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

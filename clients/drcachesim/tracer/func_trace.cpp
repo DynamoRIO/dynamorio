@@ -33,19 +33,28 @@
 // func_trace.cpp: module for recording function traces
 
 #define NOMINMAX // Avoid windows.h messing up std::min.
+#include "func_trace.h"
+
+#include <sys/types.h>
+
 #include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
+
 #include "dr_api.h"
-#include "drsyms.h"
-#include "drwrap.h"
 #include "drmgr.h"
 #include "drvector.h"
+#include "options.h"
 #include "hashtable.h"
+#include "droption.h"
+#include "drsyms.h"
+#include "drwrap.h"
 #include "trace_entry.h"
-#include "../common/options.h"
-#include "func_trace.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

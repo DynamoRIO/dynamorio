@@ -31,7 +31,18 @@
  */
 
 #include "cache_fifo.h"
+#include "cache_fifo.h"
+
 #include <assert.h>
+
+#include <vector>
+
+#include "cache.h"
+#include "caching_device.h"
+#include "caching_device_block.h"
+#include "caching_device_stats.h"
+#include "prefetcher.h"
+#include "snoop_filter.h"
 
 namespace dynamorio {
 namespace drmemtrace {

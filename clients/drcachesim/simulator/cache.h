@@ -36,12 +36,22 @@
 #ifndef _CACHE_H_
 #define _CACHE_H_ 1
 
-#include "caching_device.h"
+#include <string>
+#include <vector>
+
 #include "cache_line.h"
 #include "cache_stats.h"
+#include "caching_device.h"
+#include "memref.h"
+#include "cache_line.h"
+#include "cache_stats.h"
+#include "caching_device.h"
+#include "prefetcher.h"
 
 namespace dynamorio {
 namespace drmemtrace {
+
+class snoop_filter_t;
 
 class cache_t : public caching_device_t {
 public:

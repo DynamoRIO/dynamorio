@@ -33,7 +33,10 @@
 #ifndef _CACHE_FILTER_H_
 #define _CACHE_FILTER_H_ 1
 
+#include "memtrace_stream.h"
 #include "record_filter.h"
+#include "record_filter.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

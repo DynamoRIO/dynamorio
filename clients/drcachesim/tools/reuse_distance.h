@@ -36,17 +36,24 @@
 #ifndef _REUSE_DISTANCE_H_
 #define _REUSE_DISTANCE_H_ 1
 
+#include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <iostream>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <string>
+#include <utility>
 #include <vector>
-#include <assert.h>
-#include <iostream>
+
 #include "analysis_tool.h"
-#include "reuse_distance_create.h"
 #include "memref.h"
+#include "reuse_distance_create.h"
+#include "reuse_distance_create.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -66,8 +73,8 @@ namespace drmemtrace {
 #    define IF_DEBUG_VERBOSE(level, action)
 #endif
 
-struct line_ref_t;
 struct line_ref_list_t;
+struct line_ref_t;
 
 class reuse_distance_t : public analysis_tool_t {
 public:

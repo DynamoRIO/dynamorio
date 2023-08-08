@@ -30,12 +30,30 @@
  * DAMAGE.
  */
 
-#include <algorithm>
-#include <set>
-#include <unordered_map>
-
 #include "scheduler.h"
-#include "file_reader.h"
+
+#include <stdint.h>
+
+#include <algorithm>
+#include <cassert>
+#include <cinttypes>
+#include <cstdio>
+#include <iomanip>
+#include <limits>
+#include <memory>
+#include <mutex>
+#include <ostream>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "reader.h"
+#include "record_file_reader.h"
+#include "trace_entry.h"
 #ifdef HAS_LZ4
 #    include "lz4_file_reader.h"
 #endif
