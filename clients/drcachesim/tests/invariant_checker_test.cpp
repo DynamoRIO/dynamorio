@@ -1020,8 +1020,8 @@ check_branch_decoration()
         std::vector<memref_t> memrefs = {
             gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
             gen_instr(TID, /*pc=*/1),
-            gen_marker(TID, TRACE_MARKER_TYPE_BRANCH_TARGET, 32),
-            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2, /*size=*/1,
+                           /*target=*/32),
             gen_instr(TID, /*pc=*/32),
         };
         if (!run_checker(memrefs, false))
@@ -1034,8 +1034,8 @@ check_branch_decoration()
         std::vector<memref_t> memrefs = {
             gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
             gen_instr(TID, /*pc=*/1),
-            gen_marker(TID, TRACE_MARKER_TYPE_BRANCH_TARGET, 32),
-            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2, /*size=*/1,
+                           /*target=*/32),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 32),
             gen_instr(TID, /*pc=*/999),
         };
@@ -1043,35 +1043,35 @@ check_branch_decoration()
             return false;
     }
 #endif
-    // Indirect branch target: no marker.
+    // Indirect branch target: incorrect zero target PC.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
             gen_instr(TID, /*pc=*/1),
-            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2),
-            gen_instr(TID, /*pc=*/32),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2, /*size=*/1,
+                           /*target=*/0),
         };
         if (!run_checker(memrefs, true,
-                         { "Indirect branches must be preceded by their targets", TID,
+                         { "Indirect branches must contain targets", TID,
                            /*ref_ordinal=*/3, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
-                         "Failed to catch missing indirect branch target marker"))
+                         "Failed to catch missing indirect branch target field"))
             return false;
     }
-    // Indirect branch target: marker value incorrect.
+    // Indirect branch target: incorrect target value.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
             gen_instr(TID, /*pc=*/1),
-            gen_marker(TID, TRACE_MARKER_TYPE_BRANCH_TARGET, 32),
-            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2, /*size=*/1,
+                           /*target=*/32),
             gen_instr(TID, /*pc=*/33),
         };
         if (!run_checker(memrefs, true,
                          { "Branch does not go to the correct target", TID,
-                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/3 },
-                         "Failed to catch bad indirect branch target marker"))
+                         "Failed to catch bad indirect branch target field"))
             return false;
     }
 #ifdef UNIX
@@ -1080,16 +1080,16 @@ check_branch_decoration()
         std::vector<memref_t> memrefs = {
             gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
             gen_instr(TID, /*pc=*/1),
-            gen_marker(TID, TRACE_MARKER_TYPE_BRANCH_TARGET, 32),
-            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2),
+            gen_instr_type(TRACE_TYPE_INSTR_INDIRECT_CALL, TID, /*pc=*/2, /*size=*/1,
+                           /*target=*/32),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 999),
             gen_instr(TID, /*pc=*/32),
         };
         if (!run_checker(memrefs, true,
                          { "Branch does not go to the correct target", TID,
-                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
-                         "Failed to catch bad indirect branch target marker"))
+                         "Failed to catch bad indirect branch target field"))
             return false;
     }
 #endif

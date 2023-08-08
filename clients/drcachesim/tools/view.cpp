@@ -534,6 +534,15 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             disasm.insert(newline, " (taken)");
         else if (memref.instr.type == TRACE_TYPE_INSTR_UNTAKEN_JUMP)
             disasm.insert(newline, " (untaken)");
+        if (trace_version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO &&
+            (memref.instr.type == TRACE_TYPE_INSTR_INDIRECT_JUMP ||
+             memref.instr.type == TRACE_TYPE_INSTR_INDIRECT_CALL ||
+             memref.instr.type == TRACE_TYPE_INSTR_RETURN)) {
+            std::stringstream str;
+            str << " (target 0x" << std::hex << memref.instr.indirect_branch_target
+                << ")";
+            disasm.insert(newline, str.str());
+        }
         disasm_cache_.insert({ orig_pc, disasm });
     }
     // Put our prefix on raw byte spillover, and skip the other columns.
