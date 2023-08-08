@@ -219,7 +219,8 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii)
 void
 decode_info_init_for_instr(decode_info_t *di, instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    memset(di, 0, sizeof(*di));
+    di->check_reachable = false;
 }
 
 byte *

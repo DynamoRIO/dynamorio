@@ -35,6 +35,8 @@
 
 #include <stdint.h>
 
+#include "decode_private.h"
+
 #include "decode.h"
 
 /* Interface to the RISC-V instruction codec (encoder/decoder).
