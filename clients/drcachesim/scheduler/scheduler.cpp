@@ -62,6 +62,8 @@
 #endif
 #ifdef HAS_ZIP
 #    include "zipfile_file_reader.h"
+#else
+#    include "file_reader.h"
 #endif
 #ifdef HAS_SNAPPY
 #    include "snappy_file_reader.h"

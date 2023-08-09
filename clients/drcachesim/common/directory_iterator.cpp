@@ -32,7 +32,9 @@
 
 #include "directory_iterator.h"
 
-#include <dirent.h>
+#ifdef UNIX
+#    include <dirent.h>
+#endif
 
 #include <string>
 
