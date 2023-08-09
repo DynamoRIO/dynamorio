@@ -127,7 +127,7 @@ file_reader_t<zipfile_reader_t>::read_next_entry()
     }
     entry_copy_ = *zipfile->cur_buf;
     ++zipfile->cur_buf;
-    VPRINT(this, 4, "Read: type=%s (%d), size=%d, addr=%zu\n",
+    VPRINT(this, 5, "Read: type=%s (%d), size=%d, addr=%zu\n",
            trace_type_names[entry_copy_.type], entry_copy_.type, entry_copy_.size,
            entry_copy_.addr);
     return &entry_copy_;

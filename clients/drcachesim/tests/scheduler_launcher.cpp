@@ -45,6 +45,7 @@
 #include "droption.h"
 #include "dr_frontend.h"
 #include "scheduler.h"
+#include "trace_entry.h"
 #include "test_helpers.h"
 #ifdef HAS_ZIP
 #    include "zipfile_istream.h"
@@ -55,6 +56,8 @@ using ::dynamorio::drmemtrace::disable_popups;
 using ::dynamorio::drmemtrace::memref_t;
 using ::dynamorio::drmemtrace::memref_tid_t;
 using ::dynamorio::drmemtrace::scheduler_t;
+using ::dynamorio::drmemtrace::TRACE_TYPE_MARKER;
+using ::dynamorio::drmemtrace::trace_type_names;
 #ifdef HAS_ZIP
 using ::dynamorio::drmemtrace::zipfile_istream_t;
 using ::dynamorio::drmemtrace::zipfile_ostream_t;
@@ -116,6 +119,29 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
         }
         if (status != scheduler_t::STATUS_OK)
             FATAL_ERROR("scheduler failed to advance: %d", status);
+        if (op_verbose.get_value() >= 3) {
+            std::ostringstream line;
+            line << "Core #" << std::setw(2) << ordinal << " @" << std::setw(9)
+                 << stream->get_record_ordinal() << " refs, " << std::setw(9)
+                 << stream->get_instruction_ordinal() << " instrs: input " << std::setw(4)
+                 << stream->get_input_stream_ordinal() << " @" << std::setw(9)
+                 << scheduler
+                        .get_input_stream_interface(stream->get_input_stream_ordinal())
+                        ->get_record_ordinal()
+                 << " refs, " << std::setw(9)
+                 << scheduler
+                        .get_input_stream_interface(stream->get_input_stream_ordinal())
+                        ->get_instruction_ordinal()
+                 << " instrs: " << std::setw(16) << trace_type_names[record.marker.type];
+            if (type_is_instr(record.instr.type))
+                line << " pc=" << std::hex << record.instr.addr << std::dec;
+            else if (record.marker.type == TRACE_TYPE_MARKER) {
+                line << " " << record.marker.marker_type
+                     << " val=" << record.marker.marker_value;
+            }
+            line << "\n";
+            std::cerr << line.str();
+        }
         if (thread_sequence.empty())
             thread_sequence.push_back(record.instr.tid);
         else if (record.instr.tid != prev_tid) {

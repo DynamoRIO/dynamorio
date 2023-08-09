@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,18 +39,11 @@
 
 static thread_id_t injection_tid;
 static bool first_thread = true;
-static bool saw_attach_event = false;
 
 static void
 dr_exit(void)
 {
-    if (!saw_attach_event)
-        dr_fprintf(STDERR, "Error: never saw attach event!\n");
-#ifdef WINDOWS
     dr_fprintf(STDERR, "done\n");
-#else
-        /* The app prints 'done' for us. */
-#endif
 }
 
 static void
@@ -94,8 +87,13 @@ dr_exception_event(void *drcontext, dr_exception_t *excpt)
 static void
 event_post_attach(void)
 {
-    // We do not print here as the ordering is non-deterministic vs thread init.
-    saw_attach_event = true;
+    dr_fprintf(STDERR, "attach\n");
+}
+
+static void
+event_pre_detach(void)
+{
+    dr_fprintf(STDERR, "detach\n");
 }
 
 DR_EXPORT
@@ -106,10 +104,11 @@ dr_init(client_id_t id)
     injection_tid = dr_get_thread_id(drcontext);
     dr_register_exit_event(dr_exit);
     dr_register_thread_init_event(dr_thread_init);
+    dr_register_pre_detach_event(event_pre_detach);
 #ifdef WINDOWS
     dr_register_exception_event(dr_exception_event);
 #endif
     if (!dr_register_post_attach_event(event_post_attach))
         dr_fprintf(STDERR, "Failed to register post-attach event");
-    dr_fprintf(STDERR, "thank you for testing attach\n");
+    dr_fprintf(STDERR, "thank you for testing detach\n");
 }
