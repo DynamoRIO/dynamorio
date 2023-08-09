@@ -47,7 +47,6 @@
 #include "dr_allocator.h"
 #include "dr_api.h"
 #include "drvector.h"
-#include "dr_allocator.h"
 #include "trace_entry.h"
 
 namespace dynamorio {

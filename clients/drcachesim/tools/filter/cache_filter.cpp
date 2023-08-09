@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-#include "cache_filter.h"
 #include "cache_filter.h"
 
 #include <string>

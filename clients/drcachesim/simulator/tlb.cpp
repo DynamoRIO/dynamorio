@@ -31,7 +31,6 @@
  */
 
 #include "tlb.h"
-#include "tlb.h"
 
 #include <assert.h>
 #include <stddef.h>

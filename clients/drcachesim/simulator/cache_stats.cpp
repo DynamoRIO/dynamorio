@@ -37,7 +37,6 @@
 #include <map>
 #include <string>
 
-#include "cache_stats.h"
 #include "memref.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"

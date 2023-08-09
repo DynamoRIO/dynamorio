@@ -56,7 +56,6 @@
 #include "raw2trace_directory.h"
 #include "trace_entry.h"
 #include "utils.h"
-#include "view.h"
 
 namespace dynamorio {
 namespace drmemtrace {

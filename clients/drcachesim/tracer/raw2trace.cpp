@@ -54,7 +54,6 @@
 #    include "../common/options.h"
 #    include "../drpt2trace/ir2trace.h"
 #endif
-#include "raw2trace.h"
 
 #include <algorithm>
 #include <array>

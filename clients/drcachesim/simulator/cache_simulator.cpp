@@ -44,7 +44,6 @@
 #include <vector>
 
 #include "analysis_tool.h"
-#include "cache_simulator.h"
 #include "memref.h"
 #include "options.h"
 #include "trace_entry.h"

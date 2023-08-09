@@ -43,9 +43,6 @@
 #include "cache_stats.h"
 #include "caching_device.h"
 #include "memref.h"
-#include "cache_line.h"
-#include "cache_stats.h"
-#include "caching_device.h"
 #include "prefetcher.h"
 
 namespace dynamorio {

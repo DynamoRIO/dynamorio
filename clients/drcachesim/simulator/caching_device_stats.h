@@ -48,7 +48,6 @@
 #include <utility>
 
 #include "caching_device_block.h"
-#include "caching_device_block.h"
 #include "trace_entry.h"
 #include "utils.h"
 #include "memref.h"

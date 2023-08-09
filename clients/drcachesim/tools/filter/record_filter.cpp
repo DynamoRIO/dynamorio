@@ -48,7 +48,6 @@
 #endif
 #include "memref.h"
 #include "memtrace_stream.h"
-#include "record_filter.h"
 #include "trace_entry.h"
 #include "utils.h"
 

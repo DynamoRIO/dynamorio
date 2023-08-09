@@ -31,7 +31,6 @@
  */
 
 #include "cache.h"
-#include "cache.h"
 
 #include <stddef.h>
 

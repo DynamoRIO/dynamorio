@@ -39,7 +39,6 @@
 #include <vector>
 
 #include "cache.h"
-#include "cache.h"
 #include "trace_entry.h"
 
 namespace dynamorio {

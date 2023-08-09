@@ -48,11 +48,6 @@
 #include "cache_stats.h"
 #include "simulator.h"
 #include "snoop_filter.h"
-#include "cache.h"
-#include "cache_simulator_create.h"
-#include "cache_stats.h"
-#include "simulator.h"
-#include "snoop_filter.h"
 
 namespace dynamorio {
 namespace drmemtrace {

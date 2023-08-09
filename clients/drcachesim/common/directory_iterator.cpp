@@ -40,7 +40,6 @@
 
 #include <string>
 
-#include "directory_iterator.h"
 #include "dr_frontend.h"
 #include "utils.h"
 

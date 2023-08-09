@@ -40,7 +40,6 @@
 #include <vector>
 
 #include "cache.h"
-#include "cache.h"
 #include "prefetcher.h"
 
 namespace dynamorio {

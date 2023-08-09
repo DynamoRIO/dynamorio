@@ -42,7 +42,6 @@
 
 #include "caching_device_stats.h"
 #include "memref.h"
-#include "caching_device_stats.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -52,7 +52,6 @@
 #include "analysis_tool.h"
 #include "memref.h"
 #include "reuse_distance_create.h"
-#include "reuse_distance_create.h"
 #include "trace_entry.h"
 
 namespace dynamorio {

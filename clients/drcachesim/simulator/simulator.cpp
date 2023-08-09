@@ -42,7 +42,6 @@
 #include <vector>
 
 #include "memref.h"
-#include "simulator.h"
 #include "options.h"
 #include "utils.h"
 #include "trace_entry.h"

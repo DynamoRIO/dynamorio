@@ -41,7 +41,6 @@
 #include <string>
 
 #include "dr_api.h"
-#include "kcore_copy.h"
 #include "trace_entry.h"
 #include "utils.h"
 #include "drmemtrace.h"

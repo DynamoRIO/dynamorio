@@ -58,7 +58,6 @@
 #include "reader.h"
 #include "record_file_reader.h"
 #include "scheduler.h"
-#include "analysis_tool.h"
 #include "trace_entry.h"
 
 namespace dynamorio {

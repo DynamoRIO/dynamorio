@@ -31,7 +31,6 @@
  */
 
 #include "snoop_filter.h"
-#include "snoop_filter.h"
 
 #include <assert.h>
 #include <stdint.h>

@@ -48,7 +48,6 @@
 
 #include "analysis_tool.h"
 #include "dr_api.h"
-#include "invariant_checker.h"
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "invariant_checker_create.h"

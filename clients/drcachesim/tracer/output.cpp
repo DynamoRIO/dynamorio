@@ -52,7 +52,6 @@
 #include "instru.h"
 #include "named_pipe.h"
 #include "options.h"
-#include "output.h"
 #include "physaddr.h"
 #include "raw2trace.h"
 #include "trace_entry.h"

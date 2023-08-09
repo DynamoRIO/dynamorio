@@ -42,7 +42,6 @@
 #include <unordered_set>
 #include <utility>
 
-#include "reader.h"
 #include "memref.h"
 #include "utils.h"
 #include "trace_entry.h"

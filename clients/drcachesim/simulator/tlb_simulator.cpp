@@ -47,7 +47,6 @@
 #include "tlb.h"
 #include "tlb_simulator_create.h"
 #include "tlb_stats.h"
-#include "tlb_simulator.h"
 #include "trace_entry.h"
 
 namespace dynamorio {

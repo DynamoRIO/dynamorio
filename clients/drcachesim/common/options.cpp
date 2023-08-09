@@ -37,7 +37,6 @@
 #include <string>
 
 #include "dr_api.h" // For IF_X86_ELSE.
-#include "options.h"
 #include "droption.h"
 
 namespace dynamorio {

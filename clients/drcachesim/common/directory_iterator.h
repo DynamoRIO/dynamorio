@@ -50,7 +50,6 @@
 #endif
 
 #include "utils.h"
-#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -42,10 +42,8 @@
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "instru.h"
-#include "physaddr.h"
 #include "named_pipe.h"
 #include "options.h"
-#include "instru.h"
 #include "physaddr.h"
 #ifdef HAS_SNAPPY
 #    include <snappy.h>

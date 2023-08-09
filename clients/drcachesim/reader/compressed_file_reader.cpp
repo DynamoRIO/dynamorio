@@ -31,7 +31,6 @@
  */
 
 #include "compressed_file_reader.h"
-#include "compressed_file_reader.h"
 
 #include <zlib.h>
 

@@ -31,7 +31,6 @@
  */
 
 #include "trace_entry.h"
-#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

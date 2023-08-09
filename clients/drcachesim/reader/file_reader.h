@@ -50,7 +50,6 @@
 #include "directory_iterator.h"
 #include "memref.h"
 #include "reader.h"
-#include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
 

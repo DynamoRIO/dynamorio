@@ -47,7 +47,6 @@
 #include <stdint.h>
 
 #include "utils.h"
-#include "utils.h"
 
 /**
  * @file drmemtrace/trace_entry.h

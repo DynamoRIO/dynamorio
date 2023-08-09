@@ -54,7 +54,6 @@
 #include <vector>
 
 #include "analysis_tool.h"
-#include "func_view.h"
 #include "memref.h"
 #include "raw2trace_directory.h"
 #include "trace_entry.h"

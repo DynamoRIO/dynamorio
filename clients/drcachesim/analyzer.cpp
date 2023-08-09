@@ -46,7 +46,6 @@
 #include <utility>
 #include <vector>
 
-#include "analyzer.h"
 #include "memref.h"
 #include "scheduler.h"
 #include "analysis_tool.h"

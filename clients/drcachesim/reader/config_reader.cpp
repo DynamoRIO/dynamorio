@@ -31,7 +31,6 @@
  */
 
 #include "config_reader.h"
-#include "config_reader.h"
 
 #include <stdint.h>
 

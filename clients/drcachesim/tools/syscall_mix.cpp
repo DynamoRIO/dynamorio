@@ -47,7 +47,6 @@
 #include "analysis_tool.h"
 #include "dr_api.h"
 #include "memref.h"
-#include "syscall_mix.h"
 #include "trace_entry.h"
 #include "utils.h"
 

@@ -46,7 +46,6 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
-#include "instr_counter.h"
 #include "options.h"
 #include "utils.h"
 #include "drmemtrace.h"

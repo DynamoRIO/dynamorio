@@ -41,14 +41,13 @@
 #include <utility>
 #include <vector>
 
-#include "../common/utils.h"
-#include "caching_device.h"
 #include "memref.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
 #include "prefetcher.h"
 #include "snoop_filter.h"
 #include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -68,9 +68,6 @@
 #include "hashtable.h"
 #include "instru.h"
 #include "reader.h"
-#include "drmemtrace.h"
-#include "instru.h"
-#include "hashtable.h"
 #include "trace_entry.h"
 #include "utils.h"
 #ifdef BUILD_PT_POST_PROCESSOR

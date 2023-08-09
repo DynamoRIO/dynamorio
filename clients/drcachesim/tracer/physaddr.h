@@ -41,11 +41,9 @@
 
 #include <atomic>
 
-#include "../common/trace_entry.h"
 #include "dr_api.h"
 #include "hashtable.h"
 #include "trace_entry.h"
-#include "hashtable.h"
 
 namespace dynamorio {
 namespace drmemtrace {

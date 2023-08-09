@@ -47,8 +47,6 @@
 #include "caching_device.h"
 #include "caching_device_stats.h"
 #include "memref.h"
-#include "caching_device.h"
-#include "caching_device_stats.h"
 #include "trace_entry.h"
 
 namespace dynamorio {

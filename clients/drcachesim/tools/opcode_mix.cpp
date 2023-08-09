@@ -54,7 +54,6 @@
 #include "analysis_tool.h"
 #include "dr_api.h"
 #include "memref.h"
-#include "opcode_mix.h"
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 #include "reader.h"

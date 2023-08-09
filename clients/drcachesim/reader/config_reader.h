@@ -44,9 +44,6 @@
 #include <string>
 #include <vector>
 
-#include "../common/options.h"
-#include "../simulator/cache.h"
-#include "../simulator/cache_simulator_create.h"
 #include "options.h"
 #include "cache.h"
 #include "cache_simulator_create.h"

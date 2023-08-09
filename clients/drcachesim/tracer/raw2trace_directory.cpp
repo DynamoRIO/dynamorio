@@ -34,16 +34,6 @@
  * Separate from raw2trace_t, so that raw2trace doesn't depend on dr_frontend.
  */
 
-#include "raw2trace_directory.h"
-
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <string>
-#include <utility>
-#include <vector>
-
 #ifdef UNIX
 #    include <sys/types.h>
 #else
@@ -53,10 +43,18 @@
 #    include <windows.h>
 #endif
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "archive_ostream.h"
 #include "directory_iterator.h"
-#include "dr_api.h"
-#include "raw2trace_directory.h"
+#include "dr_api.h"              // Must be after windows.h.
+#include "raw2trace_directory.h" // Includes dr_api.h which must be after windows.h.
 #include "reader.h"
 #include "raw2trace.h"
 #include "trace_entry.h"

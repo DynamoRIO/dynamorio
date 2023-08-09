@@ -48,12 +48,11 @@
 #include <utility>
 #include <vector>
 
-#include "../common/utils.h"
 #include "analysis_tool.h"
 #include "memref.h"
-#include "reuse_distance.h"
 #include "reuse_distance_create.h"
 #include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

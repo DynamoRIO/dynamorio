@@ -31,7 +31,6 @@
  */
 
 #include "cache_lru.h"
-#include "cache_lru.h"
 
 #include <vector>
 

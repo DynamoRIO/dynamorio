@@ -45,7 +45,6 @@
 #include <string>
 #include <utility>
 
-#include "caching_device_stats.h"
 #include "memref.h"
 #include "options.h"
 #include "caching_device_block.h"

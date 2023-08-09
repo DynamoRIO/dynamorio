@@ -31,7 +31,6 @@
  */
 
 #include "cache_fifo.h"
-#include "cache_fifo.h"
 
 #include <assert.h>
 
