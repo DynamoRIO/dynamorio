@@ -267,6 +267,7 @@ private:
     bool expect_no_encodings_ = true;
     encoding_info_t last_encoding_;
     std::unordered_map<addr_t, encoding_info_t> encodings_;
+    addr_t last_branch_target_ = 0;
 };
 
 } // namespace drmemtrace

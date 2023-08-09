@@ -85,8 +85,8 @@ typedef enum {
      * The trace includes branch taken and target information up front.  This means that
      * conditional branches use either #TRACE_TYPE_INSTR_TAKEN_JUMP or
      * #TRACE_TYPE_INSTR_UNTAKEN_JUMP and that the target of indirect branches is in a
-     * marker of type #TRACE_MARKER_TYPE_BRANCH_TARGET prior to the indirect branch
-     * instruction entry itself.  This only applies to offline traces whose instructions
+     * new field "indirect_branch_target" in #memref_t.
+     * This only applies to offline traces whose instructions
      * are not filtered; online traces, and i-filtered offline traces, even at this
      * version, do not contain this information.
      */
@@ -528,11 +528,9 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_TRACE_END,
 
-    /**
-     * This marker is present just before each indirect branch instruction in offline
-     * non-i-filtered traces.  The marker value holds the actual target of the
-     * branch.
-     */
+    // Internal marker present just before each indirect branch instruction in offline
+    // non-i-filtered traces.  The marker value holds the actual target of the
+    // branch.  The reader converts this to the memref_t "indirect_branch_target" field.
     TRACE_MARKER_TYPE_BRANCH_TARGET,
 
     // ...

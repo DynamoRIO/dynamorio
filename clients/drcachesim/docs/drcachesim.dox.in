@@ -140,9 +140,8 @@ See also \ref sec_drcachesim_core.
 Whether conditional branches are taken or untaken is indicated by the
 instruction types #dynamorio::drmemtrace::TRACE_TYPE_INSTR_TAKEN_JUMP
 and #dynamorio::drmemtrace::TRACE_TYPE_INSTR_UNTAKEN_JUMP.  The target
-of each indirect branch is explicitly provided by a metadata marker
-record of type #dynamorio::drmemtrace::TRACE_MARKER_TYPE_BRANCH_TARGET
-just prior to the branch record itself.
+of each indirect branch is explicitly provided by the "indirect_branch_target"
+field in #dynamorio::drmemtrace::memref_t.
 If the program flow is changed by the kernel such as by
 signal delivery, the branch target is explicitly recorded in the trace in a metadata
 marker entry of type #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT.
@@ -707,49 +706,45 @@ An example of thread switches:
 
 
 Here is an example of a signal handler interrupting the regular flow,
-with metadata showing that the signal was delivered just after a
-taken conditional branch:
+with metadata showing that the signal was delivered just after an
+untaken conditional branch:
 
 \code
-     2214424     1649600:     1249326 ifetch       4 byte(s) @ 0x00007f34066b86c5 48 83 fa 17          cmp    %rdx, $0x17
-     2214425     1649601:     1249326 ifetch       6 byte(s) @ 0x00007f34066b86c9 0f 86 4f 01 00 00    jbe    $0x00007f34066b881e (untaken)
-     2214426     1649602:     1249326 ifetch       4 byte(s) @ 0x00007f34066b86cf 48 83 fa 4f          cmp    %rdx, $0x4f
-     2214427     1649603:     1249326 ifetch       6 byte(s) @ 0x00007f34066b86d3 0f 87 b7 00 00 00    jnbe   $0x00007f34066b8790 (taken)
-     2214428     1649603:     1249326 <marker: kernel xfer from 0x7f34066b8790 to handler>
-     2214429     1649603:     1249326 <marker: timestamp 13334353561241197>
-     2214430     1649603:     1249326 <marker: tid 1249326 on core 1>
-     2214431     1649604:     1249326 ifetch       1 byte(s) @ 0x00007f3402ffa259 55                   push   %rbp
-     2214432     1649604:     1249326 write        8 byte(s) @ 0x00007ffd91e24230 by PC 0x00007f3402ffa259
-     2214433     1649605:     1249326 ifetch       3 byte(s) @ 0x00007f3402ffa25a 48 89 e5             mov    %rsp, %rbp
-     2214434     1649606:     1249326 ifetch       3 byte(s) @ 0x00007f3402ffa25d 89 7d fc             mov    %edi, -0x04(%rbp)
-     2214435     1649606:     1249326 write        4 byte(s) @ 0x00007ffd91e2422c by PC 0x00007f3402ffa25d
-     2214436     1649607:     1249326 ifetch       4 byte(s) @ 0x00007f3402ffa260 48 89 75 f0          mov    %rsi, -0x10(%rbp)
-     2214437     1649607:     1249326 write        8 byte(s) @ 0x00007ffd91e24220 by PC 0x00007f3402ffa260
-     2214438     1649608:     1249326 ifetch       4 byte(s) @ 0x00007f3402ffa264 48 89 55 e8          mov    %rdx, -0x18(%rbp)
-     2214439     1649608:     1249326 write        8 byte(s) @ 0x00007ffd91e24218 by PC 0x00007f3402ffa264
-     2214440     1649609:     1249326 ifetch       4 byte(s) @ 0x00007f3402ffa268 83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
-     2214441     1649609:     1249326 read         4 byte(s) @ 0x00007ffd91e2422c by PC 0x00007f3402ffa268
-     2214442     1649610:     1249326 ifetch       2 byte(s) @ 0x00007f3402ffa26c 75 0f                jnz    $0x00007f3402ffa27d (untaken)
-     2214443     1649611:     1249326 ifetch       6 byte(s) @ 0x00007f3402ffa26e 8b 05 c0 3e 00 00    mov    <rel> 0x00007f3402ffe134, %eax
-     2214444     1649611:     1249326 read         4 byte(s) @ 0x00007f3402ffe134 by PC 0x00007f3402ffa26e
-     2214445     1649612:     1249326 ifetch       3 byte(s) @ 0x00007f3402ffa274 83 c0 01             add    $0x01, %eax
-     2214446     1649613:     1249326 ifetch       6 byte(s) @ 0x00007f3402ffa277 89 05 b7 3e 00 00    mov    %eax, <rel> 0x00007f3402ffe134
-     2214447     1649613:     1249326 write        4 byte(s) @ 0x00007f3402ffe134 by PC 0x00007f3402ffa277
-     2214448     1649614:     1249326 ifetch       1 byte(s) @ 0x00007f3402ffa27d 90                   nop
-     2214449     1649615:     1249326 ifetch       1 byte(s) @ 0x00007f3402ffa27e 5d                   pop    %rbp
-     2214450     1649615:     1249326 read         8 byte(s) @ 0x00007ffd91e24230 by PC 0x00007f3402ffa27e
-     2214451     1649615:     1249326 <marker: indirect branch target 0x7f340665af90>
-     2214452     1649616:     1249326 ifetch       1 byte(s) @ 0x00007f3402ffa27f c3                   ret
-     2214453     1649616:     1249326 read         8 byte(s) @ 0x00007ffd91e24238 by PC 0x00007f3402ffa27f
-     2214454     1649617:     1249326 ifetch       7 byte(s) @ 0x00007f340665af90 48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
-     2214455     1649618:     1249326 ifetch       2 byte(s) @ 0x00007f340665af97 0f 05                syscall
-     2214456     1649618:     1249326 <marker: system call 15>
-     2214457     1649618:     1249326 <marker: timestamp 13334353561241207>
-     2214458     1649618:     1249326 <marker: tid 1249326 on core 1>
-     2214459     1649618:     1249326 <marker: syscall xfer from 0x7f340665af99>
-     2214460     1649618:     1249326 <marker: timestamp 13334353561241213>
-     2214461     1649618:     1249326 <marker: tid 1249326 on core 1>
-     2214462     1649619:     1249326 ifetch       4 byte(s) @ 0x00007f34066b8790 48 83 c4 18          add    $0x18, %rsp
+      801343      601827:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa5c70 75 57                jnz    $0x00007fc2c3aa5cc9 (untaken)
+      801344      601827:     1159769 <marker: kernel xfer from 0x7fc2c3aa5c72 to handler>
+      801345      601827:     1159769 <marker: timestamp 13335923552684013>
+      801346      601827:     1159769 <marker: tid 1159769 on core 7>
+      801347      601828:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa259 55                   push   %rbp
+      801348      601828:     1159769 write        8 byte(s) @ 0x00007fff8044e930 by PC 0x00007fc2c03fa259
+      801349      601829:     1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa25a 48 89 e5             mov    %rsp, %rbp
+      801350      601830:     1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa25d 89 7d fc             mov    %edi, -0x04(%rbp)
+      801351      601830:     1159769 write        4 byte(s) @ 0x00007fff8044e92c by PC 0x00007fc2c03fa25d
+      801352      601831:     1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa260 48 89 75 f0          mov    %rsi, -0x10(%rbp)
+      801353      601831:     1159769 write        8 byte(s) @ 0x00007fff8044e920 by PC 0x00007fc2c03fa260
+      801354      601832:     1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa264 48 89 55 e8          mov    %rdx, -0x18(%rbp)
+      801355      601832:     1159769 write        8 byte(s) @ 0x00007fff8044e918 by PC 0x00007fc2c03fa264
+      801356      601833:     1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa268 83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
+      801357      601833:     1159769 read         4 byte(s) @ 0x00007fff8044e92c by PC 0x00007fc2c03fa268
+      801358      601834:     1159769 ifetch       2 byte(s) @ 0x00007fc2c03fa26c 75 0f                jnz    $0x00007fc2c03fa27d (untaken)
+      801359      601835:     1159769 ifetch       6 byte(s) @ 0x00007fc2c03fa26e 8b 05 c0 3e 00 00    mov    <rel> 0x00007fc2c03fe134, %eax
+      801360      601835:     1159769 read         4 byte(s) @ 0x00007fc2c03fe134 by PC 0x00007fc2c03fa26e
+      801361      601836:     1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa274 83 c0 01             add    $0x01, %eax
+      801362      601837:     1159769 ifetch       6 byte(s) @ 0x00007fc2c03fa277 89 05 b7 3e 00 00    mov    %eax, <rel> 0x00007fc2c03fe134
+      801363      601837:     1159769 write        4 byte(s) @ 0x00007fc2c03fe134 by PC 0x00007fc2c03fa277
+      801364      601838:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27d 90                   nop
+      801365      601839:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27e 5d                   pop    %rbp
+      801366      601839:     1159769 read         8 byte(s) @ 0x00007fff8044e930 by PC 0x00007fc2c03fa27e
+      801367      601840:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27f c3                   ret (target 0x7fc2c3a5af90)
+      801368      601840:     1159769 read         8 byte(s) @ 0x00007fff8044e938 by PC 0x00007fc2c03fa27f
+      801369      601841:     1159769 ifetch       7 byte(s) @ 0x00007fc2c3a5af90 48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
+      801370      601842:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3a5af97 0f 05                syscall
+      801371      601842:     1159769 <marker: system call 15>
+      801372      601842:     1159769 <marker: timestamp 13335923552684023>
+      801373      601842:     1159769 <marker: tid 1159769 on core 7>
+      801374      601842:     1159769 <marker: syscall xfer from 0x7fc2c3a5af99>
+      801375      601842:     1159769 <marker: timestamp 13335923552684029>
+      801376      601842:     1159769 <marker: tid 1159769 on core 7>
+      801377      601843:     1159769 ifetch       4 byte(s) @ 0x00007fc2c3aa5c72 48 83 c4 48          add    $0x48, %rsp
 \endcode
 
 \section sec_tool_func_view View Function Calls
@@ -1375,18 +1370,19 @@ Traces also include markers indicating disruptions in user mode control
 flow such as signal handler entry and exit.
 
 Offline traces explicitly identify whether each conditional branch was
-taken or not, and include a marker showing the target of unconditional
+taken or not, and include the actual target of indirect
 branches, for convenience to avoid having to read either the
 subsequent entry or the kernel transfer event marker (or infer branch
 behavior for rseq aborts):
 
 ```
-     2212815     1648444:     1249326 ifetch       6 byte(s) @ 0x00007f3406720707 48 3d 01 f0 ff ff    cmp    %rax, $0xfffff001
-     2212816     1648445:     1249326 ifetch       2 byte(s) @ 0x00007f340672070d 73 01                jnb    $0x00007f3406720710 (untaken)
-     2212817     1648445:     1249326 <marker: indirect branch target 0x7f34066a8b37>
-     2212818     1648446:     1249326 ifetch       1 byte(s) @ 0x00007f340672070f c3                   ret
-     2212819     1648446:     1249326 read         8 byte(s) @ 0x00007ffd91e24fa8 by PC 0x00007f340672070f
-     2212820     1648447:     1249326 ifetch       5 byte(s) @ 0x00007f34066a8b37 4c 8b 54 24 48       mov    0x48(%rsp), %r10
+      801394      601853:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa91e3 7f 1b                jnle   $0x00007fc2c3aa9200 (untaken)
+      801395      601854:     1159769 ifetch       4 byte(s) @ 0x00007fc2c3aa91e5 48 83 c4 10          add    $0x10, %rsp
+      801396      601855:     1159769 ifetch       1 byte(s) @ 0x00007fc2c3aa91e9 5b                   pop    %rbx
+      801397      601855:     1159769 read         8 byte(s) @ 0x00007fff8044f6c0 by PC 0x00007fc2c3aa91e9
+      801398      601856:     1159769 ifetch       1 byte(s) @ 0x00007fc2c3aa91ea c3                   ret (target 0x7fc2c3aa81c1)
+      801399      601856:     1159769 read         8 byte(s) @ 0x00007fff8044f6c8 by PC 0x00007fc2c3aa91ea
+      801400      601857:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa81c1 89 c5                mov    %eax, %ebp
 ```
 
 Filtered traces (filtered via -L0_filter) include the dynamic
