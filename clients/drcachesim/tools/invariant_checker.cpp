@@ -737,6 +737,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
 
     if (knob_offline_ && shard->trace_version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO) {
+        bool is_indirect = false;
         if (type_is_instr_branch(memref.instr.type) &&
             // I-filtered traces don't mark branch targets.
             !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
@@ -745,11 +746,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard, memref.instr.type != TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
                 "The CONDITIONAL_JUMP type is deprecated and should not appear");
             if (!type_is_instr_direct_branch(memref.instr.type)) {
+                is_indirect = true;
                 report_if_false(shard,
                                 // We assume the app doesn't actually target PC=0.
                                 memref.instr.indirect_branch_target != 0,
                                 "Indirect branches must contain targets");
             }
+        }
+        if (type_is_instr(memref.instr.type) && !is_indirect) {
+            report_if_false(shard, memref.instr.indirect_branch_target == 0,
+                            "Indirect target should be 0 for non-indirect-branches");
         }
     }
 
