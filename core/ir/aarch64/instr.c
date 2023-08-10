@@ -313,7 +313,7 @@ bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
 {
     uint cat = instr_get_category(instr);
-    if(cat & DR_INSTR_CATEGORY_FP_MATH) {
+    if (cat & DR_INSTR_CATEGORY_FP_MATH) {
         if (type != NULL)
             *type = DR_FP_MATH;
         return true;
