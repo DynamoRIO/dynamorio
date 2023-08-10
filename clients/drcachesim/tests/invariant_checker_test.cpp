@@ -587,6 +587,8 @@ check_function_markers()
     constexpr memref_tid_t TID = 1;
     constexpr addr_t CALL_PC = 2;
     constexpr size_t CALL_SZ = 2;
+    constexpr addr_t SECOND_CALL_PC = 10;
+    constexpr size_t SECOND_CALL_SZ = 2;
     // Incorrectly between instr and memref.
     {
         std::vector<memref_t> memrefs = {
@@ -668,6 +670,72 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ARG, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correctly skip return address check when the return address is
+    // unavailable.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID, CALL_PC, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, /*pc=*/123456),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correctly handle nested function calls.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, SECOND_CALL_PC,
+                           SECOND_CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
+                       SECOND_CALL_PC + SECOND_CALL_SZ),
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID,
+                           /*pc=*/SECOND_CALL_PC + SECOND_CALL_SZ + 1, /*size=*/1),
+
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID,
+                           /*pc=*/SECOND_CALL_PC + SECOND_CALL_SZ + 2, /*size=*/5),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correctly handle kernel transfer and sigreturn.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC + CALL_SZ),
+
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, CALL_PC + CALL_SZ),
+
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, SECOND_CALL_PC,
+                           SECOND_CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
+                       SECOND_CALL_PC + SECOND_CALL_SZ),
+
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID,
+                           SECOND_CALL_PC + SECOND_CALL_SZ + 1, 1),
+
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID, /*pc=*/SECOND_CALL_PC + 2,
+                           /*size=*/5),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
         };
         if (!run_checker(memrefs, false))
             return false;
