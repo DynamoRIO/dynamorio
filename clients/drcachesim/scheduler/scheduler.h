@@ -561,6 +561,17 @@ public:
         virtual stream_status_t
         stop_speculation();
 
+        /**
+         * Disables or re-enables this output stream.  If "active" is false, this
+         * stream becomes inactive and its currently assigned input is moved to the
+         * ready queue to be scheduled on other outputs.  The #STATUS_WAIT code is
+         * returned to next_record() for inactive streams.  If "active" is true,
+         * this stream becomes active again.
+         * This is only supported for #MAP_TO_ANY_OUTPUT.
+         */
+        virtual stream_status_t
+        set_active(bool active);
+
         // memtrace_stream_t interface:
 
         /**
@@ -625,6 +636,18 @@ public:
         get_input_stream_ordinal()
         {
             return scheduler_->get_input_ordinal(ordinal_);
+        }
+        /**
+         * Returns the ordinal for the workload which is the source of the current input
+         * stream feeding this output stream.  This workload ordinal is the index into the
+         * vector of type #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t
+         * passed to init().  Returns -1 if there is no current input for this output
+         * stream.
+         */
+        virtual int
+        get_input_workload_ordinal()
+        {
+            return scheduler_->get_workload_ordinal(ordinal_);
         }
         /**
          * Returns the value of the most recently seen #TRACE_MARKER_TYPE_TIMESTAMP
@@ -853,6 +876,8 @@ protected:
         uint64_t queue_counter = 0;
         // Used to switch on the insruction *after* a blocking syscall.
         bool processing_blocking_syscall = false;
+        // Used to switch before we've read the next instruction.
+        bool switching_pre_instruction = false;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -938,6 +963,7 @@ protected:
         std::vector<schedule_record_t> record;
         int record_index = 0;
         bool waiting = false;
+        bool active = true;
     };
 
     // Called just once at initialization time to set the initial input-to-output
@@ -1069,6 +1095,11 @@ protected:
     input_ordinal_t
     get_input_ordinal(output_ordinal_t output);
 
+    // Returns the workload ordinal value for the current input stream scheduled on
+    // the 'output_ordinal'-th output stream.
+    int
+    get_workload_ordinal(output_ordinal_t output);
+
     // Returns whether the current record for the current input stream scheduled on
     // the 'output_ordinal'-th output stream is synthetic.
     bool
@@ -1085,6 +1116,9 @@ protected:
 
     stream_status_t
     stop_speculation(output_ordinal_t output);
+
+    stream_status_t
+    set_output_active(output_ordinal_t output, bool active);
 
     ///////////////////////////////////////////////////////////////////////////
     // Support for ready queues for who to schedule next:

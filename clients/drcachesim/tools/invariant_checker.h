@@ -124,12 +124,6 @@ protected:
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         uintptr_t prev_func_id_ = 0;
         addr_t last_retaddr_ = 0;
-        // We treat 0 as a sentinel; thus we do not support a trace deliberately
-        // jumping to 0 and handling the fault.
-        addr_t last_indirect_target_ = 0;
-        // We need a dedicated variable to handle consecutive indirect branches
-        // where we can't just use the value from the last marker record.
-        addr_t last_branch_marker_value_ = 0;
         uintptr_t trace_version_ = 0;
 #ifdef UNIX
         // We keep track of some state per nested signal depth.

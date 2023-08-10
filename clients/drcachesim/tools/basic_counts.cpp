@@ -218,7 +218,7 @@ basic_counts_t::cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
 }
 
 void
-basic_counts_t::print_counters(const counters_t &counters, int_least64_t num_threads,
+basic_counts_t::print_counters(const counters_t &counters, int64_t num_threads,
                                const std::string &prefix, bool for_kernel_trace)
 {
     std::cerr << std::setw(12) << counters.instrs << prefix

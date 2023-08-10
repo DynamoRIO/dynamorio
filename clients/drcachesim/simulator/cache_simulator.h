@@ -77,7 +77,7 @@ public:
     bool
     print_results() override;
 
-    int_least64_t
+    int64_t
     get_cache_metric(metric_name_t metric, unsigned level, unsigned core = 0,
                      cache_split_t split = cache_split_t::DATA) const;
 

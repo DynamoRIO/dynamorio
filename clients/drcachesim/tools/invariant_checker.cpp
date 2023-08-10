@@ -729,11 +729,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
 
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
-        shard->last_branch_marker_value_ = memref.marker.marker_value;
-    }
-
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
         shard->saw_filter_endpoint_marker_ = true;
         report_if_false(
@@ -742,6 +737,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
 
     if (knob_offline_ && shard->trace_version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO) {
+        bool is_indirect = false;
         if (type_is_instr_branch(memref.instr.type) &&
             // I-filtered traces don't mark branch targets.
             !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
@@ -750,18 +746,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard, memref.instr.type != TRACE_TYPE_INSTR_CONDITIONAL_JUMP,
                 "The CONDITIONAL_JUMP type is deprecated and should not appear");
             if (!type_is_instr_direct_branch(memref.instr.type)) {
-                shard->last_indirect_target_ = shard->last_branch_marker_value_;
+                is_indirect = true;
                 report_if_false(shard,
-                                shard->last_indirect_target_ != 0 &&
-                                    shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
-                                    shard->prev_entry_.marker.marker_type ==
-                                        TRACE_MARKER_TYPE_BRANCH_TARGET,
-                                "Indirect branches must be preceded by their targets");
+                                // We assume the app doesn't actually target PC=0.
+                                memref.instr.indirect_branch_target != 0,
+                                "Indirect branches must contain targets");
             }
         }
-        if (!type_is_instr_branch(memref.instr.type) ||
-            type_is_instr_direct_branch(memref.instr.type)) {
-            shard->last_indirect_target_ = 0;
+        if (type_is_instr(memref.instr.type) && !is_indirect) {
+            report_if_false(shard, memref.instr.indirect_branch_target == 0,
+                            "Indirect target should be 0 for non-indirect-branches");
         }
     }
 
@@ -1009,9 +1003,8 @@ invariant_checker_t::check_for_pc_discontinuity(
                 if (prev_instr.instr.type == TRACE_TYPE_INSTR_UNTAKEN_JUMP) {
                     branch_target = prev_instr_trace_pc + prev_instr.instr.size;
                     have_branch_target = true;
-                } else if (shard->last_indirect_target_ > 0 &&
-                           !type_is_instr_direct_branch(prev_instr.instr.type)) {
-                    branch_target = shard->last_indirect_target_;
+                } else if (!type_is_instr_direct_branch(prev_instr.instr.type)) {
+                    branch_target = prev_instr.instr.indirect_branch_target;
                     have_branch_target = true;
                 }
             }
