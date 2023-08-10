@@ -102,7 +102,6 @@ extern "C" {
 #include "dr_annotation.h"
 
 /* Instruction category constants */
-#include "dr_ir_categories.h"
 
 #ifndef DYNAMORIO_STANDALONE
 /**

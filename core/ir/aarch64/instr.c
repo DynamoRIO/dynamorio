@@ -310,6 +310,25 @@ instr_is_rep_string_op(instr_t *instr)
 }
 
 bool
+instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
+{
+    uint cat = instr_get_category(instr);
+    if(cat & DR_INSTR_CATEGORY_FP_MATH) {
+        if (type != NULL)
+            *type = DR_FP_MATH;
+        return true;
+    }
+
+    return false;
+}
+
+bool
+instr_is_floating(instr_t *instr)
+{
+    return instr_is_floating_ex(instr, NULL);
+}
+
+bool
 instr_saves_float_pc(instr_t *instr)
 {
     return false;

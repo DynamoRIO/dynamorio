@@ -44,7 +44,6 @@
 #ifndef _INSTR_H_
 #define _INSTR_H_ 1
 
-#include "category_api.h"
 #include "opcode_api.h"
 #include "opnd.h"
 
