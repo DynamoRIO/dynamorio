@@ -9634,7 +9634,7 @@ decode_category(uint enc, instr_t *instr)
          */
         if ((op1 & 0x4) == 0) {   /* op1 is x0xx */
             if ((op1 & 0x2) == 0) /* op1 is 100x, Data processing Immediate */
-                category = DR_INSTR_CATEGORY_MATH_INT;
+                category = DR_INSTR_CATEGORY_INT_MATH;
             else /* op1 is 101x, Branches */
                 category = DR_INSTR_CATEGORY_BRANCH;
         } else { /* op1 is x1xx */
@@ -9642,13 +9642,13 @@ decode_category(uint enc, instr_t *instr)
             if ((op1 & 0x1) == 0) /* op1 is x1x0, LOAD/STORE */
                 category = decode_load_store_category(enc);
             else if ((op1 & 0x2) == 0) /* op1 is x101 */
-                category = DR_INSTR_CATEGORY_MATH_INT;
+                category = DR_INSTR_CATEGORY_INT_MATH;
             else { /* op1 is x111, Scalar Floating-Point and Advances SIMD */
                 /* op0 is 0xx0 || op0 is 01x1 */
                 if ((op0 & 0x9) == 0 || (op0 & 0x5) == 0x5)
                     category = DR_INSTR_CATEGORY_SIMD;
                 else
-                    category = DR_INSTR_CATEGORY_MATH_FLOAT;
+                    category = DR_INSTR_CATEGORY_FP_MATH;
             }
         }
     }
