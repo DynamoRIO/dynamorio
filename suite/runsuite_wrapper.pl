@@ -350,8 +350,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 $issue_no = "#2417";
             }
         } elsif ($is_x86_64 && ($ENV{'DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY'} eq 'yes') && $args =~ /64_only/) {
-	    # These AArch64 cross-compiled tests fail on x86-64 QEMU but pass
-	    # on native AArch64 hardware.
+            # These AArch64 cross-compiled tests fail on x86-64 QEMU but pass
+            # on native AArch64 hardware.
             $ignore_failures_64{'code_api|client.drx_buf-test'} = 1;
             $ignore_failures_64{'code_api|sample.memval_simple'} = 1;
             $ignore_failures_64{'code_api|client.drreg-test'} = 1;
