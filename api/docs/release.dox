@@ -282,6 +282,11 @@ Further non-compatibility-affecting changes include:
  - Added proc_get_vector_length_bytes() for AArch64. This returns the current
    vector length on all ARMv8 hardware including hardware which supports the
    Scalable Vector Extension (SVE).
+ - The addition of AArch64 SVE support required changes to dr_mcontext_t and
+   dr_simd_t. In addition to the vector registers simd[] in dr_mcontext_t,
+   there are also SVE predicate registers svep[] and the SVE first-fault
+   register, ffr. The dr_simd_t register storage has increased in size from 128
+   bits to 512.
 
 **************************************************
 <hr>

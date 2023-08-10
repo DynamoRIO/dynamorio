@@ -49,6 +49,7 @@ use File::Basename;
 my $mydir = dirname(abs_path($0));
 my $is_CI = 0;
 my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
+my $is_x86_64 = $Config{archname} =~ /x86_64/;
 my $is_long = $ENV{'CI_TRIGGER'} eq 'push' && $ENV{'CI_BRANCH'} eq 'refs/heads/master';
 
 # Forward args to runsuite.cmake:
@@ -348,6 +349,13 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             } else {
                 $issue_no = "#2417";
             }
+        } elsif ($is_x86_64 && ($ENV{'DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY'} eq 'yes') && $args =~ /64_only/) {
+	    # These AArch64 cross-compiled tests fail on x86-64 QEMU but pass
+	    # on native AArch64 hardware.
+            $ignore_failures_64{'code_api|client.drx_buf-test'} = 1;
+            $ignore_failures_64{'code_api|sample.memval_simple'} = 1;
+            $ignore_failures_64{'code_api|client.drreg-test'} = 1;
+            $issue_no = "#6260";
         } elsif ($^O eq 'darwin') {
             %ignore_failures_32 = ('code_api|common.decode-bad' => 1, # i#3127
                                    'code_api|linux.signal0000' => 1, # i#3127

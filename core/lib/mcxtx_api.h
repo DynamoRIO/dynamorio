@@ -147,12 +147,15 @@
      */
     dr_simd_t ffr;
 #   else
+    /*
+     * For the Arm AArch32 SIMD registers, we would probably be ok if we did
+     * not preserve the callee-saved registers (q4-q7 == d8-d15) but to be safe
+     * we preserve them all. We do not need anything more than word alignment
+     * for OP_vldm/OP_vstm, and dr_simd_t has no fields larger than 32 bits, so
+     * we have no padding.
+     */
     /**
-     * The Arm AArch32 SIMD registers. We would probably be ok if we did not
-     * preserve the callee-saved registers (q4-q7 == d8-d15) but to be safe we
-     * preserve them all. We do not need anything more than word alignment for
-     * OP_vldm/OP_vstm, and dr_simd_t has no fields larger than 32 bits, so we
-     * have no padding.
+     * The Arm AArch32 SIMD registers.
      */
     dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
 #   endif
