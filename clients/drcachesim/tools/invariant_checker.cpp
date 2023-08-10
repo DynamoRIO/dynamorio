@@ -679,9 +679,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                       << "marker type " << memref.marker.marker_type << " value 0x"
                       << std::hex << memref.marker.marker_value << std::dec << "\n";
         }
-        // Push the return address when kernel transfer happens.
+        // Push 0 as a place holder for kernel trasfer event.
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-            shard->retaddr_stack_.push(memref.marker.marker_value);
+            shard->retaddr_stack_.push(0);
         }
 #ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,

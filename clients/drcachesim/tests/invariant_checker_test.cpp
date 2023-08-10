@@ -686,57 +686,96 @@ check_function_markers()
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Correctly handle nested function calls.
+    // Correctly handle nested function calls including tailcalls.
     {
-        std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+        instr_t *label1 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
+        instr_t *call1 = INSTR_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label1));
+        instr_t *ret1 = INSTR_CREATE_ret(GLOBAL_DCONTEXT);
 
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, SECOND_CALL_PC,
-                           SECOND_CALL_SZ),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
-                       SECOND_CALL_PC + SECOND_CALL_SZ),
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID,
-                           /*pc=*/SECOND_CALL_PC + SECOND_CALL_SZ + 1, /*size=*/1),
+        instr_t *label2 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
+        instr_t *call2 = INSTR_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label2));
+        instr_t *ret2 = INSTR_CREATE_ret(GLOBAL_DCONTEXT);
 
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID,
-                           /*pc=*/SECOND_CALL_PC + SECOND_CALL_SZ + 2, /*size=*/5),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, call1);
+        instrlist_append(ilist, label1);
+        instrlist_append(ilist, call2);
+        instrlist_append(ilist, label2);
+        instrlist_append(ilist, ret2);
+        instrlist_append(ilist, ret1);
+
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 999), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call1 },
+            { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call2 },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), ret2 },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), ret1 },
         };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Correctly handle kernel transfer and sigreturn.
+    // Correctly handle kernel transfer, sigreturn, nested function calls
+    // including tailcalls.
     {
-        std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC + CALL_SZ),
+#if defined(WINDOWS) && !defined(X64)
+        // TODO i#5949: For WOW64 instr_is_syscall() always returns false, so our
+        // checks do not currently work properly there.
+        return true;
+#else
+        // XXX: Just like raw2trace_unit_tests, we need to create a syscall instruction
+        // and it turns out there is no simple cross-platform way.
+#    ifdef X86
+        instr_t *sys = INSTR_CREATE_syscall(GLOBAL_DCONTEXT);
+#    elif defined(AARCHXX)
+        instr_t *sys =
+            INSTR_CREATE_svc(GLOBAL_DCONTEXT, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
+#    elif defined(RISCV64)
+        instr_t *sys = INSTR_CREATE_ecall(GLOBAL_DCONTEXT);
+#    else
+#        error Unsupported architecture.
+#    endif
+#endif
+        instr_t *sig_ret = INSTR_CREATE_ret(GLOBAL_DCONTEXT);
 
-            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, CALL_PC + CALL_SZ),
+        instr_t *label1 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
+        instr_t *call1 = INSTR_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label1));
+        instr_t *ret1 = INSTR_CREATE_ret(GLOBAL_DCONTEXT);
 
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, SECOND_CALL_PC,
-                           SECOND_CALL_SZ),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
-                       SECOND_CALL_PC + SECOND_CALL_SZ),
+        instr_t *label2 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
+        instr_t *call2 = INSTR_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label2));
+        instr_t *ret2 = INSTR_CREATE_ret(GLOBAL_DCONTEXT);
 
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID,
-                           SECOND_CALL_PC + SECOND_CALL_SZ + 1, 1),
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, call1);
+        instrlist_append(ilist, label1);
+        instrlist_append(ilist, call2);
+        instrlist_append(ilist, label2);
+        instrlist_append(ilist, ret2);
+        instrlist_append(ilist, ret1);
+        instrlist_append(ilist, sig_ret);
+        instrlist_append(ilist, sys);
 
-            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
-
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID, /*pc=*/SECOND_CALL_PC + 2,
-                           /*size=*/5),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 999), nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call1 },
+            { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call2 },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), ret2 },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), ret1 },
+            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), sig_ret },
+            { gen_instr(TID), sys },
+            { gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 999), nullptr },
         };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, false))
             return false;
     }
