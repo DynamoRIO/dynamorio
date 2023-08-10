@@ -309,7 +309,7 @@ print_histogram_empty_test()
     reuse_distance_test_t reuse_distance(knobs);
 
     // Create an empty histogram vector and distance histogram.
-    std::vector<std::pair<int_least64_t, int_least64_t>> sorted;
+    std::vector<std::pair<int64_t, int64_t>> sorted;
     reuse_distance_t::distance_histogram_t distance_map_data;
 
     // Make sure print_histogram handles this case without crashing.
@@ -336,13 +336,13 @@ print_histogram_mult_1p0_test()
     reuse_distance_test_t reuse_distance(knobs);
 
     // Fill in a sorted histogram vector.
-    std::vector<std::pair<int_least64_t, int_least64_t>> sorted;
+    std::vector<std::pair<int64_t, int64_t>> sorted;
     // Also put some matching entries in a data histogram.
     reuse_distance_t::distance_histogram_t distance_map_data;
 
     constexpr int N = 100;
 
-    int_least64_t count = 0;
+    int64_t count = 0;
     for (int i = 0; i < N; ++i) {
         sorted.emplace_back(i, 1);
         count += sorted.back().second;
@@ -381,12 +381,12 @@ print_histogram_mult_1p2_test()
     reuse_distance_test_t reuse_distance(knobs);
 
     // Fill in a sorted histogram vector.
-    std::vector<std::pair<int_least64_t, int_least64_t>> sorted;
+    std::vector<std::pair<int64_t, int64_t>> sorted;
     reuse_distance_t::distance_histogram_t distance_map_data;
 
     constexpr int N = 100;
 
-    int_least64_t count = 0;
+    int64_t count = 0;
     for (int i = 0; i < N; ++i) {
         sorted.emplace_back(i, 2);
         count += sorted.back().second;

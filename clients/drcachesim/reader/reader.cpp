@@ -174,6 +174,12 @@ reader_t::process_input_entry()
             cur_ref_.instr.tid = cur_tid_;
             cur_ref_.instr.type = (trace_type_t)input_entry_->type;
             cur_ref_.instr.size = input_entry_->size;
+            if (type_is_instr_branch(cur_ref_.instr.type) &&
+                !type_is_instr_direct_branch(cur_ref_.instr.type)) {
+                cur_ref_.instr.indirect_branch_target = last_branch_target_;
+            } else {
+                cur_ref_.instr.indirect_branch_target = 0;
+            }
             cur_pc_ = input_entry_->addr;
             cur_ref_.instr.addr = cur_pc_;
             next_pc_ = cur_pc_ + cur_ref_.instr.size;
@@ -286,6 +292,9 @@ reader_t::process_input_entry()
             skip_chunk_header_.erase(cur_tid_);
         } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_RECORD_ORDINAL) {
             // Not exposed to tools.
+        } else if (cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_BRANCH_TARGET) {
+            // Not exposed to tools.
+            last_branch_target_ = cur_ref_.marker.marker_value;
         } else {
             have_memref = true;
         }
