@@ -9636,6 +9636,7 @@ decode_category(uint enc, instr_t *instr)
          */
         if ((op1 & 0x4) == 0) {       /* op1 is x0xx */
             if ((op1 & 0x8) != 0) {   /* op1 is not 00xx */
+                if ((op1 & 0x2) == 0) /* op1 is 100x, Data processing Immediate */
                     category = DR_INSTR_CATEGORY_INT_MATH;
                 else /* op1 is 101x, Branches */
                     category = DR_INSTR_CATEGORY_BRANCH;
