@@ -561,7 +561,67 @@ extern const instr_info_t xop_extensions[];
 extern const instr_info_t evex_prefix_extensions[][2];
 extern const instr_info_t evex_Wb_extensions[][4];
 
+enum {
+    TABLE_first_byte,
+	TABLE_second_byte,
+	TABLE_base_extensions,
+	TABLE_prefix_extensions,
+	TABLE_mod_extensions,
+	TABLE_rm_extensions,
+	TABLE_x64_extensions,
+	TABLE_rex_b_extensions,
+	TABLE_rex_w_extensions,
+	TABLE_vex_prefix_extensions,
+	TABLE_e_vex_extensions,
+	TABLE_vex_L_extensions,
+	TABLE_vex_W_extensions,
+	TABLE_third_byte_38,
+	TABLE_third_byte_3a,
+	TABLE_rep_extensions,
+	TABLE_repne_extensions,
+	TABLE_float_low_modrm,
+	TABLE_float_high_modrm,
+	TABLE_suffix_extensions,
+	TABLE_extra_operands,
+	TABLE_xop_prefix_extensions,
+	TABLE_xop_extensions,
+	TABLE_evex_prefix_extensions,
+	TABLE_evex_Wb_extensions,
+};
+
 /* table that translates opcode enums into pointers into decoding tables */
-extern const instr_info_t *const op_instr[];
+extern const uint op_instr[];
+
+static const instr_info_t* code_to_instr(uint code)
+{
+    static const instr_info_t* const tables[] = {
+        (const instr_info_t*)first_byte,
+        (const instr_info_t*)second_byte,
+        (const instr_info_t*)base_extensions,
+        (const instr_info_t*)prefix_extensions,
+        (const instr_info_t*)mod_extensions,
+        (const instr_info_t*)rm_extensions,
+        (const instr_info_t*)x64_extensions,
+        (const instr_info_t*)rex_b_extensions,
+        (const instr_info_t*)rex_w_extensions,
+        (const instr_info_t*)vex_prefix_extensions,
+        (const instr_info_t*)e_vex_extensions,
+        (const instr_info_t*)vex_L_extensions,
+        (const instr_info_t*)vex_W_extensions,
+        (const instr_info_t*)third_byte_38,
+        (const instr_info_t*)third_byte_3a,
+        (const instr_info_t*)rep_extensions,
+        (const instr_info_t*)repne_extensions,
+        (const instr_info_t*)float_low_modrm,
+        (const instr_info_t*)float_high_modrm,
+        (const instr_info_t*)suffix_extensions,
+        (const instr_info_t*)extra_operands,
+        (const instr_info_t*)xop_prefix_extensions,
+        (const instr_info_t*)xop_extensions,
+        (const instr_info_t*)evex_prefix_extensions,
+        (const instr_info_t*)evex_Wb_extensions,
+    };
+    return &tables[code >> 24][code & 0xffffff];
+}
 
 #endif /* DECODE_PRIVATE_H */
