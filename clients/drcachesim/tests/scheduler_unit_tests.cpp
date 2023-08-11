@@ -959,6 +959,7 @@ static void
 test_synthetic_time_quanta()
 {
     std::cerr << "\n----------------\nTesting time quanta\n";
+#ifdef HAS_ZIP
     static constexpr memref_tid_t TID_BASE = 42;
     static constexpr memref_tid_t TID_A = TID_BASE;
     static constexpr memref_tid_t TID_B = TID_A + 1;
@@ -1079,6 +1080,7 @@ test_synthetic_time_quanta()
         assert(sched_as_string[0] == "ACCC");
         assert(sched_as_string[1] == "BAABB");
     }
+#endif
 }
 
 static void

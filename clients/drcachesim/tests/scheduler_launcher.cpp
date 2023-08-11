@@ -129,7 +129,7 @@ get_current_microseconds()
     FILETIME file_time;
     if (!SystemTimeToFileTime(&sys_time, &file_time))
         return 0;
-    return = file_time.dwLowDateTime +
+    return file_time.dwLowDateTime +
         (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
 #endif
 }
