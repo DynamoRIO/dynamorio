@@ -9621,6 +9621,8 @@ decode_category(uint enc, instr_t *instr)
     uint op1 = BITS(enc, 28, 25);
     if ((BITS(enc, 31, 31) == 1 && op1 == 0) || op1 == 0x2) /* SME || SVE */
         category = DR_INSTR_CATEGORY_SIMD;
+    else if (BITS(enc, 31, 31) == 0 && op1 == 0) /* op1 is 0 and 31 bit is 0 */
+        category = DR_INSTR_CATEGORY_UNCATEGORIZED;
     else {
         /*                       op1 - xxxx
          *                              |
@@ -9632,11 +9634,13 @@ decode_category(uint enc, instr_t *instr)
          *                                             Int        Scalar Floating-Point
          *                                                        and Advances SIMD
          */
-        if ((op1 & 0x4) == 0) {   /* op1 is x0xx */
-            if ((op1 & 0x2) == 0) /* op1 is 100x, Data processing Immediate */
-                category = DR_INSTR_CATEGORY_INT_MATH;
-            else /* op1 is 101x, Branches */
-                category = DR_INSTR_CATEGORY_BRANCH;
+        if ((op1 & 0x4) == 0) { /* op1 is x0xx */
+            if ((op1 & 0x8) != 0) { /* op1 is not 00xx */
+                if ((op1 & 0x2) == 0) /* op1 is 100x, Data processing Immediate */
+                    category = DR_INSTR_CATEGORY_INT_MATH;
+                else /* op1 is 101x, Branches */
+                    category = DR_INSTR_CATEGORY_BRANCH;
+            }
         } else { /* op1 is x1xx */
             uint op0 = BITS(enc, 31, 28);
             if ((op1 & 0x1) == 0) /* op1 is x1x0, LOAD/STORE */
