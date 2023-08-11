@@ -3551,12 +3551,15 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
     if (dst->size > sizeof(dr_mcontext_t))
         return false;
 #if defined(AARCH64)
-    /* Clients built before support of Arm AArch64's Scalable Vector Extension
-     * (SVE) are not binary compatible with the latest build.
+    /* We could support binary compatibility for clients built before the
+     * addition of AArch64's SVE support, by evaluating the machine context's
+     * user set-size field. But currently do not, preferring to detect
+     * incompatibility and asserting or returning false.
      */
     if (TEST(DR_MC_MULTIMEDIA, dst->flags) && dst->size != sizeof(dr_mcontext_t)) {
         CLIENT_ASSERT(
             false, "A pre-SVE client is running on an Arm AArch64 SVE DynamoRIO build!");
+        return false;
     }
 #endif
     if (TESTALL(DR_MC_ALL, dst->flags) && dst->size == sizeof(dr_mcontext_t)) {
