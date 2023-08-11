@@ -36,12 +36,16 @@
 #ifndef _HISTOGRAM_H_
 #define _HISTOGRAM_H_ 1
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
 
 #include "analysis_tool.h"
 #include "memref.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

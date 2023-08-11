@@ -33,8 +33,11 @@
 /* prefetcher: represents a hardware prefetching implementation.
  */
 
+#include "prefetcher.h"
+
+#include "memref.h"
 #include "caching_device.h"
-#include "../common/memref.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

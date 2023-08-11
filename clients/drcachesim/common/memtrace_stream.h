@@ -45,6 +45,9 @@
 #ifndef _MEMTRACE_STREAM_H_
 #define _MEMTRACE_STREAM_H_ 1
 
+#include <cstdint>
+#include <string>
+
 /**
  * @file drmemtrace/memtrace_stream.h
  * @brief DrMemtrace interface for obtaining information from analysis

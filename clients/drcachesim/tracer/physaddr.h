@@ -36,10 +36,14 @@
 #ifndef _PHYSADDR_H_
 #define _PHYSADDR_H_ 1
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
+
 #include "dr_api.h"
 #include "hashtable.h"
-#include "../common/trace_entry.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

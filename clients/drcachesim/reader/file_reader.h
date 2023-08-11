@@ -39,13 +39,17 @@
 #define _FILE_READER_H_ 1
 
 #include <inttypes.h>
+#include <stdint.h>
 #include <string.h>
+
 #include <fstream>
 #include <queue>
+#include <string>
 #include <vector>
-#include "reader.h"
-#include "memref.h"
+
 #include "directory_iterator.h"
+#include "memref.h"
+#include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
 

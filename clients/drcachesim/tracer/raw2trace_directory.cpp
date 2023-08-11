@@ -34,13 +34,7 @@
  * Separate from raw2trace_t, so that raw2trace doesn't depend on dr_frontend.
  */
 
-#include <algorithm>
-#include <cstring>
-#include <iostream>
-#include <vector>
-
 #ifdef UNIX
-#    include <sys/stat.h>
 #    include <sys/types.h>
 #else
 #    define UNICODE
@@ -49,11 +43,21 @@
 #    include <windows.h>
 #endif
 
-#include "dr_api.h"
-#include "dr_frontend.h"
-#include "raw2trace.h"
-#include "raw2trace_directory.h"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "archive_ostream.h"
 #include "directory_iterator.h"
+#include "dr_api.h"              // Must be after windows.h.
+#include "raw2trace_directory.h" // Includes dr_api.h which must be after windows.h.
+#include "reader.h"
+#include "raw2trace.h"
+#include "trace_entry.h"
 #include "utils.h"
 #ifdef HAS_ZLIB
 #    include "common/gzip_istream.h"

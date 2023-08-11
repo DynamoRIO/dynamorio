@@ -35,32 +35,41 @@
  */
 
 #define NOMINMAX // Avoid windows.h messing up std::min.
+#include "archive_ostream.h"
 #include "dr_api.h"
 #include "drcovlib.h"
 #include "raw2trace.h"
+#include "reader.h"
+#include "memref.h"
+#include "trace_entry.h"
+#include "drmemtrace.h"
 #include "instru.h"
-#include "../common/memref.h"
-#include "../common/trace_entry.h"
+#include "utils.h"
 #ifdef LINUX
 // XXX: We should have the core export this to an include dir.
 #    include "../../core/unix/include/syscall.h"
 #endif
 #ifdef BUILD_PT_POST_PROCESSOR
+#    include <unistd.h>
 #    include "../common/options.h"
 #    include "../drpt2trace/ir2trace.h"
-#    include <unistd.h>
-#endif
-#include <algorithm>
-#include <cstring>
-#include <fstream>
-#include <sstream>
-#include <thread>
-#include <vector>
-#ifdef LINUX
-#    include <syscall.h>
 #endif
 
-#include <iostream>
+#include <algorithm>
+#include <array>
+#include <cstdarg>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <deque>
+#include <iomanip>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace dynamorio {
 namespace drmemtrace {

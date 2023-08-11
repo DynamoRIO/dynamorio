@@ -35,6 +35,11 @@
 #ifndef _FUNC_TRACE_
 #define _FUNC_TRACE_ 1
 
+#include <stddef.h>
+#include <sys/types.h>
+
+#include <cstdint>
+
 #include "dr_api.h"
 #include "trace_entry.h"
 

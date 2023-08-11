@@ -30,14 +30,21 @@
  * DAMAGE.
  */
 
-#include <iostream>
-#include <iterator>
+#include "simulator.h"
+
 #include <assert.h>
 #include <limits.h>
-#include "../common/memref.h"
-#include "../common/options.h"
-#include "../common/utils.h"
-#include "simulator.h"
+#include <stdint.h>
+
+#include <iostream>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "memref.h"
+#include "options.h"
+#include "utils.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

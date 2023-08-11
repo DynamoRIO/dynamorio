@@ -33,12 +33,17 @@
 #ifndef _BASIC_COUNTS_H_
 #define _BASIC_COUNTS_H_ 1
 
+#include <stdint.h>
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "analysis_tool.h"
+#include "memref.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -37,13 +37,16 @@
 #ifndef _CONFIG_READER_H_
 #define _CONFIG_READER_H_ 1
 
+#include <stdint.h>
+
 #include <fstream>
 #include <map>
 #include <string>
+#include <vector>
 
-#include "../common/options.h"
-#include "../simulator/cache.h"
-#include "../simulator/cache_simulator_create.h"
+#include "options.h"
+#include "cache.h"
+#include "cache_simulator_create.h"
 
 namespace dynamorio {
 namespace drmemtrace {

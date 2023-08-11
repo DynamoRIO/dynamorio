@@ -31,11 +31,25 @@
  */
 
 #include "cache.h"
-#include "../common/utils.h"
-#include <assert.h>
+
+#include <stddef.h>
+
+#include <utility>
+#include <vector>
+
+#include "memref.h"
+#include "cache_line.h"
+#include "cache_stats.h"
+#include "caching_device.h"
+#include "caching_device_block.h"
+#include "caching_device_stats.h"
+#include "prefetcher.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
+
+class snoop_filter_t;
 
 bool
 cache_t::init(int associativity, int line_size, int total_size, caching_device_t *parent,

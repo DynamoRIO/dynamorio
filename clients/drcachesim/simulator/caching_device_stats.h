@@ -36,14 +36,20 @@
 #ifndef _CACHING_DEVICE_STATS_H_
 #define _CACHING_DEVICE_STATS_H_ 1
 
-#include "caching_device_block.h"
-#include <string>
-#include <map>
 #include <stdint.h>
-#include <limits>
 #ifdef HAS_ZLIB
 #    include <zlib.h>
 #endif
+
+#include <iterator>
+#include <limits>
+#include <map>
+#include <string>
+#include <utility>
+
+#include "caching_device_block.h"
+#include "trace_entry.h"
+#include "utils.h"
 #include "memref.h"
 
 namespace dynamorio {

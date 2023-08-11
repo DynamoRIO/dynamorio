@@ -30,13 +30,29 @@
  * DAMAGE.
  */
 
+#include "reuse_distance.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
-#include "reuse_distance.h"
-#include "../common/utils.h"
+
+#include "analysis_tool.h"
+#include "memref.h"
+#include "reuse_distance_create.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
