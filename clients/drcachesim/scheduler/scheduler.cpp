@@ -811,7 +811,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
     // We also need to translate the thread and cpu id values into 0-based ordinals.
     std::unordered_map<memref_tid_t, input_ordinal_t> tid2input;
     for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
-        VPRINT(this, 1, "tid2input: tid: %ld -> %d\n", inputs_[i].tid, i);
+        VPRINT(this, 1, "tid2input: tid: %" PRId64 " -> %d\n", inputs_[i].tid, i);
         tid2input[inputs_[i].tid] = i;
     }
     std::vector<std::set<uint64_t>> start2stop(inputs_.size());
