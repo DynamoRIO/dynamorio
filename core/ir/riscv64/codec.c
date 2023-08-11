@@ -1816,7 +1816,7 @@ encode_u_immpc_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_inf
         imm = (byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset;
     else
         return false;
-    ASSERT(!di->check_reachable || imm >> 12 << 12 == imm);
+    ASSERT(!di->check_reachable || ((imm >> 12) << 12) == imm);
     *out |= SET_FIELD(imm >> 12, 31, 12);
     return true;
 }
