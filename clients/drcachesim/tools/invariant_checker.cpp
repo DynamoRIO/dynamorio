@@ -232,19 +232,19 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // Still in the region.
             } else {
                 // We should see an abort marker or a side exit if we leave the region.
-                report_if_false(shard,
-                                type_is_instr_branch(shard->prev_instr_.instr.type),
-                                "Rseq region exit requires marker, branch, or commit");
+                report_if_false(
+                    shard, type_is_instr_branch(shard->prev_instr_.memref.instr.type),
+                    "Rseq region exit requires marker, branch, or commit");
                 shard->in_rseq_region_ = false;
             }
         } else {
-            report_if_false(shard,
-                            memref.marker.type != TRACE_TYPE_MARKER ||
-                                memref.marker.marker_type !=
-                                    TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                                // Side exit.
-                                type_is_instr_branch(shard->prev_instr_.instr.type),
-                            "Signal in rseq region should have abort marker");
+            report_if_false(
+                shard,
+                memref.marker.type != TRACE_TYPE_MARKER ||
+                    memref.marker.marker_type != TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                    // Side exit.
+                    type_is_instr_branch(shard->prev_instr_.memref.instr.type),
+                "Signal in rseq region should have abort marker");
         }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -254,10 +254,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // case the marker value will point to it.
         report_if_false(shard,
                         shard->rseq_end_pc_ == 0 ||
-                            shard->prev_instr_.instr.addr +
-                                    shard->prev_instr_.instr.size !=
+                            shard->prev_instr_.memref.instr.addr +
+                                    shard->prev_instr_.memref.instr.size !=
                                 shard->rseq_end_pc_ ||
-                            shard->prev_instr_.instr.addr == memref.marker.marker_value,
+                            shard->prev_instr_.memref.instr.addr ==
+                                memref.marker.marker_value,
                         "Rseq post-abort instruction not rolled back");
         shard->in_rseq_region_ = false;
     }
@@ -315,16 +316,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // TODO i#5949: For WOW64 instr_is_syscall() always returns false here as it
         // tries to check adjacent instrs; we disable this check until that is solved.
 #if !defined(WINDOWS) || defined(X64)
-        if (shard->prev_instr_decoded_ != nullptr) {
-            report_if_false(shard, instr_is_syscall(shard->prev_instr_decoded_->data),
+        if (shard->prev_instr_.decoded != nullptr) {
+            report_if_false(shard, instr_is_syscall(shard->prev_instr_.decoded->data),
                             "Syscall marker not placed after syscall instruction");
         }
 #endif
     } else if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
                type_is_instr(shard->prev_entry_.instr.type) &&
-               shard->prev_instr_decoded_ != nullptr &&
+               shard->prev_instr_.decoded != nullptr &&
                // TODO i#5949: For WOW64 instr_is_syscall() always returns false.
-               instr_is_syscall(shard->prev_instr_decoded_->data) &&
+               instr_is_syscall(shard->prev_instr_.decoded->data) &&
                // Allow timestamp+cpuid in between.
                (memref.marker.type != TRACE_TYPE_MARKER ||
                 (memref.marker.marker_type != TRACE_MARKER_TYPE_TIMESTAMP &&
@@ -388,7 +389,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard,
             shard->prev_func_id_ >=
                     static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
-                type_is_instr_branch(shard->prev_instr_.instr.type),
+                type_is_instr_branch(shard->prev_instr_.memref.instr.type),
             "Function marker should be after a branch");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -460,7 +461,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         const bool expect_encoding =
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
-        std::unique_ptr<instr_autoclean_t> cur_instr_decoded = nullptr;
+        std::shared_ptr<instr_autoclean_t> cur_instr_decoded = nullptr;
         if (expect_encoding) {
             cur_instr_decoded.reset(new instr_autoclean_t(GLOBAL_DCONTEXT));
             // TODO i#6006: cache the decoding results, and avoid heap with
@@ -469,7 +470,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
                 reinterpret_cast<app_pc>(memref.instr.addr), cur_instr_decoded->data);
             if (next_pc == nullptr) {
-                cur_instr_decoded.reset(nullptr);
+                cur_instr_decoded = nullptr;
             }
         }
         if (knob_verbose_ >= 3) {
@@ -495,7 +496,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // If we did serial analyses only, we'd just track the previous instr in the
         // interleaved stream.  Here we look for headers indicating where an interleaved
         // stream *could* switch threads, so we're stricter than necessary.
-        if (knob_offline_ && type_is_instr_branch(shard->prev_instr_.instr.type)) {
+        if (knob_offline_ && type_is_instr_branch(shard->prev_instr_.memref.instr.type)) {
             report_if_false(
                 shard,
                 !shard->saw_timestamp_but_no_instr_ ||
@@ -586,10 +587,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // book-keeping using prev_instr_ on the TRACE_MARKER_TYPE_KERNEL_EVENT marker.
         // E.g. if there was no instr between two nested signals, we do not want to
         // record any pre-signal instr for the second signal.
-        shard->last_instr_in_cur_context_ = memref;
+        shard->last_instr_in_cur_context_.memref = memref;
+        shard->last_instr_in_cur_context_.decoded = cur_instr_decoded;
 #endif
-        shard->prev_instr_ = memref;
-        shard->prev_instr_decoded_ = std::move(cur_instr_decoded);
+        shard->prev_instr_.memref = memref;
+        shard->prev_instr_.decoded = cur_instr_decoded;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
         // prior (i#3937).
@@ -665,7 +667,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->last_signal_context_ = { 0, {}, false };
                 // We have not seen any instr in the outermost scope that we just
                 // discovered.
-                shard->last_instr_in_cur_context_ = {};
+                shard->last_instr_in_cur_context_.memref = {};
             } else {
                 // The pre_signal_instr for this signal may be {} in some cases:
                 // - for nested signals without any intervening instr
@@ -679,7 +681,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // signal should be same as the pre-signal instr for the first one.
                 // Here we restore last_instr_in_cur_context_ to the last instr we
                 // saw *in the same nesting depth* before the first signal.
-                shard->last_instr_in_cur_context_ =
+                shard->last_instr_in_cur_context_.memref =
                     shard->last_signal_context_.pre_signal_instr;
             }
         }
@@ -689,7 +691,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 saw_rseq_abort = true;
             } else {
-                if (type_is_instr(shard->last_instr_in_cur_context_.instr.type) &&
+                if (type_is_instr(shard->last_instr_in_cur_context_.memref.instr.type) &&
                     !shard->saw_rseq_abort_ &&
                     // XXX i#3937: Online traces do not place signal markers properly,
                     // so we can't precisely check for continuity there.
@@ -706,7 +708,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                     discontinuity + error_msg_suffix);
                 }
                 shard->signal_stack_.push({ memref.marker.marker_value,
-                                            shard->last_instr_in_cur_context_,
+                                            shard->last_instr_in_cur_context_.memref,
                                             shard->saw_rseq_abort_ });
                 // XXX: if last_instr_in_cur_context_ is {} currently, it means this is
                 // either a signal that arrived before the first instr in the trace, or
@@ -716,7 +718,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
                 // We start with an empty memref_t to denote absence of any pre-signal
                 // instr for any subsequent nested signals.
-                shard->last_instr_in_cur_context_ = {};
+                shard->last_instr_in_cur_context_.memref = {};
             }
         }
 #endif
@@ -925,10 +927,12 @@ invariant_checker_t::print_results()
 
 std::string
 invariant_checker_t::check_for_pc_discontinuity(
-    per_shard_t *shard, const memref_t &memref, const memref_t &prev_instr, addr_t cur_pc,
-    const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded, bool expect_encoding,
+    per_shard_t *shard, const memref_t &memref,
+    const per_shard_t::instr_info_t &prev_instr_info, addr_t cur_pc,
+    const std::shared_ptr<instr_autoclean_t> &cur_instr_decoded, bool expect_encoding,
     bool at_kernel_event)
 {
+    const memref_t prev_instr = prev_instr_info.memref;
     std::string error_msg = "";
     bool have_branch_target = false;
     addr_t branch_target = 0;
@@ -954,8 +958,8 @@ invariant_checker_t::check_for_pc_discontinuity(
             // prev_instr.  We can then delete this branch_target_cache and
             // prev_instr_decoded_.  For now we live with this inaccuracy as it is
             // rare to not match and we leave the cleanup for i#5912.
-            if (shard->prev_instr_decoded_ == nullptr ||
-                !opnd_is_pc(instr_get_target(shard->prev_instr_decoded_->data))) {
+            if (prev_instr_info.decoded == nullptr ||
+                !opnd_is_pc(instr_get_target(prev_instr_info.decoded->data))) {
                 // Neither condition should happen but they could on an invalid
                 // encoding from raw2trace or the reader so we report an
                 // invariant rather than asserting.
@@ -963,7 +967,7 @@ invariant_checker_t::check_for_pc_discontinuity(
             } else {
                 have_branch_target = true;
                 branch_target = reinterpret_cast<addr_t>(
-                    opnd_get_pc(instr_get_target(shard->prev_instr_decoded_->data)));
+                    opnd_get_pc(instr_get_target(prev_instr_info.decoded->data)));
                 shard->branch_target_cache[prev_instr_trace_pc] = branch_target;
             }
         }
@@ -1017,14 +1021,13 @@ invariant_checker_t::check_for_pc_discontinuity(
             }
             if (have_branch_target && branch_target != cur_pc)
                 error_msg = "Branch does not go to the correct target";
-        } else if (cur_instr_decoded != nullptr &&
-                   shard->prev_instr_decoded_ != nullptr &&
+        } else if (cur_instr_decoded != nullptr && prev_instr_info.decoded != nullptr &&
                    instr_is_syscall(cur_instr_decoded->data) &&
                    cur_pc == prev_instr_trace_pc &&
-                   instr_is_syscall(shard->prev_instr_decoded_->data)) {
+                   instr_is_syscall(prev_instr_info.decoded->data)) {
             error_msg = "Duplicate syscall instrs with the same PC";
-        } else if (shard->prev_instr_decoded_ != nullptr &&
-                   instr_writes_memory(shard->prev_instr_decoded_->data) &&
+        } else if (prev_instr_info.decoded != nullptr &&
+                   instr_writes_memory(prev_instr_info.decoded->data) &&
                    type_is_instr_conditional_branch(shard->last_branch_.instr.type)) {
             // This sequence happens when an rseq side exit occurs which
             // results in missing instruction in the basic block.

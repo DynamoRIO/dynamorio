@@ -118,8 +118,6 @@ protected:
         memref_t last_branch_ = {};
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
-        memref_t prev_instr_ = {};
-        std::unique_ptr<instr_autoclean_t> prev_instr_decoded_ = nullptr;
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         uintptr_t prev_func_id_ = 0;
@@ -131,6 +129,10 @@ protected:
         // where we can't just use the value from the last marker record.
         addr_t last_branch_marker_value_ = 0;
         uintptr_t trace_version_ = 0;
+        struct instr_info_t {
+            memref_t memref;
+            std::shared_ptr<instr_autoclean_t> decoded = nullptr;
+        };
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
         struct signal_context {
@@ -150,9 +152,10 @@ protected:
         // starts inside the app signal handler).
         signal_context last_signal_context_ = { 0, {}, false };
 
+        instr_info_t prev_instr_ = {};
         // For the outer-most scope, like other nested signal scopes, we start with an
         // empty memref_t to denote absence of any pre-signal instr.
-        memref_t last_instr_in_cur_context_ = {};
+        instr_info_t last_instr_in_cur_context_ = {};
 
         bool saw_rseq_abort_ = false;
         memref_t prev_prev_entry_ = {};
@@ -210,9 +213,10 @@ protected:
     // for such violations.
     std::string
     check_for_pc_discontinuity(
-        per_shard_t *shard, const memref_t &memref, const memref_t &prev_instr,
-        addr_t cur_pc, const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded,
-        bool expect_encoding, bool at_kernel_event);
+        per_shard_t *shard, const memref_t &memref,
+        const per_shard_t::instr_info_t &prev_instr_info, addr_t cur_pc,
+        const std::shared_ptr<instr_autoclean_t> &cur_instr_decoded, bool expect_encoding,
+        bool at_kernel_event);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
