@@ -33,13 +33,17 @@
 /* instru: instrumentation utilities.
  */
 
+#include "instru.h"
+
+#include <stddef.h>
+
 #include "dr_api.h"
+#include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
-#include "instru.h"
-#include "../common/trace_entry.h"
+#include "trace_entry.h"
+
 #ifdef LINUX
-#    include <sched.h>
 #    ifndef _GNU_SOURCE
 #        define _GNU_SOURCE // For syscall()
 #    endif

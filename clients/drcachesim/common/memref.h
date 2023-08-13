@@ -83,6 +83,13 @@ struct _memref_instr_t {
      * not only when application code actually changed.
      */
     bool encoding_is_new;
+    /**
+     * Valid only for an indirect branch instruction (types
+     * #TRACE_TYPE_INSTR_INDIRECT_JUMP, #TRACE_TYPE_INSTR_INDIRECT_CALL, and
+     * #TRACE_TYPE_INSTR_RETURN).  Holds the actual target of that branch.  This is only
+     * present in trace version #TRACE_ENTRY_VERSION_BRANCH_INFO and higher.
+     */
+    addr_t indirect_branch_target;
 };
 
 /** A trace entry representing a software-requested explicit cache flush. */

@@ -54,7 +54,6 @@
 
 using ::dynamorio::drmemtrace::disable_popups;
 using ::dynamorio::drmemtrace::memref_t;
-using ::dynamorio::drmemtrace::memref_tid_t;
 using ::dynamorio::drmemtrace::scheduler_t;
 using ::dynamorio::drmemtrace::TRACE_TYPE_MARKER;
 using ::dynamorio::drmemtrace::trace_type_names;
@@ -107,10 +106,11 @@ droption_t<std::string>
 
 void
 simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &scheduler,
-              std::vector<memref_tid_t> &thread_sequence)
+              std::vector<scheduler_t::input_ordinal_t> &thread_sequence)
 {
     memref_t record;
-    memref_tid_t prev_tid = INVALID_THREAD_ID;
+    // Thread ids can be duplicated, so use the input ordinals to distinguish.
+    scheduler_t::input_ordinal_t prev_input = scheduler_t::INVALID_INPUT_ORDINAL;
     for (scheduler_t::stream_status_t status = stream->next_record(record);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
         if (status == scheduler_t::STATUS_WAIT) {
@@ -142,18 +142,18 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
             line << "\n";
             std::cerr << line.str();
         }
+        scheduler_t::input_ordinal_t input = stream->get_input_stream_ordinal();
         if (thread_sequence.empty())
-            thread_sequence.push_back(record.instr.tid);
-        else if (record.instr.tid != prev_tid) {
-            thread_sequence.push_back(record.instr.tid);
+            thread_sequence.push_back(input);
+        else if (stream->get_input_stream_ordinal() != prev_input) {
+            thread_sequence.push_back(input);
             if (op_verbose.get_value() > 0) {
                 std::ostringstream line;
                 line
                     << "Core #" << std::setw(2) << ordinal << " @" << std::setw(9)
                     << stream->get_record_ordinal() << " refs, " << std::setw(9)
                     << stream->get_instruction_ordinal() << " instrs: input "
-                    << std::setw(4) << stream->get_input_stream_ordinal() << " @"
-                    << std::setw(9)
+                    << std::setw(4) << input << " @" << std::setw(9)
                     << scheduler
                            .get_input_stream_interface(stream->get_input_stream_ordinal())
                            ->get_record_ordinal()
@@ -169,7 +169,7 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
                 std::cerr << line.str();
             }
         }
-        prev_tid = record.instr.tid;
+        prev_input = input;
     }
 }
 
@@ -227,7 +227,8 @@ _tmain(int argc, const TCHAR *targv[])
     }
 
     std::vector<std::thread> threads;
-    std::vector<std::vector<memref_tid_t>> schedules(op_num_cores.get_value());
+    std::vector<std::vector<scheduler_t::input_ordinal_t>> schedules(
+        op_num_cores.get_value());
     std::cerr << "Creating " << op_num_cores.get_value() << " simulator threads\n";
     threads.reserve(op_num_cores.get_value());
     for (int i = 0; i < op_num_cores.get_value(); ++i) {
@@ -239,8 +240,8 @@ _tmain(int argc, const TCHAR *targv[])
 
     for (int i = 0; i < op_num_cores.get_value(); ++i) {
         std::cerr << "Core #" << i << ": ";
-        for (memref_tid_t tid : schedules[i])
-            std::cerr << tid << " ";
+        for (scheduler_t::input_ordinal_t input : schedules[i])
+            std::cerr << input << " ";
         std::cerr << "\n";
     }
 

@@ -37,30 +37,39 @@
  * XXX i#1703, i#2001: add in more optimizations to improve performance.
  */
 
-#include <string.h>
-#include <atomic>
-#include <string>
-#include "dr_api.h"
-#include "drmgr.h"
-#include "drwrap.h"
-#include "drmemtrace.h"
-#include "drreg.h"
-#include "drutil.h"
-#include "drx.h"
-#include "drstatecmp.h"
-#include "droption.h"
-#include "drbbdup.h"
-#include "instru.h"
 #include "tracer.h"
-#include "output.h"
-#include "raw2trace.h"
-#include "physaddr.h"
-#include "instr_counter.h"
+
+#include <string.h>
+#include <sys/types.h>
+
+#include <atomic>
+#include <cstdarg>
+#include <cstdint>
+#include <new>
+#include <string>
+
+#include "dr_api.h"
+#include "drbbdup.h"
+#include "drmemtrace.h"
+#include "drmgr.h"
+#include "droption.h"
+#include "drreg.h"
+#include "drstatecmp.h"
+#include "drutil.h"
+#include "drvector.h"
+#include "drwrap.h"
+#include "drx.h"
 #include "func_trace.h"
-#include "../common/trace_entry.h"
-#include "../common/named_pipe.h"
-#include "../common/options.h"
-#include "../common/utils.h"
+#include "instr_counter.h"
+#include "instru.h"
+#include "named_pipe.h"
+#include "options.h"
+#include "output.h"
+#include "physaddr.h"
+#include "raw2trace.h"
+#include "reader.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 #ifdef ARM
 #    include "../../../core/unix/include/syscall_linux_arm.h" // for SYS_cacheflush
@@ -143,10 +152,10 @@ named_pipe_t ipc_pipe;
 instru_t *instru;
 
 static client_id_t client_id;
-void *mutex;            /* for multithread support */
-uint64 num_refs_racy;   /* racy global memory reference count */
+void *mutex;                 /* for multithread support */
+uint64 num_refs_racy;        /* racy global memory reference count */
 uint64 num_filter_refs_racy; /* racy global memory reference count in warmup mode */
-static uint64 num_refs; /* keep a global memory reference count */
+static uint64 num_refs;      /* keep a global memory reference count */
 static uint64 num_writeouts;
 static uint64 num_v2p_writeouts;
 static uint64 num_phys_markers;

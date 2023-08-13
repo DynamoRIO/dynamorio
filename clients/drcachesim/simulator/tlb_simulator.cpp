@@ -30,18 +30,24 @@
  * DAMAGE.
  */
 
-#include <iostream>
-#include <iterator>
-#include <string>
-#include <assert.h>
-#include <limits.h>
-#include <stdint.h> /* for supporting 64-bit integers*/
-#include "../common/memref.h"
-#include "../common/options.h"
-#include "../common/utils.h"
-#include "tlb_stats.h"
-#include "tlb.h"
 #include "tlb_simulator.h"
+
+#include <stddef.h>
+
+#include <iostream>
+#include <string>
+#include <vector>
+
+#include "analysis_tool.h"
+#include "memref.h"
+#include "options.h"
+#include "utils.h"
+#include "caching_device_stats.h"
+#include "simulator.h"
+#include "tlb.h"
+#include "tlb_simulator_create.h"
+#include "tlb_stats.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -30,13 +30,25 @@
  * DAMAGE.
  */
 
-#include "dr_api.h"
 #include "syscall_mix.h"
+
+#include <stdint.h>
+
 #include <algorithm>
 #include <cassert>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
+
+#include "analysis_tool.h"
+#include "dr_api.h"
+#include "memref.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

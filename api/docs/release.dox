@@ -181,6 +181,8 @@ changes:
    #dynamorio::drmemtrace::TRACE_TYPE_INSTR_UNTAKEN_JUMP.
  - All int_least64_t and uint_least64_t types in drcachesim were replaced with
    their precise counterparts int64_t and uint64_t.
+ - The #dynamorio::drmemtrace::memref_t structure has a new field appended for
+   holding the actual target of each indirect branch.
 
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
@@ -277,10 +279,6 @@ Further non-compatibility-affecting changes include:
  - Added a new drmemtrace analysis tool: syscall_mix, to count frequency of system
    calls in a trace. This tool works in both the online and offline modes of
    drmemtrace.
- - Indirect branches in drmemtrace traces now contain a marker holding the
-   actual target
-   (#dynamorio::drmemtrace::TRACE_MARKER_TYPE_BRANCH_TARGET), which immediately
-   precedes the branch record.
 
 **************************************************
 <hr>

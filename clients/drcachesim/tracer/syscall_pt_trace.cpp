@@ -32,11 +32,19 @@
 
 /* syscall_pt_trace.cpp: module for recording kernel PT traces for every syscall. */
 
-#include <cstring>
+#include "syscall_pt_trace.h"
 
+#include <stdint.h>
+
+#include <string>
+
+#include "dr_api.h"
+#include "trace_entry.h"
+#include "utils.h"
+#include "drmemtrace.h"
+#include "drpttracer.h"
 /* For SYS_exit,SYS_exit_group. */
 #include "../../../core/unix/include/syscall_linux_x86.h"
-#include "syscall_pt_trace.h"
 
 namespace dynamorio {
 namespace drmemtrace {
