@@ -312,8 +312,11 @@ instr_is_rep_string_op(instr_t *instr)
 bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
 {
+    /* For now there is only support of FP arithmetic category type (DR_FP_MATH). */
+    /* TODO: Add support for all FP types.
+     */
     uint cat = instr_get_category(instr);
-    if (cat & DR_INSTR_CATEGORY_FP_MATH) {
+    if (TEST(DR_INSTR_CATEGORY_FP_MATH, cat)) {
         if (type != NULL)
             *type = DR_FP_MATH;
         return true;

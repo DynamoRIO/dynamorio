@@ -279,6 +279,10 @@ struct _instr_t {
      * and called when the label is freed.
      */
     uint length;
+
+    /* category of this instr (e.g. branch, load/store, etc.) */
+    uint category;
+
     union {
         byte *bytes;
         instr_label_callback_t label_cb;
@@ -287,10 +291,7 @@ struct _instr_t {
     /* translation target for this instr */
     app_pc translation;
 
-    uint opcode : 16;
-
-    /* category of this instr (e.g. branch, load/store, etc.) */
-    uint category : 16;
+    uint opcode;
 
 #    ifdef X86
     /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */
@@ -1879,7 +1880,7 @@ instr_is_rep_string_op(instr_t *instr);
  * Indicates which category the instruction corresponds to.
  */
 typedef enum {
-    DR_INSTR_CATEGORY_UNCATEGORIZED = 0x0, /**< Uncategorised. */
+    DR_INSTR_CATEGORY_UNCATEGORIZED = 0x0, /**< Uncategorized. */
     DR_INSTR_CATEGORY_INT_MATH = 0x1,      /**< Integer arithmetic operations */
     DR_INSTR_CATEGORY_FP_MATH = 0x2,       /**< Floating-Point arithmetic operations */
     DR_INSTR_CATEGORY_LOAD = 0x4,          /**< Loads */
