@@ -42,14 +42,21 @@
 
 #define NOMINMAX // Avoid windows.h messing up std::max.
 #include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <deque>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <set>
 #include <stack>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
+
 #include "archive_istream.h"
 #include "archive_ostream.h"
 #include "memref.h"
@@ -57,6 +64,7 @@
 #include "reader.h"
 #include "record_file_reader.h"
 #include "speculator.h"
+#include "trace_entry.h"
 #include "utils.h"
 
 namespace dynamorio {  /**< General DynamoRIO namespace. */

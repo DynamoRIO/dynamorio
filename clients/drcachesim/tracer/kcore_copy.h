@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2022-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -38,13 +38,15 @@
 #define _KCORE_COPY_H_ 1
 
 #include <elf.h>
+
+#include "dr_api.h"
 #include "drmemtrace.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-struct proc_module_t;
 struct proc_kcore_code_segment_t;
+struct proc_module_t;
 
 /* This class is used to copy kernel code segments and copy kallsyms.
  */

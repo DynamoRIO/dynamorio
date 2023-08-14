@@ -33,11 +33,14 @@
 #ifndef _SYSCALL_MIX_H_
 #define _SYSCALL_MIX_H_ 1
 
+#include <stdint.h>
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
 
 #include "analysis_tool.h"
+#include "memref.h"
 
 namespace dynamorio {
 namespace drmemtrace {

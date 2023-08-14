@@ -69,6 +69,7 @@
 #endif
 
 #include <string>
+
 #include "droption.h"
 
 namespace dynamorio {
