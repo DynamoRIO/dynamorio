@@ -192,9 +192,8 @@ test_categories(void)
     }
 
     /* Test for synthetic instruction */
-    instr_t *load =
-        INSTR_CREATE_ldr(GD, opnd_create_reg(DR_REG_R0),
-                         OPND_CREATE_ABSMEM((void *)(1024ULL), OPSZ_4));
+    instr_t *load = INSTR_CREATE_ldr(GD, opnd_create_reg(DR_REG_R0),
+                                     OPND_CREATE_ABSMEM((void *)(1024ULL), OPSZ_4));
 
     uint cat = instr_get_category(load);
     ASSERT(cat == DR_INSTR_CATEGORY_UNCATEGORIZED);
