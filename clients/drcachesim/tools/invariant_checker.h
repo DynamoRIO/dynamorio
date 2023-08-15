@@ -131,7 +131,7 @@ protected:
         addr_t last_retaddr_ = 0;
         uintptr_t trace_version_ = 0;
         struct instr_info_t {
-            memref_t memref;
+            memref_t instr;
             std::shared_ptr<instr_autoclean_t> decoded = nullptr;
         };
         instr_info_t prev_instr_ = {};
