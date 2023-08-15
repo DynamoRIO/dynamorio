@@ -134,6 +134,7 @@ protected:
             memref_t memref;
             std::shared_ptr<instr_autoclean_t> decoded = nullptr;
         };
+        instr_info_t prev_instr_ = {};
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
         struct signal_context {
@@ -153,7 +154,6 @@ protected:
         // starts inside the app signal handler).
         signal_context last_signal_context_ = { 0, {}, false };
 
-        instr_info_t prev_instr_ = {};
         // For the outer-most scope, like other nested signal scopes, we start with an
         // empty memref_t to denote absence of any pre-signal instr.
         instr_info_t last_instr_in_cur_context_ = {};
