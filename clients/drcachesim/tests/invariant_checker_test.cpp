@@ -587,8 +587,6 @@ check_function_markers()
     constexpr memref_tid_t TID = 1;
     constexpr addr_t CALL_PC = 2;
     constexpr size_t CALL_SZ = 2;
-    constexpr addr_t SECOND_CALL_PC = 10;
-    constexpr size_t SECOND_CALL_SZ = 2;
     // Incorrectly between instr and memref.
     {
         std::vector<memref_t> memrefs = {
