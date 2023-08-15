@@ -535,9 +535,12 @@ public:
 
         /**
          * Advances to the next record in the stream.  Returns a status code on whether
-         * and how to continue.  Supplies the current time for #QUANTUM_TIME.  The time is
-         * unitless but needs to be a globally consistent increasing value across all
-         * output streams.  A 0 value for "cur_time" is not allowed.
+         * and how to continue.  Supplies the current time for #QUANTUM_TIME.  The time
+         * should be considered to be the time prior to processing the returned record.
+         * The time is unitless but needs to be a globally consistent increasing value
+         * across all output streams.  A 0 value for "cur_time" is not allowed.
+         * #STATUS_INVALID is returned if 0 or a value smaller than the start time of the
+         * current input's quantum is passed in.
          */
         virtual stream_status_t
         next_record(RecordType &record, uint64_t cur_time);

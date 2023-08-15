@@ -1720,6 +1720,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                                                       input_info_t *&input,
                                                       uint64_t cur_time)
 {
+    // We do not enforce a globally increasing time to avoid the synchronization cost; we
+    // do return an error on a time smaller than an input's current start time when we
+    // check for quantum end.
     outputs_[output].cur_time = cur_time;
     if (!outputs_[output].active)
         return sched_type_t::STATUS_WAIT;
@@ -1842,8 +1845,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     need_new_input = true;
                 }
             } else if (options_.quantum_unit == QUANTUM_TIME) {
-                // The above logic is for non-instrs, except the blocking syscall
-                // next instr which is already switching: so an else{} works here.
+                // The above if-else cases are all either for non-instrs or
+                // QUANTUM_INSTRUCTIONS, except the blocking syscall next instr which is
+                // already switching: so an else{} works here.
                 if (cur_time == 0 || cur_time < input->start_time_in_quantum) {
                     VPRINT(this, 1,
                            "next_record[%d]: invalid time %" PRIu64 " vs start %" PRIu64
