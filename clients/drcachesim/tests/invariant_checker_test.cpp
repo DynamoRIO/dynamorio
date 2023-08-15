@@ -720,11 +720,9 @@ check_function_markers()
     // Correctly handle kernel transfer, sigreturn, nested function calls
     // including tailcalls.
     {
-#if defined(WINDOWS) && !defined(X64)
         // TODO i#5949: For WOW64 instr_is_syscall() always returns false, so our
         // checks do not currently work properly there.
-        return true;
-#else
+#if !defined(WINDOWS) || defined(X64)
         // XXX: Just like raw2trace_unit_tests, we need to create a syscall instruction
         // and it turns out there is no simple cross-platform way.
 #    ifdef X86
