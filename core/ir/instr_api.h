@@ -730,6 +730,7 @@ DR_API
 /**
  * Returns \p instr's set of categories (set of DR_INSTR_CATEGORY_ constants).
  * See #dr_instr_category_type_t
+ * This API is only supported for decoded instructions, not for synthetic ones.
  * AArch64 support only.
  */
 uint
