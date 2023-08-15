@@ -1221,11 +1221,12 @@ check_branch_decoration()
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 999),
             gen_instr(TID, /*pc=*/32),
         };
-        if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", TID,
-                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/2 },
-                         "Failed to catch bad indirect branch target field")) {
+        if (!run_checker(
+                memrefs, true,
+                { "Branch does not go to the correct target @ kernel_event marker", TID,
+                  /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/2 },
+                "Failed to catch bad indirect branch target field")) {
             return false;
         }
     }
