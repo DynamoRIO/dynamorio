@@ -737,7 +737,6 @@ check_function_markers()
 #    else
 #        error Unsupported architecture.
 #    endif
-#endif
         instr_t *sig_ret = XINST_CREATE_return(GLOBAL_DCONTEXT);
 
         instr_t *label1 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
@@ -776,6 +775,7 @@ check_function_markers()
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, false))
             return false;
+#endif
     }
     return true;
 }
