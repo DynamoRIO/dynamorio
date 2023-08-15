@@ -38,7 +38,6 @@ endif ()
 
 set(RISCV64_CODEC_GEN_SRCS
   ${PROJECT_BINARY_DIR}/opcode_api.h
-  ${PROJECT_BINARY_DIR}/opcode_names.h
   ${PROJECT_BINARY_DIR}/instr_create_api.h
   ${PROJECT_BINARY_DIR}/instr_info_trie.h
 )

@@ -466,6 +466,25 @@ DR_API
 bool
 proc_has_feature(feature_bit_t feature);
 
+#if defined(AARCH64) && defined(BUILD_TESTS)
+DR_API
+/**
+ * Allows overriding the available state of CPU features.
+ * This is only for unit testing and offline decode, and must be called after
+ * proc_init_arch() (e.g. after dr_standalone_init() or dr_app_setup()).
+ */
+void
+proc_set_feature(feature_bit_t f, bool enable);
+
+DR_API
+/**
+ * Uses proc_set_feature() to forcibly enable CPU features for unit testing and offline
+ * decode.
+ */
+void
+enable_all_test_cpu_features();
+#endif
+
 DR_API
 /**
  * Returns all 4 32-bit feature values on X86 and architectural feature
@@ -499,6 +518,19 @@ DR_API
 /** Converts a cache_size_t type to a string. */
 const char *
 proc_get_cache_size_str(cache_size_t size);
+
+#ifdef AARCHXX
+DR_API
+/**
+ * Returns the size in bytes of the SVE registers' vector length set by the
+ * AArch64 hardware implementor. Length can be from 128 to 2048 bits in
+ * multiples of 128 bits:
+ * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
+ * Currently DynamoRIO supports implementations of up to 512 bits.
+ */
+uint
+proc_get_vector_length_bytes(void);
+#endif
 
 DR_API
 /**

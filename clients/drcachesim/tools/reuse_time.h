@@ -33,11 +33,15 @@
 #ifndef _REUSE_TIME_H_
 #define _REUSE_TIME_H_ 1
 
+#include <stdint.h>
+
 #include <mutex>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 
 #include "analysis_tool.h"
+#include "memref.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -73,13 +73,15 @@ gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
 }
 
 inline memref_t
-gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc = 1, size_t size = 1)
+gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc = 1, size_t size = 1,
+               addr_t indirect_branch_target = 0)
 {
     memref_t memref = {};
     memref.instr.type = type;
     memref.instr.tid = tid;
     memref.instr.addr = pc;
     memref.instr.size = size;
+    memref.instr.indirect_branch_target = indirect_branch_target;
     return memref;
 }
 

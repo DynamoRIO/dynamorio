@@ -36,15 +36,22 @@
 #ifndef _INVARIANT_CHECKER_H_
 #define _INVARIANT_CHECKER_H_ 1
 
-#include "analysis_tool.h"
-#include "dr_api.h"
+#include <stdint.h>
+
+#include <cstdlib>
 #include <iostream>
-#include "memref.h"
 #include <memory>
 #include <mutex>
 #include <stack>
+#include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "analysis_tool.h"
+#include "dr_api.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -122,12 +129,6 @@ protected:
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         uintptr_t prev_func_id_ = 0;
         addr_t last_retaddr_ = 0;
-        // We treat 0 as a sentinel; thus we do not support a trace deliberately
-        // jumping to 0 and handling the fault.
-        addr_t last_indirect_target_ = 0;
-        // We need a dedicated variable to handle consecutive indirect branches
-        // where we can't just use the value from the last marker record.
-        addr_t last_branch_marker_value_ = 0;
         uintptr_t trace_version_ = 0;
         struct instr_info_t {
             memref_t memref;

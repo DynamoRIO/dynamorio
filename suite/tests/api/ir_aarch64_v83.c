@@ -616,6 +616,8 @@ main(int argc, char *argv[])
     bool test_result;
     instr_t *instr;
 
+    enable_all_test_cpu_features();
+
     RUN_INSTR_TEST(fcadd_vector);
     RUN_INSTR_TEST(fcmla_vector);
     RUN_INSTR_TEST(fcmla_vector_idx);

@@ -33,12 +33,17 @@
 #ifndef _BASIC_COUNTS_H_
 #define _BASIC_COUNTS_H_ 1
 
+#include <stdint.h>
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "analysis_tool.h"
+#include "memref.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -173,7 +178,6 @@ public:
         int64_t func_retval_markers = 0;
         int64_t phys_addr_markers = 0;
         int64_t phys_unavail_markers = 0;
-        // XXX i#5490: Add a counter for indirect branch target markers?
         int64_t other_markers = 0;
         int64_t icache_flushes = 0;
         int64_t dcache_flushes = 0;

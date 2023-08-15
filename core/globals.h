@@ -702,7 +702,7 @@ extern thread_id_t global_try_tid;
 
 typedef struct {
     /* WARNING: if you change the offsets of any of these fields,
-     * you must also change the offsets in <arch>/<arch.s>
+     * you must also change the offsets in <arch>/<arch.asm>
      */
     priv_mcontext_t mcontext; /* real machine context (in globals_shared.h + mcxtx.h) */
 #ifdef UNIX

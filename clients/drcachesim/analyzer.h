@@ -43,15 +43,22 @@
  * @brief DrMemtrace top-level trace analysis driver.
  */
 
+#include <stdint.h>
+
 #include <iterator>
 #include <memory>
 #include <queue>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
+
 #include "analysis_tool.h"
+#include "memref.h"
 #include "reader.h"
 #include "record_file_reader.h"
 #include "scheduler.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

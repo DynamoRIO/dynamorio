@@ -914,7 +914,8 @@ arch_profile_exit()
 #endif /* WINDOWS_PC_SAMPLE */
 
 /* arch-specific atexit cleanup */
-void d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
+void
+d_r_arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 {
     /* we only need to unprotect shared_code for profile extraction
      * so we do it there to also cover the fast exit path
@@ -1984,7 +1985,8 @@ fcache_return_routine_ex(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
     return (cache_pc)code->fcache_return;
 }
 
-cache_pc fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc
+fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(DYNAMO_OPTION(coarse_units));
@@ -1994,7 +1996,8 @@ cache_pc fcache_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
         return (cache_pc)code->fcache_return_coarse;
 }
 
-cache_pc trace_head_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc
+trace_head_return_coarse_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(DYNAMO_OPTION(coarse_units));
@@ -2769,7 +2772,8 @@ fcache_enter_shared_routine(dcontext_t *dcontext)
         SHARED_GENCODE_MATCH_THREAD(dcontext)->fcache_enter);
 }
 
-cache_pc fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc
+fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(USE_SHARED_GENCODE());
@@ -2780,7 +2784,8 @@ cache_pc fcache_return_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 }
 
 #ifdef TRACE_HEAD_CACHE_INCR
-cache_pc trace_head_incr_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
+cache_pc
+trace_head_incr_shared_routine(IF_X86_64_ELSE(gencode_mode_t mode, void))
 {
     generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X86_64(mode));
     ASSERT(USE_SHARED_GENCODE());
@@ -3545,6 +3550,18 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
      */
     if (dst->size > sizeof(dr_mcontext_t))
         return false;
+#if defined(AARCH64)
+    /* We could support binary compatibility for clients built before the
+     * addition of AArch64's SVE support, by evaluating the machine context's
+     * user set-size field. But currently do not, preferring to detect
+     * incompatibility and asserting or returning false.
+     */
+    if (TEST(DR_MC_MULTIMEDIA, dst->flags) && dst->size != sizeof(dr_mcontext_t)) {
+        CLIENT_ASSERT(
+            false, "A pre-SVE client is running on an Arm AArch64 SVE DynamoRIO build!");
+        return false;
+    }
+#endif
     if (TESTALL(DR_MC_ALL, dst->flags) && dst->size == sizeof(dr_mcontext_t)) {
         *(priv_mcontext_t *)(&MCXT_FIRST_REG_FIELD(dst)) = *src;
     } else {
@@ -3628,7 +3645,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
                     return false;
                 memcpy(&dst->opmask, &src->opmask, sizeof(dst->opmask));
             }
-#else
+#elif defined(AARCHXX)
             /* FIXME i#1551: NYI on ARM */
             ASSERT_NOT_IMPLEMENTED(false);
 #endif
@@ -3811,14 +3828,20 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #elif defined(AARCHXX)
     {
         int i, j;
+#    ifdef AARCH64
+        int words = proc_has_feature(FEATURE_SVE) ? 16 : 4;
+#    else
+        int words = 4;
+#    endif
         /* XXX: should be proc_num_simd_saved(). */
         for (i = 0; i < proc_num_simd_registers(); i++) {
             print_file(f, dump_xml ? "\t\tqd= \"0x" : "\tq%-3d= 0x", i);
-            for (j = 0; j < 4; j++) {
+            for (j = 0; j < words; j++) {
                 print_file(f, "%08x ", context->simd[i].u32[j]);
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
         }
+        /* TODO i#5365: SVE predicate registers and FFR dump. */
     }
 #endif
 

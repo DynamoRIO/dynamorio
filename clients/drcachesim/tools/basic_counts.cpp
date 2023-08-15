@@ -32,14 +32,26 @@
 
 #define NOMINMAX // Avoid windows.h messing up std::max.
 
+#include "basic_counts.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <cassert>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
-#include "basic_counts.h"
-#include "../common/utils.h"
+#include "analysis_tool.h"
+#include "memref.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

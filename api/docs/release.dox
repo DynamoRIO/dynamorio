@@ -181,6 +181,13 @@ changes:
    #dynamorio::drmemtrace::TRACE_TYPE_INSTR_UNTAKEN_JUMP.
  - All int_least64_t and uint_least64_t types in drcachesim were replaced with
    their precise counterparts int64_t and uint64_t.
+ - The #dynamorio::drmemtrace::memref_t structure has a new field appended for
+   holding the actual target of each indirect branch.
+ - Increased the size of dr_simd_t to accommodate AArch64's Scalable Vector
+   Extension (SVE) as well as adding two new dr_simd_t instances to
+   #dr_mcontext_t: SVE predicate registers svep[] and the SVE first-fault
+   register, ffr. This is a significant binary compatibility change and will
+   require re-building clients built before SVE was added.
 
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
@@ -277,10 +284,9 @@ Further non-compatibility-affecting changes include:
  - Added a new drmemtrace analysis tool: syscall_mix, to count frequency of system
    calls in a trace. This tool works in both the online and offline modes of
    drmemtrace.
- - Indirect branches in drmemtrace traces now contain a marker holding the
-   actual target
-   (#dynamorio::drmemtrace::TRACE_MARKER_TYPE_BRANCH_TARGET), which immediately
-   precedes the branch record.
+ - Added proc_get_vector_length_bytes() for AArch64. This returns the current
+   vector length on all ARMv8 hardware including hardware which supports the
+   Scalable Vector Extension (SVE).
 
 **************************************************
 <hr>
