@@ -687,12 +687,12 @@ check_function_markers()
     // Correctly handle nested function calls including tailcalls.
     {
         instr_t *label1 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
-        instr_t *call1 = INSTR_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label1));
-        instr_t *ret1 = INSTR_CREATE_ret(GLOBAL_DCONTEXT);
+        instr_t *call1 = XINST_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label1));
+        instr_t *ret1 = XINST_CREATE_return((GLOBAL_DCONTEXT);
 
         instr_t *label2 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
-        instr_t *call2 = INSTR_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label2));
-        instr_t *ret2 = INSTR_CREATE_ret(GLOBAL_DCONTEXT);
+        instr_t *call2 = XINST_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label2));
+        instr_t *ret2 = XINST_CREATE_return((GLOBAL_DCONTEXT);
 
         instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
         instrlist_append(ilist, call1);
@@ -738,15 +738,15 @@ check_function_markers()
 #        error Unsupported architecture.
 #    endif
 #endif
-        instr_t *sig_ret = INSTR_CREATE_ret(GLOBAL_DCONTEXT);
+        instr_t *sig_ret = XINST_CREATE_return((GLOBAL_DCONTEXT);
 
         instr_t *label1 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
-        instr_t *call1 = INSTR_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label1));
-        instr_t *ret1 = INSTR_CREATE_ret(GLOBAL_DCONTEXT);
+        instr_t *call1 = XINST_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label1));
+        instr_t *ret1 = XINST_CREATE_return((GLOBAL_DCONTEXT);
 
         instr_t *label2 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
-        instr_t *call2 = INSTR_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label2));
-        instr_t *ret2 = INSTR_CREATE_ret(GLOBAL_DCONTEXT);
+        instr_t *call2 = XINST_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label2));
+        instr_t *ret2 = XINST_CREATE_return((GLOBAL_DCONTEXT);
 
         instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
         instrlist_append(ilist, call1);
