@@ -1021,7 +1021,7 @@ get_elements_in_sve_vector(aarch64_reg_offset element_size)
 {
     const uint element_length =
         opnd_size_in_bits(get_opnd_size_from_offset(element_size));
-    return opnd_size_in_bits(OPSZ_SVE_VL) / element_length;
+    return opnd_size_in_bits(OPSZ_SVE_VL_BYTES) / element_length;
 }
 
 /*******************************************************************************
@@ -5180,7 +5180,7 @@ decode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
     const int offset = extract_int(enc, 16, 6);
     IF_RETURN_FALSE(offset < -32 || offset > 31)
     const reg_id_t rn = decode_reg(extract_uint(enc, 5, 5), true, true);
-    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL;
+    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL_BYTES;
 
     /* As specified in the AArch64 SVE reference manual for contiguous prefetch
      * instructions, the immediate index value is a vector index into memory, NOT
@@ -5189,7 +5189,7 @@ decode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
      * memory displacement. So when creating the address operand here, it should be
      * multiplied by the current vector register length in bytes.
      */
-    int vl_bytes = dr_get_sve_vl() / 8;
+    int vl_bytes = dr_get_sve_vector_length() / 8;
     *opnd = opnd_create_base_disp(rn, DR_REG_NULL, 0, offset * vl_bytes, mem_transfer);
 
     return true;
@@ -5199,7 +5199,7 @@ static inline bool
 encode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
                                 OUT uint *enc_out)
 {
-    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL;
+    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL_BYTES;
     if (!opnd_is_base_disp(opnd) || opnd_get_index(opnd) != DR_REG_NULL ||
         opnd_get_size(opnd) != mem_transfer)
         return false;
@@ -5210,7 +5210,7 @@ encode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
      * vector length at the IR level, transformed to a vector index in the
      * encoding.
      */
-    int vl_bytes = dr_get_sve_vl() / 8;
+    int vl_bytes = dr_get_sve_vector_length() / 8;
     if ((opnd_get_disp(opnd) % vl_bytes) != 0)
         return false;
     int disp = opnd_get_disp(opnd) / vl_bytes;
@@ -5329,7 +5329,7 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
     bool is_vector = TEST(1u << 14, enc);
 
     /* Transfer size depends on whether we are transferring a Z or a P register. */
-    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL : OPSZ_SVE_PL;
+    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL_BYTES : OPSZ_SVE_PL_BYTES;
 
     /* As specified in the AArch64 SVE reference manual for unpredicated vector
      * register load LDR and store STR instructions, the immediate index value is a
@@ -5339,7 +5339,7 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
      * address operand here, it should be multiplied by the current vector or
      * predicate register length in bytes.
      */
-    int vl_bytes = dr_get_sve_vl() / 8;
+    int vl_bytes = dr_get_sve_vector_length() / 8;
     int pl_bytes = vl_bytes / 8;
     int mul_len = is_vector ? vl_bytes : pl_bytes;
     *opnd =
@@ -5359,7 +5359,7 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
     bool is_vector = TEST(1u << 14, enc);
 
     /* Transfer size depends on whether we are transferring a Z or a P register. */
-    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL : OPSZ_SVE_PL;
+    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL_BYTES : OPSZ_SVE_PL_BYTES;
 
     if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != memory_transfer_size)
         return false;
@@ -5367,7 +5367,7 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
      * vector or predicate length at the IR level, transformed to a vector or
      * predicate index in the encoding.
      */
-    int vl_bytes = dr_get_sve_vl() / 8;
+    int vl_bytes = dr_get_sve_vector_length() / 8;
     int pl_bytes = vl_bytes / 8;
     if (is_vector) {
         if ((opnd_get_disp(opnd) % vl_bytes) != 0)
@@ -5512,7 +5512,7 @@ decode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, OUT opnd_t 
 {
     const uint register_count = BITS(enc, 22, 21) + 1;
     const opnd_size_t transfer_size =
-        opnd_size_from_bytes((register_count * dr_get_sve_vl()) / 8);
+        opnd_size_from_bytes((register_count * dr_get_sve_vector_length()) / 8);
 
     return decode_svemem_gpr_simm4(enc, transfer_size, register_count, opnd);
 }
@@ -5523,7 +5523,7 @@ encode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, opnd_t opnd
 {
     const uint register_count = BITS(enc, 22, 21) + 1;
     const opnd_size_t transfer_size =
-        opnd_size_from_bytes((register_count * dr_get_sve_vl()) / 8);
+        opnd_size_from_bytes((register_count * dr_get_sve_vector_length()) / 8);
 
     return encode_svemem_gpr_simm4(enc, transfer_size, register_count, opnd, enc_out);
 }
@@ -9797,10 +9797,5 @@ uint
 encode_common(byte *pc, instr_t *i, decode_info_t *di)
 {
     ASSERT(((ptr_int_t)pc & 3) == 0);
-
-#if defined(DR_HOST_NOT_TARGET) || defined(STANDALONE_DECODER)
-    dr_set_sve_vl(256);
-#endif
-
     return encoder_v80(pc, i, di);
 }

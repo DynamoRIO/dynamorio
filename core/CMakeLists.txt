@@ -169,7 +169,7 @@ add_gen_events_deps(drlibc)
 if (AARCH64)
   add_dependencies(drlibc gen_aarch64_codec)
 elseif (RISCV64)
-add_dependencies(drlibc gen_riscv64_codec)
+  add_dependencies(drlibc gen_riscv64_codec)
 endif (AARCH64)
 if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence

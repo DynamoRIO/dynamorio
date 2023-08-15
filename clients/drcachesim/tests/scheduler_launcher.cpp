@@ -40,6 +40,8 @@
 #    define _UNICODE
 #    define WIN32_LEAN_AND_MEAN
 #    include <windows.h>
+#else
+#    include <sys/time.h>
 #endif
 
 #include "droption.h"
@@ -87,8 +89,17 @@ droption_t<int> op_num_cores(DROPTION_SCOPE_ALL, "num_cores", 4, 0, 8192,
                              "Number of cores", "Number of cores");
 
 droption_t<int64_t> op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 1000 * 1000,
-                                     "Scheduling quantum in instructions",
-                                     "Scheduling quantum in instructions");
+                                     "Scheduling quantum",
+                                     "Scheduling quantum: in instructions by default; in "
+                                     "miroseconds if -sched_time is set.");
+
+droption_t<bool> op_sched_time(DROPTION_SCOPE_ALL, "sched_time", false,
+                               "Whether to use time for the scheduling quantum",
+                               "Whether to use time for the scheduling quantum");
+
+droption_t<bool> op_honor_stamps(DROPTION_SCOPE_ALL, "honor_stamps", true,
+                                 "Whether to honor recorded timestamps for ordering",
+                                 "Whether to honor recorded timestamps for ordering");
 
 #ifdef HAS_ZIP
 droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
@@ -104,15 +115,38 @@ droption_t<std::string>
                          "Path with stored as-traced schedule for replay.");
 #endif
 
+uint64_t
+get_current_microseconds()
+{
+#ifdef UNIX
+    struct timeval time;
+    if (gettimeofday(&time, nullptr) != 0)
+        return 0;
+    return time.tv_sec * 1000000 + time.tv_usec;
+#else
+    SYSTEMTIME sys_time;
+    GetSystemTime(&sys_time);
+    FILETIME file_time;
+    if (!SystemTimeToFileTime(&sys_time, &file_time))
+        return 0;
+    return file_time.dwLowDateTime +
+        (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
+#endif
+}
+
 void
 simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &scheduler,
               std::vector<scheduler_t::input_ordinal_t> &thread_sequence)
 {
     memref_t record;
+    uint64_t micros = op_sched_time.get_value() ? get_current_microseconds() : 0;
     // Thread ids can be duplicated, so use the input ordinals to distinguish.
     scheduler_t::input_ordinal_t prev_input = scheduler_t::INVALID_INPUT_ORDINAL;
-    for (scheduler_t::stream_status_t status = stream->next_record(record);
-         status != scheduler_t::STATUS_EOF; status = stream->next_record(record)) {
+    for (scheduler_t::stream_status_t status = stream->next_record(record, micros);
+         status != scheduler_t::STATUS_EOF;
+         status = stream->next_record(record, micros)) {
+        if (op_sched_time.get_value())
+            micros = get_current_microseconds();
         if (status == scheduler_t::STATUS_WAIT) {
             std::this_thread::yield();
             continue;
@@ -162,9 +196,12 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
                            .get_input_stream_interface(stream->get_input_stream_ordinal())
                            ->get_instruction_ordinal()
                     << " instrs, time " << std::setw(16)
-                    << scheduler
-                           .get_input_stream_interface(stream->get_input_stream_ordinal())
-                           ->get_last_timestamp()
+                    << (op_sched_time.get_value()
+                            ? micros
+                            : scheduler
+                                  .get_input_stream_interface(
+                                      stream->get_input_stream_ordinal())
+                                  ->get_last_timestamp())
                     << " == thread " << record.instr.tid << "\n";
                 std::cerr << line.str();
             }
@@ -198,9 +235,13 @@ _tmain(int argc, const TCHAR *targv[])
     std::vector<scheduler_t::input_workload_t> sched_inputs;
     sched_inputs.emplace_back(op_trace_dir.get_value());
     scheduler_t::scheduler_options_t sched_ops(
-        scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_TIMESTAMPS,
+        scheduler_t::MAP_TO_ANY_OUTPUT,
+        op_honor_stamps.get_value() ? scheduler_t::DEPENDENCY_TIMESTAMPS
+                                    : scheduler_t::DEPENDENCY_IGNORE,
         scheduler_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
     sched_ops.quantum_duration = op_sched_quantum.get_value();
+    if (op_sched_time.get_value())
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
 #ifdef HAS_ZIP
     std::unique_ptr<zipfile_ostream_t> record_zip;
     std::unique_ptr<zipfile_istream_t> replay_zip;

@@ -664,19 +664,25 @@ typedef uint64 dr_opmask_t;
 
 #if defined(AARCHXX)
 /**
- * 128-bit ARM SIMD Vn register.
- * In AArch64, align to 16 bytes for better performance.
- * In AArch32, we're not using any uint64 fields here to avoid alignment
- * padding in sensitive structs. We could alternatively use pragma pack.
+ * 512-bit ARM Scalable Vector Extension (SVE) vector registers Zn and
+ * predicate registers Pn. Low 128 bits of Zn overlap with existing ARM
+ * Advanced SIMD (NEON) Vn registers. The SVE specification defines the
+ * following valid vector lengths:
+ * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
+ * We currently support 512-bit maximum due to DR's stack size limitation,
+ * (machine context stored in the stack). In AArch64, align to 16 bytes for
+ * better performance. In AArch32, we're not using any uint64 fields here to
+ * avoid alignment padding in sensitive structs. We could alternatively use
+ * pragma pack.
  */
 #    ifdef X64
 typedef union ALIGN_VAR(16) _dr_simd_t {
-    byte b;      /**< Bottom  8 bits of Vn == Bn. */
-    ushort h;    /**< Bottom 16 bits of Vn == Hn. */
-    uint s;      /**< Bottom 32 bits of Vn == Sn. */
-    uint d[2];   /**< Bottom 64 bits of Vn == Dn as d[1]:d[0]. */
-    uint q[4];   /**< 128-bit Qn as q[3]:q[2]:q[1]:q[0]. */
-    uint u32[4]; /**< The full 128-bit register. */
+    byte b;       /**< Byte (8 bit, Bn) scalar element of Vn, Zn, or Pn.        */
+    ushort h;     /**< Halfword (16 bit, Hn) scalar element of Vn, Zn and Pn.   */
+    uint s;       /**< Singleword (32 bit, Sn) scalar element of Vn, Zn and Pn. */
+    uint64 d;     /**< Doubleword (64 bit, Dn) scalar element of Vn, Zn and Pn. */
+    uint q[4];    /**< The full 128 bit Vn register, Qn as q[3]:q[2]:q[1]:q[0]. */
+    uint u32[16]; /**< The full 512 bit Zn, Pn and FFR registers. */
 } dr_simd_t;
 #    else
 typedef union _dr_simd_t {
@@ -686,16 +692,26 @@ typedef union _dr_simd_t {
 } dr_simd_t;
 #    endif
 #    ifdef X64
-#        define MCXT_NUM_SIMD_SLOTS                                  \
-            32 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
+#        define MCXT_NUM_SIMD_SVE_SLOTS                                  \
+            32 /**< Number of 128-bit SIMD Vn/Zn slots in dr_mcontext_t. \
                 */
+#        define MCXT_NUM_SVEP_SLOTS 16 /**< Number of SIMD Pn slots in dr_mcontext_t. */
+#        define MCXT_NUM_FFR_SLOTS \
+            1 /**< Number of first-fault register slots in dr_mcontext_t. */
+              /** Total number of SIMD register slots in dr_mcontext_t. */
+#        define MCXT_NUM_SIMD_SLOTS \
+            (MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
 #    else
-#        define MCXT_NUM_SIMD_SLOTS                                  \
-            16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t \
+#        define MCXT_NUM_SIMD_SLOTS                                   \
+            16 /**< Number of 128-bit SIMD Vn slots in dr_mcontext_t. \
                 */
+/* 32bit ARM does not have these slots, but they are defined for compatibility.
+ */
+#        define MCXT_NUM_SVEP_SLOTS 0
+#        define MCXT_NUM_FFR_SLOTS 0
 #    endif
-#    define PRE_SIMD_PADDING                                       \
-        0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots \
+#    define PRE_SIMD_PADDING                                        \
+        0 /**< Bytes of padding before xmm/ymm dr_mcontext_t slots. \
            */
 #    define MCXT_NUM_OPMASK_SLOTS                                    \
         0 /**< Number of 16-64-bit OpMask Kn slots in dr_mcontext_t, \

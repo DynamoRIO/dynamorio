@@ -40,7 +40,10 @@
  * @brief DrMemtrace trace speculative path generation.
  */
 
+#include <string>
+
 #include "memref.h"
+#include "trace_entry.h"
 #include "utils.h"
 
 namespace dynamorio {

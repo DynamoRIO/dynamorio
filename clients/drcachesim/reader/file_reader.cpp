@@ -30,8 +30,13 @@
  * DAMAGE.
  */
 
-#include <fstream>
 #include "file_reader.h"
+
+#include <fstream>
+#include <string>
+
+#include "reader.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

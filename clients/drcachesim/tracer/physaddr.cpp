@@ -31,16 +31,24 @@
  */
 
 #ifdef LINUX
+#    include <fcntl.h>
 #    include <sys/types.h>
 #    include <unistd.h>
-#    include <sys/stat.h>
-#    include <fcntl.h>
 #    include <linux/capability.h>
 #    include <fstream>
 #endif
 #include "physaddr.h"
-#include "../common/options.h"
-#include "../common/utils.h"
+
+#include <atomic>
+#include <cstdio>
+#include <cstring>
+#include <string>
+
+#include "dr_api.h"
+#include "options.h"
+#include "trace_entry.h"
+#include "utils.h"
+#include "droption.h"
 
 namespace dynamorio {
 namespace drmemtrace {
