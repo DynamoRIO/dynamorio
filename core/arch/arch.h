@@ -140,7 +140,6 @@ mixed_mode_enabled(void)
 #    define R12_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r12)))
 #    define R13_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r13)))
 #    define R14_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
-#    define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 #    define PC_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
 #    define SCRATCH_REG0 DR_REG_R0
 #    define SCRATCH_REG1 DR_REG_R1
@@ -670,14 +669,18 @@ void
 convert_to_near_rel(dcontext_t *dcontext, instr_t *instr);
 instr_t *
 convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+
 #ifdef AARCH64
+typedef enum { GPR_REG_TYPE, SIMD_REG_TYPE, SVE_ZREG_TYPE, SVE_PREG_TYPE } reg_type_t;
+
 void
 insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                             bool *reg_skip, reg_id_t first_reg, bool is_gpr, void *ci);
+                             bool *reg_skip, reg_id_t first_reg, reg_type_t rtype,
+                             void *ci);
 
 void
 insert_restore_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                                bool *reg_skip, reg_id_t first_reg, bool is_gpr,
+                                bool *reg_skip, reg_id_t first_reg, reg_type_t rtype,
                                 void *ci);
 
 #endif

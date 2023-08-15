@@ -180,7 +180,7 @@ int sve_veclens[] = { 128,  256,  384,  512,  640,  768,  896,  1024,
                       1152, 1280, 1408, 1536, 1664, 1792, 1920, 2048 };
 
 void
-dr_set_sve_vl(int vl)
+dr_set_sve_vector_length(int vl)
 {
     /* TODO i#3044: Vector length will be read from h/w when running on SVE. */
     for (int i = 0; i < sizeof(sve_veclens); i++) {
@@ -193,7 +193,7 @@ dr_set_sve_vl(int vl)
 }
 
 int
-dr_get_sve_vl(void)
+dr_get_sve_vector_length(void)
 {
     return sve_veclen;
 }

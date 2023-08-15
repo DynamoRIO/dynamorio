@@ -36,7 +36,12 @@
 #ifndef _CACHE_LRU_H_
 #define _CACHE_LRU_H_ 1
 
+#include <string>
+#include <vector>
+
 #include "cache.h"
+#include "prefetcher.h"
+#include "snoop_filter.h"
 
 namespace dynamorio {
 namespace drmemtrace {

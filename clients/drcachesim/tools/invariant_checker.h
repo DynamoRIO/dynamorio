@@ -36,15 +36,22 @@
 #ifndef _INVARIANT_CHECKER_H_
 #define _INVARIANT_CHECKER_H_ 1
 
-#include "analysis_tool.h"
-#include "dr_api.h"
+#include <stdint.h>
+
+#include <cstdlib>
 #include <iostream>
-#include "memref.h"
 #include <memory>
 #include <mutex>
 #include <stack>
+#include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "analysis_tool.h"
+#include "dr_api.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -30,13 +30,29 @@
  * DAMAGE.
  */
 
-#include "dr_api.h"
 #include "invariant_checker.h"
-#include "invariant_checker_create.h"
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include <algorithm>
 #include <iostream>
-#include <cassert>
-#include <string.h>
+#include <memory>
+#include <mutex>
+#include <stack>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "analysis_tool.h"
+#include "dr_api.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "invariant_checker_create.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

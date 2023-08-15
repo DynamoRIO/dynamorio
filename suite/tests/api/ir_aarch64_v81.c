@@ -362,6 +362,8 @@ main(int argc, char *argv[])
     bool test_result;
     instr_t *instr;
 
+    enable_all_test_cpu_features();
+
     RUN_INSTR_TEST(sqrdmlsh_scalar);
     RUN_INSTR_TEST(sqrdmlsh_scalar_idx);
     RUN_INSTR_TEST(sqrdmlsh_vector);

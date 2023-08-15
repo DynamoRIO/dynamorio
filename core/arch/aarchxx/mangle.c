@@ -103,29 +103,38 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t *i
 #ifdef AARCH64
 /* Maximum positive immediate offset for STP/LDP with 64 bit registers. */
 #    define MAX_STP_OFFSET 504
+/* Maximum positive immediate offset for SVE STR/LDR with Z/P registers. */
+#    define MAX_SVE_STR_OFFSET 255
 
 /* Creates a memory reference for registers saved/restored to memory. */
 static opnd_t
-create_base_disp_for_save_restore(uint base_reg, bool is_single_reg, bool is_gpr,
+create_base_disp_for_save_restore(uint base_reg, bool is_single_reg, reg_type_t rtype,
                                   uint num_saved, callee_info_t *ci)
 {
     /* opzs depends on the kind of register and whether a single register or
      * a pair of registers is saved/restored using stp/ldp.
      */
-    uint opsz;
-    if (is_gpr) {
-        if (is_single_reg)
-            opsz = OPSZ_8;
-        else
-            opsz = OPSZ_16;
-    } else {
-        if (is_single_reg)
-            opsz = OPSZ_16;
-        else
-            opsz = OPSZ_32;
+    uint opsz = OPSZ_NA;
+    uint offset = 0;
+    switch (rtype) {
+    case GPR_REG_TYPE:
+        opsz = is_single_reg ? OPSZ_8 : OPSZ_16;
+        offset = num_saved * sizeof(reg_t);
+        break;
+    case SIMD_REG_TYPE:
+        opsz = is_single_reg ? OPSZ_16 : OPSZ_32;
+        offset = num_saved * 16;
+        break;
+    case SVE_ZREG_TYPE:
+        opsz = opnd_size_from_bytes(proc_get_vector_length_bytes());
+        offset = num_saved * proc_get_vector_length_bytes();
+        break;
+    case SVE_PREG_TYPE:
+        opsz = opnd_size_from_bytes(proc_get_vector_length_bytes() / 8);
+        offset = num_saved * (proc_get_vector_length_bytes() / 8);
+        break;
+    default: ASSERT_NOT_REACHED();
     }
-
-    uint offset = num_saved * (is_gpr ? sizeof(reg_t) : sizeof(dr_simd_t));
     return opnd_create_base_disp(base_reg, DR_REG_NULL, 0, offset, opsz);
 }
 
@@ -144,15 +153,17 @@ create_load_or_store_instr(dcontext_t *dcontext, reg_id_t reg, opnd_t mem, bool 
  * is odd. Optionally takes reg_skip into account.
  */
 static void
-insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                                 bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
-                                 bool save, bool is_gpr,
-                                 opnd_t (*get_mem_opnd)(uint base_reg, bool is_single_reg,
-                                                        bool is_gpr, uint num_saved,
-                                                        callee_info_t *ci),
-                                 callee_info_t *ci)
+insert_save_or_restore_gpr_simd_registers(
+    dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, bool *reg_skip,
+    reg_id_t base_reg, reg_id_t first_reg, bool save, reg_type_t rtype,
+    opnd_t (*get_mem_opnd)(uint base_reg, bool is_single_reg, reg_type_t rtype,
+                           uint num_saved, callee_info_t *ci),
+    callee_info_t *ci)
 {
-    uint i, reg1 = UINT_MAX, num_regs = is_gpr ? 30 : 32;
+    ASSERT(rtype == GPR_REG_TYPE || rtype == SIMD_REG_TYPE);
+
+    uint i, reg1 = UINT_MAX,
+            num_regs = (rtype == GPR_REG_TYPE) ? 30 : MCXT_NUM_SIMD_SVE_SLOTS;
     uint saved_regs = 0;
     instr_t *new_instr;
     /* Use stp/ldp to save/restore as many register pairs to memory, skipping
@@ -166,7 +177,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
             reg1 = i;
         else {
             opnd_t mem1 =
-                get_mem_opnd(base_reg, false /* is_single_reg */, is_gpr,
+                get_mem_opnd(base_reg, /*is_single_reg=*/false, rtype,
                              /* When creating save/restore instructions
                               * for inlining, we need the register id
                               * to compute the address.
@@ -180,7 +191,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
                     create_load_or_store_instr(dcontext, first_reg + reg1, mem1, save));
 
                 opnd_t mem2 =
-                    get_mem_opnd(base_reg, false /* is_single_reg */, is_gpr,
+                    get_mem_opnd(base_reg, /*is_single_reg=*/false, rtype,
                                  /* When creating save/restore instructions
                                   * for inlining, we need the register id
                                   * to compute the address.
@@ -211,7 +222,7 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
      */
     if (reg1 != UINT_MAX) {
         opnd_t mem =
-            get_mem_opnd(base_reg, true /* is_single_reg */, is_gpr,
+            get_mem_opnd(base_reg, /*is_single_reg=*/true, rtype,
                          ci != NULL ? first_reg + (reg_id_t)reg1 : saved_regs, ci);
         PRE(ilist, instr,
             create_load_or_store_instr(dcontext, first_reg + reg1, mem, save));
@@ -219,26 +230,165 @@ insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr
 }
 
 static void
+insert_save_or_restore_svep_registers(
+    dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, bool *reg_skip,
+    reg_id_t base_reg, bool save,
+    opnd_t (*get_mem_opnd)(uint base_reg, bool is_single_reg, reg_type_t rtype,
+                           uint num_saved, callee_info_t *ci),
+    callee_info_t *ci)
+{
+    uint i, saved_regs = 0;
+    for (i = 0; i < MCXT_NUM_SVEP_SLOTS; i++) {
+        if (reg_skip != NULL && reg_skip[MCXT_NUM_SIMD_SVE_SLOTS + i])
+            continue;
+
+        opnd_t mem =
+            get_mem_opnd(base_reg, /*is_single_reg=*/true, SVE_PREG_TYPE, saved_regs, ci);
+        /* disp should never be greater than MAX_SVE_STR_OFFSET because it
+         * is the immediate multiplied by the current vector register size
+         * in bytes: STR <Pn>, [<Xn|SP>{, #<imm>, MUL VL}] and we only go up
+         * num_regs registers.
+         */
+        ASSERT(opnd_get_disp(mem) / proc_get_vector_length_bytes() <= MAX_SVE_STR_OFFSET);
+        PRE(ilist, instr, create_load_or_store_instr(dcontext, DR_REG_P0 + i, mem, save));
+        saved_regs++;
+    }
+}
+static void
+insert_save_or_restore_sve_registers(
+    dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, bool *reg_skip,
+    reg_id_t base_reg, reg_id_t first_reg, bool save, reg_type_t rtype,
+    opnd_t (*get_mem_opnd)(uint base_reg, bool is_single_reg, reg_type_t rtype,
+                           uint num_saved, callee_info_t *ci),
+    callee_info_t *ci)
+{
+    ASSERT(rtype == SVE_ZREG_TYPE);
+    ASSERT(first_reg == DR_REG_Z0);
+    ASSERT(MCXT_NUM_FFR_SLOTS == 1);
+
+    // SVE Z registers
+    uint i, saved_regs = 0;
+    for (i = 0; i < MCXT_NUM_SIMD_SVE_SLOTS; i++) {
+        if (reg_skip != NULL && reg_skip[i])
+            continue;
+
+        opnd_t mem =
+            get_mem_opnd(base_reg, /*is_single_reg=*/true, SVE_ZREG_TYPE, saved_regs, ci);
+        /* disp should never be greater than MAX_SVE_STR_OFFSET because it
+         * is the immediate multiplied by the current vector register size
+         * in bytes: STR <Zt>, [<Xn|SP>{, #<imm>, MUL VL}] and we only go up
+         * MCXT_NUM_SIMD_SVE_SLOTS registers.
+         */
+        ASSERT(opnd_get_disp(mem) / proc_get_vector_length_bytes() <= MAX_SVE_STR_OFFSET);
+        PRE(ilist, instr, create_load_or_store_instr(dcontext, DR_REG_Z0 + i, mem, save));
+        saved_regs++;
+    }
+
+    /* add base_reg, base_reg, #(SVE register offset) */
+    PRE(ilist, instr,
+        XINST_CREATE_add(dcontext, opnd_create_reg(base_reg),
+                         OPND_CREATE_INT16(MCXT_NUM_SIMD_SVE_SLOTS * sizeof(dr_simd_t))));
+
+    /* The FFR register cannot be loaded directly into the base as the ld/str register has
+     * to be a predicate.  Which means that the FFR saving has to be after the predicates,
+     * and vice versa when loading.
+     *
+     * Save Seq:
+     * - Save preds
+     * - Save FFR to P15
+     * - Store P15 to x0 (offset 16 to skip past preds)
+     *
+     * Load Seq:
+     * - Read x0 to P15 (offset 16 to skip past preds)
+     * - Write P15 to FFR
+     * - Restore preds
+     */
+    const bool handle_ffr =
+        reg_skip == NULL || !reg_skip[MCXT_NUM_SIMD_SVE_SLOTS + MCXT_NUM_SVEP_SLOTS];
+    // SVE P and FFR registers.
+    if (save) {
+        insert_save_or_restore_svep_registers(dcontext, ilist, instr, reg_skip, base_reg,
+                                              save, get_mem_opnd, ci);
+
+        if (handle_ffr) {
+            PRE(ilist, instr,
+                INSTR_CREATE_rdffr_sve(
+                    dcontext, opnd_create_reg_element_vector(DR_REG_P15, OPSZ_1)));
+            opnd_t mem =
+                get_mem_opnd(base_reg, /*is_single_reg=*/true, SVE_PREG_TYPE, 16, ci);
+            PRE(ilist, instr,
+                create_load_or_store_instr(dcontext, DR_REG_P15, mem, save));
+        }
+    } else {
+        if (handle_ffr) {
+            opnd_t mem =
+                get_mem_opnd(base_reg, /*is_single_reg=*/true, SVE_PREG_TYPE, 16, ci);
+            PRE(ilist, instr,
+                create_load_or_store_instr(dcontext, DR_REG_P15, mem, save));
+            PRE(ilist, instr,
+                INSTR_CREATE_wrffr_sve(
+                    dcontext, opnd_create_reg_element_vector(DR_REG_P15, OPSZ_1)));
+        }
+
+        insert_save_or_restore_svep_registers(dcontext, ilist, instr, reg_skip, base_reg,
+                                              save, get_mem_opnd, ci);
+    }
+}
+
+static void
+insert_save_or_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                                 bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
+                                 bool save, reg_type_t rtype,
+                                 opnd_t (*get_mem_opnd)(uint base_reg, bool is_single_reg,
+                                                        reg_type_t rtype, uint num_saved,
+                                                        callee_info_t *ci),
+                                 callee_info_t *ci)
+{
+    switch (rtype) {
+    case GPR_REG_TYPE:
+    case SIMD_REG_TYPE:
+        insert_save_or_restore_gpr_simd_registers(dcontext, ilist, instr, reg_skip,
+                                                  base_reg, first_reg, save, rtype,
+                                                  get_mem_opnd, ci);
+        break;
+    case SVE_ZREG_TYPE:
+        insert_save_or_restore_sve_registers(dcontext, ilist, instr, reg_skip, base_reg,
+                                             first_reg, save, rtype, get_mem_opnd, ci);
+        break;
+    case SVE_PREG_TYPE:
+        /* SVE Z, P and FFR registers are saved/restored sequentially in
+         * insert_save_or_restore_sve_registers(). At this top level call layer
+         * we use SVE_ZREG_TYPE to indicate all of SVE register bank.
+         */
+        CLIENT_ASSERT(false,
+                      "internal error, use SVE_ZREG_TYPE for top level save/restore of "
+                      "SVE registers.");
+    default: ASSERT_NOT_REACHED();
+    }
+}
+
+static void
 insert_save_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                      bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg, bool is_gpr)
+                      bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
+                      reg_type_t rtype)
 {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
-                                     first_reg, true /* save */, is_gpr,
+                                     first_reg, true /* save */, rtype,
                                      create_base_disp_for_save_restore, NULL);
 }
 
 static void
 insert_restore_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          bool *reg_skip, reg_id_t base_reg, reg_id_t first_reg,
-                         bool is_gpr)
+                         reg_type_t rtype)
 {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, base_reg,
-                                     first_reg, false /* restore */, is_gpr,
+                                     first_reg, false /* restore */, rtype,
                                      create_base_disp_for_save_restore, NULL);
 }
 
 static opnd_t
-inline_get_mem_opnd(uint base_reg, bool is_single_reg, bool is_gpr, uint reg_id,
+inline_get_mem_opnd(uint base_reg, bool is_single_reg, reg_type_t rtype, uint reg_id,
                     callee_info_t *ci)
 {
     return callee_info_slot_opnd(ci, SLOT_REG, reg_id);
@@ -246,19 +396,21 @@ inline_get_mem_opnd(uint base_reg, bool is_single_reg, bool is_gpr, uint reg_id,
 
 void
 insert_save_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                             bool *reg_skip, reg_id_t first_reg, bool is_gpr, void *ci)
+                             bool *reg_skip, reg_id_t first_reg, reg_type_t rtype,
+                             void *ci)
 {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, 0, first_reg,
-                                     true /* save */, is_gpr, inline_get_mem_opnd,
+                                     true /* save */, rtype, inline_get_mem_opnd,
                                      (callee_info_t *)ci);
 }
 
 void
 insert_restore_inline_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                                bool *reg_skip, reg_id_t first_reg, bool is_gpr, void *ci)
+                                bool *reg_skip, reg_id_t first_reg, reg_type_t rtype,
+                                void *ci)
 {
     insert_save_or_restore_registers(dcontext, ilist, instr, reg_skip, 0, first_reg,
-                                     false /* restore */, is_gpr, inline_get_mem_opnd,
+                                     false /* restore */, rtype, inline_get_mem_opnd,
                                      (callee_info_t *)ci);
 }
 
@@ -283,12 +435,9 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                               _IF_AARCH64(bool out_of_line))
 {
     uint dstack_offs = 0;
-#ifdef AARCH64
-    uint max_offs;
-#endif
+
     if (cci == NULL)
         cci = &default_clean_call_info;
-    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
     if (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers()) {
         /* FIXME i#1551: once we add skipping of regs, need to keep shape here.
          * Also, num_opmask_skip is not applicable to ARM/AArch64.
@@ -296,6 +445,11 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     }
     /* FIXME i#1551: once we have cci->num_simd_skip, skip this if possible */
 #ifdef AARCH64
+    ASSERT(proc_num_simd_registers() ==
+           (MCXT_NUM_SIMD_SVE_SLOTS +
+            (proc_has_feature(FEATURE_SVE) ? (MCXT_NUM_SVEP_SLOTS + MCXT_NUM_FFR_SLOTS)
+                                           : 0)));
+
     /* X0 is used to hold the stack pointer. */
     cci->reg_skip[DR_REG_X0 - DR_REG_START_GPR] = false;
     /* X1 and X2 are used to save and restore the status and control registers. */
@@ -304,8 +458,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     /* X11 is used to calculate the target address of the clean call. */
     cci->reg_skip[DR_REG_X11 - DR_REG_START_GPR] = false;
 
-    max_offs = get_clean_call_switch_stack_size();
-
     /* For out-of-line clean calls, the stack pointer is adjusted before jumping
      * to this code.
      */
@@ -313,16 +465,16 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         /* sub sp, sp, #clean_call_switch_stack_size */
         PRE(ilist, instr,
             XINST_CREATE_sub(dcontext, opnd_create_reg(DR_REG_SP),
-                             OPND_CREATE_INT16(max_offs)));
+                             OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
     }
 
     /* Push GPRs. */
     insert_save_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0,
-                          true /* is_gpr */);
+                          GPR_REG_TYPE);
 
     dstack_offs += 32 * XSP_SZ;
 
-    /* mov x0, sp */
+    /* mov x0, sp (add %sp $0x0000 lsl $0x00 -> %x0) */
     PRE(ilist, instr,
         XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                           opnd_create_reg(DR_REG_SP)));
@@ -339,7 +491,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                              opnd_create_reg(DR_REG_X30), opnd_create_reg(DR_REG_X0)));
     }
 
-    /* add x0, x0, #dstack_offs */
+    /* add x0, x0, #dstack_offs (add %x0 $0x0100 lsl $0x00 -> %x0) */
     PRE(ilist, instr,
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_INT16(dstack_offs)));
@@ -347,6 +499,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     /* save the push_pc operand to the priv_mcontext_t.pc field */
     if (!(cci->skip_save_flags)) {
         if (opnd_is_immed_int(push_pc)) {
+            /* movz   $0x0000 lsl $0x00 -> %x1 */
             PRE(ilist, instr,
                 XINST_CREATE_load_int(dcontext, opnd_create_reg(DR_REG_X1), push_pc));
         } else {
@@ -359,7 +512,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                  OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(push_pc_reg))));
         }
 
-        /* str x1, [sp, #dstack_offset] */
+        /* str x1, [sp, #dstack_offset] (str %x1 -> +0x0100(%sp)[8byte]) */
         PRE(ilist, instr,
             INSTR_CREATE_str(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
                              opnd_create_reg(DR_REG_X1)));
@@ -368,24 +521,25 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     dstack_offs += XSP_SZ;
 
     /* Save flag values using x1, x2. */
-    /* mrs x1, nzcv */
+    /* mrs x1, nzcv (mrs %nzcv -> %x1)
+     */
     PRE(ilist, instr,
         INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X1),
                          opnd_create_reg(DR_REG_NZCV)));
-    /* mrs x2, fpcr */
+    /* mrs x2, fpcr (mrs %fpcr -> %x2) */
     PRE(ilist, instr,
         INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X2),
                          opnd_create_reg(DR_REG_FPCR)));
-    /* stp w1, w2, [x0, #8] */
+    /* stp w1, w2, [x0, #8] (stp %w1 %w2 -> +0x08(%x0)[8byte]) */
     PRE(ilist, instr,
         INSTR_CREATE_stp(dcontext, OPND_CREATE_MEM64(DR_REG_X0, 8),
                          opnd_create_reg(DR_REG_W1), opnd_create_reg(DR_REG_W2)));
 
-    /* mrs x1, fpsr */
+    /* mrs x1, fpsr (mrs %fpsr -> %x1) */
     PRE(ilist, instr,
         INSTR_CREATE_mrs(dcontext, opnd_create_reg(DR_REG_X1),
                          opnd_create_reg(DR_REG_FPSR)));
-    /* str w1, [x0, #16] */
+    /* str w1, [x0, #16] (str %w1 -> +0x10(%x0)[4byte]) */
     PRE(ilist, instr,
         INSTR_CREATE_str(dcontext, OPND_CREATE_MEM32(DR_REG_X0, 16),
                          opnd_create_reg(DR_REG_W1)));
@@ -401,12 +555,17 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_INT16(dstack_offs - 32 * XSP_SZ)));
 
-    /* Push SIMD registers. */
-    insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0,
-                          false /* is_gpr */);
+    if (proc_has_feature(FEATURE_SVE)) {
+        /* Save the SVE regs */
+        insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
+                              DR_REG_Z0, SVE_ZREG_TYPE);
+    } else {
+        /* Save the SIMD registers. */
+        insert_save_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
+                              DR_REG_Q0, SIMD_REG_TYPE);
+    }
 
-    dstack_offs += (proc_num_simd_registers() * sizeof(dr_simd_t));
-    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    dstack_offs += MCXT_NUM_SIMD_SLOTS * sizeof(dr_simd_t);
 
     /* Restore the registers we used. */
     /* ldp x0, x1, [sp] */
@@ -419,7 +578,6 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
                                                REG_OFFSET(DR_REG_X2), OPSZ_8)));
 #else
-
     /* vstmdb always does writeback */
     PRE(ilist, instr,
         INSTR_CREATE_vstmdb(dcontext, OPND_CREATE_MEMLIST(DR_REG_SP), SIMD_REG_LIST_LEN,
@@ -520,18 +678,23 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
                           opnd_create_reg(DR_REG_SP)));
 
-    current_offs = get_clean_call_switch_stack_size() -
-        proc_num_simd_registers() * sizeof(dr_simd_t);
-    ASSERT(proc_num_simd_registers() == MCXT_NUM_SIMD_SLOTS);
+    current_offs =
+        get_clean_call_switch_stack_size() - (MCXT_NUM_SIMD_SLOTS * sizeof(dr_simd_t));
 
     /* add x0, x0, current_offs */
     PRE(ilist, instr,
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_INT32(current_offs)));
 
-    /* Pop SIMD registers. */
-    insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0, DR_REG_Q0,
-                             false /* is_gpr */);
+    if (proc_has_feature(FEATURE_SVE)) {
+        /* Restore the SVE regs */
+        insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
+                                 DR_REG_Z0, SVE_ZREG_TYPE);
+    } else {
+        /* Restore the SIMD registers. */
+        insert_restore_registers(dcontext, ilist, instr, cci->simd_skip, DR_REG_X0,
+                                 DR_REG_Q0, SIMD_REG_TYPE);
+    }
 
     /* mov x0, sp */
     PRE(ilist, instr,
@@ -553,11 +716,11 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
             INSTR_CREATE_ldp(dcontext, opnd_create_reg(DR_REG_W1),
                              opnd_create_reg(DR_REG_W2),
                              OPND_CREATE_MEM64(DR_REG_X0, 8)));
-        /* msr nzcv, w1 */
+        /* msr nzcv, x1 */
         PRE(ilist, instr,
             INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV),
                              opnd_create_reg(DR_REG_X1)));
-        /* msr fpcr, w2 */
+        /* msr fpcr, x2 */
         PRE(ilist, instr,
             INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPCR),
                              opnd_create_reg(DR_REG_X2)));
@@ -567,7 +730,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
             INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_W1),
                              OPND_CREATE_MEM32(DR_REG_X0, 16)));
 
-        /* msr fpsr, w1 */
+        /* msr fpsr, x1 */
         PRE(ilist, instr,
             INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_FPSR),
                              opnd_create_reg(DR_REG_X1)));
@@ -575,14 +738,14 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
 
     /* Pop GPRs */
     insert_restore_registers(dcontext, ilist, instr, cci->reg_skip, DR_REG_SP, DR_REG_X0,
-                             true /* is_gpr */);
+                             GPR_REG_TYPE);
 
     /* For out-of-line clean calls, X30 is restored after jumping back from this
      * code, because it is used for the return address.
      */
     if (!out_of_line) {
         /* Recover x30 */
-        /* ldr w3, [x0, #16] */
+        /* ldr x30, [sp, #x30_offset] */
         PRE(ilist, instr,
             INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_X30),
                              OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(DR_REG_X30))));

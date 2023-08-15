@@ -30,15 +30,24 @@
  * DAMAGE.
  */
 
-#include <string>
-
 #include "caching_device.h"
+
+#include <assert.h>
+#include <stddef.h>
+
+#include <functional>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "memref.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
 #include "prefetcher.h"
 #include "snoop_filter.h"
-#include "../common/utils.h"
-#include <assert.h>
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

@@ -36,8 +36,12 @@
 #ifndef _CACHE_STATS_H_
 #define _CACHE_STATS_H_ 1
 
+#include <stdint.h>
+
 #include <string>
+
 #include "caching_device_stats.h"
+#include "memref.h"
 
 namespace dynamorio {
 namespace drmemtrace {

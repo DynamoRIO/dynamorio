@@ -20540,6 +20540,8 @@ main(int argc, char *argv[])
     bool test_result;
     instr_t *instr;
 
+    enable_all_test_cpu_features();
+
     RUN_INSTR_TEST(add_sve_pred);
     RUN_INSTR_TEST(add_sve_shift);
     RUN_INSTR_TEST(add_sve);
