@@ -374,10 +374,8 @@ public:
         /** Uses the instruction count as the quantum. */
         QUANTUM_INSTRUCTIONS,
         /**
-         * Uses the user's notion of time as the quantum.
-         * This must be supplied by the user by calling
-         * dynamorio::drmemtrace::scheduler_tmpl_t::stream_t::report_time()
-         * periodically.
+         * Uses the user's notion of time as the quantum.  This must be supplied by the
+         * user by calling the next_record() variant that takes in the current time.
          */
         QUANTUM_TIME,
     };
@@ -536,11 +534,16 @@ public:
         next_record(RecordType &record);
 
         /**
-         * Reports the current time to the scheduler.  This is unitless: it just needs to
-         * be called regularly and consistently.  This is used for #QUANTUM_TIME.
+         * Advances to the next record in the stream.  Returns a status code on whether
+         * and how to continue.  Supplies the current time for #QUANTUM_TIME.  The time
+         * should be considered to be the time prior to processing the returned record.
+         * The time is unitless but needs to be a globally consistent increasing value
+         * across all output streams.  A 0 value for "cur_time" is not allowed.
+         * #STATUS_INVALID is returned if 0 or a value smaller than the start time of the
+         * current input's quantum is passed in.
          */
         virtual stream_status_t
-        report_time(uint64_t cur_time);
+        next_record(RecordType &record, uint64_t cur_time);
 
         /**
          * Begins a diversion from the regular inputs to a side stream of records
@@ -886,6 +889,8 @@ protected:
         bool processing_blocking_syscall = false;
         // Used to switch before we've read the next instruction.
         bool switching_pre_instruction = false;
+        // Used for time-based quanta.
+        uint64_t start_time_in_quantum = 0;
     };
 
     // Format for recording a schedule to disk.  A separate sequence of these records
@@ -972,6 +977,8 @@ protected:
         int record_index = 0;
         bool waiting = false;
         bool active = true;
+        // Used for time-based quanta.
+        uint64_t cur_time = 0;
     };
 
     // Called just once at initialization time to set the initial input-to-output
@@ -1007,7 +1014,8 @@ protected:
 
     // Advances the 'output_ordinal'-th output stream.
     stream_status_t
-    next_record(output_ordinal_t output, RecordType &record, input_info_t *&input);
+    next_record(output_ordinal_t output, RecordType &record, input_info_t *&input,
+                uint64_t cur_time = 0);
 
     // Skips ahead to the next region of interest if necessary.
     // The caller must hold the input.lock.

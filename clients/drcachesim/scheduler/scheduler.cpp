@@ -375,8 +375,17 @@ template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &record)
 {
+    return next_record(record, 0);
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &record,
+                                                                uint64_t cur_time)
+{
     input_info_t *input = nullptr;
-    sched_type_t::stream_status_t res = scheduler_->next_record(ordinal_, record, input);
+    sched_type_t::stream_status_t res =
+        scheduler_->next_record(ordinal_, record, input, cur_time);
     if (res != sched_type_t::STATUS_OK)
         return res;
 
@@ -419,13 +428,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         }
     }
     return sched_type_t::STATUS_OK;
-}
-
-template <typename RecordType, typename ReaderType>
-typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
-scheduler_tmpl_t<RecordType, ReaderType>::stream_t::report_time(uint64_t cur_time)
-{
-    return sched_type_t::STATUS_NOT_IMPLEMENTED;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -644,9 +646,6 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_initial_schedule(
             set_cur_input(0, static_cast<input_ordinal_t>(min_input));
         }
     } else {
-        // TODO i#5843: Implement time-based quanta.
-        if (options_.quantum_unit != QUANTUM_INSTRUCTIONS)
-            return STATUS_ERROR_NOT_IMPLEMENTED;
         // Assign initial inputs.
         if (options_.deps == DEPENDENCY_TIMESTAMPS) {
             sched_type_t::scheduler_status_t res = get_initial_timestamps();
@@ -1422,10 +1421,12 @@ template <typename RecordType, typename ReaderType>
 void
 scheduler_tmpl_t<RecordType, ReaderType>::add_to_ready_queue(input_info_t *input)
 {
-    VPRINT(this, 4,
-           "add_to_ready_queue: input %d priority %d timestamp delta %" PRIu64 "\n",
-           input->index, input->priority,
-           input->reader->get_last_timestamp() - input->base_timestamp);
+    VPRINT(
+        this, 4,
+        "add_to_ready_queue (pre-size %zu): input %d priority %d timestamp delta %" PRIu64
+        "\n",
+        ready_priority_.size(), input->index, input->priority,
+        input->reader->get_last_timestamp() - input->base_timestamp);
     input->queue_counter = ++ready_counter_;
     ready_priority_.push(input);
 }
@@ -1452,9 +1453,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::pop_from_ready_queue(
         ready_priority_.push(save);
     if (res != nullptr) {
         VPRINT(this, 4,
-               "pop_from_ready_queue[%d]: input %d priority %d timestamp delta %" PRIu64
-               "\n",
-               for_output, res->index, res->priority,
+               "pop_from_ready_queue[%d] (post-size %zu): input %d priority %d timestamp "
+               "delta %" PRIu64 "\n",
+               for_output, ready_priority_.size(), res->index, res->priority,
                res->reader->get_last_timestamp() - res->base_timestamp);
     }
     return res;
@@ -1491,6 +1492,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
         return STATUS_OK;
     std::lock_guard<std::mutex> lock(*inputs_[input].lock);
     inputs_[input].instrs_in_quantum = 0;
+    inputs_[input].start_time_in_quantum = outputs_[output].cur_time;
     if (options_.schedule_record_ostream != nullptr) {
         uint64_t instr_ord = inputs_[input].reader->get_instruction_ordinal();
         if (!inputs_[input].recorded_in_schedule && instr_ord == 1) {
@@ -1715,8 +1717,13 @@ template <typename RecordType, typename ReaderType>
 typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                                                       RecordType &record,
-                                                      input_info_t *&input)
+                                                      input_info_t *&input,
+                                                      uint64_t cur_time)
 {
+    // We do not enforce a globally increasing time to avoid the synchronization cost; we
+    // do return an error on a time smaller than an input's current start time when we
+    // check for quantum end.
+    outputs_[output].cur_time = cur_time;
     if (!outputs_[output].active)
         return sched_type_t::STATUS_WAIT;
     if (outputs_[output].waiting) {
@@ -1732,6 +1739,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     }
     input = &inputs_[outputs_[output].cur_input];
     auto lock = std::unique_lock<std::mutex>(*input->lock);
+    // Since we do not ask for a start time, we have to check for the first record from
+    // each input and set the time here.
+    if (input->start_time_in_quantum == 0)
+        input->start_time_in_quantum = cur_time;
     if (!outputs_[output].speculation_stack.empty()) {
         outputs_[output].prev_speculate_pc = outputs_[output].speculate_pc;
         error_string_ = outputs_[output].speculator.next_record(
@@ -1831,6 +1842,30 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                     // We again prefer to switch to another input even if the current
                     // input has the oldest timestamp, prioritizing context switches
                     // over timestamp ordering.
+                    need_new_input = true;
+                }
+            } else if (options_.quantum_unit == QUANTUM_TIME) {
+                // The above if-else cases are all either for non-instrs or
+                // QUANTUM_INSTRUCTIONS, except the blocking syscall next instr which is
+                // already switching: so an else{} works here.
+                if (cur_time == 0 || cur_time < input->start_time_in_quantum) {
+                    VPRINT(this, 1,
+                           "next_record[%d]: invalid time %" PRIu64 " vs start %" PRIu64
+                           "\n",
+                           output, cur_time, input->start_time_in_quantum);
+                    return sched_type_t::STATUS_INVALID;
+                }
+                if (cur_time - input->start_time_in_quantum >=
+                        options_.quantum_duration &&
+                    // We only switch on instruction boundaries.  We could possibly switch
+                    // in between (e.g., scatter/gather long sequence of reads/writes) by
+                    // setting input->switching_pre_instruction.
+                    record_type_is_instr(record)) {
+                    VPRINT(this, 4,
+                           "next_record[%d]: hit end of time quantum after %" PRIu64
+                           " (%" PRIu64 " - %" PRIu64 ")\n",
+                           output, cur_time - input->start_time_in_quantum, cur_time,
+                           input->start_time_in_quantum);
                     need_new_input = true;
                 }
             }
