@@ -646,20 +646,20 @@ private:
 test_result_t
 test_ld1_scalar_plus_vector()
 {
-#    define TEST_FUNC(ld_instruction)                                                   \
-        [](scalar_plus_vector_test_case_t::test_ptrs_t &ptrs) {                         \
+#    define TEST_FUNC(ld_instruction)                                               \
+        [](scalar_plus_vector_test_case_t::test_ptrs_t &ptrs) {                     \
             asm(/* clang-format off */                                                  \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
             ld_instruction "\n"                                                     \
             SAVE_Z_REGISTERS(z_save_base)                                           \
-            SAVE_P_REGISTERS(p_save_base) /* clang-format on */             \
-                :                                                                       \
-                : [ base ] "r"(ptrs.base), [ z_restore_base ] "r"(ptrs.z_restore_base), \
-                  [ z_save_base ] "r"(ptrs.z_save_base),                                \
-                  [ p_restore_base ] "r"(ptrs.p_restore_base),                          \
-                  [ p_save_base ] "r"(ptrs.p_save_base)                                 \
-                : ALL_Z_REGS, ALL_P_REGS, "memory");                                    \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+                :                                                                   \
+                : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
+                  [z_save_base] "r"(ptrs.z_save_base),                              \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                        \
+                  [p_save_base] "r"(ptrs.p_save_base)                               \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
         }
 
     input_data_t input_data;

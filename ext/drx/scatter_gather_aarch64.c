@@ -60,7 +60,7 @@
 
 static int tls_idx;
 typedef struct _per_thread_t {
-    void *scratch_pred_spill_slot;   /*!< Storage for spilled predicate register. */
+    void *scratch_pred_spill_slot; /*!< Storage for spilled predicate register. */
 } per_thread_t;
 
 static int drx_scatter_gather_expanded = 0;
@@ -331,10 +331,10 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
          * need to set all inactive elements to 0.
          */
         if (sg_info->index_reg == sg_info->gather_dst_reg) {
-            /* The dst register is also the index register so we need to preserve the value
-             * of the active elements so we can use them as offsets.
-             * We do this by cpying a 0 value into the dst register using the inverse of the
-             * mask_reg as the governing predicate.
+            /* The dst register is also the index register so we need to preserve the
+             * value of the active elements so we can use them as offsets. We do this by
+             * cpying a 0 value into the dst register using the inverse of the mask_reg as
+             * the governing predicate.
              */
 
             /* ptrue    scratch_pred.b */
@@ -354,7 +354,8 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                  opnd_create_predicate_reg(scratch_pred, true), OPND_CREATE_INT8(0),
                  opnd_create_immed_uint(0, OPSZ_1b));
         } else {
-            /* We don't care about any values in the dst register so zero the whole thing. */
+            /* We don't care about any values in the dst register so zero the whole thing.
+             */
 
             /* dup      gather_dst_reg.elsz, #0, lsl #0 */
             EMIT(dup_sve_shift,
@@ -394,7 +395,8 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
             sg_info->scalar_value_size, sg_info->extend_amount);
 
         if (sg_info->is_scalar_value_signed) {
-            const reg_id_t ld_dst = reg_resize_to_opsz(scratch_gpr, sg_info->element_size);
+            const reg_id_t ld_dst =
+                reg_resize_to_opsz(scratch_gpr, sg_info->element_size);
             switch (sg_info->scalar_value_size) {
             case OPSZ_1: EMIT(ldrsb, opnd_create_reg(ld_dst), mem); break;
             case OPSZ_2: EMIT(ldrsh, opnd_create_reg(ld_dst), mem); break;
@@ -414,7 +416,8 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
 
         /* cpy      gather_dst_reg.elsz, scratch_pred/m, scratch_gpr */
         EMIT(cpy_sve_pred,
-             opnd_create_reg_element_vector(sg_info->gather_dst_reg, sg_info->element_size),
+             opnd_create_reg_element_vector(sg_info->gather_dst_reg,
+                                            sg_info->element_size),
              opnd_create_predicate_reg(scratch_pred, true),
              opnd_create_reg(reg_resize_to_opsz(scratch_gpr, sg_info->element_size)));
     } else {
