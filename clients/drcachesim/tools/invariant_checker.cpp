@@ -948,15 +948,6 @@ invariant_checker_t::check_for_pc_discontinuity(
         return "";
     // We do not bother to support legacy traces without encodings.
     if (expect_encoding && type_is_instr_direct_branch(prev_instr.instr.type)) {
-        // TODO i#5912: This prev_instr_decoded_ isn't always the same as the
-        // decoding of the passed-in prev_instr, for signals.  What we should do is
-        // create a new instr_info_t struct with fields for the memref_t plus the
-        // from-decoding attributes is_syscall, writes_memory, and branch_target, and
-        // fill it in at decode time.  We can then store it as prev_instr_ and in
-        // pre_signal_instr and last_instr_in_cur_context_ and pass it here as
-        // prev_instr.  We can then delete this branch_target_cache and
-        // prev_instr_decoded_.  For now we live with this inaccuracy as it is
-        // rare to not match and we leave the cleanup for i#5912.
         if (prev_instr_info.decoded == nullptr ||
             !opnd_is_pc(instr_get_target(prev_instr_info.decoded->data))) {
             // Neither condition should happen but they could on an invalid
