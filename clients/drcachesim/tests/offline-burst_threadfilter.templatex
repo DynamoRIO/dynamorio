@@ -24,12 +24,4 @@ Total counts:
            [1-4] total threads
     *[0-9]* total scheduling markers
     *[0-9]* total transfer markers
-           0 total function id markers
-           0 total function return address markers
-           0 total function argument markers
-           0 total function return value markers
-           0 total physical address \+ virtual address marker pairs
-           0 total physical address unavailable markers
-    *[0-9]* total other markers
-    *[0-9]* total encodings
 .*
