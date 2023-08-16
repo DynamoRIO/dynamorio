@@ -34,6 +34,8 @@
 #ifndef _INSTR_COUNTER_
 #define _INSTR_COUNTER_ 1
 
+#include <atomic>
+
 #include "dr_api.h"
 
 namespace dynamorio {
