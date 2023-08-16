@@ -526,66 +526,90 @@ Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
-      267193 total (fetched) instructions
-         345 total non-fetched instructions
+      134566 total (fetched) instructions
+       13838 total unique (fetched) instructions
+         423 total non-fetched instructions
            0 total prefetches
-       67686 total data loads
-       22503 total data stores
+       30919 total data loads
+       13122 total data stores
+           0 total icache flushes
+           0 total dcache flushes
            3 total threads
-         280 total scheduling markers
-           0 total transfer markers
-           0 total function id markers
+        1134 total scheduling markers
+           5 total transfer markers
+          10 total function id markers
            0 total function return address markers
-           0 total function argument markers
-           0 total function return value markers
+          30 total function argument markers
+           5 total function return value markers
            0 total physical address + virtual address marker pairs
            0 total physical address unavailable markers
-           3 total other markers
-Thread 247451 counts:
-      255009 (fetched) instructions
-         345 non-fetched instructions
+          75 total system call number markers
+           0 total blocking system call markers
+          12 total other markers
+           0 total encodings
+Thread 64951 counts:
+      130900 (fetched) instructions
+       13469 unique (fetched) instructions
+         423 non-fetched instructions
            0 prefetches
-       64453 data loads
-       21243 data stores
-         258 scheduling markers
-           0 transfer markers
-           0 function id markers
+       29844 data loads
+       12594 data stores
+           0 icache flushes
+           0 dcache flushes
+        1072 scheduling markers
+           5 transfer markers
+           4 function id markers
            0 function return address markers
-           0 function argument markers
-           0 function return value markers
+          12 function argument markers
+           2 function return value markers
            0 physical address + virtual address marker pairs
            0 physical address unavailable markers
-           1 other markers
-Thread 247453 counts:
-        9195 (fetched) instructions
+          56 system call number markers
+           0 blocking system call markers
+           4 other markers
+           0 encodings
+Thread 64958 counts:
+        1861 (fetched) instructions
+        1009 unique (fetched) instructions
            0 non-fetched instructions
            0 prefetches
-        2444 data loads
-         937 data stores
-          12 scheduling markers
+         538 data loads
+         262 data stores
+           0 icache flushes
+           0 dcache flushes
+          30 scheduling markers
            0 transfer markers
-           0 function id markers
+           2 function id markers
            0 function return address markers
-           0 function argument markers
-           0 function return value markers
+           6 function argument markers
+           1 function return value markers
            0 physical address + virtual address marker pairs
            0 physical address unavailable markers
-           1 other markers
-Thread 247454 counts:
-        2989 (fetched) instructions
+           9 system call number markers
+           0 blocking system call markers
+           4 other markers
+           0 encodings
+Thread 64959 counts:
+        1805 (fetched) instructions
+         978 unique (fetched) instructions
            0 non-fetched instructions
            0 prefetches
-         789 data loads
-         323 data stores
-          10 scheduling markers
+         537 data loads
+         266 data stores
+           0 icache flushes
+           0 dcache flushes
+          32 scheduling markers
            0 transfer markers
-           0 function id markers
+           4 function id markers
            0 function return address markers
-           0 function argument markers
-           0 function return value markers
+          12 function argument markers
+           2 function return value markers
            0 physical address + virtual address marker pairs
            0 physical address unavailable markers
-           1 other markers
+          10 system call number markers
+           0 blocking system call markers
+           4 other markers
+           0 encodings
 \endcode
 
 The non-fetched instructions are x86 string loop instructions, where
