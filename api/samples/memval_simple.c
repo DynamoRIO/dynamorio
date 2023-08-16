@@ -104,6 +104,10 @@ static int tls_idx;
 static drx_buf_t *write_buffer;
 static drx_buf_t *trace_buffer;
 
+#ifdef AARCH64
+static bool reported_sg_warning = false;
+#endif
+
 /* Requires that hex_buf be at least as long as 2*memref->size + 1. */
 static char *
 write_hexdump(char *hex_buf, byte *write_base, mem_ref_t *mem_ref)
@@ -322,14 +326,31 @@ handle_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t 
      * this.
      */
     for (i = 0; i < instr_num_dsts(prev_instr); ++i) {
-        if (opnd_is_memory_reference(instr_get_dst(prev_instr, i))) {
+        const opnd_t dst = instr_get_dst(prev_instr, i);
+        if (opnd_is_memory_reference(dst)) {
             if (seen_memref) {
                 DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
                 break;
             }
+
+#ifdef AARCH64
+            /* TODO i#5844: Memory references involving SVE registers are not
+             * supported yet. To be implemented as part of scatter/gather work.
+             */
+            if (opnd_is_base_disp(dst) &&
+                (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst)))) {
+                if (!reported_sg_warning) {
+                    dr_fprintf(STDERR,
+                               "WARNING: Scatter/gather is not supported, results "
+                               "will be inaccurate\n");
+                    reported_sg_warning = true;
+                }
+                continue;
+            }
+#endif
+
             seen_memref = true;
-            instrument_post_write(drcontext, ilist, where, instr_get_dst(prev_instr, i),
-                                  prev_instr, reg_addr);
+            instrument_post_write(drcontext, ilist, where, dst, prev_instr, reg_addr);
         }
     }
 }
@@ -377,14 +398,29 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
          * we assume no instruction has multiple distinct memory destination operands.
          */
         for (i = 0; i < instr_num_dsts(instr_operands); ++i) {
-            if (opnd_is_memory_reference(instr_get_dst(instr_operands, i))) {
+            const opnd_t dst = instr_get_dst(instr_operands, i);
+            if (opnd_is_memory_reference(dst)) {
                 if (seen_memref) {
                     DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
                     break;
                 }
-                data->reg_addr = instrument_pre_write(drcontext, bb, where,
-                                                      data->last_opcode, instr_operands,
-                                                      instr_get_dst(instr_operands, i));
+#ifdef AARCH64
+                /* TODO i#5844: Memory references involving SVE registers are not
+                 * supported yet. To be implemented as part of scatter/gather work.
+                 */
+                if (opnd_is_base_disp(dst) &&
+                    (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst)))) {
+                    if (!reported_sg_warning) {
+                        dr_fprintf(STDERR,
+                                   "WARNING: Scatter/gather is not supported, results "
+                                   "will be inaccurate\n");
+                        reported_sg_warning = true;
+                    }
+                    continue;
+                }
+#endif
+                data->reg_addr = instrument_pre_write(
+                    drcontext, bb, where, data->last_opcode, instr_operands, dst);
                 seen_memref = true;
             }
         }

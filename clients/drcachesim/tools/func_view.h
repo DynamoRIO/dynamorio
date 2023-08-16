@@ -33,15 +33,22 @@
 #ifndef _FUNC_VIEW_H_
 #define _FUNC_VIEW_H_ 1
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <mutex>
 #include <set>
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "analysis_tool.h"
+#include "dr_api.h"
+#include "memref.h"
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

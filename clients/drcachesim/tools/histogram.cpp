@@ -30,12 +30,24 @@
  * DAMAGE.
  */
 
+#include "histogram.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
-#include "histogram.h"
-#include "../common/utils.h"
+
+#include "analysis_tool.h"
+#include "memref.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

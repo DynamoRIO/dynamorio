@@ -32,9 +32,8 @@
 # This script generates encoder/decoder logic for RISC-V instructions described
 # in core/ir/riscv64/isl/*.txt files. This includes:
 # - opcode_api.h - List of all opcodes supported by the encoder/decoder.
-# - opcode_names.h - Stringified names of all opcodes.
 # - instr_create_api.h - Instruction generation macros.
-# - FIXME i#3544: add a list of generated files here.
+# - instr_info_trie.h - Instruction info table and a lookup trie for known instructions.
 #
 # FIXME i#3544: To be done:
 # - Generate instruction encoding (at format + fields level?).
@@ -53,6 +52,7 @@ from readline import insert_text
 from sys import argv
 from typing import List
 from enum import Enum, unique
+from io import StringIO
 
 # Logging helpers. To enable debug logging set DEBUG=1 environment variable.
 logger = getLogger('rv64-codec')
@@ -95,6 +95,13 @@ def count_trailing_ones(n: int) -> int:
     sn = bin(n)
     return len(sn) - len(sn.rstrip('1'))
 
+def write_if_changed(file, data):
+    try:
+        if open(file, 'r').read() == data:
+            return
+    except IOError:
+        pass
+    open(file, 'w').write(data)
 
 class Field(str, Enum):
     arg_name: str
@@ -777,7 +784,8 @@ class IslGenerator:
         found_template_fld = False
         idx = -1
         # Replace tmpl_fld in the template_file and save as out_file.
-        with open(template_file, 'r') as tf, open(out_file, 'w') as of:
+        buf = StringIO()
+        with open(template_file, 'r') as tf:
             for line in tf:
                 if '*/ OP_' in line:
                     nmb = re.findall(r'\d+', line)
@@ -801,7 +809,8 @@ class IslGenerator:
                         idx += 1
 
                     line = line.replace(tmpl_fld, '\n'.join(lines))
-                of.write(line)
+                buf.write(line)
+        write_if_changed(out_file, buf.getvalue())
         if not found_template_fld:
             err(f"{tmpl_fld} not found in {template_file}")
         return found_template_fld
@@ -817,7 +826,8 @@ class IslGenerator:
             return False
         found_template_fld = False
         # Replace tmpl_fld in the template_file and save as out_file.
-        with open(template_file, 'r') as tf, open(out_file, 'w') as of:
+        buf = StringIO()
+        with open(template_file, 'r') as tf:
             for line in tf:
                 if tmpl_fld in line:
                     found_template_fld = True
@@ -849,7 +859,8 @@ class IslGenerator:
 #define INSTR_CREATE_{i.formatted_name()}(dc{args}) \\
     instr_create_{nd}dst_{ns}src(dc, OP_{i.formatted_name()}{args})\n''')
                     line = line.replace(tmpl_fld, '\n'.join(lines))
-                of.write(line)
+                buf.write(line)
+        write_if_changed(out_file, buf.getvalue())
         if not found_template_fld:
             err(f"{tmpl_fld} not found in {template_file}")
         return found_template_fld
@@ -979,51 +990,51 @@ class IslGenerator:
             return False
         if len(self.instructions) == 0:
             return False
-        with open(out_file, 'w') as of:
-            # Keep the order of fields here in sync with the documentation in
-            # core/ir/riscv64/codec.c.
-            OPND_TGT = ['dst1', 'src1', 'src2', 'src3', 'dst2']
-            instr_infos = []
-            trie = []
-            # Generate the rv_instr_info_t list.
-            for i in self.instructions:
-                flds = [f for f in i.flds]
-                flds.reverse()
-                asm_args = ''
-                opnds = []
-                ndst = 0
-                nsrc = 0
-                if len(flds) > 0:
-                    asm_args += ' '
-                    asm_args += ', '.join([f.asm_name() for f in flds])
-                    isrc = 1
-                    for f in flds:
-                        if f.is_dest:
-                            oidx = 0
-                            ndst += 1
-                        else:
-                            oidx = isrc
-                            isrc += 1
-                            nsrc += 1
-                        opnds += f'''
-            .{OPND_TGT[oidx]}_type = RISCV64_FLD_{f.name},
-            .{OPND_TGT[oidx]}_size = {f.opsz(i.name)},'''
-                instr_infos.append(f'''[OP_{i.formatted_name()}] = {{ /* {i.name}{asm_args} */
-        .info = {{
-            .type = OP_{i.formatted_name()},
-            .opcode = 0x{(ndst << 31) | (nsrc << 28):08x}, /* {ndst} dst, {nsrc} src */
-            .name = "{i.name}",{''.join(opnds)}
-            .code = (((uint64){hex(i.match)}) << 32) | ({hex(i.mask)}),
-        }},
-        .ext = {i.formatted_ext()},
-    }},''')
-            # Generate the trie.
-            trie = self.construct_trie(op_offset)
-            trie = [
-                f'{{.mask = {hex(t.mask)}, .shift = {t.shift}, .index = {t.index}}},{f" /* {t.ctx} */" if len(t.ctx) > 0 else ""}' for t in trie]
-            instr_infos = '\n    '.join(instr_infos)
-            trie = '\n    '.join(trie)
-            of.write(f'''
+        buf = StringIO()
+        # Keep the order of fields here in sync with the documentation in
+        # core/ir/riscv64/codec.c.
+        OPND_TGT = ['dst1', 'src1', 'src2', 'src3', 'dst2']
+        instr_infos = []
+        trie = []
+        # Generate the rv_instr_info_t list.
+        for i in self.instructions:
+            flds = [f for f in i.flds]
+            flds.reverse()
+            asm_args = ''
+            opnds = []
+            ndst = 0
+            nsrc = 0
+            if len(flds) > 0:
+                asm_args += ' '
+                asm_args += ', '.join([f.asm_name() for f in flds])
+                isrc = 1
+                for f in flds:
+                    if f.is_dest:
+                        oidx = 0
+                        ndst += 1
+                    else:
+                        oidx = isrc
+                        isrc += 1
+                        nsrc += 1
+                    opnds += f'''
+        .{OPND_TGT[oidx]}_type = RISCV64_FLD_{f.name},
+        .{OPND_TGT[oidx]}_size = {f.opsz(i.name)},'''
+            instr_infos.append(f'''[OP_{i.formatted_name()}] = {{ /* {i.name}{asm_args} */
+    .info = {{
+        .type = OP_{i.formatted_name()},
+        .opcode = 0x{(ndst << 31) | (nsrc << 28):08x}, /* {ndst} dst, {nsrc} src */
+        .name = "{i.name}",{''.join(opnds)}
+        .code = (((uint64){hex(i.match)}) << 32) | ({hex(i.mask)}),
+    }},
+    .ext = {i.formatted_ext()},
+}},''')
+        # Generate the trie.
+        trie = self.construct_trie(op_offset)
+        trie = [
+            f'{{.mask = {hex(t.mask)}, .shift = {t.shift}, .index = {t.index}}},{f" /* {t.ctx} */" if len(t.ctx) > 0 else ""}' for t in trie]
+        instr_infos = '\n    '.join(instr_infos)
+        trie = '\n    '.join(trie)
+        write_if_changed(out_file, f'''
 /* This file is generated by codec.py. */
 
 /** Instruction info array. */

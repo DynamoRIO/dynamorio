@@ -2759,8 +2759,13 @@ reg_get_size(reg_id_t reg)
         return OPSZ_4;
     if (reg >= DR_REG_MDCCSR_EL0 && reg <= DR_REG_SPSR_FIQ)
         return OPSZ_8;
-    if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31)
+    if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31) {
+#        if !defined(DR_HOST_NOT_TARGET) && !defined(STANDALONE_DECODER)
+        return opnd_size_from_bytes(proc_get_vector_length_bytes());
+#        else
         return OPSZ_SCALABLE;
+#        endif
+    }
     if ((reg >= DR_REG_P0 && reg <= DR_REG_P15) || reg == DR_REG_FFR)
         return OPSZ_SCALABLE_PRED;
     if (reg == DR_REG_CNTVCT_EL0)

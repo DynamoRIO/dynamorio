@@ -35,25 +35,32 @@
  * DrMemtrace trace data output logic.
  */
 
-#include <limits.h>
+#include "output.h"
+
+#include <sys/types.h>
+
 #include <atomic>
+#include <cstdint>
+#include <cstring>
+#include <string>
+
 #include "dr_api.h"
-#include "drmgr.h"
 #include "drmemtrace.h"
-#include "drreg.h"
+#include "drmgr.h"
+#include "droption.h"
 #include "drx.h"
 #include "instru.h"
-#include "tracer.h"
+#include "instr_counter.h"
+#include "named_pipe.h"
+#include "options.h"
 #include "physaddr.h"
 #include "raw2trace.h"
-#include "instr_counter.h"
-#include "output.h"
-#include "../common/trace_entry.h"
-#include "../common/named_pipe.h"
-#include "../common/options.h"
-#include "../common/utils.h"
+#include "trace_entry.h"
+#include "tracer.h"
+#include "utils.h"
 #ifdef HAS_SNAPPY
 #    include <snappy.h>
+
 #    include "snappy_file_writer.h"
 #endif
 #ifdef HAS_ZLIB

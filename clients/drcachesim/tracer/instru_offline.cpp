@@ -33,18 +33,23 @@
 /* instru_offline: inserts instrumentation for offline traces.
  */
 
+#include <stddef.h> /* for offsetof */
+#include <string.h> /* for strlen */
+#include <sys/types.h>
+
+#include <atomic>
+#include <cstdint>
+#include <new>
+
 #include "dr_api.h"
+#include "drcovlib.h"
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
-#include "drcovlib.h"
+#include "drvector.h"
+#include "trace_entry.h"
+#include "utils.h"
 #include "instru.h"
-#include "../common/trace_entry.h"
-#include "../common/utils.h"
-#include <new>
-#include <limits.h> /* for USHRT_MAX */
-#include <stddef.h> /* for offsetof */
-#include <string.h> /* for strlen */
 
 namespace dynamorio {
 namespace drmemtrace {

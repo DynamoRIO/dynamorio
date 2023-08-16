@@ -5583,6 +5583,8 @@ main(int argc, char *argv[])
     bool test_result;
     instr_t *instr;
 
+    enable_all_test_cpu_features();
+
     RUN_INSTR_TEST(fcvtas_vector);
     RUN_INSTR_TEST(fcvtas_scalar);
     RUN_INSTR_TEST(fcvtau_vector);

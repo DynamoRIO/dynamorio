@@ -66,6 +66,7 @@ static ptr_uint_t mask; /* bits that should be 0 to be cache-line-aligned */
 cpu_info_t cpu_info = { VENDOR_UNKNOWN,
 #ifdef AARCHXX
                         0,
+                        0,
 #endif
                         0,
                         0,
@@ -194,6 +195,12 @@ uint
 proc_get_architecture(void)
 {
     return cpu_info.architecture;
+}
+
+uint
+proc_get_vector_length_bytes(void)
+{
+    return cpu_info.sve_vector_length_bytes;
 }
 #endif
 
