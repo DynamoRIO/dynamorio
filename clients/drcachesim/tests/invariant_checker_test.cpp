@@ -704,20 +704,27 @@ check_function_markers()
         instrlist_append(ilist, jmp);
 
         static constexpr addr_t BASE_ADDR = 0x123450;
+        const int call_instr_length = instr_length(GLOBAL_DCONTEXT, call1);
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
               nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call1 },
             { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE_ADDR + 5), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
+                         BASE_ADDR + call_instr_length),
+              nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call2 },
             { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE_ADDR + 10), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
+                         BASE_ADDR + call_instr_length * 2),
+              nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), ret2 },
             // A tail call to the first function.
             { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID), jmp },
             { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE_ADDR + 5), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
+                         BASE_ADDR + call_instr_length),
+              nullptr },
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
@@ -764,17 +771,24 @@ check_function_markers()
         instrlist_append(ilist, jmp);
 
         static constexpr addr_t BASE_ADDR = 0x123450;
+        const int call_instr_length = instr_length(GLOBAL_DCONTEXT, call1);
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
               nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call1 },
             { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE_ADDR + 5), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
+                         BASE_ADDR + call_instr_length),
+              nullptr },
 
-            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, BASE_ADDR + 5), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                         BASE_ADDR + call_instr_length),
+              nullptr },
 
             { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call2 },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE_ADDR + 10), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
+                         BASE_ADDR + call_instr_length * 2),
+              nullptr },
             { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1), nullptr },
 
             { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), ret2 },
@@ -782,11 +796,15 @@ check_function_markers()
             { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), sig_ret },
             { gen_instr(TID), sys },
             { gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, BASE_ADDR + 5), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER,
+                         BASE_ADDR + call_instr_length),
+              nullptr },
 
             { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID), jmp },
             { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE_ADDR + 5), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
+                         BASE_ADDR + call_instr_length),
+              nullptr },
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
