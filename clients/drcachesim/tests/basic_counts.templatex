@@ -41,6 +41,8 @@ Total counts:
      .* total function return value markers
      .* total physical address \+ virtual address marker pairs
      .* total physical address unavailable markers
+     .* total system call number markers
+     .* total blocking system call markers
      .* total other markers
      .* total encodings
 Thread .* counts:
@@ -64,5 +66,7 @@ Thread .* counts:
      .* function return value markers
      .* physical address \+ virtual address marker pairs
      .* physical address unavailable markers
+     .* system call number markers
+     .* blocking system call markers
      .* other markers
      .* encodings

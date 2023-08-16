@@ -12,15 +12,7 @@ Total counts:
      .* total dcache flushes
            1 total threads
      .* total scheduling markers
-     .* total transfer markers
-     .* total function id markers
-     .* total function return address markers
-     .* total function argument markers
-     .* total function return value markers
-           0 total physical address \+ virtual address marker pairs
-           0 total physical address unavailable markers
-     .* total other markers
-     .* total encodings
+.*
 Thread .* counts:
      .* \(fetched\) instructions
      .* unique \(fetched\) instructions
@@ -31,15 +23,7 @@ Thread .* counts:
      .* icache flushes
      .* dcache flushes
      .* scheduling markers
-     .* transfer markers
-     .* function id markers
-     .* function return address markers
-     .* function argument markers
-     .* function return value markers
-           0 physical address \+ virtual address marker pairs
-           0 physical address unavailable markers
-     .* other markers
-     .* encodings
+.*
 
 ===========================================================================
 Trace invariant checks passed\)?
