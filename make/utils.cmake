@@ -314,8 +314,8 @@ if (UNIX)
 
 endif (UNIX)
 
-function (check_sve_processor_and_compiler_support out)
-  include(CheckCSourceRuns)
+function (check_sve_compiler_support out)
+  include(CheckCSourceCompiles)
   set(sve_prog "#include <stdint.h>
                 int main() {
                     uint64_t vl = 0;
@@ -324,12 +324,11 @@ function (check_sve_processor_and_compiler_support out)
                     return 0;
                  }")
   set(CMAKE_REQUIRED_FLAGS ${CFLAGS_SVE})
-  check_c_source_runs("${sve_prog}" proc_found_sve)
+  check_c_source_compiles("${sve_prog}" proc_found_sve)
   if (proc_found_sve)
-    message(STATUS "Compiler and processor support SVE.")
+    message(STATUS "Compiler supports SVE.")
   else ()
-    message(STATUS "WARNING: Compiler or processor do not support SVE. "
-                   "Skipping tests")
+    message(STATUS "WARNING: Compiler does not support SVE. Skipping tests")
   endif ()
   set(${out} ${proc_found_sve} PARENT_SCOPE)
-endfunction (check_sve_processor_and_compiler_support)
+endfunction (check_sve_compiler_support)

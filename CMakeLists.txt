@@ -624,7 +624,7 @@ endif ()
 set(proc_supports_sve OFF)
 if (AARCH64 AND UNIX)
   set(CFLAGS_SVE "-march=armv8-a+sve")
-  check_sve_processor_and_compiler_support(proc_supports_sve)
+  check_sve_compiler_support(proc_supports_sve)
 endif ()
 
 # Ensure that _AMD64_ or _X86_ are defined on Microsoft Windows, as otherwise
