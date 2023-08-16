@@ -948,34 +948,25 @@ invariant_checker_t::check_for_pc_discontinuity(
         return "";
     // We do not bother to support legacy traces without encodings.
     if (expect_encoding && type_is_instr_direct_branch(prev_instr.instr.type)) {
-        if (prev_instr.instr.encoding_is_new)
-            shard->branch_target_cache.erase(prev_instr_trace_pc);
-        auto cached = shard->branch_target_cache.find(prev_instr_trace_pc);
-        if (cached != shard->branch_target_cache.end()) {
-            have_branch_target = true;
-            branch_target = cached->second;
+        // TODO i#5912: This prev_instr_decoded_ isn't always the same as the
+        // decoding of the passed-in prev_instr, for signals.  What we should do is
+        // create a new instr_info_t struct with fields for the memref_t plus the
+        // from-decoding attributes is_syscall, writes_memory, and branch_target, and
+        // fill it in at decode time.  We can then store it as prev_instr_ and in
+        // pre_signal_instr and last_instr_in_cur_context_ and pass it here as
+        // prev_instr.  We can then delete this branch_target_cache and
+        // prev_instr_decoded_.  For now we live with this inaccuracy as it is
+        // rare to not match and we leave the cleanup for i#5912.
+        if (prev_instr_info.decoded == nullptr ||
+            !opnd_is_pc(instr_get_target(prev_instr_info.decoded->data))) {
+            // Neither condition should happen but they could on an invalid
+            // encoding from raw2trace or the reader so we report an
+            // invariant rather than asserting.
+            report_if_false(shard, false, "Branch target is not decodeable");
         } else {
-            // TODO i#5912: This prev_instr_decoded_ isn't always the same as the
-            // decoding of the passed-in prev_instr, for signals.  What we should do is
-            // create a new instr_info_t struct with fields for the memref_t plus the
-            // from-decoding attributes is_syscall, writes_memory, and branch_target, and
-            // fill it in at decode time.  We can then store it as prev_instr_ and in
-            // pre_signal_instr and last_instr_in_cur_context_ and pass it here as
-            // prev_instr.  We can then delete this branch_target_cache and
-            // prev_instr_decoded_.  For now we live with this inaccuracy as it is
-            // rare to not match and we leave the cleanup for i#5912.
-            if (prev_instr_info.decoded == nullptr ||
-                !opnd_is_pc(instr_get_target(prev_instr_info.decoded->data))) {
-                // Neither condition should happen but they could on an invalid
-                // encoding from raw2trace or the reader so we report an
-                // invariant rather than asserting.
-                report_if_false(shard, false, "Branch target is not decodeable");
-            } else {
-                have_branch_target = true;
-                branch_target = reinterpret_cast<addr_t>(
-                    opnd_get_pc(instr_get_target(prev_instr_info.decoded->data)));
-                shard->branch_target_cache[prev_instr_trace_pc] = branch_target;
-            }
+            have_branch_target = true;
+            branch_target = reinterpret_cast<addr_t>(
+                opnd_get_pc(instr_get_target(prev_instr_info.decoded->data)));
         }
     }
     // Check for all valid transitions except taken branches. We consider taken

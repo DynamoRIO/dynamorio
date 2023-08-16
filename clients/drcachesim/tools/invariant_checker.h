@@ -190,9 +190,6 @@ protected:
         std::vector<schedule_entry_t> sched_;
         std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_;
         bool skipped_instrs_ = false;
-        // We could move this to per-worker data and still not need a lock
-        // (we don't currently have per-worker data though so leaving it as per-shard).
-        std::unordered_map<addr_t, addr_t> branch_target_cache;
         // Rseq region state.
         bool in_rseq_region_ = false;
         addr_t rseq_start_pc_ = 0;
