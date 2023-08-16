@@ -28,7 +28,9 @@ Total counts:
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
-          15 total other markers
+          11 total system call number markers
+           0 total blocking system call markers
+           4 total other markers
          102 total encodings
 Thread [0-9]* counts:
           98 \(fetched\) instructions
@@ -47,5 +49,7 @@ Thread [0-9]* counts:
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
-          15 other markers
+          11 system call number markers
+           0 blocking system call markers
+           4 other markers
          102 encodings
