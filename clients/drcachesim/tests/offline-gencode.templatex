@@ -2,6 +2,7 @@ pre-DR init
 pre-DR start
 pre-DR detach
 all done
+.*
 Opcode mix tool results:
 .*
 #ifdef X86
