@@ -679,7 +679,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                       << "marker type " << memref.marker.marker_type << " value 0x"
                       << std::hex << memref.marker.marker_value << std::dec << "\n";
         }
-        // Push 0 as a place holder for kernel trasfer event.
+        // The interruption point is not a target for a return. Zero is push as
+        // a sentinel. Ths push matches the return used by post signal handler
+        // to run the restorer code. It is assumed that all signal handlers
+        // return normally and longjmp is not used.
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
             shard->retaddr_stack_.push(0);
         }
