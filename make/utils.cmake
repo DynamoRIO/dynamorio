@@ -324,6 +324,14 @@ function (check_sve_processor_and_compiler_support out)
                     return 0;
                  }")
   set(CMAKE_REQUIRED_FLAGS ${CFLAGS_SVE})
+  if (CMAKE_CROSSCOMPILING)
+    # If we are cross-compiling check_c_source_runs() can't run the executable on the
+    # host to find out whether the target processor supports SVE, so we assume it
+    # doesn't.
+    set(proc_found_sve_EXITCODE 1 CACHE STRING
+        "Set to 0 if target processor/emulator supports SVE to enable SVE tests"
+        FORCE)
+  endif ()
   check_c_source_runs("${sve_prog}" proc_found_sve)
   if (proc_found_sve)
     message(STATUS "Compiler and processor support SVE.")
