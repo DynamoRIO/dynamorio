@@ -11,6 +11,7 @@ pre-DR init
 pre-DR start
 pre-DR detach
 all done
+.*
 Basic counts tool results:
 Total counts:
      .* total \(fetched\) instructions
