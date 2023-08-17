@@ -587,6 +587,8 @@ check_function_markers()
     constexpr memref_tid_t TID = 1;
     constexpr addr_t CALL_PC = 2;
     constexpr size_t CALL_SZ = 2;
+    constexpr addr_t CALL_PC_2 = 10;
+    constexpr size_t RETURN_SZ = 3;
     // Incorrectly between instr and memref.
     {
         std::vector<memref_t> memrefs = {
@@ -686,132 +688,74 @@ check_function_markers()
     }
     // Correctly handle nested function calls including tailcalls.
     {
-        instr_t *label1 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
-        instr_t *call1 = XINST_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label1));
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
 
-        instr_t *label2 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
-        instr_t *call2 = XINST_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label2));
-        instr_t *ret2 = XINST_CREATE_return(GLOBAL_DCONTEXT);
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC_2, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC_2 + CALL_SZ),
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC_2 + CALL_SZ, RETURN_SZ),
 
-        instr_t *jmp = XINST_CREATE_jump(GLOBAL_DCONTEXT, opnd_create_instr(label1));
-
-        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
-        instrlist_append(ilist, call1);
-        instrlist_append(ilist, label1);
-        instrlist_append(ilist, call2);
-        instrlist_append(ilist, label2);
-        instrlist_append(ilist, ret2);
-        instrlist_append(ilist, jmp);
-
-        static constexpr addr_t BASE_ADDR = 0x123450;
-        const int call_instr_length = instr_length(GLOBAL_DCONTEXT, call1);
-        std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-              nullptr },
-            { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call1 },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
-                         BASE_ADDR + call_instr_length),
-              nullptr },
-            { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call2 },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
-                         BASE_ADDR + call_instr_length * 2),
-              nullptr },
-            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), ret2 },
-            // A tail call to the first function.
-            { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID), jmp },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
-                         BASE_ADDR + call_instr_length),
-              nullptr },
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID,
+                           CALL_PC_2 + CALL_SZ + RETURN_SZ, 5),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
         };
-        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
-        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, false))
             return false;
     }
     // Correctly handle kernel transfer, sigreturn, nested function calls
     // including tailcalls.
+#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     {
-        // TODO i#5949: For WOW64 instr_is_syscall() always returns false, so our
-        // checks do not currently work properly there.
-#if !defined(WINDOWS) || defined(X64)
-        // XXX: Just like raw2trace_unit_tests, we need to create a syscall instruction
-        // and it turns out there is no simple cross-platform way.
-#    ifdef X86
-        instr_t *sys = INSTR_CREATE_syscall(GLOBAL_DCONTEXT);
-#    elif defined(AARCHXX)
-        instr_t *sys =
-            INSTR_CREATE_svc(GLOBAL_DCONTEXT, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-#    elif defined(RISCV64)
-        instr_t *sys = INSTR_CREATE_ecall(GLOBAL_DCONTEXT);
-#    else
-#        error Unsupported architecture.
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, CALL_PC + CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 6),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC_2, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC_2 + CALL_SZ),
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC_2 + CALL_SZ, RETURN_SZ),
+
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC + CALL_SZ, RETURN_SZ),
+
+#    if defined(X86_64)
+            gen_instr_encoded(CALL_PC + CALL_SZ,
+                              { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+#    elif defined(X86_32)
+            gen_instr_encoded(CALL_PC + CALL_SZ,
+                              { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 173),
+#    elif defined(ARM_64)
+            gen_instr_encoded(CALL_PC + CALL_SZ,
+                              0xd4000001), // 0x7fcf3b9d: 0xd4000001 svc #0x0
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 139),
 #    endif
-        instr_t *sig_ret = XINST_CREATE_return(GLOBAL_DCONTEXT);
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 16),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
 
-        instr_t *label1 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
-        instr_t *call1 = XINST_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label1));
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, CALL_PC + CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 17),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
 
-        instr_t *label2 = INSTR_CREATE_label(GLOBAL_DCONTEXT);
-        instr_t *call2 = XINST_CREATE_call(GLOBAL_DCONTEXT, opnd_create_instr(label2));
-        instr_t *ret2 = XINST_CREATE_return(GLOBAL_DCONTEXT);
-
-        instr_t *jmp = XINST_CREATE_jump(GLOBAL_DCONTEXT, opnd_create_instr(label1));
-
-        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
-        instrlist_append(ilist, call1);
-        instrlist_append(ilist, label1);
-        instrlist_append(ilist, call2);
-        instrlist_append(ilist, label2);
-        instrlist_append(ilist, ret2);
-        instrlist_append(ilist, sig_ret);
-        instrlist_append(ilist, sys);
-        instrlist_append(ilist, jmp);
-
-        static constexpr addr_t BASE_ADDR = 0x123450;
-        const int call_instr_length = instr_length(GLOBAL_DCONTEXT, call1);
-        std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-              nullptr },
-            { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call1 },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
-                         BASE_ADDR + call_instr_length),
-              nullptr },
-
-            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT,
-                         BASE_ADDR + call_instr_length),
-              nullptr },
-
-            { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID), call2 },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
-                         BASE_ADDR + call_instr_length * 2),
-              nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1), nullptr },
-
-            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), ret2 },
-
-            { gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID), sig_ret },
-            { gen_instr(TID), sys },
-            { gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER,
-                         BASE_ADDR + call_instr_length),
-              nullptr },
-
-            { gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID), jmp },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1), nullptr },
-            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR,
-                         BASE_ADDR + call_instr_length),
-              nullptr },
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC + CALL_SZ),
         };
-        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
-        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, false))
             return false;
-#endif
     }
+#elif
+    // TODO i#5871: Add AArch32 (and RISC-V) encodings.
+#endif
     return true;
 }
 
