@@ -90,8 +90,8 @@ element_is_active(size_t element, predicate_reg_value128_t mask,
                   element_size_t element_size)
 {
     const auto element_size_bytes = static_cast<size_t>(element_size);
-
-    return (mask >> (element_size_bytes * element)) & 1 != 0;
+    const auto element_flag = 1 << (element_size_bytes * element);
+    return TESTALL(element_flag, mask);
 }
 
 /*
@@ -165,10 +165,10 @@ print_predicate(const scalable_reg_value_t &value)
     print("0b");
     for (size_t byte_i = 0; byte_i < value.size; byte_i++) {
         for (unsigned bit = 0; bit < 8; bit++) {
-            if (((value.data[byte_i] >> bit) & 1) == 0)
-                print(" 0");
-            else
+            if (TESTALL(1 << bit, value.data[byte_i]))
                 print(" 1");
+            else
+                print(" 0");
         }
     }
 }
