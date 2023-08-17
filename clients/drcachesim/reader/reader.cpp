@@ -388,8 +388,6 @@ reader_t::pre_skip_instructions()
 reader_t &
 reader_t::skip_instructions(uint64_t instruction_count)
 {
-    if (instruction_count == 0)
-        return *this;
     // We do not support skipping with instr bundles.
     if (bundle_idx_ != 0) {
         ERRMSG("Skipping with instr bundles is not supported.\n");

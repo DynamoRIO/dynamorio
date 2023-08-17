@@ -1269,6 +1269,18 @@ scheduler_tmpl_t<RecordType, ReaderType>::advance_region_of_interest(
         cur_range = input.regions_of_interest[input.cur_region];
     }
 
+    if (!input.in_cur_region && cur_instr >= cur_range.start_instruction) {
+        // We're already there (back-to-back regions).
+        input.in_cur_region = true;
+        // Even though there's no gap we let the user know we're on a new region.
+        if (input.cur_region > 0) {
+            VPRINT(this, 3, "skip_instructions input=%d: inserting separator marker\n",
+                   input.index);
+            input.queue.push_back(record);
+            record = create_region_separator_marker(input.tid, input.cur_region);
+        }
+        return sched_type_t::STATUS_OK;
+    }
     // If we're within one and already skipped, just exit to avoid re-requesting a skip
     // and making no progress (we're on the inserted timetamp + cpuid and our cur instr
     // count isn't yet the target).
