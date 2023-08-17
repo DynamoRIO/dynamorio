@@ -753,7 +753,7 @@ check_function_markers()
         if (!run_checker(memrefs, false))
             return false;
     }
-#elif
+#else
     // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #endif
     return true;
