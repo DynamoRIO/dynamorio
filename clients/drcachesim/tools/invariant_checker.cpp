@@ -478,7 +478,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         const bool expect_encoding =
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
-        std::shared_ptr<instr_autoclean_t> cur_instr_decoded = nullptr;
+        std::unique_ptr<instr_autoclean_t> cur_instr_decoded = nullptr;
         if (expect_encoding) {
             cur_instr_decoded.reset(new instr_autoclean_t(GLOBAL_DCONTEXT));
             // TODO i#6006: cache the decoding results, and avoid heap with
@@ -954,7 +954,7 @@ std::string
 invariant_checker_t::check_for_pc_discontinuity(
     per_shard_t *shard, const memref_t &memref,
     const per_shard_t::instr_info_t &prev_instr_info, addr_t cur_pc,
-    const std::shared_ptr<instr_autoclean_t> &cur_instr_decoded, bool expect_encoding,
+    const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded, bool expect_encoding,
     bool at_kernel_event)
 {
     const memref_t prev_instr = prev_instr_info.instr;
