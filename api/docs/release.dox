@@ -188,6 +188,8 @@ changes:
    #dr_mcontext_t: SVE predicate registers svep[] and the SVE first-fault
    register, ffr. This is a significant binary compatibility change and will
    require re-building clients built before SVE was added.
+ - The #instr_t structure has a new field appended for holding the category type
+   #dr_instr_category_type_t.
 
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
