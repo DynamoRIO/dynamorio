@@ -477,28 +477,32 @@ test_regions_bare()
             assert(memref.instr.addr == 4);
             break;
         case 3:
-            // No window separator for back-to-back regions.
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID);
+            assert(memref.marker.marker_value == 2);
+            break;
+        case 4:
             assert(type_is_instr(memref.instr.type));
             assert(memref.instr.addr == 5);
             break;
-        case 4:
+        case 5:
             assert(memref.marker.type == TRACE_TYPE_MARKER);
             assert(memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID);
             assert(memref.marker.marker_value == 3);
             break;
-        case 5:
+        case 6:
             assert(type_is_instr(memref.instr.type));
             assert(memref.instr.addr == 8);
             break;
-        case 6:
+        case 7:
             assert(type_is_instr(memref.instr.type));
             assert(memref.instr.addr == 9);
             break;
-        default: assert(ordinal == 7); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
+        default: assert(ordinal == 8); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
         }
         ++ordinal;
     }
-    assert(ordinal == 8);
+    assert(ordinal == 9);
 }
 
 // Tests regions without timestamps with an instr at the very front of the trace.
@@ -510,6 +514,9 @@ test_regions_bare_no_marker()
         /* clang-format off */
         make_thread(1),
         make_pid(1),
+        // This would not happen in a real trace, only in tests.  But it does
+        // match a dynamic skip from the middle when an instruction has already
+        // been read but not yet passed to the output stream.
         make_instr(1),
         make_instr(2), // The region skips the 1st instr.
         make_instr(3),
