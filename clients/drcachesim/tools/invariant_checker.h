@@ -132,7 +132,11 @@ protected:
         uintptr_t trace_version_ = 0;
         struct instr_info_t {
             memref_t instr;
-            std::shared_ptr<instr_autoclean_t> decoded = nullptr;
+            // Decoding related attributes.
+            bool has_decoded = false;
+            bool is_syscall = false;
+            bool writes_memory = false;
+            opnd_t branch_target;
         };
         instr_info_t prev_instr_ = {};
 #ifdef UNIX
