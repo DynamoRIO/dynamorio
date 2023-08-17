@@ -487,7 +487,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
                 reinterpret_cast<app_pc>(memref.instr.addr), cur_instr_decoded->data);
             if (next_pc == nullptr) {
-                cur_instr_decoded = nullptr;
+                cur_instr_decoded.reset(nullptr);
             }
         }
         if (knob_verbose_ >= 3) {
@@ -606,7 +606,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 instr_is_syscall(cur_instr_decoded->data);
             shard->last_instr_in_cur_context_.writes_memory =
                 instr_writes_memory(cur_instr_decoded->data);
-            if (type_is_instr_direct_branch(memref.instr.type)) {
+            if (type_is_instr_branch(memref.instr.type)) {
                 shard->last_instr_in_cur_context_.branch_target =
                     instr_get_target(cur_instr_decoded->data);
             }
@@ -618,7 +618,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->prev_instr_.is_syscall = instr_is_syscall(cur_instr_decoded->data);
             shard->prev_instr_.writes_memory =
                 instr_writes_memory(cur_instr_decoded->data);
-            if (type_is_instr_direct_branch(memref.instr.type)) {
+            if (type_is_instr_branch(memref.instr.type)) {
                 shard->prev_instr_.branch_target =
                     instr_get_target(cur_instr_decoded->data);
             }
