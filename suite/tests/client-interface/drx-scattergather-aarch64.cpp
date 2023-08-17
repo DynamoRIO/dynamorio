@@ -70,8 +70,8 @@ enum class element_size_t {
     DOUBLE = 8,
 };
 
-/*! Exhaustive lists of valid 128-bit vl predicate register values for for
- * single or double sized elements.
+/* Exhaustive lists of valid 128-bit vl predicate register values for single or double
+ * sized elements.
  */
 const std::map<element_size_t, std::vector<predicate_reg_value128_t>> ALL_PREDICATES {
     { element_size_t::SINGLE,
@@ -85,12 +85,6 @@ enum test_result_t {
     PASS,
 };
 
-/*!
- * \param element      The number of the element to test within \p mask.
- * \param mask         The predicate register value to test.
- * \param element_size The size of the elements in the mask.
- * \return             \c true if \p element is active in the predicate \p mask.
- */
 bool
 element_is_active(size_t element, predicate_reg_value128_t mask,
                   element_size_t element_size)
@@ -100,12 +94,9 @@ element_is_active(size_t element, predicate_reg_value128_t mask,
     return (mask >> (element_size_bytes * element)) & 1 != 0;
 }
 
-/*!
- * \param data         The input vector register value.
- * \param mask         The predicate register value to test.
- * \param element_size The size of the elements in the mask.
- * \return             A copy of \p data with all the inactive elements set to 0
- *                     according to the \p mask value.
+/*
+ * Create a copy of the data vector with all the elements that are inactive in the mask
+ * set to 0.
  */
 vector_reg_value128_t
 apply_predicate_mask(vector_reg_value128_t data, predicate_reg_value128_t mask,
@@ -123,9 +114,6 @@ apply_predicate_mask(vector_reg_value128_t data, predicate_reg_value128_t mask,
     return data;
 }
 
-/*!
- *  \return The current vector length in bytes.
- */
 size_t
 get_vl_bytes()
 {
@@ -164,9 +152,9 @@ print_vector(const scalable_reg_value_t &value)
     }
 }
 
-/*!
+/*
  * Print a predicate register value as a binary number. Each bit is printed with a space
- * inbetween so that the bit will line up vertically with the corresponding byte of a
+ * in between so that the bit will line up vertically with the corresponding byte of a
  * vector register printed on an adjacent line.
  *     vec:  0x12345678
  *     pred: 0b 0 1 0 1
@@ -237,20 +225,20 @@ struct sve_register_file_t {
 };
 
 struct test_register_data_t {
-    sve_register_file_t before; //!< Values the registers will be set to before the test.
-    sve_register_file_t after;  //!< Values of the registers after the test instruction.
+    sve_register_file_t before; // Values the registers will be set to before the test.
+    sve_register_file_t after;  // Values of the registers after the test instruction.
 };
 
 struct scalar_plus_vector_test_case_t {
-    std::string name; //< Unique name for this test printed when the test is run.
+    std::string name; // Unique name for this test printed when the test is run.
 
     struct test_ptrs_t {
-        const void *base;           //!< Base address used for the test instruction.
-        const void *z_restore_base; //!< Base address for initializing Z registers.
-        const void *p_restore_base; //!< Base address for initializing P registers.
-        void *z_save_base;          //!< Base address to save Z registers to after test
+        const void *base;           // Base address used for the test instruction.
+        const void *z_restore_base; // Base address for initializing Z registers.
+        const void *p_restore_base; // Base address for initializing P registers.
+        void *z_save_base;          // Base address to save Z registers to after test
                                     // instruction
-        void *p_save_base;          //!< Base address to save P registers to after test
+        void *p_save_base;          // Base address to save P registers to after test
                                     // instruction
     };
 

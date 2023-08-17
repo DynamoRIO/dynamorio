@@ -60,7 +60,7 @@
 
 static int tls_idx;
 typedef struct _per_thread_t {
-    void *scratch_pred_spill_slot; /*!< Storage for spilled predicate register. */
+    void *scratch_pred_spill_slot; /* Storage for spilled predicate register. */
 } per_thread_t;
 
 static int drx_scatter_gather_expanded = 0;

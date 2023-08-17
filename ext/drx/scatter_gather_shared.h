@@ -65,8 +65,9 @@ typedef struct _scatter_gather_info_t {
 #elif defined(AARCH64)
     dr_extend_type_t extend;
     uint extend_amount;
-    uint reg_count; /*!< Number of registers accessed. If >1
-                       gather_dst_reg/scatter_src_reg is the first register */
+    uint reg_count; /* Number of registers accessed. If >1
+                     * gather_dst_reg/scatter_src_reg is the first register.
+                     */
     bool scaled;
     bool is_scalar_value_signed;
     enum {
