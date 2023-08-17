@@ -200,9 +200,10 @@ public:
          * though the input were constructed by concatenating these ranges together.  A
          * #TRACE_MARKER_TYPE_WINDOW_ID marker is inserted between
          * ranges (with a value equal to the range ordinal) to notify the client of the
-         * discontinuity (but not before the first range), with a
-         * #dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT record inserted after the final
-         * range.  These ranges must be non-overlapping and in increasing order.
+         * discontinuity (but not before the first range nor between back-to-back regions
+         * with no separation), with a #dynamorio::drmemtrace::TRACE_TYPE_THREAD_EXIT
+         * record inserted after the final range.  These ranges must be non-overlapping
+         * and in increasing order.
          */
         std::vector<range_t> regions_of_interest;
     };
