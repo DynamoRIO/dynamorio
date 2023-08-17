@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -55,7 +55,7 @@ It is a good idea to perform some sanity tests on all platforms beyond what our 
 Update the following in the code and commit the change:
 
 + Update `VERSION_NUMBER_DEFAULT`.
-+ Update the default git tag version in `ci-package.yml`.
++ Update the default git tag version in `ci-package.yml` and `ci-docs.yml`.
 + Update `OLDEST_COMPATIBLE_VERSION_DEFAULT` if necessary.
 
 Don't add a new changelist section for the next release after this one: that is best done after finishing this release.
