@@ -115,11 +115,11 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
     byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
     if (pc != NULL) {
         if (instr_is_gather(&inst) || instr_is_gather(&inst)) {
-            /* TODO i#5365, i#5844: Restore the scratch predicate register.
+            /* TODO i#5365, i#5036: Restore the scratch predicate register.
              *                      We need to add support for handling SVE state during
              *                      signals first.
              */
-            DR_ASSERT_MSG(false, "NYI i5365 i5844");
+            DR_ASSERT_MSG(false, "NYI i#5365 i#5036");
         }
     }
     instr_free(drcontext, &inst);
