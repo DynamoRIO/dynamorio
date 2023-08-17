@@ -279,10 +279,6 @@ get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
     }
 }
 
-#define EMIT(op, ...)    \
-    instrlist_preinsert( \
-        bb, sg_instr, INSTR_XL8(INSTR_CREATE_##op(drcontext, __VA_ARGS__), orig_app_pc))
-
 /*
  * Emit code to expand a scalar + vector gather load into a series of equivalent scalar
  * loads.
@@ -324,6 +320,10 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                           const scatter_gather_info_t *sg_info, reg_id_t scratch_gpr,
                           reg_id_t scratch_pred, app_pc orig_app_pc)
 {
+#define EMIT(op, ...)    \
+    instrlist_preinsert( \
+        bb, sg_instr, INSTR_XL8(INSTR_CREATE_##op(drcontext, __VA_ARGS__), orig_app_pc))
+
     DR_ASSERT_MSG(reg_is_z(sg_info->index_reg), "Index must be a Z register");
 
     if (sg_info->is_load) {
@@ -428,6 +428,8 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
     EMIT(b, opnd_create_instr(loop_label));
 
     instrlist_meta_preinsert(bb, sg_instr, end_label);
+
+#undef EMIT
 }
 
 /* Spill a scratch predicate or vector register.
