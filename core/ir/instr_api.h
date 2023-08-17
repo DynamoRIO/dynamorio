@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -280,7 +280,9 @@ struct _instr_t {
      */
     uint length;
 
-    /* category of this instr (e.g. branch, load/store, etc.) */
+    /* The category of this instr (e.g. branch, load/store, etc.) as a combination
+     * of dr_instr_category_t bit values.
+     */
     uint category;
 
     union {
@@ -729,9 +731,9 @@ instr_get_opcode(instr_t *instr);
 DR_API
 /**
  * Returns \p instr's set of categories (set of DR_INSTR_CATEGORY_ constants).
- * See #dr_instr_category_type_t
+ * See #dr_instr_category_t.
  * This API is only supported for decoded instructions, not for synthetic ones.
- * AArch64 support only.
+ * Currently this is only supported for AArch64.
  */
 uint
 instr_get_category(instr_t *instr);
@@ -756,7 +758,7 @@ DR_API
 /**
  * Assumes \p category is a set of DR_INSTR_CATEGORY_ constants
  * and sets it to be instr's category.
- * See #dr_instr_category_type_t
+ * See #dr_instr_category_t.
  */
 void
 instr_set_category(instr_t *instr, uint category);
@@ -1882,14 +1884,14 @@ instr_is_rep_string_op(instr_t *instr);
  */
 typedef enum {
     DR_INSTR_CATEGORY_UNCATEGORIZED = 0x0, /**< Uncategorized. */
-    DR_INSTR_CATEGORY_INT_MATH = 0x1,      /**< Integer arithmetic operations */
-    DR_INSTR_CATEGORY_FP_MATH = 0x2,       /**< Floating-Point arithmetic operations */
-    DR_INSTR_CATEGORY_LOAD = 0x4,          /**< Loads */
-    DR_INSTR_CATEGORY_STORE = 0x8,         /**< Stores */
-    DR_INSTR_CATEGORY_BRANCH = 0x10,       /**< Branches */
-    DR_INSTR_CATEGORY_SIMD = 0x20,         /**< Operations with vector registers (SIMD) */
-    DR_INSTR_CATEGORY_OTHER = 0x40         /**< Other types of instructions */
-} dr_instr_category_type_t;
+    DR_INSTR_CATEGORY_INT_MATH = 0x1,      /**< Integer arithmetic operations. */
+    DR_INSTR_CATEGORY_FP_MATH = 0x2,       /**< Floating-Point arithmetic operations. */
+    DR_INSTR_CATEGORY_LOAD = 0x4,          /**< Loads. */
+    DR_INSTR_CATEGORY_STORE = 0x8,         /**< Stores. */
+    DR_INSTR_CATEGORY_BRANCH = 0x10,       /**< Branches. */
+    DR_INSTR_CATEGORY_SIMD = 0x20, /**< Operations with vector registers (SIMD). */
+    DR_INSTR_CATEGORY_OTHER = 0x40 /**< Other types of instructions. */
+} dr_instr_category_t;
 
 /**
  * Indicates which type of floating-point operation and instruction performs.
