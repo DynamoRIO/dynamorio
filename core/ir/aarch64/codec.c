@@ -1021,7 +1021,7 @@ get_elements_in_sve_vector(aarch64_reg_offset element_size)
 {
     const uint element_length =
         opnd_size_in_bits(get_opnd_size_from_offset(element_size));
-    return opnd_size_in_bits(OPSZ_SVE_VL) / element_length;
+    return opnd_size_in_bits(OPSZ_SVE_VL_BYTES) / element_length;
 }
 
 /*******************************************************************************
@@ -5180,7 +5180,7 @@ decode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
     const int offset = extract_int(enc, 16, 6);
     IF_RETURN_FALSE(offset < -32 || offset > 31)
     const reg_id_t rn = decode_reg(extract_uint(enc, 5, 5), true, true);
-    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL;
+    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL_BYTES;
 
     /* As specified in the AArch64 SVE reference manual for contiguous prefetch
      * instructions, the immediate index value is a vector index into memory, NOT
@@ -5189,7 +5189,7 @@ decode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
      * memory displacement. So when creating the address operand here, it should be
      * multiplied by the current vector register length in bytes.
      */
-    int vl_bytes = dr_get_sve_vl() / 8;
+    int vl_bytes = dr_get_sve_vector_length() / 8;
     *opnd = opnd_create_base_disp(rn, DR_REG_NULL, 0, offset * vl_bytes, mem_transfer);
 
     return true;
@@ -5199,7 +5199,7 @@ static inline bool
 encode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
                                 OUT uint *enc_out)
 {
-    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL;
+    const opnd_size_t mem_transfer = op_is_prefetch(opcode) ? OPSZ_0 : OPSZ_SVE_VL_BYTES;
     if (!opnd_is_base_disp(opnd) || opnd_get_index(opnd) != DR_REG_NULL ||
         opnd_get_size(opnd) != mem_transfer)
         return false;
@@ -5210,7 +5210,7 @@ encode_opnd_svemem_gpr_simm6_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
      * vector length at the IR level, transformed to a vector index in the
      * encoding.
      */
-    int vl_bytes = dr_get_sve_vl() / 8;
+    int vl_bytes = dr_get_sve_vector_length() / 8;
     if ((opnd_get_disp(opnd) % vl_bytes) != 0)
         return false;
     int disp = opnd_get_disp(opnd) / vl_bytes;
@@ -5329,7 +5329,7 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
     bool is_vector = TEST(1u << 14, enc);
 
     /* Transfer size depends on whether we are transferring a Z or a P register. */
-    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL : OPSZ_SVE_PL;
+    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL_BYTES : OPSZ_SVE_PL_BYTES;
 
     /* As specified in the AArch64 SVE reference manual for unpredicated vector
      * register load LDR and store STR instructions, the immediate index value is a
@@ -5339,7 +5339,7 @@ decode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd
      * address operand here, it should be multiplied by the current vector or
      * predicate register length in bytes.
      */
-    int vl_bytes = dr_get_sve_vl() / 8;
+    int vl_bytes = dr_get_sve_vector_length() / 8;
     int pl_bytes = vl_bytes / 8;
     int mul_len = is_vector ? vl_bytes : pl_bytes;
     *opnd =
@@ -5359,7 +5359,7 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
     bool is_vector = TEST(1u << 14, enc);
 
     /* Transfer size depends on whether we are transferring a Z or a P register. */
-    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL : OPSZ_SVE_PL;
+    opnd_size_t memory_transfer_size = is_vector ? OPSZ_SVE_VL_BYTES : OPSZ_SVE_PL_BYTES;
 
     if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != memory_transfer_size)
         return false;
@@ -5367,7 +5367,7 @@ encode_opnd_svemem_gpr_simm9_vl(uint enc, int opcode, byte *pc, opnd_t opnd,
      * vector or predicate length at the IR level, transformed to a vector or
      * predicate index in the encoding.
      */
-    int vl_bytes = dr_get_sve_vl() / 8;
+    int vl_bytes = dr_get_sve_vector_length() / 8;
     int pl_bytes = vl_bytes / 8;
     if (is_vector) {
         if ((opnd_get_disp(opnd) % vl_bytes) != 0)
@@ -5512,7 +5512,7 @@ decode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, OUT opnd_t 
 {
     const uint register_count = BITS(enc, 22, 21) + 1;
     const opnd_size_t transfer_size =
-        opnd_size_from_bytes((register_count * dr_get_sve_vl()) / 8);
+        opnd_size_from_bytes((register_count * dr_get_sve_vector_length()) / 8);
 
     return decode_svemem_gpr_simm4(enc, transfer_size, register_count, opnd);
 }
@@ -5523,7 +5523,7 @@ encode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, opnd_t opnd
 {
     const uint register_count = BITS(enc, 22, 21) + 1;
     const opnd_size_t transfer_size =
-        opnd_size_from_bytes((register_count * dr_get_sve_vl()) / 8);
+        opnd_size_from_bytes((register_count * dr_get_sve_vector_length()) / 8);
 
     return encode_svemem_gpr_simm4(enc, transfer_size, register_count, opnd, enc_out);
 }
@@ -9561,6 +9561,106 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     return ENCFAIL;
 }
 
+static inline uint
+decode_load_store_category(uint enc)
+{
+    uint category = DR_INSTR_CATEGORY_OTHER;
+    /* Calculation of category is based on C4.1 'A64 instruction set encoding'
+     * of ARM V8 Architecture reference manual
+     *  https://developer.arm.com/documentation/ddi0487/
+     *  The encoding is:
+     *
+     *  31    28      26  24  23 22 21                      11 10                    0
+     * | x x x x | x | x x x | x x | x x x x x x | x x x x | x x | x x x x x x x x x x |
+     * -----------   ----  -----   ---------------         -------
+     *     op0        op1   op2          op3                 op4
+     *                        ------
+     *                         opc
+     */
+    uint op0 = BITS(enc, 31, 28);
+    uint opc = BITS(enc, 23, 22);
+    if ((op0 & 0x3) == 0x3) { /* xx11 */
+        if (BITS(enc, 10, 10) == 1 && BITS(enc, 21, 21) == 1)
+            category = DR_INSTR_CATEGORY_LOAD;
+        else if (opc == 0 || (opc == 0x2 && BITS(enc, 26, 26) == 1))
+            category = DR_INSTR_CATEGORY_STORE;
+        else
+            category = DR_INSTR_CATEGORY_LOAD;
+    } else if ((op0 & 0x3) == 0 || (op0 & 0x3) == 0x2) { /* xx00, xx10 */
+        category =
+            (BITS(enc, 22, 22) == 0) ? DR_INSTR_CATEGORY_STORE : DR_INSTR_CATEGORY_LOAD;
+        if ((op0 & 0xc) == 0 && BITS(enc, 26, 26) == 1)
+            category |= DR_INSTR_CATEGORY_SIMD;
+    } else { /* xx01 */
+        if (BITS(enc, 24, 24) == 0)
+            category = DR_INSTR_CATEGORY_LOAD;
+        else if (BITS(enc, 21, 21) == 0)
+            category = (opc == 0) ? DR_INSTR_CATEGORY_STORE : DR_INSTR_CATEGORY_LOAD;
+        else if ((opc == 0x1 || opc == 0x3) && BITS(enc, 11, 10) == 0)
+            category = DR_INSTR_CATEGORY_LOAD;
+        else
+            category = DR_INSTR_CATEGORY_STORE;
+    }
+    return category;
+}
+
+static inline bool
+decode_category(uint enc, instr_t *instr)
+{
+    int category = DR_INSTR_CATEGORY_OTHER;
+    /* Calculation of category is based on C4.1 'A64 instruction set encoding'
+     * of ARM V8 Architecture reference manual
+     *  The encoding is:
+     *
+     *   31  30 29 28    25 24                                             0
+     * | x | x  x |x x x x | x x x x x x x x x x x x x x x x x x x x x x x x |
+     *             --------
+     *               op1
+     */
+
+    uint op1 = BITS(enc, 28, 25);
+    if ((BITS(enc, 31, 31) == 1 && op1 == 0) || op1 == 0x2) /* SME || SVE */
+        category = DR_INSTR_CATEGORY_SIMD;
+    else if (BITS(enc, 31, 31) == 0 && op1 == 0) /* op1 is 0 and 31 bit is 0 */
+        category = DR_INSTR_CATEGORY_UNCATEGORIZED;
+    else {
+        /*                       op1 - xxxx
+         *                              |
+         *                x0xx ------------------- x1xx
+         *                 |                         |
+         *          100x ----- 101x           x1x0 -------- x1x1
+         *          Int      Branches     Load/Store          |
+         *                                             x101 ----- x111
+         *                                             Int        Scalar Floating-Point
+         *                                                        and Advances SIMD
+         */
+        if ((op1 & 0x4) == 0) {       /* op1 is x0xx */
+            if ((op1 & 0x8) != 0) {   /* op1 is not 00xx */
+                if ((op1 & 0x2) == 0) /* op1 is 100x, Data processing Immediate */
+                    category = DR_INSTR_CATEGORY_INT_MATH;
+                else /* op1 is 101x, Branches */
+                    category = DR_INSTR_CATEGORY_BRANCH;
+            }
+        } else { /* op1 is x1xx */
+            uint op0 = BITS(enc, 31, 28);
+            if ((op1 & 0x1) == 0) /* op1 is x1x0, LOAD/STORE */
+                category = decode_load_store_category(enc);
+            else if ((op1 & 0x2) == 0) /* op1 is x101 */
+                category = DR_INSTR_CATEGORY_INT_MATH;
+            else { /* op1 is x111, Scalar Floating-Point and Advances SIMD */
+                /* op0 is 0xx0 || op0 is 01x1 */
+                if ((op0 & 0x9) == 0 || (op0 & 0x5) == 0x5)
+                    category = DR_INSTR_CATEGORY_SIMD;
+                else
+                    category = DR_INSTR_CATEGORY_FP_MATH;
+            }
+        }
+    }
+
+    instr_set_category(instr, category);
+    return true;
+}
+
 /******************************************************************************/
 
 /* Include automatically generated decoder and encoder files. Decode and encode
@@ -9640,6 +9740,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         }
     }
 
+    decode_category(enc, instr);
+
     /* XXX i#2374: This determination of flag usage should be separate from the
      * decoding of operands.
      *
@@ -9695,10 +9797,5 @@ uint
 encode_common(byte *pc, instr_t *i, decode_info_t *di)
 {
     ASSERT(((ptr_int_t)pc & 3) == 0);
-
-#if defined(DR_HOST_NOT_TARGET) || defined(STANDALONE_DECODER)
-    dr_set_sve_vl(256);
-#endif
-
     return encoder_v80(pc, i, di);
 }

@@ -148,7 +148,7 @@ main(int argc, const char *argv[])
 #endif
 
 #ifdef AARCH64
-    dr_set_sve_vl(op_sve_vl.get_value());
+    dr_set_sve_vector_length(op_sve_vl.get_value());
 #endif
 
     // XXX i#4021: arm not yet supported.

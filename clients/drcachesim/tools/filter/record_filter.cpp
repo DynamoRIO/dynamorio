@@ -30,15 +30,26 @@
  * DAMAGE.
  */
 
-#include <iostream>
+#include "record_filter.h"
+
+#include <stdint.h>
+
 #include <fstream>
+#include <iostream>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #ifdef HAS_ZLIB
 #    include "common/gzip_ostream.h"
 #endif
-#include "record_filter.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 #ifdef DEBUG
 #    define VPRINT(reader, level, ...)                            \

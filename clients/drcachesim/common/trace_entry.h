@@ -43,7 +43,9 @@
 #ifndef _TRACE_ENTRY_H_
 #define _TRACE_ENTRY_H_ 1
 
+#include <stddef.h>
 #include <stdint.h>
+
 #include "utils.h"
 
 /**

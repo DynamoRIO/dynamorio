@@ -39,12 +39,13 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
 #include "memref.h"
-#include "prefetcher.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -58,6 +59,7 @@ namespace drmemtrace {
 // not need to synchronize data access.
 
 class snoop_filter_t;
+class prefetcher_t;
 
 class caching_device_t {
 public:

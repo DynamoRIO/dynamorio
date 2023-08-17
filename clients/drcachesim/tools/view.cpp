@@ -36,12 +36,26 @@
  * It does not support online use, only offline.
  */
 
-#include "dr_api.h"
 #include "view.h"
-#include <algorithm>
+
+#include <stdint.h>
+
 #include <iomanip>
 #include <iostream>
-#include <vector>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+
+#include "analysis_tool.h"
+#include "dr_api.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "raw2trace.h"
+#include "raw2trace_directory.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {

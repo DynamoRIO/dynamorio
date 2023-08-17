@@ -39,11 +39,11 @@
 #include <cstddef>
 #include <string>
 
-#include "../common/utils.h"
-#include "../common/trace_entry.h"
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "drpttracer.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
