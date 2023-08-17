@@ -39,7 +39,9 @@ Total counts:
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
-          23 total other markers
+           6 total system call number markers
+           5 total blocking system call markers
+          12 total other markers
           21 total encodings
 Total windows: 7
 Window #0:
@@ -59,7 +61,9 @@ Window #0:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           8 window other markers
+           1 window system call number markers
+           1 window blocking system call markers
+           6 window other markers
           15 window encodings
 Window #1:
            8 window \(fetched\) instructions
@@ -78,7 +82,9 @@ Window #1:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           3 window other markers
+           1 window system call number markers
+           1 window blocking system call markers
+           1 window other markers
            3 window encodings
 Window #2:
            8 window \(fetched\) instructions
@@ -97,7 +103,9 @@ Window #2:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           3 window other markers
+           1 window system call number markers
+           1 window blocking system call markers
+           1 window other markers
            0 window encodings
 Window #3:
            8 window \(fetched\) instructions
@@ -116,7 +124,9 @@ Window #3:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           3 window other markers
+           1 window system call number markers
+           1 window blocking system call markers
+           1 window other markers
            0 window encodings
 Window #4:
            8 window \(fetched\) instructions
@@ -135,7 +145,9 @@ Window #4:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           3 window other markers
+           1 window system call number markers
+           1 window blocking system call markers
+           1 window other markers
            0 window encodings
 Window #5:
            6 window \(fetched\) instructions
@@ -154,7 +166,9 @@ Window #5:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           2 window other markers
+           1 window system call number markers
+           0 window blocking system call markers
+           1 window other markers
            3 window encodings
 Window #6:
            0 window \(fetched\) instructions
@@ -173,6 +187,8 @@ Window #6:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
+           0 window system call number markers
+           0 window blocking system call markers
            1 window other markers
            0 window encodings
 Thread [0-9]* counts:
@@ -192,5 +208,7 @@ Thread [0-9]* counts:
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
-           8 other markers
+           1 system call number markers
+           1 blocking system call markers
+           6 other markers
           15 encodings
