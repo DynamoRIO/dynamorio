@@ -587,8 +587,6 @@ check_function_markers()
     constexpr memref_tid_t TID = 1;
     constexpr addr_t CALL_PC = 2;
     constexpr size_t CALL_SZ = 2;
-    constexpr addr_t CALL_PC_2 = 10;
-    constexpr size_t RETURN_SZ = 3;
     // Incorrectly between instr and memref.
     {
         std::vector<memref_t> memrefs = {
@@ -688,74 +686,73 @@ check_function_markers()
     }
     // Correctly handle nested function calls including tailcalls.
     {
+        constexpr addr_t BASE = 100;
+        constexpr addr_t FUNC1_BASE = 200;
+        constexpr addr_t FUNC2_BASE = 300;
+        constexpr size_t RETURN_SZ = 3;
+
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
+            // Call function 1.
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, BASE, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE + CALL_SZ),
+            // Call function 2.
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, FUNC1_BASE, CALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
-
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC_2, CALL_SZ),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC_2 + CALL_SZ),
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC_2 + CALL_SZ, RETURN_SZ),
-
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID,
-                           CALL_PC_2 + CALL_SZ + RETURN_SZ, 5),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, FUNC1_BASE + CALL_SZ),
+            // Return from function 2.
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, FUNC2_BASE, RETURN_SZ),
+            // Return from function 1.
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, FUNC1_BASE + CALL_SZ, RETURN_SZ),
         };
         if (!run_checker(memrefs, false))
             return false;
     }
     // Correctly handle kernel transfer, sigreturn, nested function calls
     // including tailcalls.
-#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     {
-        std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+        constexpr addr_t BASE = 100;
+        constexpr addr_t FUNC1_BASE = 200;
+        constexpr addr_t FUNC2_BASE = 300;
+        constexpr addr_t SIG_HANDLER_BASE = 400;
+        constexpr addr_t SYSCALL_BASE = 500;
+        constexpr size_t RETURN_SZ = 3;
+        constexpr size_t SYSCALL_SZ = 2;
 
-            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, CALL_PC + CALL_SZ),
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1, BASE),
+            // kernel xfer.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, BASE + 1),
             gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 6),
             gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
-
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC_2, CALL_SZ),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC_2 + CALL_SZ),
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC_2 + CALL_SZ, RETURN_SZ),
-
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC + CALL_SZ, RETURN_SZ),
-
-#    if defined(X86_64)
-            gen_instr_encoded(CALL_PC + CALL_SZ,
-                              { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
+            // Call function 1.
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, SIG_HANDLER_BASE, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, SIG_HANDLER_BASE + CALL_SZ),
+            // Call function 2.
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, FUNC1_BASE, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, FUNC1_BASE + CALL_SZ),
+            // Return from function 2.
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, FUNC2_BASE, RETURN_SZ),
+            // Return from function 1.
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, FUNC1_BASE + CALL_SZ, RETURN_SZ),
+            // Return from the signal handler.
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG_HANDLER_BASE + CALL_SZ,
+                           RETURN_SZ),
+            // sigreturn.
+            gen_instr(TID, SYSCALL_SZ, SYSCALL_BASE),
             gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
-#    elif defined(X86_32)
-            gen_instr_encoded(CALL_PC + CALL_SZ,
-                              { 0x0f, 0x05 }), // 0x7fcf3b9d: 0f 05 syscall
-            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 173),
-#    elif defined(ARM_64)
-            gen_instr_encoded(CALL_PC + CALL_SZ,
-                              0xd4000001), // 0x7fcf3b9d: 0xd4000001 svc #0x0
-            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 139),
-#    endif
             gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 16),
             gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
-
-            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, CALL_PC + CALL_SZ),
+            // syscall xfer.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, SYSCALL_BASE + SYSCALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 17),
             gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
-
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC + CALL_SZ),
         };
         if (!run_checker(memrefs, false))
             return false;
     }
-#else
-    // TODO i#5871: Add AArch32 (and RISC-V) encodings.
-#endif
     return true;
 }
 
