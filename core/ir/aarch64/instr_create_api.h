@@ -7189,6 +7189,22 @@
     instr_create_1dst_3src(dc, OP_eor, Pd, Pg, Pn, Pm)
 
 /**
+ * Creates an NOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    NOT     <Pd>.B, <Pg>/Z, <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_not_sve_pred_b(dc, Pd, Pg, Pn) \
+    INSTR_CREATE_eor_sve_pred_b(                    \
+        dc, Pd, Pg, Pn, opnd_create_reg_element_vector(opnd_get_reg(Pg), OPSZ_1))
+
+/**
  * Creates an EOR instruction.
  *
  * This macro is used to encode the forms:

@@ -343,10 +343,9 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                  opnd_create_immed_pred_constr(DR_PRED_CONSTR_ALL));
 
             /* not      scratch_pred.b, scratch_pred/z, mask_reg.b */
-            EMIT(eor_sve_pred_b, opnd_create_reg_element_vector(scratch_pred, OPSZ_1),
+            EMIT(not_sve_pred_b, opnd_create_reg_element_vector(scratch_pred, OPSZ_1),
                  opnd_create_predicate_reg(scratch_pred, false),
-                 opnd_create_reg_element_vector(sg_info->mask_reg, OPSZ_1),
-                 opnd_create_reg_element_vector(scratch_pred, OPSZ_1));
+                 opnd_create_reg_element_vector(sg_info->mask_reg, OPSZ_1));
 
             /* cpy      gather_dst_reg.elsz, scratch_pred/m, #0, lsl #0 */
             EMIT(cpy_sve_shift_pred,
