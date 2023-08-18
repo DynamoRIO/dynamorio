@@ -117,13 +117,16 @@ apply_predicate_mask(vector_reg_value128_t data, predicate_reg_value128_t mask,
 size_t
 get_vl_bytes()
 {
-    const int returned_value = prctl(PR_SVE_GET_VL);
-    if (returned_value < 0) {
-        perror("prctl(PR_SVE_GET_VL) failed");
-        exit(1);
-    }
+    static const auto vl_bytes = []() {
+        const int returned_value = prctl(PR_SVE_GET_VL);
+        if (returned_value < 0) {
+            perror("prctl(PR_SVE_GET_VL) failed");
+            exit(1);
+        }
 
-    return static_cast<size_t>(returned_value & PR_SVE_VL_LEN_MASK);
+        return static_cast<size_t>(returned_value & PR_SVE_VL_LEN_MASK);
+    }();
+    return vl_bytes;
 }
 
 struct scalable_reg_value_t {
