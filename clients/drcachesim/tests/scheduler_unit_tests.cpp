@@ -947,12 +947,19 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
                 eof[i] = true;
                 continue;
             }
-            if (status == scheduler_t::STATUS_WAIT)
+            if (status == scheduler_t::STATUS_WAIT) {
+                sched_as_string[i] += '-';
                 continue;
+            }
             assert(status == scheduler_t::STATUS_OK);
             if (type_is_instr(memref.instr.type)) {
                 sched_as_string[i] +=
                     'A' + static_cast<char>(memref.instr.tid - tid_base);
+            } else {
+                // While this makes the string longer, it is just too confusing
+                // with the same letter seemingly on 2 cores at once without these
+                // fillers to line everything up in time.
+                sched_as_string[i] += '.';
             }
         }
     }
@@ -980,8 +987,9 @@ test_synthetic()
     // Hardcoding here for the 2 outputs and 7 inputs.
     // We expect 3 letter sequences (our quantum) alternating every-other as each
     // core alternates; with an odd number the 2nd core finishes early.
-    static const char *const CORE0_SCHED_STRING = "AAACCCEEEGGGBBBDDDFFFAAACCCEEEGGG";
-    static const char *const CORE1_SCHED_STRING = "BBBDDDFFFAAACCCEEEGGGBBBDDDFFF";
+    // The dots are thread exits.
+    static const char *const CORE0_SCHED_STRING = "AAACCCEEEGGGBBBDDDFFFAAA.CCC.EEE.GGG.";
+    static const char *const CORE1_SCHED_STRING = "BBBDDDFFFAAACCCEEEGGGBBB.DDD.FFF.";
     {
         // Test instruction quanta.
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -1090,7 +1098,11 @@ test_synthetic_time_quanta()
                              trace_type_t expect_type = TRACE_TYPE_READ) {
             memref_t memref;
             scheduler_t::stream_status_t status = stream->next_record(memref, time);
-            assert(status == expect_status);
+            if (status != expect_status) {
+                std::cerr << "Expected status " << expect_status << " != " << status
+                          << "\n";
+                assert(false);
+            }
             if (status == scheduler_t::STATUS_OK) {
                 if (memref.marker.tid != expect_tid) {
                     std::cerr << "Expected tid " << expect_tid
@@ -1161,8 +1173,8 @@ test_synthetic_time_quanta()
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
-        assert(sched_as_string[0] == "ACCC");
-        assert(sched_as_string[1] == "BAABB");
+        assert(sched_as_string[0] == "..A..CCC.");
+        assert(sched_as_string[1] == "..BAA.BB.");
     }
 #endif
 }
@@ -1240,8 +1252,10 @@ test_synthetic_with_timestamps()
     // workloads we should start with {C,F,I,J} and then move on to {B,E,H} and finish
     // with {A,D,G}.  We should interleave within each group -- except once we reach J
     // we should completely finish it.
-    assert(sched_as_string[0] == "CCCIIICCCFFFIIIFFFBBBHHHEEEBBBHHHDDDAAAGGGDDD");
-    assert(sched_as_string[1] == "FFFJJJJJJJJJCCCIIIEEEBBBHHHEEEAAAGGGDDDAAAGGG");
+    assert(sched_as_string[0] ==
+           ".CC.C.II.IC.CC.F.FF.I.II.FF.F..BB.B.HH.HE.EE.BB.B.HH.H..DD.DA.AA.G.GG.DD.D.");
+    assert(sched_as_string[1] ==
+           ".FF.F.JJ.JJ.JJ.JJ.J.CC.C.II.I..EE.EB.BB.H.HH.EE.E..AA.A.GG.GD.DD.AA.A.GG.G.");
 }
 
 static void
@@ -1321,8 +1335,10 @@ test_synthetic_with_priorities()
     // See the test_synthetic_with_timestamps() test which has our base sequence.
     // We've elevated B, E, and H to higher priorities so they go
     // first.  J remains uninterrupted due to lower timestamps.
-    assert(sched_as_string[0] == "BBBHHHEEEBBBHHHFFFJJJJJJJJJCCCIIIDDDAAAGGGDDD");
-    assert(sched_as_string[1] == "EEEBBBHHHEEECCCIIICCCFFFIIIFFFAAAGGGDDDAAAGGG");
+    assert(sched_as_string[0] ==
+           ".BB.B.HH.HE.EE.BB.B.HH.H..FF.F.JJ.JJ.JJ.JJ.J.CC.C.II.I..DD.DA.AA.G.GG.DD.D.");
+    assert(sched_as_string[1] ==
+           ".EE.EB.BB.H.HH.EE.E..CC.C.II.IC.CC.F.FF.I.II.FF.F..AA.A.GG.GD.DD.AA.A.GG.G.");
 }
 
 static void
@@ -1386,11 +1402,11 @@ test_synthetic_with_bindings()
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
     // We have {A,B,C} on {2,4}, {D,E,F} on {0,1}, and {G,H,I} on {1,2,3}:
-    assert(sched_as_string[0] == "DDDFFFDDDFFFDDDFFF");
-    assert(sched_as_string[1] == "EEEHHHEEEIIIEEE");
-    assert(sched_as_string[2] == "AAACCCGGGCCCHHHCCC");
-    assert(sched_as_string[3] == "GGGIIIHHHGGGIII");
-    assert(sched_as_string[4] == "BBBAAABBBAAABBB");
+    assert(sched_as_string[0] == ".DD.D.FF.FD.DD.F.FF.DD.D.FF.F.");
+    assert(sched_as_string[1] == ".EE.E.HH.HE.EE.I.II.EE.E.");
+    assert(sched_as_string[2] == ".AA.A.CC.CG.GG.C.CC.HH.H.CC.C.");
+    assert(sched_as_string[3] == ".GG.G.II.IH.HH.GG.G.II.I.");
+    assert(sched_as_string[4] == ".BB.BA.AA.B.BB.AA.A.BB.B.");
 }
 
 static void
@@ -1457,11 +1473,11 @@ test_synthetic_with_bindings_weighted()
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
     // We have {A,B,C} on {2,4}, {D,E,F} on {0,1}, and {G,H,I} on {1,2,3}:
-    assert(sched_as_string[0] == "FFFFFFFFFEEEEEEEEE");
-    assert(sched_as_string[1] == "IIIIIIIIIDDDDDDDDD");
-    assert(sched_as_string[2] == "CCCCCCCCCAAAAAAAAA");
-    assert(sched_as_string[3] == "HHHHHHHHHGGGGGGGGG");
-    assert(sched_as_string[4] == "BBBBBBBBB");
+    assert(sched_as_string[0] == ".FF.FF.FF.FF.F..EE.EE.EE.EE.E.");
+    assert(sched_as_string[1] == ".II.II.II.II.I..DD.DD.DD.DD.D.");
+    assert(sched_as_string[2] == ".CC.CC.CC.CC.C..AA.AA.AA.AA.A.");
+    assert(sched_as_string[3] == ".HH.HH.HH.HH.H..GG.GG.GG.GG.G.");
+    assert(sched_as_string[4] == ".BB.BB.BB.BB.B.");
 }
 
 static void
@@ -1548,10 +1564,12 @@ test_synthetic_with_syscalls_multiple()
     // quantum.)  Furthermore, B isn't finished by the time E and H are done and we see
     // the lower-priority C and F getting scheduled while B is in a wait state for its
     // blocking syscall.
-    // Note that the 3rd B is not really on the two cores at the same time as there are
-    // markers and other records that cause them to not actually line up.
-    assert(sched_as_string[0] == "BHHHBHHHBHHHBEBIIIJJJJJJJJJCCCIIIDDDAAAGGGDDD");
-    assert(sched_as_string[1] == "EEBEEBEEBEECCCFFFBCCCFFFIIIFFFAAAGGGDDDAAAGGG");
+    assert(sched_as_string[0] ==
+           ".B..HH.H.B.H.HH..B.HH.H..B.E.B...II.I.JJ.JJ.JJ.JJ.J.CC.C.II.I..DD.DA.AA.G.GG."
+           "DD.D.");
+    assert(sched_as_string[1] ==
+           ".EE..B..EE..B..EE..B..EE...CC.C.FF.FB..C.CC.F.FF.I.II.FF.F..AA.A.GG.GD.DD.AA."
+           "A.GG.G.");
 }
 
 static void
@@ -1613,7 +1631,7 @@ test_synthetic_with_syscalls_single()
     for (int i = 0; i < NUM_OUTPUTS; i++) {
         std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
     }
-    assert(sched_as_string[0] == "AAAAAAAAA");
+    assert(sched_as_string[0] == ".AA..AA.A.A.AA..A.");
     assert(sched_as_string[1] == "");
 }
 
@@ -1695,6 +1713,8 @@ test_synthetic_with_syscalls_precise()
     std::vector<memref_t> refs;
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        if (status == scheduler_t::STATUS_WAIT)
+            continue;
         assert(status == scheduler_t::STATUS_OK);
         refs.push_back(memref);
     }
@@ -1955,8 +1975,8 @@ test_replay()
     // For our 2 outputs and 7 inputs:
     // We expect 3 letter sequences (our quantum) alternating every-other as each
     // core alternates; with an odd number the 2nd core finishes early.
-    static const char *const CORE0_SCHED_STRING = "AAACCCEEEGGGBBBDDDFFFAAACCCEEEGGG";
-    static const char *const CORE1_SCHED_STRING = "BBBDDDFFFAAACCCEEEGGGBBBDDDFFF";
+    static const char *const CORE0_SCHED_STRING = "AAACCCEEEGGGBBBDDDFFFAAA.CCC.EEE.GGG.";
+    static const char *const CORE1_SCHED_STRING = "BBBDDDFFFAAACCCEEEGGGBBB.DDD.FFF.";
 
     static constexpr memref_tid_t TID_BASE = 100;
     std::vector<trace_entry_t> inputs[NUM_INPUTS];
@@ -2245,8 +2265,8 @@ test_replay_timestamps()
 
     // Create a record file with timestamps requiring waiting.
     // We cooperate with the test_scheduler_t class which constructs this schedule:
-    static const char *const CORE0_SCHED_STRING = "AAACCC";
-    static const char *const CORE1_SCHED_STRING = "BBBCCCCCCDDDAAABBBDDDAAABBBDDD";
+    static const char *const CORE0_SCHED_STRING = ".AAA-------------------------CCC.";
+    static const char *const CORE1_SCHED_STRING = ".BBB.CCCCCC.DDDAAABBBDDDAAA.BBB.DDD.";
     std::string record_fname = "tmp_test_replay_timestamp.zip";
     test_scheduler_t test_scheduler;
     test_scheduler.write_test_schedule(record_fname);
@@ -2456,8 +2476,8 @@ test_replay_as_traced()
 
     // Synthesize a cpu-schedule file.
     std::string cpu_fname = "tmp_test_cpu_as_traced.zip";
-    static const char *const CORE0_SCHED_STRING = "EEEAAACCCAAACCCBBBDDD";
-    static const char *const CORE1_SCHED_STRING = "EEEBBBDDDBBBDDDAAACCC";
+    static const char *const CORE0_SCHED_STRING = "EEE-AAA-CCCAAACCCBBB.DDD.";
+    static const char *const CORE1_SCHED_STRING = "---EEE.BBBDDDBBBDDDAAA.CCC.";
     {
         std::vector<schedule_entry_t> sched0;
         sched0.emplace_back(TID_BASE + 4, 10, CPU0, 0);
@@ -2797,8 +2817,8 @@ test_inactive()
         for (int i = 0; i < NUM_OUTPUTS; i++) {
             std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
         }
-        assert(sched_as_string[0] == "AABBA");
-        assert(sched_as_string[1] == "BB");
+        assert(sched_as_string[0] == "..AABBA.");
+        assert(sched_as_string[1] == "..B---B.");
     }
 #endif // HAS_ZIP
 }
