@@ -686,24 +686,24 @@ check_function_markers()
     }
     // Correctly handle nested function calls including tailcalls.
     {
-        constexpr addr_t BASE = 100;
-        constexpr addr_t FUNC1_BASE = 200;
-        constexpr addr_t FUNC2_BASE = 300;
+        constexpr addr_t CALL_PC_2 = 10;
         constexpr size_t RETURN_SZ = 3;
 
         std::vector<memref_t> memrefs = {
-            // Call function 1.
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, BASE, CALL_SZ),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE + CALL_SZ),
-            // Call function 2.
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, FUNC1_BASE, CALL_SZ),
+            gen_instr(TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, FUNC1_BASE + CALL_SZ),
-            // Return from function 2.
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, FUNC2_BASE, RETURN_SZ),
-            // Return from function 1.
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, FUNC1_BASE + CALL_SZ, RETURN_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC_2, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC_2 + CALL_SZ),
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC_2 + CALL_SZ, RETURN_SZ),
+            // A tail call.
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID,
+                           CALL_PC_2 + CALL_SZ + RETURN_SZ, 5),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
         };
         if (!run_checker(memrefs, false))
             return false;
