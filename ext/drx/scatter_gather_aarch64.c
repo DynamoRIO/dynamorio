@@ -66,7 +66,7 @@ typedef struct _per_thread_t {
 static int drx_scatter_gather_expanded = 0;
 
 static void
-drx_thread_init(void *drcontext)
+drx_scatter_gather_thread_init(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
 
@@ -87,7 +87,7 @@ drx_thread_init(void *drcontext)
 }
 
 static void
-drx_thread_exit(void *drcontext)
+drx_scatter_gather_thread_exit(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     dr_thread_free(drcontext, pt->scratch_pred_spill_slot, SVE_PREDICATE_SPILL_SLOT_SIZE);
@@ -141,8 +141,8 @@ drx_scatter_gather_init()
     if (tls_idx == -1)
         return false;
 
-    if (!drmgr_register_thread_init_event(drx_thread_init) ||
-        !drmgr_register_thread_exit_event(drx_thread_exit))
+    if (!drmgr_register_thread_init_event(drx_scatter_gather_thread_init) ||
+        !drmgr_register_thread_exit_event(drx_scatter_gather_thread_exit))
         return false;
 
     return true;
