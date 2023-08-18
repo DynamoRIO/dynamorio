@@ -131,7 +131,7 @@ protected:
         addr_t last_retaddr_ = 0;
         uintptr_t trace_version_ = 0;
         struct instr_info_t {
-            memref_t instr;
+            memref_t memref;
             // Decoding related attributes.
             bool has_valid_decoding = false;
             bool is_syscall = false;
