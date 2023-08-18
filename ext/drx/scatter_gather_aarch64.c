@@ -347,7 +347,7 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                  opnd_create_predicate_reg(scratch_pred, false),
                  opnd_create_reg_element_vector(sg_info->mask_reg, OPSZ_1));
 
-            /* cpy      gather_dst_reg.elsz, scratch_pred/m, #0, lsl #0 */
+            /* cpy      gather_dst_reg.element_size, scratch_pred/m, #0, lsl #0 */
             EMIT(cpy_sve_shift_pred,
                  opnd_create_reg_element_vector(sg_info->gather_dst_reg,
                                                 sg_info->element_size),
@@ -357,7 +357,7 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
             /* We don't care about any values in the dst register so zero the whole thing.
              */
 
-            /* dup      gather_dst_reg.elsz, #0, lsl #0 */
+            /* dup      gather_dst_reg.element_size, #0, lsl #0 */
             EMIT(dup_sve_shift,
                  opnd_create_reg_element_vector(sg_info->gather_dst_reg,
                                                 sg_info->element_size),
@@ -373,7 +373,7 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
 
     instrlist_meta_preinsert(bb, sg_instr, loop_label);
 
-    /* pnext scratch_pred.elsz, mask_reg, scratch_pred.elsz */
+    /* pnext scratch_pred.element_size, mask_reg, scratch_pred.element_size */
     EMIT(pnext_sve, opnd_create_reg_element_vector(scratch_pred, sg_info->element_size),
          opnd_create_reg(sg_info->mask_reg));
 
@@ -384,7 +384,7 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                              DR_PRED_SVE_NONE),
                   orig_app_pc));
 
-    /* lastb    scratch_gpr, scratch_pred, index_reg.elsz */
+    /* lastb    scratch_gpr, scratch_pred, index_reg.element_size */
     EMIT(lastb_sve_scalar, opnd_create_reg(scratch_gpr), opnd_create_reg(scratch_pred),
          opnd_create_reg_element_vector(sg_info->index_reg, sg_info->element_size));
 
@@ -414,7 +414,7 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
             }
         }
 
-        /* cpy      gather_dst_reg.elsz, scratch_pred/m, scratch_gpr */
+        /* cpy      gather_dst_reg.element_size, scratch_pred/m, scratch_gpr */
         EMIT(cpy_sve_pred,
              opnd_create_reg_element_vector(sg_info->gather_dst_reg,
                                             sg_info->element_size),
