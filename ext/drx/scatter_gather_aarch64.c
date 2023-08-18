@@ -435,7 +435,7 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
 /* Spill a scratch predicate or vector register.
  * TODO i#3844: drreg does not support spilling predicate regs yet, so we do it
  * ourselves.
- * When that support is available, this funcion can be replaced with a drreg API call.
+ * When that support is available, this function can be replaced with a drreg API call.
  */
 reg_id_t
 reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
