@@ -304,7 +304,8 @@ get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
  *       dup    $0x00 lsl $0x00 -> %z27.d       ; Clear dst register
  *       pfalse  -> %p0.b
  *   loop:
- *       pnext  %p1 %p0.d -> %p0.d              ; p1 = next active element of p0
+ *       pnext  %p1 %p0.d -> %p0.d              ; p0 = mask indicating next active
+ *                                              ;      element of p1
  *       b.none end                             ; if (no more active elements) goto end
  *       lastb  %p0 %z26.d -> %x1               ; extract offset for the current element
  *       ldr    (%x0,%x1,lsl #3)[8byte] -> %x1  ; perform the scalar load
