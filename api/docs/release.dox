@@ -183,6 +183,14 @@ changes:
    their precise counterparts int64_t and uint64_t.
  - The #dynamorio::drmemtrace::memref_t structure has a new field appended for
    holding the actual target of each indirect branch.
+ - Increased the size of dr_simd_t to accommodate AArch64's Scalable Vector
+   Extension (SVE) as well as adding two new dr_simd_t instances to
+   #dr_mcontext_t: SVE predicate registers svep[] and the SVE first-fault
+   register, ffr. This is a significant binary compatibility change and will
+   require re-building clients built before SVE was added.
+ - The #instr_t structure has a new field inserted for holding the category type
+   #dr_instr_category_t which changes the size and the offsets of most fields
+   in 32-bit.  64-bit compatibility is not affected.
  - The routine instr_encode_to_copy() now does not assert reachability in debug builds.
 
 Further non-compatibility-affecting changes include:
@@ -280,6 +288,9 @@ Further non-compatibility-affecting changes include:
  - Added a new drmemtrace analysis tool: syscall_mix, to count frequency of system
    calls in a trace. This tool works in both the online and offline modes of
    drmemtrace.
+ - Added proc_get_vector_length_bytes() for AArch64. This returns the current
+   vector length on all ARMv8 hardware including hardware which supports the
+   Scalable Vector Extension (SVE).
 
 **************************************************
 <hr>
