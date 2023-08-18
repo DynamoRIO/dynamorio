@@ -183,6 +183,7 @@ changes:
    their precise counterparts int64_t and uint64_t.
  - The #dynamorio::drmemtrace::memref_t structure has a new field appended for
    holding the actual target of each indirect branch.
+ - The routine instr_encode_to_copy() now does not assert reachability in debug builds.
 
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
