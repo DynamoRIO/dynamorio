@@ -133,7 +133,7 @@ protected:
         struct instr_info_t {
             memref_t instr;
             // Decoding related attributes.
-            bool has_decoded = false;
+            bool has_valid_decoding = false;
             bool is_syscall = false;
             bool writes_memory = false;
             opnd_t branch_target;
