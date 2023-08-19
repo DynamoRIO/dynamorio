@@ -577,7 +577,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // TODO i#5912: since we have the branch decoding now, we can handle
                 // this case.
                 type_is_instr_branch(
-                    shard->last_signal_context_.pre_signal_instr.instr.type);
+                    shard->last_signal_context_.pre_signal_instr.instr.type) ||
+                shard->last_signal_context_.pre_signal_instr.instr.type ==
+                    TRACE_TYPE_INSTR_SYSENTER;
             report_if_false(
                 shard,
                 (kernel_event_marker_equality && pre_signal_flow_continuity) ||
