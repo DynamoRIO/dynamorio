@@ -686,24 +686,33 @@ check_function_markers()
     }
     // Correctly handle nested function calls including tailcalls.
     {
-        constexpr addr_t CALL_PC_2 = 10;
+        constexpr addr_t BASE_ADDR = 100;
+        constexpr addr_t FUNC1_BASE = 200;
+        constexpr addr_t FUNC2_BASE = 300;
         constexpr size_t RETURN_SZ = 3;
 
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+            // Call function 1.
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, BASE_ADDR, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE_ADDR + CALL_SZ),
 
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC_2, CALL_SZ),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 3),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC_2 + CALL_SZ),
-            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, CALL_PC_2 + CALL_SZ, RETURN_SZ),
-            // A tail call.
-            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_JUMP, TID,
-                           CALL_PC_2 + CALL_SZ + RETURN_SZ, 5),
+            // Call function 2.
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, FUNC1_BASE, CALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
-            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, FUNC1_BASE + CALL_SZ),
+
+            gen_instr(TID, FUNC2_BASE, 8),
+            // Return from function 2.
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, FUNC2_BASE + 8, RETURN_SZ),
+
+            gen_instr(TID, FUNC1_BASE + CALL_SZ, 8),
+            // Jump back to the beginning of function 1.
+            gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, TID, FUNC1_BASE + CALL_SZ + 8),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1),
+            // The return address should be the same as the return address of
+            // the original call to function 1.
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE_ADDR + CALL_SZ),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -711,7 +720,7 @@ check_function_markers()
     // Correctly handle kernel transfer, sigreturn, nested function calls
     // including tailcalls.
     {
-        constexpr addr_t BASE = 100;
+        constexpr addr_t BASE_ADDR = 100;
         constexpr addr_t FUNC1_BASE = 200;
         constexpr addr_t FUNC2_BASE = 300;
         constexpr addr_t SIG_HANDLER_BASE = 400;
@@ -720,9 +729,9 @@ check_function_markers()
         constexpr size_t SYSCALL_SZ = 2;
 
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1, BASE),
+            gen_instr(TID, 1, BASE_ADDR),
             // kernel xfer.
-            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, BASE + 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, BASE_ADDR + 1),
             gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 6),
             gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
             // Call function 1.
