@@ -225,6 +225,7 @@ protected:
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
 
+    std::unordered_map<app_pc, per_shard_t::instr_info_t> decode_cache_;
     bool knob_offline_;
     unsigned int knob_verbose_;
     std::string knob_test_name_;

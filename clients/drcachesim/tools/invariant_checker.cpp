@@ -476,29 +476,35 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
-        const bool expect_encoding =
-            TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
-        std::unique_ptr<instr_autoclean_t> cur_instr_decoded = nullptr;
-        if (expect_encoding) {
-            cur_instr_decoded.reset(new instr_autoclean_t(GLOBAL_DCONTEXT));
-            // TODO i#6006: cache the decoding results, and avoid heap with
-            // instr_noalloc_t instead of instr_autoclean_t.
-            app_pc next_pc = decode_from_copy(
-                GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
-                reinterpret_cast<app_pc>(memref.instr.addr), cur_instr_decoded->data);
-            if (next_pc == nullptr) {
-                cur_instr_decoded.reset(nullptr);
-            }
-        }
-        // Populate cur_instr_info with all the decoding attributes.
         per_shard_t::instr_info_t cur_instr_info = {};
         cur_instr_info.memref = memref;
-        if (cur_instr_decoded != nullptr) {
-            cur_instr_info.has_valid_decoding = true;
-            cur_instr_info.is_syscall = instr_is_syscall(cur_instr_decoded->data);
-            cur_instr_info.writes_memory = instr_writes_memory(cur_instr_decoded->data);
-            if (type_is_instr_branch(memref.instr.type)) {
-                cur_instr_info.branch_target = instr_get_target(cur_instr_decoded->data);
+        const bool expect_encoding =
+            TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
+
+        if (expect_encoding) {
+            auto cached = decode_cache_.find(const_cast<app_pc>(memref.instr.encoding));
+            if (cached != decode_cache_.end()) {
+                cur_instr_info = cached->second;
+            } else {
+                instr_noalloc_t noalloc;
+                instr_noalloc_init(GLOBAL_DCONTEXT, &noalloc);
+                instr_t *noalloc_instr = instr_from_noalloc(&noalloc);
+                app_pc next_pc = decode_from_copy(
+                    GLOBAL_DCONTEXT, const_cast<app_pc>(memref.instr.encoding),
+                    reinterpret_cast<app_pc>(memref.instr.addr), noalloc_instr);
+                if (next_pc == nullptr) {
+                    noalloc_instr = nullptr;
+                }
+                // Add decoding attributes to cur_instr_info.
+                if (noalloc_instr != nullptr) {
+                    cur_instr_info.has_valid_decoding = true;
+                    cur_instr_info.is_syscall = instr_is_syscall(noalloc_instr);
+                    cur_instr_info.writes_memory = instr_writes_memory(noalloc_instr);
+                    if (type_is_instr_branch(memref.instr.type)) {
+                        cur_instr_info.branch_target = instr_get_target(noalloc_instr);
+                    }
+                }
+                decode_cache_[const_cast<app_pc>(memref.instr.encoding)] = cur_instr_info;
             }
         }
         if (knob_verbose_ >= 3) {
