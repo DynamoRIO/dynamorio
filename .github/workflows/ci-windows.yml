@@ -134,6 +134,9 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
       if: ${{ github.event_name == 'pull_request' }}
 
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
     - name: Fetch Sources
       run: git fetch --no-tags --depth=1 origin master
 
@@ -160,9 +163,6 @@ jobs:
       env:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
