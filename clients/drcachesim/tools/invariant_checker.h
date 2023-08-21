@@ -214,11 +214,10 @@ protected:
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
     std::string
-    check_for_pc_discontinuity(
-        per_shard_t *shard, const memref_t &memref,
-        const per_shard_t::instr_info_t &prev_instr_info, addr_t cur_pc,
-        const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded, bool expect_encoding,
-        bool at_kernel_event);
+    check_for_pc_discontinuity(per_shard_t *shard,
+                               const per_shard_t::instr_info_t &prev_instr_info,
+                               const per_shard_t::instr_info_t &cur_instr_info,
+                               bool expect_encoding, bool at_kernel_event);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;

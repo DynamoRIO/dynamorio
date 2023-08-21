@@ -490,6 +490,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 cur_instr_decoded.reset(nullptr);
             }
         }
+        // Populate cur_instr_info with all the decoding attributes.
+        per_shard_t::instr_info_t cur_instr_info = {};
+        cur_instr_info.memref = memref;
+        if (cur_instr_decoded != nullptr) {
+            cur_instr_info.has_valid_decoding = true;
+            cur_instr_info.is_syscall = instr_is_syscall(cur_instr_decoded->data);
+            cur_instr_info.writes_memory = instr_writes_memory(cur_instr_decoded->data);
+            if (type_is_instr_branch(memref.instr.type)) {
+                cur_instr_info.branch_target = instr_get_target(cur_instr_decoded->data);
+            }
+        }
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                       << " @" << (void *)memref.instr.addr
@@ -532,8 +543,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // by markers.  Checks are relaxed if a kernel event occurred so prev_instr_
         // is sufficient for now.
         const std::string non_explicit_flow_violation_msg = check_for_pc_discontinuity(
-            shard, memref, shard->prev_instr_, memref.instr.addr, cur_instr_decoded,
-            expect_encoding,
+            shard, shard->prev_instr_, cur_instr_info, expect_encoding,
             /*at_kernel_event=*/false);
         report_if_false(shard, non_explicit_flow_violation_msg.empty(),
                         non_explicit_flow_violation_msg);
@@ -599,30 +609,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // book-keeping using prev_instr_ on the TRACE_MARKER_TYPE_KERNEL_EVENT marker.
         // E.g. if there was no instr between two nested signals, we do not want to
         // record any pre-signal instr for the second signal.
-        shard->last_instr_in_cur_context_.memref = memref;
-        if (cur_instr_decoded != nullptr) {
-            shard->last_instr_in_cur_context_.has_valid_decoding = true;
-            shard->last_instr_in_cur_context_.is_syscall =
-                instr_is_syscall(cur_instr_decoded->data);
-            shard->last_instr_in_cur_context_.writes_memory =
-                instr_writes_memory(cur_instr_decoded->data);
-            if (type_is_instr_branch(memref.instr.type)) {
-                shard->last_instr_in_cur_context_.branch_target =
-                    instr_get_target(cur_instr_decoded->data);
-            }
-        }
+        shard->last_instr_in_cur_context_ = cur_instr_info;
 #endif
-        shard->prev_instr_.memref = memref;
-        if (cur_instr_decoded != nullptr) {
-            shard->prev_instr_.has_valid_decoding = true;
-            shard->prev_instr_.is_syscall = instr_is_syscall(cur_instr_decoded->data);
-            shard->prev_instr_.writes_memory =
-                instr_writes_memory(cur_instr_decoded->data);
-            if (type_is_instr_branch(memref.instr.type)) {
-                shard->prev_instr_.branch_target =
-                    instr_get_target(cur_instr_decoded->data);
-            }
-        }
+        shard->prev_instr_ = cur_instr_info;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
         // prior (i#3937).
@@ -727,11 +716,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     // XXX i#3937: Online traces do not place signal markers properly,
                     // so we can't precisely check for continuity there.
                     knob_offline_) {
+                    per_shard_t::instr_info_t instr_info {};
+                    instr_info.memref = memref;
                     // Ensure no discontinuity between a prior instr and the interrupted
                     // PC, for non-rseq signals where we have the interrupted PC.
                     const std::string discontinuity = check_for_pc_discontinuity(
-                        shard, memref, shard->last_instr_in_cur_context_,
-                        memref.marker.marker_value, nullptr,
+                        shard, shard->last_instr_in_cur_context_, instr_info,
                         TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_),
                         /*at_kernel_event=*/true);
                     const std::string error_msg_suffix = " @ kernel_event marker";
@@ -952,9 +942,8 @@ invariant_checker_t::print_results()
 
 std::string
 invariant_checker_t::check_for_pc_discontinuity(
-    per_shard_t *shard, const memref_t &memref,
-    const per_shard_t::instr_info_t &prev_instr_info, addr_t cur_pc,
-    const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded, bool expect_encoding,
+    per_shard_t *shard, const per_shard_t::instr_info_t &prev_instr_info,
+    const per_shard_t::instr_info_t &cur_instr_info, bool expect_encoding,
     bool at_kernel_event)
 {
     const memref_t prev_instr = prev_instr_info.memref;
@@ -962,6 +951,8 @@ invariant_checker_t::check_for_pc_discontinuity(
     bool have_branch_target = false;
     addr_t branch_target = 0;
     addr_t prev_instr_trace_pc = prev_instr.instr.addr;
+    const addr_t cur_pc = at_kernel_event ? cur_instr_info.memref.marker.marker_value
+                                          : cur_instr_info.memref.instr.addr;
 
     if (prev_instr_trace_pc == 0 /*first*/) {
         return "";
@@ -994,7 +985,7 @@ invariant_checker_t::check_for_pc_discontinuity(
         (fall_through_allowed && prev_instr_trace_pc + prev_instr.instr.size == cur_pc) ||
         // String loop.
         (prev_instr_trace_pc == cur_pc &&
-         (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
+         (cur_instr_info.memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
           // Online incorrectly marks the 1st string instr across a thread
           // switch as fetched.
           // TODO i#4915, #4948: Eliminate non-fetched and remove the
@@ -1028,8 +1019,8 @@ invariant_checker_t::check_for_pc_discontinuity(
             }
             if (have_branch_target && branch_target != cur_pc)
                 error_msg = "Branch does not go to the correct target";
-        } else if (cur_instr_decoded != nullptr && prev_instr_info.has_valid_decoding &&
-                   instr_is_syscall(cur_instr_decoded->data) &&
+        } else if (cur_instr_info.has_valid_decoding &&
+                   prev_instr_info.has_valid_decoding && cur_instr_info.is_syscall &&
                    cur_pc == prev_instr_trace_pc && prev_instr_info.is_syscall) {
             error_msg = "Duplicate syscall instrs with the same PC";
         } else if (prev_instr_info.has_valid_decoding && prev_instr_info.writes_memory &&
