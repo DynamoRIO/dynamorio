@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -307,6 +307,28 @@ bool
 instr_is_rep_string_op(instr_t *instr)
 {
     return false;
+}
+
+bool
+instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
+{
+    /* For now there is only support of FP arithmetic category type (DR_FP_MATH). */
+    /* TODO i#6238: Add support for all FP types.
+     */
+    uint cat = instr_get_category(instr);
+    if (TEST(DR_INSTR_CATEGORY_FP_MATH, cat)) {
+        if (type != NULL)
+            *type = DR_FP_MATH;
+        return true;
+    }
+
+    return false;
+}
+
+bool
+instr_is_floating(instr_t *instr)
+{
+    return instr_is_floating_ex(instr, NULL);
 }
 
 bool
