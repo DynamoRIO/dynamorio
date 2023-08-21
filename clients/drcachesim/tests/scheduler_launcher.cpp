@@ -138,6 +138,16 @@ get_current_microseconds()
 #endif
 }
 
+// Processes the stream of records scheduled on the "ordinal"-th virtual core with
+// output stream "steram" and scheduler "scheduler".
+// Returns in "thread_sequence" a representation of which inputs ran and for
+// how long on the core:
+// - The letter 'A' plus the input ordinal % 26 represents that input.  A letter
+//   is printed on each context switch and additionally after each -print_every
+//   instructions.
+// - A comma represents a context switch to a new input.
+// - A '-' represents a wait where no input was ready or a scheduler-encorced
+//   dependence is not yet met.
 void
 simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &scheduler,
               std::string &thread_sequence)
@@ -213,14 +223,15 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
                     << " == thread " << record.instr.tid << "\n";
                 std::cerr << line.str();
             }
+            prev_input = input;
         }
-        if (type_is_instr(record.instr.type))
+        if (type_is_instr(record.instr.type)) {
             ++cur_segment_instrs;
-        if (cur_segment_instrs == op_print_every.get_value()) {
-            thread_sequence += 'A' + static_cast<char>(input % 26);
-            cur_segment_instrs = 0;
+            if (cur_segment_instrs == op_print_every.get_value()) {
+                thread_sequence += 'A' + static_cast<char>(input % 26);
+                cur_segment_instrs = 0;
+            }
         }
-        prev_input = input;
     }
 }
 

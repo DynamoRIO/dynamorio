@@ -963,6 +963,21 @@ run_lockstep_simulation(scheduler_t &scheduler, int num_outputs, memref_tid_t ti
             }
         }
     }
+    // Ensure we never see the same output on multiple cores in the same timestep.
+    size_t max_size = 0;
+    for (int i = 0; i < num_outputs; ++i)
+        max_size = std::max(max_size, sched_as_string[i].size());
+    for (int step = 0; step < static_cast<int>(max_size); ++step) {
+        std::set<char> inputs;
+        for (int out = 0; out < num_outputs; ++out) {
+            if (static_cast<int>(sched_as_string[out].size()) <= step)
+                continue;
+            if (sched_as_string[out][step] < 'A' || sched_as_string[out][step] > 'Z')
+                continue;
+            assert(inputs.find(sched_as_string[out][step]) == inputs.end());
+            inputs.insert(sched_as_string[out][step]);
+        }
+    }
     return sched_as_string;
 }
 
