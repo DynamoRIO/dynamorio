@@ -424,11 +424,13 @@ test_regions_bare()
         make_instr(1),
         make_instr(2), // Region 1 is just this instr.
         make_instr(3),
-        make_instr(4),
-        make_instr(5),
-        make_instr(6), // Region 2 starts here.
-        make_instr(7), // Region 2 ends here.
-        make_instr(8),
+        make_instr(4), // Region 2 is just this instr.
+        make_instr(5), // Region 3 is just this instr.
+        make_instr(6),
+        make_instr(7),
+        make_instr(8), // Region 4 starts here.
+        make_instr(9), // Region 4 ends here.
+        make_instr(10),
         make_exit(1),
         /* clang-format on */
     };
@@ -439,7 +441,9 @@ test_regions_bare()
     std::vector<scheduler_t::range_t> regions;
     // Instr counts are 1-based.
     regions.emplace_back(2, 2);
-    regions.emplace_back(6, 7);
+    regions.emplace_back(4, 4);
+    regions.emplace_back(5, 5);
+    regions.emplace_back(8, 9);
 
     scheduler_t scheduler;
     std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -470,17 +474,99 @@ test_regions_bare()
             break;
         case 2:
             assert(type_is_instr(memref.instr.type));
-            assert(memref.instr.addr == 6);
+            assert(memref.instr.addr == 4);
             break;
         case 3:
-            assert(type_is_instr(memref.instr.type));
-            assert(memref.instr.addr == 7);
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID);
+            assert(memref.marker.marker_value == 2);
             break;
-        default: assert(ordinal == 4); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
+        case 4:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 5);
+            break;
+        case 5:
+            assert(memref.marker.type == TRACE_TYPE_MARKER);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID);
+            assert(memref.marker.marker_value == 3);
+            break;
+        case 6:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 8);
+            break;
+        case 7:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 9);
+            break;
+        default: assert(ordinal == 8); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
         }
         ++ordinal;
     }
-    assert(ordinal == 5);
+    assert(ordinal == 9);
+}
+
+// Tests regions without timestamps with an instr at the very front of the trace.
+static void
+test_regions_bare_no_marker()
+{
+    std::cerr << "\n----------------\nTesting bare regions with no marker\n";
+    std::vector<trace_entry_t> memrefs = {
+        /* clang-format off */
+        make_thread(1),
+        make_pid(1),
+        // This would not happen in a real trace, only in tests.  But it does
+        // match a dynamic skip from the middle when an instruction has already
+        // been read but not yet passed to the output stream.
+        make_instr(1),
+        make_instr(2), // The region skips the 1st instr.
+        make_instr(3),
+        make_instr(4),
+        make_exit(1),
+        /* clang-format on */
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(memrefs)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), 1);
+
+    std::vector<scheduler_t::range_t> regions;
+    // Instr counts are 1-based.
+    regions.emplace_back(2, 0);
+
+    scheduler_t scheduler;
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
+    // Without timestmaps we can't use the serial options.
+    if (scheduler.init(sched_inputs, 1,
+                       scheduler_t::scheduler_options_t(
+                           scheduler_t::MAP_TO_ANY_OUTPUT, scheduler_t::DEPENDENCY_IGNORE,
+                           scheduler_t::SCHEDULER_DEFAULTS,
+                           /*verbosity=*/4)) != scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    int ordinal = 0;
+    auto *stream = scheduler.get_stream(0);
+    memref_t memref;
+    for (scheduler_t::stream_status_t status = stream->next_record(memref);
+         status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+        assert(status == scheduler_t::STATUS_OK);
+        switch (ordinal) {
+        case 0:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 2);
+            break;
+        case 1:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 3);
+            break;
+        case 2:
+            assert(type_is_instr(memref.instr.type));
+            assert(memref.instr.addr == 4);
+            break;
+        default: assert(ordinal == 3); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
+        }
+        ++ordinal;
+    }
+    assert(ordinal == 4);
 }
 
 static void
@@ -622,7 +708,7 @@ test_regions_start()
     sched_inputs.emplace_back(std::move(readers));
     sched_inputs[0].thread_modifiers.push_back(scheduler_t::input_thread_info_t(regions));
     if (scheduler.init(sched_inputs, 1,
-                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/4)) !=
+                       scheduler_t::make_scheduler_serial_options(/*verbosity=*/5)) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
     int ordinal = 0;
@@ -631,32 +717,29 @@ test_regions_start()
     for (scheduler_t::stream_status_t status = stream->next_record(memref);
          status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
         assert(status == scheduler_t::STATUS_OK);
+        // Because we skipped, even if not very far, we do not see the page marker.
         switch (ordinal) {
         case 0:
             assert(memref.marker.type == TRACE_TYPE_MARKER);
-            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_PAGE_SIZE);
+            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
             break;
         case 1:
             assert(memref.marker.type == TRACE_TYPE_MARKER);
-            assert(memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP);
-            break;
-        case 2:
-            assert(memref.marker.type == TRACE_TYPE_MARKER);
             assert(memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID);
             break;
-        case 3:
+        case 2:
             assert(type_is_instr(memref.instr.type));
             assert(memref.instr.addr == 1);
             break;
-        case 4:
+        case 3:
             assert(type_is_instr(memref.instr.type));
             assert(memref.instr.addr == 2);
             break;
-        default: assert(ordinal == 5); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
+        default: assert(ordinal == 4); assert(memref.exit.type == TRACE_TYPE_THREAD_EXIT);
         }
         ++ordinal;
     }
-    assert(ordinal == 6);
+    assert(ordinal == 5);
 }
 
 static void
@@ -703,6 +786,7 @@ test_regions()
 {
     test_regions_timestamps();
     test_regions_bare();
+    test_regions_bare_no_marker();
     test_regions_start();
     test_regions_too_far();
 }

@@ -124,7 +124,17 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 9.0.1 include the following compatibility
+The changes between version \DR_VERSION and 10.0.0 include the following compatibility
+changes:
+ - Nothing yet.
+
+Further non-compatibility-affecting changes include:
+ - Nothing yet.
+
+**************************************************
+<hr>
+
+The changes between version 10.0.0 and 9.0.1 include the following compatibility
 changes:
  - Eliminated the -skip_syscall option to drrun and drinject, which is now always
    on by default.
@@ -188,6 +198,9 @@ changes:
    #dr_mcontext_t: SVE predicate registers svep[] and the SVE first-fault
    register, ffr. This is a significant binary compatibility change and will
    require re-building clients built before SVE was added.
+ - The #instr_t structure has a new field inserted for holding the category type
+   #dr_instr_category_t which changes the size and the offsets of most fields
+   in 32-bit.  64-bit compatibility is not affected.
 
 Further non-compatibility-affecting changes include:
  - Added new drmemtrace option -L0_filter_until_instrs which enables filtering
