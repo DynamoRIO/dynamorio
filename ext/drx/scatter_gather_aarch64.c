@@ -386,6 +386,7 @@ reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
         if (!instr_uses_reg(where, reg))
             break;
     }
+    DR_ASSERT(!instr_uses_reg(where, reg));
 
     drmgr_insert_read_tls_field(drcontext, drx_scatter_gather_tls_idx, bb, where,
                                 scratch_gpr);
