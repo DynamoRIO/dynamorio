@@ -942,6 +942,10 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 
     instr_t *sg_instr = NULL;
     if (!scatter_gather_split_bb(drcontext, bb, &sg_instr)) {
+        /* bb did not begin with a scatter/gather instruction. If there were any
+         * scatter/gather instructions that were not at the beginning, they have been
+         * split out of the bb and we will be called again later to handle them.
+         */
         return true;
     }
     DR_ASSERT(sg_instr != NULL);

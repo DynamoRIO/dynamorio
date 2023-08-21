@@ -40,13 +40,26 @@
 
 int drx_scatter_gather_tls_idx;
 
-/* Make each scatter or gather instruction be in their own basic block.
+/*
+ * Split a basic block at the first scatter/gather app instruction found.
+ *
+ * If the first app instruction in bb is a scatter/gather instruction, all following
+ * instructions will be removed so that bb just contains the scatter/gather instruction.
+ *
+ * If the first app instruction in bb is not a scatter/gather instruction, all
+ * instructions up until the first scatter/gather instruction will be left. The
+ * scatter/gather instruction and any following instructions will be removed from bb and
+ * the function will return false.
+ *
+ * If there are no scatter/gather instructions in bb, it will be unchanged and the
+ * function will return false.
  */
 bool
 scatter_gather_split_bb(void *drcontext, instrlist_t *bb, OUT instr_t **sg_instr)
 {
     instr_t *instr, *next_instr, *first_app = NULL;
     bool delete_rest = false;
+    bool first_app_is_scatter_gather = false;
 
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
@@ -58,7 +71,9 @@ scatter_gather_split_bb(void *drcontext, instrlist_t *bb, OUT instr_t **sg_instr
                 first_app = instr;
             if (instr_is_gather(instr) || instr_is_scatter(instr)) {
                 delete_rest = true;
-                if (instr != first_app) {
+                if (instr == first_app) {
+                    first_app_is_scatter_gather = true;
+                } else {
                     instrlist_remove(bb, instr);
                     instr_destroy(drcontext, instr);
                 }
@@ -66,12 +81,11 @@ scatter_gather_split_bb(void *drcontext, instrlist_t *bb, OUT instr_t **sg_instr
         }
     }
 
-    if (sg_instr != NULL) {
+    if (first_app_is_scatter_gather && (sg_instr != NULL)) {
         *sg_instr = first_app;
     }
 
-    return first_app != NULL &&
-        (instr_is_gather(first_app) || instr_is_scatter(first_app));
+    return first_app_is_scatter_gather;
 }
 
 /* These architecture specific functions and defined in scatter_gather_${ARCH_NAME}.c */
