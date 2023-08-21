@@ -336,18 +336,21 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
 
     for (uint i = 0; i < no_of_elements; i++) {
         /* pnext scratch_pred.element_size, mask_reg, scratch_pred.element_size */
-        EMIT(pnext_sve, opnd_create_reg_element_vector(scratch_pred, sg_info->element_size),
+        EMIT(pnext_sve,
+             opnd_create_reg_element_vector(scratch_pred, sg_info->element_size),
              opnd_create_reg(sg_info->mask_reg));
 
         /* b.none   end */
         instrlist_preinsert(
             bb, sg_instr,
-            INSTR_XL8(INSTR_PRED(INSTR_CREATE_bcond(drcontext, opnd_create_instr(end_label)),
-                                 DR_PRED_SVE_NONE),
-                      orig_app_pc));
+            INSTR_XL8(
+                INSTR_PRED(INSTR_CREATE_bcond(drcontext, opnd_create_instr(end_label)),
+                           DR_PRED_SVE_NONE),
+                orig_app_pc));
 
         /* lastb    scratch_gpr, scratch_pred, index_reg.element_size */
-        EMIT(lastb_sve_scalar, opnd_create_reg(scratch_gpr), opnd_create_reg(scratch_pred),
+        EMIT(lastb_sve_scalar, opnd_create_reg(scratch_gpr),
+             opnd_create_reg(scratch_pred),
              opnd_create_reg_element_vector(sg_info->index_reg, sg_info->element_size));
 
         if (sg_info->is_load) {
