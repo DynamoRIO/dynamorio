@@ -58,14 +58,11 @@
 #define SVE_PREDICATE_ALIGNMENT_BYTES 2
 #define SVE_PREDICATE_SPILL_SLOT_SIZE SVE_MAX_PREDICATE_LENGTH_BYTES
 
-static int tls_idx;
 typedef struct _per_thread_t {
     void *scratch_pred_spill_slot; /* Storage for spilled predicate register. */
 } per_thread_t;
 
-static int drx_scatter_gather_expanded = 0;
-
-static void
+void
 drx_scatter_gather_thread_init(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
@@ -83,75 +80,16 @@ drx_scatter_gather_thread_init(void *drcontext)
     DR_ASSERT_MSG(ALIGNED(pt->scratch_pred_spill_slot, SVE_PREDICATE_ALIGNMENT_BYTES),
                   "scratch_pred_spill_slot is misaligned");
 
-    drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
-}
-
-static void
-drx_scatter_gather_thread_exit(void *drcontext)
-{
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    dr_thread_free(drcontext, pt->scratch_pred_spill_slot, SVE_PREDICATE_SPILL_SLOT_SIZE);
-    dr_thread_free(drcontext, pt, sizeof(*pt));
-}
-
-static bool
-drx_event_restore_state(void *drcontext, bool restore_memory,
-                        dr_restore_state_info_t *info)
-{
-    instr_t inst;
-    if (info->fragment_info.cache_start_pc == NULL)
-        return true; /* fault not in cache */
-    if (dr_atomic_load32(&drx_scatter_gather_expanded) == 0) {
-        /* Nothing to do if nobody had never called expand_scatter_gather() before. */
-        return true;
-    }
-    if (!info->fragment_info.app_code_consistent) {
-        /* Can't verify application code.
-         * XXX i#2985: is it better to keep searching?
-         */
-        return true;
-    }
-    instr_init(drcontext, &inst);
-    byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
-    if (pc != NULL) {
-        if (instr_is_gather(&inst) || instr_is_scatter(&inst)) {
-            /* TODO i#5365, i#5036: Restore the scratch predicate register.
-             *                      We need to add support for handling SVE state during
-             *                      signals first.
-             */
-            DR_ASSERT_MSG(false, "NYI i#5365 i#5036");
-        }
-    }
-    instr_free(drcontext, &inst);
-    return true;
-}
-
-bool
-drx_scatter_gather_init()
-{
-    drmgr_priority_t fault_priority = { sizeof(fault_priority),
-                                        DRMGR_PRIORITY_NAME_DRX_FAULT, NULL, NULL,
-                                        DRMGR_PRIORITY_FAULT_DRX };
-
-    if (!drmgr_register_restore_state_ex_event_ex(drx_event_restore_state,
-                                                  &fault_priority))
-        return false;
-
-    tls_idx = drmgr_register_tls_field();
-    if (tls_idx == -1)
-        return false;
-
-    if (!drmgr_register_thread_init_event(drx_scatter_gather_thread_init) ||
-        !drmgr_register_thread_exit_event(drx_scatter_gather_thread_exit))
-        return false;
-
-    return true;
+    drmgr_set_tls_field(drcontext, drx_scatter_gather_tls_idx, (void *)pt);
 }
 
 void
-drx_scatter_gather_exit()
+drx_scatter_gather_thread_exit(void *drcontext)
 {
-    drmgr_unregister_tls_field(tls_idx);
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(drcontext, drx_scatter_gather_tls_idx);
+    dr_thread_free(drcontext, pt->scratch_pred_spill_slot, SVE_PREDICATE_SPILL_SLOT_SIZE);
+    dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 
 static void
@@ -449,7 +387,8 @@ reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
             break;
     }
 
-    drmgr_insert_read_tls_field(drcontext, tls_idx, bb, where, scratch_gpr);
+    drmgr_insert_read_tls_field(drcontext, drx_scatter_gather_tls_idx, bb, where,
+                                scratch_gpr);
 
     /* ldr scratch_gpr, [scratch_gpr, #slot_offset] */
     instrlist_meta_preinsert(
@@ -489,7 +428,8 @@ unreserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
                        reg_id_t scratch_gpr, reg_id_t reg, size_t slot_offset,
                        opnd_size_t reg_size)
 {
-    drmgr_insert_read_tls_field(drcontext, tls_idx, bb, where, scratch_gpr);
+    drmgr_insert_read_tls_field(drcontext, drx_scatter_gather_tls_idx, bb, where,
+                                scratch_gpr);
 
     /* ldr scratch_gpr, [scratch_gpr, #slot_offset] */
     instrlist_meta_preinsert(
@@ -548,7 +488,8 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         drreg_set_bb_properties(drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS);
     DR_ASSERT(res_bb_props == DRREG_SUCCESS);
 
-    dr_atomic_store32(&drx_scatter_gather_expanded, 1);
+    /* Tell drx_event_restore_state() that an expansion has occurred. */
+    drx_mark_scatter_gather_expanded();
 
     reg_id_t scratch_gpr = DR_REG_INVALID;
     drvector_t allowed;
@@ -632,4 +573,17 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 drx_expand_scatter_gather_exit:
     drvector_delete(&allowed);
     return res;
+}
+
+bool
+drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
+                                 instr_t *sg_inst)
+{
+    DR_ASSERT(instr_is_gather(sg_inst) || instr_is_scatter(sg_inst));
+    /* TODO i#5365, i#5036: Restore the scratch predicate register.
+     *                      We need to add support for handling SVE state during
+     *                      signals first.
+     */
+    DR_ASSERT_MSG(false, "NYI i#5365 i#5036");
+    return false;
 }

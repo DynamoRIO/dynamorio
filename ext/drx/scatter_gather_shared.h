@@ -35,10 +35,16 @@
 
 #include "dr_api.h"
 
+extern int drx_scatter_gather_tls_idx;
+
 /* Make each scatter or gather instruction be in their own basic block.
  */
 bool
 scatter_gather_split_bb(void *drcontext, instrlist_t *bb, OUT instr_t **sg_instr);
+
+/* Tell drx_event_restore_state() that an expansion has occurred. */
+void
+drx_mark_scatter_gather_expanded(void);
 
 typedef struct _scatter_gather_info_t {
 #if defined(X86)
@@ -77,3 +83,16 @@ typedef struct _scatter_gather_info_t {
     } faulting_behavior;
 #endif
 } scatter_gather_info_t;
+
+/* These architecture specific functions and defined in scatter_gather_${ARCH_NAME}.c
+ * and used by functions in scatter_gather_shared.c
+ */
+void
+drx_scatter_gather_thread_init(void *drcontext);
+
+void
+drx_scatter_gather_thread_exit(void *drcontext);
+
+bool
+drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
+                                 instr_t *sg_inst);

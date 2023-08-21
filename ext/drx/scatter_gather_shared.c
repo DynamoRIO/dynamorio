@@ -33,7 +33,12 @@
 /* DynamoRio eXtension utilities */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include "drx.h"
+
+#include "scatter_gather_shared.h"
+
+int drx_scatter_gather_tls_idx;
 
 /* Make each scatter or gather instruction be in their own basic block.
  */
@@ -67,4 +72,80 @@ scatter_gather_split_bb(void *drcontext, instrlist_t *bb, OUT instr_t **sg_instr
 
     return first_app != NULL &&
         (instr_is_gather(first_app) || instr_is_scatter(first_app));
+}
+
+/* These architecture specific functions and defined in scatter_gather_${ARCH_NAME}.c */
+void
+drx_scatter_gather_thread_exit(void *drcontext);
+
+void
+drx_scatter_gather_thread_exit(void *drcontext);
+
+bool
+drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
+                                 instr_t *sg_inst);
+
+int drx_scatter_gather_expanded = 0;
+
+void
+drx_mark_scatter_gather_expanded(void)
+{
+    dr_atomic_store32(&drx_scatter_gather_expanded, 1);
+}
+
+static bool
+drx_event_restore_state(void *drcontext, bool restore_memory,
+                        dr_restore_state_info_t *info)
+{
+    instr_t inst;
+    bool success = true;
+    if (info->fragment_info.cache_start_pc == NULL)
+        return true; /* fault not in cache */
+    if (dr_atomic_load32(&drx_scatter_gather_expanded) == 0) {
+        /* Nothing to do if nobody had never called expand_scatter_gather() before. */
+        return true;
+    }
+    if (!info->fragment_info.app_code_consistent) {
+        /* Can't verify application code.
+         * XXX i#2985: is it better to keep searching?
+         */
+        return true;
+    }
+    instr_init(drcontext, &inst);
+    byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
+    if (pc != NULL) {
+        if (instr_is_gather(&inst) || instr_is_scatter(&inst)) {
+            success = success && drx_scatter_gather_restore_state(drcontext, info, &inst);
+        }
+    }
+    instr_free(drcontext, &inst);
+    return success;
+}
+
+bool
+drx_scatter_gather_init()
+{
+    drmgr_priority_t fault_priority = { sizeof(fault_priority),
+                                        DRMGR_PRIORITY_NAME_DRX_FAULT, NULL, NULL,
+                                        DRMGR_PRIORITY_FAULT_DRX };
+
+    if (!drmgr_register_restore_state_ex_event_ex(drx_event_restore_state,
+                                                  &fault_priority))
+        return false;
+
+    drx_scatter_gather_tls_idx = drmgr_register_tls_field();
+    if (drx_scatter_gather_tls_idx == -1)
+        return false;
+
+    if (!drmgr_register_thread_init_event(drx_scatter_gather_thread_init) ||
+        !drmgr_register_thread_exit_event(drx_scatter_gather_thread_exit))
+        return false;
+
+    return true;
+}
+
+void
+drx_scatter_gather_exit()
+{
+    drmgr_unregister_tls_field(drx_scatter_gather_tls_idx);
 }
