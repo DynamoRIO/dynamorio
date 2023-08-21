@@ -11,7 +11,6 @@ pre-DR init
 pre-DR start
 pre-DR detach
 all done
-.*
 Basic counts tool results:
 Total counts:
            0 total \(fetched\) instructions
@@ -22,7 +21,7 @@ Total counts:
     *[0-9]* total data stores
     *[0-9]* total icache flushes
     *[0-9]* total dcache flushes
-          *[0-9]* total threads
+           4 total threads
     *[0-9]* total scheduling markers
     *[0-9]* total transfer markers
 .*

@@ -11,7 +11,6 @@ pre-DR init
 pre-DR start
 pre-DR detach
 all done
-.*
 Cache simulation results:
 Core #0 \([0-9] traced CPU\(s\): [#0-9, ]+\)
   L1I0 .* stats:
