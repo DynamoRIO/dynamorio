@@ -482,8 +482,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
 
         if (expect_encoding) {
-            auto cached = decode_cache_.find(reinterpret_cast<app_pc>(memref.instr.addr));
-            if (cached != decode_cache_.end()) {
+            if (memref.instr.encoding_is_new) {
+                shard->decode_cache_.erase(reinterpret_cast<app_pc>(memref.instr.addr));
+            }
+            auto cached =
+                shard->decode_cache_.find(reinterpret_cast<app_pc>(memref.instr.addr));
+            if (cached != shard->decode_cache_.end()) {
                 cur_instr_info = cached->second;
             } else {
                 instr_noalloc_t noalloc;
@@ -504,7 +508,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         cur_instr_info.branch_target = instr_get_target(noalloc_instr);
                     }
                 }
-                decode_cache_[reinterpret_cast<app_pc>(memref.instr.addr)] =
+                shard->decode_cache_[reinterpret_cast<app_pc>(memref.instr.addr)] =
                     cur_instr_info;
             }
         }
@@ -1024,8 +1028,9 @@ invariant_checker_t::check_for_pc_discontinuity(
                     have_branch_target = true;
                 }
             }
-            if (have_branch_target && branch_target != cur_pc)
+            if (have_branch_target && branch_target != cur_pc) {
                 error_msg = "Branch does not go to the correct target";
+            }
         } else if (cur_instr_info.has_valid_decoding &&
                    prev_instr_info.has_valid_decoding && cur_instr_info.is_syscall &&
                    cur_pc == prev_instr_trace_pc && prev_instr_info.is_syscall) {

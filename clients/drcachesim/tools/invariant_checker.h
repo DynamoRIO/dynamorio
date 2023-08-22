@@ -138,6 +138,7 @@ protected:
             bool writes_memory = false;
             opnd_t branch_target;
         };
+        std::unordered_map<app_pc, instr_info_t> decode_cache_;
         instr_info_t prev_instr_ = {};
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
@@ -225,7 +226,6 @@ protected:
     // shard_map (process_memref, print_results) we are single-threaded.
     std::mutex shard_map_mutex_;
 
-    std::unordered_map<app_pc, per_shard_t::instr_info_t> decode_cache_;
     bool knob_offline_;
     unsigned int knob_verbose_;
     std::string knob_test_name_;
