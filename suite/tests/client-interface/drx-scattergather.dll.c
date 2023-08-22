@@ -185,10 +185,10 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         } else if (instr_is_scatter(instr)) {
             scatter_gather_present = true;
 #if defined(X86)
-        /* TODO i#5036: Port this code to AArch64 to test state restoration of clobbered
-         *              predicate registers (when we have added support for state
-         *              restoration).
-         */
+            /* TODO i#5036: Port this code to AArch64 to test state restoration of
+             * clobbered predicate registers (when we have added support for state
+             *              restoration).
+             */
         } else if (instr_is_mov_constant(instr, &val) &&
                    val == TEST_AVX512_GATHER_MASK_CLOBBER_MARKER) {
             instr_t *next_instr = instr_get_next(instr);
