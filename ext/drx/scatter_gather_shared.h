@@ -51,11 +51,20 @@ typedef struct _scatter_gather_info_t {
     bool is_evex;
 #endif
     bool is_load;
+
 #if defined(AARCH64)
+    /* The vector element size for all vector registers used by the instruction.
+     * This applies to:
+     *      gather_dst_reg/scatter_src_reg for all
+     *          scatter/gather/predicated-contiguous-access instructions,
+     *      base_reg for vector+immediate scatter/gather instructions,
+     *      index_reg for scalar+vector scatter/gather instructions.
+     */
     opnd_size_t element_size;
 #elif defined(X86)
     opnd_size_t scalar_index_size;
 #endif
+
     opnd_size_t scalar_value_size;
     opnd_size_t scatter_gather_size;
     reg_id_t mask_reg;
