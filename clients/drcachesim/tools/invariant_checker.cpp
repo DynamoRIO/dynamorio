@@ -482,7 +482,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
 
         if (expect_encoding) {
-            auto cached = decode_cache_.find(const_cast<app_pc>(memref.instr.encoding));
+            auto cached = decode_cache_.find(reinterpret_cast<app_pc>(memref.instr.addr));
             if (cached != decode_cache_.end()) {
                 cur_instr_info = cached->second;
             } else {
@@ -504,7 +504,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         cur_instr_info.branch_target = instr_get_target(noalloc_instr);
                     }
                 }
-                decode_cache_[const_cast<app_pc>(memref.instr.encoding)] = cur_instr_info;
+                decode_cache_[reinterpret_cast<app_pc>(memref.instr.addr)] =
+                    cur_instr_info;
             }
         }
         if (knob_verbose_ >= 3) {
