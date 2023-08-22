@@ -62,6 +62,22 @@ typedef struct _per_thread_t {
     void *scratch_pred_spill_slot; /* Storage for spilled predicate register. */
 } per_thread_t;
 
+/* Track the state of manual spill slots for SVE registers.
+ * This corresponds to the splill slot storage in per_thread_t.
+ */
+typedef struct _spill_slot_state_t {
+    reg_id_t pred_slots[1];
+} spill_slot_state_t;
+
+void
+init_spill_slot_state(OUT spill_slot_state_t *spill_slot_state)
+{
+    const size_t num_pred_slots =
+        sizeof(spill_slot_state->pred_slots) / sizeof(spill_slot_state->pred_slots[0]);
+    for (size_t i = 0; i < num_pred_slots; i++)
+        spill_slot_state->pred_slots[i] = DR_REG_NULL;
+}
+
 void
 drx_scatter_gather_thread_init(void *drcontext)
 {
@@ -434,14 +450,20 @@ reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
 
 reg_id_t
 reserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
-                      reg_id_t scratch_gpr)
+                      reg_id_t scratch_gpr, spill_slot_state_t *slot_state)
 {
+    DR_ASSERT(slot_state->pred_slots[0] == DR_REG_NULL);
+
     /* Some instructions require the predicate to be in the range p0 - p7. This includes
      * LASTB which we use to extract elements from the vector register.
      */
-    return reserve_sve_register(drcontext, bb, where, scratch_gpr, DR_REG_P0, DR_REG_P7,
-                                offsetof(per_thread_t, scratch_pred_spill_slot),
-                                opnd_size_from_bytes(proc_get_vector_length_bytes() / 8));
+    const reg_id_t reg =
+        reserve_sve_register(drcontext, bb, where, scratch_gpr, DR_REG_P0, DR_REG_P7,
+                             offsetof(per_thread_t, scratch_pred_spill_slot),
+                             opnd_size_from_bytes(proc_get_vector_length_bytes() / 8));
+
+    slot_state->pred_slots[0] = reg;
+    return reg;
 }
 
 /* Restore the scratch predicate reg.
@@ -473,8 +495,12 @@ unreserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
 
 void
 unreserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
-                        reg_id_t scratch_gpr, reg_id_t scratch_pred)
+                        reg_id_t scratch_gpr, reg_id_t scratch_pred,
+                        spill_slot_state_t *slot_state)
 {
+    DR_ASSERT(slot_state->pred_slots[0] == scratch_pred);
+    slot_state->pred_slots[0] = DR_REG_NULL;
+
     unreserve_sve_register(drcontext, bb, where, scratch_gpr, scratch_pred,
                            offsetof(per_thread_t, scratch_pred_spill_slot),
                            opnd_size_from_bytes(proc_get_vector_length_bytes() / 8));
@@ -536,8 +562,11 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         DRREG_SUCCESS)
         goto drx_expand_scatter_gather_exit;
 
+    spill_slot_state_t spill_slot_state;
+    init_spill_slot_state(&spill_slot_state);
+
     const reg_id_t scratch_pred =
-        reserve_pred_register(drcontext, bb, sg_instr, scratch_gpr);
+        reserve_pred_register(drcontext, bb, sg_instr, scratch_gpr, &spill_slot_state);
 
     const app_pc orig_app_pc = instr_get_app_pc(sg_instr);
 
@@ -573,7 +602,8 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 
     drmgr_insert_emulation_end(drcontext, bb, sg_instr);
 
-    unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr, scratch_pred);
+    unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr, scratch_pred,
+                            &spill_slot_state);
     if (drreg_unreserve_register(drcontext, bb, sg_instr, scratch_gpr) != DRREG_SUCCESS) {
         DR_ASSERT_MSG(false, "drreg_unreserve_register should not fail");
         goto drx_expand_scatter_gather_exit;
