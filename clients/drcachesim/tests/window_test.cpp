@@ -82,7 +82,7 @@ post_process()
     const char *raw_dir;
     drmemtrace_status_t mem_res = drmemtrace_get_output_path(&raw_dir);
     assert(mem_res == DRMEMTRACE_SUCCESS);
-    std::string outdir = std::string(raw_dir) + DIRSEP + "../trace";
+    std::string outdir = std::string(raw_dir) + DIRSEP + "trace";
     void *dr_context = dr_standalone_init();
     {
         raw2trace_directory_t dir;
