@@ -84,32 +84,29 @@ post_process()
     assert(mem_res == DRMEMTRACE_SUCCESS);
     std::string outdir = std::string(raw_dir) + DIRSEP + "trace";
     void *dr_context = dr_standalone_init();
-    {
-        raw2trace_directory_t dir;
-        if (!dr_create_dir(outdir.c_str())) {
-            std::cerr << "Failed to create output dir";
-            assert(false);
-        }
-        std::string dir_err = dir.initialize(raw_dir, outdir);
-        assert(dir_err.empty());
-        raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
-                              dir.out_archives_, dir.encoding_file_,
-                              dir.serial_schedule_file_, dir.cpu_schedule_file_,
-                              dr_context,
-                              0
+    raw2trace_directory_t dir;
+    if (!dr_create_dir(outdir.c_str())) {
+        std::cerr << "Failed to create output dir";
+        assert(false);
+    }
+    std::string dir_err = dir.initialize(raw_dir, outdir);
+    assert(dir_err.empty());
+    raw2trace_t raw2trace(dir.modfile_bytes_, dir.in_files_, dir.out_files_,
+                          dir.out_archives_, dir.encoding_file_,
+                          dir.serial_schedule_file_, dir.cpu_schedule_file_, dr_context,
+                          0
 #ifdef WINDOWS
-                              /* TODO i#3983: Creating threads in standalone mode
-                               * causes problems.  We disable the pool for now.
-                               */
-                              ,
-                              0
+                          /* TODO i#3983: Creating threads in standalone mode
+                           * causes problems.  We disable the pool for now.
+                           */
+                          ,
+                          0
 #endif
-        );
-        std::string error = raw2trace.do_conversion();
-        if (!error.empty()) {
-            std::cerr << "raw2trace failed: " << error << "\n";
-            assert(false);
-        }
+    );
+    std::string error = raw2trace.do_conversion();
+    if (!error.empty()) {
+        std::cerr << "raw2trace failed: " << error << "\n";
+        assert(false);
     }
     dr_standalone_exit();
     return outdir;
@@ -118,6 +115,8 @@ post_process()
 static std::string
 gather_trace()
 {
+    // Set -trace_for_instrs and -retrace_every_instrs in such away that the
+    // sleep introduced in the app is big enough to cross window boundaries.
     std::string dr_ops(
         "-stderr_mask 0xc -client_lib ';;-offline -offline -trace_after_instrs 1000 "
         "-trace_for_instrs 2500 -retrace_every_instrs 1000");
@@ -145,6 +144,7 @@ test_main(int argc, const char *argv[])
         scheduler_t::STATUS_SUCCESS) {
         std::cerr << "Failed to initialize scheduler " << scheduler.get_error_string()
                   << "\n";
+        exit(1);
     }
 
     auto *stream = scheduler.get_stream(0);

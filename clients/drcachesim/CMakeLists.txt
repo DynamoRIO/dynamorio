@@ -966,8 +966,8 @@ if (BUILD_TESTS)
     endif (NOT RISCV64)
 
     if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
-      set(source_abs "${CMAKE_CURRENT_SOURCE_DIR}/tests/window_test.cpp")
-      add_executable(tool.drcacheoff.windows-timestamps ${source_abs})
+      add_executable(tool.drcacheoff.windows-timestamps
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/window_test.cpp")
       configure_DynamoRIO_static(tool.drcacheoff.windows-timestamps)
       use_DynamoRIO_static_client(tool.drcacheoff.windows-timestamps drmemtrace_static)
       target_link_libraries(tool.drcacheoff.windows-timestamps drmemtrace_raw2trace
@@ -979,7 +979,6 @@ if (BUILD_TESTS)
       set(tool.drcacheoff.windows-timestamps_uses_configure ON) # Avoid dup DEBUG.
       add_win32_flags(tool.drcacheoff.windows-timestamps)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.windows-timestamps)
-      use_DynamoRIO_extension(tool.drcacheoff.windows-timestamps drcovlib_static)
     endif (NOT RISCV64)
 
     if (LINUX) # Futex is Linux-only.

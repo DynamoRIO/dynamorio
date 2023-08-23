@@ -134,8 +134,7 @@ hit_instr_count_threshold(app_pc next_pc)
     else {
         NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
                tracing_window.load(std::memory_order_acquire));
-        auto timestamp = instru_t::get_timestamp();
-        retrace_start_timestamp.store(timestamp);
+        retrace_start_timestamp.store(instru_t::get_timestamp());
         if (op_offline.get_value())
             open_new_window_dir(tracing_window.load(std::memory_order_acquire));
     }
