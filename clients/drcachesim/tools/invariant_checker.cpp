@@ -477,10 +477,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
         per_shard_t::instr_info_t cur_instr_info = {};
-        cur_instr_info.memref = memref;
         const bool expect_encoding =
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
-
         if (expect_encoding) {
             const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
             // Clear cache entry for new encodings.
@@ -512,6 +510,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->decode_cache_[trace_pc] = cur_instr_info;
             }
         }
+        // We need to assign the memref variable of cur_instr_info here. These values can
+        // not be cached as they dynamically vary based on data values.
+        cur_instr_info.memref = memref;
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                       << " @" << (void *)memref.instr.addr
