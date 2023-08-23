@@ -482,11 +482,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
 
         if (expect_encoding) {
+            const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
+            // Clear cache entry for new encodings.
             if (memref.instr.encoding_is_new) {
-                shard->decode_cache_.erase(reinterpret_cast<app_pc>(memref.instr.addr));
+                shard->decode_cache_.erase(trace_pc);
             }
-            auto cached =
-                shard->decode_cache_.find(reinterpret_cast<app_pc>(memref.instr.addr));
+            auto cached = shard->decode_cache_.find(trace_pc);
             if (cached != shard->decode_cache_.end()) {
                 cur_instr_info = cached->second;
             } else {
@@ -508,8 +509,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         cur_instr_info.branch_target = instr_get_target(noalloc_instr);
                     }
                 }
-                shard->decode_cache_[reinterpret_cast<app_pc>(memref.instr.addr)] =
-                    cur_instr_info;
+                shard->decode_cache_[trace_pc] = cur_instr_info;
             }
         }
         if (knob_verbose_ >= 3) {
