@@ -202,7 +202,7 @@ dr_get_sve_vector_length(void)
  * type is OP_INVALID so can be copied to instr->opcode
  */
 #define xx 0 /* TYPE_NONE */, OPSZ_NA
-const instr_info_t invalid_instr = { OP_INVALID, 0x000000, "(bad)", xx, xx, xx,
+const instr_info_t invalid_instr = { OP_INVALID, 0x000000, STROFF(BAD), xx, xx, xx,
                                      xx,         xx,       0,       0,  0 };
 #undef xx
 
