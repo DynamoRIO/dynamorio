@@ -115,7 +115,7 @@ post_process()
 static std::string
 gather_trace()
 {
-    // Set -trace_for_instrs and -retrace_every_instrs in such away that the
+    // Set -trace_for_instrs and -retrace_every_instrs in such a way that the
     // sleep introduced in the app is big enough to cross window boundaries.
     std::string dr_ops(
         "-stderr_mask 0xc -client_lib ';;-offline -offline -trace_after_instrs 1000 "

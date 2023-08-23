@@ -1348,8 +1348,7 @@ exit_thread_io(void *drcontext)
 
         ptr_int_t window = get_local_window(data);
         if (!has_tracing_windows() ||
-            (has_tracing_windows() &&
-             is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)))) {
+            is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire))) {
             process_and_output_buffer(drcontext,
                                       /* If this thread already wrote some data, include
                                        * its exit even if we're over a size limit.

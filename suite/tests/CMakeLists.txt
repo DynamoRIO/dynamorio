@@ -4138,7 +4138,7 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.windows-timestamps_nopost ON)
       torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps "" "" "")
       set(tool.drcacheoff.windows-timestamps-expectbase "offline-windows-timestamps")
-      set(tool.drcacheoff.windows-timestamps_timeout 240)
+      set(tool.drcacheoff.windows-timestamps_timeout 120)
 
       if (LINUX) # Futex is Linux-only.
         set(tool.drcacheoff.burst_futex_nodr ON)
