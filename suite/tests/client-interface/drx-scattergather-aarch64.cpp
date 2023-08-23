@@ -32,6 +32,7 @@
 
 #include <array>
 #include <cassert>
+#include <cinttypes>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -176,6 +177,33 @@ print_predicate(const scalable_reg_value_t &value)
     }
 }
 
+/*
+ * Overloaded functions for printing scalar values from template functions.
+ */
+void
+print_scalar(uint8_t value)
+{
+    print("0x%02" PRIx8, value);
+}
+
+void
+print_scalar(uint16_t value)
+{
+    print("0x%04" PRIx16, value);
+}
+
+void
+print_scalar(uint32_t value)
+{
+    print("0x%08" PRIx32, value);
+}
+
+void
+print_scalar(uint64_t value)
+{
+    print("0x%016" PRIx64, value);
+}
+
 struct sve_register_file_t {
     std::vector<uint8_t> z;
     std::vector<uint8_t> p;
@@ -232,11 +260,11 @@ struct test_register_data_t {
     sve_register_file_t after;  // Values of the registers after the test instruction.
 };
 
-struct scalar_plus_vector_test_case_t {
+struct scalar_plus_vector_test_case_base_t {
     std::string name; // Unique name for this test printed when the test is run.
 
     struct test_ptrs_t {
-        const void *base;           // Base address used for the test instruction.
+        void *base;                 // Base address used for the test instruction.
         const void *z_restore_base; // Base address for initializing Z registers.
         const void *p_restore_base; // Base address for initializing P registers.
         void *z_save_base;          // Base address to save Z registers to after test
@@ -248,10 +276,84 @@ struct scalar_plus_vector_test_case_t {
     using test_func_t = std::function<void(test_ptrs_t &)>;
     test_func_t run_test;
 
+    element_size_t element_size;
+    void *base_ptr;
+    unsigned governing_p_reg;
+
+    test_result_t test_status;
+
+    void
+    test_failed()
+    {
+        if (test_status == PASS) {
+            test_status = FAIL;
+            print("FAIL\n");
+        }
+    }
+
+    scalar_plus_vector_test_case_base_t(
+        std::string name_, scalar_plus_vector_test_case_base_t::test_func_t func_,
+        unsigned governing_p_reg_, element_size_t element_size_, void *base_ptr_)
+        : name(std::move(name_))
+        , run_test(std::move(func_))
+        , governing_p_reg(governing_p_reg_)
+        , element_size(element_size_)
+        , base_ptr(base_ptr_)
+    {
+    }
+
+    // Set the values of the SVE registers before the test function is run.
+    virtual void
+    setup(sve_register_file_t &register_values) = 0;
+
+    virtual void
+    check_output(predicate_reg_value128_t pred,
+                 const test_register_data_t &register_data) = 0;
+
+    test_result_t
+    run_test_case()
+    {
+        print("%s: ", name.c_str());
+        test_status = PASS;
+
+        test_register_data_t register_data;
+        for (size_t i = 0; i < NUM_Z_REGS; i++) {
+            register_data.before.set_z_register_value(i, UNINITIALIZED_VECTOR);
+        }
+        for (size_t i = 0; i < NUM_P_REGS; i++) {
+            register_data.before.set_p_register_value(i, UNINITIALIZED_PREDICATE);
+        }
+
+        test_ptrs_t ptrs {
+            base_ptr,
+            register_data.before.z.data(),
+            register_data.before.p.data(),
+            register_data.after.z.data(),
+            register_data.after.p.data(),
+        };
+        const size_t num_elements = TEST_VL_BYTES / static_cast<size_t>(element_size);
+
+        const auto &predicates = ALL_PREDICATES.at(element_size);
+        for (const auto &pred : predicates) {
+            /* TODO i#5036: Test faulting behavior. */
+
+            register_data.before.set_p_register_value(governing_p_reg, pred);
+            setup(register_data.before);
+
+            run_test(ptrs);
+
+            check_output(pred, register_data);
+        }
+        if (test_status == PASS)
+            print("PASS\n");
+
+        return test_status;
+    }
+};
+
+struct scalar_plus_vector_load_test_case_t : public scalar_plus_vector_test_case_base_t {
     vector_reg_value128_t reference_data;
     vector_reg_value128_t offset_data;
-    element_size_t element_size;
-    const void *input_data;
 
     struct registers_used_t {
         unsigned dest_z;
@@ -261,135 +363,102 @@ struct scalar_plus_vector_test_case_t {
     registers_used_t registers_used;
 
     template <typename ELEMENT_T, typename OFFSET_T>
-    scalar_plus_vector_test_case_t(
-        std::string name_, test_func_t func_, registers_used_t registers_used_,
+    scalar_plus_vector_load_test_case_t(
+        std::string name_, scalar_plus_vector_test_case_base_t::test_func_t func_,
+        registers_used_t registers_used_,
         std::array<ELEMENT_T, TEST_VL_BYTES / sizeof(ELEMENT_T)> reference_data_,
-        std::array<OFFSET_T, TEST_VL_BYTES / sizeof(OFFSET_T)> offsets,
-        const void *input_data_)
-        : name(std::move(name_))
-        , run_test(std::move(func_))
+        std::array<OFFSET_T, TEST_VL_BYTES / sizeof(OFFSET_T)> offsets, void *base_ptr_)
+        : scalar_plus_vector_test_case_base_t(
+              std::move(name_), std::move(func_), registers_used_.governing_p,
+              static_cast<element_size_t>(sizeof(ELEMENT_T)), base_ptr_)
         , registers_used(registers_used_)
-        , element_size(static_cast<element_size_t>(sizeof(ELEMENT_T)))
-        , input_data(input_data_)
     {
         std::memcpy(reference_data.data(), reference_data_.data(), reference_data.size());
         std::memcpy(offset_data.data(), offsets.data(), offset_data.size());
     }
 
-    test_result_t
-    run_test_case() const
+    virtual void
+    setup(sve_register_file_t &register_values) override
     {
-        test_result_t status = PASS;
-        const auto test_failed = [&status]() {
-            if (status == PASS) {
-                status = FAIL;
-                print("FAIL\n");
-            }
-        };
-        print("%s: ", name.c_str());
+        // Set the value for the offset register.
+        register_values.set_z_register_value(registers_used.index_z, offset_data);
+    }
 
-        test_register_data_t register_data;
-        for (size_t i = 0; i < NUM_Z_REGS; i++) {
-            register_data.before.set_z_register_value(i, UNINITIALIZED_VECTOR);
-        }
-        register_data.before.set_z_register_value(registers_used.index_z, offset_data);
-        for (size_t i = 0; i < NUM_P_REGS; i++) {
-            register_data.before.set_p_register_value(i, UNINITIALIZED_PREDICATE);
-        }
-
-        test_ptrs_t ptrs {
-            input_data,
-            register_data.before.z.data(),
-            register_data.before.p.data(),
-            register_data.after.z.data(),
-            register_data.after.p.data(),
-        };
-        const size_t num_elements =
-            offset_data.size() / static_cast<size_t>(element_size);
-
+    void
+    check_output(predicate_reg_value128_t pred,
+                 const test_register_data_t &register_data) override
+    {
         const auto vl_bytes = get_vl_bytes();
+
         std::vector<uint8_t> expected_output_data;
         expected_output_data.resize(vl_bytes);
 
-        const auto &predicates = ALL_PREDICATES.at(element_size);
-        for (const auto &pred : predicates) {
-            /* TODO i#5036: Test faulting behavior. */
+        const auto expected_output128 =
+            apply_predicate_mask(reference_data, pred, element_size);
+        for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
+            memcpy(&expected_output_data[TEST_VL_BYTES * i], expected_output128.data(),
+                   TEST_VL_BYTES);
+        }
+        const scalable_reg_value_t expected_output {
+            expected_output_data.data(),
+            vl_bytes,
+        };
 
-            const auto expected_output128 =
-                apply_predicate_mask(reference_data, pred, element_size);
-            for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
-                memcpy(&expected_output_data[TEST_VL_BYTES * i],
-                       expected_output128.data(), TEST_VL_BYTES);
-            }
-            const scalable_reg_value_t expected_output {
-                expected_output_data.data(),
-                vl_bytes,
-            };
+        const auto output_value =
+            register_data.after.get_z_register_value(registers_used.dest_z);
 
-            register_data.before.set_p_register_value(registers_used.governing_p, pred);
+        if (output_value != expected_output) {
+            test_failed();
+            print("predicate: ");
+            print_predicate(
+                register_data.before.get_p_register_value(registers_used.governing_p));
+            print("\nexpected:  ");
+            print_vector(expected_output);
+            print("\nactual:    ");
+            print_vector(output_value);
+            print("\n");
+        }
 
-            run_test(ptrs);
-
-            const auto output_value =
-                register_data.after.get_z_register_value(registers_used.dest_z);
-
-            if (output_value != expected_output) {
+        // Check that the values of the other Z registers have been preserved.
+        for (size_t i = 0; i < NUM_Z_REGS; i++) {
+            if (i == registers_used.dest_z)
+                continue;
+            const auto before = register_data.before.get_z_register_value(i);
+            const auto after = register_data.after.get_z_register_value(i);
+            if (before != after) {
                 test_failed();
-                print("predicate: ");
-                print_predicate(register_data.before.get_p_register_value(
-                    registers_used.governing_p));
-                print("\nexpected:  ");
-                print_vector(expected_output);
-                print("\nactual:    ");
-                print_vector(output_value);
+                print("z%u has been corrupted:\n", i);
+                print("before: ");
+                print_vector(before);
+                print("\nafter:  ");
+                print_vector(after);
                 print("\n");
             }
-
-            // Check that the values of the other Z registers have been preserved.
-            for (size_t i = 0; i < NUM_Z_REGS; i++) {
-                if (i == registers_used.dest_z)
-                    continue;
-                const auto before = register_data.before.get_z_register_value(i);
-                const auto after = register_data.after.get_z_register_value(i);
-                if (before != after) {
-                    test_failed();
-                    print("z%u has been corrupted:\n", i);
-                    print("before: ");
-                    print_vector(before);
-                    print("\nafter:  ");
-                    print_vector(after);
-                    print("\n");
-                }
-            }
-            // Check that the values of the P registers have been preserved.
-            for (size_t i = 0; i < NUM_P_REGS; i++) {
-                const auto before = register_data.before.get_p_register_value(i);
-                const auto after = register_data.after.get_p_register_value(i);
-                if (before != after) {
-                    test_failed();
-                    print("p%u has been corrupted:\n", i);
-                    print("before: ");
-                    print_predicate(before);
-                    print("\nafter:  ");
-                    print_predicate(after);
-                    print("\n");
-                }
+        }
+        // Check that the values of the P registers have been preserved.
+        for (size_t i = 0; i < NUM_P_REGS; i++) {
+            const auto before = register_data.before.get_p_register_value(i);
+            const auto after = register_data.after.get_p_register_value(i);
+            if (before != after) {
+                test_failed();
+                print("p%u has been corrupted:\n", i);
+                print("before: ");
+                print_predicate(before);
+                print("\nafter:  ");
+                print_predicate(after);
+                print("\n");
             }
         }
-        if (status == PASS)
-            print("PASS\n");
-
-        return status;
-#undef TEST_FAILED
     }
 };
 
+template <typename TEST_CASE_T>
 test_result_t
-run_tests(const std::vector<scalar_plus_vector_test_case_t> &tests)
+run_tests(std::vector<TEST_CASE_T> tests)
 {
     test_result_t overall_status = PASS;
 
-    for (const auto &instr_test : tests) {
+    for (auto &instr_test : tests) {
         if (instr_test.run_test_case() == FAIL) {
             overall_status = FAIL;
         }
@@ -398,12 +467,56 @@ run_tests(const std::vector<scalar_plus_vector_test_case_t> &tests)
     return overall_status;
 }
 
-class input_data_t {
+class test_memory_t {
 public:
     const size_t DATA_SIZE = 9 * 4096; // 9 4KiB pages
-    input_data_t()
+    test_memory_t()
         : data(mmap(nullptr, DATA_SIZE, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0))
+    {
+        reset();
+    }
+
+    ~test_memory_t()
+    {
+        munmap(data, DATA_SIZE);
+    }
+
+    void
+    reset()
+    {
+        // Remap all the memory read+write so we can write the poison value.
+        mmap(data, DATA_SIZE, PROT_READ | PROT_WRITE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+
+        static constexpr uint8_t POISON_VALUE = 0xAB;
+        memset(data, POISON_VALUE, DATA_SIZE);
+
+        // Change the permissions of pages > 1 so that any accesses to them will fault.
+        mmap(region_start_addr(4), 8 * 4096, PROT_NONE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    }
+
+    const void *
+    region_start_addr(size_t offset) const
+    {
+        return &static_cast<char *>(data)[1024 * offset];
+    }
+
+    void *
+    region_start_addr(size_t offset)
+    {
+        return &static_cast<char *>(data)[1024 * offset];
+    }
+
+protected:
+    void *data;
+};
+
+class input_data_t : public test_memory_t {
+public:
+    input_data_t()
+        : test_memory_t()
     {
         /*
          * We set up nine pages of memory to use as input data for load instruction
@@ -444,10 +557,6 @@ public:
          *
          */
 
-        // Write 8, 16, 32, and 64-bit input data to the first page.
-        // Each region contains 40 values. We set the base address to the 9th
-        // element in the array so we can use 8 negative offsets and 32 positive
-        // offsets.
         write_input_data(0,
                          std::array<uint8_t, 40> {
                              0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x00, 0x01,
@@ -491,27 +600,6 @@ public:
                              0x0000000000000028, 0x0000000000000029, 0x0000000000000030,
                              0xffffffffffffffff,
                          });
-        // Change the permissions of the second page so that any accesses to it will
-        // fault.
-        mmap(region_start_addr(4), 8 * 4096, PROT_NONE,
-             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-    }
-
-    ~input_data_t()
-    {
-        munmap(data, DATA_SIZE);
-    }
-
-    const void *
-    region_start_addr(size_t offset) const
-    {
-        return &static_cast<char *>(data)[1024 * offset];
-    }
-
-    void *
-    region_start_addr(size_t offset)
-    {
-        return &static_cast<char *>(data)[1024 * offset];
     }
 
     const void *
@@ -527,6 +615,14 @@ public:
     }
 
 private:
+    template <typename T>
+    void
+    write_input_data(size_t offset, const std::array<T, 40> &input_data)
+    {
+        memcpy(region_start_addr(offset), input_data.data(),
+               input_data.size() * sizeof(T));
+    }
+
     static size_t
     base_offset_for_data_size(element_size_t element_size)
     {
@@ -540,16 +636,54 @@ private:
         // The base address is set to the 8th element in the region.
         return (1024 * offset) + (static_cast<size_t>(element_size) * 8);
     }
+};
 
-    template <typename T>
-    void
-    write_input_data(size_t offset, const std::array<T, 40> &input_data)
+class output_data_t : public test_memory_t {
+public:
+    output_data_t()
+        : test_memory_t()
     {
-        memcpy(region_start_addr(offset), input_data.data(),
-               input_data.size() * sizeof(T));
+        /*
+         * We set up nine pages of memory to use as input data for load instruction
+         * tests. The first page contains input data of different sizes and the rest
+         * of the pages are set up to fault when they are accessed. The tests use
+         * one of the first 4 regions as their base pointer, so when we want to
+         * force an instruction to fault (to test faulting behaviour) we can set the
+         * offset to 4096 which will always land in one of the faulting pages.
+         * +=====================================================+
+         * | Page   | Byte off | Region off |                    |
+         * +=====================================================+
+         * | page 0 |        0 |          0 | -ve offset data    |
+         * |        |----------+------------+--------------------+
+         * |        |     2048 |          2 | +ve offset data    |
+         * +--------+----------+------------+--------------------+
+         * | page 1 |     4096 |          4 | All accesses fault |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * +~~~~~~~~+~~~~~~~~~~+~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~+
+         * | pg 2-7 |      ... |       ...  | All accesses fault |
+         * +~~~~~~~~+~~~~~~~~~~+~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~+
+         * | page 8 |    32768 |         32 | All accesses fault |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * |        |          |            |                    |
+         * +--------+----------+------------+--------------------+
+         *
+         */
     }
 
-    void *data;
+    void *
+    base_addr()
+    {
+        return region_start_addr(2);
+    }
 };
 
 #if defined(__ARM_FEATURE_SVE)
@@ -638,7 +772,7 @@ test_result_t
 test_ld1_scalar_plus_vector()
 {
 #    define TEST_FUNC(ld_instruction)                                               \
-        [](scalar_plus_vector_test_case_t::test_ptrs_t &ptrs) {                     \
+        [](scalar_plus_vector_load_test_case_t::test_ptrs_t &ptrs) {                \
             asm(/* clang-format off */                                                  \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
@@ -654,7 +788,7 @@ test_ld1_scalar_plus_vector()
         }
 
     input_data_t input_data;
-    return run_tests({
+    return run_tests<scalar_plus_vector_load_test_case_t>({
         /* {
          *     Test name,
          *     Function that executes the test instruction,
@@ -1146,6 +1280,611 @@ test_ld1_scalar_plus_vector()
     });
 #    undef TEST_FUNC
 }
+
+struct scalar_plus_vector_store_test_case_t : public scalar_plus_vector_test_case_base_t {
+    output_data_t output_data;
+    vector_reg_value128_t offset_data;
+
+    struct registers_used_t {
+        unsigned src_z;
+        unsigned governing_p;
+        unsigned index_z;
+    };
+    registers_used_t registers_used;
+
+    element_size_t stored_value_size;
+
+    bool scaled;
+
+    // Captures an expected memory output value of a stored element so we can check that
+    // the store was performed correctly.
+    template <typename VALUE_T> struct expected_value_t {
+        ptrdiff_t offset; // Offset from the base pointer. Might be negative.
+        VALUE_T value;
+    };
+    union expected_values_t {
+        std::array<expected_value_t<uint8_t>, 2> u8x2;
+        std::array<expected_value_t<uint8_t>, 4> u8x4;
+        std::array<expected_value_t<uint16_t>, 2> u16x2;
+        std::array<expected_value_t<uint16_t>, 4> u16x4;
+        std::array<expected_value_t<uint32_t>, 2> u32x2;
+        std::array<expected_value_t<uint32_t>, 4> u32x4;
+        std::array<expected_value_t<uint64_t>, 2> u64x2;
+
+        template <typename OFFSET_T>
+        expected_values_t(std::array<OFFSET_T, 2> offsets, element_size_t value_size)
+        {
+            // We can predict the expected value for each offset because the src register
+            // is always set to the same value before we execute the store instruction.
+            // The value that these stores write is the lower part of a 64-bit vector
+            // element.
+            // Src register value: ||15|14|13|12|11|10|09|08||07|06|05|04|03|02|01|00||
+            // Byte values         ||                     AA||                     BB||
+            // Half values         ||                  AA|AA||                  BB|BB||
+            // Word values         ||            AA|AA|AA|AA||            BB|BB|BB|BB||
+            // Double values       ||AA|AA|AA|AA|AA|AA|AA|AA||BB|BB|BB|BB|BB|BB|BB|BB||
+            switch (value_size) {
+#    define CASE(size, member, val0, val1)                             \
+    case element_size_t::size:                                         \
+        member = { { { static_cast<ptrdiff_t>(offsets[0]), val0 },     \
+                     { static_cast<ptrdiff_t>(offsets[1]), val1 } } }; \
+        break
+                CASE(BYTE, u8x2, 0x00, 0x08);
+                CASE(HALF, u16x2, 0x0100, 0x0908);
+                CASE(SINGLE, u32x2, 0x03020100, 0x11100908);
+                CASE(DOUBLE, u64x2, 0x0706050403020100, 0x1514131211100908);
+#    undef CASE
+            }
+        }
+
+        template <typename OFFSET_T>
+        expected_values_t(std::array<OFFSET_T, 4> offsets, element_size_t value_size)
+        {
+            // We can predict the expected value for each offset because the src register
+            // is always set to the same value before we execute the store instruction.
+            // The value that these stores write is the lower part of a 32-bit vector
+            // element.
+            // Src register value: ||15|14|13|12||11|10|09|08||07|06|05|04||03|02|01|00||
+            // Byte values         ||         AA||         BB||         CC||         DD||
+            // Half values         ||      AA|AA||      BB|BB||      CC|CC||      DD|DD||
+            // Word values         ||AA|AA|AA|AA||BB|BB|BB|BB||CC|CC|CC|CC||DD|DD|DD|DD||
+            assert(value_size != element_size_t::DOUBLE);
+            switch (value_size) {
+#    define CASE(size, member, val0, val1, val2, val3)                 \
+    case element_size_t::size:                                         \
+        member = { { { static_cast<ptrdiff_t>(offsets[0]), val0 },     \
+                     { static_cast<ptrdiff_t>(offsets[1]), val1 },     \
+                     { static_cast<ptrdiff_t>(offsets[2]), val2 },     \
+                     { static_cast<ptrdiff_t>(offsets[3]), val3 } } }; \
+        break
+                CASE(BYTE, u8x4, 0x00, 0x04, 0x08, 0x12);
+                CASE(HALF, u16x4, 0x0100, 0x0504, 0x0908, 0x1312);
+                CASE(SINGLE, u32x4, 0x03020100, 0x07060504, 0x11100908, 0x15141312);
+#    undef CASE
+            }
+        }
+    } expected_values;
+
+    template <typename VALUE_T>
+    void *
+    get_scaled_offset(ptrdiff_t offset)
+    {
+        return &static_cast<VALUE_T *>(base_ptr)[offset];
+    }
+
+    template <typename VALUE_T, size_t NUM_ELEMENTS>
+    void
+    check_expected_values(
+        const std::array<expected_value_t<VALUE_T>, NUM_ELEMENTS> &expectations,
+        predicate_reg_value128_t mask)
+    {
+        for (size_t element = 0; element < expectations.size(); element++) {
+            const auto &expectation = expectations[element];
+
+            VALUE_T value;
+            if (scaled) {
+                value = *static_cast<VALUE_T *>(
+                    get_scaled_offset<VALUE_T>(expectation.offset));
+            } else {
+                value = *static_cast<VALUE_T *>(
+                    get_scaled_offset<uint8_t>(expectation.offset));
+            }
+
+            const bool is_active = element_is_active(element, mask, element_size);
+
+            const auto expected_value =
+                is_active ? expectation.value : static_cast<VALUE_T>(0xABABABABABABABAB);
+
+            if (expected_value != value) {
+                // If any offsets alias then the value from the highest active element is
+                // written, so if we find a mismatch we need to make sure there isn't
+                // another element writing to the same location before we declare it a
+                // failure.
+                bool written_by_another_element = false;
+
+                // First we check whether there are any active higher elements that have
+                // the same offset.
+                for (size_t higher_element = element + 1;
+                     higher_element < expectations.size(); higher_element++) {
+                    if (expectations[higher_element].offset == expectation.offset &&
+                        element_is_active(higher_element, mask, element_size)) {
+                        written_by_another_element = true;
+                        break;
+                    }
+                }
+
+                // Second we check if this element is inactive, was there an active lower
+                // element with the same offset.
+                if (!is_active && !written_by_another_element) {
+                    for (size_t lower_element = 0; lower_element < element;
+                         lower_element++) {
+                        if (expectations[lower_element].offset == expectation.offset &&
+                            element_is_active(lower_element, mask, element_size)) {
+                            written_by_another_element = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!written_by_another_element) {
+                    test_failed();
+                    print("\nat offset: %i", expectation.offset);
+                    print("\nexpected:  ");
+                    print_scalar(expected_value);
+                    print("\nactual:    ");
+                    print_scalar(value);
+                    print("\n");
+                }
+            }
+        }
+    }
+
+    template <typename OFFSET_T>
+    scalar_plus_vector_store_test_case_t(
+        std::string name_, scalar_plus_vector_test_case_base_t::test_func_t func_,
+        registers_used_t registers_used_,
+        std::array<OFFSET_T, TEST_VL_BYTES / sizeof(OFFSET_T)> offsets,
+        element_size_t stored_value_size_, bool scaled_)
+        : scalar_plus_vector_test_case_base_t(
+              std::move(name_), std::move(func_), registers_used_.governing_p,
+              static_cast<element_size_t>(sizeof(OFFSET_T)), /*base_ptr=*/nullptr)
+        , registers_used(registers_used_)
+        , stored_value_size(stored_value_size_)
+        , scaled(scaled_)
+        , expected_values(offsets, stored_value_size)
+    {
+        std::memcpy(offset_data.data(), offsets.data(), offset_data.size());
+
+        // This needs to be set after output_data has been initialized.
+        base_ptr = output_data.base_addr();
+    }
+
+    virtual void
+    setup(sve_register_file_t &register_values) override
+    {
+        // Set the value for the offset register.
+        register_values.set_z_register_value(registers_used.index_z, offset_data);
+
+        register_values.set_z_register_value(registers_used.src_z,
+                                             { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+                                               0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13,
+                                               0x14, 0x15 });
+        output_data.reset();
+    }
+
+    void
+    check_output(predicate_reg_value128_t pred,
+                 const test_register_data_t &register_data) override
+    {
+        // Check that the values of the other Z registers have been preserved.
+        for (size_t i = 0; i < NUM_Z_REGS; i++) {
+            const auto before = register_data.before.get_z_register_value(i);
+            const auto after = register_data.after.get_z_register_value(i);
+            if (before != after) {
+                test_failed();
+                print("z%u has been corrupted:\n", i);
+                print("before: ");
+                print_vector(before);
+                print("\nafter:  ");
+                print_vector(after);
+                print("\n");
+            }
+        }
+        // Check that the values of the P registers have been preserved.
+        for (size_t i = 0; i < NUM_P_REGS; i++) {
+            const auto before = register_data.before.get_p_register_value(i);
+            const auto after = register_data.after.get_p_register_value(i);
+            if (before != after) {
+                test_failed();
+                print("p%u has been corrupted:\n", i);
+                print("before: ");
+                print_predicate(before);
+                print("\nafter:  ");
+                print_predicate(after);
+                print("\n");
+            }
+        }
+
+        switch (element_size) {
+        case element_size_t::SINGLE:
+            switch (stored_value_size) {
+            case element_size_t::BYTE:
+                check_expected_values(expected_values.u8x4, pred);
+                break;
+            case element_size_t::HALF:
+                check_expected_values(expected_values.u16x4, pred);
+                break;
+            case element_size_t::SINGLE:
+                check_expected_values(expected_values.u32x4, pred);
+                break;
+            }
+        case element_size_t::DOUBLE:
+            switch (stored_value_size) {
+            case element_size_t::BYTE:
+                check_expected_values(expected_values.u8x2, pred);
+                break;
+            case element_size_t::HALF:
+                check_expected_values(expected_values.u16x2, pred);
+                break;
+            case element_size_t::SINGLE:
+                check_expected_values(expected_values.u32x2, pred);
+                break;
+            case element_size_t::DOUBLE:
+                check_expected_values(expected_values.u64x2, pred);
+                break;
+            }
+        }
+    }
+};
+
+test_result_t
+test_st1_scalar_plus_vector()
+{
+#    define TEST_FUNC(st_instruction)                                               \
+        [](scalar_plus_vector_store_test_case_t::test_ptrs_t &ptrs) {               \
+            asm(/* clang-format off */                                              \
+            RESTORE_Z_REGISTERS(z_restore_base)                                     \
+            RESTORE_P_REGISTERS(p_restore_base)                                     \
+            st_instruction "\n"                                                     \
+            SAVE_Z_REGISTERS(z_save_base)                                           \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+                :                                                                   \
+                : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
+                  [z_save_base] "r"(ptrs.z_save_base),                              \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                        \
+                  [p_save_base] "r"(ptrs.p_save_base)                               \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+        }
+
+    return run_tests<scalar_plus_vector_store_test_case_t>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {zt, pg, zm},
+         *     Offset data (value for zm),
+         *     Stored value size,
+         *     Is the index scaled,
+         * },
+         */
+        // ST1B instructions.
+        {
+            "st1b 32bit unpacked unscaled offset uxtw",
+            TEST_FUNC("st1b z0.d, p0, [%[base], z31.d, uxtw]"),
+            { /*zt=*/0, /*pg=*/0, /*zm=*/31 },
+            std::array<uint64_t, 2> { 0, 100 },
+            element_size_t::BYTE,
+            /*scaled=*/false,
+        },
+        {
+            "st1b 32bit unpacked unscaled offset sxtw",
+            TEST_FUNC("st1b z1.d, p1, [%[base], z30.d, sxtw]"),
+            { /*zt=*/1, /*pg=*/1, /*zm=*/30 },
+            std::array<int64_t, 2> { -1, 101 },
+            element_size_t::BYTE,
+            /*scaled=*/false,
+        },
+        {
+            "st1b 32bit unscaled offset uxtw",
+            TEST_FUNC("st1b z2.s, p2, [%[base], z29.s, uxtw]"),
+            { /*zt=*/2, /*pg=*/2, /*zm=*/29 },
+            std::array<uint32_t, 4> { 2, 102, 3, 103 },
+            element_size_t::BYTE,
+            /*scaled=*/false,
+        },
+        {
+            "st1b 32bit unscaled offset sxtw",
+            TEST_FUNC("st1b z3.s, p3, [%[base], z28.s, sxtw]"),
+            { /*zt=*/3, /*pg=*/3, /*zm=*/28 },
+            std::array<int32_t, 4> { -3, -103, 4, 104 },
+            element_size_t::BYTE,
+            /*scaled=*/false,
+        },
+        {
+            "st1b 32bit unscaled offset sxtw (repeated offset)",
+            TEST_FUNC("st1b z3.s, p3, [%[base], z28.s, sxtw]"),
+            { /*zt=*/3, /*pg=*/3, /*zm=*/28 },
+            std::array<int32_t, 4> { -4, -4, 5, 5 },
+            element_size_t::BYTE,
+            /*scaled=*/false,
+        },
+        {
+            "st1b 64bit unscaled offset",
+            TEST_FUNC("st1b z4.d, p4, [%[base], z27.d]"),
+            { /*zt=*/4, /*pg=*/4, /*zm=*/27 },
+            std::array<uint64_t, 2> { 5, 104 },
+            element_size_t::BYTE,
+            /*scaled=*/false,
+        },
+        {
+            "st1b 64bit unscaled offset (repeated offset)",
+            TEST_FUNC("st1b z4.d, p4, [%[base], z27.d]"),
+            { /*zt=*/4, /*pg=*/4, /*zm=*/27 },
+            std::array<uint64_t, 2> { 6, 6 },
+            element_size_t::BYTE,
+            /*scaled=*/false,
+        },
+        // ST1H instructions.
+        {
+            "st1h 32bit scaled offset uxtw",
+            TEST_FUNC("st1h z5.s, p5, [%[base], z26.s, uxtw #1]"),
+            { /*zt=*/5, /*pg=*/5, /*zm=*/26 },
+            std::array<uint32_t, 4> { 7, 105, 9, 107 },
+            element_size_t::HALF,
+            /*scaled=*/true,
+        },
+        {
+            "st1h 32bit scaled offset sxtw",
+            TEST_FUNC("st1h z6.s, p6, [%[base], z25.s, sxtw #1]"),
+            { /*zt=*/6, /*pg=*/6, /*zm=*/25 },
+            std::array<int32_t, 4> { -8, -106, 10, 108 },
+            element_size_t::HALF,
+            /*scaled=*/true,
+        },
+        {
+            "st1h 32bit unpacked scaled offset uxtw",
+            TEST_FUNC("st1h z7.d, p7, [%[base], z24.d, uxtw #1]"),
+            { /*zt=*/7, /*pg=*/7, /*zm=*/24 },
+            std::array<uint64_t, 2> { 9, 107 },
+            element_size_t::HALF,
+            /*scaled=*/true,
+        },
+        {
+            "st1h 32bit unpacked scaled offset sxtw",
+            TEST_FUNC("st1h z8.d, p0, [%[base], z23.d, sxtw #1]"),
+            { /*zt=*/8, /*pg=*/0, /*zm=*/23 },
+            std::array<int64_t, 2> { -10, 108 },
+            element_size_t::HALF,
+            /*scaled=*/true,
+        },
+        {
+            "st1h 32bit unpacked unscaled offset uxtw",
+            TEST_FUNC("st1h z9.d, p1, [%[base], z22.d, uxtw]"),
+            { /*zt=*/9, /*pg=*/1, /*zm=*/22 },
+            std::array<uint64_t, 2> { 11, 109 },
+            element_size_t::HALF,
+            /*scaled=*/false,
+        },
+        {
+            "st1h 32bit unpacked unscaled offset sxtw",
+            TEST_FUNC("st1h z10.d, p2, [%[base], z21.d, sxtw]"),
+            { /*zt=*/10, /*pg=*/2, /*zm=*/21 },
+            std::array<int64_t, 2> { -12, 110 },
+            element_size_t::HALF,
+            /*scaled=*/false,
+        },
+        {
+            "st1h 32bit unscaled offset uxtw",
+            TEST_FUNC("st1h z11.s, p3, [%[base], z20.s, uxtw]"),
+            { /*zt=*/11, /*pg=*/3, /*zm=*/20 },
+            std::array<uint32_t, 4> { 13, 111, 15, 113 },
+            element_size_t::HALF,
+            /*scaled=*/false,
+        },
+        {
+            "st1h 32bit unscaled offset sxtw",
+            TEST_FUNC("st1h z12.s, p4, [%[base], z19.s, sxtw]"),
+            { /*zt=*/12, /*pg=*/4, /*zm=*/19 },
+            std::array<int32_t, 4> { -14, -112, 16, 114 },
+            element_size_t::HALF,
+            /*scaled=*/false,
+        },
+        {
+            "st1h 32bit unscaled offset sxtw",
+            TEST_FUNC("st1h z12.s, p4, [%[base], z19.s, sxtw]"),
+            { /*zt=*/12, /*pg=*/4, /*zm=*/19 },
+            std::array<int32_t, 4> { -14, -112, 16, 114 },
+            element_size_t::HALF,
+            /*scaled=*/false,
+        },
+        {
+            "st1h 32bit unscaled offset sxtw (repeated offset)",
+            TEST_FUNC("st1h z12.s, p4, [%[base], z19.s, sxtw]"),
+            { /*zt=*/12, /*pg=*/4, /*zm=*/19 },
+            std::array<int32_t, 4> { 15, 15, 17, 17 },
+            element_size_t::HALF,
+            /*scaled=*/false,
+        },
+        {
+            "st1h 64bit scaled offset",
+            TEST_FUNC("st1h z13.d, p5, [%[base], z18.d, lsl #1]"),
+            { /*zt=*/13, /*pg=*/5, /*zm=*/18 },
+            std::array<uint64_t, 2> { 16, 113 },
+            element_size_t::HALF,
+            /*scaled=*/true,
+        },
+        {
+            "st1h 64bit unscaled offset",
+            TEST_FUNC("st1h z14.d, p6, [%[base], z17.d]"),
+            { /*zt=*/14, /*pg=*/6, /*zm=*/17 },
+            std::array<uint64_t, 2> { 17, 114 },
+            element_size_t::HALF,
+            /*scaled=*/false,
+        },
+        {
+            "st1h 64bit unscaled offset (repeated offset)",
+            TEST_FUNC("st1h z14.d, p6, [%[base], z17.d]"),
+            { /*zt=*/14, /*pg=*/6, /*zm=*/17 },
+            std::array<uint64_t, 2> { 18, 18 },
+            element_size_t::HALF,
+            /*scaled=*/false,
+        },
+        // ST1W instructions.
+        {
+            "st1w 32bit scaled offset uxtw",
+            TEST_FUNC("st1w z15.s, p7, [%[base], z16.s, uxtw #2]"),
+            { /*zt=*/15, /*pg=*/7, /*zm=*/16 },
+            std::array<uint32_t, 4> { 19, 115, 23, 119 },
+            element_size_t::SINGLE,
+            /*scaled=*/true,
+        },
+        {
+            "st1w 32bit scaled offset sxtw",
+            TEST_FUNC("st1w z16.s, p0, [%[base], z15.s, sxtw #2]"),
+            { /*zt=*/16, /*pg=*/0, /*zm=*/15 },
+            std::array<int32_t, 4> { -20, -116, 24, 120 },
+            element_size_t::SINGLE,
+            /*scaled=*/true,
+        },
+        {
+            "st1w 32bit unpacked scaled offset uxtw",
+            TEST_FUNC("st1w z17.d, p1, [%[base], z14.d, uxtw #2]"),
+            { /*zt=*/17, /*pg=*/1, /*zm=*/14 },
+            std::array<uint64_t, 2> { 21, 117 },
+            element_size_t::SINGLE,
+            /*scaled=*/true,
+        },
+        {
+            "st1w 32bit unpacked scaled offset sxtw",
+            TEST_FUNC("st1w z18.d, p2, [%[base], z13.d, sxtw #2]"),
+            { /*zt=*/18, /*pg=*/2, /*zm=*/13 },
+            std::array<int64_t, 2> { -22, 118 },
+            element_size_t::SINGLE,
+            /*scaled=*/true,
+        },
+        {
+            "st1w 32bit unpacked unscaled offset uxtw",
+            TEST_FUNC("st1w z19.d, p3, [%[base], z12.d, uxtw]"),
+            { /*zt=*/19, /*pg=*/3, /*zm=*/12 },
+            std::array<uint64_t, 2> { 23, 119 },
+            element_size_t::SINGLE,
+            /*scaled=*/false,
+        },
+        {
+            "st1w 32bit unpacked unscaled offset sxtw",
+            TEST_FUNC("st1w z20.d, p4, [%[base], z11.d, sxtw]"),
+            { /*zt=*/20, /*pg=*/4, /*zm=*/11 },
+            std::array<int64_t, 2> { -24, 120 },
+            element_size_t::SINGLE,
+            /*scaled=*/false,
+        },
+        {
+            "st1w 32bit unscaled offset uxtw",
+            TEST_FUNC("st1w z21.s, p5, [%[base], z10.s, uxtw]"),
+            { /*zt=*/21, /*pg=*/5, /*zm=*/10 },
+            std::array<uint32_t, 4> { 25, 121, 29, 125 },
+            element_size_t::SINGLE,
+            /*scaled=*/false,
+        },
+        {
+            "st1w 32bit unscaled offset sxtw",
+            TEST_FUNC("st1w z22.s, p6, [%[base], z9.s, sxtw]"),
+            { /*zt=*/22, /*pg=*/6, /*zm=*/9 },
+            std::array<int32_t, 4> { -26, -122, 30, 126 },
+            element_size_t::SINGLE,
+            /*scaled=*/false,
+        },
+        {
+            "st1w 32bit unscaled offset sxtw (repeated offset)",
+            TEST_FUNC("st1w z22.s, p6, [%[base], z9.s, sxtw]"),
+            { /*zt=*/22, /*pg=*/6, /*zm=*/9 },
+            std::array<int32_t, 4> { -27, -27, 30, 30 },
+            element_size_t::SINGLE,
+            /*scaled=*/false,
+        },
+        {
+            "st1w 64bit scaled offset",
+            TEST_FUNC("st1w z23.d, p7, [%[base], z8.d, lsl #2]"),
+            { /*zt=*/23, /*pg=*/7, /*zm=*/8 },
+            std::array<uint64_t, 2> { 28, 123 },
+            element_size_t::SINGLE,
+            /*scaled=*/true,
+        },
+        {
+            "st1w 64bit unscaled offset",
+            TEST_FUNC("st1w z24.d, p0, [%[base], z7.d]"),
+            { /*zt=*/24, /*pg=*/0, /*zm=*/7 },
+            std::array<uint64_t, 2> { 29, 124 },
+            element_size_t::SINGLE,
+            /*scaled=*/false,
+        },
+        {
+            "st1w 64bit unscaled offset (repeated offset)",
+            TEST_FUNC("st1w z24.d, p0, [%[base], z7.d]"),
+            { /*zt=*/24, /*pg=*/0, /*zm=*/7 },
+            std::array<uint64_t, 2> { 30, 30 },
+            element_size_t::SINGLE,
+            /*scaled=*/false,
+        },
+        // ST1D instructions.
+        {
+            "st1d 32bit unpacked scaled offset uxtw",
+            TEST_FUNC("st1d z25.d, p1, [%[base], z6.d, uxtw #3]"),
+            { /*zt=*/25, /*pg=*/1, /*zm=*/6 },
+            std::array<uint64_t, 2> { 31, 125 },
+            element_size_t::DOUBLE,
+            /*scaled=*/true,
+        },
+        {
+            "st1d 32bit unpacked scaled offset sxtw",
+            TEST_FUNC("st1d z26.d, p2, [%[base], z5.d, sxtw #3]"),
+            { /*zt=*/26, /*pg=*/2, /*zm=*/5 },
+            std::array<int64_t, 2> { -32, 126 },
+            element_size_t::DOUBLE,
+            /*scaled=*/true,
+        },
+        {
+            "st1d 32bit unpacked unscaled offset uxtw",
+            TEST_FUNC("st1d z27.d, p3, [%[base], z4.d, uxtw]"),
+            { /*zt=*/27, /*pg=*/3, /*zm=*/4 },
+            std::array<uint64_t, 2> { 33, 127 },
+            element_size_t::DOUBLE,
+            /*scaled=*/false,
+        },
+        {
+            "st1d 32bit unpacked unscaled offset sxtw",
+            TEST_FUNC("st1d z28.d, p4, [%[base], z3.d, sxtw]"),
+            { /*zt=*/28, /*pg=*/4, /*zm=*/3 },
+            std::array<int64_t, 2> { -34, 128 },
+            element_size_t::DOUBLE,
+            /*scaled=*/false,
+        },
+        {
+            "st1d 64bit scaled offset",
+            TEST_FUNC("st1d z29.d, p5, [%[base], z2.d, lsl #3]"),
+            { /*zt=*/29, /*pg=*/5, /*zm=*/2 },
+            std::array<uint64_t, 2> { 36, 129 },
+            element_size_t::DOUBLE,
+            /*scaled=*/true,
+        },
+        {
+            "st1d 64bit unscaled offset",
+            TEST_FUNC("st1d z30.d, p6, [%[base], z1.d]"),
+            { /*zt=*/30, /*pg=*/6, /*zm=*/1 },
+            std::array<uint64_t, 2> { 37, 130 },
+            element_size_t::DOUBLE,
+            /*scaled=*/false,
+        },
+        {
+            "st1d 64bit unscaled offset (repeated offset)",
+            TEST_FUNC("st1d z30.d, p6, [%[base], z1.d]"),
+            { /*zt=*/30, /*pg=*/6, /*zm=*/1 },
+            std::array<uint64_t, 2> { 38, 38 },
+            element_size_t::DOUBLE,
+            /*scaled=*/false,
+        },
+    });
+#    undef TEST_FUNC
+}
 #endif // defined(__ARM_FEATURE_SVE)
 
 } // namespace
@@ -1153,9 +1892,16 @@ test_ld1_scalar_plus_vector()
 int
 main(int argc, char **argv)
 {
+    test_result_t status = PASS;
 #if defined(__ARM_FEATURE_SVE)
-    test_ld1_scalar_plus_vector();
+    if (test_ld1_scalar_plus_vector() == FAIL)
+        status = FAIL;
+    if (test_st1_scalar_plus_vector() == FAIL)
+        status = FAIL;
 #endif
 
-    return 0;
+    switch (status) {
+    case PASS: return 0;
+    case FAIL: return 1;
+    }
 }
