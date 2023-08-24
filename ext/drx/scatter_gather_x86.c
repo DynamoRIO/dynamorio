@@ -38,6 +38,7 @@
 #include "drx.h"
 #include "hashtable.h"
 #include "../ext_utils.h"
+#include "scatter_gather_shared.h"
 #include <stddef.h> /* for offsetof */
 #include <string.h>
 
@@ -89,23 +90,17 @@
 
 #define VERBOSE 0
 
-static int tls_idx;
 typedef struct _per_thread_t {
     void *scratch_mm_spill_slot;
     void *scratch_mm_spill_slot_aligned;
 } per_thread_t;
 static per_thread_t init_pt;
 
-static int drx_scatter_gather_expanded;
-
-static bool
-drx_event_restore_state(void *drcontext, bool restore_memory,
-                        dr_restore_state_info_t *info);
-
 static per_thread_t *
 get_tls_data(void *drcontext)
 {
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(drcontext, drx_scatter_gather_tls_idx);
     /* Support use during init (i#2910). */
     if (pt == NULL)
         return &init_pt;
@@ -134,8 +129,8 @@ get_mov_scratch_mm_opcode_and_size(int *opcode_out, opnd_size_t *opnd_size_out)
         *opnd_size_out = opnd_size;
 }
 
-static void
-drx_thread_init(void *drcontext)
+void
+drx_scatter_gather_thread_init(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
     opnd_size_t mm_opsz;
@@ -144,62 +139,20 @@ drx_thread_init(void *drcontext)
         dr_thread_alloc(drcontext, opnd_size_in_bytes(mm_opsz) + (MM_ALIGNMENT - 1));
     pt->scratch_mm_spill_slot_aligned =
         (void *)ALIGN_FORWARD(pt->scratch_mm_spill_slot, MM_ALIGNMENT);
-    drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
+    drmgr_set_tls_field(drcontext, drx_scatter_gather_tls_idx, (void *)pt);
 }
 
-static void
-drx_thread_exit(void *drcontext)
+void
+drx_scatter_gather_thread_exit(void *drcontext)
 {
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    per_thread_t *pt =
+        (per_thread_t *)drmgr_get_tls_field(drcontext, drx_scatter_gather_tls_idx);
     opnd_size_t mm_opsz;
     get_mov_scratch_mm_opcode_and_size(NULL, &mm_opsz);
     dr_thread_free(drcontext, pt->scratch_mm_spill_slot,
                    opnd_size_in_bytes(mm_opsz) + (MM_ALIGNMENT - 1));
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
-
-bool
-drx_scatter_gather_init()
-{
-    drmgr_priority_t fault_priority = { sizeof(fault_priority),
-                                        DRMGR_PRIORITY_NAME_DRX_FAULT, NULL, NULL,
-                                        DRMGR_PRIORITY_FAULT_DRX };
-
-    if (!drmgr_register_restore_state_ex_event_ex(drx_event_restore_state,
-                                                  &fault_priority))
-        return false;
-    tls_idx = drmgr_register_tls_field();
-    if (tls_idx == -1)
-        return false;
-    if (!drmgr_register_thread_init_event(drx_thread_init) ||
-        !drmgr_register_thread_exit_event(drx_thread_exit))
-        return false;
-
-    return true;
-}
-
-void
-drx_scatter_gather_exit()
-{
-    drmgr_unregister_tls_field(tls_idx);
-}
-
-typedef struct _scatter_gather_info_t {
-    bool is_evex;
-    bool is_load;
-    opnd_size_t scalar_index_size;
-    opnd_size_t scalar_value_size;
-    opnd_size_t scatter_gather_size;
-    reg_id_t mask_reg;
-    reg_id_t base_reg;
-    reg_id_t index_reg;
-    union {
-        reg_id_t gather_dst_reg;
-        reg_id_t scatter_src_reg;
-    };
-    int disp;
-    int scale;
-} scatter_gather_info_t;
 
 static void
 get_scatter_gather_info(instr_t *instr, scatter_gather_info_t *sg_info)
@@ -981,49 +934,30 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
 bool
 drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 {
-    instr_t *instr, *next_instr, *first_app = NULL;
-    bool delete_rest = false;
-
     if (expanded != NULL)
         *expanded = false;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_APP2APP) {
         return false;
     }
 
-    /* Make each scatter or gather instruction be in their own basic block.
-     * TODO i#3837: cross-platform code like the following bb splitting can be shared
-     * with other architectures in the future.
-     */
-    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
-        next_instr = instr_get_next(instr);
-        if (delete_rest) {
-            instrlist_remove(bb, instr);
-            instr_destroy(drcontext, instr);
-        } else if (instr_is_app(instr)) {
-            if (first_app == NULL)
-                first_app = instr;
-            if (instr_is_gather(instr) || instr_is_scatter(instr)) {
-                delete_rest = true;
-                if (instr != first_app) {
-                    instrlist_remove(bb, instr);
-                    instr_destroy(drcontext, instr);
-                }
-            }
-        }
+    instr_t *sg_instr = NULL;
+    if (!scatter_gather_split_bb(drcontext, bb, &sg_instr)) {
+        /* bb did not begin with a scatter/gather instruction. If there were any
+         * scatter/gather instructions that were not at the beginning, they have been
+         * split out of the bb and we will be called again later to handle them.
+         */
+        return true;
     }
-    if (first_app == NULL)
-        return true;
-    if (!instr_is_gather(first_app) && !instr_is_scatter(first_app))
-        return true;
+    DR_ASSERT(sg_instr != NULL);
 
     /* We want to avoid spill slot conflicts with later instrumentation passes. */
     drreg_status_t res_bb_props =
         drreg_set_bb_properties(drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS);
     DR_ASSERT(res_bb_props == DRREG_SUCCESS);
 
-    dr_atomic_store32(&drx_scatter_gather_expanded, 1);
+    /* Tell drx_event_restore_state() that an expansion has occurred. */
+    drx_mark_scatter_gather_expanded();
 
-    instr_t *sg_instr = first_app;
     scatter_gather_info_t sg_info;
     bool res = false;
     /* XXX: we may want to make this function public, as it may be useful to clients. */
@@ -1083,7 +1017,8 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     get_mov_scratch_mm_opcode_and_size(&mov_scratch_mm_opcode, &mov_scratch_mm_opnd_sz);
     scratch_mm = reg_resize_to_opsz(scratch_xmm, mov_scratch_mm_opnd_sz);
 
-    drmgr_insert_read_tls_field(drcontext, tls_idx, bb, sg_instr, scratch_reg0);
+    drmgr_insert_read_tls_field(drcontext, drx_scatter_gather_tls_idx, bb, sg_instr,
+                                scratch_reg0);
     instrlist_meta_preinsert(
         bb, sg_instr,
         INSTR_CREATE_mov_ld(
@@ -1221,7 +1156,8 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
                          orig_app_pc));
     }
     /* Restore the scratch xmm. */
-    drmgr_insert_read_tls_field(drcontext, tls_idx, bb, sg_instr, scratch_reg0);
+    drmgr_insert_read_tls_field(drcontext, drx_scatter_gather_tls_idx, bb, sg_instr,
+                                scratch_reg0);
     instrlist_meta_preinsert(
         bb, sg_instr,
         INSTR_CREATE_mov_ld(
@@ -1269,6 +1205,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     instrlist_remove(bb, sg_instr);
 #if VERBOSE
     dr_fprintf(STDERR, "\twas expanded to the following sequence:\n");
+    instr_t *instr;
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         dr_print_instr(drcontext, STDERR, instr, "");
     }
@@ -2397,43 +2334,20 @@ drx_restore_state_for_avx2_gather(void *drcontext, dr_restore_state_info_t *info
                                             drx_avx2_gather_sequence_state_machine);
 }
 
-static bool
-drx_event_restore_state(void *drcontext, bool restore_memory,
-                        dr_restore_state_info_t *info)
+bool
+drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
+                                 instr_t *sg_inst)
 {
-    instr_t inst;
-    bool success = true;
-    if (info->fragment_info.cache_start_pc == NULL)
-        return true; /* fault not in cache */
-    if (dr_atomic_load32(&drx_scatter_gather_expanded) == 0) {
-        /* Nothing to do if nobody had never called expand_scatter_gather() before. */
-        return true;
-    }
-    if (!info->fragment_info.app_code_consistent) {
-        /* Can't verify application code.
-         * XXX i#2985: is it better to keep searching?
-         */
-        return true;
-    }
-    instr_init(drcontext, &inst);
-    byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
-    if (pc != NULL) {
-        scatter_gather_info_t sg_info;
-        if (instr_is_gather(&inst)) {
-            get_scatter_gather_info(&inst, &sg_info);
-            if (sg_info.is_evex) {
-                success = success &&
-                    drx_restore_state_for_avx512_gather(drcontext, info, &sg_info);
-            } else {
-                success = success &&
-                    drx_restore_state_for_avx2_gather(drcontext, info, &sg_info);
-            }
-        } else if (instr_is_scatter(&inst)) {
-            get_scatter_gather_info(&inst, &sg_info);
-            success = success &&
-                drx_restore_state_for_avx512_scatter(drcontext, info, &sg_info);
+    scatter_gather_info_t sg_info;
+    get_scatter_gather_info(sg_inst, &sg_info);
+
+    if (sg_info.is_load) {
+        if (sg_info.is_evex) {
+            return drx_restore_state_for_avx512_gather(drcontext, info, &sg_info);
+        } else {
+            return drx_restore_state_for_avx2_gather(drcontext, info, &sg_info);
         }
+    } else {
+        return drx_restore_state_for_avx512_scatter(drcontext, info, &sg_info);
     }
-    instr_free(drcontext, &inst);
-    return success;
 }

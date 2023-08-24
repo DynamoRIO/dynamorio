@@ -43,6 +43,7 @@ set(srcs
   drx.c
   drx_buf.c
   scatter_gather_${ARCH_NAME}.c
+  scatter_gather_shared.c
   # add more here
   )
 
@@ -71,6 +72,9 @@ macro(configure_drx_target target)
   if (WIN32)
     target_link_libraries(${target} ntdll_imports)
   endif ()
+  target_include_directories(${target}
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR})
 endmacro()
 
 configure_drx_target(drx)
