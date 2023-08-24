@@ -126,7 +126,7 @@ gather_trace()
     assert(!dr_app_running_under_dynamorio());
     dr_app_start();
     assert(dr_app_running_under_dynamorio());
-    fib_with_sleep(5);
+    fib_with_sleep(4);
     dr_app_stop_and_cleanup();
     assert(!dr_app_running_under_dynamorio());
     return post_process();
