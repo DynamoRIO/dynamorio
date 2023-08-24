@@ -253,7 +253,9 @@ get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
  *         else
  *             scalar_store(src[e], base, offsets[e], mod);
  *     }
- *
+ * except we unroll the loop. Without unrolling the loop drmemtrace's instrumentation
+ * would be repeated every iteration and give incorrect ifetch statistics.
+ * (See i#4948 for more details)
  *
  * For example
  *     ld1d   (%x0,%z26.d,lsl #3)[32byte] %p1/z -> %z27.d
