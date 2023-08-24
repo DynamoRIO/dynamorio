@@ -374,8 +374,9 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
         if (sg_info->is_load) {
             /* ldr[bh]  scratch_gpr, [base_reg, scratch_gpr, mod #amount] */
             opnd_t mem = opnd_create_base_disp_shift_aarch64(
-                sg_info->base_reg, scratch_gpr, sg_info->extend, sg_info->scaled, 0, 0,
-                sg_info->scalar_value_size, sg_info->extend_amount);
+                sg_info->base_reg, scratch_gpr, sg_info->extend, sg_info->scaled,
+                /*disp=*/0, /*flags=*/0, sg_info->scalar_value_size,
+                sg_info->extend_amount);
 
             if (sg_info->is_scalar_value_signed) {
                 const reg_id_t ld_dst =
