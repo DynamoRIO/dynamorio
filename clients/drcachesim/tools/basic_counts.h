@@ -52,6 +52,10 @@ class basic_counts_t : public analysis_tool_t {
 public:
     basic_counts_t(unsigned int verbose);
     ~basic_counts_t() override;
+    std::string
+    initialize_stream(memtrace_stream_t *serial_stream) override;
+    std::string
+    initialize_shard_type(shard_type_t shard_type) override;
     bool
     process_memref(const memref_t &memref) override;
     interval_state_snapshot_t *
@@ -61,7 +65,8 @@ public:
     bool
     parallel_shard_supported() override;
     void *
-    parallel_shard_init(int shard_index, void *worker_data) override;
+    parallel_shard_init_stream(int shard_index, void *worker_data,
+                               memtrace_stream_t *stream) override;
     bool
     parallel_shard_exit(void *shard_data) override;
     bool
@@ -226,7 +231,9 @@ protected:
         {
             counters.resize(1);
         }
-        memref_tid_t tid = 0;
+        memtrace_stream_t *stream = nullptr;
+        memref_tid_t tid = 0; // For SHARD_BY_THREAD.
+        int64_t core = 0;     // For SHARD_BY_CORE.
         // A vector to support windows.
         std::vector<counters_t> counters;
         std::string error;
@@ -268,6 +275,8 @@ protected:
     std::mutex shard_map_mutex_;
     unsigned int knob_verbose_;
     static const std::string TOOL_NAME;
+    shard_type_t shard_type_ = SHARD_BY_THREAD;
+    memtrace_stream_t *serial_stream_ = nullptr;
 };
 
 } // namespace drmemtrace

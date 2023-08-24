@@ -53,6 +53,16 @@ namespace dynamorio {
 namespace drmemtrace {
 
 /**
+ * Identifies the type of shard.
+ */
+enum shard_type_t {
+    /** Sharded by software thread. */
+    SHARD_BY_THREAD,
+    /** Sharded by hardware core. */
+    SHARD_BY_CORE,
+};
+
+/**
  * The base class for a tool that analyzes a trace.  A new tool should subclass this
  * class.
  *
@@ -128,6 +138,16 @@ public:
     initialize_stream(memtrace_stream_t *serial_stream)
     {
         return initialize();
+    }
+    /**
+     * Identifies the shard type for this analysis.  The return value indicates whether
+     * the tool supports this shard type, with failure (a non-empty string) being treated
+     * as a fatal error for the analysis.
+     */
+    virtual std::string
+    initialize_shard_type(shard_type_t shard_type)
+    {
+        return "";
     }
     /** Returns whether the tool was created successfully. */
     virtual bool

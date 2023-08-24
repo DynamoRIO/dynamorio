@@ -41,6 +41,8 @@
 #ifdef HAS_ZLIB
 #    include "common/gzip_istream.h"
 #    include "reader/compressed_file_reader.h"
+#    include "zipfile_istream.h"
+#    include "zipfile_ostream.h"
 #endif
 #ifdef HAS_ZIP
 #    include "common/zipfile_istream.h"
@@ -145,10 +147,27 @@ analyzer_multi_t::analyzer_multi_t()
         error_string_ = "Failed to create analysis tool: " + error_string_;
         return;
     }
+
+    scheduler_t::scheduler_options_t sched_ops;
+    scheduler_t::scheduler_options_t *sched_ops_ptr = nullptr;
+    if (op_core_sharded.get_value() || op_core_serial.get_value()) {
+        if (op_core_serial.get_value()) {
+            // TODO i#5694: Add serial core-sharded support by having the
+            // analyzer create #cores streams but walk them in lockstep.
+            // Then, update drcachesim to use get_output_cpuid().
+            error_string_ = "-core_serial is not yet implemented";
+            success_ = false;
+            return;
+        }
+        sched_ops = init_dynamic_schedule();
+        sched_ops_ptr = &sched_ops;
+    }
+
     if (!op_indir.get_value().empty()) {
         std::string tracedir =
             raw2trace_directory_t::tracedir_from_rawdir(op_indir.get_value());
-        if (!init_scheduler(tracedir, op_only_thread.get_value(), op_verbose.get_value()))
+        if (!init_scheduler(tracedir, op_only_thread.get_value(), op_verbose.get_value(),
+                            sched_ops_ptr))
             success_ = false;
     } else if (op_infile.get_value().empty()) {
         // XXX i#3323: Add parallel analysis support for online tools.
@@ -156,13 +175,14 @@ analyzer_multi_t::analyzer_multi_t()
         auto reader = std::unique_ptr<reader_t>(
             new ipc_reader_t(op_ipc_name.get_value().c_str(), op_verbose.get_value()));
         auto end = std::unique_ptr<reader_t>(new ipc_reader_t());
-        if (!init_scheduler(std::move(reader), std::move(end), op_verbose.get_value())) {
+        if (!init_scheduler(std::move(reader), std::move(end), op_verbose.get_value(),
+                            sched_ops_ptr)) {
             success_ = false;
         }
     } else {
         // Legacy file.
         if (!init_scheduler(op_infile.get_value(), INVALID_THREAD_ID /*all threads*/,
-                            op_verbose.get_value()))
+                            op_verbose.get_value(), sched_ops_ptr))
             success_ = false;
     }
     if (!init_analysis_tools()) {
@@ -174,7 +194,47 @@ analyzer_multi_t::analyzer_multi_t()
 
 analyzer_multi_t::~analyzer_multi_t()
 {
+
+#ifdef HAS_ZIP
+    if (!op_record_file.get_value().empty()) {
+        if (scheduler_.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS) {
+            ERRMSG("Failed to write schedule to %s", op_record_file.get_value().c_str());
+        }
+    }
+#endif
     destroy_analysis_tools();
+}
+
+scheduler_t::scheduler_options_t
+analyzer_multi_t::init_dynamic_schedule()
+{
+    shard_type_ = SHARD_BY_CORE;
+    worker_count_ = op_num_cores.get_value();
+    scheduler_t::scheduler_options_t sched_ops(
+        scheduler_t::MAP_TO_ANY_OUTPUT,
+        op_sched_order_time.get_value() ? scheduler_t::DEPENDENCY_TIMESTAMPS
+                                        : scheduler_t::DEPENDENCY_IGNORE,
+        scheduler_t::SCHEDULER_DEFAULTS, op_verbose.get_value());
+    sched_ops.quantum_duration = op_sched_quantum.get_value();
+    if (op_sched_time.get_value())
+        sched_ops.quantum_unit = scheduler_t::QUANTUM_TIME;
+#ifdef HAS_ZIP
+    if (!op_record_file.get_value().empty()) {
+        record_schedule_zip_.reset(new zipfile_ostream_t(op_record_file.get_value()));
+        sched_ops.schedule_record_ostream = record_schedule_zip_.get();
+    } else if (!op_replay_file.get_value().empty()) {
+        replay_schedule_zip_.reset(new zipfile_istream_t(op_replay_file.get_value()));
+        sched_ops.schedule_replay_istream = replay_schedule_zip_.get();
+        sched_ops.mapping = scheduler_t::MAP_AS_PREVIOUSLY;
+        sched_ops.deps = scheduler_t::DEPENDENCY_TIMESTAMPS;
+    } else if (!op_cpu_schedule_file.get_value().empty()) {
+        cpu_schedule_zip_.reset(new zipfile_istream_t(op_cpu_schedule_file.get_value()));
+        sched_ops.mapping = scheduler_t::MAP_TO_RECORDED_OUTPUT;
+        sched_ops.deps = scheduler_t::DEPENDENCY_TIMESTAMPS;
+        sched_ops.replay_as_traced_istream = cpu_schedule_zip_.get();
+    }
+#endif
+    return sched_ops;
 }
 
 bool

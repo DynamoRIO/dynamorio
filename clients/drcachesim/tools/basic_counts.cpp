@@ -77,6 +77,20 @@ basic_counts_t::~basic_counts_t()
     }
 }
 
+std::string
+basic_counts_t::initialize_stream(memtrace_stream_t *serial_stream)
+{
+    serial_stream_ = serial_stream;
+    return "";
+}
+
+std::string
+basic_counts_t::initialize_shard_type(shard_type_t shard_type)
+{
+    shard_type_ = shard_type;
+    return "";
+}
+
 bool
 basic_counts_t::parallel_shard_supported()
 {
@@ -84,10 +98,13 @@ basic_counts_t::parallel_shard_supported()
 }
 
 void *
-basic_counts_t::parallel_shard_init(int shard_index, void *worker_data)
+basic_counts_t::parallel_shard_init_stream(int shard_index, void *worker_data,
+                                           memtrace_stream_t *stream)
 {
     auto per_shard = new per_shard_t;
     std::lock_guard<std::mutex> guard(shard_map_mutex_);
+    per_shard->stream = stream;
+    per_shard->core = stream->get_output_cpuid();
     shard_map_[shard_index] = per_shard;
     return reinterpret_cast<void *>(per_shard);
 }
@@ -216,7 +233,14 @@ basic_counts_t::process_memref(const memref_t &memref)
     const auto &lookup = shard_map_.find(memref.data.tid);
     if (lookup == shard_map_.end()) {
         per_shard = new per_shard_t;
-        shard_map_[memref.data.tid] = per_shard;
+        per_shard->stream = serial_stream_;
+        // TODO i#5694: Once we have -core_serial we can fully test this serial
+        // code for SHARD_BY_CORE and update any other tools doing this same
+        // type of data splitting in serial mode by tid.
+        int64_t shard_index = shard_type_ == SHARD_BY_THREAD
+            ? memref.data.tid
+            : serial_stream_->get_output_cpuid();
+        shard_map_[shard_index] = per_shard;
     } else
         per_shard = lookup->second;
     if (!parallel_shard_memref(reinterpret_cast<void *>(per_shard), memref)) {
@@ -322,12 +346,15 @@ basic_counts_t::print_results()
         }
     }
 
-    // Print the threads sorted by instrs.
+    // Print the shards sorted by instrs.
     std::vector<std::pair<memref_tid_t, per_shard_t *>> sorted(shard_map_.begin(),
                                                                shard_map_.end());
     std::sort(sorted.begin(), sorted.end(), cmp_threads);
     for (const auto &keyvals : sorted) {
-        std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
+        if (shard_type_ == SHARD_BY_THREAD)
+            std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
+        else
+            std::cerr << "Core " << keyvals.second->core << " counts:\n";
         print_counters(keyvals.second->counters[0], 0, "", for_kernel_trace);
     }
 

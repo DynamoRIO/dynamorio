@@ -732,8 +732,7 @@ if (BUILD_TESTS)
   set_tests_properties(tool.drcacheoff.raw2trace_unit_tests PROPERTIES TIMEOUT
     ${test_seconds})
 
-  add_executable(tool.scheduler.unit_tests tests/scheduler_unit_tests.cpp
-    tests/scheduler_unit_tests.cpp)
+  add_executable(tool.scheduler.unit_tests tests/scheduler_unit_tests.cpp)
   target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer test_helpers)
   add_win32_flags(tool.scheduler.unit_tests)
   if (WIN32)
@@ -746,6 +745,31 @@ if (BUILD_TESTS)
     COMMAND tool.scheduler.unit_tests
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
   set_tests_properties(tool.scheduler.unit_tests PROPERTIES TIMEOUT ${test_seconds})
+
+  add_executable(tool.drcachesim.core_sharded tests/core_sharded_test.cpp
+    # XXX: Better to put these into libraries but that requires a bigger cleanup:
+    analyzer_multi.cpp ${client_and_sim_srcs} reader/ipc_reader.cpp)
+  target_link_libraries(tool.drcachesim.core_sharded test_helpers
+    drmemtrace_raw2trace drmemtrace_simulator drmemtrace_reuse_distance
+    drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
+    drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
+    drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
+    drmemtrace_analyzer)
+  add_win32_flags(tool.drcachesim.core_sharded)
+  if (WIN32)
+    # We have a dup symbol from linking in DR.  Linking libc first doesn't help.
+    append_property_string(TARGET tool.drcachesim.core_sharded LINK_FLAGS
+      "/force:multiple")
+  endif ()
+  configure_DynamoRIO_standalone(tool.drcachesim.core_sharded)
+  use_DynamoRIO_extension(tool.drcachesim.core_sharded droption)
+  use_DynamoRIO_extension(tool.drcachesim.core_sharded drreg_static)
+  use_DynamoRIO_extension(tool.drcachesim.core_sharded drcovlib_static)
+  use_DynamoRIO_extension(tool.drcachesim.core_sharded drutil_static)
+  add_test(NAME tool.drcachesim.core_sharded
+    COMMAND tool.drcachesim.core_sharded
+    ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
+  set_tests_properties(tool.drcachesim.core_sharded PROPERTIES TIMEOUT ${test_seconds})
 
   # XXX i#5675: add tests for other environments. Currently, the repository does not have
   # a checked-in post-processed trace for x86-32 or AArchXX.  We are also limited to
