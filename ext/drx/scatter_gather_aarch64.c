@@ -63,7 +63,7 @@ typedef struct _per_thread_t {
 } per_thread_t;
 
 /* Track the state of manual spill slots for SVE registers.
- * This corresponds to the splill slot storage in per_thread_t.
+ * This corresponds to the spill slot storage in per_thread_t.
  */
 typedef struct _spill_slot_state_t {
     reg_id_t pred_slots[1];

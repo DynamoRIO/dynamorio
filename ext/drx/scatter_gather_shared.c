@@ -88,7 +88,7 @@ scatter_gather_split_bb(void *drcontext, instrlist_t *bb, OUT instr_t **sg_instr
     return first_app_is_scatter_gather;
 }
 
-/* These architecture specific functions and defined in scatter_gather_${ARCH_NAME}.c */
+/* These architecture specific functions are defined in scatter_gather_${ARCH_NAME}.c */
 void
 drx_scatter_gather_thread_exit(void *drcontext);
 

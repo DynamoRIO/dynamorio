@@ -7189,7 +7189,7 @@
     instr_create_1dst_3src(dc, OP_eor, Pd, Pg, Pn, Pm)
 
 /**
- * Creates an NOT instruction.
+ * Creates a NOT instruction.
  *
  * This macro is used to encode the forms:
  * \verbatim
