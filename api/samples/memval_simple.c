@@ -334,7 +334,7 @@ handle_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t 
             }
 
 #ifdef AARCH64
-            /* TODO i#5844: Memory references involving SVE registers are not
+            /* TODO i#5036: Memory references involving SVE registers are not
              * supported yet. To be implemented as part of scatter/gather work.
              */
             if (opnd_is_base_disp(dst) &&
@@ -405,7 +405,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
                     break;
                 }
 #ifdef AARCH64
-                /* TODO i#5844: Memory references involving SVE registers are not
+                /* TODO i#5036: Memory references involving SVE registers are not
                  * supported yet. To be implemented as part of scatter/gather work.
                  */
                 if (opnd_is_base_disp(dst) &&

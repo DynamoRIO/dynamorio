@@ -634,10 +634,13 @@
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
     instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
+#define INSTR_CREATE_ldrsw(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldrsw, (Rd), (mem))
 #define INSTR_CREATE_ldrb(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
 #define INSTR_CREATE_ldrsb(dc, Rd, mem) \
     instr_create_1dst_1src((dc), OP_ldrsb, (Rd), (mem))
 #define INSTR_CREATE_ldrh(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
+#define INSTR_CREATE_ldrsh(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrsh, Rd, mem)
 #define INSTR_CREATE_ldur(dc, rt, mem) instr_create_1dst_1src(dc, OP_ldur, rt, mem)
 #define INSTR_CREATE_ldar(dc, Rt, mem) instr_create_1dst_1src((dc), OP_ldar, (Rt), (mem))
 #define INSTR_CREATE_ldarb(dc, Rt, mem) \
@@ -7184,6 +7187,22 @@
  */
 #define INSTR_CREATE_eor_sve_pred_b(dc, Pd, Pg, Pn, Pm) \
     instr_create_1dst_3src(dc, OP_eor, Pd, Pg, Pn, Pm)
+
+/**
+ * Creates a NOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    NOT     <Pd>.B, <Pg>/Z, <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_not_sve_pred_b(dc, Pd, Pg, Pn) \
+    INSTR_CREATE_eor_sve_pred_b(                    \
+        dc, Pd, Pg, Pn, opnd_create_reg_element_vector(opnd_get_reg(Pg), OPSZ_1))
 
 /**
  * Creates an EOR instruction.
