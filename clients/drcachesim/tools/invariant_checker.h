@@ -128,7 +128,8 @@ protected:
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         uintptr_t prev_func_id_ = 0;
-        addr_t last_retaddr_ = 0;
+        // We keep track of return addresses of nested function calls.
+        std::stack<addr_t> retaddr_stack_;
         uintptr_t trace_version_ = 0;
         struct instr_info_t {
             memref_t memref;
