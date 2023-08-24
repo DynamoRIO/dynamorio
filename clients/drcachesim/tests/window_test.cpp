@@ -51,7 +51,7 @@ namespace drmemtrace {
 
 namespace {
 
-constexpr int SECONDS_TO_SLEEP = 4;
+constexpr int SECONDS_TO_SLEEP = 3;
 constexpr int SECONDS_TO_TIMESTAMP = 1000000;
 
 } // namespace
@@ -126,7 +126,7 @@ gather_trace()
     assert(!dr_app_running_under_dynamorio());
     dr_app_start();
     assert(dr_app_running_under_dynamorio());
-    fib_with_sleep(6);
+    fib_with_sleep(5);
     dr_app_stop_and_cleanup();
     assert(!dr_app_running_under_dynamorio());
     return post_process();
