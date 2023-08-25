@@ -58,6 +58,7 @@
 #include "tools/invariant_checker.h"
 #include "tools/invariant_checker_create.h"
 #include "tools/opcode_mix_create.h"
+#include "tools/schedule_stats_create.h"
 #include "tools/syscall_mix_create.h"
 #include "tools/reuse_distance_create.h"
 #include "tools/reuse_time_create.h"
@@ -427,6 +428,9 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
                                      op_verbose.get_value());
     } else if (simulator_type == INVARIANT_CHECKER) {
         return create_invariant_checker();
+    } else if (simulator_type == SCHEDULE_STATS) {
+        return schedule_stats_tool_create(op_print_every.get_value(),
+                                          op_verbose.get_value());
     } else {
         auto tool = create_external_tool(simulator_type);
         if (tool == nullptr) {

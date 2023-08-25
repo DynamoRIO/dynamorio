@@ -35,13 +35,6 @@
 #ifndef _OPTIONS_H_
 #define _OPTIONS_H_ 1
 
-#define REPLACE_POLICY_NON_SPECIFIED ""
-#define REPLACE_POLICY_LRU "LRU"
-#define REPLACE_POLICY_LFU "LFU"
-#define REPLACE_POLICY_FIFO "FIFO"
-#define PREFETCH_POLICY_NEXTLINE "nextline"
-#define PREFETCH_POLICY_NONE "none"
-#define CPU_CACHE "cache"
 #define MISS_ANALYZER "miss_analyzer"
 #define TLB "TLB"
 #define HISTOGRAM "histogram"
@@ -53,10 +46,20 @@
 #define VIEW "view"
 #define FUNC_VIEW "func_view"
 #define INVARIANT_CHECKER "invariant_checker"
+#define SCHEDULE_STATS "schedule_stats"
+
+#define REPLACE_POLICY_NON_SPECIFIED ""
+#define REPLACE_POLICY_LRU "LRU"
+#define REPLACE_POLICY_LFU "LFU"
+#define REPLACE_POLICY_FIFO "FIFO"
+#define PREFETCH_POLICY_NEXTLINE "nextline"
+#define PREFETCH_POLICY_NONE "none"
+#define CPU_CACHE "cache"
 #define CACHE_TYPE_INSTRUCTION "instruction"
 #define CACHE_TYPE_DATA "data"
 #define CACHE_TYPE_UNIFIED "unified"
 #define CACHE_PARENT_MEMORY "memory"
+
 // The expected pattern for a single_op_value is:
 //     function_name|function_id|arguments_num
 // where function_name can contain spaces (for instance, C++ namespace prefix)
@@ -191,6 +194,7 @@ extern dynamorio::droption::droption_t<std::string> op_record_file;
 extern dynamorio::droption::droption_t<std::string> op_replay_file;
 extern dynamorio::droption::droption_t<std::string> op_cpu_schedule_file;
 #endif
+extern dynamorio::droption::droption_t<uint64_t> op_print_every;
 
 } // namespace drmemtrace
 } // namespace dynamorio

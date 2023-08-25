@@ -1,0 +1,76 @@
+Schedule stats tool results:
+Total counts:
+           4 cores
+           8 threads
+      638938 instructions
+           5 total context switches
+   0.0078255 CSPKI \(context switches per 1000 instructions\)
+      127788 instructions per context switch
+           5 voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+         161 system calls
+           2 maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+Core #0 counts:
+           . threads
+      *[0-9]* instructions
+           . total context switches
+   0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
+      *[0-9]* instructions per context switch
+           . voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+         *[0-9]* system calls
+           . maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+Core #1 counts:
+           2 threads
+      *[0-9]* instructions
+           . total context switches
+   0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
+      *[0-9]* instructions per context switch
+           . voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+          .. system calls
+           . maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+Core #2 counts:
+           2 threads
+      *[0-9]* instructions
+           1 total context switches
+   0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
+      *[0-9]* instructions per context switch
+           1 voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+          .. system calls
+           . maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+Core #3 counts:
+           2 threads
+      *[0-9]* instructions
+           1 total context switches
+   0.0[0-9.]* CSPKI \(context switches per 1000 instructions\)
+      *[0-9]* instructions per context switch
+           1 voluntary context switches
+           0 direct context switches
+      100.00% voluntary switches
+        0.00% direct switches
+          .. system calls
+           . maybe-blocking system calls
+           0 direct switch requests
+           0 waits
+Core #0 schedule: FFFFFF,HHHHHHHHHHHHHHHHHHH,(FFF|EEEEEEEEEEEEEEEEEEE|CCCCCCCCCCCCCCCCCCC|AAAAAAAAAAAAAAAAAAA)
+Core #1 schedule: DDDDDDDDDDDDDDDDDD,(FFF|EEEEEEEEEEEEEEEEEEE|CCCCCCCCCCCCCCCCCCC|AAAAAAAAAAAAAAAAAAA)
+Core #2 schedule: GGGGGGGGGGGGGGGGGGG,(FFF|EEEEEEEEEEEEEEEEEEE|CCCCCCCCCCCCCCCCCCC|AAAAAAAAAAAAAAAAAAA)
+Core #3 schedule: BBBBBBBBBBBBBBBBBBB,(FFF|EEEEEEEEEEEEEEEEEEE|CCCCCCCCCCCCCCCCCCC|AAAAAAAAAAAAAAAAAAA)
