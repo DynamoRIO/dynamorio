@@ -968,6 +968,7 @@ test_false_syscalls(void *drcontext)
 {
 #if defined(WINDOWS) && !defined(X64)
     // We do not omit false syscalls for WOW64 today.
+    return true;
 #else
     std::cerr << "\n===============\nTesting false syscalls\n";
     // Our synthetic test first constructs a list of instructions to be encoded into
