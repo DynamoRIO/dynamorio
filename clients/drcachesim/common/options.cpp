@@ -794,17 +794,19 @@ droption_t<bool> op_core_serial(
     "How the scheduling is performed is controlled by a set "
     "of options with the prefix \"sched_\" along with -num_cores.");
 
-droption_t<int64_t> op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 1000 * 1000,
-                                     "Scheduling quantum",
-                                     "Applies to -core_sharded and -core_serial. "
-                                     "Scheduling quantum: in microseconds if -sched_time "
-                                     "is set; otherwise in instructions.");
+droption_t<int64_t>
+    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 1000 * 1000,
+                     "Scheduling quantum",
+                     "Applies to -core_sharded and -core_serial. "
+                     "Scheduling quantum: in microseconds of wall-clock "
+                     "time if -sched_time is set; otherwise in instructions.");
 
 droption_t<bool>
     op_sched_time(DROPTION_SCOPE_ALL, "sched_time", false,
                   "Whether to use time for the scheduling quantum",
                   "Applies to -core_sharded and -core_serial. "
-                  "Whether to use wall-clock time for the scheduling quantum");
+                  "Whether to use wall-clock time for the scheduling quantum, with a "
+                  "value equal to -sched_quantum in microseconds of wall-clock time.");
 
 droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", true,
                                      "Whether to honor recorded timestamps for ordering",

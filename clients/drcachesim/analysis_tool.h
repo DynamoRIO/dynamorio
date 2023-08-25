@@ -58,6 +58,8 @@ namespace drmemtrace {
 enum shard_type_t {
     /** Sharded by software thread. */
     SHARD_BY_THREAD,
+    /** Default shard type. */
+    SHARD_BY_DEFAULT = SHARD_BY_THREAD,
     /** Sharded by hardware core. */
     SHARD_BY_CORE,
 };

@@ -420,9 +420,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
     }
     while (true) {
         RecordType record;
-        uint64_t micros = sched_by_time_ ? get_current_microseconds() : 0;
+        // The current time is used for time quanta; for instr quanta, it's ignored and
+        // we pass 0.
+        uint64_t cur_micros = sched_by_time_ ? get_current_microseconds() : 0;
         typename sched_type_t::stream_status_t status =
-            worker.stream->next_record(record, micros);
+            worker.stream->next_record(record, cur_micros);
         if (status != sched_type_t::STATUS_OK) {
             if (status != sched_type_t::STATUS_EOF) {
                 if (status == sched_type_t::STATUS_REGION_INVALID) {
@@ -470,13 +472,15 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
     for (int i = 0; i < num_tools_; ++i)
         user_worker_data[i] = tools_[i]->parallel_worker_init(worker->index);
     RecordType record;
-    uint64_t micros = sched_by_time_ ? get_current_microseconds() : 0;
+    // The current time is used for time quanta; for instr quanta, it's ignored and
+    // we pass 0.
+    uint64_t cur_micros = sched_by_time_ ? get_current_microseconds() : 0;
     for (typename sched_type_t::stream_status_t status =
-             worker->stream->next_record(record, micros);
+             worker->stream->next_record(record, cur_micros);
          status != sched_type_t::STATUS_EOF;
-         status = worker->stream->next_record(record, micros)) {
+         status = worker->stream->next_record(record, cur_micros)) {
         if (sched_by_time_)
-            micros = get_current_microseconds();
+            cur_micros = get_current_microseconds();
         if (status == sched_type_t::STATUS_WAIT) {
             // TODO i#5694: We'd like the forthcoming schedule_stats tool to know about
             // waits and idle periods (to record "-" in its string): should the analyzer
