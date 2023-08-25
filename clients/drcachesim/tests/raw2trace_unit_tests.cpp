@@ -966,6 +966,9 @@ test_duplicate_syscalls(void *drcontext)
 bool
 test_false_syscalls(void *drcontext)
 {
+#if defined(WINDOWS) && !defined(X64)
+    // We do not omit false syscalls for WOW64 today.
+#else
     std::cerr << "\n===============\nTesting false syscalls\n";
     // Our synthetic test first constructs a list of instructions to be encoded into
     // a buffer for decoding by raw2trace.
@@ -976,15 +979,15 @@ test_false_syscalls(void *drcontext)
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     // XXX: Adding an XINST_CREATE_syscall macro will simplify this but there are
     // complexities (xref create_syscall_instr()).
-#ifdef X86
+#    ifdef X86
     instr_t *sys = INSTR_CREATE_syscall(drcontext);
-#elif defined(AARCHXX)
+#    elif defined(AARCHXX)
     instr_t *sys = INSTR_CREATE_svc(drcontext, opnd_create_immed_int((sbyte)0x0, OPSZ_1));
-#elif defined(RISCV64)
+#    elif defined(RISCV64)
     instr_t *sys = INSTR_CREATE_ecall(drcontext);
-#else
-#    error Unsupported architecture.
-#endif
+#    else
+#        error Unsupported architecture.
+#    endif
     instr_t *move2 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG2), opnd_create_reg(REG1));
     instrlist_append(ilist, nop);
@@ -1064,6 +1067,7 @@ test_false_syscalls(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
+#endif
 }
 
 bool
