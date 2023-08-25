@@ -216,11 +216,10 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.drwrap-test' => 1, # i#4131
                 'code_api|client.drutil-test' => 1, # i#4131
                 'code_api|tool.histogram.offline' => 1, # i#4621
-                'code_api|tool.drcacheoff.burst_replace' => 1, # i#4622,i#6131
+                'code_api|tool.drcacheoff.burst_replace' => 1, # i#4622
                 'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#4622
                 'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4622
                 'code_api|tool.drcacheoff.burst_static' => 1, # i#4486
-                'code_api|tool.drcacheoff.gencode' => 1, # i#6131
                 'code_api|api.symtest' => 1, # i#4131
                 'code_api|client.drwrap-test-detach' => 1, # i#4616
                 'code_api|client.cbr4' => 1, # i#4792
