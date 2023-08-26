@@ -415,7 +415,7 @@ offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t w
 }
 
 bool
-offline_instru_t::refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
+offline_instru_t::clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
 {
     offline_entry_t *stamp = reinterpret_cast<offline_entry_t *>(buf_ptr);
     DR_ASSERT(stamp->timestamp.type == OFFLINE_TYPE_TIMESTAMP);
