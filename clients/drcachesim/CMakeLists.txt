@@ -977,7 +977,6 @@ if (BUILD_TESTS)
         # Just like for burst_replace, linking everything together takes effort.
         target_link_libraries(tool.drcacheoff.windows-timestamps ${static_libc})
       endif ()
-      set(tool.drcacheoff.windows-timestamps_uses_configure ON) # Avoid dup DEBUG.
       add_win32_flags(tool.drcacheoff.windows-timestamps)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.windows-timestamps)
     endif (NOT RISCV64)
