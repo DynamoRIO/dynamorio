@@ -59,7 +59,7 @@
 #include "instr.h"
 #include "instr_api.h"
 #include "instr_create_shared.h"
-#include "link.h"
+#include "../link.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
 
