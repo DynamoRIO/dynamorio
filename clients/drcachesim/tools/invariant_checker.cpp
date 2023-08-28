@@ -509,7 +509,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     cur_instr_info.is_syscall = instr_is_syscall(noalloc_instr);
                     cur_instr_info.writes_memory = instr_writes_memory(noalloc_instr);
                     if (type_is_instr_branch(memref.instr.type)) {
-                        cur_instr_info.branch_target = instr_get_target(noalloc_instr);
+                        cur_instr_info.branch_target = reinterpret_cast<addr_t>(
+                            opnd_get_pc(instr_get_target(noalloc_instr)));
                     }
                 }
                 shard->decode_cache_[trace_pc] = cur_instr_info;
@@ -987,16 +988,14 @@ invariant_checker_t::check_for_pc_discontinuity(
     }
     // We do not bother to support legacy traces without encodings.
     if (expect_encoding && type_is_instr_direct_branch(prev_instr.instr.type)) {
-        if (!prev_instr_info.has_valid_decoding ||
-            !opnd_is_pc(prev_instr_info.branch_target)) {
+        if (!prev_instr_info.has_valid_decoding) {
             // Neither condition should happen but they could on an invalid
             // encoding from raw2trace or the reader so we report an
             // invariant rather than asserting.
             report_if_false(shard, false, "Branch target is not decodeable");
         } else {
             have_branch_target = true;
-            branch_target =
-                reinterpret_cast<addr_t>(opnd_get_pc(prev_instr_info.branch_target));
+            branch_target = prev_instr_info.branch_target;
         }
     }
     // Check for all valid transitions except taken branches. We consider taken

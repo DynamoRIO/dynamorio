@@ -137,7 +137,7 @@ protected:
             bool has_valid_decoding = false;
             bool is_syscall = false;
             bool writes_memory = false;
-            opnd_t branch_target;
+            addr_t branch_target;
         };
         std::unordered_map<app_pc, instr_info_t> decode_cache_;
         instr_info_t prev_instr_ = {};
