@@ -621,6 +621,12 @@ if (X86 AND UNIX)
   check_avx512_processor_and_compiler_support(proc_supports_avx512)
 endif ()
 
+set(proc_supports_sve OFF)
+if (AARCH64 AND UNIX)
+  set(CFLAGS_SVE "-march=armv8-a+sve")
+  check_sve_processor_and_compiler_support(proc_supports_sve)
+endif ()
+
 # Ensure that _AMD64_ or _X86_ are defined on Microsoft Windows, as otherwise
 # um/winnt.h provided since Windows 10.0.22000 will error.
 if (NOT UNIX)

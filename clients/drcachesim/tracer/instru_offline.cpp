@@ -415,7 +415,7 @@ offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t w
 }
 
 bool
-offline_instru_t::refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
+offline_instru_t::clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
 {
     offline_entry_t *stamp = reinterpret_cast<offline_entry_t *>(buf_ptr);
     DR_ASSERT(stamp->timestamp.type == OFFLINE_TYPE_TIMESTAMP);
@@ -949,7 +949,7 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         // view by expanding the instr in raw2trace (e.g. using
         // drx_expand_scatter_gather) when building the ilist.
         if (drutil_instr_is_stringop_loop(instr)
-            // TODO i#3837: Scatter/gather support NYI on ARM/AArch64.
+            // TODO i#5036: Scatter/gather support incomplete on AArch64.
             IF_X86(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
             return;
         }
