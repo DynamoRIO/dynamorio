@@ -790,6 +790,18 @@ public:
         return &outputs_[ordinal].stream;
     }
 
+    /**
+     * Returns the cpu number for the 'ordinal'-th output stream. This is only valid for
+     * MAP_TO_RECORDED_OUTPUT and returns -1 for other mappings.
+     */
+    virtual int
+    get_output_cpuid(output_ordinal_t ordinal)
+    {
+        if (ordinal < 0 || ordinal >= static_cast<output_ordinal_t>(outputs_.size()))
+            return -1;
+        return outputs_[ordinal].cpu;
+    }
+
     /** Returns the number of input streams. */
     virtual int
     get_input_stream_count() const
@@ -976,6 +988,7 @@ protected:
         // sched_lock_.
         std::vector<schedule_record_t> record;
         int record_index = 0;
+        int cpu = -1;
         bool waiting = false;
         bool active = true;
         // Used for time-based quanta.

@@ -830,6 +830,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
     // We also need to translate the thread and cpu id values into 0-based ordinals.
     std::unordered_map<memref_tid_t, input_ordinal_t> tid2input;
     for (int i = 0; i < static_cast<input_ordinal_t>(inputs_.size()); ++i) {
+        VPRINT(this, 1, "tid2input: tid: %" PRId64 " -> %d\n", inputs_[i].tid, i);
         tid2input[inputs_[i].tid] = i;
     }
     std::vector<std::set<uint64_t>> start2stop(inputs_.size());
@@ -857,6 +858,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                 }
             }
             cur_cpu = entry.cpu;
+            VPRINT(this, 1, "Output #%d is CPU #%" PRId64 "\n", cur_output, cur_cpu);
+            outputs_[cur_output].cpu = (int)cur_cpu;
         }
         input_ordinal_t input = tid2input[entry.thread];
         // We'll fill in the stop ordinal in our second pass below.
