@@ -509,8 +509,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     cur_instr_info.is_syscall = instr_is_syscall(noalloc_instr);
                     cur_instr_info.writes_memory = instr_writes_memory(noalloc_instr);
                     if (type_is_instr_branch(memref.instr.type)) {
-                        cur_instr_info.branch_target = reinterpret_cast<addr_t>(
-                            opnd_get_pc(instr_get_target(noalloc_instr)));
+                        const opnd_t target = instr_get_target(noalloc_instr);
+                        if (opnd_is_pc(target)) {
+                            cur_instr_info.branch_target =
+                                reinterpret_cast<addr_t>(opnd_get_pc(target));
+                        }
                     }
                 }
                 shard->decode_cache_[trace_pc] = cur_instr_info;
