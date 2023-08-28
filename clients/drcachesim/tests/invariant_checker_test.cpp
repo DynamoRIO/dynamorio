@@ -1675,8 +1675,8 @@ check_read_write_records_match_operands()
             // 0x7fcf3ba4: 90                   nop
             gen_instr_encoded(ADDR + 7, { 0x90 }),
 #elif defined(ARM_64)
-            // 0x7fcf3b9d: 40 c2 11 58          ldr x0, 0x1234
-            gen_instr_encoded(ADDR, /*encoding=*/0x40c21158),
+            // 0x7fcf3b9d: b9 40 00 04          ldr    (%x0)[4byte] -> %w4
+            gen_instr_encoded(ADDR, /*encoding=*/0xb9400004),
             gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
             // 0x7fcf3ba1: 1f 20 03 d5          nop
             gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
@@ -1703,8 +1703,8 @@ check_read_write_records_match_operands()
             // 0x7fcf3ba4: 90                   nop
             gen_instr_encoded(ADDR + 7, { 0x90 }),
 #elif defined(ARM_64)
-            // 0x7fcf3b9d: 40 c2 11 58          ldr x0, 0x1234
-            gen_instr_encoded(ADDR, /*encoding=*/0x40c21158),
+            // 0x7fcf3b9d: b9 40 00 04          ldr    (%x0)[4byte] -> %w4
+            gen_instr_encoded(ADDR, /*encoding=*/0xb9400004),
             gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
             gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
             // 0x7fcf3ba1: 1f 20 03 d5          nop
@@ -1732,8 +1732,8 @@ check_read_write_records_match_operands()
             // 0x7fcf3ba4: 90                   nop
             gen_instr_encoded(ADDR + 7, { 0x90 }),
 #elif defined(ARM_64)
-            // 0x7fcf3b9d: 40 c2 11 58          ldr x0, 0x1234
-            gen_instr_encoded(ADDR, /*encoding=*/0x40c21158),
+            // 0x7fcf3b9d: b9 40 00 04          ldr    (%x0)[4byte] -> %w4
+            gen_instr_encoded(ADDR, /*encoding=*/0xb9400004),
             // 0x7fcf3ba1: 1f 20 03 d5          nop
             gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
 #else
@@ -1757,8 +1757,8 @@ check_read_write_records_match_operands()
             // 0x7fcf3ba0: 90                   nop
             gen_instr_encoded(ADDR + 3, { 0x90 }),
 #elif defined(ARM_64)
-            // 0x7fcf3b9d: 41 00 00 f9          str x1, [x2]
-            gen_instr_encoded(ADDR, /*encoding=*/0x410000f9),
+            // 0x7fcf3b9d: b9 00 00 20          str    %w0 -> (%x1)[4byte]
+            gen_instr_encoded(ADDR, /*encoding=*/0xb9000020),
             gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
             // 0x7fcf3ba1: 1f 20 03 d5          nop
             gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
@@ -1782,8 +1782,8 @@ check_read_write_records_match_operands()
             // 0x7fcf3ba0: 90                   nop
             gen_instr_encoded(ADDR + 3, { 0x90 }),
 #elif defined(ARM_64)
-            // 0x7fcf3b9d: 41 00 00 f9          str x1, [x2]
-            gen_instr_encoded(ADDR, /*encoding=*/0x410000f9),
+            // 0x7fcf3b9d: b9 00 00 20          str    %w0 -> (%x1)[4byte]
+            gen_instr_encoded(ADDR, /*encoding=*/0xb9000020),
             gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
             gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
             // 0x7fcf3ba1: 1f 20 03 d5 nop
@@ -1809,8 +1809,8 @@ check_read_write_records_match_operands()
             // 0x7fcf3ba0: 90                   nop
             gen_instr_encoded(ADDR + 3, { 0x90 }),
 #elif defined(ARM_64)
-            // 0x7fcf3b9d: 41 00 00 f9          str x1, [x2]
-            gen_instr_encoded(ADDR, /*encoding=*/0x410000f9),
+            // 0x7fcf3b9d: b9 00 00 20          str    %w0 -> (%x1)[4byte]
+            gen_instr_encoded(ADDR, /*encoding=*/0xb9000020),
             // 0x7fcf3ba1: 1f 20 03 d5          nop
             gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
 #else
