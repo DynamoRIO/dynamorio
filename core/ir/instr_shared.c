@@ -52,12 +52,14 @@
 #define INSTR_INLINE extern inline
 
 #include "../globals.h"
-#include "instr.h"
+
 #include "arch.h"
-#include "../link.h"
 #include "decode.h"
 #include "decode_fast.h"
+#include "instr.h"
+#include "instr_api.h"
 #include "instr_create_shared.h"
+#include "link.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
 
@@ -2658,6 +2660,46 @@ decode_memory_reference_size(void *drcontext, app_pc pc, uint *size_in_bytes)
     *size_in_bytes = instr_memory_reference_size(&instr);
     instr_free(dcontext, &instr);
     return next_pc;
+}
+
+/* Returns the number of memory read accesses of the instruction.
+ */
+uint
+instr_num_memory_read_access(instr_t *instr)
+{
+    int i;
+    opnd_t curop;
+    int count = 0;
+    const int opc = instr_get_opcode(instr);
+
+    if (opc_is_not_a_real_memory_load(opc))
+        return 0;
+
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        curop = instr_get_src(instr, i);
+        if (opnd_is_memory_reference(curop)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+/* Returns the number of memory write accesses of the instruction.
+ */
+uint
+instr_num_memory_write_access(instr_t *instr)
+{
+    int i;
+    opnd_t curop;
+    int count = 0;
+
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        curop = instr_get_dst(instr, i);
+        if (opnd_is_memory_reference(curop)) {
+            ++count;
+        }
+    }
+    return count;
 }
 
 DR_API

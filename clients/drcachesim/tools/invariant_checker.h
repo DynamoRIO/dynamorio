@@ -196,6 +196,9 @@ protected:
         addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
         bool saw_filter_endpoint_marker_ = false;
+        // Counters for expected read and write records.
+        int expected_read_records_ = 0;
+        int expected_write_records_ = 0;
     };
 
     // We provide this for subclasses to run these invariants with custom

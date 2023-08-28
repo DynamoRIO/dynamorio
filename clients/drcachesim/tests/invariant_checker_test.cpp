@@ -281,13 +281,15 @@ check_sane_control_flow()
             gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
             // 0x74 is "je" with the 2nd byte the offset.
-            gen_branch_encoded(TID, 0x71019dbc, { 0x74, 0x32 }),
-            gen_instr_encoded(0x71019ded, { 0x01 }, TID),
+            gen_branch_encoded(TID, /*pc=*/0x71019dbc, /*encoding=*/ { 0x74, 0x32 }),
+            // 0x0x71019ded: 90 nop
+            gen_instr_encoded(/*pc=*/0x71019ded, /*encoding=*/ { 0x90 }, TID),
 #    elif defined(ARM_64)
             // 71019dbc:   540001a1        b.ne    71019df0
             // <__executable_start+0x19df0>
-            gen_branch_encoded(TID, 0x71019dbc, 0x540001a1),
-            gen_instr_encoded(0x71019ded, 0x01, TID),
+            gen_branch_encoded(TID, /*pc=*/0x71019dbc, /*encoding=*/0x540001a1),
+            // 71019ded:   1f2003d5        nop
+            gen_instr_encoded(/*pc=*/0x71019ded, /*encoding=*/0x1f2003d5, TID),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
@@ -307,15 +309,18 @@ check_sane_control_flow()
             gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
 #    if defined(X86_64) || defined(X86_32)
             // 0x74 is "je" with the 2nd byte the offset.
-            gen_branch_encoded(TID, 0x71019dbc, { 0x74, 0x32 }),
+            gen_branch_encoded(TID, /*pc=*/0x71019dbc, /*encoding=*/ { 0x74, 0x32 }),
+            // 0x71019df0: 90 nop
+            gen_instr_encoded(/*pc=*/0x71019df0, /*encoding=*/ { 0x90 }, TID),
 #    elif defined(ARM_64)
             // 71019dbc:   540001a1        b.ne    71019df0
             // <__executable_start+0x19df0>
-            gen_branch_encoded(TID, 0x71019dbc, 0x540001a1),
+            gen_branch_encoded(TID, /*pc=*/0x71019dbc, /*encoding=*/0x540001a1),
+            // 71019df0:   1f2003d5        nop
+            gen_instr_encoded(/*pc=*/0x71019df0, /*encoding=*/0x1f2003d5, TID),
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
-            gen_instr(TID, 0x71019df0),
         };
 
         if (!run_checker(memrefs, false)) {
@@ -1644,6 +1649,231 @@ check_timestamps_increase_monotonically(void)
     return true;
 }
 
+bool
+check_read_write_records_match_operands()
+{
+    std::cerr << "Testing number of read/write records matching operands\n";
+    constexpr memref_tid_t TID = 1;
+#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
+    constexpr addr_t ADDR = 0x7fcf3b9d;
+#endif
+
+    // Only the number of memory read and write records are checked against the
+    // operands. Address and size are not used.
+
+    // Correct: number of read records matches operand.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#if defined(X86_64) || defined(X86_32)
+            // 0x7fcf3b9d: 83 3d 84 21 23 03 00 cmp    <rel> 0x000000000443ddc0[4byte]
+            // $0x00000000
+            gen_instr_encoded(ADDR,
+                              /*encoding=*/
+                              { 0x83, 0x3d, 0x84, 0x21, 0x23, 0x03, 0x00 }),
+            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
+            // 0x7fcf3ba4: 90                   nop
+            gen_instr_encoded(ADDR + 7, { 0x90 }),
+#elif defined(ARM_64)
+            // 0x7fcf3b9d: 40 c2 11 58          ldr x0, 0x1234
+            gen_instr_encoded(ADDR, /*encoding=*/0x40c21158),
+            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
+            // 0x7fcf3ba1: 1f 20 03 d5          nop
+            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
+#else
+        // TODO: Add AArch32 (and RISC-V) encodings.
+#endif
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect: too many read records.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#if defined(X86_64) || defined(X86_32)
+            // 0x7fcf3b9d: 83 3d 84 21 23 03 00 cmp    <rel> 0x000000000443ddc0[4byte]
+            // $0x00000000
+            gen_instr_encoded(ADDR,
+                              /*encoding=*/
+                              { 0x83, 0x3d, 0x84, 0x21, 0x23, 0x03, 0x00 }),
+            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
+            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
+            // 0x7fcf3ba4: 90                   nop
+            gen_instr_encoded(ADDR + 7, { 0x90 }),
+#elif defined(ARM_64)
+            // 0x7fcf3b9d: 40 c2 11 58          ldr x0, 0x1234
+            gen_instr_encoded(ADDR, /*encoding=*/0x40c21158),
+            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
+            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
+            // 0x7fcf3ba1: 1f 20 03 d5          nop
+            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
+#else
+// TODO: Add AArch32 (and RISC-V) encodings.
+#endif
+        };
+        if (!run_checker(memrefs, true,
+                         { "Too many read records", TID, /*ref_ordinal=*/4,
+                           /*last_timestamp=*/0, /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch too many read records"))
+            return false;
+    }
+    // Incorrect: missing read records.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#if defined(X86_64) || defined(X86_32)
+            // 0x7fcf3b9d: 83 3d 84 21 23 03 00 cmp    <rel> 0x000000000443ddc0[4byte]
+            // $0x00000000
+            gen_instr_encoded(ADDR,
+                              /*encoding=*/
+                              { 0x83, 0x3d, 0x84, 0x21, 0x23, 0x03, 0x00 }),
+            // 0x7fcf3ba4: 90                   nop
+            gen_instr_encoded(ADDR + 7, { 0x90 }),
+#elif defined(ARM_64)
+            // 0x7fcf3b9d: 40 c2 11 58          ldr x0, 0x1234
+            gen_instr_encoded(ADDR, /*encoding=*/0x40c21158),
+            // 0x7fcf3ba1: 1f 20 03 d5          nop
+            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
+#else
+// TODO: Add AArch32 (and RISC-V) encodings.
+#endif
+        };
+        if (!run_checker(memrefs, true,
+                         { "Missing read records", TID, /*ref_ordinal=*/3,
+                           /*last_timestamp=*/0, /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch missing read records"))
+            return false;
+    }
+    // Correct: number of write records match operand.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#if defined(X86_64) || defined(X86_32)
+            // 0x7fcf3b9d: 89 47 70             mov    %eax -> 0x70(%rdi)[4byte]
+            gen_instr_encoded(ADDR, /*encoding=*/ { 0x89, 0x47, 0x70 }),
+            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
+            // 0x7fcf3ba0: 90                   nop
+            gen_instr_encoded(ADDR + 3, { 0x90 }),
+#elif defined(ARM_64)
+            // 0x7fcf3b9d: 41 00 00 f9          str x1, [x2]
+            gen_instr_encoded(ADDR, /*encoding=*/0x410000f9),
+            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
+            // 0x7fcf3ba1: 1f 20 03 d5          nop
+            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
+#else
+// TODO: Add AArch32 (and RISC-V) encodings.
+#endif
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect: too many write records.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#if defined(X86_64) || defined(X86_32)
+            // 0x7fcf3b9d: 89 47 70             mov    %eax -> 0x70(%rdi)[4byte]
+            gen_instr_encoded(ADDR, /*encoding=*/ { 0x89, 0x47, 0x70 }),
+            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
+            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
+            // 0x7fcf3ba0: 90                   nop
+            gen_instr_encoded(ADDR + 3, { 0x90 }),
+#elif defined(ARM_64)
+            // 0x7fcf3b9d: 41 00 00 f9          str x1, [x2]
+            gen_instr_encoded(ADDR, /*encoding=*/0x410000f9),
+            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
+            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
+            // 0x7fcf3ba1: 1f 20 03 d5 nop
+            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
+#else
+// TODO: Add AArch32 (and RISC-V) encodings.
+#endif
+        };
+        if (!run_checker(memrefs, true,
+                         { "Too many write records", TID, /*ref_ordinal=*/4,
+                           /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch too many write records"))
+            return false;
+    }
+    // Incorrect: missing write records.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#if defined(X86_64) || defined(X86_32)
+            // 0x7fcf3b9d: 89 47 70             mov    %eax -> 0x70(%rdi)[4byte]
+            gen_instr_encoded(ADDR, /*encoding=*/ { 0x89, 0x47, 0x70 }),
+            // 0x7fcf3ba0: 90                   nop
+            gen_instr_encoded(ADDR + 3, { 0x90 }),
+#elif defined(ARM_64)
+            // 0x7fcf3b9d: 41 00 00 f9          str x1, [x2]
+            gen_instr_encoded(ADDR, /*encoding=*/0x410000f9),
+            // 0x7fcf3ba1: 1f 20 03 d5          nop
+            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
+#else
+// TODO: Add AArch32 (and RISC-V) encodings.
+#endif
+        };
+        if (!run_checker(memrefs, true,
+                         { "Missing write records", TID, /*ref_ordinal=*/3,
+                           /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Fail to catch missing write records"))
+            return false;
+    }
+    // Correct: ignore predicated operands which may not have memory access.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#if defined(X86_64) || defined(X86_32)
+            // 0x7fcf3b9d: b9 00 00 00 00       mov    $0x00000000, %ecx
+            gen_instr_encoded(ADDR,
+                              /*encoding=*/
+                              { 0xb9, 0x00, 0x00, 0x00, 0x00 }),
+            // 0x7fcf3ba2: 8d 34 25 0e 20 40 00 lea    0x0040200e, %esi
+            gen_instr_encoded(ADDR + 5,
+                              /*encoding=*/
+                              { 0x8d, 0x34, 0x25, 0x0e, 0x20, 0x40, 0x00 }),
+            // 0x7fcf3ba9: 8d 3c 25 00 20 40 00 lea    0x00402000, %edi
+            gen_instr_encoded(ADDR + 12,
+                              /*encoding=*/
+                              { 0x8d, 0x3c, 0x25, 0x00, 0x20, 0x40, 0x00 }),
+            // 0x7fcf3bb0: fc                   cld
+            gen_instr_encoded(ADDR + 19, /*encoding=*/ { 0xfc }),
+            // 0x7fcf3bb1: f3 a5                rep movsd
+            gen_instr_encoded(ADDR + 20, /*encoding=*/ { 0xf3, 0xa5 }),
+            // 0x7fcf3bb3: 90 nop
+            gen_instr_encoded(ADDR + 22, { 0x90 }),
+#endif
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Correct: ignore operands with opcode which do not have real memory
+    // access.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+#if defined(X86_64) || defined(X86_32)
+            // 0x7fcf3b9d: 4c 8d b7 00 01 00 00 lea    0x00000100(%rdi) -> %r14
+            gen_instr_encoded(ADDR,
+                              /*encoding=*/
+                              { 0x4c, 0x8d, 0xb7, 0x00, 0x01, 0x00, 0x00 }),
+            // 0x7fcf3ba4: 90                   nop
+            gen_instr_encoded(ADDR + 7, { 0x90 }),
+#endif
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -1652,7 +1882,8 @@ test_main(int argc, const char *argv[])
         check_duplicate_syscall_with_same_pc() && check_false_syscalls() &&
         check_rseq_side_exit_discontinuity() && check_schedule_file() &&
         check_branch_decoration() && check_filter_endpoint() &&
-        check_timestamps_increase_monotonically()) {
+        check_timestamps_increase_monotonically() &&
+        check_read_write_records_match_operands()) {
         std::cerr << "invariant_checker_test passed\n";
         return 0;
     }
