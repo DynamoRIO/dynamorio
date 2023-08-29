@@ -1931,7 +1931,7 @@ elseif (RISCV64)
   # The ir_riscv64.expect file is too large for CMake's regexes.
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   set(api.ir-static_runcmp_capture "stderr")
-  # Internal error lines are ignored, which is not expected in static builds.
+  # Internal error lines are ignored as they are not printed in static builds.
   set(api.ir-static_runcmp_ignore_matching_lines "^[><]")
 endif ()
 
