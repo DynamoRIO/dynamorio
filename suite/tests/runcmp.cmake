@@ -36,7 +36,7 @@
 #     should have intra-arg space=@@ and inter-arg space=@ and ;=!
 # * cmp = file containing output to compare stdout to
 # * capture = if "stderr", captures stderr instead of stdout
-# * ignore_matching_lines = regex pattern that can be ignored in diff result
+# * ignore_matching_lines = optional regex pattern, matching lines will not be diffed
 
 # intra-arg space=@@ and inter-arg space=@
 string(REGEX REPLACE "@@" " " cmd "${cmd}")
@@ -52,42 +52,30 @@ if (cmd_result)
   message(FATAL_ERROR "*** ${cmd} failed (${cmd_result}): ${cmd_err}***\n")
 endif (cmd_result)
 
-# get expected output
-# we assume it has already been processed w/ regex => literal, etc.
-file(READ "${cmp}" str)
+set(tmp "${cmp}-out")
+file(WRITE "${tmp}" "${cmd_out}")
 
-# We do not support regex b/c ctest can't handle big regex:
+# We do not support regex in expect file b/c ctest can't handle big regex:
 #   "RegularExpression::compile(): Expression too big."
-# so we use STREQUAL.
 
 # We used to implement a "diff -b" via cmake regex on the output and expect
 # file, but that gets really slow (30s for 750KB strings) so now we require
-# strict matches.
+# strict matches per line.
 
-set(output "${cmd_out}")
-if ("${capture}" STREQUAL "stderr")
-  set(output "${cmd_err}")
+# Use diff -I to get the ability to skip some lines.
+
+if (ignore_matching_lines)
+  set(diffcmd "diff -I ${ignore_matching_lines}")
+else ()
+  set(diffcmd "diff")
 endif ()
 
-if (NOT "${output}" STREQUAL "${str}")
-  # make it easier to debug
-  set(tmp "${cmp}-out")
-  file(WRITE "${tmp}" "${output}")
-  set(tmp2 "${cmp}-expect")
-  file(WRITE "${tmp2}" "${str}")
+execute_process(COMMAND ${diffcmd} ${tmp} ${cmp}
+  RESULT_VARIABLE dcmd_result
+  ERROR_VARIABLE dcmd_err
+  OUTPUT_VARIABLE dcmd_out)
 
-  if (ignore_matching_lines)
-    set(diffcmd "diff --ignore-matching-lines=${ignore_matching_lines}")
-  else ()
-    set(diffcmd "diff")
-  endif ()
-  execute_process(COMMAND ${diffcmd} ${tmp} ${tmp2}
-    RESULT_VARIABLE dcmd_result
-    ERROR_VARIABLE dcmd_err
-    OUTPUT_VARIABLE dcmd_out)
-
+if (dcmd_result)
   message(STATUS "diff: ${dcmd_out}")
-
-  message(FATAL_ERROR "output in ${tmp} failed to match expected output in ${tmp2}")
-
-endif ()
+  message(FATAL_ERROR "output in ${tmp} failed to match expected output in ${cmp}")
+endif (dcmd_result)
