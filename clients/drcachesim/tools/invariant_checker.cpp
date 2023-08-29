@@ -519,8 +519,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->decode_cache_[trace_pc] = cur_instr_info;
             }
         }
-        // We need to assign the memref variable of cur_instr_info here. These values can
-        // not be cached as they dynamically vary based on data values.
+        // We need to assign the memref variable of cur_instr_info here after we retrieve
+        // the rest of cur_instr_info from the cache. The memref values can not be cached
+        // as they dynamically vary based on data values.
         cur_instr_info.memref = memref;
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
@@ -720,6 +721,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // We have not seen any instr in the outermost scope that we just
                 // discovered.
                 shard->last_instr_in_cur_context_.memref = {};
+                shard->last_instr_in_cur_context_.has_valid_decoding = false;
             } else {
                 // The pre_signal_instr for this signal may be {} in some cases:
                 // - for nested signals without any intervening instr
@@ -772,6 +774,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // We start with an empty memref_t to denote absence of any pre-signal
                 // instr for any subsequent nested signals.
                 shard->last_instr_in_cur_context_.memref = {};
+                shard->last_instr_in_cur_context_.has_valid_decoding = false;
             }
         }
 #endif
