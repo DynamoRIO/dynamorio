@@ -129,7 +129,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                 instr_disassemble_to_buffer(dcontext, instr, disas_instr,
                                             MAX_INSTR_DIS_SZ);
                 SYSLOG_INTERNAL_ERROR("Internal Error: Failed to encode instruction:"
-                                      " '%s'\n",
+                                      " '%s'",
                                       disas_instr);
             }
         });

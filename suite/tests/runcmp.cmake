@@ -57,32 +57,60 @@ if ("${capture}" STREQUAL "stderr")
   set(output "${cmd_err}")
 endif ()
 
-set(tmp "${cmp}-out")
-file(WRITE "${tmp}" "${output}")
+# Get expected output, we assume it has already been processed w/
+# regex => literal, etc.
+file(READ "${cmp}" expect)
 
-# We do not support regex in expect file b/c ctest can't handle big regex:
-#   "RegularExpression::compile(): Expression too big."
+# Convert file contents into a CMake list, where each element in the list is one
+# line of the file, empty lines are ignored.
+string(REGEX REPLACE "^[\n]+" "" output "${output}")
+string(REGEX REPLACE "[\n]+$" "" output "${output}")
+string(REPLACE "\n\n" "\n" output "${output}")
+STRING(REGEX REPLACE ";" "\\\\;" output "${output}")
+STRING(REGEX REPLACE "\n" ";" output "${output}")
 
-# We used to implement a "diff -b" via cmake regex on the output and expect
-# file, but that gets really slow (30s for 750KB strings) so now we require
-# strict matches per line.
+string(REGEX REPLACE "^[\n]+" "" expect "${expect}")
+string(REGEX REPLACE "[\n]+$" "" expect "${expect}")
+string(REPLACE "\n\n" "\n" expect "${expect}")
+STRING(REGEX REPLACE ";" "\\\\;" expect "${expect}")
+STRING(REGEX REPLACE "\n" ";" expect "${expect}")
 
-# Use diff -I to get the ability to skip some lines.
-
-set(diffcmd "diff")
-if (ignore_matching_lines)
-  execute_process(COMMAND ${diffcmd} -I ${ignore_matching_lines} ${tmp} ${cmp}
-    RESULT_VARIABLE dcmd_result
-    ERROR_VARIABLE dcmd_err
-    OUTPUT_VARIABLE dcmd_out)
+if(NOT "${ignore_matching_lines}" STREQUAL "")
+  # Filter out all the ignored lines.
+  set(filtered_expect)
+  foreach (item ${expect})
+      string(REGEX MATCH "${ignore_matching_lines}" match_result "${item}")
+      if (NOT match_result)
+          list(APPEND filtered_expect ${item})
+      endif ()
+  endforeach ()
 else ()
-  execute_process(COMMAND ${diffcmd} ${tmp} ${cmp}
-    RESULT_VARIABLE dcmd_result
-    ERROR_VARIABLE dcmd_err
-    OUTPUT_VARIABLE dcmd_out)
+  set(filtered_expect ${expect})
 endif ()
 
-if (dcmd_result)
-  message(STATUS "diff: ${dcmd_out}")
-  message(FATAL_ERROR "output in ${tmp} failed to match expected output in ${cmp}")
-endif (dcmd_result)
+list (LENGTH filtered_expect filtered_expect_length)
+list (LENGTH output output_length)
+
+set(lists_identical TRUE)
+if (NOT ${filtered_expect_length} EQUAL ${output_length})
+    set(lists_identical FALSE)
+endif ()
+
+if (lists_identical)
+  math(EXPR len "${filtered_expect_length} - 1")
+  foreach (index RANGE ${len})
+    list(GET filtered_expect ${index} item1)
+    list(GET output ${index} item2)
+    if (NOT ${item1} STREQUAL ${item2})
+        set(lists_identical FALSE)
+        message(STATUS "The first difference:")
+        message(STATUS "< ${item1}")
+        message(STATUS "> ${item2}")
+        break ()
+    endif ()
+  endforeach ()
+endif ()
+
+if (NOT lists_identical)
+  message(FATAL_ERROR "failed to match expected output")
+endif ()
