@@ -1454,6 +1454,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -D code=${${key}_code}
       -D capture=${${key}_runcmp_capture}
+      -D ignore_matching_lines=${${key}_runcmp_capture}
       -P ${runcmp_script})
     # No support for regex here (ctest can't handle large regex)
     set(ALREADY_REGEX ON)
