@@ -914,7 +914,7 @@ test_cti_prefixes(void *dc)
 }
 
 static void
-test_cti_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred)
+test_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred)
 {
     instr_t *instr = instr_create(dc);
     byte *end = decode(dc, data, instr);
@@ -936,9 +936,28 @@ test_cti_predicates(void *dc)
         // 0f 44 c2             cmovbe %edx,%eax
         { 0x0f, 0x46, 0xc2 },
     };
-    test_cti_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE);
-    test_cti_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ);
-    test_cti_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE);
+    test_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE);
+    test_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ);
+    test_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE);
+}
+
+static void
+test_rep_predicates(void *dc)
+{
+    byte data[][16] = {
+        // f3 6c                rep ins
+        { 0xf3, 0x6c },
+        // f3 a4                rep movs
+        { 0xf3, 0xa4 },
+        // f3 a6                rep cmps
+        { 0xf3, 0xa6 },
+        // f2 af                repne scas
+        { 0xf2, 0xaf },
+    };
+    test_predicate(dc, data[0], 2, OP_rep_ins, DR_PRED_COMPLEX);
+    test_predicate(dc, data[1], 2, OP_rep_movs, DR_PRED_COMPLEX);
+    test_predicate(dc, data[2], 2, OP_rep_cmps, DR_PRED_COMPLEX);
+    test_predicate(dc, data[3], 2, OP_repne_scas, DR_PRED_COMPLEX);
 }
 
 static void
@@ -2869,6 +2888,8 @@ main(int argc, char *argv[])
     test_cti_prefixes(dcontext);
 
     test_cti_predicates(dcontext);
+
+    test_rep_predicates(dcontext);
 
 #ifndef X64
     test_modrm16(dcontext);
