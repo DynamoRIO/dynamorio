@@ -52,8 +52,13 @@ if (cmd_result)
   message(FATAL_ERROR "*** ${cmd} failed (${cmd_result}): ${cmd_err}***\n")
 endif (cmd_result)
 
+set(output "${cmd_out}")
+if ("${capture}" STREQUAL "stderr")
+  set(output "${cmd_err}")
+endif ()
+
 set(tmp "${cmp}-out")
-file(WRITE "${tmp}" "${cmd_out}")
+file(WRITE "${tmp}" "${output}")
 
 # We do not support regex in expect file b/c ctest can't handle big regex:
 #   "RegularExpression::compile(): Expression too big."
@@ -64,16 +69,18 @@ file(WRITE "${tmp}" "${cmd_out}")
 
 # Use diff -I to get the ability to skip some lines.
 
+set(diffcmd "diff")
 if (ignore_matching_lines)
-  set(diffcmd "diff -I ${ignore_matching_lines}")
+  execute_process(COMMAND ${diffcmd} -I ${ignore_matching_lines} ${tmp} ${cmp}
+    RESULT_VARIABLE dcmd_result
+    ERROR_VARIABLE dcmd_err
+    OUTPUT_VARIABLE dcmd_out)
 else ()
-  set(diffcmd "diff")
+  execute_process(COMMAND ${diffcmd} ${tmp} ${cmp}
+    RESULT_VARIABLE dcmd_result
+    ERROR_VARIABLE dcmd_err
+    OUTPUT_VARIABLE dcmd_out)
 endif ()
-
-execute_process(COMMAND ${diffcmd} ${tmp} ${cmp}
-  RESULT_VARIABLE dcmd_result
-  ERROR_VARIABLE dcmd_err
-  OUTPUT_VARIABLE dcmd_out)
 
 if (dcmd_result)
   message(STATUS "diff: ${dcmd_out}")
