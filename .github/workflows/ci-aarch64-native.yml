@@ -47,7 +47,7 @@ on:
 
 jobs:
   aarch64-native:
-    runs-on: self-hosted-ubuntu-22.04-arm64
+    runs-on: [self-hosted, Linux, ARM64, self-hosted-ubuntu-22.04-arm64]
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
