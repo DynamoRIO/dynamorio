@@ -1879,7 +1879,7 @@ if (NOT ANDROID)
   # XXX i#1874: get working on Android
   tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF OFF)
   if (AARCH64 OR RISCV64)
-    # The ir_aarch64.expect file is too large for CMake's regexes.
+    # The ir_{aarch64,riscv64}.expect file is too large for CMake's regexes.
     set(api.ir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
     set(api.ir_runcmp_capture "stderr")
   endif ()
@@ -1923,10 +1923,16 @@ endif ()
 
 # test static decoder library
 tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
-if (AARCH64 OR RISCV64)
+if (AARCH64)
   # The ir_aarch64.expect file is too large for CMake's regexes.
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   set(api.ir-static_runcmp_capture "stderr")
+elseif (RISCV64)
+  # The ir_riscv64.expect file is too large for CMake's regexes.
+  set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
+  set(api.ir-static_runcmp_capture "stderr")
+  # Internal error lines are ignored, which is not expected in static builds.
+  set(api.ir-static_runcmp_ignore_matching_lines "^[><]")
 endif ()
 
 if (ARM)

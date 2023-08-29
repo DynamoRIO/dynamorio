@@ -36,6 +36,7 @@
 #     should have intra-arg space=@@ and inter-arg space=@ and ;=!
 # * cmp = file containing output to compare stdout to
 # * capture = if "stderr", captures stderr instead of stdout
+# * ignore_matching_lines = regex pattern that can be ignored in diff result
 
 # intra-arg space=@@ and inter-arg space=@
 string(REGEX REPLACE "@@" " " cmd "${cmd}")
@@ -75,7 +76,11 @@ if (NOT "${output}" STREQUAL "${str}")
   set(tmp2 "${cmp}-expect")
   file(WRITE "${tmp2}" "${str}")
 
-  set(diffcmd "diff")
+  if (ignore_matching_lines)
+    set(diffcmd "diff --ignore-matching-lines=${ignore_matching_lines}")
+  else ()
+    set(diffcmd "diff")
+  endif ()
   execute_process(COMMAND ${diffcmd} ${tmp} ${tmp2}
     RESULT_VARIABLE dcmd_result
     ERROR_VARIABLE dcmd_err
