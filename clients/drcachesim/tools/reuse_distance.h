@@ -36,17 +36,23 @@
 #ifndef _REUSE_DISTANCE_H_
 #define _REUSE_DISTANCE_H_ 1
 
+#include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <iostream>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <string>
+#include <utility>
 #include <vector>
-#include <assert.h>
-#include <iostream>
+
 #include "analysis_tool.h"
-#include "reuse_distance_create.h"
 #include "memref.h"
+#include "reuse_distance_create.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -66,8 +72,8 @@ namespace drmemtrace {
 #    define IF_DEBUG_VERBOSE(level, action)
 #endif
 
-struct line_ref_t;
 struct line_ref_list_t;
+struct line_ref_t;
 
 class reuse_distance_t : public analysis_tool_t {
 public:
@@ -93,8 +99,8 @@ public:
     // different verbosities.
     static unsigned int knob_verbose;
 
-    using distance_histogram_t = std::unordered_map<int_least64_t, int_least64_t>;
-    using distance_map_pair_t = std::pair<int_least64_t, int_least64_t>;
+    using distance_histogram_t = std::unordered_map<int64_t, int64_t>;
+    using distance_map_pair_t = std::pair<int64_t, int64_t>;
 
 protected:
     // We assume that the shard unit is the unit over which we should measure
@@ -121,8 +127,8 @@ protected:
         distance_histogram_t dist_map_data;
         bool dist_map_is_instr_only = true;
         std::unique_ptr<line_ref_list_t> ref_list;
-        int_least64_t total_refs = 0;
-        int_least64_t data_refs = 0; // Non-instruction reference count.
+        int64_t total_refs = 0;
+        int64_t data_refs = 0; // Non-instruction reference count.
         // Ideally the shard index would be the tid when shard==thread but that's
         // not the case today so we store the tid.
         memref_tid_t tid;
@@ -131,12 +137,12 @@ protected:
         unsigned int distance_limit = 0;
         // Track the number of insertions (pruned_address_count) and deletions
         // (pruned_address_hits) from the pruned_addresses set.
-        uint_least64_t pruned_address_count = 0;
-        uint_least64_t pruned_address_hits = 0;
+        uint64_t pruned_address_count = 0;
+        uint64_t pruned_address_hits = 0;
     };
 
     void
-    print_histogram(std::ostream &out, int_least64_t total_count,
+    print_histogram(std::ostream &out, int64_t total_count,
                     const std::vector<distance_map_pair_t> &sorted,
                     const distance_histogram_t &dist_map_data);
 
@@ -171,7 +177,7 @@ struct line_ref_t {
     // We inline the fields in every node for simplicity and to reduce allocs.
     struct line_ref_t *prev_skip; // the prev line_ref in the skip list
     struct line_ref_t *next_skip; // the next line_ref in the skip list
-    int_least64_t depth;          // only valid for skip list nodes; -1 for others
+    int64_t depth;                // only valid for skip list nodes; -1 for others
 
     line_ref_t(addr_t val)
         : prev(NULL)
@@ -361,7 +367,7 @@ struct line_ref_list_t {
     // We need to move the gate_ pointer forward if the referenced cache
     // line is the gate_ cache line or any cache line after.
     // Returns the reuse distance of ref.
-    int_least64_t
+    int64_t
     move_to_front(line_ref_t *ref)
     {
         IF_DEBUG_VERBOSE(
@@ -384,7 +390,7 @@ struct line_ref_list_t {
         }
 
         // Compute reuse distance.
-        int_least64_t dist = 0;
+        int64_t dist = 0;
         line_ref_t *skip;
         for (skip = ref; skip != NULL && skip->depth == -1; skip = skip->prev)
             ++dist;
@@ -398,7 +404,7 @@ struct line_ref_list_t {
                 // Compute reuse distance with a full list walk as a sanity check.
                 // This is a debug-only option, so we guard with IF_DEBUG_VERBOSE(0).
                 // Yes, the option check branch shows noticeable overhead without it.
-                int_least64_t brute_dist = 0;
+                int64_t brute_dist = 0;
                 for (prev = head_; prev != ref; prev = prev->next)
                     ++brute_dist;
                 if (brute_dist != dist) {

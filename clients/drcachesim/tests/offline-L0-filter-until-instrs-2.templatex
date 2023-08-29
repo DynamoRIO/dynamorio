@@ -1,0 +1,31 @@
+Assuming both L0D_filter and L0I_filter for L0_filter_until_instrs
+Hit delay threshold: enabling tracing.
+Adding filter endpoint marker for -L0_filter_until_instrs
+Hit tracing window #0 filter limit: switching to full trace.
+Hit tracing window #0 limit: disabling tracing.
+Hit retrace threshold: enabling tracing for window #1.
+[^W]*
+Basic counts tool results:
+Total counts:
+     .* total \(fetched\) instructions
+     .* total unique \(fetched\) instructions
+     .* total non-fetched instructions
+     .* total prefetches
+     .* total data loads
+     .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
+           1 total threads
+     .* total scheduling markers
+.*
+Thread .* counts:
+     .* \(fetched\) instructions
+     .* unique \(fetched\) instructions
+     .* non-fetched instructions
+     .* prefetches
+     .* data loads
+     .* data stores
+     .* icache flushes
+     .* dcache flushes
+     .* scheduling markers
+.*

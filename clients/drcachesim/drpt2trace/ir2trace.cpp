@@ -65,6 +65,19 @@ ir2trace_t::convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
     while (instr != NULL) {
         trace_entry_t entry = {};
 
+        if (!trace.empty() && trace.back().type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP) {
+            if (instr_get_prev(instr) == nullptr ||
+                !opnd_is_pc(instr_get_target(instr_get_prev(instr)))) {
+                VPRINT(1, "Invalid branch instruction.\n");
+                return IR2TRACE_CONV_ERROR_INVALID_PARAMETER;
+            }
+            app_pc target = opnd_get_pc(instr_get_target(instr_get_prev(instr)));
+            if (reinterpret_cast<uintptr_t>(target) == entry.addr)
+                trace.back().type = TRACE_TYPE_INSTR_TAKEN_JUMP;
+            else
+                trace.back().type = TRACE_TYPE_INSTR_UNTAKEN_JUMP;
+        }
+
         /* Obtain the specific type of instruction.
          * TODO i#5505: The following code shares similarities with
          * instru_t::instr_to_instr_type(). After successfully linking the drir2trace
@@ -84,6 +97,7 @@ ir2trace_t::convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
             } else if (instr_is_mbr(instr)) {
                 entry.type = TRACE_TYPE_INSTR_INDIRECT_JUMP;
             } else if (instr_is_cbr(instr)) {
+                // We update this on the next iteration.
                 entry.type = TRACE_TYPE_INSTR_CONDITIONAL_JUMP;
             } else if (instr_get_opcode(instr) == OP_sysenter) {
                 entry.type = TRACE_TYPE_INSTR_SYSENTER;

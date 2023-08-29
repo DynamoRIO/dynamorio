@@ -30,13 +30,25 @@
  * DAMAGE.
  */
 
-#include "dr_api.h"
 #include "syscall_mix.h"
+
+#include <stdint.h>
+
 #include <algorithm>
 #include <cassert>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
+
+#include "analysis_tool.h"
+#include "dr_api.h"
+#include "memref.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -139,8 +151,7 @@ syscall_mix_t::process_memref(const memref_t &memref)
 }
 
 static bool
-cmp_second_val(const std::pair<int, int_least64_t> &l,
-               const std::pair<int, int_least64_t> &r)
+cmp_second_val(const std::pair<int, int64_t> &l, const std::pair<int, int64_t> &r)
 {
     return l.second > r.second;
 }
@@ -161,8 +172,8 @@ syscall_mix_t::print_results()
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << std::setw(15) << "count"
               << " : " << std::setw(9) << "syscall_num\n";
-    std::vector<std::pair<int, int_least64_t>> sorted(total.syscall_counts.begin(),
-                                                      total.syscall_counts.end());
+    std::vector<std::pair<int, int64_t>> sorted(total.syscall_counts.begin(),
+                                                total.syscall_counts.end());
     std::sort(sorted.begin(), sorted.end(), cmp_second_val);
     for (const auto &keyvals : sorted) {
         // XXX: It would be nicer to print the system call name string instead of

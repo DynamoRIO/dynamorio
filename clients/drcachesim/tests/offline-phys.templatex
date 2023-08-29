@@ -11,7 +11,7 @@ Adios world!
 Output format:
 <--record#-> <--instr#->: <---tid---> <record details>
 ------------------------------------------------------------
-           1           0: +[0-9]+ <marker: version 4>
+           1           0: +[0-9]+ <marker: version 5>
            2           0: +[0-9]+ <marker: filetype 0xe42>
            3           0: +[0-9]+ <marker: cache line size [0-9]+>
            4           0: +[0-9]+ <marker: chunk instruction count [0-9]+>

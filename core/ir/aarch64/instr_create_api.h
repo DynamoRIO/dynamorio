@@ -634,10 +634,13 @@
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
     instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
+#define INSTR_CREATE_ldrsw(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldrsw, (Rd), (mem))
 #define INSTR_CREATE_ldrb(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
 #define INSTR_CREATE_ldrsb(dc, Rd, mem) \
     instr_create_1dst_1src((dc), OP_ldrsb, (Rd), (mem))
 #define INSTR_CREATE_ldrh(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
+#define INSTR_CREATE_ldrsh(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrsh, Rd, mem)
 #define INSTR_CREATE_ldur(dc, rt, mem) instr_create_1dst_1src(dc, OP_ldur, rt, mem)
 #define INSTR_CREATE_ldar(dc, Rt, mem) instr_create_1dst_1src((dc), OP_ldar, (Rt), (mem))
 #define INSTR_CREATE_ldarb(dc, Rt, mem) \
@@ -5315,21 +5318,6 @@
     instr_create_1dst_3src(dc, OP_bic, Zdn, Pg, Zdn, Zm)
 
 /**
- * Creates a ZIP2 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The first destination vector register, Z (Scalable)
- * \param Zn   The second source vector register, Z (Scalable)
- * \param Zm   The third source vector register, Z (Scalable)
- */
-#define INSTR_CREATE_zip2_vector(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_zip2, Zd, Zn, Zm)
-
-/**
  * Creates a MOVPRFX instruction.
  *
  * This macro is used to encode the forms:
@@ -7201,6 +7189,22 @@
     instr_create_1dst_3src(dc, OP_eor, Pd, Pg, Pn, Pm)
 
 /**
+ * Creates a NOT instruction.
+ *
+ * This macro is used to encode the forms:
+ * \verbatim
+ *    NOT     <Pd>.B, <Pg>/Z, <Pn>.B
+ * \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register, P (Predicate).
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Pn   The first source predicate register, P (Predicate).
+ */
+#define INSTR_CREATE_not_sve_pred_b(dc, Pd, Pg, Pn) \
+    INSTR_CREATE_eor_sve_pred_b(                    \
+        dc, Pd, Pg, Pn, opnd_create_reg_element_vector(opnd_get_reg(Pg), OPSZ_1))
+
+/**
  * Creates an EOR instruction.
  *
  * This macro is used to encode the forms:
@@ -8974,21 +8978,6 @@
     instr_create_1dst_2src(dc, OP_uzp1, Pd, Pn, Pm)
 
 /**
- * Creates an UZP1 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    UZP1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The destination vector register, Z (Scalable).
- * \param Zn   The first source vector register, Z (Scalable).
- * \param Zm   The second source vector register, Z (Scalable).
- */
-#define INSTR_CREATE_uzp1_sve_vector(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_uzp1, Zd, Zn, Zm)
-
-/**
  * Creates an UZP2 instruction.
  *
  * This macro is used to encode the forms:
@@ -9009,6 +8998,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    UZP2    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    UZP2    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9039,6 +9029,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    ZIP1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    ZIP1    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9069,6 +9060,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    ZIP2    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    ZIP2    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9099,6 +9091,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    TRN1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    TRN1    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -9129,6 +9122,7 @@
  * This macro is used to encode the forms:
  * \verbatim
  *    TRN2    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+ *    TRN2    <Zd>.Q, <Zn>.Q, <Zm>.Q
  * \endverbatim
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
  * \param Zd   The destination vector register, Z (Scalable).
@@ -10999,10 +10993,10 @@
  *             DR_EXTEND_UXTX, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  */
 #define INSTR_CREATE_ldff1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1b, Zt, Rn, Pg)
@@ -11024,7 +11018,7 @@
  * \param Pg   The governing predicate register, P (Predicate).
  * \param Rn   The first source base register with a register offset,
  *             constructed with the function:
- *             For the [\<Xn|SP\>{, \<Xm\>, LSL #3}] viriant:
+ *             For the [\<Xn|SP\>{, \<Xm\>, LSL #3}] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
  *             DR_EXTEND_UXTX, 1, 0, 0, OPSZ_32, 3)
  *             For the  [\<Zn\>.D{, #\<imm\>}] variant:
@@ -11032,16 +11026,16 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #3] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 3)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 3)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #3] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 3)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 3)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  */
 #define INSTR_CREATE_ldff1d_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1d, Zt, Rn, Pg)
@@ -11079,22 +11073,22 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  */
 #define INSTR_CREATE_ldff1h_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1h, Zt, Rn, Pg)
@@ -11128,13 +11122,13 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  */
 #define INSTR_CREATE_ldff1sb_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1sb, Zt, Rn, Pg)
@@ -11171,22 +11165,22 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  */
 #define INSTR_CREATE_ldff1sh_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1sh, Zt, Rn, Pg)
@@ -11218,22 +11212,22 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #2] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 2)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 2)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #2] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 2)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 2)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #2] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 2)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 2)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 0)
  */
 #define INSTR_CREATE_ldff1sw_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldff1sw, Zt, Rn, Pg)
@@ -11347,16 +11341,16 @@
  *             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_1)
  *             For the B element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  *             For the H element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  *             For the S element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 32))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 32))
  *             For the D element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 64))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 64))
  *             For the  [\<Zn\>.S{, #\<imm\>}] variant:
  *             opnd_create_vector_base_disp_aarch64(Zn, DR_REG_NULL, OPSZ_4,
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
@@ -11365,13 +11359,13 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  */
 #define INSTR_CREATE_ld1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ld1b, Zt, Rn, Pg)
@@ -11513,13 +11507,13 @@
  *             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_1)
  *             For the H element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  *             For the S element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 32))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 32))
  *             For the D element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 64))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 64))
  *             For the  [\<Zn\>.S{, #\<imm\>}] variant:
  *             opnd_create_vector_base_disp_aarch64(Zn, DR_REG_NULL, OPSZ_4,
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
@@ -11528,13 +11522,13 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  */
 #define INSTR_CREATE_ld1sb_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ld1sb, Zt, Rn, Pg)
@@ -11554,10 +11548,9 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>] variant:
  *             opnd_create_base_disp_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, 0, 0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8))
- *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
- *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             DR_EXTEND_UXTX, 0, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() /
+ * 8)) For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant: opnd_create_base_disp(Rn,
+ * DR_REG_NULL, 0, imm, opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_ldnt1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnt1b, Zt, Rn, Pg)
@@ -11585,8 +11578,8 @@
  *             DR_EXTEND_UXTX, 0, 0, 0, OPSZ_1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / (8 * opnd_size_to_bytes(Ts))))
- *             For the  [\<Zn\>.S{, #\<imm\>}] variant:
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / (8 *
+ * opnd_size_to_bytes(Ts)))) For the  [\<Zn\>.S{, #\<imm\>}] variant:
  *             opnd_create_vector_base_disp_aarch64(Zn, DR_REG_NULL, OPSZ_4,
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  *             For the  [\<Zn\>.D{, #\<imm\>}] variant:
@@ -11594,13 +11587,13 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 64), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 64), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  */
 #define INSTR_CREATE_st1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_st1b, Rn, Zt, Pg)
@@ -11620,10 +11613,9 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>] variant:
  *             opnd_create_base_disp_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, 0, 0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8))
- *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
- *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             DR_EXTEND_UXTX, 0, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() /
+ * 8)) For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant: opnd_create_base_disp(Rn,
+ * DR_REG_NULL, 0, imm, opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_stnt1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_stnt1b, Rn, Zt, Pg)
@@ -12048,10 +12040,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>] variant:
  *             opnd_create_base_disp_aarch64(Rn, Rm, DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld2b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_2dst_2src(dc, OP_ld2b, Zt, opnd_create_increment_reg(Zt, 1), Rn, Pg)
@@ -12071,10 +12063,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>] variant:
  *             opnd_create_base_disp_aarch64(Rn, Rm, DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
  *             For the [\<Xn|SP\>{, #\<simm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld3b_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_3dst_2src(dc, OP_ld3b, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12095,10 +12087,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>] variant:
  *             opnd_create_base_disp_aarch64(Rn, Rm, DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld4b_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_4dst_2src(dc, OP_ld4b, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12120,10 +12112,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>] variant:
  *             opnd_create_base_disp_aarch64(Rn, Rm, DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st2b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_3src(dc, OP_st2b, Rn, Zt, opnd_create_increment_reg(Zt, 1), Pg)
@@ -12143,10 +12135,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>] variant:
  *             opnd_create_base_disp_aarch64(Rn, Rm, DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st3b_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_4src(dc, OP_st3b, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12167,10 +12159,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>] variant:
  *             opnd_create_base_disp_aarch64(Rn, Rm, DR_EXTEND_UXTX, 0, 0, 0,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
  *             For the [\<Xn|SP\>{, #\<simm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st4b_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_5src(dc, OP_st4b, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12210,35 +12202,35 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the  [\<Xn|SP\>, \<Xm\>, LSL #1] variants:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             /8/16/32), 1)
  *             For the H element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  *             For the S element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  *             For the D element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 32))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 32))
  */
 #define INSTR_CREATE_ld1h_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ld1h, Zt, Zn, Pg)
@@ -12274,32 +12266,32 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             / 16/32), 1) depending on Zt's element size.
  *             For the S element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  *             For the D element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 32))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 32))
  */
 #define INSTR_CREATE_ld1sh_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ld1sh, Zt, Zn, Pg)
@@ -12335,32 +12327,32 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #2] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 2)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 2)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #2] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 2)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 2)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #2] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 2)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 2)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 0)
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             / 8/16), 2) depending on Zt's element size.
  *             For the S element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  *             For the D element size [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  */
 #define INSTR_CREATE_ld1w_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ld1w, Zt, Zn, Pg)
@@ -12388,22 +12380,22 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #3] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 3)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 3)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #3] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 3)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 3)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the variant \<Xn|SP\>, \<Xm\>, LSL #3]:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX,
- *             true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 3)
+ *             true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 3)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_ld1d_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ld1d, Zt, Zn, Pg)
@@ -12427,11 +12419,11 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             / 16), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  */
 #define INSTR_CREATE_ld1sw_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ld1sw, Zt, Zn, Pg)
@@ -12465,29 +12457,29 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 32), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 32), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #1] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 1)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 1)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the  [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             /8/16/32), 1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / opnd_size_to_bytes(Ts)))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / opnd_size_to_bytes(Ts)))
  */
 #define INSTR_CREATE_st1h_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_st1h, Zn, Zt, Pg)
@@ -12521,29 +12513,30 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #2] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 2)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 2)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #2] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 2)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 2)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 16), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 16), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\> #2] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 2)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 2)
  *             For the [\<Xn|SP\>, \<Zm\>.S, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_4, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 0)
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             / 8/16), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / (8 * opnd_size_to_bytes(Ts))))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / (8 *
+ * opnd_size_to_bytes(Ts))))
  */
 #define INSTR_CREATE_st1w_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_st1w, Zn, Zt, Pg)
@@ -12571,22 +12564,22 @@
  *             DR_EXTEND_UXTX, 0, imm5, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, LSL #3] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 3)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 3)
  *             For the [\<Xn|SP\>, \<Zm\>.D] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, DR_EXTEND_UXTX,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 0)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\> #3] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             true, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 3)
+ *             true, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 3)
  *             For the [\<Xn|SP\>, \<Zm\>.D, \<extend\>] variant:
  *             opnd_create_vector_base_disp_aarch64(Xn, Zm, OPSZ_8, extend,
- *             0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 0)
+ *             0, 0, opnd_size_from_bytes(dr_get_sve_vector_length() / 8), 0)
  *             For the  [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl() / 8), 3)
- *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
- *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / (8 * opnd_size_to_bytes(Ts))))
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
+ * / 8), 3) For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant: opnd_create_base_disp(Rn,
+ * DR_REG_NULL, 0, imm, opnd_size_from_bytes(dr_get_sve_vector_length() / (8 *
+ * opnd_size_to_bytes(Ts))))
  */
 #define INSTR_CREATE_st1d_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_st1d, Zn, Zt, Pg)
@@ -12606,10 +12599,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)), 3)
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)), 3)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld2d_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_2dst_2src(dc, OP_ld2d, Zt, opnd_create_increment_reg(Zt, 1), Rn, Pg)
@@ -12629,10 +12622,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)), 1)
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)), 1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld2h_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_2dst_2src(dc, OP_ld2h, Zt, opnd_create_increment_reg(Zt, 1), Rn, Pg)
@@ -12652,11 +12645,11 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)), 2)
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 4))
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 4))
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld2w_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_2dst_2src(dc, OP_ld2w, Zt, opnd_create_increment_reg(Zt, 1), Rn, Pg)
@@ -12676,10 +12669,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)), 3)
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)), 3)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld3d_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_3dst_2src(dc, OP_ld3d, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12700,10 +12693,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)), 1)
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)), 1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld3h_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_3dst_2src(dc, OP_ld3h, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12724,10 +12717,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)), 2)
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld3w_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_3dst_2src(dc, OP_ld3w, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12748,10 +12741,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)), 3)
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)), 3)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld4d_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_4dst_2src(dc, OP_ld4d, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12773,10 +12766,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)), 1)
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)), 1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld4h_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_4dst_2src(dc, OP_ld4h, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12798,10 +12791,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)), 2)
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_ld4w_sve_pred(dc, Zt, Pg, Rn)                            \
     instr_create_4dst_2src(dc, OP_ld4w, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12823,11 +12816,11 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             / 8), 3)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_ldnt1d_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnt1d, Zt, Rn, Pg)
@@ -12847,11 +12840,11 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             / 8), 1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_ldnt1h_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnt1h, Zt, Rn, Pg)
@@ -12871,11 +12864,11 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             / 8), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_ldnt1w_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnt1w, Zt, Rn, Pg)
@@ -12895,10 +12888,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)), 3)
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)), 3)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st2d_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_3src(dc, OP_st2d, Rn, Zt, opnd_create_increment_reg(Zt, 1), Pg)
@@ -12918,10 +12911,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)), 1)
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)), 1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st2h_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_3src(dc, OP_st2h, Rn, Zt, opnd_create_increment_reg(Zt, 1), Pg)
@@ -12941,10 +12934,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)), 2)
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(2 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(2 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st2w_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_3src(dc, OP_st2w, Rn, Zt, opnd_create_increment_reg(Zt, 1), Pg)
@@ -12964,10 +12957,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)), 3)
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)), 3)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st3d_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_4src(dc, OP_st3d, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -12988,10 +12981,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)), 1)
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)), 1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st3h_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_4src(dc, OP_st3h, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -13012,10 +13005,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)), 2)
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(3 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(3 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st3w_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_4src(dc, OP_st3w, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -13036,10 +13029,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)), 3)
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)), 3)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st4d_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_5src(dc, OP_st4d, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -13061,10 +13054,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)), 1)
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)), 1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st4h_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_5src(dc, OP_st4h, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -13086,10 +13079,10 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm, DR_EXTEND_UXTX, true, 0, 0,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)), 2)
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm4,
- *             opnd_size_from_bytes(4 * (dr_get_sve_vl() / 8)))
+ *             opnd_size_from_bytes(4 * (dr_get_sve_vector_length() / 8)))
  */
 #define INSTR_CREATE_st4w_sve_pred(dc, Zt, Pg, Rn)                                \
     instr_create_1dst_5src(dc, OP_st4w, Rn, Zt, opnd_create_increment_reg(Zt, 1), \
@@ -13111,12 +13104,12 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             / 8), 3)
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #3] variant:
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_stnt1d_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_stnt1d, Rn, Zt, Pg)
@@ -13136,11 +13129,11 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #1] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             / 8), 1)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_stnt1h_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_stnt1h, Rn, Zt, Pg)
@@ -13160,11 +13153,11 @@
  *             constructed with the function:
  *             For the [\<Xn|SP\>, \<Xm\>, LSL #2] variant:
  *             opnd_create_base_disp_shift_aarch64(Rn, Rm,
- *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vl()
+ *             DR_EXTEND_UXTX, true, 0, 0, opnd_size_from_bytes(dr_get_sve_vector_length()
  *             / 8), 2)
  *             For the [\<Xn|SP\>{, #\<imm\>, MUL VL}] variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_stnt1w_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_stnt1w, Rn, Zt, Pg)
@@ -13186,16 +13179,16 @@
  *             constructed with the function:
  *             For the B element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  *             For the H element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  *             For the S element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 32))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 32))
  *             For the D element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 64))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 64))
  */
 #define INSTR_CREATE_ldnf1b_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnf1b, Zt, Rn, Pg)
@@ -13213,7 +13206,7 @@
  * \param Rn   The first source base register with an immediate offset,
  *             constructed with the function:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  */
 #define INSTR_CREATE_ldnf1d_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnf1d, Zt, Rn, Pg)
@@ -13234,13 +13227,13 @@
  *             constructed with the function:
  *             For the H element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  *             For the S element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  *             For the D element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 32))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 32))
  */
 #define INSTR_CREATE_ldnf1h_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnf1h, Zt, Rn, Pg)
@@ -13261,13 +13254,13 @@
  *             constructed with the function:
  *             For the H element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  *             For the S element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 32))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 32))
  *             For the D element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 64))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 64))
  */
 #define INSTR_CREATE_ldnf1sb_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnf1sb, Zt, Rn, Pg)
@@ -13287,10 +13280,10 @@
  *             constructed with the function:
  *             For the S element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  *             For the D element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 32))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 32))
  */
 #define INSTR_CREATE_ldnf1sh_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnf1sh, Zt, Rn, Pg)
@@ -13308,7 +13301,7 @@
  * \param Rn   The first source base register with an immediate offset,
  *             constructed with the function:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  */
 #define INSTR_CREATE_ldnf1sw_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnf1sw, Zt, Rn, Pg)
@@ -13328,10 +13321,10 @@
  *             constructed with the function:
  *             For the S element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 8))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 8))
  *             For the D element size variant:
  *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, imm,
- *             opnd_size_from_bytes(dr_get_sve_vl() / 16))
+ *             opnd_size_from_bytes(dr_get_sve_vector_length() / 16))
  */
 #define INSTR_CREATE_ldnf1w_sve_pred(dc, Zt, Pg, Rn) \
     instr_create_1dst_2src(dc, OP_ldnf1w, Zt, Rn, Pg)
@@ -14189,36 +14182,6 @@
     instr_create_0dst_1src(           \
         dc, OP_dc_cvadp,              \
         opnd_create_base_disp(opnd_get_reg(Rn), DR_REG_NULL, 0, 0, OPSZ_sys))
-
-/**
- * Creates a TRN1 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    TRN1    <Zd>.Q, <Zn>.Q, <Zm>.Q
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The destination vector register, Z (Scalable).
- * \param Zn   The first source vector register, Z (Scalable).
- * \param Zm   The second source vector register, Z (Scalable).
- */
-#define INSTR_CREATE_trn1_sve(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_trn1, Zd, Zn, Zm)
-
-/**
- * Creates a TRN2 instruction.
- *
- * This macro is used to encode the forms:
- * \verbatim
- *    TRN2    <Zd>.Q, <Zn>.Q, <Zm>.Q
- * \endverbatim
- * \param dc   The void * dcontext used to allocate memory for the #instr_t.
- * \param Zd   The destination vector register, Z (Scalable).
- * \param Zn   The first source vector register, Z (Scalable).
- * \param Zm   The second source vector register, Z (Scalable).
- */
-#define INSTR_CREATE_trn2_sve(dc, Zd, Zn, Zm) \
-    instr_create_1dst_2src(dc, OP_trn2, Zd, Zn, Zm)
 
 /**
  * Creates a SDOT instruction.
@@ -17467,4 +17430,653 @@
  */
 #define INSTR_CREATE_ldnt1sw_sve_pred(dc, Zt, Pg, Zn) \
     instr_create_1dst_2src(dc, OP_ldnt1sw, Zt, Zn, Pg)
+
+/**
+ * Creates an UZP1 instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      UZP1    <Zd>.<Ts>, <Zn>.<Ts>, <Zm>.<Ts>
+      UZP1    <Zd>.Q, <Zn>.Q, <Zm>.Q
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z (Scalable).
+ * \param Zn   The first source vector register, Z (Scalable).
+ * \param Zm   The second source vector register, Z (Scalable).
+ */
+#define INSTR_CREATE_uzp1_sve_vector(dc, Zd, Zn, Zm) \
+    instr_create_1dst_2src(dc, OP_uzp1, Zd, Zn, Zm)
+
+/*
+ * Creates a CDOT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      CDOT    <Zda>.D, <Zn>.H, <Zm>.H[<imm>], <const>
+      CDOT    <Zda>.S, <Zn>.B, <Zm>.B[<imm>], <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.d or Z.s.
+ * \param Zn   The second source vector register. Can be Z.h or Z.b.
+ * \param Zm   The third source vector register. Can be Z.h or Z.b.
+ * \param i1   The immediate index for Zm.
+ * \param rot  The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_cdot_sve_idx_imm_vector(dc, Zda, Zn, Zm, i1, rot) \
+    instr_create_1dst_5src(dc, OP_cdot, Zda, Zda, Zn, Zm, i1, rot)
+
+/**
+ * Creates a CMLA instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      CMLA    <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const>
+      CMLA    <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.s or Z.h.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i1   The immediate index for Zm.
+ * \param rot  The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_cmla_sve_idx_imm_vector(dc, Zda, Zn, Zm, i1, rot) \
+    instr_create_1dst_5src(dc, OP_cmla, Zda, Zda, Zn, Zm, i1, rot)
+
+/**
+ * Creates a SQRDCMLAH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SQRDCMLAH <Zda>.S, <Zn>.S, <Zm>.S[<imm>], <const>
+      SQRDCMLAH <Zda>.H, <Zn>.H, <Zm>.H[<imm>], <const>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zda   The source and destination vector register. Can be Z.s or Z.h.
+ * \param Zn   The second source vector register. Can be Z.s or Z.h.
+ * \param Zm   The third source vector register. Can be Z.s or Z.h.
+ * \param i1   The immediate index for Zm.
+ * \param rot  The immediate rotation which must be 0, 90, 180 or 270.
+ */
+#define INSTR_CREATE_sqrdcmlah_sve_idx_imm_vector(dc, Zda, Zn, Zm, i1, rot) \
+    instr_create_1dst_5src(dc, OP_sqrdcmlah, Zda, Zda, Zn, Zm, i1, rot)
+
+/**
+ * Creates a MATCH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      MATCH   <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b or P.h.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector register. Can be Z.b or Z.h.
+ * \param Zm   The second source vector register. Can be Z.b or Z.h.
+ */
+#define INSTR_CREATE_match_sve_pred(dc, Pd, Pg, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_match, Pd, Pg, Zn, Zm)
+
+/**
+ * Creates a NMATCH instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      NMATCH  <Pd>.<Ts>, <Pg>/Z, <Zn>.<Ts>, <Zm>.<Ts>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b or P.h.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The first source vector register. Can be Z.b or Z.h.
+ * \param Zm   The second source vector register. Can be Z.b or Z.h.
+ */
+#define INSTR_CREATE_nmatch_sve_pred(dc, Pd, Pg, Zn, Zm) \
+    instr_create_1dst_3src(dc, OP_nmatch, Pd, Pg, Zn, Zm)
+
+/**
+ * Creates an URECPE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URECPE  <Zd>.S, <Pg>/M, <Zn>.S
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z.s.
+ */
+#define INSTR_CREATE_urecpe_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_urecpe, Zd, Pg, Zn)
+
+/**
+ * Creates an URSQRTE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      URSQRTE <Zd>.S, <Pg>/M, <Zn>.S
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Zd   The destination vector register, Z.s.
+ * \param Pg   The governing predicate register, P (Predicate).
+ * \param Zn   The source vector register, Z.s.
+ */
+#define INSTR_CREATE_ursqrte_sve_pred(dc, Zd, Pg, Zn) \
+    instr_create_1dst_2src(dc, OP_ursqrte, Zd, Pg, Zn)
+
+/**
+ * Creates a WHILEGE instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEGE <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilege_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilege, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEGT instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEGT <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilegt_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilegt, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEHI instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEHI <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilehi_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilehi, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEHS instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEHS <Pd>.<Ts>, <R><n>, <R><m>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ * \param Rm   The second source  register. Can be W (Word, 32 bits) or X
+ *             (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilehs_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilehs, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILERW instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILERW <Pd>.<Ts>, <Xn>, <Xm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilerw_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilerw, Pd, Rn, Rm)
+
+/**
+ * Creates a WHILEWR instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      WHILEWR <Pd>.<Ts>, <Xn>, <Xm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Pd   The destination predicate register. Can be P.b, P.h, P.s or P.d.
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_whilewr_sve(dc, Pd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_whilewr, Pd, Rn, Rm)
+
+/**
+ * Creates a LDG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      LDG     <Xt>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt   The source and destination register, X (Extended, 64 bits).
+ * \param Rn   The source base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_0)
+ */
+#define INSTR_CREATE_ldg(dc, Rt, Rn) instr_create_1dst_2src(dc, OP_ldg, Rt, Rt, Rn)
+
+/**
+ * Creates a ST2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ST2G    <Xt>, [<Xn|SP>], #<simm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param simm The immediate integer offset, must be a multiple of 16 between -4096 and
+ *             4080.
+ */
+#define INSTR_CREATE_st2g_post(dc, Rn, Rt, simm)                                    \
+    instr_create_2dst_3src(dc, OP_st2g, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)), simm)
+
+/**
+ * Creates a ST2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ST2G    <Xt>, [<Xn|SP>, #<simm>]!
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_st2g_pre(dc, Rn, Rt)                                           \
+    instr_create_2dst_3src(dc, OP_st2g, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)),                      \
+                           OPND_CREATE_INT(opnd_get_disp(Rn)))
+
+/**
+ * Creates a ST2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ST2G    <Xt>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_st2g_offset(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_st2g, Rn, Rt)
+
+/**
+ * Creates a STG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STG     <Xt>, [<Xn|SP>], #<simm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param simm The immediate integer offset, must be a multiple of 16 between -4096 and
+ *             4080.
+ */
+#define INSTR_CREATE_stg_post(dc, Rn, Rt, simm)                                    \
+    instr_create_2dst_3src(dc, OP_stg, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)), simm)
+
+/**
+ * Creates a STG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STG     <Xt>, [<Xn|SP>, #<simm>]!
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stg_pre(dc, Rn, Rt)                                           \
+    instr_create_2dst_3src(dc, OP_stg, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)),                     \
+                           OPND_CREATE_INT(opnd_get_disp(Rn)))
+
+/**
+ * Creates a STG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STG     <Xt>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_0)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stg_offset(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_stg, Rn, Rt)
+
+/**
+ * Creates a STZ2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZ2G   <Xt>, [<Xn|SP>], #<simm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_32)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param simm The immediate integer offset, must be a multiple of 16 between -4096 and
+ *             4080.
+ */
+#define INSTR_CREATE_stz2g_post(dc, Rn, Rt, simm)                                    \
+    instr_create_2dst_3src(dc, OP_stz2g, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)), simm)
+
+/**
+ * Creates a STZ2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZ2G   <Xt>, [<Xn|SP>, #<simm>]!
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_32)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stz2g_pre(dc, Rn, Rt)                                           \
+    instr_create_2dst_3src(dc, OP_stz2g, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)),                       \
+                           OPND_CREATE_INT(opnd_get_disp(Rn)))
+
+/**
+ * Creates a STZ2G instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZ2G   <Xt>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_32)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stz2g_offset(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_stz2g, Rn, Rt)
+
+/**
+ * Creates a STZG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZG    <Xt>, [<Xn|SP>], #<simm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param simm The immediate integer offset, must be a multiple of 16 between -4096 and
+ *             4080.
+ */
+#define INSTR_CREATE_stzg_post(dc, Rn, Rt, simm)                                    \
+    instr_create_2dst_3src(dc, OP_stzg, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)), simm)
+
+/**
+ * Creates a STZG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZG    <Xt>, [<Xn|SP>, #<simm>]!
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stzg_pre(dc, Rn, Rt)                                           \
+    instr_create_2dst_3src(dc, OP_stzg, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, \
+                           opnd_create_reg(opnd_get_base(Rn)),                      \
+                           OPND_CREATE_INT(opnd_get_disp(Rn)))
+
+/**
+ * Creates a STZG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STZG    <Xt>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The second source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stzg_offset(dc, Rn, Rt) instr_create_1dst_1src(dc, OP_stzg, Rn, Rt)
+
+/**
+ * Creates a STGP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STGP    <Xt>, <Xt2>, [<Xn|SP>], #<simm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The third source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, 0, 0,
+ *             OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param Rt2  The second source register, X (Extended, 64 bits).
+ * \param simm The immediate integer offset, must be a multiple of 16 between -1024 and
+ *             1008.
+ */
+#define INSTR_CREATE_stgp_post(dc, Rn, Rt, Rt2, simm)                                    \
+    instr_create_2dst_4src(dc, OP_stgp, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, Rt2, \
+                           opnd_create_reg(opnd_get_base(Rn)), simm)
+
+/**
+ * Creates a STGP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STGP    <Xt>, <Xt2>, [<Xn|SP>, #<simm>]!
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The third source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp(Rn, DR_REG_NULL, 0, simm, OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param Rt2  The second source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stgp_pre(dc, Rn, Rt, Rt2)                                           \
+    instr_create_2dst_4src(dc, OP_stgp, Rn, opnd_create_reg(opnd_get_base(Rn)), Rt, Rt2, \
+                           opnd_create_reg(opnd_get_base(Rn)),                           \
+                           OPND_CREATE_INT(opnd_get_disp(Rn)))
+
+/**
+ * Creates a STGP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      STGP    <Xt>, <Xt2>, [<Xn|SP>, #<simm>]
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The third source and destination base register with an immediate offset,
+ *             constructed with the function:
+ *             opnd_create_base_disp_aarch64(Rn, DR_REG_NULL, DR_EXTEND_UXTX, 0, simm, 0,
+ *             OPSZ_16)
+ * \param Rt   The first source register, X (Extended, 64 bits).
+ * \param Rt2  The second source register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_stgp_offset(dc, Rn, Rt, Rt2) \
+    instr_create_1dst_2src(dc, OP_stgp, Rn, Rt, Rt2)
+
+/**
+ * Creates a GMI instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      GMI     <Xd>, <Xn|SP>, <Xm>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_gmi(dc, Rd, Rn, Rm) instr_create_1dst_2src(dc, OP_gmi, Rd, Rn, Rm)
+
+/**
+ * Creates an IRG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      IRG     <Xd|SP>, <Xn|SP>{, <Xm>}
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_irg(dc, Rd, Rn, Rm) instr_create_1dst_2src(dc, OP_irg, Rd, Rn, Rm)
+
+/**
+ * Creates a SUBP instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SUBP    <Xd>, <Xn|SP>, <Xm|SP>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_subp(dc, Rd, Rn, Rm) instr_create_1dst_2src(dc, OP_subp, Rd, Rn, Rm)
+
+/**
+ * Creates a SUBPS instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SUBPS   <Xd>, <Xn|SP>, <Xm|SP>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param Rm   The second source  register, X (Extended, 64 bits).
+ */
+#define INSTR_CREATE_subps(dc, Rd, Rn, Rm) \
+    instr_create_1dst_2src(dc, OP_subps, Rd, Rn, Rm)
+
+/**
+ * Creates an ADDG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      ADDG    <Xd|SP>, <Xn|SP>, #<imm1>, #<imm2>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param imm1 The immediate unsigned imm (must be a multiple of 16).
+ * \param imm2 The immediate unsigned imm.
+ */
+#define INSTR_CREATE_addg(dc, Rd, Rn, imm1, imm2) \
+    instr_create_1dst_3src(dc, OP_addg, Rd, Rn, imm1, imm2)
+
+/**
+ * Creates a SUBG instruction.
+ *
+ * This macro is used to encode the forms:
+   \verbatim
+      SUBG    <Xd|SP>, <Xn|SP>, #<imm1>, #<imm2>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd   The destination  register, X (Extended, 64 bits).
+ * \param Rn   The first source  register, X (Extended, 64 bits).
+ * \param imm1 The immediate unsigned imm (must be a multiple of 16).
+ * \param imm2 The immediate unsigned imm.
+ */
+#define INSTR_CREATE_subg(dc, Rd, Rn, imm1, imm2) \
+    instr_create_1dst_3src(dc, OP_subg, Rd, Rn, imm1, imm2)
+
+/**
+ * Creates a DC GVA instruction.
+ *
+ * Writes allocation tags of a naturally aligned block of N bytes, where N is identified
+ * in DCZID_EL0 system register.
+ * This macro is used to encode the forms:
+   \verbatim
+      DC      GVA, <Xt>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory
+ *             for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             There is no alignment restriction on the address within the
+ *             block of N bytes that is used.
+ */
+#define INSTR_CREATE_dc_gva(dc, Rn) \
+    instr_create_1dst_0src(         \
+        dc, OP_dc_gva,              \
+        opnd_create_base_disp(opnd_get_reg(Rn), DR_REG_NULL, 0, 0, OPSZ_sys))
+
+/**
+ * Creates a DC GZVA instruction.
+ *
+ * Writes zeros and allocation tags of a naturally aligned block of N bytes, where N is
+ * identified in DCZID_EL0 system register.
+ * This macro is used to encode the forms:
+   \verbatim
+      DC      GZVA, <Xt>
+   \endverbatim
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use. There is no
+ *             alignment restriction on the address within the block of N bytes that is
+ *             used.
+ */
+#define INSTR_CREATE_dc_gzva(dc, Rn) \
+    instr_create_1dst_0src(          \
+        dc, OP_dc_gzva,              \
+        opnd_create_base_disp(opnd_get_reg(Rn), DR_REG_NULL, 0, 0, OPSZ_sys))
+
 #endif /* DR_IR_MACROS_AARCH64_H */

@@ -50,6 +50,10 @@
 namespace dynamorio {
 namespace drcpusim {
 
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+
 // XXX i#1732: make a msgbox on Windows (controlled by option for batch runs)
 #define NOTIFY(level, ...)                                          \
     do {                                                            \
@@ -846,6 +850,10 @@ set_opcode_and_model()
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    using ::dynamorio::droption::droption_parser_t;
+    using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+    using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+
     dr_set_client_name("DynamoRIO CPU Simulator", "http://dynamorio.org/issues");
 
 #ifdef WINDOWS

@@ -30,14 +30,24 @@
  * DAMAGE.
  */
 
+#include "reuse_time.h"
+
+#include <stdint.h>
+
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include "reuse_time.h"
-#include "../common/utils.h"
+#include "analysis_tool.h"
+#include "memref.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -136,7 +146,7 @@ reuse_time_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
     shard->time_stamp++;
     addr_t line = memref.data.addr >> line_size_bits_;
     if (shard->time_map.count(line) > 0) {
-        int_least64_t reuse_time = shard->time_stamp - shard->time_map[line];
+        int64_t reuse_time = shard->time_stamp - shard->time_map[line];
         if (DEBUG_VERBOSE(3)) {
             std::cerr << "Reuse " << reuse_time << std::endl;
         }
@@ -165,8 +175,7 @@ reuse_time_t::process_memref(const memref_t &memref)
 }
 
 static bool
-cmp_dist_key(const std::pair<int_least64_t, int_least64_t> &l,
-             const std::pair<int_least64_t, int_least64_t> &r)
+cmp_dist_key(const std::pair<int64_t, int64_t> &l, const std::pair<int64_t, int64_t> &r)
 {
     return (l.first < r.first);
 }
@@ -179,8 +188,8 @@ reuse_time_t::print_shard_results(const shard_data_t *shard)
     std::cerr.precision(2);
     std::cerr.setf(std::ios::fixed);
 
-    int_least64_t count = 0;
-    int_least64_t sum = 0;
+    int64_t count = 0;
+    int64_t sum = 0;
     for (const auto &it : shard->reuse_time_histogram) {
         count += it.second;
         sum += it.first * it.second;
@@ -192,8 +201,7 @@ reuse_time_t::print_shard_results(const shard_data_t *shard)
               << "Percent" << std::setw(12) << "Cumulative";
     std::cerr << std::endl;
     double cum_percent = 0.0;
-    std::vector<std::pair<int_least64_t, int_least64_t>> sorted(
-        shard->reuse_time_histogram.size());
+    std::vector<std::pair<int64_t, int64_t>> sorted(shard->reuse_time_histogram.size());
     std::partial_sort_copy(shard->reuse_time_histogram.begin(),
                            shard->reuse_time_histogram.end(), sorted.begin(),
                            sorted.end(), cmp_dist_key);

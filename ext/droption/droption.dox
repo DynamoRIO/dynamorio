@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2022 Google, Inc.   All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -70,6 +70,9 @@ value type for each option you wish to support.  Typical value types are \p
 bool, integers, or \p std::string.  For example:
 
 \code
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+using ::dynamorio::droption::droption_t;
+
 static droption_t<unsigned int> op_x
 (DROPTION_SCOPE_CLIENT, "x", 0, 0, 64, "Some param",
  "Longer desc of some param.");
@@ -88,6 +91,7 @@ passed-in arguments from the user.  In a client using \p dr_client_main(),
 or from a standalone application, invoke parse_argv():
 
 \code
+using ::dynamorio::droption::droption_parser_t;
 std::string parse_err;
 if (!droption_parser_t::parse_argv(DROPTION_SCOPE_CLIENT, argc, argv, &parse_err)) {
     dr_fprintf(STDERR, "Usage error: %s", parse_err.c_str());
@@ -158,6 +162,9 @@ recommend building a small program that looks something like this:
 #include "droption.h"
 #include "options.h"
 
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+
 int
 main(int argc, const char *argv[])
 {
@@ -193,7 +200,8 @@ droption_t<std::string> op_blocklist(
 
 \section sec_droption_reattach Clearing Accumulated Values on Re-attach
 
-For options that accumulate values (#DROPTION_FLAG_ACCUMULATE), a
+For options that accumulate values
+(#dynamorio::droption::DROPTION_FLAG_ACCUMULATE), a
 re-attach with a statically linked client will keep the old value from
 the prior attach.  The `droption_parser_t::clear_values()` function
 can be called from the client on exit or initialization to clear all

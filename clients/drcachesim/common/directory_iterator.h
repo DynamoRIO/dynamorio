@@ -37,7 +37,9 @@
 #define _DIRECTORY_ITERATOR_H_ 1
 
 #include <assert.h>
+
 #include <iterator>
+#include <string>
 #ifdef WINDOWS
 #    define UNICODE
 #    define _UNICODE

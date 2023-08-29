@@ -33,6 +33,7 @@
 # Check for required namespaces in C++ code.
 
 foreach fname [getSourceFileNames] {
+    puts "Checking $fname"
     set is_header false
     if {[regexp {\.h$} $fname] } {
         set is_header true

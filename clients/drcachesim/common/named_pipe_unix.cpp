@@ -30,13 +30,15 @@
  * DAMAGE.
  */
 
-#include <string>
-#include <sys/types.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h> /* for PIPE_BUF */
+#include <stddef.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <limits.h> /* for PIPE_BUF */
+
+#include <string>
+
 #include "named_pipe.h"
 
 namespace dynamorio {

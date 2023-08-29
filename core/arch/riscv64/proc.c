@@ -32,6 +32,14 @@
 
 #include "../globals.h"
 #include "proc.h"
+#ifdef UNIX
+#    include "../../unix/include/syscall.h"
+#else
+#    error NYI
+#endif
+
+/* From Linux kernel, it's the only option available. */
+#define SYS_RISCV_FLUSH_ICACHE_LOCAL 1
 
 static int num_simd_saved;
 static int num_simd_registers;
@@ -140,8 +148,11 @@ proc_has_feature(feature_bit_t f)
 void
 machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache)
 {
-    /* FIXME i#3544: Not implemented. FENCE.I ? Maybe a syscall to clean icache? */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* We need to flush the icache on all harts, which is not feasible for FENCE.I, so we
+     * use SYS_riscv_flush_icache to let the kernel do this.
+     */
+    dynamorio_syscall(SYS_riscv_flush_icache, 3, pc_start, pc_end,
+                      SYS_RISCV_FLUSH_ICACHE_LOCAL);
 }
 
 DR_API

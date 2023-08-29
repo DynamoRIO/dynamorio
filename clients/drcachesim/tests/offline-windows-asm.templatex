@@ -19,7 +19,7 @@ Hit tracing window #4 limit: disabling tracing.
 Adios world!
 Hit retrace threshold: enabling tracing for window #5.
 Adios world!
-Hit tracing window #5 limit: disabling tracing.
+Hit tracing window #5 limit: disabling tracing.*
 Basic counts tool results:
 Total counts:
           53 total \(fetched\) instructions
@@ -31,7 +31,7 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-          14 total scheduling markers
+          12 total scheduling markers
            0 total transfer markers
            0 total function id markers
            0 total function return address markers
@@ -39,9 +39,11 @@ Total counts:
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
-          23 total other markers
+           6 total system call number markers
+           5 total blocking system call markers
+          11 total other markers
           21 total encodings
-Total windows: 7
+Total windows: 6
 Window #0:
           15 window \(fetched\) instructions
           15 window unique \(fetched\) instructions
@@ -59,7 +61,9 @@ Window #0:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           8 window other markers
+           1 window system call number markers
+           1 window blocking system call markers
+           6 window other markers
           15 window encodings
 Window #1:
            8 window \(fetched\) instructions
@@ -78,7 +82,9 @@ Window #1:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           3 window other markers
+           1 window system call number markers
+           1 window blocking system call markers
+           1 window other markers
            3 window encodings
 Window #2:
            8 window \(fetched\) instructions
@@ -97,7 +103,9 @@ Window #2:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           3 window other markers
+           1 window system call number markers
+           1 window blocking system call markers
+           1 window other markers
            0 window encodings
 Window #3:
            8 window \(fetched\) instructions
@@ -116,7 +124,9 @@ Window #3:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           3 window other markers
+           1 window system call number markers
+           1 window blocking system call markers
+           1 window other markers
            0 window encodings
 Window #4:
            8 window \(fetched\) instructions
@@ -135,30 +145,13 @@ Window #4:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
-           3 window other markers
+           1 window system call number markers
+           1 window blocking system call markers
+           1 window other markers
            0 window encodings
 Window #5:
            6 window \(fetched\) instructions
            6 window unique \(fetched\) instructions
-           0 window non-fetched instructions
-           0 window prefetches
-           0 window data loads
-           0 window data stores
-           0 window icache flushes
-           0 window dcache flushes
-           2 window scheduling markers
-           0 window transfer markers
-           0 window function id markers
-           0 window function return address markers
-           0 window function argument markers
-           0 window function return value markers
-           0 window physical address \+ virtual address marker pairs
-           0 window physical address unavailable markers
-           2 window other markers
-           3 window encodings
-Window #6:
-           0 window \(fetched\) instructions
-           0 window unique \(fetched\) instructions
            0 window non-fetched instructions
            0 window prefetches
            0 window data loads
@@ -173,8 +166,10 @@ Window #6:
            0 window function return value markers
            0 window physical address \+ virtual address marker pairs
            0 window physical address unavailable markers
+           1 window system call number markers
+           0 window blocking system call markers
            1 window other markers
-           0 window encodings
+           3 window encodings
 Thread [0-9]* counts:
           15 \(fetched\) instructions
           15 unique \(fetched\) instructions
@@ -192,5 +187,7 @@ Thread [0-9]* counts:
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
-           8 other markers
+           1 system call number markers
+           1 blocking system call markers
+           6 other markers
           15 encodings

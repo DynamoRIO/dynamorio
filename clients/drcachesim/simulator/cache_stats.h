@@ -36,8 +36,12 @@
 #ifndef _CACHE_STATS_H_
 #define _CACHE_STATS_H_ 1
 
+#include <stdint.h>
+
 #include <string>
+
 #include "caching_device_stats.h"
+#include "memref.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -69,9 +73,9 @@ protected:
 
     // A CPU cache handles flushes and prefetching requests
     // as well as regular memory accesses.
-    int_least64_t num_flushes_;
-    int_least64_t num_prefetch_hits_;
-    int_least64_t num_prefetch_misses_;
+    int64_t num_flushes_;
+    int64_t num_prefetch_hits_;
+    int64_t num_prefetch_misses_;
 };
 
 } // namespace drmemtrace

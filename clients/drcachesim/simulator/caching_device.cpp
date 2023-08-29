@@ -31,17 +31,28 @@
  */
 
 #include "caching_device.h"
+
+#include <assert.h>
+#include <stddef.h>
+
+#include <functional>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "memref.h"
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
 #include "prefetcher.h"
 #include "snoop_filter.h"
-#include "../common/utils.h"
-#include <assert.h>
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-caching_device_t::caching_device_t()
+caching_device_t::caching_device_t(const std::string &name)
     : blocks_(NULL)
     , stats_(NULL)
     , prefetcher_(NULL)
@@ -49,6 +60,7 @@ caching_device_t::caching_device_t()
     // an identity hash is plenty good enough and nice and fast.
     // We set the size and load factor only if being used, in set_hashtable_use().
     , tag2block(0, [](addr_t key) { return static_cast<unsigned long>(key); })
+    , name_(name)
 {
 }
 
@@ -93,7 +105,7 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
     if (block_size_bits_ == -1 || !IS_POWER_OF_2(blocks_per_way_))
         return false;
     parent_ = parent;
-    stats_ = stats;
+    set_stats(stats);
     prefetcher_ = prefetcher;
     id_ = id;
     snoop_filter_ = snoop_filter;
@@ -108,6 +120,16 @@ caching_device_t::init(int associativity, int block_size, int num_blocks,
     children_ = children;
 
     return true;
+}
+
+std::string
+caching_device_t::get_description() const
+{
+    // One-line human-readable string describing the cache configuration.
+    return "size=" + std::to_string(get_size_bytes()) +
+        ", assoc=" + std::to_string(get_associativity()) +
+        ", block=" + std::to_string(get_block_size()) + ", " + get_replace_policy() +
+        (is_coherent() ? ", coherent" : "") + (is_inclusive() ? ", inclusive" : "");
 }
 
 std::pair<caching_device_block_t *, int>

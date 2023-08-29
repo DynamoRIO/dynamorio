@@ -33,13 +33,20 @@
 #ifndef _OPCODE_MIX_H_
 #define _OPCODE_MIX_H_ 1
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
 
+#include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
 #include "analysis_tool.h"
+#include "memref.h"
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -94,8 +101,8 @@ protected:
         {
         }
         worker_data_t *worker;
-        int_least64_t instr_count;
-        std::unordered_map<int, int_least64_t> opcode_counts;
+        int64_t instr_count;
+        std::unordered_map<int, int64_t> opcode_counts;
         std::string error;
         app_pc last_trace_module_start;
         size_t last_trace_module_size;

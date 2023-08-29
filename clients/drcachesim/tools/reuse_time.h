@@ -33,11 +33,15 @@
 #ifndef _REUSE_TIME_H_
 #define _REUSE_TIME_H_ 1
 
+#include <stdint.h>
+
 #include <mutex>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 
 #include "analysis_tool.h"
+#include "memref.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -65,10 +69,10 @@ protected:
     // Just like for reuse_distance_t, we assume that the shard unit is the unit over
     // which we should measure time.  By default this is a traced thread.
     struct shard_data_t {
-        std::unordered_map<addr_t, int_least64_t> time_map;
-        int_least64_t time_stamp = 0;
-        int_least64_t total_instructions = 0;
-        std::unordered_map<int_least64_t, int_least64_t> reuse_time_histogram;
+        std::unordered_map<addr_t, int64_t> time_map;
+        int64_t time_stamp = 0;
+        int64_t total_instructions = 0;
+        std::unordered_map<int64_t, int64_t> reuse_time_histogram;
         memref_tid_t tid;
         std::string error;
     };

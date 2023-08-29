@@ -30,15 +30,26 @@
  * DAMAGE.
  */
 
-#include <iostream>
+#include "record_filter.h"
+
+#include <stdint.h>
+
 #include <fstream>
+#include <iostream>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #ifdef HAS_ZLIB
 #    include "common/gzip_ostream.h"
 #endif
-#include "record_filter.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 #ifdef DEBUG
 #    define VPRINT(reader, level, ...)                            \
@@ -208,10 +219,13 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
         }
     }
 
-    // Optimize space by outputting the unit header only if we are outputting something
-    // from that unit.
     if (entry.type == TRACE_TYPE_MARKER) {
         switch (entry.size) {
+        case TRACE_MARKER_TYPE_FILETYPE:
+            if (stop_timestamp_ != 0) {
+                entry.addr |= OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP;
+            }
+            break;
         case TRACE_MARKER_TYPE_TIMESTAMP:
             // No need to remember the previous unit's header anymore. We're in the
             // next unit now.
@@ -222,6 +236,8 @@ record_filter_t::parallel_shard_memref(void *shard_data, const trace_entry_t &in
             ANNOTATE_FALLTHROUGH;
         case TRACE_MARKER_TYPE_WINDOW_ID:
         case TRACE_MARKER_TYPE_CPU_ID:
+            // Optimize space by outputting the unit header only if we are outputting
+            // something from that unit.
             if (output)
                 per_shard->last_delayed_unit_header.push_back(entry);
             return true;

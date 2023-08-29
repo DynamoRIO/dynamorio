@@ -599,6 +599,7 @@ add_win32_flags(drmemtrace_record_filter)
 add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(drmemtrace_invariant_checker)
 add_win32_flags(directory_iterator)
+add_win32_flags(test_helpers)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drcachesim SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)
@@ -963,6 +964,21 @@ if (BUILD_TESTS)
       add_win32_flags(tool.drcacheoff.burst_traceopts)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_traceopts)
       use_DynamoRIO_extension(tool.drcacheoff.burst_traceopts drcovlib_static)
+    endif (NOT RISCV64)
+
+    if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+      add_executable(tool.drcacheoff.windows-timestamps
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/window_test.cpp")
+      configure_DynamoRIO_static(tool.drcacheoff.windows-timestamps)
+      use_DynamoRIO_static_client(tool.drcacheoff.windows-timestamps drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.windows-timestamps drmemtrace_raw2trace
+        drmemtrace_analyzer test_helpers)
+      if (WIN32)
+        # Just like for burst_replace, linking everything together takes effort.
+        target_link_libraries(tool.drcacheoff.windows-timestamps ${static_libc})
+      endif ()
+      add_win32_flags(tool.drcacheoff.windows-timestamps)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.windows-timestamps)
     endif (NOT RISCV64)
 
     if (LINUX) # Futex is Linux-only.

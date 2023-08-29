@@ -33,18 +33,23 @@
 /* instru_offline: inserts instrumentation for offline traces.
  */
 
+#include <stddef.h> /* for offsetof */
+#include <string.h> /* for strlen */
+#include <sys/types.h>
+
+#include <atomic>
+#include <cstdint>
+#include <new>
+
 #include "dr_api.h"
+#include "drcovlib.h"
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
-#include "drcovlib.h"
+#include "drvector.h"
+#include "trace_entry.h"
+#include "utils.h"
 #include "instru.h"
-#include "../common/trace_entry.h"
-#include "../common/utils.h"
-#include <new>
-#include <limits.h> /* for USHRT_MAX */
-#include <stddef.h> /* for offsetof */
-#include <string.h> /* for strlen */
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -58,7 +63,7 @@ void (*offline_instru_t::user_free_)(void *data);
 // This constructor is for use in post-processing when we just need the
 // elision utility functions.
 offline_instru_t::offline_instru_t()
-    : instru_t(nullptr, false, nullptr, sizeof(offline_entry_t))
+    : instru_t(nullptr, nullptr, sizeof(offline_entry_t))
     , write_file_func_(nullptr)
 {
     // We can't use drmgr in standalone mode, but for post-processing it's just us,
@@ -69,11 +74,11 @@ offline_instru_t::offline_instru_t()
 
 offline_instru_t::offline_instru_t(
     void (*insert_load_buf)(void *, instrlist_t *, instr_t *, reg_id_t),
-    bool memref_needs_info, drvector_t *reg_vector,
+    drvector_t *reg_vector,
     ssize_t (*write_file)(file_t file, const void *data, size_t count),
     file_t module_file, file_t encoding_file, bool disable_optimizations,
     void (*log)(uint level, const char *fmt, ...))
-    : instru_t(insert_load_buf, memref_needs_info, reg_vector, sizeof(offline_entry_t),
+    : instru_t(insert_load_buf, reg_vector, sizeof(offline_entry_t),
                disable_optimizations)
     , write_file_func_(write_file)
     , modfile_(module_file)
@@ -410,7 +415,7 @@ offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t w
 }
 
 bool
-offline_instru_t::refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
+offline_instru_t::clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
 {
     offline_entry_t *stamp = reinterpret_cast<offline_entry_t *>(buf_ptr);
     DR_ASSERT(stamp->timestamp.type == OFFLINE_TYPE_TIMESTAMP);
@@ -684,7 +689,7 @@ int
 offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist,
                                     instr_t *where, reg_id_t reg_ptr, int adjust,
                                     instr_t *app, opnd_t ref, int ref_index, bool write,
-                                    dr_pred_type_t pred)
+                                    dr_pred_type_t pred, bool memref_needs_full_info)
 {
     // Check whether we can elide this address.
     // We expect our labels to be at "where" due to drbbdup's handling of block-final
@@ -702,11 +707,11 @@ offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t
         }
     }
     // Post-processor distinguishes read, write, prefetch, flush, and finds size.
-    if (!memref_needs_full_info_) // For full info we skip this for !pred
+    if (!memref_needs_full_info) // For full info we skip this for !pred
         instrlist_set_auto_predicate(ilist, pred);
     // We allow either 0 or all 1's as the type so no need to write anything else,
     // unless a filter is in place in which case we need a PC entry.
-    if (memref_needs_full_info_) {
+    if (memref_needs_full_info) {
         per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
         reg_id_t reg_tmp;
         drreg_status_t res =
@@ -734,12 +739,13 @@ offline_instru_t::instrument_memref(void *drcontext, void *bb_field, instrlist_t
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
                                    instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                   int adjust, instr_t *app)
+                                   int adjust, instr_t *app, bool memref_needs_full_info,
+                                   uintptr_t mode)
 {
     per_block_t *per_block = reinterpret_cast<per_block_t *>(bb_field);
     app_pc pc;
     reg_id_t reg_tmp;
-    if (!memref_needs_full_info_) {
+    if (!memref_needs_full_info) {
         // We write just once per bb, if not filtering.
         if (per_block->instr_count > MAX_INSTR_COUNT)
             return adjust;
@@ -753,9 +759,9 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void *bb_field,
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
     adjust += insert_save_pc(
         drcontext, ilist, where, reg_ptr, reg_tmp, adjust, pc,
-        memref_needs_full_info_ ? 1 : static_cast<uint>(per_block->instr_count),
+        memref_needs_full_info ? 1 : static_cast<uint>(per_block->instr_count),
         per_block);
-    if (!memref_needs_full_info_)
+    if (!memref_needs_full_info)
         per_block->instr_count = MAX_INSTR_COUNT + 1;
     res = drreg_unreserve_register(drcontext, ilist, where, reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
@@ -813,7 +819,8 @@ offline_instru_t::instrument_rseq_entry(void *drcontext, instrlist_t *ilist,
 
 void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
-                              instrlist_t *ilist, bool repstr_expanded)
+                              instrlist_t *ilist, bool repstr_expanded,
+                              bool memref_needs_full_info)
 {
     per_block_t *per_block =
         reinterpret_cast<per_block_t *>(dr_thread_alloc(drcontext, sizeof(*per_block)));
@@ -821,7 +828,8 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
 
     per_block->instr_count = instru_t::count_app_instrs(ilist);
 
-    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION);
+    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION,
+                                memref_needs_full_info);
 
     app_pc tag_pc = dr_fragment_app_pc(tag);
     if (drmodtrack_lookup(drcontext, tag_pc, nullptr, nullptr) != DRCOVLIB_SUCCESS) {
@@ -921,14 +929,14 @@ offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
 
 void
 offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilist,
-                                              int version)
+                                              int version, bool memref_needs_full_info)
 {
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.
     if (disable_optimizations_)
         return;
     // We can't elide when doing filtering.
-    if (memref_needs_full_info_)
+    if (memref_needs_full_info)
         return;
     reg_id_set_t saw_base;
     for (instr_t *instr = instrlist_first(ilist); instr != NULL;
@@ -941,7 +949,7 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         // view by expanding the instr in raw2trace (e.g. using
         // drx_expand_scatter_gather) when building the ilist.
         if (drutil_instr_is_stringop_loop(instr)
-            // TODO i#3837: Scatter/gather support NYI on ARM/AArch64.
+            // TODO i#5036: Scatter/gather support incomplete on AArch64.
             IF_X86(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
             return;
         }

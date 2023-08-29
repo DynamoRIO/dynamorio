@@ -35,32 +35,41 @@
  */
 
 #define NOMINMAX // Avoid windows.h messing up std::min.
+#include "archive_ostream.h"
 #include "dr_api.h"
 #include "drcovlib.h"
 #include "raw2trace.h"
+#include "reader.h"
+#include "memref.h"
+#include "trace_entry.h"
+#include "drmemtrace.h"
 #include "instru.h"
-#include "../common/memref.h"
-#include "../common/trace_entry.h"
+#include "utils.h"
 #ifdef LINUX
 // XXX: We should have the core export this to an include dir.
 #    include "../../core/unix/include/syscall.h"
 #endif
 #ifdef BUILD_PT_POST_PROCESSOR
+#    include <unistd.h>
 #    include "../common/options.h"
 #    include "../drpt2trace/ir2trace.h"
-#    include <unistd.h>
-#endif
-#include <algorithm>
-#include <cstring>
-#include <fstream>
-#include <sstream>
-#include <thread>
-#include <vector>
-#ifdef LINUX
-#    include <syscall.h>
 #endif
 
-#include <iostream>
+#include <algorithm>
+#include <array>
+#include <cstdarg>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <deque>
+#include <iomanip>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -94,7 +103,7 @@ namespace drmemtrace {
         }                                  \
     } while (0)
 
-static online_instru_t instru(NULL, NULL, false, NULL);
+static online_instru_t instru(NULL, NULL, NULL);
 
 int
 trace_metadata_writer_t::write_thread_exit(byte *buffer, thread_id_t tid)
@@ -561,7 +570,8 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
 std::string
 raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                                    const offline_entry_t *in_entry, thread_id_t tid,
-                                   OUT bool *end_of_record, OUT bool *last_bb_handled)
+                                   OUT bool *end_of_record, OUT bool *last_bb_handled,
+                                   OUT bool *flush_decode_cache)
 {
     trace_entry_t *buf_base = get_write_buffer(tdata);
     byte *buf = reinterpret_cast<byte *>(buf_base);
@@ -618,6 +628,24 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                     tdata->rseq_buffering_enabled_ = true;
                     tdata->rseq_end_pc_ = marker_val;
                 }
+            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
+                log(2, "Reached filter endpoint\n");
+
+                // The file type needs to be updated during the switch to correctly
+                // process the entries that follow after. This does not affect the
+                // written-out type.
+                int file_type = get_file_type(tdata);
+                // We do not remove OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP here
+                // because that still stands true for this trace.
+                file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                               OFFLINE_FILE_TYPE_DFILTERED);
+                set_file_type(tdata, (offline_file_type_t)file_type);
+
+                // For the full trace, the cache contains block-level info unlike the
+                // filtered trace which contains instr-level info. Since we cannot use
+                // the decode cache entries after the transition, we need to flush the
+                // cache here.
+                *flush_decode_cache = true;
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL &&
                        is_maybe_blocking_syscall(marker_val)) {
                 log(2, "Maybe-blocking syscall %zu\n", marker_val);
@@ -1012,15 +1040,34 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER ||
                (entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID &&
                 entry.extended.valueA != tdata->last_window))))) {
-            tdata->error = append_delayed_branch(tdata);
+            app_pc next_pc = nullptr;
+            // Get the next instr's pc from the interruption value in the marker
+            // (a record for the next instr itself won't appear until the signal
+            // returns, if that happens).
+            if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+                entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+                uintptr_t marker_val = 0;
+                std::string err = get_marker_value(tdata, &in_entry, &marker_val);
+                if (!err.empty())
+                    return err;
+                next_pc = reinterpret_cast<app_pc>(marker_val);
+                // Restore in case it was a two-record value.
+                unread_last_entry(tdata);
+                in_entry = get_next_entry(tdata);
+                entry = *in_entry;
+            } // Else we will delete the final branch in append_delayed_branch().
+            tdata->error = append_delayed_branch(tdata, next_pc);
             if (!tdata->error.empty())
                 return tdata->error;
         }
         if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
             entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
             tdata->last_window = entry.extended.valueA;
+        bool flush_decode_cache = false;
         tdata->error = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
-                                             &last_bb_handled);
+                                             &last_bb_handled, &flush_decode_cache);
+        if (flush_decode_cache)
+            decode_cache_[tdata->worker].clear();
         if (!tdata->error.empty())
             return tdata->error;
     }
@@ -1044,9 +1091,12 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
                 offline_entry_t entry;
                 entry.extended.type = OFFLINE_TYPE_EXTENDED;
                 entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
-                bool last_bb_handled = true;
-                tdata->error = process_offline_entry(tdata, &entry, tdata->tid,
-                                                     &end_of_file, &last_bb_handled);
+                bool last_bb_handled = true, flush_decode_cache = false;
+                tdata->error =
+                    process_offline_entry(tdata, &entry, tdata->tid, &end_of_file,
+                                          &last_bb_handled, &flush_decode_cache);
+                if (flush_decode_cache)
+                    decode_cache_[tdata->worker].clear();
                 CHECK(end_of_file, "Synthetic footer failed");
                 if (!tdata->error.empty())
                     return tdata->error;
@@ -1271,7 +1321,7 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
         instrlist_append(ilist, inst);
     }
 
-    instru_offline_.identify_elidable_addresses(dcontext_, ilist, version);
+    instru_offline_.identify_elidable_addresses(dcontext_, ilist, version, false);
 
     for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
          inst = instr_get_next(inst)) {
@@ -1522,7 +1572,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         if (!instr->is_cti()) {
             // Write out delayed branches now that we have a target.
-            error = append_delayed_branch(tdata);
+            error = append_delayed_branch(tdata, orig_pc);
             if (!error.empty())
                 return error;
         }
@@ -1691,7 +1741,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // delay markers.
             log(4, "Delaying %d entries for decode=" PIFX "\n", buf - buf_start,
                 saved_decode_pc);
-            error = write_delayed_branches(tdata, buf_start, buf, saved_decode_pc);
+            error = write_delayed_branches(tdata, buf_start, buf, saved_decode_pc,
+                                           instr->branch_target_pc());
             if (!error.empty())
                 return error;
         } else if (buf > buf_start) {
@@ -1861,6 +1912,12 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
 {
     if (!TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, tdata->file_type))
         return false;
+#if defined(WINDOWS) && !defined(X64)
+    // For WOW64 there is a store for the "syscall" call which complicates detecting and
+    // removing it.  Furthermore, instr_is_wow64_syscall() can vary whether using full DR
+    // or not: i#5949.  For simplicity for now we just bail on WOW64.
+    return false;
+#else
     // We have 2 scenarios where we record a syscall instr yet it doesn't
     // execute right away and so there's no syscall number marker:
     // 1) An asynchronous signal arrives during the block and is delivered
@@ -1897,6 +1954,7 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
         queue_entry(tdata, entry);
     }
     return omit;
+#endif
 }
 
 std::string
@@ -2248,6 +2306,19 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
             ++post_branch;
         DEBUG_ASSERT(type_is_instr_branch(
             static_cast<trace_type_t>(tdata->rseq_buffer_[post_branch].type)));
+        if (found_direct) {
+            // It wasn't taken in the instrumented run, but we have to make it
+            // appear taken to match the actual exit.
+            DEBUG_ASSERT(tdata->rseq_buffer_[post_branch].type ==
+                         TRACE_TYPE_INSTR_UNTAKEN_JUMP);
+            tdata->rseq_buffer_[post_branch].type = TRACE_TYPE_INSTR_TAKEN_JUMP;
+        } else {
+            // It was taken in the instrumented run, but we have to make it
+            // appear untaken to match the actual exit.
+            DEBUG_ASSERT(tdata->rseq_buffer_[post_branch].type ==
+                         TRACE_TYPE_INSTR_TAKEN_JUMP);
+            tdata->rseq_buffer_[post_branch].type = TRACE_TYPE_INSTR_UNTAKEN_JUMP;
+        }
         int branch_size = tdata->rseq_buffer_[post_branch].size;
         ++post_branch; // Now skip instr entry itself.
         std::string error =
@@ -2491,7 +2562,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         desc->packed_ |= kIsFlushMask;
     if (instr_is_cti(instr)) {
         desc->packed_ |= kIsCtiMask;
-        if (instr_is_ubr(instr) || instr_is_cbr(instr))
+        if (instr_is_ubr(instr) || instr_is_cbr(instr) || instr_is_call_direct(instr))
             desc->branch_target_pc_ = opnd_get_pc(instr_get_target(instr));
     }
     // XXX i#5949: This has some OS-specific behavior that should be preserved
@@ -2598,20 +2669,104 @@ raw2trace_t::thread_file_at_eof(raw2trace_thread_data_t *tdata)
 }
 
 std::string
-raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata)
+raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_pc)
 {
+    // While we no longer document a guarantee that branches are delayed to make them
+    // adjacent to their targets now that we have TRACE_ENTRY_VERSION_BRANCH_INFO, we
+    // still use the delayed branch mechanism as it was already in place and is the
+    // easiest way to implement TRACE_ENTRY_VERSION_BRANCH_INFO.  If we decide to
+    // use a different implementation we should perhaps wait for all users to
+    // update their clients.
     if (tdata->delayed_branch_empty_)
         return "";
-    if (verbosity_ >= 4) {
+    // We can't infer branch targets for filtered instructions.
+    if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                 get_file_type(tdata))) {
+        // We need to transform TRACE_TYPE_INSTR_CONDITIONAL_JUMP into
+        // TRACE_TYPE_INSTR_{TAKEN,UNTAKEN}_JUMP based on which side of the branch
+        // was taken.  We also need to add indirect branch target markers.
         int instr_count = 0;
-        for (size_t i = 0; i < tdata->delayed_branch.size(); i++) {
+        for (size_t i = 0; i < tdata->delayed_branch.size(); ++i) {
             const auto &entry = tdata->delayed_branch[i];
-            if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
-                VPRINT(4,
-                       "Appending delayed branch pc=" PIFX " decode=%p for thread %d\n",
-                       entry.addr, tdata->delayed_branch_decode_pcs[instr_count],
-                       tdata->index);
+            if (type_is_instr(static_cast<trace_type_t>(entry.type)))
                 ++instr_count;
+        }
+        int instr_index = instr_count - 1;
+        // Walk backward so we have the next pc for stacked branches.
+        app_pc next_instr_pc = next_pc;
+        for (int i = static_cast<int>(tdata->delayed_branch.size()) - 1; i >= 0; --i) {
+            auto &entry = tdata->delayed_branch[i];
+            if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+                DEBUG_ASSERT(type_is_instr_branch(static_cast<trace_type_t>(entry.type)));
+                if (tdata->delayed_branch_target_pcs.size() <=
+                    static_cast<size_t>(instr_index)) {
+                    return "Delayed branch target vector mis-sized";
+                }
+                app_pc target = tdata->delayed_branch_target_pcs[instr_index];
+                // Cache entry fields before we insert any markers at entry's position.
+                app_pc branch_addr = reinterpret_cast<app_pc>(entry.addr);
+                trace_type_t branch_type = static_cast<trace_type_t>(entry.type);
+                if (next_instr_pc == nullptr &&
+                    (target == nullptr ||
+                     entry.type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP)) {
+                    // This is a trace-final or window-final branch but we do not have
+                    // its taken/target without a subsequent instr: just delete it.
+                    DEBUG_ASSERT(instr_index == instr_count - 1);
+                    int erase_from = i;
+                    while (erase_from > 0 &&
+                           tdata->delayed_branch[erase_from - 1].type ==
+                               TRACE_TYPE_ENCODING) {
+                        log(4, "Erasing cached encoding for %p\n",
+                            tdata->delayed_branch_decode_pcs[instr_index]);
+                        tdata->encoding_emitted.erase(
+                            tdata->delayed_branch_decode_pcs[instr_index]);
+                        --erase_from;
+                    }
+                    VPRINT(4,
+                           "Discarded %zd entries for final branch without subsequent "
+                           "instr\n",
+                           tdata->delayed_branch.size() - erase_from);
+                    tdata->delayed_branch.erase(tdata->delayed_branch.begin() +
+                                                    erase_from,
+                                                tdata->delayed_branch.end());
+                    tdata->delayed_branch_decode_pcs.pop_back();
+                    tdata->delayed_branch_target_pcs.pop_back();
+                    break;
+                } else {
+                    if (target == nullptr) {
+                        DEBUG_ASSERT(!type_is_instr_direct_branch(
+                            static_cast<trace_type_t>(entry.type)));
+                        trace_entry_t local[3];
+                        int size = trace_metadata_writer_t::write_marker(
+                            reinterpret_cast<byte *>(local),
+                            TRACE_MARKER_TYPE_BRANCH_TARGET,
+                            reinterpret_cast<uintptr_t>(next_instr_pc));
+                        DEBUG_ASSERT(static_cast<size_t>(size) <= sizeof(local));
+                        for (int local_idx = 0;
+                             local_idx < size / static_cast<int>(sizeof(local[0]));
+                             ++local_idx) {
+                            tdata->delayed_branch.insert(
+                                tdata->delayed_branch.begin() + i, local[local_idx]);
+                        }
+                        VPRINT(4, "Inserted indirect branch target %p\n", next_instr_pc);
+                    } else if (entry.type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP) {
+                        if (target == next_instr_pc) {
+                            branch_type = TRACE_TYPE_INSTR_TAKEN_JUMP;
+                        } else {
+                            branch_type = TRACE_TYPE_INSTR_UNTAKEN_JUMP;
+                        }
+                        entry.type = static_cast<unsigned short>(branch_type);
+                    }
+                    VPRINT(
+                        4,
+                        "Appending delayed branch type=%d pc=%p decode=%p target=%p for "
+                        "thread %d\n",
+                        branch_type, branch_addr,
+                        tdata->delayed_branch_decode_pcs[instr_index], target,
+                        tdata->index);
+                }
+                next_instr_pc = branch_addr;
+                --instr_index;
             } else {
                 VPRINT(4,
                        "Appending delayed branch tagalong entry type %s (%d) for thread "
@@ -2620,14 +2775,18 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata)
             }
         }
     }
-    std::string error = write(tdata, tdata->delayed_branch.data(),
-                              tdata->delayed_branch.data() + tdata->delayed_branch.size(),
-                              tdata->delayed_branch_decode_pcs.data(),
-                              tdata->delayed_branch_decode_pcs.size());
-    if (!error.empty())
-        return error;
+    if (!tdata->delayed_branch.empty()) {
+        std::string error =
+            write(tdata, tdata->delayed_branch.data(),
+                  tdata->delayed_branch.data() + tdata->delayed_branch.size(),
+                  tdata->delayed_branch_decode_pcs.data(),
+                  tdata->delayed_branch_decode_pcs.size());
+        if (!error.empty())
+            return error;
+    }
     tdata->delayed_branch.clear();
     tdata->delayed_branch_decode_pcs.clear();
+    tdata->delayed_branch_target_pcs.clear();
     tdata->delayed_branch_empty_ = true;
     return "";
 }
@@ -2903,7 +3062,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
 std::string
 raw2trace_t::write_delayed_branches(raw2trace_thread_data_t *tdata,
                                     const trace_entry_t *start, const trace_entry_t *end,
-                                    app_pc decode_pc)
+                                    app_pc decode_pc, app_pc target_pc)
 {
     int instr_count = 0;
     for (const trace_entry_t *it = start; it < end; ++it) {
@@ -2917,7 +3076,9 @@ raw2trace_t::write_delayed_branches(raw2trace_thread_data_t *tdata,
     if (instr_count == 1) {
         if (decode_pc == nullptr)
             return "A delayed instruction must have a valid decode PC";
+        log(4, "Remembered delayed branch decode=%p target=%p\n", decode_pc, target_pc);
         tdata->delayed_branch_decode_pcs.push_back(decode_pc);
+        tdata->delayed_branch_target_pcs.push_back(target_pc);
     } else if (decode_pc != nullptr)
         return "Delayed non-instructions should not have a decode PC";
     return "";
@@ -3015,6 +3176,15 @@ offline_file_type_t
 raw2trace_t::get_file_type(raw2trace_thread_data_t *tdata)
 {
     return tdata->file_type;
+}
+
+void
+raw2trace_t::set_file_type(raw2trace_thread_data_t *tdata, offline_file_type_t file_type)
+{
+    // The file type needs to be updated during the switch to correctly process the
+    // entries that follow after TRACE_MARKER_TYPE_FILTER_ENDPOINT. This does not affect
+    // the written-out type.
+    tdata->file_type = file_type;
 }
 
 raw2trace_t::raw2trace_t(

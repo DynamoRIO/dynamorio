@@ -30,8 +30,14 @@
  * DAMAGE.
  */
 
-#include <string.h>
 #include "speculator.h"
+
+#include <string.h>
+
+#include <string>
+
+#include "memref.h"
+#include "trace_entry.h"
 #include "utils.h"
 
 #undef VPRINT

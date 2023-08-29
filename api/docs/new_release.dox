@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -55,10 +55,18 @@ It is a good idea to perform some sanity tests on all platforms beyond what our 
 Update the following in the code and commit the change:
 
 + Update `VERSION_NUMBER_DEFAULT`.
-+ Update the default git tag version in `ci-package.yml`.
++ Update the default git tag version in `ci-package.yml` and `ci-docs.yml`.
 + Update `OLDEST_COMPATIBLE_VERSION_DEFAULT` if necessary.
 
 Don't add a new changelist section for the next release after this one: that is best done after finishing this release.
+
+The Download page in the documentation can be updated in the same commit if there will be no manual testing and only one build will be created, rather than release candidate builds that will be further tested before finalization.
+
+## Update api/docs/download.dox
+
+Make a new list of direct links for the new version at \ref page_releases.
+As mentioned, this can be combined with the version bump into a single
+commit for a single-build release.
 
 ## Trigger a Package Build
 
@@ -67,7 +75,7 @@ To create a new build:
 1. Go to the Actions tab for the DynamoRIO/dynamorio repository.
 2. Click on "ci-package" on the list of workflows on the left.
 3. Click on "Run workflow" on the right.
-4. Select the branch.
+4. Select the branch.  For an official release, use `master`.
 5. Fill in the version number.  For an official release, use three digits (e.g., '9.0.0'). For a test build or periodic build (i.e., not an official new-version-number release), use the current version major.minor and the date-based patchlevel.  The patchlevel can be found from CMake's configuration output by running `cmake .`:
 ```
 -- Version number: 8.0.18611
@@ -82,20 +90,16 @@ Once the build is finished and posted to https://github.com/DynamoRIO/dynamorio/
 
 Also point at the changelog, as was done in this past release:
 
-https://github.com/DynamoRIO/dynamorio/releases/tag/release_7.1.0
+https://github.com/DynamoRIO/dynamorio/releases/tag/release_10.0.0
 
 We generally edit the title to simplify it: e.g., from `release_8.0.0-1` to just `8.0.0`.
-
-## Update api/docs/download.dox
-
-Make a new list of direct links for the new version at \ref page_releases.
 
 ## Trigger a Docs Update
 
 1. Go to the Actions tab for the DynamoRIO/dynamorio repository.
 2. Click on "ci-docs" on the list of workflows on the left.
 3. Click on "Run workflow" on the right.
-4. Select the branch.
+4. Select the branch (`master` for an official release).
 5. Fill in the version number and build number to match that used for the package build.
 
 Wait for the workflow to finish.  It should update the online docs.
@@ -112,7 +116,10 @@ Unless it's a minor patchlevel release or something, email the users list to ann
 
 Update the changelist in release.dox: create a new entry for the next release.
 
-# Per-Platform Testing
+# Manual Per-Platform Testing
+
+Additional manual testing for a release candidate build can provide
+confidence beyond the automated testing.
 
 Perform at least the "README test" on all platforms: paste the commands from the README into your shell and make sure they behave as expected.
 

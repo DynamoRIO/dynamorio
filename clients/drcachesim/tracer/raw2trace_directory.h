@@ -35,10 +35,11 @@
 
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
-#include "dr_api.h"
 #include "archive_ostream.h"
+#include "dr_api.h"
 
 #if !defined DEFAULT_TRACE_COMPRESSION_TYPE
 #    ifdef HAS_ZIP

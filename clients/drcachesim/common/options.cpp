@@ -32,13 +32,24 @@
 
 /* shared options for both the frontend and the client */
 
+#include "options.h"
+
 #include <string>
+
 #include "dr_api.h" // For IF_X86_ELSE.
 #include "droption.h"
-#include "options.h"
 
 namespace dynamorio {
 namespace drmemtrace {
+
+using ::dynamorio::droption::bytesize_t;
+using ::dynamorio::droption::DROPTION_FLAG_ACCUMULATE;
+using ::dynamorio::droption::DROPTION_FLAG_INTERNAL;
+using ::dynamorio::droption::DROPTION_FLAG_SWEEP;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
 
 droption_t<bool> op_offline(
     DROPTION_SCOPE_ALL, "offline", false, "Store trace files for offline analysis",
@@ -531,6 +542,23 @@ droption_t<bytesize_t>
                  "application execution. These memory references are dropped instead "
                  "of being simulated.  This skipping may be slow for large skip values; "
                  "consider -skip_instrs for a faster method of skipping.");
+
+droption_t<bytesize_t> op_L0_filter_until_instrs(
+    DROPTION_SCOPE_CLIENT, "L0_filter_until_instrs", 0,
+    "Number of instructions for warmup trace",
+    "Specifies the number of instructions to run in warmup mode. This instruction count "
+    "is per-thread. In warmup mode, we "
+    "filter accesses through the -L0{D,I}_filter caches. If neither -L0D_filter nor "
+    "-L0I_filter are specified then both are assumed to be true. The size of these can "
+    "be specified using -L0{D,I}_size. The filter instructions come after the "
+    "-trace_after_instrs count and before the full trace. This is intended to be "
+    "used together with other trace options (e.g., -trace_for_instrs, "
+    "-exit_after_tracing, -max_trace_size etc.) but with the difference that a filter "
+    "trace is also collected. The filter trace and full trace are stored in a single "
+    "file separated by a TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. When used with "
+    "windows (i.e., -retrace_every_instrs), each window contains a filter trace and a "
+    "full trace. Therefore TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of "
+    "filtered records.");
 
 droption_t<bytesize_t> op_warmup_refs(
     DROPTION_SCOPE_FRONTEND, "warmup_refs", 0,

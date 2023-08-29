@@ -30,13 +30,29 @@
  * DAMAGE.
  */
 
+#include "reuse_distance.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
-#include "reuse_distance.h"
-#include "../common/utils.h"
+
+#include "analysis_tool.h"
+#include "memref.h"
+#include "reuse_distance_create.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -166,7 +182,7 @@ reuse_distance_t::parallel_shard_memref(void *shard_data, const memref_t &memref
                 delete ref;
             }
         } else {
-            int_least64_t dist = shard->ref_list->move_to_front(it->second);
+            int64_t dist = shard->ref_list->move_to_front(it->second);
             auto &dist_map = is_instr_type ? shard->dist_map : shard->dist_map_data;
             distance_histogram_t::iterator dist_it = dist_map.find(dist);
             if (dist_it == dist_map.end())
@@ -257,7 +273,7 @@ reuse_distance_t::print_shard_results(const shard_data_t *shard)
     std::cerr.setf(std::ios::fixed);
 
     double sum = 0.0;
-    int_least64_t count = 0;
+    int64_t count = 0;
     for (const auto &it : shard->dist_map) {
         sum += it.first * it.second;
         count += it.second;
@@ -265,7 +281,7 @@ reuse_distance_t::print_shard_results(const shard_data_t *shard)
     double mean = sum / count;
     std::cerr << "Reuse distance mean: " << mean << "\n";
     double sum_of_squares = 0;
-    int_least64_t recount = 0;
+    int64_t recount = 0;
     bool have_median = false;
     std::vector<distance_map_pair_t> sorted(shard->dist_map.size());
     std::partial_sort_copy(shard->dist_map.begin(), shard->dist_map.end(), sorted.begin(),
@@ -331,7 +347,7 @@ reuse_distance_t::print_shard_results(const shard_data_t *shard)
 }
 
 void
-reuse_distance_t::print_histogram(std::ostream &out, int_least64_t total_count,
+reuse_distance_t::print_histogram(std::ostream &out, int64_t total_count,
                                   const std::vector<distance_map_pair_t> &sorted,
                                   const distance_histogram_t &dist_map_data)
 {
@@ -353,20 +369,20 @@ reuse_distance_t::print_histogram(std::ostream &out, int_least64_t total_count,
     out << std::setw(12) << "Count"
         << "  Percent  Cumulative"
         << "  :       Count  Percent  Cumulative\n";
-    int_least64_t max_distance = sorted.empty() ? 0 : sorted.back().first;
+    int64_t max_distance = sorted.empty() ? 0 : sorted.back().first;
     double cum_percent = 0;
     double data_cum_percent = 0;
-    int_least64_t bin_count = 0;
-    int_least64_t data_bin_count = 0;
-    int_least64_t bin_size = 1;
+    int64_t bin_count = 0;
+    int64_t data_bin_count = 0;
+    int64_t bin_size = 1;
     double bin_size_float = 1.0;
-    int_least64_t bin_start = 0;
-    int_least64_t bin_next_start = bin_start + bin_size;
+    int64_t bin_start = 0;
+    int64_t bin_next_start = bin_start + bin_size;
     for (auto it = sorted.begin(); it != sorted.end(); ++it) {
         const auto this_bin_number = it->first;
         auto data_it = dist_map_data.find(this_bin_number);
-        int_least64_t this_bin_count = it->second;
-        int_least64_t this_data_bin_count =
+        int64_t this_bin_count = it->second;
+        int64_t this_data_bin_count =
             data_it == dist_map_data.end() ? 0 : data_it->second;
         // The last bin needs to force an output.
         bool last_bin = *it == sorted.back();
@@ -403,7 +419,7 @@ reuse_distance_t::print_histogram(std::ostream &out, int_least64_t total_count,
             bin_start = bin_next_start;
             bin_size_float *= bin_multiplier;
             // Use floor() to favor smaller bin sizes.
-            bin_size = static_cast<int_least64_t>(std::floor(bin_size_float));
+            bin_size = static_cast<int64_t>(std::floor(bin_size_float));
             bin_next_start = bin_start + bin_size;
         }
         bin_count += this_bin_count;

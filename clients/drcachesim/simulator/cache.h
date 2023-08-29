@@ -36,15 +36,26 @@
 #ifndef _CACHE_H_
 #define _CACHE_H_ 1
 
-#include "caching_device.h"
+#include <string>
+#include <vector>
+
 #include "cache_line.h"
 #include "cache_stats.h"
+#include "caching_device.h"
+#include "memref.h"
+#include "prefetcher.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
+class snoop_filter_t;
+
 class cache_t : public caching_device_t {
 public:
+    explicit cache_t(const std::string &name = "cache")
+        : caching_device_t(name)
+    {
+    }
     // Size, line size and associativity are generally used
     // to describe a CPU cache.
     // The id is an index into the snoop filter's array of caches for coherent caches.

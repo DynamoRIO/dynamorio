@@ -180,6 +180,7 @@ typedef struct {
     uint64 flags_aa64mmfr1; /**< AArch64 feature flags stored in ID_AA64MMFR1_EL1 */
     uint64 flags_aa64dfr0;  /**< AArch64 feature flags stored in ID_AA64DFR0_EL1 */
     uint64 flags_aa64zfr0;  /**< AArch64 feature flags stored in ID_AA64ZFR0_EL1 */
+    uint64 flags_aa64pfr1;  /**< AArch64 feature flags stored in ID_AA64PFR1_EL1 */
 } features_t;
 typedef enum {
     AA64ISAR0 = 0,
@@ -188,6 +189,7 @@ typedef enum {
     AA64MMFR1 = 3,
     AA64DFR0 = 4,
     AA64ZFR0 = 5,
+    AA64PFR1 = 6,
 } feature_reg_idx_t;
 #endif
 #ifdef RISCV64
@@ -361,6 +363,7 @@ typedef enum {
     FEATURE_SVESHA3 = DEF_FEAT(AA64ZFR0, 8, 1, 0), /**< SVE2 + SHA3(AArch64) */
     FEATURE_SVESM4 = DEF_FEAT(AA64ZFR0, 10, 1, 0), /**< SVE2 + SM4(AArch64) */
     FEATURE_SVEBitPerm = DEF_FEAT(AA64ZFR0, 4, 1, 0), /**< SVE2 + BitPerm(AArch64) */
+    FEATURE_MTE = DEF_FEAT(AA64PFR1, 2, 1, 0),        /**< Memory Tagging Extension */
 } feature_bit_t;
 #endif
 #ifdef RISCV64
@@ -463,6 +466,25 @@ DR_API
 bool
 proc_has_feature(feature_bit_t feature);
 
+#if defined(AARCH64) && defined(BUILD_TESTS)
+DR_API
+/**
+ * Allows overriding the available state of CPU features.
+ * This is only for unit testing and offline decode, and must be called after
+ * proc_init_arch() (e.g. after dr_standalone_init() or dr_app_setup()).
+ */
+void
+proc_set_feature(feature_bit_t f, bool enable);
+
+DR_API
+/**
+ * Uses proc_set_feature() to forcibly enable CPU features for unit testing and offline
+ * decode.
+ */
+void
+enable_all_test_cpu_features();
+#endif
+
 DR_API
 /**
  * Returns all 4 32-bit feature values on X86 and architectural feature
@@ -496,6 +518,19 @@ DR_API
 /** Converts a cache_size_t type to a string. */
 const char *
 proc_get_cache_size_str(cache_size_t size);
+
+#ifdef AARCHXX
+DR_API
+/**
+ * Returns the size in bytes of the SVE registers' vector length set by the
+ * AArch64 hardware implementor. Length can be from 128 to 2048 bits in
+ * multiples of 128 bits:
+ * 128 256 384 512 640 768 896 1024 1152 1280 1408 1536 1664 1792 1920 2048
+ * Currently DynamoRIO supports implementations of up to 512 bits.
+ */
+uint
+proc_get_vector_length_bytes(void);
+#endif
 
 DR_API
 /**

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -35,21 +35,26 @@
  * Instruction counting mode where we do not record any trace data.
  */
 
+#include "instr_counter.h"
+
 #include <limits.h>
+#include <stddef.h>
+
 #include <atomic>
+#include <cstdint>
+
 #include "dr_api.h"
 #include "drmgr.h"
-#include "drmemtrace.h"
 #include "drreg.h"
-#include "drx.h"
-#include "droption.h"
-#include "instr_counter.h"
-#include "instru.h"
-#include "tracer.h"
+#include "options.h"
+#include "utils.h"
+#include "drmemtrace.h"
 #include "func_trace.h"
+#include "instru.h"
 #include "output.h"
-#include "../common/options.h"
-#include "../common/utils.h"
+#include "tracer.h"
+#include "droption.h"
+#include "drx.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -68,6 +73,7 @@ static uint64 instr_count;
 #define DELAY_FOREVER_THRESHOLD (1024 * 1024 * 1024)
 
 static std::atomic<bool> reached_trace_after_instrs;
+std::atomic<uint64> retrace_start_timestamp;
 
 static bool
 has_instr_count_threshold_to_enable_tracing()
@@ -97,6 +103,7 @@ instr_count_threshold()
 static void
 hit_instr_count_threshold(app_pc next_pc)
 {
+    uintptr_t mode;
     if (!has_instr_count_threshold_to_enable_tracing())
         return;
 #ifdef DELAYED_CHECK_INLINED
@@ -116,7 +123,7 @@ hit_instr_count_threshold(app_pc next_pc)
     }
 #endif
     dr_mutex_lock(mutex);
-    if (tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_TRACE) {
+    if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire))) {
         // Another thread already changed the mode.
         dr_mutex_unlock(mutex);
         return;
@@ -127,6 +134,7 @@ hit_instr_count_threshold(app_pc next_pc)
     else {
         NOTIFY(0, "Hit retrace threshold: enabling tracing for window #%zd.\n",
                tracing_window.load(std::memory_order_acquire));
+        retrace_start_timestamp.store(instru_t::get_timestamp());
         if (op_offline.get_value())
             open_new_window_dir(tracing_window.load(std::memory_order_acquire));
     }
@@ -142,7 +150,12 @@ hit_instr_count_threshold(app_pc next_pc)
     instr_count = 0;
 #endif
     DR_ASSERT(tracing_mode.load(std::memory_order_acquire) == BBDUP_MODE_COUNT);
-    tracing_mode.store(BBDUP_MODE_TRACE, std::memory_order_release);
+
+    if (op_L0_filter_until_instrs.get_value())
+        mode = BBDUP_MODE_L0_FILTER;
+    else
+        mode = BBDUP_MODE_TRACE;
+    tracing_mode.store(mode, std::memory_order_release);
     dr_mutex_unlock(mutex);
 }
 

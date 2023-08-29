@@ -35,6 +35,7 @@
 #define _OUTPUT_ 1
 
 #include "dr_api.h"
+#include "tracer.h"
 
 namespace dynamorio {
 namespace drmemtrace {

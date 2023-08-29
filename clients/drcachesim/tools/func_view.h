@@ -33,15 +33,22 @@
 #ifndef _FUNC_VIEW_H_
 #define _FUNC_VIEW_H_ 1
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <mutex>
 #include <set>
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "analysis_tool.h"
+#include "dr_api.h"
+#include "memref.h"
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -77,8 +84,8 @@ protected:
             num_returns += rhs.num_returns;
             return *this;
         }
-        int_least64_t num_calls = 0;
-        int_least64_t num_returns = 0;
+        int64_t num_calls = 0;
+        int64_t num_returns = 0;
         // TODO i#4083: Record the arg and retval distributions.
     };
     struct shard_data_t {

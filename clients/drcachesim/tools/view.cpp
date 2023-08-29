@@ -36,12 +36,26 @@
  * It does not support online use, only offline.
  */
 
-#include "dr_api.h"
 #include "view.h"
-#include <algorithm>
+
+#include <stdint.h>
+
 #include <iomanip>
 #include <iostream>
-#include <vector>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+
+#include "analysis_tool.h"
+#include "dr_api.h"
+#include "memref.h"
+#include "memtrace_stream.h"
+#include "raw2trace.h"
+#include "raw2trace_directory.h"
+#include "trace_entry.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -343,6 +357,9 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_MARKER_TYPE_CHUNK_FOOTER:
             std::cerr << "<marker: chunk footer #" << memref.marker.marker_value << ">\n";
             break;
+        case TRACE_MARKER_TYPE_FILTER_ENDPOINT:
+            std::cerr << "<marker: filter endpoint>\n";
+            break;
         case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS:
             std::cerr << "<marker: physical address for following virtual: 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
@@ -397,6 +414,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             break;
         case TRACE_MARKER_TYPE_SYSCALL_TRACE_END:
             std::cerr << "<marker: system call trace end>\n";
+            break;
+        case TRACE_MARKER_TYPE_BRANCH_TARGET:
+            std::cerr << "<marker: indirect branch target 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << ">\n";
             break;
         default:
             std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
@@ -470,6 +491,10 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         case TRACE_TYPE_INSTR_DIRECT_JUMP: std::cerr << "jump\n"; break;
         case TRACE_TYPE_INSTR_INDIRECT_JUMP: std::cerr << "indirect jump\n"; break;
         case TRACE_TYPE_INSTR_CONDITIONAL_JUMP: std::cerr << "conditional jump\n"; break;
+        case TRACE_TYPE_INSTR_TAKEN_JUMP: std::cerr << "taken conditional jump\n"; break;
+        case TRACE_TYPE_INSTR_UNTAKEN_JUMP:
+            std::cerr << "untaken conditional jump\n";
+            break;
         case TRACE_TYPE_INSTR_DIRECT_CALL: std::cerr << "call\n"; break;
         case TRACE_TYPE_INSTR_INDIRECT_CALL: std::cerr << "indirect call\n"; break;
         case TRACE_TYPE_INSTR_RETURN: std::cerr << "return\n"; break;
@@ -520,8 +545,21 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         disasm = buf;
         disasm_cache_.insert({ orig_pc, disasm });
     }
-    // Put our prefix on raw byte spillover, and skip the other columns.
+    // Add branch decoration, which varies and so can't be cached purely by PC.
     auto newline = disasm.find('\n');
+    if (memref.instr.type == TRACE_TYPE_INSTR_TAKEN_JUMP)
+        disasm.insert(newline, " (taken)");
+    else if (memref.instr.type == TRACE_TYPE_INSTR_UNTAKEN_JUMP)
+        disasm.insert(newline, " (untaken)");
+    else if (trace_version_ >= TRACE_ENTRY_VERSION_BRANCH_INFO &&
+             type_is_instr_branch(memref.instr.type) &&
+             !type_is_instr_direct_branch(memref.instr.type)) {
+        std::stringstream str;
+        str << " (target 0x" << std::hex << memref.instr.indirect_branch_target << ")";
+        disasm.insert(newline, str.str());
+    }
+    // Put our prefix on raw byte spillover, and skip the other columns.
+    newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
         print_prefix(memstream, memref, -1, prefix);

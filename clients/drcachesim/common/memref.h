@@ -49,8 +49,8 @@ namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure names
 
 // On some platforms, like MacOS, a thread id is 64 bits.
 // We just make both 64 bits to cover all our bases.
-typedef int_least64_t memref_pid_t; /**< Process id type. */
-typedef int_least64_t memref_tid_t; /**< Thread id type. */
+typedef int64_t memref_pid_t; /**< Process id type. */
+typedef int64_t memref_tid_t; /**< Thread id type. */
 
 /** A trace entry representing a data load, store, or prefetch. */
 struct _memref_data_t {
@@ -83,6 +83,13 @@ struct _memref_instr_t {
      * not only when application code actually changed.
      */
     bool encoding_is_new;
+    /**
+     * Valid only for an indirect branch instruction (types
+     * #TRACE_TYPE_INSTR_INDIRECT_JUMP, #TRACE_TYPE_INSTR_INDIRECT_CALL, and
+     * #TRACE_TYPE_INSTR_RETURN).  Holds the actual target of that branch.  This is only
+     * present in trace version #TRACE_ENTRY_VERSION_BRANCH_INFO and higher.
+     */
+    addr_t indirect_branch_target;
 };
 
 /** A trace entry representing a software-requested explicit cache flush. */

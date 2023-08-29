@@ -55,6 +55,11 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
 static droption_t<std::string> op_indir(DROPTION_SCOPE_FRONTEND, "indir", "",
                                         "[Required] Directory with trace input files",
                                         "Specifies a directory with raw files.");

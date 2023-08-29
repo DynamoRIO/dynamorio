@@ -30,15 +30,33 @@
  * DAMAGE.
  */
 
-#include <inttypes.h>
-#include <iostream>
-#include <thread>
-#include "analysis_tool.h"
 #include "analyzer.h"
-#include "reader/file_reader.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
+#include <cassert>
+#include <iostream>
+#include <limits>
+#include <memory>
+#include <queue>
+#include <string>
+#include <thread>
+#include <utility>
+#include <vector>
+
+#include "memref.h"
+#include "scheduler.h"
+#include "analysis_tool.h"
 #ifdef HAS_ZLIB
-#    include "reader/compressed_file_reader.h"
+#    include "compressed_file_reader.h"
+#else
+#    include "file_reader.h"
 #endif
+#include "reader.h"
+#include "record_file_reader.h"
+#include "trace_entry.h"
 #ifdef HAS_ZIP
 #    include "reader/zipfile_file_reader.h"
 #endif
@@ -46,7 +64,6 @@
 #    include "reader/snappy_file_reader.h"
 #endif
 #include "common/utils.h"
-#include "memtrace_stream.h"
 
 namespace dynamorio {
 namespace drmemtrace {

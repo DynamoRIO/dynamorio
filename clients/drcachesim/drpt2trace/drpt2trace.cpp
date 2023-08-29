@@ -55,6 +55,12 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+using ::dynamorio::droption::DROPTION_FLAG_ACCUMULATE;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
+
 #define CLIENT_NAME "drpt2trace"
 #define SUCCESS 0
 #define FAILURE 1

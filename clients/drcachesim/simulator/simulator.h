@@ -37,12 +37,17 @@
 #define _SIMULATOR_H_ 1
 
 #include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <unordered_map>
 #include <vector>
-#include "caching_device_stats.h"
-#include "caching_device.h"
+
 #include "analysis_tool.h"
+#include "caching_device.h"
+#include "caching_device_stats.h"
 #include "memref.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

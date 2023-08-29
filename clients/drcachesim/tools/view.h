@@ -33,13 +33,19 @@
 #ifndef _VIEW_H_
 #define _VIEW_H_ 1
 
+#include <stdint.h>
+
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 
+#include "dr_api.h" // Must be before trace_entry.h from analysis_tool.h.
 #include "analysis_tool.h"
+#include "memref.h"
+#include "memtrace_stream.h"
 #include "raw2trace.h"
 #include "raw2trace_directory.h"
 

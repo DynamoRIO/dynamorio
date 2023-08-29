@@ -33,11 +33,14 @@
 #ifndef _SYSCALL_MIX_H_
 #define _SYSCALL_MIX_H_ 1
 
+#include <stdint.h>
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
 
 #include "analysis_tool.h"
+#include "memref.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -67,7 +70,7 @@ public:
 
 protected:
     struct shard_data_t {
-        std::unordered_map<int, int_least64_t> syscall_counts;
+        std::unordered_map<int, int64_t> syscall_counts;
         std::string error;
     };
 

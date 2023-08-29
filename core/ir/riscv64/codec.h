@@ -208,6 +208,7 @@ typedef enum {
     RISCV64_FLD_S_IMM,
     RISCV64_FLD_B_IMM,
     RISCV64_FLD_U_IMM,
+    RISCV64_FLD_U_IMMPC,
     RISCV64_FLD_J_IMM,
     /* Compressed instruction fields */
     RISCV64_FLD_CRD,

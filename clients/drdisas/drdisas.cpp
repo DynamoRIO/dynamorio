@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -37,6 +37,11 @@
 #include <sstream>
 
 namespace {
+
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
 
 // XXX i#1684: We want cross-arch decoding support so a single build can decode
 // AArchXX and x86.  For now, a separate build is needed.
@@ -95,7 +100,7 @@ parse_bytes(std::string token, std::vector<byte> &bytes)
     }
     return true;
 }
-};
+}; // namespace
 
 int
 main(int argc, const char *argv[])
@@ -143,7 +148,7 @@ main(int argc, const char *argv[])
 #endif
 
 #ifdef AARCH64
-    dr_set_sve_vl(op_sve_vl.get_value());
+    dr_set_sve_vector_length(op_sve_vl.get_value());
 #endif
 
     // XXX i#4021: arm not yet supported.

@@ -1,7 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
-# Copyright (c) 2016-2022 ARM Limited.    All rights reserved.
+# Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -630,11 +630,14 @@ endfunction (setup_test_client_dll_basics)
 # and calls this one w/ "" "" "" b/c the PARENT_SCOPE won't make
 # it all the way back then: would need to chain.
 function(tobuild_ci test source client_ops dr_ops exe_ops)
-  string(REGEX REPLACE "\\.(c|cpp)$" ".dll.\\1" client_source "${source}")
-  string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
-  if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${client_source}")
-    string(REGEX REPLACE "\\.c$" ".cpp" client_source "${client_source}")
-  endif ()
+  if (NOT DEFINED ${test}_client_source)
+    string(REGEX REPLACE "\\.(c|cpp)$" ".dll.\\1" client_source "${source}")
+    string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
+    if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${client_source}")
+      string(REGEX REPLACE "\\.c$" ".cpp" client_source "${client_source}")
+    endif ()
+    set(${test}_client_source ${client_source})
+  endif()
 
   if (NOT "${source}" MATCHES "\\.runall$")
     # Many client tests don't care about the app that's run.  To save time
@@ -661,7 +664,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
     endif ()
   endif ()
 
-  add_library(${test}.dll SHARED ${client_source})
+  add_library(${test}.dll SHARED ${${test}_client_source})
   if (NOT DEFINED ${test}_no_reg_compat AND
       NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
@@ -910,11 +913,15 @@ endmacro(tobuild_csharp)
 macro(append_pure_asm_app_link_flags target)
   set_target_properties(${target} PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(${target} "-nostartfiles -nodefaultlibs -static")
-  append_property_string(TARGET ${target} LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-    # is not properly static. Adding --no-export-dynamic avoids the problem.
-    "-Wl,--no-export-dynamic")
+  if (APPLE)
+    append_property_string(TARGET ${target} LINK_FLAGS "-e _start")
+  else ()
+    append_property_string(TARGET ${target} LINK_FLAGS
+      # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+      # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+      # is not properly static. Adding --no-export-dynamic avoids the problem.
+      "-Wl,--no-export-dynamic")
+  endif ()
 endmacro(append_pure_asm_app_link_flags)
 
 function(tobind target)
@@ -1040,6 +1047,8 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -D__AVX__ -D__AVX512F__")
   elseif (DEFINED ${key}_runavx)
     set(rundefs "${rundefs} -D__AVX__")
+  elseif (DEFINED ${key}_runsve)
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
   endif ()
 
   if (DEFINED ${key}_test_sample_client)
@@ -1217,8 +1226,13 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     prefix_cmd_if_necessary(cmd OFF ${cmd})
     # We set LD_LIBRARY_PATH for native api/ apps since we're not setting
     # rpath (to make it easier to try different trees)
-    set(cmd ${cmd} -env LD_LIBRARY_PATH
-      "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}")
+    if (APPLE)
+      set(libvar "DYLD_LIBRARY_PATH")
+    else ()
+      set(libvar "LD_LIBRARY_PATH")
+    endif ()
+    set(cmd ${cmd} -env ${libvar}
+      "${MAIN_LIBRARY_OUTPUT_DIRECTORY}:${EXT_LIBRARY_OUTPUT_DIRECTORY}:$ENV{${libvar}}")
     # add dr_ops last to avoid needing extra \ on ;
     string(REPLACE ";" " " dr_ops_string "${dr_ops}")
     set(${outcmd} ${cmd} -env DYNAMORIO_OPTIONS "${dr_ops_string}" PARENT_SCOPE)
@@ -1324,7 +1338,12 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
         set(exe_ops "${exe_ops};-block")
       endif ()
     else ()
-      if ("${runall}" MATCHES "<attach>")
+      if ("${runall}" MATCHES "<attach>" OR "${runall}" MATCHES "<detach>")
+        # For detach we use attachee to attach firstly, and "-detach" option is used
+        # for differentiating between attach and detach.
+        if ("${runall}" MATCHES "<detach>")
+          set(exe_ops "${exe_ops};-detach")
+        endif ()
         # For attach we use attachee, which is identical to infloop, aside for writing
         # a starting message to the output file. This allows us to detect when it is
         # up and running and we can start the attach process.
@@ -1376,6 +1395,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       string(PREPEND nudge_arg "<attach>")
       string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
       # clear client from dr command and run native
+      string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
+    elseif ("${runall}" MATCHES "<detach>")
+      # Move params to nudge.
+      string(REGEX MATCH ";-quiet;(.*);--" nudge_arg "${rundr}")
+      string(REGEX REPLACE ";--" "" nudge_arg "${nudge_arg}")
+      string(PREPEND nudge_arg "<detach>")
+      string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
+      # Clear client from dr command and run native.
       string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
     endif ()
     set(cmd_with_at ${rundr} ${app_path} ${exe_ops})
@@ -1693,6 +1720,15 @@ macro(set_avx_flags target)
     set(${target}_runavx 1)
   endif ()
 endmacro(set_avx_flags)
+
+macro(set_sve_flags target)
+  if (proc_supports_sve)
+    if (TARGET ${target}) # Support calling on non-exe target.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_SVE}")
+    endif ()
+    set(${target}_runsve 1)
+  endif ()
+endmacro(set_sve_flags)
 
 ###########################################################################
 
@@ -2109,11 +2145,13 @@ if (DR_HOST_ARM AND NOT ANDROID)
 endif ()
 
 if (DR_HOST_AARCH64)
-  tobuild_ops(common.allasm_aarch64_isa common/allasm_aarch64_isa.asm
-    "-early_inject" "") # FIXME i#1569: -enable_traces here
-  set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
-  append_link_flags(common.allasm_aarch64_isa
-    "-nostartfiles -nodefaultlibs -static")
+  if (NOT APPLE) # TODO i#5383: Port to Mac M1.
+    tobuild_ops(common.allasm_aarch64_isa common/allasm_aarch64_isa.asm
+      "-early_inject" "") # FIXME i#1569: -enable_traces here
+    set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
+    append_link_flags(common.allasm_aarch64_isa
+      "-nostartfiles -nodefaultlibs -static")
+  endif ()
 
   tobuild_ops(common.allasm_aarch64_cache common/allasm_aarch64_cache.asm
     "-early_inject" "")
@@ -2445,6 +2483,9 @@ endif (ANNOTATIONS AND NOT ARM)
 
 if (NOT ANDROID) # TODO i#38: Port test to Android.
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  if (WIN32)
+    tobuild_ci(client.detach_test client-interface/detach_test.runall "" "" "")
+  endif (WIN32)
   if (UNIX)
     # Test attaching during a blocking syscall.
     torunonly_ci(client.attach_blocking linux.infloop client.attach_test.dll
@@ -2526,8 +2567,10 @@ else (UNIX)
 
   tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
-tobuild_ci(client.file_io client-interface/file_io.c
-  "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
+if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
+  tobuild_ci(client.file_io client-interface/file_io.c
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
+endif ()
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
     # we add custom option to flush test based on dr ops in torun_ci()
@@ -2748,12 +2791,14 @@ if (UNIX)
 endif (UNIX)
 
 if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+  if (NOT APPLE OR NOT AARCH64) # TODO i#5383: Port to Mac M1.
   tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
   use_DynamoRIO_extension(client.drreg-test.dll drmgr)
   use_DynamoRIO_extension(client.drreg-test.dll drreg)
   use_DynamoRIO_extension(client.drreg-test.dll drx)
   target_include_directories(client.drreg-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+  endif ()
 
   tobuild_ci(client.drreg-end-restore client-interface/drreg-end-restore.c "" "" "")
   use_DynamoRIO_extension(client.drreg-end-restore.dll drmgr)
@@ -2788,31 +2833,43 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.tls.dll drmgr)
 endif (NOT RISCV64)
 
-if (X86)
+if (X86 OR AARCH64)
   if (NOT MACOS)
     # XXX i#2985: The test's asm doesn't build with MacOS's clang.
-    tobuild_ci(client.drx-scattergather client-interface/drx-scattergather.c "" "" "")
+    set(client.drx-scattergather_client_source "client-interface/drx-scattergather.dll.c")
+    if (X86)
+        tobuild_ci(client.drx-scattergather "client-interface/drx-scattergather-x86.c"
+          "" "" "")
+        set_avx_flags(client.drx-scattergather)
+    elseif (AARCH64)
+        tobuild_ci(client.drx-scattergather "client-interface/drx-scattergather-aarch64.cpp"
+          "" "" "")
+        set_sve_flags(client.drx-scattergather)
+    endif()
     target_include_directories(client.drx-scattergather PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
     use_DynamoRIO_extension(client.drx-scattergather.dll drmgr)
     use_DynamoRIO_extension(client.drx-scattergather.dll drx)
     use_DynamoRIO_extension(client.drx-scattergather.dll drreg)
-    set_avx_flags(client.drx-scattergather)
 
     # Our scattergather drbbdup test uses the same app as the base test.
     set(client.drx-scattergather-bbdup_realtest client.drx-scattergather)
-    set(client.drx-scattergather-bbdup_expectbase "drx-scattergather")
+    set(client.drx-scattergather-bbdup_expectbase "drx-scattergather-${ARCH_NAME}")
     tobuild_ci(client.drx-scattergather-bbdup client-interface/drx-scattergather-bbdup.c
       "" "" "")
+    if (X86)
+      set_avx_flags(client.drx-scattergather-bbdup)
+    elseif (AARCH64)
+      set_sve_flags(client.drx-scattergather-bbdup)
+    endif()
     target_include_directories(client.drx-scattergather PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drmgr)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drx)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drreg)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drbbdup)
-    set_avx_flags(client.drx-scattergather-bbdup)
 
-    if (X64 AND UNIX)
+    if (X86 AND X64 AND UNIX)
       if (proc_supports_avx)
         add_exe(allasm_scattergather
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
@@ -2824,7 +2881,7 @@ if (X86)
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
-    endif (X64 AND UNIX)
+    endif (X86 AND X64 AND UNIX)
   endif()
 endif ()
 
@@ -2868,7 +2925,7 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.drwrap-drreg-test.dll drmgr)
 endif (NOT RISCV64)
 
-if (AARCH64)
+if (AARCH64 AND NOT APPLE) # TODO i#5383: Port to Mac M1.
   # Create a fuzzing application for stress-testing via drstatecmp.
   add_api_exe(drstatecmp-fuzz-app client-interface/drstatecmp-fuzz-app.c ON OFF)
 endif ()
@@ -3313,14 +3370,21 @@ if (BUILD_SAMPLES)
               client-interface/memval-test.c "" "" "")
 
           torunonly_ci(sample.${sample}_scattergather client.drx-scattergather ${sample}
-              client-interface/drx-scattergather.c "" "" "")
+              client-interface/drx-scattergather-x86.c "" "" "")
           set(sample.${sample}_scattergather_test_sample_client 1)
           if (proc_supports_avx512)
             set(sample.${sample}_scattergather_runavx512 1)
           elseif (proc_supports_avx)
             set(sample.${sample}_scattergather_runavx 1)
           endif ()
-        endif (X86 AND UNIX)
+        elseif (AARCH64)
+          torunonly_ci(sample.${sample}_scattergather client.drx-scattergather ${sample}
+              client-interface/drx-scattergather-aarch64.cpp "" "" "")
+          set(sample.${sample}_scattergather_test_sample_client 1)
+          if (proc_supports_sve)
+            set(sample.${sample}_scattergather_runsve 1)
+          endif ()
+        endif ()
       elseif (sample STREQUAL "opcode_count")
         # We do not do a simple sanity test for opcode_count, but a normal test
         # that checks the sample's output.
@@ -3636,14 +3700,16 @@ if (BUILD_CLIENTS)
       set(tool.drcachesim.invariants_timeout 180)
     endif ()
 
-    if (NOT MACOS AND X86)
-      torunonly_drcachesim(scattergather client.drx-scattergather
+    if ((NOT MACOS) AND (X86 OR AARCH64))
+        torunonly_drcachesim(scattergather-${ARCH_NAME} client.drx-scattergather
         "-simulator_type basic_counts" "")
-      unset(tool.drcachesim.scattergather_rawtemp) # use preprocessor
+      unset(tool.drcachesim.scattergather-${ARCH_NAME}_rawtemp) # use preprocessor
       if (proc_supports_avx512)
-        set(tool.drcachesim.scattergather_runavx512 1)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx512 1)
       elseif (proc_supports_avx)
-        set(tool.drcachesim.scattergather_runavx 1)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx 1)
+      elseif (proc_supports_sve)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runsve 1)
       endif ()
     endif ()
 
@@ -3852,6 +3918,59 @@ if (BUILD_CLIENTS)
     set(tool.drcacheoff.windows-split_postcmd3
       "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
 
+    # Test L0_filter_until_instrs
+    torunonly_drcacheoff(L0-filter-until-instrs-windows-split ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
+    set(tool.drcacheoff.L0-filter-until-instrs-windows-split_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-2 ${ci_shared_app}
+        "-trace_after_instrs 10 -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-exit-after ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -exit_after_tracing 10K"
+      "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-max-refs ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 10K"
+      "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(L0-filter-until-instrs-max-trace-size ${ci_shared_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 10K"
+      "@-simulator_type@basic_counts" "")
+
+    # pthreads not available with MSVC
+    if (NOT MSVC)
+    set(ci_pthreads_app pthreads.pthreads)
+    # pthreads tests
+    torunonly_drcacheoff(warmup-pthreads-windows-split ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 100K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+    # The first postcmd did window #0.  There should be at least 2 more windows.
+    set(tool.drcacheoff.warmup-pthreads-windows-split_postcmd2
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0001@-simulator_type@basic_counts")
+    set(tool.drcacheoff.warmup-pthreads-windows-split_postcmd3
+      "firstglob@${drcachesim_path}@-indir@${dir_prefix}.*.dir/raw/window.0002@-simulator_type@basic_counts")
+
+    torunonly_drcacheoff(warmup-pthreads-2 ${ci_pthreads_app}
+        "-trace_after_instrs 10 -L0_filter_until_instrs 10K -trace_for_instrs 10K -retrace_every_instrs 10K"
+      "@-simulator_type@basic_counts" "")
+
+    torunonly_drcacheoff(warmup-pthreads-max-refs ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_global_trace_refs 300K"
+      "@-simulator_type@basic_counts" "20000")
+
+    torunonly_drcacheoff(warmup-pthreads-max-trace-size ${ci_pthreads_app}
+        "-trace_after_instrs 10K -L0_filter_until_instrs 10K -max_trace_size 100K"
+      "@-simulator_type@basic_counts" "")
+    endif ()
+
+
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)
       torunonly_drcacheoff(builtin-prefetch-basic-counts builtin_prefetch "" "@-simulator_type@basic_counts" "")
@@ -4050,6 +4169,11 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_traceopts_nodr ON)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
+      set(tool.drcacheoff.windows-timestamps_nodr ON)
+      set(tool.drcacheoff.windows-timestamps_nopost ON)
+      torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps "" "" "")
+      set(tool.drcacheoff.windows-timestamps-expectbase "offline-windows-timestamps")
+      set(tool.drcacheoff.windows-timestamps_timeout 120)
 
       if (LINUX) # Futex is Linux-only.
         set(tool.drcacheoff.burst_futex_nodr ON)
@@ -5481,7 +5605,6 @@ if (NOT ANDROID AND AARCHXX)
   if (AARCH64)
     set_tests_properties(
       code_api|common.allasm_aarch64_cache
-      code_api|common.allasm_aarch64_isa
       code_api|linux.mangle_asynch
       code_api|linux.mmap
       code_api|pthreads.pthreads_exit
@@ -5495,7 +5618,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|client.drreg-cross
       code_api|client.drreg-end-restore
       code_api|client.drreg-flow
-      code_api|client.drreg-test
       code_api|client.drutil-test
       code_api|client.drx_buf-test
       code_api|client.emulation_api_simple
@@ -5515,6 +5637,12 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memtrace_simple
       code_api|sample.memval_simple
       PROPERTIES LABELS RUNS_ON_QEMU)
+    if (NOT APPLE) # TODO i#5383: Port to Mac M1.
+      set_tests_properties(
+        code_api|common.allasm_aarch64_isa
+        code_api|client.drreg-test
+        PROPERTIES LABELS RUNS_ON_QEMU)
+    endif ()
     if (NOT CMAKE_COMPILER_IS_CLANG)
       set_tests_properties(
         code_api|security-linux.trampoline

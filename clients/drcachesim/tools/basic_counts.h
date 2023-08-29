@@ -33,12 +33,17 @@
 #ifndef _BASIC_COUNTS_H_
 #define _BASIC_COUNTS_H_ 1
 
+#include <stdint.h>
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "analysis_tool.h"
+#include "memref.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -98,6 +103,8 @@ public:
             func_retval_markers += rhs.func_retval_markers;
             phys_addr_markers += rhs.phys_addr_markers;
             phys_unavail_markers += rhs.phys_unavail_markers;
+            syscall_number_markers += rhs.syscall_number_markers;
+            syscall_blocking_markers += rhs.syscall_blocking_markers;
             other_markers += rhs.other_markers;
             icache_flushes += rhs.icache_flushes;
             dcache_flushes += rhs.dcache_flushes;
@@ -127,6 +134,8 @@ public:
             func_retval_markers -= rhs.func_retval_markers;
             phys_addr_markers -= rhs.phys_addr_markers;
             phys_unavail_markers -= rhs.phys_unavail_markers;
+            syscall_number_markers -= rhs.syscall_number_markers;
+            syscall_blocking_markers -= rhs.syscall_blocking_markers;
             other_markers -= rhs.other_markers;
             icache_flushes -= rhs.icache_flushes;
             dcache_flushes -= rhs.dcache_flushes;
@@ -153,33 +162,43 @@ public:
                 func_retval_markers == rhs.func_retval_markers &&
                 phys_addr_markers == rhs.phys_addr_markers &&
                 phys_unavail_markers == rhs.phys_unavail_markers &&
+                syscall_number_markers == rhs.syscall_number_markers &&
+                syscall_blocking_markers == rhs.syscall_blocking_markers &&
                 other_markers == rhs.other_markers &&
                 icache_flushes == rhs.icache_flushes &&
                 dcache_flushes == rhs.dcache_flushes && encodings == rhs.encodings &&
                 unique_pc_addrs == rhs.unique_pc_addrs;
         }
-        int_least64_t instrs = 0;
-        int_least64_t instrs_nofetch = 0;
-        int_least64_t user_instrs = 0;
-        int_least64_t kernel_instrs = 0;
-        int_least64_t prefetches = 0;
-        int_least64_t loads = 0;
-        int_least64_t stores = 0;
-        int_least64_t sched_markers = 0;
-        int_least64_t xfer_markers = 0;
-        int_least64_t func_id_markers = 0;
-        int_least64_t func_retaddr_markers = 0;
-        int_least64_t func_arg_markers = 0;
-        int_least64_t func_retval_markers = 0;
-        int_least64_t phys_addr_markers = 0;
-        int_least64_t phys_unavail_markers = 0;
-        int_least64_t other_markers = 0;
-        int_least64_t icache_flushes = 0;
-        int_least64_t dcache_flushes = 0;
+        int64_t instrs = 0;
+        int64_t instrs_nofetch = 0;
+        int64_t user_instrs = 0;
+        int64_t kernel_instrs = 0;
+        int64_t prefetches = 0;
+        int64_t loads = 0;
+        int64_t stores = 0;
+        int64_t sched_markers = 0;
+        int64_t xfer_markers = 0;
+        int64_t func_id_markers = 0;
+        int64_t func_retaddr_markers = 0;
+        int64_t func_arg_markers = 0;
+        int64_t func_retval_markers = 0;
+        int64_t phys_addr_markers = 0;
+        int64_t phys_unavail_markers = 0;
+        int64_t syscall_number_markers = 0;
+        int64_t syscall_blocking_markers = 0;
+        int64_t other_markers = 0;
+        int64_t icache_flushes = 0;
+        int64_t dcache_flushes = 0;
         // The encoding entries aren't exposed at the memref_t level, but
         // we use encoding_is_new as a proxy.
-        int_least64_t encodings = 0;
+        int64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
+
+        // Metadata for the counts. These are not used for the equality, increment,
+        // or decrement operation, and must be set explicitly.
+
+        // Count of shards that were combined to produce the above counts.
+        int64_t shard_count = 1;
 
         // Stops tracking unique_pc_addrs. Tracking unique_pc_addrs can be very
         // memory intensive. We skip it for interval state snapshots.
@@ -237,7 +256,7 @@ protected:
     cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
                 const std::pair<memref_tid_t, per_shard_t *> &r);
     static void
-    print_counters(const counters_t &counters, int_least64_t num_threads,
+    print_counters(const counters_t &counters, int64_t num_threads,
                    const std::string &prefix, bool for_kernel_trace = false);
     void
     compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id);

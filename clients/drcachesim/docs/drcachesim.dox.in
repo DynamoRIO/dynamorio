@@ -48,9 +48,10 @@ multiple processes each with multiple threads.  The analysis tool framework
 is extensible, supporting the creation of new tools which can operate both
 online and offline.
 
-\b News: There are some new features coming to drmemtrace traces:
-embedded instruction encodings and fast seeking.  Please see the
-[slides introducing these features](docs/new-features-encodings-seek.pdf).
+\b News: There are some new features in drmemtrace traces: conditional
+branches are now marked as taken or untaken, and indirect branch
+targets are provided up front.  These join the recent features of
+[embedded instruction encodings and fast seeking](docs/new-features-encodings-seek.pdf).
 
  - \subpage sec_drcachesim
  - \subpage sec_drcachesim_format
@@ -59,6 +60,7 @@ embedded instruction encodings and fast seeking.  Please see the
  - \subpage google_workload_traces
  - \subpage sec_drcachesim_config_file
  - \subpage sec_drcachesim_offline
+ - \subpage sec_drcachesim_filter
  - \subpage sec_drcachesim_partial
  - \subpage sec_drcachesim_sim
  - \subpage sec_drcachesim_analyzer
@@ -135,9 +137,12 @@ copies of the binaries and reading the raw bytes for each instruction
 in order to obtain the opcode and full operand information.
 See also \ref sec_drcachesim_core.
 
-Branch targets are also not explicitly recorded (a design decision). The executed target
-as well as branch direction can be obtained by examining the address of the instruction
-immediately following a branch. If the program flow is changed by the kernel such as by
+Whether conditional branches are taken or untaken is indicated by the
+instruction types #dynamorio::drmemtrace::TRACE_TYPE_INSTR_TAKEN_JUMP
+and #dynamorio::drmemtrace::TRACE_TYPE_INSTR_UNTAKEN_JUMP.  The target
+of each indirect branch is explicitly provided by the "indirect_branch_target"
+field in #dynamorio::drmemtrace::memref_t.
+If the program flow is changed by the kernel such as by
 signal delivery, the branch target is explicitly recorded in the trace in a metadata
 marker entry of type #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_EVENT.
 
@@ -521,66 +526,90 @@ Estimation of pi is 3.142425985001098
 ---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
-      267193 total (fetched) instructions
-         345 total non-fetched instructions
+      134566 total (fetched) instructions
+       13838 total unique (fetched) instructions
+         423 total non-fetched instructions
            0 total prefetches
-       67686 total data loads
-       22503 total data stores
+       30919 total data loads
+       13122 total data stores
+           0 total icache flushes
+           0 total dcache flushes
            3 total threads
-         280 total scheduling markers
-           0 total transfer markers
-           0 total function id markers
+        1134 total scheduling markers
+           5 total transfer markers
+          10 total function id markers
            0 total function return address markers
-           0 total function argument markers
-           0 total function return value markers
+          30 total function argument markers
+           5 total function return value markers
            0 total physical address + virtual address marker pairs
            0 total physical address unavailable markers
-           3 total other markers
-Thread 247451 counts:
-      255009 (fetched) instructions
-         345 non-fetched instructions
+          75 total system call number markers
+           0 total blocking system call markers
+          12 total other markers
+           0 total encodings
+Thread 64951 counts:
+      130900 (fetched) instructions
+       13469 unique (fetched) instructions
+         423 non-fetched instructions
            0 prefetches
-       64453 data loads
-       21243 data stores
-         258 scheduling markers
-           0 transfer markers
-           0 function id markers
+       29844 data loads
+       12594 data stores
+           0 icache flushes
+           0 dcache flushes
+        1072 scheduling markers
+           5 transfer markers
+           4 function id markers
            0 function return address markers
-           0 function argument markers
-           0 function return value markers
+          12 function argument markers
+           2 function return value markers
            0 physical address + virtual address marker pairs
            0 physical address unavailable markers
-           1 other markers
-Thread 247453 counts:
-        9195 (fetched) instructions
+          56 system call number markers
+           0 blocking system call markers
+           4 other markers
+           0 encodings
+Thread 64958 counts:
+        1861 (fetched) instructions
+        1009 unique (fetched) instructions
            0 non-fetched instructions
            0 prefetches
-        2444 data loads
-         937 data stores
-          12 scheduling markers
+         538 data loads
+         262 data stores
+           0 icache flushes
+           0 dcache flushes
+          30 scheduling markers
            0 transfer markers
-           0 function id markers
+           2 function id markers
            0 function return address markers
-           0 function argument markers
-           0 function return value markers
+           6 function argument markers
+           1 function return value markers
            0 physical address + virtual address marker pairs
            0 physical address unavailable markers
-           1 other markers
-Thread 247454 counts:
-        2989 (fetched) instructions
+           9 system call number markers
+           0 blocking system call markers
+           4 other markers
+           0 encodings
+Thread 64959 counts:
+        1805 (fetched) instructions
+         978 unique (fetched) instructions
            0 non-fetched instructions
            0 prefetches
-         789 data loads
-         323 data stores
-          10 scheduling markers
+         537 data loads
+         266 data stores
+           0 icache flushes
+           0 dcache flushes
+          32 scheduling markers
            0 transfer markers
-           0 function id markers
+           4 function id markers
            0 function return address markers
-           0 function argument markers
-           0 function return value markers
+          12 function argument markers
+           2 function return value markers
            0 physical address + virtual address marker pairs
            0 physical address unavailable markers
-           1 other markers
+          10 system call number markers
+           0 blocking system call markers
+           4 other markers
+           0 encodings
 \endcode
 
 The non-fetched instructions are x86 string loop instructions, where
@@ -655,7 +684,7 @@ $ $ bin64/drrun -t drcachesim -simulator_type view -indir drmemtrace.*.dir -sim_
 Output format:
 <--record#-> <--instr#->: <---tid---> <record details>
 ------------------------------------------------------------
-           1           0:     3256418 <marker: version 4>
+           1           0:     3256418 <marker: version 5>
            2           0:     3256418 <marker: filetype 0x240>
            3           0:     3256418 <marker: cache line size 64>
            4           0:     3256418 <marker: chunk instruction count 1024>
@@ -701,44 +730,45 @@ An example of thread switches:
 
 
 Here is an example of a signal handler interrupting the regular flow,
-with metadata showing that the signal was delivered just after a
-non-taken conditional branch:
+with metadata showing that the signal was delivered just after an
+untaken conditional branch:
 
 \code
-  2851502  2147588:  3264758 ifetch       2 byte(s) @ 0x00007f4ea7c87a54 eb 14                jmp    $0x00007f4ea7c87a6a
-  2851503  2147588:  3264758 <marker: kernel xfer from 0x7f4ea7c87a6a to handler>
-  2851504  2147588:  3264758 <marker: timestamp 13312413438786440>
-  2851505  2147588:  3264758 <marker: tid 3264758 on core 8>
-  2851506  2147589:  3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbdba 55                   push   %rbp
-  2851507  2147589:  3264758 write        8 byte(s) @ 0x00007ffd93a0be30 by PC 0x00007f4ea47fbdba
-  2851508  2147590:  3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdbb 48 89 e5             mov    %rsp, %rbp
-  2851509  2147591:  3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdbe 89 7d fc             mov    %edi, -0x04(%rbp)
-  2851510  2147591:  3264758 write        4 byte(s) @ 0x00007ffd93a0be2c by PC 0x00007f4ea47fbdbe
-  2851511  2147592:  3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc1 48 89 75 f0          mov    %rsi, -0x10(%rbp)
-  2851512  2147592:  3264758 write        8 byte(s) @ 0x00007ffd93a0be20 by PC 0x00007f4ea47fbdc1
-  2851513  2147593:  3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc5 48 89 55 e8          mov    %rdx, -0x18(%rbp)
-  2851514  2147593:  3264758 write        8 byte(s) @ 0x00007ffd93a0be18 by PC 0x00007f4ea47fbdc5
-  2851515  2147594:  3264758 ifetch       4 byte(s) @ 0x00007f4ea47fbdc9 83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
-  2851516  2147594:  3264758 read         4 byte(s) @ 0x00007ffd93a0be2c by PC 0x00007f4ea47fbdc9
-  2851517  2147595:  3264758 ifetch       2 byte(s) @ 0x00007f4ea47fbdcd 75 0f                jnz    $0x00007f4ea47fbdde
-  2851518  2147596:  3264758 ifetch       6 byte(s) @ 0x00007f4ea47fbdcf 8b 05 7f 23 20 00    mov    <rel> 0x00007f4ea49fe154, %eax
-  2851519  2147596:  3264758 read         4 byte(s) @ 0x00007f4ea49fe154 by PC 0x00007f4ea47fbdcf
-  2851520  2147597:  3264758 ifetch       3 byte(s) @ 0x00007f4ea47fbdd5 83 c0 01             add    $0x01, %eax
-  2851521  2147598:  3264758 ifetch       6 byte(s) @ 0x00007f4ea47fbdd8 89 05 76 23 20 00    mov    %eax, <rel> 0x00007f4ea49fe154
-  2851522  2147598:  3264758 write        4 byte(s) @ 0x00007f4ea49fe154 by PC 0x00007f4ea47fbdd8
-  2851523  2147599:  3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbdde 90                   nop
-  2851524  2147600:  3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbddf 5d                   pop    %rbp
-  2851525  2147600:  3264758 read         8 byte(s) @ 0x00007ffd93a0be30 by PC 0x00007f4ea47fbddf
-  2851526  2147601:  3264758 ifetch       1 byte(s) @ 0x00007f4ea47fbde0 c3                   ret
-  2851527  2147601:  3264758 read         8 byte(s) @ 0x00007ffd93a0be38 by PC 0x00007f4ea47fbde0
-  2851528  2147602:  3264758 ifetch       7 byte(s) @ 0x00007f4ea7c3daa0 48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
-  2851529  2147603:  3264758 ifetch       2 byte(s) @ 0x00007f4ea7c3daa7 0f 05                syscall
-  2851530  2147603:  3264758 <marker: timestamp 13312413438787645>
-  2851531  2147603:  3264758 <marker: tid 3264758 on core 8>
-  2851532  2147603:  3264758 <marker: syscall xfer from 0x7f4ea7c3daa9>
-  2851533  2147603:  3264758 <marker: timestamp 13312413438787652>
-  2851534  2147603:  3264758 <marker: tid 3264758 on core 8>
-  2851535  2147604:  3264758 ifetch       5 byte(s) @ 0x00007f4ea7c87a6a e8 11 8b 07 00       call   $0x00007f4ea7d00580
+      801343      601827:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa5c70 75 57                jnz    $0x00007fc2c3aa5cc9 (untaken)
+      801344      601827:     1159769 <marker: kernel xfer from 0x7fc2c3aa5c72 to handler>
+      801345      601827:     1159769 <marker: timestamp 13335923552684013>
+      801346      601827:     1159769 <marker: tid 1159769 on core 7>
+      801347      601828:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa259 55                   push   %rbp
+      801348      601828:     1159769 write        8 byte(s) @ 0x00007fff8044e930 by PC 0x00007fc2c03fa259
+      801349      601829:     1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa25a 48 89 e5             mov    %rsp, %rbp
+      801350      601830:     1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa25d 89 7d fc             mov    %edi, -0x04(%rbp)
+      801351      601830:     1159769 write        4 byte(s) @ 0x00007fff8044e92c by PC 0x00007fc2c03fa25d
+      801352      601831:     1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa260 48 89 75 f0          mov    %rsi, -0x10(%rbp)
+      801353      601831:     1159769 write        8 byte(s) @ 0x00007fff8044e920 by PC 0x00007fc2c03fa260
+      801354      601832:     1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa264 48 89 55 e8          mov    %rdx, -0x18(%rbp)
+      801355      601832:     1159769 write        8 byte(s) @ 0x00007fff8044e918 by PC 0x00007fc2c03fa264
+      801356      601833:     1159769 ifetch       4 byte(s) @ 0x00007fc2c03fa268 83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
+      801357      601833:     1159769 read         4 byte(s) @ 0x00007fff8044e92c by PC 0x00007fc2c03fa268
+      801358      601834:     1159769 ifetch       2 byte(s) @ 0x00007fc2c03fa26c 75 0f                jnz    $0x00007fc2c03fa27d (untaken)
+      801359      601835:     1159769 ifetch       6 byte(s) @ 0x00007fc2c03fa26e 8b 05 c0 3e 00 00    mov    <rel> 0x00007fc2c03fe134, %eax
+      801360      601835:     1159769 read         4 byte(s) @ 0x00007fc2c03fe134 by PC 0x00007fc2c03fa26e
+      801361      601836:     1159769 ifetch       3 byte(s) @ 0x00007fc2c03fa274 83 c0 01             add    $0x01, %eax
+      801362      601837:     1159769 ifetch       6 byte(s) @ 0x00007fc2c03fa277 89 05 b7 3e 00 00    mov    %eax, <rel> 0x00007fc2c03fe134
+      801363      601837:     1159769 write        4 byte(s) @ 0x00007fc2c03fe134 by PC 0x00007fc2c03fa277
+      801364      601838:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27d 90                   nop
+      801365      601839:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27e 5d                   pop    %rbp
+      801366      601839:     1159769 read         8 byte(s) @ 0x00007fff8044e930 by PC 0x00007fc2c03fa27e
+      801367      601840:     1159769 ifetch       1 byte(s) @ 0x00007fc2c03fa27f c3                   ret (target 0x7fc2c3a5af90)
+      801368      601840:     1159769 read         8 byte(s) @ 0x00007fff8044e938 by PC 0x00007fc2c03fa27f
+      801369      601841:     1159769 ifetch       7 byte(s) @ 0x00007fc2c3a5af90 48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
+      801370      601842:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3a5af97 0f 05                syscall
+      801371      601842:     1159769 <marker: system call 15>
+      801372      601842:     1159769 <marker: timestamp 13335923552684023>
+      801373      601842:     1159769 <marker: tid 1159769 on core 7>
+      801374      601842:     1159769 <marker: syscall xfer from 0x7fc2c3a5af99>
+      801375      601842:     1159769 <marker: timestamp 13335923552684029>
+      801376      601842:     1159769 <marker: tid 1159769 on core 7>
+      801377      601843:     1159769 ifetch       4 byte(s) @ 0x00007fc2c3aa5c72 48 83 c4 48          add    $0x48, %rsp
 \endcode
 
 \section sec_tool_func_view View Function Calls
@@ -1093,6 +1123,24 @@ For details on the offline trace format and how to diagnose problems
 with offline traces, see \ref page_debug_memtrace.
 
 ****************************************************************************
+\page sec_drcachesim_filter Filtered Traces
+
+Filtered traces are \p drcachesim traces filtered by an online first-level
+cache.
+
+- The \p -L0I_filter and \p -L0D_filter options can be used to enable the
+  filter. These caches are direct-mapped with size equal to \p
+  -L0I_size/-L0D_size.  They use virtual addresses regardless of -use_physical.
+  The dynamic (pre-filtered) per-thread instruction count is tracked and
+  supplied via a #dynamorio::drmemtrace::TRACE_MARKER_TYPE_INSTRUCTION_COUNT
+  marker at thread buffer boundaries and at thread exit.
+- The \p -L0I_size and \p -L0D_size options specify the cache sizes. Must be a
+  power of 2 and a multiple of \p -line_size, unless it is set to 0, which
+  disables entries from appearing in the trace.
+- The \p -L0_filter_until_instrs option is used to collect filtered traces
+  together with full trace (see \ref sec_drcachesim_partial)
+
+****************************************************************************
 \page sec_drcachesim_partial Tracing a Subset of Execution
 
 While the cache simulator supports skipping references, for large
@@ -1132,6 +1180,15 @@ limited in several ways:
 - The \p -max_trace_size option sets a cap on the number of bytes written
   by each thread.  This is a per-thread limit, and if one thread hits the
   limit it does not affect the trace recoding of other threads.
+- The \p -L0_filter_until_instrs option collects a filtered trace before
+  transitioning to a full trace. It is compatible with the
+  tracing options listed above. The filter trace and full trace are stored in a
+  single file separated by a
+  #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FILTER_ENDPOINT marker. When used
+  with windows (i.e., \p -retrace_every_instrs), each window contains a filter
+  trace and a full trace. The
+  #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID markers indicate start of
+  filtered records.
 
 If the application can be modified, it can be linked with the \p drcachesim
 tracer and use DynamoRIO's start/stop API routines dr_app_setup_and_start()
@@ -1336,13 +1393,21 @@ closely match the actual hardware if so desired.
 Traces also include markers indicating disruptions in user mode control
 flow such as signal handler entry and exit.
 
-Offline traces guarantee that a branch target instruction entry in a
-trace must immediately follow the branch instruction with no intervening
-thread switch.  This allows a core simulator to identify the target of a
-branch by looking at the subsequent trace entry.  This guarantee
-does not hold when a kernel event such as a signal is delivered
-immediately after a branch; however, each marker indicating such a kernel transfer
-includes the interrupted PC, explicitly providing the branch target.
+Offline traces explicitly identify whether each conditional branch was
+taken or not, and include the actual target of indirect
+branches, for convenience to avoid having to read either the
+subsequent entry or the kernel transfer event marker (or infer branch
+behavior for rseq aborts):
+
+```
+      801394      601853:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa91e3 7f 1b                jnle   $0x00007fc2c3aa9200 (untaken)
+      801395      601854:     1159769 ifetch       4 byte(s) @ 0x00007fc2c3aa91e5 48 83 c4 10          add    $0x10, %rsp
+      801396      601855:     1159769 ifetch       1 byte(s) @ 0x00007fc2c3aa91e9 5b                   pop    %rbx
+      801397      601855:     1159769 read         8 byte(s) @ 0x00007fff8044f6c0 by PC 0x00007fc2c3aa91e9
+      801398      601856:     1159769 ifetch       1 byte(s) @ 0x00007fc2c3aa91ea c3                   ret (target 0x7fc2c3aa81c1)
+      801399      601856:     1159769 read         8 byte(s) @ 0x00007fff8044f6c8 by PC 0x00007fc2c3aa91ea
+      801400      601857:     1159769 ifetch       2 byte(s) @ 0x00007fc2c3aa81c1 89 c5                mov    %eax, %ebp
+```
 
 Filtered traces (filtered via -L0_filter) include the dynamic
 (pre-filtered) per-thread instruction count in a

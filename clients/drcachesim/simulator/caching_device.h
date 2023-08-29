@@ -37,13 +37,15 @@
 #define _CACHING_DEVICE_H_ 1
 
 #include <functional>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "caching_device_block.h"
 #include "caching_device_stats.h"
 #include "memref.h"
-#include "prefetcher.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -57,10 +59,11 @@ namespace drmemtrace {
 // not need to synchronize data access.
 
 class snoop_filter_t;
+class prefetcher_t;
 
 class caching_device_t {
 public:
-    caching_device_t();
+    explicit caching_device_t(const std::string &name = "caching_device");
     virtual bool
     init(int associativity, int block_size, int num_blocks, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
@@ -88,6 +91,9 @@ public:
     set_stats(caching_device_stats_t *stats)
     {
         stats_ = stats;
+        if (stats != nullptr) {
+            stats->set_caching_device(this);
+        }
     }
     prefetcher_t *
     get_prefetcher() const
@@ -125,6 +131,51 @@ public:
         int block_idx = compute_block_idx(tag);
         return block_idx;
     }
+
+    // Accessors for cache parameters.
+    virtual int
+    get_associativity() const
+    {
+        return associativity_;
+    }
+    virtual int
+    get_block_size() const
+    {
+        return block_size_;
+    }
+    virtual int
+    get_num_blocks() const
+    {
+        return num_blocks_;
+    }
+    virtual bool
+    is_inclusive() const
+    {
+        return inclusive_;
+    }
+    virtual bool
+    is_coherent() const
+    {
+        return coherent_cache_;
+    }
+    virtual int
+    get_size_bytes() const
+    {
+        return num_blocks_ * block_size_;
+    }
+    virtual std::string
+    get_replace_policy() const
+    {
+        return "LFU";
+    }
+    virtual const std::string &
+    get_name() const
+    {
+        return name_;
+    }
+    // Return a one-line string describing the cache configuration.
+    virtual std::string
+    get_description() const;
 
 protected:
     virtual void
@@ -226,6 +277,9 @@ protected:
                        std::function<unsigned long(addr_t)>>
         tag2block;
     bool use_tag2block_table_ = false;
+
+    // Name for this cache.
+    const std::string name_;
 };
 
 } // namespace drmemtrace

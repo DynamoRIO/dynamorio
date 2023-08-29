@@ -38,13 +38,18 @@
 #define _READER_H_ 1
 
 #include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <iterator>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
+
 // For exporting we avoid "../common" and rely on -I.
 #include "memref.h"
 #include "memtrace_stream.h"
+#include "trace_entry.h"
 #include "utils.h"
 
 namespace dynamorio {
@@ -119,6 +124,8 @@ public:
     // observed.  This generally should call pre_skip_instructions() to observe the
     // headers, perform any fast skipping, and then should call
     // skip_instructions_with_timestamp() to properly duplicate the prior timestamp.
+    // Skipping 0 instructions is supported and will skip ahead to right before the
+    // next instruction.
     virtual reader_t &
     skip_instructions(uint64_t instruction_count);
 
@@ -262,6 +269,7 @@ private:
     bool expect_no_encodings_ = true;
     encoding_info_t last_encoding_;
     std::unordered_map<addr_t, encoding_info_t> encodings_;
+    addr_t last_branch_target_ = 0;
 };
 
 } // namespace drmemtrace

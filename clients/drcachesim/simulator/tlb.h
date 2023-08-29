@@ -37,6 +37,7 @@
 #define _TLB_H_ 1
 
 #include "caching_device.h"
+#include "memref.h"
 #include "tlb_entry.h"
 #include "tlb_stats.h"
 

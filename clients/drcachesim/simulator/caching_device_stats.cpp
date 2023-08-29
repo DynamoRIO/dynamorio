@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,11 +30,25 @@
  * DAMAGE.
  */
 
-#include <assert.h>
-#include <iostream>
-#include <iomanip>
-#include "../common/options.h"
 #include "caching_device_stats.h"
+
+#include <assert.h>
+#include <stdint.h>
+#ifdef HAS_ZLIB
+#    include <zlib.h>
+#endif
+
+#include <iomanip>
+#include <iostream>
+#include <locale>
+#include <map>
+#include <string>
+#include <utility>
+
+#include "memref.h"
+#include "options.h"
+#include "caching_device_block.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -56,6 +70,7 @@ caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
     , is_coherent_(is_coherent)
     , access_count_(block_size)
     , file_(nullptr)
+    , caching_device_(nullptr)
 {
     if (miss_file.empty()) {
         dump_misses_ = false;

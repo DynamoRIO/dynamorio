@@ -43,11 +43,15 @@
 
 #include <limits>
 
-using dynamorio::drmemtrace::disable_popups;
-using dynamorio::drmemtrace::record_analysis_tool_t;
-using dynamorio::drmemtrace::record_analyzer_t;
-using dynamorio::drmemtrace::trace_marker_type_t;
-using dynamorio::drmemtrace::trace_type_t;
+using ::dynamorio::drmemtrace::disable_popups;
+using ::dynamorio::drmemtrace::record_analysis_tool_t;
+using ::dynamorio::drmemtrace::record_analyzer_t;
+using ::dynamorio::drmemtrace::trace_marker_type_t;
+using ::dynamorio::drmemtrace::trace_type_t;
+using ::dynamorio::droption::droption_parser_t;
+using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+using ::dynamorio::droption::DROPTION_SCOPE_FRONTEND;
+using ::dynamorio::droption::droption_t;
 
 namespace {
 
