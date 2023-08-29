@@ -145,7 +145,7 @@ protected:
         // We keep track of some state per nested signal depth.
         struct signal_context {
             addr_t xfer_int_pc;
-            memref_t pre_signal_instr;
+            instr_info_t pre_signal_instr;
             bool xfer_aborted_rseq;
         };
         // We only support sigreturn-using handlers so we have pairing: no longjmp.

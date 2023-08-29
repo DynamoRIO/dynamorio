@@ -591,31 +591,31 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 memref.instr.addr == shard->last_signal_context_.xfer_int_pc ||
                 // DR hands us a different address for sysenter than the
                 // resumption point.
-                shard->last_signal_context_.pre_signal_instr.instr.type ==
+                shard->last_signal_context_.pre_signal_instr.memref.instr.type ==
                     TRACE_TYPE_INSTR_SYSENTER;
             bool pre_signal_flow_continuity =
                 // Skip pre-signal instr check if there was no such instr. May
                 // happen for nested signals without any intervening instr, and
                 // if the signal arrived before the first instr in the trace.
-                shard->last_signal_context_.pre_signal_instr.instr.addr == 0 ||
+                shard->last_signal_context_.pre_signal_instr.memref.instr.addr == 0 ||
                 // Skip pre_signal_instr_ check for signals that caused an rseq
                 // abort. In this case, control is transferred directly to the abort
                 // handler, verified using last_signal_context_.xfer_int_pc above.
                 shard->last_signal_context_.xfer_aborted_rseq ||
                 // Pre-signal instr continued after signal.
                 memref.instr.addr ==
-                    shard->last_signal_context_.pre_signal_instr.instr.addr ||
+                    shard->last_signal_context_.pre_signal_instr.memref.instr.addr ||
                 // Asynch will go to the subsequent instr.
                 memref.instr.addr ==
-                    shard->last_signal_context_.pre_signal_instr.instr.addr +
-                        shard->last_signal_context_.pre_signal_instr.instr.size ||
+                    shard->last_signal_context_.pre_signal_instr.memref.instr.addr +
+                        shard->last_signal_context_.pre_signal_instr.memref.instr.size ||
                 // Too hard to figure out branch targets.  We have the
                 // last_signal_context_.xfer_int_pc though.
                 // TODO i#5912: since we have the branch decoding now, we can handle
                 // this case.
                 type_is_instr_branch(
-                    shard->last_signal_context_.pre_signal_instr.instr.type) ||
-                shard->last_signal_context_.pre_signal_instr.instr.type ==
+                    shard->last_signal_context_.pre_signal_instr.memref.instr.type) ||
+                shard->last_signal_context_.pre_signal_instr.memref.instr.type ==
                     TRACE_TYPE_INSTR_SYSENTER;
             report_if_false(
                 shard,
@@ -720,8 +720,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->last_signal_context_ = { 0, {}, false };
                 // We have not seen any instr in the outermost scope that we just
                 // discovered.
-                shard->last_instr_in_cur_context_.memref = {};
-                shard->last_instr_in_cur_context_.has_valid_decoding = false;
+                shard->last_instr_in_cur_context_ = {};
             } else {
                 // The pre_signal_instr for this signal may be {} in some cases:
                 // - for nested signals without any intervening instr
@@ -735,7 +734,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // signal should be same as the pre-signal instr for the first one.
                 // Here we restore last_instr_in_cur_context_ to the last instr we
                 // saw *in the same nesting depth* before the first signal.
-                shard->last_instr_in_cur_context_.memref =
+                shard->last_instr_in_cur_context_ =
                     shard->last_signal_context_.pre_signal_instr;
             }
         }
@@ -763,7 +762,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                     discontinuity + error_msg_suffix);
                 }
                 shard->signal_stack_.push({ memref.marker.marker_value,
-                                            shard->last_instr_in_cur_context_.memref,
+                                            shard->last_instr_in_cur_context_,
                                             shard->saw_rseq_abort_ });
                 // XXX: if last_instr_in_cur_context_ is {} currently, it means this is
                 // either a signal that arrived before the first instr in the trace, or
@@ -773,8 +772,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
                 // We start with an empty memref_t to denote absence of any pre-signal
                 // instr for any subsequent nested signals.
-                shard->last_instr_in_cur_context_.memref = {};
-                shard->last_instr_in_cur_context_.has_valid_decoding = false;
+                shard->last_instr_in_cur_context_ = {};
             }
         }
 #endif
