@@ -9539,7 +9539,7 @@ const instr_info_t rep_extensions[][4] = {
   { /* rep extension 1 */
     {OP_ins,      0x6d0000, "ins",       Yz, axDI, dx, axDI, xx, no, fRD, tre[0][0]},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_ins,  0xf36d0000, "rep ins", Yz, axDI, dx, axDI, axCX, xop_next, fRD, tre[0][2]},
+    {OP_rep_ins,  0xf36d0000, "rep ins", Yz, axDI, dx, axDI, axCX, xop_next|predcx, fRD, tre[0][2]},
     {OP_CONTD,  0xf36d0000, "rep ins", axCX, xx, xx, xx, xx, predcx, fRD, END_LIST},
   },
   { /* rep extension 2 */
