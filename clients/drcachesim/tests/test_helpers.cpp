@@ -35,7 +35,9 @@
 #        define WIN32_LEAN_AND_MEAN
 #        include <windows.h>
 #    endif
-#    ifdef DEBUG
+// _DEBUG comes from VS itself and we allow either as we have some complexities
+// with defining DEBUG in some executables.
+#    if defined(DEBUG) || defined(_DEBUG)
 #        include <crtdbg.h>
 #    endif
 #    include <stdio.h>
@@ -64,7 +66,7 @@ disable_popups()
 
     // Avoid pop-up messageboxes in tests.
     if (!IsDebuggerPresent()) {
-#    ifdef DEBUG
+#    if defined(DEBUG) || defined(_DEBUG)
         // Set for _CRT_{WARN,ERROR,ASSERT}.
         for (int i = 0; i < _CRT_ERRCNT; i++) {
             _CrtSetReportMode(i, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);

@@ -1913,6 +1913,12 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
 {
     if (!TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, tdata->file_type))
         return false;
+#if defined(WINDOWS) && !defined(X64)
+    // For WOW64 there is a store for the "syscall" call which complicates detecting and
+    // removing it.  Furthermore, instr_is_wow64_syscall() can vary whether using full DR
+    // or not: i#5949.  For simplicity for now we just bail on WOW64.
+    return false;
+#else
     // We have 2 scenarios where we record a syscall instr yet it doesn't
     // execute right away and so there's no syscall number marker:
     // 1) An asynchronous signal arrives during the block and is delivered
@@ -1949,6 +1955,7 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
         queue_entry(tdata, entry);
     }
     return omit;
+#endif
 }
 
 std::string
