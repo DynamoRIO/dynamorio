@@ -126,7 +126,7 @@ clients.
 
 The changes between version \DR_VERSION and 10.0.0 include the following compatibility
 changes:
- - Nothing yet.
+ - Marked x86 rep instructions as predicated.
 
 Further non-compatibility-affecting changes include:
  - Nothing yet.
