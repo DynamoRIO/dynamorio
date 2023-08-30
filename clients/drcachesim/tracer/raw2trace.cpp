@@ -567,7 +567,7 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
  * Top-level
  */
 
-std::string
+raw2trace_error_t
 raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                                    const offline_entry_t *in_entry, thread_id_t tid,
                                    OUT bool *end_of_record, OUT bool *last_bb_handled,
@@ -577,21 +577,20 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
     byte *buf = reinterpret_cast<byte *>(buf_base);
     if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED) {
         if (in_entry->extended.ext == OFFLINE_EXT_TYPE_FOOTER) {
-            DR_CHECK(tid != INVALID_THREAD_ID, "Missing thread id");
+            DR_CHECK(tid != INVALID_THREAD_ID, RAW2TRACE_ERROR_MISSING_THREAD_ID);
             log(2, "Thread %d exit\n", (uint)tid);
             buf += trace_metadata_writer_t::write_thread_exit(buf, tid);
             *end_of_record = true;
-            std::string error =
-                write(tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
-            if (!error.empty())
+            auto error = write(tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+            if (error != RAW2TRACE_ERROR_NONE)
                 return error;
             // Let the user determine what other actions to take, e.g. account for
             // the ending of the current thread, etc.
             return on_thread_end(tdata);
         } else if (in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER) {
             uintptr_t marker_val = 0;
-            std::string err = get_marker_value(tdata, &in_entry, &marker_val);
-            if (!err.empty())
+            auto err = get_marker_value(tdata, &in_entry, &marker_val);
+            if (err != RAW2TRACE_ERROR_NONE)
                 return err;
             buf += trace_metadata_writer_t::write_marker(
                 buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
@@ -601,13 +600,13 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 // boundary of the rseq region.
                 if (tdata->rseq_past_end_) {
                     err = adjust_and_emit_rseq_buffer(tdata, marker_val);
-                    if (!err.empty())
+                    if (err != RAW2TRACE_ERROR_NONE)
                         return err;
                 }
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 log(4, "Rseq abort %d\n", tdata->rseq_past_end_);
                 err = adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val);
-                if (!err.empty())
+                if (err != RAW2TRACE_ERROR_NONE)
                     return err;
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
                 if (tdata->rseq_want_rollback_) {
@@ -617,7 +616,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                         // prior iterations in the buffer.
                         log(4, "Rseq was already buffered: assuming loop; emitting\n");
                         err = adjust_and_emit_rseq_buffer(tdata, marker_val);
-                        if (!err.empty())
+                        if (err != RAW2TRACE_ERROR_NONE)
                             return err;
                     }
                     log(4,
@@ -662,20 +661,16 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // check for it here.
             if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
                 if (delayed_branches_exist(tdata)) {
-                    std::string error = write_delayed_branches(
+                    auto error = write_delayed_branches(
                         tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
-                    if (!error.empty())
-                        return error;
-                    return "";
+                    return error;
                 }
             }
             log(3, "Appended marker type %u value " PIFX "\n",
                 (trace_marker_type_t)in_entry->extended.valueB,
                 (uintptr_t)in_entry->extended.valueA);
         } else {
-            std::stringstream ss;
-            ss << "Invalid extension type " << (int)in_entry->extended.ext;
-            return ss.str();
+            return RAW2TRACE_ERROR_INVALID_EXT;
         }
     } else if (in_entry->addr.type == OFFLINE_TYPE_MEMREF ||
                in_entry->addr.type == OFFLINE_TYPE_MEMREF_HIGH) {
@@ -693,64 +688,61 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
         } else {
             // We should see an instr entry first
             log(3, "extra memref entry: %p\n", in_entry->addr.addr);
-            return "memref entry found outside of bb";
+            return RAW2TRACE_ERROR_MEMREF_OUTSIDE_BB;
         }
     } else if (in_entry->pc.type == OFFLINE_TYPE_PC) {
         DR_CHECK(reinterpret_cast<trace_entry_t *>(buf) == buf_base,
-                 "We shouldn't have buffered anything before calling "
-                 "append_bb_entries");
-        std::string result = append_bb_entries(tdata, in_entry, last_bb_handled);
-        if (!result.empty())
+                 RAW2TRACE_ERROR_GENERAL);
+        auto result = append_bb_entries(tdata, in_entry, last_bb_handled);
+        if (result != RAW2TRACE_ERROR_NONE)
             return result;
     } else if (in_entry->addr.type == OFFLINE_TYPE_IFLUSH) {
         const offline_entry_t *entry = get_next_entry(tdata);
         if (entry == nullptr || entry->addr.type != OFFLINE_TYPE_IFLUSH)
-            return "Flush missing 2nd entry";
+            return RAW2TRACE_ERROR_FLUSH_MISSING_ENTRY;
         log(2, "Flush " PFX "-" PFX "\n", (ptr_uint_t)in_entry->addr.addr,
             (ptr_uint_t)entry->addr.addr);
         buf += trace_metadata_writer_t::write_iflush(
             buf, in_entry->addr.addr, (size_t)(entry->addr.addr - in_entry->addr.addr));
     } else {
-        std::stringstream ss;
-        ss << "Unknown trace type " << (int)in_entry->timestamp.type;
-        return ss.str();
+        return RAW2TRACE_ERROR_UNKNOWN_TRACE_TYPE;
     }
     size_t size = reinterpret_cast<trace_entry_t *>(buf) - buf_base;
-    DR_CHECK((uint)size < WRITE_BUFFER_SIZE, "Too many entries");
+    DR_CHECK((uint)size < WRITE_BUFFER_SIZE, RAW2TRACE_ERROR_TOO_MANY_ENTRIES);
     if (size > 0) {
-        std::string error =
+        auto error =
             write(tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
-        if (!error.empty())
+        if (error != RAW2TRACE_ERROR_NONE)
             return error;
     }
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::read_header(raw2trace_thread_data_t *tdata, OUT trace_header_t *header)
 {
     const offline_entry_t *in_entry = get_next_entry(tdata);
     if (in_entry == nullptr)
-        return "Failed to read header from input file";
+        return RAW2TRACE_ERROR_FAILED_READ_HEADER;
     // Handle legacy traces which have the timestamp first.
     if (in_entry->tid.type == OFFLINE_TYPE_TIMESTAMP) {
         header->timestamp = in_entry->timestamp.usec;
         in_entry = get_next_entry(tdata);
         if (in_entry == nullptr)
-            return "Failed to read header from input file";
+            return RAW2TRACE_ERROR_FAILED_READ_HEADER;
     }
     DR_ASSERT(in_entry->tid.type == OFFLINE_TYPE_THREAD);
     header->tid = in_entry->tid.tid;
 
     in_entry = get_next_entry(tdata);
     if (in_entry == nullptr)
-        return "Failed to read header from input file";
+        return RAW2TRACE_ERROR_FAILED_READ_HEADER;
     DR_ASSERT(in_entry->pid.type == OFFLINE_TYPE_PID);
     header->pid = in_entry->pid.pid;
 
     in_entry = get_next_entry(tdata);
     if (in_entry == nullptr)
-        return "Failed to read header from input file";
+        return RAW2TRACE_ERROR_FAILED_READ_HEADER;
     if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
         in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
         in_entry->extended.valueB == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
@@ -762,10 +754,10 @@ raw2trace_t::read_header(raw2trace_thread_data_t *tdata, OUT trace_header_t *hea
         header->cache_line_size = proc_get_cache_line_size();
         unread_last_entry(tdata);
     }
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
     int version = tdata->version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
@@ -775,15 +767,15 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
     entry.addr = version;
-    std::string error = write(tdata, &entry, &entry + 1);
-    if (!error.empty())
+    auto error = write(tdata, &entry, &entry + 1);
+    if (error != RAW2TRACE_ERROR_NONE)
         return error;
 
     // First read the tid and pid entries which precede any timestamps.
     trace_header_t header = { static_cast<process_id_t>(INVALID_PROCESS_ID),
                               INVALID_THREAD_ID, 0 };
     error = read_header(tdata, &header);
-    if (!error.empty())
+    if (error != RAW2TRACE_ERROR_NONE)
         return error;
     VPRINT(2, "File %u is thread %u\n", tdata->index, (uint)header.tid);
     VPRINT(2, "File %u is process %u\n", tdata->index, (uint)header.pid);
@@ -816,10 +808,10 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                                                  header.cache_line_size);
     // The buffer can only hold 5 entries so write it now.
-    CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+    CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, RAW2TRACE_ERROR_TOO_MANY_ENTRIES);
     error = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
                   reinterpret_cast<trace_entry_t *>(buf));
-    if (!error.empty())
+    if (error != RAW2TRACE_ERROR_NONE)
         return error;
     buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     buf = buf_base;
@@ -835,12 +827,10 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
         tdata->last_timestamp_ = header.timestamp;
     }
     // We have to write this now before we append any bb entries.
-    CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+    CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, RAW2TRACE_ERROR_TOO_MANY_ENTRIES);
     error = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
                   reinterpret_cast<trace_entry_t *>(buf));
-    if (!error.empty())
-        return error;
-    return "";
+    return error;
 }
 
 #ifdef BUILD_PT_POST_PROCESSOR
@@ -969,7 +959,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
 }
 #endif
 
-std::string
+raw2trace_error_t
 raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                         OUT bool *end_of_record)
 {
@@ -984,14 +974,14 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             in_entry, &tdata->error, &tdata->version, &tdata->file_type);
         VPRINT(2, "Trace file version is %d; type is %d\n", tdata->version,
                tdata->file_type);
-        if (!tdata->error.empty())
+        if (tdata->error != RAW2TRACE_ERROR_NONE)
             return tdata->error;
         // We do not complain if tdata->version >= OFFLINE_FILE_VERSION_ENCODINGS
         // and encoding_file_ == INVALID_FILE since we have several tests with
         // that setup.  We do complain during processing about unknown instructions.
         if (tdata->saw_header) {
             tdata->error = process_header(tdata);
-            if (!tdata->error.empty())
+            if (tdata->error != RAW2TRACE_ERROR_NONE)
                 return tdata->error;
         }
         in_entry = get_next_entry(tdata);
@@ -1013,10 +1003,10 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                 trace_metadata_writer_t::write_timestamp(buf_base,
                                                          (uintptr_t)entry.timestamp.usec);
             tdata->last_timestamp_ = entry.timestamp.usec;
-            CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+            CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, RAW2TRACE_ERROR_TOO_MANY_ENTRIES);
             tdata->error = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
                                  reinterpret_cast<trace_entry_t *>(buf));
-            if (!tdata->error.empty())
+            if (tdata->error != RAW2TRACE_ERROR_NONE)
                 return tdata->error;
             continue;
         }
@@ -1048,8 +1038,8 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
                 entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
                 uintptr_t marker_val = 0;
-                std::string err = get_marker_value(tdata, &in_entry, &marker_val);
-                if (!err.empty())
+                auto err = get_marker_value(tdata, &in_entry, &marker_val);
+                if (err != RAW2TRACE_ERROR_NONE)
                     return err;
                 next_pc = reinterpret_cast<app_pc>(marker_val);
                 // Restore in case it was a two-record value.
@@ -1058,7 +1048,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                 entry = *in_entry;
             } // Else we will delete the final branch in append_delayed_branch().
             tdata->error = append_delayed_branch(tdata, next_pc);
-            if (!tdata->error.empty())
+            if (tdata->error != RAW2TRACE_ERROR_NONE)
                 return tdata->error;
         }
         if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
@@ -1069,14 +1059,14 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                              &last_bb_handled, &flush_decode_cache);
         if (flush_decode_cache)
             decode_cache_[tdata->worker].clear();
-        if (!tdata->error.empty())
+        if (tdata->error != RAW2TRACE_ERROR_NONE)
             return tdata->error;
     }
-    tdata->error = "";
-    return "";
+    tdata->error = RAW2TRACE_ERROR_NONE;
+    return tdata->error;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
 {
     bool end_of_file = false;
@@ -1084,7 +1074,7 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
         VPRINT(4, "About to read thread #%d==%d at pos %d\n", tdata->index,
                (uint)tdata->tid, (int)tdata->thread_file->tellg());
         tdata->error = process_next_thread_buffer(tdata, &end_of_file);
-        if (!tdata->error.empty() || (!end_of_file && thread_file_at_eof(tdata))) {
+        if (tdata->error != RAW2TRACE_ERROR_NONE || (!end_of_file && thread_file_at_eof(tdata))) {
             if (thread_file_at_eof(tdata)) {
                 // Rather than a fatal error we try to continue to provide partial
                 // results in case the disk was full or there was some other issue.
@@ -1098,30 +1088,27 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
                                           &last_bb_handled, &flush_decode_cache);
                 if (flush_decode_cache)
                     decode_cache_[tdata->worker].clear();
-                CHECK(end_of_file, "Synthetic footer failed");
-                if (!tdata->error.empty())
+                CHECK(end_of_file, RAW2TRACE_ERROR_SYNTHETIC_FOOTER_FAILED);
+                if (tdata->error != RAW2TRACE_ERROR_NONE)
                     return tdata->error;
             } else {
-                std::stringstream ss;
-                ss << "Failed to process file for thread " << (uint)tdata->tid << ": "
-                   << tdata->error;
-                tdata->error = ss.str();
+                tdata->error = RAW2TRACE_ERROR_GENERAL;
                 return tdata->error;
             }
         }
     }
     // The footer is written out by on_thread_end().
-    tdata->error = "";
-    return "";
+    tdata->error = RAW2TRACE_ERROR_NONE;
+    return tdata->error;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::check_thread_file(std::istream *f)
 {
     // Check version header.
     offline_entry_t ver_entry;
     if (!f->read((char *)&ver_entry, sizeof(ver_entry))) {
-        return "Unable to read thread log file";
+        return RAW2TRACE_ERROR_UNABLE_READ_LOG;
     }
     // Put it back.
     f->seekg(-(std::streamoff)sizeof(ver_entry), f->cur);
@@ -1171,10 +1158,10 @@ raw2trace_t::process_tasks(std::vector<raw2trace_thread_data_t *> *tasks)
     VPRINT(1, "Worker %d assigned %zd task(s)\n", (*tasks)[0]->worker, tasks->size());
     for (raw2trace_thread_data_t *tdata : *tasks) {
         VPRINT(1, "Worker %d starting on trace thread %d\n", tdata->worker, tdata->index);
-        std::string error = process_thread_file(tdata);
-        if (!error.empty()) {
+        auto error = process_thread_file(tdata);
+        if (error != RAW2TRACE_ERROR_NONE) {
             VPRINT(1, "Worker %d hit error %s on trace thread %d\n", tdata->worker,
-                   error.c_str(), tdata->index);
+                   error_message[error], tdata->index);
             break;
         }
         VPRINT(1, "Worker %d finished trace thread %d\n", tdata->worker, tdata->index);
@@ -1217,8 +1204,8 @@ raw2trace_t::do_conversion()
         for (std::thread &thread : threads)
             thread.join();
         for (auto &tdata : thread_data_) {
-            if (!tdata->error.empty())
-                return tdata->error;
+            if (tdata->error != RAW2TRACE_ERROR_NONE)
+                return error_message[tdata->error];
             count_elided_ += tdata->count_elided;
             count_duplicate_syscall_ += tdata->count_duplicate_syscall;
             count_false_syscall_ += tdata->count_false_syscall;
@@ -1230,9 +1217,9 @@ raw2trace_t::do_conversion()
                 std::max(latest_trace_timestamp_, tdata->latest_trace_timestamp);
         }
     }
-    error = aggregate_and_write_schedule_files();
-    if (!error.empty())
-        return error;
+    auto err = aggregate_and_write_schedule_files();
+    if (err != RAW2TRACE_ERROR_NONE)
+        return error_message[err];
     VPRINT(1, "Omitted " UINT64_FORMAT_STRING " duplicate system calls.\n",
            count_duplicate_syscall_);
     VPRINT(1, "Omitted " UINT64_FORMAT_STRING " false system calls.\n",
@@ -1245,14 +1232,14 @@ raw2trace_t::do_conversion()
     VPRINT(1, "Trace duration %.3fs.\n",
            (latest_trace_timestamp_ - earliest_trace_timestamp_) / 1000000.0);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
-    return "";
+    return error;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::aggregate_and_write_schedule_files()
 {
     if (serial_schedule_file_ == nullptr && cpu_schedule_file_ == nullptr)
-        return "";
+        return RAW2TRACE_ERROR_NONE;
     std::vector<schedule_entry_t> serial;
     std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched;
     for (auto &tdata : thread_data_) {
@@ -1269,10 +1256,10 @@ raw2trace_t::aggregate_and_write_schedule_files()
     if (serial_schedule_file_ != nullptr) {
         if (!serial_schedule_file_->write(reinterpret_cast<const char *>(serial.data()),
                                           serial.size() * sizeof(serial[0])))
-            return "Failed to write to serial schedule file";
+            return RAW2TRACE_ERROR_WRITE_FAILED;
     }
     if (cpu_schedule_file_ == nullptr)
-        return "";
+        return RAW2TRACE_ERROR_NONE;
     for (auto &keyval : cpu2sched) {
         std::sort(keyval.second.begin(), keyval.second.end(),
                   [](const schedule_entry_t &l, const schedule_entry_t &r) {
@@ -1282,32 +1269,32 @@ raw2trace_t::aggregate_and_write_schedule_files()
         stream << keyval.first;
         std::string err = cpu_schedule_file_->open_new_component(stream.str());
         if (!err.empty())
-            return err;
+            return RAW2TRACE_ERROR_COMPONENT_OPEN_FAILED;
         if (!cpu_schedule_file_->write(
                 reinterpret_cast<const char *>(keyval.second.data()),
                 keyval.second.size() * sizeof(keyval.second[0])))
-            return "Failed to write to cpu schedule file";
+            return RAW2TRACE_ERROR_WRITE_FAILED;
     }
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
 /***************************************************************************
  * Block and memref handling
  */
 
-std::string
+raw2trace_error_t
 raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 modidx,
                                         uint64 modoffs, app_pc start_pc, uint instr_count)
 {
     int version = get_version(tdata);
     // Old versions have no elision.
     if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
-        return "";
+        return RAW2TRACE_ERROR_NONE;
     // Filtered and instruction-only traces have no elision.
     if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS |
                     OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
                 get_file_type(tdata)))
-        return "";
+        return RAW2TRACE_ERROR_NONE;
     // We build an ilist to use identify_elidable_addresses() and fill in
     // state needed to reconstruct elided addresses.
     instrlist_t *ilist = instrlist_create(dcontext_);
@@ -1346,7 +1333,7 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                                      index_in_bb, pc, orig_pc, write, memop_index,
                                      true /*use_remembered*/,
                                      false /*don't change "remember"*/))
-            return "Failed to set flags for elided base address";
+            return RAW2TRACE_ERROR_SET_FLAGS_FAILED;
         // We still need to set the use_remember flag for rip-rel, even though it
         // does not need a prior base, because we do not elide *all* rip-rels
         // (e.g., predicated rip-rels).
@@ -1409,19 +1396,19 @@ raw2trace_t::analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 m
                     tdata, modidx, modoffs, start_pc, instr_count, index_prev, pc_prev,
                     orig_pc_prev, remember_write, remember_index,
                     false /*don't change "use_remembered"*/, true /*remember*/))
-                return "Failed to set flags for elided base address";
+                return RAW2TRACE_ERROR_SET_FLAGS_FAILED;
             log(5, "Asking <" PFX ", " PFX "> %s #%d to remember base\n", start_pc,
                 pc_prev, remember_write ? "write" : "read", remember_index);
             break;
         }
         if (remember_index == -1)
-            return "Failed to find the source of the elided base";
+            return RAW2TRACE_ERROR_SOURCE_ELIDED_BASE_FAILED;
     }
     instrlist_clear_and_destroy(dcontext_, ilist);
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_in,
                             const instr_summary_t *instr,
                             instr_summary_t::memref_summary_t memref, bool write,
@@ -1429,9 +1416,9 @@ raw2trace_t::process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_
                             uint64_t cur_pc, uint64_t cur_offs, bool instrs_are_separate,
                             OUT bool *reached_end_of_memrefs, OUT bool *interrupted)
 {
-    std::string error = append_memref(tdata, buf_in, instr, memref, write, reg_vals,
+    auto error = append_memref(tdata, buf_in, instr, memref, write, reg_vals,
                                       reached_end_of_memrefs);
-    if (!error.empty())
+    if (error != RAW2TRACE_ERROR_NONE)
         return error;
     error = handle_kernel_interrupt_and_markers(tdata, buf_in, cur_pc, cur_offs,
                                                 instr->length(), instrs_are_separate,
@@ -1439,11 +1426,11 @@ raw2trace_t::process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_
     return error;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                const offline_entry_t *in_entry, OUT bool *handled)
 {
-    std::string error = "";
+    auto error = RAW2TRACE_ERROR_NONE;
     uint instr_count = in_entry->pc.instr_count;
     const instr_summary_t *instr = nullptr;
     app_pc start_pc = modmap_().get_map_pc(in_entry->pc.modidx, in_entry->pc.modoffs);
@@ -1456,7 +1443,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                modvec_()[in_entry->pc.modidx].map_seg_base == NULL) {
         if (get_version(tdata) >= OFFLINE_FILE_VERSION_ENCODINGS) {
             // This is a fatal error if this trace should have encodings.
-            return "Non-module instructions found with no encoding information.";
+            return RAW2TRACE_ERROR_NONMODULE_INSTR_FOUND;
         }
         //  This is a legacy trace without generated code support.
         //  A race is fine for our visible ~one-time warning at level 0.
@@ -1471,7 +1458,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // traces have expired), we can remove the bool return value and handle the
         // memrefs in this function.
         *handled = false;
-        return "";
+        return error;
     } else {
         log(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
             instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
@@ -1501,13 +1488,13 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     } else {
         if (!instr_summary_exists(tdata, in_entry->pc.modidx, in_entry->pc.modoffs,
                                   start_pc, 0, decode_pc)) {
-            std::string res = analyze_elidable_addresses(
+            auto res = analyze_elidable_addresses(
                 tdata, in_entry->pc.modidx, in_entry->pc.modoffs, start_pc, instr_count);
-            if (!res.empty())
+            if (res != RAW2TRACE_ERROR_NONE)
                 return res;
         }
     }
-    DR_CHECK(!instrs_are_separate || instr_count == 1, "cannot mix 0-count and >1-count");
+    DR_CHECK(!instrs_are_separate || instr_count == 1, RAW2TRACE_ERROR_CANNOT_MIX);
     for (uint i = 0; i < instr_count; ++i) {
         trace_entry_t *buf_start = get_write_buffer(tdata);
         trace_entry_t *buf = buf_start;
@@ -1525,15 +1512,15 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // loop.
             break;
         }
-        DR_CHECK(pc > decode_pc, "error advancing inside block");
-        DR_CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
+        DR_CHECK(pc > decode_pc, RAW2TRACE_ERROR_ADVANCING_INSIDE_BLOCK);
+        DR_CHECK(!instr->is_cti() || i == instr_count - 1, RAW2TRACE_ERROR_INVALID_CTI);
         if (instr->is_syscall() && should_omit_syscall(tdata)) {
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_FALSE_SYSCALL, 1);
             log(3, "Omitting syscall instr without subsequent number marker.\n");
             // Exit and do not append this syscall instruction.  It must be the
             // final instruction in the block; since the tracer requests callbacks
             // on all syscalls, none are inlined.
-            DR_CHECK(i == instr_count - 1, "syscall not last in block");
+            DR_CHECK(i == instr_count - 1, RAW2TRACE_ERROR_SYSCALL_NOT_LAST);
             break;
         }
         // TODO i#5934: This is a workaround for the trace invariant error triggered
@@ -1560,7 +1547,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 DR_CHECK(entry->extended.type == OFFLINE_TYPE_EXTENDED &&
                              entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
                              entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL,
-                         "Syscall without marker should have been removed");
+                         RAW2TRACE_ERROR_SYSCALL_WITHOUT_MARKER);
                 // We've consumed these records and we just drop them.
             }
             accumulate_to_statistic(tdata, RAW2TRACE_STAT_DUPLICATE_SYSCALL, 1);
@@ -1574,20 +1561,20 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         if (!instr->is_cti()) {
             // Write out delayed branches now that we have a target.
             error = append_delayed_branch(tdata, orig_pc);
-            if (!error.empty())
+            if (error != RAW2TRACE_ERROR_NONE)
                 return error;
         }
         if (tdata->rseq_buffering_enabled_) {
             addr_t instr_pc = reinterpret_cast<addr_t>(orig_pc);
             if (tdata->rseq_past_end_) {
                 error = adjust_and_emit_rseq_buffer(tdata, instr_pc);
-                if (!error.empty())
+                if (error != RAW2TRACE_ERROR_NONE)
                     return error;
             } else if (instr_pc < tdata->rseq_start_pc_ ||
                        instr_pc >= tdata->rseq_end_pc_) {
                 log(4, "Hit exit to 0x%zx during instrumented rseq run\n", orig_pc);
                 error = adjust_and_emit_rseq_buffer(tdata, instr_pc);
-                if (!error.empty())
+                if (error != RAW2TRACE_ERROR_NONE)
                     return error;
             } else {
                 if (instr->is_cti()) {
@@ -1615,7 +1602,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
             error = append_encoding(tdata, decode_pc, instr->length(), buf, buf_start);
-            if (!error.empty())
+            if (error != RAW2TRACE_ERROR_NONE)
                 return error;
         }
 
@@ -1652,7 +1639,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // adjust_and_emit_rseq_buffer() we need to have written this instr to the
             // rseq buffer.
             error = write(tdata, buf_start, buf, &saved_decode_pc, 1);
-            if (!error.empty())
+            if (error != RAW2TRACE_ERROR_NONE)
                 return error;
             buf = buf_start;
         }
@@ -1663,7 +1650,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         error = handle_kernel_interrupt_and_markers(tdata, &buf, cur_pc, cur_offs,
                                                     instr->length(), instrs_are_separate,
                                                     &interrupted);
-        if (!error.empty())
+        if (error != RAW2TRACE_ERROR_NONE)
             return error;
         if (interrupted) {
             log(3, "Stopping bb at kernel interruption point %p\n", cur_pc);
@@ -1698,7 +1685,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                         is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
                         is_scatter, reg_vals, cur_pc, cur_offs, instrs_are_separate,
                         &reached_end_of_memrefs, &interrupted);
-                    if (!error.empty())
+                    if (error != RAW2TRACE_ERROR_NONE)
                         return error;
                     if (interrupted)
                         break;
@@ -1708,7 +1695,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                     error = process_memref(tdata, &buf, instr, instr->mem_src_at(j),
                                            false, reg_vals, cur_pc, cur_offs,
                                            instrs_are_separate, nullptr, &interrupted);
-                    if (!error.empty())
+                    if (error != RAW2TRACE_ERROR_NONE)
                         return error;
                     if (interrupted)
                         break;
@@ -1719,7 +1706,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                     error = process_memref(tdata, &buf, instr, instr->mem_dest_at(j),
                                            true, reg_vals, cur_pc, cur_offs,
                                            instrs_are_separate, nullptr, &interrupted);
-                    if (!error.empty())
+                    if (error != RAW2TRACE_ERROR_NONE)
                         return error;
                     if (interrupted)
                         break;
@@ -1728,7 +1715,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         cur_pc += instr->length();
         cur_offs += instr->length();
-        DR_CHECK((size_t)(buf - buf_start) < WRITE_BUFFER_SIZE, "Too many entries");
+        DR_CHECK((size_t)(buf - buf_start) < WRITE_BUFFER_SIZE, RAW2TRACE_ERROR_TOO_MANY_ENTRIES);
         if (instr->is_cti()) {
             // In case this is the last branch prior to a thread switch, buffer it. We
             // avoid swapping threads immediately after a branch so that analyzers can
@@ -1744,18 +1731,18 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 saved_decode_pc);
             error = write_delayed_branches(tdata, buf_start, buf, saved_decode_pc,
                                            instr->branch_target_pc());
-            if (!error.empty())
+            if (error != RAW2TRACE_ERROR_NONE)
                 return error;
         } else if (buf > buf_start) {
             error = write(tdata, buf_start, buf, &saved_decode_pc, 1);
-            if (!error.empty())
+            if (error != RAW2TRACE_ERROR_NONE)
                 return error;
         }
         if (interrupted)
             break;
     }
     *handled = true;
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
 // Returns true if a kernel interrupt happened at cur_pc.
@@ -1766,7 +1753,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
 // never insert a marker intra-block) and all inter-block markers are
 // handled at a higher level (process_offline_entry()) and are never
 // inserted here.
-std::string
+raw2trace_error_t
 raw2trace_t::handle_kernel_interrupt_and_markers(
     raw2trace_thread_data_t *tdata, INOUT trace_entry_t **buf_in, uint64_t cur_pc,
     uint64_t cur_offs, int instr_length, bool instrs_are_separate, OUT bool *interrupted)
@@ -1779,7 +1766,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
     do {
         const offline_entry_t *in_entry = get_next_entry(tdata);
         if (in_entry == nullptr)
-            return "";
+            return RAW2TRACE_ERROR_NONE;
         append = false;
         if (in_entry->extended.type != OFFLINE_TYPE_EXTENDED ||
             in_entry->extended.ext != OFFLINE_EXT_TYPE_MARKER) {
@@ -1791,8 +1778,8 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
         // if present to get to the type.  There is support for unreading
         // both.
         uintptr_t marker_val = 0;
-        std::string err = get_marker_value(tdata, &in_entry, &marker_val);
-        if (!err.empty())
+        auto err = get_marker_value(tdata, &in_entry, &marker_val);
+        if (err != RAW2TRACE_ERROR_NONE)
             return err;
         // An abort always ends a block.
         if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
@@ -1840,7 +1827,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
                         : 0;
                     err = adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
                                                       rseq_abort_pc);
-                    if (!err.empty())
+                    if (err != RAW2TRACE_ERROR_NONE)
                         return err;
                 }
                 append = true;
@@ -1899,13 +1886,13 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
             // that assume no re-allocation), but this should be pathological so for
             // now we have a release-build failure.
             DR_CHECK((size_t)(*buf_in - buf_start) < WRITE_BUFFER_SIZE,
-                     "Too many entries");
+                     RAW2TRACE_ERROR_TOO_MANY_ENTRIES);
         } else {
             // Put it back.
             unread_last_entry(tdata);
         }
     } while (append);
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
 bool
@@ -1958,7 +1945,7 @@ raw2trace_t::should_omit_syscall(raw2trace_thread_data_t *tdata)
 #endif
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
                               INOUT const offline_entry_t **entry, OUT uintptr_t *value)
 {
@@ -1968,7 +1955,7 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
         // Keep the prior so we can unread both at once if we roll back.
         const offline_entry_t *next = get_next_entry_keep_prior(tdata);
         if (next == nullptr || next->extended.ext != OFFLINE_EXT_TYPE_MARKER)
-            return "SPLIT_VALUE marker is not adjacent to 2nd entry";
+            return RAW2TRACE_ERROR_INCORRECT_MARKER;
         marker_val = (marker_val << 32) | static_cast<uintptr_t>(next->extended.valueA);
         *entry = next;
 #else
@@ -1999,10 +1986,10 @@ raw2trace_t::get_marker_value(raw2trace_thread_data_t *tdata,
     }
 #endif
     *value = marker_val;
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t **buf_in,
                            const instr_summary_t *instr,
                            instr_summary_t::memref_summary_t memref, bool write,
@@ -2037,7 +2024,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t *
     }
     if (!have_addr) {
         if (memref.use_remembered_base)
-            return "Non-elided base mislabeled to use remembered base";
+            return RAW2TRACE_ERROR_GENERAL;
         in_entry = get_next_entry(tdata);
     }
     if (in_entry != nullptr && in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
@@ -2052,7 +2039,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t *
             buf->type, buf->size);
         in_entry = get_next_entry(tdata);
         if (in_entry == nullptr)
-            return "Trace ends mid-block";
+            return RAW2TRACE_ERROR_TRACE_ENDS_MIDBLOCK;
     }
     if (!have_addr &&
         (in_entry == nullptr ||
@@ -2075,7 +2062,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t *
         if (reached_end_of_memrefs != nullptr) {
             *reached_end_of_memrefs = true;
         }
-        return "";
+        return RAW2TRACE_ERROR_NONE;
     }
     if (!have_type) {
         if (instr->is_prefetch()) {
@@ -2125,7 +2112,7 @@ raw2trace_t::append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t *
     }
 #endif
     *buf_in = ++buf;
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
 bool
@@ -2147,7 +2134,7 @@ raw2trace_t::rollback_last_encoding(raw2trace_thread_data_t *tdata)
     tdata->last_encoding_emitted = nullptr;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
                                   int remove_start_rough_idx,
                                   // This is inclusive.
@@ -2204,15 +2191,15 @@ raw2trace_t::rollback_rseq_buffer(raw2trace_thread_data_t *tdata,
                               tdata->rseq_buffer_.begin() + remove_end);
     tdata->rseq_decode_pcs_.erase(tdata->rseq_decode_pcs_.begin() + decode_start,
                                   tdata->rseq_decode_pcs_.begin() + decode_end);
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc,
                                          addr_t abort_pc)
 {
     if (!tdata->rseq_want_rollback_)
-        return "";
+        return RAW2TRACE_ERROR_NONE;
     log(4, "--- Rseq region exited at %p ---\n", next_pc);
     if (verbosity_ >= 4) {
         log(4, "Rseq buffer contents:\n");
@@ -2241,14 +2228,14 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
                 // fatal if the buffer is empty as we can continue.
                 // XXX: Add an invariant check for this.
                 log(1, "Extra abort marker found");
-                return "";
+                return RAW2TRACE_ERROR_NONE;
             }
             // Else this is an abort in the instrumented run, such as a
             // fault or signal, so no rollback is needed.
         } else {
-            std::string error = rollback_rseq_buffer(tdata, tdata->rseq_commit_idx_,
+            auto error = rollback_rseq_buffer(tdata, tdata->rseq_commit_idx_,
                                                      tdata->rseq_commit_idx_);
-            if (!error.empty())
+            if (error != RAW2TRACE_ERROR_NONE)
                 return error;
         }
     } else if (next_pc == tdata->rseq_end_pc_) {
@@ -2293,7 +2280,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
         }
         if (!found_direct && !found_skip) {
             log(4, "Failed to find rseq side exit\n");
-            return "Failed to find rseq side exit";
+            return RAW2TRACE_ERROR_FIND_RSEQ_FAILED;
         }
         log(4, "Found rseq%s side exit: %p -> %p idx=%d tid=%d\n",
             found_skip ? " skipped" : "", info.pc, info.target_pc, info.buf_idx,
@@ -2322,9 +2309,9 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
         }
         int branch_size = tdata->rseq_buffer_[post_branch].size;
         ++post_branch; // Now skip instr entry itself.
-        std::string error =
+        auto error =
             rollback_rseq_buffer(tdata, post_branch, tdata->rseq_commit_idx_);
-        if (!error.empty())
+        if (error != RAW2TRACE_ERROR_NONE)
             return error;
         if (found_skip) {
             // Append a synthetic jump.  This may not match the actual exit instruction:
@@ -2336,7 +2323,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
                 instr_encode_to_copy(dcontext_, instr, encoding, info.pc + branch_size);
             instr_destroy(dcontext_, instr);
             if (enc_next == nullptr)
-                return "Failed to encode synthetic rseq exit jump";
+                return RAW2TRACE_ERROR_ENCODE_RSEQ_FAILED;
             trace_entry_t jump;
             jump.type = TRACE_TYPE_INSTR_DIRECT_JUMP;
             jump.addr = reinterpret_cast<addr_t>(info.pc) + branch_size;
@@ -2346,7 +2333,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
                 !record_encoding_emitted(tdata, reinterpret_cast<app_pc>(jump.addr));
             trace_entry_t *buf = toadd;
             error = append_encoding(tdata, encoding, jump.size, buf, toadd);
-            if (!error.empty())
+            if (error != RAW2TRACE_ERROR_NONE)
                 return error;
             if (exists) {
                 // Uh-oh, we've already seen this PC!  We don't cache the actual
@@ -2367,10 +2354,10 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
     tdata->rseq_buffering_enabled_ = false;
 
     log(4, "Writing out rseq buffer: %zd entries\n", tdata->rseq_buffer_.size());
-    std::string error =
+    auto error =
         write(tdata, &tdata->rseq_buffer_[0], &tdata->rseq_buffer_.back() + 1,
               tdata->rseq_decode_pcs_.data(), tdata->rseq_decode_pcs_.size());
-    if (!error.empty())
+    if (error != RAW2TRACE_ERROR_NONE)
         return error;
 
     tdata->rseq_past_end_ = false;
@@ -2382,7 +2369,7 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
     tdata->rseq_branch_targets_.clear();
     tdata->rseq_decode_pcs_.clear();
 
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
 raw2trace_t::block_summary_t *
@@ -2669,7 +2656,7 @@ raw2trace_t::thread_file_at_eof(raw2trace_thread_data_t *tdata)
     return tdata->pre_read.empty() && tdata->thread_file->eof();
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_pc)
 {
     // While we no longer document a guarantee that branches are delayed to make them
@@ -2679,7 +2666,7 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
     // use a different implementation we should perhaps wait for all users to
     // update their clients.
     if (tdata->delayed_branch_empty_)
-        return "";
+        return RAW2TRACE_ERROR_NONE;
     // We can't infer branch targets for filtered instructions.
     if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                  get_file_type(tdata))) {
@@ -2701,7 +2688,7 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
                 DEBUG_ASSERT(type_is_instr_branch(static_cast<trace_type_t>(entry.type)));
                 if (tdata->delayed_branch_target_pcs.size() <=
                     static_cast<size_t>(instr_index)) {
-                    return "Delayed branch target vector mis-sized";
+                    return RAW2TRACE_ERROR_TARGET_VECTOR_MISSIZED;
                 }
                 app_pc target = tdata->delayed_branch_target_pcs[instr_index];
                 // Cache entry fields before we insert any markers at entry's position.
@@ -2776,20 +2763,20 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
             }
         }
     }
-    if (!tdata->delayed_branch.empty()) {
-        std::string error =
+    if (!tdata->delayed_branch_empty_) {
+        auto error =
             write(tdata, tdata->delayed_branch.data(),
                   tdata->delayed_branch.data() + tdata->delayed_branch.size(),
                   tdata->delayed_branch_decode_pcs.data(),
                   tdata->delayed_branch_decode_pcs.size());
-        if (!error.empty())
+        if (error != RAW2TRACE_ERROR_NONE)
             return error;
     }
     tdata->delayed_branch.clear();
     tdata->delayed_branch_decode_pcs.clear();
     tdata->delayed_branch_target_pcs.clear();
     tdata->delayed_branch_empty_ = true;
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
 trace_entry_t *
@@ -2798,7 +2785,7 @@ raw2trace_t::get_write_buffer(raw2trace_thread_data_t *tdata)
     return tdata->out_buf.data();
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
 {
     // Re-emit the last timestamp + cpu from the prior chunk.  We don't
@@ -2820,21 +2807,21 @@ raw2trace_t::emit_new_chunk_header(raw2trace_thread_data_t *tdata)
         trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)tdata->last_timestamp_);
     buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CPU_ID,
                                                  tdata->last_cpu_);
-    CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+    CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, RAW2TRACE_ERROR_TOO_MANY_ENTRIES);
     // We write directly to avoid recursion issues; these duplicated headers do not
     // need to go into the schedule file.
     if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
-        return "Failed to write to output file";
+        return RAW2TRACE_ERROR_WRITE_FAILED;
     // These didn't go through tdata->memref_counter but all 3 should be invisible
     // so we don't want to increment cur_chunk_ref_count.
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
 {
     if (tdata->out_archive == nullptr)
-        return "Archive file was not specified";
+        return RAW2TRACE_ERROR_ARCHIVE_INCORRECT;
 
     log(1, "Creating new chunk #" INT64_FORMAT_STRING " for thread %d\n",
         tdata->chunk_count_, tdata->tid);
@@ -2847,9 +2834,9 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
         buf += trace_metadata_writer_t::write_marker(
             buf, TRACE_MARKER_TYPE_CHUNK_FOOTER,
             static_cast<uintptr_t>(tdata->chunk_count_ - 1));
-        CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, "Too many entries");
+        CHECK((uint)(buf - buf_base) < WRITE_BUFFER_SIZE, RAW2TRACE_ERROR_TOO_MANY_ENTRIES);
         if (!tdata->out_file->write((char *)buf_base, buf - buf_base))
-            return "Failed to write to output file";
+            return RAW2TRACE_ERROR_WRITE_FAILED;
         // This didn't go through tdata->memref_counter so we manually add.
         tdata->cur_chunk_ref_count += (buf - buf_base) / sizeof(trace_entry_t);
     }
@@ -2857,16 +2844,16 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     std::ostringstream stream;
     stream << TRACE_CHUNK_PREFIX << std::setfill('0') << std::setw(4)
            << tdata->chunk_count_;
-    std::string error = tdata->out_archive->open_new_component(stream.str());
-    if (!error.empty())
-        return error;
+    std::string res = tdata->out_archive->open_new_component(stream.str());
+    if (!res.empty())
+        return RAW2TRACE_ERROR_COMPONENT_OPEN_FAILED;
     tdata->cur_chunk_instr_count = 0;
     ++tdata->chunk_count_;
     if (tdata->chunk_count_ == 1)
-        return "";
+        return RAW2TRACE_ERROR_NONE;
 
-    error = emit_new_chunk_header(tdata);
-    if (!error.empty())
+    auto error = emit_new_chunk_header(tdata);
+    if (error != RAW2TRACE_ERROR_NONE)
         return error;
 
     // We need to clear the encoding cache so that each chunk is self-contained
@@ -2882,10 +2869,10 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
     // them to the instr after observing its memref: we may want to reserve the
     // first out_buf slot to avoid a memmove.
 
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::append_encoding(raw2trace_thread_data_t *tdata, app_pc pc,
                              size_t instr_length, trace_entry_t *&buf,
                              trace_entry_t *buf_start)
@@ -2911,12 +2898,12 @@ raw2trace_t::append_encoding(raw2trace_thread_data_t *tdata, app_pc pc,
         size_left -= buf->size;
         ++buf;
         CHECK(static_cast<size_t>(buf - buf_start) < WRITE_BUFFER_SIZE,
-              "Too many entries for write buffer");
+              RAW2TRACE_ERROR_TOO_MANY_ENTRIES);
     } while (size_left > 0);
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::insert_post_chunk_encodings(raw2trace_thread_data_t *tdata,
                                          const trace_entry_t *instr, app_pc decode_pc)
 {
@@ -2924,25 +2911,25 @@ raw2trace_t::insert_post_chunk_encodings(raw2trace_thread_data_t *tdata,
     trace_entry_t *buf = encodings;
     log(4, "Adding post-chunk-boundary encoding entry for decode=%p app=%p\n", decode_pc,
         instr->addr);
-    std::string err = append_encoding(tdata, decode_pc, instr->size, buf, encodings);
-    if (!err.empty())
+    auto err = append_encoding(tdata, decode_pc, instr->size, buf, encodings);
+    if (err != RAW2TRACE_ERROR_NONE)
         return err;
     if (!tdata->out_file->write(reinterpret_cast<const char *>(encodings),
                                 reinterpret_cast<const char *>(buf) -
                                     reinterpret_cast<const char *>(encodings)))
-        return "Failed to write to output file";
-    return "";
+        return RAW2TRACE_ERROR_WRITE_FAILED;
+    return RAW2TRACE_ERROR_NONE;
 }
 
 // All writes to out_file go through this function, except new chunk headers
 // and footers (to do so would cause recursion; we assume those do not need
 // extra processing here).
-std::string
+raw2trace_error_t
 raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                    const trace_entry_t *end, app_pc *decode_pcs, size_t decode_pcs_size)
 {
     if (end == start)
-        return "Empty buffer passed to write()";
+        return RAW2TRACE_ERROR_EMPTY_BUFFER;
     if (tdata->rseq_buffering_enabled_) {
         for (const trace_entry_t *it = start; it < end; ++it)
             tdata->rseq_buffer_.push_back(*it);
@@ -2950,11 +2937,11 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         // There are rseq regions with loops but they should be relatively short.
         static constexpr int MAX_REASONABLE_RSEQ_LENGTH = 4096;
         if (tdata->rseq_buffer_.size() > MAX_REASONABLE_RSEQ_LENGTH) {
-            return "Runaway rseq buffer indicates an rseq exit was missed";
+            return RAW2TRACE_ERROR_RSEQ_EXIT_MISSED;
         }
         tdata->rseq_decode_pcs_.insert(tdata->rseq_decode_pcs_.end(), decode_pcs,
                                        decode_pcs + decode_pcs_size);
-        return "";
+        return RAW2TRACE_ERROR_NONE;
     }
     if (tdata->out_archive != nullptr) {
         bool prev_was_encoding = false;
@@ -2972,9 +2959,9 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
                                             reinterpret_cast<const char *>(it) -
                                                 reinterpret_cast<const char *>(start)))
-                    return "Failed to write to output file";
-                std::string error = open_new_chunk(tdata);
-                if (!error.empty())
+                    return RAW2TRACE_ERROR_WRITE_FAILED;
+                auto error = open_new_chunk(tdata);
+                if (error != RAW2TRACE_ERROR_NONE)
                     return error;
                 start = it;
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
@@ -2987,7 +2974,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
                     // We don't want encodings for the PC-only i-filtered entries.
                     it->size > 0 && instr_ordinal >= static_cast<int>(decode_pcs_size))
-                    return "decode_pcs is missing entries for written instructions";
+                    return RAW2TRACE_ERROR_DECODE_PC_INVALID;
             }
             // Check for missing encodings after possibly opening a new chunk.
             // There can be multiple delayed branches in the same buffer here
@@ -3009,14 +2996,14 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     !tdata->out_file->write(reinterpret_cast<const char *>(start),
                                             reinterpret_cast<const char *>(it) -
                                                 reinterpret_cast<const char *>(start)))
-                    return "Failed to write to output file";
-                std::string err =
+                    return RAW2TRACE_ERROR_WRITE_FAILED;
+                auto err =
                     insert_post_chunk_encodings(tdata, it, *(decode_pcs + instr_ordinal));
-                if (!err.empty())
+                if (err != RAW2TRACE_ERROR_NONE)
                     return err;
                 if (!tdata->out_file->write(reinterpret_cast<const char *>(it),
                                             sizeof(*it)))
-                    return "Failed to write to output file";
+                    return RAW2TRACE_ERROR_WRITE_FAILED;
                 start = it + 1;
             }
             if (it->type == TRACE_TYPE_ENCODING)
@@ -3028,7 +3015,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     tdata->last_timestamp_ = it->addr;
                 else if (it->size == TRACE_MARKER_TYPE_CPU_ID) {
                     DR_CHECK(tdata->chunk_count_ > 0,
-                             "chunk_count_ should have been incremented already");
+                             RAW2TRACE_ERROR_CHUNK_COUNT_INCORRECT);
                     uint64_t instr_count =
                         (tdata->chunk_count_ - 1) * chunk_instr_count_ +
                         tdata->cur_chunk_instr_count;
@@ -3046,21 +3033,21 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         !tdata->out_file->write(reinterpret_cast<const char *>(start),
                                 reinterpret_cast<const char *>(end) -
                                     reinterpret_cast<const char *>(start)))
-        return "Failed to write to output file";
+        return RAW2TRACE_ERROR_WRITE_FAILED;
     // If we're at the end of a block (minus its delayed branch) we need
     // to split now to avoid going too far by waiting for the next instr.
     if (tdata->cur_chunk_instr_count >= chunk_instr_count_) {
         DEBUG_ASSERT(tdata->cur_chunk_instr_count == chunk_instr_count_);
-        std::string error = open_new_chunk(tdata);
-        if (!error.empty())
+        auto error = open_new_chunk(tdata);
+        if (error != RAW2TRACE_ERROR_NONE)
             return error;
     }
     log(4, "Chunk instr count is now " UINT64_FORMAT_STRING "\n",
         tdata->cur_chunk_instr_count);
-    return "";
+    return RAW2TRACE_ERROR_NONE;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::write_delayed_branches(raw2trace_thread_data_t *tdata,
                                     const trace_entry_t *start, const trace_entry_t *end,
                                     app_pc decode_pc, app_pc target_pc)
@@ -3073,16 +3060,16 @@ raw2trace_t::write_delayed_branches(raw2trace_thread_data_t *tdata,
             ++instr_count;
     }
     if (instr_count > 1)
-        return "Only one instruction per delayed branch bundle is supported";
+        return RAW2TRACE_ERROR_ONE_INSTR_IN_BRANCH;
     if (instr_count == 1) {
         if (decode_pc == nullptr)
-            return "A delayed instruction must have a valid decode PC";
+            return RAW2TRACE_ERROR_DECODE_PC_INVALID;
         log(4, "Remembered delayed branch decode=%p target=%p\n", decode_pc, target_pc);
         tdata->delayed_branch_decode_pcs.push_back(decode_pc);
         tdata->delayed_branch_target_pcs.push_back(target_pc);
     } else if (decode_pc != nullptr)
-        return "Delayed non-instructions should not have a decode PC";
-    return "";
+        return RAW2TRACE_ERROR_DECODE_PC_INVALID;
+    return RAW2TRACE_ERROR_NONE;
 }
 
 bool
@@ -3091,24 +3078,22 @@ raw2trace_t::delayed_branches_exist(raw2trace_thread_data_t *tdata)
     return !tdata->delayed_branch_empty_;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::write_footer(raw2trace_thread_data_t *tdata)
 {
     trace_entry_t entry;
     entry.type = TRACE_TYPE_FOOTER;
     entry.size = 0;
     entry.addr = 0;
-    std::string error = write(tdata, &entry, &entry + 1);
-    if (!error.empty())
-        return error;
-    return "";
+    auto error = write(tdata, &entry, &entry + 1);
+    return error;
 }
 
-std::string
+raw2trace_error_t
 raw2trace_t::on_thread_end(raw2trace_thread_data_t *tdata)
 {
     if (get_next_entry(tdata) != nullptr || !thread_file_at_eof(tdata))
-        return "Footer is not the final entry";
+        return RAW2TRACE_ERROR_FOOTER_NOT_FINAL;
     return write_footer(tdata);
 }
 
@@ -3277,10 +3262,10 @@ raw2trace_t::~raw2trace_t()
 
 bool
 trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
-                                         OUT std::string *error, OUT int *version,
+                                         OUT raw2trace_error_t *error, OUT int *version,
                                          OUT offline_file_type_t *file_type)
 {
-    *error = "";
+    *error = RAW2TRACE_ERROR_NONE;
     if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
         (entry->extended.ext != OFFLINE_EXT_TYPE_HEADER_DEPRECATED &&
          entry->extended.ext != OFFLINE_EXT_TYPE_HEADER)) {
@@ -3306,31 +3291,25 @@ trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
     if (file_type != nullptr)
         *file_type = type;
     if (ver < OFFLINE_FILE_VERSION_OLDEST_SUPPORTED || ver > OFFLINE_FILE_VERSION) {
-        std::stringstream ss;
-        ss << "Version mismatch: found " << ver << " but we require between "
-           << OFFLINE_FILE_VERSION_OLDEST_SUPPORTED << " and " << OFFLINE_FILE_VERSION;
-        *error = ss.str();
+        *error = RAW2TRACE_ERROR_VERSION_MISSMATCH;
         return false;
     }
     if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, type) &&
         !TESTANY(build_target_arch_type(), type)) {
-        std::stringstream ss;
-        ss << "Architecture mismatch: trace recorded on " << trace_arch_string(type)
-           << " but tools built for " << trace_arch_string(build_target_arch_type());
-        *error = ss.str();
+        *error = RAW2TRACE_ERROR_ARCHITECTURE_MISSMATCH;
         return false;
     }
     return true;
 }
 
-std::string
+raw2trace_error_t
 trace_metadata_reader_t::check_entry_thread_start(const offline_entry_t *entry)
 {
-    std::string error;
+    auto error = RAW2TRACE_ERROR_NONE;
     if (is_thread_start(entry, &error, nullptr, nullptr))
-        return "";
-    if (error.empty())
-        return "Thread log file is corrupted: missing version entry";
+        return RAW2TRACE_ERROR_NONE;
+    if (error == RAW2TRACE_ERROR_NONE)
+        return RAW2TRACE_ERROR_TREAD_LOG_FILE_CURRUPTED;
     return error;
 }
 
@@ -3347,10 +3326,10 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
     if (size < 1)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
 
-    std::string error;
+    auto error = RAW2TRACE_ERROR_NONE;
     if (!trace_metadata_reader_t::is_thread_start(offline_entries, &error, nullptr,
                                                   nullptr) &&
-        !error.empty())
+        error != RAW2TRACE_ERROR_NONE)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
     size_t timestamp_pos = 0;
     while (timestamp_pos < size &&

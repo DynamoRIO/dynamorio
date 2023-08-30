@@ -233,10 +233,10 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     in_files_.push_back(ifile);
     if (!(*in_files_.back()))
         return "Failed to open thread log file " + std::string(path);
-    std::string error = raw2trace_t::check_thread_file(in_files_.back());
-    if (!error.empty()) {
+    auto error = raw2trace_t::check_thread_file(in_files_.back());
+    if (error != RAW2TRACE_ERROR_NONE) {
         return "Failed sanity checks for thread log file " + std::string(path) + ": " +
-            error;
+            error_message[error];
     }
     VPRINT(1, "Opened input file %s\n", path);
 

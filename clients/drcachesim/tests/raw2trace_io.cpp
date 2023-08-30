@@ -215,9 +215,9 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
     offline_entry_t buffer[6];
     file->read((char *)buffer, BUFFER_SIZE_BYTES(buffer));
 
-    std::string error;
+    raw2trace_error_t error;
     if (!trace_metadata_reader_t::is_thread_start(buffer, &error, nullptr, nullptr) &&
-        !error.empty())
+        error != RAW2TRACE_ERROR_NONE)
         return false;
     uint64 timestamp = 0;
     if (drmemtrace_get_timestamp_from_offline_trace(buffer, BUFFER_SIZE_BYTES(buffer),
