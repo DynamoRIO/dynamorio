@@ -914,7 +914,8 @@ test_cti_prefixes(void *dc)
 }
 
 static void
-test_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred)
+test_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred,
+               uint eflags)
 {
     instr_t *instr = instr_create(dc);
     byte *end = decode(dc, data, instr);
@@ -922,6 +923,7 @@ test_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred)
     ASSERT(instr_get_opcode(instr) == opcode);
     ASSERT(instr_is_predicated(instr));
     ASSERT(instr_get_predicate(instr) == pred);
+    ASSERT(instr_get_opcode_eflags(opcode) == eflags);
     instr_destroy(dc, instr);
 }
 
@@ -936,9 +938,11 @@ test_cti_predicates(void *dc)
         // 0f 44 c2             cmovbe %edx,%eax
         { 0x0f, 0x46, 0xc2 },
     };
-    test_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE);
-    test_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ);
-    test_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE);
+    test_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE,
+                   EFLAGS_READ_SF | EFLAGS_READ_OF | EFLAGS_READ_ZF);
+    test_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ, EFLAGS_READ_ZF);
+    test_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE,
+                   EFLAGS_READ_CF | EFLAGS_READ_ZF);
 }
 
 static void
@@ -954,10 +958,12 @@ test_rep_predicates(void *dc)
         // f2 af                repne scas
         { 0xf2, 0xaf },
     };
-    test_predicate(dc, data[0], 2, OP_rep_ins, DR_PRED_COMPLEX);
-    test_predicate(dc, data[1], 2, OP_rep_movs, DR_PRED_COMPLEX);
-    test_predicate(dc, data[2], 2, OP_rep_cmps, DR_PRED_COMPLEX);
-    test_predicate(dc, data[3], 2, OP_repne_scas, DR_PRED_COMPLEX);
+    test_predicate(dc, data[0], 2, OP_rep_ins, DR_PRED_COMPLEX, EFLAGS_READ_DF);
+    test_predicate(dc, data[1], 2, OP_rep_movs, DR_PRED_COMPLEX, EFLAGS_READ_DF);
+    test_predicate(dc, data[2], 2, OP_rep_cmps, DR_PRED_COMPLEX,
+                   EFLAGS_WRITE_6 | EFLAGS_READ_DF | EFLAGS_READ_ZF);
+    test_predicate(dc, data[3], 2, OP_repne_scas, DR_PRED_COMPLEX,
+                   EFLAGS_WRITE_6 | EFLAGS_READ_DF | EFLAGS_READ_ZF);
 }
 
 static void
