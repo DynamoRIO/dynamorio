@@ -683,9 +683,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // signal handler to run the restorer code. It is assumed that all signal
         // handlers return normally and longjmp is not used.
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-            // If the marker is
-            // preceded by a RSEQ ABORT marker, do not push the sentinel since there
-            // will not be a corresponding return.
+            // If the marker is preceded by a RSEQ ABORT marker, do not push the sentinel
+            // since there will not be a corresponding return.
             if (shard->prev_entry_.marker.type != TRACE_TYPE_MARKER ||
                 shard->prev_entry_.marker.marker_type != TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 shard->retaddr_stack_.push(0);
