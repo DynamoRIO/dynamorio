@@ -153,9 +153,10 @@ droption_t<std::string> op_funclist_file(
     "directory as the trace file, or a raw/ subdirectory below the trace file, this "
     "parameter can be omitted.");
 
-droption_t<unsigned int> op_num_cores(DROPTION_SCOPE_FRONTEND, "cores", 4,
-                                      "Number of cores",
-                                      "Specifies the number of cores to simulate.");
+droption_t<unsigned int> op_num_cores(
+    DROPTION_SCOPE_FRONTEND, "cores", 4, "Number of cores",
+    "Specifies the number of cores to simulate.  For -core_sharded, each core executes "
+    "in parallel in its own worker thread and -jobs is ignored.");
 
 droption_t<unsigned int> op_line_size(
     DROPTION_SCOPE_FRONTEND, "line_size", 64, "Cache line size",
@@ -782,7 +783,7 @@ droption_t<bool> op_core_sharded(
     DROPTION_SCOPE_ALL, "core_sharded", false, "Analyze per-core in parallel.",
     "By default, the input trace is analyzed in parallel across shards equal to "
     "software threads.  This option instead schedules those threads onto virtual cores "
-    "and analyzes each core in parallel.  Thus, each shard consistens of pieces from "
+    "and analyzes each core in parallel.  Thus, each shard consists of pieces from "
     "many software threads.  How the scheduling is performed is controlled by a set "
     "of options with the prefix \"sched_\" along with -num_cores.");
 

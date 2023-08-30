@@ -1747,7 +1747,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     // We do not enforce a globally increasing time to avoid the synchronization cost; we
     // do return an error on a time smaller than an input's current start time when we
     // check for quantum end.
-    outputs_[output].cur_time = cur_time;
+    outputs_[output].cur_time = cur_time; // Invalid values are checked below.
     if (!outputs_[output].active)
         return sched_type_t::STATUS_WAIT;
     if (outputs_[output].waiting) {

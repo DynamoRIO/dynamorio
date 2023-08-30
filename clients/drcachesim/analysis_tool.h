@@ -141,6 +141,11 @@ public:
     {
         return initialize();
     }
+    // If we end up adding another piece of info we need a tool to know about at
+    // initialization time and we cannot add it to memtrace_stream_t, we should
+    // deprecate both this and initialize_stream() and add a general
+    // forward-proof initialize_tool(const analysis_info_t &info) with the stream
+    // and shard type and new data as fields (plus a size field for forward compat).
     /**
      * Identifies the shard type for this analysis.  The return value indicates whether
      * the tool supports this shard type, with failure (a non-empty string) being treated
