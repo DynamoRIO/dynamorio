@@ -32,6 +32,13 @@
 
 #include "analyzer.h"
 
+#ifdef WINDOWS
+#    define WIN32_LEAN_AND_MEAN
+#    include <windows.h>
+#else
+#    include <sys/time.h>
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -170,9 +177,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::analyzer_tmpl_t()
 
 template <typename RecordType, typename ReaderType>
 bool
-analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(const std::string &trace_path,
-                                                        memref_tid_t only_thread,
-                                                        int verbosity)
+analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
+    const std::string &trace_path, memref_tid_t only_thread, int verbosity,
+    typename sched_type_t::scheduler_options_t *options)
 {
     verbosity_ = verbosity;
     if (trace_path.empty()) {
@@ -191,14 +198,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(const std::string &trace
     if (only_thread != INVALID_THREAD_ID) {
         workload.only_threads.insert(only_thread);
     }
-    return init_scheduler_common(workload);
+    return init_scheduler_common(workload, options);
 }
 
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     std::unique_ptr<ReaderType> reader, std::unique_ptr<ReaderType> reader_end,
-    int verbosity)
+    int verbosity, typename sched_type_t::scheduler_options_t *options)
 {
     verbosity_ = verbosity;
     if (!reader || !reader_end) {
@@ -212,13 +219,14 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler(
     if (skip_instrs_ > 0)
         regions.emplace_back(skip_instrs_ + 1, 0);
     typename sched_type_t::input_workload_t workload(std::move(readers), regions);
-    return init_scheduler_common(workload);
+    return init_scheduler_common(workload, options);
 }
 
 template <typename RecordType, typename ReaderType>
 bool
 analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
-    typename sched_type_t::input_workload_t &workload)
+    typename sched_type_t::input_workload_t &workload,
+    typename sched_type_t::scheduler_options_t *options)
 {
     for (int i = 0; i < num_tools_; ++i) {
         if (parallel_ && !tools_[i]->parallel_shard_supported()) {
@@ -228,9 +236,18 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
     }
     std::vector<typename sched_type_t::input_workload_t> sched_inputs(1);
     sched_inputs[0] = std::move(workload);
+
     typename sched_type_t::scheduler_options_t sched_ops;
-    int output_count;
-    if (parallel_) {
+    if (shard_type_ == SHARD_BY_CORE) {
+        // Subclass must pass us options and set worker_count_ to # cores.
+        if (options == nullptr || worker_count_ <= 0) {
+            error_string_ = "For -core_sharded, core count must be > 0";
+            return false;
+        }
+        sched_ops = *options;
+        if (sched_ops.quantum_unit == sched_type_t::QUANTUM_TIME)
+            sched_by_time_ = true;
+    } else if (parallel_) {
         sched_ops = sched_type_t::make_scheduler_parallel_options(verbosity_);
         if (worker_count_ <= 0)
             worker_count_ = std::thread::hardware_concurrency();
@@ -238,7 +255,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::init_scheduler_common(
         sched_ops = sched_type_t::make_scheduler_serial_options(verbosity_);
         worker_count_ = 1;
     }
-    output_count = worker_count_;
+    int output_count = worker_count_;
     if (scheduler_.init(sched_inputs, output_count, sched_ops) !=
         sched_type_t::STATUS_SUCCESS) {
         ERRMSG("Failed to initialize scheduler: %s\n",
@@ -313,6 +330,26 @@ analyzer_tmpl_t<RecordType, ReaderType>::get_error_string()
 
 template <typename RecordType, typename ReaderType>
 uint64_t
+analyzer_tmpl_t<RecordType, ReaderType>::get_current_microseconds()
+{
+#ifdef UNIX
+    struct timeval time;
+    if (gettimeofday(&time, nullptr) != 0)
+        return 0;
+    return time.tv_sec * 1000000 + time.tv_usec;
+#else
+    SYSTEMTIME sys_time;
+    GetSystemTime(&sys_time);
+    FILETIME file_time;
+    if (!SystemTimeToFileTime(&sys_time, &file_time))
+        return 0;
+    return file_time.dwLowDateTime +
+        (static_cast<uint64_t>(file_time.dwHighDateTime) << 32);
+#endif
+}
+
+template <typename RecordType, typename ReaderType>
+uint64_t
 analyzer_tmpl_t<RecordType, ReaderType>::compute_interval_id(uint64_t first_timestamp,
                                                              uint64_t latest_timestamp)
 {
@@ -377,11 +414,17 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_serial(analyzer_worker_data_t &
         worker.error = tools_[i]->initialize_stream(worker.stream);
         if (!worker.error.empty())
             return;
+        worker.error = tools_[i]->initialize_shard_type(shard_type_);
+        if (!worker.error.empty())
+            return;
     }
     while (true) {
         RecordType record;
+        // The current time is used for time quanta; for instr quanta, it's ignored and
+        // we pass 0.
+        uint64_t cur_micros = sched_by_time_ ? get_current_microseconds() : 0;
         typename sched_type_t::stream_status_t status =
-            worker.stream->next_record(record);
+            worker.stream->next_record(record, cur_micros);
         if (status != sched_type_t::STATUS_OK) {
             if (status != sched_type_t::STATUS_EOF) {
                 if (status == sched_type_t::STATUS_REGION_INVALID) {
@@ -429,11 +472,22 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
     for (int i = 0; i < num_tools_; ++i)
         user_worker_data[i] = tools_[i]->parallel_worker_init(worker->index);
     RecordType record;
+    // The current time is used for time quanta; for instr quanta, it's ignored and
+    // we pass 0.
+    uint64_t cur_micros = sched_by_time_ ? get_current_microseconds() : 0;
     for (typename sched_type_t::stream_status_t status =
-             worker->stream->next_record(record);
+             worker->stream->next_record(record, cur_micros);
          status != sched_type_t::STATUS_EOF;
-         status = worker->stream->next_record(record)) {
-        if (status != sched_type_t::STATUS_OK) {
+         status = worker->stream->next_record(record, cur_micros)) {
+        if (sched_by_time_)
+            cur_micros = get_current_microseconds();
+        if (status == sched_type_t::STATUS_WAIT) {
+            // TODO i#5694: We'd like the forthcoming schedule_stats tool to know about
+            // waits and idle periods (to record "-" in its string): should the analyzer
+            // insert a new marker type that doesn't count toward ordinals (or else it
+            // needs a scheduler API to inject it)?
+            continue;
+        } else if (status != sched_type_t::STATUS_OK) {
             if (status == sched_type_t::STATUS_REGION_INVALID) {
                 worker->error =
                     "Too-far -skip_instrs for: " + worker->stream->get_stream_name();
@@ -443,7 +497,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
             return;
         }
-        int shard_index = worker->stream->get_input_stream_ordinal();
+        int shard_index = shard_type_ == SHARD_BY_CORE
+            ? worker->index
+            : worker->stream->get_input_stream_ordinal();
         if (worker->shard_data.find(shard_index) == worker->shard_data.end()) {
             VPRINT(this, 1, "Worker %d starting on trace shard %d stream is %p\n",
                    worker->index, shard_index, worker->stream);
@@ -457,11 +513,11 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             }
         }
         memref_tid_t tid;
-        // Currently shards map only to threads, so the shard_id is the same as
-        // the thread id.
-        if (worker->shard_data[shard_index].shard_id == 0 &&
-            record_has_tid(record, tid)) {
-            worker->shard_data[shard_index].shard_id = tid;
+        if (worker->shard_data[shard_index].shard_id == 0) {
+            if (shard_type_ == SHARD_BY_CORE)
+                worker->shard_data[shard_index].shard_id = worker->index;
+            else if (record_has_tid(record, tid))
+                worker->shard_data[shard_index].shard_id = tid;
         }
         uint64_t prev_interval_index;
         uint64_t prev_interval_init_instr_count;
@@ -697,6 +753,9 @@ analyzer_tmpl_t<RecordType, ReaderType>::run()
         }
         for (int i = 0; i < num_tools_; ++i) {
             error_string_ = tools_[i]->initialize_stream(nullptr);
+            if (!error_string_.empty())
+                return false;
+            error_string_ = tools_[i]->initialize_shard_type(shard_type_);
             if (!error_string_.empty())
                 return false;
         }

@@ -176,6 +176,16 @@ extern dynamorio::droption::droption_t<bool> op_enable_drstatecmp;
 #ifdef BUILD_PT_TRACER
 extern dynamorio::droption::droption_t<bool> op_enable_kernel_tracing;
 #endif
+extern dynamorio::droption::droption_t<bool> op_core_sharded;
+extern dynamorio::droption::droption_t<bool> op_core_serial;
+extern dynamorio::droption::droption_t<int64_t> op_sched_quantum;
+extern dynamorio::droption::droption_t<bool> op_sched_time;
+extern dynamorio::droption::droption_t<bool> op_sched_order_time;
+#ifdef HAS_ZIP
+extern dynamorio::droption::droption_t<std::string> op_record_file;
+extern dynamorio::droption::droption_t<std::string> op_replay_file;
+extern dynamorio::droption::droption_t<std::string> op_cpu_schedule_file;
+#endif
 
 } // namespace drmemtrace
 } // namespace dynamorio
