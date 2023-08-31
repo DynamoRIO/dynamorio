@@ -481,6 +481,70 @@ check_sane_control_flow()
             return false;
         }
     }
+    // Correct test: Taken branch with signal in betwwen branch and its target.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr_to_move =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr_to_move);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, TID), cbr_to_move },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), move },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 0), nop },
+            { gen_instr(TID), move },
+        };
+        std::vector<memref_t> memrefs =
+            add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: Taken branch with signal in betwwen branch and its target. Return
+    // to the wrong place after the signal.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr_to_move =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr_to_move);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, TID), cbr_to_move },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), move },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 0), nop },
+            { gen_instr(TID), nop },
+        };
+        std::vector<memref_t> memrefs =
+            add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, true,
+                         { "Signal handler return point incorrect", TID,
+                           /*ref_ordinal=*/6, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch bad signal handler return")) {
+            return false;
+        }
+    }
+
 #endif
     return true;
 }

@@ -609,10 +609,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 memref.instr.addr ==
                     shard->last_signal_context_.pre_signal_instr.memref.instr.addr +
                         shard->last_signal_context_.pre_signal_instr.memref.instr.size ||
-                // Too hard to figure out branch targets.  We have the
-                // last_signal_context_.xfer_int_pc though.
-                // TODO i#5912: since we have the branch decoding now, we can handle
-                // this case.
                 type_is_instr_branch(
                     shard->last_signal_context_.pre_signal_instr.memref.instr.type) ||
                 shard->last_signal_context_.pre_signal_instr.memref.instr.type ==
