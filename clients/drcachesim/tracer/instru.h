@@ -229,6 +229,8 @@ public:
     // This is a per-buffer-writeout header.
     virtual int
     append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) = 0;
+    virtual int
+    append_timestamp(byte *buf_ptr) = 0;
     // The entry at buf_ptr must be a timestamp.
     // If the timestamp value is < min_timestamp, replaces it with min_timestamp
     // and returns true; else returns false.
@@ -359,6 +361,8 @@ public:
     append_thread_header(byte *buf_ptr, thread_id_t tid, offline_file_type_t file_type);
     int
     append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) override;
+    int
+    append_timestamp(byte *buf_ptr) override;
     bool
     clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp) override;
 
@@ -447,6 +451,8 @@ public:
     append_thread_header(byte *buf_ptr, thread_id_t tid, offline_file_type_t file_type);
     int
     append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) override;
+    int
+    append_timestamp(byte *buf_ptr) override;
     bool
     clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp) override;
 

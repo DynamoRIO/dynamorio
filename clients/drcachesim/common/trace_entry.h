@@ -90,8 +90,15 @@ typedef enum {
      * version, do not contain this information.
      */
     TRACE_ENTRY_VERSION_BRANCH_INFO = 5,
+    /**
+     * The trace contains additional timestamps to identify and distinguish application
+     * instruction execution, application syscall invocation, and trace i/o.  The
+     * pre-syscall and post-syscall timestamps are as expected.  Prior versions have the
+     * post-syscall timestamp actually containing the pre-syscall time.
+     */
+    TRACE_ENTRY_VERSION_ACCURATE_TIMESTAMPS = 6,
     /** The latest version of the trace format. */
-    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_BRANCH_INFO,
+    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_ACCURATE_TIMESTAMPS,
 } trace_version_t;
 
 /** The type of a trace entry in a #memref_t structure. */

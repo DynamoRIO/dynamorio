@@ -225,6 +225,14 @@ static void
 clean_call(void)
 {
     void *drcontext = dr_get_current_drcontext();
+    // Append a timestamp at the end of the buffer to isolate app time from
+    // buffer i/o time.  We do this here instead of inside process_and_output_buffer()
+    // as the timestamp needs to be before thread exit markers or other special
+    // cases.
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
+    BUF_PTR(data->seg_base) += instru->append_marker(
+        BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     process_and_output_buffer(drcontext, false);
 }
 
@@ -1457,6 +1465,11 @@ event_pre_syscall(void *drcontext, int sysnum)
     if (is_new_window_buffer_empty(data))
         return true;
 
+    // Append a timestamp prior to the syscall to give us syscall latency.
+    BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
+    BUF_PTR(data->seg_base) += instru->append_marker(
+        BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+
     // Output system call numbers if we have a full instruction trace.
     // Since the instruction fetch has already been output, this will be
     // appended to the block-final syscall instr.
@@ -1490,8 +1503,6 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
-    if (file_ops_func.handoff_buf == NULL)
-        process_and_output_buffer(drcontext, false);
 
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
@@ -1554,6 +1565,11 @@ event_post_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
+
+    // Append a timestamp after the syscall to give us syscall latency.
+    BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
+    BUF_PTR(data->seg_base) += instru->append_marker(
+        BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
 
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
@@ -1643,8 +1659,10 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     }
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
-    if (file_ops_func.handoff_buf == NULL)
-        process_and_output_buffer(drcontext, false);
+    // Append a timestamp.
+    BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
+    BUF_PTR(data->seg_base) += instru->append_marker(
+        BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
 }
 
 /***************************************************************************

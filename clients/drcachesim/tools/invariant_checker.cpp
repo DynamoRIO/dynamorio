@@ -333,25 +333,24 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // tries to check adjacent instrs; we disable this check until that is solved.
 #if !defined(WINDOWS) || defined(X64)
         if (shard->prev_instr_decoded_ != nullptr) {
-            report_if_false(shard, instr_is_syscall(shard->prev_instr_decoded_->data),
+            report_if_false(shard,
+                            instr_is_syscall(shard->prev_instr_decoded_->data) &&
+                                shard->expect_syscall_marker_,
                             "Syscall marker not placed after syscall instruction");
         }
 #endif
-    } else if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
-               type_is_instr(shard->prev_entry_.instr.type) &&
-               shard->prev_instr_decoded_ != nullptr &&
-               // TODO i#5949: For WOW64 instr_is_syscall() always returns false.
-               instr_is_syscall(shard->prev_instr_decoded_->data) &&
-               // Allow timestamp+cpuid in between.
-               (memref.marker.type != TRACE_TYPE_MARKER ||
-                (memref.marker.marker_type != TRACE_MARKER_TYPE_TIMESTAMP &&
-                 memref.marker.marker_type != TRACE_MARKER_TYPE_CPU_ID))) {
-        report_if_false(shard,
-                        shard->found_syscall_marker_ &&
-                            shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
-                            shard->prev_entry_.marker.marker_type ==
-                                TRACE_MARKER_TYPE_SYSCALL,
-                        "Syscall instruction not followed by syscall marker");
+        shard->expect_syscall_marker_ = false;
+        // We expect an immediately preceding timestamp + cpuid.
+        if (shard->trace_version_ >= TRACE_ENTRY_VERSION_ACCURATE_TIMESTAMPS) {
+            report_if_false(
+                shard,
+                shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+                    shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID &&
+                    shard->prev_prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+                    shard->prev_prev_entry_.marker.marker_type ==
+                        TRACE_MARKER_TYPE_TIMESTAMP,
+                "Syscall not preceded by timestamp + cpuid");
+        }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL) {
@@ -480,6 +479,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
+        report_if_false(shard,
+                        !TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) ||
+                            !shard->expect_syscall_marker_,
+                        "Syscall marker missing after syscall instruction");
         bool expect_encoding = TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         std::unique_ptr<instr_autoclean_t> cur_instr_decoded = nullptr;
         if (expect_encoding) {
@@ -492,6 +495,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (next_pc == nullptr) {
                 cur_instr_decoded.reset(nullptr);
             }
+            if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
+                instr_is_syscall(cur_instr_decoded->data))
+                shard->expect_syscall_marker_ = true;
         }
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "

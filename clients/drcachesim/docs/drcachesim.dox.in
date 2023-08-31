@@ -99,8 +99,8 @@ A trace is presented to analysis tools as a stream of records.  Each
 record entry is of type #dynamorio::drmemtrace::memref_t and
 represents one instruction or data reference or a metadata operation
 such as a thread exit or marker.  There are built-in scheduling
-markers providing the timestamp and cpu identifier on each thread
-transition.  Other built-in markers indicate disruptions in user mode
+markers providing the timestamp and cpu identifier periodically and before and
+after each system call.  Other built-in markers indicate disruptions in user mode
 control flow such as signal handler entry and exit.
 
 Each entry contains the common fields \p type, \p pid, and \p tid. The
@@ -174,13 +174,15 @@ Some of the more important markers are:
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_KERNEL_XFER - This identifies a system call that changes control flow, such as a signal return.
 
-- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads. It is used in the sequential analysis of a multi-threaded trace.
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads as well as analyze latencies (however, tracing overhead inflates time unevenly, so time deltas should not be considered perfectly representative). It is used in the sequential analysis of a multi-threaded trace.
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected. It is useful to help track thread migrations occurring during execution. This marker is written to the header of each trace buffer when the buffer is flushed. Note that if the thread migrates to a different CPU due to preemption by the kernel before a buffer is full, we do not output a separate #dynamorio::drmemtrace::TRACE_MARKER_TYPE_CPU_ID marker to capture the previous CPU identifier. However, we expect such cases to be rare.
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ID, #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETADDR, #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_ARG, #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See \ref sec_drcachesim_funcs.
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID - The marker value contains the ordinal of the trace burst window when the subsequent entries until the next #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID or end-of-trace were collected (see \ref sec_drcachesim_partial).
+
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL - This identifies a system call.  A timestamp is inserted in the trace before and after each system call.
 
 The full set of markers is listed under the enum #dynamorio::drmemtrace::trace_marker_type_t.
 
@@ -684,7 +686,7 @@ $ $ bin64/drrun -t drcachesim -simulator_type view -indir drmemtrace.*.dir -sim_
 Output format:
 <--record#-> <--instr#->: <---tid---> <record details>
 ------------------------------------------------------------
-           1           0:     3256418 <marker: version 5>
+           1           0:     3256418 <marker: version 6>
            2           0:     3256418 <marker: filetype 0x240>
            3           0:     3256418 <marker: cache line size 64>
            4           0:     3256418 <marker: chunk instruction count 1024>
