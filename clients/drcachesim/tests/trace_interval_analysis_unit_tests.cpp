@@ -96,6 +96,11 @@ public:
         }
         return scheduler_t::stream_status_t::STATUS_EOF;
     }
+    scheduler_t::stream_status_t
+    next_record(memref_t &record, uint64_t cur_time) override
+    {
+        return next_record(record);
+    }
     std::string
     get_stream_name() const override
     {

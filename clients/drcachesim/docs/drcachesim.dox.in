@@ -1489,7 +1489,12 @@ easy to create new trace analysis tools.  A new tool should subclass
 
 Concurrent processing of traces is supported by logically splitting a trace into
 "shards" which are each processed sequentially.  The default shard is a traced
-application thread, but the tool interface can support other divisions.  For tools
+application thread, but the tool interface also supports using physical cores as shards
+with each containing an interleaved mix of application threads provided by the \ref
+sec_drcachesim_sched.  The shard type is available to a tool by overriding the
+initialize_shard_type() funcion.
+
+For tools
 that support concurrent processing of shards and do not need to see a single
 time-sorted interleaved merged trace, the interface functions with the parallel_
 prefix should be overridden, and parallel_shard_supported() should return true.
@@ -1500,6 +1505,13 @@ trace entry for that shard.  The concurrency model used guarantees that all
 entries from any one shard are processed by the same single worker thread, so no
 synchronization is needed inside the parallel_ functions.  A single worker thread
 invokes print_results() as well.
+
+For core-sharded analysis, if the thread-to-core scheduling occurs dynamically (this
+depends on the options passed to the analyzer: see the `-core_sharding` option
+documentation under \ref sec_drcachesim_ops), the speed of each parallel analysis thread
+affects the actual schedule.  If a tool has a significant asymmetry and does not wish this
+to affect the schedule, a desired schedule should be recorded without the tool and then
+replayed with the tool.  In replay mode the tool's speed will not affect the schedule.
 
 For serial operation, process_memref(), operates on a trace entry in a single, sorted,
 interleaved stream of trace entries.  In the default mode of operation, the
@@ -1593,7 +1605,9 @@ given set of outputs in a specified manner.  This allows a tool such
 as a core simulator, or just a tool wanting its own control over
 advancing the trace stream (unlike the analysis tool framework where
 the framework controls the iteration), to request the next trace
-record for each output on its own.
+record for each output on its own.  This scheduling is also available to any analysis tool
+when the input traces are sharded by core (see the `-core_sharding` option documentation
+under \ref sec_drcachesim_ops as well as \ref sec_drcachesim_newtool).
 
 Here is a simple example of a single-output, serial stream.  This also
 serves as an example of how to replace the now-removed old analysis

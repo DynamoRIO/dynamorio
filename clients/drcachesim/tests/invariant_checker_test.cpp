@@ -980,7 +980,7 @@ check_function_markers()
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Nested signals without any intervening instr.
+    // Correctly handle nested signals without any intervening instr.
     {
         constexpr addr_t BASE_PC = 100;
         constexpr addr_t SIG1_PC = 200;
@@ -1016,8 +1016,8 @@ check_function_markers()
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Consecutive signals (that are nested at the same depth) without any
-    // intervening instr between them.
+    // Correctly handle consecutive signals (that are nested at the same depth) without
+    // any intervening instr between them.
     {
         constexpr addr_t BASE_PC = 100;
         constexpr addr_t SIG1_PC = 200;
@@ -1059,6 +1059,38 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, SIG1_PC + INSTR_SZ + INSTR_SZ),
             gen_instr(TID, BASE_PC + INSTR_SZ, INSTR_SZ),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correctly handle rseq abort.
+    {
+        constexpr addr_t BASE_PC = 100;
+        constexpr addr_t FUNC_PC = 200;
+        constexpr size_t INSTR_SZ = 8;
+        constexpr size_t ABORT_HANDLER_OFFSET = 10;
+
+        std::vector<memref_t> memrefs = {
+            // Call function 1.
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, BASE_PC, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE_PC + CALL_SZ),
+
+            gen_instr(TID, FUNC_PC, INSTR_SZ),
+            // Rolled back instr at pc=FUNC_PC+INSTR_SZ size=CALL_SZ.
+            // Point to the abort handler.
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, FUNC_PC + ABORT_HANDLER_OFFSET),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT,
+                       FUNC_PC + ABORT_HANDLER_OFFSET),
+            gen_instr(TID, FUNC_PC + ABORT_HANDLER_OFFSET, INSTR_SZ),
+
+            // A tail recursion that jumps back to the beginning of function 1.
+            gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, TID,
+                           FUNC_PC + ABORT_HANDLER_OFFSET + INSTR_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 1),
+            // The return address should be the same as the return address of
+            // the original call to function 1.
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, BASE_PC + CALL_SZ),
         };
         if (!run_checker(memrefs, false))
             return false;

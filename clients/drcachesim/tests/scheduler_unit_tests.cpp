@@ -2546,6 +2546,16 @@ test_replay_as_traced()
     if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
         scheduler_t::STATUS_SUCCESS)
         assert(false);
+    // Test that we can find the mappings from as-traced cpuid to output stream,
+    // even before calling next_record().
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        int64_t cpu = scheduler.get_stream(i)->get_output_cpuid();
+        assert(cpu >= 0);
+        if (i == 0)
+            assert(cpu == CPU0);
+        else
+            assert(cpu == CPU1);
+    }
     std::vector<std::string> sched_as_string =
         run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
     for (int i = 0; i < NUM_OUTPUTS; i++) {
