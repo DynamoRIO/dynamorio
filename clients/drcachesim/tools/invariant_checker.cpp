@@ -817,8 +817,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID))) {
         shard->saw_rseq_abort_ = false;
     }
-    shard->prev_prev_entry_ = shard->prev_entry_;
 #endif
+    shard->prev_prev_entry_ = shard->prev_entry_;
     shard->prev_entry_ = memref;
     if (type_is_instr_branch(shard->prev_entry_.instr.type))
         shard->last_branch_ = shard->prev_entry_;
