@@ -131,15 +131,18 @@ protected:
         // We keep track of return addresses of nested function calls.
         std::stack<addr_t> retaddr_stack_;
         uintptr_t trace_version_ = 0;
-        struct instr_info_t {
-            memref_t memref;
-            // Decoding related attributes.
+        // Struct to store decoding related attributes.
+        struct decoding_info_t {
             bool has_valid_decoding = false;
             bool is_syscall = false;
             bool writes_memory = false;
             addr_t branch_target;
         };
-        std::unordered_map<app_pc, instr_info_t> decode_cache_;
+        struct instr_info_t {
+            memref_t memref;
+            decoding_info_t decoding;
+        };
+        std::unordered_map<app_pc, decoding_info_t> decode_cache_;
         instr_info_t prev_instr_ = {};
 #ifdef UNIX
         // We keep track of some state per nested signal depth.

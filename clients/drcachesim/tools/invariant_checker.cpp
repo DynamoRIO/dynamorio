@@ -333,16 +333,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // TODO i#5949: For WOW64 instr_is_syscall() always returns false here as it
         // tries to check adjacent instrs; we disable this check until that is solved.
 #if !defined(WINDOWS) || defined(X64)
-        if (shard->prev_instr_.has_valid_decoding) {
-            report_if_false(shard, shard->prev_instr_.is_syscall,
+        if (shard->prev_instr_.decoding.has_valid_decoding) {
+            report_if_false(shard, shard->prev_instr_.decoding.is_syscall,
                             "Syscall marker not placed after syscall instruction");
         }
 #endif
     } else if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
                type_is_instr(shard->prev_entry_.instr.type) &&
-               shard->prev_instr_.has_valid_decoding &&
+               shard->prev_instr_.decoding.has_valid_decoding &&
                // TODO i#5949: For WOW64 instr_is_syscall() always returns false.
-               shard->prev_instr_.is_syscall &&
+               shard->prev_instr_.decoding.is_syscall &&
                // Allow timestamp+cpuid in between.
                (memref.marker.type != TRACE_TYPE_MARKER ||
                 (memref.marker.marker_type != TRACE_MARKER_TYPE_TIMESTAMP &&
@@ -492,7 +492,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             }
             auto cached = shard->decode_cache_.find(trace_pc);
             if (cached != shard->decode_cache_.end()) {
-                cur_instr_info = cached->second;
+                cur_instr_info.decoding = cached->second;
             } else {
                 instr_noalloc_t noalloc;
                 instr_noalloc_init(GLOBAL_DCONTEXT, &noalloc);
@@ -505,23 +505,23 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 }
                 // Add decoding attributes to cur_instr_info.
                 if (noalloc_instr != nullptr) {
-                    cur_instr_info.has_valid_decoding = true;
-                    cur_instr_info.is_syscall = instr_is_syscall(noalloc_instr);
-                    cur_instr_info.writes_memory = instr_writes_memory(noalloc_instr);
+                    cur_instr_info.decoding.has_valid_decoding = true;
+                    cur_instr_info.decoding.is_syscall = instr_is_syscall(noalloc_instr);
+                    cur_instr_info.decoding.writes_memory =
+                        instr_writes_memory(noalloc_instr);
                     if (type_is_instr_branch(memref.instr.type)) {
                         const opnd_t target = instr_get_target(noalloc_instr);
                         if (opnd_is_pc(target)) {
-                            cur_instr_info.branch_target =
+                            cur_instr_info.decoding.branch_target =
                                 reinterpret_cast<addr_t>(opnd_get_pc(target));
                         }
                     }
                 }
-                shard->decode_cache_[trace_pc] = cur_instr_info;
+                shard->decode_cache_[trace_pc] = cur_instr_info.decoding;
             }
         }
-        // We need to assign the memref variable of cur_instr_info here after we retrieve
-        // the rest of cur_instr_info from the cache. The memref values can not be cached
-        // as they dynamically vary based on data values.
+        // We need to assign the memref variable of cur_instr_info here. The memref
+        // variable is not cached as it can dynamically vary based on data values.
         cur_instr_info.memref = memref;
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
@@ -993,14 +993,14 @@ invariant_checker_t::check_for_pc_discontinuity(
     }
     // We do not bother to support legacy traces without encodings.
     if (expect_encoding && type_is_instr_direct_branch(prev_instr.instr.type)) {
-        if (!prev_instr_info.has_valid_decoding) {
+        if (!prev_instr_info.decoding.has_valid_decoding) {
             // Neither condition should happen but they could on an invalid
             // encoding from raw2trace or the reader so we report an
             // invariant rather than asserting.
             report_if_false(shard, false, "Branch target is not decodeable");
         } else {
             have_branch_target = true;
-            branch_target = prev_instr_info.branch_target;
+            branch_target = prev_instr_info.decoding.branch_target;
         }
     }
     // Check for all valid transitions except taken branches. We consider taken
@@ -1052,11 +1052,13 @@ invariant_checker_t::check_for_pc_discontinuity(
             if (have_branch_target && branch_target != cur_pc) {
                 error_msg = "Branch does not go to the correct target";
             }
-        } else if (cur_instr_info.has_valid_decoding &&
-                   prev_instr_info.has_valid_decoding && cur_instr_info.is_syscall &&
-                   cur_pc == prev_instr_trace_pc && prev_instr_info.is_syscall) {
+        } else if (cur_instr_info.decoding.has_valid_decoding &&
+                   prev_instr_info.decoding.has_valid_decoding &&
+                   cur_instr_info.decoding.is_syscall && cur_pc == prev_instr_trace_pc &&
+                   prev_instr_info.decoding.is_syscall) {
             error_msg = "Duplicate syscall instrs with the same PC";
-        } else if (prev_instr_info.has_valid_decoding && prev_instr_info.writes_memory &&
+        } else if (prev_instr_info.decoding.has_valid_decoding &&
+                   prev_instr_info.decoding.writes_memory &&
                    type_is_instr_conditional_branch(shard->last_branch_.instr.type)) {
             // This sequence happens when an rseq side exit occurs which
             // results in missing instruction in the basic block.
