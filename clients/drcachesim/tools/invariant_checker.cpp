@@ -249,19 +249,21 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // Still in the region.
             } else {
                 // We should see an abort marker or a side exit if we leave the region.
-                report_if_false(
-                    shard, type_is_instr_branch(shard->prev_instr_.memref.instr.type),
-                    "Rseq region exit requires marker, branch, or commit");
+                report_if_false(shard,
+                                type_is_instr_branch(
+                                    shard->last_instr_in_cur_context_.memref.instr.type),
+                                "Rseq region exit requires marker, branch, or commit");
                 shard->in_rseq_region_ = false;
             }
         } else {
-            report_if_false(
-                shard,
-                memref.marker.type != TRACE_TYPE_MARKER ||
-                    memref.marker.marker_type != TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                    // Side exit.
-                    type_is_instr_branch(shard->prev_instr_.memref.instr.type),
-                "Signal in rseq region should have abort marker");
+            report_if_false(shard,
+                            memref.marker.type != TRACE_TYPE_MARKER ||
+                                memref.marker.marker_type !=
+                                    TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                                // Side exit.
+                                type_is_instr_branch(
+                                    shard->last_instr_in_cur_context_.memref.instr.type),
+                            "Signal in rseq region should have abort marker");
         }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -271,10 +273,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // case the marker value will point to it.
         report_if_false(shard,
                         shard->rseq_end_pc_ == 0 ||
-                            shard->prev_instr_.memref.instr.addr +
-                                    shard->prev_instr_.memref.instr.size !=
+                            shard->last_instr_in_cur_context_.memref.instr.addr +
+                                    shard->last_instr_in_cur_context_.memref.instr.size !=
                                 shard->rseq_end_pc_ ||
-                            shard->prev_instr_.memref.instr.addr ==
+                            shard->last_instr_in_cur_context_.memref.instr.addr ==
                                 memref.marker.marker_value,
                         "Rseq post-abort instruction not rolled back");
         shard->in_rseq_region_ = false;
@@ -333,16 +335,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // TODO i#5949: For WOW64 instr_is_syscall() always returns false here as it
         // tries to check adjacent instrs; we disable this check until that is solved.
 #if !defined(WINDOWS) || defined(X64)
-        if (shard->prev_instr_.decoding.has_valid_decoding) {
-            report_if_false(shard, shard->prev_instr_.decoding.is_syscall,
+        if (shard->last_instr_in_cur_context_.decoding.has_valid_decoding) {
+            report_if_false(shard, shard->last_instr_in_cur_context_.decoding.is_syscall,
                             "Syscall marker not placed after syscall instruction");
         }
 #endif
     } else if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
                type_is_instr(shard->prev_entry_.instr.type) &&
-               shard->prev_instr_.decoding.has_valid_decoding &&
+               shard->last_instr_in_cur_context_.decoding.has_valid_decoding &&
                // TODO i#5949: For WOW64 instr_is_syscall() always returns false.
-               shard->prev_instr_.decoding.is_syscall &&
+               shard->last_instr_in_cur_context_.decoding.is_syscall &&
                // Allow timestamp+cpuid in between.
                (memref.marker.type != TRACE_TYPE_MARKER ||
                 (memref.marker.marker_type != TRACE_MARKER_TYPE_TIMESTAMP &&
@@ -406,7 +408,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard,
             shard->prev_func_id_ >=
                     static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
-                type_is_instr_branch(shard->prev_instr_.memref.instr.type),
+                type_is_instr_branch(shard->last_instr_in_cur_context_.memref.instr.type),
             "Function marker should be after a branch");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -551,7 +553,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // If we did serial analyses only, we'd just track the previous instr in the
         // interleaved stream.  Here we look for headers indicating where an interleaved
         // stream *could* switch threads, so we're stricter than necessary.
-        if (knob_offline_ && type_is_instr_branch(shard->prev_instr_.memref.instr.type)) {
+        if (knob_offline_ &&
+            type_is_instr_branch(shard->last_instr_in_cur_context_.memref.instr.type)) {
             report_if_false(
                 shard,
                 !shard->saw_timestamp_but_no_instr_ ||
@@ -570,7 +573,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // by markers.  Checks are relaxed if a kernel event occurred so prev_instr_
         // is sufficient for now.
         const std::string non_explicit_flow_violation_msg = check_for_pc_discontinuity(
-            shard, shard->prev_instr_, cur_instr_info, expect_encoding,
+            shard, shard->last_instr_in_cur_context_, cur_instr_info, expect_encoding,
             /*at_kernel_event=*/false);
         report_if_false(shard, non_explicit_flow_violation_msg.empty(),
                         non_explicit_flow_violation_msg);
@@ -627,14 +630,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             shard->file_type_),
                 "Signal handler return point incorrect");
         }
-        // last_instr_in_cur_context_ is recorded as the pre-signal instr when we see a
-        // TRACE_MARKER_TYPE_KERNEL_EVENT marker. Note that we cannot perform this
-        // book-keeping using prev_instr_ on the TRACE_MARKER_TYPE_KERNEL_EVENT marker.
-        // E.g. if there was no instr between two nested signals, we do not want to
-        // record any pre-signal instr for the second signal.
-        shard->last_instr_in_cur_context_ = cur_instr_info;
 #endif
-        shard->prev_instr_ = cur_instr_info;
+        // last_instr_in_cur_context_ is recorded as the pre-signal instr when we see a
+        // TRACE_MARKER_TYPE_KERNEL_EVENT marker.
+        shard->last_instr_in_cur_context_ = cur_instr_info;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
         // prior (i#3937).
