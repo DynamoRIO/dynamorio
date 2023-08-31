@@ -143,9 +143,7 @@ protected:
             decoding_info_t decoding;
         };
         std::unordered_map<app_pc, decoding_info_t> decode_cache_;
-        // For the outer-most scope, like other nested signal scopes, we start with an
-        // empty memref_t to denote absence of any pre-signal instr.
-        instr_info_t last_instr_in_cur_context_ = {};
+        instr_info_t prev_instr_ = {};
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
         struct signal_context {
@@ -164,6 +162,10 @@ protected:
         // see a signal-return before a signal-start (which happens when the trace
         // starts inside the app signal handler).
         signal_context last_signal_context_ = { 0, {}, false };
+
+        // For the outer-most scope, like other nested signal scopes, we start with an
+        // empty memref_t to denote absence of any pre-signal instr.
+        instr_info_t last_instr_in_cur_context_ = {};
 
         bool saw_rseq_abort_ = false;
         memref_t prev_prev_entry_ = {};
