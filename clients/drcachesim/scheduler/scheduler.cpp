@@ -857,6 +857,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::read_traced_schedule()
                 }
             }
             cur_cpu = entry.cpu;
+            VPRINT(this, 1, "Output #%d is as-traced CPU #%" PRId64 "\n", cur_output,
+                   cur_cpu);
+            outputs_[cur_output].as_traced_cpuid = cur_cpu;
         }
         input_ordinal_t input = tid2input[entry.thread];
         // We'll fill in the stop ordinal in our second pass below.
@@ -1214,6 +1217,15 @@ scheduler_tmpl_t<RecordType, ReaderType>::is_record_synthetic(output_ordinal_t o
     if (index < 0)
         return false;
     return inputs_[index].reader->is_record_synthetic();
+}
+
+template <typename RecordType, typename ReaderType>
+int64_t
+scheduler_tmpl_t<RecordType, ReaderType>::get_output_cpuid(output_ordinal_t output)
+{
+    if (options_.replay_as_traced_istream != nullptr)
+        return outputs_[output].as_traced_cpuid;
+    return output;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -1735,7 +1747,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     // We do not enforce a globally increasing time to avoid the synchronization cost; we
     // do return an error on a time smaller than an input's current start time when we
     // check for quantum end.
-    outputs_[output].cur_time = cur_time;
+    outputs_[output].cur_time = cur_time; // Invalid values are checked below.
     if (!outputs_[output].active)
         return sched_type_t::STATUS_WAIT;
     if (outputs_[output].waiting) {

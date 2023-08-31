@@ -129,7 +129,16 @@ changes:
  - Marked x86 rep instructions as predicated.
 
 Further non-compatibility-affecting changes include:
- - Nothing yet.
+ - Added core-sharded analysis tool support where traces are sharded by
+   core instead of by thread, with the thread schedules onto the cores
+   either following how they were traced or using a dynamic schedule.
+   Adds #dynamorio::drmemtrace::shard_type_t passed to initialize_shard_type()
+   to inform tools of the shard type.
+   Adds a new memtrace_stream_t::get_output_cpuid() query.
+   Adds a number of drcachesim options to set sharding mode (-core_sharding,
+   -core_serial) and control the schedule
+   (-sched_quantum, -sched_time, sched_order_time, -record_file,
+   -replay_file, -cpu_schedule_file).
 
 **************************************************
 <hr>
