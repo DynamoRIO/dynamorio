@@ -481,7 +481,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Correct test: Taken branch with signal in betwwen branch and its target.
+    // Correct test: Taken branch with signal in between branch and its target.
     {
         instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
                                           opnd_create_reg(REG2));
@@ -510,7 +510,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Incorrect test: Taken branch with signal in betwwen branch and its target. Return
+    // Incorrect test: Taken branch with signal in between branch and its target. Return
     // to the wrong place after the signal.
     {
         instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
