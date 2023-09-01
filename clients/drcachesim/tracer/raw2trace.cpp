@@ -566,7 +566,6 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                                    OUT bool *end_of_record, OUT bool *last_bb_handled,
                                    OUT bool *flush_decode_cache)
 {
-    bool success = true;
     trace_entry_t *buf_base = get_write_buffer(tdata);
     byte *buf = reinterpret_cast<byte *>(buf_base);
     if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED) {
@@ -578,18 +577,15 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             log(2, "Thread %d exit\n", (uint)tid);
             buf += trace_metadata_writer_t::write_thread_exit(buf, tid);
             *end_of_record = true;
-            success =
-                write(tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
-            if (!success)
-                return success;
+            if (!write(tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf)))
+                return false;
             // Let the user determine what other actions to take, e.g. account for
             // the ending of the current thread, etc.
             return on_thread_end(tdata);
         } else if (in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER) {
             uintptr_t marker_val = 0;
-            success = get_marker_value(tdata, &in_entry, &marker_val);
-            if (!success)
-                return success;
+            if (!get_marker_value(tdata, &in_entry, &marker_val))
+                return false;
             buf += trace_metadata_writer_t::write_marker(
                 buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
             if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
@@ -597,15 +593,13 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                 // An rseq side exit may next hit a signal which is then the
                 // boundary of the rseq region.
                 if (tdata->rseq_past_end_) {
-                    success = adjust_and_emit_rseq_buffer(tdata, marker_val);
-                    if (!success)
-                        return success;
+                    if (!adjust_and_emit_rseq_buffer(tdata, marker_val))
+                        return false;
                 }
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 log(4, "Rseq abort %d\n", tdata->rseq_past_end_);
-                success = adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val);
-                if (!success)
-                    return success;
+                if (!adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val))
+                    return false;
             } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
                 if (tdata->rseq_want_rollback_) {
                     if (tdata->rseq_buffering_enabled_) {
@@ -613,9 +607,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                         // exit, taking the last branch.  This means we don't need the
                         // prior iterations in the buffer.
                         log(4, "Rseq was already buffered: assuming loop; emitting\n");
-                        success = adjust_and_emit_rseq_buffer(tdata, marker_val);
-                        if (!success)
-                            return success;
+                        if (!adjust_and_emit_rseq_buffer(tdata, marker_val))
+                            return false;
                     }
                     log(4,
                         "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
@@ -659,9 +652,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // check for it here.
             if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
                 if (delayed_branches_exist(tdata)) {
-                    success = write_delayed_branches(
+                    return write_delayed_branches(
                         tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
-                    return success;
                 }
             }
             log(3, "Appended marker type %u value " PIFX "\n",
@@ -698,9 +690,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
                  "append_bb_entries";
             return false;
         }
-        success = append_bb_entries(tdata, in_entry, last_bb_handled);
-        if (!success)
-            return success;
+        if (!append_bb_entries(tdata, in_entry, last_bb_handled))
+            return false;
     } else if (in_entry->addr.type == OFFLINE_TYPE_IFLUSH) {
         const offline_entry_t *entry = get_next_entry(tdata);
         if (entry == nullptr || entry->addr.type != OFFLINE_TYPE_IFLUSH) {
@@ -723,10 +714,9 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
         return false;
     }
     if (size > 0) {
-        success =
-            write(tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+        return write(tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
     }
-    return success;
+    return true;
 }
 
 bool
@@ -779,7 +769,6 @@ raw2trace_t::read_header(raw2trace_thread_data_t *tdata, OUT trace_header_t *hea
 bool
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
-    bool success = true;
     int version = tdata->version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
         ? TRACE_ENTRY_VERSION_NO_KERNEL_PC
         : TRACE_ENTRY_VERSION;
@@ -787,16 +776,14 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
     entry.addr = version;
-    success = write(tdata, &entry, &entry + 1);
-    if (!success)
-        return success;
+    if (!write(tdata, &entry, &entry + 1))
+        return false;
 
     // First read the tid and pid entries which precede any timestamps.
     trace_header_t header = { static_cast<process_id_t>(INVALID_PROCESS_ID),
                               INVALID_THREAD_ID, 0 };
-    success = read_header(tdata, &header);
-    if (!success)
-        return success;
+    if (!read_header(tdata, &header))
+        return false;
     VPRINT(2, "File %u is thread %u\n", tdata->index, (uint)header.tid);
     VPRINT(2, "File %u is process %u\n", tdata->index, (uint)header.pid);
     thread_id_t tid = header.tid;
@@ -832,10 +819,9 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
         tdata->error = "Too many entries";
         return false;
     }
-    success = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
-                  reinterpret_cast<trace_entry_t *>(buf));
-    if (!success)
-        return success;
+    if (!write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
+                  reinterpret_cast<trace_entry_t *>(buf)))
+        return false;
     buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     buf = buf_base;
     // Write out further markers.
@@ -854,9 +840,8 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
         tdata->error = "Too many entries";
         return false;
     }
-    success = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
+    return write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
                   reinterpret_cast<trace_entry_t *>(buf));
-    return success;
 }
 
 #ifdef BUILD_PT_POST_PROCESSOR
@@ -1000,7 +985,6 @@ bool
 raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                                         OUT bool *end_of_record)
 {
-    bool success = true;
     // We now convert each offline entry into a trace_entry_t.
     // We fill in instr entries and memref type and size.
     const offline_entry_t *in_entry = get_next_entry(tdata);
@@ -1012,15 +996,14 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             in_entry, &tdata->error, &tdata->version, &tdata->file_type);
         VPRINT(2, "Trace file version is %d; type is %d\n", tdata->version,
                tdata->file_type);
-        if (!success)
-            return success;
+        if (!tdata->error.empty())
+            return false;
         // We do not complain if tdata->version >= OFFLINE_FILE_VERSION_ENCODINGS
         // and encoding_file_ == INVALID_FILE since we have several tests with
         // that setup.  We do complain during processing about unknown instructions.
         if (tdata->saw_header) {
-            success = process_header(tdata);
-            if (!success)
-                return success;
+            if (!process_header(tdata))
+                return false;
         }
         in_entry = get_next_entry(tdata);
     }
@@ -1045,19 +1028,17 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                 tdata->error = "Too many entries";
                 return false;
             }
-            success = write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
-                                 reinterpret_cast<trace_entry_t *>(buf));
-            if (!success)
-                return success;
+            if (!write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
+                                 reinterpret_cast<trace_entry_t *>(buf)))
+                return false;
             continue;
         }
 #ifdef BUILD_PT_POST_PROCESSOR
         if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
             entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
             entry.extended.valueB == TRACE_MARKER_TYPE_SYSCALL_IDX) {
-            success = process_syscall_pt(tdata, entry.extended.valueA);
-            if (!success)
-                return success;
+            if (!process_syscall_pt(tdata, entry.extended.valueA))
+                return false;
             continue;
         }
 #endif
@@ -1079,43 +1060,40 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
                 entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
                 uintptr_t marker_val = 0;
-                success = get_marker_value(tdata, &in_entry, &marker_val);
-                if (!success)
-                    return success;
+                if (!get_marker_value(tdata, &in_entry, &marker_val))
+                    return false;
                 next_pc = reinterpret_cast<app_pc>(marker_val);
                 // Restore in case it was a two-record value.
                 unread_last_entry(tdata);
                 in_entry = get_next_entry(tdata);
                 entry = *in_entry;
             } // Else we will delete the final branch in append_delayed_branch().
-            success = append_delayed_branch(tdata, next_pc);
-            if (!success)
-                return success;
+            if (!append_delayed_branch(tdata, next_pc))
+                return false;
         }
         if (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
             entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
             tdata->last_window = entry.extended.valueA;
         bool flush_decode_cache = false;
-        success = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
+        auto success = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
                                              &last_bb_handled, &flush_decode_cache);
         if (flush_decode_cache)
             decode_cache_[tdata->worker].clear();
         if (!success)
-            return success;
+            return false;
     }
-    return success;
+    return true;
 }
 
 bool
 raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
 {
-    bool success = true;
     bool end_of_file = false;
     while (!end_of_file) {
         VPRINT(4, "About to read thread #%d==%d at pos %d\n", tdata->index,
                (uint)tdata->tid, (int)tdata->thread_file->tellg());
-        success = process_next_thread_buffer(tdata, &end_of_file);
-        if (!success || (!end_of_file && thread_file_at_eof(tdata))) {
+        if (!process_next_thread_buffer(tdata, &end_of_file) ||
+           (!end_of_file && thread_file_at_eof(tdata))) {
             if (thread_file_at_eof(tdata)) {
                 // Rather than a fatal error we try to continue to provide partial
                 // results in case the disk was full or there was some other issue.
@@ -1124,7 +1102,7 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
                 entry.extended.type = OFFLINE_TYPE_EXTENDED;
                 entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
                 bool last_bb_handled = true, flush_decode_cache = false;
-                success =
+                auto success =
                     process_offline_entry(tdata, &entry, tdata->tid, &end_of_file,
                                           &last_bb_handled, &flush_decode_cache);
                 if (flush_decode_cache)
@@ -1134,7 +1112,7 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
                     return false;
                 }
                 if (!success)
-                    return success;
+                    return false;
             } else {
                 std::stringstream ss;
                 ss << "Failed to process file for thread " << (uint)tdata->tid << ": "
@@ -1145,7 +1123,7 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
         }
     }
     // The footer is written out by on_thread_end().
-    return success;
+    return true;
 }
 
 std::string
@@ -1204,8 +1182,7 @@ raw2trace_t::process_tasks(std::vector<raw2trace_thread_data_t *> *tasks)
     VPRINT(1, "Worker %d assigned %zd task(s)\n", (*tasks)[0]->worker, tasks->size());
     for (raw2trace_thread_data_t *tdata : *tasks) {
         VPRINT(1, "Worker %d starting on trace thread %d\n", tdata->worker, tdata->index);
-        bool success = process_thread_file(tdata);
-        if (!success) {
+        if (!process_thread_file(tdata)) {
             VPRINT(1, "Worker %d hit error %s on trace thread %d\n", tdata->worker,
                    tdata->error.c_str(), tdata->index);
             break;
@@ -1226,8 +1203,7 @@ raw2trace_t::do_conversion()
     if (worker_count_ == 0) {
         for (size_t i = 0; i < thread_data_.size(); ++i) {
             raw2trace_thread_data_t* tdata = thread_data_[i].get();
-            auto success = process_thread_file(tdata);
-            if (!success)
+            if (!process_thread_file(tdata))
                 return tdata->error;
             count_elided_ += thread_data_[i]->count_elided;
             count_duplicate_syscall_ += thread_data_[i]->count_duplicate_syscall;
@@ -1469,21 +1445,18 @@ raw2trace_t::process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_
                             uint64_t cur_pc, uint64_t cur_offs, bool instrs_are_separate,
                             OUT bool *reached_end_of_memrefs, OUT bool *interrupted)
 {
-    bool success = append_memref(tdata, buf_in, instr, memref, write, reg_vals,
-                                        reached_end_of_memrefs);
-    if (!success)
-        return success;
-    success = handle_kernel_interrupt_and_markers(tdata, buf_in, cur_pc, cur_offs,
-                                                instr->length(), instrs_are_separate,
-                                                interrupted);
-    return success;
+    if (!append_memref(tdata, buf_in, instr, memref, write, reg_vals,
+                       reached_end_of_memrefs))
+        return false;
+    return handle_kernel_interrupt_and_markers(tdata, buf_in, cur_pc, cur_offs,
+                                               instr->length(), instrs_are_separate,
+                                               interrupted);
 }
 
 bool
 raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                                const offline_entry_t *in_entry, OUT bool *handled)
 {
-    bool success = true;
     uint instr_count = in_entry->pc.instr_count;
     const instr_summary_t *instr = nullptr;
     app_pc start_pc = modmap_().get_map_pc(in_entry->pc.modidx, in_entry->pc.modoffs);
@@ -1512,7 +1485,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         // traces have expired), we can remove the bool return value and handle the
         // memrefs in this function.
         *handled = false;
-        return success;
+        return true;
     } else {
         log(3, "Appending %u instrs in bb " PFX " in mod %u +" PIFX " = %s\n",
             instr_count, (ptr_uint_t)start_pc, (uint)in_entry->pc.modidx,
@@ -1542,10 +1515,9 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     } else {
         if (!instr_summary_exists(tdata, in_entry->pc.modidx, in_entry->pc.modoffs,
                                   start_pc, 0, decode_pc)) {
-            success = analyze_elidable_addresses(
-                tdata, in_entry->pc.modidx, in_entry->pc.modoffs, start_pc, instr_count);
-            if (!success)
-                return success;
+            if (!analyze_elidable_addresses(
+                tdata, in_entry->pc.modidx, in_entry->pc.modoffs, start_pc, instr_count))
+                return false;
         }
     }
     if (instrs_are_separate && instr_count != 1) {
@@ -1628,22 +1600,19 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
         }
         if (!instr->is_cti()) {
             // Write out delayed branches now that we have a target.
-            success = append_delayed_branch(tdata, orig_pc);
-            if (!success)
-                return success;
+            if (!append_delayed_branch(tdata, orig_pc))
+                return false;
         }
         if (tdata->rseq_buffering_enabled_) {
             addr_t instr_pc = reinterpret_cast<addr_t>(orig_pc);
             if (tdata->rseq_past_end_) {
-                success = adjust_and_emit_rseq_buffer(tdata, instr_pc);
-                if (!success)
-                    return success;
+                if (!adjust_and_emit_rseq_buffer(tdata, instr_pc))
+                    return false;
             } else if (instr_pc < tdata->rseq_start_pc_ ||
                        instr_pc >= tdata->rseq_end_pc_) {
                 log(4, "Hit exit to 0x%zx during instrumented rseq run\n", orig_pc);
-                success = adjust_and_emit_rseq_buffer(tdata, instr_pc);
-                if (!success)
-                    return success;
+                if (!adjust_and_emit_rseq_buffer(tdata, instr_pc))
+                    return false;
             } else {
                 if (instr->is_cti()) {
                     log(4, "Remembering rseq branch %p -> %p\n", orig_pc,
@@ -1669,9 +1638,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             }
         }
         if (!skip_icache && record_encoding_emitted(tdata, decode_pc)) {
-            success = append_encoding(tdata, decode_pc, instr->length(), buf, buf_start);
-            if (!success)
-                return success;
+            if (!append_encoding(tdata, decode_pc, instr->length(), buf, buf_start))
+                return false;
         }
 
         // XXX i#1729: make bundles via lazy accum until hit memref/end, if
@@ -1706,20 +1674,18 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // In case handle_kernel_interrupt_and_markers() calls
             // adjust_and_emit_rseq_buffer() we need to have written this instr to the
             // rseq buffer.
-            success = write(tdata, buf_start, buf, &saved_decode_pc, 1);
-            if (!success)
-                return success;
+            if (!write(tdata, buf_start, buf, &saved_decode_pc, 1))
+                return false;
             buf = buf_start;
         }
         // Check for a signal *after* the instruction.  The trace is recording
         // instruction *fetches*, not instruction retirement, and we want to
         // include a faulting instruction before its raised signal.
         bool interrupted = false;
-        success = handle_kernel_interrupt_and_markers(tdata, &buf, cur_pc, cur_offs,
-                                                    instr->length(), instrs_are_separate,
-                                                    &interrupted);
-        if (!success)
-            return success;
+        if (!handle_kernel_interrupt_and_markers(tdata, &buf, cur_pc, cur_offs,
+                                                 instr->length(), instrs_are_separate,
+                                                 &interrupted))
+            return false;
         if (interrupted) {
             log(3, "Stopping bb at kernel interruption point %p\n", cur_pc);
         }
@@ -1744,7 +1710,7 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 while (!reached_end_of_memrefs) {
                     // XXX: Add sanity check for max count of store/load memrefs
                     // possible for a given scatter/gather instr.
-                    success = process_memref(
+                    if (!process_memref(
                         tdata, &buf, instr,
                         // These memrefs were output by multiple store/load instrs in
                         // the expanded scatter/gather sequence. In raw2trace we see
@@ -1752,30 +1718,27 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                         // dest/src of the original scatter/gather instr for all.
                         is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
                         is_scatter, reg_vals, cur_pc, cur_offs, instrs_are_separate,
-                        &reached_end_of_memrefs, &interrupted);
-                    if (!success)
-                        return success;
+                        &reached_end_of_memrefs, &interrupted))
+                        return false;
                     if (interrupted)
                         break;
                 }
             } else {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
-                    success = process_memref(tdata, &buf, instr, instr->mem_src_at(j),
-                                           false, reg_vals, cur_pc, cur_offs,
-                                           instrs_are_separate, nullptr, &interrupted);
-                    if (!success)
-                        return success;
+                    if (!process_memref(tdata, &buf, instr, instr->mem_src_at(j),
+                                        false, reg_vals, cur_pc, cur_offs,
+                                        instrs_are_separate, nullptr, &interrupted))
+                        return false;
                     if (interrupted)
                         break;
                 }
                 // We break before subsequent memrefs on an interrupt, though with
                 // today's tracer that will never happen (i#3958).
                 for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
-                    success = process_memref(tdata, &buf, instr, instr->mem_dest_at(j),
-                                           true, reg_vals, cur_pc, cur_offs,
-                                           instrs_are_separate, nullptr, &interrupted);
-                    if (!success)
-                        return success;
+                    if (!process_memref(tdata, &buf, instr, instr->mem_dest_at(j),
+                                        true, reg_vals, cur_pc, cur_offs,
+                                        instrs_are_separate, nullptr, &interrupted))
+                        return false;
                     if (interrupted)
                         break;
                 }
@@ -1800,20 +1763,18 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
             // delay markers.
             log(4, "Delaying %d entries for decode=" PIFX "\n", buf - buf_start,
                 saved_decode_pc);
-            success = write_delayed_branches(tdata, buf_start, buf, saved_decode_pc,
-                                           instr->branch_target_pc());
-            if (!success)
-                return success;
+            if (!write_delayed_branches(tdata, buf_start, buf, saved_decode_pc,
+                                        instr->branch_target_pc()))
+                return false;
         } else if (buf > buf_start) {
-            success = write(tdata, buf_start, buf, &saved_decode_pc, 1);
-            if (!success)
-                return success;
+            if (!write(tdata, buf_start, buf, &saved_decode_pc, 1))
+                return false;
         }
         if (interrupted)
             break;
     }
     *handled = true;
-    return success;
+    return true;
 }
 
 // Returns true if a kernel interrupt happened at cur_pc.
@@ -1829,7 +1790,6 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
     raw2trace_thread_data_t *tdata, INOUT trace_entry_t **buf_in, uint64_t cur_pc,
     uint64_t cur_offs, int instr_length, bool instrs_are_separate, OUT bool *interrupted)
 {
-    bool success = true;
     // To avoid having to backtrack later, we read ahead to ensure we insert
     // an interrupt at the right place between memrefs or between instructions.
     *interrupted = false;
@@ -1838,7 +1798,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
     do {
         const offline_entry_t *in_entry = get_next_entry(tdata);
         if (in_entry == nullptr)
-            return success;
+            return true;
         append = false;
         if (in_entry->extended.type != OFFLINE_TYPE_EXTENDED ||
             in_entry->extended.ext != OFFLINE_EXT_TYPE_MARKER) {
@@ -1850,9 +1810,8 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
         // if present to get to the type.  There is support for unreading
         // both.
         uintptr_t marker_val = 0;
-        success = get_marker_value(tdata, &in_entry, &marker_val);
-        if (!success)
-            return success;
+        if (!get_marker_value(tdata, &in_entry, &marker_val))
+            return false;
         // An abort always ends a block.
         if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
             in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
@@ -1897,10 +1856,9 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
                         in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT
                         ? marker_val
                         : 0;
-                    success = adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
-                                                      rseq_abort_pc);
-                    if (!success)
-                        return success;
+                    if (!adjust_and_emit_rseq_buffer(tdata, static_cast<addr_t>(cur_pc),
+                                                     rseq_abort_pc))
+                        return false;
                 }
                 append = true;
                 *interrupted = true;
@@ -1966,7 +1924,7 @@ raw2trace_t::handle_kernel_interrupt_and_markers(
             unread_last_entry(tdata);
         }
     } while (append);
-    return success;
+    return true;
 }
 
 bool
@@ -2313,10 +2271,9 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
             // Else this is an abort in the instrumented run, such as a
             // fault or signal, so no rollback is needed.
         } else {
-            auto success = rollback_rseq_buffer(tdata, tdata->rseq_commit_idx_,
-                                                     tdata->rseq_commit_idx_);
-            if (!success)
-                return success;
+            if (!rollback_rseq_buffer(tdata, tdata->rseq_commit_idx_,
+                                      tdata->rseq_commit_idx_))
+                return false;
         }
     } else if (next_pc == tdata->rseq_end_pc_) {
         // Normal fall-through of the committing store: nothing to roll back.  We give
@@ -2390,10 +2347,8 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
         }
         int branch_size = tdata->rseq_buffer_[post_branch].size;
         ++post_branch; // Now skip instr entry itself.
-        auto success =
-            rollback_rseq_buffer(tdata, post_branch, tdata->rseq_commit_idx_);
-        if (!success)
-            return success;
+        if (!rollback_rseq_buffer(tdata, post_branch, tdata->rseq_commit_idx_))
+            return false;
         if (found_skip) {
             // Append a synthetic jump.  This may not match the actual exit instruction:
             // there could have been several non-branches before the exit branch; the
@@ -2415,9 +2370,8 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
             bool exists =
                 !record_encoding_emitted(tdata, reinterpret_cast<app_pc>(jump.addr));
             trace_entry_t *buf = toadd;
-            success = append_encoding(tdata, encoding, jump.size, buf, toadd);
-            if (!success)
-                return success;
+            if (!append_encoding(tdata, encoding, jump.size, buf, toadd))
+                return false;
             if (exists) {
                 // Uh-oh, we've already seen this PC!  We don't cache the actual
                 // encoding though so we can't try to use the real instructions;
@@ -2437,11 +2391,9 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
     tdata->rseq_buffering_enabled_ = false;
 
     log(4, "Writing out rseq buffer: %zd entries\n", tdata->rseq_buffer_.size());
-    auto success =
-        write(tdata, &tdata->rseq_buffer_[0], &tdata->rseq_buffer_.back() + 1,
-              tdata->rseq_decode_pcs_.data(), tdata->rseq_decode_pcs_.size());
-    if (!success)
-        return success;
+    if (! write(tdata, &tdata->rseq_buffer_[0], &tdata->rseq_buffer_.back() + 1,
+                tdata->rseq_decode_pcs_.data(), tdata->rseq_decode_pcs_.size()))
+        return false;
 
     tdata->rseq_past_end_ = false;
     tdata->rseq_commit_pc_ = 0;
@@ -2848,13 +2800,11 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
         }
     }
     if (!tdata->delayed_branch.empty()) {
-        auto success =
-            write(tdata, tdata->delayed_branch.data(),
-                  tdata->delayed_branch.data() + tdata->delayed_branch.size(),
-                  tdata->delayed_branch_decode_pcs.data(),
-                  tdata->delayed_branch_decode_pcs.size());
-        if (!success)
-            return success;
+        if (!write(tdata, tdata->delayed_branch.data(),
+                   tdata->delayed_branch.data() + tdata->delayed_branch.size(),
+                   tdata->delayed_branch_decode_pcs.data(),
+                   tdata->delayed_branch_decode_pcs.size()))
+            return false;
     }
     tdata->delayed_branch.clear();
     tdata->delayed_branch_decode_pcs.clear();
@@ -2949,9 +2899,8 @@ raw2trace_t::open_new_chunk(raw2trace_thread_data_t *tdata)
         return true;
     }
 
-    auto success = emit_new_chunk_header(tdata);
-    if (!success)
-        return success;
+    if (!emit_new_chunk_header(tdata))
+        return false;
 
     // We need to clear the encoding cache so that each chunk is self-contained
     // and repeats all encodings used inside it.
@@ -3010,9 +2959,8 @@ raw2trace_t::insert_post_chunk_encodings(raw2trace_thread_data_t *tdata,
     trace_entry_t *buf = encodings;
     log(4, "Adding post-chunk-boundary encoding entry for decode=%p app=%p\n", decode_pc,
         instr->addr);
-    auto success = append_encoding(tdata, decode_pc, instr->size, buf, encodings);
-    if (!success)
-        return success;
+    if (!append_encoding(tdata, decode_pc, instr->size, buf, encodings))
+        return false;
     if (!tdata->out_file->write(reinterpret_cast<const char *>(encodings),
                                 reinterpret_cast<const char *>(buf) -
                                     reinterpret_cast<const char *>(encodings))) {
@@ -3066,9 +3014,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     tdata->error = "Failed to write to output file";
                     return false;
                 }
-                auto success = open_new_chunk(tdata);
-                if (!success)
-                    return success;
+                if (!open_new_chunk(tdata))
+                    return false;
                 start = it;
                 DEBUG_ASSERT(tdata->cur_chunk_instr_count == 0);
             }
@@ -3107,10 +3054,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     tdata->error = "Failed to write to output file";
                     return false;
                 }
-                auto success =
-                    insert_post_chunk_encodings(tdata, it, *(decode_pcs + instr_ordinal));
-                if (!success)
-                    return success;
+                if (!insert_post_chunk_encodings(tdata, it, *(decode_pcs + instr_ordinal)))
+                    return false;
                 if (!tdata->out_file->write(reinterpret_cast<const char *>(it),
                                             sizeof(*it))) {
                     tdata->error = "Failed to write to output file";
@@ -3154,9 +3099,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
     // to split now to avoid going too far by waiting for the next instr.
     if (tdata->cur_chunk_instr_count >= chunk_instr_count_) {
         DEBUG_ASSERT(tdata->cur_chunk_instr_count == chunk_instr_count_);
-        auto success = open_new_chunk(tdata);
-        if (!success)
-            return success;
+        if (!open_new_chunk(tdata))
+            return false;
     }
     log(4, "Chunk instr count is now " UINT64_FORMAT_STRING "\n",
         tdata->cur_chunk_instr_count);
@@ -3207,8 +3151,7 @@ raw2trace_t::write_footer(raw2trace_thread_data_t *tdata)
     entry.type = TRACE_TYPE_FOOTER;
     entry.size = 0;
     entry.addr = 0;
-    auto success = write(tdata, &entry, &entry + 1);
-    return success;
+    return write(tdata, &entry, &entry + 1);
 }
 
 bool

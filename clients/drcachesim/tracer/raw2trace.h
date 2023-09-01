@@ -686,12 +686,6 @@ struct trace_header_t {
     size_t cache_line_size;
 };
 
-#define DR_CHECK(val, msg) \
-    do {                   \
-        if (!(val))        \
-            return msg;    \
-    } while (0)
-
 /**
  * Bitset hash table for balancing search time in case of enormous count of pc.
  * Each pc represented as pair of high 64-BLOCK_SIZE_BIT bits and
