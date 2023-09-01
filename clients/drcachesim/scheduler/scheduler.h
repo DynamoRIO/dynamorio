@@ -327,6 +327,8 @@ public:
          * #dynamorio::drmemtrace::scheduler_tmpl_t::
          * scheduler_options_t.replay_as_traced_istream
          * must be specified.
+         * The original as-traced cpuid that is mapped to each output stream can be
+         * obtained by calling the get_output_cpuid() function on each stream.
          */
         MAP_TO_RECORDED_OUTPUT,
         /**
@@ -539,9 +541,9 @@ public:
          * and how to continue.  Supplies the current time for #QUANTUM_TIME.  The time
          * should be considered to be the time prior to processing the returned record.
          * The time is unitless but needs to be a globally consistent increasing value
-         * across all output streams.  A 0 value for "cur_time" is not allowed.
-         * #STATUS_INVALID is returned if 0 or a value smaller than the start time of the
-         * current input's quantum is passed in.
+         * across all output streams.  #STATUS_INVALID is returned if 0 or a value smaller
+         * than the start time of the current input's quantum is passed in when
+         * #QUANTUM_TIME and #MAP_TO_ANY_OUTPUT are specified.
          */
         virtual stream_status_t
         next_record(RecordType &record, uint64_t cur_time);
@@ -744,6 +746,17 @@ public:
         is_record_synthetic() const override
         {
             return scheduler_->is_record_synthetic(ordinal_);
+        }
+
+        /**
+         * Returns a unique identifier for the current output stream.  For
+         * #MAP_TO_RECORDED_OUTPUT, the identifier is the as-traced cpuid mapped to this
+         * output.  For dynamic schedules, the identifier is the output stream ordinal.
+         */
+        int64_t
+        get_output_cpuid() const override
+        {
+            return scheduler_->get_output_cpuid(ordinal_);
         }
 
     protected:
@@ -980,6 +993,8 @@ protected:
         bool active = true;
         // Used for time-based quanta.
         uint64_t cur_time = 0;
+        // Used for MAP_TO_RECORDED_OUTPUT get_output_cpuid().
+        int64_t as_traced_cpuid = -1;
     };
 
     // Called just once at initialization time to set the initial input-to-output
@@ -1121,6 +1136,9 @@ protected:
     // the 'output_ordinal'-th output stream is synthetic.
     bool
     is_record_synthetic(output_ordinal_t output);
+
+    int64_t
+    get_output_cpuid(output_ordinal_t output);
 
     // Returns the direct handle to the current input stream interface for the
     // 'output_ordinal'-th output stream.

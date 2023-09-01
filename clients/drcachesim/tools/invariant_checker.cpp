@@ -694,15 +694,20 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // signal handler to run the restorer code. It is assumed that all signal
         // handlers return normally and longjmp is not used.
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-            shard->retaddr_stack_.push(0);
-            // When a signal arrives after a branch, function markers will appear in
-            // the trace when the corresponding syscall xfer happens. When a
-            // kernel xfer appears in the beginning of a trace before any
-            // instructions are recorded, we assume the signal arrives after a
-            // branch to avoid false positives.
-            shard->delayed_function_marker_stack_.push(
-                shard->instr_count_ == 0 ||
-                type_is_instr_branch(shard->prev_entry_.instr.type));
+            // If the marker is preceded by an RSEQ ABORT marker, do not push the sentinel
+            // since there will not be a corresponding return.
+            if (shard->prev_entry_.marker.type != TRACE_TYPE_MARKER ||
+                shard->prev_entry_.marker.marker_type != TRACE_MARKER_TYPE_RSEQ_ABORT) {
+                shard->retaddr_stack_.push(0);
+                // When a signal arrives after a branch, function markers will appear in
+                // the trace when the corresponding syscall xfer happens. When a
+                // kernel xfer appears in the beginning of a trace before any
+                // instructions are recorded, we assume the signal arrives after a
+                // branch to avoid false positives.
+                shard->delayed_function_marker_stack_.push(
+                    shard->instr_count_ == 0 ||
+                    type_is_instr_branch(shard->prev_entry_.instr.type));
+            }
         } else {
             // When a trace is started in the middle of a signal handler, or
             // nested signals, delayed_function_marker_stack_ is empty when a

@@ -154,6 +154,19 @@ public:
     {
         return false;
     }
+
+    /**
+     * Returns a unique identifier for the current "output cpu".  Generally this only
+     * applies when using #SHARD_BY_CORE.  For dynamic schedules, the identifier is
+     * typically an output cpu ordinal.  For replaying an as-traced schedule, the
+     * identifier is typically the original input cpu which is now mapped directly
+     * to this output.  If not implemented for the current mode, -1 is returned.
+     */
+    virtual int64_t
+    get_output_cpuid() const
+    {
+        return -1;
+    }
 };
 
 /**
