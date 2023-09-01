@@ -1100,7 +1100,7 @@ check_syscalls()
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "Syscall not preceded by timestamp + cpuid", TID,
+                         { "Syscall marker not preceded by timestamp + cpuid", TID,
                            /*ref_ordinal=*/4, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch syscall without timestamp+cpuid")) {
@@ -1120,7 +1120,7 @@ check_syscalls()
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "Syscall not preceded by timestamp + cpuid", TID,
+                         { "Syscall marker not preceded by timestamp + cpuid", TID,
                            /*ref_ordinal=*/5, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch syscall without timestamp")) {

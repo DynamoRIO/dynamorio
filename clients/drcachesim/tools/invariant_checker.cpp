@@ -349,7 +349,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     shard->prev_prev_entry_.marker.type == TRACE_TYPE_MARKER &&
                     shard->prev_prev_entry_.marker.marker_type ==
                         TRACE_MARKER_TYPE_TIMESTAMP,
-                "Syscall not preceded by timestamp + cpuid");
+                "Syscall marker not preceded by timestamp + cpuid");
         }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
