@@ -396,26 +396,37 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Function marker misplaced between instr and memref");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
-        shard->prev_func_id_ = memref.marker.marker_value;
-    }
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
         marker_type_is_function_marker(memref.marker.marker_type)) {
-        report_if_false(
-            shard,
-            shard->prev_func_id_ >=
-                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
-                type_is_instr_branch(shard->prev_instr_.instr.type),
-            "Function marker should be after a branch");
-    }
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR) {
-        if (!shard->retaddr_stack_.empty()) {
+        shard->in_function_marker_block_ = true;
+
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
+            shard->prev_func_id_ = memref.marker.marker_value;
+        }
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR &&
+            !shard->retaddr_stack_.empty()) {
             // Current check does not handle long jump, it may fail if a long
             // jump is used.
             report_if_false(shard,
                             memref.marker.marker_value == shard->retaddr_stack_.top(),
                             "Function marker retaddr should match prior call");
+        }
+
+        // Function markers may appear in the beginning of the trace before any
+        // instructions are recorded, i.e. shard->instr_count_ == 0. In other to avoid
+        // false positives in this case, we assume the markers are placed correctly.
+        report_if_false(
+            shard,
+            shard->prev_func_id_ >=
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
+                type_is_instr_branch(shard->prev_instr_.instr.type) ||
+                shard->instr_count_ == 0 || shard->delayed_function_marker_expected_,
+            "Function marker should be after a branch");
+    } else {
+        // Reset the delayed_function_marker_expected_ flag when we exit the
+        // function marker block.
+        if (shard->in_function_marker_block_) {
+            shard->in_function_marker_block_ = false;
+            shard->delayed_function_marker_expected_ = false;
         }
     }
 
@@ -684,6 +695,26 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // handlers return normally and longjmp is not used.
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
             shard->retaddr_stack_.push(0);
+            // When a signal arrives after a branch, function markers will appear in
+            // the trace when the corresponding syscall xfer happens. When a
+            // kernel xfer appears in the beginning of a trace before any
+            // instructions are recorded, we assume the signal arrives after a
+            // branch to avoid false positives.
+            shard->delayed_function_marker_stack_.push(
+                shard->instr_count_ == 0 ||
+                type_is_instr_branch(shard->prev_entry_.instr.type));
+        } else {
+            // When a trace is started in the middle of a signal handler, or
+            // nested signals, delayed_function_marker_stack_ is empty when a
+            // syscall xfer maker is processed. We assume function markers are delayed by
+            // the signals to avoid false positives.
+            if (shard->delayed_function_marker_stack_.empty()) {
+                shard->delayed_function_marker_expected_ = true;
+            } else {
+                shard->delayed_function_marker_expected_ |=
+                    shard->delayed_function_marker_stack_.top();
+                shard->delayed_function_marker_stack_.pop();
+            }
         }
 #ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,

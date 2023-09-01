@@ -196,6 +196,17 @@ protected:
         addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
         bool saw_filter_endpoint_marker_ = false;
+        // Track delayed function markers caused by signals arriving right after
+        // a branch instruction.
+        std::stack<bool> delayed_function_marker_stack_;
+        // delayed_function_marker_expected_ indicates if a delayed function marker is
+        // expected. It is set to true when a syscall xfer marker corresponding to a
+        // signal arriving right after a branch instruction is observed. When the syscall
+        // xfer marker is seen without the corresponding kernel xfer,
+        // delayed_function_marker_expected_ is set to true to avoid false positive. It is
+        // reset to false after the block of function markers has been processed.
+        bool delayed_function_marker_expected_ = false;
+        bool in_function_marker_block_ = false;
     };
 
     // We provide this for subclasses to run these invariants with custom
