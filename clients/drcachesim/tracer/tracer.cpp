@@ -521,8 +521,12 @@ append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
      * a redzone check at the end guarding a clean call to memtrace(), but to
      * be a litte safer in case that changes we also do a redzone check here.
      */
-    if (BUF_PTR(data->seg_base) - data->buf_base > static_cast<ssize_t>(trace_buf_size))
+    if (BUF_PTR(data->seg_base) - data->buf_base > static_cast<ssize_t>(trace_buf_size)) {
+        BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
+        BUF_PTR(data->seg_base) += instru->append_marker(
+            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
         process_and_output_buffer(drcontext, false);
+    }
 }
 
 static void
@@ -1462,18 +1466,19 @@ event_pre_syscall(void *drcontext, int sysnum)
     // (The converse can happen, with a tracing window ending in a syscall but the mode
     // having changed, causing us to exit up above and not emit a marker: we solve that
     // by removing syscalls without markers in raw2trace.)
-    if (is_new_window_buffer_empty(data))
+    if (is_new_window_buffer_empty(data)) {
         return true;
-
-    // Append a timestamp prior to the syscall to give us syscall latency.
-    BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
-    BUF_PTR(data->seg_base) += instru->append_marker(
-        BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+    }
 
     // Output system call numbers if we have a full instruction trace.
     // Since the instruction fetch has already been output, this will be
     // appended to the block-final syscall instr.
     if (!op_L0I_filter.get_value()) {
+        // Append a timestamp prior to the syscall to give us syscall latency.
+        BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
+        BUF_PTR(data->seg_base) += instru->append_marker(
+            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+
         BUF_PTR(data->seg_base) += instru->append_marker(
             BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
 #ifdef LINUX
@@ -1490,6 +1495,16 @@ event_pre_syscall(void *drcontext, int sysnum)
             }
         }
 #endif
+    }
+    // Filtered traces take a while to fill up the buffer, so we do an output
+    // before each syscall so we can check for various thresholds more frequently.
+    // For the same reason, we output for small window thresholds.
+    static constexpr int INSTRS_PER_BUFFER = 5000;
+    if (file_ops_func.handoff_buf == NULL &&
+        (op_L0I_filter.get_value() ||
+         (has_tracing_windows() &&
+          op_trace_for_instrs.get_value() < 10 * INSTRS_PER_BUFFER))) {
+        process_and_output_buffer(drcontext, false);
     }
 
 #ifdef ARM
@@ -1566,10 +1581,12 @@ event_post_syscall(void *drcontext, int sysnum)
     }
 #endif
 
-    // Append a timestamp after the syscall to give us syscall latency.
-    BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
-    BUF_PTR(data->seg_base) += instru->append_marker(
-        BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+    if (!op_L0I_filter.get_value()) { /* No syscall data unless full instr trace. */
+        // Append a timestamp after the syscall to give us syscall latency.
+        BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
+        BUF_PTR(data->seg_base) += instru->append_marker(
+            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+    }
 
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())

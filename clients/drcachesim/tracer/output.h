@@ -70,7 +70,8 @@ inline bool
 is_new_window_buffer_empty(per_thread_t *data)
 {
     // Since it's non-initial we do not add init_header_size.
-    return BUF_PTR(data->seg_base) == data->buf_base + buf_hdr_slots_size &&
+    return has_tracing_windows() &&
+        BUF_PTR(data->seg_base) == data->buf_base + buf_hdr_slots_size &&
         data->cur_window_instr_count == 0;
 }
 

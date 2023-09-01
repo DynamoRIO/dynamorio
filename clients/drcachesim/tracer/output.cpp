@@ -1335,7 +1335,10 @@ exit_thread_io(void *drcontext)
 #endif
 
     if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) ||
-        (has_tracing_windows() && !op_split_windows.get_value()) ||
+        (has_tracing_windows() &&
+         (!op_split_windows.get_value() ||
+          (get_local_window(data) < tracing_window.load(std::memory_order_acquire) &&
+           !is_new_window_buffer_empty(data)))) ||
         // For attach we switch to BBDUP_MODE_NOP but still need to finalize
         // each thread.  However, we omit threads that did nothing the entire time
         // we were attached.
@@ -1345,23 +1348,12 @@ exit_thread_io(void *drcontext)
               static_cast<ssize_t>(data->init_header_size + buf_hdr_slots_size)))) {
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
-
-        ptr_int_t window = get_local_window(data);
-        if (!has_tracing_windows() ||
-            is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire))) {
-            process_and_output_buffer(drcontext,
-                                      /* If this thread already wrote some data, include
-                                       * its exit even if we're over a size limit.
-                                       */
-                                      data->bytes_written > 0);
-        }
-        if (get_local_window(data) != window) {
-            BUF_PTR(data->seg_base) += instru->append_thread_exit(
-                BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
-            process_and_output_buffer(drcontext, data->bytes_written > 0);
-        }
+        process_and_output_buffer(drcontext,
+                                  /* If this thread already wrote some data, include
+                                   * its exit even if we're over a size limit.
+                                   */
+                                  data->bytes_written > 0);
     }
-
     if (op_offline.get_value() && data->file != INVALID_FILE)
         close_thread_file(drcontext);
 
