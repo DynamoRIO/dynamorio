@@ -67,7 +67,7 @@ To build DynamoRIO on Linux, use the following commands as a guide.  This builds
 To build DynamoRIO on Windows, first install the following software.
 
   - Visual Studio 2019.  Other versions are not officially supported as our automated tests use VS 2019.
-  - [CMake](http://cmake.org/cmake/resources/software.html). 3.17+ is required. When prompted, we recommend adding it to your PATH.
+  - [CMake](http://cmake.org/cmake/resources/software.html). 3.7+ is required. When prompted, we recommend adding it to your PATH.
   - Git.  Any flavor should do, including [Git on Windows](https://git-scm.com/download/win) or Cygwin git.
   - Perl.  We recommend either [Strawberry Perl](http://strawberryperl.com/) or Cygwin perl.
   - (optional) [Cygwin](http://cygwin.com).  Only needed for building documentation.  Select the doxygen package if you do install it.  (You can also select Cygwin's perl and git as alternatives to the links above.)
@@ -145,7 +145,7 @@ In order to build you'll need the following packages:
 
   - gcc
   - binutils
-  - cmake (at least version 3.17)
+  - cmake (at least version 3.7)
   - perl
 
 In order to build the documentation, you will additionally need:
@@ -304,7 +304,7 @@ command prompt from the Visual Studio Start menu folder, or run the
 
 ## CMake
 
-You need CMake (version 3.17+) for Windows (*not* for Cygwin, as we need to pass paths
+You need CMake (version 3.7+) for Windows (*not* for Cygwin, as we need to pass paths
 with drive letters to our compiler).  You can download a binary installation here:
 
   http://www.cmake.org/cmake/resources/software.html
@@ -578,7 +578,7 @@ cd build
 ```
  - step 4: configure using cmake
 \verbatim
-E:\dynamorio\build\>"c:\Program Files (x86)\CMake 3.17\bin\cmake-gui.exe" ..\
+E:\dynamorio\build\>"c:\Program Files (x86)\CMake 3.7\bin\cmake-gui.exe" ..\
 \endverbatim
    - step 4.1: click "Configure" button
    - step 4.2: select "Visual studio 16"
@@ -658,7 +658,7 @@ flag is set by default for not only parallel project builds but parallel file
 builds.  The fastest DynamoRIO build is a Visual Studio build from
 the command line.
 
-First, DynamoRIO requires CMake version 3.17 or higher.
+First, DynamoRIO requires CMake version 3.7 or higher.
 
 Then you can generate the Visual Studio project files with something like this:
 
