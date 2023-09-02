@@ -1354,7 +1354,7 @@ exit_thread_io(void *drcontext)
         // For attach we switch to BBDUP_MODE_NOP but still need to finalize
         // each thread.  However, we omit threads that did nothing the entire time
         // we were attached.
-        (align_attach_detach_endpoints() &&
+        (!has_tracing_windows() && align_attach_detach_endpoints() &&
          (data->bytes_written > 0 ||
           BUF_PTR(data->seg_base) - data->buf_base >
               static_cast<ssize_t>(data->init_header_size + buf_hdr_slots_size)))) {

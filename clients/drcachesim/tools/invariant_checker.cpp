@@ -1018,10 +1018,13 @@ invariant_checker_t::check_for_pc_discontinuity(
         (prev_instr_trace_pc == cur_pc &&
          (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
           // Online incorrectly marks the 1st string instr across a thread
-          // switch as fetched.
+          // switch as fetched.  We no longer emit timestamps in pipe splits so
+          // we can't use saw_timestamp_but_no_instr_.  We can't just check for
+          // prev_instr.instr_type being no-fetch as the prev might have been
+          // a single instance, which is fetched.  We check the sizes for now.
           // TODO i#4915, #4948: Eliminate non-fetched and remove the
           // underlying instrs altogether, which would fix this for us.
-          (!knob_offline_ && shard->saw_timestamp_but_no_instr_))) ||
+          (!knob_offline_ && memref.instr.size == prev_instr.instr.size))) ||
         // Same PC is allowed for a kernel interruption which may restart the
         // same instruction.
         (prev_instr_trace_pc == cur_pc && at_kernel_event) ||
