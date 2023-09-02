@@ -28,8 +28,8 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# 3.7 is DR's min as well, for VS2017, GREATER_EQUAL, etc.
-cmake_minimum_required(VERSION 3.7)
+# 3.17 is DR's min as well, for VS2017, GREATER_EQUAL, ZIP_LISTS, etc.
+cmake_minimum_required(VERSION 3.17)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 

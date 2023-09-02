@@ -31,7 +31,7 @@
 
 # symbol access library
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.17)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 

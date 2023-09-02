@@ -29,7 +29,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.17)
 
 if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
   set(DEBUG ON)
@@ -68,8 +68,6 @@ if ("${CMAKE_VERSION}" VERSION_EQUAL "3.9" OR
 endif ()
 
 set(output_dir "${PROJECT_BINARY_DIR}/bin")
-# For a DR build dir, ensure rpath to DR lib matches install dir: # NON-PUBLIC
-set(output_dir "${PROJECT_BINARY_DIR}/../bin") # NON-PUBLIC
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${output_dir}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${output_dir}")
@@ -135,7 +133,7 @@ if (NOT DEFINED DynamoRIO_DIR)
     "DynamoRIO installation's cmake directory")
 endif (NOT DEFINED DynamoRIO_DIR)
 
-find_package(DynamoRIO ${VERSION_NUMBER_MAJOR}.${VERSION_NUMBER_MINOR})
+find_package(DynamoRIO 10.0)
 if (NOT DynamoRIO_FOUND)
   message(FATAL_ERROR "DynamoRIO package required to build")
 endif(NOT DynamoRIO_FOUND)
@@ -173,29 +171,7 @@ function (add_sample_client name source_file_list extension_list)
       VERBATIM)
   endif ()
 
-  get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list) # NON-PUBLIC
-  set_property(GLOBAL PROPERTY DynamoRIO_sample_list              # NON-PUBLIC
-    "${sample_list};${name}")                                     # NON-PUBLIC
-  set(srcs ${srcs} ${source_file_list} PARENT_SCOPE)              # NON-PUBLIC
-  set(tgts ${tgts} ${name} PARENT_SCOPE)                          # NON-PUBLIC
 
-  # Some samples actually have more tests than just simple sanity # NON-PUBLIC
-  # tests. These tests require that results are shown. In order   # NON-PUBLIC
-  # to avoid short-circuiting the SHOW_RESULTS option, we build   # NON-PUBLIC
-  # an additional sample (which shows results) for testing        # NON-PUBLIC
-  # purposes.                                                     # NON-PUBLIC
-  # FIXME i#4372 i#4392: Ultimately, when we remove all sanity    # NON-PUBLIC
-  # checks and have proper tests for the samples, we will         # NON-PUBLIC
-  # remove the SHOW_RESULTS option.                               # NON-PUBLIC
-  if (BUILD_TESTS)                                                # NON-PUBLIC
-    add_library(${name}_test SHARED ${source_file_list})          # NON-PUBLIC
-    configure_DynamoRIO_client(${name}_test)                      # NON-PUBLIC
-    foreach (ext ${extension_list})                               # NON-PUBLIC
-      use_DynamoRIO_extension(${name}_test ${ext})                # NON-PUBLIC
-    endforeach (ext)                                              # NON-PUBLIC
-    target_compile_definitions(${name}_test PRIVATE -DSHOW_RESULTS)    # NON-PUBLIC
-    set(tgts ${tgts} ${name}_test PARENT_SCOPE)                        # NON-PUBLIC
-  endif ()                                                             # NON-PUBLIC
 endfunction (add_sample_client)
 
 function (add_sample_standalone name source_file_list)
@@ -216,8 +192,6 @@ function (add_sample_standalone name source_file_list)
       ARGS -E echo "Make sure the loader finds the dynamorio library ${FIND_MSG}"
       VERBATIM)
   endif ()
-  set(srcs ${srcs} ${source_file_list} PARENT_SCOPE)              # NON-PUBLIC
-  set(tgts ${tgts} ${name} PARENT_SCOPE)                          # NON-PUBLIC
 endfunction (add_sample_standalone)
 
 ###########################################################################
@@ -228,8 +202,6 @@ configure_DynamoRIO_global(OFF ON)
 
 # Use ;-separated lists for source files and extensions.
 
-# FIXME i#4372: Add functioning tests for samples that go beyond  # NON-PUBLIC
-# sanity checks.                                                  # NON-PUBLIC
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
 add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
@@ -281,8 +253,6 @@ add_sample_client(inline      "inline.c"        "drmgr;drcontainers")
 add_sample_client(inscount    "inscount.cpp"    "drmgr;droption")
 add_sample_client(opcodes     "opcodes.c"       "drmgr;drreg;drx")
 add_sample_client(stl_test    "stl_test.cpp"    "")
-# add utils.h for installation  # NON-PUBLIC
-set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 
 if (WIN32)
   # This client is Windows-only.
@@ -294,74 +264,3 @@ endif ()
 
 add_sample_standalone(tracedump   "tracedump.c")
 
-# Strip out everything past this point for the user-exposed file.
-# We also remove any lines above marked "NON-PUBLIC".
-# Should we add some install targets for users?
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt" string)
-string(REGEX REPLACE "[^\n]*NON-PUBLIC[^\n]*\n" "" string "${string}")
-string(REGEX REPLACE "# Strip out everything.*$" "" string "${string}")
-string(REGEX REPLACE "\\$\\{(VERSION_NUMBER[^\\}]*)\\}" "@\\1@" string "${string}")
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt.in" "${string}")
-set(public_clist "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists.txt")
-set_property(GLOBAL PROPERTY DynamoRIO_sample_proj_dir "${CMAKE_CURRENT_BINARY_DIR}")
-configure_file("${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt.in"
-  "${public_clist}" @ONLY)
-
-# Make a copy of the sources with the public cmakelists
-foreach (src ${srcs})
-  configure_file(${src} ${CMAKE_CURRENT_BINARY_DIR}/${src} COPYONLY)
-endforeach ()
-
-foreach (tgt ${tgts})
-  # ensure we rebuild samples if includes change
-  add_dependencies(${tgt} api_headers)
-  if (WIN32 AND GENERATE_PDBS) # for release and debug
-    # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
-    # In any case we make sure to add it:
-    get_target_property(cur_flags ${tgt} LINK_FLAGS)
-    if (NOT cur_flags)
-      set(cur_flags "") # XXX: if we require cmake 2.8.6 we can simply use APPEND_STRING
-    endif (NOT cur_flags)
-    set_target_properties(${tgt} PROPERTIES LINK_FLAGS "${cur_flags} /debug")
-  endif (WIN32 AND GENERATE_PDBS)
-endforeach (tgt)
-
-if (NOT DEFINED INSTALL_PREFIX)
-  set(INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/../../exports" CACHE PATH
-    "where to install")
-  set(CMAKE_INSTALL_PREFIX "${INSTALL_PREFIX}" CACHE INTERNAL
-    "where to install" FORCE)
-endif (NOT DEFINED INSTALL_PREFIX)
-set(INSTALL_SAMPLES samples)
-if (NOT DEFINED X64)
-  message(FATAL_ERROR "we assume X64 is inherited from parent scope")
-endif (NOT DEFINED X64)
-if (X64)
-  set(INSTALL_SAMPLES_BIN ${INSTALL_SAMPLES}/bin64)
-else (X64)
-  set(INSTALL_SAMPLES_BIN ${INSTALL_SAMPLES}/bin32)
-endif (X64)
-
-DR_install(TARGETS ${tgts} DESTINATION ${INSTALL_SAMPLES_BIN})
-DR_install(FILES ${srcs} DESTINATION ${INSTALL_SAMPLES})
-DR_install(FILES "${public_clist}"
-  DESTINATION "${INSTALL_SAMPLES}" RENAME CMakeLists.txt)
-if (WIN32)                                                                    # NON-PUBLIC
-  # Have a copy of dynamorio library for tracedump.                           # NON-PUBLIC
-  DynamoRIO_get_full_path(DR_TARGET_LOCATION dynamorio "${location_suffix}")  # NON-PUBLIC
-  DR_install(FILES "${DR_TARGET_LOCATION}"                                    # NON-PUBLIC
-    DESTINATION "${INSTALL_SAMPLES_BIN}")                                     # NON-PUBLIC
-endif (WIN32)                                                                 # NON-PUBLIC
-
-DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
-  DESTINATION ${INSTALL_SAMPLES_BIN}
-  FILE_PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
-  WORLD_READ WORLD_EXECUTE
-  FILES_MATCHING
-  PATTERN "*.debug"
-  PATTERN "*.pdb"
-  REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
-  )
-
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/README "This directory contains sample clients that show how to use the DR API.  If this is an official release package that includes DRMF, for samples that use the DRMF API, see ../drmemory/drmf/samples/.\n")
-DR_install(FILES ${CMAKE_CURRENT_BINARY_DIR}/README DESTINATION ${INSTALL_SAMPLES})
