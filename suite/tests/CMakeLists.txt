@@ -47,7 +47,7 @@
 #   and optionally submit to dashboard.  Use w/o submit as "make runregression".
 
 # We use target_include_directories() which was added in 2.8.11
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.17)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 include(../runsuite_common_pre.cmake) # For _DR_set_VS_bitwidth_env_vars.
