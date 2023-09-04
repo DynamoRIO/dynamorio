@@ -652,8 +652,8 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // check for it here.
             if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
                 if (delayed_branches_exist(tdata)) {
-                    return write_delayed_branches(
-                        tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+                    return write_delayed_branches(tdata, buf_base,
+                                                  reinterpret_cast<trace_entry_t *>(buf));
                 }
             }
             log(3, "Appended marker type %u value " PIFX "\n",
@@ -687,7 +687,7 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
     } else if (in_entry->pc.type == OFFLINE_TYPE_PC) {
         if (reinterpret_cast<trace_entry_t *>(buf) != buf_base) {
             tdata->error = "We shouldn't have buffered anything before calling "
-                 "append_bb_entries";
+                           "append_bb_entries";
             return false;
         }
         if (!append_bb_entries(tdata, in_entry, last_bb_handled))
@@ -820,7 +820,7 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
         return false;
     }
     if (!write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
-                  reinterpret_cast<trace_entry_t *>(buf)))
+               reinterpret_cast<trace_entry_t *>(buf)))
         return false;
     buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     buf = buf_base;
@@ -841,7 +841,7 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
         return false;
     }
     return write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
-                  reinterpret_cast<trace_entry_t *>(buf));
+                 reinterpret_cast<trace_entry_t *>(buf));
 }
 
 #ifdef BUILD_PT_POST_PROCESSOR
@@ -856,7 +856,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
         if (!tdata->kthread_file->read((char *)&header[0], PT_METADATA_PDB_HEADER_SIZE)) {
             tdata->error = "Unable to read the PDB header of PT metadate form kernel "
-                   "thread log file";
+                           "thread log file";
             return false;
         }
         if (header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type !=
@@ -907,7 +907,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                 return true;
             }
             tdata->error = "Unable to read the PDB header of next syscall's PT data "
-                   "form kernel thread log file";
+                           "form kernel thread log file";
             return false;
         }
         tdata->pre_read_pt_entries.insert(tdata->pre_read_pt_entries.end(), header,
@@ -933,9 +933,9 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     tdata->pre_read_pt_entries.clear();
     std::unique_ptr<uint8_t[]> pt_data(new uint8_t[pt_data_size]);
     if (!tdata->kthread_file->read((char *)pt_data.get(), pt_data_size)) {
-        tdata->error = "Unable to read the PT data of syscall "
-            + std::to_string(syscall_idx) + " sysnum " + std::to_string(sysnum)
-            + " form kernel thread log file";
+        tdata->error = "Unable to read the PT data of syscall " +
+            std::to_string(syscall_idx) + " sysnum " + std::to_string(sysnum) +
+            " form kernel thread log file";
         return false;
     }
 
@@ -1029,7 +1029,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
                 return false;
             }
             if (!write(tdata, reinterpret_cast<trace_entry_t *>(buf_base),
-                                 reinterpret_cast<trace_entry_t *>(buf)))
+                       reinterpret_cast<trace_entry_t *>(buf)))
                 return false;
             continue;
         }
@@ -1093,7 +1093,7 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
         VPRINT(4, "About to read thread #%d==%d at pos %d\n", tdata->index,
                (uint)tdata->tid, (int)tdata->thread_file->tellg());
         if (!process_next_thread_buffer(tdata, &end_of_file) ||
-           (!end_of_file && thread_file_at_eof(tdata))) {
+            (!end_of_file && thread_file_at_eof(tdata))) {
             if (thread_file_at_eof(tdata)) {
                 // Rather than a fatal error we try to continue to provide partial
                 // results in case the disk was full or there was some other issue.
@@ -1202,7 +1202,7 @@ raw2trace_t::do_conversion()
     // XXX i#3286: Add a %-completed progress message by looking at the file sizes.
     if (worker_count_ == 0) {
         for (size_t i = 0; i < thread_data_.size(); ++i) {
-            raw2trace_thread_data_t* tdata = thread_data_[i].get();
+            raw2trace_thread_data_t *tdata = thread_data_[i].get();
             if (!process_thread_file(tdata))
                 return tdata->error;
             count_elided_ += thread_data_[i]->count_elided;
@@ -1515,8 +1515,8 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
     } else {
         if (!instr_summary_exists(tdata, in_entry->pc.modidx, in_entry->pc.modoffs,
                                   start_pc, 0, decode_pc)) {
-            if (!analyze_elidable_addresses(
-                tdata, in_entry->pc.modidx, in_entry->pc.modoffs, start_pc, instr_count))
+            if (!analyze_elidable_addresses(tdata, in_entry->pc.modidx,
+                                            in_entry->pc.modoffs, start_pc, instr_count))
                 return false;
         }
     }
@@ -1711,23 +1711,23 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                     // XXX: Add sanity check for max count of store/load memrefs
                     // possible for a given scatter/gather instr.
                     if (!process_memref(
-                        tdata, &buf, instr,
-                        // These memrefs were output by multiple store/load instrs in
-                        // the expanded scatter/gather sequence. In raw2trace we see
-                        // only the original app instr though. So we use the 0th
-                        // dest/src of the original scatter/gather instr for all.
-                        is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
-                        is_scatter, reg_vals, cur_pc, cur_offs, instrs_are_separate,
-                        &reached_end_of_memrefs, &interrupted))
+                            tdata, &buf, instr,
+                            // These memrefs were output by multiple store/load instrs in
+                            // the expanded scatter/gather sequence. In raw2trace we see
+                            // only the original app instr though. So we use the 0th
+                            // dest/src of the original scatter/gather instr for all.
+                            is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
+                            is_scatter, reg_vals, cur_pc, cur_offs, instrs_are_separate,
+                            &reached_end_of_memrefs, &interrupted))
                         return false;
                     if (interrupted)
                         break;
                 }
             } else {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
-                    if (!process_memref(tdata, &buf, instr, instr->mem_src_at(j),
-                                        false, reg_vals, cur_pc, cur_offs,
-                                        instrs_are_separate, nullptr, &interrupted))
+                    if (!process_memref(tdata, &buf, instr, instr->mem_src_at(j), false,
+                                        reg_vals, cur_pc, cur_offs, instrs_are_separate,
+                                        nullptr, &interrupted))
                         return false;
                     if (interrupted)
                         break;
@@ -1735,9 +1735,9 @@ raw2trace_t::append_bb_entries(raw2trace_thread_data_t *tdata,
                 // We break before subsequent memrefs on an interrupt, though with
                 // today's tracer that will never happen (i#3958).
                 for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
-                    if (!process_memref(tdata, &buf, instr, instr->mem_dest_at(j),
-                                        true, reg_vals, cur_pc, cur_offs,
-                                        instrs_are_separate, nullptr, &interrupted))
+                    if (!process_memref(tdata, &buf, instr, instr->mem_dest_at(j), true,
+                                        reg_vals, cur_pc, cur_offs, instrs_are_separate,
+                                        nullptr, &interrupted))
                         return false;
                     if (interrupted)
                         break;
@@ -3028,7 +3028,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     // We don't want encodings for the PC-only i-filtered entries.
                     it->size > 0 && instr_ordinal >= static_cast<int>(decode_pcs_size)) {
                     tdata->error = "decode_pcs is missing entries for written "
-                           "instructions";
+                                   "instructions";
                     return false;
                 }
             }
@@ -3075,7 +3075,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 else if (it->size == TRACE_MARKER_TYPE_CPU_ID) {
                     if (tdata->chunk_count_ <= 0) {
                         tdata->error = "chunk_count_ should have been incremented "
-                               "already";
+                                       "already";
                         return false;
                     }
                     uint64_t instr_count =
