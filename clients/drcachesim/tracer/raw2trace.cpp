@@ -855,8 +855,8 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         DR_ASSERT(syscall_idx == 0);
         syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
         if (!tdata->kthread_file->read((char *)&header[0], PT_METADATA_PDB_HEADER_SIZE)) {
-            tdata->error = "Unable to read the PDB header of PT metadate form kernel thread log "
-                   "file";
+            tdata->error = "Unable to read the PDB header of PT metadate form kernel "
+                   "thread log file";
             return false;
         }
         if (header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type !=
@@ -906,9 +906,8 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
                 VPRINT(1, "Finished decoding all PT data for thread %d\n", tdata->tid);
                 return true;
             }
-            tdata->error = "Unable to read the PDB header of next syscall's PT data form kernel "
-                   "thread log "
-                   "file";
+            tdata->error = "Unable to read the PDB header of next syscall's PT data "
+                   "form kernel thread log file";
             return false;
         }
         tdata->pre_read_pt_entries.insert(tdata->pre_read_pt_entries.end(), header,
@@ -934,8 +933,9 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     tdata->pre_read_pt_entries.clear();
     std::unique_ptr<uint8_t[]> pt_data(new uint8_t[pt_data_size]);
     if (!tdata->kthread_file->read((char *)pt_data.get(), pt_data_size)) {
-        tdata->error = "Unable to read the PT data of syscall " + std::to_string(syscall_idx) +
-            " sysnum " + std::to_string(sysnum) + " form kernel thread log file";
+        tdata->error = "Unable to read the PT data of syscall "
+            + std::to_string(syscall_idx) + " sysnum " + std::to_string(sysnum)
+            + " form kernel thread log file";
         return false;
     }
 
@@ -1075,7 +1075,7 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             entry.extended.valueB == TRACE_MARKER_TYPE_WINDOW_ID)
             tdata->last_window = entry.extended.valueA;
         bool flush_decode_cache = false;
-        auto success = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
+        bool success = process_offline_entry(tdata, &entry, tdata->tid, end_of_record,
                                              &last_bb_handled, &flush_decode_cache);
         if (flush_decode_cache)
             decode_cache_[tdata->worker].clear();
@@ -1102,7 +1102,7 @@ raw2trace_t::process_thread_file(raw2trace_thread_data_t *tdata)
                 entry.extended.type = OFFLINE_TYPE_EXTENDED;
                 entry.extended.ext = OFFLINE_EXT_TYPE_FOOTER;
                 bool last_bb_handled = true, flush_decode_cache = false;
-                auto success =
+                bool success =
                     process_offline_entry(tdata, &entry, tdata->tid, &end_of_file,
                                           &last_bb_handled, &flush_decode_cache);
                 if (flush_decode_cache)
@@ -2391,8 +2391,8 @@ raw2trace_t::adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t 
     tdata->rseq_buffering_enabled_ = false;
 
     log(4, "Writing out rseq buffer: %zd entries\n", tdata->rseq_buffer_.size());
-    if (! write(tdata, &tdata->rseq_buffer_[0], &tdata->rseq_buffer_.back() + 1,
-                tdata->rseq_decode_pcs_.data(), tdata->rseq_decode_pcs_.size()))
+    if (!write(tdata, &tdata->rseq_buffer_[0], &tdata->rseq_buffer_.back() + 1,
+               tdata->rseq_decode_pcs_.data(), tdata->rseq_decode_pcs_.size()))
         return false;
 
     tdata->rseq_past_end_ = false;
@@ -3027,7 +3027,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
                     // We don't want encodings for the PC-only i-filtered entries.
                     it->size > 0 && instr_ordinal >= static_cast<int>(decode_pcs_size)) {
-                    tdata->error = "decode_pcs is missing entries for written instructions";
+                    tdata->error = "decode_pcs is missing entries for written "
+                           "instructions";
                     return false;
                 }
             }
@@ -3054,7 +3055,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     tdata->error = "Failed to write to output file";
                     return false;
                 }
-                if (!insert_post_chunk_encodings(tdata, it, *(decode_pcs + instr_ordinal)))
+                if (!insert_post_chunk_encodings(tdata, it,
+                                                 *(decode_pcs + instr_ordinal)))
                     return false;
                 if (!tdata->out_file->write(reinterpret_cast<const char *>(it),
                                             sizeof(*it))) {
@@ -3072,7 +3074,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     tdata->last_timestamp_ = it->addr;
                 else if (it->size == TRACE_MARKER_TYPE_CPU_ID) {
                     if (tdata->chunk_count_ <= 0) {
-                        tdata->error = "chunk_count_ should have been incremented already";
+                        tdata->error = "chunk_count_ should have been incremented "
+                               "already";
                         return false;
                     }
                     uint64_t instr_count =
