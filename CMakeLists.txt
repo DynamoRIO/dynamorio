@@ -45,8 +45,8 @@
 #   HowToBuild.wiki
 ###########################################################################
 
-# Visual Studio 2017 requires 3.7, ZIP_LISTS requires 3.17.
-cmake_minimum_required(VERSION 3.17)
+# Visual Studio 2017 requires 3.7.
+cmake_minimum_required(VERSION 3.7)
 
 include(make/policies.cmake NO_POLICY_SCOPE)
 
