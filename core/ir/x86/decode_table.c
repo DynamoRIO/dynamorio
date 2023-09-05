@@ -40,9 +40,9 @@
 
 #include "../globals.h" /* need this to include decode.h (uint, etc.) */
 #include "arch.h"       /* need this to include decode.h (byte, etc. */
+#include "instr.h"      /* for REG_ constants */
 #include "decode.h"
 #include "decode_private.h"
-#include "instr.h" /* for REG_ constants */
 
 /****************************************************************************
  * All code below based on tables in the ``Intel Architecture Software
@@ -9533,62 +9533,62 @@ const instr_info_t rep_extensions[][4] = {
   { /* rep extension 0 */
     {OP_ins,      0x6c0000, "ins",       Yb, axDI, dx, axDI, xx, no, fRD, END_LIST},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_ins,  0xf36c0000, "rep ins", Yb, axDI, dx, axDI, axCX, xop_next|predcx, fRD, END_LIST},
-    {OP_CONTD,  0xf36c0000, "rep ins", axCX, xx, xx, xx, xx, predcx, fRD, END_LIST},
+    {OP_rep_ins,  0xf36c0000, "rep ins", Yb, axDI, dx, axDI, axCX, xop_next, fRD, END_LIST},
+    {OP_CONTD,  0xf36c0000, "rep ins", axCX, xx, xx, xx, xx, no, fRD, END_LIST},
   },
   { /* rep extension 1 */
     {OP_ins,      0x6d0000, "ins",       Yz, axDI, dx, axDI, xx, no, fRD, tre[0][0]},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_ins,  0xf36d0000, "rep ins", Yz, axDI, dx, axDI, axCX, xop_next|predcx, fRD, tre[0][2]},
-    {OP_CONTD,  0xf36d0000, "rep ins", axCX, xx, xx, xx, xx, predcx, fRD, END_LIST},
+    {OP_rep_ins,  0xf36d0000, "rep ins", Yz, axDI, dx, axDI, axCX, xop_next, fRD, tre[0][2]},
+    {OP_CONTD,  0xf36d0000, "rep ins", axCX, xx, xx, xx, xx, no, fRD, END_LIST},
   },
   { /* rep extension 2 */
     {OP_outs,      0x6e0000, "outs",       axSI, xx, Xb, dx, axSI, no, fRD, END_LIST},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_outs,  0xf36e0000, "rep outs", axSI, axCX, Xb, dx, axSI, xop_next|predcx, fRD, END_LIST},
-    {OP_CONTD,  0xf36e0000, "rep outs", xx, xx, axCX, xx, xx, predcx, fRD, END_LIST},
+    {OP_rep_outs,  0xf36e0000, "rep outs", axSI, axCX, Xb, dx, axSI, xop_next, fRD, END_LIST},
+    {OP_CONTD,  0xf36e0000, "rep outs", xx, xx, axCX, xx, xx, no, fRD, END_LIST},
   },
   { /* rep extension 3 */
     {OP_outs,      0x6f0000, "outs",       axSI, xx, Xz, dx, axSI, no, fRD, tre[2][0]},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_outs,  0xf36f0000, "rep outs", axSI, axCX, Xz, dx, axSI, xop_next|predcx, fRD, tre[2][2]},
-    {OP_CONTD,  0xf36f0000, "rep outs", xx, xx, axCX, xx, xx, predcx, fRD, END_LIST},
+    {OP_rep_outs,  0xf36f0000, "rep outs", axSI, axCX, Xz, dx, axSI, xop_next, fRD, tre[2][2]},
+    {OP_CONTD,  0xf36f0000, "rep outs", xx, xx, axCX, xx, xx, no, fRD, END_LIST},
   },
   { /* rep extension 4 */
     {OP_movs,      0xa40000, "movs",       Yb, axSI, Xb, axSI, axDI, xop_next, fRD, END_LIST},
     {OP_CONTD,      0xa40000, "movs",       axDI, xx, xx, xx, xx, no, fRD, END_LIST},
-    {OP_rep_movs,  0xf3a40000, "rep movs", Yb, axSI, Xb, axSI, axDI, xop_next|predcx, fRD, END_LIST},
-    {OP_CONTD,  0xf3a40000, "rep movs", axDI, axCX, axCX, xx, xx, predcx, fRD, END_LIST},
+    {OP_rep_movs,  0xf3a40000, "rep movs", Yb, axSI, Xb, axSI, axDI, xop_next, fRD, END_LIST},
+    {OP_CONTD,  0xf3a40000, "rep movs", axDI, axCX, axCX, xx, xx, no, fRD, END_LIST},
   },
   { /* rep extension 5 */
     {OP_movs,      0xa50000, "movs",       Yv, axSI, Xv, axSI, axDI, xop_next, fRD, tre[4][0]},
     {OP_CONTD,      0xa50000, "movs",       axDI, xx, xx, xx, xx, no, fRD, END_LIST},
-    {OP_rep_movs,  0xf3a50000, "rep movs", Yv, axSI, Xv, axSI, axDI, xop_next|predcx, fRD, tre[4][2]},
-    {OP_CONTD,  0xf3a50000, "rep movs", axDI, axCX, axCX, xx, xx, predcx, fRD, END_LIST},
+    {OP_rep_movs,  0xf3a50000, "rep movs", Yv, axSI, Xv, axSI, axDI, xop_next, fRD, tre[4][2]},
+    {OP_CONTD,  0xf3a50000, "rep movs", axDI, axCX, axCX, xx, xx, no, fRD, END_LIST},
   },
   { /* rep extension 6 */
     {OP_stos,      0xaa0000, "stos",       Yb, axDI, al, axDI, xx, no, fRD, END_LIST},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_stos,  0xf3aa0000, "rep stos", Yb, axDI, al, axDI, axCX, xop_next|predcx, fRD, END_LIST},
-    {OP_CONTD,  0xf3aa0000, "rep stos", axCX, xx, xx, xx, xx, predcx, fRD, END_LIST},
+    {OP_rep_stos,  0xf3aa0000, "rep stos", Yb, axDI, al, axDI, axCX, xop_next, fRD, END_LIST},
+    {OP_CONTD,  0xf3aa0000, "rep stos", axCX, xx, xx, xx, xx, no, fRD, END_LIST},
   },
   { /* rep extension 7 */
     {OP_stos,      0xab0000, "stos",       Yv, axDI, eAX, axDI, xx, no, fRD, tre[6][0]},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_stos,  0xf3ab0000, "rep stos", Yv, axDI, eAX, axDI, axCX, xop_next|predcx, fRD, tre[6][2]},
-    {OP_CONTD,  0xf3ab0000, "rep stos", axCX, xx, xx, xx, xx, predcx, fRD, END_LIST},
+    {OP_rep_stos,  0xf3ab0000, "rep stos", Yv, axDI, eAX, axDI, axCX, xop_next, fRD, tre[6][2]},
+    {OP_CONTD,  0xf3ab0000, "rep stos", axCX, xx, xx, xx, xx, no, fRD, END_LIST},
   },
   { /* rep extension 8 */
     {OP_lods,      0xac0000, "lods",       al, axSI, Xb, axSI, xx, no, fRD, END_LIST},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_lods,  0xf3ac0000, "rep lods", al, axSI, Xb, axSI, axCX, xop_next|predcx, fRD, END_LIST},
-    {OP_CONTD,  0xf3ac0000, "rep lods", axCX, xx, xx, xx, xx, predcx, fRD, END_LIST},
+    {OP_rep_lods,  0xf3ac0000, "rep lods", al, axSI, Xb, axSI, axCX, xop_next, fRD, END_LIST},
+    {OP_CONTD,  0xf3ac0000, "rep lods", axCX, xx, xx, xx, xx, no, fRD, END_LIST},
   },
   { /* rep extension 9 */
     {OP_lods,      0xad0000, "lods",       eAX, axSI, Xv, axSI, xx, no, fRD, tre[8][0]},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_lods,  0xf3ad0000, "rep lods", eAX, axSI, Xv, axSI, axCX, xop_next|predcx, fRD, tre[8][2]},
-    {OP_CONTD,  0xf3ad0000, "rep lods", axCX, xx, xx, xx, xx, predcx, fRD, END_LIST},
+    {OP_rep_lods,  0xf3ad0000, "rep lods", eAX, axSI, Xv, axSI, axCX, xop_next, fRD, tre[8][2]},
+    {OP_CONTD,  0xf3ad0000, "rep lods", axCX, xx, xx, xx, xx, no, fRD, END_LIST},
   },
 };
 
@@ -9596,34 +9596,34 @@ const instr_info_t repne_extensions[][6] = {
   { /* repne extension 0 */
     {OP_cmps,       0xa60000, "cmps",         axSI, axDI, Xb, Yb, axSI, xop_next, (fW6|fRD), END_LIST},
     {OP_CONTD,      0xa60000, "cmps",         xx, xx, axDI, xx, xx, no, (fW6|fRD), END_LIST},
-    {OP_rep_cmps,   0xf3a60000, "rep cmps",   axSI, axDI, Xb, Yb, axSI, xop_next|predcx, (fW6|fRD|fRZ), END_LIST},
-    {OP_CONTD,      0xf3a60000, "rep cmps",   axCX, xx, axDI, axCX, xx, predcx, (fW6|fRD), END_LIST},
-    {OP_repne_cmps, 0xf2a60000, "repne cmps", axSI, axDI, Xb, Yb, axSI, xop_next|predcx, (fW6|fRD|fRZ), END_LIST},
-    {OP_CONTD,      0xf2a60000, "repne cmps", axCX, xx, axDI, axCX, xx, predcx, (fW6|fRD), END_LIST},
+    {OP_rep_cmps,   0xf3a60000, "rep cmps",   axSI, axDI, Xb, Yb, axSI, xop_next, (fW6|fRD|fRZ), END_LIST},
+    {OP_CONTD,      0xf3a60000, "rep cmps",   axCX, xx, axDI, axCX, xx, no, (fW6|fRD), END_LIST},
+    {OP_repne_cmps, 0xf2a60000, "repne cmps", axSI, axDI, Xb, Yb, axSI, xop_next, (fW6|fRD|fRZ), END_LIST},
+    {OP_CONTD,      0xf2a60000, "repne cmps", axCX, xx, axDI, axCX, xx, no, (fW6|fRD), END_LIST},
   },
   { /* repne extension 1 */
     {OP_cmps,       0xa70000, "cmps",         axSI, axDI, Xv, Yv, axSI, xop_next, (fW6|fRD), tne[0][0]},
     {OP_CONTD,      0xa70000, "cmps",         xx, xx, axDI, xx, xx, no, (fW6|fRD), END_LIST},
-    {OP_rep_cmps,   0xf3a70000, "rep cmps",   axSI, axDI, Xv, Yv, axSI, xop_next|predcx, (fW6|fRD|fRZ), tne[0][2]},
-    {OP_CONTD,      0xf3a70000, "rep cmps",   axCX, xx, axDI, axCX, xx, predcx, (fW6|fRD), END_LIST},
-    {OP_repne_cmps, 0xf2a70000, "repne cmps", axSI, axDI, Xv, Yv, axSI, xop_next|predcx, (fW6|fRD|fRZ), tne[0][4]},
-    {OP_CONTD,      0xf2a70000, "repne cmps", axCX, xx, axDI, axCX, xx, predcx, (fW6|fRD), END_LIST},
+    {OP_rep_cmps,   0xf3a70000, "rep cmps",   axSI, axDI, Xv, Yv, axSI, xop_next, (fW6|fRD|fRZ), tne[0][2]},
+    {OP_CONTD,      0xf3a70000, "rep cmps",   axCX, xx, axDI, axCX, xx, no, (fW6|fRD), END_LIST},
+    {OP_repne_cmps, 0xf2a70000, "repne cmps", axSI, axDI, Xv, Yv, axSI, xop_next, (fW6|fRD|fRZ), tne[0][4]},
+    {OP_CONTD,      0xf2a70000, "repne cmps", axCX, xx, axDI, axCX, xx, no, (fW6|fRD), END_LIST},
   },
   { /* repne extension 2 */
     {OP_scas,       0xae0000, "scas",         axDI, xx, Yb, al, axDI, no, (fW6|fRD), END_LIST},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_scas,   0xf3ae0000, "rep scas",   axDI, axCX, Yb, al, axDI, xop_next|predcx, (fW6|fRD|fRZ), END_LIST},
-    {OP_CONTD,      0xf3ae0000, "rep scas",   xx, xx, axCX, xx, xx, predcx, (fW6|fRD), END_LIST},
-    {OP_repne_scas, 0xf2ae0000, "repne scas", axDI, axCX, Yb, al, axDI, xop_next|predcx, (fW6|fRD|fRZ), END_LIST},
-    {OP_CONTD,      0xf2ae0000, "repne scas", xx, xx, axCX, xx, xx, predcx, (fW6|fRD), END_LIST},
+    {OP_rep_scas,   0xf3ae0000, "rep scas",   axDI, axCX, Yb, al, axDI, xop_next, (fW6|fRD|fRZ), END_LIST},
+    {OP_CONTD,      0xf3ae0000, "rep scas",   xx, xx, axCX, xx, xx, no, (fW6|fRD), END_LIST},
+    {OP_repne_scas, 0xf2ae0000, "repne scas", axDI, axCX, Yb, al, axDI, xop_next, (fW6|fRD|fRZ), END_LIST},
+    {OP_CONTD,      0xf2ae0000, "repne scas", xx, xx, axCX, xx, xx, no, (fW6|fRD), END_LIST},
   },
   { /* repne extension 3 */
     {OP_scas,       0xaf0000, "scas",         axDI, xx, Yv, eAX, axDI, no, (fW6|fRD), tne[2][0]},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_scas,   0xf3af0000, "rep scas",   axDI, axCX, Yv, eAX, axDI, xop_next|predcx, (fW6|fRD|fRZ), tne[2][2]},
-    {OP_CONTD,      0xf3af0000, "rep scas",   xx, xx, axCX, xx, xx, predcx, (fW6|fRD), END_LIST},
-    {OP_repne_scas, 0xf2af0000, "repne scas", axDI, axCX, Yv, eAX, axDI, xop_next|predcx, (fW6|fRD|fRZ), tne[2][4]},
-    {OP_CONTD,      0xf2af0000, "repne scas", xx, xx, axCX, xx, xx, predcx, (fW6|fRD), END_LIST},
+    {OP_rep_scas,   0xf3af0000, "rep scas",   axDI, axCX, Yv, eAX, axDI, xop_next, (fW6|fRD|fRZ), tne[2][2]},
+    {OP_CONTD,      0xf3af0000, "rep scas",   xx, xx, axCX, xx, xx, no, (fW6|fRD), END_LIST},
+    {OP_repne_scas, 0xf2af0000, "repne scas", axDI, axCX, Yv, eAX, axDI, xop_next, (fW6|fRD|fRZ), tne[2][4]},
+    {OP_CONTD,      0xf2af0000, "repne scas", xx, xx, axCX, xx, xx, no, (fW6|fRD), END_LIST},
   }
 };
 
