@@ -115,6 +115,10 @@ droption_t<std::string>
                          "Path with stored as-traced schedule for replay.");
 #endif
 
+droption_t<uint64_t> op_print_every(DROPTION_SCOPE_ALL, "print_every", 5000,
+                                    "A letter is printed every N instrs",
+                                    "A letter is printed every N instrs");
+
 uint64_t
 get_current_microseconds()
 {
@@ -134,12 +138,23 @@ get_current_microseconds()
 #endif
 }
 
+// Processes the stream of records scheduled on the "ordinal"-th virtual core with
+// output stream "steram" and scheduler "scheduler".
+// Returns in "thread_sequence" a representation of which inputs ran and for
+// how long on the core:
+// - The letter 'A' plus the input ordinal % 26 represents that input.  A letter
+//   is printed on each context switch and additionally after each -print_every
+//   instructions.
+// - A comma represents a context switch to a new input.
+// - A '-' represents a wait where no input was ready or a scheduler-encorced
+//   dependence is not yet met.
 void
 simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &scheduler,
-              std::vector<scheduler_t::input_ordinal_t> &thread_sequence)
+              std::string &thread_sequence)
 {
     memref_t record;
     uint64_t micros = op_sched_time.get_value() ? get_current_microseconds() : 0;
+    uint64_t cur_segment_instrs = 0;
     // Thread ids can be duplicated, so use the input ordinals to distinguish.
     scheduler_t::input_ordinal_t prev_input = scheduler_t::INVALID_INPUT_ORDINAL;
     for (scheduler_t::stream_status_t status = stream->next_record(record, micros);
@@ -148,12 +163,13 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
         if (op_sched_time.get_value())
             micros = get_current_microseconds();
         if (status == scheduler_t::STATUS_WAIT) {
+            thread_sequence += '-';
             std::this_thread::yield();
             continue;
         }
         if (status != scheduler_t::STATUS_OK)
             FATAL_ERROR("scheduler failed to advance: %d", status);
-        if (op_verbose.get_value() >= 3) {
+        if (op_verbose.get_value() >= 4) {
             std::ostringstream line;
             line << "Core #" << std::setw(2) << ordinal << " @" << std::setw(9)
                  << stream->get_record_ordinal() << " refs, " << std::setw(9)
@@ -177,11 +193,13 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
             std::cerr << line.str();
         }
         scheduler_t::input_ordinal_t input = stream->get_input_stream_ordinal();
-        if (thread_sequence.empty())
-            thread_sequence.push_back(input);
-        else if (stream->get_input_stream_ordinal() != prev_input) {
-            thread_sequence.push_back(input);
-            if (op_verbose.get_value() > 0) {
+        if (input != prev_input) {
+            // We convert to letters which only works well for <=26 inputs.
+            if (!thread_sequence.empty())
+                thread_sequence += ',';
+            thread_sequence += 'A' + static_cast<char>(input % 26);
+            cur_segment_instrs = 0;
+            if (op_verbose.get_value() >= 2) {
                 std::ostringstream line;
                 line
                     << "Core #" << std::setw(2) << ordinal << " @" << std::setw(9)
@@ -205,8 +223,15 @@ simulate_core(int ordinal, scheduler_t::stream_t *stream, const scheduler_t &sch
                     << " == thread " << record.instr.tid << "\n";
                 std::cerr << line.str();
             }
+            prev_input = input;
         }
-        prev_input = input;
+        if (type_is_instr(record.instr.type)) {
+            ++cur_segment_instrs;
+            if (cur_segment_instrs == op_print_every.get_value()) {
+                thread_sequence += 'A' + static_cast<char>(input % 26);
+                cur_segment_instrs = 0;
+            }
+        }
     }
 }
 
@@ -268,8 +293,7 @@ _tmain(int argc, const TCHAR *targv[])
     }
 
     std::vector<std::thread> threads;
-    std::vector<std::vector<scheduler_t::input_ordinal_t>> schedules(
-        op_num_cores.get_value());
+    std::vector<std::string> schedules(op_num_cores.get_value());
     std::cerr << "Creating " << op_num_cores.get_value() << " simulator threads\n";
     threads.reserve(op_num_cores.get_value());
     for (int i = 0; i < op_num_cores.get_value(); ++i) {
@@ -280,10 +304,7 @@ _tmain(int argc, const TCHAR *targv[])
         thread.join();
 
     for (int i = 0; i < op_num_cores.get_value(); ++i) {
-        std::cerr << "Core #" << i << ": ";
-        for (scheduler_t::input_ordinal_t input : schedules[i])
-            std::cerr << input << " ";
-        std::cerr << "\n";
+        std::cerr << "Core #" << i << ": " << schedules[i] << "\n";
     }
 
 #ifdef HAS_ZIP

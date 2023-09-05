@@ -1,7 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2023 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
-# Copyright (c) 2016-2022 ARM Limited.    All rights reserved.
+# Copyright (c) 2016-2023 ARM Limited.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -630,11 +630,14 @@ endfunction (setup_test_client_dll_basics)
 # and calls this one w/ "" "" "" b/c the PARENT_SCOPE won't make
 # it all the way back then: would need to chain.
 function(tobuild_ci test source client_ops dr_ops exe_ops)
-  string(REGEX REPLACE "\\.(c|cpp)$" ".dll.\\1" client_source "${source}")
-  string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
-  if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${client_source}")
-    string(REGEX REPLACE "\\.c$" ".cpp" client_source "${client_source}")
-  endif ()
+  if (NOT DEFINED ${test}_client_source)
+    string(REGEX REPLACE "\\.(c|cpp)$" ".dll.\\1" client_source "${source}")
+    string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
+    if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${client_source}")
+      string(REGEX REPLACE "\\.c$" ".cpp" client_source "${client_source}")
+    endif ()
+    set(${test}_client_source ${client_source})
+  endif()
 
   if (NOT "${source}" MATCHES "\\.runall$")
     # Many client tests don't care about the app that's run.  To save time
@@ -661,7 +664,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
     endif ()
   endif ()
 
-  add_library(${test}.dll SHARED ${client_source})
+  add_library(${test}.dll SHARED ${${test}_client_source})
   if (NOT DEFINED ${test}_no_reg_compat AND
       NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
@@ -1044,6 +1047,8 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -D__AVX__ -D__AVX512F__")
   elseif (DEFINED ${key}_runavx)
     set(rundefs "${rundefs} -D__AVX__")
+  elseif (DEFINED ${key}_runsve)
+    set(rundefs "${rundefs} -D__ARM_FEATURE_SVE")
   endif ()
 
   if (DEFINED ${key}_test_sample_client)
@@ -1716,6 +1721,15 @@ macro(set_avx_flags target)
     set(${target}_runavx 1)
   endif ()
 endmacro(set_avx_flags)
+
+macro(set_sve_flags target)
+  if (proc_supports_sve)
+    if (TARGET ${target}) # Support calling on non-exe target.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "${CFLAGS_SVE}")
+    endif ()
+    set(${target}_runsve 1)
+  endif ()
+endmacro(set_sve_flags)
 
 ###########################################################################
 
@@ -2826,31 +2840,43 @@ if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
   use_DynamoRIO_extension(client.tls.dll drmgr)
 endif (NOT RISCV64)
 
-if (X86)
+if (X86 OR AARCH64)
   if (NOT MACOS)
     # XXX i#2985: The test's asm doesn't build with MacOS's clang.
-    tobuild_ci(client.drx-scattergather client-interface/drx-scattergather.c "" "" "")
+    set(client.drx-scattergather_client_source "client-interface/drx-scattergather.dll.c")
+    if (X86)
+        tobuild_ci(client.drx-scattergather "client-interface/drx-scattergather-x86.c"
+          "" "" "")
+        set_avx_flags(client.drx-scattergather)
+    elseif (AARCH64)
+        tobuild_ci(client.drx-scattergather "client-interface/drx-scattergather-aarch64.cpp"
+          "" "" "")
+        set_sve_flags(client.drx-scattergather)
+    endif()
     target_include_directories(client.drx-scattergather PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
     use_DynamoRIO_extension(client.drx-scattergather.dll drmgr)
     use_DynamoRIO_extension(client.drx-scattergather.dll drx)
     use_DynamoRIO_extension(client.drx-scattergather.dll drreg)
-    set_avx_flags(client.drx-scattergather)
 
     # Our scattergather drbbdup test uses the same app as the base test.
     set(client.drx-scattergather-bbdup_realtest client.drx-scattergather)
-    set(client.drx-scattergather-bbdup_expectbase "drx-scattergather")
+    set(client.drx-scattergather-bbdup_expectbase "drx-scattergather-${ARCH_NAME}")
     tobuild_ci(client.drx-scattergather-bbdup client-interface/drx-scattergather-bbdup.c
       "" "" "")
+    if (X86)
+      set_avx_flags(client.drx-scattergather-bbdup)
+    elseif (AARCH64)
+      set_sve_flags(client.drx-scattergather-bbdup)
+    endif()
     target_include_directories(client.drx-scattergather PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drmgr)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drx)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drreg)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drbbdup)
-    set_avx_flags(client.drx-scattergather-bbdup)
 
-    if (X64 AND UNIX)
+    if (X86 AND X64 AND UNIX)
       if (proc_supports_avx)
         add_exe(allasm_scattergather
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
@@ -2862,7 +2888,7 @@ if (X86)
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
       append_pure_asm_app_link_flags(allasm_repstr)
-    endif (X64 AND UNIX)
+    endif (X86 AND X64 AND UNIX)
   endif()
 endif ()
 
@@ -3351,14 +3377,21 @@ if (BUILD_SAMPLES)
               client-interface/memval-test.c "" "" "")
 
           torunonly_ci(sample.${sample}_scattergather client.drx-scattergather ${sample}
-              client-interface/drx-scattergather.c "" "" "")
+              client-interface/drx-scattergather-x86.c "" "" "")
           set(sample.${sample}_scattergather_test_sample_client 1)
           if (proc_supports_avx512)
             set(sample.${sample}_scattergather_runavx512 1)
           elseif (proc_supports_avx)
             set(sample.${sample}_scattergather_runavx 1)
           endif ()
-        endif (X86 AND UNIX)
+        elseif (AARCH64)
+          torunonly_ci(sample.${sample}_scattergather client.drx-scattergather ${sample}
+              client-interface/drx-scattergather-aarch64.cpp "" "" "")
+          set(sample.${sample}_scattergather_test_sample_client 1)
+          if (proc_supports_sve)
+            set(sample.${sample}_scattergather_runsve 1)
+          endif ()
+        endif ()
       elseif (sample STREQUAL "opcode_count")
         # We do not do a simple sanity test for opcode_count, but a normal test
         # that checks the sample's output.
@@ -3674,14 +3707,16 @@ if (BUILD_CLIENTS)
       set(tool.drcachesim.invariants_timeout 180)
     endif ()
 
-    if (NOT MACOS AND X86)
-      torunonly_drcachesim(scattergather client.drx-scattergather
+    if ((NOT MACOS) AND (X86 OR AARCH64))
+        torunonly_drcachesim(scattergather-${ARCH_NAME} client.drx-scattergather
         "-simulator_type basic_counts" "")
-      unset(tool.drcachesim.scattergather_rawtemp) # use preprocessor
+      unset(tool.drcachesim.scattergather-${ARCH_NAME}_rawtemp) # use preprocessor
       if (proc_supports_avx512)
-        set(tool.drcachesim.scattergather_runavx512 1)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx512 1)
       elseif (proc_supports_avx)
-        set(tool.drcachesim.scattergather_runavx 1)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx 1)
+      elseif (proc_supports_sve)
+        set(tool.drcachesim.scattergather-${ARCH_NAME}_runsve 1)
       endif ()
     endif ()
 
@@ -4141,6 +4176,11 @@ if (BUILD_CLIENTS)
       set(tool.drcacheoff.burst_traceopts_nodr ON)
       set(tool.drcacheoff.burst_traceopts_nopost ON)
       torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
+      set(tool.drcacheoff.windows-timestamps_nodr ON)
+      set(tool.drcacheoff.windows-timestamps_nopost ON)
+      torunonly_drcacheoff(windows-timestamps tool.drcacheoff.windows-timestamps "" "" "")
+      set(tool.drcacheoff.windows-timestamps-expectbase "offline-windows-timestamps")
+      set(tool.drcacheoff.windows-timestamps_timeout 120)
 
       if (LINUX) # Futex is Linux-only.
         set(tool.drcacheoff.burst_futex_nodr ON)

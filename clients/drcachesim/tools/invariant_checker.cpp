@@ -410,8 +410,13 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR) {
-        report_if_false(shard, memref.marker.marker_value == shard->last_retaddr_,
-                        "Function marker retaddr should match prior call");
+        if (!shard->retaddr_stack_.empty()) {
+            // Current check does not handle long jump, it may fail if a long
+            // jump is used.
+            report_if_false(shard,
+                            memref.marker.marker_value == shard->retaddr_stack_.top(),
+                            "Function marker retaddr should match prior call");
+        }
     }
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
@@ -504,7 +509,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #endif
         if (memref.instr.type == TRACE_TYPE_INSTR_DIRECT_CALL ||
             memref.instr.type == TRACE_TYPE_INSTR_INDIRECT_CALL) {
-            shard->last_retaddr_ = memref.instr.addr + memref.instr.size;
+            shard->retaddr_stack_.push(memref.instr.addr + memref.instr.size);
+        }
+        if (memref.instr.type == TRACE_TYPE_INSTR_RETURN) {
+            if (!shard->retaddr_stack_.empty()) {
+                shard->retaddr_stack_.pop();
+            }
         }
         // Invariant: offline traces guarantee that a branch target must immediately
         // follow the branch w/ no intervening thread switch.
@@ -668,6 +678,17 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
                       << "marker type " << memref.marker.marker_type << " value 0x"
                       << std::hex << memref.marker.marker_value << std::dec << "\n";
+        }
+        // Zero is pushed as a sentinel. This push matches the return used by post
+        // signal handler to run the restorer code. It is assumed that all signal
+        // handlers return normally and longjmp is not used.
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+            // If the marker is preceded by an RSEQ ABORT marker, do not push the sentinel
+            // since there will not be a corresponding return.
+            if (shard->prev_entry_.marker.type != TRACE_TYPE_MARKER ||
+                shard->prev_entry_.marker.marker_type != TRACE_MARKER_TYPE_RSEQ_ABORT) {
+                shard->retaddr_stack_.push(0);
+            }
         }
 #ifdef UNIX
         report_if_false(shard, memref.marker.marker_value != 0,

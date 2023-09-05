@@ -233,7 +233,7 @@ public:
     // If the timestamp value is < min_timestamp, replaces it with min_timestamp
     // and returns true; else returns false.
     virtual bool
-    refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp) = 0;
+    clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp) = 0;
     virtual void
     set_frozen_timestamp(uint64 timestamp)
     {
@@ -360,7 +360,7 @@ public:
     int
     append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) override;
     bool
-    refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp) override;
+    clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp) override;
 
     int
     instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist, instr_t *where,
@@ -448,7 +448,7 @@ public:
     int
     append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window) override;
     bool
-    refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp) override;
+    clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp) override;
 
     int
     instrument_memref(void *drcontext, void *bb_field, instrlist_t *ilist, instr_t *where,

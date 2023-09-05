@@ -100,7 +100,8 @@ droption_t<int> op_jobs(
     "files is parallelized.  This option controls the number of concurrent jobs.  0 "
     "disables concurrency and uses a single thread to perform all operations.  A "
     "negative value sets the job count to the number of hardware threads, "
-    "with a cap of 16.");
+    "with a cap of 16.  This is ignored for -core_sharded where -cores sets the "
+    "parallelism.");
 
 droption_t<std::string> op_module_file(
     DROPTION_SCOPE_ALL, "module_file", "", "Path to modules.log for opcode_mix tool",
@@ -152,9 +153,10 @@ droption_t<std::string> op_funclist_file(
     "directory as the trace file, or a raw/ subdirectory below the trace file, this "
     "parameter can be omitted.");
 
-droption_t<unsigned int> op_num_cores(DROPTION_SCOPE_FRONTEND, "cores", 4,
-                                      "Number of cores",
-                                      "Specifies the number of cores to simulate.");
+droption_t<unsigned int> op_num_cores(
+    DROPTION_SCOPE_FRONTEND, "cores", 4, "Number of cores",
+    "Specifies the number of cores to simulate.  For -core_sharded, each core executes "
+    "in parallel in its own worker thread and -jobs is ignored.");
 
 droption_t<unsigned int> op_line_size(
     DROPTION_SCOPE_FRONTEND, "line_size", 64, "Cache line size",
@@ -774,6 +776,59 @@ droption_t<bool> op_enable_kernel_tracing(
     "syscall's PT and metadata to files in -outdir/kernel.raw/ for later offline "
     "analysis. And this feature is available only on Intel CPUs that support Intel@ "
     "Processor Trace.");
+#endif
+
+// Core-oriented analysis.
+droption_t<bool> op_core_sharded(
+    DROPTION_SCOPE_ALL, "core_sharded", false, "Analyze per-core in parallel.",
+    "By default, the input trace is analyzed in parallel across shards equal to "
+    "software threads.  This option instead schedules those threads onto virtual cores "
+    "and analyzes each core in parallel.  Thus, each shard consists of pieces from "
+    "many software threads.  How the scheduling is performed is controlled by a set "
+    "of options with the prefix \"sched_\" along with -num_cores.");
+
+droption_t<bool> op_core_serial(
+    DROPTION_SCOPE_ALL, "core_serial", false, "Analyze per-core in serial.",
+    "In this mode, scheduling is performed just like for -core_sharded. "
+    "However, the resulting schedule is acted upon by a single analysis thread"
+    "which walks the N cores in lockstep in round robin fashion. "
+    "How the scheduling is performed is controlled by a set "
+    "of options with the prefix \"sched_\" along with -num_cores.");
+
+droption_t<int64_t>
+    op_sched_quantum(DROPTION_SCOPE_ALL, "sched_quantum", 1 * 1000 * 1000,
+                     "Scheduling quantum",
+                     "Applies to -core_sharded and -core_serial. "
+                     "Scheduling quantum: in microseconds of wall-clock "
+                     "time if -sched_time is set; otherwise in instructions.");
+
+droption_t<bool>
+    op_sched_time(DROPTION_SCOPE_ALL, "sched_time", false,
+                  "Whether to use time for the scheduling quantum",
+                  "Applies to -core_sharded and -core_serial. "
+                  "Whether to use wall-clock time for the scheduling quantum, with a "
+                  "value equal to -sched_quantum in microseconds of wall-clock time.");
+
+droption_t<bool> op_sched_order_time(DROPTION_SCOPE_ALL, "sched_order_time", true,
+                                     "Whether to honor recorded timestamps for ordering",
+                                     "Applies to -core_sharded and -core_serial. "
+                                     "Whether to honor recorded timestamps for ordering");
+
+#ifdef HAS_ZIP
+droption_t<std::string> op_record_file(DROPTION_SCOPE_FRONTEND, "record_file", "",
+                                       "Path for storing record of schedule",
+                                       "Applies to -core_sharded and -core_serial. "
+                                       "Path for storing record of schedule.");
+
+droption_t<std::string> op_replay_file(DROPTION_SCOPE_FRONTEND, "replay_file", "",
+                                       "Path with stored schedule for replay",
+                                       "Applies to -core_sharded and -core_serial. "
+                                       "Path with stored schedule for replay.");
+droption_t<std::string>
+    op_cpu_schedule_file(DROPTION_SCOPE_FRONTEND, "cpu_schedule_file", "",
+                         "Path with stored as-traced schedule for replay",
+                         "Applies to -core_sharded and -core_serial. "
+                         "Path with stored as-traced schedule for replay.");
 #endif
 
 } // namespace drmemtrace

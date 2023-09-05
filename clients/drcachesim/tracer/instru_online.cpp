@@ -205,7 +205,7 @@ online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, intptr_t win
 }
 
 bool
-online_instru_t::refresh_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
+online_instru_t::clamp_unit_header_timestamp(byte *buf_ptr, uint64 min_timestamp)
 {
     trace_entry_t *stamp = reinterpret_cast<trace_entry_t *>(buf_ptr);
     stamp++; // Skip the tid added by append_unit_header() before the timestamp.

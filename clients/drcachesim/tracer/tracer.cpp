@@ -1311,7 +1311,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             const opnd_t src = instr_get_src(instr_operands, i);
             if (opnd_is_memory_reference(src)) {
 #ifdef AARCH64
-                /* TODO i#5844: Memory references involving SVE registers are not
+                /* TODO i#5036: Memory references involving SVE registers are not
                  * supported yet. To be implemented as part of scatter/gather work.
                  */
                 if (opnd_is_base_disp(src) &&
@@ -1335,7 +1335,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             const opnd_t dst = instr_get_dst(instr_operands, i);
             if (opnd_is_memory_reference(dst)) {
 #ifdef AARCH64
-                /* TODO i#5844: Memory references involving SVE registers are not
+                /* TODO i#5036: Memory references involving SVE registers are not
                  * supported yet. To be implemented as part of scatter/gather work.
                  */
                 if (opnd_is_base_disp(dst) &&

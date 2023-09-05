@@ -1,0 +1,68 @@
+#ifdef __ARM_FEATURE_SVE
+ld1b 32bit unscaled offset uxtw: PASS
+ld1b 32bit unscaled offset sxtw: PASS
+ld1b 32bit unpacked unscaled offset uxtw: PASS
+ld1b 32bit unpacked unscaled offset sxtw: PASS
+ld1b 64bit unscaled offset: PASS
+ld1b 64bit unscaled offset Zt==Zm: PASS
+ld1sb 32bit unscaled offset uxtw: PASS
+ld1sb 32bit unscaled offset sxtw: PASS
+ld1sb 32bit unpacked unscaled offset uxtw: PASS
+ld1sb 32bit unpacked unscaled offset sxtw: PASS
+ld1sb 64bit unscaled offset: PASS
+ld1sb 64bit unscaled offset: PASS
+ld1h 32bit scaled offset uxtw: PASS
+ld1h 32bit scaled offset sxtw: PASS
+ld1h 32bit unpacked scaled offset uxtw: PASS
+ld1h 32bit unpacked scaled offset sxtw: PASS
+ld1h 32bit unpacked unscaled offset uxtw: PASS
+ld1h 32bit unpacked unscaled offset sxtw: PASS
+ld1h 32bit unscaled offset uxtw: PASS
+ld1h 32bit unscaled offset sxtw: PASS
+ld1h 64bit scaled offset: PASS
+ld1h 64bit unscaled offset: PASS
+ld1h 64bit unscaled offset Zt==Zm: PASS
+ld1sh 32bit scaled offset uxtw: PASS
+ld1sh 32bit scaled offset sxtw: PASS
+ld1sh 32bit unpacked scaled offset uxtw: PASS
+ld1sh 32bit unpacked scaled offset sxtw: PASS
+ld1sh 32bit unpacked unscaled offset uxtw: PASS
+ld1sh 32bit unpacked unscaled offset sxtw: PASS
+ld1sh 32bit unscaled offset uxtw: PASS
+ld1sh 32bit unscaled offset sxtw: PASS
+ld1sh 64bit scaled offset: PASS
+ld1sh 64bit unscaled offset: PASS
+ld1sh 64bit unscaled offset Zt==Zm: PASS
+ld1w 32bit scaled offset uxtw: PASS
+ld1w 32bit scaled offset sxtw: PASS
+ld1w 32bit unpacked scaled offset uxtw: PASS
+ld1w 32bit unpacked scaled offset sxtw: PASS
+ld1w 32bit unpacked unscaled offset uxtw: PASS
+ld1w 32bit unpacked unscaled offset sxtw: PASS
+ld1w 32bit unscaled offset uxtw: PASS
+ld1w 32bit unscaled offset sxtw: PASS
+ld1w 64bit scaled offset: PASS
+ld1w 64bit unscaled offset: PASS
+ld1w 64bit unscaled offset Zt==Zm: PASS
+ld1sw 32bit unpacked scaled offset uxtw: PASS
+ld1sw 32bit unpacked scaled offset sxtw: PASS
+ld1sw 32bit unpacked unscaled offset uxtw: PASS
+ld1sw 32bit unpacked unscaled offset sxtw: PASS
+ld1sw 64bit scaled offset: PASS
+ld1sw 64bit unscaled offset: PASS
+ld1sw 64bit unscaled offset Zt==Zm: PASS
+ld1d 32bit unpacked scaled offset uxtw: PASS
+ld1d 32bit unpacked scaled offset sxtw: PASS
+ld1d 32bit unpacked unscaled offset uxtw: PASS
+ld1d 32bit unpacked unscaled offset sxtw: PASS
+ld1d 64bit scaled offset: PASS
+ld1d 64bit unscaled offset: PASS
+ld1d 64bit unscaled offset Zt==Zm: PASS
+#endif /* __ARM_FEATURE_SVE */
+#ifndef TEST_SAMPLE_CLIENT
+#ifdef __ARM_FEATURE_SVE
+event_exit, 428 scatter/gather instructions
+#else
+event_exit, 0 scatter/gather instructions
+#endif /* __ARM_FEATURE_SVE */
+#endif /* TEST_SAMPLE_CLIENT */

@@ -599,6 +599,7 @@ add_win32_flags(drmemtrace_record_filter)
 add_win32_flags(drmemtrace_analyzer)
 add_win32_flags(drmemtrace_invariant_checker)
 add_win32_flags(directory_iterator)
+add_win32_flags(test_helpers)
 if (WIN32 AND DEBUG)
   get_target_property(sim_srcs drcachesim SOURCES)
   get_target_property(raw2trace_srcs drraw2trace SOURCES)
@@ -732,8 +733,7 @@ if (BUILD_TESTS)
   set_tests_properties(tool.drcacheoff.raw2trace_unit_tests PROPERTIES TIMEOUT
     ${test_seconds})
 
-  add_executable(tool.scheduler.unit_tests tests/scheduler_unit_tests.cpp
-    tests/scheduler_unit_tests.cpp)
+  add_executable(tool.scheduler.unit_tests tests/scheduler_unit_tests.cpp)
   target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer test_helpers)
   add_win32_flags(tool.scheduler.unit_tests)
   if (WIN32)
@@ -746,6 +746,31 @@ if (BUILD_TESTS)
     COMMAND tool.scheduler.unit_tests
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
   set_tests_properties(tool.scheduler.unit_tests PROPERTIES TIMEOUT ${test_seconds})
+
+  add_executable(tool.drcachesim.core_sharded tests/core_sharded_test.cpp
+    # XXX: Better to put these into libraries but that requires a bigger cleanup:
+    analyzer_multi.cpp ${client_and_sim_srcs} reader/ipc_reader.cpp)
+  target_link_libraries(tool.drcachesim.core_sharded test_helpers
+    drmemtrace_raw2trace drmemtrace_simulator drmemtrace_reuse_distance
+    drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
+    drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
+    drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
+    drmemtrace_analyzer)
+  add_win32_flags(tool.drcachesim.core_sharded)
+  if (WIN32)
+    # We have a dup symbol from linking in DR.  Linking libc first doesn't help.
+    append_property_string(TARGET tool.drcachesim.core_sharded LINK_FLAGS
+      "/force:multiple")
+  endif ()
+  configure_DynamoRIO_standalone(tool.drcachesim.core_sharded)
+  use_DynamoRIO_extension(tool.drcachesim.core_sharded droption)
+  use_DynamoRIO_extension(tool.drcachesim.core_sharded drreg_static)
+  use_DynamoRIO_extension(tool.drcachesim.core_sharded drcovlib_static)
+  use_DynamoRIO_extension(tool.drcachesim.core_sharded drutil_static)
+  add_test(NAME tool.drcachesim.core_sharded
+    COMMAND tool.drcachesim.core_sharded
+    ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
+  set_tests_properties(tool.drcachesim.core_sharded PROPERTIES TIMEOUT ${test_seconds})
 
   # XXX i#5675: add tests for other environments. Currently, the repository does not have
   # a checked-in post-processed trace for x86-32 or AArchXX.  We are also limited to
@@ -963,6 +988,21 @@ if (BUILD_TESTS)
       add_win32_flags(tool.drcacheoff.burst_traceopts)
       use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_traceopts)
       use_DynamoRIO_extension(tool.drcacheoff.burst_traceopts drcovlib_static)
+    endif (NOT RISCV64)
+
+    if (NOT RISCV64) # TODO i#3544: Port tests to RISC-V 64
+      add_executable(tool.drcacheoff.windows-timestamps
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/window_test.cpp")
+      configure_DynamoRIO_static(tool.drcacheoff.windows-timestamps)
+      use_DynamoRIO_static_client(tool.drcacheoff.windows-timestamps drmemtrace_static)
+      target_link_libraries(tool.drcacheoff.windows-timestamps drmemtrace_raw2trace
+        drmemtrace_analyzer test_helpers)
+      if (WIN32)
+        # Just like for burst_replace, linking everything together takes effort.
+        target_link_libraries(tool.drcacheoff.windows-timestamps ${static_libc})
+      endif ()
+      add_win32_flags(tool.drcacheoff.windows-timestamps)
+      use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.windows-timestamps)
     endif (NOT RISCV64)
 
     if (LINUX) # Futex is Linux-only.
