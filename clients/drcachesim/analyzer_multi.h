@@ -38,6 +38,8 @@
 #define _ANALYZER_MULTI_H_ 1
 
 #include "analyzer.h"
+#include "archive_ostream.h"
+#include "scheduler.h"
 #include "simulator/cache_simulator_create.h"
 
 namespace dynamorio {
@@ -51,6 +53,8 @@ public:
     virtual ~analyzer_multi_t();
 
 protected:
+    scheduler_t::scheduler_options_t
+    init_dynamic_schedule();
     bool
     create_analysis_tools();
     bool
@@ -77,7 +81,13 @@ protected:
     get_cache_simulator_knobs();
 
     std::unique_ptr<std::istream> serial_schedule_file_;
+    // This is read in a single stream by invariant_checker and so is not
+    // an archive_istream_t.
     std::unique_ptr<std::istream> cpu_schedule_file_;
+    // This is read as an archive and can read the same file if both are set.
+    std::unique_ptr<archive_istream_t> cpu_schedule_zip_;
+    std::unique_ptr<archive_ostream_t> record_schedule_zip_;
+    std::unique_ptr<archive_istream_t> replay_schedule_zip_;
 
     static const int max_num_tools_ = 8;
 };

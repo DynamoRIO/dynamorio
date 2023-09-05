@@ -213,16 +213,18 @@ protected:
 
     bool
     init_scheduler(const std::string &trace_path,
-                   memref_tid_t only_thread = INVALID_THREAD_ID, int verbosity = 0);
+                   memref_tid_t only_thread = INVALID_THREAD_ID, int verbosity = 0,
+                   typename sched_type_t::scheduler_options_t *options = nullptr);
 
     bool
     init_scheduler(
         std::unique_ptr<ReaderType> reader = std::unique_ptr<ReaderType>(nullptr),
         std::unique_ptr<ReaderType> reader_end = std::unique_ptr<ReaderType>(nullptr),
-        int verbosity = 0);
+        int verbosity = 0, typename sched_type_t::scheduler_options_t *options = nullptr);
 
     bool
-    init_scheduler_common(typename sched_type_t::input_workload_t &workload);
+    init_scheduler_common(typename sched_type_t::input_workload_t &workload,
+                          typename sched_type_t::scheduler_options_t *options);
 
     // Used for std::thread so we need an rvalue (so no &worker).
     void
@@ -302,6 +304,9 @@ protected:
         uint64_t interval_end_timestamp, int tool_idx,
         typename analysis_tool_tmpl_t<RecordType>::interval_state_snapshot_t *&result);
 
+    uint64_t
+    get_current_microseconds();
+
     bool success_;
     scheduler_tmpl_t<RecordType, ReaderType> scheduler_;
     std::string error_string_;
@@ -326,6 +331,8 @@ protected:
     uint64_t skip_instrs_ = 0;
     uint64_t interval_microseconds_ = 0;
     int verbosity_ = 0;
+    shard_type_t shard_type_ = SHARD_BY_THREAD;
+    bool sched_by_time_ = false;
 
 private:
     bool
