@@ -90,6 +90,7 @@ if (lists_identical)
   if (filtered_expect_length GREATER "1000")
     # CMake list(GET ...) operation is slow, do STREQUAL for large files, give up
     # the diff output.
+    # XXX: Use ZIP_LISTS for better performance, which requires CMake 3.17.
     if(NOT filtered_expect STREQUAL output)
       set(lists_identical FALSE)
     endif ()
