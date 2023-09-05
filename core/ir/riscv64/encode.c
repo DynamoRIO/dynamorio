@@ -91,8 +91,7 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t *ii)
 void
 decode_info_init_for_instr(decode_info_t *di, instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    di->check_reachable = false;
 }
 
 byte *
@@ -130,7 +129,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                 instr_disassemble_to_buffer(dcontext, instr, disas_instr,
                                             MAX_INSTR_DIS_SZ);
                 SYSLOG_INTERNAL_ERROR("Internal Error: Failed to encode instruction:"
-                                      " '%s'\n",
+                                      " '%s'",
                                       disas_instr);
             }
         });
