@@ -3030,11 +3030,29 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                         (tdata->chunk_count_ - 1) * chunk_instr_count_ +
                         tdata->cur_chunk_instr_count;
                     tdata->last_cpu_ = static_cast<uint>(it->addr);
-                    tdata->sched.emplace_back(tdata->tid, tdata->last_timestamp_,
-                                              tdata->last_cpu_, instr_count);
-                    tdata->cpu2sched[it->addr].emplace_back(
-                        tdata->tid, tdata->last_timestamp_, tdata->last_cpu_,
-                        instr_count);
+                    // Avoid identical entries, which are common with the end of the
+                    // previous buffer's timestamp followed by the start of the next.
+                    if (tdata->sched.empty() ||
+                        (tdata->sched.back().thread !=
+                             static_cast<uint64_t>(tdata->tid) ||
+                         tdata->sched.back().timestamp != tdata->last_timestamp_ ||
+                         tdata->sched.back().cpu != tdata->last_cpu_ ||
+                         tdata->sched.back().start_instruction != instr_count)) {
+                        tdata->sched.emplace_back(tdata->tid, tdata->last_timestamp_,
+                                                  tdata->last_cpu_, instr_count);
+                    }
+                    if (tdata->cpu2sched[it->addr].empty() ||
+                        (tdata->cpu2sched[it->addr].back().thread !=
+                             static_cast<uint64_t>(tdata->tid) ||
+                         tdata->cpu2sched[it->addr].back().timestamp !=
+                             tdata->last_timestamp_ ||
+                         tdata->cpu2sched[it->addr].back().cpu != tdata->last_cpu_ ||
+                         tdata->cpu2sched[it->addr].back().start_instruction !=
+                             instr_count)) {
+                        tdata->cpu2sched[it->addr].emplace_back(
+                            tdata->tid, tdata->last_timestamp_, tdata->last_cpu_,
+                            instr_count);
+                    }
                 }
             }
         }
