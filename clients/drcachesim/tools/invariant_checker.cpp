@@ -397,8 +397,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         marker_type_is_function_marker(memref.marker.marker_type)) {
-        shard->in_function_marker_block_ = true;
-
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
             shard->prev_func_id_ = memref.marker.marker_value;
         }
@@ -410,24 +408,35 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             memref.marker.marker_value == shard->retaddr_stack_.top(),
                             "Function marker retaddr should match prior call");
         }
-
         // Function markers may appear in the beginning of the trace before any
         // instructions are recorded, i.e. shard->instr_count_ == 0. In other to avoid
-        // false positives in this case, we assume the markers are placed correctly.
+        // false positives, we assume the markers are placed correctly.
+#ifdef UNIX
         report_if_false(
             shard,
             shard->prev_func_id_ >=
                     static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
                 type_is_instr_branch(shard->prev_instr_.instr.type) ||
-                shard->instr_count_ == 0 || shard->delayed_function_marker_expected_,
+                shard->instr_count_ == 0 ||
+                (shard->prev_xfer_marker_.marker.marker_type ==
+                     TRACE_MARKER_TYPE_KERNEL_XFER &&
+                 (
+                     // The last instruction is not known if the signal arrived before any
+                     // instructions in the trace, or the trace started mid-signal. We
+                     // assume the function markers are correct to avoid false positives.
+                     shard->last_signal_context_.pre_signal_instr.instr.addr == 0 ||
+                     // The last instruction of the outer-most scope was a branch.
+                     type_is_instr_branch(shard->last_instr_in_cur_context_.instr.type))),
             "Function marker should be after a branch");
-    } else {
-        // Reset the delayed_function_marker_expected_ flag when we exit the
-        // function marker block.
-        if (shard->in_function_marker_block_) {
-            shard->in_function_marker_block_ = false;
-            shard->delayed_function_marker_expected_ = false;
-        }
+#else
+        report_if_false(
+            shard,
+            shard->prev_func_id_ >=
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
+                type_is_instr_branch(shard->prev_instr_.instr.type) ||
+                shard->instr_count_ == 0,
+            "Function marker should be after a branch");
+#endif
     }
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
@@ -699,26 +708,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (shard->prev_entry_.marker.type != TRACE_TYPE_MARKER ||
                 shard->prev_entry_.marker.marker_type != TRACE_MARKER_TYPE_RSEQ_ABORT) {
                 shard->retaddr_stack_.push(0);
-                // When a signal arrives after a branch, function markers will appear in
-                // the trace when the corresponding syscall xfer happens. When a
-                // kernel xfer appears in the beginning of a trace before any
-                // instructions are recorded, we assume the signal arrives after a
-                // branch to avoid false positives.
-                shard->delayed_function_marker_stack_.push(
-                    shard->instr_count_ == 0 ||
-                    type_is_instr_branch(shard->prev_entry_.instr.type));
-            }
-        } else {
-            // When a trace is started in the middle of a signal handler, or
-            // nested signals, delayed_function_marker_stack_ is empty when a
-            // syscall xfer maker is processed. We assume function markers are delayed by
-            // the signals to avoid false positives.
-            if (shard->delayed_function_marker_stack_.empty()) {
-                shard->delayed_function_marker_expected_ = true;
-            } else {
-                shard->delayed_function_marker_expected_ |=
-                    shard->delayed_function_marker_stack_.top();
-                shard->delayed_function_marker_stack_.pop();
             }
         }
 #ifdef UNIX
