@@ -357,8 +357,10 @@ check_kernel_xfer()
     // Return to recorded interruption point.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),   gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(TID, 101), gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 101),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
