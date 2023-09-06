@@ -85,6 +85,7 @@ typedef struct _scatter_gather_info_t {
                      */
     bool scaled;
     bool is_scalar_value_signed;
+    bool is_replicating;
     enum {
         DRX_NORMAL_FAULTING,
         DRX_FIRST_FAULTING,
