@@ -893,6 +893,12 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         return l.thread < r.thread;
     };
     std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
+    // After i#6299, these files collapse same-thread entries.
+    std::vector<schedule_entry_t> serial_redux;
+    for (const auto &entry : serial) {
+        if (serial_redux.empty() || entry.thread != serial_redux.back().thread)
+            serial_redux.push_back(entry);
+    }
     // For entries with the same timestamp, the order can differ.  We could
     // identify each such sequence and collect it into a set but it is simpler to
     // read the whole file and sort it the same way.
@@ -909,24 +915,34 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
                       << " records from the file and observed " << serial.size()
                       << " transition in the trace\n";
         }
-        report_if_false(global, serial_file.size() == serial.size(),
-                        "Serial schedule entry count does not match trace");
-        for (int i = 0; i < static_cast<int>(serial.size()) &&
+        // We created both types of schedule and select which to compare against.
+        std::vector<schedule_entry_t> *tomatch;
+        if (serial_file.size() == serial.size())
+            tomatch = &serial;
+        else if (serial_file.size() == serial_redux.size())
+            tomatch = &serial_redux;
+        else {
+            report_if_false(global, false,
+                            "Serial schedule entry count does not match trace");
+            return;
+        }
+        for (int i = 0; i < static_cast<int>(tomatch->size()) &&
              i < static_cast<int>(serial_file.size());
              ++i) {
             global->ref_count_ = serial_file[i].start_instruction;
             global->tid_ = serial_file[i].thread;
             if (knob_verbose_ >= 1) {
-                std::cerr << "Saw T" << serial[i].thread << " on " << serial[i].cpu
-                          << " @" << serial[i].timestamp << " "
-                          << serial[i].start_instruction << " vs file T"
+                std::cerr << "Saw T" << (*tomatch)[i].thread << " on "
+                          << (*tomatch)[i].cpu << " @" << (*tomatch)[i].timestamp << " "
+                          << (*tomatch)[i].start_instruction << " vs file T"
                           << serial_file[i].thread << " on " << serial_file[i].cpu << " @"
                           << serial_file[i].timestamp << " "
                           << serial_file[i].start_instruction << "\n";
             }
-            report_if_false(global,
-                            memcmp(&serial[i], &serial_file[i], sizeof(serial[i])) == 0,
-                            "Serial schedule entry does not match trace");
+            report_if_false(
+                global,
+                memcmp(&(*tomatch)[i], &serial_file[i], sizeof((*tomatch)[i])) == 0,
+                "Serial schedule entry does not match trace");
         }
     }
     if (cpu_schedule_file_ == nullptr)
@@ -948,17 +964,32 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
                           return l.thread < r.thread;
                       return l.timestamp < r.timestamp;
                   });
-        report_if_false(global, keyval.second.size() == cpu2sched[keyval.first].size(),
-                        "Cpu schedule entry count does not match trace");
-        for (int i = 0; i < static_cast<int>(cpu2sched[keyval.first].size()) &&
+        // After i#6299, these files collapse same-thread entries.
+        // We create both types of schedule and select which to compare against.
+        std::vector<schedule_entry_t> redux;
+        for (const auto &entry : cpu2sched[keyval.first]) {
+            if (redux.empty() || entry.thread != redux.back().thread)
+                redux.push_back(entry);
+        }
+        std::vector<schedule_entry_t> *tomatch;
+        if (keyval.second.size() == cpu2sched[keyval.first].size())
+            tomatch = &cpu2sched[keyval.first];
+        else if (keyval.second.size() == redux.size())
+            tomatch = &redux;
+        else {
+            report_if_false(global, false,
+                            "Cpu schedule entry count does not match trace");
+            return;
+        }
+        for (int i = 0; i < static_cast<int>(tomatch->size()) &&
              i < static_cast<int>(keyval.second.size());
              ++i) {
             global->ref_count_ = keyval.second[i].start_instruction;
             global->tid_ = keyval.second[i].thread;
-            report_if_false(global,
-                            memcmp(&cpu2sched[keyval.first][i], &keyval.second[i],
-                                   sizeof(keyval.second[i])) == 0,
-                            "Cpu schedule entry does not match trace");
+            report_if_false(
+                global,
+                memcmp(&(*tomatch)[i], &keyval.second[i], sizeof(keyval.second[i])) == 0,
+                "Cpu schedule entry does not match trace");
         }
     }
 }
