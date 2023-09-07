@@ -3709,7 +3709,7 @@ if (BUILD_CLIENTS)
 
     if ((NOT MACOS) AND (X86 OR AARCH64))
         torunonly_drcachesim(scattergather-${ARCH_NAME} client.drx-scattergather
-        "-simulator_type basic_counts" "")
+        "-simulator_type invariant_checker" "")
       unset(tool.drcachesim.scattergather-${ARCH_NAME}_rawtemp) # use preprocessor
       if (proc_supports_avx512)
         set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx512 1)
