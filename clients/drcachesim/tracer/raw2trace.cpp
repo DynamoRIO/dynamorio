@@ -1276,9 +1276,16 @@ raw2trace_t::aggregate_and_write_schedule_files()
               [](const schedule_entry_t &l, const schedule_entry_t &r) {
                   return l.timestamp < r.timestamp;
               });
+    // Collapse same-thread entries.
+    std::vector<schedule_entry_t> serial_redux;
+    for (const auto &entry : serial) {
+        if (serial_redux.empty() || entry.thread != serial_redux.back().thread)
+            serial_redux.push_back(entry);
+    }
     if (serial_schedule_file_ != nullptr) {
-        if (!serial_schedule_file_->write(reinterpret_cast<const char *>(serial.data()),
-                                          serial.size() * sizeof(serial[0])))
+        if (!serial_schedule_file_->write(
+                reinterpret_cast<const char *>(serial_redux.data()),
+                serial_redux.size() * sizeof(serial_redux[0])))
             return "Failed to write to serial schedule file";
     }
     if (cpu_schedule_file_ == nullptr)
@@ -1288,14 +1295,19 @@ raw2trace_t::aggregate_and_write_schedule_files()
                   [](const schedule_entry_t &l, const schedule_entry_t &r) {
                       return l.timestamp < r.timestamp;
                   });
+        // Collapse same-thread entries.
+        std::vector<schedule_entry_t> redux;
+        for (const auto &entry : keyval.second) {
+            if (redux.empty() || entry.thread != redux.back().thread)
+                redux.push_back(entry);
+        }
         std::ostringstream stream;
         stream << keyval.first;
         std::string err = cpu_schedule_file_->open_new_component(stream.str());
         if (!err.empty())
             return err;
-        if (!cpu_schedule_file_->write(
-                reinterpret_cast<const char *>(keyval.second.data()),
-                keyval.second.size() * sizeof(keyval.second[0])))
+        if (!cpu_schedule_file_->write(reinterpret_cast<const char *>(redux.data()),
+                                       redux.size() * sizeof(redux[0])))
             return "Failed to write to cpu schedule file";
     }
     return "";
