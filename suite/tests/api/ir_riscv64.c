@@ -92,6 +92,16 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
 }
 
 static void
+test_instr_encoding_failure(void *dc, uint opcode, app_pc instr_pc, instr_t *instr)
+{
+    byte *pc;
+
+    pc = instr_encode_to_copy(dc, instr, buf, instr_pc);
+    ASSERT(pc == NULL);
+    instr_destroy(dc, instr);
+}
+
+static void
 test_instr_encoding_jal_or_branch(void *dc, uint opcode, instr_t *instr)
 {
     /* XXX i#3544: For jal and branch instructions, current disassembler will print
@@ -1104,6 +1114,12 @@ test_jump_and_branch(void *dc)
     instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
                                opnd_create_pc(pc + (3 << 12)));
     test_instr_encoding_auipc(dc, OP_auipc, pc, instr);
+
+    instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
+                               opnd_create_pc(pc + (3 << 12)));
+    /* This is expected to fail since we are using an unaligned PC (i.e. target_pc -
+     * instr_encode_pc has non-zero lower 12 bits). */
+    test_instr_encoding_failure(dc, OP_auipc, pc + 4, instr);
     instr = INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_A0), opnd_create_pc(pc));
     test_instr_encoding_jal_or_branch(dc, OP_jal, instr);
     instr = INSTR_CREATE_jalr(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1),
