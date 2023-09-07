@@ -903,6 +903,7 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         else {
             report_if_false(global, false,
                             "Serial schedule entry count does not match trace");
+            return;
         }
         for (int i = 0; i < static_cast<int>(tomatch->size()) &&
              i < static_cast<int>(serial_file.size());
@@ -956,6 +957,7 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         else {
             report_if_false(global, false,
                             "Cpu schedule entry count does not match trace");
+            return;
         }
         for (int i = 0; i < static_cast<int>(tomatch->size()) &&
              i < static_cast<int>(keyval.second.size());
