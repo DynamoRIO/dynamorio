@@ -396,27 +396,47 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Function marker misplaced between instr and memref");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
-        shard->prev_func_id_ = memref.marker.marker_value;
-    }
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
         marker_type_is_function_marker(memref.marker.marker_type)) {
-        report_if_false(
-            shard,
-            shard->prev_func_id_ >=
-                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
-                type_is_instr_branch(shard->prev_instr_.instr.type),
-            "Function marker should be after a branch");
-    }
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR) {
-        if (!shard->retaddr_stack_.empty()) {
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
+            shard->prev_func_id_ = memref.marker.marker_value;
+        }
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR &&
+            !shard->retaddr_stack_.empty()) {
             // Current check does not handle long jump, it may fail if a long
             // jump is used.
             report_if_false(shard,
                             memref.marker.marker_value == shard->retaddr_stack_.top(),
                             "Function marker retaddr should match prior call");
         }
+        // Function markers may appear in the beginning of the trace before any
+        // instructions are recorded, i.e. shard->instr_count_ == 0. In other to avoid
+        // false positives, we assume the markers are placed correctly.
+#ifdef UNIX
+        report_if_false(
+            shard,
+            shard->prev_func_id_ >=
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
+                type_is_instr_branch(shard->prev_instr_.instr.type) ||
+                shard->instr_count_ == 0 ||
+                (shard->prev_xfer_marker_.marker.marker_type ==
+                     TRACE_MARKER_TYPE_KERNEL_XFER &&
+                 (
+                     // The last instruction is not known if the signal arrived before any
+                     // instructions in the trace, or the trace started mid-signal. We
+                     // assume the function markers are correct to avoid false positives.
+                     shard->last_signal_context_.pre_signal_instr.instr.addr == 0 ||
+                     // The last instruction of the outer-most scope was a branch.
+                     type_is_instr_branch(shard->last_instr_in_cur_context_.instr.type))),
+            "Function marker should be after a branch");
+#else
+        report_if_false(
+            shard,
+            shard->prev_func_id_ >=
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
+                type_is_instr_branch(shard->prev_instr_.instr.type) ||
+                shard->instr_count_ == 0,
+            "Function marker should be after a branch");
+#endif
     }
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
@@ -873,6 +893,12 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         return l.thread < r.thread;
     };
     std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
+    // After i#6299, these files collapse same-thread entries.
+    std::vector<schedule_entry_t> serial_redux;
+    for (const auto &entry : serial) {
+        if (serial_redux.empty() || entry.thread != serial_redux.back().thread)
+            serial_redux.push_back(entry);
+    }
     // For entries with the same timestamp, the order can differ.  We could
     // identify each such sequence and collect it into a set but it is simpler to
     // read the whole file and sort it the same way.
@@ -889,24 +915,34 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
                       << " records from the file and observed " << serial.size()
                       << " transition in the trace\n";
         }
-        report_if_false(global, serial_file.size() == serial.size(),
-                        "Serial schedule entry count does not match trace");
-        for (int i = 0; i < static_cast<int>(serial.size()) &&
+        // We created both types of schedule and select which to compare against.
+        std::vector<schedule_entry_t> *tomatch;
+        if (serial_file.size() == serial.size())
+            tomatch = &serial;
+        else if (serial_file.size() == serial_redux.size())
+            tomatch = &serial_redux;
+        else {
+            report_if_false(global, false,
+                            "Serial schedule entry count does not match trace");
+            return;
+        }
+        for (int i = 0; i < static_cast<int>(tomatch->size()) &&
              i < static_cast<int>(serial_file.size());
              ++i) {
             global->ref_count_ = serial_file[i].start_instruction;
             global->tid_ = serial_file[i].thread;
             if (knob_verbose_ >= 1) {
-                std::cerr << "Saw T" << serial[i].thread << " on " << serial[i].cpu
-                          << " @" << serial[i].timestamp << " "
-                          << serial[i].start_instruction << " vs file T"
+                std::cerr << "Saw T" << (*tomatch)[i].thread << " on "
+                          << (*tomatch)[i].cpu << " @" << (*tomatch)[i].timestamp << " "
+                          << (*tomatch)[i].start_instruction << " vs file T"
                           << serial_file[i].thread << " on " << serial_file[i].cpu << " @"
                           << serial_file[i].timestamp << " "
                           << serial_file[i].start_instruction << "\n";
             }
-            report_if_false(global,
-                            memcmp(&serial[i], &serial_file[i], sizeof(serial[i])) == 0,
-                            "Serial schedule entry does not match trace");
+            report_if_false(
+                global,
+                memcmp(&(*tomatch)[i], &serial_file[i], sizeof((*tomatch)[i])) == 0,
+                "Serial schedule entry does not match trace");
         }
     }
     if (cpu_schedule_file_ == nullptr)
@@ -928,17 +964,32 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
                           return l.thread < r.thread;
                       return l.timestamp < r.timestamp;
                   });
-        report_if_false(global, keyval.second.size() == cpu2sched[keyval.first].size(),
-                        "Cpu schedule entry count does not match trace");
-        for (int i = 0; i < static_cast<int>(cpu2sched[keyval.first].size()) &&
+        // After i#6299, these files collapse same-thread entries.
+        // We create both types of schedule and select which to compare against.
+        std::vector<schedule_entry_t> redux;
+        for (const auto &entry : cpu2sched[keyval.first]) {
+            if (redux.empty() || entry.thread != redux.back().thread)
+                redux.push_back(entry);
+        }
+        std::vector<schedule_entry_t> *tomatch;
+        if (keyval.second.size() == cpu2sched[keyval.first].size())
+            tomatch = &cpu2sched[keyval.first];
+        else if (keyval.second.size() == redux.size())
+            tomatch = &redux;
+        else {
+            report_if_false(global, false,
+                            "Cpu schedule entry count does not match trace");
+            return;
+        }
+        for (int i = 0; i < static_cast<int>(tomatch->size()) &&
              i < static_cast<int>(keyval.second.size());
              ++i) {
             global->ref_count_ = keyval.second[i].start_instruction;
             global->tid_ = keyval.second[i].thread;
-            report_if_false(global,
-                            memcmp(&cpu2sched[keyval.first][i], &keyval.second[i],
-                                   sizeof(keyval.second[i])) == 0,
-                            "Cpu schedule entry does not match trace");
+            report_if_false(
+                global,
+                memcmp(&(*tomatch)[i], &keyval.second[i], sizeof(keyval.second[i])) == 0,
+                "Cpu schedule entry does not match trace");
         }
     }
 }
