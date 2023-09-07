@@ -469,7 +469,9 @@ run_tests(std::vector<TEST_CASE_T> tests)
 
 class test_memory_t {
 public:
-    const size_t DATA_SIZE = 9 * 4096; // 9 4KiB pages
+    static const size_t DATA_SIZE = 9 * 4096; // 9 4KiB pages
+    static const size_t REGION_SIZE = 1024;
+
     test_memory_t()
         : data(mmap(nullptr, DATA_SIZE, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0))
@@ -500,13 +502,13 @@ public:
     const void *
     region_start_addr(size_t offset) const
     {
-        return &static_cast<char *>(data)[1024 * offset];
+        return &static_cast<char *>(data)[REGION_SIZE * offset];
     }
 
     void *
     region_start_addr(size_t offset)
     {
-        return &static_cast<char *>(data)[1024 * offset];
+        return &static_cast<char *>(data)[REGION_SIZE * offset];
     }
 
 protected:
@@ -634,7 +636,7 @@ private:
         case element_size_t::DOUBLE: offset = 3; break;
         }
         // The base address is set to the 8th element in the region.
-        return (1024 * offset) + (static_cast<size_t>(element_size) * 8);
+        return (REGION_SIZE * offset) + (static_cast<size_t>(element_size) * 8);
     }
 };
 
