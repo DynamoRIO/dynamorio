@@ -277,24 +277,27 @@ check_sane_control_flow()
 
     // Negative test: branches with encodings which do not go to their targets.
     {
-        std::vector<memref_t> memrefs = {
-            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#    if defined(X86_64) || defined(X86_32)
-            // 0x74 is "je" with the 2nd byte the offset.
-            gen_branch_encoded(TID, /*pc=*/0x71019dbc, /*encoding=*/ { 0x74, 0x32 }),
-            // 0x0x71019ded: 90 nop
-            gen_instr_encoded(/*pc=*/0x71019ded, /*encoding=*/ { 0x90 }, TID),
-#    elif defined(ARM_64)
-            // 71019dbc:   540001a1        b.ne    71019df0
-            // <__executable_start+0x19df0>
-            gen_branch_encoded(TID, /*pc=*/0x71019dbc, /*encoding=*/0x540001a1),
-            // 71019ded:   1f2003d5        nop
-            gen_instr_encoded(/*pc=*/0x71019ded, /*encoding=*/0x1f2003d5, TID),
-#    else
-        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
-#    endif
-        };
+        instr_t *move1 = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                           opnd_create_reg(REG2));
+        instr_t *move2 = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                           opnd_create_reg(REG2));
+        instr_t *cond_jmp =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move1));
 
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cond_jmp);
+        instrlist_append(ilist, move1);
+        instrlist_append(ilist, move2);
+
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_branch(1), cond_jmp },
+            { gen_instr(1), move2 }
+        };
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, true,
                          { "Branch does not go to the correct target", TID,
                            /*ref_ordinal=*/3, /*last_timestamp=*/0,
@@ -305,24 +308,26 @@ check_sane_control_flow()
     }
     // Positive test: branches with encodings which go to their targets.
     {
-        std::vector<memref_t> memrefs = {
-            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#    if defined(X86_64) || defined(X86_32)
-            // 0x74 is "je" with the 2nd byte the offset.
-            gen_branch_encoded(TID, /*pc=*/0x71019dbc, /*encoding=*/ { 0x74, 0x32 }),
-            // 0x71019df0: 90 nop
-            gen_instr_encoded(/*pc=*/0x71019df0, /*encoding=*/ { 0x90 }, TID),
-#    elif defined(ARM_64)
-            // 71019dbc:   540001a1        b.ne    71019df0
-            // <__executable_start+0x19df0>
-            gen_branch_encoded(TID, /*pc=*/0x71019dbc, /*encoding=*/0x540001a1),
-            // 71019df0:   1f2003d5        nop
-            gen_instr_encoded(/*pc=*/0x71019df0, /*encoding=*/0x1f2003d5, TID),
-#    else
-        // TODO i#5871: Add AArch32 (and RISC-V) encodings.
-#    endif
-        };
+        instr_t *move1 = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                           opnd_create_reg(REG2));
+        instr_t *move2 = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                           opnd_create_reg(REG2));
+        instr_t *cond_jmp =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move1));
 
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cond_jmp);
+        instrlist_append(ilist, move1);
+        instrlist_append(ilist, move2);
+
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_branch(1), cond_jmp },
+            { gen_instr(1), move1 }
+        };
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
         if (!run_checker(memrefs, false)) {
             return false;
         }
@@ -1684,67 +1689,48 @@ check_timestamps_increase_monotonically(void)
 bool
 check_read_write_records_match_operands()
 {
-    std::cerr << "Testing number of read/write records matching operands\n";
-    constexpr memref_tid_t TID = 1;
-#if defined(X86_64) || defined(X86_32) || defined(ARM_64)
-    constexpr addr_t ADDR = 0x7fcf3b9d;
-#endif
-
-    // Only the number of memory read and write records are checked against the
+    // Only the number of memory read and write records is checked against the
     // operands. Address and size are not used.
+    std::cerr << "Testing number of memory read/write records matching operands\n";
+    constexpr memref_tid_t TID = 1;
 
     // Correct: number of read records matches operand.
     {
-        std::vector<memref_t> memrefs = {
-            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#if defined(X86_64) || defined(X86_32)
-            // 0x7fcf3b9d: 83 3d 84 21 23 03 00 cmp    <rel> 0x000000000443ddc0[4byte]
-            // $0x00000000
-            gen_instr_encoded(ADDR,
-                              /*encoding=*/
-                              { 0x83, 0x3d, 0x84, 0x21, 0x23, 0x03, 0x00 }),
-            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
-            // 0x7fcf3ba4: 90                   nop
-            gen_instr_encoded(ADDR + 7, { 0x90 }),
-#elif defined(ARM_64)
-            // 0x7fcf3b9d: b9 40 00 04          ldr    (%x0)[4byte] -> %w4
-            gen_instr_encoded(ADDR, /*encoding=*/0xb9400004),
-            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
-            // 0x7fcf3ba1: 1f 20 03 d5          nop
-            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
-#else
-        // TODO: Add AArch32 (and RISC-V) encodings.
-#endif
+        instr_t *load = XINST_CREATE_load(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          OPND_CREATE_MEMPTR(REG1, /*disp=*/0));
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, load);
+
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr(TID), load },
+            { gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0), nullptr }
         };
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, false)) {
             return false;
         }
     }
     // Incorrect: too many read records.
     {
-        std::vector<memref_t> memrefs = {
-            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#if defined(X86_64) || defined(X86_32)
-            // 0x7fcf3b9d: 83 3d 84 21 23 03 00 cmp    <rel> 0x000000000443ddc0[4byte]
-            // $0x00000000
-            gen_instr_encoded(ADDR,
-                              /*encoding=*/
-                              { 0x83, 0x3d, 0x84, 0x21, 0x23, 0x03, 0x00 }),
-            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
-            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
-            // 0x7fcf3ba4: 90                   nop
-            gen_instr_encoded(ADDR + 7, { 0x90 }),
-#elif defined(ARM_64)
-            // 0x7fcf3b9d: b9 40 00 04          ldr    (%x0)[4byte] -> %w4
-            gen_instr_encoded(ADDR, /*encoding=*/0xb9400004),
-            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
-            gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0),
-            // 0x7fcf3ba1: 1f 20 03 d5          nop
-            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
-#else
-// TODO: Add AArch32 (and RISC-V) encodings.
-#endif
+        instr_t *load = XINST_CREATE_load(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          OPND_CREATE_MEMPTR(REG1, /*disp=*/0));
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, load);
+
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr(TID), load },
+            { gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0), nullptr },
+            { gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0), nullptr }
         };
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, true,
                          { "Too many read records", TID, /*ref_ordinal=*/4,
                            /*last_timestamp=*/0, /*instrs_since_last_timestamp=*/1 },
@@ -1753,25 +1739,22 @@ check_read_write_records_match_operands()
     }
     // Incorrect: missing read records.
     {
-        std::vector<memref_t> memrefs = {
-            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#if defined(X86_64) || defined(X86_32)
-            // 0x7fcf3b9d: 83 3d 84 21 23 03 00 cmp    <rel> 0x000000000443ddc0[4byte]
-            // $0x00000000
-            gen_instr_encoded(ADDR,
-                              /*encoding=*/
-                              { 0x83, 0x3d, 0x84, 0x21, 0x23, 0x03, 0x00 }),
-            // 0x7fcf3ba4: 90                   nop
-            gen_instr_encoded(ADDR + 7, { 0x90 }),
-#elif defined(ARM_64)
-            // 0x7fcf3b9d: b9 40 00 04          ldr    (%x0)[4byte] -> %w4
-            gen_instr_encoded(ADDR, /*encoding=*/0xb9400004),
-            // 0x7fcf3ba1: 1f 20 03 d5          nop
-            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
-#else
-// TODO: Add AArch32 (and RISC-V) encodings.
-#endif
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instr_t *load = XINST_CREATE_load(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          OPND_CREATE_MEMPTR(REG1, /*disp=*/0));
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, load);
+        instrlist_append(ilist, nop);
+
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr(TID), load },
+            { gen_instr(TID), nop },
         };
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, true,
                          { "Missing read records", TID, /*ref_ordinal=*/3,
                            /*last_timestamp=*/0, /*instrs_since_last_timestamp=*/2 },
@@ -1780,50 +1763,43 @@ check_read_write_records_match_operands()
     }
     // Correct: number of write records match operand.
     {
-        std::vector<memref_t> memrefs = {
-            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#if defined(X86_64) || defined(X86_32)
-            // 0x7fcf3b9d: 89 47 70             mov    %eax -> 0x70(%rdi)[4byte]
-            gen_instr_encoded(ADDR, /*encoding=*/ { 0x89, 0x47, 0x70 }),
-            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
-            // 0x7fcf3ba0: 90                   nop
-            gen_instr_encoded(ADDR + 3, { 0x90 }),
-#elif defined(ARM_64)
-            // 0x7fcf3b9d: b9 00 00 20          str    %w0 -> (%x1)[4byte]
-            gen_instr_encoded(ADDR, /*encoding=*/0xb9000020),
-            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
-            // 0x7fcf3ba1: 1f 20 03 d5          nop
-            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
-#else
-// TODO: Add AArch32 (and RISC-V) encodings.
-#endif
+        instr_t *store = XINST_CREATE_store(
+            GLOBAL_DCONTEXT, OPND_CREATE_MEMPTR(REG2, /*disp=*/0), opnd_create_reg(REG1));
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, store);
+
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr(TID), store },
+            { gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0), nullptr }
         };
+
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, false)) {
             return false;
         }
     }
     // Incorrect: too many write records.
     {
-        std::vector<memref_t> memrefs = {
-            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#if defined(X86_64) || defined(X86_32)
-            // 0x7fcf3b9d: 89 47 70             mov    %eax -> 0x70(%rdi)[4byte]
-            gen_instr_encoded(ADDR, /*encoding=*/ { 0x89, 0x47, 0x70 }),
-            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
-            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
-            // 0x7fcf3ba0: 90                   nop
-            gen_instr_encoded(ADDR + 3, { 0x90 }),
-#elif defined(ARM_64)
-            // 0x7fcf3b9d: b9 00 00 20          str    %w0 -> (%x1)[4byte]
-            gen_instr_encoded(ADDR, /*encoding=*/0xb9000020),
-            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
-            gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0),
-            // 0x7fcf3ba1: 1f 20 03 d5 nop
-            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
-#else
-// TODO: Add AArch32 (and RISC-V) encodings.
-#endif
+        instr_t *store = XINST_CREATE_store(
+            GLOBAL_DCONTEXT, OPND_CREATE_MEMPTR(REG2, /*disp=*/0), opnd_create_reg(REG1));
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, store);
+
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr(TID), store },
+            { gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0), nullptr },
+            { gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0), nullptr }
         };
+
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, true,
                          { "Too many write records", TID, /*ref_ordinal=*/4,
                            /*last_timestamp=*/0,
@@ -1833,22 +1809,23 @@ check_read_write_records_match_operands()
     }
     // Incorrect: missing write records.
     {
-        std::vector<memref_t> memrefs = {
-            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#if defined(X86_64) || defined(X86_32)
-            // 0x7fcf3b9d: 89 47 70             mov    %eax -> 0x70(%rdi)[4byte]
-            gen_instr_encoded(ADDR, /*encoding=*/ { 0x89, 0x47, 0x70 }),
-            // 0x7fcf3ba0: 90                   nop
-            gen_instr_encoded(ADDR + 3, { 0x90 }),
-#elif defined(ARM_64)
-            // 0x7fcf3b9d: b9 00 00 20          str    %w0 -> (%x1)[4byte]
-            gen_instr_encoded(ADDR, /*encoding=*/0xb9000020),
-            // 0x7fcf3ba1: 1f 20 03 d5          nop
-            gen_instr_encoded(ADDR + 4, /*encoding=*/0x1f2003d5),
-#else
-// TODO: Add AArch32 (and RISC-V) encodings.
-#endif
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instr_t *store = XINST_CREATE_store(
+            GLOBAL_DCONTEXT, OPND_CREATE_MEMPTR(REG2, /*disp=*/0), opnd_create_reg(REG1));
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, store);
+        instrlist_append(ilist, nop);
+
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr(TID), store },
+            { gen_instr(TID), nop },
         };
+
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, true,
                          { "Missing write records", TID, /*ref_ordinal=*/3,
                            /*last_timestamp=*/0,
@@ -1856,31 +1833,23 @@ check_read_write_records_match_operands()
                          "Fail to catch missing write records"))
             return false;
     }
+#if defined(X86_64) || defined(X86_32)
     // Correct: ignore predicated operands which may not have memory access.
     {
-        std::vector<memref_t> memrefs = {
-            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#if defined(X86_64) || defined(X86_32)
-            // 0x7fcf3b9d: b9 00 00 00 00       mov    $0x00000000, %ecx
-            gen_instr_encoded(ADDR,
-                              /*encoding=*/
-                              { 0xb9, 0x00, 0x00, 0x00, 0x00 }),
-            // 0x7fcf3ba2: 8d 34 25 0e 20 40 00 lea    0x0040200e, %esi
-            gen_instr_encoded(ADDR + 5,
-                              /*encoding=*/
-                              { 0x8d, 0x34, 0x25, 0x0e, 0x20, 0x40, 0x00 }),
-            // 0x7fcf3ba9: 8d 3c 25 00 20 40 00 lea    0x00402000, %edi
-            gen_instr_encoded(ADDR + 12,
-                              /*encoding=*/
-                              { 0x8d, 0x3c, 0x25, 0x00, 0x20, 0x40, 0x00 }),
-            // 0x7fcf3bb0: fc                   cld
-            gen_instr_encoded(ADDR + 19, /*encoding=*/ { 0xfc }),
-            // 0x7fcf3bb1: f3 a5                rep movsd
-            gen_instr_encoded(ADDR + 20, /*encoding=*/ { 0xf3, 0xa5 }),
-            // 0x7fcf3bb3: 90 nop
-            gen_instr_encoded(ADDR + 22, { 0x90 }),
-#endif
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instr_t *rep_movs = INSTR_CREATE_rep_movs_1(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, rep_movs);
+        instrlist_append(ilist, nop);
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr(TID), rep_movs },
+            { gen_instr(TID), nop },
         };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, false)) {
             return false;
         }
@@ -1888,21 +1857,27 @@ check_read_write_records_match_operands()
     // Correct: ignore operands with opcode which do not have real memory
     // access.
     {
-        std::vector<memref_t> memrefs = {
-            gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
-#if defined(X86_64) || defined(X86_32)
-            // 0x7fcf3b9d: 4c 8d b7 00 01 00 00 lea    0x00000100(%rdi) -> %r14
-            gen_instr_encoded(ADDR,
-                              /*encoding=*/
-                              { 0x4c, 0x8d, 0xb7, 0x00, 0x01, 0x00, 0x00 }),
-            // 0x7fcf3ba4: 90                   nop
-            gen_instr_encoded(ADDR + 7, { 0x90 }),
-#endif
+        instr_t *lea =
+            INSTR_CREATE_lea(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                             opnd_create_base_disp(REG1, REG_NULL, 0, 1, OPSZ_lea));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, lea);
+        instrlist_append(ilist, nop);
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr(TID), lea },
+            { gen_instr(TID), nop },
         };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(memrefs, false)) {
             return false;
         }
     }
+#endif
     return true;
 }
 
