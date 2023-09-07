@@ -895,6 +895,7 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
                       << " records from the file and observed " << serial.size()
                       << " transition in the trace\n";
         }
+        // We created both types of schedule and select which to compare against.
         std::vector<schedule_entry_t> *tomatch;
         if (serial_file.size() == serial.size())
             tomatch = &serial;
@@ -944,6 +945,7 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
                       return l.timestamp < r.timestamp;
                   });
         // After i#6299, these files collapse same-thread entries.
+        // We create both types of schedule and select which to compare against.
         std::vector<schedule_entry_t> redux;
         for (const auto &entry : cpu2sched[keyval.first]) {
             if (redux.empty() || entry.thread != redux.back().thread)
