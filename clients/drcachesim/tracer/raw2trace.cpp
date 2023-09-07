@@ -2715,8 +2715,59 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
                 ++instr_count;
         }
         int instr_index = instr_count - 1;
-        // Walk backward so we have the next pc for stacked branches.
         app_pc next_instr_pc = next_pc;
+        if (next_instr_pc == nullptr) {
+            // We don't have the PC after the final branch so we may have to remove it.
+            for (int i = static_cast<int>(tdata->delayed_branch.size()) - 1; i >= 0;
+                 --i) {
+                auto &entry = tdata->delayed_branch[i];
+                if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
+                    DEBUG_ASSERT(
+                        type_is_instr_branch(static_cast<trace_type_t>(entry.type)));
+                    if (tdata->delayed_branch_target_pcs.size() <=
+                        static_cast<size_t>(instr_index)) {
+                        tdata->error = "Delayed branch target vector mis-sized";
+                        return false;
+                    }
+                    app_pc target = tdata->delayed_branch_target_pcs[instr_index];
+                    next_instr_pc = reinterpret_cast<app_pc>(entry.addr);
+                    if (target == nullptr ||
+                        entry.type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP) {
+                        // This is a trace-final or window-final indirect or conditional
+                        // branch but we do not have its taken/target without a subsequent
+                        // instr: just delete it.
+                        DEBUG_ASSERT(instr_index == instr_count - 1);
+                        if (i > 0 &&
+                            tdata->delayed_branch[i - 1].type == TRACE_TYPE_ENCODING) {
+                            log(4, "Erasing cached encoding for %p\n",
+                                tdata->delayed_branch_decode_pcs[instr_index]);
+                            tdata->encoding_emitted.erase(
+                                tdata->delayed_branch_decode_pcs[instr_index]);
+                        }
+                        int erase_from = i;
+                        while (erase_from > 0 &&
+                               tdata->delayed_branch[erase_from - 1].type ==
+                                   TRACE_TYPE_ENCODING) {
+                            --erase_from;
+                        }
+                        VPRINT(
+                            4,
+                            "Discarded %zd entries for final branch without subsequent "
+                            "instr\n",
+                            tdata->delayed_branch.size() - erase_from);
+                        tdata->delayed_branch.erase(tdata->delayed_branch.begin() +
+                                                        erase_from,
+                                                    tdata->delayed_branch.end());
+                        tdata->delayed_branch_decode_pcs.pop_back();
+                        tdata->delayed_branch_target_pcs.pop_back();
+                        --instr_count;
+                        --instr_index;
+                    }
+                    break;
+                }
+            }
+        }
+        // Walk backward so we have the next pc for stacked branches.
         for (int i = static_cast<int>(tdata->delayed_branch.size()) - 1; i >= 0; --i) {
             auto &entry = tdata->delayed_branch[i];
             if (type_is_instr(static_cast<trace_type_t>(entry.type))) {
@@ -2730,65 +2781,38 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
                 // Cache entry fields before we insert any markers at entry's position.
                 app_pc branch_addr = reinterpret_cast<app_pc>(entry.addr);
                 trace_type_t branch_type = static_cast<trace_type_t>(entry.type);
-                if (next_instr_pc == nullptr &&
-                    (target == nullptr ||
-                     entry.type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP)) {
-                    // This is a trace-final or window-final branch but we do not have
-                    // its taken/target without a subsequent instr: just delete it.
-                    DEBUG_ASSERT(instr_index == instr_count - 1);
-                    int erase_from = i;
-                    while (erase_from > 0 &&
-                           tdata->delayed_branch[erase_from - 1].type ==
-                               TRACE_TYPE_ENCODING) {
-                        log(4, "Erasing cached encoding for %p\n",
-                            tdata->delayed_branch_decode_pcs[instr_index]);
-                        tdata->encoding_emitted.erase(
-                            tdata->delayed_branch_decode_pcs[instr_index]);
-                        --erase_from;
+                DEBUG_ASSERT(next_instr_pc != nullptr ||
+                             (target != nullptr &&
+                              entry.type != TRACE_TYPE_INSTR_CONDITIONAL_JUMP));
+                if (target == nullptr) {
+                    DEBUG_ASSERT(!type_is_instr_direct_branch(
+                        static_cast<trace_type_t>(entry.type)));
+                    trace_entry_t local[3];
+                    int size = trace_metadata_writer_t::write_marker(
+                        reinterpret_cast<byte *>(local), TRACE_MARKER_TYPE_BRANCH_TARGET,
+                        reinterpret_cast<uintptr_t>(next_instr_pc));
+                    DEBUG_ASSERT(static_cast<size_t>(size) <= sizeof(local));
+                    for (int local_idx = 0;
+                         local_idx < size / static_cast<int>(sizeof(local[0]));
+                         ++local_idx) {
+                        tdata->delayed_branch.insert(tdata->delayed_branch.begin() + i,
+                                                     local[local_idx]);
                     }
-                    VPRINT(4,
-                           "Discarded %zd entries for final branch without subsequent "
-                           "instr\n",
-                           tdata->delayed_branch.size() - erase_from);
-                    tdata->delayed_branch.erase(tdata->delayed_branch.begin() +
-                                                    erase_from,
-                                                tdata->delayed_branch.end());
-                    tdata->delayed_branch_decode_pcs.pop_back();
-                    tdata->delayed_branch_target_pcs.pop_back();
-                    break;
-                } else {
-                    if (target == nullptr) {
-                        DEBUG_ASSERT(!type_is_instr_direct_branch(
-                            static_cast<trace_type_t>(entry.type)));
-                        trace_entry_t local[3];
-                        int size = trace_metadata_writer_t::write_marker(
-                            reinterpret_cast<byte *>(local),
-                            TRACE_MARKER_TYPE_BRANCH_TARGET,
-                            reinterpret_cast<uintptr_t>(next_instr_pc));
-                        DEBUG_ASSERT(static_cast<size_t>(size) <= sizeof(local));
-                        for (int local_idx = 0;
-                             local_idx < size / static_cast<int>(sizeof(local[0]));
-                             ++local_idx) {
-                            tdata->delayed_branch.insert(
-                                tdata->delayed_branch.begin() + i, local[local_idx]);
-                        }
-                        VPRINT(4, "Inserted indirect branch target %p\n", next_instr_pc);
-                    } else if (entry.type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP) {
-                        if (target == next_instr_pc) {
-                            branch_type = TRACE_TYPE_INSTR_TAKEN_JUMP;
-                        } else {
-                            branch_type = TRACE_TYPE_INSTR_UNTAKEN_JUMP;
-                        }
-                        entry.type = static_cast<unsigned short>(branch_type);
+                    VPRINT(4, "Inserted indirect branch target %p\n", next_instr_pc);
+                } else if (entry.type == TRACE_TYPE_INSTR_CONDITIONAL_JUMP) {
+                    if (target == next_instr_pc) {
+                        branch_type = TRACE_TYPE_INSTR_TAKEN_JUMP;
+                    } else {
+                        branch_type = TRACE_TYPE_INSTR_UNTAKEN_JUMP;
                     }
-                    VPRINT(
-                        4,
-                        "Appending delayed branch type=%d pc=%p decode=%p target=%p for "
-                        "thread %d\n",
-                        branch_type, branch_addr,
-                        tdata->delayed_branch_decode_pcs[instr_index], target,
-                        tdata->index);
+                    entry.type = static_cast<unsigned short>(branch_type);
                 }
+                VPRINT(4,
+                       "Appending delayed branch type=%d pc=%p decode=%p target=%p for "
+                       "thread %d\n",
+                       branch_type, branch_addr,
+                       tdata->delayed_branch_decode_pcs[instr_index], target,
+                       tdata->index);
                 next_instr_pc = branch_addr;
                 --instr_index;
             } else {

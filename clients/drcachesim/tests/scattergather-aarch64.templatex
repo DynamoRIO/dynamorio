@@ -58,29 +58,68 @@ ld1d 32bit unpacked unscaled offset sxtw: PASS
 ld1d 64bit scaled offset: PASS
 ld1d 64bit unscaled offset: PASS
 ld1d 64bit unscaled offset Zt==Zm: PASS
+st1b 32bit unpacked unscaled offset uxtw: PASS
+st1b 32bit unpacked unscaled offset sxtw: PASS
+st1b 32bit unscaled offset uxtw: PASS
+st1b 32bit unscaled offset sxtw: PASS
+st1b 32bit unscaled offset sxtw \(repeated offset\): PASS
+st1b 64bit unscaled offset: PASS
+st1b 64bit unscaled offset \(repeated offset\): PASS
+st1h 32bit scaled offset uxtw: PASS
+st1h 32bit scaled offset sxtw: PASS
+st1h 32bit unpacked scaled offset uxtw: PASS
+st1h 32bit unpacked scaled offset sxtw: PASS
+st1h 32bit unpacked unscaled offset uxtw: PASS
+st1h 32bit unpacked unscaled offset sxtw: PASS
+st1h 32bit unscaled offset uxtw: PASS
+st1h 32bit unscaled offset sxtw: PASS
+st1h 32bit unscaled offset sxtw: PASS
+st1h 32bit unscaled offset sxtw \(repeated offset\): PASS
+st1h 64bit scaled offset: PASS
+st1h 64bit unscaled offset: PASS
+st1h 64bit unscaled offset \(repeated offset\): PASS
+st1w 32bit scaled offset uxtw: PASS
+st1w 32bit scaled offset sxtw: PASS
+st1w 32bit unpacked scaled offset uxtw: PASS
+st1w 32bit unpacked scaled offset sxtw: PASS
+st1w 32bit unpacked unscaled offset uxtw: PASS
+st1w 32bit unpacked unscaled offset sxtw: PASS
+st1w 32bit unscaled offset uxtw: PASS
+st1w 32bit unscaled offset sxtw: PASS
+st1w 32bit unscaled offset sxtw \(repeated offset\): PASS
+st1w 64bit scaled offset: PASS
+st1w 64bit unscaled offset: PASS
+st1w 64bit unscaled offset \(repeated offset\): PASS
+st1d 32bit unpacked scaled offset uxtw: PASS
+st1d 32bit unpacked scaled offset sxtw: PASS
+st1d 32bit unpacked unscaled offset uxtw: PASS
+st1d 32bit unpacked unscaled offset sxtw: PASS
+st1d 64bit scaled offset: PASS
+st1d 64bit unscaled offset: PASS
+st1d 64bit unscaled offset \(repeated offset\): PASS
 #endif /* __ARM_FEATURE_SVE */
 ---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
-     .* total \(fetched\) instructions
-     .* total unique \(fetched\) instructions
-     .* total non-fetched instructions
-     .* total prefetches
-     .* total data loads
-     .* total data stores
-     .* total icache flushes
-     .* total dcache flushes
+.* total \(fetched\) instructions
+.* total unique \(fetched\) instructions
+.* total non-fetched instructions
+.* total prefetches
+.* total data loads
+.* total data stores
+.* total icache flushes
+.* total dcache flushes
            1 total threads
-     .* total scheduling markers
+.* total scheduling markers
 .*
 Thread .* counts:
-     .* \(fetched\) instructions
-     .* unique \(fetched\) instructions
-     .* non-fetched instructions
-     .* prefetches
-     .* data loads
-     .* data stores
-     .* icache flushes
-     .* dcache flushes
-     .* scheduling markers
+.* \(fetched\) instructions
+.* unique \(fetched\) instructions
+.* non-fetched instructions
+.* prefetches
+.* data loads
+.* data stores
+.* icache flushes
+.* dcache flushes
+.* scheduling markers
 .*
