@@ -221,7 +221,7 @@ c.xor  a5 -> fp
 c.sub  a5 -> fp
 test_integer_arith complete
 lui    0x2a -> a0
-<Internal Error: Failed to encode instruction: 'auipc  0x0000004000016234 -> a0'>
+<Internal Error: Failed to encode instruction: 'auipc  0x000000400001723c -> a0'>
 jalr   a1 0x2a -> a0
 c.li   31 -> a1
 c.lui  1 -> a1
@@ -301,4 +301,24 @@ cbo.clean (a1)
 cbo.flush (a1)
 cbo.inval (a1)
 test_misc complete
+lwu    (a1)[4byte] -> a0
+ld     (a1)[8byte] -> a0
+lbu    (a1)[1byte] -> a0
+lbu    (a1)[1byte] -> a0
+lhu    (a1)[2byte] -> a0
+sw     a0 -> (a1)[4byte]
+sd     a0 -> (a1)[8byte]
+sb     a0 -> (a1)[1byte]
+sh     a0 -> (a1)[2byte]
+addi   a1 0 -> a0
+jalr   a0 0x0 -> zero
+addi   zero 0x2a -> a0
+jalr   ra 0x0 -> zero
+add    a0 a1 -> a0
+addi   a0 0x2a -> a0
+add    a1 a2 -> a0
+sub    a0 a1 -> a0
+addi   a0 0xffffffd6 -> a0
+jalr   a0 0x0 -> ra
+test_xinst complete
 All tests complete

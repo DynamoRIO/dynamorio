@@ -1427,6 +1427,159 @@ test_misc(void *dc)
 }
 
 static void
+test_xinst(void *dc)
+{
+    instr_t *instr;
+    byte *pc;
+
+    instr =
+        XINST_CREATE_load(dc, opnd_create_reg(DR_REG_A0),
+                          opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4));
+    pc = test_instr_encoding(dc, OP_lwu, instr);
+    instr =
+        XINST_CREATE_load(dc, opnd_create_reg(DR_REG_A0),
+                          opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_8));
+    test_instr_encoding(dc, OP_ld, instr);
+
+    instr = XINST_CREATE_load_1byte_zext4(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_1));
+    test_instr_encoding(dc, OP_lbu, instr);
+
+    instr = XINST_CREATE_load_1byte(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_1));
+    test_instr_encoding(dc, OP_lbu, instr);
+
+    instr = XINST_CREATE_load_2bytes(
+        dc, opnd_create_reg(DR_REG_A0),
+        opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_2));
+    test_instr_encoding(dc, OP_lhu, instr);
+
+    instr = XINST_CREATE_store(
+        dc, opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_sw, instr);
+
+    instr = XINST_CREATE_store(
+        dc, opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_sd, instr);
+
+    instr = XINST_CREATE_store_1byte(
+        dc, opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_1),
+        opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_sb, instr);
+
+    instr = XINST_CREATE_store_2bytes(
+        dc, opnd_create_base_disp(DR_REG_A1, DR_REG_NULL, 0, 0, OPSZ_2),
+        opnd_create_reg(DR_REG_A0));
+    test_instr_encoding(dc, OP_sh, instr);
+
+    instr = XINST_CREATE_move(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
+    ASSERT(opnd_is_immed_int(instr_get_src(instr, 1)) &&
+           opnd_get_immed_int(instr_get_src(instr, 1)) == 0);
+    test_instr_encoding(dc, OP_addi, instr);
+
+    /* FIXME: i#3544 Currently, these two exist as placeholders on RISCV64:
+     * XINST_CREATE_load_simd
+     * XINST_CREATE_store_simd
+     */
+
+    instr = XINST_CREATE_jump_reg(dc, opnd_create_reg(DR_REG_A0));
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ZERO);
+    ASSERT(opnd_is_immed_int(instr_get_src(instr, 1)) &&
+           opnd_get_immed_int(instr_get_src(instr, 1)) == 0);
+    test_instr_encoding(dc, OP_jalr, instr);
+
+    instr = XINST_CREATE_load_int(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_immed_int(42, OPSZ_12b));
+    ASSERT(opnd_is_reg(instr_get_src(instr, 0)) &&
+           opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_ZERO);
+    test_instr_encoding(dc, OP_addi, instr);
+
+    instr = XINST_CREATE_return(dc);
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ZERO);
+    ASSERT(opnd_is_immed_int(instr_get_src(instr, 1)) &&
+           opnd_get_immed_int(instr_get_src(instr, 1)) == 0);
+    test_instr_encoding(dc, OP_jalr, instr);
+
+    instr = XINST_CREATE_jump(dc, opnd_create_pc(pc));
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ZERO);
+    test_instr_encoding_jal_or_branch(dc, OP_jal, instr);
+
+    instr = XINST_CREATE_jump_short(dc, opnd_create_pc(pc));
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ZERO);
+    test_instr_encoding_jal_or_branch(dc, OP_jal, instr);
+
+    instr = XINST_CREATE_call(dc, opnd_create_pc(pc));
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_RA);
+    test_instr_encoding_jal_or_branch(dc, OP_jal, instr);
+
+    instr = XINST_CREATE_add(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);
+    ASSERT(opnd_is_reg(instr_get_src(instr, 0)) &&
+           opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);
+    ASSERT(opnd_is_reg(instr_get_src(instr, 1)) &&
+           opnd_get_reg(instr_get_src(instr, 1)) == DR_REG_A1);
+    test_instr_encoding(dc, OP_add, instr);
+
+    instr = XINST_CREATE_add(dc, opnd_create_reg(DR_REG_A0),
+                             opnd_create_immed_int(42, OPSZ_12b));
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);
+    ASSERT(opnd_is_reg(instr_get_src(instr, 0)) &&
+           opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);
+    ASSERT(opnd_is_immed_int(instr_get_src(instr, 1)) &&
+           opnd_get_immed_int(instr_get_src(instr, 1)) == 42);
+    test_instr_encoding(dc, OP_addi, instr);
+
+    instr = XINST_CREATE_add_2src(dc, opnd_create_reg(DR_REG_A0),
+                                  opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A2));
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);
+    ASSERT(opnd_is_reg(instr_get_src(instr, 0)) &&
+           opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A1);
+    ASSERT(opnd_is_reg(instr_get_src(instr, 1)) &&
+           opnd_get_reg(instr_get_src(instr, 1)) == DR_REG_A2);
+    test_instr_encoding(dc, OP_add, instr);
+
+    instr = XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_A0), opnd_create_reg(DR_REG_A1));
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);
+    ASSERT(opnd_is_reg(instr_get_src(instr, 0)) &&
+           opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);
+    ASSERT(opnd_is_reg(instr_get_src(instr, 1)) &&
+           opnd_get_reg(instr_get_src(instr, 1)) == DR_REG_A1);
+    test_instr_encoding(dc, OP_sub, instr);
+
+    instr = XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_A0),
+                             opnd_create_immed_int(42, OPSZ_12b));
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_A0);
+    ASSERT(opnd_is_reg(instr_get_src(instr, 0)) &&
+           opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);
+    ASSERT(opnd_is_immed_int(instr_get_src(instr, 1)) &&
+           opnd_get_immed_int(instr_get_src(instr, 1)) == -42);
+    test_instr_encoding(dc, OP_addi, instr);
+
+    instr = XINST_CREATE_call_reg(dc, opnd_create_reg(DR_REG_A0));
+    ASSERT(opnd_is_reg(instr_get_dst(instr, 0)) &&
+           opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_RA);
+    ASSERT(opnd_is_reg(instr_get_src(instr, 0)) &&
+           opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_A0);
+    ASSERT(opnd_is_immed_int(instr_get_src(instr, 1)) &&
+           opnd_get_immed_int(instr_get_src(instr, 1)) == 0);
+    test_instr_encoding(dc, OP_jalr, instr);
+}
+
+static void
 test_insert_mov_immed_arch(void *dc)
 {
     instr_t *instr;
@@ -1755,6 +1908,9 @@ main(int argc, char *argv[])
 
     test_misc(dcontext);
     print("test_misc complete\n");
+
+    test_xinst(dcontext);
+    print("test_xinst complete\n");
 
     print("All tests complete\n");
     return 0;
