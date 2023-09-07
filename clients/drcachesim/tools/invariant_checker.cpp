@@ -396,27 +396,47 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                         "Function marker misplaced between instr and memref");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
-        shard->prev_func_id_ = memref.marker.marker_value;
-    }
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
         marker_type_is_function_marker(memref.marker.marker_type)) {
-        report_if_false(
-            shard,
-            shard->prev_func_id_ >=
-                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
-                type_is_instr_branch(shard->prev_instr_.instr.type),
-            "Function marker should be after a branch");
-    }
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR) {
-        if (!shard->retaddr_stack_.empty()) {
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_ID) {
+            shard->prev_func_id_ = memref.marker.marker_value;
+        }
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_FUNC_RETADDR &&
+            !shard->retaddr_stack_.empty()) {
             // Current check does not handle long jump, it may fail if a long
             // jump is used.
             report_if_false(shard,
                             memref.marker.marker_value == shard->retaddr_stack_.top(),
                             "Function marker retaddr should match prior call");
         }
+        // Function markers may appear in the beginning of the trace before any
+        // instructions are recorded, i.e. shard->instr_count_ == 0. In other to avoid
+        // false positives, we assume the markers are placed correctly.
+#ifdef UNIX
+        report_if_false(
+            shard,
+            shard->prev_func_id_ >=
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
+                type_is_instr_branch(shard->prev_instr_.instr.type) ||
+                shard->instr_count_ == 0 ||
+                (shard->prev_xfer_marker_.marker.marker_type ==
+                     TRACE_MARKER_TYPE_KERNEL_XFER &&
+                 (
+                     // The last instruction is not known if the signal arrived before any
+                     // instructions in the trace, or the trace started mid-signal. We
+                     // assume the function markers are correct to avoid false positives.
+                     shard->last_signal_context_.pre_signal_instr.instr.addr == 0 ||
+                     // The last instruction of the outer-most scope was a branch.
+                     type_is_instr_branch(shard->last_instr_in_cur_context_.instr.type))),
+            "Function marker should be after a branch");
+#else
+        report_if_false(
+            shard,
+            shard->prev_func_id_ >=
+                    static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
+                type_is_instr_branch(shard->prev_instr_.instr.type) ||
+                shard->instr_count_ == 0,
+            "Function marker should be after a branch");
+#endif
     }
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
