@@ -228,6 +228,13 @@ scheduler_tmpl_t<memref_t, reader_t>::record_type_is_timestamp(memref_t record,
 }
 
 template <>
+bool
+scheduler_tmpl_t<memref_t, reader_t>::record_type_is_invalid(memref_t record)
+{
+    return record.instr.type != TRACE_TYPE_INVALID;
+}
+
+template <>
 memref_t
 scheduler_tmpl_t<memref_t, reader_t>::create_region_separator_marker(memref_tid_t tid,
                                                                      uintptr_t value)
@@ -249,6 +256,15 @@ scheduler_tmpl_t<memref_t, reader_t>::create_thread_exit(memref_tid_t tid)
     record.exit.type = TRACE_TYPE_THREAD_EXIT;
     // XXX i#5843: We have .pid as 0 for now; worth trying to fill it in?
     record.exit.tid = tid;
+    return record;
+}
+
+template <>
+memref_t
+scheduler_tmpl_t<memref_t, reader_t>::create_invalid_record()
+{
+    memref_t record = {};
+    record.instr.type = TRACE_TYPE_INVALID;
     return record;
 }
 
@@ -335,6 +351,14 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_timestamp(
 }
 
 template <>
+bool
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_invalid(
+    trace_entry_t record)
+{
+    return static_cast<trace_type_t>(record.type) != TRACE_TYPE_INVALID;
+}
+
+template <>
 trace_entry_t
 scheduler_tmpl_t<trace_entry_t, record_reader_t>::create_region_separator_marker(
     memref_tid_t tid, uintptr_t value)
@@ -355,6 +379,17 @@ scheduler_tmpl_t<trace_entry_t, record_reader_t>::create_thread_exit(memref_tid_
     record.type = TRACE_TYPE_THREAD_EXIT;
     record.size = sizeof(tid);
     record.addr = static_cast<addr_t>(tid);
+    return record;
+}
+
+template <>
+trace_entry_t
+scheduler_tmpl_t<trace_entry_t, record_reader_t>::create_invalid_record()
+{
+    trace_entry_t record;
+    record.type = TRACE_TYPE_INVALID;
+    record.size = 0;
+    record.addr = 0;
     return record;
 }
 
@@ -428,6 +463,24 @@ scheduler_tmpl_t<RecordType, ReaderType>::stream_t::next_record(RecordType &reco
         }
     }
     return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::stream_t::unread_last_record()
+{
+    RecordType record;
+    input_info_t *input = nullptr;
+    auto status = scheduler_->unread_last_record(ordinal_, record, input);
+    if (status != sched_type_t::STATUS_OK)
+        return status;
+    // Restore state.  We document that get_last_timestamp() is not updated.
+    std::lock_guard<std::mutex> guard(*input->lock);
+    if (!input->reader->is_record_synthetic())
+        --cur_ref_count_;
+    if (scheduler_->record_type_is_instr(record))
+        --cur_instr_count_;
+    return status;
 }
 
 template <typename RecordType, typename ReaderType>
@@ -566,7 +619,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                                   ? spec_type_t::USE_NOPS
                                   // TODO i#5843: Add more flags for other options.
                                   : spec_type_t::LAST_FROM_TRACE,
-                              verbosity_);
+                              create_invalid_record(), verbosity_);
         if (options_.schedule_record_ostream != nullptr) {
             sched_type_t::stream_status_t status = record_schedule_segment(
                 i, schedule_record_t::VERSION, schedule_record_t::VERSION_CURRENT, 0, 0);
@@ -1958,6 +2011,22 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
     VDO(this, 4, print_record(record););
 
     outputs_[output].last_record = record;
+    return sched_type_t::STATUS_OK;
+}
+
+template <typename RecordType, typename ReaderType>
+typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
+scheduler_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal_t output,
+                                                             RecordType &record,
+                                                             input_info_t *&input)
+{
+    auto &outinfo = outputs_[output];
+    if (record_type_is_invalid(outinfo.last_record))
+        return sched_type_t::STATUS_INVALID;
+    inputs_[outinfo.cur_input].queue.push_back(outinfo.last_record);
+    record = outinfo.last_record;
+    input = &inputs_[outinfo.cur_input];
+    outinfo.last_record = create_invalid_record();
     return sched_type_t::STATUS_OK;
 }
 

@@ -2780,14 +2780,34 @@ test_inactive()
             }
         };
         scheduler_t::stream_status_t status;
+        // Unreading before reading should fail.
+        status = stream0->unread_last_record();
+        assert(status == scheduler_t::STATUS_INVALID);
         // Advance cpu0 to its 1st instr.
         check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_MARKER);
         check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_MARKER);
         check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
+        // Test unreading and re-reading.
+        uint64_t ref_ord = stream0->get_record_ordinal();
+        uint64_t instr_ord = stream0->get_instruction_ordinal();
+        status = stream0->unread_last_record();
+        assert(status == scheduler_t::STATUS_OK);
+        assert(stream0->get_record_ordinal() == ref_ord - 1);
+        assert(stream0->get_instruction_ordinal() == instr_ord - 1);
+        check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
+        assert(stream0->get_record_ordinal() == ref_ord);
+        assert(stream0->get_instruction_ordinal() == instr_ord);
         // Advance cpu1 to its 1st instr.
         check_next(stream1, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_MARKER);
         check_next(stream1, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_MARKER);
         check_next(stream1, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
+        // Read one further than we want to process and then put it back.
+        check_next(stream1, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
+        status = stream1->unread_last_record();
+        assert(status == scheduler_t::STATUS_OK);
+        // Consecutive unread should fail.
+        status = stream1->unread_last_record();
+        assert(status == scheduler_t::STATUS_INVALID);
         // Make cpu1 inactive.
         status = stream1->set_active(false);
         assert(status == scheduler_t::STATUS_OK);
@@ -2799,6 +2819,7 @@ test_inactive()
         // Advance cpu0 to its quantum end.
         check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
         // Ensure cpu0 now picks up the input that was on cpu1.
+        // This is also the record we un-read earlier.
         check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
         check_next(stream0, scheduler_t::STATUS_OK, TID_B, TRACE_TYPE_INSTR);
         // End of quantum.

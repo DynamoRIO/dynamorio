@@ -258,6 +258,9 @@ typedef enum {
      */
     TRACE_TYPE_INSTR_UNTAKEN_JUMP,
 
+    /** An invalid record, meant for use as a sentinel value. */
+    TRACE_TYPE_INVALID,
+
     // Update trace_type_names[] when adding here.
 } trace_type_t;
 

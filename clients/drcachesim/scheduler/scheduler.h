@@ -549,6 +549,18 @@ public:
         next_record(RecordType &record, uint64_t cur_time);
 
         /**
+         * Queues the last-read record returned by next_record() such that it will be
+         * returned on the subsequent call to next_record() when this same input is
+         * active.  May not be called multiple times in a row without an intervening
+         * next_record() call.  This will cause ordinal queries on the current input to be
+         * off by one until the record is re-read.  Furthermore, the get_last_timestamp()
+         * query may still include this record, whether called on the input or output
+         * stream, immediately after this call.
+         */
+        virtual stream_status_t
+        unread_last_record();
+
+        /**
          * Begins a diversion from the regular inputs to a side stream of records
          * representing speculative execution starting at 'start_address'.
          *
@@ -556,7 +568,9 @@ public:
          * before knowing whether a simulator is on the wrong path or not, this routine
          * supports putting back the current record so that it will be re-provided as
          * the first record after (the outermost) stop_speculation(), if
-         * "queue_current_record" is true.
+         * "queue_current_record" is true.  An alternative way to accomplish this
+         * is to call unread_last_record().  The same caveats on the input stream
+         * ordinals and last timestamp apply to the queued record here.
          *
          * This call can be nested; each call needs to be paired with a corresponding
          * stop_speculation() call.
@@ -962,9 +976,10 @@ protected:
         output_info_t(scheduler_tmpl_t<RecordType, ReaderType> *scheduler,
                       output_ordinal_t ordinal,
                       typename spec_type_t::speculator_flags_t speculator_flags,
-                      int verbosity = 0)
+                      RecordType last_record_init, int verbosity = 0)
             : stream(scheduler, ordinal, verbosity)
             , speculator(speculator_flags, verbosity)
+            , last_record(last_record_init)
         {
         }
         stream_t stream;
@@ -984,7 +999,7 @@ protected:
         // while this field holds the instruction's start PC.  The use case is for
         // queueing a read-ahead instruction record for start_speculation().
         addr_t prev_speculate_pc = 0;
-        RecordType last_record;
+        RecordType last_record; // Set to TRACE_TYPE_INVALID in constructor.
         // A list of schedule segments.  These are accessed only while holding
         // sched_lock_.
         std::vector<schedule_record_t> record;
@@ -1032,6 +1047,10 @@ protected:
     stream_status_t
     next_record(output_ordinal_t output, RecordType &record, input_info_t *&input,
                 uint64_t cur_time = 0);
+
+    // Undoes the last read.  May only be called once between next_record() calls.
+    stream_status_t
+    unread_last_record(output_ordinal_t output, RecordType &record, input_info_t *&input);
 
     // Skips ahead to the next region of interest if necessary.
     // The caller must hold the input.lock.
@@ -1105,6 +1124,9 @@ protected:
     bool
     record_type_is_timestamp(RecordType record, uintptr_t &value);
 
+    bool
+    record_type_is_invalid(RecordType record);
+
     // Creates the marker we insert between regions of interest.
     RecordType
     create_region_separator_marker(memref_tid_t tid, uintptr_t value);
@@ -1112,6 +1134,9 @@ protected:
     // Creates a thread exit record.
     RecordType
     create_thread_exit(memref_tid_t tid);
+
+    RecordType
+    create_invalid_record();
 
     // Used for diagnostics: prints record fields to stderr.
     void
