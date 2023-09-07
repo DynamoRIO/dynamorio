@@ -476,6 +476,8 @@ public:
         : data(mmap(nullptr, DATA_SIZE, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0))
     {
+        // TODO i#5036: Support page sizes > 4KiB
+        assert(sysconf(_SC_PAGE_SIZE) == 4096);
         reset();
     }
 
