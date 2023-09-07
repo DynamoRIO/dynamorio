@@ -2736,18 +2736,17 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
                     // This is a trace-final or window-final branch but we do not have
                     // its taken/target without a subsequent instr: just delete it.
                     DEBUG_ASSERT(instr_index == instr_count - 1);
+                    if (i > 0 &&
+                        tdata->delayed_branch[i - 1].type == TRACE_TYPE_ENCODING) {
+                        log(4, "Erasing cached encoding for %p\n",
+                            tdata->delayed_branch_decode_pcs[instr_index]);
+                        tdata->encoding_emitted.erase(
+                            tdata->delayed_branch_decode_pcs[instr_index]);
+                    }
                     int erase_from = i;
-                    bool cleared_encoding_emitted = false;
                     while (erase_from > 0 &&
                            tdata->delayed_branch[erase_from - 1].type ==
                                TRACE_TYPE_ENCODING) {
-                        if (!cleared_encoding_emitted) {
-                            log(4, "Erasing cached encoding for %p\n",
-                                tdata->delayed_branch_decode_pcs[instr_index]);
-                            tdata->encoding_emitted.erase(
-                                tdata->delayed_branch_decode_pcs[instr_index]);
-                            cleared_encoding_emitted = true;
-                        }
                         --erase_from;
                     }
                     VPRINT(4,
@@ -2759,12 +2758,7 @@ raw2trace_t::append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_p
                                                 tdata->delayed_branch.end());
                     tdata->delayed_branch_decode_pcs.pop_back();
                     tdata->delayed_branch_target_pcs.pop_back();
-                    // Start the iteration over.
                     --instr_count;
-                    instr_index = instr_count - 1;
-                    next_instr_pc = branch_addr;
-                    i = static_cast<int>(tdata->delayed_branch.size());
-                    continue;
                 } else {
                     if (target == nullptr) {
                         DEBUG_ASSERT(!type_is_instr_direct_branch(

@@ -2339,23 +2339,23 @@ test_branch_decoration(void *drcontext)
         instr_t *nop2 = XINST_CREATE_nop(drcontext);
         instr_t *store = XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(REG2, 0),
                                             opnd_create_reg(REG1));
-        instr_t *jcc =
+        instr_t *jcc_store =
             XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(store));
         instr_t *move =
             XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
-        instr_t *jcc2 =
+        instr_t *jcc_move =
             XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move));
         instrlist_append(ilist, nop1);
         instrlist_append(ilist, move);
-        instrlist_append(ilist, jcc);
-        instrlist_append(ilist, jcc2);
+        instrlist_append(ilist, jcc_store);
+        instrlist_append(ilist, jcc_move);
         instrlist_append(ilist, nop2);
         instrlist_append(ilist, store);
         size_t offs_nop1 = 0;
         size_t offs_mov = offs_nop1 + instr_length(drcontext, nop1);
-        size_t offs_jcc = offs_mov + instr_length(drcontext, move);
-        size_t offs_jcc2 = offs_jcc + instr_length(drcontext, jcc);
-        size_t offs_nop2 = offs_jcc2 + instr_length(drcontext, jcc2);
+        size_t offs_jcc_store = offs_mov + instr_length(drcontext, move);
+        size_t offs_jcc_move = offs_jcc_store + instr_length(drcontext, jcc_store);
+        size_t offs_nop2 = offs_jcc_move + instr_length(drcontext, jcc_move);
         size_t offs_store = offs_nop2 + instr_length(drcontext, nop2);
 
         std::vector<offline_entry_t> raw;
@@ -2364,12 +2364,12 @@ test_branch_decoration(void *drcontext)
         raw.push_back(make_pid());
         raw.push_back(make_line_size());
         raw.push_back(make_block(offs_mov, 2));
-        raw.push_back(make_block(offs_jcc2, 1));
+        raw.push_back(make_block(offs_jcc_move, 1));
         // Test two consecutive branches at the end of a window.
         raw.push_back(make_window_id(1));
         // Now repeat both branches to test encodings.
         raw.push_back(make_block(offs_mov, 2));
-        raw.push_back(make_block(offs_jcc2, 1));
+        raw.push_back(make_block(offs_jcc_move, 1));
         raw.push_back(make_block(offs_store, 1));
         raw.push_back(make_exit());
 
@@ -2394,19 +2394,21 @@ test_branch_decoration(void *drcontext)
             // An extra encoding entry is needed.
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #endif
-            check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1,
+                        offs_jcc_store) &&
             // The second branch and its encoding should be removed.
             check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_WINDOW_ID) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_mov) &&
             // The first branch needs no encoding here.
-            check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1,
+                        offs_jcc_store) &&
             // The second branch does need an encoding.
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #ifdef X86_32
             // An extra encoding entry is needed.
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #endif
-            check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc2) &&
+            check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc_move) &&
             check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
             check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_store) &&
             check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
