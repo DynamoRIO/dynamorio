@@ -231,7 +231,7 @@ template <>
 bool
 scheduler_tmpl_t<memref_t, reader_t>::record_type_is_invalid(memref_t record)
 {
-    return record.instr.type != TRACE_TYPE_INVALID;
+    return record.instr.type == TRACE_TYPE_INVALID;
 }
 
 template <>
@@ -355,7 +355,7 @@ bool
 scheduler_tmpl_t<trace_entry_t, record_reader_t>::record_type_is_invalid(
     trace_entry_t record)
 {
-    return static_cast<trace_type_t>(record.type) != TRACE_TYPE_INVALID;
+    return static_cast<trace_type_t>(record.type) == TRACE_TYPE_INVALID;
 }
 
 template <>
@@ -2023,9 +2023,12 @@ scheduler_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal_t ou
     auto &outinfo = outputs_[output];
     if (record_type_is_invalid(outinfo.last_record))
         return sched_type_t::STATUS_INVALID;
-    inputs_[outinfo.cur_input].queue.push_back(outinfo.last_record);
     record = outinfo.last_record;
     input = &inputs_[outinfo.cur_input];
+    std::lock_guard<std::mutex> lock(*input->lock);
+    input->queue.push_back(outinfo.last_record);
+    if (options_.quantum_unit == QUANTUM_INSTRUCTIONS && record_type_is_instr(record))
+        --input->instrs_in_quantum;
     outinfo.last_record = create_invalid_record();
     return sched_type_t::STATUS_OK;
 }
@@ -2094,8 +2097,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::set_output_active(output_ordinal_t out
     if (!active) {
         // Make the now-inactive output's input available for other cores.
         // This will reset its quantum too.
-        // We aren't switching on a just-read instruction not passed to the consumer.
-        inputs_[outputs_[output].cur_input].switching_pre_instruction = true;
+        // We aren't switching on a just-read instruction not passed to the consumer,
+        // if the queue is empty.
+        if (inputs_[outputs_[output].cur_input].queue.empty())
+            inputs_[outputs_[output].cur_input].switching_pre_instruction = true;
         set_cur_input(output, INVALID_INPUT_ORDINAL);
     } else {
         outputs_[output].waiting = true;
