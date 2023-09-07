@@ -133,18 +133,6 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
     return 0;
 }
 
-size_t
-get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
-{
-    /* AArch64 always uses shared gencode so we ignore FRAG_DB_SHARED(flags) */
-    if (TEST(FRAG_COARSE_GRAIN, flags)) {
-        /* FIXME i#1575: coarse-grain NYI on AArch64 */
-        ASSERT_NOT_IMPLEMENTED(false);
-        return 0;
-    }
-    return TLS_FCACHE_RETURN_SLOT;
-}
-
 /* Generate move (immediate) of a 64-bit value using at most 4 instructions.
  * pc must be a writable (vmcode) pc.
  */
