@@ -1902,8 +1902,5 @@ main(int argc, char **argv)
         status = FAIL;
 #endif
 
-    switch (status) {
-    case PASS: return 0;
-    case FAIL: return 1;
-    }
+    return status == PASS ? 0 : 1;
 }
