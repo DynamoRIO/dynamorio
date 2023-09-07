@@ -646,7 +646,7 @@ public:
         : test_memory_t()
     {
         /*
-         * We set up nine pages of memory to use as input data for load instruction
+         * We set up nine pages of memory to write output data for store instruction
          * tests. The first page contains input data of different sizes and the rest
          * of the pages are set up to fault when they are accessed. The tests use
          * one of the first 4 regions as their base pointer, so when we want to
