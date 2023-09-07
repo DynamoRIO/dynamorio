@@ -367,12 +367,8 @@ check_kernel_xfer()
     // Return to recorded interruption point.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
-            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(TID, 101),
-            // XXX: This marker value is actually not guaranteed, yet the checker
-            // requires it and the view tool prints it.
-            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, 1),   gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, 101), gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(TID, 2),
         };
         if (!run_checker(memrefs, false))
@@ -385,8 +381,6 @@ check_kernel_xfer()
             // on return.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(TID, 101),
-            // XXX: This marker value is actually not guaranteed, yet the checker
-            // requires it and the view tool prints it.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(TID, 2),
         };
@@ -402,8 +396,6 @@ check_kernel_xfer()
             // return.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 101),
             gen_instr(TID, 201),
-            // XXX: This marker value is actually not guaranteed, yet the checker
-            // requires it and the view tool prints it.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             gen_instr(TID, 101),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
@@ -682,6 +674,16 @@ check_function_markers()
         if (!run_checker(memrefs, false))
             return false;
     }
+    // Correctly at the beginning of the trace.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ARG, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
     // Correctly skip return address check when the return address is
     // unavailable.
     {
@@ -776,12 +778,12 @@ check_function_markers()
             // Return from the signal handler.
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG_HANDLER_PC + CALL_SZ,
                            RETURN_SZ),
-            // sigreturn.
+            // Sigreturn.
             gen_instr(TID, SYSCALL_PC, SYSCALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
             gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 16),
             gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
-            // syscall xfer.
+            // Syscall xfer.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, SYSCALL_PC + SYSCALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 17),
             gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
@@ -806,16 +808,14 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, SIG1_PC),
             gen_instr(TID, SIG2_PC, INSTR_SZ),
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG2_PC + INSTR_SZ, RETURN_SZ),
-            // sigreturn.
+            // Sigreturn.
             gen_instr(TID, SIG2_PC + INSTR_SZ + RETURN_SZ, SYSCALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
-            // XXX: This marker value is actually not guaranteed, yet the checker
-            // requires it and the view tool prints it.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER,
                        SIG2_PC + INSTR_SZ + RETURN_SZ + SYSCALL_SZ),
             gen_instr(TID, SIG1_PC, INSTR_SZ),
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG1_PC + INSTR_SZ, RETURN_SZ),
-            // sigreturn.
+            // Sigreturn.
             gen_instr(TID, SIG1_PC + INSTR_SZ + RETURN_SZ, SYSCALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER,
@@ -843,7 +843,7 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, SIG1_PC + INSTR_SZ),
             gen_instr(TID, SIG2_PC, INSTR_SZ),
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG2_PC + INSTR_SZ, RETURN_SZ),
-            // sigreturn.
+            // Sigreturn.
             gen_instr(TID, SIG2_PC + INSTR_SZ + RETURN_SZ, SYSCALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER,
@@ -854,7 +854,7 @@ check_function_markers()
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, SIG1_PC + INSTR_SZ),
             gen_instr(TID, SIG2_PC, INSTR_SZ),
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG2_PC + INSTR_SZ, RETURN_SZ),
-            // sigreturn.
+            // Sigreturn.
             gen_instr(TID, SIG2_PC + INSTR_SZ + RETURN_SZ, SYSCALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER,
@@ -863,7 +863,7 @@ check_function_markers()
             gen_instr(TID, SIG1_PC + INSTR_SZ, INSTR_SZ),
             gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG1_PC + INSTR_SZ * 2,
                            RETURN_SZ),
-            // sigreturn.
+            // Sigreturn.
             gen_instr(TID, SIG1_PC + INSTR_SZ + RETURN_SZ, SYSCALL_SZ),
             gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, SIG1_PC + INSTR_SZ + INSTR_SZ),
@@ -904,6 +904,202 @@ check_function_markers()
         if (!run_checker(memrefs, false))
             return false;
     }
+#ifdef UNIX
+    // Correctly handle signal arriving between a branch instruction and the function
+    // entry.
+    {
+        constexpr addr_t SIG_HANDLER_PC = 400;
+        constexpr addr_t SYSCALL_PC = 500;
+        constexpr addr_t FUNC_PC = 200;
+        constexpr size_t SYSCALL_SZ = 2;
+        constexpr size_t RETURN_SZ = 3;
+
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, CALL_PC, CALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, FUNC_PC),
+            gen_instr(TID, SIG_HANDLER_PC),
+            // Return from the signal handler.
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG_HANDLER_PC + 1, RETURN_SZ),
+            // Sigreturn.
+            gen_instr(TID, SYSCALL_PC, SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 16),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+            // Syscall xfer.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, SYSCALL_PC + SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 17),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correctly handle function markers without the corresponding kernel xfer
+    // marker.
+    {
+        constexpr addr_t SIG_HANDLER_PC = 400;
+        constexpr addr_t SYSCALL_PC = 500;
+        constexpr size_t SYSCALL_SZ = 2;
+        constexpr size_t RETURN_SZ = 3;
+
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, SIG_HANDLER_PC),
+            // Return from the signal handler.
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG_HANDLER_PC + 1, RETURN_SZ),
+            // Sigreturn.
+            gen_instr(TID, SYSCALL_PC, SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 16),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+            // Syscall xfer.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, SYSCALL_PC + SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 17),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correctly handle signal event at the beginning of a trace before any instructions
+    // were recorded.
+    {
+        constexpr addr_t SIG_HANDLER_PC = 400;
+        constexpr addr_t SYSCALL_PC = 500;
+        constexpr addr_t FUNC_PC = 200;
+        constexpr size_t SYSCALL_SZ = 2;
+        constexpr size_t RETURN_SZ = 3;
+
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, FUNC_PC),
+            gen_instr(TID, SIG_HANDLER_PC),
+            // Return from the signal handler.
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG_HANDLER_PC + 1, RETURN_SZ),
+            // Sigreturn.
+            gen_instr(TID, SYSCALL_PC, SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 16),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+            // Syscall xfer.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, SYSCALL_PC + SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 17),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETADDR, CALL_PC + CALL_SZ),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Incorrect: signal not arriving between a branch instruction and the function
+    // entry should not have a function ID marker after syscall xfer.
+    {
+        constexpr addr_t SIG_HANDLER_PC = 400;
+        constexpr addr_t SYSCALL_PC = 500;
+        constexpr size_t SYSCALL_SZ = 2;
+        constexpr size_t RETURN_SZ = 3;
+
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, SIG_HANDLER_PC),
+            // Return from the signal handler.
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG_HANDLER_PC + 1, RETURN_SZ),
+            // Sigreturn.
+            gen_instr(TID, SYSCALL_PC, SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 16),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+            // Syscall xfer.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, SYSCALL_PC + SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 17),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+            // There should not be a function ID marker here.
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+        };
+        if (!run_checker(memrefs, true,
+                         { "Function marker should be after a branch", TID,
+                           /*ref_ordinal=*/12, /*last_timestamp=*/17,
+                           /*instrs_since_last_timestamp=*/0 },
+                         "Failed to catch function marker not after branch"))
+            return false;
+    }
+    // Correctly handle nested signals with the first one arriving between a branch
+    // instruction and the function entry.
+    {
+        constexpr addr_t BASE_PC = 100;
+        constexpr addr_t FUNC_PC = 200;
+        constexpr addr_t SIG1_PC = 300;
+        constexpr addr_t SIG2_PC = 400;
+        constexpr size_t INSTR_SZ = 1;
+        constexpr size_t RETURN_SZ = 3;
+        constexpr size_t SYSCALL_SZ = 2;
+
+        std::vector<memref_t> memrefs = {
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, BASE_PC, CALL_SZ),
+            // First signal.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, FUNC_PC),
+            // Second signal.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, SIG1_PC),
+            gen_instr(TID, SIG2_PC, INSTR_SZ),
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG2_PC + INSTR_SZ, RETURN_SZ),
+            // Sigreturn of the second signal.
+            gen_instr(TID, SIG2_PC + INSTR_SZ + RETURN_SZ, SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER,
+                       SIG2_PC + INSTR_SZ + RETURN_SZ + SYSCALL_SZ),
+            gen_instr(TID, SIG1_PC, INSTR_SZ),
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG1_PC + INSTR_SZ, RETURN_SZ),
+            // Sigreturn of the first signal.
+            gen_instr(TID, SIG1_PC + INSTR_SZ + RETURN_SZ, SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER,
+                       SIG1_PC + INSTR_SZ + RETURN_SZ + SYSCALL_SZ),
+            // Function marker of the call before the first signal.
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correctly handle consecutive signals (that are nested at the same depth) without
+    // any intervening instr between them.
+    {
+        constexpr addr_t BASE_PC = 100;
+        constexpr addr_t FUNC_PC = 200;
+        constexpr addr_t SIG1_PC = 300;
+        constexpr addr_t SIG2_PC = 400;
+        constexpr size_t INSTR_SZ = 1;
+        constexpr size_t RETURN_SZ = 3;
+        constexpr size_t SYSCALL_SZ = 2;
+
+        std::vector<memref_t> memrefs = {
+            gen_instr_type(TRACE_TYPE_INSTR_DIRECT_CALL, TID, BASE_PC, CALL_SZ),
+            // First signal.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, FUNC_PC),
+            gen_instr(TID, SIG1_PC, INSTR_SZ),
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG1_PC + INSTR_SZ, RETURN_SZ),
+            // Sigreturn.
+            gen_instr(TID, SIG1_PC + INSTR_SZ + RETURN_SZ, SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER,
+                       SIG1_PC + INSTR_SZ + RETURN_SZ + SYSCALL_SZ),
+            // Second signal with no intervening instr.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, FUNC_PC),
+            gen_instr(TID, SIG2_PC, INSTR_SZ),
+            gen_instr_type(TRACE_TYPE_INSTR_RETURN, TID, SIG2_PC + INSTR_SZ, RETURN_SZ),
+            // Sigreturn.
+            gen_instr(TID, SIG2_PC + INSTR_SZ + RETURN_SZ, SYSCALL_SZ),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER,
+                       SIG2_PC + INSTR_SZ + RETURN_SZ + SYSCALL_SZ),
+            // Function marker of the call before the first signal.
+            gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, 2),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+#endif
     return true;
 }
 
