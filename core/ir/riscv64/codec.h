@@ -243,6 +243,16 @@ typedef enum {
     /* Virtual fields - en/decode special cases, i.e. base+disp combination */
     RISCV64_FLD_V_L_RS1_DISP,
     RISCV64_FLD_V_S_RS1_DISP,
+    /* Implicit fields - encode is nop. */
+    RISCV64_FLD_IRS1_SP,
+    RISCV64_FLD_IRS1_ZERO,
+    RISCV64_FLD_IRS2_ZERO,
+    RISCV64_FLD_IRD_ZERO,
+    RISCV64_FLD_IRD_RA,
+    RISCV64_FLD_IRD_SP,
+    RISCV64_FLD_IIMM_0,
+    RISCV64_FLD_ICRS1,
+    RISCV64_FLD_ICRS1__,
     RISCV64_FLD_CNT, /* Keep this last */
 } riscv64_fld_t;
 
