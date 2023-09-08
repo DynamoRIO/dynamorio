@@ -1156,9 +1156,10 @@ check_duplicate_syscall_with_same_pc()
 }
 
 bool
-check_false_syscalls()
+check_syscalls()
 {
     // Ensure missing syscall markers (from "false syscalls") are detected.
+    std::cerr << "Testing false syscalls\n";
 #if defined(WINDOWS) && !defined(X64)
     // TODO i#5949: For WOW64 instr_is_syscall() always returns false, so our
     // checks do not currently work properly there.
@@ -1182,15 +1183,40 @@ check_false_syscalls()
     instrlist_append(ilist, sys);
     instrlist_append(ilist, move1);
     static constexpr addr_t BASE_ADDR = 0x123450;
+    static constexpr memref_tid_t TID = 1;
     static constexpr uintptr_t FILE_TYPE =
         OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
     bool res = true;
     {
-        // Correct: syscall followed by marker.
+        // Correct: syscall followed by marker (no timestamps; modeling versions
+        // prior to TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS).
         std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
-            { gen_instr(1), sys },
-            { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(TID), sys },
+            { gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    {
+        // Correct: syscall followed by marker with timestamp+cpu in between with
+        // subsequent function arg markers.
+        uintptr_t sys_func_id =
+            static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) + 202;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(TID), sys },
+            { gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 101), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, sys_func_id), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ARG, 0), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_ID, sys_func_id), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FUNC_RETVAL, 0), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 111), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3), nullptr },
+            { gen_instr(TID), move1 }
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, false))
@@ -1199,11 +1225,11 @@ check_false_syscalls()
     {
         // Correct: syscall followed by marker with timestamp+cpu in between.
         std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
-            { gen_instr(1), sys },
-            { gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 101), nullptr },
-            { gen_marker(1, TRACE_MARKER_TYPE_CPU_ID, 3), nullptr },
-            { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(TID), sys },
+            { gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 101), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, false))
@@ -1212,14 +1238,13 @@ check_false_syscalls()
     {
         // Incorrect: syscall with no marker.
         std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
-            { gen_instr(1), sys },
-            { gen_instr(1), move1 }
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(TID), sys },
+            { gen_instr(TID), move1 }
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "Syscall instruction not followed by syscall marker",
-                           /*tid=*/1,
+                         { "Syscall marker missing after syscall instruction", TID,
                            /*ref_ordinal=*/3, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/2 },
                          "Failed to catch syscall without number marker")) {
@@ -1229,20 +1254,78 @@ check_false_syscalls()
     {
         // Incorrect: marker with no syscall.
         std::vector<memref_with_IR_t> memref_setup = {
-            { gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
-            { gen_instr(1), move1 },
-            { gen_marker(1, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(TID), move1 },
+            { gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         if (!run_checker(memrefs, true,
-                         { "Syscall marker not placed after syscall instruction",
-                           /*tid=*/1,
+                         { "Syscall marker not placed after syscall instruction", TID,
                            /*ref_ordinal=*/3, /*last_timestamp=*/0,
                            /*instrs_since_last_timestamp=*/1 },
                          "Failed to catch misplaced syscall marker")) {
             res = false;
         }
     }
+    // Ensure timestamps are where we expect them.
+    std::cerr << "Testing syscall timestamps\n";
+    {
+        // Correct: syscall preceded by timestamp+cpu.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS),
+              nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(TID), sys },
+            { gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 101), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, false))
+            res = false;
+    }
+    {
+        // Incorrect: syscall with no preceding timestamp+cpu.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS),
+              nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(TID), sys },
+            { gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Syscall marker not preceded by timestamp + cpuid", TID,
+                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch syscall without timestamp+cpuid")) {
+            res = false;
+        }
+    }
+    {
+        // Incorrect: syscall with preceding cpu but no timestamp.
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_VERSION,
+                         TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS),
+              nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
+            { gen_instr(TID), sys },
+            { gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3), nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 42), nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        if (!run_checker(memrefs, true,
+                         { "Syscall marker not preceded by timestamp + cpuid", TID,
+                           /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/1 },
+                         "Failed to catch syscall without timestamp")) {
+            res = false;
+        }
+    }
+    // We deliberately do not test for missing post-syscall timestamps as some syscalls
+    // do not have a post-syscall event so we can't easily check that.
     instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
     return res;
 #endif
@@ -1877,7 +1960,7 @@ test_main(int argc, const char *argv[])
 {
     if (check_branch_target_after_branch() && check_sane_control_flow() &&
         check_kernel_xfer() && check_rseq() && check_function_markers() &&
-        check_duplicate_syscall_with_same_pc() && check_false_syscalls() &&
+        check_duplicate_syscall_with_same_pc() && check_syscalls() &&
         check_rseq_side_exit_discontinuity() && check_schedule_file() &&
         check_branch_decoration() && check_filter_endpoint() &&
         check_timestamps_increase_monotonically()) {

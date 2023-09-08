@@ -220,11 +220,25 @@ static char modlist_path[MAXIMUM_PATH];
 static char funclist_path[MAXIMUM_PATH];
 static char encoding_path[MAXIMUM_PATH];
 
+static void
+append_timestamp_and_cpu_marker(per_thread_t *data)
+{
+    BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
+    BUF_PTR(data->seg_base) += instru->append_marker(
+        BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+}
+
 /* clean_call sends the memory reference info to the simulator */
 static void
 clean_call(void)
 {
     void *drcontext = dr_get_current_drcontext();
+    // Append a timestamp at the end of the buffer to isolate app time from
+    // buffer i/o time.  We do this here instead of inside process_and_output_buffer()
+    // as the timestamp needs to be before thread exit markers or other special
+    // cases.
+    per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    append_timestamp_and_cpu_marker(data);
     process_and_output_buffer(drcontext, false);
 }
 
@@ -513,8 +527,10 @@ append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
      * a redzone check at the end guarding a clean call to memtrace(), but to
      * be a litte safer in case that changes we also do a redzone check here.
      */
-    if (BUF_PTR(data->seg_base) - data->buf_base > static_cast<ssize_t>(trace_buf_size))
+    if (BUF_PTR(data->seg_base) - data->buf_base > static_cast<ssize_t>(trace_buf_size)) {
+        append_timestamp_and_cpu_marker(data);
         process_and_output_buffer(drcontext, false);
+    }
 }
 
 static void
@@ -1469,13 +1485,17 @@ event_pre_syscall(void *drcontext, int sysnum)
     // (The converse can happen, with a tracing window ending in a syscall but the mode
     // having changed, causing us to exit up above and not emit a marker: we solve that
     // by removing syscalls without markers in raw2trace.)
-    if (is_new_window_buffer_empty(data))
+    if (is_new_window_buffer_empty(data)) {
         return true;
+    }
 
     // Output system call numbers if we have a full instruction trace.
     // Since the instruction fetch has already been output, this will be
     // appended to the block-final syscall instr.
     if (!op_L0I_filter.get_value()) {
+        // Append a timestamp prior to the syscall to give us syscall latency.
+        append_timestamp_and_cpu_marker(data);
+
         BUF_PTR(data->seg_base) += instru->append_marker(
             BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
 #ifdef LINUX
@@ -1493,6 +1513,16 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
 #endif
     }
+    // Filtered traces take a while to fill up the buffer, so we do an output
+    // before each syscall so we can check for various thresholds more frequently.
+    // For the same reason, we output for small window thresholds.
+    static constexpr int INSTRS_PER_BUFFER = 5000;
+    if (file_ops_func.handoff_buf == NULL &&
+        (op_L0I_filter.get_value() ||
+         (has_tracing_windows() &&
+          op_trace_for_instrs.get_value() < 10 * INSTRS_PER_BUFFER))) {
+        process_and_output_buffer(drcontext, false);
+    }
 
 #ifdef ARM
     // On Linux ARM, cacheflush syscall takes 3 params: start, end, and 0.
@@ -1505,8 +1535,6 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
-    if (file_ops_func.handoff_buf == NULL)
-        process_and_output_buffer(drcontext, false);
 
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
@@ -1569,6 +1597,14 @@ event_post_syscall(void *drcontext, int sysnum)
         }
     }
 #endif
+
+    if (!op_L0I_filter.get_value()) { /* No syscall data unless full instr trace. */
+        // Append a timestamp after the syscall to give us syscall latency.
+        // XXX: If we have a frozen timestamp we won't have latency info but that's
+        // not easily solved (could record unfrozen and adjust to frozen+delta
+        // in rawtrace?) so we live with that at detach/max-refs time.
+        append_timestamp_and_cpu_marker(data);
+    }
 
 #ifdef BUILD_PT_TRACER
     if (!op_offline.get_value() || !op_enable_kernel_tracing.get_value())
@@ -1658,8 +1694,9 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     }
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
-    if (file_ops_func.handoff_buf == NULL)
-        process_and_output_buffer(drcontext, false);
+    // Append a timestamp to provide more accurate timing information at point
+    // of interest such as kernel-mediated control transfers like these.
+    append_timestamp_and_cpu_marker(data);
 }
 
 /***************************************************************************
@@ -2297,9 +2334,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
      * buffer if full.  We leave room for each of the maximum count of
      * instructions accessing memory once, which is fairly
      * pathological as by default that's 256 memrefs for one bb.  We double
-     * it to ensure we cover skipping clean calls for sthg like strex.
-     * We also check here that the max_bb_instrs can fit in the instr_count
-     * bitfield in offline_entry_t.
+     * it to include the extra timestamps we now insert and to ensure we cover
+     * skipping clean calls for sthg like strex.  We also check here that the
+     * max_bb_instrs can fit in the instr_count bitfield in offline_entry_t.
      */
     uint64 max_bb_instrs;
     if (!dr_get_integer_option("max_bb_instrs", &max_bb_instrs))

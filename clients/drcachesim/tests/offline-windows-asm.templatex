@@ -19,7 +19,7 @@ Hit tracing window #4 limit: disabling tracing.
 Adios world!
 Hit retrace threshold: enabling tracing for window #5.
 Adios world!
-Hit tracing window #5 limit: disabling tracing.*
+Hit tracing window #5 limit: disabling tracing.
 Basic counts tool results:
 Total counts:
           53 total \(fetched\) instructions
@@ -31,7 +31,7 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-          12 total scheduling markers
+          36 total scheduling markers
            0 total transfer markers
            0 total function id markers
            0 total function return address markers
@@ -41,9 +41,9 @@ Total counts:
            0 total physical address unavailable markers
            6 total system call number markers
            5 total blocking system call markers
-          11 total other markers
+          12 total other markers
           21 total encodings
-Total windows: 6
+Total windows: 7
 Window #0:
           15 window \(fetched\) instructions
           15 window unique \(fetched\) instructions
@@ -53,7 +53,7 @@ Window #0:
            5 window data stores
            0 window icache flushes
            0 window dcache flushes
-           3 window scheduling markers
+           5 window scheduling markers
            0 window transfer markers
            0 window function id markers
            0 window function return address markers
@@ -74,7 +74,7 @@ Window #1:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           2 window scheduling markers
+           6 window scheduling markers
            0 window transfer markers
            0 window function id markers
            0 window function return address markers
@@ -95,7 +95,7 @@ Window #2:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           2 window scheduling markers
+           6 window scheduling markers
            0 window transfer markers
            0 window function id markers
            0 window function return address markers
@@ -116,7 +116,7 @@ Window #3:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           2 window scheduling markers
+           6 window scheduling markers
            0 window transfer markers
            0 window function id markers
            0 window function return address markers
@@ -137,7 +137,7 @@ Window #4:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           2 window scheduling markers
+           6 window scheduling markers
            0 window transfer markers
            0 window function id markers
            0 window function return address markers
@@ -158,7 +158,7 @@ Window #5:
            0 window data stores
            0 window icache flushes
            0 window dcache flushes
-           1 window scheduling markers
+           6 window scheduling markers
            0 window transfer markers
            0 window function id markers
            0 window function return address markers
@@ -170,6 +170,27 @@ Window #5:
            0 window blocking system call markers
            1 window other markers
            3 window encodings
+Window #6:
+           0 window \(fetched\) instructions
+           0 window unique \(fetched\) instructions
+           0 window non-fetched instructions
+           0 window prefetches
+           0 window data loads
+           0 window data stores
+           0 window icache flushes
+           0 window dcache flushes
+           1 window scheduling markers
+           0 window transfer markers
+           0 window function id markers
+           0 window function return address markers
+           0 window function argument markers
+           0 window function return value markers
+           0 window physical address \+ virtual address marker pairs
+           0 window physical address unavailable markers
+           0 window system call number markers
+           0 window blocking system call markers
+           1 window other markers
+           0 window encodings
 Thread [0-9]* counts:
           15 \(fetched\) instructions
           15 unique \(fetched\) instructions
@@ -179,7 +200,7 @@ Thread [0-9]* counts:
            5 data stores
            0 icache flushes
            0 dcache flushes
-           3 scheduling markers
+           5 scheduling markers
            0 transfer markers
            0 function id markers
            0 function return address markers

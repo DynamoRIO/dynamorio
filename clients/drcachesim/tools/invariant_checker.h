@@ -125,6 +125,7 @@ protected:
         memref_t last_branch_ = {};
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
+        memref_t prev_prev_entry_ = {};
         memref_t prev_instr_ = {};
         std::unique_ptr<instr_autoclean_t> prev_instr_decoded_ = nullptr;
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
@@ -157,7 +158,6 @@ protected:
         memref_t last_instr_in_cur_context_ = {};
 
         bool saw_rseq_abort_ = false;
-        memref_t prev_prev_entry_ = {};
         // These are only available via annotations in signal_invariants.cpp.
         int instrs_until_interrupt_ = -1;
         int memrefs_until_interrupt_ = -1;
@@ -196,6 +196,8 @@ protected:
         addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
         bool saw_filter_endpoint_marker_ = false;
+        // Used to check markers after each system call.
+        bool expect_syscall_marker_ = false;
     };
 
     // We provide this for subclasses to run these invariants with custom
