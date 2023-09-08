@@ -220,6 +220,14 @@ static char modlist_path[MAXIMUM_PATH];
 static char funclist_path[MAXIMUM_PATH];
 static char encoding_path[MAXIMUM_PATH];
 
+static void
+append_timestamp_and_cpu_marker(per_thread_t *data)
+{
+    BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
+    BUF_PTR(data->seg_base) += instru->append_marker(
+        BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+}
+
 /* clean_call sends the memory reference info to the simulator */
 static void
 clean_call(void)
@@ -230,9 +238,7 @@ clean_call(void)
     // as the timestamp needs to be before thread exit markers or other special
     // cases.
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
-    BUF_PTR(data->seg_base) += instru->append_marker(
-        BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+    append_timestamp_and_cpu_marker(data);
     process_and_output_buffer(drcontext, false);
 }
 
@@ -522,9 +528,7 @@ append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
      * be a litte safer in case that changes we also do a redzone check here.
      */
     if (BUF_PTR(data->seg_base) - data->buf_base > static_cast<ssize_t>(trace_buf_size)) {
-        BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
-        BUF_PTR(data->seg_base) += instru->append_marker(
-            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+        append_timestamp_and_cpu_marker(data);
         process_and_output_buffer(drcontext, false);
     }
 }
@@ -1490,9 +1494,7 @@ event_pre_syscall(void *drcontext, int sysnum)
     // appended to the block-final syscall instr.
     if (!op_L0I_filter.get_value()) {
         // Append a timestamp prior to the syscall to give us syscall latency.
-        BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
-        BUF_PTR(data->seg_base) += instru->append_marker(
-            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+        append_timestamp_and_cpu_marker(data);
 
         BUF_PTR(data->seg_base) += instru->append_marker(
             BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
@@ -1598,9 +1600,10 @@ event_post_syscall(void *drcontext, int sysnum)
 
     if (!op_L0I_filter.get_value()) { /* No syscall data unless full instr trace. */
         // Append a timestamp after the syscall to give us syscall latency.
-        BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
-        BUF_PTR(data->seg_base) += instru->append_marker(
-            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+        // XXX: If we have a frozen timestamp we won't have latency info but that's
+        // not easily solved (could record unfrozen and adjust to frozen+delta
+        // in rawtrace?) so we live with that at detach/max-refs time.
+        append_timestamp_and_cpu_marker(data);
     }
 
 #ifdef BUILD_PT_TRACER
@@ -1691,10 +1694,9 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     }
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
-    // Append a timestamp.
-    BUF_PTR(data->seg_base) += instru->append_timestamp(BUF_PTR(data->seg_base));
-    BUF_PTR(data->seg_base) += instru->append_marker(
-        BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
+    // Append a timestamp to provide more accurate timing information at point
+    // of interest such as kernel-mediated control transfers like these.
+    append_timestamp_and_cpu_marker(data);
 }
 
 /***************************************************************************
@@ -2332,9 +2334,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
      * buffer if full.  We leave room for each of the maximum count of
      * instructions accessing memory once, which is fairly
      * pathological as by default that's 256 memrefs for one bb.  We double
-     * it to ensure we cover skipping clean calls for sthg like strex.
-     * We also check here that the max_bb_instrs can fit in the instr_count
-     * bitfield in offline_entry_t.
+     * it to include the extra timestamps we now insert and to ensure we cover
+     * skipping clean calls for sthg like strex.  We also check here that the
+     * max_bb_instrs can fit in the instr_count bitfield in offline_entry_t.
      */
     uint64 max_bb_instrs;
     if (!dr_get_integer_option("max_bb_instrs", &max_bb_instrs))

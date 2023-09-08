@@ -1346,9 +1346,15 @@ exit_thread_io(void *drcontext)
     }
 #endif
 
+    // Append a thread exit marker and output remaining records for this thread
+    // if we are still in a tracing mode or the thread has data from a prior window
+    // that it never wrote out.
     if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) ||
         (has_tracing_windows() &&
+         // If non-split we always want to append a thread exit marker as there
+         // wouldn't be on otherwise (split has one at the end of each window file).
          (!op_split_windows.get_value() ||
+          // If split, we only need to write if we have data from a prior window.
           (get_local_window(data) < tracing_window.load(std::memory_order_acquire) &&
            !is_new_window_buffer_empty(data)))) ||
         // For attach we switch to BBDUP_MODE_NOP but still need to finalize

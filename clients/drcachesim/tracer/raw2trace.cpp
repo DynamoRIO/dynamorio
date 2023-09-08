@@ -3117,23 +3117,14 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     tdata->last_cpu_ = static_cast<uint>(it->addr);
                     // Avoid identical entries, which are common with the end of the
                     // previous buffer's timestamp followed by the start of the next.
-                    if (tdata->sched.empty() ||
-                        (tdata->sched.back().thread !=
-                             static_cast<uint64_t>(tdata->tid) ||
-                         tdata->sched.back().timestamp != tdata->last_timestamp_ ||
-                         tdata->sched.back().cpu != tdata->last_cpu_ ||
-                         tdata->sched.back().start_instruction != instr_count)) {
+                    schedule_entry_t new_entry(tdata->tid, tdata->last_timestamp_,
+                                               tdata->last_cpu_, instr_count);
+                    if (tdata->sched.empty() || tdata->sched.back() != new_entry) {
                         tdata->sched.emplace_back(tdata->tid, tdata->last_timestamp_,
                                                   tdata->last_cpu_, instr_count);
                     }
                     if (tdata->cpu2sched[it->addr].empty() ||
-                        (tdata->cpu2sched[it->addr].back().thread !=
-                             static_cast<uint64_t>(tdata->tid) ||
-                         tdata->cpu2sched[it->addr].back().timestamp !=
-                             tdata->last_timestamp_ ||
-                         tdata->cpu2sched[it->addr].back().cpu != tdata->last_cpu_ ||
-                         tdata->cpu2sched[it->addr].back().start_instruction !=
-                             instr_count)) {
+                        tdata->cpu2sched[it->addr].back() != new_entry) {
                         tdata->cpu2sched[it->addr].emplace_back(
                             tdata->tid, tdata->last_timestamp_, tdata->last_cpu_,
                             instr_count);

@@ -96,9 +96,9 @@ typedef enum {
      * pre-syscall and post-syscall timestamps are as expected.  Prior versions have the
      * post-syscall timestamp actually containing the pre-syscall time.
      */
-    TRACE_ENTRY_VERSION_ACCURATE_TIMESTAMPS = 6,
+    TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS = 6,
     /** The latest version of the trace format. */
-    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_ACCURATE_TIMESTAMPS,
+    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS,
 } trace_version_t;
 
 /** The type of a trace entry in a #memref_t structure. */
@@ -940,6 +940,12 @@ struct schedule_entry_t {
         , cpu(cpu)
         , start_instruction(start_instruction)
     {
+    }
+    bool
+    operator!=(const schedule_entry_t &rhs)
+    {
+        return thread != rhs.thread || timestamp != rhs.timestamp || cpu != rhs.cpu ||
+            start_instruction != rhs.start_instruction;
     }
     uint64_t thread;
     uint64_t timestamp;

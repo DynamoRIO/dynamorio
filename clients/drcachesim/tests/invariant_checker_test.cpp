@@ -1188,7 +1188,8 @@ check_syscalls()
         OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
     bool res = true;
     {
-        // Correct: syscall followed by marker.
+        // Correct: syscall followed by marker (no timestamps; modeling versions
+        // prior to TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS).
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
             { gen_instr(TID), sys },
@@ -1272,7 +1273,7 @@ check_syscalls()
         // Correct: syscall preceded by timestamp+cpu.
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID, TRACE_MARKER_TYPE_VERSION,
-                         TRACE_ENTRY_VERSION_ACCURATE_TIMESTAMPS),
+                         TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS),
               nullptr },
             { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
             { gen_instr(TID), sys },
@@ -1288,7 +1289,7 @@ check_syscalls()
         // Incorrect: syscall with no preceding timestamp+cpu.
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID, TRACE_MARKER_TYPE_VERSION,
-                         TRACE_ENTRY_VERSION_ACCURATE_TIMESTAMPS),
+                         TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS),
               nullptr },
             { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
             { gen_instr(TID), sys },
@@ -1307,7 +1308,7 @@ check_syscalls()
         // Incorrect: syscall with preceding cpu but no timestamp.
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID, TRACE_MARKER_TYPE_VERSION,
-                         TRACE_ENTRY_VERSION_ACCURATE_TIMESTAMPS),
+                         TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS),
               nullptr },
             { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, FILE_TYPE), nullptr },
             { gen_instr(TID), sys },
@@ -1323,6 +1324,8 @@ check_syscalls()
             res = false;
         }
     }
+    // We deliberately do not test for missing post-syscall timestamps as some syscalls
+    // do not have a post-syscall event so we can't easily check that.
     instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
     return res;
 #endif

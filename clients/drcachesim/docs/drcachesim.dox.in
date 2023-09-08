@@ -182,7 +182,7 @@ Some of the more important markers are:
 
 - #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID - The marker value contains the ordinal of the trace burst window when the subsequent entries until the next #dynamorio::drmemtrace::TRACE_MARKER_TYPE_WINDOW_ID or end-of-trace were collected (see \ref sec_drcachesim_partial).
 
-- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL - This identifies a system call.  A timestamp is inserted in the trace before and after each system call.
+- #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL - This identifies a system call.  A timestamp is inserted in the trace before and after marker of this type.  This marker should be considered to be the actual system call invocation by the kernel, rather than the prior system call gateway instruction fetch record.  Thus, these timestamps provide the system call latency.
 
 The full set of markers is listed under the enum #dynamorio::drmemtrace::trace_marker_type_t.
 
