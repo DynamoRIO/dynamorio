@@ -485,7 +485,7 @@ static bool
 decode_u_immpc_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                     int idx, instr_t *out)
 {
-    uint uimm = GET_FIELD(inst, 31, 12);
+    int32_t uimm = GET_FIELD(inst, 31, 12);
     opnd_t opnd = opnd_create_pc(orig_pc + (uimm << 12));
     instr_set_src(out, idx, opnd);
     return true;
