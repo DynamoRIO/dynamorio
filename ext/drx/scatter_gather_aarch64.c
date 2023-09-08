@@ -291,13 +291,12 @@ get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
  *       cpy    %p0/m %x1 -> %z27.d
  *   end:
  *       ...
- *
- * TODO i#5036 Add support for scatter store operations.
  */
 static void
 expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
-                          const scatter_gather_info_t *sg_info, reg_id_t scratch_gpr,
-                          reg_id_t scratch_pred, app_pc orig_app_pc)
+                          const scatter_gather_info_t *sg_info, reg_id_t scratch_gpr0,
+                          reg_id_t scratch_gpr1, reg_id_t scratch_pred,
+                          app_pc orig_app_pc)
 {
 #define EMIT(op, ...)    \
     instrlist_preinsert( \
@@ -366,21 +365,19 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                            DR_PRED_SVE_NONE),
                 orig_app_pc));
 
-        /* lastb    scratch_gpr, scratch_pred, index_reg.element_size */
-        EMIT(lastb_sve_scalar, opnd_create_reg(scratch_gpr),
+        /* lastb    scratch_gpr0, scratch_pred, index_reg.element_size */
+        EMIT(lastb_sve_scalar, opnd_create_reg(scratch_gpr0),
              opnd_create_reg(scratch_pred),
              opnd_create_reg_element_vector(sg_info->index_reg, sg_info->element_size));
 
+        opnd_t mem = opnd_create_base_disp_shift_aarch64(
+            sg_info->base_reg, scratch_gpr0, sg_info->extend, sg_info->scaled,
+            /*disp=*/0, /*flags=*/0, sg_info->scalar_value_size, sg_info->extend_amount);
         if (sg_info->is_load) {
-            /* ldr[bh]  scratch_gpr, [base_reg, scratch_gpr, mod #amount] */
-            opnd_t mem = opnd_create_base_disp_shift_aarch64(
-                sg_info->base_reg, scratch_gpr, sg_info->extend, sg_info->scaled,
-                /*disp=*/0, /*flags=*/0, sg_info->scalar_value_size,
-                sg_info->extend_amount);
-
+            /* ldr[bh]  scratch_gpr0, [base_reg, scratch_gpr0, mod #amount] */
             if (sg_info->is_scalar_value_signed) {
                 const reg_id_t ld_dst =
-                    reg_resize_to_opsz(scratch_gpr, sg_info->element_size);
+                    reg_resize_to_opsz(scratch_gpr0, sg_info->element_size);
                 switch (sg_info->scalar_value_size) {
                 case OPSZ_1: EMIT(ldrsb, opnd_create_reg(ld_dst), mem); break;
                 case OPSZ_2: EMIT(ldrsh, opnd_create_reg(ld_dst), mem); break;
@@ -388,24 +385,41 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                 default: DR_ASSERT_MSG(false, "Invalid scatter_gather_info_t data");
                 }
             } else {
-                const reg_id_t scratch_gpr_w = reg_resize_to_opsz(scratch_gpr, OPSZ_4);
+                const reg_id_t scratch_gpr0_w = reg_resize_to_opsz(scratch_gpr0, OPSZ_4);
                 switch (sg_info->scalar_value_size) {
-                case OPSZ_1: EMIT(ldrb, opnd_create_reg(scratch_gpr_w), mem); break;
-                case OPSZ_2: EMIT(ldrh, opnd_create_reg(scratch_gpr_w), mem); break;
-                case OPSZ_4: EMIT(ldr, opnd_create_reg(scratch_gpr_w), mem); break;
-                case OPSZ_8: EMIT(ldr, opnd_create_reg(scratch_gpr), mem); break;
+                case OPSZ_1: EMIT(ldrb, opnd_create_reg(scratch_gpr0_w), mem); break;
+                case OPSZ_2: EMIT(ldrh, opnd_create_reg(scratch_gpr0_w), mem); break;
+                case OPSZ_4: EMIT(ldr, opnd_create_reg(scratch_gpr0_w), mem); break;
+                case OPSZ_8: EMIT(ldr, opnd_create_reg(scratch_gpr0), mem); break;
                 default: DR_ASSERT_MSG(false, "Invalid scatter_gather_info_t data");
                 }
             }
 
-            /* cpy      gather_dst_reg.element_size, scratch_pred/m, scratch_gpr */
-            EMIT(cpy_sve_pred,
-                 opnd_create_reg_element_vector(sg_info->gather_dst_reg,
-                                                sg_info->element_size),
-                 opnd_create_predicate_reg(scratch_pred, true),
-                 opnd_create_reg(reg_resize_to_opsz(scratch_gpr, sg_info->element_size)));
+            /* cpy      gather_dst_reg.element_size, scratch_pred/m, scratch_gpr0 */
+            EMIT(
+                cpy_sve_pred,
+                opnd_create_reg_element_vector(sg_info->gather_dst_reg,
+                                               sg_info->element_size),
+                opnd_create_predicate_reg(scratch_pred, true),
+                opnd_create_reg(reg_resize_to_opsz(scratch_gpr0, sg_info->element_size)));
         } else {
-            DR_ASSERT_MSG(sg_info->is_load, "Stores are not yet supported");
+            DR_ASSERT_MSG(!sg_info->is_scalar_value_signed,
+                          "Invalid scatter_gather_info_t data");
+
+            /* lastb    scratch_gpr1, scratch_pred, scatter_src_reg.element_size */
+            EMIT(lastb_sve_scalar, opnd_create_reg(scratch_gpr1),
+                 opnd_create_reg(scratch_pred),
+                 opnd_create_reg_element_vector(sg_info->scatter_src_reg,
+                                                sg_info->element_size));
+
+            const reg_id_t scratch_gpr1_w = reg_resize_to_opsz(scratch_gpr1, OPSZ_4);
+            switch (sg_info->scalar_value_size) {
+            case OPSZ_1: EMIT(strb, mem, opnd_create_reg(scratch_gpr1_w)); break;
+            case OPSZ_2: EMIT(strh, mem, opnd_create_reg(scratch_gpr1_w)); break;
+            case OPSZ_4: EMIT(str, mem, opnd_create_reg(scratch_gpr1_w)); break;
+            case OPSZ_8: EMIT(str, mem, opnd_create_reg(scratch_gpr1)); break;
+            default: DR_ASSERT_MSG(false, "Invalid scatter_gather_info_t data");
+            }
         }
     }
 
@@ -421,7 +435,7 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
  */
 reg_id_t
 reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
-                     reg_id_t scratch_gpr, reg_id_t min_register, reg_id_t max_register,
+                     reg_id_t scratch_gpr0, reg_id_t min_register, reg_id_t max_register,
                      size_t slot_offset, opnd_size_t reg_size)
 {
     /* Search the instruction for an unused register we will use as a temp. */
@@ -433,19 +447,19 @@ reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
     DR_ASSERT(!instr_uses_reg(where, reg));
 
     drmgr_insert_read_tls_field(drcontext, drx_scatter_gather_tls_idx, bb, where,
-                                scratch_gpr);
+                                scratch_gpr0);
 
-    /* ldr scratch_gpr, [scratch_gpr, #slot_offset] */
+    /* ldr scratch_gpr0, [scratch_gpr0, #slot_offset] */
     instrlist_meta_preinsert(
         bb, where,
-        INSTR_CREATE_ldr(drcontext, opnd_create_reg(scratch_gpr),
-                         OPND_CREATE_MEMPTR(scratch_gpr, slot_offset)));
+        INSTR_CREATE_ldr(drcontext, opnd_create_reg(scratch_gpr0),
+                         OPND_CREATE_MEMPTR(scratch_gpr0, slot_offset)));
 
-    /* str reg, [scratch_gpr] */
+    /* str reg, [scratch_gpr0] */
     instrlist_meta_preinsert(
         bb, where,
         INSTR_CREATE_str(drcontext,
-                         opnd_create_base_disp(scratch_gpr, DR_REG_NULL, 0, 0, reg_size),
+                         opnd_create_base_disp(scratch_gpr0, DR_REG_NULL, 0, 0, reg_size),
                          opnd_create_reg(reg)));
 
     return reg;
@@ -453,7 +467,7 @@ reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
 
 reg_id_t
 reserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
-                      reg_id_t scratch_gpr, spill_slot_state_t *slot_state)
+                      reg_id_t scratch_gpr0, spill_slot_state_t *slot_state)
 {
     DR_ASSERT(slot_state->pred_slots[0] == DR_REG_NULL);
 
@@ -461,7 +475,7 @@ reserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
      * LASTB which we use to extract elements from the vector register.
      */
     const reg_id_t reg =
-        reserve_sve_register(drcontext, bb, where, scratch_gpr, DR_REG_P0, DR_REG_P7,
+        reserve_sve_register(drcontext, bb, where, scratch_gpr0, DR_REG_P0, DR_REG_P7,
                              offsetof(per_thread_t, scratch_pred_spill_slot),
                              opnd_size_from_bytes(proc_get_vector_length_bytes() / 8));
 
@@ -476,35 +490,35 @@ reserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
  */
 void
 unreserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
-                       reg_id_t scratch_gpr, reg_id_t reg, size_t slot_offset,
+                       reg_id_t scratch_gpr0, reg_id_t reg, size_t slot_offset,
                        opnd_size_t reg_size)
 {
     drmgr_insert_read_tls_field(drcontext, drx_scatter_gather_tls_idx, bb, where,
-                                scratch_gpr);
+                                scratch_gpr0);
 
-    /* ldr scratch_gpr, [scratch_gpr, #slot_offset] */
+    /* ldr scratch_gpr0, [scratch_gpr0, #slot_offset] */
     instrlist_meta_preinsert(
         bb, where,
-        INSTR_CREATE_ldr(drcontext, opnd_create_reg(scratch_gpr),
-                         OPND_CREATE_MEMPTR(scratch_gpr, slot_offset)));
+        INSTR_CREATE_ldr(drcontext, opnd_create_reg(scratch_gpr0),
+                         OPND_CREATE_MEMPTR(scratch_gpr0, slot_offset)));
 
-    /* ldr reg, [scratch_gpr] */
+    /* ldr reg, [scratch_gpr0] */
     instrlist_meta_preinsert(
         bb, where,
         INSTR_CREATE_ldr(
             drcontext, opnd_create_reg(reg),
-            opnd_create_base_disp(scratch_gpr, DR_REG_NULL, 0, 0, reg_size)));
+            opnd_create_base_disp(scratch_gpr0, DR_REG_NULL, 0, 0, reg_size)));
 }
 
 void
 unreserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
-                        reg_id_t scratch_gpr, reg_id_t scratch_pred,
+                        reg_id_t scratch_gpr0, reg_id_t scratch_pred,
                         spill_slot_state_t *slot_state)
 {
     DR_ASSERT(slot_state->pred_slots[0] == scratch_pred);
     slot_state->pred_slots[0] = DR_REG_NULL;
 
-    unreserve_sve_register(drcontext, bb, where, scratch_gpr, scratch_pred,
+    unreserve_sve_register(drcontext, bb, where, scratch_gpr0, scratch_pred,
                            offsetof(per_thread_t, scratch_pred_spill_slot),
                            opnd_size_from_bytes(proc_get_vector_length_bytes() / 8));
 }
@@ -538,9 +552,15 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     bool res = false;
     get_scatter_gather_info(sg_instr, &sg_info);
 
-    if (!(sg_info.is_load && reg_is_z(sg_info.index_reg) &&
-          sg_info.faulting_behavior == DRX_NORMAL_FAULTING))
+    /* Filter out instructions which are not yet supported. */
+    if (!(reg_is_z(sg_info.index_reg) &&
+          sg_info.faulting_behavior == DRX_NORMAL_FAULTING)) {
+        /* We return true with *expanded=false here to indicate that no error occurred but
+         * we didn't expand any instructions. This matches the behaviour of this function
+         * for architectures with no scatter/gather expansion support.
+         */
         return true;
+    }
 
     /* We want to avoid spill slot conflicts with later instrumentation passes. */
     drreg_status_t res_bb_props =
@@ -550,7 +570,8 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     /* Tell drx_event_restore_state() that an expansion has occurred. */
     drx_mark_scatter_gather_expanded();
 
-    reg_id_t scratch_gpr = DR_REG_INVALID;
+    reg_id_t scratch_gpr0 = DR_REG_INVALID;
+    reg_id_t scratch_gpr1 = DR_REG_INVALID;
     drvector_t allowed;
     drreg_init_and_fill_vector(&allowed, true);
 
@@ -561,15 +582,19 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 
     if (drreg_reserve_aflags(drcontext, bb, sg_instr) != DRREG_SUCCESS)
         goto drx_expand_scatter_gather_exit;
-    if (drreg_reserve_register(drcontext, bb, sg_instr, &allowed, &scratch_gpr) !=
+    if (drreg_reserve_register(drcontext, bb, sg_instr, &allowed, &scratch_gpr0) !=
         DRREG_SUCCESS)
+        goto drx_expand_scatter_gather_exit;
+    if (!sg_info.is_load &&
+        drreg_reserve_register(drcontext, bb, sg_instr, &allowed, &scratch_gpr1) !=
+            DRREG_SUCCESS)
         goto drx_expand_scatter_gather_exit;
 
     spill_slot_state_t spill_slot_state;
     init_spill_slot_state(&spill_slot_state);
 
     const reg_id_t scratch_pred =
-        reserve_pred_register(drcontext, bb, sg_instr, scratch_gpr, &spill_slot_state);
+        reserve_pred_register(drcontext, bb, sg_instr, scratch_gpr0, &spill_slot_state);
 
     const app_pc orig_app_pc = instr_get_app_pc(sg_instr);
 
@@ -581,15 +606,14 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     emulated_instr.flags = DR_EMULATE_INSTR_ONLY;
     drmgr_insert_emulation_start(drcontext, bb, sg_instr, &emulated_instr);
 
-    if (sg_info.is_load && reg_is_z(sg_info.index_reg)) {
+    if (reg_is_z(sg_info.index_reg)) {
         /* scalar+vector */
-        expand_scalar_plus_vector(drcontext, bb, sg_instr, &sg_info, scratch_gpr,
-                                  scratch_pred, orig_app_pc);
+        expand_scalar_plus_vector(drcontext, bb, sg_instr, &sg_info, scratch_gpr0,
+                                  scratch_gpr1, scratch_pred, orig_app_pc);
     } else {
         /* TODO i#5036
          * Add support for:
          *      Other scatter gather variants:
-         *          scalar + vector st1*
          *          vector + immediate ld1/st1*
          *      Predicated contiguous variants:
          *          scalar + immediate ld1/st1*
@@ -605,9 +629,16 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 
     drmgr_insert_emulation_end(drcontext, bb, sg_instr);
 
-    unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr, scratch_pred,
+    unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr0, scratch_pred,
                             &spill_slot_state);
-    if (drreg_unreserve_register(drcontext, bb, sg_instr, scratch_gpr) != DRREG_SUCCESS) {
+    if (scratch_gpr1 != DR_REG_INVALID &&
+        drreg_unreserve_register(drcontext, bb, sg_instr, scratch_gpr1) !=
+            DRREG_SUCCESS) {
+        DR_ASSERT_MSG(false, "drreg_unreserve_register should not fail");
+        goto drx_expand_scatter_gather_exit;
+    }
+    if (drreg_unreserve_register(drcontext, bb, sg_instr, scratch_gpr0) !=
+        DRREG_SUCCESS) {
         DR_ASSERT_MSG(false, "drreg_unreserve_register should not fail");
         goto drx_expand_scatter_gather_exit;
     }
