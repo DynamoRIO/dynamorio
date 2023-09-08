@@ -3662,8 +3662,8 @@ instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg, in
 instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
-#    ifdef AARCH64
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#    if defined(AARCH64) || defined(RISCV64)
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 i#3544 */
     return 0;
 #    else
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
