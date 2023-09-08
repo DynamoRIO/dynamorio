@@ -551,11 +551,12 @@ public:
         /**
          * Queues the last-read record returned by next_record() such that it will be
          * returned on the subsequent call to next_record() when this same input is
-         * active.  May not be called multiple times in a row without an intervening
-         * next_record() call.  This will cause ordinal queries on the current input to be
-         * off by one until the record is re-read.  Furthermore, the get_last_timestamp()
-         * query may still include this record, whether called on the input or output
-         * stream, immediately after this call.
+         * active.  Causes ordinal queries on the current input to be off by one until the
+         * record is re-read.  Furthermore, the get_last_timestamp() query may still
+         * include this record, whether called on the input or output stream, immediately
+         * after this call.  Fails if called multiple times in a row without an
+         * intervening next_record() call.  Fails if called during speculation (between
+         * start_speculation() and stop_speculation() calls).
          */
         virtual stream_status_t
         unread_last_record();
@@ -564,13 +565,14 @@ public:
          * Begins a diversion from the regular inputs to a side stream of records
          * representing speculative execution starting at 'start_address'.
          *
-         * Because the instruction record after a branch typically needs to be read
-         * before knowing whether a simulator is on the wrong path or not, this routine
-         * supports putting back the current record so that it will be re-provided as
-         * the first record after (the outermost) stop_speculation(), if
-         * "queue_current_record" is true.  An alternative way to accomplish this
-         * is to call unread_last_record().  The same caveats on the input stream
-         * ordinals and last timestamp apply to the queued record here.
+         * Because the instruction record after a branch typically needs to be read before
+         * knowing whether a simulator is on the wrong path or not, this routine supports
+         * putting back the current record so that it will be re-provided as the first
+         * record after stop_speculation(), if "queue_current_record" is true.  The same
+         * caveats on the input stream ordinals and last timestamp described under
+         * unread_last_record() apply to this record queueing.  Calling
+         * start_speculation() immediately after unread_last_record() and requesting
+         * queueing will return a failure code.
          *
          * This call can be nested; each call needs to be paired with a corresponding
          * stop_speculation() call.
@@ -1049,6 +1051,8 @@ protected:
                 uint64_t cur_time = 0);
 
     // Undoes the last read.  May only be called once between next_record() calls.
+    // Is not supported during speculation nor prior to speculation with queueing,
+    // as documented in the stream interfaces.
     stream_status_t
     unread_last_record(output_ordinal_t output, RecordType &record, input_info_t *&input);
 

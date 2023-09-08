@@ -2023,6 +2023,8 @@ scheduler_tmpl_t<RecordType, ReaderType>::unread_last_record(output_ordinal_t ou
     auto &outinfo = outputs_[output];
     if (record_type_is_invalid(outinfo.last_record))
         return sched_type_t::STATUS_INVALID;
+    if (!outinfo.speculation_stack.empty())
+        return sched_type_t::STATUS_INVALID;
     record = outinfo.last_record;
     input = &inputs_[outinfo.cur_input];
     std::lock_guard<std::mutex> lock(*input->lock);
@@ -2041,8 +2043,11 @@ scheduler_tmpl_t<RecordType, ReaderType>::start_speculation(output_ordinal_t out
 {
     auto &outinfo = outputs_[output];
     if (outinfo.speculation_stack.empty()) {
-        if (queue_current_record)
+        if (queue_current_record) {
+            if (record_type_is_invalid(outinfo.last_record))
+                return sched_type_t::STATUS_INVALID;
             inputs_[outinfo.cur_input].queue.push_back(outinfo.last_record);
+        }
         // The store address for the outer layer is not used since we have the
         // actual trace storing our resumption context, so we store a sentinel.
         static constexpr addr_t SPECULATION_OUTER_ADDRESS = 0;

@@ -1881,6 +1881,8 @@ test_speculation()
             // We realize now that we mispredicted that the branch would be taken.
             // We ask to queue this record for post-speculation.
             stream->start_speculation(100, true);
+            // Ensure unread_last_record() fails during speculation.
+            assert(stream->unread_last_record() == scheduler_t::STATUS_INVALID);
             break;
         case 5:
             // We should now see nops from the speculator.
@@ -1924,6 +1926,8 @@ test_speculation()
             assert(memref.instr.addr == 200);
             // Test a nested start_speculation().
             stream->start_speculation(300, false);
+            // Ensure unread_last_record() fails during nested speculation.
+            assert(stream->unread_last_record() == scheduler_t::STATUS_INVALID);
             break;
         case 11:
             assert(type_is_instr(memref.instr.type));
@@ -2794,6 +2798,8 @@ test_inactive()
         assert(status == scheduler_t::STATUS_OK);
         assert(stream0->get_record_ordinal() == ref_ord - 1);
         assert(stream0->get_instruction_ordinal() == instr_ord - 1);
+        // Speculation with queuing right after unread should fail.
+        assert(stream0->start_speculation(300, true) == scheduler_t::STATUS_INVALID);
         check_next(stream0, scheduler_t::STATUS_OK, TID_A, TRACE_TYPE_INSTR);
         assert(stream0->get_record_ordinal() == ref_ord);
         assert(stream0->get_instruction_ordinal() == instr_ord);
