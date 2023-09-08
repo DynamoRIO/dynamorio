@@ -1900,15 +1900,21 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
     } else {
         if (shared) {
             /* next_tag placed into tls slot earlier in this routine */
-#ifdef AARCH64
             /* Load next_tag from FCACHE_ENTER_TARGET_SLOT, stored by
              * append_setup_fcache_target.
              */
+#ifdef AARCH64
             APP(ilist,
                 instr_create_restore_from_tls(dcontext, DR_REG_X0,
                                               FCACHE_ENTER_TARGET_SLOT));
             /* br x0 */
             APP(ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X0)));
+#elif defined(RISCV64)
+            APP(ilist,
+                instr_create_restore_from_tls(dcontext, DR_REG_A0,
+                                              FCACHE_ENTER_TARGET_SLOT));
+            /* jr a0 */
+            APP(ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(DR_REG_A0)));
 #else
             APP(ilist,
                 XINST_CREATE_jump_mem(dcontext,
@@ -3199,8 +3205,8 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *ibl_code,
         /* FIXME: do we want this?  seems to be a problem, I'm disabling:
          * ASSERT(!collision || start_pc_offset == FRAGMENT_START_PC_OFFS)
          */
-#ifdef AARCH64
-        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#if defined(AARCH64) || defined(RISCV64)
+        ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 i#3544 */
 #else
         APP(ilist,
             XINST_CREATE_jump_mem(dcontext,
@@ -3244,8 +3250,8 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist, ibl_code_t *ibl_code,
 #endif
                 APP(ilist,
                     RESTORE_FROM_TLS(dcontext, SCRATCH_REG2, MANGLE_XCX_SPILL_SLOT));
-#ifdef AARCH64
-            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+#if defined(AARCH64) || defined(RISCV64)
+            ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 i#3544 */
 #else
             APP(ilist,
                 XINST_CREATE_jump_mem(dcontext,

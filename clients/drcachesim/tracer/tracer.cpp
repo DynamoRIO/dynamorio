@@ -911,11 +911,15 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
         // lazy restores are the same on all paths.
         // XXX: do better!
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
+#ifdef RISCV64
+        ASSERT(false, "NYI on RISCV64");
+#else
         MINSERT(
             ilist, where,
             XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_ptr), OPND_CREATE_INT32(0)));
         MINSERT(ilist, where,
                 XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(skip)));
+#endif
     }
     // First get the cache slot and load what's currently stored there.
     // XXX i#2439: we simplify and ignore a memref that straddles cache lines.
@@ -926,9 +930,13 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
                                          NULL);
     } else
         instru->insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref);
+#ifdef RISCV64
+    ASSERT(false, "NYI on RISCV64");
+#else
     MINSERT(ilist, where,
             XINST_CREATE_slr_s(drcontext, opnd_create_reg(reg_addr),
                                OPND_CREATE_INT8(line_bits)));
+#endif
     MINSERT(ilist, where,
             XINST_CREATE_move(drcontext, opnd_create_reg(reg_idx),
                               opnd_create_reg(reg_addr)));
@@ -940,16 +948,23 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
             XINST_CREATE_load_int(drcontext, opnd_create_reg(reg_ptr),
                                   OPND_CREATE_INT32(mask)));
 #endif
+#ifdef RISCV64
+    ASSERT(false, "NYI on RISCV64");
+#else
     MINSERT(ilist, where,
             XINST_CREATE_and_s(
                 drcontext, opnd_create_reg(reg_idx),
                 IF_X86_ELSE(OPND_CREATE_INT32(mask), opnd_create_reg(reg_ptr))));
+#endif
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
                            tls_offs + sizeof(void *) * offs, reg_ptr);
     // While we can load from a base reg + scaled index reg on x86 and arm, we
     // have to clobber the index reg as the dest, and we need the final address again
     // to store on a miss.  Thus we take a step to compute the final
     // cache addr in a register.
+#ifdef RISCV64
+    ASSERT(false, "NYI on RISCV64");
+#else
     MINSERT(ilist, where,
             XINST_CREATE_add_sll(drcontext, opnd_create_reg(reg_ptr),
                                  opnd_create_reg(reg_ptr), opnd_create_reg(reg_idx),
@@ -967,7 +982,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, 0),
                                opnd_create_reg(reg_addr)));
-
+#endif
     // Restore app value b/c the caller will re-compute the app addr.
     // We can avoid clobbering the app address if we either get a 4th scratch or
     // keep re-computing the tag and the mask but it's better to keep the common

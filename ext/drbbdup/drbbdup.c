@@ -1388,9 +1388,13 @@ drbbdup_insert_dynamic_handling(void *drcontext, void *tag, instrlist_t *bb,
             instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)tag, drbbdup_opnd, bb,
                                              where, NULL, NULL);
 
+#ifdef RISCV64
+            ASSERT(false, "NYI on RISCV64"); /* FIXME i#3544 */
+#else
             /* Jump if hit reaches zero. */
             instr = XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ,
                                            opnd_create_pc(new_case_cache_pc));
+#endif
             instrlist_meta_preinsert(bb, where, instr);
 
         } else {
