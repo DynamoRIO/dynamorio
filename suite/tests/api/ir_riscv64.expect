@@ -206,28 +206,28 @@ rem    a1 a1 -> a0
 remw   a1 a1 -> a0
 remu   a1 a1 -> a0
 remuw  a1 a1 -> a0
-c.addiw 31 -> a0
-c.addw a1 -> a0
-c.subw a1 -> a0
-c.slli 63 -> a1
-c.srli 63 -> a1
-c.srai 63 -> a1
-c.andi -1 -> a1
-c.mv   a1 -> a1
-c.add  a1 -> a1
-c.and  a5 -> fp
-c.or   a5 -> fp
-c.xor  a5 -> fp
-c.sub  a5 -> fp
+c.addiw a0 31 -> a0
+c.addw a0 a1 -> a0
+c.subw a0 a1 -> a0
+c.slli a1 63 -> a1
+c.srli a1 63 -> a1
+c.srai a1 63 -> a1
+c.andi a1 -1 -> a1
+c.mv   zero a1 -> a1
+c.add  a1 a1 -> a1
+c.and  fp a5 -> fp
+c.or   fp a5 -> fp
+c.xor  fp a5 -> fp
+c.sub  fp a5 -> fp
 test_integer_arith complete
 lui    0x2a -> a0
-<Internal Error: Failed to encode instruction: 'auipc  0x000000400001723c -> a0'>
+<Internal Error: Failed to encode instruction: 'auipc  0x000000400001823c -> a0'>
 jalr   a1 0x2a -> a0
-c.li   31 -> a1
+c.li   zero 31 -> a1
 c.lui  1 -> a1
-c.addi 31 -> a1
-c.addi16sp 16
-c.addi4spn 4 -> fp
+c.addi a1 31 -> a1
+c.addi16sp sp 16 -> sp
+c.addi4spn sp 4 -> fp
 test_jump_and_branch complete
 csrrw  a1 0x42 -> a0
 csrrs  a1 0x42 -> a0

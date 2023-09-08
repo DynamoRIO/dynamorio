@@ -111,6 +111,19 @@ For compressed instructions:
 - cb_imm
 - cj_imm
 
+DynamoRIO requires the decoder to decode all implicit operands. These operands
+start with i, which means implicit.
+
+- irs1_sp
+- irs1_zero
+- irs2_zero
+- ird_zero
+- ird_ra
+- ird_sp
+- iimm_0
+- icrs1
+- icrs1__
+
 This maps into `riscv64_fld_t` enum in `codec.h` and `Field` enum in `codec.py`
 generator.
 
@@ -125,6 +138,7 @@ If you want to add a new field:
          `codec.h`).
        - `arg_name`: Name to use in instruction creation macros.
        - `is_dest`: True if it is a destination operand.
+       - `is_implicit`: True if it is an implicit operand.
        - `opsz_def`: Operand size (`OPSZ_*` value) or if this field decodes into
          an operand of a different size depending on instruction - dictionary
          indexed by instruction mnemonic with operand size values.
