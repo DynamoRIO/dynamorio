@@ -1459,6 +1459,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out pas
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -D code=${${key}_code}
       -D capture=${${key}_runcmp_capture}
+      -D ignore_matching_lines=${${key}_runcmp_ignore_matching_lines}
       -P ${runcmp_script})
     # No support for regex here (ctest can't handle large regex)
     set(ALREADY_REGEX ON)
@@ -1893,7 +1894,7 @@ if (NOT ANDROID)
   # XXX i#1874: get working on Android
   tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF OFF)
   if (AARCH64 OR RISCV64)
-    # The ir_aarch64.expect file is too large for CMake's regexes.
+    # The ir_{aarch64,riscv64}.expect file is too large for CMake's regexes.
     set(api.ir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
     set(api.ir_runcmp_capture "stderr")
   endif ()
@@ -1937,10 +1938,16 @@ endif ()
 
 # test static decoder library
 tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF OFF)
-if (AARCH64 OR RISCV64)
+if (AARCH64)
   # The ir_aarch64.expect file is too large for CMake's regexes.
   set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
   set(api.ir-static_runcmp_capture "stderr")
+elseif (RISCV64)
+  # The ir_riscv64.expect file is too large for CMake's regexes.
+  set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
+  set(api.ir-static_runcmp_capture "stderr")
+  # Internal error lines are ignored as they are not printed in static builds.
+  set(api.ir-static_runcmp_ignore_matching_lines "^<.+>")
 endif ()
 
 if (ARM)
@@ -3702,7 +3709,7 @@ if (BUILD_CLIENTS)
 
     if ((NOT MACOS) AND (X86 OR AARCH64))
         torunonly_drcachesim(scattergather-${ARCH_NAME} client.drx-scattergather
-        "-simulator_type basic_counts" "")
+        "-simulator_type invariant_checker" "")
       unset(tool.drcachesim.scattergather-${ARCH_NAME}_rawtemp) # use preprocessor
       if (proc_supports_avx512)
         set(tool.drcachesim.scattergather-${ARCH_NAME}_runavx512 1)

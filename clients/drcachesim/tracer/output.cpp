@@ -506,9 +506,13 @@ atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end, ptr_int_t w
         FATAL("Fatal error: failed to write to pipe\n");
     }
     // Re-emit buffer unit header to handle split pipe writes.
-    if (pipe_end - buf_hdr_slots_size > pipe_start) {
-        pipe_start = pipe_end - buf_hdr_slots_size;
-        append_unit_header(drcontext, pipe_start, dr_get_thread_id(drcontext), window);
+    // We need the tid to identify who the pipe buffer belongs to, but we do
+    // not include a timestamp as it will be out of order with respect to
+    // execution-time timestamps.
+    if (pipe_end - instru->sizeof_entry() > pipe_start) {
+        pipe_start = pipe_end - instru->sizeof_entry();
+        size_t added = instru->append_tid(pipe_start, dr_get_thread_id(drcontext));
+        DR_ASSERT(added == instru->sizeof_entry());
     }
     return pipe_start;
 }
@@ -707,15 +711,16 @@ create_v2p_buffer(per_thread_t *data)
 }
 
 static bool
-is_ok_to_split_before(trace_type_t type)
+is_ok_to_split_before(trace_type_t type, size_t size)
 {
     // We can split before the start of each sequence: we don't want to split
     // an <encoding, instruction, address> combination.
     return (op_instr_encodings.get_value()
                 ? type == TRACE_TYPE_ENCODING
                 : (type_is_instr(type) || type == TRACE_TYPE_INSTR_MAYBE_FETCH)) ||
-        type == TRACE_TYPE_MARKER || type == TRACE_TYPE_THREAD_EXIT ||
-        op_L0I_filter.get_value();
+        // Don't split a timestamp;cpuid pair.
+        (type == TRACE_TYPE_MARKER && size != TRACE_MARKER_TYPE_CPU_ID) ||
+        type == TRACE_TYPE_THREAD_EXIT || op_L0I_filter.get_value();
 }
 
 static uint
@@ -725,7 +730,10 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
     byte *pipe_start = buf_base;
     byte *pipe_end = pipe_start;
     if (!op_offline.get_value()) {
-        for (byte *mem_ref = buf_base + header_size; mem_ref < buf_ptr;
+        byte *post_header = buf_base + header_size;
+        // Pipe split headers are just the tid.
+        header_size = instru->sizeof_entry();
+        for (byte *mem_ref = post_header; mem_ref < buf_ptr;
              mem_ref += instru->sizeof_entry()) {
             // Split up the buffer into multiple writes to ensure atomic pipe writes.
             // We can only split before TRACE_TYPE_INSTR, assuming only a few data
@@ -733,7 +741,8 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
             // XXX i#2638: if we want to support branch target analysis in online
             // traces we'll need to not split after a branch: either split before
             // it or one instr after.
-            if (is_ok_to_split_before(instru->get_entry_type(mem_ref))) {
+            if (is_ok_to_split_before(instru->get_entry_type(mem_ref),
+                                      instru->get_entry_size(mem_ref))) {
                 pipe_end = mem_ref;
                 // We check the end of this entry + the max # of delay entries to
                 // avoid splitting an instr from its subsequent bundle entry.
@@ -741,7 +750,8 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
                 if ((mem_ref + (1 + MAX_NUM_DELAY_ENTRIES) * instru->sizeof_entry() -
                      pipe_start) > ipc_pipe.get_atomic_write_size()) {
                     DR_ASSERT(is_ok_to_split_before(
-                        instru->get_entry_type(pipe_start + header_size)));
+                        instru->get_entry_type(pipe_start + header_size),
+                        instru->get_entry_size(pipe_start + header_size)));
                     pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end,
                                                    get_local_window(data));
                 }
@@ -755,13 +765,15 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
         // branch forward to the next buffer.
         if ((buf_ptr - pipe_start) > ipc_pipe.get_atomic_write_size()) {
             DR_ASSERT(
-                is_ok_to_split_before(instru->get_entry_type(pipe_start + header_size)));
+                is_ok_to_split_before(instru->get_entry_type(pipe_start + header_size),
+                                      instru->get_entry_size(pipe_start + header_size)));
             pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end,
                                            get_local_window(data));
         }
         if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size) {
             DR_ASSERT(
-                is_ok_to_split_before(instru->get_entry_type(pipe_start + header_size)));
+                is_ok_to_split_before(instru->get_entry_type(pipe_start + header_size),
+                                      instru->get_entry_size(pipe_start + header_size)));
             atomic_pipe_write(drcontext, pipe_start, buf_ptr, get_local_window(data));
         }
     } else {
@@ -1243,7 +1255,7 @@ init_thread_io(void *drcontext)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     byte *proc_info;
 
-    NOTIFY(1, "T" TIDFMT " in init_thread_io.\n", dr_get_thread_id(drcontext));
+    NOTIFY(2, "T" TIDFMT " in init_thread_io.\n", dr_get_thread_id(drcontext));
 #ifdef HAS_ZLIB
     if (op_offline.get_value() &&
         (op_raw_compress.get_value() == "zlib" ||
@@ -1334,34 +1346,32 @@ exit_thread_io(void *drcontext)
     }
 #endif
 
+    // Append a thread exit marker and output remaining records for this thread
+    // if we are still in a tracing mode or the thread has data from a prior window
+    // that it never wrote out.
     if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) ||
-        (has_tracing_windows() && !op_split_windows.get_value()) ||
+        (has_tracing_windows() &&
+         // If non-split we always want to append a thread exit marker as there
+         // wouldn't be on otherwise (split has one at the end of each window file).
+         (!op_split_windows.get_value() ||
+          // If split, we only need to write if we have data from a prior window.
+          (get_local_window(data) < tracing_window.load(std::memory_order_acquire) &&
+           !is_new_window_buffer_empty(data)))) ||
         // For attach we switch to BBDUP_MODE_NOP but still need to finalize
         // each thread.  However, we omit threads that did nothing the entire time
         // we were attached.
-        (align_attach_detach_endpoints() &&
+        (!has_tracing_windows() && align_attach_detach_endpoints() &&
          (data->bytes_written > 0 ||
           BUF_PTR(data->seg_base) - data->buf_base >
               static_cast<ssize_t>(data->init_header_size + buf_hdr_slots_size)))) {
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
-
-        ptr_int_t window = get_local_window(data);
-        if (!has_tracing_windows() ||
-            is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire))) {
-            process_and_output_buffer(drcontext,
-                                      /* If this thread already wrote some data, include
-                                       * its exit even if we're over a size limit.
-                                       */
-                                      data->bytes_written > 0);
-        }
-        if (get_local_window(data) != window) {
-            BUF_PTR(data->seg_base) += instru->append_thread_exit(
-                BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
-            process_and_output_buffer(drcontext, data->bytes_written > 0);
-        }
+        process_and_output_buffer(drcontext,
+                                  /* If this thread already wrote some data, include
+                                   * its exit even if we're over a size limit.
+                                   */
+                                  data->bytes_written > 0);
     }
-
     if (op_offline.get_value() && data->file != INVALID_FILE)
         close_thread_file(drcontext);
 

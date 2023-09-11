@@ -64,19 +64,37 @@ opc_is_not_a_real_memory_load(int opc)
 uint
 instr_branch_type(instr_t *cti_instr)
 {
-    /* FIXME i#3544: The branch type depends on JAL(R) operands. More details
-     * are provided in Table 2.1 of the The RISC-V Instruction Set Manual Volume I:
-     * Unprivileged ISA (page 22 in version 20191213). */
     int opcode = instr_get_opcode(cti_instr);
     switch (opcode) {
-    case OP_jal: return LINK_DIRECT | LINK_CALL;
-    case OP_jalr: return LINK_INDIRECT | LINK_CALL;
+    case OP_jal:
+    case OP_c_jal: /* C.JAL expands to JAL ra, offset, which is direct call. */
+    case OP_c_j:   /* C.J expands to JAL zero, offset, which is a direct jump. */
+        /* JAL non-zero, offset is a dierct call. */
+        if (opnd_get_reg(instr_get_dst(cti_instr, 0)) != DR_REG_ZERO)
+            return LINK_DIRECT | LINK_CALL;
+        else
+            return LINK_DIRECT | LINK_JMP;
+    case OP_jalr:
+    case OP_c_jr:   /* C.JR expands to JALR zero, 0(rs1). */
+    case OP_c_jalr: /* C.JALR expands to JALR ra, 0(rs1) */
+        /* JALR zero, 0(ra) is a return. */
+        if (opnd_get_reg(instr_get_dst(cti_instr, 0)) == DR_REG_ZERO &&
+            opnd_get_reg(instr_get_src(cti_instr, 0)) == DR_REG_RA &&
+            opnd_get_immed_int(instr_get_src(cti_instr, 1)) == 0)
+            return LINK_INDIRECT | LINK_RETURN;
+        /* JALR non-zero, offset(rs1) is an indirect call. */
+        else if (opnd_get_reg(instr_get_dst(cti_instr, 0)) != DR_REG_ZERO)
+            return LINK_INDIRECT | LINK_CALL;
+        else
+            return LINK_INDIRECT | LINK_JMP;
     case OP_beq:
     case OP_bne:
     case OP_blt:
     case OP_bltu:
     case OP_bge:
-    case OP_bgeu: return LINK_DIRECT | LINK_JMP;
+    case OP_bgeu:
+    case OP_c_beqz:
+    case OP_c_bnez: return LINK_DIRECT | LINK_JMP;
     }
     CLIENT_ASSERT(false, "instr_branch_type: unknown opcode");
     return LINK_INDIRECT;

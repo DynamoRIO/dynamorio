@@ -1576,9 +1576,6 @@ get_direct_exit_target(dcontext_t *dcontext, uint flags);
 
 #ifdef AARCHXX
 size_t
-get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags);
-
-size_t
 get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry);
 #endif
 
