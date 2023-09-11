@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2410,6 +2410,14 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
         di->input_size = OPSZ_NA;
 }
 
+bool
+decode_category(int opcode, instr_t *instr)
+{
+    int cat = category_by_opcode[opcode];
+    instr_set_category(instr, cat);
+    return true;
+}
+
 /****************************************************************************
  * Exported routines
  */
@@ -2541,6 +2549,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
                                         decode operands too */
                                _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
     instr_set_opcode(instr, info->type);
+    decode_category(info->type, instr);
     IF_X64(instr_set_x86_mode(instr, di.x86_mode));
     /* failure up to this point handled fine -- we set opcode to OP_INVALID */
     if (next_pc == NULL) {

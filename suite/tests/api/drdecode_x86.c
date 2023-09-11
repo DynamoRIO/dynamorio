@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -155,6 +155,24 @@ test_noalloc(void)
      */
 }
 
+static void
+test_category_table_size(void)
+{
+    /* Check that the opcode categories table has the same size as the categories array
+     *
+     * When a new opcode is added, it will be automatically assigned the default
+     * category of "DR_INSTR_CATEGORY_UNCATEGORIZED".
+     * It is important to update the table by assigning appropriate categories
+     * to these new opcodes.
+     */
+    instr_t instr;
+    instr_init(GD, &instr);
+    instr_set_operands_valid(&instr, true);
+    decode_category(OP_LAST, &instr);
+    uint cat = instr_get_category(&instr);
+    ASSERT(cat != DR_INSTR_CATEGORY_UNCATEGORIZED);
+}
+
 int
 main()
 {
@@ -165,6 +183,8 @@ main()
     test_ptrsz_imm();
 
     test_noalloc();
+
+    test_category_table_size();
 
     printf("done\n");
 

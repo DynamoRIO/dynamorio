@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -59,6 +59,7 @@
  *   6) instr_create macros
  *   7) suite/tests/api/ir* tests
  *   8) add binutils tests in third_party/binutils/test_decenc
+ *   9) decode_table category_by_opcode array
  */
 /** Opcode constants for use in the instr_t data structure. */
 enum {

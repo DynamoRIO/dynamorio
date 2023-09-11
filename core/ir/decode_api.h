@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -142,6 +142,18 @@ DR_API
 /** Given an OP_ constant, returns the string name of its opcode. */
 const char *
 decode_opcode_name(int opcode);
+
+#ifdef X86
+DR_API
+/** Decodes the instruction category by opcode (OP_ constant). */
+bool
+decode_category(int opcode, instr_t *instr);
+#elif defined(AARCH64)
+DR_API
+/**  Decodes the instruction category by raw bits. */
+bool
+decode_category(uint enc, instr_t *instr);
+#endif
 
 #ifdef X64
 DR_API
