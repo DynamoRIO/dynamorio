@@ -145,27 +145,4 @@ Test restoring the AVX2 gather scratch xmm register upon a fault
 #endif
 AVX2/AVX-512 scatter/gather checks ok
 ---- <application exited with code 0> ----
-Basic counts tool results:
-Total counts:
-     .* total \(fetched\) instructions
-     .* total unique \(fetched\) instructions
-     .* total non-fetched instructions
-     .* total prefetches
-     .* total data loads
-     .* total data stores
-     .* total icache flushes
-     .* total dcache flushes
-           1 total threads
-     .* total scheduling markers
-.*
-Thread .* counts:
-     .* \(fetched\) instructions
-     .* unique \(fetched\) instructions
-     .* non-fetched instructions
-     .* prefetches
-     .* data loads
-     .* data stores
-     .* icache flushes
-     .* dcache flushes
-     .* scheduling markers
-.*
+Trace invariant checks passed
