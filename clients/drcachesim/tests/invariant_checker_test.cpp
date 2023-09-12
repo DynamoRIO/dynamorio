@@ -1890,7 +1890,7 @@ check_read_write_records_match_operands()
     std::cerr << "Testing number of memory read/write records matching operands\n";
     constexpr memref_tid_t TID = 1;
 
-    // Correct: number of read records matches operand.
+    // Correct: number of read records matches the operand.
     {
         instr_t *load = XINST_CREATE_load(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
                                           OPND_CREATE_MEMPTR(REG1, /*disp=*/0));
@@ -1957,7 +1957,7 @@ check_read_write_records_match_operands()
                          "Failed to catch missing read records"))
             return false;
     }
-    // Correct: number of write records match operand.
+    // Correct: number of write records matches the operand.
     {
         instr_t *store = XINST_CREATE_store(
             GLOBAL_DCONTEXT, OPND_CREATE_MEMPTR(REG2, /*disp=*/0), opnd_create_reg(REG1));
@@ -2030,6 +2030,47 @@ check_read_write_records_match_operands()
             return false;
     }
 #if defined(X86_64) || defined(X86_32)
+    // Correct: number of read and write records matches the operand.
+    {
+        instr_t *movs = INSTR_CREATE_movs_1(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, movs);
+
+        std::vector<memref_with_IR_t> memref_instr_vec = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr(TID), movs },
+            { gen_data(TID, /*load=*/true, /*addr=*/0, /*size=*/0), nullptr },
+            { gen_data(TID, /*load=*/false, /*addr=*/0, /*size=*/0), nullptr }
+        };
+
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_instr_vec, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Correct: handle cache flush operand correctly.
+    {
+        instr_t *clflush = INSTR_CREATE_clflush(
+            GLOBAL_DCONTEXT, OPND_CREATE_MEM_clflush(REG1, REG_NULL, 0, 0));
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, clflush);
+        static constexpr addr_t BASE_ADDR = 0xeba4ad4;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr(TID), clflush },
+            { gen_addr(TID, /*type=*/TRACE_TYPE_DATA_FLUSH, /*addr=*/0, /*size=*/0),
+              nullptr },
+        };
+        auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
     // Correct: ignore predicated operands which may not have memory access.
     {
         instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
