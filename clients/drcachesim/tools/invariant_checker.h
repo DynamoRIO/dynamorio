@@ -169,7 +169,7 @@ protected:
         instr_info_t last_instr_in_cur_context_ = {};
 
         bool saw_rseq_abort_ = false;
-        // These are only available via annotations in signal_invariants.c.
+        // These are only available via annotations in signal_invariants.cpp.
         int instrs_until_interrupt_ = -1;
         int memrefs_until_interrupt_ = -1;
 #endif
