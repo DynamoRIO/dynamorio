@@ -686,12 +686,6 @@ struct trace_header_t {
     size_t cache_line_size;
 };
 
-#define DR_CHECK(val, msg) \
-    do {                   \
-        if (!(val))        \
-            return msg;    \
-    } while (0)
-
 /**
  * Bitset hash table for balancing search time in case of enormous count of pc.
  * Each pc represented as pair of high 64-BLOCK_SIZE_BIT bits and
@@ -1113,7 +1107,7 @@ protected:
      * read_and_map_modules() must have been called by the implementation before
      * calling this API.
      */
-    std::string
+    bool
     process_offline_entry(raw2trace_thread_data_t *tdata, const offline_entry_t *in_entry,
                           thread_id_t tid, OUT bool *end_of_record,
                           OUT bool *last_bb_handled, OUT bool *flush_decode_cache);
@@ -1123,7 +1117,7 @@ protected:
      * populate the header values. The timestamp field is populated only
      * for legacy traces.
      */
-    std::string
+    bool
     read_header(raw2trace_thread_data_t *tdata, OUT trace_header_t *header);
 
     /**
@@ -1155,7 +1149,7 @@ protected:
      * expected to track record metadata themselves.  APIs for extracting that metadata
      * are exposed.
      */
-    virtual std::string
+    virtual bool
     on_thread_end(raw2trace_thread_data_t *tdata);
 
     /**
@@ -1178,7 +1172,7 @@ protected:
     /**
      * Process the PT data associated with the provided syscall index.
      */
-    std::string
+    bool
     process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx);
 #endif
 
@@ -1188,16 +1182,16 @@ protected:
      * all buffers from any one traced thread must be processed by the same worker
      * thread, both for correct ordering and correct synchronization.
      */
-    std::string
+    bool
     process_next_thread_buffer(raw2trace_thread_data_t *tdata, OUT bool *end_of_record);
 
     std::string
     aggregate_and_write_schedule_files();
 
-    std::string
+    bool
     write_footer(raw2trace_thread_data_t *tdata);
 
-    std::string
+    bool
     open_new_chunk(raw2trace_thread_data_t *tdata);
 
     /**
@@ -1287,7 +1281,7 @@ private:
     // returned by get_write_buffer().  decode_pcs is only needed if there is more
     // than one instruction in the buffer; in that case it must contain one entry per
     // instruction.
-    std::string
+    bool
     write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
           const trace_entry_t *end, app_pc *decode_pcs = nullptr,
           size_t decode_pcs_size = 0);
@@ -1295,17 +1289,17 @@ private:
     // Similar to write(), but treat the provided traces as delayed branches: if they
     // are the last values in a record, they belong to the next record of the same
     // thread.  The start..end sequence must contain one instruction.
-    std::string
+    bool
     write_delayed_branches(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                            const trace_entry_t *end, app_pc decode_pc = nullptr,
                            app_pc target_pc = nullptr);
 
     // Writes encoding entries for pc..pc+instr_length to buf.
-    std::string
+    bool
     append_encoding(raw2trace_thread_data_t *tdata, app_pc pc, size_t instr_length,
                     trace_entry_t *&buf, trace_entry_t *buf_start);
 
-    std::string
+    bool
     insert_post_chunk_encodings(raw2trace_thread_data_t *tdata,
                                 const trace_entry_t *instr, app_pc decode_pc);
 
@@ -1327,7 +1321,7 @@ private:
 
     // Writes out the buffered entries for an rseq region, after rolling back to
     // a side exit or abort if necessary.
-    std::string
+    bool
     adjust_and_emit_rseq_buffer(raw2trace_thread_data_t *tdata, addr_t next_pc,
                                 addr_t abort_pc = 0);
 
@@ -1335,7 +1329,7 @@ private:
     // starting at or after remove_start_rough_idx and before or equal to
     // remove_end_rough_idx.  These "rough" indices can be on the encoding or instr
     // fetch to include that instruction.
-    std::string
+    bool
     rollback_rseq_buffer(raw2trace_thread_data_t *tdata, int remove_start_rough_idx,
                          // This is inclusive.
                          int remove_end_rough_idx);
@@ -1416,35 +1410,35 @@ private:
     log_instruction(app_pc decode_pc, app_pc orig_pc);
 
     // Flush the branches sent to write_delayed_branches().
-    std::string
+    bool
     append_delayed_branch(raw2trace_thread_data_t *tdata, app_pc next_pc);
 
     bool
     thread_file_at_eof(raw2trace_thread_data_t *tdata);
-    std::string
+    bool
     process_header(raw2trace_thread_data_t *tdata);
 
-    std::string
+    bool
     process_thread_file(raw2trace_thread_data_t *tdata);
 
     void
     process_tasks(std::vector<raw2trace_thread_data_t *> *tasks);
 
-    std::string
+    bool
     emit_new_chunk_header(raw2trace_thread_data_t *tdata);
 
-    std::string
+    bool
     analyze_elidable_addresses(raw2trace_thread_data_t *tdata, uint64 modidx,
                                uint64 modoffs, app_pc start_pc, uint instr_count);
 
-    std::string
+    bool
     process_memref(raw2trace_thread_data_t *tdata, trace_entry_t **buf_in,
                    const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                    bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,
                    uint64_t cur_pc, uint64_t cur_offs, bool instrs_are_separate,
                    OUT bool *reached_end_of_memrefs, OUT bool *interrupted);
 
-    std::string
+    bool
     append_bb_entries(raw2trace_thread_data_t *tdata, const offline_entry_t *in_entry,
                       OUT bool *handled);
 
@@ -1456,17 +1450,17 @@ private:
     // never insert a marker intra-block) and all inter-block markers are
     // handled at a higher level (process_offline_entry()) and are never
     // inserted here.
-    std::string
+    bool
     handle_kernel_interrupt_and_markers(raw2trace_thread_data_t *tdata,
                                         INOUT trace_entry_t **buf_in, uint64_t cur_pc,
                                         uint64_t cur_offs, int instr_length,
                                         bool instrs_are_separate, OUT bool *interrupted);
 
-    std::string
+    bool
     get_marker_value(raw2trace_thread_data_t *tdata, INOUT const offline_entry_t **entry,
                      OUT uintptr_t *value);
 
-    std::string
+    bool
     append_memref(raw2trace_thread_data_t *tdata, INOUT trace_entry_t **buf_in,
                   const instr_summary_t *instr, instr_summary_t::memref_summary_t memref,
                   bool write, std::unordered_map<reg_id_t, addr_t> &reg_vals,

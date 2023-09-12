@@ -204,6 +204,8 @@ protected:
         addr_t rseq_start_pc_ = 0;
         addr_t rseq_end_pc_ = 0;
         bool saw_filter_endpoint_marker_ = false;
+        // Used to check markers after each system call.
+        bool expect_syscall_marker_ = false;
     };
 
     // We provide this for subclasses to run these invariants with custom

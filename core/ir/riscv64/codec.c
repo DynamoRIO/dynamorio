@@ -485,7 +485,7 @@ static bool
 decode_u_immpc_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                     int idx, instr_t *out)
 {
-    uint uimm = GET_FIELD(inst, 31, 12);
+    int32_t uimm = GET_FIELD(inst, 31, 12);
     opnd_t opnd = opnd_create_pc(orig_pc + (uimm << 12));
     instr_set_src(out, idx, opnd);
     return true;
@@ -1078,6 +1078,116 @@ decode_v_s_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
     return true;
 }
 
+/* Decode the implicit rs1 field which is always sp.
+ */
+static bool
+decode_irs1_sp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                    int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    opnd_t opnd = opnd_create_reg(DR_REG_SP);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rs1 field which is always zero.
+ */
+static bool
+decode_irs1_zero_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                      int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    opnd_t opnd = opnd_create_reg(DR_REG_ZERO);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rs2 field which is always zero.
+ */
+static bool
+decode_irs2_zero_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                      int idx, instr_t *out)
+{
+    ASSERT(idx == 1);
+    opnd_t opnd = opnd_create_reg(DR_REG_ZERO);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rd field which is always zero.
+ */
+static bool
+decode_ird_zero_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                     int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    opnd_t opnd = opnd_create_reg(DR_REG_ZERO);
+    instr_set_dst(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rd field which is always ra.
+ */
+static bool
+decode_ird_ra_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                   int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    opnd_t opnd = opnd_create_reg(DR_REG_RA);
+    instr_set_dst(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rd field which is always sp.
+ */
+static bool
+decode_ird_sp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                   int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    opnd_t opnd = opnd_create_reg(DR_REG_SP);
+    instr_set_dst(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit immediate field which is always 0.
+ */
+static bool
+decode_iimm_0_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                   int idx, instr_t *out)
+{
+    ASSERT(idx == 1);
+    opnd_t opnd = opnd_create_immed_int(0, op_sz);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rd field which is same as crd.
+ */
+static bool
+decode_icrs1_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                  int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    reg_t reg = DR_REG_X0 + GET_FIELD(inst, 11, 7);
+    opnd_t opnd = opnd_create_reg(reg);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rd field which is same as crd__.
+ */
+static bool
+decode_icrs1___opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                    int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    reg_t reg = DR_REG_X8 + GET_FIELD(inst, 9, 7);
+    opnd_t opnd = opnd_create_reg(reg);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
 /* Array of operand decode functions indexed by riscv64_fld_t.
  *
  * NOTE: After benchmarking, perhaps this could be placed in the same section as
@@ -1137,6 +1247,15 @@ opnd_dec_func_t opnd_decoders[] = {
     [RISCV64_FLD_CJ_IMM] = decode_cj_imm_opnd,
     [RISCV64_FLD_V_L_RS1_DISP] = decode_v_l_rs1_disp_opnd,
     [RISCV64_FLD_V_S_RS1_DISP] = decode_v_s_rs1_disp_opnd,
+    [RISCV64_FLD_IRS1_SP] = decode_irs1_sp_opnd,
+    [RISCV64_FLD_IRS1_ZERO] = decode_irs1_zero_opnd,
+    [RISCV64_FLD_IRS2_ZERO] = decode_irs2_zero_opnd,
+    [RISCV64_FLD_IRD_ZERO] = decode_ird_zero_opnd,
+    [RISCV64_FLD_IRD_RA] = decode_ird_ra_opnd,
+    [RISCV64_FLD_IRD_SP] = decode_ird_sp_opnd,
+    [RISCV64_FLD_IIMM_0] = decode_iimm_0_opnd,
+    [RISCV64_FLD_ICRS1] = decode_icrs1_opnd,
+    [RISCV64_FLD_ICRS1__] = decode_icrs1___opnd,
 };
 
 /* Decode RVC quadrant 0.
@@ -1451,7 +1570,8 @@ decode_failure:
  *
  * Encodes an operand from a given instr_t into the instruction.
  */
-typedef bool (*opnd_enc_func_t)(instr_t *instr, byte *pc, int idx, uint32_t *out);
+typedef bool (*opnd_enc_func_t)(instr_t *instr, byte *pc, int idx, uint32_t *out,
+                                decode_info_t *di);
 
 /**********************************************************
  * Format encoding functions.
@@ -1460,10 +1580,18 @@ typedef bool (*opnd_enc_func_t)(instr_t *instr, byte *pc, int idx, uint32_t *out
 /* Dummy function for catching invalid operand values. Should never be called.
  */
 static bool
-encode_none_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_none_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     ASSERT_NOT_REACHED();
     return false;
+}
+
+/* Encodes an implicit opnd, no need to do anything.
+ */
+static bool
+encode_implicit_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    return true;
 }
 
 /* Encode the destination fixed-point register field:
@@ -1473,7 +1601,7 @@ encode_none_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to R, R4, I, U and J uncompressed formats.
  */
 static bool
-encode_rd_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_rd_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_X0;
@@ -1488,7 +1616,7 @@ encode_rd_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to R, R4, I, U and J uncompressed formats.
  */
 static bool
-encode_rdfp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_rdfp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     ASSERT(opnd_get_reg(opnd) >= DR_REG_F0);
@@ -1504,7 +1632,7 @@ encode_rdfp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to R, R4, I, S and B uncompressed formats.
  */
 static bool
-encode_rs1_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_rs1_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_X0;
@@ -1519,7 +1647,7 @@ encode_rs1_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to R, R4, I, S and B uncompressed formats.
  */
 static bool
-encode_rs1fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_rs1fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     ASSERT(opnd_get_reg(opnd) >= DR_REG_F0);
@@ -1535,7 +1663,7 @@ encode_rs1fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to instructions of the Zicbom and Zicbop extensions.
  */
 static bool
-encode_base_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_base_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_base(opnd) - DR_REG_X0;
@@ -1550,7 +1678,7 @@ encode_base_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to R, R4, S and B uncompressed formats.
  */
 static bool
-encode_rs2_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_rs2_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_X0;
@@ -1565,7 +1693,7 @@ encode_rs2_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to R, R4, S and B uncompressed formats.
  */
 static bool
-encode_rs2fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_rs2fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     ASSERT(opnd_get_reg(opnd) >= DR_REG_F0);
@@ -1581,7 +1709,7 @@ encode_rs2fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to the R4 uncompressed format.
  */
 static bool
-encode_rs3fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_rs3fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F0;
@@ -1595,7 +1723,7 @@ encode_rs3fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  *  ^----^
  */
 static bool
-encode_fm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_fm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -1609,7 +1737,7 @@ encode_fm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  *         ^-----------------^
  */
 static bool
-encode_pred_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_pred_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -1623,7 +1751,7 @@ encode_pred_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  *                             ^-----------------^
  */
 static bool
-encode_succ_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_succ_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -1637,7 +1765,7 @@ encode_succ_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  *        ^-------^
  */
 static bool
-encode_aqrl_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_aqrl_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -1651,7 +1779,7 @@ encode_aqrl_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  *  ^---^
  */
 static bool
-encode_csr_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_csr_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -1667,7 +1795,7 @@ encode_csr_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Instruction Set Manual Volume I: Unprivileged ISA (ver. 20191213).
  */
 static bool
-encode_rm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_rm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -1683,7 +1811,7 @@ encode_rm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  *        ^-----^
  */
 static bool
-encode_shamt_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_shamt_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -1697,7 +1825,7 @@ encode_shamt_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  *        ^------^
  */
 static bool
-encode_shamt5_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_shamt5_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -1711,7 +1839,7 @@ encode_shamt5_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  *        ^------^
  */
 static bool
-encode_shamt6_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_shamt6_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     /* shamt6 >= 64 only makes sense on RV128 but let user take care of it. */
     opnd_t opnd = instr_get_src(instr, idx);
@@ -1729,7 +1857,7 @@ encode_shamt6_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * |  imm[11]  | imm[10:0] |
  */
 static bool
-encode_i_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_i_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -1746,7 +1874,7 @@ encode_i_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * |  imm[11]  | imm[10:5] | imm[4:0] |
  */
 static bool
-encode_s_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_s_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -1763,7 +1891,7 @@ encode_s_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * |  imm[12]  |imm[11]| imm[10:5] | imm[4:1] | 0 |
  */
 static bool
-encode_b_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_b_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_target(instr);
     int32_t imm;
@@ -1788,7 +1916,7 @@ encode_b_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * | imm[31:12] |  0  |
  */
 static bool
-encode_u_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_u_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t imm = opnd_get_immed_int(opnd);
@@ -1805,7 +1933,7 @@ encode_u_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * | imm[31:12] |  0  |
  */
 static bool
-encode_u_immpc_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_u_immpc_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t imm;
@@ -1815,11 +1943,11 @@ encode_u_immpc_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
         imm = (byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset;
     else
         return false;
-    /* FIXME i#3544: Add an assertion here to ensure that the lower 12 bits of imm are all
-     * 0. Assert only if decode_info_t.check_reachable is true. We should mark it as false
-     * to skip the check in get_encoding_info(), as we did for AARCHXX. */
-    *out |= SET_FIELD(imm >> 12, 31, 12);
-    return true;
+    if (!di->check_reachable || ((imm >> 12) << 12) == imm) {
+        *out |= SET_FIELD(imm >> 12, 31, 12);
+        return true;
+    } else
+        return false;
 }
 
 /* Encode the immediate field of the J-type format as a pc-relative offset:
@@ -1831,7 +1959,7 @@ encode_u_immpc_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * | imm[20] | imm[19:12] | imm[11] | imm[10:1] | 0 |
  */
 static bool
-encode_j_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_j_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_target(instr);
     int32_t imm;
@@ -1854,7 +1982,7 @@ encode_j_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to CR and CI compressed formats.
  */
 static bool
-encode_crd_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crd_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_X0;
@@ -1869,7 +1997,7 @@ encode_crd_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to CR and CI compressed formats.
  */
 static bool
-encode_crdfp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crdfp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F0;
@@ -1884,7 +2012,7 @@ encode_crdfp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to CR and CI compressed formats.
  */
 static bool
-encode_crs1_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crs1_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_X0;
@@ -1899,7 +2027,7 @@ encode_crs1_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to CR and CSS compressed formats.
  */
 static bool
-encode_crs2_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crs2_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_X0;
@@ -1914,7 +2042,7 @@ encode_crs2_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to CR and CSS compressed formats.
  */
 static bool
-encode_crs2fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crs2fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F0;
@@ -1929,7 +2057,7 @@ encode_crs2fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to CIW and CL compressed formats.
  */
 static bool
-encode_crd__opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crd__opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_X8;
@@ -1944,7 +2072,7 @@ encode_crd__opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to CIW and CL compressed formats.
  */
 static bool
-encode_crd_fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crd_fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F8;
@@ -1959,7 +2087,7 @@ encode_crd_fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to CL, CS, CA and CB compressed formats.
  */
 static bool
-encode_crs1__opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crs1__opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_X8;
@@ -1974,7 +2102,7 @@ encode_crs1__opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to CS and CA compressed formats.
  */
 static bool
-encode_crs2__opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crs2__opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_X8;
@@ -1989,7 +2117,7 @@ encode_crs2__opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to CS and CA compressed formats.
  */
 static bool
-encode_crs2_fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crs2_fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_F8;
@@ -2004,7 +2132,7 @@ encode_crs2_fp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * Applies to the CA compressed format.
  */
 static bool
-encode_crd___opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_crd___opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     uint32_t rd = opnd_get_reg(opnd) - DR_REG_X8;
@@ -2018,7 +2146,7 @@ encode_crd___opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  *           ^------^                 ^--------^
  */
 static bool
-encode_cshamt_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_cshamt_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -2035,7 +2163,7 @@ encode_cshamt_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * |  0  | imm[4:0] |
  */
 static bool
-encode_csr_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_csr_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -2052,7 +2180,8 @@ encode_csr_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * | imm[9] | imm[8:4] |  0  |
  */
 static bool
-encode_caddi16sp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_caddi16sp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out,
+                          decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -2071,7 +2200,7 @@ encode_caddi16sp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * sp + |  0  | imm[7:2] |  0  |
  */
 static bool
-encode_clwsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_clwsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_disp(opnd);
@@ -2090,7 +2219,7 @@ encode_clwsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * sp + |  0  | imm[8:3] |  0  |
  */
 static bool
-encode_cldsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_cldsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_disp(opnd);
@@ -2109,7 +2238,7 @@ encode_cldsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * | imm[17] | imm[16:12] |  0  |
  */
 static bool
-encode_clui_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_clui_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -2126,7 +2255,7 @@ encode_clui_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * sp + |  0  | imm[7:2] | 0 |
  */
 static bool
-encode_cswsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_cswsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     int32_t imm = opnd_get_disp(opnd);
@@ -2144,7 +2273,7 @@ encode_cswsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * sp + |  0  | imm[7:3] | 0 |
  */
 static bool
-encode_csdsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_csdsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     int32_t imm = opnd_get_disp(opnd);
@@ -2162,7 +2291,7 @@ encode_csdsp_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * |  0  | imm[9:2] | 0 |
  */
 static bool
-encode_ciw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_ciw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -2181,7 +2310,7 @@ encode_ciw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * rs1' + |  0  | imm[6:2] | 0 |
  */
 static bool
-encode_clw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_clw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t reg = opnd_get_base(opnd) - DR_REG_X8;
@@ -2202,7 +2331,7 @@ encode_clw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * rs1' + |  0  | imm[7:3] | 0 |
  */
 static bool
-encode_cld_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_cld_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t reg = opnd_get_base(opnd) - DR_REG_X8;
@@ -2222,7 +2351,7 @@ encode_cld_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * rs1' + |  0  | imm[6:2] | 0 |
  */
 static bool
-encode_csw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_csw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     uint32_t reg = opnd_get_base(opnd) - DR_REG_X8;
@@ -2243,7 +2372,7 @@ encode_csw_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * rs1' + |  0  | imm[7:3] | 0 |
  */
 static bool
-encode_csd_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_csd_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     uint32_t reg = opnd_get_base(opnd) - DR_REG_X8;
@@ -2262,7 +2391,7 @@ encode_csd_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * | imm[5] | imm[4:0] |
  */
 static bool
-encode_cimm5_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_cimm5_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     int32_t imm = opnd_get_immed_int(opnd);
@@ -2279,7 +2408,7 @@ encode_cimm5_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * | imm[8] | imm[7:1] | 0 |
  */
 static bool
-encode_cb_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_cb_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_target(instr);
 
@@ -2306,7 +2435,7 @@ encode_cb_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * | imm[11] | imm[10:1] | 0 |
  */
 static bool
-encode_cj_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_cj_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
 {
     opnd_t opnd = instr_get_target(instr);
 
@@ -2337,7 +2466,8 @@ encode_cj_imm_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * which share the immediate field type with other non-base+disp instructions.
  */
 static bool
-encode_v_l_rs1_disp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_v_l_rs1_disp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out,
+                         decode_info_t *di)
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t reg = opnd_get_base(opnd) - DR_REG_X0;
@@ -2359,7 +2489,8 @@ encode_v_l_rs1_disp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
  * which share the immediate field type with other non-base+disp instructions.
  */
 static bool
-encode_v_s_rs1_disp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out)
+encode_v_s_rs1_disp_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out,
+                         decode_info_t *di)
 {
     opnd_t opnd = instr_get_dst(instr, idx);
     uint32_t reg = opnd_get_base(opnd) - DR_REG_X0;
@@ -2424,6 +2555,15 @@ opnd_enc_func_t opnd_encoders[] = {
     [RISCV64_FLD_CJ_IMM] = encode_cj_imm_opnd,
     [RISCV64_FLD_V_L_RS1_DISP] = encode_v_l_rs1_disp_opnd,
     [RISCV64_FLD_V_S_RS1_DISP] = encode_v_s_rs1_disp_opnd,
+    [RISCV64_FLD_IRS1_SP] = encode_implicit_opnd,
+    [RISCV64_FLD_IRS1_ZERO] = encode_implicit_opnd,
+    [RISCV64_FLD_IRS2_ZERO] = encode_implicit_opnd,
+    [RISCV64_FLD_IRD_ZERO] = encode_implicit_opnd,
+    [RISCV64_FLD_IRD_RA] = encode_implicit_opnd,
+    [RISCV64_FLD_IRD_SP] = encode_implicit_opnd,
+    [RISCV64_FLD_IIMM_0] = encode_implicit_opnd,
+    [RISCV64_FLD_ICRS1] = encode_implicit_opnd,
+    [RISCV64_FLD_ICRS1__] = encode_implicit_opnd,
 };
 
 uint
@@ -2441,24 +2581,24 @@ encode_common(byte *pc, instr_t *instr, decode_info_t *di)
     CLIENT_ASSERT(nsrc >= 0 || nsrc <= 4, "Invalid number of source operands.");
 
     CLIENT_ASSERT(info->info.dst1_type < RISCV64_FLD_CNT, "Invalid dst1_type.");
-    if (ndst > 0 && !opnd_encoders[info->info.dst1_type](instr, pc, 0, &inst))
+    if (ndst > 0 && !opnd_encoders[info->info.dst1_type](instr, pc, 0, &inst, di))
         goto encode_failure;
     switch (nsrc) {
     case 4:
         CLIENT_ASSERT(info->info.dst2_type < RISCV64_FLD_CNT, "Invalid dst2_type.");
-        if (!opnd_encoders[info->info.dst2_type](instr, pc, 3, &inst))
+        if (!opnd_encoders[info->info.dst2_type](instr, pc, 3, &inst, di))
             goto encode_failure;
     case 3:
         CLIENT_ASSERT(info->info.src3_type < RISCV64_FLD_CNT, "Invalid src3_type.");
-        if (!opnd_encoders[info->info.src3_type](instr, pc, 2, &inst))
+        if (!opnd_encoders[info->info.src3_type](instr, pc, 2, &inst, di))
             goto encode_failure;
     case 2:
         CLIENT_ASSERT(info->info.src2_type < RISCV64_FLD_CNT, "Invalid src2_type.");
-        if (!opnd_encoders[info->info.src2_type](instr, pc, 1, &inst))
+        if (!opnd_encoders[info->info.src2_type](instr, pc, 1, &inst, di))
             goto encode_failure;
     case 1:
         CLIENT_ASSERT(info->info.src1_type < RISCV64_FLD_CNT, "Invalid src1_type.");
-        if (!opnd_encoders[info->info.src1_type](instr, pc, 0, &inst))
+        if (!opnd_encoders[info->info.src1_type](instr, pc, 0, &inst, di))
             goto encode_failure;
     case 0: break;
     default: ASSERT_NOT_REACHED();
