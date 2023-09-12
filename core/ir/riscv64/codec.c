@@ -485,7 +485,7 @@ static bool
 decode_u_immpc_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
                     int idx, instr_t *out)
 {
-    uint uimm = GET_FIELD(inst, 31, 12);
+    int32_t uimm = GET_FIELD(inst, 31, 12);
     opnd_t opnd = opnd_create_pc(orig_pc + (uimm << 12));
     instr_set_src(out, idx, opnd);
     return true;
@@ -1078,6 +1078,116 @@ decode_v_s_rs1_disp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc,
     return true;
 }
 
+/* Decode the implicit rs1 field which is always sp.
+ */
+static bool
+decode_irs1_sp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                    int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    opnd_t opnd = opnd_create_reg(DR_REG_SP);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rs1 field which is always zero.
+ */
+static bool
+decode_irs1_zero_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                      int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    opnd_t opnd = opnd_create_reg(DR_REG_ZERO);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rs2 field which is always zero.
+ */
+static bool
+decode_irs2_zero_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                      int idx, instr_t *out)
+{
+    ASSERT(idx == 1);
+    opnd_t opnd = opnd_create_reg(DR_REG_ZERO);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rd field which is always zero.
+ */
+static bool
+decode_ird_zero_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                     int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    opnd_t opnd = opnd_create_reg(DR_REG_ZERO);
+    instr_set_dst(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rd field which is always ra.
+ */
+static bool
+decode_ird_ra_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                   int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    opnd_t opnd = opnd_create_reg(DR_REG_RA);
+    instr_set_dst(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rd field which is always sp.
+ */
+static bool
+decode_ird_sp_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                   int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    opnd_t opnd = opnd_create_reg(DR_REG_SP);
+    instr_set_dst(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit immediate field which is always 0.
+ */
+static bool
+decode_iimm_0_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                   int idx, instr_t *out)
+{
+    ASSERT(idx == 1);
+    opnd_t opnd = opnd_create_immed_int(0, op_sz);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rd field which is same as crd.
+ */
+static bool
+decode_icrs1_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                  int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    reg_t reg = DR_REG_X0 + GET_FIELD(inst, 11, 7);
+    opnd_t opnd = opnd_create_reg(reg);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
+/* Decode the implicit rd field which is same as crd__.
+ */
+static bool
+decode_icrs1___opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *orig_pc,
+                    int idx, instr_t *out)
+{
+    ASSERT(idx == 0);
+    reg_t reg = DR_REG_X8 + GET_FIELD(inst, 9, 7);
+    opnd_t opnd = opnd_create_reg(reg);
+    instr_set_src(out, idx, opnd);
+    return true;
+}
+
 /* Array of operand decode functions indexed by riscv64_fld_t.
  *
  * NOTE: After benchmarking, perhaps this could be placed in the same section as
@@ -1137,6 +1247,15 @@ opnd_dec_func_t opnd_decoders[] = {
     [RISCV64_FLD_CJ_IMM] = decode_cj_imm_opnd,
     [RISCV64_FLD_V_L_RS1_DISP] = decode_v_l_rs1_disp_opnd,
     [RISCV64_FLD_V_S_RS1_DISP] = decode_v_s_rs1_disp_opnd,
+    [RISCV64_FLD_IRS1_SP] = decode_irs1_sp_opnd,
+    [RISCV64_FLD_IRS1_ZERO] = decode_irs1_zero_opnd,
+    [RISCV64_FLD_IRS2_ZERO] = decode_irs2_zero_opnd,
+    [RISCV64_FLD_IRD_ZERO] = decode_ird_zero_opnd,
+    [RISCV64_FLD_IRD_RA] = decode_ird_ra_opnd,
+    [RISCV64_FLD_IRD_SP] = decode_ird_sp_opnd,
+    [RISCV64_FLD_IIMM_0] = decode_iimm_0_opnd,
+    [RISCV64_FLD_ICRS1] = decode_icrs1_opnd,
+    [RISCV64_FLD_ICRS1__] = decode_icrs1___opnd,
 };
 
 /* Decode RVC quadrant 0.
@@ -1465,6 +1584,14 @@ encode_none_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t
 {
     ASSERT_NOT_REACHED();
     return false;
+}
+
+/* Encodes an implicit opnd, no need to do anything.
+ */
+static bool
+encode_implicit_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_info_t *di)
+{
+    return true;
 }
 
 /* Encode the destination fixed-point register field:
@@ -2428,6 +2555,15 @@ opnd_enc_func_t opnd_encoders[] = {
     [RISCV64_FLD_CJ_IMM] = encode_cj_imm_opnd,
     [RISCV64_FLD_V_L_RS1_DISP] = encode_v_l_rs1_disp_opnd,
     [RISCV64_FLD_V_S_RS1_DISP] = encode_v_s_rs1_disp_opnd,
+    [RISCV64_FLD_IRS1_SP] = encode_implicit_opnd,
+    [RISCV64_FLD_IRS1_ZERO] = encode_implicit_opnd,
+    [RISCV64_FLD_IRS2_ZERO] = encode_implicit_opnd,
+    [RISCV64_FLD_IRD_ZERO] = encode_implicit_opnd,
+    [RISCV64_FLD_IRD_RA] = encode_implicit_opnd,
+    [RISCV64_FLD_IRD_SP] = encode_implicit_opnd,
+    [RISCV64_FLD_IIMM_0] = encode_implicit_opnd,
+    [RISCV64_FLD_ICRS1] = encode_implicit_opnd,
+    [RISCV64_FLD_ICRS1__] = encode_implicit_opnd,
 };
 
 uint

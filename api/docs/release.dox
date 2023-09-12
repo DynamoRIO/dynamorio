@@ -139,6 +139,8 @@ Further non-compatibility-affecting changes include:
    -core_serial) and control the schedule
    (-sched_quantum, -sched_time, sched_order_time, -record_file,
    -replay_file, -cpu_schedule_file).
+ - Added additional timestamps to drmemtrace traces: at the end of each buffer,
+   and before and after each system call.
  - Added type_is_read() API that returns true if a trace type reads from memory.
  - Added instr_num_memory_read_access() and instr_num_memory_write_access() that return
    the number of memory read and write accesses of an instruction respectively.

@@ -403,15 +403,21 @@ int
 offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid, ptr_int_t window)
 {
     byte *new_buf = buf_ptr;
-    offline_entry_t *entry = (offline_entry_t *)new_buf;
-    entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
-    uint64 frozen = frozen_timestamp_.load(std::memory_order_acquire);
-    entry->timestamp.usec = frozen != 0 ? frozen : instru_t::get_timestamp();
-    new_buf += sizeof(*entry);
+    new_buf += append_timestamp(new_buf);
     if (window >= 0)
         new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_WINDOW_ID, (uintptr_t)window);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
+}
+
+int
+offline_instru_t::append_timestamp(byte *buf_ptr)
+{
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
+    entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
+    uint64 frozen = frozen_timestamp_.load(std::memory_order_acquire);
+    entry->timestamp.usec = frozen != 0 ? frozen : instru_t::get_timestamp();
+    return sizeof(*entry);
 }
 
 bool

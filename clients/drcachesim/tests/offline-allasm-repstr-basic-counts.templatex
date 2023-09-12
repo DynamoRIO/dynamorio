@@ -19,7 +19,7 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-          24 total scheduling markers
+          44 total scheduling markers
            0 total transfer markers
            0 total function id markers
            0 total function return address markers
@@ -40,7 +40,7 @@ Thread [0-9]* counts:
            5 data stores
            0 icache flushes
            0 dcache flushes
-          24 scheduling markers
+          44 scheduling markers
            0 transfer markers
            0 function id markers
            0 function return address markers

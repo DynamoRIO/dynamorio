@@ -721,17 +721,20 @@ if (BUILD_TESTS)
            ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
   set_tests_properties(tool.drcachesim.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
-  add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
-  configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
-  add_win32_flags(tool.drcacheoff.raw2trace_unit_tests)
-  target_link_libraries(tool.drcacheoff.raw2trace_unit_tests drmemtrace_raw2trace
-    test_helpers)
-  use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drdecode)
-  use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drcovlib_static)
-  add_test(NAME tool.drcacheoff.raw2trace_unit_tests
-    COMMAND tool.drcacheoff.raw2trace_unit_tests)
-  set_tests_properties(tool.drcacheoff.raw2trace_unit_tests PROPERTIES TIMEOUT
-    ${test_seconds})
+  # FIXME i#3544 Make raw2trace_unit_tests compilable in RISCV64.
+  if (NOT RISCV64)
+    add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
+    configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
+    add_win32_flags(tool.drcacheoff.raw2trace_unit_tests)
+    target_link_libraries(tool.drcacheoff.raw2trace_unit_tests drmemtrace_raw2trace
+      test_helpers)
+    use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drdecode)
+    use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drcovlib_static)
+    add_test(NAME tool.drcacheoff.raw2trace_unit_tests
+      COMMAND tool.drcacheoff.raw2trace_unit_tests)
+    set_tests_properties(tool.drcacheoff.raw2trace_unit_tests PROPERTIES TIMEOUT
+      ${test_seconds})
+  endif ()
 
   add_executable(tool.scheduler.unit_tests tests/scheduler_unit_tests.cpp)
   target_link_libraries(tool.scheduler.unit_tests drmemtrace_analyzer test_helpers)

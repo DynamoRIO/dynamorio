@@ -90,8 +90,15 @@ typedef enum {
      * version, do not contain this information.
      */
     TRACE_ENTRY_VERSION_BRANCH_INFO = 5,
+    /**
+     * The trace contains additional timestamps to identify and distinguish application
+     * instruction execution, application syscall invocation, and trace i/o.  The
+     * pre-syscall and post-syscall timestamps are as expected.  Prior versions have the
+     * post-syscall timestamp actually containing the pre-syscall time.
+     */
+    TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS = 6,
     /** The latest version of the trace format. */
-    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_BRANCH_INFO,
+    TRACE_ENTRY_VERSION = TRACE_ENTRY_VERSION_FREQUENT_TIMESTAMPS,
 } trace_version_t;
 
 /** The type of a trace entry in a #memref_t structure. */
@@ -257,6 +264,9 @@ typedef enum {
      * This is only used in offline non-i-filtered traces.
      */
     TRACE_TYPE_INSTR_UNTAKEN_JUMP,
+
+    /** An invalid record, meant for use as a sentinel value. */
+    TRACE_TYPE_INVALID,
 
     // Update trace_type_names[] when adding here.
 } trace_type_t;
@@ -941,6 +951,12 @@ struct schedule_entry_t {
         , cpu(cpu)
         , start_instruction(start_instruction)
     {
+    }
+    bool
+    operator!=(const schedule_entry_t &rhs)
+    {
+        return thread != rhs.thread || timestamp != rhs.timestamp || cpu != rhs.cpu ||
+            start_instruction != rhs.start_instruction;
     }
     uint64_t thread;
     uint64_t timestamp;
