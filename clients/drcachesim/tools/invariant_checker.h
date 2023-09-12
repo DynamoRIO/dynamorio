@@ -125,6 +125,7 @@ protected:
         memref_t last_branch_ = {};
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
+        memref_t prev_prev_entry_ = {};
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         uintptr_t prev_func_id_ = 0;
@@ -168,7 +169,6 @@ protected:
         instr_info_t last_instr_in_cur_context_ = {};
 
         bool saw_rseq_abort_ = false;
-        memref_t prev_prev_entry_ = {};
         // These are only available via annotations in signal_invariants.c.
         int instrs_until_interrupt_ = -1;
         int memrefs_until_interrupt_ = -1;
