@@ -202,6 +202,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
         my $issue_no = "";
         my %ignore_failures_32 = ();
         my %ignore_failures_64 = ();
+        my %ignore_failures_sve = ();
         if ($^O eq 'cygwin' ||
             $^O eq 'MSWin32') {
             # FIXME i#2145: ignoring certain Windows CI test failures until
@@ -343,10 +344,38 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.drcacheoff.rseq' => 1, # i#5734
                                    'code_api|tool.drcacheoff.windows-zlib' => 1, # i#5507
                                    );
+            # FIXME i#5365: fix flaky AArch64 tests running on SVE hardware.
+            # Note that apart from tool.drcachesim.scattergather-aarch64, these
+            # have NOT been built with SVE compiler options and are seen to
+            # fail intermittently on SVE hardware.
+            %ignore_failures_sve = ('code_api|tool.drcov.eintr' => 1,
+                                   'code_api|tool.drcacheoff.burst_threads_counts' => 1,
+                                   'code_api|tool.drcachesim.coherence' => 1,
+                                   'code_api|tool.drcachesim.multiproc' => 1,
+                                   'code_api|tool.drcachesim.scattergather-aarch64' => 1,
+                                   'code_api|tool.drcacheoff.burst_threads' => 1,
+                                   'code_api|tool.drcacheoff.burst_threads_counts' => 1,
+                                   'code_api|tool.drcacheoff.burst_threadL0filter' => 1,
+                                   'code_api|tool.drcacheoff.raw-zlib' => 1,
+                                   'code_api|tool.drcov.fib' => 1,
+                                   'code_api|client.drsyms-test' => 1,
+                                   'code_api|client.drcallstack-test' => 1,
+                                   'code_api|api.drdecode' => 1,
+                                   'code_api|api.static_signal' => 1,
+                                   'code_api|pthreads.ptsig' => 1,
+                                   );
+            # Establish if tests are running on SVE hardware.
+            system('cat /proc/cpuinfo | grep Features | head -1 | grep sve > /dev/null');
+            my $is_sve = ($? >> 8 == 0) ? 1 : 0;
             if ($is_32) {
                 $issue_no = "#2416";
             } else {
-                $issue_no = "#2417";
+                if ($is_sve) {
+                    $issue_no = "#5365";
+                }
+                else {
+                    $issue_no = "#2417";
+                }
             }
         } elsif ($is_x86_64 && ($ENV{'DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY'} eq 'yes') && $args =~ /64_only/) {
             # These AArch64 cross-compiled tests fail on x86-64 QEMU but pass
@@ -428,7 +457,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 if (($is_32 && ($ignore_failures_32{$test} ||
                                 $ignore_failures_32{$test_base_name})) ||
                     (!$is_32 && ($ignore_failures_64{$test} ||
-                                 $ignore_failures_64{$test_base_name}))) {
+                                 $ignore_failures_64{$test_base_name} ||
+                                 $ignore_failures_sve{$test} ||
+                                 $ignore_failures_sve{$test_base_name}))) {
                     $lines[$j] = "\t(ignore: i" . $issue_no . ") " . $lines[$j];
                     $num_ignore++;
                 } elsif ($test =~ /_FLAKY$/) {
