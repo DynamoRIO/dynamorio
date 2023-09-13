@@ -32,7 +32,6 @@
 # Github Actions workflow for aarch64 Continuous Integration testing.
 
 name: ci-aarch64-native
-
 on:
   # Run on pushes to master and on pull request changes, including from a
   # forked repo with no "push" trigger, while avoiding duplicate triggers.
@@ -46,8 +45,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  aarch64-native:
-    runs-on: [self-hosted, linux, ARM64]
+  aarch64-sve-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        # This job will run in parallel.
+        os: [self-hosted-ubuntu-20.04-arm64, self-hosted-ubuntu-20.04-arm64-sve]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
