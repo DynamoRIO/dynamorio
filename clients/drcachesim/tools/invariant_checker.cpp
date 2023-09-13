@@ -131,6 +131,14 @@ invariant_checker_t::parallel_shard_init(int shard_index, void *worker_data)
 bool
 invariant_checker_t::parallel_shard_exit(void *shard_data)
 {
+    per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+    if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+                 shard->file_type_)) {
+        report_if_false(shard, shard->expected_read_records_ == 0,
+                        "Missing read records");
+        report_if_false(shard, shard->expected_write_records_ == 0,
+                        "Missing write records");
+    }
     return true;
 }
 
@@ -550,6 +558,23 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
                 cur_instr_info.decoding.is_syscall)
                 shard->expect_syscall_marker_ = true;
+            if (cur_instr_decoded != nullptr && cur_instr_decoded->data != nullptr) {
+                instr_t *instr = cur_instr_decoded->data;
+                if (!instr_is_predicated(instr) &&
+                    !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+                             shard->file_type_)) {
+                    // Verify the number of read/write records matches the last
+                    // operand. Skip D-filtered traces which don't have every load or
+                    // store records.
+                    report_if_false(shard, shard->expected_read_records_ == 0,
+                                    "Missing read records");
+                    report_if_false(shard, shard->expected_write_records_ == 0,
+                                    "Missing write records");
+
+                    shard->expected_read_records_ = instr_num_memory_read_access(instr);
+                    shard->expected_write_records_ = instr_num_memory_write_access(instr);
+                }
+            }
         }
         // We need to assign the memref variable of cur_instr_info here. The memref
         // variable is not cached as it can dynamically vary based on data values.
@@ -869,6 +894,30 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     shard->prev_entry_ = memref;
     if (type_is_instr_branch(shard->prev_entry_.instr.type))
         shard->last_branch_ = shard->prev_entry_;
+
+    if (type_is_data(memref.data.type) && shard->prev_instr_decoded_ != nullptr) {
+        // If the instruction is predicated, the check is skipped since we do
+        // not have the data to determine how many memory accesses to expect.
+        if (!instr_is_predicated(shard->prev_instr_decoded_->data) &&
+            !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+                     shard->file_type_)) {
+            if (type_is_read(memref.data.type)) {
+                // Skip D-filtered traces which don't have every load or store records.
+                report_if_false(shard, shard->expected_read_records_ > 0,
+                                "Too many read records");
+                if (shard->expected_read_records_ > 0) {
+                    shard->expected_read_records_--;
+                }
+            } else {
+                // Skip D-filtered traces which don't have every load or store records.
+                report_if_false(shard, shard->expected_write_records_ > 0,
+                                "Too many write records");
+                if (shard->expected_write_records_ > 0) {
+                    shard->expected_write_records_--;
+                }
+            }
+        }
+    }
     return true;
 }
 
