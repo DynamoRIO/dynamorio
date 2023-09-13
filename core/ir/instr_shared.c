@@ -2660,6 +2660,46 @@ decode_memory_reference_size(void *drcontext, app_pc pc, uint *size_in_bytes)
     return next_pc;
 }
 
+/* Returns the number of memory read accesses of the instruction.
+ */
+uint
+instr_num_memory_read_access(instr_t *instr)
+{
+    int i;
+    opnd_t curop;
+    int count = 0;
+    const int opc = instr_get_opcode(instr);
+
+    if (opc_is_not_a_real_memory_load(opc))
+        return 0;
+
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        curop = instr_get_src(instr, i);
+        if (opnd_is_memory_reference(curop)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+/* Returns the number of memory write accesses of the instruction.
+ */
+uint
+instr_num_memory_write_access(instr_t *instr)
+{
+    int i;
+    opnd_t curop;
+    int count = 0;
+
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        curop = instr_get_dst(instr, i);
+        if (opnd_is_memory_reference(curop)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 DR_API
 dr_instr_label_data_t *
 instr_get_label_data_area(instr_t *instr)
