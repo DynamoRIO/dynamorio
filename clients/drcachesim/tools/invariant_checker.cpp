@@ -433,7 +433,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard,
             shard->prev_func_id_ >=
                     static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
-                type_is_instr_branch(shard->prev_instr_.instr.type) ||
+                type_is_instr_branch(shard->prev_instr_.memref.instr.type) ||
                 shard->instr_count_ == 0,
             "Function marker should be after a branch");
 #endif
