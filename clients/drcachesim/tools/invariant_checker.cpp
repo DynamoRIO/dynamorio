@@ -414,7 +414,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard,
             shard->prev_func_id_ >=
                     static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) ||
-                type_is_instr_branch(shard->prev_instr_.instr.type) ||
+                type_is_instr_branch(shard->prev_instr_.memref.instr.type) ||
                 shard->instr_count_ == 0 ||
                 (shard->prev_xfer_marker_.marker.marker_type ==
                      TRACE_MARKER_TYPE_KERNEL_XFER &&
@@ -422,9 +422,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                      // The last instruction is not known if the signal arrived before any
                      // instructions in the trace, or the trace started mid-signal. We
                      // assume the function markers are correct to avoid false positives.
-                     shard->last_signal_context_.pre_signal_instr.instr.addr == 0 ||
+                     shard->last_signal_context_.pre_signal_instr.memref.instr.addr ==
+                         0 ||
                      // The last instruction of the outer-most scope was a branch.
-                     type_is_instr_branch(shard->last_instr_in_cur_context_.instr.type))),
+                     type_is_instr_branch(
+                         shard->last_instr_in_cur_context_.memref.instr.type))),
             "Function marker should be after a branch");
 #else
         report_if_false(
@@ -544,7 +546,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 shard->decode_cache_[trace_pc] = cur_instr_info.decoding;
             }
             if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
-                instr_is_syscall(cur_instr_decoded->data))
+                cur_instr_info.decoding.is_syscall)
                 shard->expect_syscall_marker_ = true;
         }
         // We need to assign the memref variable of cur_instr_info here. The memref
@@ -1083,7 +1085,8 @@ invariant_checker_t::check_for_pc_discontinuity(
           // a single instance, which is fetched.  We check the sizes for now.
           // TODO i#4915, #4948: Eliminate non-fetched and remove the
           // underlying instrs altogether, which would fix this for us.
-          (!knob_offline_ && memref.instr.size == prev_instr.instr.size))) ||
+          (!knob_offline_ &&
+           cur_instr_info.memref.instr.size == prev_instr.instr.size))) ||
         // Same PC is allowed for a kernel interruption which may restart the
         // same instruction.
         (prev_instr_trace_pc == cur_pc && at_kernel_event) ||
