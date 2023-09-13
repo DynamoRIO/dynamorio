@@ -486,6 +486,8 @@ decode_u_immpc_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
                     int idx, instr_t *out)
 {
     int32_t uimm = GET_FIELD(inst, 31, 12);
+    /* OPSZ_0 is used here to indicate that this is not a real memory access instruction.
+     */
     opnd_t opnd = opnd_create_rel_addr(orig_pc + (uimm << 12), OPSZ_0);
     instr_set_src(out, idx, opnd);
     return true;
