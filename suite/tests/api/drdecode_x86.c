@@ -178,16 +178,16 @@ test_categories(void)
 {
     const uint raw[] = {
         0x10100ff3, /* fp move avx; OP_vmovss; movss  xmm2,DWORD PTR [eax] */
-        0x200083, /* int; OP_add; add    DWORD PTR [eax],0x20 */
+        0x200083,   /* int; OP_add; add    DWORD PTR [eax],0x20 */
         0x10fe0f66, /* int xmm; OP_paddd; paddd  xmm2,XMMWORD PTR [eax] */
-        0x32010f, /* load; OP_lgdt; lmsw   WORD PTR [edx] */
+        0x32010f,   /* load; OP_lgdt; lmsw   WORD PTR [edx] */
         0x10e70f66, /* store, xmm; OP_movntdq; movntdq XMMWORD PTR [eax],xmm2 */
-        0x30ae0f, /* state; OP_fxsave32; xsaveopt */
+        0x30ae0f,   /* state; OP_fxsave32; xsaveopt */
         0x106f0f66, /* xmm; OP_movdqa; movdqa xmm2,XMMWORD PTR [eax] */
-        0x10100f, /* move, xmm; OP_movups; movups xmm2,XMMWORD PTR [eax] */
+        0x10100f,   /* move, xmm; OP_movups; movups xmm2,XMMWORD PTR [eax] */
         0x10780f66, /* other; OP_extrq; extrq */
-        0x102a0f, /* convert, xmm; OP_cvtpi2ps; cvtpi2ps xmm2,QWORD PTR [eax] */
-        0x105c0f66 /* math, xmm; OP_subpd; subpd  xmm2,XMMWORD PTR [eax] */
+        0x102a0f,   /* convert, xmm; OP_cvtpi2ps; cvtpi2ps xmm2,QWORD PTR [eax] */
+        0x105c0f66  /* math, xmm; OP_subpd; subpd  xmm2,XMMWORD PTR [eax] */
     };
 
     const uint categories[] = {
@@ -218,7 +218,8 @@ test_categories(void)
     }
 
     /* Test for synthetic instruction */
-    instr_t *load = XINST_CREATE_cmp(GD, opnd_create_reg(DR_REG_RAX), opnd_create_reg(DR_REG_RAX));
+    instr_t *load =
+        XINST_CREATE_cmp(GD, opnd_create_reg(DR_REG_RAX), opnd_create_reg(DR_REG_RAX));
     uint cat = instr_get_category(load);
     ASSERT(cat == DR_INSTR_CATEGORY_UNCATEGORIZED);
 }
