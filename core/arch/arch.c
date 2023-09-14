@@ -3893,7 +3893,7 @@ get_time()
 bool
 is_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_branch_type_t branch_type)
 {
-    ibl_type_t ibl_type;
+    ibl_type_t ibl_type = {0};
     DEBUG_DECLARE(bool is_ibl =)
     get_ibl_routine_type_ex(dcontext, target, &ibl_type _IF_X86_64(NULL));
     ASSERT(is_ibl);

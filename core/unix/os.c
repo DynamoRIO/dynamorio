@@ -10503,7 +10503,7 @@ wait_for_event(event_t e, int timeout_ms)
 #ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
 #endif
-    uint64 start_time, cur_time;
+    uint64 start_time = 0, cur_time = 0;
     if (timeout_ms > 0)
         start_time = query_time_millis();
     /* Use a user-space event on Linux, a kernel event on Windows. */
