@@ -545,6 +545,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     cur_instr_info.decoding.is_syscall = instr_is_syscall(noalloc_instr);
                     cur_instr_info.decoding.writes_memory =
                         instr_writes_memory(noalloc_instr);
+                    cur_instr_info.decoding.is_predicated =
+                        instr_is_predicated(noalloc_instr);
+                    cur_instr_info.decoding.num_memory_read_access =
+                        instr_num_memory_read_access(noalloc_instr);
+                    cur_instr_info.decoding.num_memory_write_access =
+                        instr_num_memory_write_access(noalloc_instr);
                     if (type_is_instr_branch(memref.instr.type)) {
                         const opnd_t target = instr_get_target(noalloc_instr);
                         if (opnd_is_pc(target)) {
@@ -558,9 +564,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
                 cur_instr_info.decoding.is_syscall)
                 shard->expect_syscall_marker_ = true;
-            if (cur_instr_decoded != nullptr && cur_instr_decoded->data != nullptr) {
-                instr_t *instr = cur_instr_decoded->data;
-                if (!instr_is_predicated(instr) &&
+            if (cur_instr_info.decoding.has_valid_decoding) {
+                if (!cur_instr_info.decoding.is_predicated &&
                     !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
                              shard->file_type_)) {
                     // Verify the number of read/write records matches the last
@@ -571,8 +576,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     report_if_false(shard, shard->expected_write_records_ == 0,
                                     "Missing write records");
 
-                    shard->expected_read_records_ = instr_num_memory_read_access(instr);
-                    shard->expected_write_records_ = instr_num_memory_write_access(instr);
+                    shard->expected_read_records_ =
+                        cur_instr_info.decoding.num_memory_read_access;
+                    shard->expected_write_records_ =
+                        cur_instr_info.decoding.num_memory_write_access;
                 }
             }
         }
@@ -895,10 +902,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (type_is_instr_branch(shard->prev_entry_.instr.type))
         shard->last_branch_ = shard->prev_entry_;
 
-    if (type_is_data(memref.data.type) && shard->prev_instr_decoded_ != nullptr) {
+    if (type_is_data(memref.data.type) &&
+        shard->prev_instr_.decoding.has_valid_decoding) {
         // If the instruction is predicated, the check is skipped since we do
         // not have the data to determine how many memory accesses to expect.
-        if (!instr_is_predicated(shard->prev_instr_decoded_->data) &&
+        if (!shard->prev_instr_.decoding.is_predicated &&
             !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
                      shard->file_type_)) {
             if (type_is_read(memref.data.type)) {

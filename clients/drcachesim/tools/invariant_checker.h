@@ -137,6 +137,9 @@ protected:
             bool has_valid_decoding = false;
             bool is_syscall = false;
             bool writes_memory = false;
+            bool is_predicated = false;
+            uint num_memory_read_access = 0;
+            uint num_memory_write_access = 0;
             addr_t branch_target;
         };
         struct instr_info_t {
