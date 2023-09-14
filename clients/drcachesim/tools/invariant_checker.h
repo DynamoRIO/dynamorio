@@ -232,6 +232,7 @@ protected:
                                const per_shard_t::instr_info_t &cur_instr_info,
                                bool expect_encoding, bool at_kernel_event);
 
+    void *drcontext_ = dr_standalone_init();
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to

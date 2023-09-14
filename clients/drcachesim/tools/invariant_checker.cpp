@@ -528,13 +528,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (cached != shard->decode_cache_.end()) {
                 cur_instr_info.decoding = cached->second;
             } else {
-                // TODO(sahil): Make this a class member function?
-                void *drcontext = dr_standalone_init();
                 instr_noalloc_t noalloc;
-                instr_noalloc_init(drcontext, &noalloc);
+                instr_noalloc_init(drcontext_, &noalloc);
                 instr_t *noalloc_instr = instr_from_noalloc(&noalloc);
                 app_pc next_pc = decode_from_copy(
-                    drcontext, const_cast<app_pc>(memref.instr.encoding),
+                    drcontext_, const_cast<app_pc>(memref.instr.encoding),
                     reinterpret_cast<app_pc>(memref.instr.addr), noalloc_instr);
                 if (next_pc == nullptr) {
                     noalloc_instr = nullptr;
