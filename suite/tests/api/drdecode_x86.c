@@ -207,7 +207,7 @@ test_categories(void)
     size_t instr_count = sizeof(raw) / sizeof(uint);
     int length;
     byte *pc = (byte *)raw;
-    for (int i = 0; i < instr_count; i++) {
+    for (size_t i = 0; i < instr_count; i++) {
         length = 4 - i % 2;
         instr_t instr;
         instr_init(GD, &instr);

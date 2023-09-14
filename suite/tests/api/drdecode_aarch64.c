@@ -184,7 +184,7 @@ test_categories(void)
         DR_INSTR_CATEGORY_OTHER
     };
     byte *pc = (byte *)raw;
-    for (int i = 0; i < instr_count; i++) {
+    for (size_t i = 0; i < instr_count; i++) {
         instr_t instr;
         instr_init(GD, &instr);
         instr_set_raw_bits(&instr, pc, 4);
