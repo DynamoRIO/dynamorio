@@ -173,6 +173,56 @@ test_category_table_size(void)
     ASSERT(cat != DR_INSTR_CATEGORY_UNCATEGORIZED);
 }
 
+static void
+test_categories(void)
+{
+    const uint raw[] = {
+        0x10100ff3, /* fp move avx; OP_vmovss; movss  xmm2,DWORD PTR [eax] */
+        0x200083, /* int; OP_add; add    DWORD PTR [eax],0x20 */
+        0x10fe0f66, /* int xmm; OP_paddd; paddd  xmm2,XMMWORD PTR [eax] */
+        0x32010f, /* load; OP_lgdt; lmsw   WORD PTR [edx] */
+        0x10e70f66, /* store, xmm; OP_movntdq; movntdq XMMWORD PTR [eax],xmm2 */
+        0x30ae0f, /* state; OP_fxsave32; xsaveopt */
+        0x106f0f66, /* xmm; OP_movdqa; movdqa xmm2,XMMWORD PTR [eax] */
+        0x10100f, /* move, xmm; OP_movups; movups xmm2,XMMWORD PTR [eax] */
+        0x10780f66, /* other; OP_extrq; extrq */
+        0x102a0f, /* convert, xmm; OP_cvtpi2ps; cvtpi2ps xmm2,QWORD PTR [eax] */
+        0x105c0f66 /* math, xmm; OP_subpd; subpd  xmm2,XMMWORD PTR [eax] */
+    };
+
+    const uint categories[] = {
+        DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MOVE | DR_INSTR_CATEGORY_SIMD,
+        DR_INSTR_CATEGORY_INT,
+        DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_SIMD,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_STORE | DR_INSTR_CATEGORY_SIMD,
+        DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_STATE,
+        DR_INSTR_CATEGORY_SIMD,
+        DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MOVE | DR_INSTR_CATEGORY_SIMD,
+        DR_INSTR_CATEGORY_OTHER,
+        DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_CONVERT | DR_INSTR_CATEGORY_SIMD,
+        DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD,
+    };
+
+    size_t instr_count = sizeof(raw) / sizeof(uint);
+    int length;
+    byte *pc = (byte *)raw;
+    for (int i = 0; i < instr_count; i++) {
+        length = 4 - i % 2;
+        instr_t instr;
+        instr_init(GD, &instr);
+        instr_set_raw_bits(&instr, pc, length);
+        uint cat = instr_get_category(&instr);
+        ASSERT(cat == categories[i]);
+        pc += 4;
+    }
+
+    /* Test for synthetic instruction */
+    instr_t *load = XINST_CREATE_cmp(GD, opnd_create_reg(DR_REG_RAX), opnd_create_reg(DR_REG_RAX));
+    uint cat = instr_get_category(load);
+    ASSERT(cat == DR_INSTR_CATEGORY_UNCATEGORIZED);
+}
+
 int
 main()
 {
@@ -185,6 +235,8 @@ main()
     test_noalloc();
 
     test_category_table_size();
+
+    test_categories();
 
     printf("done\n");
 
