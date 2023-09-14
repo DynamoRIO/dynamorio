@@ -1658,6 +1658,20 @@ instr_memory_reference_size(instr_t *instr);
 
 DR_API
 /**
+ * Returns the number of memory read accesses of the instruction.
+ */
+uint
+instr_num_memory_read_access(instr_t *instr);
+
+DR_API
+/**
+ * Returns the number of memory write accesses of the instruction.
+ */
+uint
+instr_num_memory_write_access(instr_t *instr);
+
+DR_API
+/**
  * \return a pointer to user-controlled data fields in a label instruction.
  * These fields are available for use by clients for their own purposes.
  * Returns NULL if \p instr is not a label instruction.
