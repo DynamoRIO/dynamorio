@@ -2436,11 +2436,21 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
         di->input_size = OPSZ_NA;
 }
 
+/* TODO i#6238: Not all opcodes have been reviewed.
+ * In case an opcode has not been reviewed,
+ * the default category assigned to it is DR_INSTR_CATEGORY_OTHER.
+ */
 static inline void
 decode_category(instr_t *instr)
 {
-    int cat = op_instr[instr->opcode]->category;
-    instr_set_category(instr, cat);
+    if (instr)
+    {
+        if (op_instr[instr->opcode])
+            instr_set_category(instr, op_instr[instr->opcode]->category);
+        else
+            /* nonvalid opcode */
+            instr_set_category(instr, DR_INSTR_CATEGORY_UNCATEGORIZED);
+    }
 }
 
 /****************************************************************************
