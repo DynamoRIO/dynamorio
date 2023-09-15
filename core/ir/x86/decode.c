@@ -2548,7 +2548,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
                                         decode operands too */
                                _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
     instr_set_opcode(instr, info->type);
-    decode_category(info->type, instr);
+    decode_category(instr);
     IF_X64(instr_set_x86_mode(instr, di.x86_mode));
     /* failure up to this point handled fine -- we set opcode to OP_INVALID */
     if (next_pc == NULL) {
