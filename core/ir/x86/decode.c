@@ -2439,7 +2439,7 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
 static inline void
 decode_category(instr_t *instr)
 {
-    int cat = category_by_opcode[instr->opcode];
+    int cat = op_instr[instr->opcode]->category;
     instr_set_category(instr, cat);
 }
 
