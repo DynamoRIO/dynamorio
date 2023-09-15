@@ -204,7 +204,7 @@ dr_get_sve_vector_length(void)
 #define xx 0 /* TYPE_NONE */, OPSZ_NA
 const instr_info_t invalid_instr = { OP_INVALID,
                                      0x000000,
-#ifdef x86
+#ifdef X86
                                      DR_INSTR_CATEGORY_UNCATEGORIZED,
 #endif
                                      "(bad)",
