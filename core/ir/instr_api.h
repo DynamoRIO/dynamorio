@@ -1904,7 +1904,7 @@ typedef enum {
     DR_INSTR_CATEGORY_STORE = 0x8,         /**< Stores. */
     DR_INSTR_CATEGORY_BRANCH = 0x10,       /**< Branches. */
     DR_INSTR_CATEGORY_SIMD = 0x20,     /**< Operations with vector registers (SIMD). */
-    DR_INSTR_CATEGORY_STATE = 0x40,    /**< Loads, stores. */
+    DR_INSTR_CATEGORY_STATE = 0x40,    /**< STATE definition. TODO i#6238: Add support for all FP types. */
     DR_INSTR_CATEGORY_MOVE = 0x80,     /**< Moves value from one location to another. */
     DR_INSTR_CATEGORY_CONVERT = 0x100, /**< Converts to or from value. */
     DR_INSTR_CATEGORY_MATH = 0x200, /**< Performs arithmetic or conditional operations. */
