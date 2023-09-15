@@ -83,7 +83,7 @@ typedef struct instr_info_t {
      * stored here varies by arch.
      */
     uint opcode;
-#ifdef X86
+#ifdef x86
     uint category;
 #endif
     const char *name;

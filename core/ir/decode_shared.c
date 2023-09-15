@@ -202,10 +202,20 @@ dr_get_sve_vector_length(void)
  * type is OP_INVALID so can be copied to instr->opcode
  */
 #define xx 0 /* TYPE_NONE */, OPSZ_NA
-const instr_info_t invalid_instr = {
-    OP_INVALID, 0x000000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, 0,
-    0,          0
-};
+const instr_info_t invalid_instr = { OP_INVALID,
+                                     0x000000,
+#ifdef x86
+                                     DR_INSTR_CATEGORY_UNCATEGORIZED,
+#endif
+                                     "(bad)",
+                                     xx,
+                                     xx,
+                                     xx,
+                                     xx,
+                                     xx,
+                                     0,
+                                     0,
+                                     0 };
 #undef xx
 
 /* PR 302344: used for shared traces -tracedump_origins where we
