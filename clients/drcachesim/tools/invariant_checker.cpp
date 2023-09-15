@@ -562,23 +562,22 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             if (TESTANY(OFFLINE_FILE_TYPE_SYSCALL_NUMBERS, shard->file_type_) &&
                 cur_instr_info.decoding.is_syscall)
                 shard->expect_syscall_marker_ = true;
-            if (cur_instr_info.decoding.has_valid_decoding) {
-                if (!cur_instr_info.decoding.is_predicated &&
-                    !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
-                             shard->file_type_)) {
-                    // Verify the number of read/write records matches the last
-                    // operand. Skip D-filtered traces which don't have every load or
-                    // store records.
-                    report_if_false(shard, shard->expected_read_records_ == 0,
-                                    "Missing read records");
-                    report_if_false(shard, shard->expected_write_records_ == 0,
-                                    "Missing write records");
+            if (cur_instr_info.decoding.has_valid_decoding &&
+                !cur_instr_info.decoding.is_predicated &&
+                !TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_DFILTERED,
+                         shard->file_type_)) {
+                // Verify the number of read/write records matches the last
+                // operand. Skip D-filtered traces which don't have every load or
+                // store records.
+                report_if_false(shard, shard->expected_read_records_ == 0,
+                                "Missing read records");
+                report_if_false(shard, shard->expected_write_records_ == 0,
+                                "Missing write records");
 
-                    shard->expected_read_records_ =
-                        cur_instr_info.decoding.num_memory_read_access;
-                    shard->expected_write_records_ =
-                        cur_instr_info.decoding.num_memory_write_access;
-                }
+                shard->expected_read_records_ =
+                    cur_instr_info.decoding.num_memory_read_access;
+                shard->expected_write_records_ =
+                    cur_instr_info.decoding.num_memory_write_access;
             }
         }
         // We need to assign the memref variable of cur_instr_info here. The memref
