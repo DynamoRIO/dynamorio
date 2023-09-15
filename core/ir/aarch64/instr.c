@@ -312,8 +312,10 @@ instr_is_rep_string_op(instr_t *instr)
 bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
 {
+    /* DR_FP_STATE is missed now. */
+    /* TODO i#6238: Add support for all FP types.
+     */
     uint cat = instr_get_category(instr);
-
     if (!TEST(DR_INSTR_CATEGORY_FP, cat))
         return false;
     else if (TEST(DR_INSTR_CATEGORY_MATH, cat)) {
@@ -323,10 +325,6 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     } else if (TEST(DR_INSTR_CATEGORY_CONVERT, cat)) {
         if (type != NULL)
             *type = DR_FP_CONVERT;
-        return true;
-    } else if (TEST(DR_INSTR_CATEGORY_LOAD, cat) || TEST(DR_INSTR_CATEGORY_STORE, cat)) {
-        if (type != NULL)
-            *type = DR_FP_STATE;
         return true;
     } else if (TEST(DR_INSTR_CATEGORY_MOVE, cat)) {
         if (type != NULL)

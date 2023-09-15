@@ -143,18 +143,6 @@ DR_API
 const char *
 decode_opcode_name(int opcode);
 
-#ifdef X86
-DR_API
-/** Decodes the instruction category by opcode (OP_ constant). */
-bool
-decode_category(int opcode, instr_t *instr);
-#elif defined(AARCH64)
-DR_API
-/**  Decodes the instruction category by raw bits. */
-bool
-decode_category(uint enc, instr_t *instr);
-#endif
-
 #ifdef X64
 DR_API
 /**
