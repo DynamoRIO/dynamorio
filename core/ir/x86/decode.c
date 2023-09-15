@@ -2443,8 +2443,7 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
 static inline void
 decode_category(instr_t *instr)
 {
-    if (instr)
-    {
+    if (instr) {
         if (op_instr[instr->opcode])
             instr_set_category(instr, op_instr[instr->opcode]->category);
         else
