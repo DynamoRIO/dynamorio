@@ -9690,7 +9690,6 @@ decode_category(uint enc, instr_t *instr)
     }
 
     instr_set_category(instr, category);
-    return true;
 }
 
 /******************************************************************************/
