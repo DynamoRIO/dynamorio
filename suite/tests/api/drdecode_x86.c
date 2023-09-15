@@ -156,24 +156,6 @@ test_noalloc(void)
 }
 
 static void
-test_category_table_size(void)
-{
-    /* Check that the opcode categories table has the same size as the categories array
-     *
-     * When a new opcode is added, it will be automatically assigned the default
-     * category of "DR_INSTR_CATEGORY_UNCATEGORIZED".
-     * It is important to update the table by assigning appropriate categories
-     * to these new opcodes.
-     */
-    instr_t instr;
-    instr_init(GD, &instr);
-    instr_set_operands_valid(&instr, true);
-    decode_category(OP_LAST, &instr);
-    uint cat = instr_get_category(&instr);
-    ASSERT(cat != DR_INSTR_CATEGORY_UNCATEGORIZED);
-}
-
-static void
 test_categories(void)
 {
     const uint raw[] = {
@@ -192,7 +174,7 @@ test_categories(void)
 
     const uint categories[] = {
         DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MOVE | DR_INSTR_CATEGORY_SIMD,
-        DR_INSTR_CATEGORY_INT,
+        DR_INSTR_CATEGORY_INT  | DR_INSTR_CATEGORY_MATH,
         DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_SIMD,
         DR_INSTR_CATEGORY_LOAD,
         DR_INSTR_CATEGORY_STORE | DR_INSTR_CATEGORY_SIMD,
@@ -234,8 +216,6 @@ main()
     test_ptrsz_imm();
 
     test_noalloc();
-
-    test_category_table_size();
 
     test_categories();
 

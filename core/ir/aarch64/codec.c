@@ -9607,7 +9607,7 @@ decode_load_store_category(uint enc)
     return category;
 }
 
-inline bool
+static inline void
 decode_category(uint enc, instr_t *instr)
 {
     int category = DR_INSTR_CATEGORY_OTHER;
@@ -9640,7 +9640,7 @@ decode_category(uint enc, instr_t *instr)
         if ((op1 & 0x4) == 0) {       /* op1 is x0xx */
             if ((op1 & 0x8) != 0) {   /* op1 is not 00xx */
                 if ((op1 & 0x2) == 0) /* op1 is 100x, Data processing Immediate */
-                    category = DR_INSTR_CATEGORY_INT;
+                    category = DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH;
                 else /* op1 is 101x, Branches */
                     category = DR_INSTR_CATEGORY_BRANCH;
             }
@@ -9649,7 +9649,7 @@ decode_category(uint enc, instr_t *instr)
             if ((op1 & 0x1) == 0) /* op1 is x1x0, LOAD/STORE */
                 category = decode_load_store_category(enc);
             else if ((op1 & 0x2) == 0) /* op1 is x101 */
-                category = DR_INSTR_CATEGORY_INT;
+                category = DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH;
             else { /* op1 is x111, Scalar Floating-Point and Advances SIMD */
                 /* op0 is 0xx0 || op0 is 01x1 */
                 if ((op0 & 0x9) == 0 || (op0 & 0x5) == 0x5)
@@ -9659,7 +9659,7 @@ decode_category(uint enc, instr_t *instr)
                     if (op0 == 0xC) /* op0 is 1100 */
                         category |= DR_INSTR_CATEGORY_MATH;
                     else if ((op0 & 0x5) == 1) { /* op0 is x0x1 */
-                        if (BITS(enc, 24, 23) & 0x2)
+                        if ((BITS(enc, 24, 23) & 0x2) != 0)
                             category |= DR_INSTR_CATEGORY_MATH;
                         else {
                             uint op2 = BITS(enc, 22, 19);

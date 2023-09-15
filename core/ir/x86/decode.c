@@ -2410,12 +2410,11 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
         di->input_size = OPSZ_NA;
 }
 
-bool
-decode_category(int opcode, instr_t *instr)
+static inline void
+decode_category(instr_t *instr)
 {
-    int cat = category_by_opcode[opcode];
+    int cat = category_by_opcode[instr->opcode];
     instr_set_category(instr, cat);
-    return true;
 }
 
 /****************************************************************************
