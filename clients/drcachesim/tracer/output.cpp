@@ -728,7 +728,6 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
               size_t header_size)
 {
     byte *pipe_start = buf_base;
-    byte *pipe_end = pipe_start;
     if (!op_offline.get_value()) {
         byte *post_header = buf_base + header_size;
         byte *last_ok_to_split_ref = nullptr;
@@ -744,7 +743,6 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
             // it or one instr after.
             if (is_ok_to_split_before(instru->get_entry_type(mem_ref),
                                       instru->get_entry_size(mem_ref))) {
-                pipe_end = mem_ref;
                 // We check the end of this entry + the max # of delay entries to
                 // avoid splitting an instr from its subsequent bundle entry.
                 // An alternative is to have the reader use per-thread state.
@@ -755,21 +753,21 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
                         instru->get_entry_size(pipe_start + header_size)));
                     // Check if we went over the edge waiting for enough entries to
                     // write. If we did, we simply write till the last ok-to-split ref.
-                    if (pipe_end - pipe_start > ipc_pipe.get_atomic_write_size()) {
+                    if (mem_ref - pipe_start > ipc_pipe.get_atomic_write_size()) {
                         // If the followin assert triggers, we found too many entries
                         // without an ok-to-split point.
                         DR_ASSERT(last_ok_to_split_ref != nullptr);
                         pipe_start =
                             atomic_pipe_write(drcontext, pipe_start, last_ok_to_split_ref,
                                               get_local_window(data));
-                        last_ok_to_split_ref = pipe_end;
+                        last_ok_to_split_ref = mem_ref;
                     } else {
-                        pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end,
+                        pipe_start = atomic_pipe_write(drcontext, pipe_start, mem_ref,
                                                        get_local_window(data));
                         last_ok_to_split_ref = nullptr;
                     }
                 } else {
-                    last_ok_to_split_ref = pipe_end;
+                    last_ok_to_split_ref = mem_ref;
                 }
             }
         }
@@ -783,7 +781,10 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
             DR_ASSERT(
                 is_ok_to_split_before(instru->get_entry_type(pipe_start + header_size),
                                       instru->get_entry_size(pipe_start + header_size)));
-            pipe_start = atomic_pipe_write(drcontext, pipe_start, pipe_end,
+            // If the followin assert triggers, we found too many entries without an
+            // ok-to-split point.
+            DR_ASSERT(last_ok_to_split_ref != nullptr);
+            pipe_start = atomic_pipe_write(drcontext, pipe_start, last_ok_to_split_ref,
                                            get_local_window(data));
         }
         if ((buf_ptr - pipe_start) > (ssize_t)buf_hdr_slots_size) {
