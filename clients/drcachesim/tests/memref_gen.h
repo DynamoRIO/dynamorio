@@ -62,6 +62,17 @@ struct memref_with_IR_t {
 };
 
 inline memref_t
+gen_addr(memref_tid_t tid, trace_type_t type, addr_t addr, size_t size = 1)
+{
+    memref_t memref = {};
+    memref.instr.type = type;
+    memref.instr.tid = tid;
+    memref.instr.addr = addr;
+    memref.instr.size = size;
+    return memref;
+}
+
+inline memref_t
 gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
 {
     memref_t memref = {};

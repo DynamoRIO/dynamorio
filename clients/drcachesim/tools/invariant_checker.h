@@ -198,6 +198,9 @@ protected:
         bool saw_filter_endpoint_marker_ = false;
         // Used to check markers after each system call.
         bool expect_syscall_marker_ = false;
+        // Counters for expected read and write records.
+        int expected_read_records_ = 0;
+        int expected_write_records_ = 0;
     };
 
     // We provide this for subclasses to run these invariants with custom
