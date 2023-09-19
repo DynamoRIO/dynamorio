@@ -1115,15 +1115,15 @@ test_jump_and_branch(void *dc)
     /* Not printing disassembly for jal and branch instructions below, see comment of
      * test_instr_encoding_jal_or_branch(). */
     instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
-                               opnd_create_pc(pc + (3 << 12)));
+                               OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
     test_instr_encoding_auipc(dc, OP_auipc, pc, instr);
 
     instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
-                               opnd_create_pc(pc - (3 << 12)));
+                               OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
     test_instr_encoding_auipc(dc, OP_auipc, pc, instr);
 
     instr = INSTR_CREATE_auipc(dc, opnd_create_reg(DR_REG_A0),
-                               opnd_create_pc(pc + (3 << 12)));
+                               OPND_CREATE_ABSMEM(pc + (3 << 12), OPSZ_0));
     /* This is expected to fail since we are using an unaligned PC (i.e. target_pc -
      * instr_encode_pc has non-zero lower 12 bits). */
     test_instr_encoding_failure(dc, OP_auipc, pc + 4, instr);
