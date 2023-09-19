@@ -127,8 +127,6 @@ clients.
 The changes between version \DR_VERSION and 10.0.0 include the following compatibility
 changes:
  - Marked x86 rep instructions as predicated.
- - On x86 architecture, the #instr_info_t structure now includes a newly inserted field
-   to store the category type #dr_instr_category_t
 
 Further non-compatibility-affecting changes include:
  - Added core-sharded analysis tool support where traces are sharded by
