@@ -771,26 +771,43 @@ test_chunk_encodings(void *drcontext)
     instr_t *nop = XINST_CREATE_nop(drcontext);
     // Test i#5724 where a chunk boundary between consecutive branches results
     // in a missing encoding entry.
+    // Also test i#6303 where a delayed indirect branch with tagalong encoding has its
+    // encoding repeated, causing a reader assert as it accumulates the duplicate.
     instr_t *move1 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
     instr_t *move2 =
         XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
-    instr_t *jmp2 = XINST_CREATE_jump(drcontext, opnd_create_instr(move2));
-    instr_t *jmp1 = XINST_CREATE_jump(drcontext, opnd_create_instr(jmp2));
+    instr_t *jmp_move2 = XINST_CREATE_jump(drcontext, opnd_create_instr(move2));
+    instr_t *jmp_jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(jmp_move2));
+    instr_t *nop_start = XINST_CREATE_nop(drcontext);
+    instr_t *jcc =
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move1));
+    instr_t *ret = XINST_CREATE_return(drcontext);
     instrlist_append(ilist, nop);
     // Block 1.
     instrlist_append(ilist, move1);
-    instrlist_append(ilist, jmp1);
+    instrlist_append(ilist, jmp_jmp);
     // Block 2.
-    instrlist_append(ilist, jmp2);
+    instrlist_append(ilist, jmp_move2);
     // Block 3.
     instrlist_append(ilist, move2);
+    // Block 4.
+    instrlist_append(ilist, nop_start);
+    instrlist_append(ilist, XINST_CREATE_nop(drcontext));
+    instrlist_append(ilist, XINST_CREATE_nop(drcontext));
+    // i#6303 needs a direct branch before an indirect branch.
+    instrlist_append(ilist, jcc);
+    // We should have a chunk boundary here.
+    instrlist_append(ilist, ret);
 
     size_t offs_nop = 0;
     size_t offs_move1 = offs_nop + instr_length(drcontext, nop);
-    size_t offs_jmp1 = offs_move1 + instr_length(drcontext, move1);
-    size_t offs_jmp2 = offs_jmp1 + instr_length(drcontext, jmp1);
-    size_t offs_move2 = offs_jmp2 + instr_length(drcontext, jmp2);
+    size_t offs_jmp_jmp = offs_move1 + instr_length(drcontext, move1);
+    size_t offs_jmp_move2 = offs_jmp_jmp + instr_length(drcontext, jmp_jmp);
+    size_t offs_move2 = offs_jmp_move2 + instr_length(drcontext, jmp_move2);
+    size_t offs_nop_start = offs_move2 + instr_length(drcontext, move2);
+    size_t offs_jcc = offs_nop_start + 3 * instr_length(drcontext, nop_start);
+    size_t offs_ret = offs_jcc + instr_length(drcontext, jcc);
 
     // Now we synthesize our raw trace itself, including a valid header sequence.
     std::vector<offline_entry_t> raw;
@@ -801,11 +818,16 @@ test_chunk_encodings(void *drcontext)
     raw.push_back(make_timestamp());
     raw.push_back(make_core());
     raw.push_back(make_block(offs_move1, 2));
-    raw.push_back(make_block(offs_jmp2, 1));
+    raw.push_back(make_block(offs_jmp_move2, 1));
     raw.push_back(make_block(offs_move2, 1));
     // Repeat the jmp,jmp to test re-emitting encodings in new chunks.
     raw.push_back(make_block(offs_move1, 2));
-    raw.push_back(make_block(offs_jmp2, 1));
+    raw.push_back(make_block(offs_jmp_move2, 1));
+    raw.push_back(make_block(offs_move2, 1));
+    // Add a final chunk boundary right between a branch;ret pair.
+    raw.push_back(make_block(offs_nop_start, 4));
+    raw.push_back(make_block(offs_ret, 1));
+    // We need the target of the ret for our marker.  We re-use move2.
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
@@ -863,6 +885,35 @@ test_chunk_encodings(void *drcontext)
         // Block 3.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        // Block 4.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        // The jcc instr.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
+        // There should be just one encoding, before the branch target (i#6303).
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#ifdef X86_32
+        // An extra encoding entry is needed.
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+#endif
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1, offs_ret) &&
+        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        // Footer.
         check_entry(entries, idx, TRACE_TYPE_THREAD_EXIT, -1) &&
         check_entry(entries, idx, TRACE_TYPE_FOOTER, -1));
 }

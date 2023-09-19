@@ -3088,6 +3088,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     tdata->error = "Failed to write to output file";
                     return false;
                 }
+                // NOCHECK
                 if (!insert_post_chunk_encodings(tdata, it,
                                                  *(decode_pcs + instr_ordinal)))
                     return false;
@@ -3100,8 +3101,13 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             }
             if (it->type == TRACE_TYPE_ENCODING)
                 prev_was_encoding = true;
-            else
-                prev_was_encoding = false;
+            else {
+                // Do not clear across an indirect branch target, to avoid
+                // a duplicate encoding on the other side.
+                if (it->type != TRACE_TYPE_MARKER ||
+                    it->size != TRACE_MARKER_TYPE_BRANCH_TARGET)
+                    prev_was_encoding = false;
+            }
             if (it->type == TRACE_TYPE_MARKER) {
                 if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
                     tdata->last_timestamp_ = it->addr;
