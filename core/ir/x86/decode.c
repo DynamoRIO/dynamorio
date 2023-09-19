@@ -80,21 +80,47 @@
 
 /* used for VEX decoding */
 #define xx TYPE_NONE, OPSZ_NA
-static const instr_info_t escape_instr = { ESCAPE, 0x000000, "(bad)", xx, xx, xx,
-                                           xx,     xx,       0,       0,  0 };
-static const instr_info_t escape_38_instr = {
-    ESCAPE_3BYTE_38, 0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0
+static const instr_info_t escape_instr = {
+    ESCAPE, 0x000000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, 0,
+    0,      0
 };
-static const instr_info_t escape_3a_instr = {
-    ESCAPE_3BYTE_3a, 0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0
-};
+static const instr_info_t escape_38_instr = { ESCAPE_3BYTE_38,
+                                              0x000000,
+                                              DR_INSTR_CATEGORY_UNCATEGORIZED,
+                                              "(bad)",
+                                              xx,
+                                              xx,
+                                              xx,
+                                              xx,
+                                              xx,
+                                              0,
+                                              0,
+                                              0 };
+static const instr_info_t escape_3a_instr = { ESCAPE_3BYTE_3a,
+                                              0x000000,
+                                              DR_INSTR_CATEGORY_UNCATEGORIZED,
+                                              "(bad)",
+                                              xx,
+                                              xx,
+                                              xx,
+                                              xx,
+                                              xx,
+                                              0,
+                                              0,
+                                              0 };
 /* used for XOP decoding */
-static const instr_info_t xop_8_instr = { XOP_8_EXT, 0x000000, "(bad)", xx, xx, xx,
-                                          xx,        xx,       0,       0,  0 };
-static const instr_info_t xop_9_instr = { XOP_9_EXT, 0x000000, "(bad)", xx, xx, xx,
-                                          xx,        xx,       0,       0,  0 };
-static const instr_info_t xop_a_instr = { XOP_A_EXT, 0x000000, "(bad)", xx, xx, xx,
-                                          xx,        xx,       0,       0,  0 };
+static const instr_info_t xop_8_instr = {
+    XOP_8_EXT, 0x000000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, 0,
+    0,         0
+};
+static const instr_info_t xop_9_instr = {
+    XOP_9_EXT, 0x000000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, 0,
+    0,         0
+};
+static const instr_info_t xop_a_instr = {
+    XOP_A_EXT, 0x000000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, 0,
+    0,         0
+};
 #undef xx
 
 bool
@@ -2410,11 +2436,20 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
         di->input_size = OPSZ_NA;
 }
 
+/* TODO i#6238: Not all opcodes have been reviewed.
+ * In case an opcode has not been reviewed,
+ * the default category assigned to it is DR_INSTR_CATEGORY_OTHER.
+ */
 static inline void
 decode_category(instr_t *instr)
 {
-    int cat = category_by_opcode[instr->opcode];
-    instr_set_category(instr, cat);
+    if (instr) {
+        if (op_instr[instr->opcode])
+            instr_set_category(instr, op_instr[instr->opcode]->category);
+        else
+            /* nonvalid opcode */
+            instr_set_category(instr, DR_INSTR_CATEGORY_UNCATEGORIZED);
+    }
 }
 
 /****************************************************************************

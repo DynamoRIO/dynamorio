@@ -561,14 +561,6 @@ extern const instr_info_t xop_extensions[];
 extern const instr_info_t evex_prefix_extensions[][2];
 extern const instr_info_t evex_Wb_extensions[][4];
 
-/* A table that associates opcodes with corresponding categories.
- * When a new opcode is added, it will be automatically assigned the default
- * category of "DR_INSTR_CATEGORY_UNCATEGORIZED".
- * It is important to update the table by assigning appropriate categories
- * to these new opcodes.
- */
-extern const uint category_by_opcode[OP_AFTER_LAST];
-
 /* table that translates opcode enums into pointers into decoding tables */
 extern const instr_info_t *const op_instr[];
 

@@ -144,6 +144,8 @@ Further non-compatibility-affecting changes include:
  - Added type_is_read() API that returns true if a trace type reads from memory.
  - Added instr_num_memory_read_access() and instr_num_memory_write_access() that return
    the number of memory read and write accesses of an instruction respectively.
+ - The #dr_instr_category_t enum underwent changes to support subcategories
+   such as STATE, MOVE, CONVERT, and MATH.
 
 **************************************************
 <hr>
