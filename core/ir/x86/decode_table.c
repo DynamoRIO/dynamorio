@@ -2850,8 +2850,8 @@ const instr_info_t base_extensions[][8] = {
     {OP_test, 0xf60020, DR_INSTR_CATEGORY_OTHER, "test", xx, xx, Eb, Ib, xx, mrm, fW6, END_LIST},
     /* PR 332254: /1 is an alias for /0; we do not add to encoding chain though */
     {OP_test, 0xf60021, DR_INSTR_CATEGORY_OTHER, "test", xx, xx, Eb, Ib, xx, mrm, fW6, END_LIST},
-    {OP_not,  0xf60022, DR_INSTR_CATEGORY_OTHER, "not", Eb, xx, Eb, xx, xx, mrm, x, END_LIST},
-    {OP_neg,  0xf60023, DR_INSTR_CATEGORY_OTHER, "neg", Eb, xx, Eb, xx, xx, mrm, fW6, END_LIST},
+    {OP_not,  0xf60022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "not", Eb, xx, Eb, xx, xx, mrm, x, END_LIST},
+    {OP_neg,  0xf60023, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "neg", Eb, xx, Eb, xx, xx, mrm, fW6, END_LIST},
     {OP_mul,  0xf60024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "mul", ax, xx, Eb, al, xx, mrm, fW6, END_LIST},
     {OP_imul, 0xf60025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "imul", ax, xx, Eb, al, xx, mrm, fW6, tsb[0xaf]},
     {OP_div,  0xf60026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "div", ah, al, Eb, ax, xx, mrm, fW6, END_LIST},
@@ -2862,8 +2862,8 @@ const instr_info_t base_extensions[][8] = {
     {OP_test, 0xf70020, DR_INSTR_CATEGORY_OTHER, "test", xx,  xx, Ev, Iz, xx, mrm, fW6, tex[9][0]},
     /* PR 332254: /1 is an alias for /0; we do not add to encoding chain though */
     {OP_test, 0xf70021, DR_INSTR_CATEGORY_OTHER, "test", xx,  xx, Ev, Iz, xx, mrm, fW6, END_LIST},
-    {OP_not,  0xf70022, DR_INSTR_CATEGORY_OTHER, "not", Ev,  xx, Ev, xx, xx, mrm, x, tex[9][2]},
-    {OP_neg,  0xf70023, DR_INSTR_CATEGORY_OTHER, "neg", Ev,  xx, Ev, xx, xx, mrm, fW6, tex[9][3]},
+    {OP_not,  0xf70022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "not", Ev,  xx, Ev, xx, xx, mrm, x, tex[9][2]},
+    {OP_neg,  0xf70023, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "neg", Ev,  xx, Ev, xx, xx, mrm, fW6, tex[9][3]},
     {OP_mul,  0xf70024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "mul",   eDX, eAX, Ev, eAX, xx, mrm, fW6, tex[9][4]},
     {OP_imul, 0xf70025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "imul",  eDX, eAX, Ev, eAX, xx, mrm, fW6, tex[9][5]},
     {OP_div,  0xf70026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "div",   eDX, eAX, Ev, eDX, eAX, mrm, fW6, tex[9][6]},
