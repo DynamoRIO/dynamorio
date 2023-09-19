@@ -313,7 +313,7 @@ bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
 {
     /* DR_FP_STATE instructions aren't available on AArch64.
-    /* Processor state is saved/restored with loads and stores.
+     * Processor state is saved/restored with loads and stores.
      */
     uint cat = instr_get_category(instr);
     if (!TEST(DR_INSTR_CATEGORY_FP, cat))
