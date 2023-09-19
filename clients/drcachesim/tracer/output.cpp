@@ -754,9 +754,9 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
                     // Check if we went over the edge waiting for enough entries to
                     // write. If we did, we simply write till the last ok-to-split ref.
                     if (mem_ref - pipe_start > ipc_pipe.get_atomic_write_size()) {
-                        // If the following assert triggers, we found too many entries
-                        // without an ok-to-split point.
-                        DR_ASSERT(last_ok_to_split_ref != nullptr);
+                        DR_ASSERT_MSG(
+                            last_ok_to_split_ref != nullptr,
+                            "Found too many entries without an ok-to-split point");
                         pipe_start =
                             atomic_pipe_write(drcontext, pipe_start, last_ok_to_split_ref,
                                               get_local_window(data));
@@ -781,9 +781,8 @@ output_buffer(void *drcontext, per_thread_t *data, byte *buf_base, byte *buf_ptr
             DR_ASSERT(
                 is_ok_to_split_before(instru->get_entry_type(pipe_start + header_size),
                                       instru->get_entry_size(pipe_start + header_size)));
-            // If the following assert triggers, we found too many entries without an
-            // ok-to-split point.
-            DR_ASSERT(last_ok_to_split_ref != nullptr);
+            DR_ASSERT_MSG(last_ok_to_split_ref != nullptr,
+                          "Found too many entries without an ok-to-split point");
             pipe_start = atomic_pipe_write(drcontext, pipe_start, last_ok_to_split_ref,
                                            get_local_window(data));
         }
