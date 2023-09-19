@@ -7599,8 +7599,8 @@ const instr_info_t vex_W_extensions[][2] = {
     {OP_vfmadd231ps,0x6638b818, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "vfmadd231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[64][0]},
     {OP_vfmadd231pd,0x6638b858, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "vfmadd231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[64][2]},
   }, { /* vex_W_ext 3 */
-    {OP_vfmadd132ss,0x66389918, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfmadd132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[65][0]},
-    {OP_vfmadd132sd,0x66389958, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfmadd132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[65][2]},
+    {OP_vfmadd132ss,0x66389918, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfmadd132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[65][0]},
+    {OP_vfmadd132sd,0x66389958, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfmadd132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[65][2]},
   }, { /* vex_W_ext 4 */
     {OP_vfmadd213ss,0x6638a918, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfmadd213ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[66][0]},
     {OP_vfmadd213sd,0x6638a958, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfmadd213sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[66][2]},
@@ -7671,8 +7671,8 @@ const instr_info_t vex_W_extensions[][2] = {
     {OP_vfnmsub231ps,0x6638be18, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "vfnmsub231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[88][0]},
     {OP_vfnmsub231pd,0x6638be58, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "vfnmsub231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[88][2]},
   }, { /* vex_W_ext 27 */
-    {OP_vfnmsub132ss,0x66389f18, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfnmsub132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[89][0]},
-    {OP_vfnmsub132sd,0x66389f58, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfnmsub132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[89][2]},
+    {OP_vfnmsub132ss,0x66389f18, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfnmsub132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[89][0]},
+    {OP_vfnmsub132sd,0x66389f58, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfnmsub132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[89][2]},
   }, { /* vex_W_ext 28 */
     {OP_vfnmsub213ss,0x6638af18, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfnmsub213ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[90][0]},
     {OP_vfnmsub213sd,0x6638af58, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfnmsub213sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[90][2]},
@@ -8290,10 +8290,10 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vfmadd231pd,0x6638b848, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "vfmadd231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[29]},
     {MOD_EXT, 0x6638b858, DR_INSTR_CATEGORY_UNCATEGORIZED, "(mod ext 47)", xx, xx, xx, xx, xx, mrm|evex, x, 47},
   }, { /* evex_W_ext 65 */
-    {OP_vfmadd132ss,0x66389908, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfmadd132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[32]},
-    {OP_vfmadd132ss,0x66389918, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfmadd132ss",Vss,xx,KE1b,Hss,Uss,xop|mrm|evex|er|reqp|ttt1s,x,exop[33]},
-    {OP_vfmadd132sd,0x66389948, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfmadd132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[34]},
-    {OP_vfmadd132sd,0x66389958, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfmadd132sd",Vsd,xx,KE1b,Hsd,Usd,xop|mrm|evex|er|reqp|ttt1s,x,exop[35]},
+    {OP_vfmadd132ss,0x66389908, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfmadd132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[32]},
+    {OP_vfmadd132ss,0x66389918, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfmadd132ss",Vss,xx,KE1b,Hss,Uss,xop|mrm|evex|er|reqp|ttt1s,x,exop[33]},
+    {OP_vfmadd132sd,0x66389948, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfmadd132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[34]},
+    {OP_vfmadd132sd,0x66389958, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfmadd132sd",Vsd,xx,KE1b,Hsd,Usd,xop|mrm|evex|er|reqp|ttt1s,x,exop[35]},
   }, { /* evex_W_ext 66 */
     {OP_vfmadd213ss,0x6638a908, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfmadd213ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[36]},
     {OP_vfmadd213ss,0x6638a918, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfmadd213ss",Vss,xx,KE1b,Hss,Uss,xop|mrm|evex|er|reqp|ttt1s,x,exop[37]},
@@ -8410,10 +8410,10 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vfnmsub231pd,0x6638be48, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "vfnmsub231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[155]},
     {MOD_EXT, 0x6638be58, DR_INSTR_CATEGORY_UNCATEGORIZED, "(mod ext 77)", xx, xx, xx, xx, xx, mrm|evex, x, 77},
   }, { /* evex_W_ext 89 */
-    {OP_vfnmsub132ss,0x66389f08, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfnmsub132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[158]},
-    {OP_vfnmsub132ss,0x66389f18, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfnmsub132ss",Vss,xx,KE1b,Hss,Uss,xop|mrm|evex|er|reqp|ttt1s,x,exop[159]},
-    {OP_vfnmsub132sd,0x66389f48, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfnmsub132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[160]},
-    {OP_vfnmsub132sd,0x66389f58, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_OTHER, "vfnmsub132sd",Vsd,xx,KE1b,Hsd,Usd,xop|mrm|evex|er|reqp|ttt1s,x,exop[161]},
+    {OP_vfnmsub132ss,0x66389f08, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfnmsub132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[158]},
+    {OP_vfnmsub132ss,0x66389f18, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfnmsub132ss",Vss,xx,KE1b,Hss,Uss,xop|mrm|evex|er|reqp|ttt1s,x,exop[159]},
+    {OP_vfnmsub132sd,0x66389f48, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfnmsub132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[160]},
+    {OP_vfnmsub132sd,0x66389f58, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfnmsub132sd",Vsd,xx,KE1b,Hsd,Usd,xop|mrm|evex|er|reqp|ttt1s,x,exop[161]},
   }, { /* evex_W_ext 90 */
     {OP_vfnmsub213ss,0x6638af08, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfnmsub213ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[162]},
     {OP_vfnmsub213ss,0x6638af18, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH, "vfnmsub213ss",Vss,xx,KE1b,Hss,Uss,xop|mrm|evex|er|reqp|ttt1s,x,exop[163]},
