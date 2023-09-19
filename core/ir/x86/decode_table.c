@@ -2278,8 +2278,8 @@ const instr_info_t first_byte[] = {
     {EXTENSION, 0x810000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(group 1b)", Ev, xx, Iz, xx, xx, mrm, x, 1},
     {EXTENSION, 0x820000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(group 1c*)", Ev, xx, Ib, xx, xx, mrm|i64, x, 25}, /* PR 235092: gnu tools (gdb, objdump) think this is a bad opcode but windbg and the hardware disagree */
     {EXTENSION, 0x830000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(group 1c)", Ev, xx, Ib, xx, xx, mrm, x, 2},
-    {OP_test,  0x840000, DR_INSTR_CATEGORY_OTHER, "test", xx, xx, Eb, Gb, xx, mrm, fW6, tex[10][0]},
-    {OP_test,  0x850000, DR_INSTR_CATEGORY_OTHER, "test", xx, xx, Ev, Gv, xx, mrm, fW6, tfb[0x84]},
+    {OP_test,  0x840000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx, Eb, Gb, xx, mrm, fW6, tex[10][0]},
+    {OP_test,  0x850000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx, Ev, Gv, xx, mrm, fW6, tfb[0x84]},
     {OP_xchg,  0x860000, DR_INSTR_CATEGORY_OTHER, "xchg", Eb, Gb, Eb, Gb, xx, mrm, x, END_LIST},
     {OP_xchg,  0x870000, DR_INSTR_CATEGORY_OTHER, "xchg", Ev, Gv, Ev, Gv, xx, mrm, x, tfb[0x86]},
     /* 88 */
@@ -2320,8 +2320,8 @@ const instr_info_t first_byte[] = {
     {REPNE_EXT, 0xa60000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep/ne) cmps)", Xb, xx, Yb, xx, xx, no, (fW6|fRD|fRZ), 0},
     {REPNE_EXT, 0xa70000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep/ne) cmps)", Xv, xx, Yv, xx, xx, no, (fW6|fRD|fRZ), 1},
     /* a8 */
-    {OP_test,  0xa80000, DR_INSTR_CATEGORY_OTHER, "test", xx, xx,  al, Ib, xx, no, fW6, tfb[0x85]},
-    {OP_test,  0xa90000, DR_INSTR_CATEGORY_OTHER, "test", xx, xx, eAX, Iz, xx, no, fW6, tfb[0xa8]},
+    {OP_test,  0xa80000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx,  al, Ib, xx, no, fW6, tfb[0x85]},
+    {OP_test,  0xa90000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx, eAX, Iz, xx, no, fW6, tfb[0xa8]},
     {REP_EXT, 0xaa0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep) stos)", Yb, xx, al, xx, xx, no, fRD, 6},
     {REP_EXT, 0xab0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep) stos)", Yv, xx, eAX, xx, xx, no, fRD, 7},
     {REP_EXT, 0xac0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep) lods)", al, xx, Xb, xx, xx, no, fRD, 8},
@@ -2847,9 +2847,9 @@ const instr_info_t base_extensions[][8] = {
  },
   /* group 3a -- first opcode byte f6 */
   { /* extensions[9] */
-    {OP_test, 0xf60020, DR_INSTR_CATEGORY_OTHER, "test", xx, xx, Eb, Ib, xx, mrm, fW6, END_LIST},
+    {OP_test, 0xf60020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx, Eb, Ib, xx, mrm, fW6, END_LIST},
     /* PR 332254: /1 is an alias for /0; we do not add to encoding chain though */
-    {OP_test, 0xf60021, DR_INSTR_CATEGORY_OTHER, "test", xx, xx, Eb, Ib, xx, mrm, fW6, END_LIST},
+    {OP_test, 0xf60021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx, Eb, Ib, xx, mrm, fW6, END_LIST},
     {OP_not,  0xf60022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "not", Eb, xx, Eb, xx, xx, mrm, x, END_LIST},
     {OP_neg,  0xf60023, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "neg", Eb, xx, Eb, xx, xx, mrm, fW6, END_LIST},
     {OP_mul,  0xf60024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "mul", ax, xx, Eb, al, xx, mrm, fW6, END_LIST},
@@ -2859,9 +2859,9 @@ const instr_info_t base_extensions[][8] = {
  },
   /* group 3b -- first opcode byte f7 */
   { /* extensions[10] */
-    {OP_test, 0xf70020, DR_INSTR_CATEGORY_OTHER, "test", xx,  xx, Ev, Iz, xx, mrm, fW6, tex[9][0]},
+    {OP_test, 0xf70020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx,  xx, Ev, Iz, xx, mrm, fW6, tex[9][0]},
     /* PR 332254: /1 is an alias for /0; we do not add to encoding chain though */
-    {OP_test, 0xf70021, DR_INSTR_CATEGORY_OTHER, "test", xx,  xx, Ev, Iz, xx, mrm, fW6, END_LIST},
+    {OP_test, 0xf70021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx,  xx, Ev, Iz, xx, mrm, fW6, END_LIST},
     {OP_not,  0xf70022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "not", Ev,  xx, Ev, xx, xx, mrm, x, tex[9][2]},
     {OP_neg,  0xf70023, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "neg", Ev,  xx, Ev, xx, xx, mrm, fW6, tex[9][3]},
     {OP_mul,  0xf70024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "mul",   eDX, eAX, Ev, eAX, xx, mrm, fW6, tex[9][4]},
