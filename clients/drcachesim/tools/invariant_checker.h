@@ -147,6 +147,7 @@ protected:
             decoding_info_t decoding;
         };
         std::unordered_map<app_pc, decoding_info_t> decode_cache_;
+        // On UNIX generally last_instr_in_cur_context_ should be used instead.
         instr_info_t prev_instr_ = {};
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
