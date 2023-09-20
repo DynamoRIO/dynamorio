@@ -627,8 +627,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 "Branch target not immediately after branch");
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
-        // by markers.  Checks are relaxed if a kernel event occurred so prev_instr_
-        // is sufficient for now.
+        // by markers.
         const std::string non_explicit_flow_violation_msg = check_for_pc_discontinuity(
             shard, shard->prev_instr_, cur_instr_info, expect_encoding,
             /*at_kernel_event=*/false);
