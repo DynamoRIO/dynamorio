@@ -440,7 +440,7 @@ check_sane_control_flow()
         }
     }
     // Correct test: Branch before signal. This is correct only because the branch doesn't
-    // have an encoding with it.
+    // have an encoding with it. This case will only occur in legacy or stripped traces.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, /*pc=*/1, /*size=*/1),
