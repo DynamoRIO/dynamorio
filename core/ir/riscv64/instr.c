@@ -48,16 +48,58 @@ instr_get_isa_mode(instr_t *instr)
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {
-    /* FIXME i#3544: Compressed Instructions ISA extension has a shorter instruction
-     * length. */
-    return RISCV64_INSTR_SIZE;
+    int opcode = instr_get_opcode(instr);
+    switch (opcode) {
+    case OP_LABEL: return 0;
+    case OP_c_flwsp:
+    case OP_c_fswsp:
+    case OP_c_flw:
+    case OP_c_fsw:
+    case OP_c_jal:
+    case OP_c_ldsp:
+    case OP_c_sdsp:
+    case OP_c_ld:
+    case OP_c_sd:
+    case OP_c_addiw:
+    case OP_c_addw:
+    case OP_c_subw:
+    case OP_c_lwsp:
+    case OP_c_fldsp:
+    case OP_c_swsp:
+    case OP_c_fsdsp:
+    case OP_c_lw:
+    case OP_c_fld:
+    case OP_c_sw:
+    case OP_c_fsd:
+    case OP_c_j:
+    case OP_c_jr:
+    case OP_c_jalr:
+    case OP_c_beqz:
+    case OP_c_bnez:
+    case OP_c_li:
+    case OP_c_lui:
+    case OP_c_addi:
+    case OP_c_addi16sp:
+    case OP_c_addi4spn:
+    case OP_c_slli:
+    case OP_c_srli:
+    case OP_c_srai:
+    case OP_c_andi:
+    case OP_c_mv:
+    case OP_c_add:
+    case OP_c_and:
+    case OP_c_or:
+    case OP_c_xor:
+    case OP_c_sub:
+    case OP_c_nop:
+    case OP_c_ebreak: return RISCV64_INSTR_COMPRESSED_SIZE;
+    default: return RISCV64_INSTR_SIZE;
+    }
 }
 
 bool
 opc_is_not_a_real_memory_load(int opc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return opc == OP_auipc;
 }
 
@@ -120,46 +162,40 @@ bool
 instr_is_call_arch(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_jal || opc == OP_jalr || opc == OP_c_j || opc == OP_c_jal ||
-            opc == OP_c_jr || opc == OP_c_jalr);
+    return ((opc == OP_jal || opc == OP_jalr || opc == OP_c_jal || opc == OP_c_jalr) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) != DR_REG_ZERO);
 }
 
 bool
 instr_is_call_direct(instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
     int opc = instr_get_opcode(instr);
-    return (opc == OP_jal);
+    return ((opc == OP_jal || opc == OP_c_jal) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) != DR_REG_ZERO);
 }
 
 bool
 instr_is_near_call_direct(instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
-    int opc = instr_get_opcode(instr);
-    return (opc == OP_jal);
+    return instr_is_call_direct(instr);
 }
 
 bool
 instr_is_call_indirect(instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
     int opc = instr_get_opcode(instr);
-    return (opc == OP_jalr);
+    return ((opc == OP_jalr || opc == OP_c_jalr) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) != DR_REG_ZERO);
 }
 
 bool
 instr_is_return(instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
     int opc = instr_get_opcode(instr);
-    if (instr_num_srcs(instr) < 1 || instr_num_dsts(instr) < 1)
-        return false;
-    opnd_t rd = instr_get_dst(instr, 0);
-    opnd_t rs = instr_get_src(instr, 0);
-    return (opc == OP_jalr && opnd_get_reg(rd) == DR_REG_X0 &&
-            opnd_is_memory_reference(rs) && opnd_get_base(rs) == DR_REG_X1 &&
-            opnd_get_disp(rs) == 0);
+    return ((opc == OP_c_jr || opc == OP_jalr) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_X0 &&
+            opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_RA &&
+            opnd_get_immed_int(instr_get_src(instr, 1)) == 0);
 }
 
 bool
@@ -173,20 +209,13 @@ instr_is_cbr_arch(instr_t *instr)
 bool
 instr_is_mbr_arch(instr_t *instr)
 {
-    int opc = instr->opcode; /* caller ensures opcode is valid */
-    switch (opc) {
-    case OP_jalr:
-    case OP_c_jalr:
-    case OP_c_jr: return true;
-    default: return false;
-    }
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_jalr || opc == OP_c_jr || opc == OP_c_jalr);
 }
 
 bool
 instr_is_far_cti(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
@@ -194,7 +223,8 @@ bool
 instr_is_ubr_arch(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return opc == OP_jal || opc == OP_jalr;
+    return ((opc == OP_jal || opc == OP_c_j) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ZERO);
 }
 
 bool
@@ -206,8 +236,9 @@ instr_is_near_ubr(instr_t *instr)
 bool
 instr_is_cti_short(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* The branch with smallest reach is direct branch, with range +/- 4 KiB.
+     * We have restricted MAX_FRAGMENT_SIZE on RISCV64 accordingly.
+     */
     return false;
 }
 
@@ -226,15 +257,13 @@ instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
 bool
 instr_is_interrupt(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_ecall);
 }
 
 bool
 instr_is_syscall(instr_t *instr)
 {
-    /* FIXME i#3544: Check if valid */
     int opc = instr_get_opcode(instr);
     return (opc == OP_ecall);
 }
@@ -242,40 +271,46 @@ instr_is_syscall(instr_t *instr)
 bool
 instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    uint opc = instr_get_opcode(instr);
+
+    if (opc == OP_addi || opc == OP_addiw || opc == OP_c_addi || opc == OP_c_addiw ||
+        opc == OP_c_addi4spn || opc == OP_c_addi16sp) {
+        opnd_t op1 = instr_get_src(instr, 0);
+        opnd_t op2 = instr_get_src(instr, 1);
+        if (opnd_is_reg(op1) && opnd_get_reg(op1) == DR_REG_X0) {
+            *value = opnd_get_immed_int(op2);
+            return true;
+        }
+    }
     return false;
 }
 
 bool
 instr_is_prefetch(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    switch (instr_get_opcode(instr)) {
+    case OP_prefetch_i:
+    case OP_prefetch_r:
+    case OP_prefetch_w: return true;
+    default: return false;
+    }
 }
 
 bool
 instr_is_string_op(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 instr_is_rep_string_op(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
 bool
 instr_saves_float_pc(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 
@@ -334,8 +369,6 @@ instr_predicate_writes_eflags(dr_pred_type_t pred)
 bool
 instr_predicate_is_cond(dr_pred_type_t pred)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
 

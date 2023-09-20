@@ -486,7 +486,9 @@ decode_u_immpc_opnd(dcontext_t *dc, uint32_t inst, int op_sz, byte *pc, byte *or
                     int idx, instr_t *out)
 {
     int32_t uimm = GET_FIELD(inst, 31, 12);
-    opnd_t opnd = opnd_create_pc(orig_pc + (uimm << 12));
+    /* OPSZ_0 is used here to indicate that this is not a real memory access instruction.
+     */
+    opnd_t opnd = opnd_create_rel_addr(orig_pc + (uimm << 12), OPSZ_0);
     instr_set_src(out, idx, opnd);
     return true;
 }
@@ -1937,8 +1939,8 @@ encode_u_immpc_opnd(instr_t *instr, byte *pc, int idx, uint32_t *out, decode_inf
 {
     opnd_t opnd = instr_get_src(instr, idx);
     uint32_t imm;
-    if (opnd.kind == PC_kind)
-        imm = opnd_get_pc(opnd) - pc;
+    if (opnd.kind == REL_ADDR_kind)
+        imm = (app_pc)opnd_get_addr(opnd) - pc;
     else if (opnd.kind == INSTR_kind)
         imm = (byte *)opnd_get_instr(opnd)->offset - (byte *)instr->offset;
     else
