@@ -1068,7 +1068,7 @@ invariant_checker_t::print_results()
 std::string
 invariant_checker_t::check_for_pc_discontinuity(
     per_shard_t *shard, const per_shard_t::instr_info_t &prev_instr_info,
-    const per_shard_t::instr_info_t &cur_instr_info, bool expect_encoding,
+    const per_shard_t::instr_info_t &cur_memref_info, bool expect_encoding,
     bool at_kernel_event)
 {
     const memref_t prev_instr = prev_instr_info.memref;
@@ -1076,9 +1076,9 @@ invariant_checker_t::check_for_pc_discontinuity(
     bool have_branch_target = false;
     addr_t branch_target = 0;
     const addr_t prev_instr_trace_pc = prev_instr.instr.addr;
-    // cur_instr_info is a marker (not an instruction) if at_kernel_event is true.
-    const addr_t cur_pc = at_kernel_event ? cur_instr_info.memref.marker.marker_value
-                                          : cur_instr_info.memref.instr.addr;
+    // cur_memref_info is a marker (not an instruction) if at_kernel_event is true.
+    const addr_t cur_pc = at_kernel_event ? cur_memref_info.memref.marker.marker_value
+                                          : cur_memref_info.memref.instr.addr;
 
     if (prev_instr_trace_pc == 0 /*first*/) {
         return "";
@@ -1109,7 +1109,7 @@ invariant_checker_t::check_for_pc_discontinuity(
         (fall_through_allowed && prev_instr_trace_pc + prev_instr.instr.size == cur_pc) ||
         // String loop.
         (prev_instr_trace_pc == cur_pc &&
-         (cur_instr_info.memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
+         (cur_memref_info.memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
           // Online incorrectly marks the 1st string instr across a thread
           // switch as fetched.  We no longer emit timestamps in pipe splits so
           // we can't use saw_timestamp_but_no_instr_.  We can't just check for
@@ -1118,7 +1118,7 @@ invariant_checker_t::check_for_pc_discontinuity(
           // TODO i#4915, #4948: Eliminate non-fetched and remove the
           // underlying instrs altogether, which would fix this for us.
           (!knob_offline_ &&
-           cur_instr_info.memref.instr.size == prev_instr.instr.size))) ||
+           cur_memref_info.memref.instr.size == prev_instr.instr.size))) ||
         // Same PC is allowed for a kernel interruption which may restart the
         // same instruction.
         (prev_instr_trace_pc == cur_pc && at_kernel_event) ||
@@ -1148,9 +1148,9 @@ invariant_checker_t::check_for_pc_discontinuity(
             if (have_branch_target && branch_target != cur_pc) {
                 error_msg = "Branch does not go to the correct target";
             }
-        } else if (cur_instr_info.decoding.has_valid_decoding &&
+        } else if (cur_memref_info.decoding.has_valid_decoding &&
                    prev_instr_info.decoding.has_valid_decoding &&
-                   cur_instr_info.decoding.is_syscall && cur_pc == prev_instr_trace_pc &&
+                   cur_memref_info.decoding.is_syscall && cur_pc == prev_instr_trace_pc &&
                    prev_instr_info.decoding.is_syscall) {
             error_msg = "Duplicate syscall instrs with the same PC";
         } else if (prev_instr_info.decoding.has_valid_decoding &&
