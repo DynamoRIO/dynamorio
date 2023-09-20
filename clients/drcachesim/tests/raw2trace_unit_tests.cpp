@@ -905,10 +905,6 @@ test_chunk_encodings(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // There should be just one encoding, before the branch target (i#6303).
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#ifdef X86_32
-        // An extra encoding entry is needed.
-        check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-#endif
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1, offs_ret) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
