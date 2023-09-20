@@ -348,9 +348,9 @@ check_sane_control_flow()
     // Kernel-mediated.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
+            gen_instr(TID, /*pc=*/1, /*size=*/1),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(TID, 101),
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
         };
         if (!run_checker(memrefs, false))
             return false;
@@ -360,7 +360,7 @@ check_sane_control_flow()
     // marker.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
+            gen_instr(TID, /*pc=*/1, /*size=*/1),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
         };
         if (!run_checker(
@@ -373,13 +373,15 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Correct test: Transition from instr to kernel_xfer event marker. goes to the next
+    // Correct test: Transition from instr to kernel_xfer event marker, goes to the next
     // instruction.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),   gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(TID, 101), gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(TID, 2),
+            gen_instr(TID, /*pc=*/1, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, /*pc=*/2, /*size=*/1),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -398,9 +400,11 @@ check_sane_control_flow()
     // Correct test: Pre-signal instr continues after signal.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 2),   gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(TID, 101), gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
-            gen_instr(TID, 2),
+            gen_instr(TID, /*pc=*/2, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, /*pc=*/2, /*size=*/1),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -410,12 +414,12 @@ check_sane_control_flow()
     // of type TRACE_TYPE_INSTR_SYSENTER.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 5),
-            gen_instr_type(TRACE_TYPE_INSTR_SYSENTER, TID, 6),
+            gen_instr(TID, /*pc=*/5, /*size=*/1),
+            gen_instr_type(TRACE_TYPE_INSTR_SYSENTER, TID, /*pc=*/6, /*size=*/1),
             gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 2),
             gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(TID, 101),
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -424,7 +428,7 @@ check_sane_control_flow()
     // Correct test: RSEQ abort in last signal context.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
+            gen_instr(TID, /*pc=*/1, /*size=*/1),
             // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
             gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 40),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 40),
@@ -439,7 +443,7 @@ check_sane_control_flow()
     // have an encoding with it.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
+            gen_instr(TID, /*pc=*/1, /*size=*/1),
             gen_branch(TID, 2),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 50),
         };
@@ -450,17 +454,17 @@ check_sane_control_flow()
     // Correct test: back-to-back signals without any intervening instruction.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 101),
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
             // First signal.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
-            gen_instr(TID, 201),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             // Second signal.
             // The Marker value for this signal needs to be 102.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
-            gen_instr(TID, 201),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
-            gen_instr(TID, 102),
+            gen_instr(TID, /*pc=*/102, /*size=*/1),
         };
         if (!run_checker(memrefs, false)) {
             return false;
@@ -469,16 +473,16 @@ check_sane_control_flow()
     // Incorrect test: back-to-back signals without any intervening instruction.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 101),
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
             // First signal.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
-            gen_instr(TID, 201),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             // Second signal.
             // There will be a PC discontinuity here since the marker value is 500, and
             // the previous PC is 101.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 500),
-            gen_instr(TID, 201),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
         };
         if (!run_checker(
