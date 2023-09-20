@@ -222,11 +222,14 @@ frag_flags_from_isa_mode(dr_isa_mode_t mode)
 }
 
 /* to save space size field is a ushort => maximum fragment size */
-#ifndef AARCH64
-enum { MAX_FRAGMENT_SIZE = USHRT_MAX };
-#else
+#ifdef AARCH64
 /* On AArch64, TBNZ/TBZ has a range of +/- 32 KiB. */
 enum { MAX_FRAGMENT_SIZE = 0x8000 };
+#elif defined(RISCV64)
+/* On RISCV64, direct branch has a range of +/- 4 KiB. */
+enum { MAX_FRAGMENT_SIZE = 0x1000 };
+#else
+enum { MAX_FRAGMENT_SIZE = USHRT_MAX };
 #endif
 
 /* fragment structure used for basic blocks and traces
