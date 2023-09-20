@@ -507,14 +507,15 @@ check_sane_control_flow()
         instrlist_append(ilist, nop);
         instrlist_append(ilist, move);
         static constexpr addr_t BASE_ADDR = 0x123450;
+        static constexpr uintptr_t WILL_BE_REPLACED = 0;
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
               nullptr },
             { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
               nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, TID), cbr_to_move },
-            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), move },
-            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 0), nop },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, WILL_BE_REPLACED), move },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, WILL_BE_REPLACED), nop },
             { gen_instr(TID), move },
         };
         std::vector<memref_t> memrefs =
@@ -537,14 +538,15 @@ check_sane_control_flow()
         instrlist_append(ilist, nop);
         instrlist_append(ilist, move);
         static constexpr addr_t BASE_ADDR = 0x123450;
+        static constexpr uintptr_t WILL_BE_REPLACED = 0;
         std::vector<memref_with_IR_t> memref_setup = {
             { gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
               nullptr },
             { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
               nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, TID), cbr_to_move },
-            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 0), move },
-            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 0), nop },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, WILL_BE_REPLACED), move },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, WILL_BE_REPLACED), nop },
             { gen_instr(TID), nop },
         };
         std::vector<memref_t> memrefs =
