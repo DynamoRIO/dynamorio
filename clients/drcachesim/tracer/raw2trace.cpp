@@ -3088,7 +3088,6 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                     tdata->error = "Failed to write to output file";
                     return false;
                 }
-                // NOCHECK
                 if (!insert_post_chunk_encodings(tdata, it,
                                                  *(decode_pcs + instr_ordinal)))
                     return false;

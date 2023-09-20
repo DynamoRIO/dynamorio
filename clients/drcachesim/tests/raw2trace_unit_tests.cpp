@@ -887,7 +887,7 @@ test_chunk_encodings(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         // Block 4.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
-        check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR, -1, offs_nop_start) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
