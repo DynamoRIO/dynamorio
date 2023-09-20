@@ -508,9 +508,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
-        per_shard_t::instr_info_t cur_instr_info = {};
-        const bool expect_encoding =
-            TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         // We'd prefer to report this error at the syscall instr but it is easier
         // to wait until here:
         report_if_false(shard,
@@ -518,6 +515,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             !shard->expect_syscall_marker_,
                         "Syscall marker missing after syscall instruction");
 
+        per_shard_t::instr_info_t cur_instr_info = {};
+        const bool expect_encoding =
+            TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         if (expect_encoding) {
             const app_pc trace_pc = reinterpret_cast<app_pc>(memref.instr.addr);
             // Clear cache entry for new encodings.
