@@ -532,8 +532,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 instr_noalloc_init(drcontext_, &noalloc);
                 instr_t *noalloc_instr = instr_from_noalloc(&noalloc);
                 app_pc next_pc = decode_from_copy(
-                    drcontext_, const_cast<app_pc>(memref.instr.encoding),
-                    reinterpret_cast<app_pc>(memref.instr.addr), noalloc_instr);
+                    drcontext_, const_cast<app_pc>(memref.instr.encoding), trace_pc,
+                    noalloc_instr);
                 if (next_pc == nullptr) {
                     noalloc_instr = nullptr;
                 }
