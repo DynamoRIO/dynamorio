@@ -140,15 +140,15 @@ protected:
             bool is_predicated = false;
             uint num_memory_read_access = 0;
             uint num_memory_write_access = 0;
-            addr_t branch_target;
+            addr_t branch_target = 0;
         };
         struct instr_info_t {
-            memref_t memref;
-            decoding_info_t decoding;
+            memref_t memref = {};
+            decoding_info_t decoding = {};
         };
         std::unordered_map<app_pc, decoding_info_t> decode_cache_;
         // On UNIX generally last_instr_in_cur_context_ should be used instead.
-        instr_info_t prev_instr_ = {};
+        instr_info_t prev_instr_;
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
         struct signal_context {
@@ -170,7 +170,7 @@ protected:
 
         // For the outer-most scope, like other nested signal scopes, we start with an
         // empty memref_t to denote absence of any pre-signal instr.
-        instr_info_t last_instr_in_cur_context_ = {};
+        instr_info_t last_instr_in_cur_context_;
 
         bool saw_rseq_abort_ = false;
         // These are only available via annotations in signal_invariants.cpp.

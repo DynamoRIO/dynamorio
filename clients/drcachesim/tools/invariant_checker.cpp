@@ -515,7 +515,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                             !shard->expect_syscall_marker_,
                         "Syscall marker missing after syscall instruction");
 
-        per_shard_t::instr_info_t cur_instr_info = {};
+        per_shard_t::instr_info_t cur_instr_info;
         const bool expect_encoding =
             TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_);
         if (expect_encoding) {
@@ -533,7 +533,6 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 instr_t *noalloc_instr = instr_from_noalloc(&noalloc);
                 decode_from_copy(drcontext_, const_cast<app_pc>(memref.instr.encoding),
                                  trace_pc, noalloc_instr);
-
                 // Add decoding attributes to cur_instr_info.
                 if (noalloc_instr != nullptr) {
                     cur_instr_info.decoding.has_valid_decoding = true;
@@ -786,7 +785,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     // XXX i#3937: Online traces do not place signal markers properly,
                     // so we can't precisely check for continuity there.
                     knob_offline_) {
-                    per_shard_t::instr_info_t instr_info {};
+                    per_shard_t::instr_info_t instr_info;
                     instr_info.memref = memref;
                     // Ensure no discontinuity between a prior instr and the interrupted
                     // PC, for non-rseq signals where we have the interrupted PC.
