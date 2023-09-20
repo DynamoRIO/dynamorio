@@ -1075,7 +1075,8 @@ invariant_checker_t::check_for_pc_discontinuity(
     std::string error_msg = "";
     bool have_branch_target = false;
     addr_t branch_target = 0;
-    addr_t prev_instr_trace_pc = prev_instr.instr.addr;
+    const addr_t prev_instr_trace_pc = prev_instr.instr.addr;
+    // cur_instr_info is a marker (not an instruction) if at_kernel_event is true.
     const addr_t cur_pc = at_kernel_event ? cur_instr_info.memref.marker.marker_value
                                           : cur_instr_info.memref.instr.addr;
 
