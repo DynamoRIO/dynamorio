@@ -653,29 +653,9 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 // resumption point.
                 shard->last_signal_context_.pre_signal_instr.memref.instr.type ==
                     TRACE_TYPE_INSTR_SYSENTER;
-            bool pre_signal_flow_continuity =
-                // Skip pre-signal instr check if there was no such instr. May
-                // happen for nested signals without any intervening instr, and
-                // if the signal arrived before the first instr in the trace.
-                shard->last_signal_context_.pre_signal_instr.memref.instr.addr == 0 ||
-                // Skip pre_signal_instr_ check for signals that caused an rseq
-                // abort. In this case, control is transferred directly to the abort
-                // handler, verified using last_signal_context_.xfer_int_pc above.
-                shard->last_signal_context_.xfer_aborted_rseq ||
-                // Pre-signal instr continued after signal.
-                memref.instr.addr ==
-                    shard->last_signal_context_.pre_signal_instr.memref.instr.addr ||
-                // Asynch will go to the subsequent instr.
-                memref.instr.addr ==
-                    shard->last_signal_context_.pre_signal_instr.memref.instr.addr +
-                        shard->last_signal_context_.pre_signal_instr.memref.instr.size ||
-                type_is_instr_branch(
-                    shard->last_signal_context_.pre_signal_instr.memref.instr.type) ||
-                shard->last_signal_context_.pre_signal_instr.memref.instr.type ==
-                    TRACE_TYPE_INSTR_SYSENTER;
             report_if_false(
                 shard,
-                (kernel_event_marker_equality && pre_signal_flow_continuity) ||
+                (kernel_event_marker_equality) ||
                     // Nested signal.  XXX: This only works for our annotated test
                     // signal_invariants where we know shard->app_handler_pc_.
                     memref.instr.addr == shard->app_handler_pc_ ||
