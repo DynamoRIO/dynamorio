@@ -515,6 +515,8 @@ check_sane_control_flow()
               nullptr },
             { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, TID), cbr_to_move },
             { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, WILL_BE_REPLACED), move },
+            /* TODO i#6316: The nop PC is incorrect. We need to add a check for equality
+               beteen the KERNEL_XFER marker and the prev instr fall-through. */
             { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, WILL_BE_REPLACED), nop },
             { gen_instr(TID), move },
         };
