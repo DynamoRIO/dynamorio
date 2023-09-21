@@ -780,7 +780,7 @@ test_chunk_encodings(void *drcontext)
     instr_t *jmp_move2 = XINST_CREATE_jump(drcontext, opnd_create_instr(move2));
     instr_t *jmp_jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(jmp_move2));
     instr_t *nop_start = XINST_CREATE_nop(drcontext);
-    instr_t *jcc =
+    instr_t *jcc_move1 =
         XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(move1));
     instr_t *ret = XINST_CREATE_return(drcontext);
     instrlist_append(ilist, nop);
@@ -796,7 +796,7 @@ test_chunk_encodings(void *drcontext)
     instrlist_append(ilist, XINST_CREATE_nop(drcontext));
     instrlist_append(ilist, XINST_CREATE_nop(drcontext));
     // i#6303 needs a direct branch before an indirect branch.
-    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, jcc_move1);
     // We should have a chunk boundary here.
     instrlist_append(ilist, ret);
 
@@ -806,8 +806,8 @@ test_chunk_encodings(void *drcontext)
     size_t offs_jmp_move2 = offs_jmp_jmp + instr_length(drcontext, jmp_jmp);
     size_t offs_move2 = offs_jmp_move2 + instr_length(drcontext, jmp_move2);
     size_t offs_nop_start = offs_move2 + instr_length(drcontext, move2);
-    size_t offs_jcc = offs_nop_start + 3 * instr_length(drcontext, nop_start);
-    size_t offs_ret = offs_jcc + instr_length(drcontext, jcc);
+    size_t offs_jcc_move1 = offs_nop_start + 3 * instr_length(drcontext, nop_start);
+    size_t offs_ret = offs_jcc_move1 + instr_length(drcontext, jcc_move1);
 
     // Now we synthesize our raw trace itself, including a valid header sequence.
     std::vector<offline_entry_t> raw;
@@ -827,7 +827,10 @@ test_chunk_encodings(void *drcontext)
     // Add a final chunk boundary right between a branch;ret pair.
     raw.push_back(make_block(offs_nop_start, 4));
     raw.push_back(make_block(offs_ret, 1));
-    // We need the target of the ret for our marker.  We re-use move2.
+    // Test that we don't get another encoding for a 2nd instance of the ret
+    // (yes, nonsensical having the ret target itself: that's ok).
+    raw.push_back(make_block(offs_ret, 1));
+    // Re-use move2 for the target of the 2nd ret to it isn't truncated.
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
@@ -892,19 +895,22 @@ test_chunk_encodings(void *drcontext)
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR, -1) &&
-        // The jcc instr.
+        // The jcc_move1 instr.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #ifdef X86_32
         // An extra encoding entry is needed.
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
 #endif
-        check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_UNTAKEN_JUMP, -1, offs_jcc_move1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CHUNK_FOOTER) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_RECORD_ORDINAL) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_TIMESTAMP) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_CPU_ID) &&
         // There should be just one encoding, before the branch target (i#6303).
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
+        check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
+        check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1, offs_ret) &&
+        // There should be no encoding before the 2nd instance.
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_BRANCH_TARGET) &&
         check_entry(entries, idx, TRACE_TYPE_INSTR_RETURN, -1, offs_ret) &&
         check_entry(entries, idx, TRACE_TYPE_ENCODING, -1) &&
