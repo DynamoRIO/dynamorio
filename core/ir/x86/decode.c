@@ -2443,8 +2443,6 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
 static inline void
 decode_category(instr_t *instr)
 {
-decode_category(instr_t *instr)
-{
     if (instr != NULL) {
         if (op_instr[instr->opcode] != NULL) {
             uint default_category = op_instr[instr->opcode]->category;
@@ -2459,7 +2457,6 @@ decode_category(instr_t *instr)
             instr_set_category(instr, DR_INSTR_CATEGORY_UNCATEGORIZED);
         }
     }
-}
 }
 
 /****************************************************************************
