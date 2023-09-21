@@ -2438,7 +2438,7 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
 
 /* TODO i#6238: Not all opcodes have been reviewed.
  * In case an opcode has not been reviewed,
- * the default category assigned to it is DR_INSTR_CATEGORY_OTHER.
+ * the default category assigned to it is DR_INSTR_CATEGORY_UNCATEGORIZED.
  */
 static inline void
 decode_category(instr_t *instr)

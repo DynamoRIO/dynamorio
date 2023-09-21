@@ -6190,59 +6190,59 @@ const instr_info_t e_vex_extensions[][3] = {
     {OP_vpermilpd, 0x66380d18, DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MOVE | DR_INSTR_CATEGORY_SIMD, "vpermilpd", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tevexwb[230][2]},
     {EVEX_Wb_EXT, 0x66380d48, DR_INSTR_CATEGORY_UNCATEGORIZED, "(evex_Wb ext 231)", xx, xx, xx, xx, xx, mrm|evex, x, 231},
   }, { /* e_vex ext 79 */
-    {OP_seto,    0x0f9010, DR_INSTR_CATEGORY_OTHER,             "seto", Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
+    {OP_seto,    0x0f9010, DR_INSTR_CATEGORY_UNCATEGORIZED,             "seto", Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
     {PREFIX_EXT, 0x0f9010, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 144)", xx, xx, xx, xx, xx, mrm,   x, 144},
     {INVALID, 0x0f9010, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 80 */
-    {OP_setno,   0x0f9110, DR_INSTR_CATEGORY_OTHER,            "setno", Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
+    {OP_setno,   0x0f9110, DR_INSTR_CATEGORY_UNCATEGORIZED,            "setno", Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
     {PREFIX_EXT, 0x0f9110, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 145)", xx, xx, xx, xx, xx, mrm,   x, 145},
     {INVALID, 0x0f9110, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 81 */
-    {OP_setb,    0x0f9210, DR_INSTR_CATEGORY_OTHER,             "setb", Eb, xx, xx, xx, xx, mrm, fRC, END_LIST},
+    {OP_setb,    0x0f9210, DR_INSTR_CATEGORY_UNCATEGORIZED,             "setb", Eb, xx, xx, xx, xx, mrm, fRC, END_LIST},
     {PREFIX_EXT, 0x0f9210, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 146)", xx, xx, xx, xx, xx, mrm,   x, 146},
     {INVALID, 0x0f9210, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 82 */
-    {OP_setnb,   0x0f9310, DR_INSTR_CATEGORY_OTHER,            "setnb", Eb, xx, xx, xx, xx, mrm, fRC, END_LIST},
+    {OP_setnb,   0x0f9310, DR_INSTR_CATEGORY_UNCATEGORIZED,            "setnb", Eb, xx, xx, xx, xx, mrm, fRC, END_LIST},
     {PREFIX_EXT, 0x0f9310, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 147)", xx, xx, xx, xx, xx, mrm,   x, 147},
     {INVALID, 0x0f9310, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 83 */
-    {OP_cmovno,  0x0f4110, DR_INSTR_CATEGORY_OTHER,           "cmovno", Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
+    {OP_cmovno,  0x0f4110, DR_INSTR_CATEGORY_UNCATEGORIZED,           "cmovno", Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
     {PREFIX_EXT, 0x0f4110, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 148)", xx, xx, xx, xx, xx, mrm,         x, 148},
     {INVALID, 0x0f4110, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 84 */
-    {OP_cmovb,   0x0f4210, DR_INSTR_CATEGORY_OTHER,            "cmovb", Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
+    {OP_cmovb,   0x0f4210, DR_INSTR_CATEGORY_UNCATEGORIZED,            "cmovb", Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
     {PREFIX_EXT, 0x0f4210, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 149)", xx, xx, xx, xx, xx, mrm,          x, 149},
     {INVALID, 0x0f4210, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 85 */
-    {OP_cmovnp,  0x0f4b10, DR_INSTR_CATEGORY_OTHER,           "cmovnp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
+    {OP_cmovnp,  0x0f4b10, DR_INSTR_CATEGORY_UNCATEGORIZED,           "cmovnp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
     {PREFIX_EXT, 0x0f4b10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 150)", xx, xx, xx, xx, xx, mrm,          x, 150},
     {INVALID, 0x0f4b10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 86 */
-    {OP_cmovz,   0x0f4410, DR_INSTR_CATEGORY_OTHER,            "cmovz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
+    {OP_cmovz,   0x0f4410, DR_INSTR_CATEGORY_UNCATEGORIZED,            "cmovz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
     {PREFIX_EXT, 0x0f4410, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 151)", xx, xx, xx, xx, xx, mrm,          x, 151},
     {INVALID, 0x0f4410, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 87 */
-    {OP_cmovnz,  0x0f4510, DR_INSTR_CATEGORY_OTHER,           "cmovnz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
+    {OP_cmovnz,  0x0f4510, DR_INSTR_CATEGORY_UNCATEGORIZED,           "cmovnz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
     {PREFIX_EXT, 0x0f4510, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 152)", xx, xx, xx, xx, xx, mrm,          x, 152},
     {INVALID, 0x0f4510, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 88 */
-    {OP_cmovbe,  0x0f4610, DR_INSTR_CATEGORY_OTHER,           "cmovbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
+    {OP_cmovbe,  0x0f4610, DR_INSTR_CATEGORY_UNCATEGORIZED,           "cmovbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
     {PREFIX_EXT, 0x0f4610, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 153)", xx, xx, xx, xx, xx, mrm,                x, 153},
     {INVALID, 0x0f4610, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 89 */
-    {OP_cmovnbe, 0x0f4710, DR_INSTR_CATEGORY_OTHER,          "cmovnbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
+    {OP_cmovnbe, 0x0f4710, DR_INSTR_CATEGORY_UNCATEGORIZED,          "cmovnbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
     {PREFIX_EXT, 0x0f4710, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 154)", xx, xx, xx, xx, xx, mrm,                x, 154},
     {INVALID, 0x0f4710, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 90 */
-    {OP_cmovp,   0x0f4a10, DR_INSTR_CATEGORY_OTHER,            "cmovp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
+    {OP_cmovp,   0x0f4a10, DR_INSTR_CATEGORY_UNCATEGORIZED,            "cmovp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
     {PREFIX_EXT, 0x0f4a10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 155)", xx, xx, xx, xx, xx, mrm,          x, 155},
     {INVALID, 0x0f4a10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 91 */
-    {OP_sets,    0x0f9810, DR_INSTR_CATEGORY_OTHER,             "sets", Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
+    {OP_sets,    0x0f9810, DR_INSTR_CATEGORY_UNCATEGORIZED,             "sets", Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
     {PREFIX_EXT, 0x0f9810, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 156)", xx, xx, xx, xx, xx, mrm,    x, 156},
     {INVALID, 0x0f9810, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 92 */
-    {OP_setns,   0x0f9910, DR_INSTR_CATEGORY_OTHER,            "setns", Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
+    {OP_setns,   0x0f9910, DR_INSTR_CATEGORY_UNCATEGORIZED,            "setns", Eb, xx, xx, xx, xx, mrm, fRS, END_LIST},
     {PREFIX_EXT, 0x0f9910, DR_INSTR_CATEGORY_UNCATEGORIZED, "(prefix ext 157)", xx, xx, xx, xx, xx, mrm,   x, 157},
     {INVALID, 0x0f9910, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 93 */
