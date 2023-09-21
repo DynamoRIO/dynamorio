@@ -155,13 +155,12 @@ test_noalloc(void)
      */
 }
 
-#define CHECK_CATEGORY(dcontext, instr, pc, createopc, category, ...) \
-    instr = XINST_CREATE_##createopc(dcontext, ##__VA_ARGS__);        \
-    instr_encode(dcontext, instr, pc);                                \
-    instr_reset(dcontext, instr);                                     \
-    instr_set_operands_valid(instr, true);                            \
-    decode(dcontext, pc, instr);                                      \
-    ASSERT(instr_get_category(instr) == category);                    \
+#define CHECK_CATEGORY(dcontext, instr, pc, category) \
+    instr_encode(dcontext, instr, pc);                \
+    instr_reset(dcontext, instr);                     \
+    instr_set_operands_valid(instr, true);            \
+    decode(dcontext, pc, instr);                      \
+    ASSERT(instr_get_category(instr) == category);    \
     instr_destroy(dcontext, instr);
 
 static void
@@ -171,16 +170,19 @@ test_categories(void)
     byte buf[128];
 
     /*  55 OP_mov_ld */
-    CHECK_CATEGORY(GD, instr, buf, load, DR_INSTR_CATEGORY_MOVE,
-                   opnd_create_reg(DR_REG_XAX), OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
+    instr = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_XAX),
+                              OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
+    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_MOVE);
+
     /*  14 OP_cmp */
-    CHECK_CATEGORY(GD, instr, buf, cmp, DR_INSTR_CATEGORY_UNCATEGORIZED,
-                   opnd_create_reg(DR_REG_RAX), opnd_create_reg(DR_REG_RAX));
+    instr =
+        XINST_CREATE_cmp(GD, opnd_create_reg(DR_REG_RAX), opnd_create_reg(DR_REG_RAX));
+    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_UNCATEGORIZED);
 
     /* 46 OP_jmp */
     instr_t *after_callee = INSTR_CREATE_label(GD);
-    CHECK_CATEGORY(GD, instr, buf, jump, DR_INSTR_CATEGORY_BRANCH,
-                   opnd_create_instr(after_callee));
+    instr = XINST_CREATE_jump(GD, opnd_create_instr(after_callee));
+    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_BRANCH);
 }
 
 int
