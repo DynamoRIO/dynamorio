@@ -1898,17 +1898,16 @@ instr_is_rep_string_op(instr_t *instr);
  */
 typedef enum {
     DR_INSTR_CATEGORY_UNCATEGORIZED = 0x0, /**< Uncategorized. */
-    DR_INSTR_CATEGORY_INT = 0x1,           /**< Integer arithmetic operations. */
-    DR_INSTR_CATEGORY_FP = 0x2,            /**< Floating-Point operations. */
-    DR_INSTR_CATEGORY_LOAD = 0x4,          /**< Loads. */
-    DR_INSTR_CATEGORY_STORE = 0x8,         /**< Stores. */
-    DR_INSTR_CATEGORY_BRANCH = 0x10,       /**< Branches. */
-    DR_INSTR_CATEGORY_SIMD = 0x20,  /**< Operations with vector registers (SIMD). */
-    DR_INSTR_CATEGORY_STATE = 0x40, /**< Saves, restores, or queries processor state. */
-    DR_INSTR_CATEGORY_MOVE = 0x80,  /**< Moves value from one location to another. */
-    DR_INSTR_CATEGORY_CONVERT = 0x100, /**< Converts to or from value. */
-    DR_INSTR_CATEGORY_MATH = 0x200, /**< Performs arithmetic or conditional operations. */
-    DR_INSTR_CATEGORY_OTHER = 0x400 /**< Other types of instructions. */
+    DR_INSTR_CATEGORY_FP = 0x1,            /**< Floating-Point operations. */
+    DR_INSTR_CATEGORY_LOAD = 0x2,          /**< Loads. */
+    DR_INSTR_CATEGORY_STORE = 0x4,         /**< Stores. */
+    DR_INSTR_CATEGORY_BRANCH = 0x8,        /**< Branches. */
+    DR_INSTR_CATEGORY_SIMD = 0x10,    /**< Operations with vector registers (SIMD). */
+    DR_INSTR_CATEGORY_STATE = 0x20,   /**< Saves, restores, or queries processor state. */
+    DR_INSTR_CATEGORY_MOVE = 0x40,    /**< Moves value from one location to another. */
+    DR_INSTR_CATEGORY_CONVERT = 0x80, /**< Converts to or from value. */
+    DR_INSTR_CATEGORY_MATH = 0x100, /**< Performs arithmetic or conditional operations. */
+    DR_INSTR_CATEGORY_OTHER = 0x200 /**< Other types of instructions. */
 } dr_instr_category_t;
 
 /**

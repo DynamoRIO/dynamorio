@@ -161,8 +161,8 @@ test_categories(void)
     size_t instr_count = sizeof(raw) / sizeof(uint);
     const uint categories[] = {
         DR_INSTR_CATEGORY_UNCATEGORIZED,
-        DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH,
-        DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH,
+        DR_INSTR_CATEGORY_MATH,
+        DR_INSTR_CATEGORY_MATH,
         DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH,
         DR_INSTR_CATEGORY_LOAD,
         DR_INSTR_CATEGORY_STORE,

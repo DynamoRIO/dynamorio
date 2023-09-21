@@ -2130,30 +2130,30 @@ const instr_info_t * const op_instr[] =
 const instr_info_t first_byte[] = {
     /* {op/type, op encoding, category, name, dst1, dst2, src1, src2, src3, modrm?, eflags, code} */
     /* 00 */
-    {OP_add,  0x000000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][0]},
-    {OP_add,  0x010000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x00]},
-    {OP_add,  0x020000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add",  Gb, xx, Eb, Gb, xx, mrm, fW6, tfb[0x01]},
-    {OP_add,  0x030000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x02]},
-    {OP_add,  0x040000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add",  al, xx, Ib, al, xx, no,  fW6, tfb[0x03]},
-    {OP_add,  0x050000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x04]},
+    {OP_add,  0x000000, DR_INSTR_CATEGORY_MATH, "add",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][0]},
+    {OP_add,  0x010000, DR_INSTR_CATEGORY_MATH, "add",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x00]},
+    {OP_add,  0x020000, DR_INSTR_CATEGORY_MATH, "add",  Gb, xx, Eb, Gb, xx, mrm, fW6, tfb[0x01]},
+    {OP_add,  0x030000, DR_INSTR_CATEGORY_MATH, "add",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x02]},
+    {OP_add,  0x040000, DR_INSTR_CATEGORY_MATH, "add",  al, xx, Ib, al, xx, no,  fW6, tfb[0x03]},
+    {OP_add,  0x050000, DR_INSTR_CATEGORY_MATH, "add", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x04]},
     {OP_push, 0x060000, DR_INSTR_CATEGORY_UNCATEGORIZED, "push", xsp, i_xSPo1, es, xsp, xx, i64, x, tfb[0x0e]},
     {OP_pop,  0x070000, DR_INSTR_CATEGORY_UNCATEGORIZED, "pop", es, xsp, xsp, i_xSP, xx, i64, x, tsb[0xa1]},
     /* 08 */
-    {OP_or,  0x080000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "or",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][1]},
-    {OP_or,  0x090000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "or",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x08]},
-    {OP_or,  0x0a0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "or",  Gb, xx, Eb, Gb, xx, mrm, fW6, tfb[0x09]},
-    {OP_or,  0x0b0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "or",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x0a]},
-    {OP_or,  0x0c0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "or",  al, xx, Ib, al, xx, no,  fW6, tfb[0x0b]},
-    {OP_or,  0x0d0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "or", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x0c]},
+    {OP_or,  0x080000, DR_INSTR_CATEGORY_MATH, "or",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][1]},
+    {OP_or,  0x090000, DR_INSTR_CATEGORY_MATH, "or",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x08]},
+    {OP_or,  0x0a0000, DR_INSTR_CATEGORY_MATH, "or",  Gb, xx, Eb, Gb, xx, mrm, fW6, tfb[0x09]},
+    {OP_or,  0x0b0000, DR_INSTR_CATEGORY_MATH, "or",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x0a]},
+    {OP_or,  0x0c0000, DR_INSTR_CATEGORY_MATH, "or",  al, xx, Ib, al, xx, no,  fW6, tfb[0x0b]},
+    {OP_or,  0x0d0000, DR_INSTR_CATEGORY_MATH, "or", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x0c]},
     {OP_push,0x0e0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "push", xsp, i_xSPo1, cs, xsp, xx, i64, x, tfb[0x16]},
     {ESCAPE, 0x0f0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(escape)", xx, xx, xx, xx, xx, no, x, NA},
     /* 10 */
-    {OP_adc,  0x100000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adc",  Eb, xx, Gb, Eb, xx, mrm, (fW6|fRC), tex[1][2]},
-    {OP_adc,  0x110000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adc",  Ev, xx, Gv, Ev, xx, mrm, (fW6|fRC), tfb[0x10]},
-    {OP_adc,  0x120000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adc",  Gb, xx, Eb, Gb, xx, mrm, (fW6|fRC), tfb[0x11]},
-    {OP_adc,  0x130000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adc",  Gv, xx, Ev, Gv, xx, mrm, (fW6|fRC), tfb[0x12]},
-    {OP_adc,  0x140000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adc",  al, xx, Ib, al, xx, no,  (fW6|fRC), tfb[0x13]},
-    {OP_adc,  0x150000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adc", eAX, xx, Iz, eAX, xx, no,  (fW6|fRC), tfb[0x14]},
+    {OP_adc,  0x100000, DR_INSTR_CATEGORY_MATH, "adc",  Eb, xx, Gb, Eb, xx, mrm, (fW6|fRC), tex[1][2]},
+    {OP_adc,  0x110000, DR_INSTR_CATEGORY_MATH, "adc",  Ev, xx, Gv, Ev, xx, mrm, (fW6|fRC), tfb[0x10]},
+    {OP_adc,  0x120000, DR_INSTR_CATEGORY_MATH, "adc",  Gb, xx, Eb, Gb, xx, mrm, (fW6|fRC), tfb[0x11]},
+    {OP_adc,  0x130000, DR_INSTR_CATEGORY_MATH, "adc",  Gv, xx, Ev, Gv, xx, mrm, (fW6|fRC), tfb[0x12]},
+    {OP_adc,  0x140000, DR_INSTR_CATEGORY_MATH, "adc",  al, xx, Ib, al, xx, no,  (fW6|fRC), tfb[0x13]},
+    {OP_adc,  0x150000, DR_INSTR_CATEGORY_MATH, "adc", eAX, xx, Iz, eAX, xx, no,  (fW6|fRC), tfb[0x14]},
     {OP_push, 0x160000, DR_INSTR_CATEGORY_UNCATEGORIZED, "push", xsp, i_xSPo1, ss, xsp, xx, i64, x, tfb[0x1e]},
     {OP_pop,  0x170000, DR_INSTR_CATEGORY_UNCATEGORIZED, "pop", ss, xsp, xsp, i_xSP, xx, i64, x, tfb[0x1f]},
     /* 18 */
@@ -2166,30 +2166,30 @@ const instr_info_t first_byte[] = {
     {OP_push, 0x1e0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "push", xsp, i_xSPo1, ds, xsp, xx, i64, x, tsb[0xa0]},
     {OP_pop,  0x1f0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "pop", ds, xsp, xsp, i_xSP, xx, i64, x, tfb[0x07]},
     /* 20 */
-    {OP_and,  0x200000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "and",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][4]},
-    {OP_and,  0x210000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "and",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x20]},
-    {OP_and,  0x220000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "and",  Gb, xx, Eb, Gb, xx, mrm, fW6, tfb[0x21]},
-    {OP_and,  0x230000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "and",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x22]},
-    {OP_and,  0x240000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "and",  al, xx, Ib, al, xx, no,  fW6, tfb[0x23]},
-    {OP_and,  0x250000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "and", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x24]},
+    {OP_and,  0x200000, DR_INSTR_CATEGORY_MATH, "and",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][4]},
+    {OP_and,  0x210000, DR_INSTR_CATEGORY_MATH, "and",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x20]},
+    {OP_and,  0x220000, DR_INSTR_CATEGORY_MATH, "and",  Gb, xx, Eb, Gb, xx, mrm, fW6, tfb[0x21]},
+    {OP_and,  0x230000, DR_INSTR_CATEGORY_MATH, "and",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x22]},
+    {OP_and,  0x240000, DR_INSTR_CATEGORY_MATH, "and",  al, xx, Ib, al, xx, no,  fW6, tfb[0x23]},
+    {OP_and,  0x250000, DR_INSTR_CATEGORY_MATH, "and", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x24]},
     {PREFIX,  0x260000, DR_INSTR_CATEGORY_UNCATEGORIZED, "es", xx, xx, xx, xx, xx, no, x, SEG_ES},
     {OP_daa,  0x270000, DR_INSTR_CATEGORY_UNCATEGORIZED, "daa", al, xx, al, xx, xx, i64, (fW6|fRC|fRA), END_LIST},
     /* 28 */
-    {OP_sub,  0x280000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sub",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][5]},
-    {OP_sub,  0x290000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sub",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x28]},
-    {OP_sub,  0x2a0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sub",  Gb, xx, Eb, Gb, xx, mrm, fW6, tfb[0x29]},
-    {OP_sub,  0x2b0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sub",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x2a]},
-    {OP_sub,  0x2c0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sub",  al, xx, Ib, al, xx, no,  fW6, tfb[0x2b]},
-    {OP_sub,  0x2d0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sub", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x2c]},
+    {OP_sub,  0x280000, DR_INSTR_CATEGORY_MATH, "sub",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][5]},
+    {OP_sub,  0x290000, DR_INSTR_CATEGORY_MATH, "sub",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x28]},
+    {OP_sub,  0x2a0000, DR_INSTR_CATEGORY_MATH, "sub",  Gb, xx, Eb, Gb, xx, mrm, fW6, tfb[0x29]},
+    {OP_sub,  0x2b0000, DR_INSTR_CATEGORY_MATH, "sub",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x2a]},
+    {OP_sub,  0x2c0000, DR_INSTR_CATEGORY_MATH, "sub",  al, xx, Ib, al, xx, no,  fW6, tfb[0x2b]},
+    {OP_sub,  0x2d0000, DR_INSTR_CATEGORY_MATH, "sub", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x2c]},
     {PREFIX,  0x2e0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "cs", xx, xx, xx, xx, xx, no, x, SEG_CS},
     {OP_das,  0x2f0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "das", al, xx, al, xx, xx, i64, (fW6|fRC|fRA), END_LIST},
     /* 30 */
-    {OP_xor,  0x300000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "xor",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][6]},
-    {OP_xor,  0x310000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "xor",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x30]},
-    {OP_xor,  0x320000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "xor",  Gb, xx, Eb, Gb, xx, mrm, fW6, tfb[0x31]},
-    {OP_xor,  0x330000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "xor",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x32]},
-    {OP_xor,  0x340000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "xor",  al, xx, Ib, al, xx, no,  fW6, tfb[0x33]},
-    {OP_xor,  0x350000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "xor", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x34]},
+    {OP_xor,  0x300000, DR_INSTR_CATEGORY_MATH, "xor",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][6]},
+    {OP_xor,  0x310000, DR_INSTR_CATEGORY_MATH, "xor",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x30]},
+    {OP_xor,  0x320000, DR_INSTR_CATEGORY_MATH, "xor",  Gb, xx, Eb, Gb, xx, mrm, fW6, tfb[0x31]},
+    {OP_xor,  0x330000, DR_INSTR_CATEGORY_MATH, "xor",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x32]},
+    {OP_xor,  0x340000, DR_INSTR_CATEGORY_MATH, "xor",  al, xx, Ib, al, xx, no,  fW6, tfb[0x33]},
+    {OP_xor,  0x350000, DR_INSTR_CATEGORY_MATH, "xor", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x34]},
     {PREFIX,  0x360000, DR_INSTR_CATEGORY_UNCATEGORIZED, "ss", xx, xx, xx, xx, xx, no, x, SEG_SS},
     {OP_aaa,  0x370000, DR_INSTR_CATEGORY_UNCATEGORIZED, "aaa", ax, xx, ax, xx, xx, i64, (fW6|fRA), END_LIST},
     /* 38 */
@@ -2248,9 +2248,9 @@ const instr_info_t first_byte[] = {
     {PREFIX, 0x670000, DR_INSTR_CATEGORY_UNCATEGORIZED, "addr size", xx, xx, xx, xx, xx, no, x, PREFIX_ADDR},
     /* 68 */
     {OP_push_imm, 0x680000, DR_INSTR_CATEGORY_UNCATEGORIZED, "push", xsp, i_xSPo1, Iz, xsp, xx, no, x, tfb[0x6a]},
-    {OP_imul,  0x690000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "imul", Gv, xx, Ev, Iz, xx, mrm, fW6, tfb[0x6b]},
+    {OP_imul,  0x690000, DR_INSTR_CATEGORY_MATH, "imul", Gv, xx, Ev, Iz, xx, mrm, fW6, tfb[0x6b]},
     {OP_push_imm, 0x6a0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "push", xsp, i_xSPo1, Ib, xsp, xx, no, x, END_LIST},/* sign-extend to push 2/4/8 bytes */
-    {OP_imul,  0x6b0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "imul", Gv, xx, Ev, Ib, xx, mrm, fW6, END_LIST},
+    {OP_imul,  0x6b0000, DR_INSTR_CATEGORY_MATH, "imul", Gv, xx, Ev, Ib, xx, mrm, fW6, END_LIST},
     {REP_EXT,  0x6c0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep) ins)", Yb, xx, i_dx, xx, xx, no, fRD, 0},
     {REP_EXT,  0x6d0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep) ins)", Yz, xx, i_dx, xx, xx, no, fRD, 1},
     {REP_EXT,  0x6e0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep) outs)", i_dx, xx, Xb, xx, xx, no, fRD, 2},
@@ -2278,8 +2278,8 @@ const instr_info_t first_byte[] = {
     {EXTENSION, 0x810000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(group 1b)", Ev, xx, Iz, xx, xx, mrm, x, 1},
     {EXTENSION, 0x820000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(group 1c*)", Ev, xx, Ib, xx, xx, mrm|i64, x, 25}, /* PR 235092: gnu tools (gdb, objdump) think this is a bad opcode but windbg and the hardware disagree */
     {EXTENSION, 0x830000, DR_INSTR_CATEGORY_UNCATEGORIZED, "(group 1c)", Ev, xx, Ib, xx, xx, mrm, x, 2},
-    {OP_test,  0x840000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx, Eb, Gb, xx, mrm, fW6, tex[10][0]},
-    {OP_test,  0x850000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx, Ev, Gv, xx, mrm, fW6, tfb[0x84]},
+    {OP_test,  0x840000, DR_INSTR_CATEGORY_MATH, "test", xx, xx, Eb, Gb, xx, mrm, fW6, tex[10][0]},
+    {OP_test,  0x850000, DR_INSTR_CATEGORY_MATH, "test", xx, xx, Ev, Gv, xx, mrm, fW6, tfb[0x84]},
     {OP_xchg,  0x860000, DR_INSTR_CATEGORY_UNCATEGORIZED, "xchg", Eb, Gb, Eb, Gb, xx, mrm, x, END_LIST},
     {OP_xchg,  0x870000, DR_INSTR_CATEGORY_UNCATEGORIZED, "xchg", Ev, Gv, Ev, Gv, xx, mrm, x, tfb[0x86]},
     /* 88 */
@@ -2320,8 +2320,8 @@ const instr_info_t first_byte[] = {
     {REPNE_EXT, 0xa60000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep/ne) cmps)", Xb, xx, Yb, xx, xx, no, (fW6|fRD|fRZ), 0},
     {REPNE_EXT, 0xa70000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep/ne) cmps)", Xv, xx, Yv, xx, xx, no, (fW6|fRD|fRZ), 1},
     /* a8 */
-    {OP_test,  0xa80000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx,  al, Ib, xx, no, fW6, tfb[0x85]},
-    {OP_test,  0xa90000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx, eAX, Iz, xx, no, fW6, tfb[0xa8]},
+    {OP_test,  0xa80000, DR_INSTR_CATEGORY_MATH, "test", xx, xx,  al, Ib, xx, no, fW6, tfb[0x85]},
+    {OP_test,  0xa90000, DR_INSTR_CATEGORY_MATH, "test", xx, xx, eAX, Iz, xx, no, fW6, tfb[0xa8]},
     {REP_EXT, 0xaa0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep) stos)", Yb, xx, al, xx, xx, no, fRD, 6},
     {REP_EXT, 0xab0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep) stos)", Yv, xx, eAX, xx, xx, no, fRD, 7},
     {REP_EXT, 0xac0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "((rep) lods)", al, xx, Xb, xx, xx, no, fRD, 8},
@@ -2640,7 +2640,7 @@ const instr_info_t second_byte[] = {
   {OP_shrd, 0x0fac10, DR_INSTR_CATEGORY_UNCATEGORIZED, "shrd", Ev, xx, Gv, Ib, Ev, mrm, fW6, tsb[0xad]},
   {OP_shrd, 0x0fad10, DR_INSTR_CATEGORY_UNCATEGORIZED, "shrd", Ev, xx, Gv, cl, Ev, mrm, fW6, END_LIST},
   {EXTENSION, 0x0fae10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(group 15)", xx, xx, xx, xx, xx, mrm, x, 22},
-  {OP_imul, 0x0faf10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "imul", Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x69]},
+  {OP_imul, 0x0faf10, DR_INSTR_CATEGORY_MATH, "imul", Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x69]},
   /* b0 */
   {OP_cmpxchg, 0x0fb010, DR_INSTR_CATEGORY_UNCATEGORIZED, "cmpxchg", Eb, al, Gb, Eb, al, mrm, fW6, END_LIST},
   {OP_cmpxchg, 0x0fb110, DR_INSTR_CATEGORY_UNCATEGORIZED, "cmpxchg", Ev, eAX, Gv, Ev, eAX, mrm, fW6, tsb[0xb0]},
@@ -2741,138 +2741,138 @@ const instr_info_t second_byte[] = {
 const instr_info_t base_extensions[][8] = {
   /* group 1a -- first opcode byte 80: all assumed to have Ib */
   { /* extensions[0] */
-    {OP_add, 0x800020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][0]},
-    {OP_or,  0x800021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "or",  Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][1]},
-    {OP_adc, 0x800022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adc", Eb, xx, Ib, Eb, xx, mrm, (fW6|fRC), tex[25][2]},
+    {OP_add, 0x800020, DR_INSTR_CATEGORY_MATH, "add", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][0]},
+    {OP_or,  0x800021, DR_INSTR_CATEGORY_MATH, "or",  Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][1]},
+    {OP_adc, 0x800022, DR_INSTR_CATEGORY_MATH, "adc", Eb, xx, Ib, Eb, xx, mrm, (fW6|fRC), tex[25][2]},
     {OP_sbb, 0x800023, DR_INSTR_CATEGORY_UNCATEGORIZED, "sbb", Eb, xx, Ib, Eb, xx, mrm, (fW6|fRC), tex[25][3]},
-    {OP_and, 0x800024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "and", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][4]},
-    {OP_sub, 0x800025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sub", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][5]},
-    {OP_xor, 0x800026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "xor", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][6]},
+    {OP_and, 0x800024, DR_INSTR_CATEGORY_MATH, "and", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][4]},
+    {OP_sub, 0x800025, DR_INSTR_CATEGORY_MATH, "sub", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][5]},
+    {OP_xor, 0x800026, DR_INSTR_CATEGORY_MATH, "xor", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][6]},
     {OP_cmp, 0x800027, DR_INSTR_CATEGORY_UNCATEGORIZED, "cmp", xx, xx, Eb, Ib, xx, mrm, fW6,  tex[25][7]},
  },
   /* group 1b -- first opcode byte 81: all assumed to have Iz */
   { /* extensions[1] */
-    {OP_add, 0x810020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][0]},
-    {OP_or,  0x810021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "or",  Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][1]},
-    {OP_adc, 0x810022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adc", Ev, xx, Iz, Ev, xx, mrm, (fW6|fRC), tex[2][2]},
+    {OP_add, 0x810020, DR_INSTR_CATEGORY_MATH, "add", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][0]},
+    {OP_or,  0x810021, DR_INSTR_CATEGORY_MATH, "or",  Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][1]},
+    {OP_adc, 0x810022, DR_INSTR_CATEGORY_MATH, "adc", Ev, xx, Iz, Ev, xx, mrm, (fW6|fRC), tex[2][2]},
     {OP_sbb, 0x810023, DR_INSTR_CATEGORY_UNCATEGORIZED, "sbb", Ev, xx, Iz, Ev, xx, mrm, (fW6|fRC), tex[2][3]},
-    {OP_and, 0x810024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "and", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][4]},
-    {OP_sub, 0x810025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sub", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][5]},
-    {OP_xor, 0x810026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "xor", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][6]},
+    {OP_and, 0x810024, DR_INSTR_CATEGORY_MATH, "and", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][4]},
+    {OP_sub, 0x810025, DR_INSTR_CATEGORY_MATH, "sub", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][5]},
+    {OP_xor, 0x810026, DR_INSTR_CATEGORY_MATH, "xor", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][6]},
     {OP_cmp, 0x810027, DR_INSTR_CATEGORY_UNCATEGORIZED, "cmp", xx, xx, Ev, Iz, xx, mrm, fW6,  tex[2][7]},
  },
   /* group 1c -- first opcode byte 83 (for 82, see below "group 1c*"):
    * all assumed to have Ib */
   { /* extensions[2] */
-    {OP_add, 0x830020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][0]},
-    {OP_or,  0x830021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "or",  Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][1]},
-    {OP_adc, 0x830022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adc", Ev, xx, Ib, Ev, xx, mrm, (fW6|fRC), tex[0][2]},
+    {OP_add, 0x830020, DR_INSTR_CATEGORY_MATH, "add", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][0]},
+    {OP_or,  0x830021, DR_INSTR_CATEGORY_MATH, "or",  Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][1]},
+    {OP_adc, 0x830022, DR_INSTR_CATEGORY_MATH, "adc", Ev, xx, Ib, Ev, xx, mrm, (fW6|fRC), tex[0][2]},
     {OP_sbb, 0x830023, DR_INSTR_CATEGORY_UNCATEGORIZED, "sbb", Ev, xx, Ib, Ev, xx, mrm, (fW6|fRC), tex[0][3]},
-    {OP_and, 0x830024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "and", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][4]},
-    {OP_sub, 0x830025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sub", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][5]},
-    {OP_xor, 0x830026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "xor", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][6]},
+    {OP_and, 0x830024, DR_INSTR_CATEGORY_MATH, "and", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][4]},
+    {OP_sub, 0x830025, DR_INSTR_CATEGORY_MATH, "sub", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][5]},
+    {OP_xor, 0x830026, DR_INSTR_CATEGORY_MATH, "xor", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][6]},
     {OP_cmp, 0x830027, DR_INSTR_CATEGORY_UNCATEGORIZED, "cmp", xx, xx, Ev, Ib, xx, mrm, fW6,  tex[0][7]},
  },
   /* group 2a -- first opcode byte c0: all assumed to have Ib */
   { /* extensions[3] */
-    {OP_rol, 0xc00020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rol", Eb, xx, Ib, Eb, xx, mrm, (fWC|fWO),  tex[5][0]},
-    {OP_ror, 0xc00021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "ror", Eb, xx, Ib, Eb, xx, mrm, (fWC|fWO),  tex[5][1]},
-    {OP_rcl, 0xc00022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rcl", Eb, xx, Ib, Eb, xx, mrm, (fRC|fWC|fWO), tex[5][2]},
+    {OP_rol, 0xc00020, DR_INSTR_CATEGORY_MATH, "rol", Eb, xx, Ib, Eb, xx, mrm, (fWC|fWO),  tex[5][0]},
+    {OP_ror, 0xc00021, DR_INSTR_CATEGORY_MATH, "ror", Eb, xx, Ib, Eb, xx, mrm, (fWC|fWO),  tex[5][1]},
+    {OP_rcl, 0xc00022, DR_INSTR_CATEGORY_MATH, "rcl", Eb, xx, Ib, Eb, xx, mrm, (fRC|fWC|fWO), tex[5][2]},
     {OP_rcr, 0xc00023, DR_INSTR_CATEGORY_UNCATEGORIZED, "rcr", Eb, xx, Ib, Eb, xx, mrm, (fRC|fWC|fWO), tex[5][3]},
-    {OP_shl, 0xc00024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[5][4]},
-    {OP_shr, 0xc00025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shr", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[5][5]},
+    {OP_shl, 0xc00024, DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[5][4]},
+    {OP_shr, 0xc00025, DR_INSTR_CATEGORY_MATH, "shr", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[5][5]},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
-    {OP_shl, 0xc00026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, Ib, Eb, xx, mrm, fW6,  END_LIST},
-    {OP_sar, 0xc00027, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sar", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[5][7]},
+    {OP_shl, 0xc00026, DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, Ib, Eb, xx, mrm, fW6,  END_LIST},
+    {OP_sar, 0xc00027, DR_INSTR_CATEGORY_MATH, "sar", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[5][7]},
  },
   /* group 2b -- first opcode byte c1: all assumed to have Ib */
   { /* extensions[4] */
-    {OP_rol, 0xc10020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rol", Ev, xx, Ib, Ev, xx, mrm, (fWC|fWO),  tex[6][0]},
-    {OP_ror, 0xc10021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "ror", Ev, xx, Ib, Ev, xx, mrm, (fWC|fWO),  tex[6][1]},
-    {OP_rcl, 0xc10022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rcl", Ev, xx, Ib, Ev, xx, mrm, (fRC|fWC|fWO), tex[6][2]},
+    {OP_rol, 0xc10020, DR_INSTR_CATEGORY_MATH, "rol", Ev, xx, Ib, Ev, xx, mrm, (fWC|fWO),  tex[6][0]},
+    {OP_ror, 0xc10021, DR_INSTR_CATEGORY_MATH, "ror", Ev, xx, Ib, Ev, xx, mrm, (fWC|fWO),  tex[6][1]},
+    {OP_rcl, 0xc10022, DR_INSTR_CATEGORY_MATH, "rcl", Ev, xx, Ib, Ev, xx, mrm, (fRC|fWC|fWO), tex[6][2]},
     {OP_rcr, 0xc10023, DR_INSTR_CATEGORY_UNCATEGORIZED, "rcr", Ev, xx, Ib, Ev, xx, mrm, (fRC|fWC|fWO), tex[6][3]},
-    {OP_shl, 0xc10024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[6][4]},
-    {OP_shr, 0xc10025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shr", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[6][5]},
+    {OP_shl, 0xc10024, DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[6][4]},
+    {OP_shr, 0xc10025, DR_INSTR_CATEGORY_MATH, "shr", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[6][5]},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
-    {OP_shl, 0xc10026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, Ib, Ev, xx, mrm, fW6,  END_LIST},
-    {OP_sar, 0xc10027, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sar", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[6][7]},
+    {OP_shl, 0xc10026, DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, Ib, Ev, xx, mrm, fW6,  END_LIST},
+    {OP_sar, 0xc10027, DR_INSTR_CATEGORY_MATH, "sar", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[6][7]},
  },
   /* group 2c -- first opcode byte d0 */
   { /* extensions[5] */
-    {OP_rol, 0xd00020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rol", Eb, xx, c1, Eb, xx, mrm, (fWC|fWO),  tex[8][0]},
-    {OP_ror, 0xd00021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "ror", Eb, xx, c1, Eb, xx, mrm, (fWC|fWO),  tex[8][1]},
-    {OP_rcl, 0xd00022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rcl", Eb, xx, c1, Eb, xx, mrm, (fRC|fWC|fWO), tex[8][2]},
+    {OP_rol, 0xd00020, DR_INSTR_CATEGORY_MATH, "rol", Eb, xx, c1, Eb, xx, mrm, (fWC|fWO),  tex[8][0]},
+    {OP_ror, 0xd00021, DR_INSTR_CATEGORY_MATH, "ror", Eb, xx, c1, Eb, xx, mrm, (fWC|fWO),  tex[8][1]},
+    {OP_rcl, 0xd00022, DR_INSTR_CATEGORY_MATH, "rcl", Eb, xx, c1, Eb, xx, mrm, (fRC|fWC|fWO), tex[8][2]},
     {OP_rcr, 0xd00023, DR_INSTR_CATEGORY_UNCATEGORIZED, "rcr", Eb, xx, c1, Eb, xx, mrm, (fRC|fWC|fWO), tex[8][3]},
-    {OP_shl, 0xd00024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, c1, Eb, xx, mrm, fW6,  tex[8][4]},
-    {OP_shr, 0xd00025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shr", Eb, xx, c1, Eb, xx, mrm, fW6,  tex[8][5]},
+    {OP_shl, 0xd00024, DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, c1, Eb, xx, mrm, fW6,  tex[8][4]},
+    {OP_shr, 0xd00025, DR_INSTR_CATEGORY_MATH, "shr", Eb, xx, c1, Eb, xx, mrm, fW6,  tex[8][5]},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
-    {OP_shl, 0xd00026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, c1, Eb, xx, mrm, fW6,  END_LIST},
-    {OP_sar, 0xd00027, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sar", Eb, xx, c1, Eb, xx, mrm, fW6,  tex[8][7]},
+    {OP_shl, 0xd00026, DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, c1, Eb, xx, mrm, fW6,  END_LIST},
+    {OP_sar, 0xd00027, DR_INSTR_CATEGORY_MATH, "sar", Eb, xx, c1, Eb, xx, mrm, fW6,  tex[8][7]},
  },
   /* group 2d -- first opcode byte d1 */
   { /* extensions[6] */
-    {OP_rol, 0xd10020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rol", Ev, xx, c1, Ev, xx, mrm, (fWC|fWO),  tex[3][0]},
-    {OP_ror, 0xd10021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "ror", Ev, xx, c1, Ev, xx, mrm, (fWC|fWO),  tex[3][1]},
-    {OP_rcl, 0xd10022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rcl", Ev, xx, c1, Ev, xx, mrm, (fRC|fWC|fWO), tex[3][2]},
+    {OP_rol, 0xd10020, DR_INSTR_CATEGORY_MATH, "rol", Ev, xx, c1, Ev, xx, mrm, (fWC|fWO),  tex[3][0]},
+    {OP_ror, 0xd10021, DR_INSTR_CATEGORY_MATH, "ror", Ev, xx, c1, Ev, xx, mrm, (fWC|fWO),  tex[3][1]},
+    {OP_rcl, 0xd10022, DR_INSTR_CATEGORY_MATH, "rcl", Ev, xx, c1, Ev, xx, mrm, (fRC|fWC|fWO), tex[3][2]},
     {OP_rcr, 0xd10023, DR_INSTR_CATEGORY_UNCATEGORIZED, "rcr", Ev, xx, c1, Ev, xx, mrm, (fRC|fWC|fWO), tex[3][3]},
-    {OP_shl, 0xd10024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, c1, Ev, xx, mrm, fW6,  tex[3][4]},
-    {OP_shr, 0xd10025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shr", Ev, xx, c1, Ev, xx, mrm, fW6,  tex[3][5]},
+    {OP_shl, 0xd10024, DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, c1, Ev, xx, mrm, fW6,  tex[3][4]},
+    {OP_shr, 0xd10025, DR_INSTR_CATEGORY_MATH, "shr", Ev, xx, c1, Ev, xx, mrm, fW6,  tex[3][5]},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
-    {OP_shl, 0xd10026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, c1, Ev, xx, mrm, fW6,  END_LIST},
-    {OP_sar, 0xd10027, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sar", Ev, xx, c1, Ev, xx, mrm, fW6,  tex[3][7]},
+    {OP_shl, 0xd10026, DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, c1, Ev, xx, mrm, fW6,  END_LIST},
+    {OP_sar, 0xd10027, DR_INSTR_CATEGORY_MATH, "sar", Ev, xx, c1, Ev, xx, mrm, fW6,  tex[3][7]},
  },
   /* group 2e -- first opcode byte d2 */
   { /* extensions[7] */
-    {OP_rol, 0xd20020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rol", Eb, xx, cl, Eb, xx, mrm, (fWC|fWO),  END_LIST},
-    {OP_ror, 0xd20021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "ror", Eb, xx, cl, Eb, xx, mrm, (fWC|fWO),  END_LIST},
-    {OP_rcl, 0xd20022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rcl", Eb, xx, cl, Eb, xx, mrm, (fRC|fWC|fWO), END_LIST},
+    {OP_rol, 0xd20020, DR_INSTR_CATEGORY_MATH, "rol", Eb, xx, cl, Eb, xx, mrm, (fWC|fWO),  END_LIST},
+    {OP_ror, 0xd20021, DR_INSTR_CATEGORY_MATH, "ror", Eb, xx, cl, Eb, xx, mrm, (fWC|fWO),  END_LIST},
+    {OP_rcl, 0xd20022, DR_INSTR_CATEGORY_MATH, "rcl", Eb, xx, cl, Eb, xx, mrm, (fRC|fWC|fWO), END_LIST},
     {OP_rcr, 0xd20023, DR_INSTR_CATEGORY_UNCATEGORIZED, "rcr", Eb, xx, cl, Eb, xx, mrm, (fRC|fWC|fWO), END_LIST},
-    {OP_shl, 0xd20024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, cl, Eb, xx, mrm, fW6,  END_LIST},
-    {OP_shr, 0xd20025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shr", Eb, xx, cl, Eb, xx, mrm, fW6,  END_LIST},
+    {OP_shl, 0xd20024, DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, cl, Eb, xx, mrm, fW6,  END_LIST},
+    {OP_shr, 0xd20025, DR_INSTR_CATEGORY_MATH, "shr", Eb, xx, cl, Eb, xx, mrm, fW6,  END_LIST},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
-    {OP_shl, 0xd20026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, cl, Eb, xx, mrm, fW6,  END_LIST},
-    {OP_sar, 0xd20027, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sar", Eb, xx, cl, Eb, xx, mrm, fW6,  END_LIST},
+    {OP_shl, 0xd20026, DR_INSTR_CATEGORY_MATH, "shl", Eb, xx, cl, Eb, xx, mrm, fW6,  END_LIST},
+    {OP_sar, 0xd20027, DR_INSTR_CATEGORY_MATH, "sar", Eb, xx, cl, Eb, xx, mrm, fW6,  END_LIST},
  },
   /* group 2f -- first opcode byte d3 */
   { /* extensions[8] */
-    {OP_rol, 0xd30020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rol", Ev, xx, cl, Ev, xx, mrm, (fWC|fWO),  tex[7][0]},
-    {OP_ror, 0xd30021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "ror", Ev, xx, cl, Ev, xx, mrm, (fWC|fWO),  tex[7][1]},
-    {OP_rcl, 0xd30022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "rcl", Ev, xx, cl, Ev, xx, mrm, (fRC|fWC|fWO), tex[7][2]},
+    {OP_rol, 0xd30020, DR_INSTR_CATEGORY_MATH, "rol", Ev, xx, cl, Ev, xx, mrm, (fWC|fWO),  tex[7][0]},
+    {OP_ror, 0xd30021, DR_INSTR_CATEGORY_MATH, "ror", Ev, xx, cl, Ev, xx, mrm, (fWC|fWO),  tex[7][1]},
+    {OP_rcl, 0xd30022, DR_INSTR_CATEGORY_MATH, "rcl", Ev, xx, cl, Ev, xx, mrm, (fRC|fWC|fWO), tex[7][2]},
     {OP_rcr, 0xd30023, DR_INSTR_CATEGORY_UNCATEGORIZED, "rcr", Ev, xx, cl, Ev, xx, mrm, (fRC|fWC|fWO), tex[7][3]},
-    {OP_shl, 0xd30024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, cl, Ev, xx, mrm, fW6,  tex[7][4]},
-    {OP_shr, 0xd30025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shr", Ev, xx, cl, Ev, xx, mrm, fW6,  tex[7][5]},
+    {OP_shl, 0xd30024, DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, cl, Ev, xx, mrm, fW6,  tex[7][4]},
+    {OP_shr, 0xd30025, DR_INSTR_CATEGORY_MATH, "shr", Ev, xx, cl, Ev, xx, mrm, fW6,  tex[7][5]},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
-    {OP_shl, 0xd30026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, cl, Ev, xx, mrm, fW6,  END_LIST},
-    {OP_sar, 0xd30027, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sar", Ev, xx, cl, Ev, xx, mrm, fW6,  tex[7][7]},
+    {OP_shl, 0xd30026, DR_INSTR_CATEGORY_MATH, "shl", Ev, xx, cl, Ev, xx, mrm, fW6,  END_LIST},
+    {OP_sar, 0xd30027, DR_INSTR_CATEGORY_MATH, "sar", Ev, xx, cl, Ev, xx, mrm, fW6,  tex[7][7]},
  },
   /* group 3a -- first opcode byte f6 */
   { /* extensions[9] */
-    {OP_test, 0xf60020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx, Eb, Ib, xx, mrm, fW6, END_LIST},
+    {OP_test, 0xf60020, DR_INSTR_CATEGORY_MATH, "test", xx, xx, Eb, Ib, xx, mrm, fW6, END_LIST},
     /* PR 332254: /1 is an alias for /0; we do not add to encoding chain though */
-    {OP_test, 0xf60021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx, xx, Eb, Ib, xx, mrm, fW6, END_LIST},
-    {OP_not,  0xf60022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "not", Eb, xx, Eb, xx, xx, mrm, x, END_LIST},
-    {OP_neg,  0xf60023, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "neg", Eb, xx, Eb, xx, xx, mrm, fW6, END_LIST},
-    {OP_mul,  0xf60024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "mul", ax, xx, Eb, al, xx, mrm, fW6, END_LIST},
-    {OP_imul, 0xf60025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "imul", ax, xx, Eb, al, xx, mrm, fW6, tsb[0xaf]},
-    {OP_div,  0xf60026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "div", ah, al, Eb, ax, xx, mrm, fW6, END_LIST},
-    {OP_idiv, 0xf60027, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "idiv", ah, al, Eb, ax, xx, mrm, fW6, END_LIST},
+    {OP_test, 0xf60021, DR_INSTR_CATEGORY_MATH, "test", xx, xx, Eb, Ib, xx, mrm, fW6, END_LIST},
+    {OP_not,  0xf60022, DR_INSTR_CATEGORY_MATH, "not", Eb, xx, Eb, xx, xx, mrm, x, END_LIST},
+    {OP_neg,  0xf60023, DR_INSTR_CATEGORY_MATH, "neg", Eb, xx, Eb, xx, xx, mrm, fW6, END_LIST},
+    {OP_mul,  0xf60024, DR_INSTR_CATEGORY_MATH, "mul", ax, xx, Eb, al, xx, mrm, fW6, END_LIST},
+    {OP_imul, 0xf60025, DR_INSTR_CATEGORY_MATH, "imul", ax, xx, Eb, al, xx, mrm, fW6, tsb[0xaf]},
+    {OP_div,  0xf60026, DR_INSTR_CATEGORY_MATH, "div", ah, al, Eb, ax, xx, mrm, fW6, END_LIST},
+    {OP_idiv, 0xf60027, DR_INSTR_CATEGORY_MATH, "idiv", ah, al, Eb, ax, xx, mrm, fW6, END_LIST},
  },
   /* group 3b -- first opcode byte f7 */
   { /* extensions[10] */
-    {OP_test, 0xf70020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx,  xx, Ev, Iz, xx, mrm, fW6, tex[9][0]},
+    {OP_test, 0xf70020, DR_INSTR_CATEGORY_MATH, "test", xx,  xx, Ev, Iz, xx, mrm, fW6, tex[9][0]},
     /* PR 332254: /1 is an alias for /0; we do not add to encoding chain though */
-    {OP_test, 0xf70021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "test", xx,  xx, Ev, Iz, xx, mrm, fW6, END_LIST},
-    {OP_not,  0xf70022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "not", Ev,  xx, Ev, xx, xx, mrm, x, tex[9][2]},
-    {OP_neg,  0xf70023, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "neg", Ev,  xx, Ev, xx, xx, mrm, fW6, tex[9][3]},
-    {OP_mul,  0xf70024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "mul",   eDX, eAX, Ev, eAX, xx, mrm, fW6, tex[9][4]},
-    {OP_imul, 0xf70025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "imul",  eDX, eAX, Ev, eAX, xx, mrm, fW6, tex[9][5]},
-    {OP_div,  0xf70026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "div",   eDX, eAX, Ev, eDX, eAX, mrm, fW6, tex[9][6]},
-    {OP_idiv, 0xf70027, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "idiv",  eDX, eAX, Ev, eDX, eAX, mrm, fW6, tex[9][7]},
+    {OP_test, 0xf70021, DR_INSTR_CATEGORY_MATH, "test", xx,  xx, Ev, Iz, xx, mrm, fW6, END_LIST},
+    {OP_not,  0xf70022, DR_INSTR_CATEGORY_MATH, "not", Ev,  xx, Ev, xx, xx, mrm, x, tex[9][2]},
+    {OP_neg,  0xf70023, DR_INSTR_CATEGORY_MATH, "neg", Ev,  xx, Ev, xx, xx, mrm, fW6, tex[9][3]},
+    {OP_mul,  0xf70024, DR_INSTR_CATEGORY_MATH, "mul",   eDX, eAX, Ev, eAX, xx, mrm, fW6, tex[9][4]},
+    {OP_imul, 0xf70025, DR_INSTR_CATEGORY_MATH, "imul",  eDX, eAX, Ev, eAX, xx, mrm, fW6, tex[9][5]},
+    {OP_div,  0xf70026, DR_INSTR_CATEGORY_MATH, "div",   eDX, eAX, Ev, eDX, eAX, mrm, fW6, tex[9][6]},
+    {OP_idiv, 0xf70027, DR_INSTR_CATEGORY_MATH, "idiv",  eDX, eAX, Ev, eDX, eAX, mrm, fW6, tex[9][7]},
  },
   /* group 4 (first byte fe) */
   { /* extensions[11] */
-    {OP_inc, 0xfe0020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "inc", Eb, xx, Eb, xx, xx, mrm, (fW6&(~fWC)), END_LIST},
-    {OP_dec, 0xfe0021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "dec", Eb, xx, Eb, xx, xx, mrm, (fW6&(~fWC)), END_LIST},
+    {OP_inc, 0xfe0020, DR_INSTR_CATEGORY_MATH, "inc", Eb, xx, Eb, xx, xx, mrm, (fW6&(~fWC)), END_LIST},
+    {OP_dec, 0xfe0021, DR_INSTR_CATEGORY_MATH, "dec", Eb, xx, Eb, xx, xx, mrm, (fW6&(~fWC)), END_LIST},
     {INVALID, 0xfe0022, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xfe0023, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xfe0024, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -2882,8 +2882,8 @@ const instr_info_t base_extensions[][8] = {
  },
   /* group 5 (first byte ff) */
   { /* extensions[12] */
-    {OP_inc, 0xff0020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "inc", Ev, xx, Ev, xx, xx, mrm, (fW6&(~fWC)), tex[11][0]},
-    {OP_dec, 0xff0021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "dec", Ev, xx, Ev, xx, xx, mrm, (fW6&(~fWC)), tex[11][1]},
+    {OP_inc, 0xff0020, DR_INSTR_CATEGORY_MATH, "inc", Ev, xx, Ev, xx, xx, mrm, (fW6&(~fWC)), tex[11][0]},
+    {OP_dec, 0xff0021, DR_INSTR_CATEGORY_MATH, "dec", Ev, xx, Ev, xx, xx, mrm, (fW6&(~fWC)), tex[11][1]},
     {OP_call_ind,     0xff0022, DR_INSTR_CATEGORY_BRANCH, "call",  xsp, i_iSPo1, i_Exi, xsp, xx, mrm, x, END_LIST},
     /* Note how a far call's stack operand size matches far ret rather than call */
     {OP_call_far_ind, 0xff0023, DR_INSTR_CATEGORY_BRANCH, "lcall",  xsp, i_vSPo2, i_Ep, xsp, xx, mrm, x, END_LIST},
@@ -3036,13 +3036,13 @@ const instr_info_t base_extensions[][8] = {
    * not linked into any encode chain.
    */
   { /* extensions[25]: all assumed to have Ib */
-    {OP_add, 0x820020, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
-    {OP_or,  0x820021, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "or",  Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
-    {OP_adc, 0x820022, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adc", Eb, xx, Ib, Eb, xx, mrm|i64, (fW6|fRC), END_LIST},
+    {OP_add, 0x820020, DR_INSTR_CATEGORY_MATH, "add", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
+    {OP_or,  0x820021, DR_INSTR_CATEGORY_MATH, "or",  Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
+    {OP_adc, 0x820022, DR_INSTR_CATEGORY_MATH, "adc", Eb, xx, Ib, Eb, xx, mrm|i64, (fW6|fRC), END_LIST},
     {OP_sbb, 0x820023, DR_INSTR_CATEGORY_UNCATEGORIZED, "sbb", Eb, xx, Ib, Eb, xx, mrm|i64, (fW6|fRC), END_LIST},
-    {OP_and, 0x820024, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "and", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
-    {OP_sub, 0x820025, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "sub", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
-    {OP_xor, 0x820026, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "xor", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
+    {OP_and, 0x820024, DR_INSTR_CATEGORY_MATH, "and", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
+    {OP_sub, 0x820025, DR_INSTR_CATEGORY_MATH, "sub", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
+    {OP_xor, 0x820026, DR_INSTR_CATEGORY_MATH, "xor", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
     {OP_cmp, 0x820027, DR_INSTR_CATEGORY_UNCATEGORIZED, "cmp", xx, xx, Eb, Ib, xx, mrm|i64, fW6,  END_LIST},
   },
   /* group 1d (Intel now calling Group 1A) -- first opcode byte 8f */
@@ -4003,9 +4003,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20fd310, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 59 */
   {
-    {OP_paddq,   0x0fd410, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddq", Pq, xx, Qq, Pq, xx, mrm, x, tpe[59][2]},
+    {OP_paddq,   0x0fd410, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddq", Pq, xx, Qq, Pq, xx, mrm, x, tpe[59][2]},
     {INVALID,  0xf30fd410, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_paddq, 0x660fd410, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddq", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
+    {OP_paddq, 0x660fd410, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddq", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
     {INVALID,  0xf20fd410, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0fd410, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,  0xf30fd410, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -4115,9 +4115,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20fdb10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 67 */
   {
-    {OP_paddusb,   0x0fdc10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddusb", Pq, xx, Qq, Pq, xx, mrm, x, tpe[67][2]},
+    {OP_paddusb,   0x0fdc10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddusb", Pq, xx, Qq, Pq, xx, mrm, x, tpe[67][2]},
     {INVALID,    0xf30fdc10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_paddusb, 0x660fdc10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddusb", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
+    {OP_paddusb, 0x660fdc10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddusb", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
     {INVALID,    0xf20fdc10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0fdc10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30fdc10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -4129,9 +4129,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20fdc10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 68 */
   {
-    {OP_paddusw,   0x0fdd10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddusw", Pq, xx, Qq, Pq, xx, mrm, x, tpe[68][2]},
+    {OP_paddusw,   0x0fdd10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddusw", Pq, xx, Qq, Pq, xx, mrm, x, tpe[68][2]},
     {INVALID,    0xf30fdd10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_paddusw, 0x660fdd10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddusw", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
+    {OP_paddusw, 0x660fdd10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddusw", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
     {INVALID,    0xf20fdd10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0fdd10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30fdd10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -4339,9 +4339,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20feb10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 83 */
   {
-    {OP_paddsb,   0x0fec10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddsb", Pq, xx, Qq, Pq, xx, mrm, x, tpe[83][2]},
+    {OP_paddsb,   0x0fec10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddsb", Pq, xx, Qq, Pq, xx, mrm, x, tpe[83][2]},
     {INVALID,    0xf30fec10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_paddsb, 0x660fec10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddsb", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
+    {OP_paddsb, 0x660fec10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddsb", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
     {INVALID,    0xf20fec10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fec10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30fec10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -4353,9 +4353,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20fec10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 84 */
   {
-    {OP_paddsw,   0x0fed10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddsw", Pq, xx, Qq, Pq, xx, mrm, x, tpe[84][2]},
+    {OP_paddsw,   0x0fed10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddsw", Pq, xx, Qq, Pq, xx, mrm, x, tpe[84][2]},
     {INVALID,    0xf30fed10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_paddsw, 0x660fed10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddsw", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
+    {OP_paddsw, 0x660fed10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddsw", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
     {INVALID,    0xf20fed10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0fed10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30fed10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -4549,9 +4549,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20ffb10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 98 */
   {
-    {OP_paddb,   0x0ffc10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddb", Pq, xx, Qq, Pq, xx, mrm, x, tpe[98][2]},
+    {OP_paddb,   0x0ffc10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddb", Pq, xx, Qq, Pq, xx, mrm, x, tpe[98][2]},
     {INVALID,    0xf30ffc10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_paddb, 0x660ffc10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddb", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
+    {OP_paddb, 0x660ffc10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddb", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
     {INVALID,    0xf20ffc10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0ffc10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30ffc10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -4563,9 +4563,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20ffc10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 99 */
   {
-    {OP_paddw,   0x0ffd10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddw", Pq, xx, Qq, Pq, xx, mrm, x, tpe[99][2]},
+    {OP_paddw,   0x0ffd10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddw", Pq, xx, Qq, Pq, xx, mrm, x, tpe[99][2]},
     {INVALID,    0xf30ffd10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_paddw, 0x660ffd10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddw", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
+    {OP_paddw, 0x660ffd10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddw", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
     {INVALID,    0xf20ffd10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0ffd10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30ffd10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -4577,9 +4577,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20ffd10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 100 */
   {
-    {OP_paddd,   0x0ffe10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddd", Pq, xx, Qq, Pq, xx, mrm, x, tpe[100][2]},
+    {OP_paddd,   0x0ffe10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddd", Pq, xx, Qq, Pq, xx, mrm, x, tpe[100][2]},
     {INVALID,    0xf30ffe10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_paddd, 0x660ffe10, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddd", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
+    {OP_paddd, 0x660ffe10, DR_INSTR_CATEGORY_MATH | DR_INSTR_CATEGORY_SIMD, "paddd", Vdq, xx, Wdq, Vdq, xx, mrm, x, END_LIST},
     {INVALID,    0xf20ffe10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0ffe10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30ffe10, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -5187,7 +5187,7 @@ const instr_info_t prefix_extensions[][12] = {
   }, { /* prefix extension 143 */
     {INVALID,        0x38f618, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {OP_adox,      0xf338f618, DR_INSTR_CATEGORY_UNCATEGORIZED, "adox",    Gy, xx, Ey, Gy, xx, mrm, (fWO|fRO), END_LIST},
-    {OP_adcx,      0x6638f618, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "adcx",    Gy, xx, Ey, Gy, xx, mrm, (fWC|fRC), END_LIST},
+    {OP_adcx,      0x6638f618, DR_INSTR_CATEGORY_MATH, "adcx",    Gy, xx, Ey, Gy, xx, mrm, (fWC|fRC), END_LIST},
     {INVALID,      0xf238f618, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x38f618, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf338f618, DR_INSTR_CATEGORY_UNCATEGORIZED, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -7065,52 +7065,52 @@ const instr_info_t rm_extensions[][8] = {
 
 const instr_info_t x64_extensions[][2] = {
   {    /* x64_ext 0 */
-    {OP_inc,  0x400000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "inc", zAX, xx, zAX, xx, xx, i64, (fW6&(~fWC)), t64e[1][0]},
+    {OP_inc,  0x400000, DR_INSTR_CATEGORY_MATH, "inc", zAX, xx, zAX, xx, xx, i64, (fW6&(~fWC)), t64e[1][0]},
     {PREFIX,  0x400000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex", xx, xx, xx, xx, xx, no, x, PREFIX_REX_GENERAL},
   }, { /* x64_ext 1 */
-    {OP_inc,  0x410000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "inc", zCX, xx, zCX, xx, xx, i64, (fW6&(~fWC)), t64e[2][0]},
+    {OP_inc,  0x410000, DR_INSTR_CATEGORY_MATH, "inc", zCX, xx, zCX, xx, xx, i64, (fW6&(~fWC)), t64e[2][0]},
     {PREFIX,  0x410000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.b", xx, xx, xx, xx, xx, no, x, PREFIX_REX_B},
   }, { /* x64_ext 2 */
-    {OP_inc,  0x420000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "inc", zDX, xx, zDX, xx, xx, i64, (fW6&(~fWC)), t64e[3][0]},
+    {OP_inc,  0x420000, DR_INSTR_CATEGORY_MATH, "inc", zDX, xx, zDX, xx, xx, i64, (fW6&(~fWC)), t64e[3][0]},
     {PREFIX,  0x420000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.x", xx, xx, xx, xx, xx, no, x, PREFIX_REX_X},
   }, { /* x64_ext 3 */
-    {OP_inc,  0x430000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "inc", zBX, xx, zBX, xx, xx, i64, (fW6&(~fWC)), t64e[4][0]},
+    {OP_inc,  0x430000, DR_INSTR_CATEGORY_MATH, "inc", zBX, xx, zBX, xx, xx, i64, (fW6&(~fWC)), t64e[4][0]},
     {PREFIX,  0x430000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.xb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_X|PREFIX_REX_B},
   }, { /* x64_ext 4 */
-    {OP_inc,  0x440000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "inc", zSP, xx, zSP, xx, xx, i64, (fW6&(~fWC)), t64e[5][0]},
+    {OP_inc,  0x440000, DR_INSTR_CATEGORY_MATH, "inc", zSP, xx, zSP, xx, xx, i64, (fW6&(~fWC)), t64e[5][0]},
     {PREFIX,  0x440000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.r", xx, xx, xx, xx, xx, no, x, PREFIX_REX_R},
   }, { /* x64_ext 5 */
-    {OP_inc,  0x450000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "inc", zBP, xx, zBP, xx, xx, i64, (fW6&(~fWC)), t64e[6][0]},
+    {OP_inc,  0x450000, DR_INSTR_CATEGORY_MATH, "inc", zBP, xx, zBP, xx, xx, i64, (fW6&(~fWC)), t64e[6][0]},
     {PREFIX,  0x450000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.rb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_R|PREFIX_REX_B},
   }, { /* x64_ext 6 */
-    {OP_inc,  0x460000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "inc", zSI, xx, zSI, xx, xx, i64, (fW6&(~fWC)), t64e[7][0]},
+    {OP_inc,  0x460000, DR_INSTR_CATEGORY_MATH, "inc", zSI, xx, zSI, xx, xx, i64, (fW6&(~fWC)), t64e[7][0]},
     {PREFIX,  0x460000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.rx", xx, xx, xx, xx, xx, no, x, PREFIX_REX_R|PREFIX_REX_X},
   }, { /* x64_ext 7 */
-    {OP_inc,  0x470000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "inc", zDI, xx, zDI, xx, xx, i64, (fW6&(~fWC)), tex[12][0]},
+    {OP_inc,  0x470000, DR_INSTR_CATEGORY_MATH, "inc", zDI, xx, zDI, xx, xx, i64, (fW6&(~fWC)), tex[12][0]},
     {PREFIX,  0x470000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.rxb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_R|PREFIX_REX_X|PREFIX_REX_B},
   }, { /* x64_ext 8 */
-    {OP_dec,  0x480000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "dec", zAX, xx, zAX, xx, xx, i64, (fW6&(~fWC)), t64e[9][0]},
+    {OP_dec,  0x480000, DR_INSTR_CATEGORY_MATH, "dec", zAX, xx, zAX, xx, xx, i64, (fW6&(~fWC)), t64e[9][0]},
     {PREFIX,  0x480000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.w", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W},
   }, { /* x64_ext 9 */
-    {OP_dec,  0x490000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "dec", zCX, xx, zCX, xx, xx, i64, (fW6&(~fWC)), t64e[10][0]},
+    {OP_dec,  0x490000, DR_INSTR_CATEGORY_MATH, "dec", zCX, xx, zCX, xx, xx, i64, (fW6&(~fWC)), t64e[10][0]},
     {PREFIX,  0x490000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.wb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_B},
   }, { /* x64_ext 10 */
-    {OP_dec,  0x4a0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "dec", zDX, xx, zDX, xx, xx, i64, (fW6&(~fWC)), t64e[11][0]},
+    {OP_dec,  0x4a0000, DR_INSTR_CATEGORY_MATH, "dec", zDX, xx, zDX, xx, xx, i64, (fW6&(~fWC)), t64e[11][0]},
     {PREFIX,  0x4a0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.wx", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_X},
   }, { /* x64_ext 11 */
-    {OP_dec,  0x4b0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "dec", zBX, xx, zBX, xx, xx, i64, (fW6&(~fWC)), t64e[12][0]},
+    {OP_dec,  0x4b0000, DR_INSTR_CATEGORY_MATH, "dec", zBX, xx, zBX, xx, xx, i64, (fW6&(~fWC)), t64e[12][0]},
     {PREFIX,  0x4b0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.wxb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_X|PREFIX_REX_B},
   }, { /* x64_ext 12 */
-    {OP_dec,  0x4c0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "dec", zSP, xx, zSP, xx, xx, i64, (fW6&(~fWC)), t64e[13][0]},
+    {OP_dec,  0x4c0000, DR_INSTR_CATEGORY_MATH, "dec", zSP, xx, zSP, xx, xx, i64, (fW6&(~fWC)), t64e[13][0]},
     {PREFIX,  0x4c0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.wr", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_R},
   }, { /* x64_ext 13 */
-    {OP_dec,  0x4d0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "dec", zBP, xx, zBP, xx, xx, i64, (fW6&(~fWC)), t64e[14][0]},
+    {OP_dec,  0x4d0000, DR_INSTR_CATEGORY_MATH, "dec", zBP, xx, zBP, xx, xx, i64, (fW6&(~fWC)), t64e[14][0]},
     {PREFIX,  0x4d0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.wrb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_R|PREFIX_REX_B},
   }, { /* x64_ext 14 */
-    {OP_dec,  0x4e0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "dec", zSI, xx, zSI, xx, xx, i64, (fW6&(~fWC)), t64e[15][0]},
+    {OP_dec,  0x4e0000, DR_INSTR_CATEGORY_MATH, "dec", zSI, xx, zSI, xx, xx, i64, (fW6&(~fWC)), t64e[15][0]},
     {PREFIX,  0x4e0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.wrx", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_R|PREFIX_REX_X},
   }, { /* x64_ext 15 */
-    {OP_dec,  0x4f0000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "dec", zDI, xx, zDI, xx, xx, i64, (fW6&(~fWC)), tex[12][1]},
+    {OP_dec,  0x4f0000, DR_INSTR_CATEGORY_MATH, "dec", zDI, xx, zDI, xx, xx, i64, (fW6&(~fWC)), tex[12][1]},
     {PREFIX,  0x4f0000, DR_INSTR_CATEGORY_UNCATEGORIZED, "rex.wrxb", xx, xx, xx, xx, xx, no, x, PREFIX_REX_W|PREFIX_REX_R|PREFIX_REX_X|PREFIX_REX_B},
   }, { /* x64_ext 16 */
     {OP_arpl,   0x630000, DR_INSTR_CATEGORY_UNCATEGORIZED, "arpl", Ew, xx, Gw, xx, xx, mrm|i64, fWZ, END_LIST},
