@@ -2128,7 +2128,7 @@ const instr_info_t * const op_instr[] =
  * This is from Tables A-2 & A-3
  */
 const instr_info_t first_byte[] = {
-    /* {op/type, op encoding, name, dst1, dst2, src1, src2, src3, modrm?, eflags, code} */
+    /* {op/type, op encoding, category, name, dst1, dst2, src1, src2, src3, modrm?, eflags, code} */
     /* 00 */
     {OP_add,  0x000000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][0]},
     {OP_add,  0x010000, DR_INSTR_CATEGORY_INT | DR_INSTR_CATEGORY_MATH, "add",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x00]},
