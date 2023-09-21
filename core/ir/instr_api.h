@@ -1904,7 +1904,7 @@ typedef enum {
     DR_INSTR_CATEGORY_STORE = 0x8,         /**< Stores. */
     DR_INSTR_CATEGORY_BRANCH = 0x10,       /**< Branches. */
     DR_INSTR_CATEGORY_SIMD = 0x20,     /**< Operations with vector registers (SIMD). */
-    DR_INSTR_CATEGORY_STATE = 0x40,    /**< Loads, stores, or queries processor state. */
+    DR_INSTR_CATEGORY_STATE = 0x40,    /**< Saves, restores, or queries processor state. */
     DR_INSTR_CATEGORY_MOVE = 0x80,     /**< Moves value from one location to another. */
     DR_INSTR_CATEGORY_CONVERT = 0x100, /**< Converts to or from value. */
     DR_INSTR_CATEGORY_MATH = 0x200, /**< Performs arithmetic or conditional operations. */
@@ -1915,7 +1915,7 @@ typedef enum {
  * Indicates which type of floating-point operation and instruction performs.
  */
 typedef enum {
-    DR_FP_STATE,   /**< Loads, stores, or queries general floating point state. */
+    DR_FP_STATE,   /**< Saves, restores, or queries processor state. */
     DR_FP_MOVE,    /**< Moves floating point values from one location to another. */
     DR_FP_CONVERT, /**< Converts to or from floating point values. */
     DR_FP_MATH,    /**< Performs arithmetic or conditional operations. */

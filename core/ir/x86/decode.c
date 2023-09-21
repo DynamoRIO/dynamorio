@@ -2443,12 +2443,19 @@ decode_get_tuple_type_input_size(const instr_info_t *info, decode_info_t *di)
 static inline void
 decode_category(instr_t *instr)
 {
-    if (instr) {
-        if (op_instr[instr->opcode])
-            instr_set_category(instr, op_instr[instr->opcode]->category);
-        else
+    if (instr != NULL) {
+        if (op_instr[instr->opcode] != NULL) {
+            uint default_category = op_instr[instr->opcode]->category;
+            if (instr_reads_memory(instr))
+                instr_set_category(instr, default_category | DR_INSTR_CATEGORY_LOAD);
+            else if (instr_writes_memory(instr))
+                instr_set_category(instr, default_category | DR_INSTR_CATEGORY_STORE);
+            else
+                instr_set_category(instr, default_category);
+        } else {
             /* nonvalid opcode */
             instr_set_category(instr, DR_INSTR_CATEGORY_UNCATEGORIZED);
+        }
     }
 }
 
