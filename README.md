@@ -22,6 +22,7 @@ DynamoRIO is the basis for some well-known external tools:
 - The [Arm Instruction Emulator (ArmIE)](https://developer.arm.com/tools-and-software/server-and-hpc/arm-architecture-tools/arm-instruction-emulator)
 - [WinAFL](https://github.com/googleprojectzero/winafl), the Windows fuzzing tool, as an instrumentation and code coverage engine
 - The fine-grained profiler for ARM [DrCCTProf](https://xl10.github.io/blog/drcctprof.html)
+- The portable and efficient framework for fine-grained value profilers [VClinic](https://github.com/VClinic/VClinic)
 
 Tools built on DynamoRIO and available in the [release package](https://dynamorio.org/page_download) include:
 
