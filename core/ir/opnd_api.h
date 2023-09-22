@@ -1930,7 +1930,7 @@ enum {
     FAR_PC_kind,    /* a segment is specified as a selector value */
     FAR_INSTR_kind, /* a segment is specified as a selector value */
 #    if defined(X64) || defined(ARM)
-    REL_ADDR_kind, /* pc-relative address: ARM or 64-bit X86 only */
+    REL_ADDR_kind, /* pc-relative address: ARM/RISCV64/64-bit X86 only */
 #    endif
 #    ifdef X64
     ABS_ADDR_kind, /* 64-bit absolute address: x64 only */
