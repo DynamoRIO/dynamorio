@@ -73,7 +73,7 @@ jobs:
         # We do shallow clones and assume DrM will update its DR at least once
         # every 250 DR commits.
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-        cd drmemory && git submodule update --init --depth 250 && cd ..
+        cd drmemory && git submodule update --init --recursive --depth 250 && cd ..
 
     # Install needed packages.
     - name: Create Build Environment
