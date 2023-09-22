@@ -57,6 +57,7 @@ namespace dynamorio {
 namespace drmemtrace {
 
 const std::string basic_counts_t::TOOL_NAME = "Basic counts tool";
+const char *const basic_counts_t::TOTAL_COUNT_PREFIX = " total";
 
 analysis_tool_t *
 basic_counts_tool_create(unsigned int verbose)
@@ -128,6 +129,10 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
+    if (memref.instr.tid != per_shard->last_tid_) {
+        counters->unique_threads.insert(memref.instr.tid);
+        per_shard->last_tid_ = memref.instr.tid;
+    }
     if (type_is_instr(memref.instr.type)) {
         ++counters->instrs;
         if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, per_shard->filetype_)) {
@@ -258,8 +263,8 @@ basic_counts_t::cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
 }
 
 void
-basic_counts_t::print_counters(const counters_t &counters, int64_t num_threads,
-                               const std::string &prefix, bool for_kernel_trace)
+basic_counts_t::print_counters(const counters_t &counters, const std::string &prefix,
+                               bool for_kernel_trace)
 {
     std::cerr << std::setw(12) << counters.instrs << prefix
               << " (fetched) instructions\n";
@@ -282,8 +287,10 @@ basic_counts_t::print_counters(const counters_t &counters, int64_t num_threads,
               << " icache flushes\n";
     std::cerr << std::setw(12) << counters.dcache_flushes << prefix
               << " dcache flushes\n";
-    if (num_threads > 0) {
-        std::cerr << std::setw(12) << num_threads << prefix << " threads\n";
+    if (shard_type_ != SHARD_BY_THREAD || counters.unique_threads.size() > 1 ||
+        prefix == TOTAL_COUNT_PREFIX) {
+        std::cerr << std::setw(12) << counters.unique_threads.size() << prefix
+                  << " threads\n";
     }
     std::cerr << std::setw(12) << counters.sched_markers << prefix
               << " scheduling markers\n";
@@ -331,7 +338,7 @@ basic_counts_t::print_results()
     total.shard_count = shard_map_.size();
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
-    print_counters(total, shard_map_.size(), " total", for_kernel_trace);
+    print_counters(total, TOTAL_COUNT_PREFIX, for_kernel_trace);
 
     if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";
@@ -339,7 +346,7 @@ basic_counts_t::print_results()
             std::cerr << "Window #" << i << ":\n";
             for (const auto &shard : shard_map_) {
                 if (shard.second->counters.size() > i) {
-                    print_counters(shard.second->counters[i], 0, " window",
+                    print_counters(shard.second->counters[i], " window",
                                    for_kernel_trace);
                 }
             }
@@ -355,7 +362,7 @@ basic_counts_t::print_results()
             std::cerr << "Thread " << keyvals.second->tid << " counts:\n";
         else
             std::cerr << "Core " << keyvals.second->core << " counts:\n";
-        print_counters(keyvals.second->counters[0], 0, "", for_kernel_trace);
+        print_counters(keyvals.second->counters[0], "", for_kernel_trace);
     }
 
     // TODO i#3599: also print thread-per-window stats.
@@ -448,7 +455,7 @@ basic_counts_t::print_interval_results(
                   << snapshot->interval_end_timestamp << ":\n";
         counters_t diff = snapshot->counters;
         diff -= last;
-        print_counters(diff, 0, " interval delta");
+        print_counters(diff, " interval delta");
         last = snapshot->counters;
         if (knob_verbose_ > 0) {
             if (snapshot->instr_count_cumulative !=
