@@ -531,10 +531,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                 instr_noalloc_t noalloc;
                 instr_noalloc_init(drcontext_, &noalloc);
                 instr_t *noalloc_instr = instr_from_noalloc(&noalloc);
-                decode_from_copy(drcontext_, const_cast<app_pc>(memref.instr.encoding),
-                                 trace_pc, noalloc_instr);
+                app_pc next_pc = decode_from_copy(
+                    drcontext_, const_cast<app_pc>(memref.instr.encoding), trace_pc,
+                    noalloc_instr);
                 // Add decoding attributes to cur_instr_info.
-                if (noalloc_instr != nullptr) {
+                if (next_pc != nullptr) {
                     cur_instr_info.decoding.has_valid_decoding = true;
                     cur_instr_info.decoding.is_syscall = instr_is_syscall(noalloc_instr);
                     cur_instr_info.decoding.writes_memory =
@@ -650,7 +651,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     TRACE_TYPE_INSTR_SYSENTER;
             report_if_false(
                 shard,
-                (kernel_event_marker_equality) ||
+                kernel_event_marker_equality ||
                     // Nested signal.  XXX: This only works for our annotated test
                     // signal_invariants where we know shard->app_handler_pc_.
                     memref.instr.addr == shard->app_handler_pc_ ||
@@ -785,12 +786,12 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     // XXX i#3937: Online traces do not place signal markers properly,
                     // so we can't precisely check for continuity there.
                     knob_offline_) {
-                    per_shard_t::instr_info_t instr_info;
-                    instr_info.memref = memref;
+                    per_shard_t::instr_info_t memref_info;
+                    memref_info.memref = memref;
                     // Ensure no discontinuity between a prior instr and the interrupted
                     // PC, for non-rseq signals where we have the interrupted PC.
                     const std::string discontinuity = check_for_pc_discontinuity(
-                        shard, shard->last_instr_in_cur_context_, instr_info,
+                        shard, shard->last_instr_in_cur_context_, memref_info,
                         TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, shard->file_type_),
                         /*at_kernel_event=*/true);
                     const std::string error_msg_suffix = " @ kernel_event marker";

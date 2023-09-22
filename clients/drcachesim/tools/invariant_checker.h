@@ -144,7 +144,7 @@ protected:
         };
         struct instr_info_t {
             memref_t memref = {};
-            decoding_info_t decoding = {};
+            decoding_info_t decoding;
         };
         std::unordered_map<app_pc, decoding_info_t> decode_cache_;
         // On UNIX generally last_instr_in_cur_context_ should be used instead.
