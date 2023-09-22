@@ -154,6 +154,58 @@ st1h scalar\+scalar 64bit element: PASS
 st1w scalar\+scalar 32bit element: PASS
 st1w scalar\+scalar 64bit element: PASS
 st1d scalar\+scalar: PASS
+ld1b scalar\+immediate 8bit element: PASS
+ld1b scalar\+immediate 16bit element: PASS
+ld1b scalar\+immediate 32bit element: PASS
+ld1b scalar\+immediate 64bit element: PASS
+ld1b scalar\+immediate 64bit element \(min index\): PASS
+ld1b scalar\+immediate 64bit element \(max index\): PASS
+ldnt1b scalar\+immediate 8bit element: PASS
+ld1sb scalar\+immediate 16bit element: PASS
+ld1sb scalar\+immediate 32bit element: PASS
+ld1sb scalar\+immediate 64bit element: PASS
+ld1sb scalar\+immediate 64bit element \(min index\): PASS
+ld1sb scalar\+immediate 64bit element \(max index\): PASS
+ld1h scalar\+immediate 16bit element: PASS
+ld1h scalar\+immediate 32bit element: PASS
+ld1h scalar\+immediate 64bit element: PASS
+ld1h scalar\+immediate 64bit element \(min index\): PASS
+ld1h scalar\+immediate 64bit element \(max index\): PASS
+ldnt1h scalar\+immediate 16bit element: PASS
+ld1sh scalar\+immediate 32bit element: PASS
+ld1sh scalar\+immediate 64bit element: PASS
+ld1sh scalar\+immediate 64bit element \(min index\): PASS
+ld1sh scalar\+immediate 64bit element \(max index\): PASS
+ld1w scalar\+immediate 32bit element: PASS
+ld1w scalar\+immediate 64bit element: PASS
+ld1w scalar\+immediate 64bit element \(min index\): PASS
+ld1w scalar\+immediate 64bit element \(max index\): PASS
+ldnt1w scalar\+immediate 32bit element: PASS
+ld1sw scalar\+immediate 64bit element: PASS
+ld1sw scalar\+immediate 64bit element \(min index\): PASS
+ld1sw scalar\+immediate 64bit element \(max index\): PASS
+ld1d scalar\+immediate 64bit element: PASS
+ld1d scalar\+immediate 64bit element \(min index\): PASS
+ld1d scalar\+immediate 64bit element \(max index\): PASS
+ldnt1d scalar\+immediate 64bit element: PASS
+st1b scalar\+immediate 8bit element: PASS
+st1b scalar\+immediate 16bit element: PASS
+st1b scalar\+immediate 32bit element: PASS
+st1b scalar\+immediate 64bit element: PASS
+st1b scalar\+immediate 64bit element \(min index\): PASS
+st1b scalar\+immediate 64bit element \(max index\): PASS
+st1h scalar\+immediate 16bit element: PASS
+st1h scalar\+immediate 32bit element: PASS
+st1h scalar\+immediate 64bit element: PASS
+st1h scalar\+immediate 64bit element \(min index\): PASS
+st1h scalar\+immediate 64bit element \(max index\): PASS
+st1w scalar\+immediate 32bit element: PASS
+st1w scalar\+immediate 64bit element: PASS
+st1w scalar\+immediate 64bit element \(min index\): PASS
+st1w scalar\+immediate 64bit element \(max index\): PASS
+st1d scalar\+immediate 64bit element: PASS
+st1d scalar\+immediate 64bit element \(min index\): PASS
+st1d scalar\+immediate 64bit element \(max index\): PASS
 #endif /* __ARM_FEATURE_SVE */
 ---- <application exited with code 0> ----
 Trace invariant checks passed
