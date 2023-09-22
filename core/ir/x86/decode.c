@@ -2445,13 +2445,14 @@ decode_category(instr_t *instr)
 {
     if (instr != NULL) {
         if (op_instr[instr->opcode] != NULL) {
-            uint default_category = op_instr[instr->opcode]->category;
-            if (instr_operands_valid(instr) && instr_reads_memory(instr))
-                instr_set_category(instr, default_category | DR_INSTR_CATEGORY_LOAD);
-            else if (instr_operands_valid(instr) && instr_writes_memory(instr))
-                instr_set_category(instr, default_category | DR_INSTR_CATEGORY_STORE);
-            else
-                instr_set_category(instr, default_category);
+            uint category = op_instr[instr->opcode]->category;
+            if (instr_operands_valid(instr)) {
+                if (instr_reads_memory(instr))
+                    category |= DR_INSTR_CATEGORY_LOAD;
+                if (instr_writes_memory(instr))
+                    category |= DR_INSTR_CATEGORY_STORE;
+            }
+            instr_set_category(instr, category);
         } else {
             /* nonvalid opcode */
             instr_set_category(instr, DR_INSTR_CATEGORY_UNCATEGORIZED);
