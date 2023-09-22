@@ -155,12 +155,12 @@ test_noalloc(void)
      */
 }
 
-#define CHECK_CATEGORY(dcontext, instr, pc, category) \
-    instr_encode(dcontext, instr, pc);                \
-    instr_reset(dcontext, instr);                     \
-    instr_set_operands_valid(instr, true);            \
-    decode(dcontext, pc, instr);                      \
-    ASSERT(instr_get_category(instr) == category);    \
+#define CHECK_CATEGORY(dcontext, instr, pc, category)                          \
+    ASSERT(instr_encode(dcontext, instr, pc) - pc < BUFFER_SIZE_ELEMENTS(pc)); \
+    instr_reset(dcontext, instr);                                              \
+    instr_set_operands_valid(instr, true);                                     \
+    ASSERT(decode(dcontext, pc, instr) != NULL);                               \
+    ASSERT(instr_get_category(instr) == category);                             \
     instr_destroy(dcontext, instr);
 
 static void
