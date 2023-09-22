@@ -2159,8 +2159,8 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                        SCRATCH_REG0 /*scratch*/, false /*to app*/);
 #endif
 
-    /* Put app's X0/A0, X1/A1 in TLS_REG0_SLOT, TLS_REG1_SLOT; this is required by
-     * the fragment prefix.
+    /* Put app state into TLS_REG0_SLOT, TLS_REG1_SLOT (respectively X0, X1 for AArch64;
+     * A0, A1 for RISC-V)
      */
 #ifdef AARCH64
     /* ldp x0, x1, [x5] */
@@ -2175,7 +2175,6 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             dcontext, opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 0, OPSZ_16),
             opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1)));
 #elif defined(RISCV64)
-
     APP(&ilist,
         INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
                         opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
@@ -4861,17 +4860,19 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     APP(&ilist, instr_create_save_to_tls(dcontext, DR_REG_R0, TLS_REG0_SLOT));
     /* XXX: should have a proper patch list entry */
     *syscall_offs += THUMB_LONG_INSTR_SIZE;
-
-    /* For AArch64/RISCV64, we need to save both x0/a0 and x1/a1 into SLOT 0 and SLOT 1
-     * in case the syscall is interrupted. See append_save_gpr.
-     */
 #elif defined(AARCH64)
+    /* Put app's X0, X1 in TLS_REG0_SLOT, TLS_REG1_SLOT; this is required by
+     * the fragment prefix.
+     */
     APP(&ilist,
         INSTR_CREATE_stp(dcontext,
                          opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 0, OPSZ_16),
                          opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1)));
     *syscall_offs += AARCH64_INSTR_SIZE;
 #elif defined(RISCV64)
+    /* Put app's A0, A1 in TLS_REG0_SLOT, TLS_REG1_SLOT; this is required by
+     * the fragment prefix.
+     */
     APP(&ilist,
         INSTR_CREATE_sd(
             dcontext,
@@ -4920,9 +4921,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     }
 
     /* Save SCRATCH_REG1 as this is used for the indirect branch in the exit stub. */
-#ifdef AARCH64
-    APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG1, TLS_REG1_SLOT));
-#elif defined(RISCV64)
+#if defined(AARCH64) || defined(RISCV64)
     APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG1, TLS_REG1_SLOT));
 #endif
 
