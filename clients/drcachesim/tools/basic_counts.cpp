@@ -57,6 +57,7 @@ namespace dynamorio {
 namespace drmemtrace {
 
 const std::string basic_counts_t::TOOL_NAME = "Basic counts tool";
+const char *const basic_counts_t::TOTAL_COUNT_PREFIX = " total";
 
 analysis_tool_t *
 basic_counts_tool_create(unsigned int verbose)
@@ -287,7 +288,7 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
     std::cerr << std::setw(12) << counters.dcache_flushes << prefix
               << " dcache flushes\n";
     if (shard_type_ != SHARD_BY_THREAD || counters.unique_threads.size() > 1 ||
-        prefix == " total") {
+        prefix == TOTAL_COUNT_PREFIX) {
         std::cerr << std::setw(12) << counters.unique_threads.size() << prefix
                   << " threads\n";
     }
@@ -337,7 +338,7 @@ basic_counts_t::print_results()
     total.shard_count = shard_map_.size();
     std::cerr << TOOL_NAME << " results:\n";
     std::cerr << "Total counts:\n";
-    print_counters(total, " total", for_kernel_trace);
+    print_counters(total, TOTAL_COUNT_PREFIX, for_kernel_trace);
 
     if (num_windows > 1) {
         std::cerr << "Total windows: " << num_windows << "\n";

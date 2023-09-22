@@ -115,13 +115,10 @@ public:
             dcache_flushes += rhs.dcache_flushes;
             encodings += rhs.encodings;
             if (track_unique_pc_addrs) {
-                for (const uint64_t addr : rhs.unique_pc_addrs) {
-                    unique_pc_addrs.insert(addr);
-                }
+                unique_pc_addrs.insert(rhs.unique_pc_addrs.begin(),
+                                       rhs.unique_pc_addrs.end());
             }
-            for (const memref_tid_t tid : rhs.unique_threads) {
-                unique_threads.insert(tid);
-            }
+            unique_threads.insert(rhs.unique_threads.begin(), rhs.unique_threads.end());
             return *this;
         }
         counters_t &
@@ -284,6 +281,7 @@ protected:
     std::mutex shard_map_mutex_;
     unsigned int knob_verbose_;
     static const std::string TOOL_NAME;
+    static const char *const TOTAL_COUNT_PREFIX;
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     memtrace_stream_t *serial_stream_ = nullptr;
 };
