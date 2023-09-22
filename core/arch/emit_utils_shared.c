@@ -2160,7 +2160,7 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 #endif
 
     /* Put app state into TLS_REG0_SLOT, TLS_REG1_SLOT (respectively X0, X1 for AArch64;
-     * A0, A1 for RISC-V)
+     * A0, A1 for RISC-V); this is required by the fragment prefix.
      */
 #ifdef AARCH64
     /* ldp x0, x1, [x5] */
@@ -4861,8 +4861,9 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     /* XXX: should have a proper patch list entry */
     *syscall_offs += THUMB_LONG_INSTR_SIZE;
 #elif defined(AARCH64)
-    /* Put app's X0, X1 in TLS_REG0_SLOT, TLS_REG1_SLOT; this is required by
-     * the fragment prefix.
+    /* For AArch64, we need to save both x0 and x1 into SLOT 0 and SLOT 1
+     * in case the syscall is interrupted. See append_save_gpr.
+     * stp x0, x1, [x28]
      */
     APP(&ilist,
         INSTR_CREATE_stp(dcontext,
@@ -4870,8 +4871,8 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                          opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1)));
     *syscall_offs += AARCH64_INSTR_SIZE;
 #elif defined(RISCV64)
-    /* Put app's A0, A1 in TLS_REG0_SLOT, TLS_REG1_SLOT; this is required by
-     * the fragment prefix.
+    /* For RISCV64, we need to save both a0 and a1 into SLOT 0 and SLOT 1
+     * in case the syscall is interrupted. See append_save_gpr.
      */
     APP(&ilist,
         INSTR_CREATE_sd(
