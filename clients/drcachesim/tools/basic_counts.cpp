@@ -286,7 +286,8 @@ basic_counts_t::print_counters(const counters_t &counters, const std::string &pr
               << " icache flushes\n";
     std::cerr << std::setw(12) << counters.dcache_flushes << prefix
               << " dcache flushes\n";
-    if (shard_type_ != SHARD_BY_THREAD || counters.unique_threads.size() > 1) {
+    if (shard_type_ != SHARD_BY_THREAD || counters.unique_threads.size() > 1 ||
+        prefix == " total") {
         std::cerr << std::setw(12) << counters.unique_threads.size() << prefix
                   << " threads\n";
     }
