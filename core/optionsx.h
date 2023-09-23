@@ -521,7 +521,8 @@ OPTION_COMMAND(
     },
     "enable memory savings at potential loss in performance", STATIC, OP_PCACHE_NOP)
 
-PC_OPTION_DEFAULT_INTERNAL(bool, bb_prefixes, IF_AARCH64_ELSE(true, false),
+PC_OPTION_DEFAULT_INTERNAL(bool, bb_prefixes,
+                           IF_AARCH64_ELSE(true, IF_RISCV64_ELSE(true, false)),
                            "give all bbs a prefix")
 /* If a client registers a bb hook, we force a full decode.  This option
  * requests a full decode regardless of whether there is a bb hook.
@@ -642,7 +643,10 @@ OPTION_DEFAULT_INTERNAL(bool, ldstex2cas, true,
                         "replace exclusive load/store with compare-and-swap to "
                         "allow instrumentation, at the risk of ABA errors")
 #endif
-
+#ifdef RISCV64
+/* We only allow register between x18 and x31 to be used. */
+OPTION_DEFAULT_INTERNAL(uint, steal_reg, 28, "The register stolen/used by DynamoRIO")
+#endif
 #ifdef WINDOWS_PC_SAMPLE
 OPTION_DEFAULT(uint, prof_pcs_DR, 2,
                "PC profile dynamorio.dll, value is bit shift to use, < 2 or > 32 "

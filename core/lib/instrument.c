@@ -4633,7 +4633,7 @@ dr_set_tls_field(void *drcontext, void *value)
 DR_API void *
 dr_get_dr_segment_base(IN reg_id_t seg)
 {
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     if (seg == dr_reg_stolen)
         return os_get_dr_tls_base(get_thread_private_dcontext());
     else
@@ -4650,7 +4650,7 @@ dr_raw_tls_calloc(OUT reg_id_t *tls_register, OUT uint *offset, IN uint num_slot
 {
     CLIENT_ASSERT(tls_register != NULL, "dr_raw_tls_calloc: tls_register cannot be NULL");
     CLIENT_ASSERT(offset != NULL, "dr_raw_tls_calloc: offset cannot be NULL");
-    *tls_register = IF_X86_ELSE(SEG_TLS, IF_RISCV64_ELSE(DR_REG_TP, dr_reg_stolen));
+    *tls_register = IF_X86_ELSE(SEG_TLS, dr_reg_stolen);
     if (num_slots == 0)
         return true;
     return os_tls_calloc(offset, num_slots, alignment);
@@ -6503,6 +6503,8 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
                                (reg_t)d_r_get_tls(os_tls_offset(TLS_REG_STOLEN_SLOT)));
         }
     }
+#elif defined(RISCV64)
+    ASSERT_NOT_IMPLEMENTED(false);
 #endif
 
     /* XXX: should we set the pc field?
@@ -6566,6 +6568,8 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
         /* save the reg val on the stack to be clobbered by the the copy below */
         reg_val = get_stolen_reg_val(state);
     }
+#elif defined(RISCV64)
+    CLIENT_ASSERT(false, "NYI on RISCV64");
 #endif
     if (!dr_mcontext_to_priv_mcontext(state, context))
         return false;
@@ -6574,6 +6578,8 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
         /* restore the reg val on the stack clobbered by the copy above */
         set_stolen_reg_val(state, reg_val);
     }
+#elif defined(RISCV64)
+    CLIENT_ASSERT(false, "NYI on RISCV64");
 #endif
 
     if (TEST(DR_MC_CONTROL, context->flags)) {
@@ -7352,7 +7358,7 @@ DR_API
 reg_id_t
 dr_get_stolen_reg()
 {
-    return IF_AARCHXX_ELSE(dr_reg_stolen, REG_NULL);
+    return IF_X86_ELSE(DR_REG_NULL, dr_reg_stolen);
 }
 
 DR_API
@@ -7368,6 +7374,8 @@ dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist, instr_t *ins
 #ifdef AARCHXX
     instrlist_meta_preinsert(
         ilist, instr, instr_create_restore_from_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
+#elif defined(RISCV64)
+    CLIENT_ASSERT(false, "NYI on RISCV64");
 #endif
     return true;
 }

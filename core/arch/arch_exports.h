@@ -157,9 +157,8 @@ typedef struct _spill_state_t {
     reg_t reg_stolen; /* slot for the stolen register */
 #elif defined(RISCV64)
     reg_t a0, a1, a2, a3;
-    /* Slot for the stolen register, which is tp.
-     * Note that on RISC-V, tp is the thread pointer, and it is also a general-purpose
-     * register, so we steal tp to store DR's tls.
+    /* Slots for the stolen register. Similar to AArch64, we use reg_stolen slot to hold
+     * the app's stolen reg value.
      */
     reg_t reg_stolen;
 #endif
