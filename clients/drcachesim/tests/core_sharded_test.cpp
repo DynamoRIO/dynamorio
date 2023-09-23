@@ -112,6 +112,9 @@ Total counts:
       638938 total .*
 (.|\n)*
 Core [0-9] counts:
+(.|\n)*
+ *[0-9]+ threads
+(.|\n)*
 )DELIM")));
         std::regex count("Core");
         assert(std::distance(std::sregex_iterator(output.begin(), output.end(), count),
@@ -128,6 +131,9 @@ Total counts:
       638938 total .*
 (.|\n)*
 Core [0-9] counts:
+(.|\n)*
+ *[0-9]+ threads
+(.|\n)*
 )DELIM")));
         std::regex count("Core");
         assert(std::distance(std::sregex_iterator(output.begin(), output.end(), count),
@@ -155,6 +161,9 @@ Total counts:
       638938 total \(fetched\) instructions
 (.|\n)*
 Core [0-9] counts:
+(.|\n)*
+ *[0-9]+ threads
+(.|\n)*
 )DELIM")));
         std::regex count("Core");
         assert(std::distance(std::sregex_iterator(output.begin(), output.end(), count),
@@ -179,26 +188,43 @@ Core [0-9] counts:
 Total counts:
       638938 total \(fetched\) instructions
 (.|\n)*
+           8 total threads
+(.|\n)*
 Core 5 counts:
       175765 \(fetched\) instructions
+(.|\n)*
+           2 threads
 (.|\n)*
 Core 9 counts:
        87891 \(fetched\) instructions
 (.|\n)*
+           1 threads
+(.|\n)*
 Core 0 counts:
        87884 \(fetched\) instructions
 (.|\n)*
-Core 10? counts:
-       87875 \(fetched\) instructions
+           1 threads
 (.|\n)*
 Core 10? counts:
        87875 \(fetched\) instructions
+(.|\n)*
+           1 threads
+(.|\n)*
+Core 10? counts:
+       87875 \(fetched\) instructions
+(.|\n)*
+           1 threads
 (.|\n)*
 Core 11 counts:
        82508 \(fetched\) instructions
 (.|\n)*
+           1 threads
+(.|\n)*
 Core 8 counts:
        29140 \(fetched\) instructions
+(.|\n)*
+           1 threads
+(.|\n)*
 )DELIM")));
     }
     {
@@ -216,6 +242,9 @@ Total counts:
       638938 total \(fetched\) instructions
 (.|\n)*
 Core .*
+(.|\n)*
+ *[0-9]+ threads
+(.|\n)*
 )DELIM")));
         const char *replay_args[] = { "<exe>",           "-core_sharded",
                                       "-simulator_type", "basic_counts",
