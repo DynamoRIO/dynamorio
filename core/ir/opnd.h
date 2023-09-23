@@ -325,7 +325,12 @@ opnd_immed_float_arch(uint opcode);
 #ifdef AARCHXX
 #    define DR_REG_STOLEN_MIN IF_X64_ELSE(DR_REG_X9, DR_REG_R8) /* DR_REG_SYSNUM + 1 */
 #    define DR_REG_STOLEN_MAX IF_X64_ELSE(DR_REG_X29, DR_REG_R12)
-/* DR's stolen register for TLS access */
+/* DR's stolen register for TLS access. */
+extern reg_id_t dr_reg_stolen;
+#elif defined(RISCV64)
+#    define DR_REG_STOLEN_MIN DR_REG_X18 /* DR_REG_SYSNUM + 1 */
+#    define DR_REG_STOLEN_MAX DR_REG_X31
+/* DR's stolen register for TLS access. */
 extern reg_id_t dr_reg_stolen;
 #endif
 
