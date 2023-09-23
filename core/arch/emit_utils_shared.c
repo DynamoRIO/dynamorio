@@ -1298,9 +1298,9 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 int
 fragment_prefix_size(uint flags)
 {
-#ifdef AARCH64
-    /* For AArch64, there is no need to save the flags
-     * so we always have the same ibt prefix. */
+#if defined(AARCH64) || defined(RISCV64)
+    /* For AArch64/RISC-V, there is no need to save the flags so we always have the same
+     * ibt prefix. */
     return fragment_ibt_prefix_size(flags);
 #else
     if (use_ibt_prefix(flags)) {
@@ -2159,10 +2159,10 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                        SCRATCH_REG0 /*scratch*/, false /*to app*/);
 #endif
 
-#ifdef AARCH64
-    /* Put app's X0, X1 in TLS_REG0_SLOT, TLS_REG1_SLOT; this is required by
-     * the fragment prefix.
+    /* Put app state into TLS_REG0_SLOT, TLS_REG1_SLOT (respectively X0, X1 for AArch64;
+     * A0, A1 for RISC-V); this is required by the fragment prefix.
      */
+#ifdef AARCH64
     /* ldp x0, x1, [x5] */
     APP(&ilist,
         XINST_CREATE_load_pair(
@@ -2174,6 +2174,26 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         XINST_CREATE_store_pair(
             dcontext, opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 0, OPSZ_16),
             opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1)));
+#elif defined(RISCV64)
+    APP(&ilist,
+        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
+                        opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                              REG_OFFSET(DR_REG_A0), OPSZ_8)));
+    APP(&ilist,
+        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A1),
+                        opnd_create_base_disp(REG_DCXT, DR_REG_NULL, 0,
+                                              REG_OFFSET(DR_REG_A1), OPSZ_8)));
+
+    APP(&ilist,
+        INSTR_CREATE_sd(
+            dcontext,
+            opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, TLS_REG0_SLOT, OPSZ_8),
+            opnd_create_reg(DR_REG_A0)));
+    APP(&ilist,
+        INSTR_CREATE_sd(
+            dcontext,
+            opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, TLS_REG1_SLOT, OPSZ_8),
+            opnd_create_reg(DR_REG_A1)));
 #endif
 
     /* restore the original register state */
@@ -4813,14 +4833,24 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     /* initialize the ilist */
     instrlist_init(&ilist);
 
+    /* We will call this from handle_system_call, so need prefix on AArch64/RISCV64. */
 #ifdef AARCH64
-    /* We will call this from handle_system_call, so need prefix on AArch64. */
     APP(&ilist,
         XINST_CREATE_load_pair(
             dcontext, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1),
             opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 0, OPSZ_16)));
     /* XXX: should have a proper patch list entry */
     *syscall_offs += AARCH64_INSTR_SIZE;
+#elif defined(RISCV64)
+    APP(&ilist,
+        INSTR_CREATE_ld(
+            dcontext, opnd_create_reg(DR_REG_A0),
+            opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, TLS_REG0_SLOT, OPSZ_8)));
+    APP(&ilist,
+        INSTR_CREATE_ld(
+            dcontext, opnd_create_reg(DR_REG_A1),
+            opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, TLS_REG1_SLOT, OPSZ_8)));
+    *syscall_offs += RISCV64_INSTR_SIZE * 2;
 #endif
 
 #if defined(ARM)
@@ -4840,6 +4870,21 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                          opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 0, OPSZ_16),
                          opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1)));
     *syscall_offs += AARCH64_INSTR_SIZE;
+#elif defined(RISCV64)
+    /* For RISCV64, we need to save both a0 and a1 into SLOT 0 and SLOT 1
+     * in case the syscall is interrupted. See append_save_gpr.
+     */
+    APP(&ilist,
+        INSTR_CREATE_sd(
+            dcontext,
+            opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, TLS_REG0_SLOT, OPSZ_8),
+            opnd_create_reg(DR_REG_A0)));
+    APP(&ilist,
+        INSTR_CREATE_sd(
+            dcontext,
+            opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, TLS_REG1_SLOT, OPSZ_8),
+            opnd_create_reg(DR_REG_A1)));
+    *syscall_offs += RISCV64_INSTR_SIZE * 2;
 #endif
 
     /* system call itself -- using same method we've observed OS using */
@@ -4876,8 +4921,8 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             instr_create_save_to_dcontext(dcontext, SCRATCH_REG0, SCRATCH_REG0_OFFS));
     }
 
-#ifdef AARCH64
-    /* Save X1 as this is used for the indirect branch in the exit stub. */
+    /* Save SCRATCH_REG1 as this is used for the indirect branch in the exit stub. */
+#if defined(AARCH64) || defined(RISCV64)
     APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG1, TLS_REG1_SLOT));
 #endif
 
@@ -5226,7 +5271,7 @@ byte *
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
 {
     instrlist_t ilist;
-    IF_NOT_AARCH64(uint offset;)
+    IF_NOT_AARCH64(IF_NOT_RISCV64(uint offset));
 
     /* initialize the ilist */
     instrlist_init(&ilist);
@@ -5241,7 +5286,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
      * new_thread_setup() will restore real app xsp.
      * We emulate x86.asm's PUSH_DR_MCONTEXT(SCRATCH_REG0) (for priv_mcontext_t.pc).
      */
-    IF_NOT_AARCH64(offset =)
+    IF_NOT_AARCH64(IF_NOT_RISCV64(offset =))
     insert_push_all_registers(dcontext, NULL, &ilist, NULL, IF_X64_ELSE(16, 4),
                               opnd_create_reg(SCRATCH_REG0),
                               /* we have to pass in scratch to prevent
@@ -5249,7 +5294,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
                                * a race w/ the parent's use of it!
                                */
                               SCRATCH_REG0 _IF_AARCH64(false));
-#    ifndef AARCH64
+#    if !defined AARCH64 && !defined(RISCV64)
     /* put pre-push xsp into priv_mcontext_t.xsp slot */
     ASSERT(offset == get_clean_call_switch_stack_size());
     APP(&ilist,
@@ -5281,13 +5326,17 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
     APP(&ilist,
         XINST_CREATE_move(dcontext, opnd_create_reg(SCRATCH_REG0),
                           opnd_create_reg(REG_XSP)));
-#    else
-    /* For AArch64, SP was already saved by insert_push_all_registers and
-     * pointing to priv_mcontext_t. Move sp to the first argument:
-     * mov x0, sp
+
+    /* For AArch64/RISCV64, SP was already saved by insert_push_all_registers and
+     * pointing to priv_mcontext_t. Move sp to the first argument.
      */
+#    elif defined(AARCH64)
     APP(&ilist,
         XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X0),
+                          opnd_create_reg(DR_REG_XSP)));
+#    elif defined(RISCV64)
+    APP(&ilist,
+        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_A0),
                           opnd_create_reg(DR_REG_XSP)));
 #    endif
     dr_insert_call_noreturn(dcontext, &ilist, NULL, (void *)new_thread_setup, 1,

@@ -3794,12 +3794,8 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
 #    ifdef X86
         opnd_is_far_base_disp(memop) && opnd_get_segment(memop) == SEG_TLS &&
         opnd_is_abs_base_disp(memop)
-#    elif defined(AARCHXX)
+#    elif defined(AARCHXX) || defined(RISCV64)
         opnd_is_base_disp(memop) && opnd_get_base(memop) == dr_reg_stolen &&
-        opnd_get_index(memop) == DR_REG_NULL
-#    elif defined(RISCV64)
-        /* FIXME i#3544: Check if valid. */
-        opnd_is_base_disp(memop) && opnd_get_base(memop) == DR_REG_TP &&
         opnd_get_index(memop) == DR_REG_NULL
 #    endif
     ) {

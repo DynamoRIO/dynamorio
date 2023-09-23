@@ -48,7 +48,7 @@ static int num_opmask_registers;
 static size_t
 read_cache_line(const char *fname)
 {
-    char b[sizeof(uint64)], tmp;
+    char b[sizeof(uint64)] = { 0 }, tmp;
     size_t res = 0;
     ssize_t n, i;
     file_t f;

@@ -663,7 +663,8 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_t *in
     if (get_syscall_method() != SYSCALL_METHOD_INT &&
         get_syscall_method() != SYSCALL_METHOD_SYSCALL &&
         get_syscall_method() != SYSCALL_METHOD_SYSENTER &&
-        get_syscall_method() != SYSCALL_METHOD_SVC) {
+        get_syscall_method() != SYSCALL_METHOD_SVC &&
+        get_syscall_method() != SYSCALL_METHOD_ECALL) {
         /* don't know convention on return address from kernel mode! */
         SYSLOG_INTERNAL_ERROR("unsupported system call method");
         LOG(THREAD, LOG_INTERP, 1, "don't know convention for this syscall method\n");

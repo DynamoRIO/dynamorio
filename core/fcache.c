@@ -4244,10 +4244,12 @@ fcache_reset_all_caches_proactively(uint target)
     /* no lock needed */
     dynamo_resetting = true;
 
-    IF_AARCHXX({
-        if (INTERNAL_OPTION(steal_reg_at_reset) != 0)
-            arch_reset_stolen_reg();
-    });
+#ifdef AARCHXX
+    if (INTERNAL_OPTION(steal_reg_at_reset) != 0)
+        arch_reset_stolen_reg();
+#elif defined(RISCV64)
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif
 
     /* We free everything before re-init so we can free all heap units.
      * For everything to be freed, it must either be individually freed,

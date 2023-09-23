@@ -83,6 +83,9 @@ typedef struct instr_info_t {
      * stored here varies by arch.
      */
     uint opcode;
+#ifdef X86
+    uint category;
+#endif
     const char *name;
     /* Operands: each has a type and a size.
      * The opnd_size_t will instead be reg_id_t for TYPE_*REG*.

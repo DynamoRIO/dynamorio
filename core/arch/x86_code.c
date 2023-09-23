@@ -299,6 +299,8 @@ new_thread_setup(priv_mcontext_t *mc)
     set_stolen_reg_val(mc, get_clone_record_stolen_value(crec));
     /* set the thread register if necessary */
     set_thread_register_from_clone_record(crec);
+#    elif defined(RISCV64)
+    ASSERT_NOT_IMPLEMENTED(false);
 #    endif
 
     DEBUG_DECLARE(int rc =)
