@@ -126,19 +126,34 @@ protected:
         memtrace_stream_t *stream = nullptr;
         memref_t prev_entry_ = {};
         memref_t prev_prev_entry_ = {};
-        memref_t prev_instr_ = {};
-        std::unique_ptr<instr_autoclean_t> prev_instr_decoded_ = nullptr;
         memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
         memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
         uintptr_t prev_func_id_ = 0;
         // We keep track of return addresses of nested function calls.
         std::stack<addr_t> retaddr_stack_;
         uintptr_t trace_version_ = 0;
+        // Struct to store decoding related attributes.
+        struct decoding_info_t {
+            bool has_valid_decoding = false;
+            bool is_syscall = false;
+            bool writes_memory = false;
+            bool is_predicated = false;
+            uint num_memory_read_access = 0;
+            uint num_memory_write_access = 0;
+            addr_t branch_target = 0;
+        };
+        struct instr_info_t {
+            memref_t memref = {};
+            decoding_info_t decoding;
+        };
+        std::unordered_map<app_pc, decoding_info_t> decode_cache_;
+        // On UNIX generally last_instr_in_cur_context_ should be used instead.
+        instr_info_t prev_instr_;
 #ifdef UNIX
         // We keep track of some state per nested signal depth.
         struct signal_context {
             addr_t xfer_int_pc;
-            memref_t pre_signal_instr;
+            instr_info_t pre_signal_instr;
             bool xfer_aborted_rseq;
         };
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
@@ -155,7 +170,7 @@ protected:
 
         // For the outer-most scope, like other nested signal scopes, we start with an
         // empty memref_t to denote absence of any pre-signal instr.
-        memref_t last_instr_in_cur_context_ = {};
+        instr_info_t last_instr_in_cur_context_;
 
         bool saw_rseq_abort_ = false;
         // These are only available via annotations in signal_invariants.cpp.
@@ -188,9 +203,6 @@ protected:
         std::vector<schedule_entry_t> sched_;
         std::unordered_map<uint64_t, std::vector<schedule_entry_t>> cpu2sched_;
         bool skipped_instrs_ = false;
-        // We could move this to per-worker data and still not need a lock
-        // (we don't currently have per-worker data though so leaving it as per-shard).
-        std::unordered_map<addr_t, addr_t> branch_target_cache;
         // Rseq region state.
         bool in_rseq_region_ = false;
         addr_t rseq_start_pc_ = 0;
@@ -216,11 +228,12 @@ protected:
     // Check for invariant violations caused by PC discontinuities. Return an error string
     // for such violations.
     std::string
-    check_for_pc_discontinuity(
-        per_shard_t *shard, const memref_t &memref, const memref_t &prev_instr,
-        addr_t cur_pc, const std::unique_ptr<instr_autoclean_t> &cur_instr_decoded,
-        bool expect_encoding, bool at_kernel_event);
+    check_for_pc_discontinuity(per_shard_t *shard,
+                               const per_shard_t::instr_info_t &prev_instr_info,
+                               const per_shard_t::instr_info_t &cur_memref_info,
+                               bool expect_encoding, bool at_kernel_event);
 
+    void *drcontext_ = dr_standalone_init();
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to

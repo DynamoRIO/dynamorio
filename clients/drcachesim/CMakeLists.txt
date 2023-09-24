@@ -171,6 +171,7 @@ target_link_libraries(drmemtrace_invariant_checker drdecode)
 
 configure_DynamoRIO_standalone(drmemtrace_opcode_mix)
 configure_DynamoRIO_standalone(drmemtrace_view)
+configure_DynamoRIO_standalone(drmemtrace_invariant_checker)
 
 # We combine the cache and TLB simulators as they share code already.
 add_exported_library(drmemtrace_simulator STATIC
@@ -342,6 +343,7 @@ add_library(test_helpers STATIC tests/test_helpers.cpp)
 add_executable(histogram_launcher
   tools/histogram_launcher.cpp
   )
+configure_DynamoRIO_standalone(histogram_launcher)
 target_link_libraries(histogram_launcher drmemtrace_analyzer drmemtrace_histogram
   drfrontendlib drmemtrace_invariant_checker)
 use_DynamoRIO_extension(histogram_launcher droption)
