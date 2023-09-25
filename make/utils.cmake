@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2023 Google, Inc.    All rights reserved.
 # **********************************************************
 #
 # Redistribution and use in source and binary forms, with or without
@@ -331,8 +331,9 @@ function (check_sve_processor_and_compiler_support out)
     set(proc_found_sve_EXITCODE 1 CACHE STRING
         "Set to 0 if target processor/emulator supports SVE to enable SVE tests"
         FORCE)
+  else ()
+    check_c_source_runs("${sve_prog}" proc_found_sve)
   endif ()
-  check_c_source_runs("${sve_prog}" proc_found_sve)
   if (proc_found_sve)
     message(STATUS "Compiler and processor support SVE.")
   else ()
