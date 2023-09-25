@@ -747,6 +747,11 @@ drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
             }
             pc += instr_length(drcontext, instr);
         }
+    } else {
+        /* The ilist isn't available (see i#3801). We could decode the code cache and use
+         * heuristics to determine the origin of the load/store, but right now we just
+         * assume that it is an expansion instruction and hit the assert below.
+         */
     }
 
     /* TODO i#6317, i#5036: Restore the scratch predicate register.
