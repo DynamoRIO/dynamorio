@@ -4137,7 +4137,7 @@ encode_opnd_wx5_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
 {
     if (!opnd_is_reg(opnd))
         ASSERT(false);
-    uint num;
+    uint num = 0;
     bool is_x;
     if (!encode_reg(&num, &is_x, opnd_get_reg(opnd), false))
         ASSERT(false);
