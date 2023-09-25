@@ -233,7 +233,7 @@ get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
     }
 }
 
-instr_t *
+static instr_t *
 create_scalar_load_or_store(void *drcontext, const scatter_gather_info_t *sg_info,
                             reg_id_t index_reg, reg_id_t src_or_dst)
 {
