@@ -69,7 +69,7 @@ jobs:
         # We do shallow clones and assume DrM will update its DR at least once
         # every 250 DR commits.
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-        cd drmemory && git submodule update --init --depth 250 && cd ..
+        cd drmemory && git submodule update --init --recursive --depth 250 && cd ..
 
     # Install multilib for non-cross-compiling Linux build.
     # GA CI uses packages.microsoft.com which is missing i386 packages, and
@@ -170,7 +170,7 @@ jobs:
         git fetch --no-tags --depth=1 origin master
         # Include Dr. Memory in packages.
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-        cd drmemory && git submodule update --init --depth 250 && cd ..
+        cd drmemory && git submodule update --init --recursive --depth 250 && cd ..
 
     # Install cross-compiler for cross-compiling Linux build.
     # Unfortunately there are no libunwind or compression cross-compile
@@ -258,7 +258,7 @@ jobs:
         git fetch --no-tags --depth=1 origin master
         # Include Dr. Memory in packages.
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-        cd drmemory && git submodule update --init --depth 250 && cd ..
+        cd drmemory && git submodule update --init --recursive --depth 250 && cd ..
 
     # Install cross-compiler for cross-compiling Linux build.
     # Unfortunately there are no libunwind or compression cross-compile
@@ -346,7 +346,7 @@ jobs:
         git fetch --no-tags --depth=1 origin master
         # Include Dr. Memory in packages.
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-        cd drmemory && git submodule update --init --depth 250 && cd ..
+        cd drmemory && git submodule update --init --recursive --depth 250 && cd ..
 
     # Fetch and install Android NDK for Andoid cross-compile build.
     - name: Create Build Environment
@@ -436,7 +436,7 @@ jobs:
         git fetch --no-tags --depth=1 origin master
         # Include Dr. Memory in packages.
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
-        cd drmemory && git submodule update --init --depth 250 && cd ..
+        cd drmemory && git submodule update --init --recursive --depth 250 && cd ..
 
     - name: Download Packages
       shell: powershell
