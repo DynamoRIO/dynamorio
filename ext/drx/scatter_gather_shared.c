@@ -165,6 +165,9 @@ drx_scatter_gather_init()
         return false;
 
     note_base = drmgr_reserve_note_range(SG_NOTE_COUNT);
+    DR_ASSERT_MSG(note_base != DRMGR_NOTE_NONE, "failed to reserve note range");
+    if (note_base == DRMGR_NOTE_NONE)
+        return false;
 
     return true;
 }

@@ -2428,6 +2428,9 @@ drbbdup_init(drbbdup_options_t *ops_in)
     }
 
     note_base = drmgr_reserve_note_range(DRBBDUP_NOTE_COUNT);
+    ASSERT(note_base != DRMGR_NOTE_NONE, "failed to reserve note range");
+    if (note_base == DRMGR_NOTE_NONE)
+        return DRBBDUP_ERROR;
 
     return DRBBDUP_SUCCESS;
 }
