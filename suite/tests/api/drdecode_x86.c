@@ -172,7 +172,7 @@ test_categories(void)
     /*  55 OP_mov_ld */
     instr = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_XAX),
                               OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
-    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_MOVE | DR_INSTR_CATEGORY_LOAD);
+    CHECK_CATEGORY(GD, instr, buf, (DR_INSTR_CATEGORY_MOVE | DR_INSTR_CATEGORY_LOAD));
 
     /*  14 OP_cmp */
     instr =
