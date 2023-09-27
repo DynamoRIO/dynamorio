@@ -324,6 +324,33 @@ instr_is_floating_ex(instr_t *instr, dr_instr_category_t *type OUT)
 }
 
 bool
+instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
+{
+    /* DR_FP_STATE instructions aren't available on AArch64.
+     * Processor state is saved/restored with loads and stores.
+     */
+    uint cat = instr_get_category(instr);
+    if (!TEST(DR_INSTR_CATEGORY_FP, cat))
+        return false;
+    else if (TEST(DR_INSTR_CATEGORY_MATH, cat)) {
+        if (type != NULL)
+            *type = DR_FP_MATH;
+        return true;
+    } else if (TEST(DR_INSTR_CATEGORY_CONVERT, cat)) {
+        if (type != NULL)
+            *type = DR_FP_CONVERT;
+        return true;
+    } else if (TEST(DR_INSTR_CATEGORY_MOVE, cat)) {
+        if (type != NULL)
+            *type = DR_FP_MOVE;
+        return true;
+    } else {
+        CLIENT_ASSERT(false, "instr_is_floating_ex: FP instruction without subcategory");
+        return false;
+    }
+}
+
+bool
 instr_is_floating(instr_t *instr)
 {
     return instr_is_floating_ex(instr, NULL);

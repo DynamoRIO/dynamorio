@@ -313,8 +313,8 @@ event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         num_instrs++;
         if (instr_is_floating_ex(instr, &fp_type) &&
             /* We exclude loads and stores (and reg-reg moves) and state preservation */
-            (TEST(DR_INSTR_CATEGORY_CONVERT, fp_type) ||
-             TEST(DR_INSTR_CATEGORY_MATH, fp_type))) {
+            (DR_INSTR_CATEGORY_CONVERT && fp_type != 0 ||
+             DR_INSTR_CATEGORY_MATH && fp_type != 0)) {
 #ifdef VERBOSE
             dr_print_instr(drcontext, STDOUT, instr, "Found flop: ");
 #endif

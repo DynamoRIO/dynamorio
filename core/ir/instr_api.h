@@ -1910,6 +1910,16 @@ typedef enum {
     DR_INSTR_CATEGORY_OTHER = 0x200 /**< Other types of instructions. */
 } dr_instr_category_t;
 
+/**
+ * \deprecated Indicates which type of floating-point operation and instruction performs.
+ */
+typedef enum {
+    DR_FP_STATE,   /**< Saves, restores, or queries processor state. */
+    DR_FP_MOVE,    /**< Moves floating point values from one location to another. */
+    DR_FP_CONVERT, /**< Converts to or from floating point values. */
+    DR_FP_MATH,    /**< Performs arithmetic or conditional operations. */
+} dr_fp_type_t;
+
 DR_API
 /**
  * Returns true iff \p instr is a floating point instruction.
@@ -1919,6 +1929,16 @@ DR_API
  */
 bool
 instr_is_floating_ex(instr_t *instr, dr_instr_category_t *type);
+
+DR_API
+/**
+ * \deprecated Returns true iff \p instr is a floating point instruction.
+ * @param[in] instr  The instruction to query
+ * @param[out] type  If the return value is true and \p type is
+ *   non-NULL, the type of the floating point operation is written to \p type.
+ */
+bool
+instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type);
 
 DR_API
 /** Returns true iff \p instr is part of Intel's MMX instructions. */
