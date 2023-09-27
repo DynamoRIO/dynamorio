@@ -916,7 +916,7 @@ instr_is_floating_ex(instr_t *instr, dr_instr_category_t *type OUT)
     if (type != NULL)
         *type = cat;
     return true;
-2}
+}
 
 bool
 instr_can_set_single_step(instr_t *instr)
