@@ -438,7 +438,7 @@ instr_is_rep_string_op(instr_t *instr)
 }
 
 bool
-instr_is_floating_ex(instr_t *instr, dr_instr_category_t *type OUT)
+instr_is_floating_exten(instr_t *instr, dr_instr_category_t *type OUT)
 {
     /* FIXME i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");

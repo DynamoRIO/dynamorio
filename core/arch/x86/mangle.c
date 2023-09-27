@@ -2342,7 +2342,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         for (prev = instr_get_prev_expanded(dcontext, ilist, instr); prev != NULL;
              prev = instr_get_prev_expanded(dcontext, ilist, prev)) {
             dr_instr_category_t type;
-            if (instr_is_app(prev) && instr_is_floating_ex(prev, &type)) {
+            if (instr_is_app(prev) && instr_is_floating_exten(prev, &type)) {
                 bool control_instr = false;
                 if (TEST(DR_INSTR_CATEGORY_STATE, type) /* quick check */ &&
                     /* Check the list from Intel Vol 1 8.1.8 */

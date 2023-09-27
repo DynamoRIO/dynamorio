@@ -311,7 +311,7 @@ event_analyze_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     for (instr = instrlist_first_app(bb); instr != NULL;
          instr = instr_get_next_app(instr)) {
         num_instrs++;
-        if (instr_is_floating_ex(instr, &fp_type) &&
+        if (instr_is_floating_exten(instr, &fp_type) &&
             /* We exclude loads and stores (and reg-reg moves) and state preservation */
             (DR_INSTR_CATEGORY_CONVERT && fp_type != 0 ||
              DR_INSTR_CATEGORY_MATH && fp_type != 0)) {
