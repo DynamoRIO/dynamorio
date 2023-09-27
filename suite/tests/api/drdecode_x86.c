@@ -172,12 +172,12 @@ test_categories(void)
     /*  55 OP_mov_ld */
     instr = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_XAX),
                               OPND_CREATE_MEMPTR(DR_REG_XAX, 42));
-    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_MOVE);
+    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_LOAD);
 
     /*  14 OP_cmp */
     instr =
         XINST_CREATE_cmp(GD, opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EAX));
-    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_UNCATEGORIZED);
+    CHECK_CATEGORY(GD, instr, buf, DR_INSTR_CATEGORY_MATH);
 
     /* 46 OP_jmp */
     instr_t *after_callee = INSTR_CREATE_label(GD);

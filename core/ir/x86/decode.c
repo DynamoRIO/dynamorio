@@ -2447,10 +2447,20 @@ decode_category(instr_t *instr)
         if (op_instr[instr->opcode] != NULL) {
             uint category = op_instr[instr->opcode]->category;
             if (instr_operands_valid(instr)) {
-                if (instr_reads_memory(instr))
+                if (instr_reads_memory(instr)) {
                     category |= DR_INSTR_CATEGORY_LOAD;
-                if (instr_writes_memory(instr))
+                    if (TEST(DR_INSTR_CATEGORY_MOVE, category)) {
+                        category &= ~DR_INSTR_CATEGORY_MOVE;
+                        category &= ~DR_INSTR_CATEGORY_FP;
+                    }
+                }
+                if (instr_writes_memory(instr)) {
                     category |= DR_INSTR_CATEGORY_STORE;
+                    if (TEST(DR_INSTR_CATEGORY_MOVE, category)) {
+                        category &= ~DR_INSTR_CATEGORY_MOVE;
+                        category &= ~DR_INSTR_CATEGORY_FP;
+                    }
+                }
             }
             instr_set_category(instr, category);
         } else {
@@ -2591,7 +2601,6 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
                                         decode operands too */
                                _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
     instr_set_opcode(instr, info->type);
-    decode_category(instr);
     IF_X64(instr_set_x86_mode(instr, di.x86_mode));
     /* failure up to this point handled fine -- we set opcode to OP_INVALID */
     if (next_pc == NULL) {
@@ -2735,6 +2744,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         /* We must do this AFTER setting raw bits to avoid being invalidated. */
         instr_set_rip_rel_pos(instr, (int)(di.disp_abs - di.start_pc));
     }
+
+    decode_category(instr);
 
     return next_pc;
 

@@ -2149,8 +2149,8 @@ const instr_info_t first_byte[] = {
     {OP_add,  0x030000, catMath, "add",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x02]},
     {OP_add,  0x040000, catMath, "add",  al, xx, Ib, al, xx, no,  fW6, tfb[0x03]},
     {OP_add,  0x050000, catMath, "add", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x04]},
-    {OP_push, 0x060000, catUncategorized, "push", xsp, i_xSPo1, es, xsp, xx, i64, x, tfb[0x0e]},
-    {OP_pop,  0x070000, catUncategorized, "pop", es, xsp, xsp, i_xSP, xx, i64, x, tsb[0xa1]},
+    {OP_push, 0x060000, catStore, "push", xsp, i_xSPo1, es, xsp, xx, i64, x, tfb[0x0e]},
+    {OP_pop,  0x070000, catLoad, "pop", es, xsp, xsp, i_xSP, xx, i64, x, tsb[0xa1]},
     /* 08 */
     {OP_or,  0x080000, catMath, "or",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][1]},
     {OP_or,  0x090000, catMath, "or",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x08]},
@@ -2158,7 +2158,7 @@ const instr_info_t first_byte[] = {
     {OP_or,  0x0b0000, catMath, "or",  Gv, xx, Ev, Gv, xx, mrm, fW6, tfb[0x0a]},
     {OP_or,  0x0c0000, catMath, "or",  al, xx, Ib, al, xx, no,  fW6, tfb[0x0b]},
     {OP_or,  0x0d0000, catMath, "or", eAX, xx, Iz, eAX, xx, no,  fW6, tfb[0x0c]},
-    {OP_push,0x0e0000, catUncategorized, "push", xsp, i_xSPo1, cs, xsp, xx, i64, x, tfb[0x16]},
+    {OP_push,0x0e0000, catStore, "push", xsp, i_xSPo1, cs, xsp, xx, i64, x, tfb[0x16]},
     {ESCAPE, 0x0f0000, catUncategorized, "(escape)", xx, xx, xx, xx, xx, no, x, NA},
     /* 10 */
     {OP_adc,  0x100000, catMath, "adc",  Eb, xx, Gb, Eb, xx, mrm, (fW6|fRC), tex[1][2]},
@@ -2167,8 +2167,8 @@ const instr_info_t first_byte[] = {
     {OP_adc,  0x130000, catMath, "adc",  Gv, xx, Ev, Gv, xx, mrm, (fW6|fRC), tfb[0x12]},
     {OP_adc,  0x140000, catMath, "adc",  al, xx, Ib, al, xx, no,  (fW6|fRC), tfb[0x13]},
     {OP_adc,  0x150000, catMath, "adc", eAX, xx, Iz, eAX, xx, no,  (fW6|fRC), tfb[0x14]},
-    {OP_push, 0x160000, catUncategorized, "push", xsp, i_xSPo1, ss, xsp, xx, i64, x, tfb[0x1e]},
-    {OP_pop,  0x170000, catUncategorized, "pop", ss, xsp, xsp, i_xSP, xx, i64, x, tfb[0x1f]},
+    {OP_push, 0x160000, catStore, "push", xsp, i_xSPo1, ss, xsp, xx, i64, x, tfb[0x1e]},
+    {OP_pop,  0x170000, catLoad, "pop", ss, xsp, xsp, i_xSP, xx, i64, x, tfb[0x1f]},
     /* 18 */
     {OP_sbb,  0x180000, catUncategorized, "sbb",  Eb, xx, Gb, Eb, xx, mrm, (fW6|fRC), tex[1][3]},
     {OP_sbb,  0x190000, catUncategorized, "sbb",  Ev, xx, Gv, Ev, xx, mrm, (fW6|fRC), tfb[0x18]},
@@ -2176,8 +2176,8 @@ const instr_info_t first_byte[] = {
     {OP_sbb,  0x1b0000, catUncategorized, "sbb",  Gv, xx, Ev, Gv, xx, mrm, (fW6|fRC), tfb[0x1a]},
     {OP_sbb,  0x1c0000, catUncategorized, "sbb",  al, xx, Ib, al, xx, no,  (fW6|fRC), tfb[0x1b]},
     {OP_sbb,  0x1d0000, catUncategorized, "sbb", eAX, xx, Iz, eAX, xx, no,  (fW6|fRC), tfb[0x1c]},
-    {OP_push, 0x1e0000, catUncategorized, "push", xsp, i_xSPo1, ds, xsp, xx, i64, x, tsb[0xa0]},
-    {OP_pop,  0x1f0000, catUncategorized, "pop", ds, xsp, xsp, i_xSP, xx, i64, x, tfb[0x07]},
+    {OP_push, 0x1e0000, catStore, "push", xsp, i_xSPo1, ds, xsp, xx, i64, x, tsb[0xa0]},
+    {OP_pop,  0x1f0000, catLoad, "pop", ds, xsp, xsp, i_xSP, xx, i64, x, tfb[0x07]},
     /* 20 */
     {OP_and,  0x200000, catMath, "and",  Eb, xx, Gb, Eb, xx, mrm, fW6, tex[1][4]},
     {OP_and,  0x210000, catMath, "and",  Ev, xx, Gv, Ev, xx, mrm, fW6, tfb[0x20]},
@@ -2206,12 +2206,12 @@ const instr_info_t first_byte[] = {
     {PREFIX,  0x360000, catUncategorized, "ss", xx, xx, xx, xx, xx, no, x, SEG_SS},
     {OP_aaa,  0x370000, catUncategorized, "aaa", ax, xx, ax, xx, xx, i64, (fW6|fRA), END_LIST},
     /* 38 */
-    {OP_cmp,  0x380000, catUncategorized, "cmp", xx, xx,  Eb, Gb, xx, mrm, fW6, tex[1][7]},
-    {OP_cmp,  0x390000, catUncategorized, "cmp", xx, xx,  Ev, Gv, xx, mrm, fW6, tfb[0x38]},
-    {OP_cmp,  0x3a0000, catUncategorized, "cmp", xx, xx,  Gb, Eb, xx, mrm, fW6, tfb[0x39]},
-    {OP_cmp,  0x3b0000, catUncategorized, "cmp", xx, xx,  Gv, Ev, xx, mrm, fW6, tfb[0x3a]},
-    {OP_cmp,  0x3c0000, catUncategorized, "cmp", xx, xx,  al, Ib, xx, no,  fW6, tfb[0x3b]},
-    {OP_cmp,  0x3d0000, catUncategorized, "cmp", xx, xx, eAX, Iz, xx, no,  fW6, tfb[0x3c]},
+    {OP_cmp,  0x380000, catMath, "cmp", xx, xx,  Eb, Gb, xx, mrm, fW6, tex[1][7]},
+    {OP_cmp,  0x390000, catMath, "cmp", xx, xx,  Ev, Gv, xx, mrm, fW6, tfb[0x38]},
+    {OP_cmp,  0x3a0000, catMath, "cmp", xx, xx,  Gb, Eb, xx, mrm, fW6, tfb[0x39]},
+    {OP_cmp,  0x3b0000, catMath, "cmp", xx, xx,  Gv, Ev, xx, mrm, fW6, tfb[0x3a]},
+    {OP_cmp,  0x3c0000, catMath, "cmp", xx, xx,  al, Ib, xx, no,  fW6, tfb[0x3b]},
+    {OP_cmp,  0x3d0000, catMath, "cmp", xx, xx, eAX, Iz, xx, no,  fW6, tfb[0x3c]},
     {PREFIX,  0x3e0000, catUncategorized, "ds", xx, xx, xx, xx, xx, no, x, SEG_DS},
     {OP_aas,  0x3f0000, catUncategorized, "aas", ax, xx, ax, xx, xx, i64, (fW6|fRA), END_LIST},
     /* 40 */
@@ -2233,26 +2233,26 @@ const instr_info_t first_byte[] = {
     {X64_EXT, 0x4e0000, catUncategorized, "(x64_ext 14)", xx, xx, xx, xx, xx, no, x, 14},
     {X64_EXT, 0x4f0000, catUncategorized, "(x64_ext 15)", xx, xx, xx, xx, xx, no, x, 15},
     /* 50 */
-    {OP_push,  0x500000, catUncategorized, "push", xsp, i_xSPo1, xAX_x, xsp, xx, no, x, tfb[0x51]},
-    {OP_push,  0x510000, catUncategorized, "push", xsp, i_xSPo1, xCX_x, xsp, xx, no, x, tfb[0x52]},
-    {OP_push,  0x520000, catUncategorized, "push", xsp, i_xSPo1, xDX_x, xsp, xx, no, x, tfb[0x53]},
-    {OP_push,  0x530000, catUncategorized, "push", xsp, i_xSPo1, xBX_x, xsp, xx, no, x, tfb[0x54]},
-    {OP_push,  0x540000, catUncategorized, "push", xsp, i_xSPo1, xSP_x, xsp, xx, no, x, tfb[0x55]},
-    {OP_push,  0x550000, catUncategorized, "push", xsp, i_xSPo1, xBP_x, xsp, xx, no, x, tfb[0x56]},
-    {OP_push,  0x560000, catUncategorized, "push", xsp, i_xSPo1, xSI_x, xsp, xx, no, x, tfb[0x57]},
-    {OP_push,  0x570000, catUncategorized, "push", xsp, i_xSPo1, xDI_x, xsp, xx, no, x, tex[12][6]},
+    {OP_push,  0x500000, catStore, "push", xsp, i_xSPo1, xAX_x, xsp, xx, no, x, tfb[0x51]},
+    {OP_push,  0x510000, catStore, "push", xsp, i_xSPo1, xCX_x, xsp, xx, no, x, tfb[0x52]},
+    {OP_push,  0x520000, catStore, "push", xsp, i_xSPo1, xDX_x, xsp, xx, no, x, tfb[0x53]},
+    {OP_push,  0x530000, catStore, "push", xsp, i_xSPo1, xBX_x, xsp, xx, no, x, tfb[0x54]},
+    {OP_push,  0x540000, catStore, "push", xsp, i_xSPo1, xSP_x, xsp, xx, no, x, tfb[0x55]},
+    {OP_push,  0x550000, catStore, "push", xsp, i_xSPo1, xBP_x, xsp, xx, no, x, tfb[0x56]},
+    {OP_push,  0x560000, catStore, "push", xsp, i_xSPo1, xSI_x, xsp, xx, no, x, tfb[0x57]},
+    {OP_push,  0x570000, catStore, "push", xsp, i_xSPo1, xDI_x, xsp, xx, no, x, tex[12][6]},
     /* 58 */
-    {OP_pop,  0x580000, catUncategorized, "pop", xAX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x59]},
-    {OP_pop,  0x590000, catUncategorized, "pop", xCX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5a]},
-    {OP_pop,  0x5a0000, catUncategorized, "pop", xDX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5b]},
-    {OP_pop,  0x5b0000, catUncategorized, "pop", xBX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5c]},
-    {OP_pop,  0x5c0000, catUncategorized, "pop", xSP_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5d]},
-    {OP_pop,  0x5d0000, catUncategorized, "pop", xBP_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5e]},
-    {OP_pop,  0x5e0000, catUncategorized, "pop", xSI_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5f]},
-    {OP_pop,  0x5f0000, catUncategorized, "pop", xDI_x, xsp, xsp, i_xSP, xx, no, x, tex[26][0]},
+    {OP_pop,  0x580000, catLoad, "pop", xAX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x59]},
+    {OP_pop,  0x590000, catLoad, "pop", xCX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5a]},
+    {OP_pop,  0x5a0000, catLoad, "pop", xDX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5b]},
+    {OP_pop,  0x5b0000, catLoad, "pop", xBX_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5c]},
+    {OP_pop,  0x5c0000, catLoad, "pop", xSP_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5d]},
+    {OP_pop,  0x5d0000, catLoad, "pop", xBP_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5e]},
+    {OP_pop,  0x5e0000, catLoad, "pop", xSI_x, xsp, xsp, i_xSP, xx, no, x, tfb[0x5f]},
+    {OP_pop,  0x5f0000, catLoad, "pop", xDI_x, xsp, xsp, i_xSP, xx, no, x, tex[26][0]},
     /* 60 */
-    {OP_pusha, 0x600000, catUncategorized, "pusha", xsp, i_xSPo8, xsp, eAX, eBX, xop|i64, x, exop[0x00]},
-    {OP_popa,  0x610000, catUncategorized, "popa", xsp, eAX, xsp, i_xSPs8, xx, xop|i64, x, exop[0x02]},
+    {OP_pusha, 0x600000, catStore, "pusha", xsp, i_xSPo8, xsp, eAX, eBX, xop|i64, x, exop[0x00]},
+    {OP_popa,  0x610000, catLoad, "popa", xsp, eAX, xsp, i_xSPs8, xx, xop|i64, x, exop[0x02]},
     {EVEX_PREFIX_EXT, 0x620000, catUncategorized, "(evex_prefix_ext)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {X64_EXT,  0x630000, catUncategorized, "(x64_ext 16)", xx, xx, xx, xx, xx, no, x, 16},
     {PREFIX, 0x640000, catUncategorized, "fs", xx, xx, xx, xx, xx, no, x, SEG_FS},
@@ -2260,9 +2260,9 @@ const instr_info_t first_byte[] = {
     {PREFIX, 0x660000, catUncategorized, "data size", xx, xx, xx, xx, xx, no, x, PREFIX_DATA},
     {PREFIX, 0x670000, catUncategorized, "addr size", xx, xx, xx, xx, xx, no, x, PREFIX_ADDR},
     /* 68 */
-    {OP_push_imm, 0x680000, catUncategorized, "push", xsp, i_xSPo1, Iz, xsp, xx, no, x, tfb[0x6a]},
+    {OP_push_imm, 0x680000, catStore, "push", xsp, i_xSPo1, Iz, xsp, xx, no, x, tfb[0x6a]},
     {OP_imul,  0x690000, catMath, "imul", Gv, xx, Ev, Iz, xx, mrm, fW6, tfb[0x6b]},
-    {OP_push_imm, 0x6a0000, catUncategorized, "push", xsp, i_xSPo1, Ib, xsp, xx, no, x, END_LIST},/* sign-extend to push 2/4/8 bytes */
+    {OP_push_imm, 0x6a0000, catStore, "push", xsp, i_xSPo1, Ib, xsp, xx, no, x, END_LIST},/* sign-extend to push 2/4/8 bytes */
     {OP_imul,  0x6b0000, catMath, "imul", Gv, xx, Ev, Ib, xx, mrm, fW6, END_LIST},
     {REP_EXT,  0x6c0000, catUncategorized, "((rep) ins)", Yb, xx, i_dx, xx, xx, no, fRD, 0},
     {REP_EXT,  0x6d0000, catUncategorized, "((rep) ins)", Yz, xx, i_dx, xx, xx, no, fRD, 1},
@@ -2363,8 +2363,8 @@ const instr_info_t first_byte[] = {
     /* c0 */
     {EXTENSION, 0xc00000, catUncategorized, "(group 2a)", Eb, xx, Ib, xx, xx, mrm, x, 3},
     {EXTENSION, 0xc10000, catUncategorized, "(group 2b)", Ev, xx, Ib, xx, xx, mrm, x, 4},
-    {OP_ret,  0xc20000, catUncategorized, "ret", xsp, xx, Iw, xsp, i_iSP, no, x, tfb[0xc3]},
-    {OP_ret,  0xc30000, catUncategorized, "ret", xsp, xx, xsp, i_iSP, xx, no, x, END_LIST},
+    {OP_ret,  0xc20000, catBranch, "ret", xsp, xx, Iw, xsp, i_iSP, no, x, tfb[0xc3]},
+    {OP_ret,  0xc30000, catBranch, "ret", xsp, xx, xsp, i_iSP, xx, no, x, END_LIST},
     {VEX_PREFIX_EXT, 0xc40000, catUncategorized, "(vex_prefix_ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {VEX_PREFIX_EXT, 0xc50000, catUncategorized, "(vex_prefix_ext 1)", xx, xx, xx, xx, xx, no, x, 1},
     {EXTENSION, 0xc60000, catUncategorized, "(group 11a)", Eb, xx, Ib, xx, xx, mrm, x, 17},
@@ -2372,8 +2372,8 @@ const instr_info_t first_byte[] = {
     /* c8 */
     {OP_enter,  0xc80000, catUncategorized, "enter", xsp, i_xSPoN, Iw, Ib, xsp, xop, x, exop[0x05]},
     {OP_leave,  0xc90000, catUncategorized, "leave", xsp, xbp, xbp, xsp, i_xBP, no, x, END_LIST},
-    {OP_ret_far,  0xca0000, catUncategorized, "lret", xsp, xx, Iw, xsp, i_vSPs2, no, x, tfb[0xcb]},
-    {OP_ret_far,  0xcb0000, catUncategorized, "lret", xsp, xx, xsp, i_vSPs2, xx, no, x, END_LIST},
+    {OP_ret_far,  0xca0000, catBranch, "lret", xsp, xx, Iw, xsp, i_vSPs2, no, x, tfb[0xcb]},
+    {OP_ret_far,  0xcb0000, catBranch, "lret", xsp, xx, xsp, i_vSPs2, xx, no, x, END_LIST},
     /* we ignore the operations on the kernel stack */
     {OP_int3, 0xcc0000, catBranch, "int3", xx, xx, xx, xx, xx, no, fINT, END_LIST},
     {OP_int,  0xcd0000, catBranch, "int",  xx, xx, Ib, xx, xx, no, fINT, END_LIST},
@@ -2398,9 +2398,9 @@ const instr_info_t first_byte[] = {
     {FLOAT_EXT, 0xde0000, catUncategorized, "(float)", xx, xx, xx, xx, xx, mrm, x, NA},
     {FLOAT_EXT, 0xdf0000, catUncategorized, "(float)", xx, xx, xx, xx, xx, mrm, x, NA},
     /* e0 */
-    {OP_loopne,0xe00000, catUncategorized, "loopne", axCX, xx, Jb, axCX, xx, no, fRZ, END_LIST},
-    {OP_loope, 0xe10000, catUncategorized, "loope",  axCX, xx, Jb, axCX, xx, no, fRZ, END_LIST},
-    {OP_loop,  0xe20000, catUncategorized, "loop",   axCX, xx, Jb, axCX, xx, no, x, END_LIST},
+    {OP_loopne,0xe00000, catBranch, "loopne", axCX, xx, Jb, axCX, xx, no, fRZ, END_LIST},
+    {OP_loope, 0xe10000, catBranch, "loope",  axCX, xx, Jb, axCX, xx, no, fRZ, END_LIST},
+    {OP_loop,  0xe20000, catBranch, "loop",   axCX, xx, Jb, axCX, xx, no, x, END_LIST},
     {OP_jecxz, 0xe30000, catBranch, "jecxz",  xx, xx, Jb, axCX, xx, no, x, END_LIST},/*16-bit=="jcxz",64-bit="jrcxz"*/
     /* FIXME: in & out access "I/O ports", are these memory addresses?
      * if so, change Ib to Ob and change dx to i_dx (move to dest for out)
@@ -2637,8 +2637,8 @@ const instr_info_t second_byte[] = {
   {OP_setle, 0x0f9e10, catUncategorized, "setle", Eb, xx, xx, xx, xx, mrm, (fRS|fRO|fRZ), END_LIST},
   {OP_setnle,0x0f9f10, catUncategorized, "setnle",Eb, xx, xx, xx, xx, mrm, (fRS|fRO|fRZ), END_LIST},
   /* a0 */
-  {OP_push, 0x0fa010, catUncategorized, "push", xsp, i_xSPo1, fs, xsp, xx, no, x, tsb[0xa8]},
-  {OP_pop,  0x0fa110, catUncategorized, "pop", fs, xsp, xsp, i_xSP, xx, no, x, tsb[0xa9]},
+  {OP_push, 0x0fa010, catStore, "push", xsp, i_xSPo1, fs, xsp, xx, no, x, tsb[0xa8]},
+  {OP_pop,  0x0fa110, catLoad, "pop", fs, xsp, xsp, i_xSP, xx, no, x, tsb[0xa9]},
   {OP_cpuid, 0x0fa210, catUncategorized, "cpuid", eax, ebx, eax, ecx, xx, xop, x, exop[0x06]},
   {OP_bt,   0x0fa310, catUncategorized, "bt",   xx, xx, Ev, Gv, xx, mrm, fW6, tex[15][4]},
   {OP_shld, 0x0fa410, catUncategorized, "shld", Ev, xx, Gv, Ib, Ev, mrm, fW6, tsb[0xa5]},
@@ -2646,8 +2646,8 @@ const instr_info_t second_byte[] = {
   {INVALID, 0x0fa610, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   {INVALID, 0x0fa710, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* a8 */
-  {OP_push, 0x0fa810, catUncategorized, "push", xsp, i_xSPo1, gs, xsp, xx, no, x, END_LIST},
-  {OP_pop,  0x0fa910, catUncategorized, "pop", gs, xsp, xsp, i_xSP, xx, no, x, END_LIST},
+  {OP_push, 0x0fa810, catStore, "push", xsp, i_xSPo1, gs, xsp, xx, no, x, END_LIST},
+  {OP_pop,  0x0fa910, catLoad, "pop", gs, xsp, xsp, i_xSP, xx, no, x, END_LIST},
   {OP_rsm,  0x0faa10, catBranch, "rsm", xx, xx, xx, xx, xx, no, fWX, END_LIST},
   {OP_bts,  0x0fab10, catUncategorized, "bts", Ev, xx, Gv, Ev, xx, mrm, fW6, tex[15][5]},
   {OP_shrd, 0x0fac10, catUncategorized, "shrd", Ev, xx, Gv, Ib, Ev, mrm, fW6, tsb[0xad]},
@@ -2661,8 +2661,8 @@ const instr_info_t second_byte[] = {
   {OP_btr, 0x0fb310, catUncategorized, "btr", Ev, xx, Gv, Ev, xx, mrm, fW6, tex[15][6]},
   {OP_lfs, 0x0fb410, catUncategorized, "lfs", Gv, fs, Mp, xx, xx, mrm, x, END_LIST},
   {OP_lgs, 0x0fb510, catUncategorized, "lgs", Gv, gs, Mp, xx, xx, mrm, x, END_LIST},
-  {OP_movzx, 0x0fb610, catUncategorized, "movzx", Gv, xx, Eb, xx, xx, mrm, x, END_LIST},
-  {OP_movzx, 0x0fb710, catUncategorized, "movzx", Gv, xx, Ew, xx, xx, mrm, x, tsb[0xb6]},
+  {OP_movzx, 0x0fb610, catMove, "movzx", Gv, xx, Eb, xx, xx, mrm, x, END_LIST},
+  {OP_movzx, 0x0fb710, catMove, "movzx", Gv, xx, Ew, xx, xx, mrm, x, tsb[0xb6]},
   /* b8 */
   {OP_popcnt, 0xf30fb810, catUncategorized, "popcnt", Gv, xx, Ev, xx, xx, mrm|reqp, fW6, END_LIST},
   /* This is Group 10, but all identical (ud1) so no reason to split opcode by /reg */
@@ -2761,7 +2761,7 @@ const instr_info_t base_extensions[][8] = {
     {OP_and, 0x800024, catMath, "and", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][4]},
     {OP_sub, 0x800025, catMath, "sub", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][5]},
     {OP_xor, 0x800026, catMath, "xor", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[25][6]},
-    {OP_cmp, 0x800027, catUncategorized, "cmp", xx, xx, Eb, Ib, xx, mrm, fW6,  tex[25][7]},
+    {OP_cmp, 0x800027, catMath, "cmp", xx, xx, Eb, Ib, xx, mrm, fW6,  tex[25][7]},
  },
   /* group 1b -- first opcode byte 81: all assumed to have Iz */
   { /* extensions[1] */
@@ -2772,7 +2772,7 @@ const instr_info_t base_extensions[][8] = {
     {OP_and, 0x810024, catMath, "and", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][4]},
     {OP_sub, 0x810025, catMath, "sub", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][5]},
     {OP_xor, 0x810026, catMath, "xor", Ev, xx, Iz, Ev, xx, mrm, fW6,  tex[2][6]},
-    {OP_cmp, 0x810027, catUncategorized, "cmp", xx, xx, Ev, Iz, xx, mrm, fW6,  tex[2][7]},
+    {OP_cmp, 0x810027, catMath, "cmp", xx, xx, Ev, Iz, xx, mrm, fW6,  tex[2][7]},
  },
   /* group 1c -- first opcode byte 83 (for 82, see below "group 1c*"):
    * all assumed to have Ib */
@@ -2784,14 +2784,14 @@ const instr_info_t base_extensions[][8] = {
     {OP_and, 0x830024, catMath, "and", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][4]},
     {OP_sub, 0x830025, catMath, "sub", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][5]},
     {OP_xor, 0x830026, catMath, "xor", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[0][6]},
-    {OP_cmp, 0x830027, catUncategorized, "cmp", xx, xx, Ev, Ib, xx, mrm, fW6,  tex[0][7]},
+    {OP_cmp, 0x830027, catMath, "cmp", xx, xx, Ev, Ib, xx, mrm, fW6,  tex[0][7]},
  },
   /* group 2a -- first opcode byte c0: all assumed to have Ib */
   { /* extensions[3] */
     {OP_rol, 0xc00020, catMath, "rol", Eb, xx, Ib, Eb, xx, mrm, (fWC|fWO),  tex[5][0]},
     {OP_ror, 0xc00021, catMath, "ror", Eb, xx, Ib, Eb, xx, mrm, (fWC|fWO),  tex[5][1]},
     {OP_rcl, 0xc00022, catMath, "rcl", Eb, xx, Ib, Eb, xx, mrm, (fRC|fWC|fWO), tex[5][2]},
-    {OP_rcr, 0xc00023, catUncategorized, "rcr", Eb, xx, Ib, Eb, xx, mrm, (fRC|fWC|fWO), tex[5][3]},
+    {OP_rcr, 0xc00023, catMath, "rcr", Eb, xx, Ib, Eb, xx, mrm, (fRC|fWC|fWO), tex[5][3]},
     {OP_shl, 0xc00024, catMath, "shl", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[5][4]},
     {OP_shr, 0xc00025, catMath, "shr", Eb, xx, Ib, Eb, xx, mrm, fW6,  tex[5][5]},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
@@ -2803,7 +2803,7 @@ const instr_info_t base_extensions[][8] = {
     {OP_rol, 0xc10020, catMath, "rol", Ev, xx, Ib, Ev, xx, mrm, (fWC|fWO),  tex[6][0]},
     {OP_ror, 0xc10021, catMath, "ror", Ev, xx, Ib, Ev, xx, mrm, (fWC|fWO),  tex[6][1]},
     {OP_rcl, 0xc10022, catMath, "rcl", Ev, xx, Ib, Ev, xx, mrm, (fRC|fWC|fWO), tex[6][2]},
-    {OP_rcr, 0xc10023, catUncategorized, "rcr", Ev, xx, Ib, Ev, xx, mrm, (fRC|fWC|fWO), tex[6][3]},
+    {OP_rcr, 0xc10023, catMath, "rcr", Ev, xx, Ib, Ev, xx, mrm, (fRC|fWC|fWO), tex[6][3]},
     {OP_shl, 0xc10024, catMath, "shl", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[6][4]},
     {OP_shr, 0xc10025, catMath, "shr", Ev, xx, Ib, Ev, xx, mrm, fW6,  tex[6][5]},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
@@ -2815,7 +2815,7 @@ const instr_info_t base_extensions[][8] = {
     {OP_rol, 0xd00020, catMath, "rol", Eb, xx, c1, Eb, xx, mrm, (fWC|fWO),  tex[8][0]},
     {OP_ror, 0xd00021, catMath, "ror", Eb, xx, c1, Eb, xx, mrm, (fWC|fWO),  tex[8][1]},
     {OP_rcl, 0xd00022, catMath, "rcl", Eb, xx, c1, Eb, xx, mrm, (fRC|fWC|fWO), tex[8][2]},
-    {OP_rcr, 0xd00023, catUncategorized, "rcr", Eb, xx, c1, Eb, xx, mrm, (fRC|fWC|fWO), tex[8][3]},
+    {OP_rcr, 0xd00023, catMath, "rcr", Eb, xx, c1, Eb, xx, mrm, (fRC|fWC|fWO), tex[8][3]},
     {OP_shl, 0xd00024, catMath, "shl", Eb, xx, c1, Eb, xx, mrm, fW6,  tex[8][4]},
     {OP_shr, 0xd00025, catMath, "shr", Eb, xx, c1, Eb, xx, mrm, fW6,  tex[8][5]},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
@@ -2827,7 +2827,7 @@ const instr_info_t base_extensions[][8] = {
     {OP_rol, 0xd10020, catMath, "rol", Ev, xx, c1, Ev, xx, mrm, (fWC|fWO),  tex[3][0]},
     {OP_ror, 0xd10021, catMath, "ror", Ev, xx, c1, Ev, xx, mrm, (fWC|fWO),  tex[3][1]},
     {OP_rcl, 0xd10022, catMath, "rcl", Ev, xx, c1, Ev, xx, mrm, (fRC|fWC|fWO), tex[3][2]},
-    {OP_rcr, 0xd10023, catUncategorized, "rcr", Ev, xx, c1, Ev, xx, mrm, (fRC|fWC|fWO), tex[3][3]},
+    {OP_rcr, 0xd10023, catMath, "rcr", Ev, xx, c1, Ev, xx, mrm, (fRC|fWC|fWO), tex[3][3]},
     {OP_shl, 0xd10024, catMath, "shl", Ev, xx, c1, Ev, xx, mrm, fW6,  tex[3][4]},
     {OP_shr, 0xd10025, catMath, "shr", Ev, xx, c1, Ev, xx, mrm, fW6,  tex[3][5]},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
@@ -2839,7 +2839,7 @@ const instr_info_t base_extensions[][8] = {
     {OP_rol, 0xd20020, catMath, "rol", Eb, xx, cl, Eb, xx, mrm, (fWC|fWO),  END_LIST},
     {OP_ror, 0xd20021, catMath, "ror", Eb, xx, cl, Eb, xx, mrm, (fWC|fWO),  END_LIST},
     {OP_rcl, 0xd20022, catMath, "rcl", Eb, xx, cl, Eb, xx, mrm, (fRC|fWC|fWO), END_LIST},
-    {OP_rcr, 0xd20023, catUncategorized, "rcr", Eb, xx, cl, Eb, xx, mrm, (fRC|fWC|fWO), END_LIST},
+    {OP_rcr, 0xd20023, catMath, "rcr", Eb, xx, cl, Eb, xx, mrm, (fRC|fWC|fWO), END_LIST},
     {OP_shl, 0xd20024, catMath, "shl", Eb, xx, cl, Eb, xx, mrm, fW6,  END_LIST},
     {OP_shr, 0xd20025, catMath, "shr", Eb, xx, cl, Eb, xx, mrm, fW6,  END_LIST},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
@@ -2851,7 +2851,7 @@ const instr_info_t base_extensions[][8] = {
     {OP_rol, 0xd30020, catMath, "rol", Ev, xx, cl, Ev, xx, mrm, (fWC|fWO),  tex[7][0]},
     {OP_ror, 0xd30021, catMath, "ror", Ev, xx, cl, Ev, xx, mrm, (fWC|fWO),  tex[7][1]},
     {OP_rcl, 0xd30022, catMath, "rcl", Ev, xx, cl, Ev, xx, mrm, (fRC|fWC|fWO), tex[7][2]},
-    {OP_rcr, 0xd30023, catUncategorized, "rcr", Ev, xx, cl, Ev, xx, mrm, (fRC|fWC|fWO), tex[7][3]},
+    {OP_rcr, 0xd30023, catMath, "rcr", Ev, xx, cl, Ev, xx, mrm, (fRC|fWC|fWO), tex[7][3]},
     {OP_shl, 0xd30024, catMath, "shl", Ev, xx, cl, Ev, xx, mrm, fW6,  tex[7][4]},
     {OP_shr, 0xd30025, catMath, "shr", Ev, xx, cl, Ev, xx, mrm, fW6,  tex[7][5]},
     /* PR 332254: /6 is an alias for /4; we do not add to encoding chain though */
@@ -2902,7 +2902,7 @@ const instr_info_t base_extensions[][8] = {
     {OP_call_far_ind, 0xff0023, catBranch, "lcall",  xsp, i_vSPo2, i_Ep, xsp, xx, mrm, x, END_LIST},
     {OP_jmp_ind,      0xff0024, catBranch, "jmp",  xx, xx, i_Exi, xx, xx, mrm, x, END_LIST},
     {OP_jmp_far_ind,  0xff0025, catBranch, "ljmp",  xx, xx, i_Ep, xx, xx, mrm, x, END_LIST},
-    {OP_push, 0xff0026, catUncategorized, "push", xsp, i_xSPo1, Esv, xsp, xx, mrm, x, tfb[0x06]},
+    {OP_push, 0xff0026, catStore, "push", xsp, i_xSPo1, Esv, xsp, xx, mrm, x, tfb[0x06]},
     {INVALID, 0xff0027, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
  },
   /* group 6 (first bytes 0f 00) */
@@ -3056,11 +3056,11 @@ const instr_info_t base_extensions[][8] = {
     {OP_and, 0x820024, catMath, "and", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
     {OP_sub, 0x820025, catMath, "sub", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
     {OP_xor, 0x820026, catMath, "xor", Eb, xx, Ib, Eb, xx, mrm|i64, fW6,  END_LIST},
-    {OP_cmp, 0x820027, catUncategorized, "cmp", xx, xx, Eb, Ib, xx, mrm|i64, fW6,  END_LIST},
+    {OP_cmp, 0x820027, catMath, "cmp", xx, xx, Eb, Ib, xx, mrm|i64, fW6,  END_LIST},
   },
   /* group 1d (Intel now calling Group 1A) -- first opcode byte 8f */
   { /* extensions[26] */
-    {OP_pop,  0x8f0020, catUncategorized, "pop", Esv, xsp, xsp, i_xSP, xx, mrm, x, tfb[0x17]},
+    {OP_pop,  0x8f0020, catLoad, "pop", Esv, xsp, xsp, i_xSP, xx, mrm, x, tfb[0x17]},
     /* we shouldn't ever get here for these, as this becomes an XOP prefix */
     {INVALID, 0x8f0021, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x8f0022, catUncategorized, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
