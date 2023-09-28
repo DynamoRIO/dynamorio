@@ -19,7 +19,7 @@ configure_DynamoRIO_standalone(empty_creator)
 
 place_shared_lib_in_lib_dir(empty_creator)
 
-if (REDIRECT_OUTPUT) 
+if (REDIRECT_OUTPUT)
     append_property_list(TARGET drmemtrace_empty COMPILE_DEFINITIONS "REDIRECT_OUTPUT_")
 endif()
 
