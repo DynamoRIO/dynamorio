@@ -70,7 +70,9 @@ macro(add_win32_flags target)
   endif ()
 endmacro ()
 
-add_win32_flags(empty_launcher)
+if (NOT APPLE)
+  add_win32_flags(empty_launcher)
+endif()
 
 function (write_config_file id dst libdir)
   file(GENERATE OUTPUT ${dst} CONTENT
