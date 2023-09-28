@@ -257,7 +257,11 @@ set(drcachesim_srcs
   ${lz4_reader}
   reader/ipc_reader.cpp
   tracer/instru.cpp
-  tracer/instru_online.cpp)
+  tracer/instru_online.cpp
+  tools/loader/dynamic_lib.cpp
+  tools/loader/external_tool_creator.cpp
+  tools/loader/external_config_file.cpp)
+
 add_executable(drcachesim ${drcachesim_srcs})
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)
@@ -266,6 +270,9 @@ target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
   drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker)
+if (UNIX)
+    target_link_libraries(drcachesim dl)
+endif ()
 if (libsnappy)
   target_link_libraries(drcachesim snappy)
 endif ()
@@ -1089,3 +1096,5 @@ add_custom_command(
 
 # propagate to parent dir
 set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)
+
+add_subdirectory(tools/external)

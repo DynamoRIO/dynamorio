@@ -68,7 +68,7 @@ droption_t<std::string> op_ipc_name(
     "is limited to 247 characters.");
 
 droption_t<std::string> op_outdir(
-    DROPTION_SCOPE_ALL, "outdir", ".", "Target directory for offline trace files",
+    DROPTION_SCOPE_ALL, "outdir", "./", "Target directory for offline trace files",
     "For the offline analysis mode (when -offline is requested), specifies the path "
     "to a directory where per-thread trace files will be written.");
 
@@ -457,11 +457,8 @@ droption_t<std::string>
 
 droption_t<std::string>
     op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB
-                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " VIEW
-                      ", " FUNC_VIEW ", " BASIC_COUNTS ", or " INVARIANT_CHECKER ").",
-                      "Specifies the type of the simulator. "
-                      "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      "Specifies the types of simulators, separated by a colon (\":\").",
+                      "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
                       ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
                       ", or " INVARIANT_CHECKER ".");
 

@@ -257,7 +257,7 @@ LL stats:
 \page sec_drcachesim_tools Analysis Tool Suite
 
 In addition to a CPU cache simulator, other analysis tools are
-available that operate on memory address traces.  Which tool is used
+available that operate on memory address traces.  Which set of tools is used
 can be selected with the \p -simulator_type parameter.  New, custom
 tools can also be created, as described in \ref sec_drcachesim_newtool.
 
@@ -1204,7 +1204,7 @@ burst_static test application</a>.
 
 Generally, the simulator is able to be extended to model a variety of
 caching devices.  Currently, CPU caches and TLBs are implemented.  The type of
-device to simulate can be specified by the parameter
+devices to simulate can be specified by the parameter
 "-simulator_type" (see \ref sec_drcachesim_ops).
 
 The CPU cache simulator models a configurable number of cores,

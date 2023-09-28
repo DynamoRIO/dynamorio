@@ -41,8 +41,10 @@
 #ifdef HAS_ZLIB
 #    include "common/gzip_istream.h"
 #    include "reader/compressed_file_reader.h"
-#    include "zipfile_istream.h"
-#    include "zipfile_ostream.h"
+#    ifdef HAS_ZIP
+#        include "zipfile_istream.h"
+#        include "zipfile_ostream.h"
+#    endif
 #endif
 #ifdef HAS_ZIP
 #    include "common/zipfile_istream.h"
@@ -60,12 +62,49 @@
 #include "tools/reuse_distance_create.h"
 #include "tools/reuse_time_create.h"
 #include "tools/view_create.h"
+#include "tools/loader/external_config_file.h"
+#include "tools/loader/external_tool_creator.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
 using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_ALL;
+
+analysis_tool_t *
+analyzer_multi_t::create_external_tool(const std::string &id)
+{
+    analysis_tool_t *tool = nullptr;
+
+    std::string tools_dir(op_dr_root.get_value());
+    tools_dir.append("/tools/");
+    directory_iterator_t end;
+    directory_iterator_t iter(tools_dir);
+
+    if (!iter) {
+        return nullptr;
+    }
+
+    for (; iter != end; ++iter) {
+        if ((*iter).find(".drcachesim") != std::string::npos) {
+            std::string abs_path(tools_dir);
+            abs_path.append(*iter);
+            external_tool_config_file_t config(op_dr_root.get_value(), abs_path);
+            if (config.valid_ && config.id_ == id) {
+                try {
+                    external_tool_creator creator(config.creator_path_.c_str());
+                    DR_ASSERT(creator.get_id_() != id.c_str());
+                    tool = creator.create_tool_();
+                    loaders_.push_back(std::move(creator));
+                    break;
+                } catch (const std::runtime_error &error) {
+                    error_string_ = error.what();
+                }
+            }
+        }
+    }
+    return tool;
+}
 
 analyzer_multi_t::analyzer_multi_t()
 {
@@ -203,6 +242,7 @@ analyzer_multi_t::~analyzer_multi_t()
     }
 #endif
     destroy_analysis_tools();
+    loaders_.clear();
 }
 
 scheduler_t::scheduler_options_t
@@ -245,32 +285,44 @@ analyzer_multi_t::create_analysis_tools()
      * tools.
      */
     tools_ = new analysis_tool_t *[max_num_tools_];
-    tools_[0] = create_analysis_tool_from_options();
-    if (tools_[0] == NULL)
-        return false;
-    if (!*tools_[0]) {
-        std::string tool_error = tools_[0]->get_error_string();
-        if (tool_error.empty())
-            tool_error = "no error message provided.";
-        error_string_ = "Tool failed to initialize: " + tool_error;
-        delete tools_[0];
-        tools_[0] = NULL;
-        return false;
+    if (!op_simulator_type.get_value().empty()) {
+        std::stringstream stream(op_simulator_type.get_value());
+        std::string type;
+        while (std::getline(stream, type, ':')) {
+            if (num_tools_ >= max_num_tools_ - 1) {
+                error_string_ = "Only " + std::to_string(max_num_tools_ - 1) +
+                    " simulators are allowed simultaniously";
+                return false;
+            }
+            auto tool = create_analysis_tool_from_options(type);
+            if (tool == NULL)
+                continue;
+            if (!*tool) {
+                std::string tool_error = tool->get_error_string();
+                if (tool_error.empty())
+                    tool_error = "no error message provided.";
+                error_string_ = "Tool failed to initialize: " + tool_error;
+                delete tool;
+                return false;
+            }
+            tools_[num_tools_++] = tool;
+        }
     }
-    num_tools_ = 1;
+
     if (op_test_mode.get_value()) {
-        tools_[1] = create_invariant_checker();
-        if (tools_[1] == NULL)
+        tools_[num_tools_] = create_invariant_checker();
+        if (tools_[num_tools_] == NULL)
             return false;
-        if (!*tools_[1]) {
-            error_string_ = tools_[1]->get_error_string();
-            delete tools_[1];
-            tools_[1] = NULL;
+        if (!*tools_[num_tools_]) {
+            error_string_ = tools_[num_tools_]->get_error_string();
+            delete tools_[num_tools_];
+            tools_[num_tools_] = NULL;
             return false;
         }
-        num_tools_ = 2;
+        num_tools_++;
     }
-    return true;
+
+    return (num_tools_ != 0);
 }
 
 bool
@@ -291,9 +343,9 @@ analyzer_multi_t::destroy_analysis_tools()
 }
 
 analysis_tool_t *
-analyzer_multi_t::create_analysis_tool_from_options()
+analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator_type)
 {
-    if (op_simulator_type.get_value() == CPU_CACHE) {
+    if (simulator_type == CPU_CACHE) {
         const std::string &config_file = op_config_file.get_value();
         if (!config_file.empty()) {
             return cache_simulator_create(config_file);
@@ -301,12 +353,12 @@ analyzer_multi_t::create_analysis_tool_from_options()
             cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
             return cache_simulator_create(*knobs);
         }
-    } else if (op_simulator_type.get_value() == MISS_ANALYZER) {
+    } else if (simulator_type == MISS_ANALYZER) {
         cache_simulator_knobs_t *knobs = get_cache_simulator_knobs();
         return cache_miss_analyzer_create(*knobs, op_miss_count_threshold.get_value(),
                                           op_miss_frac_threshold.get_value(),
                                           op_confidence_threshold.get_value());
-    } else if (op_simulator_type.get_value() == TLB) {
+    } else if (simulator_type == TLB) {
         tlb_simulator_knobs_t knobs;
         knobs.num_cores = op_num_cores.get_value();
         knobs.page_size = op_page_size.get_value();
@@ -325,10 +377,10 @@ analyzer_multi_t::create_analysis_tool_from_options()
         knobs.cpu_scheduling = op_cpu_scheduling.get_value();
         knobs.use_physical = op_use_physical.get_value();
         return tlb_simulator_create(knobs);
-    } else if (op_simulator_type.get_value() == HISTOGRAM) {
+    } else if (simulator_type == HISTOGRAM) {
         return histogram_tool_create(op_line_size.get_value(), op_report_top.get_value(),
                                      op_verbose.get_value());
-    } else if (op_simulator_type.get_value() == REUSE_DIST) {
+    } else if (simulator_type == REUSE_DIST) {
         reuse_distance_knobs_t knobs;
         knobs.line_size = op_line_size.get_value();
         knobs.report_histogram = op_reuse_distance_histogram.get_value();
@@ -344,11 +396,11 @@ analyzer_multi_t::create_analysis_tool_from_options()
         }
         knobs.verbose = op_verbose.get_value();
         return reuse_distance_tool_create(knobs);
-    } else if (op_simulator_type.get_value() == REUSE_TIME) {
+    } else if (simulator_type == REUSE_TIME) {
         return reuse_time_tool_create(op_line_size.get_value(), op_verbose.get_value());
-    } else if (op_simulator_type.get_value() == BASIC_COUNTS) {
+    } else if (simulator_type == BASIC_COUNTS) {
         return basic_counts_tool_create(op_verbose.get_value());
-    } else if (op_simulator_type.get_value() == OPCODE_MIX) {
+    } else if (simulator_type == OPCODE_MIX) {
         std::string module_file_path = get_module_file_path();
         if (module_file_path.empty() && op_indir.get_value().empty() &&
             op_infile.get_value().empty() && !op_instr_encodings.get_value()) {
@@ -358,15 +410,15 @@ analyzer_multi_t::create_analysis_tool_from_options()
         }
         return opcode_mix_tool_create(module_file_path, op_verbose.get_value(),
                                       op_alt_module_dir.get_value());
-    } else if (op_simulator_type.get_value() == SYSCALL_MIX) {
+    } else if (simulator_type == SYSCALL_MIX) {
         return syscall_mix_tool_create(op_verbose.get_value());
-    } else if (op_simulator_type.get_value() == VIEW) {
+    } else if (simulator_type == VIEW) {
         std::string module_file_path = get_module_file_path();
         // The module file is optional so we don't check for emptiness.
         return view_tool_create(module_file_path, op_skip_refs.get_value(),
                                 op_sim_refs.get_value(), op_view_syntax.get_value(),
                                 op_verbose.get_value(), op_alt_module_dir.get_value());
-    } else if (op_simulator_type.get_value() == FUNC_VIEW) {
+    } else if (simulator_type == FUNC_VIEW) {
         std::string funclist_file_path = get_aux_file_path(
             op_funclist_file.get_value(), DRMEMTRACE_FUNCTION_LIST_FILENAME);
         if (funclist_file_path.empty()) {
@@ -375,14 +427,18 @@ analyzer_multi_t::create_analysis_tool_from_options()
         }
         return func_view_tool_create(funclist_file_path, op_show_func_trace.get_value(),
                                      op_verbose.get_value());
-    } else if (op_simulator_type.get_value() == INVARIANT_CHECKER) {
+    } else if (simulator_type == INVARIANT_CHECKER) {
         return create_invariant_checker();
     } else {
-        ERRMSG("Usage error: unsupported analyzer type. "
-               "Please choose " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " HISTOGRAM
-               ", " REUSE_DIST ", " BASIC_COUNTS ", " OPCODE_MIX ", " SYSCALL_MIX
-               ", " VIEW ", or " FUNC_VIEW ".\n");
-        return nullptr;
+        auto tool = create_external_tool(simulator_type);
+        if (tool == nullptr) {
+            ERRMSG("Usage error: unsupported analyzer type \"%s\". "
+                   "Please choose " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " HISTOGRAM
+                   ", " REUSE_DIST ", " BASIC_COUNTS ", " OPCODE_MIX ", " SYSCALL_MIX
+                   ", " VIEW ", or " FUNC_VIEW ".\n",
+                   simulator_type.c_str());
+        }
+        return tool;
     }
 }
 
