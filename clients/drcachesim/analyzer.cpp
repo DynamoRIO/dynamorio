@@ -471,6 +471,29 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
 
     for (int i = 0; i < num_tools_; ++i)
         user_worker_data[i] = tools_[i]->parallel_worker_init(worker->index);
+
+    auto process_shard_exit = [=](int shard_index) {
+        VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index,
+               worker->stream->get_stream_name().c_str());
+        if (interval_microseconds_ != 0 &&
+            !process_interval(
+                worker->shard_data[shard_index].cur_interval_index,
+                worker->shard_data[shard_index].cur_interval_init_instr_count, worker,
+                /*parallel=*/true, shard_index))
+            return;
+        for (int i = 0; i < num_tools_; ++i) {
+            if (!tools_[i]->parallel_shard_exit(
+                    worker->shard_data[shard_index].tool_data[i].shard_data)) {
+                worker->error = tools_[i]->parallel_shard_error(
+                    worker->shard_data[shard_index].tool_data[i].shard_data);
+                VPRINT(this, 1, "Worker %d hit shard exit error %s on trace shard %s\n",
+                       worker->index, worker->error.c_str(),
+                       worker->stream->get_stream_name().c_str());
+                return;
+            }
+        }
+    };
+
     RecordType record;
     // The current time is used for time quanta; for instr quanta, it's ignored and
     // we pass 0.
@@ -539,28 +562,12 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
                 return;
             }
         }
-        if (record_is_thread_final(record)) {
-            VPRINT(this, 1, "Worker %d finished trace shard %s\n", worker->index,
-                   worker->stream->get_stream_name().c_str());
-            if (interval_microseconds_ != 0 &&
-                !process_interval(
-                    worker->shard_data[shard_index].cur_interval_index,
-                    worker->shard_data[shard_index].cur_interval_init_instr_count, worker,
-                    /*parallel=*/true, shard_index))
-                return;
-            for (int i = 0; i < num_tools_; ++i) {
-                if (!tools_[i]->parallel_shard_exit(
-                        worker->shard_data[shard_index].tool_data[i].shard_data)) {
-                    worker->error = tools_[i]->parallel_shard_error(
-                        worker->shard_data[shard_index].tool_data[i].shard_data);
-                    VPRINT(this, 1,
-                           "Worker %d hit shard exit error %s on trace shard %s\n",
-                           worker->index, worker->error.c_str(),
-                           worker->stream->get_stream_name().c_str());
-                    return;
-                }
-            }
+        if (record_is_thread_final(record) && shard_type_ != SHARD_BY_CORE) {
+            process_shard_exit(shard_index);
         }
+    }
+    if (shard_type_ == SHARD_BY_CORE) {
+        process_shard_exit(worker->index);
     }
     for (int i = 0; i < num_tools_; ++i) {
         const std::string error = tools_[i]->parallel_worker_exit(user_worker_data[i]);

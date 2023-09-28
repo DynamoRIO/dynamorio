@@ -167,6 +167,40 @@ public:
     {
         return -1;
     }
+
+    /**
+     * Returns a unique identifier for the current workload.  This might be an
+     * ordinal from the list of active workloads, or some other identifier.
+     * If not implemented for the current mode, -1 is returned.
+     */
+    virtual int64_t
+    get_workload_id() const
+    {
+        return -1;
+    }
+
+    /**
+     * Returns a unique identifier for the current input trace.  This might be an
+     * ordinal from the list of active inputs, or some other identifier.
+     * If not implemented for the current mode, -1 is returned.
+     */
+    virtual int64_t
+    get_input_id() const
+    {
+        return -1;
+    }
+
+    /**
+     * Returns the stream interface for the current input trace.  This differs from
+     * "this" for #SHARD_BY_CORE where multiple inputs are interleaved on one
+     * output stream ("this").
+     * If not implemented for the current mode, nullptr is returned.
+     */
+    virtual memtrace_stream_t *
+    get_input_interface() const
+    {
+        return nullptr;
+    }
 };
 
 /**
