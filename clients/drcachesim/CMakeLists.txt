@@ -761,13 +761,18 @@ if (BUILD_TESTS)
 
   add_executable(tool.drcachesim.core_sharded tests/core_sharded_test.cpp
     # XXX: Better to put these into libraries but that requires a bigger cleanup:
-    analyzer_multi.cpp ${client_and_sim_srcs} reader/ipc_reader.cpp)
+    analyzer_multi.cpp ${client_and_sim_srcs} reader/ipc_reader.cpp
+    tools/loader/dynamic_lib.cpp tools/loader/external_tool_creator.cpp
+    tools/loader/external_config_file.cpp)
   target_link_libraries(tool.drcachesim.core_sharded test_helpers
     drmemtrace_raw2trace drmemtrace_simulator drmemtrace_reuse_distance
     drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
     drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
     drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
     drmemtrace_analyzer)
+  if (UNIX)
+    target_link_libraries(tool.drcachesim.core_sharded dl)
+  endif ()
   add_win32_flags(tool.drcachesim.core_sharded)
   if (WIN32)
     # We have a dup symbol from linking in DR.  Linking libc first doesn't help.
