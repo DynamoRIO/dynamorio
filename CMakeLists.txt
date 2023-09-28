@@ -99,6 +99,10 @@ endif (NOT DEFINED ENV{CXXFLAGS})
 # Don't use the default-Debug build type set for the try-compiles
 set(specified_build_type "${CMAKE_BUILD_TYPE}")
 project(DynamoRIO NONE)
+
+# Enable large file support
+add_definitions(-D_FILE_OFFSET_BITS=64)
+
 if (DEFINED GENERATE_PDBS AND NOT GENERATE_PDBS)
   # i#310: support building over cygwin ssh where we cannot build pdbs.
   # To prevent cmake's try-compile for its working compiler test and
