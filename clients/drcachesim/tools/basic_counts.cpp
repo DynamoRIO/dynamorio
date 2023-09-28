@@ -168,6 +168,8 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
         } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
                    memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
             ++counters->xfer_markers;
+        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_WAIT) {
+            // This is a synthetic record so do not increment any counts.
         } else {
             if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID &&
                 static_cast<intptr_t>(memref.marker.marker_value) !=

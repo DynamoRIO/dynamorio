@@ -247,6 +247,9 @@ protected:
     bool
     record_is_timestamp(const RecordType &record);
 
+    void
+    set_wait_record(RecordType &record);
+
     // Invoked when the given interval finishes during serial or parallel
     // analysis of the trace. For parallel analysis, the shard_id
     // parameter should be set to the shard_id for which the interval

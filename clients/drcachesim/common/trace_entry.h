@@ -568,6 +568,13 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH,
 
+    /**
+     * This marker is used for core-sharded analyses to indicate that the current
+     * core is waiting on another core.  This is primarily only useful for analyses
+     * studying the scheduling of threads onto cores.
+     */
+    TRACE_MARKER_TYPE_WAIT,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
