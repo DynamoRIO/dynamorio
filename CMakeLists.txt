@@ -886,6 +886,12 @@ if (UNIX)
       set(WARN "${WARN} -Wno-stringop-overflow")
     endif (stringop_overflow_avail)
     CHECK_C_COMPILER_FLAG("-Wtype-limits" HAVE_TYPELIMITS_CONTROL)
+    CHECK_C_COMPILER_FLAG("-Wdangling-pointer" dangling_pointer_avail)
+    if (dangling_pointer_avail)
+      # XXX i#6337: It is difficult to rewrite the TRY macros to avoid this gcc
+      # warning, which is innocuous, so we disable.
+      set(WARN "${WARN} -Wno-dangling-pointer")
+    endif ()
   else (NOT CMAKE_COMPILER_IS_CLANG)
     # clang turns off color when it's writing to a pipe, but the user may still
     # wish to force color if it eventually goes to a terminal.
