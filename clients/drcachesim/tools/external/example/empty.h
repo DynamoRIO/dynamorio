@@ -33,9 +33,8 @@
 #ifndef _EMPTY_H_
 #define _EMPTY_H_ 1
 
-#include <mutex>
-#include <string>
-#include <unordered_map>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "analysis_tool.h"
 
