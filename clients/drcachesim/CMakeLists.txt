@@ -895,8 +895,14 @@ if (BUILD_TESTS)
     add_executable(tool.drcacheoff.burst_malloc tests/burst_malloc.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_static)
-    target_link_libraries(tool.drcacheoff.burst_malloc test_helpers)
+    target_link_libraries(tool.drcacheoff.burst_malloc drmemtrace_raw2trace
+        drmemtrace_analyzer test_helpers)
+    if (WIN32)
+      # Just like for burst_replace + burst_futex, linking together takes effort.
+      target_link_libraries(tool.drcacheoff.burst_malloc ${static_libc})
+    endif ()
     add_win32_flags(tool.drcacheoff.burst_malloc)
+    use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_malloc)
     if (UNIX)
       append_property_string(SOURCE tests/burst_malloc.cpp
         # Allow our different-arg-count aliases.
