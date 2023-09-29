@@ -24,19 +24,17 @@ if (REDIRECT_OUTPUT)
     append_property_list(TARGET drmemtrace_empty COMPILE_DEFINITIONS "REDIRECT_OUTPUT_")
 endif()
 
-if (NOT APPLE)
-  add_executable(empty_launcher
-    empty_launcher.cpp
-    )
-  configure_DynamoRIO_static(empty_launcher)
-  target_link_libraries(empty_launcher drmemtrace_empty)
-  add_dependencies(empty_launcher api_headers)
-  add_dependencies(empty_launcher drmemtrace_analyzer)
-  target_link_libraries(empty_launcher drmemtrace_analyzer)
-  use_DynamoRIO_extension(empty_launcher droption)
-  configure_DynamoRIO_static(empty_launcher)
-  install_target(empty_launcher ${INSTALL_CLIENTS_BIN})
-endif()
+add_executable(empty_launcher
+  empty_launcher.cpp
+  )
+configure_DynamoRIO_static(empty_launcher)
+target_link_libraries(empty_launcher drmemtrace_empty)
+add_dependencies(empty_launcher api_headers)
+add_dependencies(empty_launcher drmemtrace_analyzer)
+target_link_libraries(empty_launcher drmemtrace_analyzer)
+use_DynamoRIO_extension(empty_launcher droption)
+configure_DynamoRIO_standalone(empty_launcher)
+install_target(empty_launcher ${INSTALL_CLIENTS_BIN})
 
 macro(add_win32_flags target)
   if (DEBUG AND NOT DEFINED ${target}_uses_configure)
@@ -72,9 +70,7 @@ macro(add_win32_flags target)
   endif ()
 endmacro ()
 
-if (NOT APPLE)
-  add_win32_flags(empty_launcher)
-endif()
+add_win32_flags(empty_launcher)
 
 function (write_config_file id dst libdir)
   file(GENERATE OUTPUT ${dst} CONTENT
