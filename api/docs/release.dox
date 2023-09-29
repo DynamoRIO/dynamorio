@@ -149,6 +149,7 @@ Further non-compatibility-affecting changes include:
  - Added type_is_read() API that returns true if a trace type reads from memory.
  - Added instr_num_memory_read_access() and instr_num_memory_write_access() that return
    the number of memory read and write accesses of an instruction respectively.
+ - Added realloc to the set of functions traced by -record_heap by default.
  - Deprecated #dr_fp_type_t for Floating-Point operation types in favor of the new
    #dr_instr_category_t.
    Deprecated instr_is_floating_ex(), replacing it with instr_is_floating_type().
