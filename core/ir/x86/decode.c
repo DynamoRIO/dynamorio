@@ -2449,17 +2449,11 @@ decode_category(instr_t *instr)
             if (instr_operands_valid(instr)) {
                 if (instr_reads_memory(instr)) {
                     category |= DR_INSTR_CATEGORY_LOAD;
-                    if (TEST(DR_INSTR_CATEGORY_MOVE, category)) {
-                        category &= ~DR_INSTR_CATEGORY_MOVE;
-                        category &= ~DR_INSTR_CATEGORY_FP;
-                    }
+                    category &= ~DR_INSTR_CATEGORY_MOVE;
                 }
                 if (instr_writes_memory(instr)) {
                     category |= DR_INSTR_CATEGORY_STORE;
-                    if (TEST(DR_INSTR_CATEGORY_MOVE, category)) {
-                        category &= ~DR_INSTR_CATEGORY_MOVE;
-                        category &= ~DR_INSTR_CATEGORY_FP;
-                    }
+                    category &= ~DR_INSTR_CATEGORY_MOVE;
                 }
             }
             instr_set_category(instr, category);
