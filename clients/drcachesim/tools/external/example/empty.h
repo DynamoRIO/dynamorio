@@ -33,8 +33,6 @@
 #ifndef _EMPTY_H_
 #define _EMPTY_H_ 1
 
-#include <stddef.h>
-#include <stdint.h>
 
 #include "analysis_tool.h"
 
