@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -591,6 +591,8 @@ in `core/unix/` and `core/windows/`.
 
 
 -# While the core DynamoRIO library and API are C, we do support C++ clients and have some C++ tests and clients ourselves.  For broad compiler support we limit our code to C++11.
+
+-# C++ exception use is not allowed, for maximum interoperability to enable using libraries and source code in other environments where exceptions are not permitted.
 
 
  ****************************************************************************
