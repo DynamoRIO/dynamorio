@@ -77,8 +77,8 @@ public:
         if (at_ + 1 < refs_.size()) {
             ++at_;
             record = refs_[at_];
-            if (tid2ordinal.find(record.instr.tid) == tid2ordinal.end()) {
-                tid2ordinal[record.instr.tid] = tid2ordinal.size();
+            if (tid2ordinal_.find(record.instr.tid) == tid2ordinal_.end()) {
+                tid2ordinal_[record.instr.tid] = tid2ordinal_.size();
             }
             if (record.marker.type == TRACE_TYPE_MARKER &&
                 record.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
@@ -107,11 +107,11 @@ public:
         return "test_stream";
     }
     scheduler_t::input_ordinal_t
-    get_input_stream_ordinal() override
+    get_input_stream_ordinal() const override
     {
         assert(at_ >= 0 && at_ < refs_.size());
         // Each TID forms a separate input stream.
-        return tid2ordinal[refs_[at_].instr.tid];
+        return tid2ordinal_.at(refs_[at_].instr.tid);
     }
     uint64_t
     get_first_timestamp() const override
@@ -145,7 +145,7 @@ public:
     }
 
 private:
-    std::unordered_map<memref_tid_t, scheduler_t::input_ordinal_t> tid2ordinal;
+    std::unordered_map<memref_tid_t, scheduler_t::input_ordinal_t> tid2ordinal_;
     std::vector<memref_t> refs_;
     int at_;
     bool parallel_;
