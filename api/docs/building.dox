@@ -38,6 +38,15 @@
 
 If you don't need to modify DR and just need a recent build, you can download [weekly package builds](@ref page_weekly_builds).
 
+The official list of environments for which we have complete or in-progress support are the ones on our [Github
+CI workflows page](https://github.com/DynamoRIO/dynamorio/tree/master/.github/workflows), These
+workflows run our test suite before the submission of each master merge, and also a longer test suite after each
+master merge. This helps in ensuring that DynamoRIO continues to build and run properly on these environments.
+For other environments, contributions from users are greatly appreciated. For help with any issue building or
+running on any environment, feel free to start a thread on our
+[discussion list](http://groups.google.com/group/DynamoRIO-Users) or report a bug on our
+[issue tracker](https://github.com/DynamoRIO/dynamorio/issues).
+
 ## Linux
 
 To build DynamoRIO on Linux, use the following commands as a guide.  This builds 64-bit DynamoRIO in release mode:
