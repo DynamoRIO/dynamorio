@@ -2360,6 +2360,217 @@ test_replay_skip()
 }
 
 static void
+test_replay_limit()
+{
+#ifdef HAS_ZIP
+    std::cerr << "\n----------------\nTesting replay of ROI-limited inputs\n";
+
+    std::vector<trace_entry_t> input_sequence;
+    input_sequence.push_back(make_thread(/*tid=*/1));
+    input_sequence.push_back(make_pid(/*pid-*/ 1));
+    input_sequence.push_back(make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
+    input_sequence.push_back(make_timestamp(10));
+    input_sequence.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 1));
+    static constexpr int NUM_INSTRS = 1000;
+    for (int i = 0; i < NUM_INSTRS; ++i) {
+        input_sequence.push_back(make_instr(/*pc=*/i));
+    }
+    input_sequence.push_back(make_exit(/*tid=*/1));
+
+    std::vector<scheduler_t::range_t> regions;
+    // Instr counts are 1-based.  We stop just before the end, which has hit corner
+    // cases in the past (i#6336).
+    regions.emplace_back(1, NUM_INSTRS - 10);
+
+    static constexpr int NUM_INPUTS = 3;
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int BASE_TID = 100;
+    std::vector<trace_entry_t> inputs[NUM_INPUTS];
+    for (int i = 0; i < NUM_INPUTS; i++) {
+        inputs[i] = input_sequence;
+        for (auto &record : inputs[i]) {
+            if (record.type == TRACE_TYPE_THREAD || record.type == TRACE_TYPE_THREAD_EXIT)
+                record.addr = static_cast<addr_t>(BASE_TID + i);
+        }
+    }
+
+    std::string record_fname = "tmp_test_replay_limit.zip";
+    std::vector<uint64_t> record_instr_count(NUM_OUTPUTS, 0);
+
+    auto simulate_core = [](scheduler_t::stream_t *stream, uint64_t *count) {
+        memref_t memref;
+        std::string schedule;
+        for (scheduler_t::stream_status_t status = stream->next_record(memref);
+             status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
+            if (status == scheduler_t::STATUS_WAIT) {
+                std::this_thread::yield();
+                continue;
+            }
+            assert(status == scheduler_t::STATUS_OK);
+            if (type_is_instr(memref.instr.type)) {
+                ++(*count);
+                schedule += 'A' +
+                    static_cast<char>((stream->get_input_id() * 8 + memref.instr.addr) %
+                                      26);
+            }
+        }
+        std::cerr << "\nSchedule: " << schedule << "\n";
+    };
+
+    // First, test without interleaving (because the default quantum is long).
+    // This triggers clear bugs like failing to run one entire input as its
+    // reader is not initialized.
+    {
+        // Record.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), BASE_TID + i);
+            sched_inputs.emplace_back(std::move(readers));
+            sched_inputs.back().thread_modifiers.push_back(
+                scheduler_t::input_thread_info_t(regions));
+        }
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/2);
+        zipfile_ostream_t outfile(record_fname);
+        sched_ops.schedule_record_ostream = &outfile;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::thread> threads;
+        threads.reserve(NUM_OUTPUTS);
+        for (int i = 0; i < NUM_OUTPUTS; ++i) {
+            threads.emplace_back(std::thread(simulate_core, scheduler.get_stream(i),
+                                             &record_instr_count[i]));
+        }
+        for (std::thread &thread : threads)
+            thread.join();
+        if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+    }
+    {
+        // Replay.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), BASE_TID + i);
+            sched_inputs.emplace_back(std::move(readers));
+            sched_inputs.back().thread_modifiers.push_back(
+                scheduler_t::input_thread_info_t(regions));
+        }
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/2);
+        zipfile_istream_t infile(record_fname);
+        sched_ops.schedule_replay_istream = &infile;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<uint64_t> replay_instr_count(NUM_OUTPUTS, 0);
+        ;
+        std::vector<std::thread> threads;
+        threads.reserve(NUM_OUTPUTS);
+        for (int i = 0; i < NUM_OUTPUTS; ++i) {
+            threads.emplace_back(std::thread(simulate_core, scheduler.get_stream(i),
+                                             &replay_instr_count[i]));
+        }
+        for (std::thread &thread : threads)
+            thread.join();
+        for (int i = 0; i < NUM_OUTPUTS; ++i) {
+            std::cerr << "Output #" << i << " recorded " << record_instr_count[i]
+                      << " instrs vs replay " << replay_instr_count[i] << " instrs\n";
+            assert(replay_instr_count[i] == record_instr_count[i]);
+        }
+    }
+    // Now use a smaller quantum with interleaving.
+    std::cerr << "==== Record-replay with smaller quantum ====\n";
+    record_instr_count = std::vector<uint64_t>(NUM_OUTPUTS, 0);
+    {
+        // Record.
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), BASE_TID + i);
+            sched_inputs.emplace_back(std::move(readers));
+            sched_inputs.back().thread_modifiers.push_back(
+                scheduler_t::input_thread_info_t(regions));
+        }
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/2);
+        zipfile_ostream_t outfile(record_fname);
+        sched_ops.schedule_record_ostream = &outfile;
+        sched_ops.quantum_duration = NUM_INSTRS / 10;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<std::thread> threads;
+        threads.reserve(NUM_OUTPUTS);
+        for (int i = 0; i < NUM_OUTPUTS; ++i) {
+            threads.emplace_back(std::thread(simulate_core, scheduler.get_stream(i),
+                                             &record_instr_count[i]));
+        }
+        for (std::thread &thread : threads)
+            thread.join();
+        if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
+            assert(false);
+    }
+    {
+        // Replay.
+        std::cerr << "== Replay. ==\n";
+        std::vector<scheduler_t::input_workload_t> sched_inputs;
+        for (int i = 0; i < NUM_INPUTS; i++) {
+            std::vector<scheduler_t::input_reader_t> readers;
+            readers.emplace_back(
+                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
+                std::unique_ptr<mock_reader_t>(new mock_reader_t()), BASE_TID + i);
+            sched_inputs.emplace_back(std::move(readers));
+            sched_inputs.back().thread_modifiers.push_back(
+                scheduler_t::input_thread_info_t(regions));
+        }
+        scheduler_t scheduler;
+        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
+                                                   scheduler_t::DEPENDENCY_IGNORE,
+                                                   scheduler_t::SCHEDULER_DEFAULTS,
+                                                   /*verbosity=*/2);
+        zipfile_istream_t infile(record_fname);
+        sched_ops.schedule_replay_istream = &infile;
+        if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+            scheduler_t::STATUS_SUCCESS)
+            assert(false);
+        std::vector<uint64_t> replay_instr_count(NUM_OUTPUTS, 0);
+        ;
+        std::vector<std::thread> threads;
+        threads.reserve(NUM_OUTPUTS);
+        for (int i = 0; i < NUM_OUTPUTS; ++i) {
+            threads.emplace_back(std::thread(simulate_core, scheduler.get_stream(i),
+                                             &replay_instr_count[i]));
+        }
+        for (std::thread &thread : threads)
+            thread.join();
+        for (int i = 0; i < NUM_OUTPUTS; ++i) {
+            std::cerr << "Output #" << i << " recorded " << record_instr_count[i]
+                      << " instrs vs replay " << replay_instr_count[i] << " instrs\n";
+            assert(replay_instr_count[i] == record_instr_count[i]);
+        }
+    }
+#endif
+}
+
+static void
 test_replay_as_traced()
 {
 #ifdef HAS_ZIP
@@ -2793,6 +3004,7 @@ test_main(int argc, const char *argv[])
     test_replay_multi_threaded(argv[1]);
     test_replay_timestamps();
     test_replay_skip();
+    test_replay_limit();
     test_replay_as_traced_from_file(argv[1]);
     test_replay_as_traced();
     test_replay_as_traced_i6107_workaround();
