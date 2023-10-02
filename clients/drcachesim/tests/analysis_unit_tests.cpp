@@ -153,6 +153,7 @@ test_queries()
             // These are our testing goals: these queries.
             // We have one thread for each of our NUM_INPUTS workloads.
             assert(shard->stream->get_output_cpuid() == shard->index);
+            // We have just one thread per workload, so they're the same.
             assert(shard->stream->get_workload_id() == memref.instr.tid - BASE_TID);
             assert(shard->stream->get_input_id() == memref.instr.tid - BASE_TID);
             return true;
