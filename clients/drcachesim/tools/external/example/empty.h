@@ -33,7 +33,6 @@
 #ifndef _EMPTY_H_
 #define _EMPTY_H_ 1
 
-
 #include "analysis_tool.h"
 
 using dynamorio::drmemtrace::analysis_tool_t;
