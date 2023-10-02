@@ -1233,9 +1233,9 @@ static bool
 check_option_compatibility_helper(int recurse_count)
 {
     bool changed_options = false;
-#    ifdef AARCH64
+#    if defined(AARCH64) || defined(RISCV64)
     if (!DYNAMO_OPTION(bb_prefixes)) {
-        USAGE_ERROR("bb_prefixes must be true on AArch64");
+        USAGE_ERROR("bb_prefixes must be true on AArch64/RISCV64");
         dynamo_options.bb_prefixes = true;
         changed_options = true;
     }

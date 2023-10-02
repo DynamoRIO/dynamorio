@@ -327,20 +327,16 @@ instr_invert_cbr(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
     CLIENT_ASSERT(instr_is_cbr(instr), "instr_invert_cbr: instr not a cbr");
-    if (opc == OP_beq) {
-        instr_set_opcode(instr, OP_bne);
-    } else if (opc == OP_bne) {
-        instr_set_opcode(instr, OP_beq);
-    } else if (opc == OP_blt) {
-        instr_set_opcode(instr, OP_bge);
-    } else if (opc == OP_bltu) {
-        instr_set_opcode(instr, OP_bgeu);
-    } else if (opc == OP_bge) {
-        instr_set_opcode(instr, OP_blt);
-    } else if (opc == OP_bgeu) {
-        instr_set_opcode(instr, OP_bltu);
-    } else {
-        CLIENT_ASSERT(false, "instr_invert_cbr: unknown opcode");
+    switch (opc) {
+    case OP_beq: instr_set_opcode(instr, OP_bne); break;
+    case OP_bne: instr_set_opcode(instr, OP_beq); break;
+    case OP_blt: instr_set_opcode(instr, OP_bge); break;
+    case OP_bltu: instr_set_opcode(instr, OP_bgeu); break;
+    case OP_bge: instr_set_opcode(instr, OP_blt); break;
+    case OP_bgeu: instr_set_opcode(instr, OP_bltu); break;
+    case OP_c_beqz: instr_set_opcode(instr, OP_c_bnez); break;
+    case OP_c_bnez: instr_set_opcode(instr, OP_c_beqz); break;
+    default: CLIENT_ASSERT(false, "instr_invert_cbr: unknown opcode");
     }
 }
 

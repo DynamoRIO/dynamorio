@@ -1898,20 +1898,24 @@ instr_is_rep_string_op(instr_t *instr);
  */
 typedef enum {
     DR_INSTR_CATEGORY_UNCATEGORIZED = 0x0, /**< Uncategorized. */
-    DR_INSTR_CATEGORY_INT_MATH = 0x1,      /**< Integer arithmetic operations. */
-    DR_INSTR_CATEGORY_FP_MATH = 0x2,       /**< Floating-Point arithmetic operations. */
-    DR_INSTR_CATEGORY_LOAD = 0x4,          /**< Loads. */
-    DR_INSTR_CATEGORY_STORE = 0x8,         /**< Stores. */
-    DR_INSTR_CATEGORY_BRANCH = 0x10,       /**< Branches. */
-    DR_INSTR_CATEGORY_SIMD = 0x20, /**< Operations with vector registers (SIMD). */
-    DR_INSTR_CATEGORY_OTHER = 0x40 /**< Other types of instructions. */
+    DR_INSTR_CATEGORY_FP = 0x1,            /**< Floating-Point operations. */
+    DR_INSTR_CATEGORY_LOAD = 0x2,          /**< Loads. */
+    DR_INSTR_CATEGORY_STORE = 0x4,         /**< Stores. */
+    DR_INSTR_CATEGORY_BRANCH = 0x8,        /**< Branches. */
+    DR_INSTR_CATEGORY_SIMD = 0x10,    /**< Operations with vector registers (SIMD). */
+    DR_INSTR_CATEGORY_STATE = 0x20,   /**< Saves, restores, or queries processor state. */
+    DR_INSTR_CATEGORY_MOVE = 0x40,    /**< Moves value from one location to another. */
+    DR_INSTR_CATEGORY_CONVERT = 0x80, /**< Converts to or from value. */
+    DR_INSTR_CATEGORY_MATH = 0x100, /**< Performs arithmetic or conditional operations. */
+    DR_INSTR_CATEGORY_OTHER = 0x200 /**< Other types of instructions. */
 } dr_instr_category_t;
 
 /**
  * Indicates which type of floating-point operation and instruction performs.
+ * \deprecated Replaced by the more general #dr_instr_category_t.
  */
 typedef enum {
-    DR_FP_STATE,   /**< Loads, stores, or queries general floating point state. */
+    DR_FP_STATE,   /**< Saves, restores, or queries processor state. */
     DR_FP_MOVE,    /**< Moves floating point values from one location to another. */
     DR_FP_CONVERT, /**< Converts to or from floating point values. */
     DR_FP_MATH,    /**< Performs arithmetic or conditional operations. */
@@ -1923,6 +1927,18 @@ DR_API
  * @param[in] instr  The instruction to query
  * @param[out] type  If the return value is true and \p type is
  *   non-NULL, the type of the floating point operation is written to \p type.
+ */
+bool
+instr_is_floating_type(instr_t *instr, dr_instr_category_t *type);
+
+DR_API
+/**
+ * Returns true iff \p instr is a floating point instruction.
+ * @param[in] instr  The instruction to query
+ * @param[out] type  If the return value is true and \p type is
+ *   non-NULL, the type of the floating point operation is written to \p type.
+ * \deprecated Prefer instr_is_floating_type() which uses the more general
+ * #dr_instr_category_t.
  */
 bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type);

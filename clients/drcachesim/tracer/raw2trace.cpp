@@ -3077,30 +3077,47 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
                 type_is_instr(static_cast<trace_type_t>(it->type)) &&
                 // We don't want encodings for the PC-only i-filtered entries.
-                it->size > 0 && !prev_was_encoding &&
-                record_encoding_emitted(tdata, *(decode_pcs + instr_ordinal))) {
-                // Write any data we were waiting until post-loop to write.
-                if (it > start &&
-                    !tdata->out_file->write(reinterpret_cast<const char *>(start),
-                                            reinterpret_cast<const char *>(it) -
-                                                reinterpret_cast<const char *>(start))) {
-                    tdata->error = "Failed to write to output file";
-                    return false;
+                it->size > 0) {
+                if (prev_was_encoding) {
+                    // We've already emitted the encoding(s) for this instr.  But if we
+                    // opened a new chunk then we've cleared the hashtable record, so
+                    // re-add it here.
+                    record_encoding_emitted(tdata, *(decode_pcs + instr_ordinal));
+                } else if
+                    // Check whether this instr's encoding has already been emitted
+                    // due to multiple instances of the same delayed branch (the encoding
+                    // cache was cleared in open_new_chunk()).
+                    (record_encoding_emitted(tdata, *(decode_pcs + instr_ordinal))) {
+                    // Write any data we were waiting until post-loop to write.
+                    if (it > start &&
+                        !tdata->out_file->write(
+                            reinterpret_cast<const char *>(start),
+                            reinterpret_cast<const char *>(it) -
+                                reinterpret_cast<const char *>(start))) {
+                        tdata->error = "Failed to write to output file";
+                        return false;
+                    }
+                    if (!insert_post_chunk_encodings(tdata, it,
+                                                     *(decode_pcs + instr_ordinal)))
+                        return false;
+                    if (!tdata->out_file->write(reinterpret_cast<const char *>(it),
+                                                sizeof(*it))) {
+                        tdata->error = "Failed to write to output file";
+                        return false;
+                    }
+                    start = it + 1;
                 }
-                if (!insert_post_chunk_encodings(tdata, it,
-                                                 *(decode_pcs + instr_ordinal)))
-                    return false;
-                if (!tdata->out_file->write(reinterpret_cast<const char *>(it),
-                                            sizeof(*it))) {
-                    tdata->error = "Failed to write to output file";
-                    return false;
-                }
-                start = it + 1;
             }
             if (it->type == TRACE_TYPE_ENCODING)
                 prev_was_encoding = true;
-            else
-                prev_was_encoding = false;
+            else {
+                // Do not clear across an indirect branch target, to avoid a duplicate
+                // encoding being emitted when the indirect branch instruction itself is
+                // reached.
+                if (it->type != TRACE_TYPE_MARKER ||
+                    it->size != TRACE_MARKER_TYPE_BRANCH_TARGET)
+                    prev_was_encoding = false;
+            }
             if (it->type == TRACE_TYPE_MARKER) {
                 if (it->size == TRACE_MARKER_TYPE_TIMESTAMP)
                     tdata->last_timestamp_ = it->addr;

@@ -176,7 +176,7 @@ bool
 check_branch_target_after_branch()
 {
     std::cerr << "Testing branch targets\n";
-    // Positive simple test.
+    // Correct simple test.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1), gen_branch(1, 2),
@@ -186,7 +186,7 @@ check_branch_target_after_branch()
         if (!run_checker(memrefs, false))
             return false;
     }
-    // Negative simple test.
+    // Incorrect simple test.
     {
         constexpr uintptr_t TIMESTAMP = 3;
         constexpr memref_tid_t TID = 1;
@@ -230,7 +230,7 @@ check_sane_control_flow()
 {
     std::cerr << "Testing control flow\n";
     constexpr memref_tid_t TID = 1;
-    // Negative simple test.
+    // Incorrect simple test.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, 1),
@@ -243,7 +243,7 @@ check_sane_control_flow()
                          "Failed to catch bad control flow"))
             return false;
     }
-    // Negative test with timestamp markers.
+    // Incorrect test with timestamp markers.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 2),
@@ -259,7 +259,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: branches with no encodings.
+    // Correct test: branches with no encodings.
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, 1),   gen_branch(TID, 2),  gen_instr(TID, 3), // Not taken.
@@ -275,7 +275,7 @@ check_sane_control_flow()
     // XXX: We hardcode encodings here.  If we need many more we should generate them
     // from DR IR.
 
-    // Negative test: branches with encodings which do not go to their targets.
+    // Incorrect test: branches with encodings which do not go to their targets.
     {
         instr_t *move1 = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
                                            opnd_create_reg(REG2));
@@ -306,7 +306,7 @@ check_sane_control_flow()
             return false;
         }
     }
-    // Positive test: branches with encodings which go to their targets.
+    // Correct test: branches with encodings which go to their targets.
     {
         instr_t *move1 = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
                                            opnd_create_reg(REG2));
@@ -348,13 +348,222 @@ check_sane_control_flow()
     // Kernel-mediated.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(TID, 1),
+            gen_instr(TID, /*pc=*/1, /*size=*/1),
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
-            gen_instr(TID, 101),
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
         };
         if (!run_checker(memrefs, false))
             return false;
     }
+#ifdef UNIX
+    // Incorrect test (PC discontinuity): Transition from instr to kernel_xfer event
+    // marker.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/1, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Non-explicit control flow has no marker @ kernel_event marker", TID,
+                  /*ref_ordinal=*/2, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/1 },
+                "Failed to catch PC discontinuity for an instruction followed by "
+                "kernel xfer marker")) {
+            return false;
+        }
+    }
+    // Correct test: Transition from instr to kernel_xfer event marker, goes to the next
+    // instruction.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/1, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, /*pc=*/2, /*size=*/1),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Correct test: We should skip the check if there is no instruction before the
+    // kernel event.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Correct test: Pre-signal instr continues after signal.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/2, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
+            gen_instr(TID, /*pc=*/2, /*size=*/1),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Correct test: We should not report a PC discontinuity when the previous instr is
+    // of type TRACE_TYPE_INSTR_SYSENTER.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/5, /*size=*/1),
+            gen_instr_type(TRACE_TYPE_INSTR_SYSENTER, TID, /*pc=*/6, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 3),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Correct test: RSEQ abort in last signal context.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/1, /*size=*/1),
+            // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 40),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 40),
+            // We get a signal after the RSEQ abort.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 4),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Correct test: Branch before signal. This is correct only because the branch doesn't
+    // have an encoding with it. This case will only occur in legacy or stripped traces.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/1, /*size=*/1),
+            gen_branch(TID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 50),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Correct test: back-to-back signals without any intervening instruction.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+            // First signal.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // Second signal.
+            // The Marker value for this signal needs to be 102.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(TID, /*pc=*/102, /*size=*/1),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: back-to-back signals without any intervening instruction.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+            // First signal.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // Second signal.
+            // There will be a PC discontinuity here since the marker value is 500, and
+            // the previous PC is 101.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 500),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Non-explicit control flow has no marker @ kernel_event marker", TID,
+                  /*ref_ordinal=*/5, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/2 },
+                "Failed to catch PC discontinuity for back-to-back signals without any "
+                "intervening instruction")) {
+            return false;
+        }
+    }
+    // Correct test: Taken branch with signal in between branch and its target.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr_to_move =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr_to_move);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        static constexpr uintptr_t WILL_BE_REPLACED = 0;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, TID), cbr_to_move },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, WILL_BE_REPLACED), move },
+            /* TODO i#6316: The nop PC is incorrect. We need to add a check for equality
+               beteen the KERNEL_XFER marker and the prev instr fall-through. */
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, WILL_BE_REPLACED), nop },
+            { gen_instr(TID), move },
+        };
+        std::vector<memref_t> memrefs =
+            add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: Taken branch with signal in between branch and its target. Return
+    // to the wrong place after the signal.
+    {
+        instr_t *move = XINST_CREATE_move(GLOBAL_DCONTEXT, opnd_create_reg(REG1),
+                                          opnd_create_reg(REG2));
+        instr_t *cbr_to_move =
+            XINST_CREATE_jump_cond(GLOBAL_DCONTEXT, DR_PRED_EQ, opnd_create_instr(move));
+        instr_t *nop = XINST_CREATE_nop(GLOBAL_DCONTEXT);
+        instrlist_t *ilist = instrlist_create(GLOBAL_DCONTEXT);
+        instrlist_append(ilist, cbr_to_move);
+        instrlist_append(ilist, nop);
+        instrlist_append(ilist, move);
+        static constexpr addr_t BASE_ADDR = 0x123450;
+        static constexpr uintptr_t WILL_BE_REPLACED = 0;
+        std::vector<memref_with_IR_t> memref_setup = {
+            { gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
+              nullptr },
+            { gen_marker(TID, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
+              nullptr },
+            { gen_instr_type(TRACE_TYPE_INSTR_TAKEN_JUMP, TID), cbr_to_move },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, WILL_BE_REPLACED), move },
+            { gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, WILL_BE_REPLACED), nop },
+            { gen_instr(TID), nop },
+        };
+        std::vector<memref_t> memrefs =
+            add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
+        instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
+        if (!run_checker(memrefs, true,
+                         { "Signal handler return point incorrect", TID,
+                           /*ref_ordinal=*/6, /*last_timestamp=*/0,
+                           /*instrs_since_last_timestamp=*/2 },
+                         "Failed to catch bad signal handler return")) {
+            return false;
+        }
+    }
+
+#endif
     return true;
 }
 
@@ -1107,7 +1316,7 @@ bool
 check_duplicate_syscall_with_same_pc()
 {
     std::cerr << "Testing duplicate syscall\n";
-    // Negative: syscalls with the same PC.
+    // Incorrect: syscalls with the same PC.
 #if defined(X86_64) || defined(X86_32) || defined(ARM_64)
     constexpr addr_t ADDR = 0x7fcf3b9d;
     {
@@ -1137,7 +1346,7 @@ check_duplicate_syscall_with_same_pc()
             return false;
     }
 
-    // Positive test: syscalls with different PCs.
+    // Correct: syscalls with different PCs.
     {
         std::vector<memref_t> memrefs = {
             gen_marker(1, TRACE_MARKER_TYPE_FILETYPE, OFFLINE_FILE_TYPE_ENCODINGS),
@@ -1345,7 +1554,7 @@ bool
 check_rseq_side_exit_discontinuity()
 {
     std::cerr << "Testing rseq side exits\n";
-    // Negative test: Seemingly missing instructions in a basic block due to rseq side
+    // Incorrect test: Seemingly missing instructions in a basic block due to rseq side
     // exit.
     instr_t *store = XINST_CREATE_store(GLOBAL_DCONTEXT, OPND_CREATE_MEMPTR(REG2, 0),
                                         opnd_create_reg(REG1));
@@ -1596,12 +1805,14 @@ check_branch_decoration()
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 999),
             gen_instr(TID, /*pc=*/32),
         };
-        if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", TID,
-                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/2 },
-                         "Failed to catch bad indirect branch target field"))
+        if (!run_checker(
+                memrefs, true,
+                { "Branch does not go to the correct target @ kernel_event marker", TID,
+                  /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/2 },
+                "Failed to catch bad indirect branch target field")) {
             return false;
+        }
     }
 #endif
     // Deprecated branch type.
@@ -1725,11 +1936,13 @@ check_branch_decoration()
         };
         auto memrefs = add_encodings_to_memrefs(ilist, memref_setup, BASE_ADDR);
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
-        if (!run_checker(memrefs, true,
-                         { "Branch does not go to the correct target", /*tid=*/1,
-                           /*ref_ordinal=*/4, /*last_timestamp=*/0,
-                           /*instrs_since_last_timestamp=*/1 },
-                         "Failed to catch taken branch falling through to signal"))
+        if (!run_checker(
+                memrefs, true,
+                { "Branch does not go to the correct target @ kernel_event marker",
+                  /*tid=*/1,
+                  /*ref_ordinal=*/4, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/1 },
+                "Failed to catch taken branch falling through to signal"))
             return false;
     }
 #endif
@@ -1841,7 +2054,7 @@ check_branch_decoration()
         instrlist_clear_and_destroy(GLOBAL_DCONTEXT, ilist);
         if (!run_checker(
                 memrefs, true,
-                { "Branch does not go to the correct target", TID,
+                { "Branch does not go to the correct target @ kernel_event marker", TID,
                   /*ref_ordinal=*/4, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/1 },
                 "Failed to catch untaken branch going to taken target at signal"))

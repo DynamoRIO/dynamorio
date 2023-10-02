@@ -6439,6 +6439,8 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace, app_pc next_tag, uint n
             /* remove unnecessary ubr at end of block */
 #ifdef AARCH64
             delete_after = fixup_cbr_on_stolen_reg(dcontext, trace, targeter);
+#elif defined(RISCV64)
+            ASSERT_NOT_IMPLEMENTED(false);
 #else
             delete_after = instr_get_prev(targeter);
 #endif
