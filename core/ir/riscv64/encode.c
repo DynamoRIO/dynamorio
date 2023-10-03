@@ -102,6 +102,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
 {
     decode_info_t di;
     uint enc;
+    int instr_length;
 
     if (has_instr_opnds != NULL) {
         *has_instr_opnds = false;
@@ -135,8 +136,15 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         });
         return NULL;
     }
-    *(uint *)copy_pc = enc;
-    return copy_pc + 4;
+    instr_length = instr_length_arch(dcontext, instr);
+    if (instr_length == RISCV64_INSTR_COMPRESSED_SIZE) {
+        *(ushort *)copy_pc = (ushort)enc;
+    } else {
+        ASSERT(instr_length == RISCV64_INSTR_SIZE);
+        *(uint *)copy_pc = enc;
+    }
+
+    return copy_pc + instr_length;
 }
 
 byte *

@@ -691,12 +691,18 @@ droption_t<bool> op_record_heap(
     " -record_function [heap_functions], where [heap_functions] is"
     " the value in -record_heap_value.");
 droption_t<std::string> op_record_heap_value(
+    // There are other, more obscure variants, like pvalloc, valloc, memalign,
+    // posix_memalign, independent_calloc, plus malloc_zone_* on Mac and
+    // *_impl versions on Windows.  We ignore these for now.
     DROPTION_SCOPE_CLIENT, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP,
     "malloc|1" OP_RECORD_FUNC_ITEM_SEP "free|1|noret" OP_RECORD_FUNC_ITEM_SEP
+    "realloc|2" OP_RECORD_FUNC_ITEM_SEP "calloc|2" OP_RECORD_FUNC_ITEM_SEP
     "tc_malloc|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP
+    "tc_realloc|2" OP_RECORD_FUNC_ITEM_SEP "tc_calloc|2" OP_RECORD_FUNC_ITEM_SEP
     "__libc_malloc|1" OP_RECORD_FUNC_ITEM_SEP
-    "__libc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP "calloc|2"
+    "__libc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP
+    "__libc_realloc|2" OP_RECORD_FUNC_ITEM_SEP "__libc_calloc|2"
 #ifdef UNIX
     // i#3048: We only have Itanium ABI manglings for now so we disable for MSVC.
     // XXX: This is getting quite long.  I would change the option to point at

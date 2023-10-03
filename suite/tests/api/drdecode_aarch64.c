@@ -135,9 +135,9 @@ test_categories(void)
 {
     const uint raw[] = {
         0x00000000, /* no category, udf $0x0000 */
-        0x12020000, /* int math, and %w0 $0x40000000 -> %w0 */
-        0x0b010000, /* int math, add %w0 %w1 lsl $0x00 -> %w0 */
-        0x1E680821, /* fp math, fmul %d1 %d8 -> %d1 */
+        0x12020000, /* int, and %w0 $0x40000000 -> %w0 */
+        0x0b010000, /* int, add %w0 %w1 lsl $0x00 -> %w0 */
+        0x1E680821, /* fp, fmul %d1 %d8 -> %d1 */
         0xF8620621, /* load, ldraa -0x0f00(%x17)[8byte] -> %x1 */
         0x39000000, /* store, strb %w0 -> (%x0)[1byte] */
         0x3D800000, /* store, str %q0 -> (%x0)[16byte] */
@@ -159,30 +159,32 @@ test_categories(void)
     };
 
     size_t instr_count = sizeof(raw) / sizeof(uint);
-    const uint categories[] = { DR_INSTR_CATEGORY_UNCATEGORIZED,
-                                DR_INSTR_CATEGORY_INT_MATH,
-                                DR_INSTR_CATEGORY_INT_MATH,
-                                DR_INSTR_CATEGORY_FP_MATH,
-                                DR_INSTR_CATEGORY_LOAD,
-                                DR_INSTR_CATEGORY_STORE,
-                                DR_INSTR_CATEGORY_STORE,
-                                DR_INSTR_CATEGORY_LOAD,
-                                DR_INSTR_CATEGORY_STORE,
-                                DR_INSTR_CATEGORY_LOAD,
-                                DR_INSTR_CATEGORY_LOAD | DR_INSTR_CATEGORY_SIMD,
-                                DR_INSTR_CATEGORY_LOAD,
-                                DR_INSTR_CATEGORY_LOAD,
-                                DR_INSTR_CATEGORY_STORE,
-                                DR_INSTR_CATEGORY_LOAD,
-                                DR_INSTR_CATEGORY_LOAD,
-                                DR_INSTR_CATEGORY_STORE,
-                                DR_INSTR_CATEGORY_BRANCH,
-                                DR_INSTR_CATEGORY_SIMD,
-                                DR_INSTR_CATEGORY_SIMD,
-                                DR_INSTR_CATEGORY_OTHER,
-                                DR_INSTR_CATEGORY_OTHER };
+    const uint categories[] = {
+        DR_INSTR_CATEGORY_UNCATEGORIZED,
+        DR_INSTR_CATEGORY_MATH,
+        DR_INSTR_CATEGORY_MATH,
+        DR_INSTR_CATEGORY_FP | DR_INSTR_CATEGORY_MATH,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_STORE,
+        DR_INSTR_CATEGORY_STORE | DR_INSTR_CATEGORY_SIMD | DR_INSTR_CATEGORY_FP,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_STORE,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_LOAD | DR_INSTR_CATEGORY_SIMD | DR_INSTR_CATEGORY_FP,
+        DR_INSTR_CATEGORY_LOAD | DR_INSTR_CATEGORY_SIMD | DR_INSTR_CATEGORY_FP,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_STORE,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_LOAD,
+        DR_INSTR_CATEGORY_STORE,
+        DR_INSTR_CATEGORY_BRANCH,
+        DR_INSTR_CATEGORY_SIMD,
+        DR_INSTR_CATEGORY_SIMD,
+        DR_INSTR_CATEGORY_OTHER,
+        DR_INSTR_CATEGORY_OTHER
+    };
     byte *pc = (byte *)raw;
-    for (int i = 0; i < instr_count; i++) {
+    for (size_t i = 0; i < instr_count; i++) {
         instr_t instr;
         instr_init(GD, &instr);
         instr_set_raw_bits(&instr, pc, 4);

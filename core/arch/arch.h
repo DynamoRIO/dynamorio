@@ -159,6 +159,9 @@ mixed_mode_enabled(void)
 #    define MC_RETVAL_REG r0
 #    define SS_RETVAL_REG r0
 #elif defined(RISCV64)
+#    define X0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, x0)))
+#    define X1_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, x1)))
+#    define F0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, f0)))
 #    define REG0_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a0)))
 #    define REG1_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a1)))
 #    define REG2_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a2)))
@@ -177,6 +180,7 @@ mixed_mode_enabled(void)
 #    define SCRATCH_REG3_OFFS REG3_OFFSET
 #    define SCRATCH_REG4_OFFS REG4_OFFSET
 #    define SCRATCH_REG5_OFFS REG5_OFFSET
+#    define REG_OFFSET(reg) (X0_OFFSET + ((reg)-DR_REG_X0) * sizeof(reg_t))
 /* FIXME i#3544: Check is T6 safe to use */
 #    define CALL_SCRATCH_REG DR_REG_T6
 #    define MC_IBL_REG a2

@@ -115,10 +115,10 @@ public:
             dcache_flushes += rhs.dcache_flushes;
             encodings += rhs.encodings;
             if (track_unique_pc_addrs) {
-                for (const uint64_t addr : rhs.unique_pc_addrs) {
-                    unique_pc_addrs.insert(addr);
-                }
+                unique_pc_addrs.insert(rhs.unique_pc_addrs.begin(),
+                                       rhs.unique_pc_addrs.end());
             }
+            unique_threads.insert(rhs.unique_threads.begin(), rhs.unique_threads.end());
             return *this;
         }
         counters_t &
@@ -148,6 +148,9 @@ public:
             for (const uint64_t addr : rhs.unique_pc_addrs) {
                 unique_pc_addrs.erase(addr);
             }
+            for (const memref_tid_t tid : rhs.unique_threads) {
+                unique_threads.erase(tid);
+            }
             return *this;
         }
         bool
@@ -172,7 +175,8 @@ public:
                 other_markers == rhs.other_markers &&
                 icache_flushes == rhs.icache_flushes &&
                 dcache_flushes == rhs.dcache_flushes && encodings == rhs.encodings &&
-                unique_pc_addrs == rhs.unique_pc_addrs;
+                unique_pc_addrs == rhs.unique_pc_addrs &&
+                unique_threads == rhs.unique_threads;
         }
         int64_t instrs = 0;
         int64_t instrs_nofetch = 0;
@@ -198,6 +202,7 @@ public:
         // we use encoding_is_new as a proxy.
         int64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
+        std::unordered_set<memref_tid_t> unique_threads;
 
         // Metadata for the counts. These are not used for the equality, increment,
         // or decrement operation, and must be set explicitly.
@@ -239,6 +244,7 @@ protected:
         std::string error;
         intptr_t last_window = -1;
         intptr_t filetype_ = -1;
+        memref_tid_t last_tid_ = INVALID_THREAD_ID;
         /* Indicates whether we're currently in the kernel region of the trace, which
          * means we've seen a TRACE_MARKER_TYPE_SYSCALL_TRACE_START without its matching
          * TRACE_MARKER_TYPE_SYSCALL_TRACE_STOP.
@@ -262,9 +268,9 @@ protected:
     static bool
     cmp_threads(const std::pair<memref_tid_t, per_shard_t *> &l,
                 const std::pair<memref_tid_t, per_shard_t *> &r);
-    static void
-    print_counters(const counters_t &counters, int64_t num_threads,
-                   const std::string &prefix, bool for_kernel_trace = false);
+    void
+    print_counters(const counters_t &counters, const std::string &prefix,
+                   bool for_kernel_trace = false);
     void
     compute_shard_interval_result(per_shard_t *shard, uint64_t interval_id);
 
@@ -275,6 +281,7 @@ protected:
     std::mutex shard_map_mutex_;
     unsigned int knob_verbose_;
     static const std::string TOOL_NAME;
+    static const char *const TOTAL_COUNT_PREFIX;
     shard_type_t shard_type_ = SHARD_BY_THREAD;
     memtrace_stream_t *serial_stream_ = nullptr;
 };

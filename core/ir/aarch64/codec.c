@@ -4137,7 +4137,7 @@ encode_opnd_wx5_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
 {
     if (!opnd_is_reg(opnd))
         ASSERT(false);
-    uint num;
+    uint num = 0;
     bool is_x;
     if (!encode_reg(&num, &is_x, opnd_get_reg(opnd), false))
         ASSERT(false);
@@ -9562,7 +9562,7 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 }
 
 static inline uint
-decode_load_store_category(uint enc)
+decode_load_store_category(uint encoding)
 {
     uint category = DR_INSTR_CATEGORY_OTHER;
     /* Calculation of category is based on C4.1 'A64 instruction set encoding'
@@ -9577,35 +9577,38 @@ decode_load_store_category(uint enc)
      *                        ------
      *                         opc
      */
-    uint op0 = BITS(enc, 31, 28);
-    uint opc = BITS(enc, 23, 22);
+    uint op0 = BITS(encoding, 31, 28);
+    uint opc = BITS(encoding, 23, 22);
     if ((op0 & 0x3) == 0x3) { /* xx11 */
-        if (BITS(enc, 10, 10) == 1 && BITS(enc, 21, 21) == 1)
+        if (BITS(encoding, 10, 10) == 1 && BITS(encoding, 21, 21) == 1)
             category = DR_INSTR_CATEGORY_LOAD;
-        else if (opc == 0 || (opc == 0x2 && BITS(enc, 26, 26) == 1))
+        else if (opc == 0 || (opc == 0x2 && BITS(encoding, 26, 26) == 1))
             category = DR_INSTR_CATEGORY_STORE;
         else
             category = DR_INSTR_CATEGORY_LOAD;
     } else if ((op0 & 0x3) == 0 || (op0 & 0x3) == 0x2) { /* xx00, xx10 */
-        category =
-            (BITS(enc, 22, 22) == 0) ? DR_INSTR_CATEGORY_STORE : DR_INSTR_CATEGORY_LOAD;
-        if ((op0 & 0xc) == 0 && BITS(enc, 26, 26) == 1)
-            category |= DR_INSTR_CATEGORY_SIMD;
+        category = (BITS(encoding, 22, 22) == 0) ? DR_INSTR_CATEGORY_STORE
+                                                 : DR_INSTR_CATEGORY_LOAD;
     } else { /* xx01 */
-        if (BITS(enc, 24, 24) == 0)
+        if (BITS(encoding, 24, 24) == 0)
             category = DR_INSTR_CATEGORY_LOAD;
-        else if (BITS(enc, 21, 21) == 0)
+        else if (BITS(encoding, 21, 21) == 0)
             category = (opc == 0) ? DR_INSTR_CATEGORY_STORE : DR_INSTR_CATEGORY_LOAD;
-        else if ((opc == 0x1 || opc == 0x3) && BITS(enc, 11, 10) == 0)
+        else if ((opc == 0x1 || opc == 0x3) && BITS(encoding, 11, 10) == 0)
             category = DR_INSTR_CATEGORY_LOAD;
         else
             category = DR_INSTR_CATEGORY_STORE;
     }
+
+    /* Load/Store operation with SIMD&FP register */
+    if (category != DR_INSTR_CATEGORY_OTHER && BITS(encoding, 26, 26) == 1)
+        category |= DR_INSTR_CATEGORY_SIMD | DR_INSTR_CATEGORY_FP;
+
     return category;
 }
 
-static inline bool
-decode_category(uint enc, instr_t *instr)
+static inline void
+decode_category(uint encoding, instr_t *instr)
 {
     int category = DR_INSTR_CATEGORY_OTHER;
     /* Calculation of category is based on C4.1 'A64 instruction set encoding'
@@ -9618,10 +9621,10 @@ decode_category(uint enc, instr_t *instr)
      *               op1
      */
 
-    uint op1 = BITS(enc, 28, 25);
-    if ((BITS(enc, 31, 31) == 1 && op1 == 0) || op1 == 0x2) /* SME || SVE */
+    uint op1 = BITS(encoding, 28, 25);
+    if ((BITS(encoding, 31, 31) == 1 && op1 == 0) || op1 == 0x2) /* SME || SVE */
         category = DR_INSTR_CATEGORY_SIMD;
-    else if (BITS(enc, 31, 31) == 0 && op1 == 0) /* op1 is 0 and 31 bit is 0 */
+    else if (BITS(encoding, 31, 31) == 0 && op1 == 0) /* op1 is 0 and 31 bit is 0 */
         category = DR_INSTR_CATEGORY_UNCATEGORIZED;
     else {
         /*                       op1 - xxxx
@@ -9637,28 +9640,56 @@ decode_category(uint enc, instr_t *instr)
         if ((op1 & 0x4) == 0) {       /* op1 is x0xx */
             if ((op1 & 0x8) != 0) {   /* op1 is not 00xx */
                 if ((op1 & 0x2) == 0) /* op1 is 100x, Data processing Immediate */
-                    category = DR_INSTR_CATEGORY_INT_MATH;
+                    category = DR_INSTR_CATEGORY_MATH;
                 else /* op1 is 101x, Branches */
                     category = DR_INSTR_CATEGORY_BRANCH;
             }
         } else { /* op1 is x1xx */
-            uint op0 = BITS(enc, 31, 28);
+            uint op0 = BITS(encoding, 31, 28);
             if ((op1 & 0x1) == 0) /* op1 is x1x0, LOAD/STORE */
-                category = decode_load_store_category(enc);
+                category = decode_load_store_category(encoding);
             else if ((op1 & 0x2) == 0) /* op1 is x101 */
-                category = DR_INSTR_CATEGORY_INT_MATH;
+                category = DR_INSTR_CATEGORY_MATH;
             else { /* op1 is x111, Scalar Floating-Point and Advances SIMD */
                 /* op0 is 0xx0 || op0 is 01x1 */
                 if ((op0 & 0x9) == 0 || (op0 & 0x5) == 0x5)
                     category = DR_INSTR_CATEGORY_SIMD;
-                else
-                    category = DR_INSTR_CATEGORY_FP_MATH;
+                else {
+                    category = DR_INSTR_CATEGORY_FP;
+                    if (op0 == 0xC) /* op0 is 1100 */
+                        category |= DR_INSTR_CATEGORY_MATH;
+                    else if ((op0 & 0x5) == 1) { /* op0 is x0x1 */
+                        if ((BITS(encoding, 24, 23) & 0x2) != 0)
+                            category |= DR_INSTR_CATEGORY_MATH;
+                        else {
+                            uint op2 = BITS(encoding, 22, 19);
+                            if ((op2 & 0x4) == 0) /* op2 is x0xx */
+                                category |= DR_INSTR_CATEGORY_CONVERT;
+                            else {
+                                uint op3 = BITS(encoding, 18, 10);
+                                if ((op3 & 0x3F) == 0) /* op3 is xxx000000 */
+                                    category |= DR_INSTR_CATEGORY_CONVERT;
+                                else if ((op3 & 0x10) == 0x10) /* op3 is xxxx10000 */
+                                    category |= DR_INSTR_CATEGORY_MATH;
+                                else if ((op3 & 0x8) == 0x8) /* op3 is xxxxx1000 */
+                                    category |= DR_INSTR_CATEGORY_MATH;
+                                else if ((op3 & 0x4) == 0x4) /* op3 is xxxxxx100 */
+                                    category |= DR_INSTR_CATEGORY_MOVE;
+                                else if ((op3 & 0x3) == 0x1) /* op3 is xxxxxxx01 */
+                                    category |= DR_INSTR_CATEGORY_MATH;
+                                else if ((op3 & 0x3) == 0x2) /* op3 is xxxxxxx10 */
+                                    category |= DR_INSTR_CATEGORY_MATH;
+                                else if ((op3 & 0x3) == 0x3) /* op3 is xxxxxxx11 */
+                                    category |= DR_INSTR_CATEGORY_MOVE;
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
     instr_set_category(instr, category);
-    return true;
 }
 
 /******************************************************************************/
