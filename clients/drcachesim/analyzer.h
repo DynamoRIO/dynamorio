@@ -233,6 +233,11 @@ protected:
     void
     process_serial(analyzer_worker_data_t &worker);
 
+    // Helper for process_tasks() which calls parallel_shard_exit() in each tool.
+    // Returns false if there was an error and the caller should return early.
+    bool
+    process_shard_exit(analyzer_worker_data_t *worker, int shard_index);
+
     bool
     record_has_tid(RecordType record, memref_tid_t &tid);
 
