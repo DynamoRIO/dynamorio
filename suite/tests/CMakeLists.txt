@@ -2876,6 +2876,23 @@ if (X86 OR AARCH64)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drreg)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drbbdup)
 
+    if (AARCH64)
+      set(client.drx-scattergather-instrumentation-fault_realtest client.drx-scattergather)
+      set(client.drx-scattergather-instrumentation-fault_expectbase "drx-scattergather-${ARCH_NAME}")
+      tobuild_ci(client.drx-scattergather-instrumentation-fault
+        client-interface/drx-scattergather-instrumentation-fault.c "" "" "")
+      set_sve_flags(client.drx-scattergather-instrumentation-fault)
+      target_include_directories(client.drx-scattergather PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+      use_DynamoRIO_extension(client.drx-scattergather-instrumentation-fault.dll drmgr)
+      use_DynamoRIO_extension(client.drx-scattergather-instrumentation-fault.dll drx)
+      use_DynamoRIO_extension(client.drx-scattergather-instrumentation-fault.dll drreg)
+      # drx-scattergather-instrumentation-fault.dll isn't really a sample client but it is
+      # a stripped down version of memval_simple and gives the same output so we want the
+      # templatex file to be processed the same way as it is for sample clients.
+      set(client.drx-scattergather-instrumentation-fault_test_sample_client 1)
+    endif ()
+
     if (X86 AND X64 AND UNIX)
       if (proc_supports_avx)
         add_exe(allasm_scattergather
