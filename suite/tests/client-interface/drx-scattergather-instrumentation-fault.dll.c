@@ -59,9 +59,7 @@
 
 /* Cross-instrumentation-phase data. */
 typedef struct {
-    app_pc app_addr;
     bool is_scatter_gather;
-    bool do_post_instruction_instrumentation;
 } instru_data_t;
 
 static client_id_t client_id;
@@ -86,9 +84,15 @@ signal_event(void *drcontext, dr_siginfo_t *info)
     return DR_SIGNAL_DELIVER;
 }
 
+static dr_emit_flags_t
+event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                   bool translating, void *user_data)
+{
+    return DR_EMIT_DEFAULT;
+}
+
 static void
-insert_faulting_store(void *drcontext, instrlist_t *ilist, instr_t *where,
-                      app_pc app_addr)
+insert_faulting_store(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
     reg_id_t reg_ptr;
 
@@ -104,74 +108,10 @@ insert_faulting_store(void *drcontext, instrlist_t *ilist, instr_t *where,
         ilist, where,
         INSTR_XL8(XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, 0),
                                      opnd_create_reg(reg_ptr)),
-                  app_addr));
+                  instr_get_app_pc(where)));
 
     if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS)
         DR_ASSERT(false);
-}
-
-static void
-handle_post_instruction(void *drcontext, instrlist_t *ilist, instr_t *where,
-                        app_pc app_addr)
-{
-    int i;
-    instr_t *prev_instr = instr_get_prev_app(where);
-    bool seen_memref = false;
-
-    for (i = 0; i < instr_num_dsts(prev_instr); ++i) {
-        const opnd_t dst = instr_get_dst(prev_instr, i);
-        if (opnd_is_memory_reference(dst)) {
-            if (seen_memref) {
-                DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
-                break;
-            }
-
-            seen_memref = true;
-            insert_faulting_store(drcontext, ilist, where, app_addr);
-        }
-    }
-    for (i = 0; i < instr_num_srcs(prev_instr); ++i) {
-        const opnd_t src = instr_get_src(prev_instr, i);
-        if (opnd_is_memory_reference(src)) {
-            if (seen_memref) {
-                DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
-                break;
-            }
-
-            seen_memref = true;
-            insert_faulting_store(drcontext, ilist, where, app_addr);
-        }
-    }
-}
-
-static dr_emit_flags_t
-event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                   bool translating, void **user_data)
-{
-    instru_data_t *data = (instru_data_t *)dr_thread_alloc(drcontext, sizeof(*data));
-    data->app_addr = 0;
-    data->is_scatter_gather = false;
-    data->do_post_instruction_instrumentation = false;
-
-    /* Detect whether this bb is a scatter/gather expansion. */
-    for (instr_t *instr = instrlist_first(bb); instr != NULL;
-         instr = instr_get_next(instr)) {
-        if (drmgr_is_emulation_start(instr)) {
-            emulated_instr_t emulated_instr;
-            emulated_instr.size = sizeof(emulated_instr);
-            if (drmgr_get_emulated_instr_data(instr, &emulated_instr)) {
-                data->is_scatter_gather = instr_is_scatter(emulated_instr.instr) ||
-                    instr_is_gather(emulated_instr.instr);
-                if (data->is_scatter_gather) {
-                    data->app_addr = instr_get_app_pc(emulated_instr.instr);
-                    break;
-                }
-            }
-        }
-    }
-
-    *user_data = (void *)data;
-    return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
@@ -181,14 +121,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
     int i;
     bool seen_memref = false;
     instru_data_t *data = (instru_data_t *)user_data;
-
-    /* If the previous instruction was a scatter/gather expansion load/store,
-     * we insert another faulting store after it.
-     */
-    if (data->do_post_instruction_instrumentation) {
-        handle_post_instruction(drcontext, bb, where, data->app_addr);
-    }
-    data->do_post_instruction_instrumentation = false;
 
     if (data->is_scatter_gather) {
         instr_t *instr_operands = drmgr_orig_app_instr_for_operands(drcontext);
@@ -203,9 +135,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
                                       "Found inst with multiple memory destinations");
                         break;
                     }
-                    insert_faulting_store(drcontext, bb, where, data->app_addr);
+                    insert_faulting_store(drcontext, bb, where);
                     seen_memref = true;
-                    data->do_post_instruction_instrumentation = true;
                 }
             }
             for (i = 0; i < instr_num_srcs(instr_operands); ++i) {
@@ -216,9 +147,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
                                       "Found inst with multiple memory destinations");
                         break;
                     }
-                    insert_faulting_store(drcontext, bb, where, data->app_addr);
+                    insert_faulting_store(drcontext, bb, where);
                     seen_memref = true;
-                    data->do_post_instruction_instrumentation = true;
                 }
             }
         }
@@ -231,12 +161,16 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
 
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                 bool translating)
+                 bool translating, void **user_data)
 {
-    if (!drx_expand_scatter_gather(drcontext, bb, NULL)) {
+    instru_data_t *data = (instru_data_t *)dr_thread_alloc(drcontext, sizeof(*data));
+    data->is_scatter_gather = false;
+
+    if (!drx_expand_scatter_gather(drcontext, bb, &data->is_scatter_gather)) {
         DR_ASSERT(false);
     }
-    drx_tail_pad_block(drcontext, bb);
+
+    *user_data = (void *)data;
     return DR_EMIT_DEFAULT;
 }
 
@@ -245,8 +179,8 @@ event_exit(void)
 {
     dr_raw_mem_free(faulting_memory, dr_page_size());
 
-    if (!drmgr_unregister_bb_app2app_event(event_bb_app2app) ||
-        !drmgr_unregister_bb_insertion_event(event_app_instruction))
+    if (!drmgr_unregister_bb_instrumentation_ex_event(
+            event_bb_app2app, event_app_analysis, event_app_instruction, NULL))
         DR_ASSERT(false);
     drmgr_unregister_signal_event(signal_event);
 
@@ -260,7 +194,6 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 {
     drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
 
-    dr_set_client_name("DynamoRIO Sample Client 'memval'", "http://dynamorio.org/issues");
     if (!drmgr_init() || !drx_init())
         DR_ASSERT(false);
     if (drreg_init(&ops) != DRREG_SUCCESS)
@@ -268,9 +201,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 
     /* register events */
     dr_register_exit_event(event_exit);
-    if (!drmgr_register_bb_app2app_event(event_bb_app2app, NULL) ||
-        !drmgr_register_bb_instrumentation_event(event_app_analysis,
-                                                 event_app_instruction, NULL) ||
+    if (!drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_app_analysis,
+                                                    event_app_instruction, NULL, NULL) ||
         !drmgr_register_signal_event(signal_event))
         DR_ASSERT(false);
     client_id = id;
