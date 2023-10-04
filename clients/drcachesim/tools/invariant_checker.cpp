@@ -618,6 +618,10 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                     // between prev_instr_ and memref.
                     shard->prev_xfer_marker_.marker.marker_type ==
                         TRACE_MARKER_TYPE_KERNEL_EVENT ||
+                    // Allow a CPU ID marker between a branch, and the branch
+                    // target.
+                    (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
+                     shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) ||
                     // Instruction-filtered are exempted.
                     TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
                             shard->file_type_),

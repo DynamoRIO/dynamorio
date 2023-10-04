@@ -176,20 +176,32 @@ bool
 check_branch_target_after_branch()
 {
     std::cerr << "Testing branch targets\n";
+    constexpr memref_tid_t TID = 1;
+    constexpr uintptr_t TIMESTAMP = 3;
     // Correct simple test.
     {
         std::vector<memref_t> memrefs = {
-            gen_instr(1, 1), gen_branch(1, 2),
-            gen_instr(1, 3), gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_instr(2, 1),
+            gen_instr(TID, 1),     gen_branch(TID, 2),
+            gen_instr(TID, 3),     gen_marker(TID + 1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_instr(TID + 1, 1),
+        };
+        if (!run_checker(memrefs, false))
+            return false;
+    }
+    // Correctly skip CPU ID marker.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, 1),
+            gen_branch(TID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP),
+            gen_marker(TID, TRACE_MARKER_TYPE_CPU_ID, 1),
+            gen_instr(TID, 3),
         };
         if (!run_checker(memrefs, false))
             return false;
     }
     // Incorrect simple test.
     {
-        constexpr uintptr_t TIMESTAMP = 3;
-        constexpr memref_tid_t TID = 1;
         std::vector<memref_t> memrefs = {
             gen_instr(TID, 1),
             gen_branch(TID, 2),
@@ -209,15 +221,15 @@ check_branch_target_after_branch()
     // Invariant relaxed for thread exit or signal.
     {
         std::vector<memref_t> memrefs = {
-            gen_marker(3, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
-            gen_marker(3, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
-            gen_branch(3, 2),
-            gen_exit(3),
-            gen_instr(1, 1),
-            gen_branch(1, 2),
-            gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
-            gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 0),
-            gen_instr(2, 4),
+            gen_marker(TID + 2, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+            gen_marker(TID + 2, TRACE_MARKER_TYPE_PAGE_SIZE, 4096),
+            gen_branch(TID + 2, 2),
+            gen_exit(TID + 2),
+            gen_instr(TID, 1),
+            gen_branch(TID, 2),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 3),
+            gen_marker(TID + 1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_instr(TID + 1, 4),
         };
         if (!run_checker(memrefs, false))
             return false;
