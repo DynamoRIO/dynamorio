@@ -1600,20 +1600,20 @@ functions.
 
 \section external_tools Separately-built tools
 
-\p drcachesim \p drmemtrace analysis tool framework allows to load 
-non-predefined separately-built external tools. This tool can be loaded by drcachesim 
+\p drcachesim \p drmemtrace analysis tool framework allows to load
+non-predefined separately-built external tools. This tool can be loaded by drcachesim
 using the \p -simulator_type option.
 
 ## External tool package
 
-The tool package should consist of 
+The tool package should consist of
 - <tt>Registration file</tt> called \p toolname.drcachesim.
 - <tt>Static library</tt> containing subclass
-#dynamorio::drmemtrace::analysis_tool_t with tool internal logic. This library described 
+#dynamorio::drmemtrace::analysis_tool_t with tool internal logic. This library described
 in prevoius section.
 - <tt>Tool creator dynamic library</tt> containing tool factory function.
 
-Registration file should be placed to the \p tools subdirectory of the root of the 
+Registration file should be placed to the \p tools subdirectory of the root of the
 DynamoRIO installation.  Here \p toolname is the desired external name of the tool.
 This file should contain the following lines:
 
