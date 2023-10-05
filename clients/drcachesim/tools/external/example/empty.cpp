@@ -110,6 +110,6 @@ empty_t::process_memref(const memref_t &memref)
 bool
 empty_t::print_results()
 {
-    std::cout << "Empty tool results: " << std::endl;
+    std::cout << "Empty tool results:" << std::endl;
     return true;
 }
