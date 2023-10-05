@@ -3156,12 +3156,22 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             }
         }
     }
-    if (end > start &&
-        !tdata->out_file->write(reinterpret_cast<const char *>(start),
-                                reinterpret_cast<const char *>(end) -
-                                    reinterpret_cast<const char *>(start))) {
-        tdata->error = "Failed to write to output file";
-        return false;
+    if (end > start) {
+        // We reach here also when we're not writing to a zip archive.
+
+        for (const trace_entry_t *it = start; it < end; ++it) {
+            if (type_is_instr(static_cast<trace_type_t>(it->type))) {
+                accumulate_to_statistic(
+                    tdata, RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);
+            }
+        }
+        if (!tdata->out_file->write(
+                reinterpret_cast<const char *>(start),
+                reinterpret_cast<const char *>(end) -
+                    reinterpret_cast<const char *>(start))) {
+            tdata->error = "Failed to write to output file";
+            return false;
+        }
     }
     // If we're at the end of a block (minus its delayed branch) we need
     // to split now to avoid going too far by waiting for the next instr.
