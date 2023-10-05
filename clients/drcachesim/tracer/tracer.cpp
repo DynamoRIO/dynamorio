@@ -60,6 +60,7 @@
 #include "drwrap.h"
 #include "drx.h"
 #include "func_trace.h"
+#include "hashtable.h"
 #include "instr_counter.h"
 #include "instru.h"
 #include "named_pipe.h"
@@ -178,6 +179,11 @@ bool attached_midway;
 #ifdef AARCH64
 static bool reported_sg_warning = false;
 #endif
+
+// We may be able to safely use std::unordered_map as at runtime we only need
+// to do lookups which shouldn't need heap or locks, but to be safe we use
+// the DR hashtable.
+static hashtable_t syscall2args;
 
 static bool
 bbdup_instr_counting_enabled()
@@ -1469,6 +1475,50 @@ event_filter_syscall(void *drcontext, int sysnum)
     return true;
 }
 
+static void
+init_record_syscall()
+{
+    // We only modify the table at init time and do not want a lock for runtime
+    // lookups.
+    hashtable_init_ex(&syscall2args, 8, HASH_INTPTR, /*strdup=*/false, /*synch=*/false,
+                      nullptr, nullptr, nullptr);
+#ifdef LINUX
+    // We trace futex by default.  Add it first so a use can disable.
+    static constexpr int FUTEX_ARG_COUNT = 6;
+    if (!hashtable_add(&syscall2args, reinterpret_cast<void *>(SYS_futex),
+                       reinterpret_cast<void *>(FUTEX_ARG_COUNT)))
+        DR_ASSERT(false && "Failed to add to syscall2args internal hashtable");
+#endif
+    auto op_values =
+        split_by(op_record_syscall.get_value(), op_record_syscall.get_value_separator());
+    for (auto &single_op_value : op_values) {
+        auto items = split_by(single_op_value, PATTERN_SEPARATOR);
+        if (items.size() != 2) {
+            FATAL("Error: -record_syscall only takes 2 fields for each item: %s\n",
+                  op_record_syscall.get_value());
+        }
+        int num = atoi(items[0].c_str());
+        if (num < 0)
+            FATAL("Error: -record_syscall invalid number %d\n", num);
+        int args = atoi(items[1].c_str());
+        // Sanity check.  Some Windows syscalls have dozens of parameters but we
+        // should not see anything as high as 100.
+        static constexpr int MAX_SYSCALL_ARGS = 100;
+        if (args < 0 || args > MAX_SYSCALL_ARGS)
+            FATAL("Error: -record_syscall invalid parameter count %d\n", args);
+        dr_log(NULL, DR_LOG_ALL, 1, "Tracing syscall #%d args=%d\n", num, args);
+        if (!hashtable_add(&syscall2args, reinterpret_cast<void *>(num),
+                           reinterpret_cast<void *>(args)))
+            DR_ASSERT(false && "Failed to add to syscall2args internal hashtable");
+    }
+}
+
+static void
+exit_record_syscall()
+{
+    hashtable_delete(&syscall2args);
+}
+
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
@@ -1498,20 +1548,21 @@ event_pre_syscall(void *drcontext, int sysnum)
 
         BUF_PTR(data->seg_base) += instru->append_marker(
             BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL, sysnum);
-#ifdef LINUX
-        if (sysnum == SYS_futex) {
-            static constexpr int FUTEX_ARG_COUNT = 6;
+
+        // Record parameter values, if requested.
+        int args = static_cast<int>(reinterpret_cast<ptr_int_t>(
+            hashtable_lookup(&syscall2args, reinterpret_cast<void *>(sysnum))));
+        if (args > 0) {
             BUF_PTR(data->seg_base) += instru->append_marker(
                 BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
                 static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
                     IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
-            for (int i = 0; i < FUTEX_ARG_COUNT; ++i) {
+            for (int i = 0; i < args; ++i) {
                 BUF_PTR(data->seg_base) += instru->append_marker(
                     BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ARG,
                     dr_syscall_get_param(drcontext, i));
             }
         }
-#endif
     }
     // Filtered traces take a while to fill up the buffer, so we do an output
     // before each syscall so we can check for various thresholds more frequently.
@@ -1576,7 +1627,8 @@ event_post_syscall(void *drcontext, int sysnum)
 
 #ifdef LINUX
     if (!op_L0I_filter.get_value()) { /* No syscall data unless full instr trace. */
-        if (sysnum == SYS_futex) {
+        if (hashtable_lookup(&syscall2args, reinterpret_cast<void *>(sysnum)) !=
+            nullptr) {
             dr_syscall_result_info_t info = {
                 sizeof(info),
             };
@@ -1921,6 +1973,7 @@ event_exit(void)
     num_refs_racy = 0;
     num_filter_refs_racy = 0;
 
+    exit_record_syscall();
     exit_io();
 
     dr_mutex_destroy(mutex);
@@ -1944,8 +1997,8 @@ init_offline_dir(void)
      */
     dr_snprintf(subdir_prefix, BUFFER_SIZE_ELEMENTS(subdir_prefix), "%s",
                 op_subdir_prefix.get_value().c_str());
-    NULL_TERMINATE_BUFFER(subdir_prefix);
     /* We do not need to call drx_init before using drx_open_unique_appid_file. */
+    NULL_TERMINATE_BUFFER(subdir_prefix);
     for (i = 0; i < NUM_OF_TRIES; i++) {
         /* We use drx_open_unique_appid_file with DRX_FILE_SKIP_OPEN to get a
          * directory name for creation.  Retry if the same name directory already
@@ -2227,6 +2280,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         op_L0D_filter.get_value())
         op_disable_optimizations.set_value(true);
 
+    init_record_syscall();
     event_inscount_init();
     init_io();
 
