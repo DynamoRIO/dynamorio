@@ -45,11 +45,8 @@ external_tool_config_file_t::external_tool_config_file_t(const std::string &root
         std::string creator_bin_tag("CREATOR_BIN");
 #ifdef X64
         creator_bin_tag.append("64=");
-#elif X86
-        creator_bin_tag.append("32=");
 #else
-        valid_ = false;
-        return;
+        creator_bin_tag.append("32=");
 #endif
         std::string line;
         while (std::getline(stream, line)) {
