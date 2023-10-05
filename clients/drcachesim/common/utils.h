@@ -168,10 +168,12 @@ starts_with(const std::string &str, const std::string &with)
 }
 
 static inline std::vector<std::string>
-split_by(std::string s, std::string sep)
+split_by(std::string s, const std::string &sep)
 {
     size_t pos;
     std::vector<std::string> vec;
+    if (s.empty())
+        return vec;
     do {
         pos = s.find(sep);
         vec.push_back(s.substr(0, pos));
