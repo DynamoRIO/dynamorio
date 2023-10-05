@@ -4300,6 +4300,9 @@ if (BUILD_CLIENTS)
       # We pass a small instr count to test multiple chunks in a zipfile.
       "" "@-chunk_instr_count@1000@-simulator_type@invariant_checker" "")
 
+    torunonly_drcacheoff(invariant_checker_pthreads ${ci_pthreads_app}
+      "" "@-simulator_type@invariant_checker" "")
+
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps
     # for variety and to include threads and signals for invariant_checker.

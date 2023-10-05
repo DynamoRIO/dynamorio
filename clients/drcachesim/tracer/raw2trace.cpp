@@ -1272,10 +1272,21 @@ raw2trace_t::aggregate_and_write_schedule_files()
             vec.insert(vec.end(), keyval.second.begin(), keyval.second.end());
         }
     }
-    std::sort(serial.begin(), serial.end(),
-              [](const schedule_entry_t &l, const schedule_entry_t &r) {
-                  return l.timestamp < r.timestamp;
-              });
+    auto schedule_entry_comparator = [](const schedule_entry_t &l,
+                                        const schedule_entry_t &r) {
+        if (l.timestamp != r.timestamp)
+            return l.timestamp < r.timestamp;
+        if (l.cpu != r.cpu)
+            return l.cpu < r.cpu;
+        // We really need to sort by either (timestamp, cpu_id) or
+        // (timestamp, thread_id): a single thread cannot be on two CPUs at
+        // the same timestamp; also a single CPU cannot have two threads at the
+        // same timestamp. We still sort by (timestamp, cpu_id, thread_id)
+        // to prevent inadvertent issues with test data.
+        return l.thread < r.thread;
+    };
+
+    std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
     // Collapse same-thread entries.
     std::vector<schedule_entry_t> serial_redux;
     for (const auto &entry : serial) {
