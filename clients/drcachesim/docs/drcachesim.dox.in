@@ -1628,7 +1628,7 @@ This enables \p drcachsim to locate the tool's creator library.  The 32 and
 the target application creates a child process of a different bitwidth.
 
 For more extensive actions on launching the tool, a custom front-end
-executable can be created that replaces \p drcachesim modeled after histogram_launcher.cpp 
+executable can be created that replaces \p drcachesim modeled after histogram_launcher.cpp
 or opcode_mix_launcher.cpp.
 
 Creator dynamic library should contain 2 export functions:
