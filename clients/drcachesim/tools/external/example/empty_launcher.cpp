@@ -84,8 +84,7 @@ _tmain(int argc, const TCHAR *targv[])
                         .c_str());
     }
 
-    analysis_tool_t *tool =
-        empty_tool_create(op_verbose.get_value());
+    analysis_tool_t *tool = empty_tool_create(op_verbose.get_value());
     std::vector<analysis_tool_t *> tools;
     tools.push_back(tool);
     analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());
