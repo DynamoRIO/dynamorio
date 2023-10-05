@@ -182,7 +182,7 @@ analyzer_multi_t::analyzer_multi_t()
     // test_mode.
     if (!create_analysis_tools()) {
         success_ = false;
-        error_string_ = "Failed to create analysis tool: " + error_string_;
+        error_string_ = "Failed to create analysis tool:" + error_string_;
         return;
     }
 
