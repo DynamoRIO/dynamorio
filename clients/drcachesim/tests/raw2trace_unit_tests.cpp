@@ -183,11 +183,11 @@ make_pid()
 }
 
 offline_entry_t
-make_tid()
+make_tid(memref_tid_t tid = 1)
 {
     offline_entry_t entry;
     entry.tid.type = OFFLINE_TYPE_THREAD;
-    entry.tid.tid = 1;
+    entry.tid.tid = tid;
     return entry;
 }
 
@@ -294,10 +294,22 @@ check_entry(std::vector<trace_entry_t> &entries, int &idx, unsigned short expect
     return true;
 }
 
+void
+populate_all_stats(raw2trace_test_t &raw2trace, std::vector<uint64_t> *stats)
+{
+    if (stats == nullptr)
+        return;
+    for (int i = 0; i < RAW2TRACE_STAT_MAX; ++i) {
+        stats->push_back(raw2trace.get_statistic(
+            static_cast<dynamorio::drmemtrace::raw2trace_statistic_t>(i)));
+    }
+}
+
 // Takes ownership of ilist and destroys it.
 bool
 run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist_t *ilist,
-              std::vector<trace_entry_t> &entries, int chunk_instr_count = 0,
+              std::vector<trace_entry_t> &entries, std::vector<uint64_t> *stats = nullptr,
+              int chunk_instr_count = 0,
               const std::vector<test_multi_module_mapper_t::bounds_t> &modules = {})
 {
     // We need an istream so we use istringstream.
@@ -325,6 +337,7 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         std::string error = raw2trace.do_conversion();
         CHECK(error.empty(), error);
         result = result_stream.str();
+        populate_all_stats(raw2trace, stats);
     } else if (modules.empty()) {
         // We need an ostream to capture out.
         std::ostringstream result_stream;
@@ -336,6 +349,7 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         std::string error = raw2trace.do_conversion();
         CHECK(error.empty(), error);
         result = result_stream.str();
+        populate_all_stats(raw2trace, stats);
     } else {
         // We need an ostream to capture out.
         std::ostringstream result_stream;
@@ -347,6 +361,7 @@ run_raw2trace(void *drcontext, const std::vector<offline_entry_t> raw, instrlist
         std::string error = raw2trace.do_conversion();
         CHECK(error.empty(), error);
         result = result_stream.str();
+        populate_all_stats(raw2trace, stats);
     }
     if (ilist != nullptr)
         instrlist_clear_and_destroy(drcontext, ilist);
@@ -713,7 +728,7 @@ test_chunk_boundaries(void *drcontext)
 
     std::vector<trace_entry_t> entries;
     // Use a chunk instr count of 2 to split the 2 jumps.
-    if (!run_raw2trace(drcontext, raw, ilist, entries, 2))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, /*stats=*/nullptr, 2))
         return false;
     int idx = 0;
     return (
@@ -836,7 +851,7 @@ test_chunk_encodings(void *drcontext)
 
     std::vector<trace_entry_t> entries;
     // Use a chunk instr count of 6 to split the 2nd set of 2 jumps.
-    if (!run_raw2trace(drcontext, raw, ilist, entries, 6))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, /*stats=*/nullptr, 6))
         return false;
     int idx = 0;
     return (
@@ -979,11 +994,13 @@ test_duplicate_syscalls(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_DUPLICATE_SYSCALL] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1080,11 +1097,13 @@ test_false_syscalls(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_FALSE_SYSCALL] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1161,11 +1180,13 @@ test_rseq_fallthrough(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_RSEQ_SIDE_EXIT] == 0 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1229,11 +1250,13 @@ test_rseq_rollback_legacy(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_RSEQ_ABORT] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1295,11 +1318,13 @@ test_rseq_rollback(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_RSEQ_ABORT] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1365,11 +1390,13 @@ test_rseq_rollback_with_timestamps(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_RSEQ_ABORT] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1440,11 +1467,13 @@ test_rseq_rollback_with_signal(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_RSEQ_ABORT] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1521,12 +1550,14 @@ test_rseq_rollback_with_chunks(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
     // 6 instrs puts a new chunk at the start of the 3rd region.
-    if (!run_raw2trace(drcontext, raw, ilist, entries, 6))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats, 6))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_RSEQ_ABORT] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1620,11 +1651,13 @@ test_rseq_side_exit(void *drcontext)
     raw.push_back(make_block(offs_move3, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_RSEQ_SIDE_EXIT] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1703,11 +1736,13 @@ test_rseq_side_exit_signal(void *drcontext)
     raw.push_back(make_block(offs_move3, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_RSEQ_SIDE_EXIT] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1790,11 +1825,13 @@ test_rseq_side_exit_inverted(void *drcontext)
     raw.push_back(make_block(offs_move3, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_RSEQ_SIDE_EXIT] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1889,11 +1926,13 @@ test_rseq_side_exit_inverted_with_timestamp(void *drcontext)
     raw.push_back(make_block(offs_move2, 1));
     raw.push_back(make_exit());
 
+    std::vector<uint64_t> stats;
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, ilist, entries))
+    if (!run_raw2trace(drcontext, raw, ilist, entries, &stats))
         return false;
     int idx = 0;
     return (
+        stats[RAW2TRACE_STAT_RSEQ_SIDE_EXIT] == 1 &&
         check_entry(entries, idx, TRACE_TYPE_HEADER, -1) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_VERSION) &&
         check_entry(entries, idx, TRACE_TYPE_MARKER, TRACE_MARKER_TYPE_FILETYPE) &&
@@ -1968,7 +2007,7 @@ test_xfer_modoffs(void *drcontext)
     raw.push_back(make_exit());
 
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, nullptr, entries, 0, modules))
+    if (!run_raw2trace(drcontext, raw, nullptr, entries, /*stats=*/nullptr, 0, modules))
         return false;
     int idx = 0;
     return (
@@ -2012,7 +2051,7 @@ test_xfer_absolute(void *drcontext)
     raw.push_back(make_exit());
 
     std::vector<trace_entry_t> entries;
-    if (!run_raw2trace(drcontext, raw, nullptr, entries, 0, modules))
+    if (!run_raw2trace(drcontext, raw, nullptr, entries, /*stats=*/nullptr, 0, modules))
         return false;
     int idx = 0;
     return (
@@ -2470,6 +2509,96 @@ test_branch_decoration(void *drcontext)
     return res;
 }
 
+bool
+test_stats_timestamp_instr_count(void *drcontext)
+{
+    std::cerr
+        << "\n===============\nTesting raw2trace stats for timestamps and instr count\n";
+    // Our synthetic test first constructs a list of instructions to be encoded into
+    // a buffer for decoding by raw2trace.
+    instrlist_t *ilist = instrlist_create(drcontext);
+    // raw2trace doesn't like offsets of 0 so we shift with a nop.
+    instr_t *nop = XINST_CREATE_nop(drcontext);
+    instr_t *move =
+        XINST_CREATE_move(drcontext, opnd_create_reg(REG1), opnd_create_reg(REG2));
+    instr_t *jmp = XINST_CREATE_jump(drcontext, opnd_create_instr(move));
+    instr_t *jcc = XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(jmp));
+    instrlist_append(ilist, nop);
+    instrlist_append(ilist, jcc);
+    instrlist_append(ilist, jmp);
+    instrlist_append(ilist, move);
+    size_t offs_nop = 0;
+    size_t offs_jz = offs_nop + instr_length(drcontext, nop);
+    size_t offs_jmp = offs_jz + instr_length(drcontext, jcc);
+    size_t offs_mov = offs_jmp + instr_length(drcontext, jmp);
+
+    // Now we synthesize our raw trace itself, including a valid header sequence.
+    // For this test, we create a two-threaded trace because we want to verify if
+    // the stats are accumulated across threads properly.
+    std::vector<offline_entry_t> raw1;
+    raw1.push_back(make_header());
+    raw1.push_back(make_tid(1));
+    raw1.push_back(make_pid());
+    raw1.push_back(make_line_size());
+    raw1.push_back(make_block(offs_jz, 1));
+    raw1.push_back(make_timestamp(123));
+    raw1.push_back(make_core());
+    raw1.push_back(make_block(offs_jmp, 1));
+    raw1.push_back(make_block(offs_mov, 1));
+    raw1.push_back(make_timestamp(788));
+    raw1.push_back(make_exit());
+
+    std::vector<offline_entry_t> raw2;
+    raw2.push_back(make_header());
+    raw2.push_back(make_tid(2));
+    raw2.push_back(make_pid());
+    raw2.push_back(make_line_size());
+    raw2.push_back(make_block(offs_jmp, 1));
+    raw2.push_back(make_timestamp(124));
+    raw2.push_back(make_core());
+    raw2.push_back(make_timestamp(789));
+    raw2.push_back(make_exit());
+
+    // XXX: Below, we duplicate some work done by run_raw2trace. We could
+    // extend run_raw2trace to work with multiple threads by accepting nested
+    // vectors but maybe it's better to keep it specialized to the single
+    // thread case so that the most common use remains simple.
+
+    // We need an istream so we use istringstream.
+    std::ostringstream raw_out1;
+    for (const auto &entry : raw1) {
+        std::string as_string(reinterpret_cast<const char *>(&entry),
+                              reinterpret_cast<const char *>(&entry + 1));
+        raw_out1 << as_string;
+    }
+    std::ostringstream raw_out2;
+    for (const auto &entry : raw2) {
+        std::string as_string(reinterpret_cast<const char *>(&entry),
+                              reinterpret_cast<const char *>(&entry + 1));
+        raw_out2 << as_string;
+    }
+    std::istringstream raw_in1(raw_out1.str()), raw_in2(raw_out2.str());
+    std::vector<std::istream *> input;
+    input.push_back(&raw_in1);
+    input.push_back(&raw_in2);
+
+    // We need an ostream to capture out.
+    std::ostringstream result_stream1, result_stream2;
+    std::vector<std::ostream *> output;
+    output.push_back(&result_stream1);
+    output.push_back(&result_stream2);
+
+    // Run raw2trace with our subclass supplying our decodings.
+    std::vector<uint64_t> stats;
+    raw2trace_test_t raw2trace(input, output, *ilist, drcontext);
+    std::string error = raw2trace.do_conversion();
+    CHECK(error.empty(), error);
+    populate_all_stats(raw2trace, &stats);
+    return stats[RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT] == 4 &&
+        stats[RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP] == 123 &&
+        stats[RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP] == 789;
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -2486,7 +2615,8 @@ test_main(int argc, const char *argv[])
         !test_rseq_side_exit_inverted(drcontext) ||
         !test_rseq_side_exit_inverted_with_timestamp(drcontext) ||
         !test_xfer_modoffs(drcontext) || !test_xfer_absolute(drcontext) ||
-        !test_branch_decoration(drcontext))
+        !test_branch_decoration(drcontext) ||
+        !test_stats_timestamp_instr_count(drcontext))
         return 1;
     return 0;
 }

@@ -3161,14 +3161,13 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
 
         for (const trace_entry_t *it = start; it < end; ++it) {
             if (type_is_instr(static_cast<trace_type_t>(it->type))) {
-                accumulate_to_statistic(
-                    tdata, RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);
+                accumulate_to_statistic(tdata,
+                                        RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);
             }
         }
-        if (!tdata->out_file->write(
-                reinterpret_cast<const char *>(start),
-                reinterpret_cast<const char *>(end) -
-                    reinterpret_cast<const char *>(start))) {
+        if (!tdata->out_file->write(reinterpret_cast<const char *>(start),
+                                    reinterpret_cast<const char *>(end) -
+                                        reinterpret_cast<const char *>(start))) {
             tdata->error = "Failed to write to output file";
             return false;
         }
@@ -3521,6 +3520,7 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT:
         tdata->final_trace_instr_count += value;
         break;
+    case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false);
     }
 }
@@ -3537,6 +3537,7 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP: return earliest_trace_timestamp_;
     case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP: return latest_trace_timestamp_;
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT: return final_trace_instr_count_;
+    case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
     }
 }

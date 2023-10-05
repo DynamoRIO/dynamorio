@@ -127,7 +127,9 @@ typedef enum {
     RAW2TRACE_STAT_FALSE_SYSCALL,
     RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
     RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
-    RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT
+    RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT,
+    // We add a MAX member so that we can iterate over all stats in unit tests.
+    RAW2TRACE_STAT_MAX,
 } raw2trace_statistic_t;
 
 struct module_t {
