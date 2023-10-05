@@ -1,0 +1,2 @@
+Usage error: unsupported analyzer type "non-existent". Please choose cache, miss_analyzer, TLB, histogram, reuse_distance, basic_counts, opcode_mix, syscall_mix, view, func_view, or some external analyzer.
+ERROR: failed to initialize analyzer: Failed to create analysis tool: 

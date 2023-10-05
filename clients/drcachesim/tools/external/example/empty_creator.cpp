@@ -30,13 +30,13 @@
  * DAMAGE.
  */
 
+/* External analysis tool creator functions. */
+
 #include "../common/options.h"
 #include "analyzer.h"
 #include "empty_create.h"
 
 using ::dynamorio::drmemtrace::analysis_tool_t;
-using ::dynamorio::drmemtrace::op_alt_module_dir;
-using ::dynamorio::drmemtrace::op_module_file;
 using ::dynamorio::drmemtrace::op_verbose;
 
 #ifdef WINDOWS
@@ -46,7 +46,7 @@ using ::dynamorio::drmemtrace::op_verbose;
 #endif
 
 extern "C" EXPORT const char *
-get_id()
+get_tool_name()
 {
     return "empty";
 }
@@ -54,6 +54,5 @@ get_id()
 extern "C" EXPORT analysis_tool_t *
 analysis_tool_create()
 {
-    return empty_tool_create(op_module_file.get_value(), op_verbose.get_value(),
-                             op_alt_module_dir.get_value());
+    return empty_tool_create(op_verbose.get_value());
 }

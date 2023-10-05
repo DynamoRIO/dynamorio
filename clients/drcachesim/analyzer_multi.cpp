@@ -72,12 +72,12 @@ using ::dynamorio::droption::droption_parser_t;
 using ::dynamorio::droption::DROPTION_SCOPE_ALL;
 
 analysis_tool_t *
-analyzer_multi_t::create_external_tool(const std::string &id)
+analyzer_multi_t::create_external_tool(const std::string &tool_name)
 {
     analysis_tool_t *tool = nullptr;
 
     std::string tools_dir(op_dr_root.get_value());
-    tools_dir.append("/tools/");
+    tools_dir += std::string(DIRSEP) + "tools" + std::string(DIRSEP);
     directory_iterator_t end;
     directory_iterator_t iter(tools_dir);
 
@@ -90,15 +90,14 @@ analyzer_multi_t::create_external_tool(const std::string &id)
             std::string abs_path(tools_dir);
             abs_path.append(*iter);
             external_tool_config_file_t config(op_dr_root.get_value(), abs_path);
-            if (config.valid_ && config.id_ == id) {
-                try {
-                    external_tool_creator creator(config.creator_path_.c_str());
-                    DR_ASSERT(creator.get_id_() != id.c_str());
-                    tool = creator.create_tool_();
+            if (config.valid_ && config.tool_name_ == tool_name) {
+                external_tool_creator_t creator(config.creator_path_);
+                error_string_ = creator.error();
+                if (creator.error().empty()) {
+                    DR_ASSERT(creator.get_tool_name() == tool_name.c_str());
+                    tool = creator.create_tool();
                     loaders_.push_back(std::move(creator));
                     break;
-                } catch (const std::runtime_error &error) {
-                    error_string_ = error.what();
                 }
             }
         }
@@ -242,7 +241,6 @@ analyzer_multi_t::~analyzer_multi_t()
     }
 #endif
     destroy_analysis_tools();
-    loaders_.clear();
 }
 
 scheduler_t::scheduler_options_t
@@ -291,7 +289,7 @@ analyzer_multi_t::create_analysis_tools()
         while (std::getline(stream, type, ':')) {
             if (num_tools_ >= max_num_tools_ - 1) {
                 error_string_ = "Only " + std::to_string(max_num_tools_ - 1) +
-                    " simulators are allowed simultaniously";
+                    " simulators are allowed simultaneously";
                 return false;
             }
             auto tool = create_analysis_tool_from_options(type);
@@ -435,7 +433,7 @@ analyzer_multi_t::create_analysis_tool_from_options(const std::string &simulator
             ERRMSG("Usage error: unsupported analyzer type \"%s\". "
                    "Please choose " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " HISTOGRAM
                    ", " REUSE_DIST ", " BASIC_COUNTS ", " OPCODE_MIX ", " SYSCALL_MIX
-                   ", " VIEW ", or " FUNC_VIEW ".\n",
+                   ", " VIEW ", " FUNC_VIEW ", or some external analyzer.\n",
                    simulator_type.c_str());
         }
         return tool;

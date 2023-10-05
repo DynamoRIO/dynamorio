@@ -34,67 +34,24 @@ include(../../../../../make/policies.cmake NO_POLICY_SCOPE)
 
 add_dr_defines()
 
-macro (add_exported_library name type)
-  add_library(${name} ${type} ${ARGN})
-  DR_export_target(${name})
-  install_exported_target(${name} ${INSTALL_CLIENTS_LIB})
-  add_dependencies(${name} api_headers)
-endmacro ()
+get_filename_component(DRCACHESIM_SOURCE_DIR
+                       ${CMAKE_CURRENT_SOURCE_DIR}/../../.. ABSOLUTE)
 
-get_filename_component(DRCACHESIM_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../.. ABSOLUTE)
-
-add_exported_library(drmemtrace_empty STATIC empty.cpp ${DRCACHESIM_SOURCE_DIR}/common/options.cpp)
+add_exported_library(drmemtrace_empty STATIC
+                     empty.cpp
+                     ${DRCACHESIM_SOURCE_DIR}/common/options.cpp)
 set_property(TARGET drmemtrace_empty PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_exported_library(empty_creator SHARED empty_creator.cpp)
 target_link_libraries(empty_creator drmemtrace_empty)
 
 place_shared_lib_in_lib_dir(empty_creator)
 
-# We need to pass /EHsc and we pull in libcmtd into drcachesim from a dep lib.
-# Thus we need to override the /MT with /MTd.
-#
-# TODO i#6040: We should add a new configure_original_flage(target) function
-# which restores the ORIG_ flags at the source level for all other targets
-# in this file which are neither clients nor use DR standalone. We can then
-# get rid of add_win32_flags(target) since that just adds a couple of flags
-# back, and using the ORIG_ values is preferable.
-macro(add_win32_flags target)
-  if (DEBUG AND NOT DEFINED ${target}_uses_configure)
-    append_property_list(TARGET ${target} COMPILE_DEFINITIONS "DEBUG")
-  endif ()
-  if (WIN32)
-    if (DEBUG)
-      get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
-      string(REPLACE "/MT " "" cur "${cur}") # Avoid override warning.
-      set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur} /EHsc /MTd /Zi")
-      append_property_string(TARGET ${target} LINK_FLAGS "/nodefaultlib:libcmt")
-    else ()
-      append_property_string(TARGET ${target} COMPILE_FLAGS "/EHsc /MT")
-    endif ()
-  else ()
-    # Work around configure_DynamoRIO_static() clobbering flags by re-adding
-    # the important ones for our tests, so they can include our headers
-    # with C++11-isms.
-    get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
-    if (NOT cur MATCHES "-std=")
-      append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
-    endif ()
-    if (DEBUG AND NOT cur MATCHES "-g")
-      # We can't use restore_nonclient_flags() for clients, so we manually re-add debug
-      # here.
-      append_property_string(TARGET ${target} COMPILE_FLAGS "-g")
-    endif ()
-    if (APPLE)
-      # Match the core/ flags.
-      append_property_string(TARGET ${target}
-        COMPILE_FLAGS "-mmacosx-version-min=${OLDEST_OSX_SUPPPORTED}")
-    endif ()
-  endif ()
-endmacro ()
-
 add_executable(empty_launcher empty_launcher.cpp)
 _DR_get_static_libc_list(static_libc)
-target_link_libraries(empty_launcher drmemtrace_analyzer drmemtrace_empty ${static_libc})
+target_link_libraries(empty_launcher
+                      drmemtrace_analyzer
+                      drmemtrace_empty
+                      ${static_libc})
 use_DynamoRIO_extension(empty_launcher droption)
 add_dependencies(empty_launcher api_headers)
 
@@ -102,11 +59,21 @@ add_win32_flags(drmemtrace_empty)
 add_win32_flags(empty_creator)
 add_win32_flags(empty_launcher)
 
-function (write_config_file id dst libdir)
+function (write_config_file name dst libdir)
+  if (X64)
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+    set(CUR_BIT "64")
+    set(ALT_BIT "32")
+  else ()
+    set(CUR_BIT "32")
+    set(ALT_BIT "64")
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+  endif ()
   file(GENERATE OUTPUT ${dst} CONTENT
 "# analysis tool creator config file\n\
-TOOL_ID=${id}
-CREATOR_BIN=${libdir}/${LIB_PFX}${id}_creator${LIB_EXT}\n\
+TOOL_NAME=${name}
+CREATOR_BIN${CUR_BIT}=${libdir}/${LIB_PFX}${name}_creator${LIB_EXT}\n\
+CREATOR_BIN${ALT_BIT}=${alt_libdir}/${LIB_PFX}${name}_creator${LIB_EXT}\n\
 ")
 endfunction ()
 
@@ -115,3 +82,36 @@ set(EMPTY_CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/empty.drcachesim)
 write_config_file(empty ${EMPTY_CONFIG_BUILD} clients/${INSTALL_LIB})
 write_config_file(empty ${EMPTY_CONFIG_INSTALL} tools/${INSTALL_LIB})
 DR_install(FILES "${EMPTY_CONFIG_INSTALL}" DESTINATION ${INSTALL_CLIENTS_BASE})
+
+
+##################################################
+# Tests
+
+set(test_seconds 90)
+
+if (X86 AND X64 AND ZIP_FOUND)
+# Simple test to ensure empty launcher keeps working.
+  set(trace_dir
+    "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+  add_test(NAME tool.empty_launcher
+    COMMAND empty_launcher -trace ${trace_dir})
+  set_tests_properties(tool.empty_launcher PROPERTIES TIMEOUT ${test_seconds})
+
+  # Simple test to ensure empty tool can be loaded by drcachesim.
+  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/empty.templatex" empty_regex)
+  set(trace_dir
+    "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
+  add_test(NAME drcachesim.empty_load
+    COMMAND ${PROJECT_BINARY_DIR}/bin64/drrun -t drcachesim -offline
+     -simulator_type empty -indir ${trace_dir})
+  set_tests_properties(drcachesim.empty_load
+    PROPERTIES PASS_REGULAR_EXPRESSION "${empty_regex}")
+
+  # Simple test to ensure non-existent tool load by drcachesim should fail.
+  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/nonexistent.templatex" nonexistent_regex)
+  add_test(NAME drcachesim.non-existent_load
+    COMMAND ${PROJECT_BINARY_DIR}/bin64/drrun -t drcachesim -offline
+     -simulator_type non-existent -indir ${trace_dir})
+  set_tests_properties(drcachesim.non-existent_load
+    PROPERTIES PASS_REGULAR_EXPRESSION "${nonexistent_regex}")
+endif ()

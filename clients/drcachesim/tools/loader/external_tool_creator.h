@@ -30,6 +30,10 @@
  * DAMAGE.
  */
 
+/* Represent external analysis tool creator. It loads export functions from dynamic
+ * library and provides methods to create an external analysis tool object.
+ */
+
 #ifndef _EXTERNAL_TOOL_CREATOR_H_
 #define _EXTERNAL_TOOL_CREATOR_H_ 1
 
@@ -39,15 +43,20 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-class external_tool_creator : public dynamic_lib {
+class external_tool_creator_t : public dynamic_lib_t {
 public:
-    using get_tool_id_t = const char *(*)();
+    external_tool_creator_t(const std::string &filename);
+    std::string
+    get_tool_name();
+    analysis_tool_t *
+    create_tool();
+
+public:
+    using get_tool_name_t = const char *(*)();
     using create_tool_t = analysis_tool_t *(*)();
 
-    const get_tool_id_t get_id_;
+    const get_tool_name_t get_tool_name_;
     const create_tool_t create_tool_;
-
-    external_tool_creator(const char *filename);
 };
 
 } // namespace drmemtrace

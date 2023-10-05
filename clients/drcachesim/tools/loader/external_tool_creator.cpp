@@ -35,13 +35,36 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-external_tool_creator::external_tool_creator(const char *filename)
-    : dynamic_lib(filename)
-    , get_id_(load<get_tool_id_t>("get_id"))
-    , create_tool_(load<create_tool_t>("analysis_tool_create"))
+external_tool_creator_t::external_tool_creator_t(const std::string &filename)
+    : dynamic_lib_t(filename)
+    , get_tool_name_(get_export<get_tool_name_t>("get_tool_name"))
+    , create_tool_(get_export<create_tool_t>("analysis_tool_create"))
 {
-    if (create_tool_ == NULL)
-        throw dynamic_lib_error(error());
+    if (error_string_.empty() && (get_tool_name_ == nullptr || create_tool_ == nullptr)) {
+        error_string_ = "Symbol can not be exported";
+    }
+}
+
+std::string
+external_tool_creator_t::get_tool_name()
+{
+    std::string res;
+    if (get_tool_name_ != nullptr) {
+        res = get_tool_name_();
+    }
+
+    return res;
+}
+
+analysis_tool_t *
+external_tool_creator_t::create_tool()
+{
+    analysis_tool_t *res = nullptr;
+    if (create_tool_ != nullptr) {
+        res = create_tool_();
+    }
+
+    return res;
 }
 
 } // namespace drmemtrace

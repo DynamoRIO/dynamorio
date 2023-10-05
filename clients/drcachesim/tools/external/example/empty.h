@@ -30,6 +30,8 @@
  * DAMAGE.
  */
 
+/* external analysis tool example. */
+
 #ifndef _EMPTY_H_
 #define _EMPTY_H_ 1
 
@@ -40,8 +42,7 @@ using dynamorio::drmemtrace::memref_t;
 
 class empty_t : public analysis_tool_t {
 public:
-    empty_t(const std::string &module_file_path, unsigned int verbose,
-            const std::string &alt_module_dir = "");
+    empty_t(unsigned int verbose);
     virtual ~empty_t();
     std::string
     initialize() override;
@@ -65,23 +66,6 @@ public:
     parallel_shard_error(void *shard_data) override;
 
 protected:
-    struct worker_data_t {
-        uint shard_count = 0;
-    };
-    struct shard_data_t {
-        shard_data_t()
-            : worker(nullptr)
-            , instr_count(0)
-        {
-        }
-        shard_data_t(worker_data_t *worker)
-            : worker(worker)
-            , instr_count(0)
-        {
-        }
-        worker_data_t *worker;
-        int_least64_t instr_count;
-    };
     const static std::string TOOL_NAME;
 };
 

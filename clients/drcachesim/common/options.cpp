@@ -68,7 +68,7 @@ droption_t<std::string> op_ipc_name(
     "is limited to 247 characters.");
 
 droption_t<std::string> op_outdir(
-    DROPTION_SCOPE_ALL, "outdir", "./", "Target directory for offline trace files",
+    DROPTION_SCOPE_ALL, "outdir", ".", "Target directory for offline trace files",
     "For the offline analysis mode (when -offline is requested), specifies the path "
     "to a directory where per-thread trace files will be written.");
 
@@ -460,7 +460,9 @@ droption_t<std::string>
                       "Specifies the types of simulators, separated by a colon (\":\").",
                       "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
                       ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", or " INVARIANT_CHECKER ".");
+                      ", or " INVARIANT_CHECKER
+                      ". The external types: name of a tool identified by a "
+                      "name.drcachesim config file in the DR tools directory.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",

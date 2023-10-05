@@ -36,57 +36,57 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-dynamic_lib::dynamic_lib(const char *filename)
+dynamic_lib_t::dynamic_lib_t(const std::string &filename)
 {
 #ifdef UNIX
-    handle = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
+    handle_ = dlopen(filename.c_str(), RTLD_NOW | RTLD_LOCAL);
+    if (handle_ == nullptr) {
+        char *error = dlerror();
+        error_string_ = std::string(error == nullptr ? "" : error);
+    }
 #elif WINDOWS
-    handle = LoadLibrary(filename);
+    handle_ = LoadLibrary(filename.c_str());
+    if (handle_ == nullptr)
+        error_string_ = std::to_string(GetLastError());
 #endif
-    if (handle == nullptr)
-        throw dynamic_lib_error(error());
 }
 
-dynamic_lib::dynamic_lib(dynamic_lib &&lib)
+dynamic_lib_t::dynamic_lib_t(dynamic_lib_t &&lib)
 {
-    handle = lib.handle;
-    lib.handle = nullptr;
+    handle_ = lib.handle_;
+    lib.handle_ = nullptr;
 }
 
-dynamic_lib::~dynamic_lib()
+dynamic_lib_t::~dynamic_lib_t()
 {
-    if (handle) {
+    if (handle_) {
 #ifdef UNIX
-        dlclose(handle);
+        dlclose(handle_);
 #elif WINDOWS
-        FreeLibrary(reinterpret_cast<HMODULE>(handle));
+        FreeLibrary(reinterpret_cast<HMODULE>(handle_));
 #endif
     }
 }
 
-dynamic_lib &
-dynamic_lib::operator=(dynamic_lib &&lib)
+dynamic_lib_t &
+dynamic_lib_t::operator=(dynamic_lib_t &&lib)
 {
-    if (handle) {
+    if (handle_) {
 #ifdef UNIX
-        dlclose(handle);
+        dlclose(handle_);
 #elif WINDOWS
-        FreeLibrary(reinterpret_cast<HMODULE>(handle));
+        FreeLibrary(reinterpret_cast<HMODULE>(handle_));
 #endif
     }
-    handle = lib.handle;
-    lib.handle = nullptr;
+    handle_ = lib.handle_;
+    lib.handle_ = nullptr;
     return *this;
 }
 
 std::string
-dynamic_lib::error()
+dynamic_lib_t::error()
 {
-#ifdef UNIX
-    return std::string(dlerror());
-#elif WINDOWS
-    return std::to_string(GetLastError());
-#endif
+    return error_string_;
 }
 
 } // namespace drmemtrace

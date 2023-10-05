@@ -30,6 +30,8 @@
  * DAMAGE.
  */
 
+/* example tool creation */
+
 #ifndef _EMPTY_CREATE_H_
 #define _EMPTY_CREATE_H_ 1
 
@@ -38,7 +40,6 @@
 using dynamorio::drmemtrace::analysis_tool_t;
 
 analysis_tool_t *
-empty_tool_create(const std::string &module_file_path, unsigned int verbose = 0,
-                  const std::string &alt_module_dir = "");
+empty_tool_create(unsigned int verbose = 0);
 
 #endif /* _EMPTY_CREATE_H_ */

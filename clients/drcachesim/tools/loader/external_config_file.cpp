@@ -30,9 +30,9 @@
  * DAMAGE.
  */
 
-#include "external_config_file.h"
-
 #include <fstream>
+#include "utils.h"
+#include "external_config_file.h"
 
 namespace dynamorio {
 namespace drmemtrace {
@@ -42,23 +42,30 @@ external_tool_config_file_t::external_tool_config_file_t(const std::string &root
 {
     std::ifstream stream(filename);
     if (stream.good()) {
+        std::string creator_bin_tag("CREATOR_BIN");
+#ifdef X64
+        creator_bin_tag.append("64=");
+#elif X86
+        creator_bin_tag.append("32=");
+#else
+        valid_ = false;
+        return;
+#endif
         std::string line;
         while (std::getline(stream, line)) {
-            auto pos = line.find("TOOL_ID=");
+            auto pos = line.find("TOOL_NAME=");
             if (pos != std::string::npos) {
-                id_ = line.substr(pos + 8);
+                tool_name_ = line.substr(pos + 10);
             }
 
-            pos = line.find("CREATOR_BIN=");
+            pos = line.find(creator_bin_tag);
             if (pos != std::string::npos) {
-                auto creator_lib_path = line.substr(pos + 12);
-                creator_path_.append(root);
-                creator_path_.append("/");
-                creator_path_.append(creator_lib_path);
+                auto creator_lib_path = line.substr(pos + creator_bin_tag.length());
+                creator_path_ += root + DIRSEP + creator_lib_path;
             }
         }
 
-        valid_ = (!id_.empty() && !creator_path_.empty());
+        valid_ = (!tool_name_.empty() && !creator_path_.empty());
     }
 }
 

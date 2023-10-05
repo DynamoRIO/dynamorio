@@ -30,6 +30,10 @@
  * DAMAGE.
  */
 
+/* Represent an object for loading dynamic library and getting export function by symbol
+ * name.
+ */
+
 #ifndef _DYNAMIC_LIB_H_
 #define _DYNAMIC_LIB_H_ 1
 
@@ -43,37 +47,36 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-using dynamic_lib_error = std::runtime_error;
-
-class dynamic_lib {
+class dynamic_lib_t {
 public:
-    dynamic_lib(const char *filename);
-    dynamic_lib(const dynamic_lib &) = delete;
-    dynamic_lib(dynamic_lib &&);
-    dynamic_lib &
-    operator=(const dynamic_lib &) = delete;
-    dynamic_lib &
-    operator=(dynamic_lib &&);
-    virtual ~dynamic_lib();
+    dynamic_lib_t(const std::string &filename);
+    dynamic_lib_t(const dynamic_lib_t &) = delete;
+    dynamic_lib_t(dynamic_lib_t &&);
+    dynamic_lib_t &
+    operator=(const dynamic_lib_t &) = delete;
+    dynamic_lib_t &
+    operator=(dynamic_lib_t &&);
+    virtual ~dynamic_lib_t();
     virtual std::string
     error();
 
 protected:
     template <typename T>
     T
-    load(const char *symbol) const
+    get_export(const std::string &symbol) const
     {
 #ifdef UNIX
         static_cast<void>(dlerror());
-        return reinterpret_cast<T>(dlsym(handle, symbol));
+        return reinterpret_cast<T>(dlsym(handle_, symbol.c_str()));
 #elif WINDOWS
         return reinterpret_cast<T>(
-            GetProcAddress(reinterpret_cast<HMODULE>(handle), symbol));
+            GetProcAddress(reinterpret_cast<HMODULE>(handle_), symbol.c_str()));
 #endif
     }
 
-private:
-    void *handle;
+protected:
+    void *handle_;
+    std::string error_string_;
 };
 
 } // namespace drmemtrace

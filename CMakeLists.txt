@@ -1595,9 +1595,9 @@ endif ()
 # We include all tests and build them at configure time if requested.
 # An alternative is to keep them in separate projects and only build
 # when we run them via --build-and-test.
-option(BUILD_TESTS "build tests" OFF)
+option(BUILD_TESTS "build tests" ON)
 # This is to disable the default -msgbox_mask.
-option(AUTOMATED_TESTING "build for automated testing" OFF)
+option(AUTOMATED_TESTING "build for automated testing" ON)
 if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)

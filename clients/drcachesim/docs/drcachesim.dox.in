@@ -256,7 +256,7 @@ LL stats:
 ****************************************************************************
 \page sec_drcachesim_tools Analysis Tool Suite
 
-In addition to a CPU cache simulator, other analysis tools are
+In addition to a CPU cache simulator, other predefined analysis tools are
 available that operate on memory address traces.  Which set of tools is used
 can be selected with the \p -simulator_type parameter.  New, custom
 tools can also be created, as described in \ref sec_drcachesim_newtool.
@@ -1597,6 +1597,60 @@ opcode_mix_tool_create(), histogram_tool_create(), reuse_distance_tool_create(),
 reuse_time_tool_create(), view_tool_create(), cache_simulator_create(),
 tlb_simulator_create(), func_view_create(), and syscall_mix_tool_create()
 functions.
+
+\section external_tools Separately-built tools
+
+\p drcachesim \p drmemtrace analysis tool framework allows to load 
+non-predefined separately-built external tools. This tool can be loaded by drcachesim 
+using the \p -simulator_type option.
+
+## External tool package
+
+The tool package should consist of 
+- <tt>Registration file</tt> called \p toolname.drcachesim.
+- <tt>Static library</tt> containing subclass
+#dynamorio::drmemtrace::analysis_tool_t with tool internal logic. This library described 
+in prevoius section.
+- <tt>Tool creator dynamic library</tt> containing tool factory function.
+
+Registration file should be placed to the \p tools subdirectory of the root of the 
+DynamoRIO installation.  Here \p toolname is the desired external name of the tool.
+This file should contain the following lines:
+
+\code
+TOOL_NAME=name-of-tool
+CREATOR_BIN32=/absolute/path/to/32-bit-creator-library
+CREATOR_BIN64=/absolute/path/to/64-bit-creator-library
+\endcode
+
+This enables \p drcachsim to locate the tool's creator library.  The 32 and
+64 specifiers allow pointing at alternate-bitwidth paths for use if
+the target application creates a child process of a different bitwidth.
+
+For more extensive actions on launching the tool, a custom front-end
+executable can be created that replaces \p drcachesim modeled after histogram_launcher.cpp 
+or opcode_mix_launcher.cpp.
+
+Creator dynamic library should contain 2 export functions:
+
+\code
+extern "C" EXPORT const char *
+get_tool_name()
+{
+    return "name-of-concrete-tool";
+}
+
+extern "C" EXPORT analysis_tool_t *
+analysis_tool_create()
+{
+    return <concrete>_tool_create();
+}
+\endcode
+
+which allows \p drcachsim to create appropriate analyis tool.  As an
+example, see <a
+href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/tools/external/example">
+minimal external analysis tool</a>.
 
 \section sec_drcachesim_sched Scheduler
 

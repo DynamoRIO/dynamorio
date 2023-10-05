@@ -30,6 +30,9 @@
  * DAMAGE.
  */
 
+/* Represent config file for external analysis tool.
+ */
+
 #ifndef _EXTERNAL_TOOL_CONFIG_FILE_H_
 #define _EXTERNAL_TOOL_CONFIG_FILE_H_ 1
 
@@ -44,7 +47,7 @@ public:
 
 public:
     bool valid_;
-    std::string id_;
+    std::string tool_name_;
     std::string creator_path_;
 };
 

@@ -87,7 +87,7 @@ protected:
     // This is read in a single stream by invariant_checker and so is not
     // an archive_istream_t.
     std::unique_ptr<std::istream> cpu_schedule_file_;
-    std::vector<class external_tool_creator> loaders_;
+    std::vector<class external_tool_creator_t> loaders_;
     // This is read as an archive and can read the same file if both are set.
     std::unique_ptr<archive_istream_t> cpu_schedule_zip_;
     std::unique_ptr<archive_ostream_t> record_schedule_zip_;

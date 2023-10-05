@@ -238,6 +238,11 @@ if (BUILD_PT_POST_PROCESSOR)
   target_link_libraries(drmemtrace_raw2trace drpt2ir drir2trace)
 endif (BUILD_PT_POST_PROCESSOR)
 
+set(loader_srcs
+  tools/loader/dynamic_lib.cpp
+  tools/loader/external_tool_creator.cpp
+  tools/loader/external_config_file.cpp)
+
 # XXX: We should link in drmemtrace_analyzer instead of re-building its
 # source files.
 set(drcachesim_srcs
@@ -258,9 +263,7 @@ set(drcachesim_srcs
   reader/ipc_reader.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
-  tools/loader/dynamic_lib.cpp
-  tools/loader/external_tool_creator.cpp
-  tools/loader/external_config_file.cpp)
+  ${loader_srcs})
 
 add_executable(drcachesim ${drcachesim_srcs})
 # In order to embed raw2trace we need to be standalone:
@@ -704,6 +707,8 @@ if (WIN32)
   add_dependencies(drcachesim client_dr_copy)
 endif ()
 
+add_subdirectory(tools/external)
+
 ##################################################
 # Test executables
 #
@@ -762,8 +767,7 @@ if (BUILD_TESTS)
   add_executable(tool.drcachesim.core_sharded tests/core_sharded_test.cpp
     # XXX: Better to put these into libraries but that requires a bigger cleanup:
     analyzer_multi.cpp ${client_and_sim_srcs} reader/ipc_reader.cpp
-    tools/loader/dynamic_lib.cpp tools/loader/external_tool_creator.cpp
-    tools/loader/external_config_file.cpp)
+    ${loader_srcs})
   target_link_libraries(tool.drcachesim.core_sharded test_helpers
     drmemtrace_raw2trace drmemtrace_simulator drmemtrace_reuse_distance
     drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
@@ -1102,4 +1106,3 @@ add_custom_command(
 # propagate to parent dir
 set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)
 
-add_subdirectory(tools/external)
