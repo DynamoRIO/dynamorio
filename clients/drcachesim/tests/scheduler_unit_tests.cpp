@@ -40,6 +40,7 @@
 
 #include "dr_api.h"
 #include "scheduler.h"
+#include "mock_reader.h"
 #ifdef HAS_ZIP
 #    include "zipfile_istream.h"
 #    include "zipfile_ostream.h"
@@ -49,46 +50,6 @@ namespace dynamorio {
 namespace drmemtrace {
 
 using ::dynamorio::drmemtrace::memtrace_stream_t;
-
-// A mock reader that iterates over a vector of records.
-class mock_reader_t : public reader_t {
-public:
-    mock_reader_t() = default;
-    explicit mock_reader_t(const std::vector<trace_entry_t> &trace)
-        : trace_(trace)
-    {
-        verbosity_ = 3;
-    }
-    bool
-    init() override
-    {
-        at_eof_ = false;
-        ++*this;
-        return true;
-    }
-    trace_entry_t *
-    read_next_entry() override
-    {
-        trace_entry_t *entry = read_queued_entry();
-        if (entry != nullptr)
-            return entry;
-        ++index_;
-        if (index_ >= static_cast<int>(trace_.size())) {
-            at_eof_ = true;
-            return nullptr;
-        }
-        return &trace_[index_];
-    }
-    std::string
-    get_stream_name() const override
-    {
-        return "";
-    }
-
-private:
-    std::vector<trace_entry_t> trace_;
-    int index_ = -1;
-};
 
 #if (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP)
 struct trace_position_t {
@@ -154,81 +115,6 @@ operator<<(std::ostream &o, const context_switch_t &cs)
              << cs.prev_input_position << " => " << cs.new_input_position << ")";
 }
 #endif /* (defined(X86_64) || defined(ARM_64)) && defined(HAS_ZIP) */
-
-static trace_entry_t
-make_instr(addr_t pc, trace_type_t type = TRACE_TYPE_INSTR)
-{
-    trace_entry_t entry;
-    entry.type = static_cast<unsigned short>(type);
-    entry.size = 1;
-    entry.addr = pc;
-    return entry;
-}
-
-static trace_entry_t
-make_exit(memref_tid_t tid)
-{
-    trace_entry_t entry;
-    entry.type = TRACE_TYPE_THREAD_EXIT;
-    entry.addr = static_cast<addr_t>(tid);
-    return entry;
-}
-
-static trace_entry_t
-make_footer()
-{
-    trace_entry_t entry;
-    entry.type = TRACE_TYPE_FOOTER;
-    return entry;
-}
-
-static trace_entry_t
-make_version(int version)
-{
-    trace_entry_t entry;
-    entry.type = TRACE_TYPE_MARKER;
-    entry.size = TRACE_MARKER_TYPE_VERSION;
-    entry.addr = version;
-    return entry;
-}
-
-static trace_entry_t
-make_thread(memref_tid_t tid)
-{
-    trace_entry_t entry;
-    entry.type = TRACE_TYPE_THREAD;
-    entry.addr = static_cast<addr_t>(tid);
-    return entry;
-}
-
-static trace_entry_t
-make_pid(memref_pid_t pid)
-{
-    trace_entry_t entry;
-    entry.type = TRACE_TYPE_PID;
-    entry.addr = static_cast<addr_t>(pid);
-    return entry;
-}
-
-static trace_entry_t
-make_timestamp(uint64_t timestamp)
-{
-    trace_entry_t entry;
-    entry.type = TRACE_TYPE_MARKER;
-    entry.size = TRACE_MARKER_TYPE_TIMESTAMP;
-    entry.addr = static_cast<addr_t>(timestamp);
-    return entry;
-}
-
-static trace_entry_t
-make_marker(trace_marker_type_t type, uintptr_t value)
-{
-    trace_entry_t entry;
-    entry.type = TRACE_TYPE_MARKER;
-    entry.size = static_cast<unsigned short>(type);
-    entry.addr = value;
-    return entry;
-}
 
 static bool
 memref_is_nop_instr(memref_t &record)
@@ -887,6 +773,11 @@ test_real_file_queries_and_filters(const char *testdir)
             assert(stream->get_input_workload_ordinal() == 0);
         else
             assert(stream->get_input_workload_ordinal() == 1);
+        // Interface sanity checks for the memtrace_stream_t versions.
+        assert(stream->get_workload_id() == stream->get_input_workload_ordinal());
+        assert(stream->get_input_id() == stream->get_input_stream_ordinal());
+        assert(stream->get_input_interface() ==
+               scheduler.get_input_stream_interface(stream->get_input_stream_ordinal()));
     }
     // Ensure 2 input workloads with 3 streams with proper names.
     assert(max_workload_index == 1);

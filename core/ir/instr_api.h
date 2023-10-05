@@ -1912,6 +1912,7 @@ typedef enum {
 
 /**
  * Indicates which type of floating-point operation and instruction performs.
+ * \deprecated Replaced by the more general #dr_instr_category_t.
  */
 typedef enum {
     DR_FP_STATE,   /**< Saves, restores, or queries processor state. */
@@ -1926,6 +1927,18 @@ DR_API
  * @param[in] instr  The instruction to query
  * @param[out] type  If the return value is true and \p type is
  *   non-NULL, the type of the floating point operation is written to \p type.
+ */
+bool
+instr_is_floating_type(instr_t *instr, dr_instr_category_t *type);
+
+DR_API
+/**
+ * Returns true iff \p instr is a floating point instruction.
+ * @param[in] instr  The instruction to query
+ * @param[out] type  If the return value is true and \p type is
+ *   non-NULL, the type of the floating point operation is written to \p type.
+ * \deprecated Prefer instr_is_floating_type() which uses the more general
+ * #dr_instr_category_t.
  */
 bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type);

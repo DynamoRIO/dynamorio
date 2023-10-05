@@ -136,6 +136,15 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
     return success;
 }
 
+/* Reserved note range values */
+enum {
+    SG_NOTE_EXPANDED_LD_ST,
+    SG_NOTE_COUNT,
+};
+
+static ptr_uint_t note_base;
+#define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
+
 bool
 drx_scatter_gather_init()
 {
@@ -155,6 +164,11 @@ drx_scatter_gather_init()
         !drmgr_register_thread_exit_event(drx_scatter_gather_thread_exit))
         return false;
 
+    note_base = drmgr_reserve_note_range(SG_NOTE_COUNT);
+    DR_ASSERT_MSG(note_base != DRMGR_NOTE_NONE, "failed to reserve note range");
+    if (note_base == DRMGR_NOTE_NONE)
+        return false;
+
     return true;
 }
 
@@ -162,4 +176,16 @@ void
 drx_scatter_gather_exit()
 {
     drmgr_unregister_tls_field(drx_scatter_gather_tls_idx);
+}
+
+bool
+scatter_gather_is_expanded_ld_st(instr_t *instr)
+{
+    return instr_get_note(instr) == NOTE_VAL(SG_NOTE_EXPANDED_LD_ST);
+}
+
+void
+scatter_gather_tag_expanded_ld_st(instr_t *instr)
+{
+    instr_set_note(instr, NOTE_VAL(SG_NOTE_EXPANDED_LD_ST));
 }

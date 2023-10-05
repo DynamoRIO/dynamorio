@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2341,10 +2341,10 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_t *prev;
         for (prev = instr_get_prev_expanded(dcontext, ilist, instr); prev != NULL;
              prev = instr_get_prev_expanded(dcontext, ilist, prev)) {
-            dr_fp_type_t type;
-            if (instr_is_app(prev) && instr_is_floating_ex(prev, &type)) {
+            dr_instr_category_t type;
+            if (instr_is_app(prev) && instr_is_floating_type(prev, &type)) {
                 bool control_instr = false;
-                if (type == DR_FP_STATE /* quick check */ &&
+                if (TEST(DR_INSTR_CATEGORY_STATE, type) /* quick check */ &&
                     /* Check the list from Intel Vol 1 8.1.8 */
                     (op == OP_fnclex || op == OP_fldcw || op == OP_fnstcw ||
                      op == OP_fnstsw || op == OP_fnstenv || op == OP_fldenv ||

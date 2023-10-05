@@ -823,6 +823,15 @@ if (BUILD_TESTS)
   set_tests_properties(tool.drcacheoff.trace_interval_analysis_unit_tests PROPERTIES
     TIMEOUT ${test_seconds})
 
+  add_executable(tool.drcacheoff.analysis_unit_tests tests/analysis_unit_tests.cpp)
+  add_win32_flags(tool.drcacheoff.analysis_unit_tests)
+  target_link_libraries(tool.drcacheoff.analysis_unit_tests
+    drmemtrace_analyzer test_helpers)
+  add_test(NAME tool.drcacheoff.analysis_unit_tests
+    COMMAND tool.drcacheoff.analysis_unit_tests)
+  set_tests_properties(tool.drcacheoff.analysis_unit_tests PROPERTIES
+    TIMEOUT ${test_seconds})
+
   if (DR_HOST_AARCH64 AND NOT APPLE) # i#1997: static DR on Mac NYI.
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_aarch64_sys)
@@ -911,8 +920,14 @@ if (BUILD_TESTS)
     add_executable(tool.drcacheoff.burst_malloc tests/burst_malloc.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_static)
-    target_link_libraries(tool.drcacheoff.burst_malloc test_helpers)
+    target_link_libraries(tool.drcacheoff.burst_malloc drmemtrace_raw2trace
+        drmemtrace_analyzer test_helpers)
+    if (WIN32)
+      # Just like for burst_replace + burst_futex, linking together takes effort.
+      target_link_libraries(tool.drcacheoff.burst_malloc ${static_libc})
+    endif ()
     add_win32_flags(tool.drcacheoff.burst_malloc)
+    use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_malloc)
     if (UNIX)
       append_property_string(SOURCE tests/burst_malloc.cpp
         # Allow our different-arg-count aliases.

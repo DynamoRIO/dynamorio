@@ -663,7 +663,7 @@ public:
          * Returns the ordinal for the current input stream feeding this output stream.
          */
         virtual input_ordinal_t
-        get_input_stream_ordinal()
+        get_input_stream_ordinal() const
         {
             return scheduler_->get_input_ordinal(ordinal_);
         }
@@ -675,7 +675,7 @@ public:
          * stream.
          */
         virtual int
-        get_input_workload_ordinal()
+        get_input_workload_ordinal() const
         {
             return scheduler_->get_workload_ordinal(ordinal_);
         }
@@ -773,6 +773,35 @@ public:
         get_output_cpuid() const override
         {
             return scheduler_->get_output_cpuid(ordinal_);
+        }
+
+        /**
+         * Returns the ordinal for the current
+         * #dynamorio::drmemtrace::scheduler_tmpl_t::input_workload_t.
+         */
+        int64_t
+        get_workload_id() const override
+        {
+            return static_cast<int64_t>(get_input_workload_ordinal());
+        }
+
+        /**
+         * Returns the ordinal for the current input stream feeding this output stream.
+         */
+        int64_t
+        get_input_id() const override
+        {
+            return static_cast<int64_t>(get_input_stream_ordinal());
+        }
+
+        /**
+         * Returns the #dynamorio::drmemtrace::memtrace_stream_t interface for the
+         * current input stream feeding this output stream.
+         */
+        memtrace_stream_t *
+        get_input_interface() const override
+        {
+            return scheduler_->get_input_stream_interface(get_input_stream_ordinal());
         }
 
     protected:
