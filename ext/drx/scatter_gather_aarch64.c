@@ -308,6 +308,11 @@ create_scalar_load_or_store(void *drcontext, const scatter_gather_info_t *sg_inf
  * where addresses to load/store each element are calculated by adding a base address
  * from the scalar register Xn, to an offset read from the corresponding element of the
  * vector index register Zm.
+ * Before being the index value is optionally modified according to a modifier <mod>.
+ * The valid modifiers depend on the instruction, but they include:
+ *     lsl #<n> (left shift by n)
+ *     sxtw #<n> (sign extend and left shift by n)
+ *     uxtw #<n> (zero extend and left shift by n)
  *
  * or vector+immediate memory operands or the form:
  *     [<Zn>.<Ts>{, #<imm>}]
@@ -395,7 +400,7 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
             (sg_info->index_reg == sg_info->gather_dst_reg)) {
             /* The dst register is also the base/index register so we need to preserve the
              * value of the active elements so we can use them in the address calculation.
-             * We do this by cpying a 0 value into the dst register using the inverse of
+             * We do this by CPYing a 0 value into the dst register using the inverse of
              * the mask_reg as the governing predicate.
              */
 
