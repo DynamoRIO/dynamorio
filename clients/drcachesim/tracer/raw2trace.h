@@ -126,7 +126,10 @@ typedef enum {
     RAW2TRACE_STAT_RSEQ_SIDE_EXIT,
     RAW2TRACE_STAT_FALSE_SYSCALL,
     RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP,
-    RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP
+    RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP,
+    RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT,
+    // We add a MAX member so that we can iterate over all stats in unit tests.
+    RAW2TRACE_STAT_MAX,
 } raw2trace_statistic_t;
 
 struct module_t {
@@ -1065,6 +1068,7 @@ protected:
         uint64 count_rseq_side_exit = 0;
         uint64 earliest_trace_timestamp = (std::numeric_limits<uint64>::max)();
         uint64 latest_trace_timestamp = 0;
+        uint64 final_trace_instr_count = 0;
 
         uint64 cur_chunk_instr_count = 0;
         uint64 cur_chunk_ref_count = 0;
@@ -1255,6 +1259,7 @@ protected:
     uint64 count_rseq_side_exit_ = 0;
     uint64 earliest_trace_timestamp_ = (std::numeric_limits<uint64>::max)();
     uint64 latest_trace_timestamp_ = 0;
+    uint64 final_trace_instr_count_ = 0;
 
     std::unique_ptr<module_mapper_t> module_mapper_;
 
