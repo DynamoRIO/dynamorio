@@ -249,7 +249,7 @@ public:
             : path(trace_path)
         {
             if (!regions_of_interest.empty())
-                thread_modifiers.push_back(input_thread_info_t(regions_of_interest));
+                thread_modifiers.emplace_back(regions_of_interest);
         }
         /**
          * Create a workload with a set of pre-initialized readers which use the given
@@ -260,7 +260,7 @@ public:
             : readers(std::move(readers))
         {
             if (!regions_of_interest.empty())
-                thread_modifiers.push_back(input_thread_info_t(regions_of_interest));
+                thread_modifiers.emplace_back(regions_of_interest);
         }
         /** Size of the struct for binary-compatible additions. */
         size_t struct_size = sizeof(input_workload_t);
