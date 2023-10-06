@@ -157,6 +157,7 @@ Further non-compatibility-affecting changes include:
  - Added several routines to the #dynamorio::drmemtrace::memtrace_stream_t interface
    for drmemtrace analysis tools: get_output_cpuid(), get_workload_id(),
    get_input_id(), get_input_interface().
+ - Added -record_syscall to drmemtrace for recording syscall parameters.
  - Added opportunity to run multiple drcachesim analysis tools simultaneously.
  - Added support of loading separately-built analysis tools to drcachesim dynamically.
 

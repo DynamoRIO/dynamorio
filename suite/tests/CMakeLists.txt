@@ -4294,6 +4294,10 @@ if (BUILD_CLIENTS)
         # We test counting encodings for online.
         "-instr_encodings -simulator_type basic_counts" "")
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
+
+      # Test -record_syscall on SYS_write == #1 with 3 args.
+      torunonly_drcacheoff(allasm-record-syscall allasm_repstr
+        "-record_syscall 1|3" "@-simulator_type@view" "")
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
