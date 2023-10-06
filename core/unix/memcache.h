@@ -31,7 +31,7 @@
  */
 
 #ifndef _MEMCACHE_H_
-#    define _MEMCACHE_ 1
+#    define _MEMCACHE_H_ 1
 
 void
 memcache_init(void);
