@@ -1214,6 +1214,7 @@ raw2trace_t::do_conversion()
                 earliest_trace_timestamp_, thread_data_[i]->earliest_trace_timestamp);
             latest_trace_timestamp_ = std::max(latest_trace_timestamp_,
                                                thread_data_[i]->latest_trace_timestamp);
+            final_trace_instr_count_ += thread_data_[i]->final_trace_instr_count;
         }
     } else {
         // The files can be converted concurrently.
@@ -1238,6 +1239,7 @@ raw2trace_t::do_conversion()
                 std::min(earliest_trace_timestamp_, tdata->earliest_trace_timestamp);
             latest_trace_timestamp_ =
                 std::max(latest_trace_timestamp_, tdata->latest_trace_timestamp);
+            final_trace_instr_count_ += tdata->final_trace_instr_count;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -1254,6 +1256,8 @@ raw2trace_t::do_conversion()
            count_rseq_side_exit_);
     VPRINT(1, "Trace duration %.3fs.\n",
            (latest_trace_timestamp_ - earliest_trace_timestamp_) / 1000000.0);
+    VPRINT(1, "Final trace instr count: " UINT64_FORMAT_STRING ".\n",
+           final_trace_instr_count_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
@@ -3068,6 +3072,8 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
             if (type_is_instr(static_cast<trace_type_t>(it->type)) &&
                 // Do not count PC-only i-filtered instrs.
                 it->size > 0) {
+                accumulate_to_statistic(tdata,
+                                        RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);
                 ++tdata->cur_chunk_instr_count;
                 ++instr_ordinal;
                 if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, tdata->file_type) &&
@@ -3162,6 +3168,13 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
                 }
             }
         }
+    } else {
+        for (const trace_entry_t *it = start; it < end; ++it) {
+            if (type_is_instr(static_cast<trace_type_t>(it->type))) {
+                accumulate_to_statistic(tdata,
+                                        RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT, 1);
+            }
+        }
     }
     if (end > start &&
         !tdata->out_file->write(reinterpret_cast<const char *>(start),
@@ -3170,6 +3183,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         tdata->error = "Failed to write to output file";
         return false;
     }
+
     // If we're at the end of a block (minus its delayed branch) we need
     // to split now to avoid going too far by waiting for the next instr.
     if (tdata->cur_chunk_instr_count >= chunk_instr_count_) {
@@ -3515,6 +3529,10 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP:
         tdata->latest_trace_timestamp = std::max(tdata->latest_trace_timestamp, value);
         break;
+    case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT:
+        tdata->final_trace_instr_count += value;
+        break;
+    case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false);
     }
 }
@@ -3530,6 +3548,8 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_RSEQ_SIDE_EXIT: return count_rseq_side_exit_;
     case RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP: return earliest_trace_timestamp_;
     case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP: return latest_trace_timestamp_;
+    case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT: return final_trace_instr_count_;
+    case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
     }
 }

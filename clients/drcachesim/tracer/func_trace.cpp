@@ -59,11 +59,6 @@
 namespace dynamorio {
 namespace drmemtrace {
 
-// The expected pattern for a single_op_value is:
-//     function_name|function_id|arguments_num
-// where function_name can contain spaces (for instance, C++ namespace prefix)
-#define PATTERN_SEPARATOR "|"
-
 #define NOTIFY(level, ...)                     \
     do {                                       \
         if (op_verbose.get_value() >= (level)) \
@@ -382,19 +377,6 @@ func_trace_disabled_instrument_event(void *drcontext, void *tag, instrlist_t *bb
         return DR_EMIT_DEFAULT;
     return drwrap_invoke_insert_cleanup_only(drcontext, tag, bb, instr, where, for_trace,
                                              translating, user_data);
-}
-
-static std::vector<std::string>
-split_by(std::string s, std::string sep)
-{
-    size_t pos;
-    std::vector<std::string> vec;
-    do {
-        pos = s.find(sep);
-        vec.push_back(s.substr(0, pos));
-        s.erase(0, pos + sep.length());
-    } while (pos != std::string::npos);
-    return vec;
 }
 
 static void
