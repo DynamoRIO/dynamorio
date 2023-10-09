@@ -152,8 +152,9 @@ void
 print_vector(const scalable_reg_value_t &value)
 {
     print("0x");
-    for (size_t i = 0; i < value.size; i++) {
-        print("%02x", value.data[value.size - 1 - i]);
+    assert(static_cast<size_t>(static_cast<int>(value.size)) == value.size);
+    for (int i = static_cast<int>(value.size) - 1; i >= 0; i--) {
+        print("%02x", value.data[i]);
     }
 }
 
@@ -168,9 +169,10 @@ void
 print_predicate(const scalable_reg_value_t &value)
 {
     print("0b");
-    for (size_t byte_i = 0; byte_i < value.size; byte_i++) {
-        for (unsigned bit = 0; bit < 8; bit++) {
-            if (TESTALL(1 << (7 - bit), value.data[value.size - 1 - byte_i]))
+    assert(static_cast<size_t>(static_cast<int>(value.size)) == value.size);
+    for (int byte_i = static_cast<int>(value.size) - 1; byte_i >= 0; byte_i--) {
+        for (int bit = 7; bit >= 0; bit--) {
+            if (TESTALL(1 << bit, value.data[byte_i]))
                 print(" 1");
             else
                 print(" 0");
