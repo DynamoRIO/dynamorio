@@ -51,7 +51,7 @@ public:
     analysis_tool_t *
     create_tool();
 
-public:
+private:
     using get_tool_name_t = const char *(*)();
     using create_tool_t = analysis_tool_t *(*)();
 

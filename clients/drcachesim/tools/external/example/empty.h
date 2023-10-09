@@ -42,7 +42,7 @@ using dynamorio::drmemtrace::memref_t;
 
 class empty_t : public analysis_tool_t {
 public:
-    empty_t(unsigned int verbose);
+    explicit empty_t(unsigned int verbose);
     virtual ~empty_t();
     std::string
     initialize() override;

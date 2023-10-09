@@ -55,6 +55,8 @@ target_link_libraries(empty_launcher
 use_DynamoRIO_extension(empty_launcher droption)
 add_dependencies(empty_launcher api_headers)
 
+# These add_win32_flags() calls are necessary only for building the project inside
+# the DR top level project.
 add_win32_flags(drmemtrace_empty)
 add_win32_flags(empty_creator)
 add_win32_flags(empty_launcher)
@@ -98,20 +100,23 @@ if (X86 AND X64 AND ZIP_FOUND)
   set_tests_properties(tool.empty_launcher PROPERTIES TIMEOUT ${test_seconds})
 
   # Simple test to ensure empty tool can be loaded by drcachesim.
-  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/empty.templatex" empty_regex)
   set(trace_dir
     "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
   add_test(NAME drcachesim.empty_load
     COMMAND ${PROJECT_BINARY_DIR}/bin64/drrun -t drcachesim -offline
      -simulator_type empty -indir ${trace_dir})
+  set(empty_regex "Empty tool created\nEmpty tool results:")
   set_tests_properties(drcachesim.empty_load
     PROPERTIES PASS_REGULAR_EXPRESSION "${empty_regex}")
 
   # Simple test to ensure non-existent tool load by drcachesim should fail.
-  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/nonexistent.templatex" nonexistent_regex)
   add_test(NAME drcachesim.non-existent_load
     COMMAND ${PROJECT_BINARY_DIR}/bin64/drrun -t drcachesim -offline
      -simulator_type non-existent -indir ${trace_dir})
+  set(nonexistent_regex "Usage error: unsupported analyzer type "non-existent".
+   Please choose cache, miss_analyzer, TLB, histogram, reuse_distance, basic_counts,
+    opcode_mix, syscall_mix, view, func_view, or some external analyzer.\nERROR: failed
+     to initialize analyzer: Failed to create analysis tool:")
   set_tests_properties(drcachesim.non-existent_load
     PROPERTIES PASS_REGULAR_EXPRESSION "${nonexistent_regex}")
 endif ()

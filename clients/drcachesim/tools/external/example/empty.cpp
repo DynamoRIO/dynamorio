@@ -34,7 +34,6 @@
 
 #include "dr_api.h"
 #include "empty.h"
-#include <iostream>
 
 const std::string empty_t::TOOL_NAME = "Empty tool";
 
@@ -46,7 +45,7 @@ empty_tool_create(unsigned int verbose)
 
 empty_t::empty_t(unsigned int verbose)
 {
-    std::cout << "Empty tool created" << std::endl;
+    fprintf(stderr, "Empty tool created\n");
 }
 
 std::string
@@ -110,6 +109,6 @@ empty_t::process_memref(const memref_t &memref)
 bool
 empty_t::print_results()
 {
-    std::cout << "Empty tool results:" << std::endl;
+    fprintf(stderr, "Empty tool results:\n");
     return true;
 }
