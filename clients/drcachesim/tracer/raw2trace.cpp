@@ -1272,6 +1272,8 @@ raw2trace_t::aggregate_and_write_schedule_files()
             vec.insert(vec.end(), keyval.second.begin(), keyval.second.end());
         }
     }
+    // N.B.: When changing this comparator, update the comparator in
+    // invariant_checker_t::check_schedule_data too.
     auto schedule_entry_comparator = [](const schedule_entry_t &l,
                                         const schedule_entry_t &r) {
         if (l.timestamp != r.timestamp)
