@@ -238,6 +238,11 @@ if (BUILD_PT_POST_PROCESSOR)
   target_link_libraries(drmemtrace_raw2trace drpt2ir drir2trace)
 endif (BUILD_PT_POST_PROCESSOR)
 
+set(loader_srcs
+  tools/loader/dynamic_lib.cpp
+  tools/loader/external_tool_creator.cpp
+  tools/loader/external_config_file.cpp)
+
 # XXX: We should link in drmemtrace_analyzer instead of re-building its
 # source files.
 set(drcachesim_srcs
@@ -257,7 +262,9 @@ set(drcachesim_srcs
   ${lz4_reader}
   reader/ipc_reader.cpp
   tracer/instru.cpp
-  tracer/instru_online.cpp)
+  tracer/instru_online.cpp
+  ${loader_srcs})
+
 add_executable(drcachesim ${drcachesim_srcs})
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)
@@ -266,6 +273,9 @@ target_link_libraries(drcachesim drmemtrace_simulator drmemtrace_reuse_distance
   drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
   drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
   drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker)
+if (UNIX)
+    target_link_libraries(drcachesim dl)
+endif ()
 if (libsnappy)
   target_link_libraries(drcachesim snappy)
 endif ()
@@ -697,6 +707,8 @@ if (WIN32)
   add_dependencies(drcachesim client_dr_copy)
 endif ()
 
+add_subdirectory(tools/external)
+
 ##################################################
 # Test executables
 #
@@ -754,13 +766,17 @@ if (BUILD_TESTS)
 
   add_executable(tool.drcachesim.core_sharded tests/core_sharded_test.cpp
     # XXX: Better to put these into libraries but that requires a bigger cleanup:
-    analyzer_multi.cpp ${client_and_sim_srcs} reader/ipc_reader.cpp)
+    analyzer_multi.cpp ${client_and_sim_srcs} reader/ipc_reader.cpp
+    ${loader_srcs})
   target_link_libraries(tool.drcachesim.core_sharded test_helpers
     drmemtrace_raw2trace drmemtrace_simulator drmemtrace_reuse_distance
     drmemtrace_histogram drmemtrace_reuse_time drmemtrace_basic_counts
     drmemtrace_opcode_mix drmemtrace_syscall_mix drmemtrace_view drmemtrace_func_view
     drmemtrace_raw2trace directory_iterator drmemtrace_invariant_checker
     drmemtrace_analyzer)
+  if (UNIX)
+    target_link_libraries(tool.drcachesim.core_sharded dl)
+  endif ()
   add_win32_flags(tool.drcachesim.core_sharded)
   if (WIN32)
     # We have a dup symbol from linking in DR.  Linking libc first doesn't help.
@@ -1104,3 +1120,4 @@ add_custom_command(
 
 # propagate to parent dir
 set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)
+

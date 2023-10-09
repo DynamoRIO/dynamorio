@@ -457,13 +457,12 @@ droption_t<std::string>
 
 droption_t<std::string>
     op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB
-                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " VIEW
-                      ", " FUNC_VIEW ", " BASIC_COUNTS ", or " INVARIANT_CHECKER ").",
-                      "Specifies the type of the simulator. "
-                      "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      "Specifies the types of simulators, separated by a colon (\":\").",
+                      "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
                       ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", or " INVARIANT_CHECKER ".");
+                      ", or " INVARIANT_CHECKER
+                      ". The external types: name of a tool identified by a "
+                      "name.drcachesim config file in the DR tools directory.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
