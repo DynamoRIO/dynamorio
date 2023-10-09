@@ -264,33 +264,34 @@ struct test_register_data_t {
 };
 
 template <typename TEST_PTRS_T> struct test_case_base_t {
-    std::string name; // Unique name for this test printed when the test is run.
+    std::string name_; // Unique name for this test printed when the test is run.
 
     using test_ptrs_t = TEST_PTRS_T;
     using test_func_t = std::function<void(test_ptrs_t &)>;
-    test_func_t run_test;
+    test_func_t run_test_;
 
-    element_size_t element_size;
-    unsigned governing_p_reg;
+    element_size_t element_size_;
+    unsigned governing_p_reg_;
 
-    test_result_t test_status;
+    test_result_t test_status_;
 
     void
     test_failed()
     {
-        if (test_status == PASS) {
-            test_status = FAIL;
+        if (test_status_ == PASS) {
+            test_status_ = FAIL;
             print("FAIL\n");
         }
     }
 
-    test_case_base_t(std::string name_, test_func_t func_, unsigned governing_p_reg_,
-                     element_size_t element_size_)
-        : name(std::move(name_))
-        , run_test(std::move(func_))
-        , governing_p_reg(governing_p_reg_)
-        , element_size(element_size_)
+    test_case_base_t(std::string name, test_func_t func, unsigned governing_p_reg,
+                     element_size_t element_size)
+        : name_(std::move(name))
+        , run_test_(std::move(func))
+        , governing_p_reg_(governing_p_reg)
+        , element_size_(element_size)
     {
+        assert(governing_p_reg_ < NUM_P_REGS);
     }
 
     // Set the values of the SVE registers before the test function is run.
@@ -307,8 +308,8 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
     test_result_t
     run_test_case()
     {
-        print("%s: ", name.c_str());
-        test_status = PASS;
+        print("%s: ", name_.c_str());
+        test_status_ = PASS;
 
         test_register_data_t register_data;
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
@@ -320,23 +321,23 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
 
         test_ptrs_t ptrs = create_test_ptrs(register_data);
 
-        const size_t num_elements = TEST_VL_BYTES / static_cast<size_t>(element_size);
+        const size_t num_elements = TEST_VL_BYTES / static_cast<size_t>(element_size_);
 
-        const auto &predicates = ALL_PREDICATES.at(element_size);
+        const auto &predicates = ALL_PREDICATES.at(element_size_);
         for (const auto &pred : predicates) {
             /* TODO i#5036: Test faulting behavior. */
 
-            register_data.before.set_p_register_value(governing_p_reg, pred);
+            register_data.before.set_p_register_value(governing_p_reg_, pred);
             setup(register_data.before);
 
-            run_test(ptrs);
+            run_test_(ptrs);
 
             check_output(pred, register_data);
         }
-        if (test_status == PASS)
+        if (test_status_ == PASS)
             print("PASS\n");
 
-        return test_status;
+        return test_status_;
     }
 
     void
@@ -467,7 +468,7 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
                     get_scaled_offset<uint8_t>(base_ptr, expectation.offset));
             }
 
-            const bool is_active = element_is_active(element, mask, element_size);
+            const bool is_active = element_is_active(element, mask, element_size_);
 
             const auto expected_value =
                 is_active ? expectation.value : static_cast<VALUE_T>(0xABABABABABABABAB);
@@ -484,7 +485,7 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
                 for (size_t higher_element = element + 1;
                      higher_element < expectations.size(); higher_element++) {
                     if (expectations[higher_element].offset == expectation.offset &&
-                        element_is_active(higher_element, mask, element_size)) {
+                        element_is_active(higher_element, mask, element_size_)) {
                         written_by_another_element = true;
                         break;
                     }
@@ -496,7 +497,7 @@ template <typename TEST_PTRS_T> struct test_case_base_t {
                     for (size_t lower_element = 0; lower_element < element;
                          lower_element++) {
                         if (expectations[lower_element].offset == expectation.offset &&
-                            element_is_active(lower_element, mask, element_size)) {
+                            element_is_active(lower_element, mask, element_size_)) {
                             written_by_another_element = true;
                             break;
                         }
@@ -541,14 +542,14 @@ struct test_ptrs_with_base_ptr_t : public basic_test_ptrs_t {
 
 struct scalar_plus_vector_test_case_base_t
     : public test_case_base_t<test_ptrs_with_base_ptr_t> {
-    void *base_ptr;
+    void *base_ptr_;
 
-    scalar_plus_vector_test_case_base_t(std::string name_, test_func_t func_,
-                                        unsigned governing_p_reg_,
-                                        element_size_t element_size_, void *base_ptr_)
-        : test_case_base_t<test_ptrs_t>(std::move(name_), std::move(func_),
-                                        governing_p_reg_, element_size_)
-        , base_ptr(base_ptr_)
+    scalar_plus_vector_test_case_base_t(std::string name, test_func_t func,
+                                        unsigned governing_p_reg,
+                                        element_size_t element_size, void *base_ptr)
+        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func), governing_p_reg,
+                                        element_size)
+        , base_ptr_(base_ptr)
     {
     }
 
@@ -556,7 +557,7 @@ struct scalar_plus_vector_test_case_base_t
     create_test_ptrs(test_register_data_t &register_data) override
     {
         return {
-            base_ptr,
+            base_ptr_,
             register_data.before.z.data(),
             register_data.before.p.data(),
             register_data.after.z.data(),
@@ -566,35 +567,36 @@ struct scalar_plus_vector_test_case_base_t
 };
 
 struct scalar_plus_vector_load_test_case_t : public scalar_plus_vector_test_case_base_t {
-    vector_reg_value128_t reference_data;
-    vector_reg_value128_t offset_data;
+    vector_reg_value128_t reference_data_;
+    vector_reg_value128_t offset_data__;
 
     struct registers_used_t {
         unsigned dest_z;
         unsigned governing_p;
         unsigned index_z;
     };
-    registers_used_t registers_used;
+    registers_used_t registers_used_;
 
     template <typename ELEMENT_T, typename OFFSET_T>
     scalar_plus_vector_load_test_case_t(
-        std::string name_, test_func_t func_, registers_used_t registers_used_,
-        std::array<ELEMENT_T, TEST_VL_BYTES / sizeof(ELEMENT_T)> reference_data_,
-        std::array<OFFSET_T, TEST_VL_BYTES / sizeof(OFFSET_T)> offsets, void *base_ptr_)
+        std::string name, test_func_t func, registers_used_t registers_used,
+        std::array<ELEMENT_T, TEST_VL_BYTES / sizeof(ELEMENT_T)> reference_data,
+        std::array<OFFSET_T, TEST_VL_BYTES / sizeof(OFFSET_T)> offsets, void *base_ptr)
         : scalar_plus_vector_test_case_base_t(
-              std::move(name_), std::move(func_), registers_used_.governing_p,
-              static_cast<element_size_t>(sizeof(ELEMENT_T)), base_ptr_)
-        , registers_used(registers_used_)
+              std::move(name), std::move(func), registers_used.governing_p,
+              static_cast<element_size_t>(sizeof(ELEMENT_T)), base_ptr)
+        , registers_used_(registers_used)
     {
-        std::memcpy(reference_data.data(), reference_data_.data(), reference_data.size());
-        std::memcpy(offset_data.data(), offsets.data(), offset_data.size());
+        std::memcpy(reference_data_.data(), reference_data.data(),
+                    reference_data_.size());
+        std::memcpy(offset_data__.data(), offsets.data(), offset_data__.size());
     }
 
     virtual void
     setup(sve_register_file_t &register_values) override
     {
         // Set the value for the offset register.
-        register_values.set_z_register_value(registers_used.index_z, offset_data);
+        register_values.set_z_register_value(registers_used_.index_z, offset_data__);
     }
 
     void
@@ -607,7 +609,7 @@ struct scalar_plus_vector_load_test_case_t : public scalar_plus_vector_test_case
         expected_output_data.resize(vl_bytes);
 
         const auto expected_output128 =
-            apply_predicate_mask(reference_data, pred, element_size);
+            apply_predicate_mask(reference_data_, pred, element_size_);
         for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
             memcpy(&expected_output_data[TEST_VL_BYTES * i], expected_output128.data(),
                    TEST_VL_BYTES);
@@ -618,13 +620,13 @@ struct scalar_plus_vector_load_test_case_t : public scalar_plus_vector_test_case
         };
 
         const auto output_value =
-            register_data.after.get_z_register_value(registers_used.dest_z);
+            register_data.after.get_z_register_value(registers_used_.dest_z);
 
         if (output_value != expected_output) {
             test_failed();
             print("predicate: ");
             print_predicate(
-                register_data.before.get_p_register_value(registers_used.governing_p));
+                register_data.before.get_p_register_value(registers_used_.governing_p));
             print("\nexpected:  ");
             print_vector(expected_output);
             print("\nactual:    ");
@@ -634,7 +636,7 @@ struct scalar_plus_vector_load_test_case_t : public scalar_plus_vector_test_case
 
         // Check that the values of the other Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
-            if (i == registers_used.dest_z)
+            if (i == registers_used_.dest_z)
                 continue;
             check_z_reg(i, register_data);
         }
@@ -1479,52 +1481,52 @@ test_ld1_scalar_plus_vector()
 }
 
 struct scalar_plus_vector_store_test_case_t : public scalar_plus_vector_test_case_base_t {
-    output_data_t output_data;
-    vector_reg_value128_t offset_data;
+    output_data_t output_data_;
+    vector_reg_value128_t offset_data_;
 
     struct registers_used_t {
         unsigned src_z;
         unsigned governing_p;
         unsigned index_z;
     };
-    registers_used_t registers_used;
+    registers_used_t registers_used_;
 
-    element_size_t stored_value_size;
+    element_size_t stored_value_size_;
 
-    bool scaled;
+    bool scaled_;
 
-    expected_values_t expected_values;
+    expected_values_t expected_values_;
 
     template <typename OFFSET_T>
     scalar_plus_vector_store_test_case_t(
-        std::string name_, test_func_t func_, registers_used_t registers_used_,
+        std::string name, test_func_t func, registers_used_t registers_used,
         std::array<OFFSET_T, TEST_VL_BYTES / sizeof(OFFSET_T)> offsets,
-        element_size_t stored_value_size_, bool scaled_)
+        element_size_t stored_value_size, bool scaled)
         : scalar_plus_vector_test_case_base_t(
-              std::move(name_), std::move(func_), registers_used_.governing_p,
+              std::move(name), std::move(func), registers_used.governing_p,
               static_cast<element_size_t>(sizeof(OFFSET_T)), /*base_ptr=*/nullptr)
-        , registers_used(registers_used_)
-        , stored_value_size(stored_value_size_)
-        , scaled(scaled_)
-        , expected_values(offsets, stored_value_size)
+        , registers_used_(registers_used)
+        , stored_value_size_(stored_value_size)
+        , scaled_(scaled)
+        , expected_values_(offsets, stored_value_size)
     {
-        std::memcpy(offset_data.data(), offsets.data(), offset_data.size());
+        std::memcpy(offset_data_.data(), offsets.data(), offset_data_.size());
 
-        // This needs to be set after output_data has been initialized.
-        base_ptr = output_data.base_addr();
+        // This needs to be set after output_data_ has been initialized.
+        base_ptr_ = output_data_.base_addr();
     }
 
     virtual void
     setup(sve_register_file_t &register_values) override
     {
         // Set the value for the offset register.
-        register_values.set_z_register_value(registers_used.index_z, offset_data);
+        register_values.set_z_register_value(registers_used_.index_z, offset_data_);
 
-        register_values.set_z_register_value(registers_used.src_z,
+        register_values.set_z_register_value(registers_used_.src_z,
                                              { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
                                                0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13,
                                                0x14, 0x15 });
-        output_data.reset();
+        output_data_.reset();
     }
 
     void
@@ -1540,36 +1542,36 @@ struct scalar_plus_vector_store_test_case_t : public scalar_plus_vector_test_cas
             check_p_reg(i, register_data);
         }
 
-        switch (element_size) {
+        switch (element_size_) {
         case element_size_t::SINGLE: {
-            std::array<const void *, 4> base_ptrs { base_ptr, base_ptr, base_ptr,
-                                                    base_ptr };
-            switch (stored_value_size) {
+            std::array<const void *, 4> base_ptrs { base_ptr_, base_ptr_, base_ptr_,
+                                                    base_ptr_ };
+            switch (stored_value_size_) {
             case element_size_t::BYTE:
-                check_expected_values(expected_values.u8x4, pred, base_ptrs, scaled);
+                check_expected_values(expected_values_.u8x4, pred, base_ptrs, scaled_);
                 break;
             case element_size_t::HALF:
-                check_expected_values(expected_values.u16x4, pred, base_ptrs, scaled);
+                check_expected_values(expected_values_.u16x4, pred, base_ptrs, scaled_);
                 break;
             case element_size_t::SINGLE:
-                check_expected_values(expected_values.u32x4, pred, base_ptrs, scaled);
+                check_expected_values(expected_values_.u32x4, pred, base_ptrs, scaled_);
                 break;
             }
         }
         case element_size_t::DOUBLE: {
-            std::array<const void *, 2> base_ptrs { base_ptr, base_ptr };
-            switch (stored_value_size) {
+            std::array<const void *, 2> base_ptrs { base_ptr_, base_ptr_ };
+            switch (stored_value_size_) {
             case element_size_t::BYTE:
-                check_expected_values(expected_values.u8x2, pred, base_ptrs, scaled);
+                check_expected_values(expected_values_.u8x2, pred, base_ptrs, scaled_);
                 break;
             case element_size_t::HALF:
-                check_expected_values(expected_values.u16x2, pred, base_ptrs, scaled);
+                check_expected_values(expected_values_.u16x2, pred, base_ptrs, scaled_);
                 break;
             case element_size_t::SINGLE:
-                check_expected_values(expected_values.u32x2, pred, base_ptrs, scaled);
+                check_expected_values(expected_values_.u32x2, pred, base_ptrs, scaled_);
                 break;
             case element_size_t::DOUBLE:
-                check_expected_values(expected_values.u64x2, pred, base_ptrs, scaled);
+                check_expected_values(expected_values_.u64x2, pred, base_ptrs, scaled_);
                 break;
             }
         }
@@ -1928,35 +1930,36 @@ test_st1_scalar_plus_vector()
 
 struct vector_plus_immediate_load_test_case_t
     : public test_case_base_t<basic_test_ptrs_t> {
-    vector_reg_value128_t reference_data;
-    vector_reg_value128_t base_data;
+    vector_reg_value128_t reference_data_;
+    vector_reg_value128_t base_data_;
 
     struct registers_used_t {
         unsigned dest_z;
         unsigned governing_p;
         unsigned base_z;
-    } registers_used;
+    } registers_used_;
 
     template <typename ELEMENT_T, typename BASE_T>
     vector_plus_immediate_load_test_case_t(
-        std::string name_, test_func_t func_, registers_used_t registers_used_,
-        std::array<ELEMENT_T, TEST_VL_BYTES / sizeof(ELEMENT_T)> reference_data_,
+        std::string name, test_func_t func, registers_used_t registers_used,
+        std::array<ELEMENT_T, TEST_VL_BYTES / sizeof(ELEMENT_T)> reference_data,
         std::array<BASE_T, TEST_VL_BYTES / sizeof(BASE_T)> base)
-        : test_case_base_t<test_ptrs_t>(std::move(name_), std::move(func_),
-                                        registers_used_.governing_p,
+        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
+                                        registers_used.governing_p,
                                         static_cast<element_size_t>(sizeof(BASE_T)))
-        , registers_used(registers_used_)
+        , registers_used_(registers_used)
 
     {
-        std::memcpy(reference_data.data(), reference_data_.data(), reference_data.size());
-        std::memcpy(base_data.data(), base.data(), base_data.size());
+        std::memcpy(reference_data_.data(), reference_data.data(),
+                    reference_data_.size());
+        std::memcpy(base_data_.data(), base.data(), base_data_.size());
     }
 
     void
     setup(sve_register_file_t &register_values) override
     {
         // Set the value for the base vector register.
-        register_values.set_z_register_value(registers_used.base_z, base_data);
+        register_values.set_z_register_value(registers_used_.base_z, base_data_);
     }
 
     void
@@ -1969,7 +1972,7 @@ struct vector_plus_immediate_load_test_case_t
         expected_output_data.resize(vl_bytes);
 
         const auto expected_output128 =
-            apply_predicate_mask(reference_data, pred, element_size);
+            apply_predicate_mask(reference_data_, pred, element_size_);
         for (size_t i = 0; i < vl_bytes / TEST_VL_BYTES; i++) {
             memcpy(&expected_output_data[TEST_VL_BYTES * i], expected_output128.data(),
                    TEST_VL_BYTES);
@@ -1980,13 +1983,13 @@ struct vector_plus_immediate_load_test_case_t
         };
 
         const auto output_value =
-            register_data.after.get_z_register_value(registers_used.dest_z);
+            register_data.after.get_z_register_value(registers_used_.dest_z);
 
         if (output_value != expected_output) {
             test_failed();
             print("predicate: ");
             print_predicate(
-                register_data.before.get_p_register_value(registers_used.governing_p));
+                register_data.before.get_p_register_value(registers_used_.governing_p));
             print("\nexpected:  ");
             print_vector(expected_output);
             print("\nactual:    ");
@@ -1996,7 +1999,7 @@ struct vector_plus_immediate_load_test_case_t
 
         // Check that the values of the other Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
-            if (i == registers_used.dest_z)
+            if (i == registers_used_.dest_z)
                 continue;
             check_z_reg(i, register_data);
         }
@@ -2225,52 +2228,52 @@ test_ld1_vector_plus_immediate()
 
 struct vector_plus_immediate_store_test_case_t
     : public test_case_base_t<basic_test_ptrs_t> {
-    output_data_t output_data;
-    vector_reg_value128_t base_data;
-    std::array<const void *, 2> base_ptrs;
+    output_data_t output_data_;
+    vector_reg_value128_t base_data_;
+    std::array<const void *, 2> base_ptrs_;
 
     struct registers_used_t {
         unsigned src_z;
         unsigned governing_p;
         unsigned base_z;
-    } registers_used;
+    } registers_used_;
 
-    element_size_t stored_value_size;
+    element_size_t stored_value_size_;
 
-    expected_values_t expected_values;
+    expected_values_t expected_values_;
 
-    vector_plus_immediate_store_test_case_t(std::string name_, test_func_t func_,
-                                            registers_used_t registers_used_,
+    vector_plus_immediate_store_test_case_t(std::string name, test_func_t func,
+                                            registers_used_t registers_used,
                                             std::array<std::ptrdiff_t, 2> base_offsets,
-                                            element_size_t stored_value_size_,
+                                            element_size_t stored_value_size,
                                             std::ptrdiff_t immediate_offset)
-        : test_case_base_t<test_ptrs_t>(std::move(name_), std::move(func_),
-                                        registers_used_.governing_p,
+        : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
+                                        registers_used.governing_p,
                                         element_size_t::DOUBLE)
-        , registers_used(registers_used_)
-        , stored_value_size(stored_value_size_)
-        , expected_values(
+        , registers_used_(registers_used)
+        , stored_value_size_(stored_value_size)
+        , expected_values_(
               std::array<std::ptrdiff_t, 2> { immediate_offset, immediate_offset },
               stored_value_size)
     {
-        base_ptrs[0] =
-            static_cast<const uint8_t *>(output_data.base_addr()) + base_offsets[0];
-        base_ptrs[1] =
-            static_cast<const uint8_t *>(output_data.base_addr()) + base_offsets[1];
-        std::memcpy(base_data.data(), base_ptrs.data(), base_data.size());
+        base_ptrs_[0] =
+            static_cast<const uint8_t *>(output_data_.base_addr()) + base_offsets[0];
+        base_ptrs_[1] =
+            static_cast<const uint8_t *>(output_data_.base_addr()) + base_offsets[1];
+        std::memcpy(base_data_.data(), base_ptrs_.data(), base_data_.size());
     }
 
     void
     setup(sve_register_file_t &register_values) override
     {
         // Set the value for the base register.
-        register_values.set_z_register_value(registers_used.base_z, base_data);
+        register_values.set_z_register_value(registers_used_.base_z, base_data_);
 
-        register_values.set_z_register_value(registers_used.src_z,
+        register_values.set_z_register_value(registers_used_.src_z,
                                              { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
                                                0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13,
                                                0x14, 0x15 });
-        output_data.reset();
+        output_data_.reset();
     }
 
     void
@@ -2287,20 +2290,20 @@ struct vector_plus_immediate_store_test_case_t
         }
 
         const bool scaled = false;
-        assert(element_size == element_size_t::DOUBLE);
+        assert(element_size_ == element_size_t::DOUBLE);
 
-        switch (stored_value_size) {
+        switch (stored_value_size_) {
         case element_size_t::BYTE:
-            check_expected_values(expected_values.u8x2, pred, base_ptrs, scaled);
+            check_expected_values(expected_values_.u8x2, pred, base_ptrs_, scaled);
             break;
         case element_size_t::HALF:
-            check_expected_values(expected_values.u16x2, pred, base_ptrs, scaled);
+            check_expected_values(expected_values_.u16x2, pred, base_ptrs_, scaled);
             break;
         case element_size_t::SINGLE:
-            check_expected_values(expected_values.u32x2, pred, base_ptrs, scaled);
+            check_expected_values(expected_values_.u32x2, pred, base_ptrs_, scaled);
             break;
         case element_size_t::DOUBLE:
-            check_expected_values(expected_values.u64x2, pred, base_ptrs, scaled);
+            check_expected_values(expected_values_.u64x2, pred, base_ptrs_, scaled);
             break;
         }
     }
