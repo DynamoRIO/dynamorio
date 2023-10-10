@@ -1091,6 +1091,11 @@ protected:
     advance_region_of_interest(output_ordinal_t output, RecordType &record,
                                input_info_t &input);
 
+    // Discards the contents of the input queue.  Meant to be used when skipping
+    // input records.
+    void
+    clear_input_queue(input_info_t &input);
+
     // Does a direct skip, unconditionally.
     // The caller must hold the input.lock.
     stream_status_t
