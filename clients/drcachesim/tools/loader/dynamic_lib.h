@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,55 +30,56 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_H_ 1
+/* Represent an object for loading dynamic library and getting export function by symbol
+ * name.
+ */
 
-void
-memcache_init(void);
+#ifndef _DYNAMIC_LIB_H_
+#define _DYNAMIC_LIB_H_ 1
 
-void
-memcache_exit(void);
-
-bool
-memcache_initialized(void);
-
-void
-memcache_lock(void);
-
-void
-memcache_unlock(void);
-
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
-
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
-
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
+#ifdef UNIX
+#    include <dlfcn.h>
+#elif WINDOWS
+#    include <windows.h>
 #endif
+#include <stdexcept>
 
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                     bool image);
+namespace dynamorio {
+namespace drmemtrace {
 
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                       size_t old_size, uint old_prot, uint old_type);
+class dynamic_lib_t {
+public:
+    dynamic_lib_t(const std::string &filename);
+    dynamic_lib_t(const dynamic_lib_t &) = delete;
+    dynamic_lib_t(dynamic_lib_t &&);
+    dynamic_lib_t &
+    operator=(const dynamic_lib_t &) = delete;
+    dynamic_lib_t &
+    operator=(dynamic_lib_t &&);
+    virtual ~dynamic_lib_t();
+    virtual std::string
+    error();
 
-void
-memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_brk);
+protected:
+    template <typename T>
+    T
+    get_export(const std::string &symbol) const
+    {
+#ifdef UNIX
+        static_cast<void>(dlerror());
+        return reinterpret_cast<T>(dlsym(handle_, symbol.c_str()));
+#elif WINDOWS
+        return reinterpret_cast<T>(
+            GetProcAddress(reinterpret_cast<HMODULE>(handle_), symbol.c_str()));
+#endif
+    }
 
-void
-memcache_update_all_from_os(void);
+protected:
+    void *handle_;
+    std::string error_string_;
+};
 
-#endif /* _MEMCACHE_H_ */
+} // namespace drmemtrace
+} // namespace dynamorio
+
+#endif // _DYNAMIC_LIB_H_

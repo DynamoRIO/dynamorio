@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,55 +30,42 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_H_ 1
+#include "external_tool_creator.h"
 
-void
-memcache_init(void);
+namespace dynamorio {
+namespace drmemtrace {
 
-void
-memcache_exit(void);
+external_tool_creator_t::external_tool_creator_t(const std::string &filename)
+    : dynamic_lib_t(filename)
+    , get_tool_name_(get_export<get_tool_name_t>("get_tool_name"))
+    , create_tool_(get_export<create_tool_t>("analysis_tool_create"))
+{
+    if (error_string_.empty() && (get_tool_name_ == nullptr || create_tool_ == nullptr)) {
+        error_string_ = "Symbol can not be exported";
+    }
+}
 
-bool
-memcache_initialized(void);
+std::string
+external_tool_creator_t::get_tool_name()
+{
+    std::string res;
+    if (get_tool_name_ != nullptr) {
+        res = get_tool_name_();
+    }
 
-void
-memcache_lock(void);
+    return res;
+}
 
-void
-memcache_unlock(void);
+analysis_tool_t *
+external_tool_creator_t::create_tool()
+{
+    analysis_tool_t *res = nullptr;
+    if (create_tool_ != nullptr) {
+        res = create_tool_();
+    }
 
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
+    return res;
+}
 
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
-
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
-#endif
-
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                     bool image);
-
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                       size_t old_size, uint old_prot, uint old_type);
-
-void
-memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_brk);
-
-void
-memcache_update_all_from_os(void);
-
-#endif /* _MEMCACHE_H_ */
+} // namespace drmemtrace
+} // namespace dynamorio

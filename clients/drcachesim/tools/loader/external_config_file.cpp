@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,55 +30,41 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_H_ 1
+#include <fstream>
+#include "utils.h"
+#include "external_config_file.h"
 
-void
-memcache_init(void);
+namespace dynamorio {
+namespace drmemtrace {
 
-void
-memcache_exit(void);
-
-bool
-memcache_initialized(void);
-
-void
-memcache_lock(void);
-
-void
-memcache_unlock(void);
-
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
-
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
-
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
+external_tool_config_file_t::external_tool_config_file_t(const std::string &root,
+                                                         const std::string &filename)
+{
+    std::ifstream stream(filename);
+    if (stream.good()) {
+        std::string creator_bin_tag("CREATOR_BIN");
+#ifdef X64
+        creator_bin_tag.append("64=");
+#else
+        creator_bin_tag.append("32=");
 #endif
+        std::string line;
+        while (std::getline(stream, line)) {
+            auto pos = line.find("TOOL_NAME=");
+            if (pos != std::string::npos) {
+                tool_name_ = line.substr(pos + 10);
+            }
 
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                     bool image);
+            pos = line.find(creator_bin_tag);
+            if (pos != std::string::npos) {
+                auto creator_lib_path = line.substr(pos + creator_bin_tag.length());
+                creator_path_ += root + DIRSEP + creator_lib_path;
+            }
+        }
 
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                       size_t old_size, uint old_prot, uint old_type);
+        valid_ = (!tool_name_.empty() && !creator_path_.empty());
+    }
+}
 
-void
-memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_brk);
-
-void
-memcache_update_all_from_os(void);
-
-#endif /* _MEMCACHE_H_ */
+} // namespace drmemtrace
+} // namespace dynamorio

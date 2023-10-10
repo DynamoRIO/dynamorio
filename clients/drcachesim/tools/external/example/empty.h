@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,55 +30,43 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_H_ 1
+/* external analysis tool example. */
 
-void
-memcache_init(void);
+#ifndef _EMPTY_H_
+#define _EMPTY_H_ 1
 
-void
-memcache_exit(void);
+#include "analysis_tool.h"
 
-bool
-memcache_initialized(void);
+using dynamorio::drmemtrace::analysis_tool_t;
+using dynamorio::drmemtrace::memref_t;
 
-void
-memcache_lock(void);
+class empty_t : public analysis_tool_t {
+public:
+    explicit empty_t(unsigned int verbose);
+    virtual ~empty_t();
+    std::string
+    initialize() override;
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_worker_init(int worker_index) override;
+    std::string
+    parallel_worker_exit(void *worker_data) override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
 
-void
-memcache_unlock(void);
+protected:
+    const static std::string TOOL_NAME;
+};
 
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
-
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
-
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
-#endif
-
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                     bool image);
-
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                       size_t old_size, uint old_prot, uint old_type);
-
-void
-memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_brk);
-
-void
-memcache_update_all_from_os(void);
-
-#endif /* _MEMCACHE_H_ */
+#endif /* _EMPTY_H_ */

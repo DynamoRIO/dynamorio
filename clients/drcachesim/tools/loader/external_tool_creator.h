@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,55 +30,36 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_H_ 1
+/* Represent external analysis tool creator. It loads export functions from dynamic
+ * library and provides methods to create an external analysis tool object.
+ */
 
-void
-memcache_init(void);
+#ifndef _EXTERNAL_TOOL_CREATOR_H_
+#define _EXTERNAL_TOOL_CREATOR_H_ 1
 
-void
-memcache_exit(void);
+#include "analysis_tool.h"
+#include "dynamic_lib.h"
 
-bool
-memcache_initialized(void);
+namespace dynamorio {
+namespace drmemtrace {
 
-void
-memcache_lock(void);
+class external_tool_creator_t : public dynamic_lib_t {
+public:
+    external_tool_creator_t(const std::string &filename);
+    std::string
+    get_tool_name();
+    analysis_tool_t *
+    create_tool();
 
-void
-memcache_unlock(void);
+private:
+    using get_tool_name_t = const char *(*)();
+    using create_tool_t = analysis_tool_t *(*)();
 
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
+    const get_tool_name_t get_tool_name_;
+    const create_tool_t create_tool_;
+};
 
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
+} // namespace drmemtrace
+} // namespace dynamorio
 
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
-#endif
-
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                     bool image);
-
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                       size_t old_size, uint old_prot, uint old_type);
-
-void
-memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_brk);
-
-void
-memcache_update_all_from_os(void);
-
-#endif /* _MEMCACHE_H_ */
+#endif // _EXTERNAL_TOOL_CREATOR_H_
