@@ -1377,7 +1377,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::clear_input_queue(input_info_t &input)
     // We assume the queue contains no instrs other than the single candidate record we
     // ourselves read but did not pass to the user (else our query of input.reader's
     // instr ordinal would include them and so be incorrect) and that we should thus
-    // skip it all.
+    // skip it all when skipping ahead in the input stream.
     int i = 0;
     while (!input.queue.empty()) {
         assert(i == 0 || !record_type_is_instr(input.queue.front()));
@@ -1397,6 +1397,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::skip_instructions(output_ordinal_t out
         input.reader->init();
         input.needs_init = false;
     }
+    // For a skip of 0 we still need to clear non-instrs from the queue, but
+    // should not have an instr in there.
+    assert(skip_amount > 0 || !record_type_is_instr(input.queue.front()));
     clear_input_queue(input);
     input.reader->skip_instructions(skip_amount);
     if (*input.reader == *input.reader_end) {
@@ -1639,6 +1642,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input_as_previously(
         }
         if (inputs_[index].reader->get_instruction_ordinal() <
                 segment.start_instruction &&
+            // Don't wait for an ROI that starts at the beginning.
             segment.start_instruction > 1 &&
             // The output may have begun in the wait state.
             (outputs_[output].record_index == -1 ||
@@ -1952,7 +1956,10 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // to have an empty record to share the next-entry for a start skip
                 // or other cases).
                 // Only check for stop when we've exhausted the queue, or we have
-                // a starter schedule with a 0,0 entry prior to a first skip entry.
+                // a starter schedule with a 0,0 entry prior to a first skip entry
+                // (as just mentioned, it is easier to have a seemingly-redundant entry
+                // to get into the trace reading loop and then do something like a skip
+                // from the start rather than adding logic into the setup code).
                 if (input->reader->get_instruction_ordinal() >= stop &&
                     (!from_queue || (start == 0 && stop == 0))) {
                     VPRINT(this, 5,

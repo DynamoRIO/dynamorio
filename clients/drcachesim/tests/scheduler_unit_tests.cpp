@@ -2367,7 +2367,7 @@ test_replay_limit()
 
     std::vector<trace_entry_t> input_sequence;
     input_sequence.push_back(make_thread(/*tid=*/1));
-    input_sequence.push_back(make_pid(/*pid-*/ 1));
+    input_sequence.push_back(make_pid(/*pid=*/1));
     input_sequence.push_back(make_marker(TRACE_MARKER_TYPE_PAGE_SIZE, 4096));
     input_sequence.push_back(make_timestamp(10));
     input_sequence.push_back(make_marker(TRACE_MARKER_TYPE_CPU_ID, 1));
@@ -2396,10 +2396,11 @@ test_replay_limit()
 
     std::string record_fname = "tmp_test_replay_limit.zip";
     std::vector<uint64_t> record_instr_count(NUM_OUTPUTS, 0);
+    std::vector<std::string> record_schedule(NUM_OUTPUTS, "");
 
-    auto simulate_core = [](scheduler_t::stream_t *stream, uint64_t *count) {
+    auto simulate_core = [](scheduler_t::stream_t *stream, uint64_t *count,
+                            std::string *schedule) {
         memref_t memref;
-        std::string schedule;
         for (scheduler_t::stream_status_t status = stream->next_record(memref);
              status != scheduler_t::STATUS_EOF; status = stream->next_record(memref)) {
             if (status == scheduler_t::STATUS_WAIT) {
@@ -2409,17 +2410,15 @@ test_replay_limit()
             assert(status == scheduler_t::STATUS_OK);
             if (type_is_instr(memref.instr.type)) {
                 ++(*count);
-                schedule += 'A' +
-                    static_cast<char>((stream->get_input_id() * 8 + memref.instr.addr) %
-                                      26);
+                *schedule += 'A' + static_cast<char>(memref.instr.tid - BASE_TID);
             }
         }
-        std::cerr << "\nSchedule: " << schedule << "\n";
     };
 
     // First, test without interleaving (because the default quantum is long).
     // This triggers clear bugs like failing to run one entire input as its
     // reader is not initialized.
+    std::cerr << "==== Record-replay with no interleaving ====\n";
     {
         // Record.
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -2446,15 +2445,20 @@ test_replay_limit()
         threads.reserve(NUM_OUTPUTS);
         for (int i = 0; i < NUM_OUTPUTS; ++i) {
             threads.emplace_back(std::thread(simulate_core, scheduler.get_stream(i),
-                                             &record_instr_count[i]));
+                                             &record_instr_count[i],
+                                             &record_schedule[i]));
         }
         for (std::thread &thread : threads)
             thread.join();
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
+        for (int i = 0; i < NUM_OUTPUTS; ++i) {
+            std::cerr << "Output #" << i << " schedule: " << record_schedule[i] << "\n";
+        }
     }
-    {
-        // Replay.
+    // We create a function here as it is identical for the second test case below.
+    auto replay_func = [&]() {
+        std::cerr << "== Replay. ==\n";
         std::vector<scheduler_t::input_workload_t> sched_inputs;
         for (int i = 0; i < NUM_INPUTS; i++) {
             std::vector<scheduler_t::input_reader_t> readers;
@@ -2476,12 +2480,13 @@ test_replay_limit()
             scheduler_t::STATUS_SUCCESS)
             assert(false);
         std::vector<uint64_t> replay_instr_count(NUM_OUTPUTS, 0);
-        ;
+        std::vector<std::string> replay_schedule(NUM_OUTPUTS);
         std::vector<std::thread> threads;
         threads.reserve(NUM_OUTPUTS);
         for (int i = 0; i < NUM_OUTPUTS; ++i) {
             threads.emplace_back(std::thread(simulate_core, scheduler.get_stream(i),
-                                             &replay_instr_count[i]));
+                                             &replay_instr_count[i],
+                                             &replay_schedule[i]));
         }
         for (std::thread &thread : threads)
             thread.join();
@@ -2489,11 +2494,17 @@ test_replay_limit()
             std::cerr << "Output #" << i << " recorded " << record_instr_count[i]
                       << " instrs vs replay " << replay_instr_count[i] << " instrs\n";
             assert(replay_instr_count[i] == record_instr_count[i]);
+            std::cerr << "Output #" << i << " schedule: " << replay_schedule[i] << "\n";
+            assert(replay_schedule[i] == record_schedule[i]);
         }
-    }
+    };
+    // Replay.
+    replay_func();
+
     // Now use a smaller quantum with interleaving.
     std::cerr << "==== Record-replay with smaller quantum ====\n";
     record_instr_count = std::vector<uint64_t>(NUM_OUTPUTS, 0);
+    record_schedule = std::vector<std::string>(NUM_OUTPUTS);
     {
         // Record.
         std::vector<scheduler_t::input_workload_t> sched_inputs;
@@ -2521,52 +2532,28 @@ test_replay_limit()
         threads.reserve(NUM_OUTPUTS);
         for (int i = 0; i < NUM_OUTPUTS; ++i) {
             threads.emplace_back(std::thread(simulate_core, scheduler.get_stream(i),
-                                             &record_instr_count[i]));
+                                             &record_instr_count[i],
+                                             &record_schedule[i]));
         }
         for (std::thread &thread : threads)
             thread.join();
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
-    }
-    {
-        // Replay.
-        std::cerr << "== Replay. ==\n";
-        std::vector<scheduler_t::input_workload_t> sched_inputs;
-        for (int i = 0; i < NUM_INPUTS; i++) {
-            std::vector<scheduler_t::input_reader_t> readers;
-            readers.emplace_back(
-                std::unique_ptr<mock_reader_t>(new mock_reader_t(inputs[i])),
-                std::unique_ptr<mock_reader_t>(new mock_reader_t()), BASE_TID + i);
-            sched_inputs.emplace_back(std::move(readers));
-            sched_inputs.back().thread_modifiers.push_back(
-                scheduler_t::input_thread_info_t(regions));
-        }
-        scheduler_t scheduler;
-        scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_AS_PREVIOUSLY,
-                                                   scheduler_t::DEPENDENCY_IGNORE,
-                                                   scheduler_t::SCHEDULER_DEFAULTS,
-                                                   /*verbosity=*/2);
-        zipfile_istream_t infile(record_fname);
-        sched_ops.schedule_replay_istream = &infile;
-        if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
-            scheduler_t::STATUS_SUCCESS)
-            assert(false);
-        std::vector<uint64_t> replay_instr_count(NUM_OUTPUTS, 0);
-        ;
-        std::vector<std::thread> threads;
-        threads.reserve(NUM_OUTPUTS);
         for (int i = 0; i < NUM_OUTPUTS; ++i) {
-            threads.emplace_back(std::thread(simulate_core, scheduler.get_stream(i),
-                                             &replay_instr_count[i]));
-        }
-        for (std::thread &thread : threads)
-            thread.join();
-        for (int i = 0; i < NUM_OUTPUTS; ++i) {
-            std::cerr << "Output #" << i << " recorded " << record_instr_count[i]
-                      << " instrs vs replay " << replay_instr_count[i] << " instrs\n";
-            assert(replay_instr_count[i] == record_instr_count[i]);
+            std::cerr << "Output #" << i << " schedule: " << record_schedule[i] << "\n";
+            // Ensure we saw interleaving.
+            int switches = 0;
+            for (size_t pos = 1; pos < record_schedule[i].size(); ++pos) {
+                if (record_schedule[i][pos] != record_schedule[i][pos - 1])
+                    ++switches;
+            }
+            // The schedule varies by machine load and other factors so don't
+            // require too much on every run.
+            assert(switches > 4);
         }
     }
+    // Replay.
+    replay_func();
 #endif
 }
 
