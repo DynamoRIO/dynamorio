@@ -391,6 +391,13 @@ if (X86 AND X64 AND ZIP_FOUND)
   add_test(NAME tool.scheduler_launcher
     COMMAND scheduler_launcher -trace_dir ${trace_dir})
   set_tests_properties(tool.scheduler_launcher PROPERTIES TIMEOUT ${test_seconds})
+
+  set(trace_dir_2
+    "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.schedtest.x64")
+  add_test(NAME tool.scheduler_launcher_map_to_rec
+    COMMAND scheduler_launcher -trace_dir ${trace_dir_2} -cpu_schedule_file
+    ${trace_dir_2}/cpu_schedule.bin.zip)
+  set_tests_properties(tool.scheduler_launcher_map_to_rec PROPERTIES TIMEOUT ${test_seconds})
 endif ()
 
 # We have a companion test built using a separate --build-and-test CMake project in
