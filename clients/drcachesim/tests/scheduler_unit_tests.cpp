@@ -2539,18 +2539,18 @@ test_replay_limit()
             thread.join();
         if (scheduler.write_recorded_schedule() != scheduler_t::STATUS_SUCCESS)
             assert(false);
+        int switches = 0;
         for (int i = 0; i < NUM_OUTPUTS; ++i) {
             std::cerr << "Output #" << i << " schedule: " << record_schedule[i] << "\n";
-            // Ensure we saw interleaving.
-            int switches = 0;
             for (size_t pos = 1; pos < record_schedule[i].size(); ++pos) {
                 if (record_schedule[i][pos] != record_schedule[i][pos - 1])
                     ++switches;
             }
-            // The schedule varies by machine load and other factors so don't
-            // require too much on every run.
-            assert(switches > 4);
         }
+        // The schedule varies by machine load and other factors so we don't
+        // check for any precise ordering.
+        // We do ensure we saw interleaving on at least one output.
+        assert(switches > 4);
     }
     // Replay.
     replay_func();
