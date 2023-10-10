@@ -111,6 +111,22 @@ local_instr_count_threshold(uint64 trace_for_instrs)
     }
 }
 
+static bool
+buffer_contains_nontrivial_data(per_thread_t *data)
+{
+    if (op_L0I_filter.get_value()) {
+        return BUF_PTR(data->seg_base) - data->buf_base >
+            static_cast<ssize_t>(data->init_header_size + buf_hdr_slots_size);
+    }
+    byte *buf_ptr = BUF_PTR(data->seg_base);
+    for (byte *mem_ref = data->buf_base + buf_hdr_slots_size; mem_ref < buf_ptr;
+         mem_ref += instru->sizeof_entry()) {
+        if (instru->get_instr_count(mem_ref) > 0)
+            return true;
+    }
+    return false;
+}
+
 // Returns whether we've reached the end of this tracing window.
 static bool
 count_traced_instrs(void *drcontext, uintptr_t toadd, uint64 trace_for_instrs)
@@ -1377,9 +1393,7 @@ exit_thread_io(void *drcontext)
         // each thread.  However, we omit threads that did nothing the entire time
         // we were attached.
         (!has_tracing_windows() && align_attach_detach_endpoints() &&
-         (data->bytes_written > 0 ||
-          BUF_PTR(data->seg_base) - data->buf_base >
-              static_cast<ssize_t>(data->init_header_size + buf_hdr_slots_size)))) {
+         (data->bytes_written > 0 || buffer_contains_nontrivial_data(data)))) {
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
         process_and_output_buffer(drcontext,
