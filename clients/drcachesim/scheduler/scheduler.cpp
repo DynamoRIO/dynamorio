@@ -1743,8 +1743,9 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
             if (options_.mapping == MAP_AS_PREVIOUSLY) {
                 res = pick_next_input_as_previously(output, index);
                 VDO(this, 2, {
-                    if (outputs_[output].record_index <
-                        static_cast<int>(outputs_[output].record.size())) {
+                    if (outputs_[output].record_index >= 0 &&
+                        outputs_[output].record_index <
+                            static_cast<int>(outputs_[output].record.size())) {
                         const schedule_record_t &segment =
                             outputs_[output].record[outputs_[output].record_index];
                         int input = segment.key.input;
