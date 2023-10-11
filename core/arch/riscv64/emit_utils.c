@@ -105,17 +105,60 @@ void
 patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
            bool hot_patch)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return;
+    ptr_int_t off = (ptr_int_t)target_pc - (ptr_int_t)stub_pc;
+    if (off < 0x100000 && off > (ptr_int_t)0xFFFFFFFFFFF00000L) {
+        /* target_pc is a near fragment. We can get there with a J (OP_jal, 21-bit signed
+         * immediate offset).
+         */
+        ASSERT(((off << (64 - 21)) >> (64 - 21)) == off);
+
+        /* Format of the J-type instruction:
+         * |   31    |30       21|   20    |19        12|11   7|6      0|
+         * | imm[20] | imm[10:1] | imm[11] | imm[19:12] |  rd  | opcode |
+         *  ^------------------------------------------^
+         */
+        *(uint *)vmcode_get_writable_addr(stub_pc) = 0x6f | (((off >> 20) & 1) << 31) |
+            (((off >> 1) & 0x3ff) << 21) | (((off >> 11) & 1) << 20) |
+            (((off >> 12) & 0xff) << 12);
+        if (hot_patch)
+            machine_cache_sync(stub_pc, stub_pc + 4, true);
+        return;
+    }
+    /* target_pc is a far fragment. We must use an indirect branch. Note that the indirect
+     * branch needs to be to the fragment prefix, as we need to restore the clobbered
+     * regs.
+     */
+    /* We set hot_patch to false as we are not modifying code. */
+    ATOMIC_8BYTE_ALIGNED_WRITE(get_target_pc_slot(f, stub_pc),
+                               (ptr_uint_t)target_prefix_pc,
+                               /*hot_patch=*/false);
+}
+
+static bool
+stub_is_patched_for_intermediate_fragment_link(dcontext_t *dcontext, cache_pc stub_pc)
+{
+    uint enc;
+    ATOMIC_4BYTE_ALIGNED_READ(stub_pc, &enc);
+    return (enc & 0xfff) == 0x6f; /* J (OP_jal) */
+}
+
+static bool
+stub_is_patched_for_far_fragment_link(dcontext_t *dcontext, fragment_t *f,
+                                      cache_pc stub_pc)
+{
+    ptr_uint_t target_pc;
+    ATOMIC_8BYTE_ALIGNED_READ(get_target_pc_slot(f, stub_pc), &target_pc);
+    return target_pc != (ptr_uint_t)fcache_return_routine(dcontext);
 }
 
 bool
 stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    /* If stub_pc is not aligned to 4 bytes, the first instruction will be c.nop, see
+     * insert_exit_stub_other_flags(). */
+    stub_pc = ALIGNED(stub_pc, 4) ? stub_pc : stub_pc + 2;
+    return stub_is_patched_for_intermediate_fragment_link(dcontext, stub_pc) ||
+        stub_is_patched_for_far_fragment_link(dcontext, f, stub_pc);
 }
 
 void
