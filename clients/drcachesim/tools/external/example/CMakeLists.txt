@@ -113,10 +113,7 @@ if (X86 AND X64 AND ZIP_FOUND)
   add_test(NAME drcachesim.non-existent_load
     COMMAND ${PROJECT_BINARY_DIR}/bin64/drrun -t drcachesim -offline
      -simulator_type non-existent -indir ${trace_dir})
-  set(nonexistent_regex "Usage error: unsupported analyzer type \"non-existent\".
-   Please choose cache, miss_analyzer, TLB, histogram, reuse_distance, basic_counts,
-    opcode_mix, syscall_mix, view, func_view, or some external analyzer.\nERROR: failed
-     to initialize analyzer: Failed to create analysis tool:")
+  set(nonexistent_regex "Usage error: unsupported analyzer type \"non-existent\". Please choose cache, miss_analyzer, TLB, histogram, reuse_distance, basic_counts, opcode_mix, syscall_mix, view, func_view, or some external analyzer.\nERROR: failed to initialize analyzer: Failed to create analysis tool:")
   set_tests_properties(drcachesim.non-existent_load
     PROPERTIES PASS_REGULAR_EXPRESSION "${nonexistent_regex}")
 endif ()
