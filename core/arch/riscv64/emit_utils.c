@@ -96,8 +96,12 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         return (off < 0x1000);
     else if ((enc & 0x7f) == 0x6f) /* JAL */
         return (off < 0x100000);
-    /* TODO: i#3544: Add support for compressed instructions.  */
-    ASSERT(false);
+    else if ((enc & 0x3) == 0x1 && ((ushort)enc >> 13) >= 0x6) /* C.BEQZ, C.BNEZ */
+        return (off < 0x100);
+    else if ((enc & 0x3) == 0x1 && ((ushort)enc >> 13) == 0x5) /* C.J */
+        return (off < 0x800);
+    else
+        ASSERT(false);
     return false;
 }
 
@@ -159,8 +163,33 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
          */
         *pc_writable = 0x6f | (((off >> 20) & 1) << 31) | (((off >> 1) & 0x3ff) << 21) |
             (((off >> 11) & 1) << 20) | (((off >> 12) & 0xff) << 12);
+    } else if ((enc & 0x3) == 0x1 && ((ushort)enc >> 13) >= 0x6) { /* C.BEQZ, C.BNEZ */
+        ASSERT(((off << (64 - 9)) >> (64 - 9)) == off);
+
+        /* Format of the CB-type instruction:
+         * |15 13|12        10|9   7|6              2|1      0|
+         * | ... | imm[8|4:3] | ... | imm[7:6|2:1|5] | opcode |
+         *        ^----------^       ^--------------^
+         */
+        *(ushort *)pc_writable =
+            (ushort)((enc & 0xe383) | (((off >> 8) & 1) << 12) |
+                     (((off >> 3) & 3) << 10) | (((off >> 6) & 3) << 5) |
+                     (((off >> 1) & 3) << 3) | (((off >> 5) & 1) << 2));
+    } else if ((enc & 0x3) == 0x1 && ((ushort)enc >> 13) == 0x5) { /* C.J */
+        ASSERT(((off << (64 - 12)) >> (64 - 12)) == off);
+
+        /* Decode the immediate field of the CJ-type format as a pc-relative offset:
+         * |15 13|12                      2|1      0|
+         * | ... | [11|4|9:8|10|6|7|3:1|5] | opcode |
+         *        ^-----------------------^
+         */
+        *(ushort *)pc_writable =
+            (ushort)((enc & 0xe003) | (((off >> 11) & 1) << 12) |
+                     (((off >> 4) & 1) << 11) | (((off >> 8) & 3) << 9) |
+                     (((off >> 10) & 1) << 8) | (((off >> 6) & 1) << 7) |
+                     (((off >> 7) & 1) << 6) | (((off >> 1) & 7) << 3) |
+                     (((off >> 5) & 1) << 2));
     } else
-        /* TODO: i#3544: Add support for compressed instructions.  */
         ASSERT(false);
     if (hot_patch)
         machine_cache_sync(branch_pc, branch_pc + 4, true);
@@ -170,9 +199,7 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
 uint
 patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return 0;
+    return 0; /* Always aligned. */
 }
 
 cache_pc
