@@ -1313,12 +1313,7 @@ raw2trace_t::aggregate_and_write_schedule_files()
     if (cpu_schedule_file_ == nullptr)
         return "";
     for (auto &keyval : cpu2sched) {
-        std::sort(keyval.second.begin(), keyval.second.end(),
-                  [](const schedule_entry_t &l, const schedule_entry_t &r) {
-                      if (l.timestamp != r.timestamp)
-                          return l.timestamp < r.timestamp;
-                      return l.start_instruction < r.start_instruction;
-                  });
+        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
         // Collapse same-thread entries.
         std::vector<schedule_entry_t> redux;
         for (const auto &entry : keyval.second) {

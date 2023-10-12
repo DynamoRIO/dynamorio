@@ -1023,16 +1023,7 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         cpu2sched_file[next.cpu].push_back(next);
     }
     for (auto &keyval : cpu2sched_file) {
-        std::sort(keyval.second.begin(), keyval.second.end(),
-                  [](const schedule_entry_t &l, const schedule_entry_t &r) {
-                      if (l.timestamp == r.timestamp) {
-                          if (l.thread == r.thread)
-                              return l.start_instruction < r.start_instruction;
-                          else
-                              return l.thread < r.thread;
-                      }
-                      return l.timestamp < r.timestamp;
-                  });
+        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
         // After i#6299, these files collapse same-thread entries.
         // We create both types of schedule and select which to compare against.
         std::vector<schedule_entry_t> redux;
