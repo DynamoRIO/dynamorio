@@ -1284,12 +1284,17 @@ raw2trace_t::aggregate_and_write_schedule_files()
             return l.timestamp < r.timestamp;
         if (l.cpu != r.cpu)
             return l.cpu < r.cpu;
-        // We really need to sort by either (timestamp, cpu_id) or
-        // (timestamp, thread_id): a single thread cannot be on two CPUs at
-        // the same timestamp; also a single CPU cannot have two threads at the
-        // same timestamp. We still sort by (timestamp, cpu_id, thread_id)
-        // to prevent inadvertent issues with test data.
-        return l.thread < r.thread;
+        // We really need to sort by either (timestamp, cpu_id,
+        // start_instruction) or (timestamp, thread_id, start_instruction): a
+        // single thread cannot be on two CPUs at the same timestamp; also a
+        // single CPU cannot have two threads at the same timestamp. We still
+        // sort by (timestamp, cpu_id, thread_id, start_instruction) to prevent
+        // inadvertent issues with test data.
+        if (l.thread != r.thread)
+            return l.thread < r.thread;
+        // We need to consider the start_instruction since it is possible to
+        // have two entries with the same timestamp, cpu_id, and thread_id.
+        return l.start_instruction < r.start_instruction;
     };
 
     std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
@@ -1310,7 +1315,9 @@ raw2trace_t::aggregate_and_write_schedule_files()
     for (auto &keyval : cpu2sched) {
         std::sort(keyval.second.begin(), keyval.second.end(),
                   [](const schedule_entry_t &l, const schedule_entry_t &r) {
-                      return l.timestamp < r.timestamp;
+                      if (l.timestamp != r.timestamp)
+                          return l.timestamp < r.timestamp;
+                      return l.start_instruction < r.start_instruction;
                   });
         // Collapse same-thread entries.
         std::vector<schedule_entry_t> redux;
