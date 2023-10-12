@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,55 +30,29 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_H_ 1
+/* External analysis tool creator functions. */
 
-void
-memcache_init(void);
+#include "../common/options.h"
+#include "analyzer.h"
+#include "empty_create.h"
 
-void
-memcache_exit(void);
+using ::dynamorio::drmemtrace::analysis_tool_t;
+using ::dynamorio::drmemtrace::op_verbose;
 
-bool
-memcache_initialized(void);
-
-void
-memcache_lock(void);
-
-void
-memcache_unlock(void);
-
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
-
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
-
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
+#ifdef WINDOWS
+#    define EXPORT __declspec(dllexport)
+#else /* UNIX */
+#    define EXPORT __attribute__((visibility("default")))
 #endif
 
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                     bool image);
+extern "C" EXPORT const char *
+get_tool_name()
+{
+    return "empty";
+}
 
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                       size_t old_size, uint old_prot, uint old_type);
-
-void
-memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_brk);
-
-void
-memcache_update_all_from_os(void);
-
-#endif /* _MEMCACHE_H_ */
+extern "C" EXPORT analysis_tool_t *
+analysis_tool_create()
+{
+    return empty_tool_create(op_verbose.get_value());
+}

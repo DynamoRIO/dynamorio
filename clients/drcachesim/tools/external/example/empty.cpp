@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,55 +30,85 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_H_ 1
+/* External analysis tool example. */
 
-void
-memcache_init(void);
+#include "dr_api.h"
+#include "empty.h"
 
-void
-memcache_exit(void);
+const std::string empty_t::TOOL_NAME = "Empty tool";
+
+analysis_tool_t *
+empty_tool_create(unsigned int verbose)
+{
+    return new empty_t(verbose);
+}
+
+empty_t::empty_t(unsigned int verbose)
+{
+    fprintf(stderr, "Empty tool created\n");
+}
+
+std::string
+empty_t::initialize()
+{
+    return std::string("");
+}
+
+empty_t::~empty_t()
+{
+}
 
 bool
-memcache_initialized(void);
+empty_t::parallel_shard_supported()
+{
+    return true;
+}
 
-void
-memcache_lock(void);
+void *
+empty_t::parallel_worker_init(int worker_index)
+{
+    return NULL;
+}
 
-void
-memcache_unlock(void);
+std::string
+empty_t::parallel_worker_exit(void *worker_data)
+{
+    return std::string("");
+}
 
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
-
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
+void *
+empty_t::parallel_shard_init(int shard_index, void *worker_data)
+{
+    return NULL;
+}
 
 bool
-memcache_remove(app_pc start, app_pc end);
+empty_t::parallel_shard_exit(void *shard_data)
+{
+    return true;
+}
 
 bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
+empty_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
+{
+    return true;
+}
 
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
-#endif
+std::string
+empty_t::parallel_shard_error(void *shard_data)
+{
+    return std::string("");
+}
 
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                     bool image);
+bool
+empty_t::process_memref(const memref_t &memref)
+{
+    return true;
+}
 
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                       size_t old_size, uint old_prot, uint old_type);
-
-void
-memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_brk);
-
-void
-memcache_update_all_from_os(void);
-
-#endif /* _MEMCACHE_H_ */
+bool
+empty_t::print_results()
+{
+    fprintf(stderr, "Empty tool results:\n");
+    return true;
+}

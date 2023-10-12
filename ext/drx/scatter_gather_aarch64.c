@@ -233,14 +233,91 @@ get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
     }
 }
 
+static instr_t *
+create_scalar_load_or_store(void *drcontext, const scatter_gather_info_t *sg_info,
+                            reg_id_t index_or_base_reg, reg_id_t src_or_dst)
+{
+    reg_id_t base_reg;
+    reg_id_t index_reg;
+    if (reg_is_z(sg_info->base_reg)) {
+        DR_ASSERT(!reg_is_z(sg_info->index_reg));
+        base_reg = index_or_base_reg;
+        index_reg = sg_info->index_reg;
+    } else {
+        DR_ASSERT(reg_is_z(sg_info->index_reg));
+        base_reg = sg_info->base_reg;
+        index_reg = index_or_base_reg;
+    }
+
+    opnd_t mem = opnd_create_base_disp_shift_aarch64(
+        base_reg, index_reg, sg_info->extend, sg_info->scaled, sg_info->disp, /*flags=*/0,
+        sg_info->scalar_value_size, sg_info->extend_amount);
+
+#define CREATE(op, ...) INSTR_CREATE_##op(drcontext, __VA_ARGS__)
+
+    instr_t *ld_st_instr = NULL;
+    if (sg_info->is_load) {
+        /* ldr[bh]  scratch_gpr, [mem] */
+        if (sg_info->is_scalar_value_signed) {
+            const reg_id_t dst_wx = reg_resize_to_opsz(src_or_dst, sg_info->element_size);
+            switch (sg_info->scalar_value_size) {
+            case OPSZ_1: ld_st_instr = CREATE(ldrsb, opnd_create_reg(dst_wx), mem); break;
+            case OPSZ_2: ld_st_instr = CREATE(ldrsh, opnd_create_reg(dst_wx), mem); break;
+            case OPSZ_4: ld_st_instr = CREATE(ldrsw, opnd_create_reg(dst_wx), mem); break;
+            }
+        } else {
+            const reg_id_t dst_x = src_or_dst;
+            const reg_id_t dst_w = reg_resize_to_opsz(dst_x, OPSZ_4);
+            switch (sg_info->scalar_value_size) {
+            case OPSZ_1: ld_st_instr = CREATE(ldrb, opnd_create_reg(dst_w), mem); break;
+            case OPSZ_2: ld_st_instr = CREATE(ldrh, opnd_create_reg(dst_w), mem); break;
+            case OPSZ_4: ld_st_instr = CREATE(ldr, opnd_create_reg(dst_w), mem); break;
+            case OPSZ_8: ld_st_instr = CREATE(ldr, opnd_create_reg(dst_x), mem); break;
+            }
+        }
+    } else {
+        DR_ASSERT_MSG(!sg_info->is_scalar_value_signed,
+                      "Invalid scatter_gather_info_t data");
+        const reg_id_t src_x = src_or_dst;
+        const reg_id_t src_w = reg_resize_to_opsz(src_or_dst, OPSZ_4);
+
+        /* str[bh]  src, [mem] */
+        switch (sg_info->scalar_value_size) {
+        case OPSZ_1: ld_st_instr = CREATE(strb, mem, opnd_create_reg(src_w)); break;
+        case OPSZ_2: ld_st_instr = CREATE(strh, mem, opnd_create_reg(src_w)); break;
+        case OPSZ_4: ld_st_instr = CREATE(str, mem, opnd_create_reg(src_w)); break;
+        case OPSZ_8: ld_st_instr = CREATE(str, mem, opnd_create_reg(src_x)); break;
+        }
+    }
+#undef CREATE
+
+    DR_ASSERT_MSG(ld_st_instr != NULL, "Invalid scatter_gather_info_t data");
+
+    if (ld_st_instr != NULL)
+        scatter_gather_tag_expanded_ld_st(ld_st_instr);
+
+    return ld_st_instr;
+}
+
 /*
- * Emit code to expand a scalar + vector gather load into a series of equivalent scalar
- * loads.
- * These instructions have memory operands of the form:
+ * Emit code to expand a scatter or gather instruction into a series of equivalent scalar
+ * loads or stores.
+ *
+ * These instructions either have scalar+vector memory operands or the form:
  *     [<Xn|SP>, <Zm>.<Ts>{, <mod>}]
  * where addresses to load/store each element are calculated by adding a base address
  * from the scalar register Xn, to an offset read from the corresponding element of the
  * vector index register Zm.
+ * Before being the index value is optionally modified according to a modifier <mod>.
+ * The valid modifiers depend on the instruction, but they include:
+ *     lsl #<n> (left shift by n)
+ *     sxtw #<n> (sign extend and left shift by n)
+ *     uxtw #<n> (zero extend and left shift by n)
+ *
+ * or vector+immediate memory operands or the form:
+ *     [<Zn>.<Ts>{, #<imm>}]
+ * where addresses to load/store each element are calculated by adding an immediate offset
+ * to a base address read from the corresponding element of the vector base register Zn.
  *
  * The emitted code roughly implements this algorithm:
  *     if (is_load)
@@ -248,10 +325,17 @@ get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
  *     for (e=first_active_element();
  *          active_elements_remain();
  *          e = next_active_element()) {
- *         if (is_load)
- *             dst[e] = scalar_load(base, offsets[e], mod);
- *         else
- *             scalar_store(src[e], base, offsets[e], mod);
+ *         if (is_load) {
+ *             if (is_scalar_plus_vector)
+ *                 dst[e] = scalar_load(base, offsets[e], mod);
+ *             else if (is_vector_plus_immediate)
+ *                 dst[e] = scalar_load(base[e], imm);
+ *         } else {
+ *             if (is_scalar_plus_vector)
+ *                 scalar_store(src[e], base, offsets[e], mod);
+ *             else if (is_vector_plus_immediate)
+ *                 scalar_store(src[e], base[e], imm);
+ *         }
  *     }
  * except we unroll the loop. Without unrolling the loop drmemtrace's instrumentation
  * would be repeated every iteration and give incorrect ifetch statistics.
@@ -293,16 +377,16 @@ get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
  *       ...
  */
 static void
-expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
-                          const scatter_gather_info_t *sg_info, reg_id_t scratch_gpr0,
-                          reg_id_t scratch_gpr1, reg_id_t scratch_pred,
-                          app_pc orig_app_pc)
+expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
+                      const scatter_gather_info_t *sg_info, reg_id_t scratch_gpr0,
+                      reg_id_t scratch_gpr1, reg_id_t scratch_pred, app_pc orig_app_pc)
 {
 #define EMIT(op, ...)    \
     instrlist_preinsert( \
         bb, sg_instr, INSTR_XL8(INSTR_CREATE_##op(drcontext, __VA_ARGS__), orig_app_pc))
 
-    DR_ASSERT_MSG(reg_is_z(sg_info->index_reg), "Index must be a Z register");
+    DR_ASSERT_MSG(reg_is_z(sg_info->base_reg) || reg_is_z(sg_info->index_reg),
+                  "Base or index must be a Z register");
 
     const uint no_of_elements =
         (opnd_size_in_bytes(sg_info->scatter_gather_size) / sg_info->reg_count) /
@@ -312,11 +396,12 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
         /* First we deal with the inactive elements. Gather loads are always zeroing so we
          * need to set all inactive elements to 0.
          */
-        if (sg_info->index_reg == sg_info->gather_dst_reg) {
-            /* The dst register is also the index register so we need to preserve the
-             * value of the active elements so we can use them as offsets. We do this by
-             * cpying a 0 value into the dst register using the inverse of the mask_reg as
-             * the governing predicate.
+        if ((sg_info->base_reg == sg_info->gather_dst_reg) ||
+            (sg_info->index_reg == sg_info->gather_dst_reg)) {
+            /* The dst register is also the base/index register so we need to preserve the
+             * value of the active elements so we can use them in the address calculation.
+             * We do this by CPYing a 0 value into the dst register using the inverse of
+             * the mask_reg as the governing predicate.
              */
 
             /* ptrue    scratch_pred.b */
@@ -365,61 +450,47 @@ expand_scalar_plus_vector(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                            DR_PRED_SVE_NONE),
                 orig_app_pc));
 
-        /* lastb    scratch_gpr0, scratch_pred, index_reg.element_size */
+        const reg_id_t reg_to_extract =
+            reg_is_z(sg_info->base_reg) ? sg_info->base_reg : sg_info->index_reg;
+
+        /* lastb    scratch_gpr0, scratch_pred, reg_to_extract.element_size */
         EMIT(lastb_sve_scalar, opnd_create_reg(scratch_gpr0),
              opnd_create_reg(scratch_pred),
-             opnd_create_reg_element_vector(sg_info->index_reg, sg_info->element_size));
+             opnd_create_reg_element_vector(reg_to_extract, sg_info->element_size));
 
-        opnd_t mem = opnd_create_base_disp_shift_aarch64(
-            sg_info->base_reg, scratch_gpr0, sg_info->extend, sg_info->scaled,
-            /*disp=*/0, /*flags=*/0, sg_info->scalar_value_size, sg_info->extend_amount);
+        const reg_id_t scalar_index_or_base = scratch_gpr0;
+
         if (sg_info->is_load) {
-            /* ldr[bh]  scratch_gpr0, [base_reg, scratch_gpr0, mod #amount] */
-            if (sg_info->is_scalar_value_signed) {
-                const reg_id_t ld_dst =
-                    reg_resize_to_opsz(scratch_gpr0, sg_info->element_size);
-                switch (sg_info->scalar_value_size) {
-                case OPSZ_1: EMIT(ldrsb, opnd_create_reg(ld_dst), mem); break;
-                case OPSZ_2: EMIT(ldrsh, opnd_create_reg(ld_dst), mem); break;
-                case OPSZ_4: EMIT(ldrsw, opnd_create_reg(ld_dst), mem); break;
-                default: DR_ASSERT_MSG(false, "Invalid scatter_gather_info_t data");
-                }
-            } else {
-                const reg_id_t scratch_gpr0_w = reg_resize_to_opsz(scratch_gpr0, OPSZ_4);
-                switch (sg_info->scalar_value_size) {
-                case OPSZ_1: EMIT(ldrb, opnd_create_reg(scratch_gpr0_w), mem); break;
-                case OPSZ_2: EMIT(ldrh, opnd_create_reg(scratch_gpr0_w), mem); break;
-                case OPSZ_4: EMIT(ldr, opnd_create_reg(scratch_gpr0_w), mem); break;
-                case OPSZ_8: EMIT(ldr, opnd_create_reg(scratch_gpr0), mem); break;
-                default: DR_ASSERT_MSG(false, "Invalid scatter_gather_info_t data");
-                }
-            }
+            const reg_id_t scalar_dst = scratch_gpr0;
 
-            /* cpy      gather_dst_reg.element_size, scratch_pred/m, scratch_gpr0 */
-            EMIT(
-                cpy_sve_pred,
-                opnd_create_reg_element_vector(sg_info->gather_dst_reg,
-                                               sg_info->element_size),
-                opnd_create_predicate_reg(scratch_pred, true),
-                opnd_create_reg(reg_resize_to_opsz(scratch_gpr0, sg_info->element_size)));
+            /* ldr[bh]  scalar_dst, [mem] */
+            instrlist_preinsert(
+                bb, sg_instr,
+                INSTR_XL8(create_scalar_load_or_store(drcontext, sg_info,
+                                                      scalar_index_or_base, scalar_dst),
+                          orig_app_pc));
+
+            /* cpy      gather_dst_reg.element_size, scratch_pred/m, scalar_dst */
+            EMIT(cpy_sve_pred,
+                 opnd_create_reg_element_vector(sg_info->gather_dst_reg,
+                                                sg_info->element_size),
+                 opnd_create_predicate_reg(scratch_pred, true),
+                 opnd_create_reg(reg_resize_to_opsz(scalar_dst, sg_info->element_size)));
         } else {
-            DR_ASSERT_MSG(!sg_info->is_scalar_value_signed,
-                          "Invalid scatter_gather_info_t data");
+            const reg_id_t scalar_src = scratch_gpr1;
 
-            /* lastb    scratch_gpr1, scratch_pred, scatter_src_reg.element_size */
-            EMIT(lastb_sve_scalar, opnd_create_reg(scratch_gpr1),
+            /* lastb    scalar_src, scratch_pred, scatter_src_reg.element_size */
+            EMIT(lastb_sve_scalar, opnd_create_reg(scalar_src),
                  opnd_create_reg(scratch_pred),
                  opnd_create_reg_element_vector(sg_info->scatter_src_reg,
                                                 sg_info->element_size));
 
-            const reg_id_t scratch_gpr1_w = reg_resize_to_opsz(scratch_gpr1, OPSZ_4);
-            switch (sg_info->scalar_value_size) {
-            case OPSZ_1: EMIT(strb, mem, opnd_create_reg(scratch_gpr1_w)); break;
-            case OPSZ_2: EMIT(strh, mem, opnd_create_reg(scratch_gpr1_w)); break;
-            case OPSZ_4: EMIT(str, mem, opnd_create_reg(scratch_gpr1_w)); break;
-            case OPSZ_8: EMIT(str, mem, opnd_create_reg(scratch_gpr1)); break;
-            default: DR_ASSERT_MSG(false, "Invalid scatter_gather_info_t data");
-            }
+            /* str[bh]  scalar_src, [mem] */
+            instrlist_preinsert(
+                bb, sg_instr,
+                INSTR_XL8(create_scalar_load_or_store(drcontext, sg_info,
+                                                      scalar_index_or_base, scalar_src),
+                          orig_app_pc));
         }
     }
 
@@ -553,7 +624,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     get_scatter_gather_info(sg_instr, &sg_info);
 
     /* Filter out instructions which are not yet supported. */
-    if (!(reg_is_z(sg_info.index_reg) &&
+    if (!((reg_is_z(sg_info.index_reg) || reg_is_z(sg_info.base_reg)) &&
           sg_info.faulting_behavior == DRX_NORMAL_FAULTING)) {
         /* We return true with *expanded=false here to indicate that no error occurred but
          * we didn't expand any instructions. This matches the behaviour of this function
@@ -575,10 +646,13 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     drvector_t allowed;
     drreg_init_and_fill_vector(&allowed, true);
 
-    /* We need the scratch registers and base register app's value to be available at the
-     * same time. Do not use.
+    /* We need the scratch registers and base/index register app's value to be available
+     * at the same time. Do not use.
      */
-    drreg_set_vector_entry(&allowed, sg_info.base_reg, false);
+    if (!reg_is_z(sg_info.base_reg))
+        drreg_set_vector_entry(&allowed, sg_info.base_reg, false);
+    if (!reg_is_z(sg_info.index_reg))
+        drreg_set_vector_entry(&allowed, sg_info.index_reg, false);
 
     if (drreg_reserve_aflags(drcontext, bb, sg_instr) != DRREG_SUCCESS)
         goto drx_expand_scatter_gather_exit;
@@ -606,15 +680,13 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     emulated_instr.flags = DR_EMULATE_INSTR_ONLY;
     drmgr_insert_emulation_start(drcontext, bb, sg_instr, &emulated_instr);
 
-    if (reg_is_z(sg_info.index_reg)) {
-        /* scalar+vector */
-        expand_scalar_plus_vector(drcontext, bb, sg_instr, &sg_info, scratch_gpr0,
-                                  scratch_gpr1, scratch_pred, orig_app_pc);
+    if (reg_is_z(sg_info.base_reg) || reg_is_z(sg_info.index_reg)) {
+        /* scalar+vector or vector+immediate*/
+        expand_scatter_gather(drcontext, bb, sg_instr, &sg_info, scratch_gpr0,
+                              scratch_gpr1, scratch_pred, orig_app_pc);
     } else {
         /* TODO i#5036
          * Add support for:
-         *      Other scatter gather variants:
-         *          vector + immediate ld1/st1*
          *      Predicated contiguous variants:
          *          scalar + immediate ld1/st1*
          *          scalar + scalar ld1/st1*
@@ -673,11 +745,55 @@ bool
 drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
                                  instr_t *sg_inst)
 {
-    DR_ASSERT(instr_is_gather(sg_inst) || instr_is_scatter(sg_inst));
-    /* TODO i#5365, i#5036: Restore the scratch predicate register.
+    /* If this function is called, we know that a fault occurred on an instruction in a
+     * fragment which expands a scatter/gather instruction, but we don't know whether
+     * the instruction that faulted was one of the expansion loads or stores emitted by
+     * drx_expand_scatter_gather(), or part of instrumentation added later by a client.
+     *
+     * If a scatter/gather expansion instruction faults we need to treat it as if the
+     * expanded scatter/gather instruction had faulted and set the register state as
+     * appropriate for the expanded instruction. This isn't implemented yet so we hit
+     * an assert below.
+     *
+     * Previously this function would always assert but this causes a problem with
+     * clients (such as memval_simple) that use drx_buf (or similar) which uses faulting
+     * stores to manage the trace buffer.
+     * Until we implement proper state restoration we need to filter out faults that
+     * don't come from scatter/gather expansion instructions and pass them on to the
+     * client to handle, otherwise we can get spurious failures with clients like
+     * memval_simple.
+     */
+    if (info->fragment_info.ilist != NULL) {
+        byte *pc = info->fragment_info.cache_start_pc;
+        for (instr_t *instr = instrlist_first(info->fragment_info.ilist); instr != NULL;
+             instr = instr_get_next(instr)) {
+            if (pc == info->raw_mcontext->pc && !instr_is_label(instr)) {
+                /* Found the faulting instruction */
+                if (!scatter_gather_is_expanded_ld_st(instr)) {
+                    /* The fault originates from an instruction inserted by a client.
+                     * Pass it on for the client to handle.
+                     */
+                    return true;
+                }
+                break;
+            } else if (pc > info->raw_mcontext->pc) {
+                DR_ASSERT_MSG(pc < info->raw_mcontext->pc,
+                              "Failed to find faulting instruction");
+                return false;
+            }
+            pc += instr_length(drcontext, instr);
+        }
+    } else {
+        /* The ilist isn't available (see i#3801). We could decode the code cache and use
+         * heuristics to determine the origin of the load/store, but right now we just
+         * assume that it is an expansion instruction and hit the assert below.
+         */
+    }
+
+    /* TODO i#6317, i#5036: Restore the scratch predicate register.
      *                      We need to add support for handling SVE state during
      *                      signals first.
      */
-    DR_ASSERT_MSG(false, "NYI i#5365 i#5036");
+    DR_ASSERT_MSG(false, "NYI i#6317 i#5036");
     return false;
 }

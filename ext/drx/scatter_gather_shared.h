@@ -105,3 +105,15 @@ drx_scatter_gather_thread_exit(void *drcontext);
 bool
 drx_scatter_gather_restore_state(void *drcontext, dr_restore_state_info_t *info,
                                  instr_t *sg_inst);
+
+/* Check if an instruction has been marked as a load or store that is part of a
+ * scatter/gather instruction expansion.
+ */
+bool
+scatter_gather_is_expanded_ld_st(instr_t *instr);
+
+/* Mark an instruction as a load or store that is part of a scatter/gather instruction
+ * expansion.
+ */
+void
+scatter_gather_tag_expanded_ld_st(instr_t *instr);

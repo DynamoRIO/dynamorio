@@ -249,7 +249,7 @@ public:
             : path(trace_path)
         {
             if (!regions_of_interest.empty())
-                thread_modifiers.push_back(input_thread_info_t(regions_of_interest));
+                thread_modifiers.emplace_back(regions_of_interest);
         }
         /**
          * Create a workload with a set of pre-initialized readers which use the given
@@ -260,7 +260,7 @@ public:
             : readers(std::move(readers))
         {
             if (!regions_of_interest.empty())
-                thread_modifiers.push_back(input_thread_info_t(regions_of_interest));
+                thread_modifiers.emplace_back(regions_of_interest);
         }
         /** Size of the struct for binary-compatible additions. */
         size_t struct_size = sizeof(input_workload_t);
@@ -1090,6 +1090,11 @@ protected:
     stream_status_t
     advance_region_of_interest(output_ordinal_t output, RecordType &record,
                                input_info_t &input);
+
+    // Discards the contents of the input queue.  Meant to be used when skipping
+    // input records.
+    void
+    clear_input_queue(input_info_t &input);
 
     // Does a direct skip, unconditionally.
     // The caller must hold the input.lock.

@@ -457,13 +457,12 @@ droption_t<std::string>
 
 droption_t<std::string>
     op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-                      "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB
-                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " VIEW
-                      ", " FUNC_VIEW ", " BASIC_COUNTS ", or " INVARIANT_CHECKER ").",
-                      "Specifies the type of the simulator. "
-                      "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      "Specifies the types of simulators, separated by a colon (\":\").",
+                      "Predefined types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
                       ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
-                      ", or " INVARIANT_CHECKER ".");
+                      ", or " INVARIANT_CHECKER
+                      ". The external types: name of a tool identified by a "
+                      "name.drcachesim config file in the DR tools directory.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
@@ -749,6 +748,24 @@ droption_t<bool> op_record_replace_retaddr(
     "replacement, which has lower overhead, but runs the risk of breaking an "
     "application that examines or changes its own return addresses in the recorded "
     "functions.");
+droption_t<std::string> op_record_syscall(
+    DROPTION_SCOPE_CLIENT, "record_syscall", DROPTION_FLAG_ACCUMULATE,
+    OP_RECORD_FUNC_ITEM_SEP, "", "Record parameters for the specified syscall number(s).",
+    "Record the parameters and success of the specified system call number(s)."
+    " The option value should fit this format:"
+    " sycsall_number|parameter_number"
+    " E.g., -record_syscall \"2|2\" will record SYS_open's 2 parameters and whether"
+    " successful (1 for success or 0 for failure, in a function return value record)"
+    " for x86 Linux.  SYS_futex is recorded by default on Linux and this option's value"
+    " adds to futex rather than replacing it (setting futex to 0 parameters disables)."
+    " The trace identifies which syscall owns each set of parameter and return value"
+    " records via a numeric ID equal to the syscall number + TRACE_FUNC_ID_SYSCALL_BASE."
+    " Recording multiple syscalls can be achieved by using the separator"
+    " \"" OP_RECORD_FUNC_ITEM_SEP
+    "\" (e.g., -record_syscall \"202|6" OP_RECORD_FUNC_ITEM_SEP "3|1\"), or"
+    " specifying multiple -record_syscall options."
+    " It is up to the user to ensure the values are correct; a too-large parameter"
+    " count may cause tracing to fail with an error mid-run.");
 droption_t<unsigned int> op_miss_count_threshold(
     DROPTION_SCOPE_FRONTEND, "miss_count_threshold", 50000,
     "For cache miss analysis: minimum LLC miss count for a load to be eligible for "

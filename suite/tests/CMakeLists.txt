@@ -2876,6 +2876,23 @@ if (X86 OR AARCH64)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drreg)
     use_DynamoRIO_extension(client.drx-scattergather-bbdup.dll drbbdup)
 
+    if (AARCH64)
+      set(client.drx-scattergather-instrumentation-fault_realtest client.drx-scattergather)
+      set(client.drx-scattergather-instrumentation-fault_expectbase "drx-scattergather-${ARCH_NAME}")
+      tobuild_ci(client.drx-scattergather-instrumentation-fault
+        client-interface/drx-scattergather-instrumentation-fault.c "" "" "")
+      set_sve_flags(client.drx-scattergather-instrumentation-fault)
+      target_include_directories(client.drx-scattergather PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
+      use_DynamoRIO_extension(client.drx-scattergather-instrumentation-fault.dll drmgr)
+      use_DynamoRIO_extension(client.drx-scattergather-instrumentation-fault.dll drx)
+      use_DynamoRIO_extension(client.drx-scattergather-instrumentation-fault.dll drreg)
+      # drx-scattergather-instrumentation-fault.dll isn't really a sample client but it is
+      # a stripped down version of memval_simple and gives the same output so we want the
+      # templatex file to be processed the same way as it is for sample clients.
+      set(client.drx-scattergather-instrumentation-fault_test_sample_client 1)
+    endif ()
+
     if (X86 AND X64 AND UNIX)
       if (proc_supports_avx)
         add_exe(allasm_scattergather
@@ -4277,11 +4294,21 @@ if (BUILD_CLIENTS)
         # We test counting encodings for online.
         "-instr_encodings -simulator_type basic_counts" "")
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
+
+      # Test -record_syscall on SYS_write == #1 with 3 args.
+      torunonly_drcacheoff(allasm-record-syscall allasm_repstr
+        "-record_syscall 1|3" "@-simulator_type@view" "")
     endif (UNIX AND X86 AND X64)
 
     torunonly_drcacheoff(invariant_checker ${ci_shared_app}
       # We pass a small instr count to test multiple chunks in a zipfile.
       "" "@-chunk_instr_count@1000@-simulator_type@invariant_checker" "")
+
+    # pthreads not available with MSVC
+    if (NOT MSVC)
+      torunonly_drcacheoff(invariant_checker_pthreads ${ci_pthreads_app}
+        "" "@-simulator_type@invariant_checker" "")
+    endif ()
 
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps

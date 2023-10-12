@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,55 +30,64 @@
  * DAMAGE.
  */
 
-#ifndef _MEMCACHE_H_
-#define _MEMCACHE_H_ 1
+#include <string>
+#include "dynamic_lib.h"
 
-void
-memcache_init(void);
+namespace dynamorio {
+namespace drmemtrace {
 
-void
-memcache_exit(void);
-
-bool
-memcache_initialized(void);
-
-void
-memcache_lock(void);
-
-void
-memcache_unlock(void);
-
-/* start and end_in must be PAGE_SIZE aligned */
-void
-memcache_update(app_pc start, app_pc end_in, uint prot, int type);
-
-/* start and end must be PAGE_SIZE aligned */
-void
-memcache_update_locked(app_pc start, app_pc end, uint prot, int type, bool exists);
-
-bool
-memcache_remove(app_pc start, app_pc end);
-
-bool
-memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info);
-
-#if defined(DEBUG) && defined(INTERNAL)
-void
-memcache_print(file_t outf, const char *prefix);
+dynamic_lib_t::dynamic_lib_t(const std::string &filename)
+{
+#ifdef UNIX
+    handle_ = dlopen(filename.c_str(), RTLD_NOW | RTLD_LOCAL);
+    if (handle_ == nullptr) {
+        char *error = dlerror();
+        error_string_ = std::string(error == nullptr ? "" : error);
+    }
+#elif WINDOWS
+    handle_ = LoadLibrary(filename.c_str());
+    if (handle_ == nullptr)
+        error_string_ = std::to_string(GetLastError());
 #endif
+}
 
-void
-memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
-                     bool image);
+dynamic_lib_t::dynamic_lib_t(dynamic_lib_t &&lib)
+{
+    handle_ = lib.handle_;
+    lib.handle_ = nullptr;
+}
 
-void
-memcache_handle_mremap(dcontext_t *dcontext, byte *base, size_t size, byte *old_base,
-                       size_t old_size, uint old_prot, uint old_type);
+dynamic_lib_t::~dynamic_lib_t()
+{
+    if (handle_) {
+#ifdef UNIX
+        dlclose(handle_);
+#elif WINDOWS
+        FreeLibrary(reinterpret_cast<HMODULE>(handle_));
+#endif
+    }
+}
 
-void
-memcache_handle_app_brk(byte *lowest_brk /*if known*/, byte *old_brk, byte *new_brk);
+dynamic_lib_t &
+dynamic_lib_t::operator=(dynamic_lib_t &&lib)
+{
+    if (handle_) {
+#ifdef UNIX
+        dlclose(handle_);
+#elif WINDOWS
+        FreeLibrary(reinterpret_cast<HMODULE>(handle_));
+#endif
+    }
+    handle_ = lib.handle_;
+    lib.handle_ = nullptr;
+    return *this;
+}
 
-void
-memcache_update_all_from_os(void);
+std::string
+dynamic_lib_t::error()
+{
+    return error_string_;
+}
 
-#endif /* _MEMCACHE_H_ */
+} // namespace drmemtrace
+} // namespace dynamorio

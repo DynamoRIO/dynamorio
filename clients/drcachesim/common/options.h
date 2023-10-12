@@ -57,6 +57,10 @@
 #define CACHE_TYPE_DATA "data"
 #define CACHE_TYPE_UNIFIED "unified"
 #define CACHE_PARENT_MEMORY "memory"
+// The expected pattern for a single_op_value is:
+//     function_name|function_id|arguments_num
+// where function_name can contain spaces (for instance, C++ namespace prefix)
+#define PATTERN_SEPARATOR "|"
 
 #ifdef HAS_ZIP
 #    define DEFAULT_TRACE_COMPRESSION_TYPE "zip"
@@ -169,6 +173,7 @@ extern dynamorio::droption::droption_t<bool> op_record_heap;
 extern dynamorio::droption::droption_t<std::string> op_record_heap_value;
 extern dynamorio::droption::droption_t<bool> op_record_dynsym_only;
 extern dynamorio::droption::droption_t<bool> op_record_replace_retaddr;
+extern dynamorio::droption::droption_t<std::string> op_record_syscall;
 extern dynamorio::droption::droption_t<unsigned int> op_miss_count_threshold;
 extern dynamorio::droption::droption_t<double> op_miss_frac_threshold;
 extern dynamorio::droption::droption_t<double> op_confidence_threshold;
