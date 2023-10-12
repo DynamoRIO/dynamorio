@@ -321,4 +321,5 @@ sub    a0 a1 -> a0
 addi   a0 0xffffffd6 -> a0
 jalr   a0 0x0 -> ra
 test_xinst complete
+test_decode_bad_data complete
 All tests complete
