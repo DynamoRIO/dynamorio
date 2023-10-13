@@ -261,7 +261,7 @@ typedef enum {
 #define SET_FIELD(v, high, low) (((v) & ((1ULL << (high - low + 1)) - 1)) << low)
 #define SIGN_EXTEND(val, val_sz) (((int32_t)(val) << (32 - (val_sz))) >> (32 - (val_sz)))
 
-/* Calculate instruction width.
+/* Calculate instruction width, see page 8 of Volume I: RISC-V Unprivileged ISA V20191213.
  *
  * Returns a negative number on an invalid instruction width.
  */
@@ -280,12 +280,13 @@ instruction_width(uint16_t lower16b)
     /* ...xxxxxxxxx0111111 -> 64-bit */
     else if (TESTALL(0b0111111, GET_FIELD(lower16b, 6, 0)))
         return 8;
-    /* ...xnnnxxxxx1111111 -> nnn != 0b111 */
+    /* ...xnnnxxxxx1111111 -> (80+16*nnn)-bit (nnn != 111) */
     else if (TESTALL(0b1111111, GET_FIELD(lower16b, 6, 0)) &&
              !TESTALL(0b111, GET_FIELD(lower16b, 14, 12)))
-        return 80 + 16 * GET_FIELD(lower16b, 14, 12);
+        return (10 + 2 * GET_FIELD(lower16b, 14, 12));
+    /* Reserved for ≥192-bits. */
     else
-        return 0;
+        return -1;
 }
 
 /* Return instr_info_t for a given opcode. */
