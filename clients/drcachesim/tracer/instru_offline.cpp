@@ -955,8 +955,7 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         // view by expanding the instr in raw2trace (e.g. using
         // drx_expand_scatter_gather) when building the ilist.
         if (drutil_instr_is_stringop_loop(instr)
-            // TODO i#5036: Scatter/gather support incomplete on AArch64.
-            IF_X86(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
+            IF_X86_OR_AARCH64(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
             return;
         }
         if (drmgr_is_emulation_start(instr) || drmgr_is_emulation_end(instr)) {

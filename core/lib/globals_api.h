@@ -537,6 +537,14 @@ typedef struct _instr_t instr_t;
 #    define IF_NOT_X64_OR_ARM(x) x
 #endif
 
+#if defined(X86) || defined(AARCH64)
+#    define IF_X86_OR_AARCH64(x) x
+#    define IF_NOT_X86_OR_AARCH64(x)
+#else
+#    define IF_X86_OR_AARCH64(x)
+#    define IF_NOT_X86_OR_AARCH64(x) x
+#endif
+
 /* Convenience defines for cross-platform printing.
  * For printing pointers: if using system printf, for %p gcc prepends 0x and uses
  * lowercase while cl does not prepend, puts leading 0's, and uses uppercase.
