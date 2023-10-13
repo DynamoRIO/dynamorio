@@ -69,18 +69,6 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
     return 0;
 }
 
-/* Returns addr for the target_pc data slot of the given stub. The slot starts at the
- * 8-byte aligned region in the 12-byte slot reserved in the stub.
- */
-static ptr_uint_t *
-get_target_pc_slot(fragment_t *f, cache_pc stub_pc)
-{
-    return (ptr_uint_t *)ALIGN_FORWARD(
-        vmcode_get_writable_addr(stub_pc + DIRECT_EXIT_STUB_SIZE(f->flags) -
-                                 DIRECT_EXIT_STUB_DATA_SZ),
-        8);
-}
-
 int
 insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                              cache_pc stub_pc, ushort l_flags)
