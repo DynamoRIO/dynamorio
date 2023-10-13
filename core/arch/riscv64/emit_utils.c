@@ -75,8 +75,8 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
     return 0;
 }
 
-/* Returns addr for the target_pc data slot of the given stub. The slot starts at the
- * 8-byte aligned region in the 12-byte slot reserved in the stub.
+/* Returns writable addr for the target_pc data slot of the given stub. The slot starts at
+ * the 8-byte aligned region in the 16-byte slot reserved in the stub.
  */
 static ptr_uint_t *
 get_target_pc_slot(fragment_t *f, cache_pc stub_pc)
@@ -104,12 +104,12 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     ushort *pc = write_stub_pc, *new_pc;
     uint num_nops_needed = 0;
     uint max_instrs = 0;
-    uint reminder = (uint64)pc & 0x3;
+    uint remainder = (uint64)pc & 0x3;
 
     /* Insert a c.nop at top for non-aligned stub_pc, so instructions after are all
      * aligned. */
-    if (reminder != 0) {
-        ASSERT(reminder == 2);
+    if (remainder != 0) {
+        ASSERT(remainder == 2);
         *pc++ = RAW_C_NOP_INST;
     }
 
@@ -188,7 +188,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                (byte *)pc + 2 == (byte *)target_pc_slot ||
                (byte *)pc + 4 == (byte *)target_pc_slot ||
                (byte *)pc + 6 == (byte *)target_pc_slot);
-        pc += (DIRECT_EXIT_STUB_DATA_SZ - reminder) / sizeof(ushort);
+        pc += (DIRECT_EXIT_STUB_DATA_SZ - remainder) / sizeof(ushort);
 
         /* We start off with the fcache-return routine address in the slot.
          * RISCV64 uses shared gencode. So, fcache_return routine address should be
@@ -240,7 +240,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         }
 
         *pc++ = RAW_C_NOP_INST;
-        if (reminder == 0)
+        if (remainder == 0)
             *pc++ = RAW_C_NOP_INST;
     }
     instrlist_clear(dcontext, &ilist);
