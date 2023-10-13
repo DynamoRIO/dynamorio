@@ -1068,11 +1068,17 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define RISCV64_INSTR_COMPRESSED_SIZE 2
 #    define FRAGMENT_BASE_PREFIX_SIZE(flags) RISCV64_INSTR_SIZE * 2
 #    define DIRECT_EXIT_STUB_SIZE(flags) \
-        (16 * RISCV64_INSTR_SIZE) /* see insert_exit_stub_other_flags() */
+        (13 * RISCV64_INSTR_SIZE) +      \
+            DIRECT_EXIT_STUB_DATA_SZ /* See insert_exit_stub_other_flags(). */
 #    define FRAG_IS_32(flags) false
 #    define PC_AS_JMP_TGT(isa_mode, pc) pc
 #    define PC_AS_LOAD_TGT(isa_mode, pc) pc
-#    define DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING 4
+/* Size of data slot used to store address of linked fragment or fcache return routine.
+ * We reserve 16 bytes for the 8 byte address, so that we can store it in an 8-byte
+ * aligned address (unlike AArch64, 12 bytes is not enough as RISC-V instructions can
+ * be 2 bytes long). This is required for atomicity of write operations.
+ */
+#    define DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING 8
 #    define DIRECT_EXIT_STUB_DATA_SZ \
         (sizeof(app_pc) + DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING)
 #    define STUB_COARSE_DIRECT_SIZE(flags) (ASSERT_NOT_IMPLEMENTED(false), 0)
