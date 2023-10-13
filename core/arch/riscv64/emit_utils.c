@@ -33,7 +33,13 @@
 #include <stdint.h>
 
 #include "../globals.h"
+#include "instr_create_shared.h"
+#include "instrlist.h"
+#include "instrument.h"
 #include "arch.h"
+
+#define APP instrlist_meta_append
+#define PRE instrlist_meta_preinsert
 
 #define RAW_NOP_INST 0x00000013
 #define RAW_NOP_INST_SZ 4
@@ -69,13 +75,177 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
     return 0;
 }
 
+/* Returns writable addr for the target_pc data slot of the given stub. The slot starts at
+ * the 8-byte aligned region in the 16-byte slot reserved in the stub.
+ */
+static ptr_uint_t *
+get_target_pc_slot(fragment_t *f, cache_pc stub_pc)
+{
+    return (ptr_uint_t *)ALIGN_FORWARD(
+        vmcode_get_writable_addr(stub_pc + DIRECT_EXIT_STUB_SIZE(f->flags) -
+                                 DIRECT_EXIT_STUB_DATA_SZ),
+        8);
+}
+
+/* Emit code for the exit stub at stub_pc. Return the size of the emitted code in bytes.
+ * This routine assumes that the caller will take care of any cache synchronization
+ * necessary. The stub is unlinked initially, except coarse grain indirect exits, which
+ * are always linked.
+ */
 int
 insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                              cache_pc stub_pc, ushort l_flags)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return 0;
+    instrlist_t ilist;
+    instrlist_init(&ilist);
+
+    ushort *write_stub_pc = (ushort *)vmcode_get_writable_addr(stub_pc);
+    /* Declare pc as ushort to help handling of C extension instructions. */
+    ushort *pc = write_stub_pc, *new_pc;
+    uint num_nops_needed = 0;
+    uint max_instrs = 0;
+    uint remainder = (uint64)pc & 0x3;
+
+    /* Insert a c.nop at top for non-aligned stub_pc, so instructions after are all
+     * aligned. */
+    if (remainder != 0) {
+        ASSERT(remainder == 2);
+        *pc++ = RAW_C_NOP_INST;
+    }
+
+    /* FIXME i#3544: coarse-grain NYI on RISCV64 */
+    ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
+
+    if (LINKSTUB_DIRECT(l_flags)) {
+        APP(&ilist,
+            INSTR_CREATE_sd(dcontext, OPND_CREATE_MEMPTR(dr_reg_stolen, TLS_REG0_SLOT),
+                            opnd_create_reg(DR_REG_A0)));
+        max_instrs++;
+        APP(&ilist,
+            INSTR_CREATE_sd(dcontext, OPND_CREATE_MEMPTR(dr_reg_stolen, TLS_REG1_SLOT),
+                            opnd_create_reg(DR_REG_A1)));
+        max_instrs++;
+
+        /* Insert an anchor for the subsequent insert_mov_immed_ptrsz() call. */
+        instr_t *nop = INSTR_CREATE_addi(dcontext, opnd_create_reg(DR_REG_X0),
+                                         opnd_create_reg(DR_REG_X0),
+                                         opnd_create_immed_int(0, OPSZ_12b));
+        APP(&ilist, nop);
+
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)l, opnd_create_reg(DR_REG_A0), &ilist,
+                               nop, NULL, NULL);
+        /* Up to 8 instructions will be generated, see mov64(). */
+        max_instrs += 8;
+
+        instrlist_remove(&ilist, nop);
+        instr_destroy(dcontext, nop);
+
+        new_pc = (ushort *)instrlist_encode(dcontext, &ilist, (byte *)pc, false);
+        instrlist_clear(dcontext, &ilist);
+
+        /* We can use INSTR_CREATE_auipc() here, but it's easier to use a raw value.
+         * Now, A1 holds the current pc - RISCV64_INSTR_SIZE.
+         */
+        *(uint *)new_pc = 0x00000597; /* auipc a1, 0x0 */
+        new_pc += 2;
+        max_instrs++;
+
+        ptr_uint_t *target_pc_slot = get_target_pc_slot(f, stub_pc);
+        ASSERT(new_pc < (ushort *)target_pc_slot);
+        uint target_pc_slot_offs =
+            (byte *)target_pc_slot - (byte *)new_pc + RISCV64_INSTR_SIZE;
+
+        instrlist_init(&ilist);
+
+        /* Now, A1 holds the address of fcache_return routine. */
+        APP(&ilist,
+            INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A1),
+                            OPND_CREATE_MEMPTR(DR_REG_A1, target_pc_slot_offs)));
+        max_instrs++;
+
+        APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(DR_REG_A1)));
+        max_instrs++;
+
+        new_pc = (ushort *)instrlist_encode(dcontext, &ilist, (byte *)new_pc, false);
+
+        num_nops_needed = max_instrs - ((uint *)new_pc - (uint *)pc);
+        pc = new_pc;
+
+        /* Fill up with NOPs, depending on how many instructions we needed to move
+         * the immediate into a register. Ideally we would skip adding NOPs, but
+         * lots of places expect the stub size to be fixed.
+         */
+        for (uint j = 0; j < num_nops_needed; j++) {
+            *(uint *)pc = RAW_NOP_INST;
+            pc += 2;
+        }
+
+        /* The final slot is a data slot, which will hold the address of either
+         * the fcache-return routine or the linked fragment. We reserve 16 bytes
+         * and use the 8-byte aligned region of 8 bytes within it.
+         */
+        ASSERT((byte *)pc == (byte *)target_pc_slot ||
+               (byte *)pc + 2 == (byte *)target_pc_slot ||
+               (byte *)pc + 4 == (byte *)target_pc_slot ||
+               (byte *)pc + 6 == (byte *)target_pc_slot);
+        pc += (DIRECT_EXIT_STUB_DATA_SZ - remainder) / sizeof(ushort);
+
+        /* We start off with the fcache-return routine address in the slot.
+         * RISCV64 uses shared gencode. So, fcache_return routine address should be
+         * same, no matter which thread creates/unpatches the stub.
+         */
+        ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
+        *target_pc_slot = (ptr_uint_t)fcache_return_routine(dcontext);
+        ASSERT((ptr_int_t)((byte *)pc - (byte *)write_stub_pc) ==
+               DIRECT_EXIT_STUB_SIZE(l_flags));
+    } else {
+        /* Stub starts out unlinked. */
+        cache_pc exit_target =
+            get_unlinked_entry(dcontext, EXIT_TARGET_TAG(dcontext, f, l));
+        APP(&ilist,
+            INSTR_CREATE_sd(dcontext, OPND_CREATE_MEMPTR(dr_reg_stolen, TLS_REG0_SLOT),
+                            opnd_create_reg(DR_REG_A0)));
+        max_instrs++;
+        APP(&ilist,
+            INSTR_CREATE_sd(dcontext, OPND_CREATE_MEMPTR(dr_reg_stolen, TLS_REG1_SLOT),
+                            opnd_create_reg(DR_REG_A1)));
+        max_instrs++;
+
+        instr_t *next_instr = INSTR_CREATE_ld(
+            dcontext, opnd_create_reg(DR_REG_A1),
+            OPND_CREATE_MEMPTR(dr_reg_stolen,
+                               get_ibl_entry_tls_offs(dcontext, exit_target)));
+        APP(&ilist, next_instr);
+        max_instrs++;
+        insert_mov_immed_ptrsz(dcontext, (ptr_int_t)l, opnd_create_reg(DR_REG_A0), &ilist,
+                               next_instr, NULL, NULL);
+        /* Up to 8 instructions will be generated, see mov64(). */
+        max_instrs += 8;
+
+        APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(DR_REG_A1)));
+        max_instrs++;
+
+        new_pc = (ushort *)instrlist_encode(dcontext, &ilist, (byte *)pc, false);
+
+        num_nops_needed = max_instrs - ((uint *)new_pc - (uint *)pc);
+        pc = new_pc;
+
+        /* Fill up with NOPs, depending on how many instructions we needed to move
+         * the immediate into a register. Ideally we would skip adding NOPs, but
+         * lots of places expect the stub size to be fixed.
+         */
+        for (uint j = 0; j < num_nops_needed; j++) {
+            *(uint *)pc = RAW_NOP_INST;
+            pc += 2;
+        }
+
+        *pc++ = RAW_C_NOP_INST;
+        if (remainder == 0)
+            *pc++ = RAW_C_NOP_INST;
+    }
+    instrlist_clear(dcontext, &ilist);
+
+    return (int)((byte *)pc - (byte *)write_stub_pc);
 }
 
 bool
@@ -105,17 +275,60 @@ void
 patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
            bool hot_patch)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return;
+    ptr_int_t off = (ptr_int_t)target_pc - (ptr_int_t)stub_pc;
+    if (off < 0x100000 && off > (ptr_int_t)0xFFFFFFFFFFF00000L) {
+        /* target_pc is a near fragment. We can get there with a J (OP_jal, 21-bit signed
+         * immediate offset).
+         */
+        ASSERT(((off << (64 - 21)) >> (64 - 21)) == off);
+
+        /* Format of the J-type instruction:
+         * |   31    |30       21|   20    |19        12|11   7|6      0|
+         * | imm[20] | imm[10:1] | imm[11] | imm[19:12] |  rd  | opcode |
+         *  ^------------------------------------------^
+         */
+        *(uint *)vmcode_get_writable_addr(stub_pc) = 0x6f | (((off >> 20) & 1) << 31) |
+            (((off >> 1) & 0x3ff) << 21) | (((off >> 11) & 1) << 20) |
+            (((off >> 12) & 0xff) << 12);
+        if (hot_patch)
+            machine_cache_sync(stub_pc, stub_pc + 4, true);
+        return;
+    }
+    /* target_pc is a far fragment. We must use an indirect branch. Note that the indirect
+     * branch needs to be to the fragment prefix, as we need to restore the clobbered
+     * regs.
+     */
+    /* We set hot_patch to false as we are not modifying code. */
+    ATOMIC_8BYTE_ALIGNED_WRITE(get_target_pc_slot(f, stub_pc),
+                               (ptr_uint_t)target_prefix_pc,
+                               /*hot_patch=*/false);
+}
+
+static bool
+stub_is_patched_for_intermediate_fragment_link(dcontext_t *dcontext, cache_pc stub_pc)
+{
+    uint enc;
+    ATOMIC_4BYTE_ALIGNED_READ(stub_pc, &enc);
+    return (enc & 0xfff) == 0x6f; /* J (OP_jal) */
+}
+
+static bool
+stub_is_patched_for_far_fragment_link(dcontext_t *dcontext, fragment_t *f,
+                                      cache_pc stub_pc)
+{
+    ptr_uint_t target_pc;
+    ATOMIC_8BYTE_ALIGNED_READ(get_target_pc_slot(f, stub_pc), &target_pc);
+    return target_pc != (ptr_uint_t)fcache_return_routine(dcontext);
 }
 
 bool
 stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    /* If stub_pc is not aligned to 4 bytes, the first instruction will be c.nop, see
+     * insert_exit_stub_other_flags(). */
+    stub_pc = ALIGNED(stub_pc, 4) ? stub_pc : stub_pc + 2;
+    return stub_is_patched_for_intermediate_fragment_link(dcontext, stub_pc) ||
+        stub_is_patched_for_far_fragment_link(dcontext, f, stub_pc);
 }
 
 void

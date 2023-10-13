@@ -488,6 +488,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
                             "Incorrect instr count marker value");
         }
+        if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                     shard->file_type_)) {
+            report_if_false(shard, type_is_instr(shard->prev_instr_.memref.instr.type),
+                            "An unfiltered thread should have at least 1 instruction");
+        }
     }
     if (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
         shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
