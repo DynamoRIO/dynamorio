@@ -1749,8 +1749,8 @@ os_timeout(int time_in_milliseconds)
 #    define WRITE_TLS_INT_SLOT_IMM(imm, var)                                   \
         do {                                                                   \
             IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                             \
-            ASSERT(sizeof(var) == sizeof(void *));                             \
-            __asm__ __volatile__("lw t0, %0(tp) \n\t"                          \
+            ASSERT(sizeof(var) == sizeof(int));                                \
+            __asm__ __volatile__("ld t0, %0(tp) \n\t"                          \
                                  "sw %1, %2(t0) \n\t"                          \
                                  :                                             \
                                  : "i"(DR_TLS_BASE_OFFSET), "r"(var), "i"(imm) \
@@ -1759,8 +1759,8 @@ os_timeout(int time_in_milliseconds)
 #    define READ_TLS_INT_SLOT_IMM(imm, var)                            \
         do {                                                           \
             IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                     \
-            ASSERT(sizeof(var) == sizeof(void *));                     \
-            __asm__ __volatile__("lw %0, %1(tp) \n\t"                  \
+            ASSERT(sizeof(var) == sizeof(int));                        \
+            __asm__ __volatile__("ld %0, %1(tp) \n\t"                  \
                                  "lw %0, %2(%0) \n\t"                  \
                                  : "=r"(var)                           \
                                  : "i"(DR_TLS_BASE_OFFSET), "i"(imm)); \
