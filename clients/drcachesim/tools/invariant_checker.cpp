@@ -958,7 +958,9 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         if (l.cpu != r.cpu)
             return l.cpu < r.cpu;
         // See comment in raw2trace_t::aggregate_and_write_schedule_files
-        return l.thread < r.thread;
+        if (l.thread != r.thread)
+            return l.thread < r.thread;
+        return l.start_instruction < r.start_instruction;
     };
     std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
     // After i#6299, these files collapse same-thread entries.
@@ -1026,12 +1028,7 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         cpu2sched_file[next.cpu].push_back(next);
     }
     for (auto &keyval : cpu2sched_file) {
-        std::sort(keyval.second.begin(), keyval.second.end(),
-                  [](const schedule_entry_t &l, const schedule_entry_t &r) {
-                      if (l.timestamp == r.timestamp)
-                          return l.thread < r.thread;
-                      return l.timestamp < r.timestamp;
-                  });
+        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
         // After i#6299, these files collapse same-thread entries.
         // We create both types of schedule and select which to compare against.
         std::vector<schedule_entry_t> redux;
