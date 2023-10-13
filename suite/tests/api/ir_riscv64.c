@@ -101,6 +101,21 @@ test_instr_encoding_failure(void *dc, uint opcode, app_pc instr_pc, instr_t *ins
     instr_destroy(dc, instr);
 }
 
+static byte *
+test_instr_decoding_failure(void *dc, uint raw_instr)
+{
+    instr_t *decin;
+    byte *pc;
+
+    *(uint *)buf = raw_instr;
+    decin = instr_create(dc);
+    pc = decode(dc, buf, decin);
+    /* Returns NULL on failure. */
+    ASSERT(pc == NULL);
+    instr_destroy(dc, decin);
+    return pc;
+}
+
 static void
 test_instr_encoding_jal_or_branch(void *dc, uint opcode, instr_t *instr)
 {
@@ -1864,6 +1879,18 @@ test_insert_mov_immed_arch(void *dc)
     instrlist_destroy(dc, ilist);
 }
 
+static void
+test_decode_bad_data(void *dc)
+{
+    instr_t *instr;
+
+    /* Unhandled instruction width. */
+    test_instr_decoding_failure(dc, 0xabababab);
+    test_instr_decoding_failure(dc, 0xffffffff);
+    /* Unknown instruction. */
+    test_instr_decoding_failure(dc, 0xb);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1921,6 +1948,9 @@ main(int argc, char *argv[])
 
     test_xinst(dcontext);
     print("test_xinst complete\n");
+
+    test_decode_bad_data(dcontext);
+    print("test_decode_bad_data complete\n");
 
     print("All tests complete\n");
     return 0;

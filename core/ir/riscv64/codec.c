@@ -1496,7 +1496,6 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     default:
         LOG(THREAD, LOG_INTERP, 3, "decode: unhandled instruction width %d at " PFX "\n",
             width, pc);
-        CLIENT_ASSERT(false, "decode: invalid instr width");
         return NULL;
     }
     next_pc = pc + width;
