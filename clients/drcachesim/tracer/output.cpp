@@ -111,6 +111,22 @@ local_instr_count_threshold(uint64 trace_for_instrs)
     }
 }
 
+static bool
+buffer_contains_nontrivial_data(per_thread_t *data)
+{
+    if (op_L0I_filter.get_value()) {
+        return BUF_PTR(data->seg_base) - data->buf_base >
+            static_cast<ssize_t>(data->init_header_size + buf_hdr_slots_size);
+    }
+    byte *buf_ptr = BUF_PTR(data->seg_base);
+    for (byte *mem_ref = data->buf_base + buf_hdr_slots_size; mem_ref < buf_ptr;
+         mem_ref += instru->sizeof_entry()) {
+        if (instru->get_instr_count(mem_ref) > 0)
+            return true;
+    }
+    return false;
+}
+
 // Returns whether we've reached the end of this tracing window.
 static bool
 count_traced_instrs(void *drcontext, uintptr_t toadd, uint64 trace_for_instrs)
@@ -1362,24 +1378,28 @@ exit_thread_io(void *drcontext)
     }
 #endif
 
-    // Append a thread exit marker and output remaining records for this thread
-    // if we are still in a tracing mode or the thread has data from a prior window
-    // that it never wrote out.
-    if (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) ||
-        (has_tracing_windows() &&
-         // If non-split we always want to append a thread exit marker as there
-         // wouldn't be on otherwise (split has one at the end of each window file).
-         (!op_split_windows.get_value() ||
-          // If split, we only need to write if we have data from a prior window.
-          (get_local_window(data) < tracing_window.load(std::memory_order_acquire) &&
-           !is_new_window_buffer_empty(data)))) ||
-        // For attach we switch to BBDUP_MODE_NOP but still need to finalize
-        // each thread.  However, we omit threads that did nothing the entire time
-        // we were attached.
-        (!has_tracing_windows() && align_attach_detach_endpoints() &&
-         (data->bytes_written > 0 ||
-          BUF_PTR(data->seg_base) - data->buf_base >
-              static_cast<ssize_t>(data->init_header_size + buf_hdr_slots_size)))) {
+    // Append a thread exit marker and output remaining records for this thread if it has
+    // data from a prior window that it never wrote out.
+    bool has_prior_window_data = has_tracing_windows() &&
+        // If non-split we always want to append a thread exit marker as there
+        // wouldn't be one otherwise (split has one at the end of each window file).
+        (!op_split_windows.get_value() ||
+         // If split, we only need to write if we have data from a prior window.
+         (get_local_window(data) < tracing_window.load(std::memory_order_acquire) &&
+          !is_new_window_buffer_empty(data)));
+
+    // Also append an exit for non-empty threads (those that wrote buffers out before,
+    // or have a current non-empty buffer).  We completely omit empty threads.
+    bool is_not_empty =
+        (data->bytes_written > 0 || buffer_contains_nontrivial_data(data)) &&
+        // XXX: We may not need any of the conditions below?  Should revisit
+        // whether a current-nop window-up-to-date needs to be excluded here.
+        (is_in_tracing_mode(tracing_mode.load(std::memory_order_acquire)) ||
+         // For attach we switch to BBDUP_MODE_NOP but still need to finalize
+         // each (non-empty) thread.
+         (!has_tracing_windows() && align_attach_detach_endpoints()));
+
+    if (has_prior_window_data || is_not_empty) {
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
         process_and_output_buffer(drcontext,
