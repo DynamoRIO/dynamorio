@@ -4309,7 +4309,7 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(invariant_checker_pthreads ${ci_pthreads_app}
         "" "@-simulator_type@invariant_checker" "")
       torunonly_drcacheoff(pthreads_exit_after_tracing ${ci_pthreads_app}
-          " -trace_after_instrs 2M -exit_after_tracing 100K" 
+          " -trace_after_instrs 2M -exit_after_tracing 100K"
           "@-simulator_type@invariant_checker"
           "1000000")
     endif ()
