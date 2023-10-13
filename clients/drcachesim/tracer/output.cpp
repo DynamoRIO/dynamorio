@@ -1100,8 +1100,9 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     // Switch to instruction-tracing mode by adding FILTER_ENDPOINT marker if another
     // thread triggered the switch.
     ptr_int_t mode = tracing_mode.load(std::memory_order_acquire);
-    if (get_local_mode(data) != mode) {
-        if (get_local_mode(data) == BBDUP_MODE_L0_FILTER) {
+    ptr_int_t local_mode = get_local_mode(data);
+    if (local_mode != mode && mode == BBDUP_MODE_TRACE) {
+        if (local_mode == BBDUP_MODE_L0_FILTER || local_mode == BBDUP_MODE_COUNT) {
             NOTIFY(0, "Thread %d: filter mode changed\n", dr_get_thread_id(drcontext));
 
             // If a switch occurred, then it is possible that the buffer
