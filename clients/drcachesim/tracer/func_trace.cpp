@@ -237,7 +237,7 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
     // on Windows and the fewer libs we check the better (i#6342), unless we're
     // statically linked (when the app itself might be excluded here).
     if (dr_memory_is_dr_internal(mod->start) || dr_memory_is_in_client(mod->start)) {
-        NOTIFY(3, "Not looking for symbols in DR/client library %s\n",
+        NOTIFY(1, "Not looking for symbols in DR/client library %s\n",
                get_module_basename(mod));
         return;
     }
