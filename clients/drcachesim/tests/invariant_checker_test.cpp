@@ -470,6 +470,55 @@ check_sane_control_flow()
             return false;
         }
     }
+    // Correct test: back-to-back signals after an RSEQ abort.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+            // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 102),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            // We get a signal after the RSEQ abort.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // The kernel event marker has the same value as the previous one.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(TID, /*pc=*/301, /*size=*/1),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: back-to-back signals with an intervening instruction after an RSEQ
+    // abort.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+            // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 102),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            // We get a signal after the RSEQ abort.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(TID, /*pc=*/301, /*size=*/1),
+            gen_instr(TID, /*pc=*/302, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Non-explicit control flow has no marker @ kernel_event marker", TID,
+                  /*ref_ordinal=*/10, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/4 },
+                "Failed to catch PC discontinuity for an instruction followed by "
+                "kernel xfer marker")) {
+            return false;
+        }
+    }
     // Incorrect test: back-to-back signals without any intervening instruction.
     {
         std::vector<memref_t> memrefs = {
@@ -1821,6 +1870,27 @@ check_branch_decoration()
                   /*ref_ordinal=*/4, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/2 },
                 "Failed to catch bad indirect branch target field")) {
+            return false;
+        }
+    }
+    // Correct test: back-to-back signals after an RSEQ abort.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr_type(TRACE_TYPE_INSTR_UNTAKEN_JUMP, TID, /*pc=*/101, /*size=*/1,
+                           /*target=*/0),
+            // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 102),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            // We get a signal after the RSEQ abort.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // The kernel event marker has the same value as the previous one.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+        };
+        if (!run_checker(memrefs, false)) {
             return false;
         }
     }

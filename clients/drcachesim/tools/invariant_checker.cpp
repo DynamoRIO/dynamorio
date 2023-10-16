@@ -1130,6 +1130,11 @@ invariant_checker_t::check_for_pc_discontinuity(
          (shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
           shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
           shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
+        // Same PC is allowed for back-to-back signals without any intervening
+        // instructions.
+        (cur_pc == shard->last_signal_context_.xfer_int_pc &&
+         prev_instr_trace_pc ==
+             shard->last_signal_context_.pre_signal_instr.memref.instr.addr) ||
         // We expect a gap on a window transition.
         shard->window_transition_ || prev_instr.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
