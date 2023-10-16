@@ -488,6 +488,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
                             "Incorrect instr count marker value");
         }
+        if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                     shard->file_type_)) {
+            report_if_false(shard, type_is_instr(shard->prev_instr_.memref.instr.type),
+                            "An unfiltered thread should have at least 1 instruction");
+        }
     }
     if (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
         shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
@@ -953,7 +958,9 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         if (l.cpu != r.cpu)
             return l.cpu < r.cpu;
         // See comment in raw2trace_t::aggregate_and_write_schedule_files
-        return l.thread < r.thread;
+        if (l.thread != r.thread)
+            return l.thread < r.thread;
+        return l.start_instruction < r.start_instruction;
     };
     std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
     // After i#6299, these files collapse same-thread entries.
@@ -1021,12 +1028,7 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         cpu2sched_file[next.cpu].push_back(next);
     }
     for (auto &keyval : cpu2sched_file) {
-        std::sort(keyval.second.begin(), keyval.second.end(),
-                  [](const schedule_entry_t &l, const schedule_entry_t &r) {
-                      if (l.timestamp == r.timestamp)
-                          return l.thread < r.thread;
-                      return l.timestamp < r.timestamp;
-                  });
+        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
         // After i#6299, these files collapse same-thread entries.
         // We create both types of schedule and select which to compare against.
         std::vector<schedule_entry_t> redux;

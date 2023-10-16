@@ -1615,7 +1615,10 @@ check_schedule_file()
     sched.emplace_back(TID_BASE + 1, TIMESTAMP_BASE, CPU_BASE + 2, 0);
     sched.emplace_back(TID_BASE, TIMESTAMP_BASE + 1, CPU_BASE + 1, 2);
     sched.emplace_back(TID_BASE + 1, TIMESTAMP_BASE + 2, CPU_BASE, 1);
+    // Include records with the same thread ID, timestamp, and CPU, but
+    // different start_instruction is being used for comparison.
     sched.emplace_back(TID_BASE + 2, TIMESTAMP_BASE + 3, CPU_BASE + 2, 3);
+    sched.emplace_back(TID_BASE + 2, TIMESTAMP_BASE + 3, CPU_BASE + 2, 4);
     {
         std::ofstream serial_file(serial_fname, std::ofstream::binary);
         if (!serial_file)
@@ -1649,6 +1652,10 @@ check_schedule_file()
             gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 3),
             gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
             gen_instr(TID_BASE + 2, 4),
+            // Markers for the second schedule entry with the same thread ID,
+            // timestamp, and CPU as the previous one with a different start_instruction.
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 3),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
         };
         std::ifstream serial_read(serial_fname, std::ifstream::binary);
         if (!serial_read)
@@ -1715,6 +1722,9 @@ check_schedule_file()
             gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 3),
             gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
             gen_instr(TID_BASE + 2, 3),
+            gen_instr(TID_BASE + 2, 4),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 3),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
         };
         std::ifstream serial_read(serial_fname, std::ifstream::binary);
         if (!serial_read)

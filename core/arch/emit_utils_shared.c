@@ -133,6 +133,9 @@
         (FRAG_IS_32(flags) ? STUB_INDIRECT_SIZE32 : STUB_INDIRECT_SIZE64)
 #elif defined(AARCH64)
 #    define STUB_INDIRECT_SIZE(flags) (7 * AARCH64_INSTR_SIZE)
+#elif defined(RISCV64)
+#    define STUB_INDIRECT_SIZE(flags) \
+        (13 * RISCV64_INSTR_SIZE) /* See insert_exit_stub_other_flags(). */
 #else
 /* indirect stub is parallel to the direct one minus the data slot */
 #    define STUB_INDIRECT_SIZE(flags) \
@@ -5508,7 +5511,7 @@ special_ibl_xfer_is_thread_private(void)
 #endif
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 size_t
 get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry)
 {
@@ -5519,7 +5522,7 @@ get_ibl_entry_tls_offs(dcontext_t *dcontext, cache_pc ibl_entry)
     DEBUG_DECLARE(bool is_ibl =)
     get_ibl_routine_type_ex(dcontext, ibl_entry, &ibl_type);
     ASSERT(is_ibl);
-    /* FIXME i#1575: coarse-grain NYI on ARM/AArch64 */
+    /* FIXME i#1575: coarse-grain NYI on ARM/AArch64/RISCV64 */
     ASSERT(ibl_type.source_fragment_type != IBL_COARSE_SHARED);
     if (IS_IBL_TRACE(ibl_type.source_fragment_type)) {
         if (IS_IBL_LINKED(ibl_type.link_state))
