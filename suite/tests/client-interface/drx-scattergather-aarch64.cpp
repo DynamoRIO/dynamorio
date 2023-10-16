@@ -2576,11 +2576,11 @@ test_ld1_scalar_plus_scalar()
 {
 #    define TEST_FUNC(ld_instruction)                                       \
         [](scalar_plus_scalar_load_test_case_t::test_ptrs_t &ptrs) {        \
-            asm(/* clang-format off */                                                  \
-            RESTORE_Z_REGISTERS(z_restore_base)                                     \
-            RESTORE_P_REGISTERS(p_restore_base)                                     \
-            ld_instruction "\n"                                                     \
-            SAVE_Z_REGISTERS(z_save_base)                                           \
+            asm(/* clang-format off */                                      \
+            RESTORE_Z_REGISTERS(z_restore_base)                             \
+            RESTORE_P_REGISTERS(p_restore_base)                             \
+            ld_instruction "\n"                                             \
+            SAVE_Z_REGISTERS(z_save_base)                                   \
             SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
                 :                                                           \
                 : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
@@ -2958,11 +2958,11 @@ test_st1_scalar_plus_scalar()
 {
 #    define TEST_FUNC(ld_instruction)                                       \
         [](scalar_plus_scalar_store_test_case_t::test_ptrs_t &ptrs) {       \
-            asm(/* clang-format off */                                                  \
-            RESTORE_Z_REGISTERS(z_restore_base)                                     \
-            RESTORE_P_REGISTERS(p_restore_base)                                     \
-            ld_instruction "\n"                                                     \
-            SAVE_Z_REGISTERS(z_save_base)                                           \
+            asm(/* clang-format off */                                      \
+            RESTORE_Z_REGISTERS(z_restore_base)                             \
+            RESTORE_P_REGISTERS(p_restore_base)                             \
+            ld_instruction "\n"                                             \
+            SAVE_Z_REGISTERS(z_save_base)                                   \
             SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
                 :                                                           \
                 : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
