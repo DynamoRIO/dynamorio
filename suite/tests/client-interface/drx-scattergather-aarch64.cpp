@@ -30,6 +30,7 @@
  * DAMAGE.
  */
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cinttypes>
@@ -76,30 +77,28 @@ enum class element_size_t {
 };
 
 /* Lists of valid 128-bit vl predicate register values for different element sizes.
- * The lists for single and double are exhaustive but exhaustive lists for byte and half
- * would be too long so we have a cherry-picked subset that should give us good coverage.
+ * The list for double are exhaustive but exhaustive lists for the other sizes would be
+ * too long so we have a cherry-picked subset that should give us good coverage.
  */
 const std::map<element_size_t, std::vector<predicate_reg_value128_t>> ALL_PREDICATES {
     { element_size_t::BYTE,
       {
-          0x0000,                                                         // All inactive
-          0xFFFF,                                                         // All active
-          0x0001, 0x0002, 0x0004, 0x0008, 0x0010, 0x0020, 0x0040, 0x0080, // Walking 1s
-          0x0100, 0x0200, 0x0400, 0x0800, 0x1000, 0x2000, 0x4000, 0x8000,
-          0xfffe, 0xfffd, 0xfffb, 0xfff7, 0xffef, 0xffdf, 0xffbf, 0xff7f, // Walking 0s
-          0xfeff, 0xfdff, 0xfbff, 0xf7ff, 0xefff, 0xdfff, 0xbfff, 0x7fff,
-
+          0x0000,         // All inactive
+          0xFFFF,         // All active
+          0x5555, 0xaaaa, // Checkerboard pattern
       } },
     { element_size_t::HALF,
       {
-          0x0000,                                                         // All inactive
-          0xFFFF,                                                         // All active
-          0x0001, 0x0004, 0x0010, 0x0040, 0x0100, 0x0400, 0x1000, 0x4000, // Walking 1s
-          0xfffe, 0xfffb, 0xffef, 0xffbf, 0xfeff, 0xfbff, 0xefff, 0xbfff, // Walking 0s
+          0x0000,         // All inactive
+          0x5555,         // All active
+          0x1111, 0x4444, // Checkerboard pattern
       } },
     { element_size_t::SINGLE,
-      { 0x0000, 0x0001, 0x0010, 0x0011, 0x0100, 0x0101, 0x0110, 0x0111, 0x1000, 0x1001,
-        0x1010, 0x1011, 0x1100, 0x1101, 0x1110, 0x1111 } },
+      {
+          0x0000,         // All inactive
+          0x1111,         // All active
+          0x0101, 0x1010, // Checkerboard pattern
+      } },
     { element_size_t::DOUBLE, { 0x0000, 0x0001, 0x0100, 0x0101 } },
 };
 
@@ -693,6 +692,13 @@ public:
     {
         assert(DATA_SIZE % sysconf(_SC_PAGE_SIZE) == 0);
         reset();
+
+        // Change the permissions of chunks 0 and 2 so that any accesses to them will
+        // fault.
+        mmap(chunk_start_addr(0), CHUNK_SIZE, PROT_NONE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+        mmap(chunk_start_addr(2), CHUNK_SIZE, PROT_NONE,
+             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
     }
 
     ~test_memory_t()
@@ -703,19 +709,8 @@ public:
     void
     reset()
     {
-        // Remap all the memory read+write so we can write the poison value.
-        mmap(data, DATA_SIZE, PROT_READ | PROT_WRITE,
-             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-
         static constexpr uint8_t POISON_VALUE = 0xAB;
-        memset(data, POISON_VALUE, DATA_SIZE);
-
-        // Change the permissions of chunks 0 and 2 so that any accesses to them will
-        // fault.
-        mmap(chunk_start_addr(0), CHUNK_SIZE, PROT_NONE,
-             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-        mmap(chunk_start_addr(2), CHUNK_SIZE, PROT_NONE,
-             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+        memset(chunk_start_addr(1), POISON_VALUE, CHUNK_SIZE);
     }
 
     const void *
@@ -2484,12 +2479,13 @@ struct scalar_plus_scalar_test_ptrs_t : public basic_test_ptrs_t {
     }
 };
 
+template <size_t NUM_ZT>
 struct scalar_plus_scalar_load_test_case_t
     : public test_case_base_t<scalar_plus_scalar_test_ptrs_t> {
-    std::vector<uint8_t> reference_data_;
+    std::array<std::vector<uint8_t>, NUM_ZT> reference_data_;
 
     struct registers_used_t {
-        unsigned dest_z;
+        std::array<unsigned, NUM_ZT> dest_z;
         unsigned governing_p;
     } registers_used_;
 
@@ -2499,7 +2495,9 @@ struct scalar_plus_scalar_load_test_case_t
     template <typename ELEMENT_T>
     scalar_plus_scalar_load_test_case_t(
         std::string name, test_func_t func, registers_used_t registers_used,
-        std::array<ELEMENT_T, MAX_SUPPORTED_VL_BYTES / sizeof(ELEMENT_T)> reference_data,
+        std::array<std::array<ELEMENT_T, MAX_SUPPORTED_VL_BYTES / sizeof(ELEMENT_T)>,
+                   NUM_ZT>
+            reference_data,
         void *base, int64_t index)
         : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
                                         registers_used.governing_p,
@@ -2509,8 +2507,12 @@ struct scalar_plus_scalar_load_test_case_t
         , index_(index)
     {
         const auto vl_bytes = get_vl_bytes();
-        reference_data_.resize(vl_bytes);
-        memcpy(reference_data_.data(), reference_data.data(), vl_bytes);
+        static constexpr size_t REG_DATA_SIZE =
+            MAX_SUPPORTED_VL_BYTES / sizeof(ELEMENT_T);
+        for (size_t i = 0; i < NUM_ZT; i++) {
+            reference_data_[i].resize(vl_bytes);
+            memcpy(reference_data_[i].data(), reference_data[i].data(), vl_bytes);
+        }
     }
 
     void
@@ -2524,31 +2526,36 @@ struct scalar_plus_scalar_load_test_case_t
     check_output(predicate_reg_value128_t pred,
                  const test_register_data_t &register_data) override
     {
-        std::vector<uint8_t> expected_output_data(reference_data_);
-        apply_predicate_mask(expected_output_data, pred, element_size_);
-        const scalable_reg_value_t expected_output {
-            expected_output_data.data(),
-            expected_output_data.size(),
-        };
+        for (size_t i = 0; i < NUM_ZT; i++) {
+            std::vector<uint8_t> expected_output_data(reference_data_[i]);
+            apply_predicate_mask(expected_output_data, pred, element_size_);
+            const scalable_reg_value_t expected_output {
+                expected_output_data.data(),
+                expected_output_data.size(),
+            };
 
-        const auto output_value =
-            register_data.after.get_z_register_value(registers_used_.dest_z);
+            const auto output_value =
+                register_data.after.get_z_register_value(registers_used_.dest_z[i]);
 
-        if (output_value != expected_output) {
-            test_failed();
-            print("predicate: ");
-            print_predicate(
-                register_data.before.get_p_register_value(registers_used_.governing_p));
-            print("\nexpected:  ");
-            print_vector(expected_output);
-            print("\nactual:    ");
-            print_vector(output_value);
-            print("\n");
+            if (output_value != expected_output) {
+                test_failed();
+                if (NUM_ZT > 1)
+                    print("Zt%u:\n", (unsigned)i);
+                print("predicate: ");
+                print_predicate(register_data.before.get_p_register_value(
+                    registers_used_.governing_p));
+                print("\nexpected:  ");
+                print_vector(expected_output);
+                print("\nactual:    ");
+                print_vector(output_value);
+                print("\n");
+            }
         }
 
         // Check that the values of the other Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
-            if (i != registers_used_.dest_z)
+            if (std::find(registers_used_.dest_z.begin(), registers_used_.dest_z.end(),
+                          i) == registers_used_.dest_z.end())
                 check_z_reg(i, register_data);
         }
         // Check that the values of the P registers have been preserved.
@@ -2575,7 +2582,7 @@ test_result_t
 test_ld1_scalar_plus_scalar()
 {
 #    define TEST_FUNC(ld_instruction)                                       \
-        [](scalar_plus_scalar_load_test_case_t::test_ptrs_t &ptrs) {        \
+        [](scalar_plus_scalar_load_test_case_t<1>::test_ptrs_t &ptrs) {     \
             asm(/* clang-format off */                                      \
             RESTORE_Z_REGISTERS(z_restore_base)                             \
             RESTORE_P_REGISTERS(p_restore_base)                             \
@@ -2591,7 +2598,7 @@ test_ld1_scalar_plus_scalar()
                 : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
         }
 
-    return run_tests<scalar_plus_scalar_load_test_case_t>({
+    return run_tests<scalar_plus_scalar_load_test_case_t<1>>({
         /* {
          *     Test name,
          *     Function that executes the test instruction,
@@ -2605,62 +2612,63 @@ test_ld1_scalar_plus_scalar()
         {
             "ld1b scalar+scalar 8bit element",
             TEST_FUNC("ld1b z4.b, p7/z, [%[base], %[index]]"),
-            { /*zt=*/4, /*pg=*/7 },
-            std::array<uint8_t, 64> {
+            { /*zt=*/ { 4 }, /*pg=*/7 },
+            std::array<std::array<uint8_t, 64>, 1> { {
                 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
                 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
                 0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x00,
                 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
                 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
                 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1,
-            },
+            } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
             /*index=*/0,
         },
         {
             "ld1b scalar+scalar 16bit element",
             TEST_FUNC("ld1b z8.h, p6/z, [%[base], %[index]]"),
-            { /*zt=*/8, /*pg=*/6 },
-            std::array<uint16_t, 32> {
-                0x00f1, 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006,
-                0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014,
-                0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022,
-                0x0023, 0x00f8, 0x00f7, 0x00f6, 0x00f5, 0x00f4, 0x00f3, 0x00f2 },
+            { /*zt=*/ { 8 }, /*pg=*/6 },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0x00f1, 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006,
+                  0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014,
+                  0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022,
+                  0x0023, 0x00f8, 0x00f7, 0x00f6, 0x00f5, 0x00f4, 0x00f3, 0x00f2 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
             /*index=*/-1,
         },
         {
             "ld1b scalar+scalar 32bit element",
             TEST_FUNC("ld1b z12.s, p5/z, [%[base], %[index]]"),
-            { /*zt=*/12, /*pg=*/5 },
-            std::array<uint32_t, 16> { 0x000005, 0x000006, 0x000007, 0x000008, 0x000009,
-                                       0x000010, 0x000011, 0x000012, 0x000013, 0x000014,
-                                       0x000015, 0x000016, 0x000017, 0x000018, 0x000019,
-                                       0x000020 },
+            { /*zt=*/ { 12 }, /*pg=*/5 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x000005, 0x000006, 0x000007, 0x000008, 0x000009, 0x000010, 0x000011,
+                  0x000012, 0x000013, 0x000014, 0x000015, 0x000016, 0x000017, 0x000018,
+                  0x000019, 0x000020 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
             /*index=*/5,
         },
         {
             "ld1b scalar+scalar 64bit element",
             TEST_FUNC("ld1b z16.d, p4/z, [%[base], %[index]]"),
-            { /*zt=*/16, /*pg=*/4 },
-            std::array<uint64_t, 8> {
-                0x00000000000009, 0x00000000000010, 0x00000000000011, 0x00000000000012,
-                0x00000000000013, 0x00000000000014, 0x00000000000015, 0x00000000000016 },
+            { /*zt=*/ { 16 }, /*pg=*/4 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x00000000000009, 0x00000000000010, 0x00000000000011, 0x00000000000012,
+                  0x00000000000013, 0x00000000000014, 0x00000000000015,
+                  0x00000000000016 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
             /*index=*/9,
         },
         {
             "ldnt1b scalar+scalar",
             TEST_FUNC("ldnt1b z20.b, p3/z, [%[base], %[index]]"),
-            { /*zt=*/20, /*pg=*/3 },
-            std::array<uint8_t, 64> {
-                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
-                0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
-                0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x00,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
-                0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
-                0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 },
+            { /*zt=*/ { 20 }, /*pg=*/3 },
+            std::array<std::array<uint8_t, 64>, 1> {
+                { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
+                  0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                  0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x00,
+                  0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                  0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
+                  0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
             /*index=*/0,
         },
@@ -2668,32 +2676,31 @@ test_ld1_scalar_plus_scalar()
         {
             "ld1sb scalar+scalar 16bit element",
             TEST_FUNC("ld1sb z24.h, p2/z, [%[base], %[index]]"),
-            { /*zt=*/24, /*pg=*/2 },
-            std::array<uint16_t, 32> {
-                0xfff3, 0xfff2, 0xfff1, 0x0000, 0x0001, 0x0002, 0x0003, 0x0004,
-                0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012,
-                0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020,
-                0x0021, 0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4,
-            },
+            { /*zt=*/ { 24 }, /*pg=*/2 },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0xfff3, 0xfff2, 0xfff1, 0x0000, 0x0001, 0x0002, 0x0003, 0x0004,
+                  0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012,
+                  0x0013, 0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020,
+                  0x0021, 0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
             /*index=*/-3,
         },
         {
             "ld1sb scalar+scalar 32bit element",
             TEST_FUNC("ld1sb z28.s, p1/z, [%[base], %[index]]"),
-            { /*zt=*/28, /*pg=*/1 },
-            std::array<uint32_t, 16> { 0x000005, 0x000006, 0x000007, 0x000008, 0x000009,
-                                       0x000010, 0x000011, 0x000012, 0x000013, 0x000014,
-                                       0x000015, 0x000016, 0x000017, 0x000018, 0x000019,
-                                       0x000020 },
+            { /*zt=*/ { 28 }, /*pg=*/1 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x000005, 0x000006, 0x000007, 0x000008, 0x000009, 0x000010, 0x000011,
+                  0x000012, 0x000013, 0x000014, 0x000015, 0x000016, 0x000017, 0x000018,
+                  0x000019, 0x000020 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
             /*index=*/5,
         },
         {
             "ld1sb scalar+scalar 64bit element",
             TEST_FUNC("ld1sb z31.d, p0/z, [%[base], %[index]]"),
-            { /*zt=*/31, /*pg=*/0 },
-            std::array<int64_t, 8> { -12, -13, -14, -15, 0, 1, 2, 3 },
+            { /*zt=*/ { 31 }, /*pg=*/0 },
+            std::array<std::array<int64_t, 8>, 1> { { -12, -13, -14, -15, 0, 1, 2, 3 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
             /*index=*/28,
         },
@@ -2701,46 +2708,46 @@ test_ld1_scalar_plus_scalar()
         {
             "ld1h scalar+scalar 16bit element",
             TEST_FUNC("ld1h z27.h, p1/z, [%[base], %[index], lsl #1]"),
-            { /*zt=*/27, /*pg=*/1 },
-            std::array<uint16_t, 32> {
-                0x0006, 0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013,
-                0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021,
-                0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3,
-                0xfff2, 0xfff1, 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005 },
+            { /*zt=*/ { 27 }, /*pg=*/1 },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0x0006, 0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013,
+                  0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021,
+                  0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3,
+                  0xfff2, 0xfff1, 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
             /*index=*/6,
         },
         {
             "ld1h scalar+scalar 32bit element",
             TEST_FUNC("ld1h z23.s, p2/z, [%[base], %[index], lsl #1]"),
-            { /*zt=*/23, /*pg=*/2 },
-            std::array<uint32_t, 16> { 0x00000009, 0x00000010, 0x00000011, 0x00000012,
-                                       0x00000013, 0x00000014, 0x00000015, 0x00000016,
-                                       0x00000017, 0x00000018, 0x00000019, 0x00000020,
-                                       0x00000021, 0x00000022, 0x00000023, 0x0000fff8 },
+            { /*zt=*/ { 23 }, /*pg=*/2 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x00000009, 0x00000010, 0x00000011, 0x00000012, 0x00000013, 0x00000014,
+                  0x00000015, 0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020,
+                  0x00000021, 0x00000022, 0x00000023, 0x0000fff8 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
             /*index=*/9,
         },
         {
             "ld1h scalar+scalar 64bit element",
             TEST_FUNC("ld1h z19.d, p3/z, [%[base], %[index], lsl #1]"),
-            { /*zt=*/19, /*pg=*/3 },
-            std::array<uint64_t, 8> { 0x000000000000fff2, 0x000000000000fff1,
-                                      0x0000000000000000, 0x0000000000000001,
-                                      0x0000000000000002, 0x0000000000000003,
-                                      0x0000000000000004, 0x0000000000000005 },
+            { /*zt=*/ { 19 }, /*pg=*/3 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x000000000000fff2, 0x000000000000fff1, 0x0000000000000000,
+                  0x0000000000000001, 0x0000000000000002, 0x0000000000000003,
+                  0x0000000000000004, 0x0000000000000005 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
             /*index=*/-2,
         },
         {
             "ldnt1h scalar+scalar",
             TEST_FUNC("ldnt1h z15.h, p4/z, [%[base], %[index], lsl #1]"),
-            { /*zt=*/15, /*pg=*/4 },
-            std::array<uint16_t, 32> {
-                0x0006, 0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013,
-                0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021,
-                0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3,
-                0xfff2, 0xfff1, 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005 },
+            { /*zt=*/ { 15 }, /*pg=*/4 },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0x0006, 0x0007, 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013,
+                  0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021,
+                  0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3,
+                  0xfff2, 0xfff1, 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
             /*index=*/6,
         },
@@ -2748,22 +2755,22 @@ test_ld1_scalar_plus_scalar()
         {
             "ld1sh scalar+scalar 32bit element",
             TEST_FUNC("ld1sh z11.s, p5/z, [%[base], %[index], lsl #1]"),
-            { /*zt=*/11, /*pg=*/5 },
-            std::array<uint32_t, 16> { 0x00000009, 0x00000010, 0x00000011, 0x00000012,
-                                       0x00000013, 0x00000014, 0x00000015, 0x00000016,
-                                       0x00000017, 0x00000018, 0x00000019, 0x00000020,
-                                       0x00000021, 0x00000022, 0x00000023, 0xfffffff8 },
+            { /*zt=*/ { 11 }, /*pg=*/5 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x00000009, 0x00000010, 0x00000011, 0x00000012, 0x00000013, 0x00000014,
+                  0x00000015, 0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020,
+                  0x00000021, 0x00000022, 0x00000023, 0xfffffff8 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
             /*index=*/9,
         },
         {
             "ld1sh scalar+scalar 64bit element",
             TEST_FUNC("ld1sh z7.d, p6/z, [%[base], %[index], lsl #1]"),
-            { /*zt=*/7, /*pg=*/6 },
-            std::array<uint64_t, 8> { 0xfffffffffffffff2, 0xfffffffffffffff1,
-                                      0x0000000000000000, 0x0000000000000001,
-                                      0x0000000000000002, 0x0000000000000003,
-                                      0x0000000000000004, 0x0000000000000005 },
+            { /*zt=*/ { 7 }, /*pg=*/6 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0xfffffffffffffff2, 0xfffffffffffffff1, 0x0000000000000000,
+                  0x0000000000000001, 0x0000000000000002, 0x0000000000000003,
+                  0x0000000000000004, 0x0000000000000005 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
             /*index=*/-2,
         },
@@ -2771,33 +2778,33 @@ test_ld1_scalar_plus_scalar()
         {
             "ld1w scalar+scalar 32bit element",
             TEST_FUNC("ld1w z3.s, p7/z, [%[base], %[index], lsl #2]"),
-            { /*zt=*/3, /*pg=*/7 },
-            std::array<uint32_t, 16> { 0x00000017, 0x00000018, 0x00000019, 0x00000020,
-                                       0x00000021, 0x00000022, 0x00000023, 0xfffffff8,
-                                       0xfffffff7, 0xfffffff6, 0xfffffff5, 0xfffffff4,
-                                       0xfffffff3, 0xfffffff2, 0xfffffff1, 0x00000000 },
+            { /*zt=*/ { 3 }, /*pg=*/7 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x00000017, 0x00000018, 0x00000019, 0x00000020, 0x00000021, 0x00000022,
+                  0x00000023, 0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5, 0xfffffff4,
+                  0xfffffff3, 0xfffffff2, 0xfffffff1, 0x00000000 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
             /*index=*/17,
         },
         {
             "ld1w scalar+scalar 64bit element",
             TEST_FUNC("ld1w z1.d, p6/z, [%[base], %[index], lsl #2]"),
-            { /*zt=*/1, /*pg=*/6 },
-            std::array<uint64_t, 8> { 0x00000000fffffff1, 0x0000000000000000,
-                                      0x0000000000000001, 0x0000000000000002,
-                                      0x0000000000000003, 0x0000000000000004,
-                                      0x0000000000000005, 0x0000000000000006 },
+            { /*zt=*/ { 1 }, /*pg=*/6 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x00000000fffffff1, 0x0000000000000000, 0x0000000000000001,
+                  0x0000000000000002, 0x0000000000000003, 0x0000000000000004,
+                  0x0000000000000005, 0x0000000000000006 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
             /*index=*/-1,
         },
         {
             "ldnt1w scalar+scalar",
             TEST_FUNC("ldnt1w z5.s, p5/z, [%[base], %[index], lsl #2]"),
-            { /*zt=*/5, /*pg=*/5 },
-            std::array<uint32_t, 16> { 0x00000018, 0x00000019, 0x00000020, 0x00000021,
-                                       0x00000022, 0x00000023, 0xfffffff8, 0xfffffff7,
-                                       0xfffffff6, 0xfffffff5, 0xfffffff4, 0xfffffff3,
-                                       0xfffffff2, 0xfffffff1, 0x00000000, 0x00000001 },
+            { /*zt=*/ { 5 }, /*pg=*/5 },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x00000018, 0x00000019, 0x00000020, 0x00000021, 0x00000022, 0x00000023,
+                  0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5, 0xfffffff4, 0xfffffff3,
+                  0xfffffff2, 0xfffffff1, 0x00000000, 0x00000001 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
             /*index=*/18,
         },
@@ -2805,11 +2812,11 @@ test_ld1_scalar_plus_scalar()
         {
             "ld1sw scalar+scalar",
             TEST_FUNC("ld1sw z9.d, p4/z, [%[base], %[index], lsl #2]"),
-            { /*zt=*/9, /*pg=*/4 },
-            std::array<uint64_t, 8> { 0xfffffffffffffff1, 0x0000000000000000,
-                                      0x0000000000000001, 0x0000000000000002,
-                                      0x0000000000000003, 0x0000000000000004,
-                                      0x0000000000000005, 0x0000000000000006 },
+            { /*zt=*/ { 9 }, /*pg=*/4 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0xfffffffffffffff1, 0x0000000000000000, 0x0000000000000001,
+                  0x0000000000000002, 0x0000000000000003, 0x0000000000000004,
+                  0x0000000000000005, 0x0000000000000006 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
             /*index=*/-1,
         },
@@ -2817,22 +2824,22 @@ test_ld1_scalar_plus_scalar()
         {
             "ld1d scalar+scalar",
             TEST_FUNC("ld1d z13.d, p3/z, [%[base], %[index], lsl #3]"),
-            { /*zt=*/13, /*pg=*/3 },
-            std::array<uint64_t, 8> { 0x0000000000000008, 0x0000000000000009,
-                                      0x0000000000000010, 0x0000000000000011,
-                                      0x0000000000000012, 0x0000000000000013,
-                                      0x0000000000000014, 0x0000000000000015 },
+            { /*zt=*/ { 13 }, /*pg=*/3 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
+                  0x0000000000000011, 0x0000000000000012, 0x0000000000000013,
+                  0x0000000000000014, 0x0000000000000015 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
             /*index=*/8,
         },
         {
             "ldnt1d scalar+scalar",
             TEST_FUNC("ldnt1d z17.d, p2/z, [%[base], %[index], lsl #3]"),
-            { /*zt=*/17, /*pg=*/2 },
-            std::array<uint64_t, 8> { 0x0000000000000002, 0x0000000000000003,
-                                      0x0000000000000004, 0x0000000000000005,
-                                      0x0000000000000006, 0x0000000000000007,
-                                      0x0000000000000008, 0x0000000000000009 },
+            { /*zt=*/ { 17 }, /*pg=*/2 },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000002, 0x0000000000000003, 0x0000000000000004,
+                  0x0000000000000005, 0x0000000000000006, 0x0000000000000007,
+                  0x0000000000000008, 0x0000000000000009 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
             /*index=*/2,
         },
@@ -2840,11 +2847,412 @@ test_ld1_scalar_plus_scalar()
 #    undef TEST_FUNC
 }
 
+test_result_t
+test_ld2_scalar_plus_scalar()
+{
+#    define TEST_FUNC(ld_instruction)                                       \
+        [](scalar_plus_scalar_load_test_case_t<2>::test_ptrs_t &ptrs) {     \
+            asm(/* clang-format off */                                      \
+            RESTORE_Z_REGISTERS(z_restore_base)                             \
+            RESTORE_P_REGISTERS(p_restore_base)                             \
+            ld_instruction "\n"                                             \
+            SAVE_Z_REGISTERS(z_save_base)                                   \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
+                :                                                           \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
+                  [z_restore_base] "r"(ptrs.z_restore_base),                \
+                  [z_save_base] "r"(ptrs.z_save_base),                      \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                \
+                  [p_save_base] "r"(ptrs.p_save_base)                       \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+        }
+
+    return run_tests<scalar_plus_scalar_load_test_case_t<2>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2}, pg},
+         *     Expected output data,
+         *     Base pointer (value for Xn),
+         *     Index (value for Xm),
+         * },
+         */
+        {
+            "ld2b scalar+scalar",
+            TEST_FUNC("ld2b {z4.b, z5.b}, p7/z, [%[base], %[index]]"),
+            { /*zt1=*/ { 4, 5 }, /*pg=*/7 },
+            std::array<std::array<uint8_t, 64>, 2> {
+                { { // Zt1 data
+                    0x00, 0x02, 0x04, 0x06, 0x08, 0x10, 0x12, 0x14, 0x16, 0x18, 0x20,
+                    0x22, 0xf8, 0xf6, 0xf4, 0xf2, 0x00, 0x02, 0x04, 0x06, 0x08, 0x10,
+                    0x12, 0x14, 0x16, 0x18, 0x20, 0x22, 0xf8, 0xf6, 0xf4, 0xf2, 0x00,
+                    0x02, 0x04, 0x06, 0x08, 0x10, 0x12, 0x14, 0x16, 0x18, 0x20, 0x22,
+                    0xf8, 0xf6, 0xf4, 0xf2, 0x00, 0x02, 0x04, 0x06, 0x08, 0x10, 0x12,
+                    0x14, 0x16, 0x18, 0x20, 0x22, 0xf8, 0xf6, 0xf4, 0xf2 },
+                  { // Zt2 data
+                    0x01, 0x03, 0x05, 0x07, 0x09, 0x11, 0x13, 0x15, 0x17, 0x19, 0x21,
+                    0x23, 0xf7, 0xf5, 0xf3, 0xf1, 0x01, 0x03, 0x05, 0x07, 0x09, 0x11,
+                    0x13, 0x15, 0x17, 0x19, 0x21, 0x23, 0xf7, 0xf5, 0xf3, 0xf1, 0x01,
+                    0x03, 0x05, 0x07, 0x09, 0x11, 0x13, 0x15, 0x17, 0x19, 0x21, 0x23,
+                    0xf7, 0xf5, 0xf3, 0xf1, 0x01, 0x03, 0x05, 0x07, 0x09, 0x11, 0x13,
+                    0x15, 0x17, 0x19, 0x21, 0x23, 0xf7, 0xf5, 0xf3, 0xf1 } } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            /*index=*/0,
+        },
+        {
+            "ld2h scalar+scalar",
+            TEST_FUNC("ld2h {z12.h, z13.h}, p6/z, [%[base], %[index], lsl #1]"),
+            { /*zt1=*/ { 12, 13 }, /*pg=*/6 },
+            std::array<std::array<uint16_t, 32>, 2> {
+                { { // Zt1 data
+                    0x0016, 0x0018, 0x0020, 0x0022, 0xfff8, 0xfff6, 0xfff4, 0xfff2,
+                    0x0000, 0x0002, 0x0004, 0x0006, 0x0008, 0x0010, 0x0012, 0x0014,
+                    0x0016, 0x0018, 0x0020, 0x0022, 0xfff8, 0xfff6, 0xfff4, 0xfff2,
+                    0x0000, 0x0002, 0x0004, 0x0006, 0x0008, 0x0010, 0x0012, 0x0014 },
+                  { // Zt2 data
+                    0x0017, 0x0019, 0x0021, 0x0023, 0xfff7, 0xfff5, 0xfff3, 0xfff1,
+                    0x0001, 0x0003, 0x0005, 0x0007, 0x0009, 0x0011, 0x0013, 0x0015,
+                    0x0017, 0x0019, 0x0021, 0x0023, 0xfff7, 0xfff5, 0xfff3, 0xfff1,
+                    0x0001, 0x0003, 0x0005, 0x0007, 0x0009, 0x0011, 0x0013, 0x0015 } } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            /*index=*/-16,
+        },
+        {
+            "ld2w scalar+scalar",
+            TEST_FUNC("ld2w {z24.s, z25.s}, p5/z, [%[base], %[index], lsl #2]"),
+            { /*zt1=*/ { 24, 25 }, /*pg=*/5 },
+            std::array<std::array<uint32_t, 16>, 2> {
+                { { // Zt1 data
+                    0x00000008, 0x00000010, 0x00000012, 0x00000014, 0x00000016,
+                    0x00000018, 0x00000020, 0x00000022, 0xfffffff8, 0xfffffff6,
+                    0xfffffff4, 0xfffffff2, 0x00000000, 0x00000002, 0x00000004,
+                    0x00000006 },
+                  { // Zt2 data
+                    0x00000009, 0x00000011, 0x00000013, 0x00000015, 0x00000017,
+                    0x00000019, 0x00000021, 0x00000023, 0xfffffff7, 0xfffffff5,
+                    0xfffffff3, 0xfffffff1, 0x00000001, 0x00000003, 0x00000005,
+                    0x00000007 } } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            /*index=*/8,
+        },
+        {
+            "ld2d scalar+scalar",
+            TEST_FUNC("ld2d {z31.d, z0.d}, p4/z, [%[base], %[index], lsl #3]"),
+            { /*zt1=*/ { 31, 0 }, /*pg=*/4 },
+            std::array<std::array<uint64_t, 8>, 2> {
+                { { // Zt1 data
+                    0xfffffffffffffff7, 0xfffffffffffffff5, 0xfffffffffffffff3,
+                    0xfffffffffffffff1, 0x0000000000000001, 0x0000000000000003,
+                    0x0000000000000005, 0x0000000000000007 },
+                  { // Zt2 data
+                    0xfffffffffffffff6, 0xfffffffffffffff4, 0xfffffffffffffff2,
+                    0x0000000000000000, 0x0000000000000002, 0x0000000000000004,
+                    0x0000000000000006, 0x0000000000000008 } } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            /*index=*/25,
+        },
+    });
+#    undef TEST_FUNC
+}
+
+test_result_t
+test_ld3_scalar_plus_scalar()
+{
+#    define TEST_FUNC(ld_instruction)                                       \
+        [](scalar_plus_scalar_load_test_case_t<3>::test_ptrs_t &ptrs) {     \
+            asm(/* clang-format off */                                      \
+            RESTORE_Z_REGISTERS(z_restore_base)                             \
+            RESTORE_P_REGISTERS(p_restore_base)                             \
+            ld_instruction "\n"                                             \
+            SAVE_Z_REGISTERS(z_save_base)                                   \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
+                :                                                           \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
+                  [z_restore_base] "r"(ptrs.z_restore_base),                \
+                  [z_save_base] "r"(ptrs.z_save_base),                      \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                \
+                  [p_save_base] "r"(ptrs.p_save_base)                       \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+        }
+
+    return run_tests<scalar_plus_scalar_load_test_case_t<3>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2, zt3}, pg},
+         *     Expected output data,
+         *     Base pointer (value for Xn),
+         *     Index (value for Xm),
+         * },
+         */
+        {
+            "ld3b scalar+scalar",
+            TEST_FUNC("ld3b {z4.b, z5.b, z6.b}, p3/z, [%[base], %[index]]"),
+            { /*zt=*/ { 4, 5, 6 }, /*pg=*/3 },
+            std::array<std::array<uint8_t, 64>, 3> {
+                { { // Zt1 data
+                    0x00, 0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2,
+                    0x01, 0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1,
+                    0x02, 0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00,
+                    0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01,
+                    0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1, 0x02,
+                    0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3 },
+                  { // Zt2 data
+                    0x01, 0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1,
+                    0x02, 0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00,
+                    0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01,
+                    0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1, 0x02,
+                    0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00, 0x03,
+                    0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2 },
+                  { // Z3 data
+                    0x02, 0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00,
+                    0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01,
+                    0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1, 0x02,
+                    0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00, 0x03,
+                    0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01, 0x04,
+                    0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1 }
+
+                } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            /*index=*/0,
+        },
+        {
+            "ld3h scalar+scalar",
+            TEST_FUNC("ld3h {z12.h, z13.h, z14.h}, p2/z, [%[base], %[index], lsl #1]"),
+            { /*zt=*/ { 12, 13, 14 }, /*pg=*/2 },
+            std::array<std::array<uint16_t, 32>, 3> {
+                { { // Zt1 data
+                    0x0016, 0x0019, 0x0022, 0xfff7, 0xfff4, 0xfff1, 0x0002, 0x0005,
+                    0x0008, 0x0011, 0x0014, 0x0017, 0x0020, 0x0023, 0xfff6, 0xfff3,
+                    0x0000, 0x0003, 0x0006, 0x0009, 0x0012, 0x0015, 0x0018, 0x0021,
+                    0xfff8, 0xfff5, 0xfff2, 0x0001, 0x0004, 0x0007, 0x0010, 0x0013 },
+                  { // Zt2 data
+                    0x0017, 0x0020, 0x0023, 0xfff6, 0xfff3, 0x0000, 0x0003, 0x0006,
+                    0x0009, 0x0012, 0x0015, 0x0018, 0x0021, 0xfff8, 0xfff5, 0xfff2,
+                    0x0001, 0x0004, 0x0007, 0x0010, 0x0013, 0x0016, 0x0019, 0x0022,
+                    0xfff7, 0xfff4, 0xfff1, 0x0002, 0x0005, 0x0008, 0x0011, 0x0014 },
+                  { // Zt3 data
+                    0x0018, 0x0021, 0xfff8, 0xfff5, 0xfff2, 0x0001, 0x0004, 0x0007,
+                    0x0010, 0x0013, 0x0016, 0x0019, 0x0022, 0xfff7, 0xfff4, 0xfff1,
+                    0x0002, 0x0005, 0x0008, 0x0011, 0x0014, 0x0017, 0x0020, 0x0023,
+                    0xfff6, 0xfff3, 0x0000, 0x0003, 0x0006, 0x0009, 0x0012, 0x0015
+
+                  } } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            /*index=*/-16,
+        },
+        {
+            "ld3w scalar+scalar",
+            TEST_FUNC("ld3w {z24.s, z25.s, z26.s}, p1/z, [%[base], %[index], lsl #2]"),
+            { /*zt=*/ { 24, 25, 26 }, /*pg=*/1 },
+            std::array<std::array<uint32_t, 16>, 3> {
+                { { // Zt1 data
+                    0x00000008, 0x00000011, 0x00000014, 0x00000017, 0x00000020,
+                    0x00000023, 0xfffffff6, 0xfffffff3, 0x00000000, 0x00000003,
+                    0x00000006, 0x00000009, 0x00000012, 0x00000015, 0x00000018,
+                    0x00000021 },
+                  { // Zt2 data
+                    0x00000009, 0x00000012, 0x00000015, 0x00000018, 0x00000021,
+                    0xfffffff8, 0xfffffff5, 0xfffffff2, 0x00000001, 0x00000004,
+                    0x00000007, 0x00000010, 0x00000013, 0x00000016, 0x00000019, 0x00000022
+
+                  },
+                  { // Zt3 data
+                    0x00000010, 0x00000013, 0x00000016, 0x00000019, 0x00000022,
+                    0xfffffff7, 0xfffffff4, 0xfffffff1, 0x00000002, 0x00000005,
+                    0x00000008, 0x00000011, 0x00000014, 0x00000017, 0x00000020,
+                    0x00000023 } } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            /*index=*/8,
+        },
+        {
+            "ld3d scalar+scalar",
+            TEST_FUNC("ld3d {z30.d, z31.d, z0.d}, p0/z, [%[base], %[index], lsl #3]"),
+            { /*zt=*/ { 30, 31, 0 }, /*pg=*/0 },
+            std::array<std::array<uint64_t, 8>, 3> {
+                { { // Zt1 data
+                    0xfffffffffffffff7, 0xfffffffffffffff4, 0xfffffffffffffff1,
+                    0x0000000000000002, 0x0000000000000005, 0x0000000000000008,
+                    0x0000000000000011, 0x0000000000000014 },
+                  { // Zt2 data
+                    0xfffffffffffffff6, 0xfffffffffffffff3, 0x0000000000000000,
+                    0x0000000000000003, 0x0000000000000006, 0x0000000000000009,
+                    0x0000000000000012, 0x0000000000000015 },
+                  { // Zt3 data
+                    0xfffffffffffffff5, 0xfffffffffffffff2, 0x0000000000000001,
+                    0x0000000000000004, 0x0000000000000007, 0x0000000000000010,
+                    0x0000000000000013, 0x0000000000000016 } } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            /*index=*/25,
+        },
+    });
+#    undef TEST_FUNC
+}
+
+test_result_t
+test_ld4_scalar_plus_scalar()
+{
+#    define TEST_FUNC(ld_instruction)                                       \
+        [](scalar_plus_scalar_load_test_case_t<4>::test_ptrs_t &ptrs) {     \
+            asm(/* clang-format off */                                      \
+            RESTORE_Z_REGISTERS(z_restore_base)                             \
+            RESTORE_P_REGISTERS(p_restore_base)                             \
+            ld_instruction "\n"                                             \
+            SAVE_Z_REGISTERS(z_save_base)                                   \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
+                :                                                           \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
+                  [z_restore_base] "r"(ptrs.z_restore_base),                \
+                  [z_save_base] "r"(ptrs.z_save_base),                      \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                \
+                  [p_save_base] "r"(ptrs.p_save_base)                       \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+        }
+
+    return run_tests<scalar_plus_scalar_load_test_case_t<4>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2, zt3, zt4}, pg},
+         *     Expected output data,
+         *     Base pointer (value for Xn),
+         *     Index (value for Xm),
+         * },
+         */
+        {
+            "ld4b scalar+scalar",
+            TEST_FUNC("ld4b {z4.b, z5.b, z6.b, z7.b}, p7/z, [%[base], %[index]]"),
+            { /*zt=*/ { 4, 5, 6, 7 }, /*pg=*/7 },
+            std::array<std::array<uint8_t, 64>, 4> {
+                { { // Zt1 data
+                    0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08,
+                    0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12, 0x16, 0x20,
+                    0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00,
+                    0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12,
+                    0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8,
+                    0xf4, 0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4 },
+                  { // Zt2 data
+                    0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09,
+                    0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13, 0x17, 0x21,
+                    0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01,
+                    0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13,
+                    0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7,
+                    0xf3, 0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3 },
+                  { // Z3 data
+                    0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10,
+                    0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14, 0x18, 0x22,
+                    0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02,
+                    0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14,
+                    0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6,
+                    0xf2, 0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2 },
+                  { // Z4 data
+                    0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11,
+                    0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23,
+                    0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03,
+                    0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15,
+                    0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5,
+                    0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1 }
+
+                } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+            /*index=*/0,
+        },
+        {
+            "ld4h scalar+scalar",
+            TEST_FUNC(
+                "ld4h {z12.h, z13.h, z14.h, z15.h}, p5/z, [%[base], %[index], lsl #1]"),
+            { /*zt=*/ { 12, 13, 14, 15 }, /*pg=*/5 },
+            std::array<std::array<uint16_t, 32>, 4> {
+                { { // Zt1 data
+                    0x0016, 0x0020, 0xfff8, 0xfff4, 0x0000, 0x0004, 0x0008, 0x0012,
+                    0x0016, 0x0020, 0xfff8, 0xfff4, 0x0000, 0x0004, 0x0008, 0x0012,
+                    0x0016, 0x0020, 0xfff8, 0xfff4, 0x0000, 0x0004, 0x0008, 0x0012,
+                    0x0016, 0x0020, 0xfff8, 0xfff4, 0x0000, 0x0004, 0x0008, 0x0012 },
+                  { // Zt2 data
+                    0x0017, 0x0021, 0xfff7, 0xfff3, 0x0001, 0x0005, 0x0009, 0x0013,
+                    0x0017, 0x0021, 0xfff7, 0xfff3, 0x0001, 0x0005, 0x0009, 0x0013,
+                    0x0017, 0x0021, 0xfff7, 0xfff3, 0x0001, 0x0005, 0x0009, 0x0013,
+                    0x0017, 0x0021, 0xfff7, 0xfff3, 0x0001, 0x0005, 0x0009, 0x0013
+
+                  },
+                  { // Zt3 data
+                    0x0018, 0x0022, 0xfff6, 0xfff2, 0x0002, 0x0006, 0x0010, 0x0014,
+                    0x0018, 0x0022, 0xfff6, 0xfff2, 0x0002, 0x0006, 0x0010, 0x0014,
+                    0x0018, 0x0022, 0xfff6, 0xfff2, 0x0002, 0x0006, 0x0010, 0x0014,
+                    0x0018, 0x0022, 0xfff6, 0xfff2, 0x0002, 0x0006, 0x0010, 0x0014 },
+                  { // Zt4 data
+                    0x0019, 0x0023, 0xfff5, 0xfff1, 0x0003, 0x0007, 0x0011, 0x0015,
+                    0x0019, 0x0023, 0xfff5, 0xfff1, 0x0003, 0x0007, 0x0011, 0x0015,
+                    0x0019, 0x0023, 0xfff5, 0xfff1, 0x0003, 0x0007, 0x0011, 0x0015,
+                    0x0019, 0x0023, 0xfff5, 0xfff1, 0x0003, 0x0007, 0x0011, 0x0015 } } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+            /*index=*/-16,
+        },
+        {
+            "ld4w scalar+scalar",
+            TEST_FUNC(
+                "ld4w {z24.s, z25.s, z26.s, z27.s}, p3/z, [%[base], %[index], lsl #2]"),
+            { /*zt=*/ { 24, 25, 26, 27 }, /*pg=*/3 },
+            std::array<std::array<uint32_t, 16>, 4> {
+                { { // Zt1 data
+                    0x00000008, 0x00000012, 0x00000016, 0x00000020, 0xfffffff8,
+                    0xfffffff4, 0x00000000, 0x00000004, 0x00000008, 0x00000012,
+                    0x00000016, 0x00000020, 0xfffffff8, 0xfffffff4, 0x00000000,
+                    0x00000004 },
+                  { // Zt2 data
+                    0x00000009, 0x00000013, 0x00000017, 0x00000021, 0xfffffff7,
+                    0xfffffff3, 0x00000001, 0x00000005, 0x00000009, 0x00000013,
+                    0x00000017, 0x00000021, 0xfffffff7, 0xfffffff3, 0x00000001,
+                    0x00000005 },
+                  { // Zt3 data
+                    0x00000010, 0x00000014, 0x00000018, 0x00000022, 0xfffffff6,
+                    0xfffffff2, 0x00000002, 0x00000006, 0x00000010, 0x00000014,
+                    0x00000018, 0x00000022, 0xfffffff6, 0xfffffff2, 0x00000002,
+                    0x00000006 },
+                  { // Zt4 data
+                    0x00000011, 0x00000015, 0x00000019, 0x00000023, 0xfffffff5,
+                    0xfffffff1, 0x00000003, 0x00000007, 0x00000011, 0x00000015,
+                    0x00000019, 0x00000023, 0xfffffff5, 0xfffffff1, 0x00000003, 0x00000007
+
+                  } } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+            /*index=*/8,
+        },
+        {
+            "ld4d scalar+scalar",
+            TEST_FUNC(
+                "ld4d {z30.d, z31.d, z0.d, z1.d}, p1/z, [%[base], %[index], lsl #3]"),
+            { /*zt=*/ { 30, 31, 0, 1 }, /*pg=*/1 },
+            std::array<std::array<uint64_t, 8>, 4> {
+                { { // Zt1 data
+                    0xfffffffffffffff7, 0xfffffffffffffff3, 0x0000000000000001,
+                    0x0000000000000005, 0x0000000000000009, 0x0000000000000013,
+                    0x0000000000000017, 0x0000000000000021 },
+                  { // Zt2 data
+                    0xfffffffffffffff6, 0xfffffffffffffff2, 0x0000000000000002,
+                    0x0000000000000006, 0x0000000000000010, 0x0000000000000014,
+                    0x0000000000000018, 0x0000000000000022 },
+                  { // Zt3 data
+                    0xfffffffffffffff5, 0xfffffffffffffff1, 0x0000000000000003,
+                    0x0000000000000007, 0x0000000000000011, 0x0000000000000015,
+                    0x0000000000000019, 0x0000000000000023 },
+                  { // Zt4 data
+                    0xfffffffffffffff4, 0x0000000000000000, 0x0000000000000004,
+                    0x0000000000000008, 0x0000000000000012, 0x0000000000000016,
+                    0x0000000000000020, 0xfffffffffffffff8 } } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+            /*index=*/25,
+        },
+    });
+#    undef TEST_FUNC
+}
+
+template <size_t NUM_ZT>
 struct scalar_plus_scalar_store_test_case_t
     : public test_case_base_t<scalar_plus_scalar_test_ptrs_t> {
     std::vector<uint8_t> reference_data_;
     struct registers_used_t {
-        unsigned src_z;
+        std::array<unsigned, NUM_ZT> src_z;
         unsigned governing_p;
     } registers_used_;
 
@@ -2860,7 +3268,7 @@ struct scalar_plus_scalar_store_test_case_t
                                          int64_t index)
         : test_case_base_t<test_ptrs_t>(
               std::move(name), std::move(func), registers_used.governing_p,
-              static_cast<element_size_t>(TEST_VL_BYTES / NUM_VALUES))
+              static_cast<element_size_t>(TEST_VL_BYTES / (NUM_VALUES / NUM_ZT)))
         , registers_used_(registers_used)
         , base_(OUTPUT_DATA.base_addr())
         , index_(index)
@@ -2878,12 +3286,34 @@ struct scalar_plus_scalar_store_test_case_t
     void
     setup(sve_register_file_t &register_values) override
     {
-        register_values.set_z_register_value(registers_used_.src_z,
-                                             { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-                                               0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13,
-                                               0x14, 0x15 });
+        static constexpr std::array<vector_reg_value128_t, 4> DATA_TO_WRITE { {
+            { // Zt1 data
+              0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+              0x12, 0x13, 0x14, 0x15 },
+            { // Zt2 data
+              0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+              0x28, 0x29, 0x30, 0x31 },
+            { // Zt3 data
+              0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x40, 0x41, 0x42, 0x43,
+              0x44, 0x45, 0x46, 0x47 },
+            { // Zt4 data
+              0x48, 0x49, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59,
+              0x60, 0x61, 0x62, 0x63 },
+        } };
+        assert(NUM_ZT <= DATA_TO_WRITE.size());
 
-        OUTPUT_DATA.reset();
+        for (size_t zt = 0; zt < NUM_ZT; zt++) {
+            register_values.set_z_register_value(registers_used_.src_z[zt],
+                                                 DATA_TO_WRITE[zt]);
+        }
+
+        if (test_status_ == test_result_t::PASS) {
+            const auto stored_value_bytes = static_cast<size_t>(stored_value_size_);
+            memset(static_cast<uint8_t *>(base_) + (index_ * stored_value_bytes), 0xAB,
+                   reference_data_.size());
+        } else {
+            OUTPUT_DATA.reset();
+        }
     }
 
     void
@@ -2911,8 +3341,8 @@ struct scalar_plus_scalar_store_test_case_t
         for (size_t i = 0; i < num_vector_elements; i++) {
             if (!element_is_active(i % num_mask_elements, pred, element_size_)) {
                 // Element is inactive, set it to the poison value.
-                memset(&expected_output_data[stored_value_bytes * i], 0xAB,
-                       stored_value_bytes);
+                memset(&expected_output_data[NUM_ZT * stored_value_bytes * i], 0xAB,
+                       NUM_ZT * stored_value_bytes);
             }
         }
 
@@ -2957,7 +3387,7 @@ test_result_t
 test_st1_scalar_plus_scalar()
 {
 #    define TEST_FUNC(ld_instruction)                                       \
-        [](scalar_plus_scalar_store_test_case_t::test_ptrs_t &ptrs) {       \
+        [](scalar_plus_scalar_store_test_case_t<1>::test_ptrs_t &ptrs) {    \
             asm(/* clang-format off */                                      \
             RESTORE_Z_REGISTERS(z_restore_base)                             \
             RESTORE_P_REGISTERS(p_restore_base)                             \
@@ -2973,11 +3403,11 @@ test_st1_scalar_plus_scalar()
                 : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
         }
 
-    return run_tests<scalar_plus_scalar_store_test_case_t>({
+    return run_tests<scalar_plus_scalar_store_test_case_t<1>>({
         /* {
          *     Test name,
          *     Function that executes the test instruction,
-         *     Registers used {zt, pg, zm},
+         *     Registers used {{zt}, pg, zm},
          *     Expected output data,
          *     Index (value for Xm),
          * },
@@ -2986,7 +3416,7 @@ test_st1_scalar_plus_scalar()
         {
             "st1b scalar+scalar 8bit element",
             TEST_FUNC("st1b z4.b, p7, [%[base], %[index]]"),
-            { /*zt=*/4, /*pg=*/7 },
+            { /*zt=*/ { 4 }, /*pg=*/7 },
             std::array<uint8_t, 16> { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
                                       0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15 },
             /*index=*/0,
@@ -2994,21 +3424,21 @@ test_st1_scalar_plus_scalar()
         {
             "st1b scalar+scalar 16bit element",
             TEST_FUNC("st1b z8.h, p6, [%[base], %[index]]"),
-            { /*zt=*/8, /*pg=*/6 },
+            { /*zt=*/ { 8 }, /*pg=*/6 },
             std::array<uint8_t, 8> { 0x00, 0x02, 0x04, 0x06, 0x08, 0x10, 0x12, 0x14 },
             /*index=*/-1,
         },
         {
             "st1b scalar+scalar 32bit element",
             TEST_FUNC("st1b z12.s, p5, [%[base], %[index]]"),
-            { /*zt=*/12, /*pg=*/5 },
+            { /*zt=*/ { 12 }, /*pg=*/5 },
             std::array<uint8_t, 4> { 0x00, 0x04, 0x08, 0x12 },
             /*index=*/5,
         },
         {
             "st1b scalar+scalar 64bit element",
             TEST_FUNC("st1b z16.d, p4, [%[base], %[index]]"),
-            { /*zt=*/16, /*pg=*/4 },
+            { /*zt=*/ { 16 }, /*pg=*/4 },
             std::array<uint8_t, 2> { 0x0, 0x8 },
             /*index=*/9,
         },
@@ -3016,7 +3446,7 @@ test_st1_scalar_plus_scalar()
         {
             "st1h scalar+scalar 16bit element",
             TEST_FUNC("st1h z31.h, p0, [%[base], %[index], lsl #1]"),
-            { /*zt=*/31, /*pg=*/0 },
+            { /*zt=*/ { 31 }, /*pg=*/0 },
             std::array<uint16_t, 8> { 0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x1110,
                                       0x1312, 0x1514 },
             /*index=*/6,
@@ -3024,14 +3454,14 @@ test_st1_scalar_plus_scalar()
         {
             "st1h scalar+scalar 32bit element",
             TEST_FUNC("st1h z27.s, p1, [%[base], %[index], lsl #1]"),
-            { /*zt=*/27, /*pg=*/1 },
+            { /*zt=*/ { 27 }, /*pg=*/1 },
             std::array<uint16_t, 4> { 0x0100, 0x0504, 0x0908, 0x1312 },
             /*index=*/9,
         },
         {
             "st1h scalar+scalar 64bit element",
             TEST_FUNC("st1h z23.d, p2, [%[base], %[index], lsl #1]"),
-            { /*zt=*/23, /*pg=*/2 },
+            { /*zt=*/ { 23 }, /*pg=*/2 },
             std::array<uint16_t, 2> { 0x0100, 0x0908 },
             /*index=*/-2,
         },
@@ -3039,14 +3469,14 @@ test_st1_scalar_plus_scalar()
         {
             "st1w scalar+scalar 32bit element",
             TEST_FUNC("st1w z11.s, p5, [%[base], %[index], lsl #2]"),
-            { /*zt=*/11, /*pg=*/5 },
+            { /*zt=*/ { 11 }, /*pg=*/5 },
             std::array<uint32_t, 4> { 0x03020100, 0x07060504, 0x11100908, 0x15141312 },
             /*index=*/16,
         },
         {
             "st1w scalar+scalar 64bit element",
             TEST_FUNC("st1w z7.d, p6, [%[base], %[index], lsl #2]"),
-            { /*zt=*/7, /*pg=*/6 },
+            { /*zt=*/ { 7 }, /*pg=*/6 },
             std::array<uint32_t, 2> { 0x03020100, 0x11100908 },
             /*index=*/-1,
         },
@@ -3054,7 +3484,7 @@ test_st1_scalar_plus_scalar()
         {
             "st1d scalar+scalar",
             TEST_FUNC("st1d z1.d, p7, [%[base], %[index], lsl #3]"),
-            { /*zt=*/1, /*pg=*/7 },
+            { /*zt=*/ { 1 }, /*pg=*/7 },
             std::array<uint64_t, 2> { 0x0706050403020100, 0x1514131211100908 },
             /*index=*/8,
         },
@@ -3062,12 +3492,231 @@ test_st1_scalar_plus_scalar()
 #    undef TEST_FUNC
 }
 
+test_result_t
+test_st2_scalar_plus_scalar()
+{
+#    define TEST_FUNC(ld_instruction)                                       \
+        [](scalar_plus_scalar_store_test_case_t<2>::test_ptrs_t &ptrs) {    \
+            asm(/* clang-format off */                                      \
+            RESTORE_Z_REGISTERS(z_restore_base)                             \
+            RESTORE_P_REGISTERS(p_restore_base)                             \
+            ld_instruction "\n"                                             \
+            SAVE_Z_REGISTERS(z_save_base)                                   \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
+                :                                                           \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
+                  [z_restore_base] "r"(ptrs.z_restore_base),                \
+                  [z_save_base] "r"(ptrs.z_save_base),                      \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                \
+                  [p_save_base] "r"(ptrs.p_save_base)                       \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+        }
+
+    return run_tests<scalar_plus_scalar_store_test_case_t<2>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2}, pg, zm},
+         *     Expected output data,
+         *     Index (value for Xm),
+         * },
+         */
+        {
+            "st2b scalar+scalar",
+            TEST_FUNC("st2b {z4.b, z5.b}, p7, [%[base], %[index]]"),
+            { /*zt=*/ { 4, 5 }, /*pg=*/7 },
+            std::array<uint8_t, 32> { 0x00, 0x16, 0x01, 0x17, 0x02, 0x18, 0x03, 0x19,
+                                      0x04, 0x20, 0x05, 0x21, 0x06, 0x22, 0x07, 0x23,
+                                      0x08, 0x24, 0x09, 0x25, 0x10, 0x26, 0x11, 0x27,
+                                      0x12, 0x28, 0x13, 0x29, 0x14, 0x30, 0x15, 0x31 },
+            /*index=*/0,
+        },
+        {
+            "st2h scalar+scalar",
+            TEST_FUNC("st2h {z7.h, z8.h}, p6, [%[base], %[index], lsl #1]"),
+            { /*zt=*/ { 7, 8 }, /*pg=*/6 },
+            std::array<uint16_t, 16> { 0x0100, 0x1716, 0x0302, 0x1918, 0x0504, 0x2120,
+                                       0x0706, 0x2322, 0x0908, 0x2524, 0x1110, 0x2726,
+                                       0x1312, 0x2928, 0x1514, 0x3130 },
+            /*index=*/7,
+        },
+        {
+            "st2w scalar+scalar",
+            TEST_FUNC("st2w {z31.s, z0.s}, p5, [%[base], %[index], lsl #2]"),
+            { /*zt=*/ { 31, 0 }, /*pg=*/5 },
+            std::array<uint32_t, 8> { 0x03020100, 0x19181716, 0x07060504, 0x23222120,
+                                      0x11100908, 0x27262524, 0x15141312, 0x31302928 },
+            /*index=*/7,
+        },
+        {
+            "st2d scalar+scalar",
+            TEST_FUNC("st2d {z17.d, z18.d}, p4, [%[base], %[index], lsl #3]"),
+            { /*zt=*/ { 17, 18 }, /*pg=*/4 },
+            std::array<uint64_t, 4> { 0x0706050403020100, 0x2322212019181716,
+                                      0x1514131211100908, 0x3130292827262524 },
+            /*index=*/7,
+        },
+    });
+#    undef TEST_FUNC
+}
+
+test_result_t
+test_st3_scalar_plus_scalar()
+{
+#    define TEST_FUNC(ld_instruction)                                       \
+        [](scalar_plus_scalar_store_test_case_t<3>::test_ptrs_t &ptrs) {    \
+            asm(/* clang-format off */                                      \
+            RESTORE_Z_REGISTERS(z_restore_base)                             \
+            RESTORE_P_REGISTERS(p_restore_base)                             \
+            ld_instruction "\n"                                             \
+            SAVE_Z_REGISTERS(z_save_base)                                   \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
+                :                                                           \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
+                  [z_restore_base] "r"(ptrs.z_restore_base),                \
+                  [z_save_base] "r"(ptrs.z_save_base),                      \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                \
+                  [p_save_base] "r"(ptrs.p_save_base)                       \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+        }
+
+    return run_tests<scalar_plus_scalar_store_test_case_t<3>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2, zt3}, pg, zm},
+         *     Expected output data,
+         *     Index (value for Xm),
+         * },
+         */
+        {
+            "st3b scalar+scalar",
+            TEST_FUNC("st3b {z4.b, z5.b, z6.b}, p3, [%[base], %[index]]"),
+            { /*zt=*/ { 4, 5, 6 }, /*pg=*/3 },
+            std::array<uint8_t, 48> {
+                0x00, 0x16, 0x32, 0x01, 0x17, 0x33, 0x02, 0x18, 0x34, 0x03, 0x19, 0x35,
+                0x04, 0x20, 0x36, 0x05, 0x21, 0x37, 0x06, 0x22, 0x38, 0x07, 0x23, 0x39,
+                0x08, 0x24, 0x40, 0x09, 0x25, 0x41, 0x10, 0x26, 0x42, 0x11, 0x27, 0x43,
+                0x12, 0x28, 0x44, 0x13, 0x29, 0x45, 0x14, 0x30, 0x46, 0x15, 0x31, 0x47 },
+            /*index=*/0,
+        },
+        {
+            "st3h scalar+scalar",
+            TEST_FUNC("st3h {z7.h, z8.h, z9.h}, p2, [%[base], %[index], lsl #1]"),
+            { /*zt=*/ { 7, 8, 9 }, /*pg=*/2 },
+            std::array<uint16_t, 24> { 0x0100, 0x1716, 0x3332, 0x0302, 0x1918, 0x3534,
+                                       0x0504, 0x2120, 0x3736, 0x0706, 0x2322, 0x3938,
+                                       0x0908, 0x2524, 0x4140, 0x1110, 0x2726, 0x4342,
+                                       0x1312, 0x2928, 0x4544, 0x1514, 0x3130, 0x4746 },
+            /*index=*/17,
+        },
+        {
+            "st3w scalar+scalar",
+            TEST_FUNC("st3w {z31.s, z0.s, z1.s}, p1, [%[base], %[index], lsl #2]"),
+            { /*zt=*/ { 31, 0, 1 }, /*pg=*/1 },
+            std::array<uint32_t, 12> { 0x03020100, 0x19181716, 0x35343332, 0x07060504,
+                                       0x23222120, 0x39383736, 0x11100908, 0x27262524,
+                                       0x43424140, 0x15141312, 0x31302928, 0x47464544 },
+            /*index=*/-17,
+        },
+        {
+            "st3d scalar+scalar",
+            TEST_FUNC("st3d {z17.d, z18.d, z19.d}, p0, [%[base], %[index], lsl #3]"),
+            { /*zt=*/ { 17, 18, 19 }, /*pg=*/0 },
+            std::array<uint64_t, 6> { 0x0706050403020100, 0x2322212019181716,
+                                      0x3938373635343332, 0x1514131211100908,
+                                      0x3130292827262524, 0x4746454443424140 },
+            /*index=*/16,
+        },
+    });
+#    undef TEST_FUNC
+}
+
+test_result_t
+test_st4_scalar_plus_scalar()
+{
+#    define TEST_FUNC(ld_instruction)                                       \
+        [](scalar_plus_scalar_store_test_case_t<4>::test_ptrs_t &ptrs) {    \
+            asm(/* clang-format off */                                      \
+            RESTORE_Z_REGISTERS(z_restore_base)                             \
+            RESTORE_P_REGISTERS(p_restore_base)                             \
+            ld_instruction "\n"                                             \
+            SAVE_Z_REGISTERS(z_save_base)                                   \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */ \
+                :                                                           \
+                : [base] "r"(ptrs.base), [index] "r"(ptrs.index),           \
+                  [z_restore_base] "r"(ptrs.z_restore_base),                \
+                  [z_save_base] "r"(ptrs.z_save_base),                      \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                \
+                  [p_save_base] "r"(ptrs.p_save_base)                       \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                        \
+        }
+
+    return run_tests<scalar_plus_scalar_store_test_case_t<4>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2, zt3, zt4}, pg, zm},
+         *     Expected output data,
+         *     Index (value for Xm),
+         * },
+         */
+        {
+            "st4b scalar+scalar",
+            TEST_FUNC("st4b {z4.b, z5.b, z6.b, z7.b}, p0, [%[base], %[index]]"),
+            { /*zt=*/ { 4, 5, 6, 7 }, /*pg=*/0 },
+            std::array<uint8_t, 64> {
+                0x00, 0x16, 0x32, 0x48, 0x01, 0x17, 0x33, 0x49, 0x02, 0x18, 0x34,
+                0x50, 0x03, 0x19, 0x35, 0x51, 0x04, 0x20, 0x36, 0x52, 0x05, 0x21,
+                0x37, 0x53, 0x06, 0x22, 0x38, 0x54, 0x07, 0x23, 0x39, 0x55, 0x08,
+                0x24, 0x40, 0x56, 0x09, 0x25, 0x41, 0x57, 0x10, 0x26, 0x42, 0x58,
+                0x11, 0x27, 0x43, 0x59, 0x12, 0x28, 0x44, 0x60, 0x13, 0x29, 0x45,
+                0x61, 0x14, 0x30, 0x46, 0x62, 0x15, 0x31, 0x47, 0x63 },
+            /*index=*/0,
+        },
+        {
+            "st4h scalar+scalar",
+            TEST_FUNC("st4h {z7.h, z8.h, z9.h, z10.h}, p2, [%[base], %[index], lsl #1]"),
+            { /*zt=*/ { 7, 8, 9, 10 }, /*pg=*/2 },
+            std::array<uint16_t, 32> {
+                0x0100, 0x1716, 0x3332, 0x4948, 0x0302, 0x1918, 0x3534, 0x5150,
+                0x0504, 0x2120, 0x3736, 0x5352, 0x0706, 0x2322, 0x3938, 0x5554,
+                0x0908, 0x2524, 0x4140, 0x5756, 0x1110, 0x2726, 0x4342, 0x5958,
+                0x1312, 0x2928, 0x4544, 0x6160, 0x1514, 0x3130, 0x4746, 0x6362 },
+            /*index=*/20,
+        },
+        {
+            "st4w scalar+scalar",
+            TEST_FUNC("st4w {z30.s, z31.s, z0.s, z1.s}, p4, [%[base], %[index], lsl #2]"),
+            { /*zt=*/ { 30, 31, 0, 1 }, /*pg=*/4 },
+            std::array<uint32_t, 16> { 0x03020100, 0x19181716, 0x35343332, 0x51504948,
+                                       0x07060504, 0x23222120, 0x39383736, 0x55545352,
+                                       0x11100908, 0x27262524, 0x43424140, 0x59585756,
+                                       0x15141312, 0x31302928, 0x47464544, 0x63626160 },
+            /*index=*/-20,
+        },
+        {
+            "st4d scalar+scalar",
+            TEST_FUNC(
+                "st4d {z17.d, z18.d, z19.d, z20.d}, p6, [%[base], %[index], lsl #3]"),
+            { /*zt=*/ { 17, 18, 19, 20 }, /*pg=*/6 },
+            std::array<uint64_t, 8> { 0x0706050403020100, 0x2322212019181716,
+                                      0x3938373635343332, 0x5554535251504948,
+                                      0x1514131211100908, 0x3130292827262524,
+                                      0x4746454443424140, 0x6362616059585756 },
+            /*index=*/9,
+        },
+    });
+#    undef TEST_FUNC
+}
+
+template <size_t NUM_ZT>
 struct scalar_plus_immediate_load_test_case_t
     : public test_case_base_t<test_ptrs_with_base_ptr_t> {
-    std::vector<uint8_t> reference_data_;
+    std::array<std::vector<uint8_t>, NUM_ZT> reference_data_;
 
     struct registers_used_t {
-        unsigned dest_z;
+        std::array<unsigned, NUM_ZT> dest_z;
         unsigned governing_p;
     } registers_used_;
 
@@ -3076,9 +3725,13 @@ struct scalar_plus_immediate_load_test_case_t
     template <typename ELEMENT_T>
     scalar_plus_immediate_load_test_case_t(
         std::string name, test_func_t func, registers_used_t registers_used,
-        std::array<ELEMENT_T, 16 / sizeof(ELEMENT_T)> reference_data_128,
-        std::array<ELEMENT_T, 32 / sizeof(ELEMENT_T)> reference_data_256,
-        std::array<ELEMENT_T, 64 / sizeof(ELEMENT_T)> reference_data_512, void *base)
+        std::array<std::array<ELEMENT_T, 16 / sizeof(ELEMENT_T)>, NUM_ZT>
+            reference_data_128,
+        std::array<std::array<ELEMENT_T, 32 / sizeof(ELEMENT_T)>, NUM_ZT>
+            reference_data_256,
+        std::array<std::array<ELEMENT_T, 64 / sizeof(ELEMENT_T)>, NUM_ZT>
+            reference_data_512,
+        void *base)
         : test_case_base_t<test_ptrs_t>(std::move(name), std::move(func),
                                         registers_used.governing_p,
                                         static_cast<element_size_t>(sizeof(ELEMENT_T)))
@@ -3086,22 +3739,27 @@ struct scalar_plus_immediate_load_test_case_t
         , base_(base)
     {
         const auto vl_bytes = get_vl_bytes();
-        reference_data_.resize(vl_bytes);
 
-        switch (vl_bytes) {
-        case 16:
-            assert(reference_data_128.size() * sizeof(ELEMENT_T) == vl_bytes);
-            memcpy(reference_data_.data(), reference_data_128.data(), vl_bytes);
-            break;
-        case 32:
-            assert(reference_data_256.size() * sizeof(ELEMENT_T) == vl_bytes);
-            memcpy(reference_data_.data(), reference_data_256.data(), vl_bytes);
-            break;
-        case 64:
-            assert(reference_data_512.size() * sizeof(ELEMENT_T) == vl_bytes);
-            memcpy(reference_data_.data(), reference_data_512.data(), vl_bytes);
-            break;
-        default: print("Unsupported vector length: %lu\n", vl_bytes); exit(1);
+        for (size_t zt = 0; zt < NUM_ZT; zt++) {
+            reference_data_.at(zt).resize(vl_bytes);
+            switch (vl_bytes) {
+            case 16:
+                assert(reference_data_128.at(zt).size() * sizeof(ELEMENT_T) == vl_bytes);
+                memcpy(reference_data_.at(zt).data(), reference_data_128.at(zt).data(),
+                       vl_bytes);
+                break;
+            case 32:
+                assert(reference_data_256.at(zt).size() * sizeof(ELEMENT_T) == vl_bytes);
+                memcpy(reference_data_.at(zt).data(), reference_data_256.at(zt).data(),
+                       vl_bytes);
+                break;
+            case 64:
+                assert(reference_data_512.at(zt).size() * sizeof(ELEMENT_T) == vl_bytes);
+                memcpy(reference_data_.at(zt).data(), reference_data_512.at(zt).data(),
+                       vl_bytes);
+                break;
+            default: print("Unsupported vector length: %lu\n", vl_bytes); exit(1);
+            }
         }
     }
 
@@ -3116,33 +3774,37 @@ struct scalar_plus_immediate_load_test_case_t
     check_output(predicate_reg_value128_t pred,
                  const test_register_data_t &register_data) override
     {
-        std::vector<uint8_t> expected_output_data(reference_data_);
-        apply_predicate_mask(expected_output_data, pred, element_size_);
-        const scalable_reg_value_t expected_output {
-            expected_output_data.data(),
-            expected_output_data.size(),
-        };
+        for (size_t zt = 0; zt < NUM_ZT; zt++) {
+            std::vector<uint8_t> expected_output_data(reference_data_.at(zt));
+            apply_predicate_mask(expected_output_data, pred, element_size_);
+            const scalable_reg_value_t expected_output {
+                expected_output_data.data(),
+                expected_output_data.size(),
+            };
 
-        const auto output_value =
-            register_data.after.get_z_register_value(registers_used_.dest_z);
+            const auto output_value =
+                register_data.after.get_z_register_value(registers_used_.dest_z.at(zt));
 
-        if (output_value != expected_output) {
-            test_failed();
-            print("predicate: ");
-            print_predicate(
-                register_data.before.get_p_register_value(registers_used_.governing_p));
-            print("\nexpected:  ");
-            print_vector(expected_output);
-            print("\nactual:    ");
-            print_vector(output_value);
-            print("\n");
+            if (output_value != expected_output) {
+                test_failed();
+                if (NUM_ZT > 1)
+                    print("Zt%u:\n", (unsigned)zt);
+                print("predicate: ");
+                print_predicate(register_data.before.get_p_register_value(
+                    registers_used_.governing_p));
+                print("\nexpected:  ");
+                print_vector(expected_output);
+                print("\nactual:    ");
+                print_vector(output_value);
+                print("\n");
+            }
         }
 
         // Check that the values of the other Z registers have been preserved.
         for (size_t i = 0; i < NUM_Z_REGS; i++) {
-            if (i == registers_used_.dest_z)
-                continue;
-            check_z_reg(i, register_data);
+            if (std::find(registers_used_.dest_z.begin(), registers_used_.dest_z.end(),
+                          i) == registers_used_.dest_z.end())
+                check_z_reg(i, register_data);
         }
         // Check that the values of the P registers have been preserved.
         for (size_t i = 0; i < NUM_P_REGS; i++) {
@@ -3167,7 +3829,7 @@ test_result_t
 test_ld1_scalar_plus_immediate()
 {
 #    define TEST_FUNC(ld_instruction)                                               \
-        [](scalar_plus_immediate_load_test_case_t::test_ptrs_t &ptrs) {             \
+        [](scalar_plus_immediate_load_test_case_t<1>::test_ptrs_t &ptrs) {          \
             asm(/* clang-format off */                                              \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
@@ -3182,11 +3844,11 @@ test_ld1_scalar_plus_immediate()
                 : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
         }
 
-    return run_tests<scalar_plus_immediate_load_test_case_t>({
+    return run_tests<scalar_plus_immediate_load_test_case_t<1>>({
         /* {
          *     Test name,
          *     Function that executes the test instruction,
-         *     Registers used {zt, pg},
+         *     Registers used {{zt}, pg},
          *     Expected output data (128-bit vl),
          *     Expected output data (256-bit vl),
          *     Expected output data (512-bit vl),
@@ -3197,107 +3859,117 @@ test_ld1_scalar_plus_immediate()
         {
             "ld1b scalar+immediate 8bit element",
             TEST_FUNC("ld1b z0.b, p7/z, [%[base], #0, mul vl]"),
-            { /*zt=*/0, /*pg=*/7 },
-            std::array<uint8_t, 16> { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                                      0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15 },
-            std::array<uint8_t, 32> { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                                      0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
-                                      0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23,
-                                      0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 },
-            std::array<uint8_t, 64> {
-                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
-                0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
-                0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x00,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
-                0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
-                0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 },
+            { /*zt=*/ { 0 }, /*pg=*/7 },
+            std::array<std::array<uint8_t, 16>, 1> { { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
+                                                       0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                                                       0x12, 0x13, 0x14, 0x15 } },
+            std::array<std::array<uint8_t, 32>, 1> {
+                { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
+                  0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                  0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
+            std::array<std::array<uint8_t, 64>, 1> {
+                { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
+                  0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                  0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x00,
+                  0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                  0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
+                  0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         {
             "ld1b scalar+immediate 16bit element",
             TEST_FUNC("ld1b z3.h, p4/z, [%[base], #1, mul vl]"),
             { /*zt=*/3, /*pg=*/4 },
-            std::array<uint16_t, 8> { 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013,
-                                      0x0014, 0x0015 },
-            std::array<uint16_t, 16> { 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021,
-                                       0x0022, 0x0023, 0x00f8, 0x00f7, 0x00f6, 0x00f5,
-                                       0x00f4, 0x00f3, 0x00f2, 0x00f1 },
-            std::array<uint16_t, 32> {
-                0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
-                0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
-                0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
-                0x00f8, 0x00f7, 0x00f6, 0x00f5, 0x00f4, 0x00f3, 0x00f2, 0x00f1 },
+            std::array<std::array<uint16_t, 8>, 1> {
+                { 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015 } },
+            std::array<std::array<uint16_t, 16>, 1> {
+                { 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023, 0x00f8,
+                  0x00f7, 0x00f6, 0x00f5, 0x00f4, 0x00f3, 0x00f2, 0x00f1 } },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
+                  0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
+                  0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
+                  0x00f8, 0x00f7, 0x00f6, 0x00f5, 0x00f4, 0x00f3, 0x00f2, 0x00f1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         {
             "ld1b scalar+immediate 32bit element",
             TEST_FUNC("ld1b z6.s, p1/z, [%[base], #2, mul vl]"),
             { /*zt=*/6, /*pg=*/1 },
-            std::array<uint32_t, 4> { 0x00000008, 0x00000009, 0x00000010, 0x00000011 },
-            std::array<uint32_t, 8> { 0x00000016, 0x00000017, 0x00000018, 0x00000019,
-                                      0x00000020, 0x00000021, 0x00000022, 0x00000023 },
-            std::array<uint32_t, 16> { 0x00000000, 0x00000001, 0x00000002, 0x00000003,
-                                       0x00000004, 0x00000005, 0x00000006, 0x00000007,
-                                       0x00000008, 0x00000009, 0x00000010, 0x00000011,
-                                       0x00000012, 0x00000013, 0x00000014, 0x00000015 },
+            std::array<std::array<uint32_t, 4>, 1> {
+                { 0x00000008, 0x00000009, 0x00000010, 0x00000011 } },
+            std::array<std::array<uint32_t, 8>, 1> { { 0x00000016, 0x00000017, 0x00000018,
+                                                       0x00000019, 0x00000020, 0x00000021,
+                                                       0x00000022, 0x00000023 } },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005,
+                  0x00000006, 0x00000007, 0x00000008, 0x00000009, 0x00000010, 0x00000011,
+                  0x00000012, 0x00000013, 0x00000014, 0x00000015 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         {
             "ld1b scalar+immediate 64bit element",
             TEST_FUNC("ld1b z9.d, p2/z, [%[base], #3, mul vl]"),
             { /*zt=*/9, /*pg=*/2 },
-            std::array<uint64_t, 2> { 0x0000000000000006, 0x0000000000000007 },
-            std::array<uint64_t, 4> { 0x0000000000000012, 0x0000000000000013,
-                                      0x0000000000000014, 0x0000000000000015 },
-            std::array<uint64_t, 8> { 0x00000000000000f8, 0x00000000000000f7,
-                                      0x00000000000000f6, 0x00000000000000f5,
-                                      0x00000000000000f4, 0x00000000000000f3,
-                                      0x00000000000000f2, 0x00000000000000f1 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000006, 0x0000000000000007 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000012, 0x0000000000000013, 0x0000000000000014,
+                  0x0000000000000015 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x00000000000000f8, 0x00000000000000f7, 0x00000000000000f6,
+                  0x00000000000000f5, 0x00000000000000f4, 0x00000000000000f3,
+                  0x00000000000000f2, 0x00000000000000f1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         {
             "ld1b scalar+immediate 64bit element (min index)",
             TEST_FUNC("ld1b z10.d, p3/z, [%[base], #-8, mul vl]"),
             { /*zt=*/10, /*pg=*/3 },
-            std::array<uint64_t, 2> { 0x0000000000000016, 0x0000000000000017 },
-            std::array<uint64_t, 4> { 0x0000000000000000, 0x0000000000000001,
-                                      0x0000000000000002, 0x0000000000000003 },
-            std::array<uint64_t, 8> { 0x0000000000000000, 0x0000000000000001,
-                                      0x0000000000000002, 0x0000000000000003,
-                                      0x0000000000000004, 0x0000000000000005,
-                                      0x0000000000000006, 0x0000000000000007 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000016, 0x0000000000000017 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                  0x0000000000000006, 0x0000000000000007 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         {
             "ld1b scalar+immediate 64bit element (max index)",
             TEST_FUNC("ld1b z11.d, p4/z, [%[base], #7, mul vl]"),
             { /*zt=*/11, /*pg=*/4 },
-            std::array<uint64_t, 2> { 0x0000000000000014, 0x0000000000000015 },
-            std::array<uint64_t, 4> { 0x00000000000000f4, 0x00000000000000f3,
-                                      0x00000000000000f2, 0x00000000000000f1 },
-            std::array<uint64_t, 8> { 0x00000000000000f8, 0x00000000000000f7,
-                                      0x00000000000000f6, 0x00000000000000f5,
-                                      0x00000000000000f4, 0x00000000000000f3,
-                                      0x00000000000000f2, 0x00000000000000f1 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000014, 0x0000000000000015 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x00000000000000f4, 0x00000000000000f3, 0x00000000000000f2,
+                  0x00000000000000f1 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x00000000000000f8, 0x00000000000000f7, 0x00000000000000f6,
+                  0x00000000000000f5, 0x00000000000000f4, 0x00000000000000f3,
+                  0x00000000000000f2, 0x00000000000000f1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         {
             "ldnt1b scalar+immediate 8bit element",
             TEST_FUNC("ldnt1b z12.b, p5/z, [%[base], #4, mul vl]"),
             { /*zt=*/12, /*pg=*/5 },
-            std::array<uint8_t, 16> { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                                      0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15 },
-            std::array<uint8_t, 32> { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                                      0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
-                                      0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23,
-                                      0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 },
-            std::array<uint8_t, 64> {
-                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
-                0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
-                0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x00,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
-                0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
-                0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 },
+            std::array<std::array<uint8_t, 16>, 1> { { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
+                                                       0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                                                       0x12, 0x13, 0x14, 0x15 } },
+            std::array<std::array<uint8_t, 32>, 1> {
+                { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
+                  0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                  0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
+            std::array<std::array<uint8_t, 64>, 1> {
+                { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10,
+                  0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                  0x22, 0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1, 0x00,
+                  0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+                  0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22,
+                  0x23, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4, 0xf3, 0xf2, 0xf1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         // LD1SB instructions
@@ -3305,64 +3977,71 @@ test_ld1_scalar_plus_immediate()
             "ld1sb scalar+immediate 16bit element",
             TEST_FUNC("ld1sb z15.h, p6/z, [%[base], #5, mul vl]"),
             { /*zt=*/15, /*pg=*/6 },
-            std::array<int16_t, 8> { 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013,
-                                     0x0014, 0x0015 },
-            std::array<int16_t, 16> { 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021,
-                                      0x0022, 0x0023, -8, -9, -10, -11, -12, -13, -14,
-                                      -15 },
-            std::array<int16_t, 32> {
-                0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
-                0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
-                0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
-                -8,     -9,     -10,    -11,    -12,    -13,    -14,    -15 },
+            std::array<std::array<int16_t, 8>, 1> {
+                { 0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015 } },
+            std::array<std::array<int16_t, 16>, 1> {
+                { 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023, -8, -9,
+                  -10, -11, -12, -13, -14, -15 } },
+            std::array<std::array<int16_t, 32>, 1> {
+                { 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
+                  0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
+                  0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
+                  -8,     -9,     -10,    -11,    -12,    -13,    -14,    -15 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         {
             "ld1sb scalar+immediate 32bit element",
             TEST_FUNC("ld1sb z18.s, p3/z, [%[base], #6, mul vl]"),
             { /*zt=*/18, /*pg=*/3 },
-            std::array<int32_t, 4> { -8, -9, -10, -11 },
-            std::array<int32_t, 8> { 0x00000016, 0x00000017, 0x00000018, 0x00000019,
-                                     0x00000020, 0x00000021, 0x00000022, 0x00000023 },
-            std::array<int32_t, 16> { 0x00000000, 0x00000001, 0x00000002, 0x00000003,
-                                      0x00000004, 0x00000005, 0x00000006, 0x00000007,
-                                      0x00000008, 0x00000009, 0x00000010, 0x00000011,
-                                      0x00000012, 0x00000013, 0x00000014, 0x00000015 },
+            std::array<std::array<int32_t, 4>, 1> { { -8, -9, -10, -11 } },
+            std::array<std::array<int32_t, 8>, 1> { { 0x00000016, 0x00000017, 0x00000018,
+                                                      0x00000019, 0x00000020, 0x00000021,
+                                                      0x00000022, 0x00000023 } },
+            std::array<std::array<int32_t, 16>, 1> {
+                { 0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005,
+                  0x00000006, 0x00000007, 0x00000008, 0x00000009, 0x00000010, 0x00000011,
+                  0x00000012, 0x00000013, 0x00000014, 0x00000015 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         {
             "ld1sb scalar+immediate 64bit element",
             TEST_FUNC("ld1sb z21.d, p0/z, [%[base], #-6, mul vl]"),
             { /*zt=*/21, /*pg=*/0 },
-            std::array<int64_t, 2> { 0x0000000000000020, 0x0000000000000021 },
-            std::array<int64_t, 4> { 0x0000000000000008, 0x0000000000000009,
-                                     0x0000000000000010, 0x0000000000000011 },
-            std::array<int64_t, 8> { 0x0000000000000016, 0x0000000000000017,
-                                     0x0000000000000018, 0x0000000000000019,
-                                     0x0000000000000020, 0x0000000000000021,
-                                     0x0000000000000022, 0x0000000000000023 },
+            std::array<std::array<int64_t, 2>, 1> {
+                { 0x0000000000000020, 0x0000000000000021 } },
+            std::array<std::array<int64_t, 4>, 1> {
+                { 0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
+                  0x0000000000000011 } },
+            std::array<std::array<int64_t, 8>, 1> {
+                { 0x0000000000000016, 0x0000000000000017, 0x0000000000000018,
+                  0x0000000000000019, 0x0000000000000020, 0x0000000000000021,
+                  0x0000000000000022, 0x0000000000000023 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         {
             "ld1sb scalar+immediate 64bit element (min index)",
             TEST_FUNC("ld1sb z22.d, p1/z, [%[base], #-8, mul vl]"),
             { /*zt=*/22, /*pg=*/1 },
-            std::array<int64_t, 2> { 0x0000000000000016, 0x0000000000000017 },
-            std::array<int64_t, 4> { 0x0000000000000000, 0x0000000000000001,
-                                     0x0000000000000002, 0x0000000000000003 },
-            std::array<int64_t, 8> { 0x0000000000000000, 0x0000000000000001,
-                                     0x0000000000000002, 0x0000000000000003,
-                                     0x0000000000000004, 0x0000000000000005,
-                                     0x0000000000000006, 0x0000000000000007 },
+            std::array<std::array<int64_t, 2>, 1> {
+                { 0x0000000000000016, 0x0000000000000017 } },
+            std::array<std::array<int64_t, 4>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003 } },
+            std::array<std::array<int64_t, 8>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                  0x0000000000000006, 0x0000000000000007 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         {
             "ld1sb scalar+immediate 64bit element (max index)",
             TEST_FUNC("ld1sb z23.d, p2/z, [%[base], #7, mul vl]"),
             { /*zt=*/23, /*pg=*/2 },
-            std::array<int64_t, 2> { 0x0000000000000014, 0x0000000000000015 },
-            std::array<int64_t, 4> { -12, -13, -14, -15 },
-            std::array<int64_t, 8> { -8, -9, -10, -11, -12, -13, -14, -15 },
+            std::array<std::array<int64_t, 2>, 1> {
+                { 0x0000000000000014, 0x0000000000000015 } },
+            std::array<std::array<int64_t, 4>, 1> { { -12, -13, -14, -15 } },
+            std::array<std::array<int64_t, 8>, 1> {
+                { -8, -9, -10, -11, -12, -13, -14, -15 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
         },
         // LD1H instructions
@@ -3370,84 +4049,92 @@ test_ld1_scalar_plus_immediate()
             "ld1h scalar+immediate 16bit element",
             TEST_FUNC("ld1h z24.h, p3/z, [%[base], #-5, mul vl]"),
             { /*zt=*/24, /*pg=*/3 },
-            std::array<uint16_t, 8> { 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3,
-                                      0xfff2, 0xfff1 },
-            std::array<uint16_t, 16> { 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021,
-                                       0x0022, 0x0023, 0xfff8, 0xfff7, 0xfff6, 0xfff5,
-                                       0xfff4, 0xfff3, 0xfff2, 0xfff1 },
-            std::array<uint16_t, 32> {
-                0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
-                0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
-                0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
-                0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 },
+            std::array<std::array<uint16_t, 8>, 1> {
+                { 0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
+            std::array<std::array<uint16_t, 16>, 1> {
+                { 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023, 0xfff8,
+                  0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
+                  0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
+                  0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
+                  0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
         },
         {
             "ld1h scalar+immediate 32bit element",
             TEST_FUNC("ld1h z27.s, p6/z, [%[base], #-4, mul vl]"),
             { /*zt=*/27, /*pg=*/6 },
-            std::array<uint32_t, 4> { 0x00000016, 0x00000017, 0x00000018, 0x00000019 },
-            std::array<uint32_t, 8> { 0x00000000, 0x00000001, 0x00000002, 0x00000003,
-                                      0x00000004, 0x00000005, 0x00000006, 0x00000007 },
-            std::array<uint32_t, 16> { 0x00000000, 0x00000001, 0x00000002, 0x00000003,
-                                       0x00000004, 0x00000005, 0x00000006, 0x00000007,
-                                       0x00000008, 0x00000009, 0x00000010, 0x00000011,
-                                       0x00000012, 0x00000013, 0x00000014, 0x00000015 },
+            std::array<std::array<uint32_t, 4>, 1> {
+                { 0x00000016, 0x00000017, 0x00000018, 0x00000019 } },
+            std::array<std::array<uint32_t, 8>, 1> { { 0x00000000, 0x00000001, 0x00000002,
+                                                       0x00000003, 0x00000004, 0x00000005,
+                                                       0x00000006, 0x00000007 } },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x00000000, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005,
+                  0x00000006, 0x00000007, 0x00000008, 0x00000009, 0x00000010, 0x00000011,
+                  0x00000012, 0x00000013, 0x00000014, 0x00000015 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
         },
         {
             "ld1h scalar+immediate 64bit element",
             TEST_FUNC("ld1h z30.d, p5/z, [%[base], #-3, mul vl]"),
             { /*zt=*/30, /*pg=*/5 },
-            std::array<uint64_t, 2> { 0x000000000000fff6, 0x000000000000fff5 },
-            std::array<uint64_t, 4> { 0x0000000000000020, 0x0000000000000021,
-                                      0x0000000000000022, 0x0000000000000023 },
-            std::array<uint64_t, 8> { 0x0000000000000008, 0x0000000000000009,
-                                      0x0000000000000010, 0x0000000000000011,
-                                      0x0000000000000012, 0x0000000000000013,
-                                      0x0000000000000014, 0x0000000000000015 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x000000000000fff6, 0x000000000000fff5 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000020, 0x0000000000000021, 0x0000000000000022,
+                  0x0000000000000023 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
+                  0x0000000000000011, 0x0000000000000012, 0x0000000000000013,
+                  0x0000000000000014, 0x0000000000000015 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
         },
         {
             "ld1h scalar+immediate 64bit element (min index)",
             TEST_FUNC("ld1h z31.d, p4/z, [%[base], #-8, mul vl]"),
             { /*zt=*/31, /*pg=*/4 },
-            std::array<uint64_t, 2> { 0x0000000000000016, 0x0000000000000017 },
-            std::array<uint64_t, 4> { 0x0000000000000000, 0x0000000000000001,
-                                      0x0000000000000002, 0x0000000000000003 },
-            std::array<uint64_t, 8> { 0x0000000000000000, 0x0000000000000001,
-                                      0x0000000000000002, 0x0000000000000003,
-                                      0x0000000000000004, 0x0000000000000005,
-                                      0x0000000000000006, 0x0000000000000007 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000016, 0x0000000000000017 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                  0x0000000000000006, 0x0000000000000007 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
         },
         {
             "ld1h scalar+immediate 64bit element (max index)",
             TEST_FUNC("ld1h z0.d, p3/z, [%[base], #7, mul vl]"),
             { /*zt=*/0, /*pg=*/3 },
-            std::array<uint64_t, 2> { 0x0000000000000014, 0x0000000000000015 },
-            std::array<uint64_t, 4> { 0x000000000000fff4, 0x000000000000fff3,
-                                      0x000000000000fff2, 0x000000000000fff1 },
-            std::array<uint64_t, 8> { 0x000000000000fff8, 0x000000000000fff7,
-                                      0x000000000000fff6, 0x000000000000fff5,
-                                      0x000000000000fff4, 0x000000000000fff3,
-                                      0x000000000000fff2, 0x000000000000fff1 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000014, 0x0000000000000015 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x000000000000fff4, 0x000000000000fff3, 0x000000000000fff2,
+                  0x000000000000fff1 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x000000000000fff8, 0x000000000000fff7, 0x000000000000fff6,
+                  0x000000000000fff5, 0x000000000000fff4, 0x000000000000fff3,
+                  0x000000000000fff2, 0x000000000000fff1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
         },
         {
             "ldnt1h scalar+immediate 16bit element",
             TEST_FUNC("ldnt1h z1.h, p2/z, [%[base], #-2, mul vl]"),
             { /*zt=*/1, /*pg=*/2 },
-            std::array<uint16_t, 8> { 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021,
-                                      0x0022, 0x0023 },
-            std::array<uint16_t, 16> { 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005,
-                                       0x0006, 0x0007, 0x0008, 0x0009, 0x0010, 0x0011,
-                                       0x0012, 0x0013, 0x0014, 0x0015 },
-            std::array<uint16_t, 32> {
-                0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
-                0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
-                0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
-                0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 },
+            std::array<std::array<uint16_t, 8>, 1> {
+                { 0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023 } },
+            std::array<std::array<uint16_t, 16>, 1> {
+                { 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008,
+                  0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015 } },
+            std::array<std::array<uint16_t, 32>, 1> {
+                { 0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
+                  0x0008, 0x0009, 0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015,
+                  0x0016, 0x0017, 0x0018, 0x0019, 0x0020, 0x0021, 0x0022, 0x0023,
+                  0xfff8, 0xfff7, 0xfff6, 0xfff5, 0xfff4, 0xfff3, 0xfff2, 0xfff1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
         },
         // LD1SH instructions
@@ -3455,46 +4142,53 @@ test_ld1_scalar_plus_immediate()
             "ld1sh scalar+immediate 32bit element",
             TEST_FUNC("ld1sh z4.s, p1/z, [%[base], #-1, mul vl]"),
             { /*zt=*/4, /*pg=*/1 },
-            std::array<int32_t, 4> { -12, -13, -14, -15 },
-            std::array<int32_t, 8> { -8, -9, -10, -11, -12, -13, -14, -15 },
-            std::array<int32_t, 16> { 0x00000016, 0x00000017, 0x00000018, 0x00000019,
-                                      0x00000020, 0x00000021, 0x00000022, 0x00000023, -8,
-                                      -9, -10, -11, -12, -13, -14, -15 },
+            std::array<std::array<int32_t, 4>, 1> { { -12, -13, -14, -15 } },
+            std::array<std::array<int32_t, 8>, 1> {
+                { -8, -9, -10, -11, -12, -13, -14, -15 } },
+            std::array<std::array<int32_t, 16>, 1> {
+                { 0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020, 0x00000021,
+                  0x00000022, 0x00000023, -8, -9, -10, -11, -12, -13, -14, -15 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
         },
         {
             "ld1sh scalar+immediate 64bit element",
             TEST_FUNC("ld1sh z7.d, p4/z, [%[base], #0, mul vl]"),
             { /*zt=*/7, /*pg=*/4 },
-            std::array<int64_t, 2> { 0x0000000000000000, 0x0000000000000001 },
-            std::array<int64_t, 4> { 0x0000000000000000, 0x0000000000000001,
-                                     0x0000000000000002, 0x0000000000000003 },
-            std::array<int64_t, 8> { 0x0000000000000000, 0x0000000000000001,
-                                     0x0000000000000002, 0x0000000000000003,
-                                     0x0000000000000004, 0x0000000000000005,
-                                     0x0000000000000006, 0x0000000000000007 },
+            std::array<std::array<int64_t, 2>, 1> {
+                { 0x0000000000000000, 0x0000000000000001 } },
+            std::array<std::array<int64_t, 4>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003 } },
+            std::array<std::array<int64_t, 8>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                  0x0000000000000006, 0x0000000000000007 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
         },
         {
             "ld1sh scalar+immediate 64bit element (min index)",
             TEST_FUNC("ld1sh z8.d, p5/z, [%[base], #-8, mul vl]"),
             { /*zt=*/8, /*pg=*/5 },
-            std::array<int64_t, 2> { 0x0000000000000016, 0x0000000000000017 },
-            std::array<int64_t, 4> { 0x0000000000000000, 0x0000000000000001,
-                                     0x0000000000000002, 0x0000000000000003 },
-            std::array<int64_t, 8> { 0x0000000000000000, 0x0000000000000001,
-                                     0x0000000000000002, 0x0000000000000003,
-                                     0x0000000000000004, 0x0000000000000005,
-                                     0x0000000000000006, 0x0000000000000007 },
+            std::array<std::array<int64_t, 2>, 1> {
+                { 0x0000000000000016, 0x0000000000000017 } },
+            std::array<std::array<int64_t, 4>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003 } },
+            std::array<std::array<int64_t, 8>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                  0x0000000000000006, 0x0000000000000007 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
         },
         {
             "ld1sh scalar+immediate 64bit element (max index)",
             TEST_FUNC("ld1sh z9.d, p6/z, [%[base], #7, mul vl]"),
             { /*zt=*/9, /*pg=*/6 },
-            std::array<int64_t, 2> { 0x0000000000000014, 0x0000000000000015 },
-            std::array<int64_t, 4> { -12, -13, -14, -15 },
-            std::array<int64_t, 8> { -8, -9, -10, -11, -12, -13, -14, -15 },
+            std::array<std::array<int64_t, 2>, 1> {
+                { 0x0000000000000014, 0x0000000000000015 } },
+            std::array<std::array<int64_t, 4>, 1> { { -12, -13, -14, -15 } },
+            std::array<std::array<int64_t, 8>, 1> {
+                { -8, -9, -10, -11, -12, -13, -14, -15 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
         },
         // LD1W instructions
@@ -3502,65 +4196,75 @@ test_ld1_scalar_plus_immediate()
             "ld1w scalar+immediate 32bit element",
             TEST_FUNC("ld1w z10.s, p7/z, [%[base], #1, mul vl]"),
             { /*zt=*/10, /*pg=*/7 },
-            std::array<uint32_t, 4> { 0x00000004, 0x00000005, 0x00000006, 0x00000007 },
-            std::array<uint32_t, 8> { 0x00000008, 0x00000009, 0x00000010, 0x00000011,
-                                      0x00000012, 0x00000013, 0x00000014, 0x00000015 },
-            std::array<uint32_t, 16> { 0x00000016, 0x00000017, 0x00000018, 0x00000019,
-                                       0x00000020, 0x00000021, 0x00000022, 0x00000023,
-                                       0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5,
-                                       0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 },
+            std::array<std::array<uint32_t, 4>, 1> {
+                { 0x00000004, 0x00000005, 0x00000006, 0x00000007 } },
+            std::array<std::array<uint32_t, 8>, 1> { { 0x00000008, 0x00000009, 0x00000010,
+                                                       0x00000011, 0x00000012, 0x00000013,
+                                                       0x00000014, 0x00000015 } },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020, 0x00000021,
+                  0x00000022, 0x00000023, 0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5,
+                  0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
         },
         {
             "ld1w scalar+immediate 64bit element",
             TEST_FUNC("ld1w z13.d, p4/z, [%[base], #2, mul vl]"),
             { /*zt=*/13, /*pg=*/4 },
-            std::array<uint64_t, 2> { 0x0000000000000004, 0x0000000000000005 },
-            std::array<uint64_t, 4> { 0x0000000000000008, 0x0000000000000009,
-                                      0x0000000000000010, 0x0000000000000011 },
-            std::array<uint64_t, 8> { 0x0000000000000016, 0x0000000000000017,
-                                      0x0000000000000018, 0x0000000000000019,
-                                      0x0000000000000020, 0x0000000000000021,
-                                      0x0000000000000022, 0x0000000000000023 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000004, 0x0000000000000005 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
+                  0x0000000000000011 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000016, 0x0000000000000017, 0x0000000000000018,
+                  0x0000000000000019, 0x0000000000000020, 0x0000000000000021,
+                  0x0000000000000022, 0x0000000000000023 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
         },
         {
             "ld1w scalar+immediate 64bit element (min index)",
             TEST_FUNC("ld1w z14.d, p3/z, [%[base], #-8, mul vl]"),
             { /*zt=*/14, /*pg=*/3 },
-            std::array<uint64_t, 2> { 0x0000000000000016, 0x0000000000000017 },
-            std::array<uint64_t, 4> { 0x0000000000000000, 0x0000000000000001,
-                                      0x0000000000000002, 0x0000000000000003 },
-            std::array<uint64_t, 8> { 0x0000000000000000, 0x0000000000000001,
-                                      0x0000000000000002, 0x0000000000000003,
-                                      0x0000000000000004, 0x0000000000000005,
-                                      0x0000000000000006, 0x0000000000000007 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000016, 0x0000000000000017 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                  0x0000000000000006, 0x0000000000000007 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
         },
         {
             "ld1w scalar+immediate 64bit element (max index)",
             TEST_FUNC("ld1w z15.d, p2/z, [%[base], #7, mul vl]"),
             { /*zt=*/15, /*pg=*/2 },
-            std::array<uint64_t, 2> { 0x0000000000000014, 0x0000000000000015 },
-            std::array<uint64_t, 4> { 0x00000000fffffff4, 0x00000000fffffff3,
-                                      0x00000000fffffff2, 0x00000000fffffff1 },
-            std::array<uint64_t, 8> { 0x00000000fffffff8, 0x00000000fffffff7,
-                                      0x00000000fffffff6, 0x00000000fffffff5,
-                                      0x00000000fffffff4, 0x00000000fffffff3,
-                                      0x00000000fffffff2, 0x00000000fffffff1 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000014, 0x0000000000000015 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x00000000fffffff4, 0x00000000fffffff3, 0x00000000fffffff2,
+                  0x00000000fffffff1 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x00000000fffffff8, 0x00000000fffffff7, 0x00000000fffffff6,
+                  0x00000000fffffff5, 0x00000000fffffff4, 0x00000000fffffff3,
+                  0x00000000fffffff2, 0x00000000fffffff1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
         },
         {
             "ldnt1w scalar+immediate 32bit element",
             TEST_FUNC("ldnt1w z16.s, p1/z, [%[base], #3, mul vl]"),
             { /*zt=*/16, /*pg=*/1 },
-            std::array<uint32_t, 4> { 0x00000012, 0x00000013, 0x00000014, 0x00000015 },
-            std::array<uint32_t, 8> { 0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5,
-                                      0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 },
-            std::array<uint32_t, 16> { 0x00000016, 0x00000017, 0x00000018, 0x00000019,
-                                       0x00000020, 0x00000021, 0x00000022, 0x00000023,
-                                       0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5,
-                                       0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 },
+            std::array<std::array<uint32_t, 4>, 1> {
+                { 0x00000012, 0x00000013, 0x00000014, 0x00000015 } },
+            std::array<std::array<uint32_t, 8>, 1> { { 0xfffffff8, 0xfffffff7, 0xfffffff6,
+                                                       0xfffffff5, 0xfffffff4, 0xfffffff3,
+                                                       0xfffffff2, 0xfffffff1 } },
+            std::array<std::array<uint32_t, 16>, 1> {
+                { 0x00000016, 0x00000017, 0x00000018, 0x00000019, 0x00000020, 0x00000021,
+                  0x00000022, 0x00000023, 0xfffffff8, 0xfffffff7, 0xfffffff6, 0xfffffff5,
+                  0xfffffff4, 0xfffffff3, 0xfffffff2, 0xfffffff1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
         },
         // LD1SW instructions
@@ -3568,35 +4272,41 @@ test_ld1_scalar_plus_immediate()
             "ld1sw scalar+immediate 64bit element",
             TEST_FUNC("ld1sw z19.d, p2/z, [%[base], #4, mul vl]"),
             { /*zt=*/19, /*pg=*/2 },
-            std::array<int64_t, 2> { 0x0000000000000008, 0x0000000000000009 },
-            std::array<int64_t, 4> { 0x0000000000000016, 0x0000000000000017,
-                                     0x0000000000000018, 0x0000000000000019 },
-            std::array<int64_t, 8> { 0x0000000000000000, 0x0000000000000001,
-                                     0x0000000000000002, 0x0000000000000003,
-                                     0x0000000000000004, 0x0000000000000005,
-                                     0x0000000000000006, 0x0000000000000007 },
+            std::array<std::array<int64_t, 2>, 1> {
+                { 0x0000000000000008, 0x0000000000000009 } },
+            std::array<std::array<int64_t, 4>, 1> {
+                { 0x0000000000000016, 0x0000000000000017, 0x0000000000000018,
+                  0x0000000000000019 } },
+            std::array<std::array<int64_t, 8>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                  0x0000000000000006, 0x0000000000000007 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
         },
         {
             "ld1sw scalar+immediate 64bit element (min index)",
             TEST_FUNC("ld1sw z20.d, p3/z, [%[base], #-8, mul vl]"),
             { /*zt=*/20, /*pg=*/3 },
-            std::array<int64_t, 2> { 0x0000000000000016, 0x0000000000000017 },
-            std::array<int64_t, 4> { 0x0000000000000000, 0x0000000000000001,
-                                     0x0000000000000002, 0x0000000000000003 },
-            std::array<int64_t, 8> { 0x0000000000000000, 0x0000000000000001,
-                                     0x0000000000000002, 0x0000000000000003,
-                                     0x0000000000000004, 0x0000000000000005,
-                                     0x0000000000000006, 0x0000000000000007 },
+            std::array<std::array<int64_t, 2>, 1> {
+                { 0x0000000000000016, 0x0000000000000017 } },
+            std::array<std::array<int64_t, 4>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003 } },
+            std::array<std::array<int64_t, 8>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                  0x0000000000000006, 0x0000000000000007 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
         },
         {
             "ld1sw scalar+immediate 64bit element (max index)",
             TEST_FUNC("ld1sw z21.d, p4/z, [%[base], #7, mul vl]"),
             { /*zt=*/21, /*pg=*/4 },
-            std::array<int64_t, 2> { 0x0000000000000014, 0x0000000000000015 },
-            std::array<int64_t, 4> { -12, -13, -14, -15 },
-            std::array<int64_t, 8> { -8, -9, -10, -11, -12, -13, -14, -15 },
+            std::array<std::array<int64_t, 2>, 1> {
+                { 0x0000000000000014, 0x0000000000000015 } },
+            std::array<std::array<int64_t, 4>, 1> { { -12, -13, -14, -15 } },
+            std::array<std::array<int64_t, 8>, 1> {
+                { -8, -9, -10, -11, -12, -13, -14, -15 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
         },
 
@@ -3605,63 +4315,782 @@ test_ld1_scalar_plus_immediate()
             "ld1d scalar+immediate 64bit element",
             TEST_FUNC("ld1d z22.d, p5/z, [%[base], #5, mul vl]"),
             { /*zt=*/22, /*pg=*/5 },
-            std::array<uint64_t, 2> { 0x0000000000000010, 0x0000000000000011 },
-            std::array<uint64_t, 4> { 0x0000000000000020, 0x0000000000000021,
-                                      0x0000000000000022, 0x0000000000000023 },
-            std::array<uint64_t, 8> { 0x0000000000000008, 0x0000000000000009,
-                                      0x0000000000000010, 0x0000000000000011,
-                                      0x0000000000000012, 0x0000000000000013,
-                                      0x0000000000000014, 0x0000000000000015 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000010, 0x0000000000000011 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000020, 0x0000000000000021, 0x0000000000000022,
+                  0x0000000000000023 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000008, 0x0000000000000009, 0x0000000000000010,
+                  0x0000000000000011, 0x0000000000000012, 0x0000000000000013,
+                  0x0000000000000014, 0x0000000000000015 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
         },
         {
             "ld1d scalar+immediate 64bit element (min index)",
             TEST_FUNC("ld1d z23.d, p6/z, [%[base], #-8, mul vl]"),
             { /*zt=*/23, /*pg=*/6 },
-            std::array<uint64_t, 2> { 0x0000000000000016, 0x0000000000000017 },
-            std::array<uint64_t, 4> { 0x0000000000000000, 0x0000000000000001,
-                                      0x0000000000000002, 0x0000000000000003 },
-            std::array<uint64_t, 8> { 0x0000000000000000, 0x0000000000000001,
-                                      0x0000000000000002, 0x0000000000000003,
-                                      0x0000000000000004, 0x0000000000000005,
-                                      0x0000000000000006, 0x0000000000000007 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000016, 0x0000000000000017 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000000, 0x0000000000000001, 0x0000000000000002,
+                  0x0000000000000003, 0x0000000000000004, 0x0000000000000005,
+                  0x0000000000000006, 0x0000000000000007 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
         },
         {
             "ld1d scalar+immediate 64bit element (max index)",
             TEST_FUNC("ld1d z24.d, p7/z, [%[base], #7, mul vl]"),
             { /*zt=*/24, /*pg=*/7 },
-            std::array<uint64_t, 2> { 0x0000000000000014, 0x0000000000000015 },
-            std::array<uint64_t, 4> { 0xfffffffffffffff4, 0xfffffffffffffff3,
-                                      0xfffffffffffffff2, 0xfffffffffffffff1 },
-            std::array<uint64_t, 8> { 0xfffffffffffffff8, 0xfffffffffffffff7,
-                                      0xfffffffffffffff6, 0xfffffffffffffff5,
-                                      0xfffffffffffffff4, 0xfffffffffffffff3,
-                                      0xfffffffffffffff2, 0xfffffffffffffff1 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000014, 0x0000000000000015 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0xfffffffffffffff4, 0xfffffffffffffff3, 0xfffffffffffffff2,
+                  0xfffffffffffffff1 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0xfffffffffffffff8, 0xfffffffffffffff7, 0xfffffffffffffff6,
+                  0xfffffffffffffff5, 0xfffffffffffffff4, 0xfffffffffffffff3,
+                  0xfffffffffffffff2, 0xfffffffffffffff1 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
         },
         {
             "ldnt1d scalar+immediate 64bit element",
             TEST_FUNC("ldnt1d z25.d, p6/z, [%[base], #6, mul vl]"),
             { /*zt=*/25, /*pg=*/6 },
-            std::array<uint64_t, 2> { 0x0000000000000012, 0x0000000000000013 },
-            std::array<uint64_t, 4> { 0xfffffffffffffff8, 0xfffffffffffffff7,
-                                      0xfffffffffffffff6, 0xfffffffffffffff5 },
-            std::array<uint64_t, 8> { 0x0000000000000016, 0x0000000000000017,
-                                      0x0000000000000018, 0x0000000000000019,
-                                      0x0000000000000020, 0x0000000000000021,
-                                      0x0000000000000022, 0x0000000000000023 },
+            std::array<std::array<uint64_t, 2>, 1> {
+                { 0x0000000000000012, 0x0000000000000013 } },
+            std::array<std::array<uint64_t, 4>, 1> {
+                { 0xfffffffffffffff8, 0xfffffffffffffff7, 0xfffffffffffffff6,
+                  0xfffffffffffffff5 } },
+            std::array<std::array<uint64_t, 8>, 1> {
+                { 0x0000000000000016, 0x0000000000000017, 0x0000000000000018,
+                  0x0000000000000019, 0x0000000000000020, 0x0000000000000021,
+                  0x0000000000000022, 0x0000000000000023 } },
             INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
         },
     });
 #    undef TEST_FUNC
 }
 
+test_result_t
+test_ld2_scalar_plus_immediate()
+{
+#    define TEST_FUNC(ld_instruction)                                               \
+        [](scalar_plus_immediate_load_test_case_t<2>::test_ptrs_t &ptrs) {          \
+            asm(/* clang-format off */                                              \
+            RESTORE_Z_REGISTERS(z_restore_base)                                     \
+            RESTORE_P_REGISTERS(p_restore_base)                                     \
+            ld_instruction "\n"                                                     \
+            SAVE_Z_REGISTERS(z_save_base)                                           \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+                :                                                                   \
+                : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
+                  [z_save_base] "r"(ptrs.z_save_base),                              \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                        \
+                  [p_save_base] "r"(ptrs.p_save_base)                               \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+        }
+
+    return run_tests<scalar_plus_immediate_load_test_case_t<2>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2}, pg},
+         *     Expected output data (128-bit vl),
+         *     Expected output data (256-bit vl),
+         *     Expected output data (512-bit vl),
+         *     Base pointer (value for Xn),
+         * },
+         */
+        // LD2B instructions
+        {
+            "ld2b scalar+immediate",
+            TEST_FUNC("ld2b { z0.b, z1.b }, p7/z, [%[base], #0, mul vl]"),
+            { /*zt=*/ { 0, 1 }, /*pg=*/7 },
+            std::array<std::array<uint8_t, 16>, 2> { {
+                { 0x00, 0x02, 0x04, 0x06, 0x08, 0x10, 0x12, 0x14, 0x16, 0x18, 0x20, 0x22,
+                  0xf8, 0xf6, 0xf4, 0xf2 },
+                { 0x01, 0x03, 0x05, 0x07, 0x09, 0x11, 0x13, 0x15, 0x17, 0x19, 0x21, 0x23,
+                  0xf7, 0xf5, 0xf3, 0xf1 },
+            } },
+            std::array<std::array<uint8_t, 32>, 2> { {
+                { 0x00, 0x02, 0x04, 0x06, 0x08, 0x10, 0x12, 0x14, 0x16, 0x18, 0x20,
+                  0x22, 0xf8, 0xf6, 0xf4, 0xf2, 0x00, 0x02, 0x04, 0x06, 0x08, 0x10,
+                  0x12, 0x14, 0x16, 0x18, 0x20, 0x22, 0xf8, 0xf6, 0xf4, 0xf2 },
+                { 0x01, 0x03, 0x05, 0x07, 0x09, 0x11, 0x13, 0x15, 0x17, 0x19, 0x21,
+                  0x23, 0xf7, 0xf5, 0xf3, 0xf1, 0x01, 0x03, 0x05, 0x07, 0x09, 0x11,
+                  0x13, 0x15, 0x17, 0x19, 0x21, 0x23, 0xf7, 0xf5, 0xf3, 0xf1 },
+            } },
+            std::array<std::array<uint8_t, 64>, 2> { {
+                { 0x00, 0x02, 0x04, 0x06, 0x08, 0x10, 0x12, 0x14, 0x16, 0x18, 0x20,
+                  0x22, 0xf8, 0xf6, 0xf4, 0xf2, 0x00, 0x02, 0x04, 0x06, 0x08, 0x10,
+                  0x12, 0x14, 0x16, 0x18, 0x20, 0x22, 0xf8, 0xf6, 0xf4, 0xf2, 0x00,
+                  0x02, 0x04, 0x06, 0x08, 0x10, 0x12, 0x14, 0x16, 0x18, 0x20, 0x22,
+                  0xf8, 0xf6, 0xf4, 0xf2, 0x00, 0x02, 0x04, 0x06, 0x08, 0x10, 0x12,
+                  0x14, 0x16, 0x18, 0x20, 0x22, 0xf8, 0xf6, 0xf4, 0xf2 },
+                { 0x01, 0x03, 0x05, 0x07, 0x09, 0x11, 0x13, 0x15, 0x17, 0x19, 0x21,
+                  0x23, 0xf7, 0xf5, 0xf3, 0xf1, 0x01, 0x03, 0x05, 0x07, 0x09, 0x11,
+                  0x13, 0x15, 0x17, 0x19, 0x21, 0x23, 0xf7, 0xf5, 0xf3, 0xf1, 0x01,
+                  0x03, 0x05, 0x07, 0x09, 0x11, 0x13, 0x15, 0x17, 0x19, 0x21, 0x23,
+                  0xf7, 0xf5, 0xf3, 0xf1, 0x01, 0x03, 0x05, 0x07, 0x09, 0x11, 0x13,
+                  0x15, 0x17, 0x19, 0x21, 0x23, 0xf7, 0xf5, 0xf3, 0xf1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+        },
+        // LD2H instructions
+        {
+            "ld2h scalar+immediate",
+            TEST_FUNC("ld2h { z3.h, z4.h }, p4/z, [%[base], #2, mul vl]"),
+            { /*zt=*/ { 3, 4 }, /*pg=*/4 },
+            std::array<std::array<uint16_t, 8>, 2> { {
+                { 0x0016, 0x0018, 0x0020, 0x0022, 0xfff8, 0xfff6, 0xfff4, 0xfff2 },
+                { 0x0017, 0x0019, 0x0021, 0x0023, 0xfff7, 0xfff5, 0xfff3, 0xfff1 },
+            } },
+            std::array<std::array<uint16_t, 16>, 2> { {
+                { 0x0000, 0x0002, 0x0004, 0x0006, 0x0008, 0x0010, 0x0012, 0x0014, 0x0016,
+                  0x0018, 0x0020, 0x0022, 0xfff8, 0xfff6, 0xfff4, 0xfff2 },
+                { 0x0001, 0x0003, 0x0005, 0x0007, 0x0009, 0x0011, 0x0013, 0x0015, 0x0017,
+                  0x0019, 0x0021, 0x0023, 0xfff7, 0xfff5, 0xfff3, 0xfff1 },
+            } },
+            std::array<std::array<uint16_t, 32>, 2> { {
+                { 0x0000, 0x0002, 0x0004, 0x0006, 0x0008, 0x0010, 0x0012, 0x0014,
+                  0x0016, 0x0018, 0x0020, 0x0022, 0xfff8, 0xfff6, 0xfff4, 0xfff2,
+                  0x0000, 0x0002, 0x0004, 0x0006, 0x0008, 0x0010, 0x0012, 0x0014,
+                  0x0016, 0x0018, 0x0020, 0x0022, 0xfff8, 0xfff6, 0xfff4, 0xfff2 },
+                { 0x0001, 0x0003, 0x0005, 0x0007, 0x0009, 0x0011, 0x0013, 0x0015,
+                  0x0017, 0x0019, 0x0021, 0x0023, 0xfff7, 0xfff5, 0xfff3, 0xfff1,
+                  0x0001, 0x0003, 0x0005, 0x0007, 0x0009, 0x0011, 0x0013, 0x0015,
+                  0x0017, 0x0019, 0x0021, 0x0023, 0xfff7, 0xfff5, 0xfff3, 0xfff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+        },
+        // LD2W instructions
+        {
+            "ld2w scalar+immediate",
+            TEST_FUNC("ld2w { z6.s, z7.s }, p1/z, [%[base], #4, mul vl]"),
+            { /*zt=*/ { 6, 7 }, /*pg=*/1 },
+            std::array<std::array<uint32_t, 4>, 2> { {
+                { 0x00000016, 0x00000018, 0x00000020, 0x00000022 },
+                { 0x00000017, 0x00000019, 0x00000021, 0x00000023 },
+            } },
+            std::array<std::array<uint32_t, 8>, 2> { {
+                { 0x00000000, 0x00000002, 0x00000004, 0x00000006, 0x00000008, 0x00000010,
+                  0x00000012, 0x00000014 },
+                { 0x00000001, 0x00000003, 0x00000005, 0x00000007, 0x00000009, 0x00000011,
+                  0x00000013, 0x00000015 },
+            } },
+            std::array<std::array<uint32_t, 16>, 2> { {
+                { 0x00000000, 0x00000002, 0x00000004, 0x00000006, 0x00000008, 0x00000010,
+                  0x00000012, 0x00000014, 0x00000016, 0x00000018, 0x00000020, 0x00000022,
+                  0xfffffff8, 0xfffffff6, 0xfffffff4, 0xfffffff2 },
+                { 0x00000001, 0x00000003, 0x00000005, 0x00000007, 0x00000009, 0x00000011,
+                  0x00000013, 0x00000015, 0x00000017, 0x00000019, 0x00000021, 0x00000023,
+                  0xfffffff7, 0xfffffff5, 0xfffffff3, 0xfffffff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+        },
+        // LD2D instructions
+        {
+            "ld2d scalar+immediate",
+            TEST_FUNC("ld2d { z9.d, z10.d }, p2/z, [%[base], #6, mul vl]"),
+            { /*zt=*/ { 9, 10 }, /*pg=*/2 },
+            std::array<std::array<uint64_t, 2>, 2> { {
+                { 0x0000000000000012, 0x0000000000000014 },
+                { 0x0000000000000013, 0x0000000000000015 },
+            } },
+            std::array<std::array<uint64_t, 4>, 2> { {
+                { 0xfffffffffffffff8, 0xfffffffffffffff6, 0xfffffffffffffff4,
+                  0xfffffffffffffff2 },
+                { 0xfffffffffffffff7, 0xfffffffffffffff5, 0xfffffffffffffff3,
+                  0xfffffffffffffff1 },
+            } },
+            std::array<std::array<uint64_t, 8>, 2> { {
+                { 0x0000000000000016, 0x0000000000000018, 0x0000000000000020,
+                  0x0000000000000022, 0xfffffffffffffff8, 0xfffffffffffffff6,
+                  0xfffffffffffffff4, 0xfffffffffffffff2 },
+                { 0x0000000000000017, 0x0000000000000019, 0x0000000000000021,
+                  0x0000000000000023, 0xfffffffffffffff7, 0xfffffffffffffff5,
+                  0xfffffffffffffff3, 0xfffffffffffffff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        {
+            "ld2d scalar+immediate (min index)",
+            TEST_FUNC("ld2d { z10.d, z11.d }, p3/z, [%[base], #-16, mul vl]"),
+            { /*zt=*/ { 10, 11 }, /*pg=*/3 },
+            std::array<std::array<uint64_t, 2>, 2> { {
+                { 0x0000000000000000, 0x0000000000000002 },
+                { 0x0000000000000001, 0x0000000000000003 },
+            } },
+            std::array<std::array<uint64_t, 4>, 2> { {
+                { 0x0000000000000000, 0x0000000000000002, 0x0000000000000004,
+                  0x0000000000000006 },
+                { 0x0000000000000001, 0x0000000000000003, 0x0000000000000005,
+                  0x0000000000000007 },
+            } },
+            std::array<std::array<uint64_t, 8>, 2> { {
+                { 0x0000000000000000, 0x0000000000000002, 0x0000000000000004,
+                  0x0000000000000006, 0x0000000000000008, 0x0000000000000010,
+                  0x0000000000000012, 0x0000000000000014 },
+                { 0x0000000000000001, 0x0000000000000003, 0x0000000000000005,
+                  0x0000000000000007, 0x0000000000000009, 0x0000000000000011,
+                  0x0000000000000013, 0x0000000000000015 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        {
+            "ld2d scalar+immediate (max index)",
+            TEST_FUNC("ld2d { z11.d, z12.d }, p4/z, [%[base], #14, mul vl]"),
+            { /*zt=*/ { 11, 12 }, /*pg=*/4 },
+            std::array<std::array<uint64_t, 2>, 2> { {
+                { 0xfffffffffffffff4, 0xfffffffffffffff2 },
+                { 0xfffffffffffffff3, 0xfffffffffffffff1 },
+            } },
+            std::array<std::array<uint64_t, 4>, 2> { {
+                { 0xfffffffffffffff8, 0xfffffffffffffff6, 0xfffffffffffffff4,
+                  0xfffffffffffffff2 },
+                { 0xfffffffffffffff7, 0xfffffffffffffff5, 0xfffffffffffffff3,
+                  0xfffffffffffffff1 },
+            } },
+            std::array<std::array<uint64_t, 8>, 2> { {
+                { 0x0000000000000016, 0x0000000000000018, 0x0000000000000020,
+                  0x0000000000000022, 0xfffffffffffffff8, 0xfffffffffffffff6,
+                  0xfffffffffffffff4, 0xfffffffffffffff2 },
+                { 0x0000000000000017, 0x0000000000000019, 0x0000000000000021,
+                  0x0000000000000023, 0xfffffffffffffff7, 0xfffffffffffffff5,
+                  0xfffffffffffffff3, 0xfffffffffffffff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+    });
+#    undef TEST_FUNC
+}
+
+test_result_t
+test_ld3_scalar_plus_immediate()
+{
+#    define TEST_FUNC(ld_instruction)                                               \
+        [](scalar_plus_immediate_load_test_case_t<3>::test_ptrs_t &ptrs) {          \
+            asm(/* clang-format off */                                              \
+            RESTORE_Z_REGISTERS(z_restore_base)                                     \
+            RESTORE_P_REGISTERS(p_restore_base)                                     \
+            ld_instruction "\n"                                                     \
+            SAVE_Z_REGISTERS(z_save_base)                                           \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+                :                                                                   \
+                : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
+                  [z_save_base] "r"(ptrs.z_save_base),                              \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                        \
+                  [p_save_base] "r"(ptrs.p_save_base)                               \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+        }
+
+    return run_tests<scalar_plus_immediate_load_test_case_t<3>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2, zt3}, pg},
+         *     Expected output data (128-bit vl),
+         *     Expected output data (256-bit vl),
+         *     Expected output data (512-bit vl),
+         *     Base pointer (value for Xn),
+         * },
+         */
+        // LD3B instructions
+        {
+            "ld3b scalar+immediate",
+            TEST_FUNC("ld3b { z12.b, z13.b, z14.b }, p5/z, [%[base], #12, mul vl]"),
+            { /*zt=*/ { 12, 13, 14 }, /*pg=*/5 },
+            std::array<std::array<uint8_t, 16>, 3> { {
+                { 0x00, 0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01,
+                  0x04, 0x07, 0x10, 0x13 },
+                { 0x01, 0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1, 0x02,
+                  0x05, 0x08, 0x11, 0x14 },
+                { 0x02, 0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00, 0x03,
+                  0x06, 0x09, 0x12, 0x15 },
+            } },
+            std::array<std::array<uint8_t, 32>, 3> { {
+                { 0x00, 0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2,
+                  0x01, 0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1,
+                  0x02, 0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3 },
+                { 0x01, 0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1,
+                  0x02, 0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00,
+                  0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2 },
+                { 0x02, 0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00,
+                  0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01,
+                  0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1 },
+            } },
+            std::array<std::array<uint8_t, 64>, 3> { {
+                { 0x00, 0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2,
+                  0x01, 0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1,
+                  0x02, 0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00,
+                  0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01,
+                  0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1, 0x02,
+                  0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3 },
+                { 0x01, 0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1,
+                  0x02, 0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00,
+                  0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01,
+                  0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1, 0x02,
+                  0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00, 0x03,
+                  0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2 },
+                { 0x02, 0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00,
+                  0x03, 0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01,
+                  0x04, 0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1, 0x02,
+                  0x05, 0x08, 0x11, 0x14, 0x17, 0x20, 0x23, 0xf6, 0xf3, 0x00, 0x03,
+                  0x06, 0x09, 0x12, 0x15, 0x18, 0x21, 0xf8, 0xf5, 0xf2, 0x01, 0x04,
+                  0x07, 0x10, 0x13, 0x16, 0x19, 0x22, 0xf7, 0xf4, 0xf1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+        },
+        // LD3H instructions
+        {
+            "ld3h scalar+immediate",
+            TEST_FUNC("ld3h { z15.h, z16.h, z17.h }, p6/z, [%[base], #15, mul vl]"),
+            { /*zt=*/ { 15, 16, 17 }, /*pg=*/6 },
+            std::array<std::array<uint16_t, 8>, 3> { {
+                { 0xfff8, 0xfff5, 0xfff2, 0x0001, 0x0004, 0x0007, 0x0010, 0x0013 },
+                { 0xfff7, 0xfff4, 0xfff1, 0x0002, 0x0005, 0x0008, 0x0011, 0x0014 },
+                { 0xfff6, 0xfff3, 0x0000, 0x0003, 0x0006, 0x0009, 0x0012, 0x0015 },
+            } },
+            std::array<std::array<uint16_t, 16>, 3> { {
+                { 0x0016, 0x0019, 0x0022, 0xfff7, 0xfff4, 0xfff1, 0x0002, 0x0005, 0x0008,
+                  0x0011, 0x0014, 0x0017, 0x0020, 0x0023, 0xfff6, 0xfff3 },
+                { 0x0017, 0x0020, 0x0023, 0xfff6, 0xfff3, 0x0000, 0x0003, 0x0006, 0x0009,
+                  0x0012, 0x0015, 0x0018, 0x0021, 0xfff8, 0xfff5, 0xfff2 },
+                { 0x0018, 0x0021, 0xfff8, 0xfff5, 0xfff2, 0x0001, 0x0004, 0x0007, 0x0010,
+                  0x0013, 0x0016, 0x0019, 0x0022, 0xfff7, 0xfff4, 0xfff1 },
+            } },
+            std::array<std::array<uint16_t, 32>, 3> { {
+                { 0x0000, 0x0003, 0x0006, 0x0009, 0x0012, 0x0015, 0x0018, 0x0021,
+                  0xfff8, 0xfff5, 0xfff2, 0x0001, 0x0004, 0x0007, 0x0010, 0x0013,
+                  0x0016, 0x0019, 0x0022, 0xfff7, 0xfff4, 0xfff1, 0x0002, 0x0005,
+                  0x0008, 0x0011, 0x0014, 0x0017, 0x0020, 0x0023, 0xfff6, 0xfff3 },
+                { 0x0001, 0x0004, 0x0007, 0x0010, 0x0013, 0x0016, 0x0019, 0x0022,
+                  0xfff7, 0xfff4, 0xfff1, 0x0002, 0x0005, 0x0008, 0x0011, 0x0014,
+                  0x0017, 0x0020, 0x0023, 0xfff6, 0xfff3, 0x0000, 0x0003, 0x0006,
+                  0x0009, 0x0012, 0x0015, 0x0018, 0x0021, 0xfff8, 0xfff5, 0xfff2 },
+                { 0x0002, 0x0005, 0x0008, 0x0011, 0x0014, 0x0017, 0x0020, 0x0023,
+                  0xfff6, 0xfff3, 0x0000, 0x0003, 0x0006, 0x0009, 0x0012, 0x0015,
+                  0x0018, 0x0021, 0xfff8, 0xfff5, 0xfff2, 0x0001, 0x0004, 0x0007,
+                  0x0010, 0x0013, 0x0016, 0x0019, 0x0022, 0xfff7, 0xfff4, 0xfff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+        },
+        // LD3W instructions
+        {
+            "ld3w scalar+immediate",
+            TEST_FUNC("ld3w { z18.s, z19.s, z20.s }, p3/z, [%[base], #18, mul vl]"),
+            { /*zt=*/ { 18, 19, 20 }, /*pg=*/3 },
+            std::array<std::array<uint32_t, 4>, 3> { {
+                { 0x00000008, 0x00000011, 0x00000014, 0x00000017 },
+                { 0x00000009, 0x00000012, 0x00000015, 0x00000018 },
+                { 0x00000010, 0x00000013, 0x00000016, 0x00000019 },
+            } },
+            std::array<std::array<uint32_t, 8>, 3> { {
+                { 0x00000016, 0x00000019, 0x00000022, 0xfffffff7, 0xfffffff4, 0xfffffff1,
+                  0x00000002, 0x00000005 },
+                { 0x00000017, 0x00000020, 0x00000023, 0xfffffff6, 0xfffffff3, 0x00000000,
+                  0x00000003, 0x00000006 },
+                { 0x00000018, 0x00000021, 0xfffffff8, 0xfffffff5, 0xfffffff2, 0x00000001,
+                  0x00000004, 0x00000007 },
+            } },
+            std::array<std::array<uint32_t, 16>, 3> { {
+                { 0x00000000, 0x00000003, 0x00000006, 0x00000009, 0x00000012, 0x00000015,
+                  0x00000018, 0x00000021, 0xfffffff8, 0xfffffff5, 0xfffffff2, 0x00000001,
+                  0x00000004, 0x00000007, 0x00000010, 0x00000013 },
+                { 0x00000001, 0x00000004, 0x00000007, 0x00000010, 0x00000013, 0x00000016,
+                  0x00000019, 0x00000022, 0xfffffff7, 0xfffffff4, 0xfffffff1, 0x00000002,
+                  0x00000005, 0x00000008, 0x00000011, 0x00000014 },
+                { 0x00000002, 0x00000005, 0x00000008, 0x00000011, 0x00000014, 0x00000017,
+                  0x00000020, 0x00000023, 0xfffffff6, 0xfffffff3, 0x00000000, 0x00000003,
+                  0x00000006, 0x00000009, 0x00000012, 0x00000015 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+        },
+        // LD3D instructions
+        {
+            "ld3d scalar+immediate",
+            TEST_FUNC("ld3d { z21.d, z22.d, z23.d }, p0/z, [%[base], #-18, mul vl]"),
+            { /*zt=*/ { 21, 22, 23 }, /*pg=*/0 },
+            std::array<std::array<uint64_t, 2>, 3> { {
+                { 0xfffffffffffffff4, 0xfffffffffffffff1 },
+                { 0xfffffffffffffff3, 0x0000000000000000 },
+                { 0xfffffffffffffff2, 0x0000000000000001 },
+            } },
+            std::array<std::array<uint64_t, 4>, 3> { {
+                { 0xfffffffffffffff8, 0xfffffffffffffff5, 0xfffffffffffffff2,
+                  0x0000000000000001 },
+                { 0xfffffffffffffff7, 0xfffffffffffffff4, 0xfffffffffffffff1,
+                  0x0000000000000002 },
+                { 0xfffffffffffffff6, 0xfffffffffffffff3, 0x0000000000000000,
+                  0x0000000000000003 },
+            } },
+            std::array<std::array<uint64_t, 8>, 3> { {
+                { 0x0000000000000016, 0x0000000000000019, 0x0000000000000022,
+                  0xfffffffffffffff7, 0xfffffffffffffff4, 0xfffffffffffffff1,
+                  0x0000000000000002, 0x0000000000000005 },
+                { 0x0000000000000017, 0x0000000000000020, 0x0000000000000023,
+                  0xfffffffffffffff6, 0xfffffffffffffff3, 0x0000000000000000,
+                  0x0000000000000003, 0x0000000000000006 },
+                { 0x0000000000000018, 0x0000000000000021, 0xfffffffffffffff8,
+                  0xfffffffffffffff5, 0xfffffffffffffff2, 0x0000000000000001,
+                  0x0000000000000004, 0x0000000000000007 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        {
+            "ld3d scalar+immediate (min index)",
+            TEST_FUNC("ld3d { z22.d, z23.d, z24.d }, p1/z, [%[base], #-24, mul vl]"),
+            { /*zt=*/ { 22, 23, 24 }, /*pg=*/1 },
+            std::array<std::array<uint64_t, 2>, 3> { {
+                { 0x0000000000000016, 0x0000000000000019 },
+                { 0x0000000000000017, 0x0000000000000020 },
+                { 0x0000000000000018, 0x0000000000000021 },
+            } },
+            std::array<std::array<uint64_t, 4>, 3> { {
+                { 0x0000000000000000, 0x0000000000000003, 0x0000000000000006,
+                  0x0000000000000009 },
+                { 0x0000000000000001, 0x0000000000000004, 0x0000000000000007,
+                  0x0000000000000010 },
+                { 0x0000000000000002, 0x0000000000000005, 0x0000000000000008,
+                  0x0000000000000011 },
+            } },
+            std::array<std::array<uint64_t, 8>, 3> { {
+                { 0x0000000000000000, 0x0000000000000003, 0x0000000000000006,
+                  0x0000000000000009, 0x0000000000000012, 0x0000000000000015,
+                  0x0000000000000018, 0x0000000000000021 },
+                { 0x0000000000000001, 0x0000000000000004, 0x0000000000000007,
+                  0x0000000000000010, 0x0000000000000013, 0x0000000000000016,
+                  0x0000000000000019, 0x0000000000000022 },
+                { 0x0000000000000002, 0x0000000000000005, 0x0000000000000008,
+                  0x0000000000000011, 0x0000000000000014, 0x0000000000000017,
+                  0x0000000000000020, 0x0000000000000023 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        {
+            "ld3d scalar+immediate (max index)",
+            TEST_FUNC("ld3d { z23.d, z24.d, z25.d }, p2/z, [%[base], #21, mul vl]"),
+            { /*zt=*/ { 23, 24, 25 }, /*pg=*/2 },
+            std::array<std::array<uint64_t, 2>, 3> { {
+                { 0x0000000000000010, 0x0000000000000013 },
+                { 0x0000000000000011, 0x0000000000000014 },
+                { 0x0000000000000012, 0x0000000000000015 },
+            } },
+            std::array<std::array<uint64_t, 4>, 3> { {
+                { 0x0000000000000020, 0x0000000000000023, 0xfffffffffffffff6,
+                  0xfffffffffffffff3 },
+                { 0x0000000000000021, 0xfffffffffffffff8, 0xfffffffffffffff5,
+                  0xfffffffffffffff2 },
+                { 0x0000000000000022, 0xfffffffffffffff7, 0xfffffffffffffff4,
+                  0xfffffffffffffff1 },
+            } },
+            std::array<std::array<uint64_t, 8>, 3> { {
+                { 0x0000000000000008, 0x0000000000000011, 0x0000000000000014,
+                  0x0000000000000017, 0x0000000000000020, 0x0000000000000023,
+                  0xfffffffffffffff6, 0xfffffffffffffff3 },
+                { 0x0000000000000009, 0x0000000000000012, 0x0000000000000015,
+                  0x0000000000000018, 0x0000000000000021, 0xfffffffffffffff8,
+                  0xfffffffffffffff5, 0xfffffffffffffff2 },
+                { 0x0000000000000010, 0x0000000000000013, 0x0000000000000016,
+                  0x0000000000000019, 0x0000000000000022, 0xfffffffffffffff7,
+                  0xfffffffffffffff4, 0xfffffffffffffff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+    });
+#    undef TEST_FUNC
+}
+
+test_result_t
+test_ld4_scalar_plus_immediate()
+{
+#    define TEST_FUNC(ld_instruction)                                               \
+        [](scalar_plus_immediate_load_test_case_t<4>::test_ptrs_t &ptrs) {          \
+            asm(/* clang-format off */                                              \
+            RESTORE_Z_REGISTERS(z_restore_base)                                     \
+            RESTORE_P_REGISTERS(p_restore_base)                                     \
+            ld_instruction "\n"                                                     \
+            SAVE_Z_REGISTERS(z_save_base)                                           \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+                :                                                                   \
+                : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
+                  [z_save_base] "r"(ptrs.z_save_base),                              \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                        \
+                  [p_save_base] "r"(ptrs.p_save_base)                               \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+        }
+
+    return run_tests<scalar_plus_immediate_load_test_case_t<4>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2, zt3, zt4}, pg},
+         *     Expected output data (128-bit vl),
+         *     Expected output data (256-bit vl),
+         *     Expected output data (512-bit vl),
+         *     Base pointer (value for Xn),
+         * },
+         */
+        // LD4B instructions
+        {
+            "ld4b scalar+immediate",
+            TEST_FUNC("ld4b { z24.b, z25.b, z26.b, z27.b }, p3/z, [%[base], #-20, "
+                      "mul vl]"),
+            { /*zt=*/ { 24, 25, 26, 27 }, /*pg=*/3 },
+            std::array<std::array<uint8_t, 16>, 4> { {
+                { 0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12,
+                  0x16, 0x20, 0xf8, 0xf4 },
+                { 0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13,
+                  0x17, 0x21, 0xf7, 0xf3 },
+                { 0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14,
+                  0x18, 0x22, 0xf6, 0xf2 },
+                { 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15,
+                  0x19, 0x23, 0xf5, 0xf1 },
+            } },
+            std::array<std::array<uint8_t, 32>, 4> { {
+                { 0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08,
+                  0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12, 0x16, 0x20,
+                  0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4 },
+                { 0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09,
+                  0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13, 0x17, 0x21,
+                  0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3 },
+                { 0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10,
+                  0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14, 0x18, 0x22,
+                  0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2 },
+                { 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11,
+                  0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23,
+                  0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1 },
+            } },
+            std::array<std::array<uint8_t, 64>, 4> { {
+                { 0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08,
+                  0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12, 0x16, 0x20,
+                  0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00,
+                  0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12,
+                  0x16, 0x20, 0xf8, 0xf4, 0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8,
+                  0xf4, 0x00, 0x04, 0x08, 0x12, 0x16, 0x20, 0xf8, 0xf4 },
+                { 0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09,
+                  0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13, 0x17, 0x21,
+                  0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01,
+                  0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13,
+                  0x17, 0x21, 0xf7, 0xf3, 0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7,
+                  0xf3, 0x01, 0x05, 0x09, 0x13, 0x17, 0x21, 0xf7, 0xf3 },
+                { 0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10,
+                  0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14, 0x18, 0x22,
+                  0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02,
+                  0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14,
+                  0x18, 0x22, 0xf6, 0xf2, 0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6,
+                  0xf2, 0x02, 0x06, 0x10, 0x14, 0x18, 0x22, 0xf6, 0xf2 },
+                { 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11,
+                  0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23,
+                  0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03,
+                  0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15,
+                  0x19, 0x23, 0xf5, 0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5,
+                  0xf1, 0x03, 0x07, 0x11, 0x15, 0x19, 0x23, 0xf5, 0xf1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::BYTE),
+        },
+        // LD4H instructions
+        {
+            "ld4h scalar+immediate",
+            TEST_FUNC("ld4h { z27.h, z28.h, z29.h, z30.h }, p6/z, [%[base], #-16, "
+                      "mul vl]"),
+            { /*zt=*/ { 27, 28, 29, 30 }, /*pg=*/6 },
+            std::array<std::array<uint16_t, 8>, 4> { {
+                { 0x0000, 0x0004, 0x0008, 0x0012, 0x0016, 0x0020, 0xfff8, 0xfff4 },
+                { 0x0001, 0x0005, 0x0009, 0x0013, 0x0017, 0x0021, 0xfff7, 0xfff3 },
+                { 0x0002, 0x0006, 0x0010, 0x0014, 0x0018, 0x0022, 0xfff6, 0xfff2 },
+                { 0x0003, 0x0007, 0x0011, 0x0015, 0x0019, 0x0023, 0xfff5, 0xfff1 },
+            } },
+            std::array<std::array<uint16_t, 16>, 4> { {
+                { 0x0000, 0x0004, 0x0008, 0x0012, 0x0016, 0x0020, 0xfff8, 0xfff4, 0x0000,
+                  0x0004, 0x0008, 0x0012, 0x0016, 0x0020, 0xfff8, 0xfff4 },
+                { 0x0001, 0x0005, 0x0009, 0x0013, 0x0017, 0x0021, 0xfff7, 0xfff3, 0x0001,
+                  0x0005, 0x0009, 0x0013, 0x0017, 0x0021, 0xfff7, 0xfff3 },
+                { 0x0002, 0x0006, 0x0010, 0x0014, 0x0018, 0x0022, 0xfff6, 0xfff2, 0x0002,
+                  0x0006, 0x0010, 0x0014, 0x0018, 0x0022, 0xfff6, 0xfff2 },
+                { 0x0003, 0x0007, 0x0011, 0x0015, 0x0019, 0x0023, 0xfff5, 0xfff1, 0x0003,
+                  0x0007, 0x0011, 0x0015, 0x0019, 0x0023, 0xfff5, 0xfff1 },
+            } },
+            std::array<std::array<uint16_t, 32>, 4> { {
+                { 0x0000, 0x0004, 0x0008, 0x0012, 0x0016, 0x0020, 0xfff8, 0xfff4,
+                  0x0000, 0x0004, 0x0008, 0x0012, 0x0016, 0x0020, 0xfff8, 0xfff4,
+                  0x0000, 0x0004, 0x0008, 0x0012, 0x0016, 0x0020, 0xfff8, 0xfff4,
+                  0x0000, 0x0004, 0x0008, 0x0012, 0x0016, 0x0020, 0xfff8, 0xfff4 },
+                { 0x0001, 0x0005, 0x0009, 0x0013, 0x0017, 0x0021, 0xfff7, 0xfff3,
+                  0x0001, 0x0005, 0x0009, 0x0013, 0x0017, 0x0021, 0xfff7, 0xfff3,
+                  0x0001, 0x0005, 0x0009, 0x0013, 0x0017, 0x0021, 0xfff7, 0xfff3,
+                  0x0001, 0x0005, 0x0009, 0x0013, 0x0017, 0x0021, 0xfff7, 0xfff3 },
+                { 0x0002, 0x0006, 0x0010, 0x0014, 0x0018, 0x0022, 0xfff6, 0xfff2,
+                  0x0002, 0x0006, 0x0010, 0x0014, 0x0018, 0x0022, 0xfff6, 0xfff2,
+                  0x0002, 0x0006, 0x0010, 0x0014, 0x0018, 0x0022, 0xfff6, 0xfff2,
+                  0x0002, 0x0006, 0x0010, 0x0014, 0x0018, 0x0022, 0xfff6, 0xfff2 },
+                { 0x0003, 0x0007, 0x0011, 0x0015, 0x0019, 0x0023, 0xfff5, 0xfff1,
+                  0x0003, 0x0007, 0x0011, 0x0015, 0x0019, 0x0023, 0xfff5, 0xfff1,
+                  0x0003, 0x0007, 0x0011, 0x0015, 0x0019, 0x0023, 0xfff5, 0xfff1,
+                  0x0003, 0x0007, 0x0011, 0x0015, 0x0019, 0x0023, 0xfff5, 0xfff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::HALF),
+        },
+        // LD4W instructions
+        {
+            "ld4w scalar+immediate",
+            TEST_FUNC("ld4w { z30.s, z31.s, z0.s, z1.s }, p5/z, [%[base], #-12, mul vl]"),
+            { /*zt=*/ { 30, 31, 0, 1 }, /*pg=*/5 },
+            std::array<std::array<uint32_t, 4>, 4> { {
+                { 0x00000016, 0x00000020, 0xfffffff8, 0xfffffff4 },
+                { 0x00000017, 0x00000021, 0xfffffff7, 0xfffffff3 },
+                { 0x00000018, 0x00000022, 0xfffffff6, 0xfffffff2 },
+                { 0x00000019, 0x00000023, 0xfffffff5, 0xfffffff1 },
+            } },
+            std::array<std::array<uint32_t, 8>, 4> { {
+                { 0x00000000, 0x00000004, 0x00000008, 0x00000012, 0x00000016, 0x00000020,
+                  0xfffffff8, 0xfffffff4 },
+                { 0x00000001, 0x00000005, 0x00000009, 0x00000013, 0x00000017, 0x00000021,
+                  0xfffffff7, 0xfffffff3 },
+                { 0x00000002, 0x00000006, 0x00000010, 0x00000014, 0x00000018, 0x00000022,
+                  0xfffffff6, 0xfffffff2 },
+                { 0x00000003, 0x00000007, 0x00000011, 0x00000015, 0x00000019, 0x00000023,
+                  0xfffffff5, 0xfffffff1 },
+            } },
+            std::array<std::array<uint32_t, 16>, 4> { {
+                { 0x00000000, 0x00000004, 0x00000008, 0x00000012, 0x00000016, 0x00000020,
+                  0xfffffff8, 0xfffffff4, 0x00000000, 0x00000004, 0x00000008, 0x00000012,
+                  0x00000016, 0x00000020, 0xfffffff8, 0xfffffff4 },
+                { 0x00000001, 0x00000005, 0x00000009, 0x00000013, 0x00000017, 0x00000021,
+                  0xfffffff7, 0xfffffff3, 0x00000001, 0x00000005, 0x00000009, 0x00000013,
+                  0x00000017, 0x00000021, 0xfffffff7, 0xfffffff3 },
+                { 0x00000002, 0x00000006, 0x00000010, 0x00000014, 0x00000018, 0x00000022,
+                  0xfffffff6, 0xfffffff2, 0x00000002, 0x00000006, 0x00000010, 0x00000014,
+                  0x00000018, 0x00000022, 0xfffffff6, 0xfffffff2 },
+                { 0x00000003, 0x00000007, 0x00000011, 0x00000015, 0x00000019, 0x00000023,
+                  0xfffffff5, 0xfffffff1, 0x00000003, 0x00000007, 0x00000011, 0x00000015,
+                  0x00000019, 0x00000023, 0xfffffff5, 0xfffffff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::SINGLE),
+        },
+        // LD4D instructions
+        {
+            "ld4d scalar+immediate",
+            TEST_FUNC("ld4d { z1.d, z2.d, z3.d, z4.d }, p2/z, [%[base], #-8, mul vl]"),
+            { /*zt=*/ { 1, 2, 3, 4 }, /*pg=*/2 },
+            std::array<std::array<uint64_t, 2>, 4> { {
+                { 0x0000000000000016, 0x0000000000000020 },
+                { 0x0000000000000017, 0x0000000000000021 },
+                { 0x0000000000000018, 0x0000000000000022 },
+                { 0x0000000000000019, 0x0000000000000023 },
+            } },
+            std::array<std::array<uint64_t, 4>, 4> { {
+                { 0x0000000000000000, 0x0000000000000004, 0x0000000000000008,
+                  0x0000000000000012 },
+                { 0x0000000000000001, 0x0000000000000005, 0x0000000000000009,
+                  0x0000000000000013 },
+                { 0x0000000000000002, 0x0000000000000006, 0x0000000000000010,
+                  0x0000000000000014 },
+                { 0x0000000000000003, 0x0000000000000007, 0x0000000000000011,
+                  0x0000000000000015 },
+            } },
+            std::array<std::array<uint64_t, 8>, 4> { {
+                { 0x0000000000000000, 0x0000000000000004, 0x0000000000000008,
+                  0x0000000000000012, 0x0000000000000016, 0x0000000000000020,
+                  0xfffffffffffffff8, 0xfffffffffffffff4 },
+                { 0x0000000000000001, 0x0000000000000005, 0x0000000000000009,
+                  0x0000000000000013, 0x0000000000000017, 0x0000000000000021,
+                  0xfffffffffffffff7, 0xfffffffffffffff3 },
+                { 0x0000000000000002, 0x0000000000000006, 0x0000000000000010,
+                  0x0000000000000014, 0x0000000000000018, 0x0000000000000022,
+                  0xfffffffffffffff6, 0xfffffffffffffff2 },
+                { 0x0000000000000003, 0x0000000000000007, 0x0000000000000011,
+                  0x0000000000000015, 0x0000000000000019, 0x0000000000000023,
+                  0xfffffffffffffff5, 0xfffffffffffffff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        {
+            "ld4d scalar+immediate (min index)",
+            TEST_FUNC("ld4d { z2.d, z3.d, z4.d, z5.d }, p1/z, [%[base], #-32, mul vl]"),
+            { /*zt=*/ { 2, 3, 4, 5 }, /*pg=*/1 },
+            std::array<std::array<uint64_t, 2>, 4> { {
+                { 0x0000000000000000, 0x0000000000000004 },
+                { 0x0000000000000001, 0x0000000000000005 },
+                { 0x0000000000000002, 0x0000000000000006 },
+                { 0x0000000000000003, 0x0000000000000007 },
+            } },
+            std::array<std::array<uint64_t, 4>, 4> { {
+                { 0x0000000000000000, 0x0000000000000004, 0x0000000000000008,
+                  0x0000000000000012 },
+                { 0x0000000000000001, 0x0000000000000005, 0x0000000000000009,
+                  0x0000000000000013 },
+                { 0x0000000000000002, 0x0000000000000006, 0x0000000000000010,
+                  0x0000000000000014 },
+                { 0x0000000000000003, 0x0000000000000007, 0x0000000000000011,
+                  0x0000000000000015 },
+            } },
+            std::array<std::array<uint64_t, 8>, 4> { {
+                { 0x0000000000000000, 0x0000000000000004, 0x0000000000000008,
+                  0x0000000000000012, 0x0000000000000016, 0x0000000000000020,
+                  0xfffffffffffffff8, 0xfffffffffffffff4 },
+                { 0x0000000000000001, 0x0000000000000005, 0x0000000000000009,
+                  0x0000000000000013, 0x0000000000000017, 0x0000000000000021,
+                  0xfffffffffffffff7, 0xfffffffffffffff3 },
+                { 0x0000000000000002, 0x0000000000000006, 0x0000000000000010,
+                  0x0000000000000014, 0x0000000000000018, 0x0000000000000022,
+                  0xfffffffffffffff6, 0xfffffffffffffff2 },
+                { 0x0000000000000003, 0x0000000000000007, 0x0000000000000011,
+                  0x0000000000000015, 0x0000000000000019, 0x0000000000000023,
+                  0xfffffffffffffff5, 0xfffffffffffffff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+        {
+            "ld4d scalar+immediate (max index)",
+            TEST_FUNC("ld4d { z3.d, z4.d, z5.d, z6.d }, p0/z, [%[base], #28, mul vl]"),
+            { /*zt=*/ { 3, 4, 5, 6 }, /*pg=*/0 },
+            std::array<std::array<uint64_t, 2>, 4> { {
+                { 0xfffffffffffffff8, 0xfffffffffffffff4 },
+                { 0xfffffffffffffff7, 0xfffffffffffffff3 },
+                { 0xfffffffffffffff6, 0xfffffffffffffff2 },
+                { 0xfffffffffffffff5, 0xfffffffffffffff1 },
+            } },
+            std::array<std::array<uint64_t, 4>, 4> { {
+                { 0x0000000000000016, 0x0000000000000020, 0xfffffffffffffff8,
+                  0xfffffffffffffff4 },
+                { 0x0000000000000017, 0x0000000000000021, 0xfffffffffffffff7,
+                  0xfffffffffffffff3 },
+                { 0x0000000000000018, 0x0000000000000022, 0xfffffffffffffff6,
+                  0xfffffffffffffff2 },
+                { 0x0000000000000019, 0x0000000000000023, 0xfffffffffffffff5,
+                  0xfffffffffffffff1 },
+            } },
+            std::array<std::array<uint64_t, 8>, 4> { {
+                { 0x0000000000000000, 0x0000000000000004, 0x0000000000000008,
+                  0x0000000000000012, 0x0000000000000016, 0x0000000000000020,
+                  0xfffffffffffffff8, 0xfffffffffffffff4 },
+                { 0x0000000000000001, 0x0000000000000005, 0x0000000000000009,
+                  0x0000000000000013, 0x0000000000000017, 0x0000000000000021,
+                  0xfffffffffffffff7, 0xfffffffffffffff3 },
+                { 0x0000000000000002, 0x0000000000000006, 0x0000000000000010,
+                  0x0000000000000014, 0x0000000000000018, 0x0000000000000022,
+                  0xfffffffffffffff6, 0xfffffffffffffff2 },
+                { 0x0000000000000003, 0x0000000000000007, 0x0000000000000011,
+                  0x0000000000000015, 0x0000000000000019, 0x0000000000000023,
+                  0xfffffffffffffff5, 0xfffffffffffffff1 },
+            } },
+            INPUT_DATA.base_addr_for_data_size(element_size_t::DOUBLE),
+        },
+    });
+#    undef TEST_FUNC
+}
+
+template <size_t NUM_ZT>
 struct scalar_plus_immediate_store_test_case_t
     : public test_case_base_t<test_ptrs_with_base_ptr_t> {
     std::vector<uint8_t> reference_data_;
     struct registers_used_t {
-        unsigned src_z;
+        std::array<unsigned, NUM_ZT> src_z;
         unsigned governing_p;
     } registers_used_;
 
@@ -3676,7 +5105,7 @@ struct scalar_plus_immediate_store_test_case_t
         std::array<VALUE_T, NUM_VALUES> reference_data, int64_t index)
         : test_case_base_t<test_ptrs_t>(
               std::move(name), std::move(func), registers_used.governing_p,
-              static_cast<element_size_t>(TEST_VL_BYTES / NUM_VALUES))
+              static_cast<element_size_t>(TEST_VL_BYTES / (NUM_VALUES / NUM_ZT)))
         , registers_used_(registers_used)
         , base_(OUTPUT_DATA.base_addr())
         , index_(index)
@@ -3694,12 +5123,38 @@ struct scalar_plus_immediate_store_test_case_t
     void
     setup(sve_register_file_t &register_values) override
     {
-        register_values.set_z_register_value(registers_used_.src_z,
-                                             { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-                                               0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13,
-                                               0x14, 0x15 });
+        static constexpr std::array<vector_reg_value128_t, 4> DATA_TO_WRITE { {
+            { // Zt1 data
+              0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11,
+              0x12, 0x13, 0x14, 0x15 },
+            { // Zt2 data
+              0x16, 0x17, 0x18, 0x19, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+              0x28, 0x29, 0x30, 0x31 },
+            { // Zt3 data
+              0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x40, 0x41, 0x42, 0x43,
+              0x44, 0x45, 0x46, 0x47 },
+            { // Zt4 data
+              0x48, 0x49, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59,
+              0x60, 0x61, 0x62, 0x63 },
+        } };
+        assert(NUM_ZT <= DATA_TO_WRITE.size());
 
-        OUTPUT_DATA.reset();
+        for (size_t zt = 0; zt < NUM_ZT; zt++) {
+            register_values.set_z_register_value(registers_used_.src_z[zt],
+                                                 DATA_TO_WRITE[zt]);
+        }
+
+        if (test_status_ == test_result_t::PASS) {
+            const auto vl_bytes = get_vl_bytes();
+            const auto stored_value_bytes = static_cast<size_t>(stored_value_size_);
+            const auto element_size_bytes = static_cast<size_t>(element_size_);
+            const auto num_vector_elements = vl_bytes / element_size_bytes;
+            memset(static_cast<uint8_t *>(base_) +
+                       (index_ * num_vector_elements * stored_value_bytes),
+                   0xAB, reference_data_.size());
+        } else {
+            OUTPUT_DATA.reset();
+        }
     }
 
     void
@@ -3727,8 +5182,8 @@ struct scalar_plus_immediate_store_test_case_t
         for (size_t i = 0; i < num_vector_elements; i++) {
             if (!element_is_active(i % num_mask_elements, pred, element_size_)) {
                 // Element is inactive, set it to the poison value.
-                memset(&expected_output_data[stored_value_bytes * i], 0xAB,
-                       stored_value_bytes);
+                memset(&expected_output_data[NUM_ZT * stored_value_bytes * i], 0xAB,
+                       NUM_ZT * stored_value_bytes);
             }
         }
 
@@ -3773,7 +5228,7 @@ test_result_t
 test_st1_scalar_plus_immediate()
 {
 #    define TEST_FUNC(ld_instruction)                                               \
-        [](scalar_plus_immediate_store_test_case_t::test_ptrs_t &ptrs) {            \
+        [](scalar_plus_immediate_store_test_case_t<1>::test_ptrs_t &ptrs) {         \
             asm(/* clang-format off */                                              \
             RESTORE_Z_REGISTERS(z_restore_base)                                     \
             RESTORE_P_REGISTERS(p_restore_base)                                     \
@@ -3788,20 +5243,20 @@ test_st1_scalar_plus_immediate()
                 : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
         }
 
-    return run_tests<scalar_plus_immediate_store_test_case_t>({
+    return run_tests<scalar_plus_immediate_store_test_case_t<1>>({
         /* {
          *     Test name,
          *     Function that executes the test instruction,
-         *     Registers used {zt, pg, zm},
+         *     Registers used {{zt}, pg, zm},
          *     Expected output data,
          *     Index (value for Xm),
          * },
          */
         // ST1B instructions.
-        scalar_plus_immediate_store_test_case_t {
+        {
             "st1b scalar+immediate 8bit element",
             TEST_FUNC("st1b z4.b, p7, [%[base], #0, mul vl]"),
-            { /*zt=*/4, /*pg=*/7 },
+            { /*zt=*/ { 4 }, /*pg=*/7 },
             std::array<uint8_t, 16> { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
                                       0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15 },
             /*index=*/0,
@@ -3809,35 +5264,35 @@ test_st1_scalar_plus_immediate()
         {
             "st1b scalar+immediate 16bit element",
             TEST_FUNC("st1b z3.h, p4, [%[base], #1, mul vl]"),
-            { /*zt=*/3, /*pg=*/4 },
+            { /*zt=*/ { 3 }, /*pg=*/4 },
             std::array<uint8_t, 8> { 0x00, 0x02, 0x04, 0x06, 0x08, 0x10, 0x12, 0x14 },
             /*index=*/1,
         },
         {
             "st1b scalar+immediate 32bit element",
             TEST_FUNC("st1b z6.s, p1, [%[base], #2, mul vl]"),
-            { /*zt=*/6, /*pg=*/1 },
+            { /*zt=*/ { 6 }, /*pg=*/1 },
             std::array<uint8_t, 4> { 0x00, 0x04, 0x08, 0x12 },
             /*index=*/2,
         },
         {
             "st1b scalar+immediate 64bit element",
             TEST_FUNC("st1b z9.d, p2, [%[base], #3, mul vl]"),
-            { /*zt=*/9, /*pg=*/2 },
+            { /*zt=*/ { 9 }, /*pg=*/2 },
             std::array<uint8_t, 2> { 0x00, 0x08 },
             /*index=*/3,
         },
         {
             "st1b scalar+immediate 64bit element (min index)",
             TEST_FUNC("st1b z10.d, p3, [%[base], #-8, mul vl]"),
-            { /*zt=*/10, /*pg=*/3 },
+            { /*zt=*/ { 10 }, /*pg=*/3 },
             std::array<uint8_t, 2> { 0x00, 0x08 },
             /*index=*/-8,
         },
         {
             "st1b scalar+immediate 64bit element (max index)",
             TEST_FUNC("st1b z11.d, p4, [%[base], #7, mul vl]"),
-            { /*zt=*/11, /*pg=*/4 },
+            { /*zt=*/ { 11 }, /*pg=*/4 },
             std::array<uint8_t, 2> { 0x00, 0x08 },
             /*index=*/7,
         },
@@ -3845,7 +5300,7 @@ test_st1_scalar_plus_immediate()
         {
             "st1h scalar+immediate 16bit element",
             TEST_FUNC("st1h z12.h, p5, [%[base], #4, mul vl]"),
-            { /*zt=*/12, /*pg=*/5 },
+            { /*zt=*/ { 12 }, /*pg=*/5 },
             std::array<uint16_t, 8> { 0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x1110,
                                       0x1312, 0x1514 },
             /*index=*/4,
@@ -3853,28 +5308,28 @@ test_st1_scalar_plus_immediate()
         {
             "st1h scalar+immediate 32bit element",
             TEST_FUNC("st1h z15.s, p6, [%[base], #5, mul vl]"),
-            { /*zt=*/15, /*pg=*/6 },
+            { /*zt=*/ { 15 }, /*pg=*/6 },
             std::array<uint16_t, 4> { 0x0100, 0x0504, 0x0908, 0x1312 },
             /*index=*/5,
         },
         {
             "st1h scalar+immediate 64bit element",
             TEST_FUNC("st1h z18.d, p3, [%[base], #6, mul vl]"),
-            { /*zt=*/18, /*pg=*/3 },
+            { /*zt=*/ { 18 }, /*pg=*/3 },
             std::array<uint16_t, 2> { 0x0100, 0x0908 },
             /*index=*/6,
         },
         {
             "st1h scalar+immediate 64bit element (min index)",
             TEST_FUNC("st1h z19.d, p2, [%[base], #-8, mul vl]"),
-            { /*zt=*/19, /*pg=*/2 },
+            { /*zt=*/ { 19 }, /*pg=*/2 },
             std::array<uint16_t, 2> { 0x0100, 0x0908 },
             /*index=*/-8,
         },
         {
             "st1h scalar+immediate 64bit element (max index)",
             TEST_FUNC("st1h z20.d, p1, [%[base], #7, mul vl]"),
-            { /*zt=*/20, /*pg=*/1 },
+            { /*zt=*/ { 20 }, /*pg=*/1 },
             std::array<uint16_t, 2> { 0x0100, 0x0908 },
             /*index=*/7,
         },
@@ -3882,28 +5337,28 @@ test_st1_scalar_plus_immediate()
         {
             "st1w scalar+immediate 32bit element",
             TEST_FUNC("st1w z21.s, p0, [%[base], #-6, mul vl]"),
-            { /*zt=*/21, /*pg=*/0 },
+            { /*zt=*/ { 21 }, /*pg=*/0 },
             std::array<uint32_t, 4> { 0x03020100, 0x07060504, 0x11100908, 0x15141312 },
             /*index=*/-6,
         },
         {
             "st1w scalar+immediate 64bit element",
             TEST_FUNC("st1w z24.d, p3, [%[base], #-5, mul vl]"),
-            { /*zt=*/24, /*pg=*/3 },
+            { /*zt=*/ { 24 }, /*pg=*/3 },
             std::array<uint32_t, 2> { 0x03020100, 0x11100908 },
             /*index=*/-5,
         },
         {
             "st1w scalar+immediate 64bit element (min index)",
             TEST_FUNC("st1w z25.d, p4, [%[base], #-8, mul vl]"),
-            { /*zt=*/25, /*pg=*/4 },
+            { /*zt=*/ { 25 }, /*pg=*/4 },
             std::array<uint32_t, 2> { 0x03020100, 0x11100908 },
             /*index=*/-8,
         },
         {
             "st1w scalar+immediate 64bit element (max index)",
             TEST_FUNC("st1w z26.d, p5, [%[base], #7, mul vl]"),
-            { /*zt=*/26, /*pg=*/5 },
+            { /*zt=*/ { 26 }, /*pg=*/5 },
             std::array<uint32_t, 2> { 0x03020100, 0x11100908 },
             /*index=*/7,
         },
@@ -3911,23 +5366,303 @@ test_st1_scalar_plus_immediate()
         {
             "st1d scalar+immediate 64bit element",
             TEST_FUNC("st1d z27.d, p6, [%[base], #-4, mul vl]"),
-            { /*zt=*/27, /*pg=*/6 },
+            { /*zt=*/ { 27 }, /*pg=*/6 },
             std::array<uint64_t, 2> { 0x0706050403020100, 0x1514131211100908 },
             /*index=*/-4,
         },
         {
             "st1d scalar+immediate 64bit element (min index)",
             TEST_FUNC("st1d z28.d, p7, [%[base], #-8, mul vl]"),
-            { /*zt=*/28, /*pg=*/7 },
+            { /*zt=*/ { 28 }, /*pg=*/7 },
             std::array<uint64_t, 2> { 0x0706050403020100, 0x1514131211100908 },
             /*index=*/-8,
         },
         {
             "st1d scalar+immediate 64bit element (max index)",
             TEST_FUNC("st1d z29.d, p6, [%[base], #7, mul vl]"),
-            { /*zt=*/29, /*pg=*/6 },
+            { /*zt=*/ { 29 }, /*pg=*/6 },
             std::array<uint64_t, 2> { 0x0706050403020100, 0x1514131211100908 },
             /*index=*/7,
+        },
+    });
+#    undef TEST_FUNC
+}
+
+test_result_t
+test_st2_scalar_plus_immediate()
+{
+#    define TEST_FUNC(ld_instruction)                                               \
+        [](scalar_plus_immediate_store_test_case_t<2>::test_ptrs_t &ptrs) {         \
+            asm(/* clang-format off */                                              \
+            RESTORE_Z_REGISTERS(z_restore_base)                                     \
+            RESTORE_P_REGISTERS(p_restore_base)                                     \
+            ld_instruction "\n"                                                     \
+            SAVE_Z_REGISTERS(z_save_base)                                           \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+                :                                                                   \
+                : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
+                  [z_save_base] "r"(ptrs.z_save_base),                              \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                        \
+                  [p_save_base] "r"(ptrs.p_save_base)                               \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+        }
+
+    return run_tests<scalar_plus_immediate_store_test_case_t<2>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2}, pg, zm},
+         *     Expected output data,
+         *     Index (value for Xm),
+         * },
+         */
+        // ST2B instructions
+        {
+            "st2b scalar+immediate",
+            TEST_FUNC("st2b { z0.b, z1.b }, p7, [%[base], #0, mul vl]"),
+            { /*zt=*/ { 0, 1 }, /*pg=*/7 },
+            std::array<uint8_t, 32> { 0x00, 0x16, 0x01, 0x17, 0x02, 0x18, 0x03, 0x19,
+                                      0x04, 0x20, 0x05, 0x21, 0x06, 0x22, 0x07, 0x23,
+                                      0x08, 0x24, 0x09, 0x25, 0x10, 0x26, 0x11, 0x27,
+                                      0x12, 0x28, 0x13, 0x29, 0x14, 0x30, 0x15, 0x31 },
+            /*index=*/0,
+        },
+        // ST2H instructions
+        {
+            "st2h scalar+immediate",
+            TEST_FUNC("st2h { z3.h, z4.h }, p4, [%[base], #2, mul vl]"),
+            { /*zt=*/ { 3, 4 }, /*pg=*/4 },
+            std::array<uint16_t, 16> { 0x0100, 0x1716, 0x0302, 0x1918, 0x0504, 0x2120,
+                                       0x0706, 0x2322, 0x0908, 0x2524, 0x1110, 0x2726,
+                                       0x1312, 0x2928, 0x1514, 0x3130 },
+            /*index=*/2,
+        },
+        // ST2W instructions
+        {
+            "st2w scalar+immediate",
+            TEST_FUNC("st2w { z6.s, z7.s }, p1, [%[base], #4, mul vl]"),
+            { /*zt=*/ { 6, 7 }, /*pg=*/1 },
+            std::array<uint32_t, 8> { 0x03020100, 0x19181716, 0x07060504, 0x23222120,
+                                      0x11100908, 0x27262524, 0x15141312, 0x31302928 },
+            /*index=*/4,
+        },
+        // ST2D instructions
+        {
+            "st2d scalar+immediate",
+            TEST_FUNC("st2d { z9.d, z10.d }, p2, [%[base], #6, mul vl]"),
+            { /*zt=*/ { 9, 10 }, /*pg=*/2 },
+            std::array<uint64_t, 4> { 0x0706050403020100, 0x2322212019181716,
+                                      0x1514131211100908, 0x3130292827262524 },
+            /*index=*/6,
+        },
+        {
+            "st2d scalar+immediate (min index)",
+            TEST_FUNC("st2d { z10.d, z11.d }, p3, [%[base], #-16, mul vl]"),
+            { /*zt=*/ { 10, 11 }, /*pg=*/3 },
+            std::array<uint64_t, 4> { 0x0706050403020100, 0x2322212019181716,
+                                      0x1514131211100908, 0x3130292827262524 },
+            /*index=*/-16,
+        },
+        {
+            "st2d scalar+immediate (max index)",
+            TEST_FUNC("st2d { z11.d, z12.d }, p4, [%[base], #14, mul vl]"),
+            { /*zt=*/ { 11, 12 }, /*pg=*/4 },
+            std::array<uint64_t, 4> { 0x0706050403020100, 0x2322212019181716,
+                                      0x1514131211100908, 0x3130292827262524 },
+            /*index=*/14,
+        },
+    });
+#    undef TEST_FUNC
+}
+
+test_result_t
+test_st3_scalar_plus_immediate()
+{
+#    define TEST_FUNC(ld_instruction)                                               \
+        [](scalar_plus_immediate_store_test_case_t<3>::test_ptrs_t &ptrs) {         \
+            asm(/* clang-format off */                                              \
+            RESTORE_Z_REGISTERS(z_restore_base)                                     \
+            RESTORE_P_REGISTERS(p_restore_base)                                     \
+            ld_instruction "\n"                                                     \
+            SAVE_Z_REGISTERS(z_save_base)                                           \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+                :                                                                   \
+                : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
+                  [z_save_base] "r"(ptrs.z_save_base),                              \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                        \
+                  [p_save_base] "r"(ptrs.p_save_base)                               \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+        }
+
+    return run_tests<scalar_plus_immediate_store_test_case_t<3>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2, zt3}, pg, zm},
+         *     Expected output data,
+         *     Index (value for Xm),
+         * },
+         */
+        // ST3B instructions
+        {
+            "st3b scalar+immediate",
+            TEST_FUNC("st3b { z12.b, z13.b, z14.b }, p5, [%[base], #12, mul vl]"),
+            { /*zt=*/ { 12, 13, 14 }, /*pg=*/5 },
+            std::array<uint8_t, 48> {
+                0x00, 0x16, 0x32, 0x01, 0x17, 0x33, 0x02, 0x18, 0x34, 0x03, 0x19, 0x35,
+                0x04, 0x20, 0x36, 0x05, 0x21, 0x37, 0x06, 0x22, 0x38, 0x07, 0x23, 0x39,
+                0x08, 0x24, 0x40, 0x09, 0x25, 0x41, 0x10, 0x26, 0x42, 0x11, 0x27, 0x43,
+                0x12, 0x28, 0x44, 0x13, 0x29, 0x45, 0x14, 0x30, 0x46, 0x15, 0x31, 0x47 },
+            /*index=*/12,
+        },
+        // ST3H instructions
+        {
+            "st3h scalar+immediate",
+            TEST_FUNC("st3h { z15.h, z16.h, z17.h }, p6, [%[base], #15, mul vl]"),
+            { /*zt=*/ { 15, 16, 17 }, /*pg=*/6 },
+            std::array<uint16_t, 24> { 0x0100, 0x1716, 0x3332, 0x0302, 0x1918, 0x3534,
+                                       0x0504, 0x2120, 0x3736, 0x0706, 0x2322, 0x3938,
+                                       0x0908, 0x2524, 0x4140, 0x1110, 0x2726, 0x4342,
+                                       0x1312, 0x2928, 0x4544, 0x1514, 0x3130, 0x4746 },
+            /*index=*/15,
+        },
+        // ST3W instructions
+        {
+            "st3w scalar+immediate",
+            TEST_FUNC("st3w { z18.s, z19.s, z20.s }, p3, [%[base], #18, mul vl]"),
+            { /*zt=*/ { 18, 19, 20 }, /*pg=*/3 },
+            std::array<uint32_t, 12> { 0x03020100, 0x19181716, 0x35343332, 0x07060504,
+                                       0x23222120, 0x39383736, 0x11100908, 0x27262524,
+                                       0x43424140, 0x15141312, 0x31302928, 0x47464544 },
+            /*index=*/18,
+        },
+        // ST3D instructions
+        {
+            "st3d scalar+immediate",
+            TEST_FUNC("st3d { z21.d, z22.d, z23.d }, p0, [%[base], #-18, mul vl]"),
+            { /*zt=*/ { 21, 22, 23 }, /*pg=*/0 },
+            std::array<uint64_t, 6> { 0x0706050403020100, 0x2322212019181716,
+                                      0x3938373635343332, 0x1514131211100908,
+                                      0x3130292827262524, 0x4746454443424140 },
+            /*index=*/-18,
+        },
+        {
+            "st3d scalar+immediate (min index)",
+            TEST_FUNC("st3d { z22.d, z23.d, z24.d }, p1, [%[base], #-24, mul vl]"),
+            { /*zt=*/ { 22, 23, 24 }, /*pg=*/1 },
+            std::array<uint64_t, 6> { 0x0706050403020100, 0x2322212019181716,
+                                      0x3938373635343332, 0x1514131211100908,
+                                      0x3130292827262524, 0x4746454443424140 },
+            /*index=*/-24,
+        },
+        {
+            "st3d scalar+immediate (max index)",
+            TEST_FUNC("st3d { z23.d, z24.d, z25.d }, p2, [%[base], #21, mul vl]"),
+            { /*zt=*/ { 23, 24, 25 }, /*pg=*/2 },
+            std::array<uint64_t, 6> { 0x0706050403020100, 0x2322212019181716,
+                                      0x3938373635343332, 0x1514131211100908,
+                                      0x3130292827262524, 0x4746454443424140 },
+            /*index=*/21,
+        },
+    });
+#    undef TEST_FUNC
+}
+
+test_result_t
+test_st4_scalar_plus_immediate()
+{
+#    define TEST_FUNC(ld_instruction)                                               \
+        [](scalar_plus_immediate_store_test_case_t<4>::test_ptrs_t &ptrs) {         \
+            asm(/* clang-format off */                                              \
+            RESTORE_Z_REGISTERS(z_restore_base)                                     \
+            RESTORE_P_REGISTERS(p_restore_base)                                     \
+            ld_instruction "\n"                                                     \
+            SAVE_Z_REGISTERS(z_save_base)                                           \
+            SAVE_P_REGISTERS(p_save_base) /* clang-format on */         \
+                :                                                                   \
+                : [base] "r"(ptrs.base), [z_restore_base] "r"(ptrs.z_restore_base), \
+                  [z_save_base] "r"(ptrs.z_save_base),                              \
+                  [p_restore_base] "r"(ptrs.p_restore_base),                        \
+                  [p_save_base] "r"(ptrs.p_save_base)                               \
+                : ALL_Z_REGS, ALL_P_REGS, "memory");                                \
+        }
+
+    return run_tests<scalar_plus_immediate_store_test_case_t<4>>({
+        /* {
+         *     Test name,
+         *     Function that executes the test instruction,
+         *     Registers used {{zt1, zt2, zt3, zt4}, pg, zm},
+         *     Expected output data,
+         *     Index (value for Xm),
+         * },
+         */
+        // ST4B instructions
+        {
+            "st4b scalar+immediate",
+            TEST_FUNC("st4b { z24.b, z25.b, z26.b, z27.b }, p3, [%[base], #-20, mul vl]"),
+            { /*zt=*/ { 24, 25, 26, 27 }, /*pg=*/3 },
+            std::array<uint8_t, 64> {
+                0x00, 0x16, 0x32, 0x48, 0x01, 0x17, 0x33, 0x49, 0x02, 0x18, 0x34,
+                0x50, 0x03, 0x19, 0x35, 0x51, 0x04, 0x20, 0x36, 0x52, 0x05, 0x21,
+                0x37, 0x53, 0x06, 0x22, 0x38, 0x54, 0x07, 0x23, 0x39, 0x55, 0x08,
+                0x24, 0x40, 0x56, 0x09, 0x25, 0x41, 0x57, 0x10, 0x26, 0x42, 0x58,
+                0x11, 0x27, 0x43, 0x59, 0x12, 0x28, 0x44, 0x60, 0x13, 0x29, 0x45,
+                0x61, 0x14, 0x30, 0x46, 0x62, 0x15, 0x31, 0x47, 0x63 },
+            /*index=*/-20,
+        },
+        // ST4H instructions
+        {
+            "st4h scalar+immediate",
+            TEST_FUNC("st4h { z27.h, z28.h, z29.h, z30.h }, p6, [%[base], #-16, mul vl]"),
+            { /*zt=*/ { 27, 28, 29, 30 }, /*pg=*/6 },
+            std::array<uint16_t, 32> {
+                0x0100, 0x1716, 0x3332, 0x4948, 0x0302, 0x1918, 0x3534, 0x5150,
+                0x0504, 0x2120, 0x3736, 0x5352, 0x0706, 0x2322, 0x3938, 0x5554,
+                0x0908, 0x2524, 0x4140, 0x5756, 0x1110, 0x2726, 0x4342, 0x5958,
+                0x1312, 0x2928, 0x4544, 0x6160, 0x1514, 0x3130, 0x4746, 0x6362 },
+            /*index=*/-16,
+        },
+        // ST4W instructions
+        {
+            "st4w scalar+immediate",
+            TEST_FUNC("st4w { z30.s, z31.s, z0.s, z1.s }, p5, [%[base], #-12, mul vl]"),
+            { /*zt=*/ { 30, 31, 0, 1 }, /*pg=*/5 },
+            std::array<uint32_t, 16> { 0x03020100, 0x19181716, 0x35343332, 0x51504948,
+                                       0x07060504, 0x23222120, 0x39383736, 0x55545352,
+                                       0x11100908, 0x27262524, 0x43424140, 0x59585756,
+                                       0x15141312, 0x31302928, 0x47464544, 0x63626160 },
+            /*index=*/-12,
+        },
+        // ST4D instructions
+        {
+            "st4d scalar+immediate",
+            TEST_FUNC("st4d { z1.d, z2.d, z3.d, z4.d }, p2, [%[base], #-8, mul vl]"),
+            { /*zt=*/ { 1, 2, 3, 4 }, /*pg=*/2 },
+            std::array<uint64_t, 8> { 0x0706050403020100, 0x2322212019181716,
+                                      0x3938373635343332, 0x5554535251504948,
+                                      0x1514131211100908, 0x3130292827262524,
+                                      0x4746454443424140, 0x6362616059585756 },
+            /*index=*/-8,
+        },
+        {
+            "st4d scalar+immediate (min index)",
+            TEST_FUNC("st4d { z2.d, z3.d, z4.d, z5.d }, p1, [%[base], #-32, mul vl]"),
+            { /*zt=*/ { 2, 3, 4, 5 }, /*pg=*/1 },
+            std::array<uint64_t, 8> { 0x0706050403020100, 0x2322212019181716,
+                                      0x3938373635343332, 0x5554535251504948,
+                                      0x1514131211100908, 0x3130292827262524,
+                                      0x4746454443424140, 0x6362616059585756 },
+            /*index=*/-32,
+        },
+        {
+            "st4d scalar+immediate (max index)",
+            TEST_FUNC("st4d { z3.d, z4.d, z5.d, z6.d }, p0, [%[base], #28, mul vl]"),
+            { /*zt=*/ { 3, 4, 5, 6 }, /*pg=*/0 },
+            std::array<uint64_t, 8> { 0x0706050403020100, 0x2322212019181716,
+                                      0x3938373635343332, 0x5554535251504948,
+                                      0x1514131211100908, 0x3130292827262524,
+                                      0x4746454443424140, 0x6362616059585756 },
+            /*index=*/28,
         },
 
     });
@@ -3952,11 +5687,35 @@ main(int argc, char **argv)
         status = FAIL;
     if (test_ld1_scalar_plus_scalar() == FAIL)
         status = FAIL;
+    if (test_ld2_scalar_plus_scalar() == FAIL)
+        status = FAIL;
+    if (test_ld3_scalar_plus_scalar() == FAIL)
+        status = FAIL;
+    if (test_ld4_scalar_plus_scalar() == FAIL)
+        status = FAIL;
     if (test_st1_scalar_plus_scalar() == FAIL)
+        status = FAIL;
+    if (test_st2_scalar_plus_scalar() == FAIL)
+        status = FAIL;
+    if (test_st3_scalar_plus_scalar() == FAIL)
+        status = FAIL;
+    if (test_st4_scalar_plus_scalar() == FAIL)
         status = FAIL;
     if (test_ld1_scalar_plus_immediate() == FAIL)
         status = FAIL;
+    if (test_ld2_scalar_plus_immediate() == FAIL)
+        status = FAIL;
+    if (test_ld3_scalar_plus_immediate() == FAIL)
+        status = FAIL;
+    if (test_ld4_scalar_plus_immediate() == FAIL)
+        status = FAIL;
     if (test_st1_scalar_plus_immediate() == FAIL)
+        status = FAIL;
+    if (test_st2_scalar_plus_immediate() == FAIL)
+        status = FAIL;
+    if (test_st3_scalar_plus_immediate() == FAIL)
+        status = FAIL;
+    if (test_st4_scalar_plus_immediate() == FAIL)
         status = FAIL;
 #endif
 

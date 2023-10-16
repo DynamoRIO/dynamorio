@@ -144,6 +144,18 @@ ldnt1w scalar\+scalar: PASS
 ld1sw scalar\+scalar: PASS
 ld1d scalar\+scalar: PASS
 ldnt1d scalar\+scalar: PASS
+ld2b scalar\+scalar: PASS
+ld2h scalar\+scalar: PASS
+ld2w scalar\+scalar: PASS
+ld2d scalar\+scalar: PASS
+ld3b scalar\+scalar: PASS
+ld3h scalar\+scalar: PASS
+ld3w scalar\+scalar: PASS
+ld3d scalar\+scalar: PASS
+ld4b scalar\+scalar: PASS
+ld4h scalar\+scalar: PASS
+ld4w scalar\+scalar: PASS
+ld4d scalar\+scalar: PASS
 st1b scalar\+scalar 8bit element: PASS
 st1b scalar\+scalar 16bit element: PASS
 st1b scalar\+scalar 32bit element: PASS
@@ -154,6 +166,18 @@ st1h scalar\+scalar 64bit element: PASS
 st1w scalar\+scalar 32bit element: PASS
 st1w scalar\+scalar 64bit element: PASS
 st1d scalar\+scalar: PASS
+st2b scalar\+scalar: PASS
+st2h scalar\+scalar: PASS
+st2w scalar\+scalar: PASS
+st2d scalar\+scalar: PASS
+st3b scalar\+scalar: PASS
+st3h scalar\+scalar: PASS
+st3w scalar\+scalar: PASS
+st3d scalar\+scalar: PASS
+st4b scalar\+scalar: PASS
+st4h scalar\+scalar: PASS
+st4w scalar\+scalar: PASS
+st4d scalar\+scalar: PASS
 ld1b scalar\+immediate 8bit element: PASS
 ld1b scalar\+immediate 16bit element: PASS
 ld1b scalar\+immediate 32bit element: PASS
@@ -188,6 +212,24 @@ ld1d scalar\+immediate 64bit element: PASS
 ld1d scalar\+immediate 64bit element \(min index\): PASS
 ld1d scalar\+immediate 64bit element \(max index\): PASS
 ldnt1d scalar\+immediate 64bit element: PASS
+ld2b scalar\+immediate: PASS
+ld2h scalar\+immediate: PASS
+ld2w scalar\+immediate: PASS
+ld2d scalar\+immediate: PASS
+ld2d scalar\+immediate \(min index\): PASS
+ld2d scalar\+immediate \(max index\): PASS
+ld3b scalar\+immediate: PASS
+ld3h scalar\+immediate: PASS
+ld3w scalar\+immediate: PASS
+ld3d scalar\+immediate: PASS
+ld3d scalar\+immediate \(min index\): PASS
+ld3d scalar\+immediate \(max index\): PASS
+ld4b scalar\+immediate: PASS
+ld4h scalar\+immediate: PASS
+ld4w scalar\+immediate: PASS
+ld4d scalar\+immediate: PASS
+ld4d scalar\+immediate \(min index\): PASS
+ld4d scalar\+immediate \(max index\): PASS
 st1b scalar\+immediate 8bit element: PASS
 st1b scalar\+immediate 16bit element: PASS
 st1b scalar\+immediate 32bit element: PASS
@@ -206,10 +248,28 @@ st1w scalar\+immediate 64bit element \(max index\): PASS
 st1d scalar\+immediate 64bit element: PASS
 st1d scalar\+immediate 64bit element \(min index\): PASS
 st1d scalar\+immediate 64bit element \(max index\): PASS
+st2b scalar\+immediate: PASS
+st2h scalar\+immediate: PASS
+st2w scalar\+immediate: PASS
+st2d scalar\+immediate: PASS
+st2d scalar\+immediate \(min index\): PASS
+st2d scalar\+immediate \(max index\): PASS
+st3b scalar\+immediate: PASS
+st3h scalar\+immediate: PASS
+st3w scalar\+immediate: PASS
+st3d scalar\+immediate: PASS
+st3d scalar\+immediate \(min index\): PASS
+st3d scalar\+immediate \(max index\): PASS
+st4b scalar\+immediate: PASS
+st4h scalar\+immediate: PASS
+st4w scalar\+immediate: PASS
+st4d scalar\+immediate: PASS
+st4d scalar\+immediate \(min index\): PASS
+st4d scalar\+immediate \(max index\): PASS
 #endif /* __ARM_FEATURE_SVE */
 #ifndef TEST_SAMPLE_CLIENT
 #ifdef __ARM_FEATURE_SVE
-event_exit, 1752 scatter/gather instructions
+event_exit, 1068 scatter/gather instructions
 #else
 event_exit, 0 scatter/gather instructions
 #endif /* __ARM_FEATURE_SVE */
