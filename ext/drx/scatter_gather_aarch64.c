@@ -874,9 +874,10 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 
     drmgr_insert_emulation_end(drcontext, bb, sg_instr);
 
-    if (scratch_vec != DR_REG_INVALID)
+    if (scratch_vec != DR_REG_INVALID) {
         unreserve_vector_register(drcontext, bb, sg_instr, scratch_gpr[0], scratch_vec,
                                   &spill_slot_state);
+    }
 
     unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr[0], scratch_pred,
                             &spill_slot_state);
