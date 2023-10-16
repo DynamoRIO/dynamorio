@@ -553,6 +553,24 @@ function(add_exe test source)
       "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_dependencies(${test} ${gen_asm_tgt})
   endif ()
+  if (BUILD_TESTS_SVE)
+    target_compile_options(${test} PRIVATE
+      "-march=armv8.4-a+crypto+rcpc+sha3+sm4+sve+rng+ssbs+nodotprod")
+
+    # Some tests give very obscure build errors when built with "-O3"
+    # FIXME i#5365: fix build issues due to optimisation, unless no
+    # optimisation is a requirement for a test case.
+    if (
+      NOT ${test} STREQUAL "api.rseq" AND
+      NOT ${test} STREQUAL "linux.rseq" AND
+      NOT ${test} STREQUAL "linux.rseq_table" AND
+      NOT ${test} STREQUAL "linux.rseq_noarray" AND
+      NOT ${test} STREQUAL "linux.clone" AND
+      NOT ${test} STREQUAL "linux.clone-pie"
+    )
+      target_compile_options(${test} PRIVATE "-O3")
+    endif()
+  endif(BUILD_TESTS_SVE)
 endfunction(add_exe)
 
 # normal app

@@ -241,7 +241,9 @@ main(int argc, char **argv)
         /* child */
         int iter = 0;
         close(pipefd[0]); /* close unused read end */
-        write(pipefd[1], &buf, sizeof(buf));
+        if (write(pipefd[1], &buf, sizeof(buf)) == -1) {
+            perror("write to pipe failed\n");
+        }
         close(pipefd[1]);
         /* spin until parent kills us or we time out */
         while (iter++ < 12) {
