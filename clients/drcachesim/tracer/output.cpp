@@ -1101,7 +1101,8 @@ process_and_output_buffer(void *drcontext, bool skip_size_cap)
     // thread triggered the switch.
     ptr_int_t mode = tracing_mode.load(std::memory_order_acquire);
     ptr_int_t local_mode = get_local_mode(data);
-    if (local_mode != mode && mode == BBDUP_MODE_TRACE) {
+    if (op_L0_filter_until_instrs.get_value() && local_mode != mode &&
+        mode == BBDUP_MODE_TRACE) {
         if (local_mode == BBDUP_MODE_L0_FILTER || local_mode == BBDUP_MODE_COUNT) {
             NOTIFY(0, "Thread %d: filter mode changed\n", dr_get_thread_id(drcontext));
 
