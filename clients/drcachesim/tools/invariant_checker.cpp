@@ -1131,8 +1131,12 @@ invariant_checker_t::check_for_pc_discontinuity(
           shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
           shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
 #ifdef UNIX
-        // Same PC is allowed for back-to-back signals without any intervening
-        // instructions.
+        // In case of an RSEQ abort followed by a signal, the pre-signal-instr PC is
+        // different from the interruption PC which is the RSEQ handler. If there is a
+        // back-to-back signal without any intervening instructions, the kernel transfer
+        // marker of the second signal should point to the same interruption PC, and not
+        // the pre-signal-instr PC. The shard->last_signal_context_ has not been updated,
+        // it still points to the previous signal context.
         (at_kernel_event && cur_pc == shard->last_signal_context_.xfer_int_pc &&
          prev_instr_trace_pc ==
              shard->last_signal_context_.pre_signal_instr.memref.instr.addr) ||
