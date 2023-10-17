@@ -2627,7 +2627,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         desc->packed_ |= kIsAarch64DcZvaMask;
 #endif
 
-#ifdef X86
+#if defined(X86) || defined(AARCH64)
     if (instr_is_scatter(instr) || instr_is_gather(instr))
         desc->packed_ |= kIsScatterOrGatherMask;
 #endif
