@@ -474,8 +474,8 @@ check_sane_control_flow()
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, /*pc=*/101, /*size=*/1),
-            // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
             gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 102),
+            // This is the signal which caused the RSEQ abort.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
             // We get a signal after the RSEQ abort.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
@@ -497,8 +497,8 @@ check_sane_control_flow()
     {
         std::vector<memref_t> memrefs = {
             gen_instr(TID, /*pc=*/101, /*size=*/1),
-            // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
             gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 102),
+            // This is the signal which caused the RSEQ abort.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
             // We get a signal after the RSEQ abort.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
@@ -507,6 +507,8 @@ check_sane_control_flow()
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
             gen_instr(TID, /*pc=*/301, /*size=*/1),
             gen_instr(TID, /*pc=*/302, /*size=*/1),
+            // The kernel event marker should point to the previous instruction
+            // at PC 302, instead of 301.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
         };
         if (!run_checker(
@@ -1879,8 +1881,8 @@ check_branch_decoration()
             gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
             gen_instr_type(TRACE_TYPE_INSTR_UNTAKEN_JUMP, TID, /*pc=*/101, /*size=*/1,
                            /*target=*/0),
-            // The RSEQ_ABORT marker is always follwed by a KERNEL_EVENT marker.
             gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 102),
+            // This is the signal which caused the RSEQ abort.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
             // We get a signal after the RSEQ abort.
             gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),

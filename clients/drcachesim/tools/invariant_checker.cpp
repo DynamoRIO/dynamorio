@@ -1133,7 +1133,7 @@ invariant_checker_t::check_for_pc_discontinuity(
 #ifdef UNIX
         // Same PC is allowed for back-to-back signals without any intervening
         // instructions.
-        (cur_pc == shard->last_signal_context_.xfer_int_pc &&
+        (at_kernel_event && cur_pc == shard->last_signal_context_.xfer_int_pc &&
          prev_instr_trace_pc ==
              shard->last_signal_context_.pre_signal_instr.memref.instr.addr) ||
 #endif
