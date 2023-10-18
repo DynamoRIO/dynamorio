@@ -60,6 +60,9 @@
 #define SVE_PREDICATE_SPILL_SLOT_SIZE SVE_MAX_PREDICATE_LENGTH_BYTES
 
 typedef struct _per_thread_t {
+    /* TODO i#3844: drreg does not support spilling predicate/vector regs yet,
+     * so we do it ourselves.
+     */
     void *scratch_pred_spill_slot;           /* Storage for spilled predicate register. */
     void *scratch_vector_spill_slot;         /* Storage for spilled vector register. */
     void *scratch_vector_spill_slot_aligned; /* Aligned ptr inside
