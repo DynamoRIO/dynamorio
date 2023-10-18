@@ -587,7 +587,9 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                                     scratch_gpr1))
         return false;
 
-    /* Populate the new vector index register */
+    /* Populate the new vector index register, starting at 0 and incrementing by 1 every
+     * time.
+     */
 
     /* index    scratch_vec.element_size, #0, #1 */
     instrlist_preinsert(
@@ -595,8 +597,8 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
         INSTR_XL8(INSTR_CREATE_index_sve(
                       drcontext,
                       opnd_create_reg_element_vector(scratch_vec, sg_info->element_size),
-                      opnd_create_immed_int(0, OPSZ_5b),
-                      opnd_create_immed_int(1, OPSZ_5b)),
+                      /*starting value=*/opnd_create_immed_int(0, OPSZ_5b),
+                      /*increment=*/opnd_create_immed_int(1, OPSZ_5b)),
                   orig_app_pc));
 
     /* Create a new scatter_gather_info_t with the updated registers. */
