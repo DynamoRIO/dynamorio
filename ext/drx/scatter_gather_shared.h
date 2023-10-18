@@ -85,7 +85,10 @@ typedef struct _scatter_gather_info_t {
                      */
     bool scaled;
     bool is_scalar_value_signed;
-    bool is_replicating;
+    bool is_replicating; /* The instruction is an ld1rq[bhwd] or ld1ro[bhwd] instruction
+                          * which loads a fixed size vector that is replicated to fill
+                          * the destination register.
+                          */
     enum {
         DRX_NORMAL_FAULTING,
         DRX_FIRST_FAULTING,
