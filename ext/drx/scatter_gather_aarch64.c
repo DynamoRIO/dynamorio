@@ -816,12 +816,23 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     drvector_t allowed;
     drreg_init_and_fill_vector(&allowed, true);
 
-    /* Figure out how many scratch registers we need */
+    /* Figure out how many scratch registers we need.
+     * There is a minimum of 1 register required.
+     * vector+scalar instructions use this for the scalar base register, and all other
+     * instructions use this for the scalar index register.
+     */
     uint num_scratch_gpr_needed = 1;
-    if (!sg_info.is_load)
+    if (!sg_info.is_load) {
+        /* Store instructions need an extra registrer to hold the value being stored */
         num_scratch_gpr_needed++;
-    if (is_contiguous)
+    }
+    if (is_contiguous) {
+        /* Contiguous instructions are transformed into a scalar+vector operation to be
+         * expanded and require an extra register for the scalar base that points to the
+         * beginning of the contiguous memory range.
+         */
         num_scratch_gpr_needed++;
+    }
 
     /* We need the scratch registers and base/index register app's value to be available
      * at the same time. Do not use.
