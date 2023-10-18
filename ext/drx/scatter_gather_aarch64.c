@@ -164,14 +164,14 @@ get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
     sg_info->scatter_gather_size = opnd_get_size(memopnd);
 
     switch (instr_get_opcode(instr)) {
-#define DRX_CASE(op, _reg_count, value_size, value_signed, replicating, \
-                 _faulting_behavior)                                    \
-    case OP_##op:                                                       \
-        sg_info->reg_count = _reg_count;                                \
-        sg_info->scalar_value_size = value_size;                        \
-        sg_info->is_scalar_value_signed = value_signed;                 \
-        sg_info->is_replicating = replicating;                          \
-        sg_info->faulting_behavior = _faulting_behavior;                \
+#define DRX_CASE(op, _reg_count, _scalar_value_size, _is_scalar_value_signed, \
+                 _is_replicating, _faulting_behavior)                         \
+    case OP_##op:                                                             \
+        sg_info->reg_count = _reg_count;                                      \
+        sg_info->scalar_value_size = _scalar_value_size;                      \
+        sg_info->is_scalar_value_signed = _is_scalar_value_signed;            \
+        sg_info->is_replicating = _is_replicating;                            \
+        sg_info->faulting_behavior = _faulting_behavior;                      \
         break
 
         DRX_CASE(ld1b, 1, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
