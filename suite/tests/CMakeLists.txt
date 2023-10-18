@@ -553,6 +553,8 @@ function(add_exe test source)
       "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     add_dependencies(${test} ${gen_asm_tgt})
   endif ()
+
+  # TODO i#5365: auto set this using CHECK_C_COMPILER_FLAG once any new test failures have been investigated
   if (BUILD_TESTS_SVE)
     target_compile_options(${test} PRIVATE
       "-march=armv8.4-a+crypto+rcpc+sha3+sm4+sve+rng+ssbs+nodotprod")
