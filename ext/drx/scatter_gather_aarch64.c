@@ -39,6 +39,7 @@
 #include "drx.h"
 #include "drmgr.h"
 #include "drreg.h"
+#include "drutil.h"
 #include "../ext_utils.h"
 #include "scatter_gather_shared.h"
 
@@ -47,41 +48,51 @@
 /* Control printing of verbose debugging messages. */
 #define VERBOSE 0
 
-#define SVE_MAX_VECTOR_LENGTH_BITS 2048
-#define SVE_MAX_VECTOR_LENGTH_BYTES (SVE_MAX_VECTOR_LENGTH_BITS / 8)
-#define SVE_VECTOR_ALIGNMENT_BYTES 16
-#define SVE_VECTOR_SPILL_SLOT_SIZE \
-    SVE_MAX_VECTOR_LENGTH_BYTES + (SVE_VECTOR_ALIGNMENT_BYTES - 1)
-
-#define SVE_MAX_PREDICATE_LENGTH_BITS (SVE_MAX_VECTOR_LENGTH_BITS / 8)
-#define SVE_MAX_PREDICATE_LENGTH_BYTES (SVE_MAX_PREDICATE_LENGTH_BITS / 8)
-#define SVE_PREDICATE_ALIGNMENT_BYTES 2
-#define SVE_PREDICATE_SPILL_SLOT_SIZE SVE_MAX_PREDICATE_LENGTH_BYTES
-
 typedef struct _per_thread_t {
-    void *scratch_pred_spill_slot; /* Storage for spilled predicate register. */
+    /* TODO i#3844: drreg does not support spilling predicate/vector regs yet,
+     * so we do it ourselves.
+     */
+
+    void *scratch_pred_spill_slots;       /* Storage for spilled predicate registers. */
+    size_t scratch_pred_spill_slots_size; /* Size of scratch_pred_spill_slots in bytes. */
+
+    void *scratch_vector_spill_slots;       /* Storage for spilled vector registers. */
+    size_t scratch_vector_spill_slots_size; /* Size of scratch_vector_spill_slots in
+                                               bytes. */
+
+    void *scratch_vector_spill_slots_aligned; /* Aligned ptr inside
+                                                scratch_vector_spill_slots to save/restore
+                                                spilled Z vector registers. */
 } per_thread_t;
 
 /* Track the state of manual spill slots for SVE registers.
  * This corresponds to the spill slot storage in per_thread_t.
  */
 typedef struct _spill_slot_state_t {
-    reg_id_t pred_slots[1];
+#define NUM_PRED_SLOTS 1
+    reg_id_t pred_slots[NUM_PRED_SLOTS];
+
+#define NUM_VECTOR_SLOTS 1
+    reg_id_t vector_slots[NUM_VECTOR_SLOTS];
 } spill_slot_state_t;
 
 void
 init_spill_slot_state(OUT spill_slot_state_t *spill_slot_state)
 {
-    const size_t num_pred_slots =
-        sizeof(spill_slot_state->pred_slots) / sizeof(spill_slot_state->pred_slots[0]);
-    for (size_t i = 0; i < num_pred_slots; i++)
+    for (size_t i = 0; i < NUM_PRED_SLOTS; i++)
         spill_slot_state->pred_slots[i] = DR_REG_NULL;
+
+    for (size_t i = 0; i < NUM_VECTOR_SLOTS; i++)
+        spill_slot_state->vector_slots[i] = DR_REG_NULL;
 }
 
 void
 drx_scatter_gather_thread_init(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
+
+    const uint vl_bytes = proc_get_vector_length_bytes();
+    const uint pl_bytes = vl_bytes / 8; /* Predicate register size */
 
     /*
      * The instructions we use to load/store the spilled predicate register require
@@ -91,10 +102,26 @@ drx_scatter_gather_thread_init(void *drcontext)
      * and dr_thread_alloc() guarantees allocated memory is aligned to the pointer size
      * (8 bytes) so we shouldn't have to do any further alignment.
      */
-    pt->scratch_pred_spill_slot =
-        dr_thread_alloc(drcontext, SVE_PREDICATE_SPILL_SLOT_SIZE);
-    DR_ASSERT_MSG(ALIGNED(pt->scratch_pred_spill_slot, SVE_PREDICATE_ALIGNMENT_BYTES),
-                  "scratch_pred_spill_slot is misaligned");
+    static const size_t predicate_alignment_bytes = 2;
+    pt->scratch_pred_spill_slots_size = pl_bytes * NUM_PRED_SLOTS;
+
+    pt->scratch_pred_spill_slots =
+        dr_thread_alloc(drcontext, pt->scratch_pred_spill_slots_size);
+    DR_ASSERT_MSG(ALIGNED(pt->scratch_pred_spill_slots, predicate_alignment_bytes),
+                  "scratch_pred_spill_slots is misaligned");
+
+    /*
+     * The scalable vector versions of LDR/STR require 16 byte alignment so we have to
+     * over-allocate and get an aligned pointer inside the allocated memory.
+     */
+    static const size_t vector_alignment_bytes = 16;
+    pt->scratch_vector_spill_slots_size =
+        (vl_bytes * NUM_VECTOR_SLOTS) + (vector_alignment_bytes - 1);
+
+    pt->scratch_vector_spill_slots =
+        dr_thread_alloc(drcontext, pt->scratch_vector_spill_slots_size);
+    pt->scratch_vector_spill_slots_aligned =
+        (void *)ALIGN_FORWARD(pt->scratch_vector_spill_slots, vector_alignment_bytes);
 
     drmgr_set_tls_field(drcontext, drx_scatter_gather_tls_idx, (void *)pt);
 }
@@ -104,7 +131,10 @@ drx_scatter_gather_thread_exit(void *drcontext)
 {
     per_thread_t *pt =
         (per_thread_t *)drmgr_get_tls_field(drcontext, drx_scatter_gather_tls_idx);
-    dr_thread_free(drcontext, pt->scratch_pred_spill_slot, SVE_PREDICATE_SPILL_SLOT_SIZE);
+    dr_thread_free(drcontext, pt->scratch_pred_spill_slots,
+                   pt->scratch_pred_spill_slots_size);
+    dr_thread_free(drcontext, pt->scratch_vector_spill_slots,
+                   pt->scratch_vector_spill_slots_size);
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 
@@ -141,92 +171,94 @@ get_scatter_gather_info(instr_t *instr, OUT scatter_gather_info_t *sg_info)
     sg_info->scatter_gather_size = opnd_get_size(memopnd);
 
     switch (instr_get_opcode(instr)) {
-#define DRX_CASE(op, _reg_count, value_size, value_signed, _faulting_behavior) \
-    case OP_##op:                                                              \
-        sg_info->reg_count = _reg_count;                                       \
-        sg_info->scalar_value_size = value_size;                               \
-        sg_info->is_scalar_value_signed = value_signed;                        \
-        sg_info->faulting_behavior = _faulting_behavior;                       \
+#define DRX_CASE(op, _reg_count, _scalar_value_size, _is_scalar_value_signed, \
+                 _is_replicating, _faulting_behavior)                         \
+    case OP_##op:                                                             \
+        sg_info->reg_count = _reg_count;                                      \
+        sg_info->scalar_value_size = _scalar_value_size;                      \
+        sg_info->is_scalar_value_signed = _is_scalar_value_signed;            \
+        sg_info->is_replicating = _is_replicating;                            \
+        sg_info->faulting_behavior = _faulting_behavior;                      \
         break
 
-        DRX_CASE(ld1b, 1, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1h, 1, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1w, 1, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1d, 1, OPSZ_8, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1sb, 1, OPSZ_1, true, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1sh, 1, OPSZ_2, true, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1sw, 1, OPSZ_4, true, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1b, 1, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1h, 1, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1w, 1, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1d, 1, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1sb, 1, OPSZ_1, true, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1sh, 1, OPSZ_2, true, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1sw, 1, OPSZ_4, true, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(ldff1b, 1, OPSZ_1, false, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1h, 1, OPSZ_2, false, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1w, 1, OPSZ_4, false, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1d, 1, OPSZ_8, false, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1sb, 1, OPSZ_1, true, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1sh, 1, OPSZ_2, true, DRX_FIRST_FAULTING);
-        DRX_CASE(ldff1sw, 1, OPSZ_4, true, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1b, 1, OPSZ_1, false, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1h, 1, OPSZ_2, false, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1w, 1, OPSZ_4, false, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1d, 1, OPSZ_8, false, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1sb, 1, OPSZ_1, true, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1sh, 1, OPSZ_2, true, false, DRX_FIRST_FAULTING);
+        DRX_CASE(ldff1sw, 1, OPSZ_4, true, false, DRX_FIRST_FAULTING);
 
-        DRX_CASE(ldnf1b, 1, OPSZ_1, false, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1h, 1, OPSZ_2, false, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1w, 1, OPSZ_4, false, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1d, 1, OPSZ_8, false, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1sb, 1, OPSZ_1, true, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1sh, 1, OPSZ_2, true, DRX_NON_FAULTING);
-        DRX_CASE(ldnf1sw, 1, OPSZ_4, true, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1b, 1, OPSZ_1, false, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1h, 1, OPSZ_2, false, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1w, 1, OPSZ_4, false, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1d, 1, OPSZ_8, false, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1sb, 1, OPSZ_1, true, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1sh, 1, OPSZ_2, true, false, DRX_NON_FAULTING);
+        DRX_CASE(ldnf1sw, 1, OPSZ_4, true, false, DRX_NON_FAULTING);
 
-        DRX_CASE(ldnt1b, 1, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1h, 1, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1w, 1, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1d, 1, OPSZ_8, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1sb, 1, OPSZ_1, true, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1sh, 1, OPSZ_2, true, DRX_NORMAL_FAULTING);
-        DRX_CASE(ldnt1sw, 1, OPSZ_4, true, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1b, 1, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1h, 1, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1w, 1, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1d, 1, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1sb, 1, OPSZ_1, true, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1sh, 1, OPSZ_2, true, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ldnt1sw, 1, OPSZ_4, true, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(st1b, 1, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st1h, 1, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st1w, 1, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st1d, 1, OPSZ_8, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st1b, 1, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st1h, 1, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st1w, 1, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st1d, 1, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(stnt1b, 1, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(stnt1h, 1, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(stnt1w, 1, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(stnt1d, 1, OPSZ_8, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(stnt1b, 1, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(stnt1h, 1, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(stnt1w, 1, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(stnt1d, 1, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(ld2b, 2, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld2h, 2, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld2w, 2, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld2d, 2, OPSZ_8, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld2b, 2, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld2h, 2, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld2w, 2, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld2d, 2, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(st2b, 2, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st2h, 2, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st2w, 2, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st2d, 2, OPSZ_8, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st2b, 2, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st2h, 2, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st2w, 2, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st2d, 2, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(ld3b, 3, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld3h, 3, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld3w, 3, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld3d, 3, OPSZ_8, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld3b, 3, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld3h, 3, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld3w, 3, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld3d, 3, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(st3b, 3, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st3h, 3, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st3w, 3, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st3d, 3, OPSZ_8, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st3b, 3, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st3h, 3, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st3w, 3, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st3d, 3, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(ld4b, 4, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld4h, 4, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld4w, 4, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld4d, 4, OPSZ_8, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld4b, 4, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld4h, 4, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld4w, 4, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld4d, 4, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(st4b, 4, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st4h, 4, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st4w, 4, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(st4d, 4, OPSZ_8, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st4b, 4, OPSZ_1, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st4h, 4, OPSZ_2, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st4w, 4, OPSZ_4, false, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(st4d, 4, OPSZ_8, false, false, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(ld1rob, 1, OPSZ_1, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1rob, 1, OPSZ_1, false, true, DRX_NORMAL_FAULTING);
 
-        DRX_CASE(ld1rqb, 1, OPSZ_1, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1rqh, 1, OPSZ_2, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1rqw, 1, OPSZ_4, false, DRX_NORMAL_FAULTING);
-        DRX_CASE(ld1rqd, 1, OPSZ_8, false, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1rqb, 1, OPSZ_1, false, true, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1rqh, 1, OPSZ_2, false, true, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1rqw, 1, OPSZ_4, false, true, DRX_NORMAL_FAULTING);
+        DRX_CASE(ld1rqd, 1, OPSZ_8, false, true, DRX_NORMAL_FAULTING);
 #undef DRX_CASE
 
     default: DR_ASSERT_MSG(false, "Invalid scatter/gather instruction");
@@ -499,6 +531,107 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
 #undef EMIT
 }
 
+/*
+ * Emit code to expand a predicated contiguous load or store into a series of equivalent
+ * scalar loads and stores.
+ * These instructions have memory operands of the form:
+ *     [<Xn|SP>, <Xm>{, lsl #amount}] (scalar+scalar)
+ * or
+ *     [<Xn|SP>{, #imm, mul vl}] (scalar+immediate)
+ *
+ * The memory operands of these instructions essentially work like scalar memory operands.
+ * Xn contains the base address to which we add an index either from the register Xm or an
+ * immediate value. That gives the address to load/store for element 0 of the vector and
+ * successive elements are loaded from/stored to successive addresses in memory.
+ * Essentially, the address for each element e is calculated as:
+ *
+ *     base + index + (e * scalar_value_size)
+ *
+ * Contiguous accesses are expanded in a similar way to scatter/gather accesses (see
+ * expand_scatter_gather() for details) with an extra step at the beginning.
+ *
+ * When we expand a scatter/gather instruction we use the pnext instruction to iterate
+ * over the active elements in the governing predicate. The loop essentially works like
+ * this:
+ *
+ *     mask = [0, 0, 0, ...]; // All elements start inactive.
+ *     while (1) {
+ *         mask = pnext(governing_predicate, mask);
+ *         if (no_element_is_active(mask))
+ *             break;
+ *         ...
+ *     }
+ *
+ * This works well for the true scatter/gather instructions because we can use the mask
+ * to extract the current element from the vector index or base register to a scalar
+ * register which we can use in a scalar load/store.
+ *
+ * Contiguous accesses don't have a vector we can extract from, so we need to create one.
+ * Essentially we transform the contiguous operation into a scalar+vector scatter/gather
+ * operation and expand that.
+ * We do this by calculating the element 0 address and using that as the new base, and
+ * generating a vector of element numbers to use as the vector index.
+ *
+ *     new_base = base + index
+ *     new_indices = [0, 1, 2, 3, ...]
+ *
+ * Now each address can be calculated as:
+ *
+ *     new_base + (extract_active_element(new_indices, mask) * scalar_value_size)
+ *
+ * which can be expanded the same way as a regular scalar+vector scatter/gather operation.
+ */
+static bool
+expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
+                  const scatter_gather_info_t *sg_info, reg_id_t scratch_gpr0,
+                  reg_id_t scratch_gpr1, reg_id_t scratch_gpr2, reg_id_t scratch_pred,
+                  reg_id_t scratch_vec, app_pc orig_app_pc)
+{
+    /* Calculate the new base address in scratch_gpr0. */
+    const opnd_t mem =
+        sg_info->is_load ? instr_get_src(sg_instr, 0) : instr_get_dst(sg_instr, 0);
+    if (!drutil_insert_get_mem_addr(drcontext, bb, sg_instr, mem, scratch_gpr0,
+                                    scratch_gpr1))
+        return false;
+
+    /* Populate the new vector index register, starting at 0 and incrementing by 1 every
+     * time.
+     */
+
+    /* index    scratch_vec.element_size, #0, #1 */
+    instrlist_preinsert(
+        bb, sg_instr,
+        INSTR_XL8(INSTR_CREATE_index_sve(
+                      drcontext,
+                      opnd_create_reg_element_vector(scratch_vec, sg_info->element_size),
+                      /*starting value=*/opnd_create_immed_int(0, OPSZ_5b),
+                      /*increment=*/opnd_create_immed_int(1, OPSZ_5b)),
+                  orig_app_pc));
+
+    /* Create a new scatter_gather_info_t with the updated registers. */
+    scatter_gather_info_t modified_sg_info = *sg_info;
+    modified_sg_info.base_reg = scratch_gpr0;
+    modified_sg_info.index_reg = scratch_vec;
+
+    /* Note that modified_sg_info might not describe a valid SVE instruction.
+     * For example if we are expanding:
+     *     ld1h z31.h, p0/z, [x0, x1, lsl #1]
+     * The modified_sg_info might look like a theoretical instruction:
+     *     ld1h z31.h, p0/z, [x2, z0.h, lsl #1]
+     * which is not a valid SVE instruction (scatter/gather instructions only support
+     * S and D element sizes).
+     * It doesn't matter that this theoretical instruction does not exist;
+     * expand_scatter_gather() is able to generate a sequence of valid instructions that
+     * carry out the described operation correctly anyway.
+     */
+
+    /* Expand the instruction as if it were a scalar+vector scatter/gather instruction */
+    expand_scatter_gather(drcontext, bb, sg_instr, &modified_sg_info, scratch_gpr1,
+                          scratch_gpr2, scratch_pred, orig_app_pc);
+
+    return true;
+}
+
 /* Spill a scratch predicate or vector register.
  * TODO i#3844: drreg does not support spilling predicate regs yet, so we do it
  * ourselves.
@@ -507,7 +640,7 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
 reg_id_t
 reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
                      reg_id_t scratch_gpr0, reg_id_t min_register, reg_id_t max_register,
-                     size_t slot_offset, opnd_size_t reg_size)
+                     size_t slot_tls_offset, opnd_size_t reg_size, uint slot_num)
 {
     /* Search the instruction for an unused register we will use as a temp. */
     reg_id_t reg;
@@ -520,17 +653,19 @@ reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
     drmgr_insert_read_tls_field(drcontext, drx_scatter_gather_tls_idx, bb, where,
                                 scratch_gpr0);
 
-    /* ldr scratch_gpr0, [scratch_gpr0, #slot_offset] */
+    /* ldr scratch_gpr0, [scratch_gpr0, #slot_tls_offset] */
     instrlist_meta_preinsert(
         bb, where,
         INSTR_CREATE_ldr(drcontext, opnd_create_reg(scratch_gpr0),
-                         OPND_CREATE_MEMPTR(scratch_gpr0, slot_offset)));
+                         OPND_CREATE_MEMPTR(scratch_gpr0, slot_tls_offset)));
 
-    /* str reg, [scratch_gpr0] */
+    /* str reg, [scratch_gpr0, #slot_num, mul vl] */
     instrlist_meta_preinsert(
         bb, where,
         INSTR_CREATE_str(drcontext,
-                         opnd_create_base_disp(scratch_gpr0, DR_REG_NULL, 0, 0, reg_size),
+                         opnd_create_base_disp(
+                             scratch_gpr0, DR_REG_NULL, /*scale=*/0,
+                             /*disp=*/slot_num * opnd_size_in_bytes(reg_size), reg_size),
                          opnd_create_reg(reg)));
 
     return reg;
@@ -540,17 +675,44 @@ reg_id_t
 reserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
                       reg_id_t scratch_gpr0, spill_slot_state_t *slot_state)
 {
-    DR_ASSERT(slot_state->pred_slots[0] == DR_REG_NULL);
+    uint slot;
+    for (slot = 0; slot < NUM_PRED_SLOTS; slot++) {
+        if (slot_state->pred_slots[slot] == DR_REG_NULL) {
+            break;
+        }
+    }
+    DR_ASSERT(slot_state->pred_slots[slot] == DR_REG_NULL);
 
     /* Some instructions require the predicate to be in the range p0 - p7. This includes
      * LASTB which we use to extract elements from the vector register.
      */
-    const reg_id_t reg =
-        reserve_sve_register(drcontext, bb, where, scratch_gpr0, DR_REG_P0, DR_REG_P7,
-                             offsetof(per_thread_t, scratch_pred_spill_slot),
-                             opnd_size_from_bytes(proc_get_vector_length_bytes() / 8));
+    const reg_id_t reg = reserve_sve_register(
+        drcontext, bb, where, scratch_gpr0, DR_REG_P0, DR_REG_P7,
+        offsetof(per_thread_t, scratch_pred_spill_slots),
+        opnd_size_from_bytes(proc_get_vector_length_bytes() / 8), slot);
 
-    slot_state->pred_slots[0] = reg;
+    slot_state->pred_slots[slot] = reg;
+    return reg;
+}
+
+reg_id_t
+reserve_vector_register(void *drcontext, instrlist_t *bb, instr_t *where,
+                        reg_id_t scratch_gpr0, spill_slot_state_t *slot_state)
+{
+    uint slot;
+    for (slot = 0; slot < NUM_VECTOR_SLOTS; slot++) {
+        if (slot_state->vector_slots[slot] == DR_REG_NULL) {
+            break;
+        }
+    }
+    DR_ASSERT(slot_state->vector_slots[slot] == DR_REG_NULL);
+
+    const reg_id_t reg =
+        reserve_sve_register(drcontext, bb, where, scratch_gpr0, DR_REG_Z0, DR_REG_Z31,
+                             offsetof(per_thread_t, scratch_vector_spill_slots_aligned),
+                             opnd_size_from_bytes(proc_get_vector_length_bytes()), slot);
+
+    slot_state->vector_slots[slot] = reg;
     return reg;
 }
 
@@ -561,24 +723,26 @@ reserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
  */
 void
 unreserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
-                       reg_id_t scratch_gpr0, reg_id_t reg, size_t slot_offset,
-                       opnd_size_t reg_size)
+                       reg_id_t scratch_gpr0, reg_id_t reg, size_t slot_tls_offset,
+                       opnd_size_t reg_size, uint slot_num)
 {
     drmgr_insert_read_tls_field(drcontext, drx_scatter_gather_tls_idx, bb, where,
                                 scratch_gpr0);
 
-    /* ldr scratch_gpr0, [scratch_gpr0, #slot_offset] */
+    /* ldr scratch_gpr0, [scratch_gpr0, #slot_tls_offset] */
     instrlist_meta_preinsert(
         bb, where,
         INSTR_CREATE_ldr(drcontext, opnd_create_reg(scratch_gpr0),
-                         OPND_CREATE_MEMPTR(scratch_gpr0, slot_offset)));
+                         OPND_CREATE_MEMPTR(scratch_gpr0, slot_tls_offset)));
 
-    /* ldr reg, [scratch_gpr0] */
+    /* ldr reg, [scratch_gpr0, #slot_num, mul vl] */
     instrlist_meta_preinsert(
         bb, where,
         INSTR_CREATE_ldr(
             drcontext, opnd_create_reg(reg),
-            opnd_create_base_disp(scratch_gpr0, DR_REG_NULL, 0, 0, reg_size)));
+            opnd_create_base_disp(scratch_gpr0, DR_REG_NULL, /*scale=*/0,
+                                  /*disp=*/slot_num * opnd_size_in_bytes(reg_size),
+                                  reg_size)));
 }
 
 void
@@ -586,12 +750,40 @@ unreserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
                         reg_id_t scratch_gpr0, reg_id_t scratch_pred,
                         spill_slot_state_t *slot_state)
 {
-    DR_ASSERT(slot_state->pred_slots[0] == scratch_pred);
-    slot_state->pred_slots[0] = DR_REG_NULL;
+    uint slot;
+    for (slot = 0; slot < NUM_PRED_SLOTS; slot++) {
+        if (slot_state->pred_slots[slot] == scratch_pred) {
+            break;
+        }
+    }
+    DR_ASSERT(slot_state->pred_slots[slot] == scratch_pred);
 
     unreserve_sve_register(drcontext, bb, where, scratch_gpr0, scratch_pred,
-                           offsetof(per_thread_t, scratch_pred_spill_slot),
-                           opnd_size_from_bytes(proc_get_vector_length_bytes() / 8));
+                           offsetof(per_thread_t, scratch_pred_spill_slots),
+                           opnd_size_from_bytes(proc_get_vector_length_bytes() / 8),
+                           slot);
+
+    slot_state->pred_slots[slot] = DR_REG_NULL;
+}
+
+void
+unreserve_vector_register(void *drcontext, instrlist_t *bb, instr_t *where,
+                          reg_id_t scratch_gpr0, reg_id_t scratch_vec,
+                          spill_slot_state_t *slot_state)
+{
+    uint slot;
+    for (slot = 0; slot < NUM_VECTOR_SLOTS; slot++) {
+        if (slot_state->vector_slots[slot] == scratch_vec) {
+            break;
+        }
+    }
+    DR_ASSERT(slot_state->vector_slots[slot] == scratch_vec);
+
+    unreserve_sve_register(drcontext, bb, where, scratch_gpr0, scratch_vec,
+                           offsetof(per_thread_t, scratch_vector_spill_slots_aligned),
+                           opnd_size_from_bytes(proc_get_vector_length_bytes()), slot);
+
+    slot_state->vector_slots[slot] = DR_REG_NULL;
 }
 
 /*****************************************************************************************
@@ -623,15 +815,30 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     bool res = false;
     get_scatter_gather_info(sg_instr, &sg_info);
 
-    /* Filter out instructions which are not yet supported. */
-    if (!((reg_is_z(sg_info.index_reg) || reg_is_z(sg_info.base_reg)) &&
-          sg_info.faulting_behavior == DRX_NORMAL_FAULTING)) {
-        /* We return true with *expanded=false here to indicate that no error occurred but
-         * we didn't expand any instructions. This matches the behaviour of this function
-         * for architectures with no scatter/gather expansion support.
-         */
+    /* Filter out instructions which are not yet supported.
+     * We return true with *expanded=false here to indicate that no error occurred but
+     * we didn't expand any instructions. This matches the behaviour of this function
+     * for architectures with no scatter/gather expansion support.
+     */
+    if (sg_info.faulting_behavior != DRX_NORMAL_FAULTING) {
+        /* TODO i#5036: Add support for first-fault and non-fault accesses. */
         return true;
     }
+    if (!reg_is_z(sg_info.base_reg) && sg_info.index_reg == DR_REG_NULL) {
+        /* TODO i#5036: Add support for scalar+immediate contiguous accesses. */
+        return true;
+    }
+    if (sg_info.reg_count > 1) {
+        /* TODO i#5036: Add support for multi-register accesses. */
+        return true;
+    }
+    if (sg_info.is_replicating) {
+        /* TODO i#5036: Add support for ld1rq* replicating loads. */
+        return true;
+    }
+
+    const bool is_contiguous =
+        !(reg_is_z(sg_info.base_reg) || reg_is_z(sg_info.index_reg));
 
     /* We want to avoid spill slot conflicts with later instrumentation passes. */
     drreg_status_t res_bb_props =
@@ -641,10 +848,29 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     /* Tell drx_event_restore_state() that an expansion has occurred. */
     drx_mark_scatter_gather_expanded();
 
-    reg_id_t scratch_gpr0 = DR_REG_INVALID;
-    reg_id_t scratch_gpr1 = DR_REG_INVALID;
+#define MAX_SCRATCH_GPR 3
+    reg_id_t scratch_gpr[MAX_SCRATCH_GPR] = { DR_REG_INVALID, DR_REG_INVALID,
+                                              DR_REG_INVALID };
     drvector_t allowed;
     drreg_init_and_fill_vector(&allowed, true);
+
+    /* Figure out how many scratch registers we need.
+     * There is a minimum of 1 register required.
+     * vector+scalar instructions use this for the scalar base register, and all other
+     * instructions use this for the scalar index register.
+     */
+    uint num_scratch_gpr_needed = 1;
+    if (!sg_info.is_load) {
+        /* Store instructions need an extra registrer to hold the value being stored */
+        num_scratch_gpr_needed++;
+    }
+    if (is_contiguous) {
+        /* Contiguous instructions are transformed into a scalar+vector operation to be
+         * expanded and require an extra register for the scalar base that points to the
+         * beginning of the contiguous memory range.
+         */
+        num_scratch_gpr_needed++;
+    }
 
     /* We need the scratch registers and base/index register app's value to be available
      * at the same time. Do not use.
@@ -656,19 +882,27 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 
     if (drreg_reserve_aflags(drcontext, bb, sg_instr) != DRREG_SUCCESS)
         goto drx_expand_scatter_gather_exit;
-    if (drreg_reserve_register(drcontext, bb, sg_instr, &allowed, &scratch_gpr0) !=
-        DRREG_SUCCESS)
-        goto drx_expand_scatter_gather_exit;
-    if (!sg_info.is_load &&
-        drreg_reserve_register(drcontext, bb, sg_instr, &allowed, &scratch_gpr1) !=
+
+    DR_ASSERT(num_scratch_gpr_needed <= MAX_SCRATCH_GPR);
+    for (uint i = 0; i < num_scratch_gpr_needed; i++) {
+        if (drreg_reserve_register(drcontext, bb, sg_instr, &allowed, &scratch_gpr[i]) !=
             DRREG_SUCCESS)
-        goto drx_expand_scatter_gather_exit;
+            goto drx_expand_scatter_gather_exit;
+    }
 
     spill_slot_state_t spill_slot_state;
     init_spill_slot_state(&spill_slot_state);
 
     const reg_id_t scratch_pred =
-        reserve_pred_register(drcontext, bb, sg_instr, scratch_gpr0, &spill_slot_state);
+        reserve_pred_register(drcontext, bb, sg_instr, scratch_gpr[0], &spill_slot_state);
+
+    reg_id_t scratch_vec = DR_REG_INVALID;
+    if (is_contiguous) {
+        /* This is a contiguous predicated access which requires an extra scratch Z
+         * register. */
+        scratch_vec = reserve_vector_register(drcontext, bb, sg_instr, scratch_gpr[0],
+                                              &spill_slot_state);
+    }
 
     const app_pc orig_app_pc = instr_get_app_pc(sg_instr);
 
@@ -680,39 +914,35 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     emulated_instr.flags = DR_EMULATE_INSTR_ONLY;
     drmgr_insert_emulation_start(drcontext, bb, sg_instr, &emulated_instr);
 
-    if (reg_is_z(sg_info.base_reg) || reg_is_z(sg_info.index_reg)) {
-        /* scalar+vector or vector+immediate*/
-        expand_scatter_gather(drcontext, bb, sg_instr, &sg_info, scratch_gpr0,
-                              scratch_gpr1, scratch_pred, orig_app_pc);
+    if (is_contiguous) {
+        /* scalar+scalar predicated contiguous access */
+        if (!expand_contiguous(drcontext, bb, sg_instr, &sg_info, scratch_gpr[0],
+                               scratch_gpr[1], scratch_gpr[2], scratch_pred, scratch_vec,
+                               orig_app_pc))
+            goto drx_expand_scatter_gather_exit;
     } else {
-        /* TODO i#5036
-         * Add support for:
-         *      Predicated contiguous variants:
-         *          scalar + immediate ld1/st1*
-         *          scalar + scalar ld1/st1*
-         *      First fault and non-faulting variants:
-         *          ldff1*, ldnf1*
-         *      Multi-register variants:
-         *          ld2*, ld3*, ld4*,
-         *          st2*, st3*, st4*
-         */
-        goto drx_expand_scatter_gather_exit;
+        /* scalar+vector or vector+immediate scatter/gather */
+        expand_scatter_gather(drcontext, bb, sg_instr, &sg_info, scratch_gpr[0],
+                              scratch_gpr[1], scratch_pred, orig_app_pc);
     }
 
     drmgr_insert_emulation_end(drcontext, bb, sg_instr);
 
-    unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr0, scratch_pred,
-                            &spill_slot_state);
-    if (scratch_gpr1 != DR_REG_INVALID &&
-        drreg_unreserve_register(drcontext, bb, sg_instr, scratch_gpr1) !=
-            DRREG_SUCCESS) {
-        DR_ASSERT_MSG(false, "drreg_unreserve_register should not fail");
-        goto drx_expand_scatter_gather_exit;
+    if (scratch_vec != DR_REG_INVALID) {
+        unreserve_vector_register(drcontext, bb, sg_instr, scratch_gpr[0], scratch_vec,
+                                  &spill_slot_state);
     }
-    if (drreg_unreserve_register(drcontext, bb, sg_instr, scratch_gpr0) !=
-        DRREG_SUCCESS) {
-        DR_ASSERT_MSG(false, "drreg_unreserve_register should not fail");
-        goto drx_expand_scatter_gather_exit;
+
+    unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr[0], scratch_pred,
+                            &spill_slot_state);
+
+    for (size_t i = 0; i < sizeof(scratch_gpr) / sizeof(scratch_gpr[0]); i++) {
+        if (scratch_gpr[i] != DR_REG_INVALID &&
+            drreg_unreserve_register(drcontext, bb, sg_instr, scratch_gpr[i]) !=
+                DRREG_SUCCESS) {
+            DR_ASSERT_MSG(false, "drreg_unreserve_register should not fail");
+            goto drx_expand_scatter_gather_exit;
+        }
     }
     if (drreg_unreserve_aflags(drcontext, bb, sg_instr) != DRREG_SUCCESS)
         goto drx_expand_scatter_gather_exit;

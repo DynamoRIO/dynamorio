@@ -124,6 +124,36 @@ st1w vector\+immediate 64bit element \(repeated base\): PASS
 st1d vector\+immediate 64bit element: PASS
 st1d vector\+immediate 64bit element \(max index\): PASS
 st1d vector\+immediate 64bit element \(repeated base\): PASS
+ld1b scalar\+scalar 8bit element: PASS
+ld1b scalar\+scalar 16bit element: PASS
+ld1b scalar\+scalar 32bit element: PASS
+ld1b scalar\+scalar 64bit element: PASS
+ldnt1b scalar\+scalar: PASS
+ld1sb scalar\+scalar 16bit element: PASS
+ld1sb scalar\+scalar 32bit element: PASS
+ld1sb scalar\+scalar 64bit element: PASS
+ld1h scalar\+scalar 16bit element: PASS
+ld1h scalar\+scalar 32bit element: PASS
+ld1h scalar\+scalar 64bit element: PASS
+ldnt1h scalar\+scalar: PASS
+ld1sh scalar\+scalar 32bit element: PASS
+ld1sh scalar\+scalar 64bit element: PASS
+ld1w scalar\+scalar 32bit element: PASS
+ld1w scalar\+scalar 64bit element: PASS
+ldnt1w scalar\+scalar: PASS
+ld1sw scalar\+scalar: PASS
+ld1d scalar\+scalar: PASS
+ldnt1d scalar\+scalar: PASS
+st1b scalar\+scalar 8bit element: PASS
+st1b scalar\+scalar 16bit element: PASS
+st1b scalar\+scalar 32bit element: PASS
+st1b scalar\+scalar 64bit element: PASS
+st1h scalar\+scalar 16bit element: PASS
+st1h scalar\+scalar 32bit element: PASS
+st1h scalar\+scalar 64bit element: PASS
+st1w scalar\+scalar 32bit element: PASS
+st1w scalar\+scalar 64bit element: PASS
+st1d scalar\+scalar: PASS
 #endif /* __ARM_FEATURE_SVE */
 ---- <application exited with code 0> ----
 Trace invariant checks passed
