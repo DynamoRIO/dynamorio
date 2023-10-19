@@ -10,8 +10,8 @@ Adios world!
 Adios world!
 Basic counts tool results:
 Total counts:
-          98 total \(fetched\) instructions
-          26 total unique \(fetched\) instructions
+         103 total \(fetched\) instructions
+          31 total unique \(fetched\) instructions
            4 total non-fetched instructions
            0 total prefetches
            7 total data loads
@@ -19,7 +19,7 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-          44 total scheduling markers
+          48 total scheduling markers
            0 total transfer markers
            0 total function id markers
            0 total function return address markers
@@ -27,20 +27,20 @@ Total counts:
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
-          11 total system call number markers
-          10 total blocking system call markers
+          12 total system call number markers
+          11 total blocking system call markers
            5 total other markers
-          26 total encodings
+          31 total encodings
 Thread [0-9]* counts:
-          98 \(fetched\) instructions
-          26 unique \(fetched\) instructions
+         103 \(fetched\) instructions
+          31 unique \(fetched\) instructions
            4 non-fetched instructions
            0 prefetches
            7 data loads
            5 data stores
            0 icache flushes
            0 dcache flushes
-          44 scheduling markers
+          48 scheduling markers
            0 transfer markers
            0 function id markers
            0 function return address markers
@@ -48,7 +48,7 @@ Thread [0-9]* counts:
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
-          11 system call number markers
-          10 blocking system call markers
+          12 system call number markers
+          11 blocking system call markers
            5 other markers
-          26 encodings
+          31 encodings

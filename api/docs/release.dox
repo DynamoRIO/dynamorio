@@ -132,6 +132,10 @@ changes:
    INT_MATH has been removed and replaced with MATH.
    FP_MATH has been removed and replaced with FP|MATH.
    The enumeration was organized in a different order, the old numbers become invalid
+ - The #dynamorio::drmemtrace::TRACE_MARKER_TYPE_FUNC_RETVAL marker for system
+   calls changed to contain the actual return value, rather than just whether
+   successful.  A new marker #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_FAILED
+   was added to indicate failure.
 
 Further non-compatibility-affecting changes include:
  - Added core-sharded analysis tool support where traces are sharded by
