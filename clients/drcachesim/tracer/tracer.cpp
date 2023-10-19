@@ -225,8 +225,11 @@ struct file_ops_func_t file_ops_func;
 static char modlist_path[MAXIMUM_PATH];
 static char funclist_path[MAXIMUM_PATH];
 static char encoding_path[MAXIMUM_PATH];
+
+#ifdef BUILD_PT_TRACER
 static char kallsyms_path[MAXIMUM_PATH];
 static char kcore_path[MAXIMUM_PATH];
+#endif
 
 static void
 append_timestamp_and_cpu_marker(per_thread_t *data)
