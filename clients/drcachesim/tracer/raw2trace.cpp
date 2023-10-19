@@ -1299,6 +1299,8 @@ raw2trace_t::do_conversion()
            count_rseq_side_exit_);
     VPRINT(1, "Trace duration %.3fs.\n",
            (latest_trace_timestamp_ - earliest_trace_timestamp_) / 1000000.0);
+    VPRINT(1, "Final trace instr count: " UINT64_FORMAT_STRING ".\n",
+           final_trace_instr_count_);
     VPRINT(1, "Kernel instr count " UINT64_FORMAT_STRING "\n", kernel_instr_count_);
     VPRINT(1, "System call PT traces decoded " UINT64_FORMAT_STRING "\n",
            syscall_pt_traces_decoded_);
@@ -3229,6 +3231,7 @@ raw2trace_t::write(raw2trace_thread_data_t *tdata, const trace_entry_t *start,
         tdata->error = "Failed to write to output file";
         return false;
     }
+
     // If we're at the end of a block (minus its delayed branch) we need
     // to split now to avoid going too far by waiting for the next instr.
     if (tdata->cur_chunk_instr_count >= chunk_instr_count_) {
@@ -3576,6 +3579,7 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
         break;
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT:
         tdata->final_trace_instr_count += value;
+        break;
     case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: tdata->kernel_instr_count += value; break;
     case RAW2TRACE_STAT_SYSCALL_PT_TRACES_DECODED:
         tdata->syscall_pt_traces_decoded += value;
