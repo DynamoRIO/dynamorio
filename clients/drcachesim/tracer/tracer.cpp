@@ -2172,6 +2172,16 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 }
 
 drmemtrace_status_t
+drmemtrace_get_output_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = logsubdir;
+    return DRMEMTRACE_SUCCESS;
+}
+
+#ifdef BUILD_PT_TRACER
+drmemtrace_status_t
 drmemtrace_get_kcore_path(OUT const char **path)
 {
     if (path == NULL)
@@ -2190,15 +2200,6 @@ drmemtrace_get_kallsyms_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_get_output_path(OUT const char **path)
-{
-    if (path == NULL)
-        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
-    *path = logsubdir;
-    return DRMEMTRACE_SUCCESS;
-}
-
-drmemtrace_status_t
 drmemtrace_get_kernel_pt_output_path(OUT const char **path)
 {
     if (path == NULL)
@@ -2206,6 +2207,7 @@ drmemtrace_get_kernel_pt_output_path(OUT const char **path)
     *path = kernel_pt_logsubdir;
     return DRMEMTRACE_SUCCESS;
 }
+#endif
 
 drmemtrace_status_t
 drmemtrace_get_modlist_path(OUT const char **path)
