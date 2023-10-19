@@ -76,7 +76,7 @@ repeat:
         mov      rdi, 42          // Invalid file descriptor.
         lea      rsi, hello_str
         mov      rdx, 13          // sizeof(hello_str)
-        mov      eax, 1         // SYS_write
+        mov      eax, 1           // SYS_write
         syscall
 
         // Exit.

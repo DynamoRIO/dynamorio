@@ -1643,6 +1643,9 @@ event_post_syscall(void *drcontext, int sysnum)
             BUF_PTR(data->seg_base) += instru->append_marker(
                 BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_RETVAL, info.value);
             if (!info.succeeded) {
+                // On Mac you can't tell success from just the return value so we
+                // include a failure indicator.  Since mmap is also complex, and
+                // to reduce Mac-only code, we provide this for all platforms.
                 BUF_PTR(data->seg_base) += instru->append_marker(
                     BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL_FAILED,
                     info.errno_value);

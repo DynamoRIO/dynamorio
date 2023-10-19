@@ -1483,8 +1483,8 @@ of functions related to heap allocation.  The -record_heap_value
 paramter controls the contents of this set.
 
 The tracer also supports recording system call argument and return
-values (along with whether the call failued) via the option -record_syscall, which
-functions similarly to
+values (along with whether the call failed) via the option -record_syscall, which
+works similarly to
 -record_function with the system call number replacing the function
 name.
 

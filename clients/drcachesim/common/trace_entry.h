@@ -540,6 +540,9 @@ typedef enum {
     // branch.  The reader converts this to the memref_t "indirect_branch_target" field.
     TRACE_MARKER_TYPE_BRANCH_TARGET,
 
+    // Although it is only for Mac that syscall success requires more than the
+    // main return value register, we include the failure marker for all platforms
+    // as mmap is complex and it is simpler to not have Mac-only code paths.
     /**
      * This marker is emitted for system calls whose parameters are traced with
      * -record_syscall.  It is emitted immediately after #TRACE_MARKER_TYPE_FUNC_RETVAL
