@@ -1632,7 +1632,7 @@ event_post_syscall(void *drcontext, int sysnum)
         if (hashtable_lookup(&syscall2args,
                              reinterpret_cast<void *>(static_cast<ptr_int_t>(sysnum))) !=
             nullptr) {
-            dr_syscall_result_info_t info;
+            dr_syscall_result_info_t info = {};
             info.size = sizeof(info);
             info.use_errno = true;
             dr_syscall_get_result_ex(drcontext, &info);
