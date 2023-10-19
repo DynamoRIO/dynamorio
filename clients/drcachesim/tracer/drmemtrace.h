@@ -279,11 +279,36 @@ drmemtrace_replace_file_ops_ex(drmemtrace_replace_file_ops_t *ops);
 
 DR_EXPORT
 /**
+ * Retrieves the full path to the kcore file in -offline mode when kernel system
+ * call tracing is enabled using -enable_kernel_tracing.
+ */
+drmemtrace_status_t
+drmemtrace_get_kcore_path(OUT const char **path);
+
+DR_EXPORT
+/**
+ * Retrieves the full path to the kallsyms file in -offline mode when kernel
+ * system call tracing is enabled using -enable_kernel_tracing.
+ */
+drmemtrace_status_t
+drmemtrace_get_kallsyms_path(OUT const char **path);
+
+DR_EXPORT
+/**
  * Retrieves the full path to the output directory in -offline mode
  * where data is being written.
  */
 drmemtrace_status_t
 drmemtrace_get_output_path(OUT const char **path);
+
+DR_EXPORT
+/**
+ * Retrieves the full path to the output directory in -offline mode
+ * where kernel PT data is written when kernel tracing is enabled using
+ * -enable_kernel_tracing.
+ */
+drmemtrace_status_t
+drmemtrace_get_kernel_pt_output_path(OUT const char **path);
 
 DR_EXPORT
 /**

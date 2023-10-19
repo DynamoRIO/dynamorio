@@ -225,6 +225,8 @@ struct file_ops_func_t file_ops_func;
 static char modlist_path[MAXIMUM_PATH];
 static char funclist_path[MAXIMUM_PATH];
 static char encoding_path[MAXIMUM_PATH];
+static char kallsyms_path[MAXIMUM_PATH];
+static char kcore_path[MAXIMUM_PATH];
 
 static void
 append_timestamp_and_cpu_marker(per_thread_t *data)
@@ -1783,7 +1785,7 @@ init_thread_in_process(void *drcontext)
 
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        data->syscall_pt_trace.init(
+        bool ret = data->syscall_pt_trace.init(
             drcontext, kernel_pt_logsubdir,
             // XXX i#5505: This should be per-thread and per-window; once we've
             // finalized the PT output scheme we should pass those parameters.
@@ -1791,6 +1793,7 @@ init_thread_in_process(void *drcontext)
                 return file_ops_func.open_process_file(fname, mode_flags);
             },
             file_ops_func.write_file, file_ops_func.close_file);
+        DR_ASSERT(ret);
     }
 #endif
     // XXX i#1729: gather and store an initial callstack for the thread.
@@ -1906,9 +1909,12 @@ event_exit(void)
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
         /* Copy kcore and kallsyms to {kernel_pt_logsubdir}. */
-        kcore_copy_t kcore_copy(file_ops_func.open_file, file_ops_func.write_file,
-                                file_ops_func.close_file);
-        if (!kcore_copy.copy(kernel_pt_logsubdir)) {
+        kcore_copy_t kcore_copy(
+            [](const char *fname, uint mode_flags) {
+                return file_ops_func.open_process_file(fname, mode_flags);
+            },
+            file_ops_func.write_file, file_ops_func.close_file);
+        if (!kcore_copy.copy(kcore_path, kallsyms_path)) {
             NOTIFY(0, "WARNING: failed to copy kcore and kallsyms to %s\n",
                    kernel_pt_logsubdir);
         }
@@ -2034,6 +2040,13 @@ init_offline_dir(void)
         if (!file_ops_func.create_dir(kernel_pt_logsubdir))
             return false;
     }
+    dr_snprintf(kcore_path, BUFFER_SIZE_ELEMENTS(kcore_path), "%s%s%s",
+                kernel_pt_logsubdir, DIRSEP, DRMEMTRACE_KCORE_FILENAME);
+    NULL_TERMINATE_BUFFER(kcore_path);
+
+    dr_snprintf(kallsyms_path, BUFFER_SIZE_ELEMENTS(kallsyms_path), "%s%s%s",
+                kernel_pt_logsubdir, DIRSEP DRMEMTRACE_KALLSYMS_FILENAME);
+    NULL_TERMINATE_BUFFER(kallsyms_path);
 #endif
     if (has_tracing_windows())
         open_new_window_dir(tracing_window.load(std::memory_order_acquire));
@@ -2159,11 +2172,38 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 }
 
 drmemtrace_status_t
+drmemtrace_get_kcore_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = kcore_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_get_kallsyms_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = kallsyms_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
 drmemtrace_get_output_path(OUT const char **path)
 {
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
     *path = logsubdir;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_get_kernel_pt_output_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = kernel_pt_logsubdir;
     return DRMEMTRACE_SUCCESS;
 }
 

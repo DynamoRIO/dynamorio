@@ -43,6 +43,7 @@
 #ifndef _TRACE_ENTRY_H_
 #define _TRACE_ENTRY_H_ 1
 
+#include <memory>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -1073,8 +1074,9 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
  * 3. The 3rd instance is used to store the output buffer's type and size.
  */
 #    define PT_METADATA_PDB_HEADER_ENTRY_NUM 3
-#    define PT_METADATA_PDB_HEADER_SIZE \
-        (PT_METADATA_PDB_HEADER_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+#    define PT_METADATA_PDB_HEADER_SIZE     \
+        (PT_METADATA_PDB_HEADER_ENTRY_NUM * \
+         sizeof(dynamorio::drmemtrace::syscall_pt_entry_t))
 #    define PT_METADATA_PDB_DATA_OFFSET PT_METADATA_PDB_HEADER_SIZE
 
 /* The header of each syscall's PT data buffer contains max 6 syscall_pt_entry_t
@@ -1086,7 +1088,7 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
  */
 #    define PT_DATA_PDB_HEADER_ENTRY_NUM 6
 #    define PT_DATA_PDB_HEADER_SIZE \
-        (PT_DATA_PDB_HEADER_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+        (PT_DATA_PDB_HEADER_ENTRY_NUM * sizeof(dynamorio::drmemtrace::syscall_pt_entry_t))
 #    define PT_DATA_PDB_DATA_OFFSET PT_DATA_PDB_HEADER_SIZE
 
 /* The metadata of each syscall is stored in the PDB header. The metadata contains 3
@@ -1097,7 +1099,7 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
  */
 #    define SYSCALL_METADATA_ENTRY_NUM 3
 #    define SYSCALL_METADATA_SIZE \
-        (SYSCALL_METADATA_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+        (SYSCALL_METADATA_ENTRY_NUM * sizeof(dynamorio::drmemtrace::syscall_pt_entry_t))
 
 typedef enum {
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
@@ -1122,6 +1124,42 @@ typedef enum {
      */
     PDB_HEADER_NUM_ARGS_IDX = 5
 } pdb_header_entry_idx_t;
+
+/**
+ * This is the format in which syscall_pt_trace writes the PT metadata for each
+ * thread before writing any system call's PT data.
+ *
+ * XXX: This is currently duplicated from pt_metadata_t defined in drpttracer.h.
+ * Figure out the proper code sharing strategy between the drmemtrace client and
+ * DR extensions.
+ */
+struct _pt_metadata_buf_t {
+    syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
+    struct {
+        uint16_t cpu_family;
+        uint8_t cpu_model;
+        uint8_t cpu_stepping;
+        uint16_t time_shift;
+        uint32_t time_mult;
+        uint64_t time_zero;
+    } __attribute__((__packed__)) metadata;
+};
+
+/** See #dynamorio::drmemtrace::_pt_metadata_buf_t. */
+typedef struct _pt_metadata_buf_t pt_metadata_buf_t;
+
+/**
+ * This is the format in which syscall_pt_trace writes each system call's PT
+ * data.
+ */
+struct _pt_data_buf_t {
+    syscall_pt_entry_t header[PT_DATA_PDB_HEADER_ENTRY_NUM];
+    std::unique_ptr<uint8_t[]> data;
+};
+
+/** See #dynamorio::drmemtrace::_pt_data_buf_t. */
+typedef struct _pt_data_buf_t pt_data_buf_t;
+
 #endif
 
 /**

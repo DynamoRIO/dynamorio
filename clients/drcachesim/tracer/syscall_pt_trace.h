@@ -89,7 +89,6 @@ public:
     {
         ASSERT(drcontext != nullptr, "invalid drcontext");
         if (data != nullptr) {
-            void *drcontext = dr_get_current_drcontext();
             drpttracer_destroy_output(drcontext, data);
             data = nullptr;
         }
