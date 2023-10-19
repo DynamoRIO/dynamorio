@@ -11,8 +11,8 @@ Adios world!
 ---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
-          98 total \(fetched\) instructions
-          26 total unique \(fetched\) instructions
+         103 total \(fetched\) instructions
+          31 total unique \(fetched\) instructions
            4 total non-fetched instructions
            0 total prefetches
            7 total data loads
@@ -20,7 +20,7 @@ Total counts:
            0 total icache flushes
            0 total dcache flushes
            1 total threads
-          44 total scheduling markers
+          48 total scheduling markers
            0 total transfer markers
            0 total function id markers
            0 total function return address markers
@@ -28,20 +28,20 @@ Total counts:
            0 total function return value markers
            0 total physical address \+ virtual address marker pairs
            0 total physical address unavailable markers
-          11 total system call number markers
+          12 total system call number markers
            0 total blocking system call markers
            4 total other markers
-         102 total encodings
+         107 total encodings
 Thread [0-9]* counts:
-          98 \(fetched\) instructions
-          26 unique \(fetched\) instructions
+         103 \(fetched\) instructions
+          31 unique \(fetched\) instructions
            4 non-fetched instructions
            0 prefetches
            7 data loads
            5 data stores
            0 icache flushes
            0 dcache flushes
-          44 scheduling markers
+          48 scheduling markers
            0 transfer markers
            0 function id markers
            0 function return address markers
@@ -49,7 +49,7 @@ Thread [0-9]* counts:
            0 function return value markers
            0 physical address \+ virtual address marker pairs
            0 physical address unavailable markers
-          11 system call number markers
+          12 system call number markers
            0 blocking system call markers
            4 other markers
-         102 encodings
+         107 encodings
