@@ -1103,7 +1103,6 @@ protected:
 
 #ifdef BUILD_PT_POST_PROCESSOR
         std::istream *kthread_file;
-        std::vector<syscall_pt_entry_t> pre_read_pt_entries;
         bool pt_metadata_processed = false;
         pt2ir_t pt2ir;
 #endif
