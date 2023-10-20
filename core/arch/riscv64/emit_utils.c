@@ -423,12 +423,65 @@ exit_cti_disp_pc(cache_pc branch_pc)
     return NULL;
 }
 
+/* Skips nop instructions backwards until the first `jr a1` instruction is found. */
+static uint *
+get_stub_branch(uint *val)
+{
+    ushort *pc = (ushort *)val;
+    /* Skip c.nop/nop instructions backwards. */
+    while (*pc == RAW_C_NOP_INST || *(uint *)pc == RAW_NOP_INST) {
+        /* We're looking for `jr a1`, its upper 16 bits are 0x5, not 0x1 (RAW_C_NOP_INST),
+         * so this is safe to do. */
+        if (*(pc - 1) == RAW_C_NOP_INST)
+            pc--;
+        else
+            pc -= 2;
+    }
+    /* The first non-NOP instruction must be the branch. */
+    ASSERT(*(uint *)pc == RAW_JR_A1_INST);
+    return (uint *)pc;
+}
+
 void
 link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                         bool hot_patch, app_pc target_tag)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
+    uint *pc;
+    cache_pc exit_target;
+    ibl_type_t ibl_type = { 0 };
+    DEBUG_DECLARE(bool is_ibl =)
+    get_ibl_routine_type_ex(dcontext, target_tag, &ibl_type);
+    ASSERT(is_ibl);
+    if (IS_IBL_LINKED(ibl_type.link_state))
+        exit_target = target_tag;
+    else
+        exit_target = get_linked_entry(dcontext, target_tag);
+
+    /* Set pc to the last instruction in the stub.
+     * See insert_exit_stub_other_flags(), the last instruction in indirect exit stub will
+     * always be a c.nop.
+     */
+    pc = (uint *)(stub_pc + exit_stub_size(dcontext, target_tag, f->flags) -
+                  RISCV64_INSTR_COMPRESSED_SIZE);
+
+    pc = get_stub_branch(pc) - 1;
+
+    byte *write_start = vmcode_get_writable_addr((byte *)pc);
+    instrlist_t ilist;
+    instrlist_init(&ilist);
+
+    APP(&ilist,
+        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A1),
+                        opnd_create_base_disp(
+                            dr_reg_stolen, DR_REG_NULL, 0,
+                            get_ibl_entry_tls_offs(dcontext, exit_target), OPSZ_8)));
+
+    instrlist_encode(dcontext, &ilist, write_start, false);
+    instrlist_clear(dcontext, &ilist);
+
+    if (hot_patch)
+        machine_cache_sync(pc, pc + 1, true);
 }
 
 cache_pc
