@@ -19,6 +19,16 @@ Adios world!
           50          20:   .* <marker: function argument 0x.*>
           51          20:   .* <marker: function argument 0xd>
           52          20:   .* <marker: function==syscall #1>
-          53          20:   .* <marker: function return value 0x1>
+          53          20:   .* <marker: function return value 0xd>
           54          20:   .* <marker: timestamp .*>
+.*
+         246         100:   .* <marker: system call 1>
+         247         100:   .* <marker: maybe-blocking system call>
+         248         100:   .* <marker: function==syscall #1>
+         249         100:   .* <marker: function argument 0x2a>
+         250         100:   .* <marker: function argument 0x.*>
+         251         100:   .* <marker: function argument 0xd>
+         252         100:   .* <marker: function==syscall #1>
+         253         100:   .* <marker: function return value 0xfffffffffffffff7>
+         254         100:   .* <marker: system call failed: 9>
 .*
