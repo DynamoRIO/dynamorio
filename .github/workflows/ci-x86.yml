@@ -173,6 +173,10 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
+    - name: Setup tmate session
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3
+
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
