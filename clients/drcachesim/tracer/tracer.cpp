@@ -1790,10 +1790,10 @@ init_thread_in_process(void *drcontext)
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         bool ret = data->syscall_pt_trace.init(
             drcontext, kernel_pt_logsubdir,
-            // XXX i#5505: This should be per-thread and per-window; once we've
-            // finalized the PT output scheme we should pass those parameters.
-            [](const char *fname, uint mode_flags) {
-                return file_ops_func.open_process_file(fname, mode_flags);
+            [](const char *fname, uint mode_flags, thread_id_t thread_id,
+               int64 window_id) {
+                return file_ops_func.call_open_file(fname, mode_flags, thread_id,
+                                                    window_id);
             },
             file_ops_func.write_file, file_ops_func.close_file);
         DR_ASSERT(ret);
