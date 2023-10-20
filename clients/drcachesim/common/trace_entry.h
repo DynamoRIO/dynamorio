@@ -680,8 +680,10 @@ marker_type_is_function_marker(const trace_marker_type_t mark)
  * - a thread/process.
  * All fields are stored as little-endian.  The raw records from the tracer may
  * be big-endian (per the architecture trace type field), in which case raw2trace must
- * convert them to little-endian.  The #memref_t fields may also be big-endian to
- * simplify analyzers, with the #dynamorio::drmemtrace::reader_t class converting.
+ * convert them to little-endian.  The #memref_t fields may be presented as big-endian
+ * to simplify analyzers running on big-endian machines, in which case the conversion
+ * from the trace format #trace_entry_t to big-endian is performed by the
+ * #dynamorio::drmemtrace::reader_t class.
  */
 START_PACKED_STRUCTURE
 struct _trace_entry_t {
