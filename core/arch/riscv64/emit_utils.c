@@ -587,14 +587,254 @@ emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
     return NULL;
 }
 
+bool
+instr_is_ibl_hit_jump(instr_t *instr)
+{
+    /* jr a0 */
+    return instr_get_opcode(instr) == OP_jalr &&
+        opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_X0 &&
+        opnd_get_reg(instr_get_target(instr)) == DR_REG_A0;
+}
+
 byte *
 emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                             byte *fcache_return_pc, bool target_trace_table,
                             bool inline_ibl_head, ibl_code_t *ibl_code /* IN/OUT */)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    bool absolute = false;
+    instrlist_t ilist;
+    instrlist_init(&ilist);
+    patch_list_t *patch = &ibl_code->ibl_patch;
+    init_patch_list(patch, PATCH_TYPE_INDIRECT_TLS);
+
+    instr_t *load_tag = INSTR_CREATE_label(dc);
+    instr_t *compare_tag = INSTR_CREATE_label(dc);
+    instr_t *try_next = INSTR_CREATE_label(dc);
+    instr_t *miss = INSTR_CREATE_label(dc);
+    instr_t *not_hit = INSTR_CREATE_label(dc);
+    instr_t *target_delete_entry = INSTR_CREATE_label(dc);
+    instr_t *unlinked = INSTR_CREATE_label(dc);
+
+    /* On entry we expect:
+     *     a0: link_stub entry
+     *     a1: scratch reg, arrived from jr a1
+     *     a2: indirect branch target
+     *     TLS_REG0_SLOT: app's a0
+     *     TLS_REG1_SLOT: app's a1
+     *     TLS_REG2_SLOT: app's a2
+     *     TLS_REG3_SLOT: scratch space
+     * There are following entries with the same context:
+     *     indirect_branch_lookup
+     *     unlink_stub_entry
+     * target_delete_entry:
+     *     a0: scratch
+     *     a1: table entry pointer from ibl lookup hit path
+     *     a2: app's a2
+     *     TLS_REG0_SLOT: app's a0
+     *     TLS_REG1_SLOT: app's a1
+     *     TLS_REG2_SLOT: app's a2
+     * On miss exit we output:
+     *     a0: the dcontext->last_exit
+     *     a1: jr a1
+     *     a2: app's a2
+     *     TLS_REG0_SLOT: app's a0 (recovered by fcache_return)
+     *     TLS_REG1_SLOT: app's a1 (recovered by fcache_return)
+     * On hit exit we output:
+     *     a0: fragment_start_pc (points to the fragment prefix)
+     *     a1: scratch reg
+     *     a2: app's a2
+     *     TLS_REG0_SLOT: app's a0 (recovered by fragment_prefix)
+     *     TLS_REG1_SLOT: app's a1 (recovered by fragment_prefix)
+     */
+
+    /* Spill a0. */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_A0, TLS_REG3_SLOT));
+
+    /* Load the hash mask into scratch register a1, which will be used in the hash
+     * function.
+     */
+    APP(&ilist,
+        INSTR_CREATE_ld(dc, opnd_create_reg(DR_REG_A1),
+                        opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                              TLS_MASK_SLOT(ibl_code->branch_type),
+                                              OPSZ_8)));
+
+    /* Memory barrier for the hash mask. We need a barrier to ensure we see updates
+     * properly.
+     * fence rw, rw
+     */
+    APP(&ilist,
+        INSTR_CREATE_fence(dc, opnd_create_immed_int(0x3, OPSZ_4b),
+                           opnd_create_immed_int(0x3, OPSZ_4b),
+                           opnd_create_immed_int(0x0, OPSZ_4b)));
+
+    /* Load lookup table base into a0. */
+    APP(&ilist,
+        INSTR_CREATE_ld(dc, opnd_create_reg(DR_REG_A0),
+                        opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                              TLS_TABLE_SLOT(ibl_code->branch_type),
+                                              OPSZ_8)));
+
+    /* The hash "function":
+     * a1: hash mask
+     * a2: indirect branch target
+     */
+    APP(&ilist,
+        INSTR_CREATE_and(dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
+                         opnd_create_reg(DR_REG_A2)));
+
+    /* Now, a1 holds the hash table index, use slli+add to get the table entry. */
+    ASSERT(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type) >= 0);
+    if (4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type) > 0)
+        APP(&ilist,
+            INSTR_CREATE_slli(
+                dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
+                opnd_add_flags(
+                    opnd_create_immed_int(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type),
+                                          OPSZ_6b),
+                    DR_OPND_IMM_PRINT_DECIMAL)));
+    APP(&ilist,
+        INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A0),
+                         opnd_create_reg(DR_REG_A1)));
+
+    /* Jump back from sentinel when wraparound is needed. */
+    APP(&ilist, load_tag);
+
+    /* a1: table entry (fragment_entry_t*).
+     * Load tag_fragment from fragment_entry_t* into a0.
+     */
+    APP(&ilist,
+        INSTR_CREATE_ld(
+            dc, opnd_create_reg(DR_REG_A0),
+            OPND_CREATE_MEMPTR(DR_REG_A1, offsetof(fragment_entry_t, tag_fragment))));
+
+    /* Jump back from collision. */
+    APP(&ilist, compare_tag);
+
+    /* a0: tag_fragment
+     * a2: indirect branch target
+     * Did we hit?
+     */
+    APP(&ilist,
+        INSTR_CREATE_beq(dc, opnd_create_instr(not_hit), opnd_create_reg(DR_REG_A0),
+                         opnd_create_reg(DR_REG_X0)));
+    /* We hit, but did it collide? */
+    APP(&ilist,
+        INSTR_CREATE_bne(dc, opnd_create_instr(try_next), opnd_create_reg(DR_REG_A0),
+                         opnd_create_reg(DR_REG_A2)));
+
+    /* No, so we found the answer.
+     * App's original values of a0 and a1 are already in respective TLS slots, and
+     * will be restored by the fragment prefix.
+     */
+
+    /* Recover app's original a2. */
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_A2, TLS_REG2_SLOT));
+
+    /* Load the answer into a0 */
+    APP(&ilist,
+        INSTR_CREATE_ld(dc, opnd_create_reg(DR_REG_A0),
+                        OPND_CREATE_MEMPTR(
+                            DR_REG_A1, offsetof(fragment_entry_t, start_pc_fragment))));
+    /* jr a0
+     * (keep in sync with instr_is_ibl_hit_jump())
+     */
+    APP(&ilist, XINST_CREATE_jump_reg(dc, opnd_create_reg(DR_REG_A0)));
+
+    APP(&ilist, try_next);
+
+    /* Try next entry, in case of collision. No wraparound check is needed
+     * because of the sentinel at the end.
+     */
+    APP(&ilist,
+        INSTR_CREATE_addi(dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
+                          opnd_create_immed_int(sizeof(fragment_entry_t), OPSZ_12b)));
+    APP(&ilist,
+        INSTR_CREATE_ld(
+            dc, opnd_create_reg(DR_REG_A0),
+            OPND_CREATE_MEMPTR(DR_REG_A1, offsetof(fragment_entry_t, tag_fragment))));
+
+    /* Compare again. */
+    APP(&ilist,
+        INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_X0), opnd_create_instr(compare_tag)));
+
+    APP(&ilist, not_hit);
+
+    if (INTERNAL_OPTION(ibl_sentinel_check)) {
+        /* Load start_pc from fragment_entry_t* in the hashtable to a0. */
+        APP(&ilist,
+            XINST_CREATE_load(
+                dc, opnd_create_reg(DR_REG_A0),
+                OPND_CREATE_MEMPTR(DR_REG_A1,
+                                   offsetof(fragment_entry_t, start_pc_fragment))));
+        /* To compare with an arbitrary constant we'd need a 4th scratch reg.
+         * Instead we rely on the sentinel start PC being 1.
+         */
+        ASSERT(HASHLOOKUP_SENTINEL_START_PC == (cache_pc)PTR_UINT_1);
+        APP(&ilist,
+            XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_A0), OPND_CREATE_INT8(1)));
+        APP(&ilist,
+            INSTR_CREATE_bne(dc, opnd_create_instr(miss), opnd_create_reg(DR_REG_A0),
+                             opnd_create_reg(DR_REG_X0)));
+
+        /* Point at the first table slot and then go load and compare its tag */
+        APP(&ilist,
+            XINST_CREATE_load(dc, opnd_create_reg(DR_REG_A1),
+                              OPND_CREATE_MEMPTR(dr_reg_stolen,
+                                                 TLS_TABLE_SLOT(ibl_code->branch_type))));
+        APP(&ilist,
+            INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_X0),
+                             opnd_create_instr(load_tag)));
+    }
+
+    /* Target delete entry */
+    APP(&ilist, target_delete_entry);
+    add_patch_marker(patch, target_delete_entry, PATCH_ASSEMBLE_ABSOLUTE,
+                     0 /* beginning of instruction */,
+                     (ptr_uint_t *)&ibl_code->target_delete_entry);
+
+    /* Load next_tag from table entry. */
+    APP(&ilist,
+        INSTR_CREATE_ld(
+            dc, opnd_create_reg(DR_REG_A2),
+            OPND_CREATE_MEMPTR(DR_REG_A1, offsetof(fragment_entry_t, tag_fragment))));
+
+    /* Store &linkstub_ibl_deleted in a0, instead of last exit linkstub by skipped
+     * code below.
+     */
+    instrlist_insert_mov_immed_ptrsz(dc, (ptr_uint_t)get_ibl_deleted_linkstub(),
+                                     opnd_create_reg(DR_REG_A0), &ilist, NULL, NULL,
+                                     NULL);
+    APP(&ilist,
+        INSTR_CREATE_jal(dc, opnd_create_reg(DR_REG_X0), opnd_create_instr(unlinked)));
+
+    APP(&ilist, miss);
+
+    /* Recover the dcontext->last_exit to a0. */
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_A0, TLS_REG3_SLOT));
+
+    /* Unlink path: entry from stub. */
+    APP(&ilist, unlinked);
+    add_patch_marker(patch, unlinked, PATCH_ASSEMBLE_ABSOLUTE,
+                     0 /* beginning of instruction */,
+                     (ptr_uint_t *)&ibl_code->unlinked_ibl_entry);
+
+    /* Put ib tgt into dcontext->next_tag. */
+    insert_shared_get_dcontext(dc, &ilist, NULL, true);
+    APP(&ilist, SAVE_TO_DC(dc, DR_REG_A2, NEXT_TAG_OFFSET));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_A5, DCONTEXT_BASE_SPILL_SLOT));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_A2, TLS_REG2_SLOT));
+
+    /* Load the fcache_return into a1. */
+    APP(&ilist,
+        INSTR_CREATE_ld(dc, opnd_create_reg(DR_REG_A1),
+                        OPND_TLS_FIELD(TLS_FCACHE_RETURN_SLOT)));
+    /* jr a1 */
+    APP(&ilist, XINST_CREATE_jump_reg(dc, opnd_create_reg(DR_REG_A1)));
+
+    ibl_code->ibl_routine_length = encode_with_patch_list(dc, patch, &ilist, pc);
+    instrlist_clear(dc, &ilist);
+    return pc + ibl_code->ibl_routine_length;
 }
 
 void
