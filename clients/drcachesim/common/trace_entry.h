@@ -1128,13 +1128,15 @@ typedef enum {
 /**
  * This is the format in which syscall_pt_trace writes the PT metadata for each
  * thread before writing any system call's PT data.
- *
- * XXX: This is currently duplicated from pt_metadata_t defined in drpttracer.h.
- * Figure out the proper code sharing strategy between the drmemtrace client and
- * DR extensions.
  */
 struct _pt_metadata_buf_t {
     syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
+
+    /**
+     * XXX: This is currently duplicated from pt_metadata_t defined in drpttracer.h.
+     * Figure out the proper code sharing strategy between the drmemtrace client and
+     * DR extensions.
+     */
     struct {
         uint16_t cpu_family;
         uint8_t cpu_model;

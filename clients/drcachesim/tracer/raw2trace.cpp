@@ -51,7 +51,7 @@
 #endif
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include <unistd.h>
-#    include "../drpt2trace/ir2trace.h"
+#    include "ir2trace.h"
 #endif
 
 #include <algorithm>
@@ -860,14 +860,12 @@ raw2trace_t::get_next_kernel_entry(raw2trace_thread_data_t *tdata,
                                        PT_METADATA_PDB_HEADER_SIZE)) {
             tdata->error = "Unable to read the PDB header of PT metadata from kernel "
                            "thread log file";
-            pt_metadata.reset(nullptr);
             return nullptr;
         }
 
         if (!tdata->kthread_file->read((char *)&pt_metadata->metadata,
                                        sizeof(pt_metadata->metadata))) {
             tdata->error = "Unable to read the PT metadata from kernel thread log file";
-            pt_metadata.reset(nullptr);
             return nullptr;
         }
     }
