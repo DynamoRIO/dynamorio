@@ -690,7 +690,13 @@ marker_type_is_function_marker(const trace_marker_type_t mark)
  * - a bundle of instrs
  * - a flush request
  * - a prefetch request
- * - a thread/process
+ * - a thread/process.
+ * All fields are stored as little-endian.  The raw records from the tracer may
+ * be big-endian (per the architecture trace type field), in which case raw2trace must
+ * convert them to little-endian.  The #memref_t fields may be presented as big-endian
+ * to simplify analyzers running on big-endian machines, in which case the conversion
+ * from the trace format #trace_entry_t to big-endian is performed by the
+ * #dynamorio::drmemtrace::reader_t class.
  */
 START_PACKED_STRUCTURE
 struct _trace_entry_t {
@@ -880,6 +886,8 @@ build_target_arch_type()
 }
 #endif
 
+// This structure may be big- or little-endian, but when converted to trace_entry_t
+// it must be converted to litte-endian.
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
     union {
@@ -935,6 +943,7 @@ typedef union {
 #define ENCODING_FILE_INITIAL_VERSION 0
 #define ENCODING_FILE_VERSION ENCODING_FILE_INITIAL_VERSION
 
+// All fields are little-endian.
 START_PACKED_STRUCTURE
 struct _encoding_entry_t {
     size_t length; // Size of the entire structure.
@@ -955,6 +964,7 @@ typedef struct _encoding_entry_t encoding_entry_t;
 // A thread schedule file is a series of these records.
 // There is no version number here: we increase the version number in
 // the trace files when we change the format of this file.
+// All fields are little-endian.
 START_PACKED_STRUCTURE
 struct schedule_entry_t {
     schedule_entry_t(uint64_t thread, uint64_t timestamp, uint64_t cpu,
@@ -1021,6 +1031,7 @@ typedef enum {
     SYSCALL_PT_ENTRY_TYPE_MAX
 } syscall_pt_entry_type_t;
 
+// All fields are little-endian.
 START_PACKED_STRUCTURE
 struct _syscall_pt_entry_t {
     union {
