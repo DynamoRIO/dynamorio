@@ -685,7 +685,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
     /* Now, a1 holds the hash table index, use slli+add to get the table entry. */
     ASSERT(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type) >= 0);
-    if (4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type) > 0)
+    if (4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type) > 0) {
         APP(&ilist,
             INSTR_CREATE_slli(
                 dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
@@ -693,6 +693,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                     opnd_create_immed_int(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type),
                                           OPSZ_6b),
                     DR_OPND_IMM_PRINT_DECIMAL)));
+    }
     APP(&ilist,
         INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A0),
                          opnd_create_reg(DR_REG_A1)));
