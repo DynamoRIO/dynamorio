@@ -466,21 +466,17 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
      */
     pc = (uint *)(stub_pc + exit_stub_size(dcontext, target_tag, f->flags) -
                   RISCV64_INSTR_COMPRESSED_SIZE);
-
     pc = get_stub_branch(pc) - 1;
 
-    byte *write_start = vmcode_get_writable_addr((byte *)pc);
-    instrlist_t ilist;
-    instrlist_init(&ilist);
-
-    APP(&ilist,
-        INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A1),
-                        opnd_create_base_disp(
-                            dr_reg_stolen, DR_REG_NULL, 0,
-                            get_ibl_entry_tls_offs(dcontext, exit_target), OPSZ_8)));
-
-    instrlist_encode(dcontext, &ilist, write_start, false);
-    instrlist_clear(dcontext, &ilist);
+    ASSERT(get_ibl_entry_tls_offs(dcontext, exit_target) <= (2 << 11) - 1);
+    /* Format of the ld instruction:
+        | imm[11:0] |  rs1  |011|  rd  |0000011|
+        ^   31-20   ^ 19-15 ^   ^ 11-7 ^
+     */
+    /* ld a1, offs(reg_stolen) */
+    *(uint *)vmcode_get_writable_addr((byte *)pc) = 0x3003 |
+        get_ibl_entry_tls_offs(dcontext, exit_target) << 20 |
+        (dr_reg_stolen - DR_REG_ZERO) << 15 | (DR_REG_A1 - DR_REG_ZERO) << 7;
 
     if (hot_patch)
         machine_cache_sync(pc, pc + 1, true);
