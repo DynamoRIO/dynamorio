@@ -2048,7 +2048,7 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(kcore_path);
 
     dr_snprintf(kallsyms_path, BUFFER_SIZE_ELEMENTS(kallsyms_path), "%s%s%s",
-                kernel_pt_logsubdir, DIRSEP DRMEMTRACE_KALLSYMS_FILENAME);
+                kernel_pt_logsubdir, DIRSEP, DRMEMTRACE_KALLSYMS_FILENAME);
     NULL_TERMINATE_BUFFER(kallsyms_path);
 #endif
     if (has_tracing_windows())
