@@ -322,7 +322,7 @@ typedef enum {
      * the drmemtrace_get_funclist_path() function's documentation.
      *
      * This marker is also used to record parameter values for certain system calls such
-     * as for #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS.  These use
+     * as for #OFFLINE_FILE_TYPE_BLOCKING_SYSCALLS or -record_syscall.  These use
      * large identifiers equal to
      * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE plus the system
      * call number (for 32-bit marker values just the bottom 16 bits of the system call
@@ -348,20 +348,18 @@ typedef enum {
      * #TRACE_MARKER_TYPE_FUNC_ID marker entry. The number of such
      * entries for one function invocation is equal to the specified argument in
      * -record_function (or pre-defined functions in -record_heap_value if
-     * -record_heap is specified).
+     * -record_heap is specified) or -record_syscall.
      */
     TRACE_MARKER_TYPE_FUNC_ARG,
 
     /**
      * The marker value contains the return value of the just-entered function,
      * whose id is specified by the closest previous
-     * #TRACE_MARKER_TYPE_FUNC_ID marker entry
+     * #TRACE_MARKER_TYPE_FUNC_ID marker entry.  This is a
+     * pointer-sized value from the conventional return value register.
      *
-     * The marker value for system calls (see
-     * #func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) is either 0
-     * (failure) or 1 (success), as obtained from dr_syscall_get_result_ex() via the
-     * "succeeded" field of #dr_syscall_result_info_t.  See the corresponding
-     * documentation for caveats about the accuracy of this value.
+     * For system calls, this may not be enough to determine whether the call
+     * succeeded. See #TRACE_MARKER_TYPE_SYSCALL_FAILED.
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
 
@@ -541,6 +539,21 @@ typedef enum {
     // non-i-filtered traces.  The marker value holds the actual target of the
     // branch.  The reader converts this to the memref_t "indirect_branch_target" field.
     TRACE_MARKER_TYPE_BRANCH_TARGET,
+
+    // Although it is only for Mac that syscall success requires more than the
+    // main return value register, we include the failure marker for all platforms
+    // as mmap is complex and it is simpler to not have Mac-only code paths.
+    /**
+     * This marker is emitted for system calls whose parameters are traced with
+     * -record_syscall.  It is emitted immediately after #TRACE_MARKER_TYPE_FUNC_RETVAL
+     * if prior the system call (whose id is specified by the closest previous
+     * #TRACE_MARKER_TYPE_FUNC_ID marker entry) failed.  Whether it failed is obtained
+     * from dr_syscall_get_result_ex() via the "succeeded" field of
+     * #dr_syscall_result_info_t.  See the corresponding documentation for caveats about
+     * the accuracy of this determination.  The marker value is the "errno_value" field
+     * of #dr_syscall_result_info_t.
+     */
+    TRACE_MARKER_TYPE_SYSCALL_FAILED,
 
     // ...
     // These values are reserved for future built-in marker types.
