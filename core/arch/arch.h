@@ -188,7 +188,8 @@ mixed_mode_enabled(void)
 #    define SS_RETVAL_REG a0
 #endif /* X86/ARM/RISCV64 */
 #define XSP_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
-#define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
+#define XFLAGS_OFFSET \
+    ((MC_OFFS) + (offsetof(priv_mcontext_t, IF_RISCV64_ELSE(fcsr, xflags))))
 #define PC_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
 
 /* the register holds dcontext on fcache enter/return */
