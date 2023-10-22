@@ -204,18 +204,20 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* If the target reg is dr_reg_stolen, the app value is in TLS. */
         PRE(ilist, instr,
             instr_create_restore_from_tls(dcontext, IBL_TARGET_REG, TLS_REG_STOLEN_SLOT));
-        if (opnd_get_immed_int(instr_get_src(instr, 1)) != 0)
+        if (opnd_get_immed_int(instr_get_src(instr, 1)) != 0) {
             PRE(ilist, instr,
                 XINST_CREATE_add(dcontext, opnd_create_reg(IBL_TARGET_REG),
                                  instr_get_src(instr, 1)));
+        }
     } else
         PRE(ilist, instr,
             XINST_CREATE_add_2src(dcontext, opnd_create_reg(IBL_TARGET_REG), target,
                                   instr_get_src(instr, 1)));
 
-    if (opnd_get_reg(dst) != DR_REG_ZERO)
+    if (opnd_get_reg(dst) != DR_REG_ZERO) {
         insert_mov_immed_ptrsz(dcontext, get_call_return_address(dcontext, ilist, instr),
                                dst, ilist, next_instr, NULL, NULL);
+    }
 
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
