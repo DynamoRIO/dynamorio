@@ -136,6 +136,16 @@ changes:
    calls changed to contain the actual return value, rather than just whether
    successful.  A new marker #dynamorio::drmemtrace::TRACE_MARKER_TYPE_SYSCALL_FAILED
    was added to indicate failure.
+ - Fixed a bug in the AArch64 codec with the way that SVE scalar+immediate predicated
+   contiguous load and store instructions represented the immediate offset in the IR.
+   In 10.0.0 the memory operand in these instruction used the immediate value from the
+   instruction (which is an index to be scaled by the vector length) as the displacement,
+   whereas the displacement value in a DynamoRIO memory operand should always be a byte
+   offset. This has now been corrected.
+   Traces and other tool results created with DynamoRIO prior to this fix may have
+   incorrect results if the application contained these instructions.
+   See <a href="https://github.com/DynamoRIO/dynamorio/pull/6390">PR #6390</a> for the
+   full list of affected instructions.
 
 Further non-compatibility-affecting changes include:
  - Added core-sharded analysis tool support where traces are sharded by
