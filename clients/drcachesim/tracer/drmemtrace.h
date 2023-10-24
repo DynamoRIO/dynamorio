@@ -305,11 +305,11 @@ drmemtrace_get_kallsyms_path(OUT const char **path);
 DR_EXPORT
 /**
  * Retrieves the full path to the output directory in -offline mode
- * where kernel PT data is written when kernel tracing is enabled using
+ * where kernel trace data is written when kernel tracing is enabled using
  * -enable_kernel_tracing.
  */
 drmemtrace_status_t
-drmemtrace_get_kernel_pt_output_path(OUT const char **path);
+drmemtrace_get_kernel_trace_output_path(OUT const char **path);
 #endif
 
 DR_EXPORT

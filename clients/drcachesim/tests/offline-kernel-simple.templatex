@@ -6,44 +6,11 @@ Total counts:
  .* total non-fetched instructions
  *[1-9][0-9]* total userspace instructions
  *[1-9][0-9]* total kernel instructions
- .* total prefetches
- .* total data loads
- .* total data stores
- .* total icache flushes
- .* total dcache flushes
- .* total threads
- .* total scheduling markers
- .* total transfer markers
- .* total function id markers
- .* total function return address markers
- .* total function argument markers
- .* total function return value markers
- .* total physical address \+ virtual address marker pairs
- .* total physical address unavailable markers
- .* total system call number markers
- .* total blocking system call markers
- .* total other markers
- .* total encodings
+.*
 Thread .* counts:
  .* \(fetched\) instructions
  .* unique \(fetched\) instructions
  .* non-fetched instructions
  *[1-9][0-9]* userspace instructions
  *[1-9][0-9]* kernel instructions
- .* prefetches
- .* data loads
- .* data stores
- .* icache flushes
- .* dcache flushes
- .* scheduling markers
- .* transfer markers
- .* function id markers
- .* function return address markers
- .* function argument markers
- .* function return value markers
- .* physical address \+ virtual address marker pairs
- .* physical address unavailable markers
- .* system call number markers
- .* blocking system call markers
- .* other markers
- .* encodings
+.*

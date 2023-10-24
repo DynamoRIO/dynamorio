@@ -59,7 +59,13 @@ extern "C" {
 #    define INOUT // nothing
 #endif
 
-#define END_PACKED_STRUCTURE __attribute__((__packed__))
+#ifdef WINDOWS
+#    define START_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(push, 1))
+#    define END_PACKED_STRUCTURE ACTUAL_PRAGMA(pack(pop))
+#else
+#    define START_PACKED_STRUCTURE /* nothing */
+#    define END_PACKED_STRUCTURE __attribute__((__packed__))
+#endif
 
 /**
  * The type of PT trace's metadata.
@@ -71,7 +77,10 @@ extern "C" {
  * \note drpttracer gets the time_shift, time_mult and time_zero from the opened perf
  * event file's head. The time_shift, time_mult and time_zero are used to initialize the
  * PT sideband config of pt2ir_t when decoding a PT trace.
+ *
+ *  All fields are little-endian.
  */
+START_PACKED_STRUCTURE
 typedef struct _pt_metadata_t {
     uint16_t cpu_family;  /**< The CPU family. */
     uint8_t cpu_model;    /**< The CPU mode. */

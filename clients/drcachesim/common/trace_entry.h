@@ -967,6 +967,7 @@ struct schedule_entry_t {
 
 #if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
+/***** Trace entries related to the kernel trace -- start *****/
 /**
  * The type of a syscall PT entry in the raw offline output.
  */
@@ -1128,15 +1129,23 @@ typedef enum {
 /**
  * This is the format in which syscall_pt_trace writes the PT metadata for each
  * thread before writing any system call's PT data.
+ * All fields are little-endian.
  */
+START_PACKED_STRUCTURE
 struct _pt_metadata_buf_t {
+    /**
+     * The header of the PT metadata.
+     */
     syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
 
+    // XXX: This is currently duplicated from pt_metadata_t defined in drpttracer.h.
+    // Figure out the proper code sharing strategy between the drmemtrace client and
+    // DR extensions.
     /**
-     * XXX: This is currently duplicated from pt_metadata_t defined in drpttracer.h.
-     * Figure out the proper code sharing strategy between the drmemtrace client and
-     * DR extensions.
+     * The PT metadata itself. See the equivalent #pt_metadata_t which documents
+     * each field.
      */
+    START_PACKED_STRUCTURE
     struct {
         uint16_t cpu_family;
         uint8_t cpu_model;
@@ -1144,8 +1153,8 @@ struct _pt_metadata_buf_t {
         uint16_t time_shift;
         uint32_t time_mult;
         uint64_t time_zero;
-    } __attribute__((__packed__)) metadata;
-};
+    } END_PACKED_STRUCTURE metadata;
+} END_PACKED_STRUCTURE;
 
 /** See #dynamorio::drmemtrace::_pt_metadata_buf_t. */
 typedef struct _pt_metadata_buf_t pt_metadata_buf_t;
@@ -1155,14 +1164,22 @@ typedef struct _pt_metadata_buf_t pt_metadata_buf_t;
  * data.
  */
 struct _pt_data_buf_t {
+    /**
+     * The header of the PT data.
+     */
     syscall_pt_entry_t header[PT_DATA_PDB_HEADER_ENTRY_NUM];
+    /**
+     * The actual data written by PT.
+     */
     std::unique_ptr<uint8_t[]> data;
 };
 
 /** See #dynamorio::drmemtrace::_pt_data_buf_t. */
 typedef struct _pt_data_buf_t pt_data_buf_t;
 
-#endif
+/***** Trace entries related to the kernel trace -- end *****/
+
+#endif // defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
 /**
  * The name of the file in -offline mode where module data is written.
