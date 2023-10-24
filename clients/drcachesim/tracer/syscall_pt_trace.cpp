@@ -234,7 +234,8 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
     }
 
     uint64_t total_size = PT_DATA_PDB_HEADER_SIZE + data->pt_size;
-    auto to_write = std::unique_ptr<uint8_t[]>(new uint8_t[total_size]);
+    char *to_write = (char *)dr_thread_alloc(drcontext_, total_size);
+    DR_ASSERT(to_write != nullptr);
     /* Initialize the header of output buffer. */
     syscall_pt_entry_t pdb_header[PT_DATA_PDB_HEADER_ENTRY_NUM];
     pdb_header[PDB_HEADER_PID_IDX].pid.type = SYSCALL_PT_ENTRY_TYPE_PID;
@@ -273,12 +274,14 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
      * integration.
      * XXX: Could we avoid the second memcpy which may be potentially large?
      */
-    std::memcpy(&to_write.get()[0], &pdb_header[0], PT_DATA_PDB_HEADER_SIZE);
-    std::memcpy(&to_write.get()[PT_DATA_PDB_HEADER_SIZE], data->pt_buffer, data->pt_size);
-    if (write_file_func_(output_file_, to_write.get(), total_size) == 0) {
+    std::memcpy(to_write, &pdb_header[0], PT_DATA_PDB_HEADER_SIZE);
+    std::memcpy(to_write + PT_DATA_PDB_HEADER_SIZE, data->pt_buffer, data->pt_size);
+    if (write_file_func_(output_file_, to_write, total_size) == 0) {
         ASSERT(false, "Failed to write the trace data to the output file");
+        dr_thread_free(drcontext_, to_write, total_size);
         return false;
     }
+    dr_thread_free(drcontext_, to_write, total_size);
     return true;
 }
 
