@@ -39,7 +39,6 @@
 #include "drx.h"
 #include "drmgr.h"
 #include "drreg.h"
-#include "drutil.h"
 #include "../ext_utils.h"
 #include "scatter_gather_shared.h"
 
@@ -581,32 +580,36 @@ expand_scatter_gather(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
  *
  * which can be expanded the same way as a regular scalar+vector scatter/gather operation.
  */
-static bool
+static void
 expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                   const scatter_gather_info_t *sg_info, reg_id_t scratch_gpr0,
                   reg_id_t scratch_gpr1, reg_id_t scratch_gpr2, reg_id_t scratch_pred,
                   reg_id_t scratch_vec, app_pc orig_app_pc)
 {
-    /* Calculate the new base address in scratch_gpr0. */
-    const opnd_t mem =
-        sg_info->is_load ? instr_get_src(sg_instr, 0) : instr_get_dst(sg_instr, 0);
-    if (!drutil_insert_get_mem_addr(drcontext, bb, sg_instr, mem, scratch_gpr0,
-                                    scratch_gpr1))
-        return false;
+#define EMIT(op, ...)    \
+    instrlist_preinsert( \
+        bb, sg_instr, INSTR_XL8(INSTR_CREATE_##op(drcontext, __VA_ARGS__), orig_app_pc))
+
+    /* Calculate the new base address in scratch_gpr0.
+     * Note that we can't use drutil_insert_get_mem_addr() here because we don't want the
+     * BSD licensed drx to have a dependency on the LGPL licensed drutil.
+     */
+
+    DR_ASSERT(sg_info->index_reg != DR_REG_NULL);
+
+    /* add      scratch_gpr0, base_reg, index_reg, extend #extend_amount */
+    EMIT(add_extend, opnd_create_reg(scratch_gpr0), opnd_create_reg(sg_info->base_reg),
+         opnd_create_reg(sg_info->index_reg), OPND_CREATE_INT(sg_info->extend),
+         OPND_CREATE_INT(sg_info->extend_amount));
 
     /* Populate the new vector index register, starting at 0 and incrementing by 1 every
      * time.
      */
 
     /* index    scratch_vec.element_size, #0, #1 */
-    instrlist_preinsert(
-        bb, sg_instr,
-        INSTR_XL8(INSTR_CREATE_index_sve(
-                      drcontext,
-                      opnd_create_reg_element_vector(scratch_vec, sg_info->element_size),
-                      /*starting value=*/opnd_create_immed_int(0, OPSZ_5b),
-                      /*increment=*/opnd_create_immed_int(1, OPSZ_5b)),
-                  orig_app_pc));
+    EMIT(index_sve, opnd_create_reg_element_vector(scratch_vec, sg_info->element_size),
+         /*starting value=*/opnd_create_immed_int(0, OPSZ_5b),
+         /*increment=*/opnd_create_immed_int(1, OPSZ_5b));
 
     /* Create a new scatter_gather_info_t with the updated registers. */
     scatter_gather_info_t modified_sg_info = *sg_info;
@@ -629,7 +632,7 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
     expand_scatter_gather(drcontext, bb, sg_instr, &modified_sg_info, scratch_gpr1,
                           scratch_gpr2, scratch_pred, orig_app_pc);
 
-    return true;
+#undef EMIT
 }
 
 /* Spill a scratch predicate or vector register.
@@ -916,10 +919,9 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
 
     if (is_contiguous) {
         /* scalar+scalar predicated contiguous access */
-        if (!expand_contiguous(drcontext, bb, sg_instr, &sg_info, scratch_gpr[0],
-                               scratch_gpr[1], scratch_gpr[2], scratch_pred, scratch_vec,
-                               orig_app_pc))
-            goto drx_expand_scatter_gather_exit;
+        expand_contiguous(drcontext, bb, sg_instr, &sg_info, scratch_gpr[0],
+                          scratch_gpr[1], scratch_gpr[2], scratch_pred, scratch_vec,
+                          orig_app_pc);
     } else {
         /* scalar+vector or vector+immediate scatter/gather */
         expand_scatter_gather(drcontext, bb, sg_instr, &sg_info, scratch_gpr[0],
