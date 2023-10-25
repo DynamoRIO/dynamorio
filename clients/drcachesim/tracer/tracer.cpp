@@ -2039,7 +2039,7 @@ init_offline_dir(void)
 
 #ifdef BUILD_PT_TRACER
     dr_snprintf(kernel_trace_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_trace_logsubdir),
-                "%s%s%s", buf, DIRSEP, DRMEMTRACE_KERNEL_PT_SUBDIR);
+                "%s%s%s", buf, DIRSEP, DRMEMTRACE_KERNEL_TRACE_SUBDIR);
     NULL_TERMINATE_BUFFER(kernel_trace_logsubdir);
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         if (!file_ops_func.create_dir(kernel_trace_logsubdir))

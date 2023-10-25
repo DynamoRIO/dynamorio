@@ -206,7 +206,9 @@ syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
         SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY;
 
     /* We want to write the data in a single call to write_file_func_ for easier 3P
-     * integration.
+     * integration. Based on the implementation of the user-provided
+     * write_file_func_, it may not be acceptable to split the header and data
+     * away from each other.
      */
     std::memcpy(&to_write.metadata, &metadata, sizeof(metadata));
     if (write_file_func_(output_file_, &to_write, sizeof(to_write)) == 0) {

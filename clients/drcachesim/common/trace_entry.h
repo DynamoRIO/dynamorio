@@ -1103,6 +1103,9 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
         (SYSCALL_METADATA_ENTRY_NUM * sizeof(dynamorio::drmemtrace::syscall_pt_entry_t))
 
 typedef enum {
+    // TODO i#5505: We perhaps do not need to add the PID and TID in the header. They can
+    // be obtained from the thread's user-space trace files.
+
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
     PDB_HEADER_PID_IDX = 0,
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD_ID in the PDB
@@ -1169,7 +1172,7 @@ struct _pt_data_buf_t {
      */
     syscall_pt_entry_t header[PT_DATA_PDB_HEADER_ENTRY_NUM];
     /**
-     * The actual data written by PT.
+     * The actual trace data written by PT.
      */
     std::unique_ptr<uint8_t[]> data;
 };
@@ -1216,10 +1219,10 @@ typedef struct _pt_data_buf_t pt_data_buf_t;
 #define DRMEMTRACE_CPU_SCHEDULE_FILENAME "cpu_schedule.bin.zip"
 
 /**
- * The name of the folder in -offline mode where the kernel's per thread PT data is
- * stored. This data is captured during online tracing.
+ * The name of the folder in -offline mode where the kernel's per thread trace
+ * data is stored.
  */
-#define DRMEMTRACE_KERNEL_PT_SUBDIR "kernel.raw"
+#define DRMEMTRACE_KERNEL_TRACE_SUBDIR "kernel.raw"
 
 /**
  * The name of the file in -offline mode where the kernel code segments are stored. This
