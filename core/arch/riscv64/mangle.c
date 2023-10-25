@@ -32,7 +32,6 @@
 
 #include "../globals.h"
 #include "arch.h"
-#include "instr_create_shared.h"
 #include "instrument.h" /* instrlist_meta_preinsert */
 /* Make code more readable by shortening long lines.
  * We mark everything we add as non-app instr.
