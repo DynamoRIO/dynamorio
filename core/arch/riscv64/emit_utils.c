@@ -601,7 +601,6 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                             byte *fcache_return_pc, bool target_trace_table,
                             bool inline_ibl_head, ibl_code_t *ibl_code /* IN/OUT */)
 {
-    bool absolute = false;
     instrlist_t ilist;
     instrlist_init(&ilist);
     patch_list_t *patch = &ibl_code->ibl_patch;
@@ -668,6 +667,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                            opnd_create_immed_int(0x3, OPSZ_4b),
                            opnd_create_immed_int(0x0, OPSZ_4b)));
 
+    /* XXX i#6393: Indirect branch lookuptable should have barriers too. */
     /* Load lookup table base into a0. */
     APP(&ilist,
         INSTR_CREATE_ld(dc, opnd_create_reg(DR_REG_A0),
