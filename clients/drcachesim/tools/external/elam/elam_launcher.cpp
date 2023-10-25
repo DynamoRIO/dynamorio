@@ -42,7 +42,7 @@
 #include "droption.h"
 #include "dr_frontend.h"
 #include "analyzer.h"
-#include "empty_create.h"
+#include "elam_create.h"
 
 using dynamorio::drmemtrace::analyzer_t;
 using dynamorio::droption::droption_parser_t;
@@ -84,7 +84,7 @@ _tmain(int argc, const TCHAR *targv[])
                         .c_str());
     }
 
-    analysis_tool_t *tool = empty_tool_create(op_verbose.get_value());
+    analysis_tool_t *tool = elam_tool_create(op_verbose.get_value());
     std::vector<analysis_tool_t *> tools;
     tools.push_back(tool);
     analyzer_t analyzer(op_trace.get_value(), &tools[0], (int)tools.size());

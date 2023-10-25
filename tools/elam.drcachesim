@@ -1,0 +1,4 @@
+# analysis tool creator config file
+TOOL_NAME=elam
+CREATOR_BIN64=clients/lib64/release/libelam_creator.so
+CREATOR_BIN32=clients/lib32/release/libelam_creator.so

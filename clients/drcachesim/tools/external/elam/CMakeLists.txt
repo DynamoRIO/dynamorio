@@ -37,29 +37,29 @@ add_dr_defines()
 get_filename_component(DRCACHESIM_SOURCE_DIR
                        ${CMAKE_CURRENT_SOURCE_DIR}/../../.. ABSOLUTE)
 
-add_exported_library(drmemtrace_empty STATIC
-                     empty.cpp
+add_exported_library(drmemtrace_elam STATIC
+                     elam.cpp
                      ${DRCACHESIM_SOURCE_DIR}/common/options.cpp)
-set_property(TARGET drmemtrace_empty PROPERTY POSITION_INDEPENDENT_CODE ON)
-add_exported_library(empty_creator SHARED empty_creator.cpp)
-target_link_libraries(empty_creator drmemtrace_empty)
+set_property(TARGET drmemtrace_elam PROPERTY POSITION_INDEPENDENT_CODE ON)
+add_exported_library(elam_creator SHARED elam_creator.cpp)
+target_link_libraries(elam_creator drmemtrace_elam)
 
-place_shared_lib_in_lib_dir(empty_creator)
+place_shared_lib_in_lib_dir(elam_creator)
 
-add_executable(empty_launcher empty_launcher.cpp)
+add_executable(elam_launcher elam_launcher.cpp)
 _DR_get_static_libc_list(static_libc)
-target_link_libraries(empty_launcher
+target_link_libraries(elam_launcher
                       drmemtrace_analyzer
-                      drmemtrace_empty
+                      drmemtrace_elam
                       ${static_libc})
-use_DynamoRIO_extension(empty_launcher droption)
-add_dependencies(empty_launcher api_headers)
+use_DynamoRIO_extension(elam_launcher droption)
+add_dependencies(elam_launcher api_headers)
 
 # These add_win32_flags() calls are necessary only for building the project inside
 # the DR top level project.
-add_win32_flags(drmemtrace_empty)
-add_win32_flags(empty_creator)
-add_win32_flags(empty_launcher)
+add_win32_flags(drmemtrace_elam)
+add_win32_flags(elam_creator)
+add_win32_flags(elam_launcher)
 
 function (write_config_file name dst libdir)
   if (X64)
@@ -79,11 +79,11 @@ CREATOR_BIN${ALT_BIT}=${alt_libdir}/${LIB_PFX}${name}_creator${LIB_EXT}\n\
 ")
 endfunction ()
 
-set(EMPTY_CONFIG_INSTALL ${PROJECT_BINARY_DIR}/empty.drcachesim)
-set(EMPTY_CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/empty.drcachesim)
-write_config_file(empty ${EMPTY_CONFIG_BUILD} clients/${INSTALL_LIB})
-write_config_file(empty ${EMPTY_CONFIG_INSTALL} tools/${INSTALL_LIB})
-DR_install(FILES "${EMPTY_CONFIG_INSTALL}" DESTINATION ${INSTALL_CLIENTS_BASE})
+set(elam_CONFIG_INSTALL ${PROJECT_BINARY_DIR}/elam.drcachesim)
+set(elam_CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/elam.drcachesim)
+write_config_file(elam ${elam_CONFIG_BUILD} clients/${INSTALL_LIB})
+write_config_file(elam ${elam_CONFIG_INSTALL} tools/${INSTALL_LIB})
+DR_install(FILES "${elam_CONFIG_INSTALL}" DESTINATION ${INSTALL_CLIENTS_BASE})
 
 
 ##################################################
@@ -92,22 +92,22 @@ DR_install(FILES "${EMPTY_CONFIG_INSTALL}" DESTINATION ${INSTALL_CLIENTS_BASE})
 set(test_seconds 90)
 
 if (X86 AND X64 AND ZIP_FOUND)
-# Simple test to ensure empty launcher keeps working.
+# Simple test to ensure elam launcher keeps working.
   set(trace_dir
     "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
-  add_test(NAME tool.empty_launcher
-    COMMAND empty_launcher -trace ${trace_dir})
-  set_tests_properties(tool.empty_launcher PROPERTIES TIMEOUT ${test_seconds})
+  add_test(NAME tool.elam_launcher
+    COMMAND elam_launcher -trace ${trace_dir})
+  set_tests_properties(tool.elam_launcher PROPERTIES TIMEOUT ${test_seconds})
 
-  # Simple test to ensure empty tool can be loaded by drcachesim.
+  # Simple test to ensure elam tool can be loaded by drcachesim.
   set(trace_dir
     "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.x64.tracedir")
-  add_test(NAME drcachesim.empty_load
+  add_test(NAME drcachesim.elam_load
     COMMAND ${PROJECT_BINARY_DIR}/bin64/drrun -t drcachesim -offline
-     -simulator_type empty -indir ${trace_dir})
-  set(empty_regex "Empty tool created\nEmpty tool results:")
-  set_tests_properties(drcachesim.empty_load
-    PROPERTIES PASS_REGULAR_EXPRESSION "${empty_regex}")
+     -simulator_type elam -indir ${trace_dir})
+  set(elam_regex "elam tool created\nelam tool results:")
+  set_tests_properties(drcachesim.elam_load
+    PROPERTIES PASS_REGULAR_EXPRESSION "${elam_regex}")
 
   # Simple test to ensure non-existent tool load by drcachesim should fail.
   add_test(NAME drcachesim.non-existent_load

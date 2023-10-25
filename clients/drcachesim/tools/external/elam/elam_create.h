@@ -30,43 +30,16 @@
  * DAMAGE.
  */
 
-/* external analysis tool example. */
+/* example tool creation */
 
-#ifndef _EMPTY_H_
-#define _EMPTY_H_ 1
+#ifndef _ELAM_CREATE_H_
+#define _ELAM_CREATE_H_ 1
 
 #include "analysis_tool.h"
 
 using dynamorio::drmemtrace::analysis_tool_t;
-using dynamorio::drmemtrace::memref_t;
 
-class empty_t : public analysis_tool_t {
-public:
-    explicit empty_t(unsigned int verbose);
-    virtual ~empty_t();
-    std::string
-    initialize() override;
-    bool
-    process_memref(const memref_t &memref) override;
-    bool
-    print_results() override;
-    bool
-    parallel_shard_supported() override;
-    void *
-    parallel_worker_init(int worker_index) override;
-    std::string
-    parallel_worker_exit(void *worker_data) override;
-    void *
-    parallel_shard_init(int shard_index, void *worker_data) override;
-    bool
-    parallel_shard_exit(void *shard_data) override;
-    bool
-    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
-    std::string
-    parallel_shard_error(void *shard_data) override;
+analysis_tool_t *
+elam_tool_create(unsigned int verbose = 0);
 
-protected:
-    const static std::string TOOL_NAME;
-};
-
-#endif /* _EMPTY_H_ */
+#endif /* _ELAM_CREATE_H_ */

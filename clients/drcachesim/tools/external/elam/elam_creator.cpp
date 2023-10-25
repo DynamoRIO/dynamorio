@@ -30,85 +30,31 @@
  * DAMAGE.
  */
 
-/* External analysis tool example. */
+/* External analysis tool creator functions. */
 
-#include "dr_api.h"
-#include "empty.h"
+#include "../common/options.h"
+#include "analyzer.h"
+#include "elam_create.h"
+#include <iostream>
 
-const std::string empty_t::TOOL_NAME = "Empty tool";
+using ::dynamorio::drmemtrace::analysis_tool_t;
+using ::dynamorio::drmemtrace::op_verbose;
 
-analysis_tool_t *
-empty_tool_create(unsigned int verbose)
+#ifdef WINDOWS
+#    define EXPORT __declspec(dllexport)
+#else /* UNIX */
+#    define EXPORT __attribute__((visibility("default")))
+#endif
+
+extern "C" EXPORT const char *
+get_tool_name()
 {
-    return new empty_t(verbose);
+    return "elam";
 }
 
-empty_t::empty_t(unsigned int verbose)
+extern "C" EXPORT analysis_tool_t *
+analysis_tool_create()
 {
-    fprintf(stderr, "Empty tool created\n");
-}
-
-std::string
-empty_t::initialize()
-{
-    return std::string("");
-}
-
-empty_t::~empty_t()
-{
-}
-
-bool
-empty_t::parallel_shard_supported()
-{
-    return true;
-}
-
-void *
-empty_t::parallel_worker_init(int worker_index)
-{
-    return NULL;
-}
-
-std::string
-empty_t::parallel_worker_exit(void *worker_data)
-{
-    return std::string("");
-}
-
-void *
-empty_t::parallel_shard_init(int shard_index, void *worker_data)
-{
-    return NULL;
-}
-
-bool
-empty_t::parallel_shard_exit(void *shard_data)
-{
-    return true;
-}
-
-bool
-empty_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
-{
-    return true;
-}
-
-std::string
-empty_t::parallel_shard_error(void *shard_data)
-{
-    return std::string("");
-}
-
-bool
-empty_t::process_memref(const memref_t &memref)
-{
-    return true;
-}
-
-bool
-empty_t::print_results()
-{
-    fprintf(stderr, "Empty tool results:\n");
-    return true;
+    std::cout << "AMOGUS";
+    return elam_tool_create(op_verbose.get_value());
 }
