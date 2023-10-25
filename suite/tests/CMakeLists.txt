@@ -4469,6 +4469,12 @@ if (BUILD_CLIENTS)
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 
+  if (X86)
+    torunonly_drcacheoff(getretaddr_record_replace_retaddr common.getretaddr
+            "-record_replace_retaddr -record_function tailcall_with_retaddr|1&foo|1"
+            "@-simulator_type@invariant_checker" "")
+  endif ()
+
   ###########################################################################
   # drcpusim tests
 
