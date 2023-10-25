@@ -1143,7 +1143,9 @@ struct _pt_metadata_buf_t {
 
     // XXX: This is currently duplicated from pt_metadata_t defined in drpttracer.h.
     // Figure out the proper code sharing strategy between the drmemtrace client and
-    // DR extensions.
+    // DR extensions. Do we want to depend on the drpttracer extension here? Or maybe
+    // split the structs in drpttracer.h into a separate header that can be included
+    // easily here.
     /**
      * The PT metadata itself. See the equivalent #pt_metadata_t which documents
      * each field.

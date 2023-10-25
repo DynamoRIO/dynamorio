@@ -205,11 +205,10 @@ syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
     to_write.header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type =
         SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY;
 
-    /* We want to write the data in a single call to write_file_func_ for easier 3P
-     * integration. Based on the implementation of the user-provided
-     * write_file_func_, it may not be acceptable to split the header and data
-     * away from each other.
-     */
+    // XXX: This can be converted to a simple assignment when we refactor to use
+    // the same struct definition in trace_entry.h and drpttracer.h.
+    ASSERT(sizeof(to_write.metadata) == sizeof(metadata),
+           "PT trace metadata structs do not match.");
     std::memcpy(&to_write.metadata, &metadata, sizeof(metadata));
     if (write_file_func_(output_file_, &to_write, sizeof(to_write)) == 0) {
         ASSERT(false, "Failed to write the metadata's header to the output file");
@@ -235,9 +234,6 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
         return false;
     }
 
-    uint64_t total_size = PT_DATA_PDB_HEADER_SIZE + data->pt_size;
-    char *to_write = (char *)dr_thread_alloc(drcontext_, total_size);
-    DR_ASSERT(to_write != nullptr);
     /* Initialize the header of output buffer. */
     syscall_pt_entry_t pdb_header[PT_DATA_PDB_HEADER_ENTRY_NUM];
     pdb_header[PDB_HEADER_PID_IDX].pid.type = SYSCALL_PT_ENTRY_TYPE_PID;
@@ -272,18 +268,17 @@ syscall_pt_trace_t::trace_data_dump(drpttracer_output_autoclean_t &output)
         PT_DATA_PDB_HEADER_SIZE +
         pdb_header[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num * sizeof(uint64_t);
 
-    /* We want to write the data in a single call to write_file_func_ for easier 3P
-     * integration.
-     * XXX: Could we avoid the second memcpy which may be potentially large?
-     */
-    std::memcpy(to_write, &pdb_header[0], PT_DATA_PDB_HEADER_SIZE);
-    std::memcpy(to_write + PT_DATA_PDB_HEADER_SIZE, data->pt_buffer, data->pt_size);
-    if (write_file_func_(output_file_, to_write, total_size) == 0) {
-        ASSERT(false, "Failed to write the trace data to the output file");
-        dr_thread_free(drcontext_, to_write, total_size);
+    /* Write the syscall's PT header to the output file */
+    if (write_file_func_(output_file_, pdb_header, PT_DATA_PDB_HEADER_SIZE) == 0) {
+        ASSERT(false, "Failed to write the system call trace header to the output file");
         return false;
     }
-    dr_thread_free(drcontext_, to_write, total_size);
+
+    /* Write the syscall's PT data to the output file */
+    if (write_file_func_(output_file_, data->pt_buffer, data->pt_size) == 0) {
+        ASSERT(false, "Failed to write the system call trace data to the output file");
+        return false;
+    }
     return true;
 }
 
