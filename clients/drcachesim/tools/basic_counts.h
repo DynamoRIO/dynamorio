@@ -203,6 +203,9 @@ public:
         int64_t encodings = 0;
         std::unordered_set<uint64_t> unique_pc_addrs;
         std::unordered_set<memref_tid_t> unique_threads;
+        // TODO do we need to keep track of access sizes
+        std::unordered_map<addr_t, uint64_t> addr_loads;
+        std::unordered_map<addr_t, uint64_t> addr_stores;
 
         // Metadata for the counts. These are not used for the equality, increment,
         // or decrement operation, and must be set explicitly.

@@ -124,112 +124,47 @@ basic_counts_t::parallel_shard_error(void *shard_data)
     return per_shard->error;
 }
 
+// START ELAM
+static inline addr_t
+back_align(addr_t addr, addr_t align)
+{
+    return addr & ~(align - 1);
+}
+
+void update_map_from_access(std::unordered_map<addr_t, uint64_t> * m, addr_t start_addr, uint64_t size, uint64_t line_size, uint64_t line_size_bits_) {
+        for (addr_t addr = back_align(start_addr, line_size);
+            addr < start_addr + size && addr < addr + line_size /* overflow */;
+            addr += line_size) {
+            ++(*m)[addr >> line_size_bits_];
+        }
+}
+
 bool
 basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
+    unsigned int line_size = 64; // bytes
+    unsigned int line_size_bits_ = compute_log2((int)line_size);
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
-    if (memref.instr.tid != per_shard->last_tid_) {
-        counters->unique_threads.insert(memref.instr.tid);
-        per_shard->last_tid_ = memref.instr.tid;
-    }
-    if (type_is_instr(memref.instr.type)) {
-        ++counters->instrs;
-        if (TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, per_shard->filetype_)) {
-            if (per_shard->is_kernel) {
-                ++counters->kernel_instrs;
-            } else {
-                ++counters->user_instrs;
-            }
-        }
-        counters->unique_pc_addrs.insert(memref.instr.addr);
-        // The encoding entries aren't exposed at the memref_t level, but
-        // we use encoding_is_new as a proxy.
-        if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype_) &&
-            memref.instr.encoding_is_new)
-            ++counters->encodings;
-    } else if (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {
-        ++counters->instrs_nofetch;
-        // The encoding entries aren't exposed at the memref_t level, but
-        // we use encoding_is_new as a proxy.
-        if (TESTANY(OFFLINE_FILE_TYPE_ENCODINGS, per_shard->filetype_) &&
-            memref.instr.encoding_is_new)
-            ++counters->encodings;
-    } else if (type_is_prefetch(memref.data.type)) {
-        ++counters->prefetches;
-    } else if (memref.data.type == TRACE_TYPE_READ) {
-        ++counters->loads;
+
+    if (memref.data.type == TRACE_TYPE_READ) {
+            update_map_from_access(&counters->addr_loads, memref.instr.addr, memref.instr.size, line_size, line_size_bits_);
     } else if (memref.data.type == TRACE_TYPE_WRITE) {
-        ++counters->stores;
-    } else if (memref.marker.type == TRACE_TYPE_MARKER) {
-        if (memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP ||
-            memref.marker.marker_type == TRACE_MARKER_TYPE_CPU_ID) {
-            ++counters->sched_markers;
-        } else if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                   memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
-            ++counters->xfer_markers;
-        } else {
-            if (memref.marker.marker_type == TRACE_MARKER_TYPE_WINDOW_ID &&
-                static_cast<intptr_t>(memref.marker.marker_value) !=
-                    per_shard->last_window) {
-                if (per_shard->last_window == -1 && memref.marker.marker_value != 0) {
-                    // We assume that a single file with multiple windows always
-                    // starts at 0, which is how we distinguish it from a split
-                    // file starting at a high window number.  We check this below.
-                    per_shard->last_window = memref.marker.marker_value;
-                } else if (per_shard->last_window != -1 &&
-                           per_shard->counters.size() !=
-                               static_cast<size_t>(per_shard->last_window + 1)) {
-                    per_shard->error = "Multi-window file must start at 0";
-                    return false;
-                } else {
-                    per_shard->last_window = memref.marker.marker_value;
-                    per_shard->counters.resize(per_shard->last_window + 1 /*0-based*/);
-                    counters = &per_shard->counters[per_shard->counters.size() - 1];
-                }
-            }
-            switch (memref.marker.marker_type) {
-            case TRACE_MARKER_TYPE_FUNC_ID: ++counters->func_id_markers; break;
-            case TRACE_MARKER_TYPE_FUNC_RETADDR: ++counters->func_retaddr_markers; break;
-            case TRACE_MARKER_TYPE_FUNC_ARG: ++counters->func_arg_markers; break;
-            case TRACE_MARKER_TYPE_FUNC_RETVAL: ++counters->func_retval_markers; break;
-            case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS: ++counters->phys_addr_markers; break;
-            case TRACE_MARKER_TYPE_VIRTUAL_ADDRESS:
-                // Counted implicitly as part of phys_addr_markers.
-                break;
-            case TRACE_MARKER_TYPE_PHYSICAL_ADDRESS_NOT_AVAILABLE:
-                ++counters->phys_unavail_markers;
-                break;
-            case TRACE_MARKER_TYPE_SYSCALL: ++counters->syscall_number_markers; break;
-            case TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL:
-                ++counters->syscall_blocking_markers;
-                break;
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_START:
-                per_shard->is_kernel = true;
-                break;
-            case TRACE_MARKER_TYPE_SYSCALL_TRACE_END: per_shard->is_kernel = false; break;
-            case TRACE_MARKER_TYPE_FILETYPE:
-                if (per_shard->filetype_ == -1) {
-                    per_shard->filetype_ =
-                        static_cast<intptr_t>(memref.marker.marker_value);
-                } else if (per_shard->filetype_ !=
-                           static_cast<intptr_t>(memref.marker.marker_value)) {
-                    error_string_ = std::string("Filetype mismatch");
-                    return false;
-                }
-                ANNOTATE_FALLTHROUGH;
-            default: ++counters->other_markers; break;
-            }
+            update_map_from_access(&counters->addr_stores, memref.instr.addr, memref.instr.size, line_size, line_size_bits_);
+    } else if (memref.marker.type == TRACE_TYPE_MARKER && memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP ) {
+        uint64_t timestamp = memref.marker.marker_value;
+        for (const auto & a : counters->addr_loads) {
+            std::cout <<timestamp << "," << a.first<<"," <<a.second<<",load\n";
         }
-    } else if (memref.data.type == TRACE_TYPE_THREAD_EXIT) {
-        per_shard->tid = memref.exit.tid;
-    } else if (memref.data.type == TRACE_TYPE_INSTR_FLUSH) {
-        counters->icache_flushes++;
-    } else if (memref.data.type == TRACE_TYPE_DATA_FLUSH) {
-        counters->dcache_flushes++;
+        for (const auto & a : counters->addr_stores) {
+            std::cout <<timestamp << "," << a.first<<"," <<a.second<<",store\n";
+        }
+        counters-> addr_loads.clear();
+        counters-> addr_stores.clear();
     }
     return true;
 }
+// END ELAM
 
 bool
 basic_counts_t::process_memref(const memref_t &memref)
