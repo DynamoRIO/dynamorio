@@ -601,6 +601,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                             byte *fcache_return_pc, bool target_trace_table,
                             bool inline_ibl_head, ibl_code_t *ibl_code /* IN/OUT */)
 {
+    bool absolute = false; /* Used by SAVE_TO_DC. */
     instrlist_t ilist;
     instrlist_init(&ilist);
     patch_list_t *patch = &ibl_code->ibl_patch;
