@@ -205,11 +205,7 @@ syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
     to_write.header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type =
         SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY;
 
-    // XXX: This can be converted to a simple assignment when we refactor to use
-    // the same struct definition in trace_entry.h and drpttracer.h.
-    ASSERT(sizeof(to_write.metadata) == sizeof(metadata),
-           "PT trace metadata structs do not match.");
-    std::memcpy(&to_write.metadata, &metadata, sizeof(metadata));
+    to_write.metadata = metadata;
     if (write_file_func_(output_file_, &to_write, sizeof(to_write)) == 0) {
         ASSERT(false, "Failed to write the metadata's header to the output file");
         return false;

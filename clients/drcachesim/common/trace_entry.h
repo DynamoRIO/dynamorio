@@ -49,7 +49,7 @@
 
 #include "utils.h"
 
-#if defined(BUILD_PT_POST_PROCESSOR) || defined(BUILD_PT_TRACER)
+#if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 #    include "drpttracer_shared.h"
 #endif
 
