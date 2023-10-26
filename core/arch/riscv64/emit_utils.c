@@ -297,7 +297,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_
             (((off >> 1) & 0x3ff) << 21) | (((off >> 11) & 1) << 20) |
             (((off >> 12) & 0xff) << 12);
         if (hot_patch)
-            machine_cache_sync(stub_pc, stub_pc + 4, true);
+            machine_cache_sync(stub_pc, stub_pc + 4, /*flush_icache=*/true);
         return;
     }
     /* target_pc is a far fragment. We must use an indirect branch. Note that the indirect
@@ -357,10 +357,10 @@ unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_pat
             (0x3023 | TLS_REG0_SLOT >> 5 << 25 | (DR_REG_A0 - DR_REG_ZERO) << 20 |
              (dr_reg_stolen - DR_REG_ZERO) << 15 | (TLS_REG0_SLOT & 0x1f) << 7);
         if (hot_patch)
-            machine_cache_sync(stub_pc, stub_pc + 4, true);
+            machine_cache_sync(stub_pc, stub_pc + 4, /*flush_icache=*/true);
     } else if (stub_is_patched_for_far_fragment_link(dcontext, f, stub_pc)) {
         /* Restore the data slot to fcache return address. */
-        /* RISCV64 uses shared gencode. So, fcache_return routine address should be
+        /* RISCV64 uses shared gencode. So, fcache_return routine address should be the
          * same, no matter which thread creates/unpatches the stub.
          */
         ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
@@ -574,10 +574,10 @@ fragment_ibt_prefix_size(uint flags)
 void
 insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 {
+    ASSERT(f->prefix_size == 0);
     /* Always use prefix on RISCV64 as there is no load to PC. */
     byte *write_start = vmcode_get_writable_addr(f->start_pc);
     byte *pc = write_start;
-    ASSERT(f->prefix_size == 0);
 
     instrlist_t ilist;
     instrlist_init(&ilist);
@@ -594,7 +594,7 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     pc = instrlist_encode(dcontext, &ilist, pc, false);
     instrlist_clear(dcontext, &ilist);
 
-    f->prefix_size = (byte)(((cache_pc)pc) - write_start);
+    f->prefix_size = (byte)(pc - write_start);
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
 }
 
@@ -616,7 +616,7 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     APP(ilist,
         INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_X0),
                            opnd_create_reg(DR_REG_A0),
-                           opnd_create_immed_int(/*fcsr*/ 0x003, OPSZ_12b)));
+                           opnd_create_immed_int(/*fcsr=*/0x003, OPSZ_12b)));
 }
 
 /* dcontext is in REG_DCXT; other registers can be used as scratch.
@@ -624,7 +624,7 @@ append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 void
 append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    /* Nothing. */
+    /* No-op. */
 }
 
 /* Append instructions to restore gpr on fcache enter, to be executed
@@ -642,11 +642,10 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG0, REG_OFFSET(DR_REG_TP)));
     APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG0, TLS_REG_TP_SLOT));
 
-    for (int i = 1; i < 32; i++) {
-        if (i == (REG_DCXT - DR_REG_X0) || i == (DR_REG_TP - DR_REG_X0) ||
-            i == (dr_reg_stolen - DR_REG_X0))
+    for (int reg = DR_REG_X0 + 1; reg < DR_REG_X0 + 32; reg++) {
+        if (reg == REG_DCXT || reg == DR_REG_TP || reg == dr_reg_stolen)
             continue;
-        APP(ilist, RESTORE_FROM_DC(dcontext, DR_REG_X0 + i, REG_OFFSET(DR_REG_X0 + i)));
+        APP(ilist, RESTORE_FROM_DC(dcontext, reg, REG_OFFSET(reg)));
     }
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_DCXT, REG_OFFSET(REG_DCXT)));
 }
@@ -675,12 +674,11 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
      * insert_exit_stub_other_flags, execute_handler_from_{cache,dispatch},
      * transfer_from_sig_handler_to_fcache_return
      */
-    for (int i = 1; i < 32; i++) {
-        int reg = DR_REG_X0 + i;
+    for (int reg = DR_REG_X0 + 1; reg < DR_REG_X0 + 32; reg++) {
         if (reg == DR_REG_A0 || reg == DR_REG_A1 || reg == REG_DCXT || reg == DR_REG_TP ||
             reg == dr_reg_stolen)
             continue;
-        APP(ilist, SAVE_TO_DC(dcontext, DR_REG_X0 + i, REG_OFFSET(DR_REG_X0 + i)));
+        APP(ilist, SAVE_TO_DC(dcontext, reg, REG_OFFSET(reg)));
     }
 
     /* We cannot use SCRATCH_REG0 here as a scratch, as it's holding the last_exit,
@@ -713,7 +711,7 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
 void
 append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
-    /* Nothing. */
+    /* No-op. */
 }
 
 /* Scratch reg0 is holding exit stub. */
@@ -723,7 +721,7 @@ append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute
     APP(ilist,
         INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A1),
                            opnd_create_reg(DR_REG_X0),
-                           opnd_create_immed_int(/*fcsr*/ 0x003, OPSZ_12b)));
+                           opnd_create_immed_int(/*fcsr=*/0x003, OPSZ_12b)));
     APP(ilist, SAVE_TO_DC(dcontext, DR_REG_A1, XFLAGS_OFFSET));
 }
 
@@ -803,7 +801,7 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
 }
 
 /* Having only one thread register tp shared between app and DR, we steal a register for
- * DR's TLS base in the code cache, and store DR's TLS base into an private lib's TLS slot
+ * DR's TLS base in the code cache, and store DR's TLS base into a private lib's TLS slot
  * for accessing in C code. On entering the code cache (fcache_enter):
  * - grab gen routine's parameter dcontext and put it into REG_DCXT
  * - check for pending signals

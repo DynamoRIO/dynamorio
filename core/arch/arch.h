@@ -106,6 +106,7 @@ mixed_mode_enabled(void)
 #    endif /* X64 */
 #    define SIMD_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, simd)))
 #    define OPMASK_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, opmask)))
+#    define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 #    define SCRATCH_REG0 DR_REG_XAX
 #    define SCRATCH_REG1 DR_REG_XBX
 #    define SCRATCH_REG2 DR_REG_XCX
@@ -141,6 +142,7 @@ mixed_mode_enabled(void)
 #    define R13_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r13)))
 #    define R14_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
 #    define PC_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
+#    define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
 #    define SCRATCH_REG0 DR_REG_R0
 #    define SCRATCH_REG1 DR_REG_R1
 #    define SCRATCH_REG2 DR_REG_R2
@@ -168,6 +170,7 @@ mixed_mode_enabled(void)
 #    define REG3_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a3)))
 #    define REG4_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a4)))
 #    define REG5_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, a5)))
+#    define XFLAGS_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, fcsr)))
 #    define SCRATCH_REG0 DR_REG_A0
 #    define SCRATCH_REG1 DR_REG_A1
 #    define SCRATCH_REG2 DR_REG_A2
@@ -188,8 +191,6 @@ mixed_mode_enabled(void)
 #    define SS_RETVAL_REG a0
 #endif /* X86/ARM/RISCV64 */
 #define XSP_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
-#define XFLAGS_OFFSET \
-    ((MC_OFFS) + (offsetof(priv_mcontext_t, IF_RISCV64_ELSE(fcsr, xflags))))
 #define PC_OFFSET ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
 
 /* the register holds dcontext on fcache enter/return */
