@@ -1283,12 +1283,17 @@ raw2trace_t::aggregate_and_write_schedule_files()
             return l.timestamp < r.timestamp;
         if (l.cpu != r.cpu)
             return l.cpu < r.cpu;
-        // We really need to sort by either (timestamp, cpu_id) or
-        // (timestamp, thread_id): a single thread cannot be on two CPUs at
-        // the same timestamp; also a single CPU cannot have two threads at the
-        // same timestamp. We still sort by (timestamp, cpu_id, thread_id)
-        // to prevent inadvertent issues with test data.
-        return l.thread < r.thread;
+        // We really need to sort by either (timestamp, cpu_id,
+        // start_instruction) or (timestamp, thread_id, start_instruction): a
+        // single thread cannot be on two CPUs at the same timestamp; also a
+        // single CPU cannot have two threads at the same timestamp. We still
+        // sort by (timestamp, cpu_id, thread_id, start_instruction) to prevent
+        // inadvertent issues with test data.
+        if (l.thread != r.thread)
+            return l.thread < r.thread;
+        // We need to consider the start_instruction since it is possible to
+        // have two entries with the same timestamp, cpu_id, and thread_id.
+        return l.start_instruction < r.start_instruction;
     };
 
     std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
@@ -1307,10 +1312,7 @@ raw2trace_t::aggregate_and_write_schedule_files()
     if (cpu_schedule_file_ == nullptr)
         return "";
     for (auto &keyval : cpu2sched) {
-        std::sort(keyval.second.begin(), keyval.second.end(),
-                  [](const schedule_entry_t &l, const schedule_entry_t &r) {
-                      return l.timestamp < r.timestamp;
-                  });
+        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
         // Collapse same-thread entries.
         std::vector<schedule_entry_t> redux;
         for (const auto &entry : keyval.second) {
@@ -2624,7 +2626,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
         desc->packed_ |= kIsAarch64DcZvaMask;
 #endif
 
-#ifdef X86
+#if defined(X86) || defined(AARCH64)
     if (instr_is_scatter(instr) || instr_is_gather(instr))
         desc->packed_ |= kIsScatterOrGatherMask;
 #endif
@@ -3575,6 +3577,9 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     case SYS_creat:
 #    endif
     case SYS_epoll_pwait:
+#    ifdef SYS_epoll_pwait2
+    case SYS_epoll_pwait2:
+#    endif
 #    ifdef SYS_epoll_wait
     case SYS_epoll_wait:
 #    endif
@@ -3586,6 +3591,7 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     case SYS_getpmsg:
 #    endif
     case SYS_ioctl:
+    case SYS_membarrier:
     case SYS_mq_open:
     case SYS_msgrcv:
     case SYS_msgsnd:
@@ -3619,6 +3625,7 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     case SYS_read:
     case SYS_readv:
     case SYS_recvfrom:
+    case SYS_recvmmsg:
     case SYS_recvmsg:
     case SYS_sched_yield:
 #    ifdef SYS_select
@@ -3629,6 +3636,7 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
 #    ifdef SYS_semop
     case SYS_semop:
 #    endif
+    case SYS_sendmmsg:
     case SYS_sendmsg:
     case SYS_sendto:
 #    ifdef SYS_wait4

@@ -470,6 +470,57 @@ check_sane_control_flow()
             return false;
         }
     }
+    // Correct test: back-to-back signals after an RSEQ abort.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 102),
+            // This is the signal which caused the RSEQ abort.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            // We get a signal after the RSEQ abort.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // The kernel event marker has the same value as the previous one.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(TID, /*pc=*/301, /*size=*/1),
+        };
+        if (!run_checker(memrefs, false)) {
+            return false;
+        }
+    }
+    // Incorrect test: back-to-back signals with an intervening instruction after an RSEQ
+    // abort.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_instr(TID, /*pc=*/101, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 102),
+            // This is the signal which caused the RSEQ abort.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            // We get a signal after the RSEQ abort.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            gen_instr(TID, /*pc=*/301, /*size=*/1),
+            gen_instr(TID, /*pc=*/302, /*size=*/1),
+            // The kernel event marker should point to the previous instruction
+            // at PC 302, instead of 301.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+        };
+        if (!run_checker(
+                memrefs, true,
+                { "Non-explicit control flow has no marker @ kernel_event marker", TID,
+                  /*ref_ordinal=*/10, /*last_timestamp=*/0,
+                  /*instrs_since_last_timestamp=*/4 },
+                "Failed to catch PC discontinuity for an instruction followed by "
+                "kernel xfer marker")) {
+            return false;
+        }
+    }
     // Incorrect test: back-to-back signals without any intervening instruction.
     {
         std::vector<memref_t> memrefs = {
@@ -1615,7 +1666,10 @@ check_schedule_file()
     sched.emplace_back(TID_BASE + 1, TIMESTAMP_BASE, CPU_BASE + 2, 0);
     sched.emplace_back(TID_BASE, TIMESTAMP_BASE + 1, CPU_BASE + 1, 2);
     sched.emplace_back(TID_BASE + 1, TIMESTAMP_BASE + 2, CPU_BASE, 1);
+    // Include records with the same thread ID, timestamp, and CPU, but
+    // different start_instruction is being used for comparison.
     sched.emplace_back(TID_BASE + 2, TIMESTAMP_BASE + 3, CPU_BASE + 2, 3);
+    sched.emplace_back(TID_BASE + 2, TIMESTAMP_BASE + 3, CPU_BASE + 2, 4);
     {
         std::ofstream serial_file(serial_fname, std::ofstream::binary);
         if (!serial_file)
@@ -1649,6 +1703,10 @@ check_schedule_file()
             gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 3),
             gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
             gen_instr(TID_BASE + 2, 4),
+            // Markers for the second schedule entry with the same thread ID,
+            // timestamp, and CPU as the previous one with a different start_instruction.
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 3),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
         };
         std::ifstream serial_read(serial_fname, std::ifstream::binary);
         if (!serial_read)
@@ -1715,6 +1773,9 @@ check_schedule_file()
             gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 3),
             gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
             gen_instr(TID_BASE + 2, 3),
+            gen_instr(TID_BASE + 2, 4),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_TIMESTAMP, TIMESTAMP_BASE + 3),
+            gen_marker(TID_BASE + 2, TRACE_MARKER_TYPE_CPU_ID, CPU_BASE + 2),
         };
         std::ifstream serial_read(serial_fname, std::ifstream::binary);
         if (!serial_read)
@@ -1811,6 +1872,27 @@ check_branch_decoration()
                   /*ref_ordinal=*/4, /*last_timestamp=*/0,
                   /*instrs_since_last_timestamp=*/2 },
                 "Failed to catch bad indirect branch target field")) {
+            return false;
+        }
+    }
+    // Correct test: back-to-back signals after an RSEQ abort.
+    {
+        std::vector<memref_t> memrefs = {
+            gen_marker(TID, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION_BRANCH_INFO),
+            gen_instr_type(TRACE_TYPE_INSTR_UNTAKEN_JUMP, TID, /*pc=*/101, /*size=*/1,
+                           /*target=*/0),
+            gen_marker(TID, TRACE_MARKER_TYPE_RSEQ_ABORT, 102),
+            // This is the signal which caused the RSEQ abort.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 102),
+            // We get a signal after the RSEQ abort.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+            gen_instr(TID, /*pc=*/201, /*size=*/1),
+            gen_marker(TID, TRACE_MARKER_TYPE_SYSCALL, 15),
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_XFER, 202),
+            // The kernel event marker has the same value as the previous one.
+            gen_marker(TID, TRACE_MARKER_TYPE_KERNEL_EVENT, 301),
+        };
+        if (!run_checker(memrefs, false)) {
             return false;
         }
     }

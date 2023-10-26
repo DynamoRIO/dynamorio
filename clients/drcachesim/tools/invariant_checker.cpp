@@ -488,6 +488,11 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
                             "Incorrect instr count marker value");
         }
+        if (!TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED,
+                     shard->file_type_)) {
+            report_if_false(shard, type_is_instr(shard->prev_instr_.memref.instr.type),
+                            "An unfiltered thread should have at least 1 instruction");
+        }
     }
     if (shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
         shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_PHYSICAL_ADDRESS) {
@@ -953,7 +958,9 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         if (l.cpu != r.cpu)
             return l.cpu < r.cpu;
         // See comment in raw2trace_t::aggregate_and_write_schedule_files
-        return l.thread < r.thread;
+        if (l.thread != r.thread)
+            return l.thread < r.thread;
+        return l.start_instruction < r.start_instruction;
     };
     std::sort(serial.begin(), serial.end(), schedule_entry_comparator);
     // After i#6299, these files collapse same-thread entries.
@@ -1021,12 +1028,7 @@ invariant_checker_t::check_schedule_data(per_shard_t *global)
         cpu2sched_file[next.cpu].push_back(next);
     }
     for (auto &keyval : cpu2sched_file) {
-        std::sort(keyval.second.begin(), keyval.second.end(),
-                  [](const schedule_entry_t &l, const schedule_entry_t &r) {
-                      if (l.timestamp == r.timestamp)
-                          return l.thread < r.thread;
-                      return l.timestamp < r.timestamp;
-                  });
+        std::sort(keyval.second.begin(), keyval.second.end(), schedule_entry_comparator);
         // After i#6299, these files collapse same-thread entries.
         // We create both types of schedule and select which to compare against.
         std::vector<schedule_entry_t> redux;
@@ -1128,6 +1130,17 @@ invariant_checker_t::check_for_pc_discontinuity(
          (shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT ||
           shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER ||
           shard->prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT)) ||
+#ifdef UNIX
+        // In case of an RSEQ abort followed by a signal, the pre-signal-instr PC is
+        // different from the interruption PC which is the RSEQ handler. If there is a
+        // back-to-back signal without any intervening instructions, the kernel transfer
+        // marker of the second signal should point to the same interruption PC, and not
+        // the pre-signal-instr PC. The shard->last_signal_context_ has not been updated,
+        // it still points to the previous signal context.
+        (at_kernel_event && cur_pc == shard->last_signal_context_.xfer_int_pc &&
+         prev_instr_trace_pc ==
+             shard->last_signal_context_.pre_signal_instr.memref.instr.addr) ||
+#endif
         // We expect a gap on a window transition.
         shard->window_transition_ || prev_instr.instr.type == TRACE_TYPE_INSTR_SYSENTER;
 
