@@ -49,6 +49,10 @@
 
 #include "utils.h"
 
+#if defined(BUILD_PT_POST_PROCESSOR) || defined(BUILD_PT_TRACER)
+#    include "drpttracer_shared.h"
+#endif
+
 /**
  * @file drmemtrace/trace_entry.h
  * @brief DrMemtrace trace entry enum types and definitions.
@@ -1141,24 +1145,10 @@ struct _pt_metadata_buf_t {
      */
     syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
 
-    // XXX: This is currently duplicated from pt_metadata_t defined in drpttracer.h.
-    // Figure out the proper code sharing strategy between the drmemtrace client and
-    // DR extensions. Do we want to depend on the drpttracer extension here? Or maybe
-    // split the structs in drpttracer.h into a separate header that can be included
-    // easily here.
     /**
-     * The PT metadata itself. See the equivalent #pt_metadata_t which documents
-     * each field.
+     * The PT metadata itself.
      */
-    START_PACKED_STRUCTURE
-    struct {
-        uint16_t cpu_family;
-        uint8_t cpu_model;
-        uint8_t cpu_stepping;
-        uint16_t time_shift;
-        uint32_t time_mult;
-        uint64_t time_zero;
-    } END_PACKED_STRUCTURE metadata;
+    pt_metadata_t metadata;
 } END_PACKED_STRUCTURE;
 
 /** See #dynamorio::drmemtrace::_pt_metadata_buf_t. */
