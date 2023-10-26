@@ -971,7 +971,9 @@ struct schedule_entry_t {
 
 #if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
-/***** Trace entries related to the kernel trace -- start *****/
+/******************************************************
+ * Trace entries related to the kernel trace -- start.
+ */
 /**
  * The type of a syscall PT entry in the raw offline output.
  */
@@ -1146,7 +1148,8 @@ struct _pt_metadata_buf_t {
     syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
 
     /**
-     * The PT metadata itself.
+     * The PT metadata itself. Note that the struct is already marked packed
+     * in its definition.
      */
     pt_metadata_t metadata;
 } END_PACKED_STRUCTURE;
@@ -1172,7 +1175,9 @@ struct _pt_data_buf_t {
 /** See #dynamorio::drmemtrace::_pt_data_buf_t. */
 typedef struct _pt_data_buf_t pt_data_buf_t;
 
-/***** Trace entries related to the kernel trace -- end *****/
+/****************************************************
+ * Trace entries related to the kernel trace -- end.
+ */
 
 #endif // defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
