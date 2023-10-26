@@ -339,9 +339,20 @@
 #define __NR_pidfd_getfd 438
 #define __NR_faccessat2 439
 #define __NR_process_madvise 440
+#define __NR_epoll_pwait2 441
+#define __NR_mount_setattr 442
+#define __NR_quotactl_fd 443
+#define __NR_landlock_create_ruleset 444
+#define __NR_landlock_add_rule 445
+#define __NR_landlock_restrict_self 446
+#define __NR_memfd_secret 447
+#define __NR_process_mrelease 448
+#define __NR_futex_waitv 449
+#define __NR_set_mempolicy_home_node 450
+#define __NR_cachestat 451
 
 #undef __NR_syscalls
-#define __NR_syscalls 441
+#define __NR_syscalls 452
 
 /*
  * 32 bit systems traditionally used different
@@ -2876,6 +2887,10 @@
 
 #ifdef __NR_openat2
 #    define SYS_openat2 __NR_openat2
+#endif
+
+#ifdef __NR_epoll_pwait2
+#    define SYS_epoll_pwait2 __NR_epoll_pwait2
 #endif
 
 /* Added separately as it was present earlier. */

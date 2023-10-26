@@ -955,6 +955,7 @@ protected:
     // Format for recording a schedule to disk.  A separate sequence of these records
     // is stored per output stream; each output stream's sequence is in one component
     // (subfile) of an archive file.
+    // All fields are little-endian.
     START_PACKED_STRUCTURE
     struct schedule_record_t {
         enum record_type_t {

@@ -5511,10 +5511,14 @@ static inline bool
 decode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     const uint register_count = BITS(enc, 22, 21) + 1;
-    const opnd_size_t transfer_size =
-        opnd_size_from_bytes((register_count * dr_get_sve_vector_length()) / 8);
+    const uint transfer_bytes = (register_count * dr_get_sve_vector_length()) / 8;
+    /* The offset is scaled by the size of the vector in memory.
+     * This is the same as the transfer size.
+     */
+    const uint scale = transfer_bytes;
 
-    return decode_svemem_gpr_simm4(enc, transfer_size, register_count, opnd);
+    return decode_svemem_gpr_simm4(enc, opnd_size_from_bytes(transfer_bytes), scale,
+                                   opnd);
 }
 
 static inline bool
@@ -5522,10 +5526,14 @@ encode_opnd_svemem_gpr_simm4_vl_xreg(uint enc, int opcode, byte *pc, opnd_t opnd
                                      OUT uint *enc_out)
 {
     const uint register_count = BITS(enc, 22, 21) + 1;
-    const opnd_size_t transfer_size =
-        opnd_size_from_bytes((register_count * dr_get_sve_vector_length()) / 8);
+    const uint transfer_bytes = (register_count * dr_get_sve_vector_length()) / 8;
+    /* The offset is scaled by the size of the vector in memory.
+     * This is the same as the transfer size.
+     */
+    const uint scale = transfer_bytes;
 
-    return encode_svemem_gpr_simm4(enc, transfer_size, register_count, opnd, enc_out);
+    return encode_svemem_gpr_simm4(enc, opnd_size_from_bytes(transfer_bytes), scale, opnd,
+                                   enc_out);
 }
 
 /* hsd_immh_sz: The element size of a vector mediated by immh with possible values h, s
@@ -7931,15 +7939,18 @@ memory_transfer_size_from_dtype(uint enc)
 static inline bool
 decode_opnd_svemem_gpr_simm4_vl_1reg(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_svemem_gpr_simm4(enc, memory_transfer_size_from_dtype(enc), 1, opnd);
+    const opnd_size_t transfer_size = memory_transfer_size_from_dtype(enc);
+    return decode_svemem_gpr_simm4(enc, transfer_size, opnd_size_in_bytes(transfer_size),
+                                   opnd);
 }
 
 static inline bool
 encode_opnd_svemem_gpr_simm4_vl_1reg(uint enc, int opcode, byte *pc, opnd_t opnd,
                                      OUT uint *enc_out)
 {
-    return encode_svemem_gpr_simm4(enc, memory_transfer_size_from_dtype(enc), 1, opnd,
-                                   enc_out);
+    const opnd_size_t transfer_size = memory_transfer_size_from_dtype(enc);
+    return encode_svemem_gpr_simm4(enc, transfer_size, opnd_size_in_bytes(transfer_size),
+                                   opnd, enc_out);
 }
 
 /* SVE memory operand [<Xn|SP>, <Xm> LSL #x], mem transfer size based on ssz */

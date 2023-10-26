@@ -3628,6 +3628,9 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     case SYS_creat:
 #    endif
     case SYS_epoll_pwait:
+#    ifdef SYS_epoll_pwait2
+    case SYS_epoll_pwait2:
+#    endif
 #    ifdef SYS_epoll_wait
     case SYS_epoll_wait:
 #    endif
@@ -3639,6 +3642,7 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     case SYS_getpmsg:
 #    endif
     case SYS_ioctl:
+    case SYS_membarrier:
     case SYS_mq_open:
     case SYS_msgrcv:
     case SYS_msgsnd:
@@ -3672,6 +3676,7 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     case SYS_read:
     case SYS_readv:
     case SYS_recvfrom:
+    case SYS_recvmmsg:
     case SYS_recvmsg:
     case SYS_sched_yield:
 #    ifdef SYS_select
@@ -3682,6 +3687,7 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
 #    ifdef SYS_semop
     case SYS_semop:
 #    endif
+    case SYS_sendmmsg:
     case SYS_sendmsg:
     case SYS_sendto:
 #    ifdef SYS_wait4

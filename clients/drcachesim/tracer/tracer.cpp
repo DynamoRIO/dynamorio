@@ -1637,23 +1637,24 @@ event_post_syscall(void *drcontext, int sysnum)
         if (hashtable_lookup(&syscall2args,
                              reinterpret_cast<void *>(static_cast<ptr_int_t>(sysnum))) !=
             nullptr) {
-            dr_syscall_result_info_t info = {
-                sizeof(info),
-            };
+            dr_syscall_result_info_t info = {};
+            info.size = sizeof(info);
+            info.use_errno = true;
             dr_syscall_get_result_ex(drcontext, &info);
             BUF_PTR(data->seg_base) += instru->append_marker(
                 BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
                 static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
                     IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
-            /* XXX i#5843: Return values are complex and can include more than just
-             * the primary register value.  Since we care mostly just about failure,
-             * we use the "succeeded" field.  However, this is not accurate for all
-             * syscalls.  Plus, would the scheduler want to know about various
-             * successful return values which indicate how many waiters were woken
-             * up and other data?
-             */
             BUF_PTR(data->seg_base) += instru->append_marker(
-                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_RETVAL, info.succeeded);
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_RETVAL, info.value);
+            if (!info.succeeded) {
+                // On Mac you can't tell success from just the return value so we
+                // include a failure indicator.  Since mmap is also complex, and
+                // to reduce Mac-only code, we provide this for all platforms.
+                BUF_PTR(data->seg_base) += instru->append_marker(
+                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL_FAILED,
+                    info.errno_value);
+            }
         }
     }
 #endif
