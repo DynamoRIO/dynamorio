@@ -2028,6 +2028,7 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
          * outer level.
          */
         if (retaddr == (app_pc)replace_retaddr_sentinel) {
+            ASSERT(pt->wrap_level >= 0, "drwrap_in_callee: pt->wrap_level < 0");
             retaddr = pt->retaddr[pt->wrap_level];
             NOTIFY(2, "DRWRAP_REPLACE_RETADDR: replacing real retaddr [%d] as " PFX "\n",
                    pt->wrap_level, retaddr);
@@ -2795,14 +2796,8 @@ drwrap_get_retaddr_if_sentinel(void *drcontext, INOUT app_pc *possibly_sentinel)
     /* If we see the sentinel, we must be inside a wrapped function. */
     ASSERT(pt != NULL && pt->wrap_level >= 0, "Invalid drwrap state.");
     *possibly_sentinel = pt->retaddr[pt->wrap_level];
-    /* In case of a tailcall, the return address has already been replaced by
-     * the sentinel, we need to retrieve the return address from the previous
-     * level.
-     */
-    if ((app_pc)replace_retaddr_sentinel == *possibly_sentinel) {
-        ASSERT(pt->wrap_level > 0, "Invalid drwrap state.");
-        *possibly_sentinel = pt->retaddr[pt->wrap_level - 1];
-    }
+    ASSERT(*possibly_sentinel != (app_pc)replace_retaddr_sentinel,
+           "Invalid drwrap return address.");
 }
 
 /***************************************************************************
