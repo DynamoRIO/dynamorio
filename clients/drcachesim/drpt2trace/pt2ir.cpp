@@ -67,12 +67,29 @@ namespace drmemtrace {
 extern "C" {
 #endif
 
+/* The subsequent C code is a patch for libipt. This patch introduces embedded APIs,
+ * enabling pt2ir_t to manage libipt's decoder's internal data structures and to
+ * facilitate stream decoding.
+ */
+
+/* An Intel PT packet decoder.
+ * The type mirrors the struct pt_packet_decoder found in
+ * third_party/libipt/libipt/internal/include/pt_packet_decoder.h.
+ */
 struct pt_packet_decoder_t {
+    /* The decoder configuration. */
     struct pt_config config;
+
+    /* The current position in the trace buffer. */
     const uint8_t *pos;
+
+    /* The position of the last PSB packet. */
     const uint8_t *sync;
 };
 
+/* A new C API for struct pt_packet_decoder *decoder is introduced. This API permits
+ * setting the current position within the decoder's trace buffer.
+ */
 static void
 pt_pkt_decoder_set_pos(struct pt_packet_decoder *decoder, uint8_t *pos)
 {
@@ -80,6 +97,9 @@ pt_pkt_decoder_set_pos(struct pt_packet_decoder *decoder, uint8_t *pos)
     packet_decoder->pos = pos;
 }
 
+/* A new C API for struct pt_packet_decoder *decoder is introduced. This API permits
+ * setting the position of the last PSB packet within the decoder's trace buffer.
+ */
 static void
 pt_pkt_decoder_set_sync(struct pt_packet_decoder *decoder, uint8_t *sync)
 {
@@ -87,10 +107,14 @@ pt_pkt_decoder_set_sync(struct pt_packet_decoder *decoder, uint8_t *sync)
     packet_decoder->sync = sync;
 }
 
+/* A new C API for struct pt_insn_decoder *decoder is introduced. Since the first field of
+ * struct pt_insn_decoder *decoder is struct pt_packet_decoder, this API casts decoder to
+ * struct pt_packet_decoder to access its pt_packet_decoder component.
+ */
 static struct pt_packet_decoder *
 pt_instr_decoder_get_pkt_decoder(struct pt_insn_decoder *decoder)
 {
-    pt_packet_decoder *packet_decoder = (struct pt_packet_decoder *)decoder;
+    struct pt_packet_decoder *packet_decoder = (struct pt_packet_decoder *)decoder;
     return packet_decoder;
 }
 
@@ -292,6 +316,7 @@ pt2ir_t::init(IN pt2ir_config_t &pt2ir_config, IN int verbosity)
         return false;
     }
 
+    pt2ir_stream_mode_ = pt2ir_config.stream_mode;
     pt2ir_initialized_ = true;
     return true;
 }
@@ -374,11 +399,11 @@ pt2ir_t::post_decode()
             pt_instr_decoder_get_pkt_decoder(pt_instr_decoder_);
 
         /* Implement a left-shift operation on the buffer to enable continuous stream
-         * decoding.
+         * decoding and to make space for new data to be appended.
          */
         pt_raw_buffer_data_size_ -= pt_raw_buffer_lshift_offset_;
-        memcpy(pt_raw_buffer_.get(), pt_raw_buffer_.get() + pt_raw_buffer_lshift_offset_,
-               pt_raw_buffer_data_size_);
+        memmove(pt_raw_buffer_.get(), pt_raw_buffer_.get() + pt_raw_buffer_lshift_offset_,
+                pt_raw_buffer_data_size_);
         memset(pt_raw_buffer_.get() + pt_raw_buffer_data_size_, 0,
                pt_raw_buffer_size_ - pt_raw_buffer_data_size_);
 
@@ -399,8 +424,7 @@ pt2ir_t::post_decode()
 }
 
 pt2ir_convert_status_t
-pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir,
-                 IN bool last_chunk)
+pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir)
 {
     if (!pt2ir_initialized_) {
         return PT2IR_CONV_ERROR_NOT_INITIALIZED;
@@ -410,6 +434,29 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
         return PT2IR_CONV_ERROR_INVALID_INPUT;
     }
 
+    ASSERT(pt_instr_decoder_ != nullptr, "");
+
+    /* The PT raw trace comprises various packet types. Each packet can translate to
+     * multiple instructions or none at all. Therefore, during instruction decoding,
+     * libipt might process one or several packets for a single instruction. For our
+     * decoding algorithm to ascertain the position of the currently decoded packet,
+     * relying on the libipt's instruction decoder isn't sufficient for pinpointing the
+     * exact packet position in the decoding process. Hence, we need to access the
+     * libipt's packet decoder.
+     */
+    struct pt_packet_decoder *pt_pkt_decoder =
+        pt_instr_decoder_get_pkt_decoder(pt_instr_decoder_);
+
+    /* In non-stream mode, we reset both the decoder's offset and the sync offset before
+     * decoding the subsequent complete PT data.
+     */
+    if (!pt2ir_stream_mode_) {
+        pt_raw_buffer_data_size_ = 0;
+        pt_pkt_decoder_set_pos(pt_pkt_decoder, pt_raw_buffer_.get());
+        pt_pkt_decoder_set_sync(pt_pkt_decoder, nullptr);
+    }
+
+    /* Check if the raw buffer is large enough to hold the new data. */
     if (pt_raw_buffer_data_size_ + pt_data_size > pt_raw_buffer_size_) {
         return PT2IR_CONV_ERROR_RAW_TRACE_TOO_LARGE;
     }
@@ -418,7 +465,12 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
     memcpy(pt_raw_buffer_.get() + pt_raw_buffer_data_size_, pt_data, pt_data_size);
     pt_raw_buffer_data_size_ += pt_data_size;
 
-    if (!pt_decoder_has_sync_) {
+    /* In non-stream mode, we synchronize the decoder each time we start decoding a
+     * complete PT raw trace.
+     * In stream mode, synchronizing the decoder is necessary only once, prior to decoding
+     * the first PT raw trace chunk.
+     */
+    if (!pt2ir_stream_mode_ || !pt_decoder_has_sync_) {
         /* Sync decoder to next Packet Stream Boundary (PSB) packet, and then
          * decode instructions. If there is no PSB packet, the decoder will be synced
          * to the end of the trace. If an error occurs, we will call dx_decoding_error
@@ -439,36 +491,16 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
         pt_decoder_has_sync_ = true;
     }
 
-    /* TODO i#5505: We only decode a portion of the final packet of the current chunk,
-     * with the remaining part decoded when the next chunk arrives. This results in each
-     * initial chunk missing some instructions at the end, the final chunk having some
-     * extraneous instructions, and the middle chunks' decoding outcomes containing
-     * instructions from the previous chunk at the beginning and missing some at the end.
-     * This approach is acceptable for decoding every syscall's trace since they are
-     * surrounded by noise instructions and the missing instructions only impact these
-     * noise instructions. However, it's important not to employ pt2ir to decode other
-     * discontinuous chunks that demand a precision instruction list.
-     */
-
-    if (!last_chunk) {
+    if (pt2ir_stream_mode_) {
         if (!pre_decode()) {
             return PT2IR_CONV_ERROR_PRE_DECODE;
         }
     } else {
-        pt_raw_buffer_lshift_offset_ = 0;
-        /* Set the stop offset greater than the data size to ensure that the last packet
-         * is processed.
+        /* Set the stop offset greater than the data size to ensure that the last
+         * packet is processed.
          */
         pt_decoder_stop_offset_ = pt_raw_buffer_data_size_ + 1;
     }
-
-    /* Since the instruction decode process can handle multiple packets at once, there's a
-     * risk of the decoder moving into an invalid area. To mitigate this, we utilize
-     * packets to pinpoint the current decode position, ensuring the decoder operates
-     * within valid boundaries.
-     */
-    struct pt_packet_decoder *pt_pkt_decoder =
-        pt_instr_decoder_get_pkt_decoder(pt_instr_decoder_);
 
     struct pt_insn insn;
     memset(&insn, 0, sizeof(insn));
@@ -587,10 +619,8 @@ pt2ir_t::convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t
         }
         drir.append(instr);
     }
-    /* No need for post-decode on the final block as it's mainly for making space for
-     * further data.
-     */
-    if (!last_chunk) {
+
+    if (pt2ir_stream_mode_) {
         if (!post_decode()) {
             return PT2IR_CONV_ERROR_POST_DECODE;
         }

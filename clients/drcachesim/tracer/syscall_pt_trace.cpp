@@ -62,10 +62,13 @@ syscall_pt_trace_t::syscall_pt_trace_t()
     : open_file_func_(nullptr)
     , write_file_func_(nullptr)
     , close_file_func_(nullptr)
+    , is_initialized_(false)
     , pttracer_handle_ { GLOBAL_DCONTEXT, nullptr }
+    , unified_pttracer_handle_(false)
     , pttracer_output_buffer_ { GLOBAL_DCONTEXT, nullptr }
     , traced_syscall_idx_(0)
     , cur_recording_sysnum_(-1)
+    , is_dumping_metadata_(false)
     , drcontext_(nullptr)
     , output_file_(INVALID_FILE)
 {
@@ -83,7 +86,8 @@ bool
 syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name,
                          drmemtrace_open_file_func_t open_file_func,
                          drmemtrace_write_file_func_t write_file_func,
-                         drmemtrace_close_file_func_t close_file_func)
+                         drmemtrace_close_file_func_t close_file_func,
+                         bool unified_pttracer_handle)
 {
     if (is_initialized_) {
         ASSERT(false, "syscall_pt_trace_t is already initialized");
@@ -93,6 +97,7 @@ syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name,
     open_file_func_ = open_file_func;
     write_file_func_ = write_file_func;
     close_file_func_ = close_file_func;
+    unified_pttracer_handle_ = unified_pttracer_handle;
     pttracer_handle_ = { drcontext, nullptr };
     pttracer_output_buffer_ = { drcontext_, nullptr };
     std::string output_file_name(pt_dir_name);
@@ -105,27 +110,6 @@ syscall_pt_trace_t::init(void *drcontext, char *pt_dir_name,
      */
     if (drpttracer_create_output(drcontext_, RING_BUFFER_SIZE_SHIFT, 0,
                                  &pttracer_output_buffer_.data) != DRPTTRACER_SUCCESS) {
-        return false;
-    }
-
-    /* To reduce the overhead caused by pttracer initialization, we need to
-     * share the same pttracer handle for all syscalls per thread.
-     */
-    if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
-                                 RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
-                                 &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
-        return false;
-    }
-
-    /* All syscalls within a single thread share the same pttracer configuration, and
-     * thus, the same pt_metadata. Metadata is dumped at the beginning of the output
-     * file and occurs only once.
-     */
-    pt_metadata_t pt_metadata;
-    if (drpttracer_get_pt_metadata(pttracer_handle_.handle, &pt_metadata)) {
-        return false;
-    }
-    if (!metadata_dump(pt_metadata)) {
         return false;
     }
 
@@ -142,7 +126,36 @@ syscall_pt_trace_t::start_syscall_pt_trace(IN int sysnum)
     }
 
     ASSERT(drcontext_ != nullptr, "drcontext_ is nullptr");
+
+    if (!unified_pttracer_handle_) {
+        /* Reset the pttracer handle for next syscall. */
+        pttracer_handle_.reset();
+    }
+
+    /* Create a pttracer handle if it doesn't exist. */
+    if (pttracer_handle_.handle == nullptr) {
+        if (drpttracer_create_handle(drcontext_, DRPTTRACER_TRACING_ONLY_KERNEL,
+                                     RING_BUFFER_SIZE_SHIFT, RING_BUFFER_SIZE_SHIFT,
+                                     &pttracer_handle_.handle) != DRPTTRACER_SUCCESS) {
+            return false;
+        }
+    }
     ASSERT(pttracer_handle_.handle != nullptr, "pttracer_handle_.handle is nullptr");
+
+    /* All syscalls within a single thread share the same pttracer configuration, and
+     * thus, the same pt_metadata. Metadata is dumped at the beginning of the output
+     * file and occurs only once.
+     */
+    if (!is_dumping_metadata_) {
+        pt_metadata_t pt_metadata;
+        if (drpttracer_get_pt_metadata(pttracer_handle_.handle, &pt_metadata)) {
+            return false;
+        }
+        if (!metadata_dump(pt_metadata)) {
+            return false;
+        }
+        is_dumping_metadata_ = true;
+    }
 
     /* Start tracing the current syscall. */
     if (drpttracer_start_tracing(drcontext_, pttracer_handle_.handle) !=
@@ -196,7 +209,7 @@ syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
     pdb_header[PDB_HEADER_TID_IDX].tid.type = SYSCALL_PT_ENTRY_TYPE_THREAD_ID;
     pdb_header[PDB_HEADER_TID_IDX].tid.tid = dr_get_thread_id(drcontext_);
     pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.data_size =
-        sizeof(pt_metadata_t);
+        sizeof(syscall_pt_metadata_t);
     pdb_header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type =
         SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY;
 
@@ -206,8 +219,16 @@ syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
         return false;
     }
 
-    /* Write the pt_metadata to the output file */
-    if (write_file_func_(output_file_, &metadata, sizeof(pt_metadata_t)) == 0) {
+    /* Set up the syscall PT metadata using provided metadata values. */
+    syscall_pt_metadata_t syscall_pt_metadata = {
+        metadata.cpu_family,     metadata.cpu_model, metadata.cpu_stepping,
+        metadata.time_shift,     metadata.time_mult, metadata.time_zero,
+        unified_pttracer_handle_
+    };
+
+    /* Write the syscall_pt_metadata to the output file */
+    if (write_file_func_(output_file_, &syscall_pt_metadata,
+                         sizeof(syscall_pt_metadata_t)) == 0) {
         ASSERT(false, "Failed to write the metadata to the output file");
         return false;
     }

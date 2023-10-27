@@ -4466,6 +4466,7 @@ if (BUILD_CLIENTS)
           "firstglob@${cmd_pfx}${drcachesim_path}@-simulator_type@basic_counts@-indir@${testname_full}.*.dir${sim_atops}")
       endmacro ()
       torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
+      torunonly_drcacheoff_kernel(simple_unified_perf ${ci_shared_app} "-kernel_tracing_unified_perf" "" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
 

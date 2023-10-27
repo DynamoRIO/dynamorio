@@ -52,6 +52,7 @@
 #include "dr_api.h"
 #include "drir.h"
 #include "elf_loader.h"
+#include "trace_entry.h"
 
 #ifndef IN
 #    define IN // nothing
@@ -299,6 +300,11 @@ public:
      */
     std::string sb_kcore_path;
 
+    /**
+     * It indicates whether pt2ir decodes the PT raw trace using streaming decoding.
+     */
+    bool stream_mode;
+
     pt2ir_config_t()
     {
         pt_config.cpu.vendor = CPU_VENDOR_UNKNOWN;
@@ -323,28 +329,23 @@ public:
         sb_primary_file_path = "";
         sb_secondary_file_path_list.clear();
         sb_kcore_path = "";
+
+        stream_mode = false;
     }
 
     /**
      * Return true if the config is successfully initialized.
-     * This function is used to parse the metadata of the PT raw trace.
+     * This function parses the metadata from the syscalls' PT raw trace.
      */
     bool
-    init_with_metadata(IN const void *metadata_buffer)
+    init_with_syscall_pt_metadata(IN const void *metadata_buffer)
     {
         if (metadata_buffer == NULL)
             return false;
 
-        struct {
-            uint16_t cpu_family;
-            uint8_t cpu_model;
-            uint8_t cpu_stepping;
-            uint16_t time_shift;
-            uint32_t time_mult;
-            uint64_t time_zero;
-        } __attribute__((__packed__)) metadata;
+        syscall_pt_metadata_t metadata;
 
-        memcpy(&metadata, metadata_buffer, sizeof(metadata));
+        memcpy(&metadata, metadata_buffer, sizeof(syscall_pt_metadata_t));
 
         pt_config.cpu.family = metadata.cpu_family;
         pt_config.cpu.model = metadata.cpu_model;
@@ -355,11 +356,19 @@ public:
         sb_config.time_mult = metadata.time_mult;
         sb_config.time_zero = metadata.time_zero;
 
+        /* When system call PT data is gathered through a unified perf file, each system
+         * call's PT data might not always begin or conclude with a full PT packet.
+         * Additionally, valid data won't be delimited by Packet Stream Boundaries (PSB)
+         * Packet encapsulations. Given that libipt doesn't support streaming decoding or
+         * partial PT data decoding, we utilize pt2ir_t to monitor the decode offset and
+         * implement streaming decoding to ensure accurate processing of each syscall's
+         * data.
+         */
+        stream_mode = metadata.unified_perf_file;
+
         return true;
     }
 };
-
-class pt2ir_data_buffer_t;
 
 /**
  * pt2ir_t is a class that can convert PT raw trace to DynamoRIO's IR.
@@ -387,15 +396,12 @@ public:
      * @param pt_data The PT raw trace.
      * @param pt_data_size The size of PT raw trace.
      * @param drir The drir object.
-     * @param last_chunk If set to true, the function will fully decode the last packet of
-     * the chunk.
      * @return pt2ir_convert_status_t. If the convertion is successful, the function
      * returns #PT2IR_CONV_SUCCESS. Otherwise, the function returns the corresponding
      * error code.
      */
     pt2ir_convert_status_t
-    convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir,
-            IN bool last_chunk = false);
+    convert(IN const uint8_t *pt_data, IN size_t pt_data_size, INOUT drir_t &drir);
 
 private:
     /* Pre-decoding involves determining the final data packet's offset for setting a stop
@@ -421,6 +427,26 @@ private:
      * readiness of the conversion process from PT data to DR's IR.
      */
     bool pt2ir_initialized_;
+
+    /* It indicates if the instance of pt2ir_t will decode the PT raw trace using
+     * streaming decoding mode.
+     * In non-stream mode, the instance will treat the PT raw trace as a whole and decode
+     * it through the default libipt decoder. In stream mode, each incoming PT raw trace
+     * data is treated as a PT raw trace chunk. The instance monitors the decode offset
+     * for each chunk and performs streaming decoding.
+     *
+     * TODO i#5505: The last packet of each PT data chunk might be incomplete. So for
+     * every PT raw trace chunk, we will not decode the final packet. Instead, we will
+     * decode the partial packet when the next chunk arrives. This results in each initial
+     * chunk missing some instructions at the end, the final chunk having some extraneous
+     * instructions, and the middle chunks' decoding outcomes containing instructions from
+     * the previous chunk at the beginning and missing some at the end. This approach is
+     * acceptable for decoding every syscall's trace since they are surrounded by noise
+     * instructions and the missing instructions only impact these noise instructions.
+     * However, it's important not to employ pt2ir to decode other discontinuous chunks
+     * that demand a precision instruction list.
+     */
+    bool pt2ir_stream_mode_;
 
     /* Buffer for caching the PT raw trace. */
     std::unique_ptr<uint8_t[]> pt_raw_buffer_;

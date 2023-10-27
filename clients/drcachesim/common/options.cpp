@@ -799,6 +799,12 @@ droption_t<bool> op_enable_kernel_tracing(
     "syscall's PT and metadata to files in -outdir/kernel.raw/ for later offline "
     "analysis. And this feature is available only on Intel CPUs that support Intel@ "
     "Processor Trace.");
+droption_t<bool> op_kernel_tracing_unified_perf(
+    DROPTION_SCOPE_ALL, "kernel_tracing_unified_perf", false,
+    "Open one perf file per thread for kernel tracing.",
+    "By default, each syscall in offline tracing open its own perf event file. When "
+    "enabled, a single perf event file is used per thread, streamlining syscall tracing "
+    "and boosting efficiency in capturing kernel PT data.");
 #endif
 
 // Core-oriented analysis.

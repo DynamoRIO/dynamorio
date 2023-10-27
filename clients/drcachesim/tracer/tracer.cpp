@@ -1791,7 +1791,8 @@ init_thread_in_process(void *drcontext)
             [](const char *fname, uint mode_flags) {
                 return file_ops_func.open_process_file(fname, mode_flags);
             },
-            file_ops_func.write_file, file_ops_func.close_file);
+            file_ops_func.write_file, file_ops_func.close_file,
+            op_kernel_tracing_unified_perf.get_value());
     }
 #endif
     // XXX i#1729: gather and store an initial callstack for the thread.

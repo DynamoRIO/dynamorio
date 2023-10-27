@@ -865,14 +865,7 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
             return false;
         }
 
-        struct {
-            uint16_t cpu_family;
-            uint8_t cpu_model;
-            uint8_t cpu_stepping;
-            uint16_t time_shift;
-            uint32_t time_mult;
-            uint64_t time_zero;
-        } __attribute__((__packed__)) metadata;
+        syscall_pt_metadata_t metadata;
         if (!tdata->kthread_file->read((char *)&metadata, sizeof(metadata))) {
             tdata->error = "Unable to read the PT metadate form kernel thread log file";
             return false;
@@ -880,9 +873,12 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
 
         pt2ir_config_t config = {};
         config.elf_file_path = kcore_path_;
-        config.init_with_metadata(&metadata);
+        config.init_with_syscall_pt_metadata(&metadata);
 
-        /* Set the buffer size at least twice the maximum stream data size. */
+        /* For stream decoding of PT data, the buffer might, in a worst-case scenario,
+         * store PT data from two stream data chunks. Hence, we should set the buffer size
+         * to twice the maximum stream data chunk size.
+         */
 #    define RING_BUFFER_SIZE_SHIFT 8
         config.pt_raw_buffer_size =
             (2L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);

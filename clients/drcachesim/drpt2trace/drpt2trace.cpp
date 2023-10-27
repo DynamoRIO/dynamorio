@@ -454,6 +454,7 @@ main(int argc, const char *argv[])
 
     if (op_raw_pt_format.get_value() == "PERF") {
         config.pt_raw_buffer_size = pt_raw_buffer.size();
+        config.stream_mode = false;
         if (!ptconverter->init(config)) {
             std::cerr << CLIENT_NAME << ": failed to initialize pt2ir_t." << std::endl;
             return FAILURE;
@@ -461,8 +462,7 @@ main(int argc, const char *argv[])
 
         uint8_t *pt_data = pt_raw_buffer.data();
         size_t pt_data_size = pt_raw_buffer.size();
-        pt2ir_convert_status_t status =
-            ptconverter->convert(pt_data, pt_data_size, drir, true);
+        pt2ir_convert_status_t status = ptconverter->convert(pt_data, pt_data_size, drir);
         if (status != PT2IR_CONV_SUCCESS) {
             std::cerr << CLIENT_NAME << ": failed to convert PT raw trace to DR IR."
                       << "[error status: " << status << "]" << std::endl;
@@ -481,9 +481,12 @@ main(int argc, const char *argv[])
         void *metadata_buffer =
             reinterpret_cast<void *>(reinterpret_cast<uint8_t *>(pt_metadata_header) +
                                      PT_METADATA_PDB_DATA_OFFSET);
-        config.init_with_metadata(metadata_buffer);
+        config.init_with_syscall_pt_metadata(metadata_buffer);
 
-        /* Set the buffer size at least twice the maximum stream data size. */
+        /* For stream decoding of PT data, the buffer might, in a worst-case scenario,
+         * store PT data from two stream data chunks. Hence, we should set the buffer size
+         * to twice the maximum stream data chunk size.
+         */
 #define RING_BUFFER_SIZE_SHIFT 8
         config.pt_raw_buffer_size =
             (2L << RING_BUFFER_SIZE_SHIFT) * sysconf(_SC_PAGESIZE);

@@ -1069,6 +1069,48 @@ struct _syscall_pt_entry_t {
 typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
 
 /**
+ * The type of syscall PT trace's metadata.
+ *
+ * \note The metadata is stored in the first PDB of each thread. And it will be used to
+ * initialize the PT config of pt2ir_t when decoding a PT trace.
+ */
+START_PACKED_STRUCTURE
+struct _syscall_pt_metadata_t {
+    uint16_t cpu_family;  /**< The CPU family. */
+    uint8_t cpu_model;    /**< The CPU mode. */
+    uint8_t cpu_stepping; /**< The CPU stepping. */
+
+    /**
+     * The time shift. pt2ir_t uses it to synchronize the time of the PT trace and
+     * sideband data.
+     * \note time_shift = perf_event_mmap_page.time_shift
+     */
+    uint16_t time_shift;
+
+    /**
+     * The time multiplier. pt2ir_t uses it to synchronize the time of the PT trace and
+     * sideband data.
+     * \note time_mult = perf_event_mmap_page.time_mult
+     */
+    uint32_t time_mult;
+
+    /**
+     * The time zero. pt2ir_t uses it to synchronize the time of the PT trace and
+     * sideband data. \note time_zero = perf_event_mmap_page.time_zero
+     */
+    uint64_t time_zero;
+
+    /**
+     * Indicates whether all syscall PT data is collected via a single perf file.
+     * If set to true, pt2ir_t will use streaming decoding for all system call PT data. If
+     * false, it will decode each system call's PT data one at a time, treating each as an
+     * independent PT file.
+     */
+    bool unified_perf_file;
+} END_PACKED_STRUCTURE;
+typedef struct _syscall_pt_metadata_t syscall_pt_metadata_t;
+
+/**
  * The per-thread metadata and each syscall's PT data are stored in one PT DATA
  * Buffer(PDB). The PDB format is:
  * +----------+--------+
