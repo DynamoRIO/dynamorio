@@ -234,7 +234,6 @@ typedef struct _local_state_extended_t {
 #    define TLS_REG2_SLOT ((ushort)offsetof(spill_state_t, a2))
 #    define TLS_REG3_SLOT ((ushort)offsetof(spill_state_t, a3))
 #    define TLS_REG_STOLEN_SLOT ((ushort)offsetof(spill_state_t, reg_stolen))
-#    define TLS_REG_TP_SLOT os_get_app_tls_base_offset(TLS_REG_LIB)
 #    define SCRATCH_REG0 DR_REG_A0
 #    define SCRATCH_REG1 DR_REG_A1
 #    define SCRATCH_REG2 DR_REG_A2

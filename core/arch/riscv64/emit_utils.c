@@ -640,7 +640,8 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG0, TLS_REG_STOLEN_SLOT));
 
     APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG0, REG_OFFSET(DR_REG_TP)));
-    APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG0, TLS_REG_TP_SLOT));
+    APP(ilist,
+        SAVE_TO_TLS(dcontext, SCRATCH_REG0, os_get_app_tls_base_offset(TLS_REG_LIB)));
 
     for (int reg = DR_REG_X0 + 1; reg < DR_REG_X0 + 32; reg++) {
         if (reg == REG_DCXT || reg == DR_REG_TP || reg == dr_reg_stolen)
@@ -701,7 +702,9 @@ append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool abs
     APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, TLS_REG_STOLEN_SLOT));
     APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, REG_OFFSET(dr_reg_stolen)));
 
-    APP(ilist, RESTORE_FROM_TLS(dcontext, SCRATCH_REG1, TLS_REG_TP_SLOT));
+    APP(ilist,
+        RESTORE_FROM_TLS(dcontext, SCRATCH_REG1,
+                         os_get_app_tls_base_offset(TLS_REG_LIB)));
     APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG1, REG_OFFSET(DR_REG_TP)));
 }
 
