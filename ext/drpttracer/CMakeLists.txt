@@ -54,3 +54,4 @@ add_library(drpttracer_static STATIC ${srcs_static})
 configure_extension(drpttracer_static ON)
 
 install_ext_header(drpttracer.h)
+install_ext_header(drpttracer_shared.h)

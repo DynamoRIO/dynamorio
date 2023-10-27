@@ -4465,10 +4465,20 @@ if (BUILD_CLIENTS)
         set(${testname_full}_postcmd
           "firstglob@${cmd_pfx}${drcachesim_path}@-simulator_type@basic_counts@-indir@${testname_full}.*.dir${sim_atops}")
       endmacro ()
-      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "" "" "")
-      torunonly_drcacheoff_kernel(simple_unified_perf ${ci_shared_app} "-kernel_tracing_unified_perf" "" "")
+      # We use '-raw_compress none' because when snappy or lz4 is used for raw traces,
+      # the check that complains about malloc use in the client is disabled by invoking
+      # dr_allow_unsafe_static_behavior. We want to perform this check on the kernel
+      # tracing flow.
+      torunonly_drcacheoff_kernel(simple ${ci_shared_app} "-raw_compress none" "")
+      torunonly_drcacheoff_kernel(simple_unified_perf ${ci_shared_app} "-raw_compress none -kernel_tracing_unified_perf" "" "")
     endif (BUILD_PT_TRACER AND BUILD_PT_POST_PROCESSOR)
   endif (proc_supports_pt)
+
+  if (X86)
+    torunonly_drcacheoff(getretaddr_record_replace_retaddr common.getretaddr
+            "-record_replace_retaddr -record_function tailcall_with_retaddr|1&foo|1"
+            "@-simulator_type@invariant_checker" "")
+  endif ()
 
   ###########################################################################
   # drcpusim tests
