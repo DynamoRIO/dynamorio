@@ -338,15 +338,8 @@ public:
      * This function parses the metadata from the syscalls' PT raw trace.
      */
     bool
-    init_with_syscall_pt_metadata(IN const void *metadata_buffer)
+    init_with_metadata(IN pt_metadata_t metadata, IN pt_metadata_ext_t metadata_ext)
     {
-        if (metadata_buffer == NULL)
-            return false;
-
-        syscall_pt_metadata_t metadata;
-
-        memcpy(&metadata, metadata_buffer, sizeof(syscall_pt_metadata_t));
-
         pt_config.cpu.family = metadata.cpu_family;
         pt_config.cpu.model = metadata.cpu_model;
         pt_config.cpu.stepping = metadata.cpu_stepping;
@@ -364,7 +357,7 @@ public:
          * implement streaming decoding to ensure accurate processing of each syscall's
          * data.
          */
-        stream_mode = metadata.unified_perf_file;
+        stream_mode = metadata_ext.unified_perf_file;
 
         return true;
     }

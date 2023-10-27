@@ -219,6 +219,7 @@ syscall_pt_trace_t::metadata_dump(pt_metadata_t metadata)
         SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY;
 
     to_write.metadata = metadata;
+    to_write.metadata_ext = { unified_pttracer_handle_ };
     if (write_file_func_(output_file_, &to_write, sizeof(to_write)) == 0) {
         ASSERT(false, "Failed to write the metadata's header to the output file");
         return false;

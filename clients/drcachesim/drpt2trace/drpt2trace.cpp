@@ -478,10 +478,13 @@ main(int argc, const char *argv[])
             return FAILURE;
         }
 
-        void *metadata_buffer =
-            reinterpret_cast<void *>(reinterpret_cast<uint8_t *>(pt_metadata_header) +
-                                     PT_METADATA_PDB_DATA_OFFSET);
-        config.init_with_syscall_pt_metadata(metadata_buffer);
+        pt_metadata_t *pt_metadata = reinterpret_cast<pt_metadata_t *>(
+            reinterpret_cast<uint8_t *>(pt_metadata_header) +
+            PT_METADATA_PDB_DATA_OFFSET);
+        pt_metadata_ext_t *pt_metadata_ext = reinterpret_cast<pt_metadata_ext_t *>(
+            reinterpret_cast<uint8_t *>(pt_metadata_header) +
+            PT_METADATA_PDB_DATA_OFFSET + sizeof(pt_metadata_t));
+        config.init_with_metadata(*pt_metadata, *pt_metadata_ext);
 
         /* For stream decoding of PT data, the buffer might, in a worst-case scenario,
          * store PT data from two stream data chunks. Hence, we should set the buffer size

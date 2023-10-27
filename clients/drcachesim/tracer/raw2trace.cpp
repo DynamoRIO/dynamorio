@@ -868,6 +868,14 @@ raw2trace_t::get_next_kernel_entry(raw2trace_thread_data_t *tdata,
             tdata->error = "Unable to read the PT metadata from kernel thread log file";
             return nullptr;
         }
+
+        if (!tdata->kthread_file->read(
+                reinterpret_cast<char *>(&pt_metadata->metadata_ext),
+                sizeof(pt_metadata->metadata_ext))) {
+            tdata->error = "Unable to read the PT metadata extension form kernel thread "
+                           "log file";
+            return nullptr;
+        }
     }
     log(2,
         "Reading PT data header for tid " INT64_FORMAT_STRING
@@ -928,15 +936,9 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
             return false;
         }
 
-        syscall_pt_metadata_t metadata;
-        if (!tdata->kthread_file->read((char *)&metadata, sizeof(metadata))) {
-            tdata->error = "Unable to read the PT metadate form kernel thread log file";
-            return false;
-        }
-
         pt2ir_config_t config = {};
         config.elf_file_path = kcore_path_;
-        config.init_with_syscall_pt_metadata(&metadata);
+        config.init_with_metadata(pt_metadata->metadata, pt_metadata->metadata_ext);
 
         /* For stream decoding of PT data, the buffer might, in a worst-case scenario,
          * store PT data from two stream data chunks. Hence, we should set the buffer size
