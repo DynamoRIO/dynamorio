@@ -687,6 +687,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* Now, a1 holds the hash table index, use slli+add to get the table entry. */
     ASSERT(4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type) >= 0);
     if (4 - HASHTABLE_IBL_OFFSET(ibl_code->branch_type) > 0) {
+        /* TODO i#3544: Immediate display format should be auto-added by the IR. */
         APP(&ilist,
             INSTR_CREATE_slli(
                 dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
@@ -748,6 +749,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* Try next entry, in case of collision. No wraparound check is needed
      * because of the sentinel at the end.
      */
+    /* TODO i#3544: Immediate size should be auto-figured-out by the IR. */
     APP(&ilist,
         INSTR_CREATE_addi(dc, opnd_create_reg(DR_REG_A1), opnd_create_reg(DR_REG_A1),
                           opnd_create_immed_int(sizeof(fragment_entry_t), OPSZ_12b)));
