@@ -296,6 +296,10 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tracer)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/scheduler)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
+if (BUILD_PT_POST_PROCESSOR)
+  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/drpt2trace)
+endif (BUILD_PT_POST_PROCESSOR)
+
 add_exported_library(drmemtrace_analyzer STATIC
   analyzer.cpp
   scheduler/scheduler.cpp
