@@ -43,10 +43,15 @@
 #ifndef _TRACE_ENTRY_H_
 #define _TRACE_ENTRY_H_ 1
 
+#include <memory>
 #include <stddef.h>
 #include <stdint.h>
 
 #include "utils.h"
+
+#if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
+#    include "drpttracer_shared.h"
+#endif
 
 /**
  * @file drmemtrace/trace_entry.h
@@ -690,7 +695,13 @@ marker_type_is_function_marker(const trace_marker_type_t mark)
  * - a bundle of instrs
  * - a flush request
  * - a prefetch request
- * - a thread/process
+ * - a thread/process.
+ * All fields are stored as little-endian.  The raw records from the tracer may
+ * be big-endian (per the architecture trace type field), in which case raw2trace must
+ * convert them to little-endian.  The #memref_t fields may be presented as big-endian
+ * to simplify analyzers running on big-endian machines, in which case the conversion
+ * from the trace format #trace_entry_t to big-endian is performed by the
+ * #dynamorio::drmemtrace::reader_t class.
  */
 START_PACKED_STRUCTURE
 struct _trace_entry_t {
@@ -880,6 +891,8 @@ build_target_arch_type()
 }
 #endif
 
+// This structure may be big- or little-endian, but when converted to trace_entry_t
+// it must be converted to litte-endian.
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
     union {
@@ -935,6 +948,7 @@ typedef union {
 #define ENCODING_FILE_INITIAL_VERSION 0
 #define ENCODING_FILE_VERSION ENCODING_FILE_INITIAL_VERSION
 
+// All fields are little-endian.
 START_PACKED_STRUCTURE
 struct _encoding_entry_t {
     size_t length; // Size of the entire structure.
@@ -955,6 +969,7 @@ typedef struct _encoding_entry_t encoding_entry_t;
 // A thread schedule file is a series of these records.
 // There is no version number here: we increase the version number in
 // the trace files when we change the format of this file.
+// All fields are little-endian.
 START_PACKED_STRUCTURE
 struct schedule_entry_t {
     schedule_entry_t(uint64_t thread, uint64_t timestamp, uint64_t cpu,
@@ -979,6 +994,9 @@ struct schedule_entry_t {
 
 #if defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
+/******************************************************
+ * Trace entries related to the kernel trace -- start.
+ */
 /**
  * The type of a syscall PT entry in the raw offline output.
  */
@@ -1021,6 +1039,7 @@ typedef enum {
     SYSCALL_PT_ENTRY_TYPE_MAX
 } syscall_pt_entry_type_t;
 
+// All fields are little-endian.
 START_PACKED_STRUCTURE
 struct _syscall_pt_entry_t {
     union {
@@ -1086,8 +1105,9 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
  * 3. The 3rd instance is used to store the output buffer's type and size.
  */
 #    define PT_METADATA_PDB_HEADER_ENTRY_NUM 3
-#    define PT_METADATA_PDB_HEADER_SIZE \
-        (PT_METADATA_PDB_HEADER_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+#    define PT_METADATA_PDB_HEADER_SIZE     \
+        (PT_METADATA_PDB_HEADER_ENTRY_NUM * \
+         sizeof(dynamorio::drmemtrace::syscall_pt_entry_t))
 #    define PT_METADATA_PDB_DATA_OFFSET PT_METADATA_PDB_HEADER_SIZE
 
 /* The header of each syscall's PT data buffer contains max 6 syscall_pt_entry_t
@@ -1099,7 +1119,7 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
  */
 #    define PT_DATA_PDB_HEADER_ENTRY_NUM 6
 #    define PT_DATA_PDB_HEADER_SIZE \
-        (PT_DATA_PDB_HEADER_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+        (PT_DATA_PDB_HEADER_ENTRY_NUM * sizeof(dynamorio::drmemtrace::syscall_pt_entry_t))
 #    define PT_DATA_PDB_DATA_OFFSET PT_DATA_PDB_HEADER_SIZE
 
 /* The metadata of each syscall is stored in the PDB header. The metadata contains 3
@@ -1110,9 +1130,12 @@ typedef struct _syscall_pt_entry_t syscall_pt_entry_t;
  */
 #    define SYSCALL_METADATA_ENTRY_NUM 3
 #    define SYSCALL_METADATA_SIZE \
-        (SYSCALL_METADATA_ENTRY_NUM * sizeof(syscall_pt_entry_t))
+        (SYSCALL_METADATA_ENTRY_NUM * sizeof(dynamorio::drmemtrace::syscall_pt_entry_t))
 
 typedef enum {
+    // TODO i#5505: We perhaps do not need to add the PID and TID in the header. They can
+    // be obtained from the thread's user-space trace files.
+
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_PID in the PDB header. */
     PDB_HEADER_PID_IDX = 0,
     /* Index of a syscall PT entry of type SYSCALL_PT_ENTRY_TYPE_THREAD_ID in the PDB
@@ -1135,7 +1158,52 @@ typedef enum {
      */
     PDB_HEADER_NUM_ARGS_IDX = 5
 } pdb_header_entry_idx_t;
-#endif
+
+/**
+ * This is the format in which syscall_pt_trace writes the PT metadata for each
+ * thread before writing any system call's PT data.
+ * All fields are little-endian.
+ */
+START_PACKED_STRUCTURE
+struct _pt_metadata_buf_t {
+    /**
+     * The header of the PT metadata.
+     */
+    syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
+
+    /**
+     * The PT metadata itself. Note that the struct is already marked packed
+     * in its definition.
+     */
+    pt_metadata_t metadata;
+} END_PACKED_STRUCTURE;
+
+/** See #dynamorio::drmemtrace::_pt_metadata_buf_t. */
+typedef struct _pt_metadata_buf_t pt_metadata_buf_t;
+
+/**
+ * This is the format in which syscall_pt_trace writes each system call's PT
+ * data.
+ */
+struct _pt_data_buf_t {
+    /**
+     * The header of the PT data.
+     */
+    syscall_pt_entry_t header[PT_DATA_PDB_HEADER_ENTRY_NUM];
+    /**
+     * The actual trace data written by PT.
+     */
+    std::unique_ptr<uint8_t[]> data;
+};
+
+/** See #dynamorio::drmemtrace::_pt_data_buf_t. */
+typedef struct _pt_data_buf_t pt_data_buf_t;
+
+/****************************************************
+ * Trace entries related to the kernel trace -- end.
+ */
+
+#endif // defined(BUILD_PT_TRACER) || defined(BUILD_PT_POST_PROCESSOR)
 
 /**
  * The name of the file in -offline mode where module data is written.
@@ -1172,10 +1240,10 @@ typedef enum {
 #define DRMEMTRACE_CPU_SCHEDULE_FILENAME "cpu_schedule.bin.zip"
 
 /**
- * The name of the folder in -offline mode where the kernel's per thread PT data is
- * stored. This data is captured during online tracing.
+ * The name of the folder in -offline mode where the kernel's per thread trace
+ * data is stored.
  */
-#define DRMEMTRACE_KERNEL_PT_SUBDIR "kernel.raw"
+#define DRMEMTRACE_KERNEL_TRACE_SUBDIR "kernel.raw"
 
 /**
  * The name of the file in -offline mode where the kernel code segments are stored. This

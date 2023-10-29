@@ -35,9 +35,11 @@
 #ifndef _DRIR_H_
 #define _DRIR_H_ 1
 
-#define DR_FAST_IR 1
+#ifndef DR_FAST_IR
+#    define DR_FAST_IR 1
+#endif
 #include "dr_api.h"
-#include "../common/utils.h"
+#include "utils.h"
 
 namespace dynamorio {
 namespace drmemtrace {
