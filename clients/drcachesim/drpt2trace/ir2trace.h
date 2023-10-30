@@ -44,7 +44,7 @@
 #include <vector>
 #include <mutex>
 #include "drir.h"
-#include "../common/trace_entry.h"
+#include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {

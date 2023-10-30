@@ -510,11 +510,3 @@ instr_is_gather(instr_t *instr)
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
-
-bool
-instr_is_jump_mem(instr_t *instr)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
-}

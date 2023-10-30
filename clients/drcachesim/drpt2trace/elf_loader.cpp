@@ -32,7 +32,7 @@
 
 #include <elf.h>
 
-#include "../common/utils.h"
+#include "utils.h"
 #include "elf_loader.h"
 #include "intel-pt.h"
 

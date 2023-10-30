@@ -121,33 +121,21 @@ decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr)
 bool
 decode_raw_is_jmp(dcontext_t *dcontext, byte *pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    return ((*(uint *)pc & 0x7f) == 0x6f); /* JAL */
 }
 
 byte *
 decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
-}
-
-bool
-decode_raw_is_cond_branch_zero(dcontext_t *dcontext, byte *pc)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
-}
-
-byte *
-decode_raw_cond_branch_zero_target(dcontext_t *dcontext, byte *pc)
-{
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return false;
+    /* Format of the J-type instruction:
+     * |   31    |30       21|   20    |19        12|11   7|6      0|
+     * | imm[20] | imm[10:1] | imm[11] | imm[19:12] |  rd  | opcode |
+     *  ^------------------------------------------^
+     */
+    uint enc = *(uint *)pc;
+    int32_t imm = (((enc >> 31) & 1) << 20) | (((enc >> 12) & 0xff) << 12) |
+        (((enc >> 20) & 1) << 11) | (((enc >> 21) & 0x3ff) << 1);
+    return pc + ((imm << 11) >> 11);
 }
 
 const instr_info_t *
