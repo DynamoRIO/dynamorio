@@ -585,78 +585,13 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             uintptr_t marker_val = 0;
             if (!get_marker_value(tdata, &in_entry, &marker_val))
                 return false;
-            buf += trace_metadata_writer_t::write_marker(
-                buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
-            if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-                log(4, "Signal/exception between bbs\n");
-                // An rseq side exit may next hit a signal which is then the
-                // boundary of the rseq region.
-                if (tdata->rseq_past_end_) {
-                    if (!adjust_and_emit_rseq_buffer(tdata, marker_val))
-                        return false;
-                }
-            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
-                log(4, "Rseq abort %d\n", tdata->rseq_past_end_);
-                if (!adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val))
-                    return false;
-            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
-                if (tdata->rseq_want_rollback_) {
-                    if (tdata->rseq_buffering_enabled_) {
-                        // Our rollback schemes do the minimal rollback: for a side
-                        // exit, taking the last branch.  This means we don't need the
-                        // prior iterations in the buffer.
-                        log(4, "Rseq was already buffered: assuming loop; emitting\n");
-                        if (!adjust_and_emit_rseq_buffer(tdata, marker_val))
-                            return false;
-                    }
-                    log(4,
-                        "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
-                        marker_val);
-                    if (!tdata->rseq_ever_saw_entry_)
-                        tdata->rseq_ever_saw_entry_ = true;
-                    tdata->rseq_buffering_enabled_ = true;
-                    tdata->rseq_end_pc_ = marker_val;
-                }
-            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
-                log(2, "Reached filter endpoint\n");
-
-                // The file type needs to be updated during the switch to correctly
-                // process the entries that follow after. This does not affect the
-                // written-out type.
-                int file_type = get_file_type(tdata);
-                // We do not remove OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP here
-                // because that still stands true for this trace.
-                file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
-                               OFFLINE_FILE_TYPE_DFILTERED);
-                set_file_type(tdata, (offline_file_type_t)file_type);
-
-                // For the full trace, the cache contains block-level info unlike the
-                // filtered trace which contains instr-level info. Since we cannot use
-                // the decode cache entries after the transition, we need to flush the
-                // cache here.
-                *flush_decode_cache = true;
-            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL &&
-                       is_maybe_blocking_syscall(marker_val)) {
-                log(2, "Maybe-blocking syscall %zu\n", marker_val);
-                buf += trace_metadata_writer_t::write_marker(
-                    buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
-            }
-            // If there is currently a delayed branch that has not been emitted yet,
-            // delay most markers since intra-block markers can cause issues with
-            // tools that do not expect markers amid records for a single instruction
-            // or inside a basic block. We don't delay TRACE_MARKER_TYPE_CPU_ID which
-            // identifies the CPU on which subsequent records were collected and
-            // OFFLINE_TYPE_TIMESTAMP which is handled at a higher level in
-            // process_next_thread_buffer() so there is no need to have a separate
-            // check for it here.
-            if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
-                if (delayed_branches_exist(tdata)) {
-                    return write_delayed_branches(tdata, buf_base,
-                                                  reinterpret_cast<trace_entry_t *>(buf));
-                }
-            }
-            log(3, "Appended marker type %u value " PIFX "\n",
-                (trace_marker_type_t)in_entry->extended.valueB,
+            trace_marker_type_t marker_type =
+                static_cast<trace_marker_type_t>(in_entry->extended.valueB);
+            buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
+            if (!process_marker_additionally(tdata, marker_type, marker_val, buf,
+                                             flush_decode_cache))
+                return false;
+            log(3, "Appended marker type %u value " PIFX "\n", marker_type,
                 (uintptr_t)in_entry->extended.valueA);
         } else {
             std::stringstream ss;
@@ -714,6 +649,82 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
     }
     if (size > 0) {
         return write(tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+    }
+    return true;
+}
+
+bool
+raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
+                                         trace_marker_type_t marker_type,
+                                         uintptr_t marker_val, byte *&buf,
+                                         OUT bool *flush_decode_cache)
+{
+    if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        log(4, "Signal/exception between bbs\n");
+        // An rseq side exit may next hit a signal which is then the
+        // boundary of the rseq region.
+        if (tdata->rseq_past_end_) {
+            if (!adjust_and_emit_rseq_buffer(tdata, marker_val))
+                return false;
+        }
+    } else if (marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+        log(4, "Rseq abort %d\n", tdata->rseq_past_end_);
+        if (!adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val))
+            return false;
+    } else if (marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
+        if (tdata->rseq_want_rollback_) {
+            if (tdata->rseq_buffering_enabled_) {
+                // Our rollback schemes do the minimal rollback: for a side
+                // exit, taking the last branch.  This means we don't need the
+                // prior iterations in the buffer.
+                log(4, "Rseq was already buffered: assuming loop; emitting\n");
+                if (!adjust_and_emit_rseq_buffer(tdata, marker_val))
+                    return false;
+            }
+            log(4, "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
+                marker_val);
+            if (!tdata->rseq_ever_saw_entry_)
+                tdata->rseq_ever_saw_entry_ = true;
+            tdata->rseq_buffering_enabled_ = true;
+            tdata->rseq_end_pc_ = marker_val;
+        }
+    } else if (marker_type == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
+        log(2, "Reached filter endpoint\n");
+
+        // The file type needs to be updated during the switch to correctly
+        // process the entries that follow after. This does not affect the
+        // written-out type.
+        int file_type = get_file_type(tdata);
+        // We do not remove OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP here
+        // because that still stands true for this trace.
+        file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                       OFFLINE_FILE_TYPE_DFILTERED);
+        set_file_type(tdata, (offline_file_type_t)file_type);
+
+        // For the full trace, the cache contains block-level info unlike the
+        // filtered trace which contains instr-level info. Since we cannot use
+        // the decode cache entries after the transition, we need to flush the
+        // cache here.
+        *flush_decode_cache = true;
+    } else if (marker_type == TRACE_MARKER_TYPE_SYSCALL &&
+               is_maybe_blocking_syscall(marker_val)) {
+        log(2, "Maybe-blocking syscall %zu\n", marker_val);
+        buf += trace_metadata_writer_t::write_marker(
+            buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
+    }
+    // If there is currently a delayed branch that has not been emitted yet,
+    // delay most markers since intra-block markers can cause issues with
+    // tools that do not expect markers amid records for a single instruction
+    // or inside a basic block. We don't delay TRACE_MARKER_TYPE_CPU_ID which
+    // identifies the CPU on which subsequent records were collected and
+    // OFFLINE_TYPE_TIMESTAMP which is handled at a higher level in
+    // process_next_thread_buffer() so there is no need to have a separate
+    // check for it here.
+    if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
+        if (delayed_branches_exist(tdata)) {
+            return write_delayed_branches(tdata, get_write_buffer(tdata),
+                                          reinterpret_cast<trace_entry_t *>(buf));
+        }
     }
     return true;
 }

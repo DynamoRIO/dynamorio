@@ -1133,6 +1133,15 @@ protected:
                           OUT bool *last_bb_handled, OUT bool *flush_decode_cache);
 
     /**
+     * Performs any additional actions for the marker "marker_type" with value
+     * "marker_val", beyond writing out a marker record.  New records can be written to
+     * "buf".  Returns whether successful.
+     */
+    virtual bool
+    process_marker_additionally(raw2trace_thread_data_t *tdata,
+                                trace_marker_type_t marker_type, uintptr_t marker_val,
+                                byte *&buf, OUT bool *flush_decode_cache);
+    /**
      * Read the header of a thread, by calling get_next_entry() successively to
      * populate the header values. The timestamp field is populated only
      * for legacy traces.
@@ -1265,6 +1274,10 @@ protected:
     {
         modmap_ptr_ = modmap;
     }
+
+    /** Returns whether this system number *might* block. */
+    virtual bool
+    is_maybe_blocking_syscall(uintptr_t number);
 
     const module_mapper_t *modmap_ptr_ = nullptr;
 
@@ -1491,9 +1504,6 @@ private:
 
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);
-
-    bool
-    is_maybe_blocking_syscall(uintptr_t number);
 
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;
