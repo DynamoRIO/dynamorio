@@ -549,7 +549,7 @@ raw2trace_directory_t::initialize(const std::string &indir, const std::string &o
 #ifdef BUILD_PT_POST_PROCESSOR
     /* Open the kernel files. */
     kernel_indir_ = modfile_dir + std::string(DIRSEP) + ".." + std::string(DIRSEP) +
-        DRMEMTRACE_KERNEL_PT_SUBDIR;
+        DRMEMTRACE_KERNEL_TRACE_SUBDIR;
     /* If the -enable_kernel_tracing option is not specified during tracing, the output
      * directory will not include a kernel directory, and raw2trace will not process it.
      */

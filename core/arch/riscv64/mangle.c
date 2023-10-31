@@ -228,8 +228,33 @@ instr_t *
 mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_t *next_instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    opnd_t dst = instr_get_dst(instr, 0);
+    app_pc tgt;
+    ASSERT(instr_get_opcode(instr) == OP_auipc);
+    ASSERT(instr_has_rel_addr_reference(instr));
+    instr_get_rel_data_or_instr_target(instr, &tgt);
+    ASSERT(opnd_is_reg(dst));
+    ASSERT(opnd_is_rel_addr(instr_get_src(instr, 0)));
+
+    ASSERT_NOT_IMPLEMENTED(!instr_uses_reg(instr, DR_REG_TP));
+
+    if (instr_uses_reg(instr, dr_reg_stolen)) {
+        dst = opnd_create_reg(DR_REG_A0);
+        PRE(ilist, next_instr,
+            instr_create_save_to_tls(dcontext, DR_REG_A0, TLS_REG0_SLOT));
+    }
+
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)tgt, dst, ilist, next_instr, NULL, NULL);
+
+    if (instr_uses_reg(instr, dr_reg_stolen)) {
+        PRE(ilist, next_instr,
+            instr_create_save_to_tls(dcontext, DR_REG_A0, TLS_REG_STOLEN_SLOT));
+        PRE(ilist, next_instr,
+            instr_create_restore_from_tls(dcontext, DR_REG_A0, TLS_REG0_SLOT));
+    }
+
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
     return NULL;
 }
 

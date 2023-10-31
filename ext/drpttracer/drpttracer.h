@@ -49,6 +49,8 @@ extern "C" {
 
 #include <inttypes.h>
 
+#include "drpttracer_shared.h"
+
 #ifndef IN
 #    define IN // nothing
 #endif
@@ -58,45 +60,6 @@ extern "C" {
 #ifndef INOUT
 #    define INOUT // nothing
 #endif
-
-#define END_PACKED_STRUCTURE __attribute__((__packed__))
-
-/**
- * The type of PT trace's metadata.
- *
- * \note drpttracer uses the cpuid instruction to get the cpu_family, cpu_model and
- * cpu_stepping. The cpu_family, cpu_model and cpu_stepping are used to initialize the PT
- * config of pt2ir_t when decoding a PT trace.
- *
- * \note drpttracer gets the time_shift, time_mult and time_zero from the opened perf
- * event file's head. The time_shift, time_mult and time_zero are used to initialize the
- * PT sideband config of pt2ir_t when decoding a PT trace.
- */
-typedef struct _pt_metadata_t {
-    uint16_t cpu_family;  /**< The CPU family. */
-    uint8_t cpu_model;    /**< The CPU mode. */
-    uint8_t cpu_stepping; /**< The CPU stepping. */
-
-    /**
-     * The time shift. pt2ir_t uses it to synchronize the time of the PT trace and
-     * sideband data.
-     * \note time_shift = perf_event_mmap_page.time_shift
-     */
-    uint16_t time_shift;
-
-    /**
-     * The time multiplier. pt2ir_t uses it to synchronize the time of the PT trace and
-     * sideband data.
-     * \note time_mult = perf_event_mmap_page.time_mult
-     */
-    uint32_t time_mult;
-
-    /**
-     * The time zero. pt2ir_t uses it to synchronize the time of the PT trace and
-     * sideband data. \note time_zero = perf_event_mmap_page.time_zero
-     */
-    uint64_t time_zero;
-} END_PACKED_STRUCTURE pt_metadata_t;
 
 /**
  * The storage container type of drpttracer's output.
