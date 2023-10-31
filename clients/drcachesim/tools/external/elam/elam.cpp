@@ -49,7 +49,6 @@ elam_t::elam_t(unsigned int verbose)
 {
     line_size = 64; // bytes
     line_size_bits_ = dynamorio::drmemtrace::compute_log2((int)line_size);
-    fprintf(stderr, "elam's tool created\n");
 }
 
 std::string
@@ -124,19 +123,12 @@ bool
 elam_t::process_memref(const memref_t &memref) // TODO make this work with parallel / multithreaded applications if we actually care about delineating
 {
     if (memref.data.type == dynamorio::drmemtrace::TRACE_TYPE_READ) {
-            update_map_from_access(&addr_loads, memref.instr.addr, memref.instr.size, line_size, line_size_bits_);
+            update_map_from_access(&ios[last_timestamp][IoType::Load], memref.instr.addr, memref.instr.size, line_size, line_size_bits_);
     } else if (memref.data.type == dynamorio::drmemtrace::TRACE_TYPE_WRITE) {
-            update_map_from_access(&addr_stores, memref.instr.addr, memref.instr.size, line_size, line_size_bits_);
+            update_map_from_access(&ios[last_timestamp][IoType::Store], memref.instr.addr, memref.instr.size, line_size, line_size_bits_);
     } else if (memref.marker.type == dynamorio::drmemtrace::TRACE_TYPE_MARKER && memref.marker.marker_type == dynamorio::drmemtrace::TRACE_MARKER_TYPE_TIMESTAMP) {
         uint64_t timestamp = memref.marker.marker_value;
-        for (const auto & a : addr_loads) {
-            std::cout <<timestamp << "," << a.first<<"," <<a.second<<",load\n";
-        }
-        for (const auto & a : addr_stores) {
-            std::cout <<timestamp << "," << a.first<<"," <<a.second<<",store\n";
-        }
-        addr_loads.clear();
-        addr_stores.clear();
+        last_timestamp = timestamp;
     }
     return true;
 }
@@ -144,6 +136,23 @@ elam_t::process_memref(const memref_t &memref) // TODO make this work with paral
 bool
 elam_t::print_results()
 {
-    fprintf(stderr, "Empty tool results:\n");
+    std::fprintf(stderr, "timestamp,address,count,type\n");
+    for (const auto & a : ios) {
+        unsigned int timestamp = a.first;
+        for (const auto & ioType : a.second) {
+            for (const auto & io : ioType.second) {
+                addr_t addr = io.first;
+                unsigned int n_occurences = io.second;
+                switch (ioType.first) {
+                    case IoType::Load: 
+                        std::fprintf(stderr, "%u,%p,%u,Load\n", timestamp, addr, n_occurences);
+                     case IoType::Store:
+                        std::fprintf(stderr, "%u,%p,%u,Store\n", timestamp, addr, n_occurences);
+                        // TODO the rest of ops (ifetch, prefetch, etc?)
+                }
+            }
+        }
+
+    }
     return true;
 }
