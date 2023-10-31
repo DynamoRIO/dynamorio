@@ -8,6 +8,7 @@ assert len(sys.argv) > 1, "provide a trace csv file as argument!"
 
 # Load the data from the CSV file
 data = pd.read_csv(sys.argv[1], skiprows=[0]) # because "---- <application exited with code 0> ----"
+# TODO should the address space be bisected? seems like it's bimodal and the distance between peaks is so big that it squishes all the points to the edges
 
 # Extract the 'x', 'y', and 'z' columns from the DataFrame
 x = data['timestamp']
