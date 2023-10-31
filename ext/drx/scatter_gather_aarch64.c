@@ -641,15 +641,10 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
     modified_sg_info.index_reg = scratch_vec;
     modified_sg_info.disp = 0;
     if (sg_info->index_reg == DR_REG_NULL) {
-        /* scalar+immediate:  */
+        /* scalar+immediate */
         modified_sg_info.scaled = true;
-        switch (sg_info->scalar_value_size) {
-        case OPSZ_1: modified_sg_info.extend_amount = 0; break;
-        case OPSZ_2: modified_sg_info.extend_amount = 1; break;
-        case OPSZ_4: modified_sg_info.extend_amount = 2; break;
-        case OPSZ_8: modified_sg_info.extend_amount = 3; break;
-        default: DR_ASSERT_MSG(false, "Invalid scatter/gather instruction");
-        }
+        modified_sg_info.extend_amount =
+            opnd_size_to_shift_amount(sg_info->scalar_value_size);
         modified_sg_info.extend = DR_EXTEND_UXTW;
 
     } else {
