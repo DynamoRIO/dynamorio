@@ -55,6 +55,5 @@ get_tool_name()
 extern "C" EXPORT analysis_tool_t *
 analysis_tool_create()
 {
-    std::cout << "AMOGUS";
     return elam_tool_create(op_verbose.get_value());
 }
