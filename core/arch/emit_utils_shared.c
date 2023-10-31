@@ -3110,8 +3110,7 @@ instrlist_convert_to_x86(instrlist_t *ilist)
 }
 #endif
 
-#ifndef AARCH64
-/* FIXME i#3544: Check if this works */
+#if !defined(AARCH64) && !defined(RISCV64)
 bool
 instr_is_ibl_hit_jump(instr_t *instr)
 {
