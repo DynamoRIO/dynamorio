@@ -145,9 +145,9 @@ elam_t::print_results()
                 unsigned int n_occurences = io.second;
                 switch (ioType.first) {
                     case IoType::Load: 
-                        std::fprintf(stderr, "%u,%p,%u,Load\n", timestamp, addr, n_occurences);
+                        std::fprintf(stderr, "%u,%llu,%u,Load\n", timestamp, addr, n_occurences);
                      case IoType::Store:
-                        std::fprintf(stderr, "%u,%p,%u,Store\n", timestamp, addr, n_occurences);
+                        std::fprintf(stderr, "%u,%llu,%u,Store\n", timestamp, addr, n_occurences);
                         // TODO the rest of ops (ifetch, prefetch, etc?)
                 }
             }
