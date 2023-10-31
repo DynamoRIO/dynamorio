@@ -32,6 +32,7 @@
 
 #include "../globals.h"
 #include "arch.h"
+#include "instr_create_shared.h"
 #include "instrument.h" /* instrlist_meta_preinsert */
 /* Make code more readable by shortening long lines.
  * We mark everything we add as non-app instr.
@@ -160,35 +161,67 @@ instr_t *
 mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                    instr_t *next_instr, bool mangle_calls, uint flags)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    ASSERT(instr_get_opcode(instr) == OP_jal);
+    ASSERT(opnd_is_pc(instr_get_target(instr)));
+    insert_mov_immed_ptrsz(dcontext, get_call_return_address(dcontext, ilist, instr),
+                           instr_get_dst(instr, 0), ilist, instr, NULL, NULL);
+    instrlist_remove(ilist, instr); /* remove OP_jal */
+    instr_destroy(dcontext, instr);
+    return next_instr;
 }
 
 instr_t *
 mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, bool mangle_calls, uint flags)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    /* The mangling is identical. */
+    return mangle_indirect_jump(dcontext, ilist, instr, next_instr, flags);
 }
 
 void
 mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
               instr_t *next_instr, uint flags)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* The mangling is identical. */
+    mangle_indirect_jump(dcontext, ilist, instr, next_instr, flags);
 }
 
 instr_t *
 mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      instr_t *next_instr, uint flags)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    ASSERT(instr_is_mbr(instr));
+    opnd_t dst = instr_get_dst(instr, 0), target = instr_get_target(instr);
+    PRE(ilist, instr,
+        instr_create_save_to_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
+    ASSERT(opnd_is_reg(target));
+
+    ASSERT_NOT_IMPLEMENTED(!opnd_same(target, opnd_create_reg(DR_REG_TP)));
+    ASSERT_NOT_IMPLEMENTED(!opnd_same(dst, opnd_create_reg(DR_REG_TP)));
+    ASSERT_NOT_IMPLEMENTED(!opnd_same(dst, opnd_create_reg(dr_reg_stolen)));
+
+    if (opnd_same(target, opnd_create_reg(dr_reg_stolen))) {
+        /* If the target reg is dr_reg_stolen, the app value is in TLS. */
+        PRE(ilist, instr,
+            instr_create_restore_from_tls(dcontext, IBL_TARGET_REG, TLS_REG_STOLEN_SLOT));
+        if (opnd_get_immed_int(instr_get_src(instr, 1)) != 0) {
+            PRE(ilist, instr,
+                XINST_CREATE_add(dcontext, opnd_create_reg(IBL_TARGET_REG),
+                                 instr_get_src(instr, 1)));
+        }
+    } else
+        PRE(ilist, instr,
+            XINST_CREATE_add_2src(dcontext, opnd_create_reg(IBL_TARGET_REG), target,
+                                  instr_get_src(instr, 1)));
+
+    if (opnd_get_reg(dst) != DR_REG_ZERO) {
+        insert_mov_immed_ptrsz(dcontext, get_call_return_address(dcontext, ilist, instr),
+                               dst, ilist, next_instr, NULL, NULL);
+    }
+
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
+    return next_instr;
 }
 
 instr_t *
