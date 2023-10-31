@@ -294,6 +294,7 @@ opnd_create_reg_element_vector(reg_id_t r, opnd_size_t element_size)
     CLIENT_ASSERT(element_size == 0 || (r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID),
                   "opnd_create_reg_element_vector: invalid register or no size");
     opnd.kind = REG_kind;
+    opnd.size = 0; /* indicates full size of reg */
     opnd.value.reg_and_element_size.reg = r;
     opnd.value.reg_and_element_size.element_size = element_size;
     opnd.aux.flags = DR_OPND_IS_VECTOR;
@@ -310,7 +311,9 @@ opnd_create_predicate_reg(reg_id_t r, bool is_merge)
                   "opnd_create_predicate_reg: invalid predicate register");
 
     opnd.kind = REG_kind;
+    opnd.size = 0; /* indicates full size of reg */
     opnd.value.reg_and_element_size.reg = r;
+    opnd.value.reg_and_element_size.element_size = OPSZ_NA;
     opnd.aux.flags =
         (ushort)(is_merge ? DR_OPND_IS_MERGE_PREDICATE : DR_OPND_IS_ZERO_PREDICATE);
     return opnd;
