@@ -1,0 +1,3 @@
+Failed to open traces/01112023/8k_l1d_matmult_50.dir/drmemtrace.matmult.65771.3795.dir/trace/drmemtrace.matmult.65771.7952.trace.zip
+Failed to initialize scheduler: Failed to open traces/01112023/8k_l1d_matmult_50.dir/drmemtrace.matmult.65771.3795.dir/trace/drmemtrace.matmult.65771.7952.trace.zip
+ERROR: failed to initialize analyzer
