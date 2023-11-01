@@ -595,12 +595,36 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
      * BSD licensed drx to have a dependency on the LGPL licensed drutil.
      */
 
-    DR_ASSERT(sg_info->index_reg != DR_REG_NULL);
+    reg_id_t new_base = scratch_gpr0;
 
-    /* add      scratch_gpr0, base_reg, index_reg, extend #extend_amount */
-    EMIT(add_extend, opnd_create_reg(scratch_gpr0), opnd_create_reg(sg_info->base_reg),
-         opnd_create_reg(sg_info->index_reg), OPND_CREATE_INT(sg_info->extend),
-         OPND_CREATE_INT(sg_info->extend_amount));
+    if (sg_info->index_reg == DR_REG_NULL) {
+        /* scalar+immediate */
+        DR_ASSERT(!sg_info->scaled);
+        DR_ASSERT(sg_info->extend_amount == 0);
+
+        if (sg_info->disp == 0) {
+            /* The displacement is 0 so the original base register already contains the
+             * base of the contiguous memory region.
+             */
+            new_base = sg_info->base_reg;
+        } else if (sg_info->disp > 0) {
+            /* add      new_base, base_reg, #disp */
+            EMIT(add, opnd_create_reg(new_base), opnd_create_reg(sg_info->base_reg),
+                 OPND_CREATE_INT(sg_info->disp));
+        } else {
+            /* sub      new_base, base_reg, #-disp */
+            EMIT(sub, opnd_create_reg(new_base), opnd_create_reg(sg_info->base_reg),
+                 OPND_CREATE_INT(-sg_info->disp));
+        }
+    } else {
+        /* scalar+scalar */
+        DR_ASSERT(sg_info->disp == 0);
+
+        /* add      new_base, base_reg, index_reg, extend #extend_amount */
+        EMIT(add_extend, opnd_create_reg(new_base), opnd_create_reg(sg_info->base_reg),
+             opnd_create_reg(sg_info->index_reg), OPND_CREATE_INT(sg_info->extend),
+             OPND_CREATE_INT(sg_info->extend_amount));
+    }
 
     /* Populate the new vector index register, starting at 0 and incrementing by 1 every
      * time.
@@ -613,8 +637,19 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
 
     /* Create a new scatter_gather_info_t with the updated registers. */
     scatter_gather_info_t modified_sg_info = *sg_info;
-    modified_sg_info.base_reg = scratch_gpr0;
+    modified_sg_info.base_reg = new_base;
     modified_sg_info.index_reg = scratch_vec;
+    modified_sg_info.disp = 0;
+    if (sg_info->index_reg == DR_REG_NULL) {
+        /* scalar+immediate */
+        modified_sg_info.scaled = true;
+        modified_sg_info.extend_amount =
+            opnd_size_to_shift_amount(sg_info->scalar_value_size);
+        modified_sg_info.extend = DR_EXTEND_UXTW;
+
+    } else {
+        /* scalar+scalar: Keep the original modifier copied from sg_info */
+    }
 
     /* Note that modified_sg_info might not describe a valid SVE instruction.
      * For example if we are expanding:
@@ -827,10 +862,6 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         /* TODO i#5036: Add support for first-fault and non-fault accesses. */
         return true;
     }
-    if (!reg_is_z(sg_info.base_reg) && sg_info.index_reg == DR_REG_NULL) {
-        /* TODO i#5036: Add support for scalar+immediate contiguous accesses. */
-        return true;
-    }
     if (sg_info.reg_count > 1) {
         /* TODO i#5036: Add support for multi-register accesses. */
         return true;
@@ -918,7 +949,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     drmgr_insert_emulation_start(drcontext, bb, sg_instr, &emulated_instr);
 
     if (is_contiguous) {
-        /* scalar+scalar predicated contiguous access */
+        /* scalar+scalar or scalar+immediate predicated contiguous access */
         expand_contiguous(drcontext, bb, sg_instr, &sg_info, scratch_gpr[0],
                           scratch_gpr[1], scratch_gpr[2], scratch_pred, scratch_vec,
                           orig_app_pc);
