@@ -545,6 +545,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
                 input.reader_end = std::move(reader.end);
                 input.needs_init = true;
                 workload_tids[input.tid] = input.index;
+                tid2input_[workload_tid_t(workload_idx, input.tid)] = index;
             }
         } else {
             if (!workload.readers.empty())
@@ -556,6 +557,7 @@ scheduler_tmpl_t<RecordType, ReaderType>::init(
             for (const auto &it : workload_tids) {
                 inputs_[it.second].workload = workload_idx;
                 workload2inputs[workload_idx].push_back(it.second);
+                tid2input_[workload_tid_t(workload_idx, it.first)] = it.second;
             }
         }
         for (const auto &modifiers : workload.thread_modifiers) {
@@ -1567,9 +1569,9 @@ typename scheduler_tmpl_t<RecordType, ReaderType>::stream_status_t
 scheduler_tmpl_t<RecordType, ReaderType>::set_cur_input(output_ordinal_t output,
                                                         input_ordinal_t input)
 {
-    // XXX i#5843: Merge tracking of current inputs with ready_queue_ to better manage
+    // XXX i#5843: Merge tracking of current inputs with ready_priority_ to better manage
     // the possible 3 states of each input (a live cur_input for an output stream, in
-    // the ready_queue_, or at EOF).
+    // the ready_queue_, or at EOF) (4 states once we add i/o wait times).
     assert(output >= 0 && output < static_cast<output_ordinal_t>(outputs_.size()));
     // 'input' might be INVALID_INPUT_ORDINAL.
     assert(input < static_cast<input_ordinal_t>(inputs_.size()));
@@ -1764,7 +1766,35 @@ scheduler_tmpl_t<RecordType, ReaderType>::pick_next_input(output_ordinal_t outpu
                 if (res != sched_type_t::STATUS_OK)
                     return res;
             } else if (options_.mapping == MAP_TO_ANY_OUTPUT) {
-                if (ready_queue_empty()) {
+                if (prev_index != INVALID_INPUT_ORDINAL &&
+                    inputs_[prev_index].switch_to_input != INVALID_INPUT_ORDINAL) {
+                    input_info_t *target = &inputs_[inputs_[prev_index].switch_to_input];
+                    inputs_[prev_index].switch_to_input = INVALID_INPUT_ORDINAL;
+                    // TODO i#5843: Once we add i/o wait times, we should also check
+                    // the sleeping queue and wake up the target.
+                    // We should probably implement the "Merge tracking..." proposal
+                    // from the comment at the top of set_cur_input() too.
+                    if (ready_priority_.find(target)) {
+                        VPRINT(this, 2, "next_record[%d]: direct switch to input %d\n",
+                               output, target->index);
+                        ready_priority_.erase(target);
+                        index = target->index;
+                    } else {
+                        // TODO i#5843: If the target is running on another output, we
+                        // need to do a forced migration by setting a flag to force a
+                        // preempt and presumably waiting (STATUS_WAIT or STATUS_IDLE?)
+                        // here until the input is available.
+                        // For now we print a message so we can notice when this
+                        // happens, but we ignore the direct switch request.
+                        fprintf(stderr,
+                                "Direct switch target input #%d is running elsewhere and "
+                                "forced migration is NYI\n",
+                                target->index);
+                    }
+                }
+                if (index != INVALID_INPUT_ORDINAL) {
+                    // We found a direct switch target above.
+                } else if (ready_queue_empty()) {
                     if (prev_index == INVALID_INPUT_ORDINAL)
                         return sched_type_t::STATUS_EOF;
                     std::lock_guard<std::mutex> lock(*inputs_[prev_index].lock);
@@ -1979,7 +2009,20 @@ scheduler_tmpl_t<RecordType, ReaderType>::next_record(output_ordinal_t output,
                 // XXX: We may prefer to stop before the return value marker for futex,
                 // or a kernel xfer marker, but our recorded format is on instr
                 // boundaries so we live with those being before the switch.
-                if (record_type_is_instr(record)) {
+                if (record_type_is_marker(record, marker_type, marker_value) &&
+                    marker_type == TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH) {
+                    memref_tid_t target_tid = marker_value;
+                    auto it =
+                        tid2input_.find(workload_tid_t(input->workload, target_tid));
+                    if (it == tid2input_.end()) {
+                        VPRINT(this, 1,
+                               "Failed to find input for target switch thread %" PRId64
+                               "\n",
+                               target_tid);
+                    } else {
+                        input->switch_to_input = it->second;
+                    }
+                } else if (record_type_is_instr(record)) {
                     // Assume it will block and we should switch to a different input.
                     need_new_input = true;
                     in_wait_state = true;

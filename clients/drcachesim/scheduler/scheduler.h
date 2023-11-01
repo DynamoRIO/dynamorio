@@ -945,8 +945,9 @@ protected:
         bool order_by_timestamp = false;
         // Global ready queue counter used to provide FIFO for same-priority inputs.
         uint64_t queue_counter = 0;
-        // Used to switch on the insruction *after* a blocking syscall.
+        // Used to switch on the instruction *after* a blocking syscall.
         bool processing_blocking_syscall = false;
+        input_ordinal_t switch_to_input = INVALID_INPUT_ORDINAL;
         // Used to switch before we've read the next instruction.
         bool switching_pre_instruction = false;
         // Used for time-based quanta.
@@ -1282,6 +1283,29 @@ protected:
     flexible_queue_t<input_info_t *, InputTimestampComparator> ready_priority_;
     // Global ready queue counter used to provide FIFO for same-priority inputs.
     uint64_t ready_counter_ = 0;
+    // Map from workload,tid pair to input.
+    struct workload_tid_t {
+        workload_tid_t(int wl, memref_tid_t tid)
+            : workload(wl)
+            , tid(tid)
+        {
+        }
+        bool
+        operator==(const workload_tid_t &rhs) const
+        {
+            return workload == rhs.workload && tid == rhs.tid;
+        }
+        int workload;
+        memref_tid_t tid;
+    };
+    struct workload_tid_hash_t {
+        std::size_t
+        operator()(const workload_tid_t &wt) const
+        {
+            return std::hash<int>()(wt.workload) ^ std::hash<memref_tid_t>()(wt.tid);
+        }
+    };
+    std::unordered_map<workload_tid_t, input_ordinal_t, workload_tid_hash_t> tid2input_;
 };
 
 /** See #dynamorio::drmemtrace::scheduler_tmpl_t. */

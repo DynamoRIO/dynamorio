@@ -2964,6 +2964,100 @@ test_inactive()
 #endif // HAS_ZIP
 }
 
+static void
+test_direct_switch()
+{
+    std::cerr << "\n----------------\nTesting direct switches\n";
+    static constexpr int NUM_OUTPUTS = 2;
+    static constexpr int QUANTUM_DURATION = 100; // Never reached.
+    static constexpr memref_tid_t TID_BASE = 100;
+    static constexpr memref_tid_t TID_A = TID_BASE + 0;
+    static constexpr memref_tid_t TID_B = TID_BASE + 1;
+    static constexpr memref_tid_t TID_C = TID_BASE + 2;
+    std::vector<trace_entry_t> refs_A = {
+        make_thread(TID_A),
+        make_pid(1),
+        make_timestamp(101),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_instr(/*pc=*/101),
+        make_instr(/*pc=*/102),
+        make_timestamp(102),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_C),
+        make_timestamp(401),
+        make_instr(/*pc=*/401),
+        make_exit(TID_A),
+    };
+    std::vector<trace_entry_t> refs_B = {
+        make_thread(TID_B),     make_pid(1),
+        make_timestamp(201),    make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_instr(/*pc=*/201), make_instr(/*pc=*/202),
+        make_instr(/*pc=*/203), make_instr(/*pc=*/204),
+        make_instr(/*pc=*/205), make_instr(/*pc=*/206),
+        make_instr(/*pc=*/207), make_instr(/*pc=*/208),
+        make_instr(/*pc=*/209), make_instr(/*pc=*/210),
+        make_instr(/*pc=*/211), make_instr(/*pc=*/212),
+        make_instr(/*pc=*/213), make_instr(/*pc=*/214),
+        make_instr(/*pc=*/215), make_instr(/*pc=*/216),
+        make_instr(/*pc=*/217), make_instr(/*pc=*/218),
+        make_instr(/*pc=*/219), make_instr(/*pc=*/220),
+        make_exit(TID_B),
+    };
+    std::vector<trace_entry_t> refs_C = {
+        make_thread(TID_C),
+        make_pid(1),
+        make_timestamp(301),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_instr(/*pc=*/301),
+        make_instr(/*pc=*/302),
+        make_timestamp(102),
+        make_marker(TRACE_MARKER_TYPE_CPU_ID, 0),
+        make_marker(TRACE_MARKER_TYPE_SYSCALL, 999),
+        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_A),
+        make_timestamp(501),
+        make_instr(/*pc=*/501),
+        // Test a non-existent target: should be ignored, but not crash.
+        make_marker(TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0),
+        make_marker(TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH, TID_BASE + 3),
+        make_exit(TID_C),
+    };
+    std::vector<scheduler_t::input_reader_t> readers;
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_A)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_A);
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_B)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_B);
+    readers.emplace_back(std::unique_ptr<mock_reader_t>(new mock_reader_t(refs_C)),
+                         std::unique_ptr<mock_reader_t>(new mock_reader_t()), TID_C);
+    // The lockstep treats markers like instructions so we have a long sequence
+    // of dots before we do the direct swap to C and back.
+    // TODO i#5843: Once we have i/o wait times we can make this more interesting
+    // by adding a D and having C be unschedule-able at switch time.
+    static const char *const CORE0_SCHED_STRING = "..AA........CC......A.C...";
+    static const char *const CORE1_SCHED_STRING = "..BBBBBBBBBBBBBBBBBBBB.";
+
+    std::vector<scheduler_t::input_workload_t> sched_inputs;
+    sched_inputs.emplace_back(std::move(readers));
+    scheduler_t::scheduler_options_t sched_ops(scheduler_t::MAP_TO_ANY_OUTPUT,
+                                               scheduler_t::DEPENDENCY_IGNORE,
+                                               scheduler_t::SCHEDULER_DEFAULTS,
+                                               /*verbosity=*/3);
+    sched_ops.quantum_duration = QUANTUM_DURATION;
+    scheduler_t scheduler;
+    if (scheduler.init(sched_inputs, NUM_OUTPUTS, sched_ops) !=
+        scheduler_t::STATUS_SUCCESS)
+        assert(false);
+    std::vector<std::string> sched_as_string =
+        run_lockstep_simulation(scheduler, NUM_OUTPUTS, TID_BASE);
+    for (int i = 0; i < NUM_OUTPUTS; i++) {
+        std::cerr << "cpu #" << i << " schedule: " << sched_as_string[i] << "\n";
+    }
+    assert(sched_as_string[0] == CORE0_SCHED_STRING);
+    assert(sched_as_string[1] == CORE1_SCHED_STRING);
+}
+
 int
 test_main(int argc, const char *argv[])
 {
@@ -2996,6 +3090,7 @@ test_main(int argc, const char *argv[])
     test_replay_as_traced();
     test_replay_as_traced_i6107_workaround();
     test_inactive();
+    test_direct_switch();
 
     dr_standalone_exit();
     return 0;
