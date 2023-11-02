@@ -591,6 +591,20 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             if (!process_marker_additionally(tdata, marker_type, marker_val, buf,
                                              flush_decode_cache))
                 return false;
+            // If there is currently a delayed branch that has not been emitted yet,
+            // delay most markers since intra-block markers can cause issues with
+            // tools that do not expect markers amid records for a single instruction
+            // or inside a basic block. We don't delay TRACE_MARKER_TYPE_CPU_ID which
+            // identifies the CPU on which subsequent records were collected and
+            // OFFLINE_TYPE_TIMESTAMP which is handled at a higher level in
+            // process_next_thread_buffer() so there is no need to have a separate
+            // check for it here.
+            if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
+                if (delayed_branches_exist(tdata)) {
+                    return write_delayed_branches(tdata, buf_base,
+                                                  reinterpret_cast<trace_entry_t *>(buf));
+                }
+            }
             log(3, "Appended marker type %u value " PIFX "\n", marker_type,
                 (uintptr_t)in_entry->extended.valueA);
         } else {
@@ -711,20 +725,6 @@ raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
         log(2, "Maybe-blocking syscall %zu\n", marker_val);
         buf += trace_metadata_writer_t::write_marker(
             buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
-    }
-    // If there is currently a delayed branch that has not been emitted yet,
-    // delay most markers since intra-block markers can cause issues with
-    // tools that do not expect markers amid records for a single instruction
-    // or inside a basic block. We don't delay TRACE_MARKER_TYPE_CPU_ID which
-    // identifies the CPU on which subsequent records were collected and
-    // OFFLINE_TYPE_TIMESTAMP which is handled at a higher level in
-    // process_next_thread_buffer() so there is no need to have a separate
-    // check for it here.
-    if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
-        if (delayed_branches_exist(tdata)) {
-            return write_delayed_branches(tdata, get_write_buffer(tdata),
-                                          reinterpret_cast<trace_entry_t *>(buf));
-        }
     }
     return true;
 }
