@@ -1288,11 +1288,14 @@ enum {
     DR_REG_STOP_64 = DR_REG_F31,  /**< End of 64-bit register enum values. */
     DR_REG_START_32 = DR_REG_X0,  /**< Start of 32-bit register enum values. */
     DR_REG_STOP_32 = DR_REG_F31,  /**< End of 32-bit register enum values. */
-    DR_REG_START_GPR = DR_REG_X0, /**< Start of general register registers. */
-    DR_REG_STOP_GPR = DR_REG_X31, /**< End of general register registers. */
+    DR_REG_START_GPR = DR_REG_X0, /**< Start of general registers. */
+    DR_REG_STOP_GPR = DR_REG_X31, /**< End of general registers. */
+    DR_REG_START_FPR = DR_REG_F0, /**< Start of floating-point registers. */
+    DR_REG_STOP_FPR = DR_REG_F31, /**< End of floating-point registers. */
     DR_REG_XSP = DR_REG_SP, /**< Platform-independent way to refer to stack pointer. */
 
     DR_NUM_GPR_REGS = DR_REG_STOP_GPR - DR_REG_START_GPR + 1, /**< Count of GPR regs. */
+    DR_NUM_FPR_REGS = DR_REG_STOP_FPR - DR_REG_START_FPR + 1, /**< Count of FPR regs. */
     DR_NUM_SIMD_VECTOR_REGS = 0,                              /**< Count of SIMD regs. */
 #else /* RISCV64 */
 #    error Register definitions missing for this platform.
