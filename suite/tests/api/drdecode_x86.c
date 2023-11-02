@@ -214,14 +214,14 @@ test_store_source(void)
 
 #ifndef X64
     in = INSTR_CREATE_pusha(GD);
-    ASSERT(!instr_is_opnd_store_source(in, 0)); /* xsp. */
-    ASSERT(instr_is_opnd_store_source(in, 1));  /* xax. */
-    ASSERT(instr_is_opnd_store_source(in, 2));  /* xbx. */
-    ASSERT(instr_is_opnd_store_source(in, 3));  /* xcx. */
-    ASSERT(instr_is_opnd_store_source(in, 4));  /* xdx. */
-    ASSERT(instr_is_opnd_store_source(in, 5));  /* xbp. */
-    ASSERT(instr_is_opnd_store_source(in, 6));  /* xsi. */
-    ASSERT(instr_is_opnd_store_source(in, 7));  /* xdi. */
+    ASSERT(instr_is_opnd_store_source(in, 0)); /* xsp. */
+    ASSERT(instr_is_opnd_store_source(in, 1)); /* xax. */
+    ASSERT(instr_is_opnd_store_source(in, 2)); /* xbx. */
+    ASSERT(instr_is_opnd_store_source(in, 3)); /* xcx. */
+    ASSERT(instr_is_opnd_store_source(in, 4)); /* xdx. */
+    ASSERT(instr_is_opnd_store_source(in, 5)); /* xbp. */
+    ASSERT(instr_is_opnd_store_source(in, 6)); /* xsi. */
+    ASSERT(instr_is_opnd_store_source(in, 7)); /* xdi. */
     instr_destroy(GD, in);
 #endif
 }
