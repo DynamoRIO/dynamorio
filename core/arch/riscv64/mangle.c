@@ -40,6 +40,10 @@
  */
 #define PRE instrlist_meta_preinsert
 
+/* TODO i#3544: Think of a better way to represent CSR in the IR, maybe as registers? */
+/* Number of the fcsr register. */
+#define FCSR 0x003
+
 void
 mangle_arch_init(void)
 {
@@ -77,17 +81,17 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                                          DR_OPND_IMM_PRINT_DECIMAL)));
 
     /* Push GPRs. */
-    for (int i = 1; i < DR_NUM_GPR_REGS; i += 1) {
+    for (int i = 1; i < DR_NUM_GPR_REGS; i++) {
         if (cci->reg_skip[i])
             continue;
 
         PRE(ilist, instr,
-            INSTR_CREATE_sd(dcontext,
-                            opnd_add_flags(opnd_create_base_disp(
-                                               DR_REG_SP, DR_REG_NULL, 0,
-                                               dstack_offs + i * sizeof(reg_t), OPSZ_8),
-                                           DR_OPND_IMM_PRINT_DECIMAL),
-                            opnd_create_reg(DR_REG_ZERO + i)));
+            INSTR_CREATE_sd(
+                dcontext,
+                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                     dstack_offs + i * XSP_SZ, OPSZ_8),
+                               DR_OPND_IMM_PRINT_DECIMAL),
+                opnd_create_reg(DR_REG_ZERO + i)));
     }
 
     dstack_offs += DR_NUM_GPR_REGS * XSP_SZ;
@@ -95,30 +99,28 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     if (opnd_is_immed_int(push_pc)) {
         PRE(ilist, instr,
             XINST_CREATE_load_int(dcontext, opnd_create_reg(DR_REG_A0), push_pc));
+        PRE(ilist, instr,
+            INSTR_CREATE_sd(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                            opnd_create_reg(DR_REG_A0)));
     } else {
         ASSERT(opnd_is_reg(push_pc));
-        reg_id_t push_pc_reg = opnd_get_reg(push_pc);
-        /* push_pc opnd is already pushed on the stack. */
+        /* push_pc is still holding the PC value. */
         PRE(ilist, instr,
-            INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
-                            OPND_CREATE_MEM64(DR_REG_SP, REG_OFFSET(push_pc_reg))));
+            INSTR_CREATE_sd(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
+                            push_pc));
     }
-
-    PRE(ilist, instr,
-        INSTR_CREATE_sd(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
-                        opnd_create_reg(DR_REG_A0)));
 
     dstack_offs += XSP_SZ;
 
     /* Push FPRs. */
-    for (int i = 0; i < DR_NUM_FPR_REGS; i += 1) {
+    for (int i = 0; i < DR_NUM_FPR_REGS; i++) {
         PRE(ilist, instr,
-            INSTR_CREATE_fsd(dcontext,
-                             opnd_add_flags(opnd_create_base_disp(
-                                                DR_REG_SP, DR_REG_NULL, 0,
-                                                dstack_offs + i * sizeof(reg_t), OPSZ_8),
-                                            DR_OPND_IMM_PRINT_DECIMAL),
-                             opnd_create_reg(DR_REG_F0 + i)));
+            INSTR_CREATE_fsd(
+                dcontext,
+                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                     dstack_offs + i * XSP_SZ, OPSZ_8),
+                               DR_OPND_IMM_PRINT_DECIMAL),
+                opnd_create_reg(DR_REG_F0 + i)));
     }
 
     dstack_offs += DR_NUM_FPR_REGS * XSP_SZ;
@@ -128,7 +130,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
         INSTR_CREATE_csrrs(dcontext, opnd_create_reg(DR_REG_A0),
                            opnd_create_reg(DR_REG_X0),
                            /* FIXME i#3544: Use register. */
-                           opnd_create_immed_int(0x003 /* fcsr */, OPSZ_12b)));
+                           opnd_create_immed_int(FCSR, OPSZ_12b)));
 
     PRE(ilist, instr,
         INSTR_CREATE_sd(dcontext, OPND_CREATE_MEM64(DR_REG_SP, dstack_offs),
@@ -136,7 +138,8 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 
     dstack_offs += XSP_SZ;
 
-    /* Keep mcontext shape. */
+    /* TODO i#3544: No support for SIMD on RISC-V so far, this is to keep the mcontext
+     * shape. */
     dstack_offs += (proc_num_simd_registers() * sizeof(dr_simd_t));
 
     /* Restore the registers we used. */
@@ -155,7 +158,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
         cci = &default_clean_call_info;
     uint current_offs;
     current_offs =
-        get_clean_call_switch_stack_size() - proc_num_simd_registers() * sizeof(reg_t);
+        get_clean_call_switch_stack_size() - proc_num_simd_registers() * XSP_SZ;
 
     PRE(ilist, instr,
         INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_A0),
@@ -165,18 +168,18 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     PRE(ilist, instr,
         INSTR_CREATE_csrrw(dcontext, opnd_create_reg(DR_REG_X0),
                            opnd_create_reg(DR_REG_A0),
-                           opnd_create_immed_int(/*fcsr*/ 0x003, OPSZ_12b)));
+                           opnd_create_immed_int(FCSR, OPSZ_12b)));
 
     current_offs -= DR_NUM_FPR_REGS * XSP_SZ;
 
     /* Pop FPRs. */
-    for (int i = 0; i < DR_NUM_FPR_REGS; i += 1) {
+    for (int i = 0; i < DR_NUM_FPR_REGS; i++) {
         PRE(ilist, instr,
-            INSTR_CREATE_fld(dcontext, opnd_create_reg(DR_REG_F0 + i),
-                             opnd_add_flags(opnd_create_base_disp(
-                                                DR_REG_SP, DR_REG_NULL, 0,
-                                                current_offs + i * sizeof(reg_t), OPSZ_8),
-                                            DR_OPND_IMM_PRINT_DECIMAL)));
+            INSTR_CREATE_fld(
+                dcontext, opnd_create_reg(DR_REG_F0 + i),
+                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                     current_offs + i * XSP_SZ, OPSZ_8),
+                               DR_OPND_IMM_PRINT_DECIMAL)));
     }
 
     /* Skip pc field. */
@@ -185,16 +188,16 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
     current_offs -= DR_NUM_GPR_REGS * XSP_SZ;
 
     /* Pop GPRs. */
-    for (int i = 1; i < DR_NUM_GPR_REGS; i += 1) {
+    for (int i = 1; i < DR_NUM_GPR_REGS; i++) {
         if (cci->reg_skip[i])
             continue;
 
         PRE(ilist, instr,
-            INSTR_CREATE_ld(dcontext, opnd_create_reg(DR_REG_X0 + i),
-                            opnd_add_flags(opnd_create_base_disp(
-                                               DR_REG_SP, DR_REG_NULL, 0,
-                                               current_offs + i * sizeof(reg_t), OPSZ_8),
-                                           DR_OPND_IMM_PRINT_DECIMAL)));
+            INSTR_CREATE_ld(
+                dcontext, opnd_create_reg(DR_REG_X0 + i),
+                opnd_add_flags(opnd_create_base_disp(DR_REG_SP, DR_REG_NULL, 0,
+                                                     current_offs + i * XSP_SZ, OPSZ_8),
+                               DR_OPND_IMM_PRINT_DECIMAL)));
     }
 }
 
