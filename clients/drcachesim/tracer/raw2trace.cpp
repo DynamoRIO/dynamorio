@@ -51,8 +51,7 @@
 #endif
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include <unistd.h>
-#    include "../common/options.h"
-#    include "../drpt2trace/ir2trace.h"
+#    include "ir2trace.h"
 #endif
 
 #include <algorithm>
@@ -845,42 +844,93 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 }
 
 #ifdef BUILD_PT_POST_PROCESSOR
+
+std::unique_ptr<pt_data_buf_t>
+raw2trace_t::get_next_kernel_entry(raw2trace_thread_data_t *tdata,
+                                   std::unique_ptr<pt_metadata_buf_t> &pt_metadata,
+                                   uint64_t expected_syscall_idx)
+{
+    DR_ASSERT(tdata->kthread_file != nullptr);
+    if (tdata->kthread_file->eof())
+        return nullptr;
+    if (!tdata->pt_metadata_processed) {
+        log(2, "Reading PT metadata for tid " INT64_FORMAT_STRING "\n", tdata->tid);
+        pt_metadata = std::unique_ptr<pt_metadata_buf_t>(new pt_metadata_buf_t());
+        if (!tdata->kthread_file->read(reinterpret_cast<char *>(&pt_metadata->header[0]),
+                                       PT_METADATA_PDB_HEADER_SIZE)) {
+            tdata->error = "Unable to read the PDB header of PT metadata from kernel "
+                           "thread log file";
+            return nullptr;
+        }
+
+        if (!tdata->kthread_file->read(reinterpret_cast<char *>(&pt_metadata->metadata),
+                                       sizeof(pt_metadata->metadata))) {
+            tdata->error = "Unable to read the PT metadata from kernel thread log file";
+            return nullptr;
+        }
+    }
+    log(2,
+        "Reading PT data header for tid " INT64_FORMAT_STRING
+        " expected syscall idx " INT64_FORMAT_STRING "\n",
+        tdata->tid, expected_syscall_idx);
+    std::unique_ptr<pt_data_buf_t> pt_data(new pt_data_buf_t);
+    if (!tdata->kthread_file->read(reinterpret_cast<char *>(&pt_data->header[0]),
+                                   PT_DATA_PDB_HEADER_SIZE)) {
+        if (tdata->kthread_file->eof()) {
+            VPRINT(1, "Finished decoding all PT data for thread %d\n", tdata->tid);
+            return nullptr;
+        }
+        tdata->error = "Unable to read the PDB header of next syscall's PT data "
+                       "from kernel thread log file";
+        return nullptr;
+    }
+    uint64_t pid = pt_data->header[PDB_HEADER_PID_IDX].pid.pid;
+    uint64_t tid = pt_data->header[PDB_HEADER_TID_IDX].tid.tid;
+    uint64_t syscall_idx = pt_data->header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx;
+    uint64_t sysnum = pt_data->header[PDB_HEADER_SYSNUM_IDX].sysnum.sysnum;
+    uint64_t syscall_args_num =
+        pt_data->header[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num;
+    uint64_t pt_data_size =
+        pt_data->header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.data_size -
+        PT_DATA_PDB_HEADER_SIZE - syscall_args_num * sizeof(uint64_t);
+
+    log(2,
+        "Reading PT data for syscall_idx " INT64_FORMAT_STRING
+        " size " INT64_FORMAT_STRING " tid " INT64_FORMAT_STRING
+        " pid " INT64_FORMAT_STRING " num " INT64_FORMAT_STRING "\n",
+        syscall_idx, pt_data_size, tid, pid, sysnum);
+    pt_data->data.reset(new uint8_t[pt_data_size]);
+    if (!tdata->kthread_file->read((char *)pt_data->data.get(), pt_data_size)) {
+        tdata->error = "Unable to read the PT data of syscall sysnum " +
+            std::to_string(sysnum) + " from kernel thread log file";
+        return nullptr;
+    }
+    return pt_data;
+}
+
 bool
 raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx)
 {
-    DR_ASSERT(tdata->kthread_file != nullptr);
     DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type));
-
+    std::unique_ptr<pt_metadata_buf_t> pt_metadata;
+    std::unique_ptr<pt_data_buf_t> pt_data =
+        get_next_kernel_entry(tdata, pt_metadata, syscall_idx);
     if (!tdata->pt_metadata_processed) {
         DR_ASSERT(syscall_idx == 0);
-        syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
-        if (!tdata->kthread_file->read((char *)&header[0], PT_METADATA_PDB_HEADER_SIZE)) {
-            tdata->error = "Unable to read the PDB header of PT metadate form kernel "
-                           "thread log file";
+        if (pt_metadata == nullptr) {
+            if (tdata->error.empty())
+                tdata->error = "Did not find PT metadata";
             return false;
         }
-        if (header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type !=
+        if (pt_metadata->header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type !=
             SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY) {
             tdata->error = "Invalid PT raw trace format";
             return false;
         }
 
-        struct {
-            uint16_t cpu_family;
-            uint8_t cpu_model;
-            uint8_t cpu_stepping;
-            uint16_t time_shift;
-            uint32_t time_mult;
-            uint64_t time_zero;
-        } __attribute__((__packed__)) metadata;
-        if (!tdata->kthread_file->read((char *)&metadata, sizeof(metadata))) {
-            tdata->error = "Unable to read the PT metadate form kernel thread log file";
-            return false;
-        }
-
         pt2ir_config_t config = {};
         config.elf_file_path = kcore_path_;
-        config.init_with_metadata(&metadata);
+        config.init_with_metadata(&pt_metadata->metadata);
 
         /* Set the buffer size to be at least the maximum stream data size.
          */
@@ -894,55 +944,36 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         tdata->pt_metadata_processed = true;
     }
 
-    if (tdata->pre_read_pt_entries.empty() && tdata->kthread_file->eof()) {
+    if (pt_data == nullptr) {
+        if (!tdata->error.empty())
+            return false;
         VPRINT(1, "Finished decoding all PT data for thread %d\n", tdata->tid);
         return true;
     }
+    uint64_t syscall_args_num =
+        pt_data->header[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num;
+    uint64_t pt_data_size =
+        pt_data->header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.data_size -
+        PT_DATA_PDB_HEADER_SIZE - syscall_args_num * sizeof(uint64_t);
 
-    if (tdata->pre_read_pt_entries.empty()) {
-        syscall_pt_entry_t header[PT_DATA_PDB_HEADER_ENTRY_NUM];
-        if (!tdata->kthread_file->read((char *)&header[0], PT_DATA_PDB_HEADER_SIZE)) {
-            if (tdata->kthread_file->eof()) {
-                VPRINT(1, "Finished decoding all PT data for thread %d\n", tdata->tid);
-                return true;
-            }
-            tdata->error = "Unable to read the PDB header of next syscall's PT data "
-                           "form kernel thread log file";
-            return false;
-        }
-        tdata->pre_read_pt_entries.insert(tdata->pre_read_pt_entries.end(), header,
-                                          header + PT_DATA_PDB_HEADER_ENTRY_NUM);
-    }
-
-    if (tdata->pre_read_pt_entries[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.type !=
-            SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY ||
-        tdata->pre_read_pt_entries[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.type !=
-            SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX ||
-        tdata->pre_read_pt_entries[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx !=
-            syscall_idx) {
+    if (pt_data->header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.type !=
+        SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY) {
         tdata->error = "Invalid PT raw trace format";
         return false;
     }
-
-    uint64_t sysnum = tdata->pre_read_pt_entries[PDB_HEADER_SYSNUM_IDX].sysnum.sysnum;
-    uint64_t syscall_args_num =
-        tdata->pre_read_pt_entries[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num;
-    uint64_t pt_data_size = tdata->pre_read_pt_entries[PDB_HEADER_DATA_BOUNDARY_IDX]
-                                .pt_data_boundary.data_size -
-        SYSCALL_METADATA_SIZE - syscall_args_num * sizeof(uint64_t);
-    tdata->pre_read_pt_entries.clear();
-    std::unique_ptr<uint8_t[]> pt_data(new uint8_t[pt_data_size]);
-    if (!tdata->kthread_file->read((char *)pt_data.get(), pt_data_size)) {
-        tdata->error = "Unable to read the PT data of syscall " +
-            std::to_string(syscall_idx) + " sysnum " + std::to_string(sysnum) +
-            " form kernel thread log file";
+    if (pt_data->header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.type !=
+            SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX ||
+        pt_data->header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx != syscall_idx) {
+        tdata->error = "Found unexpected syscall idx " +
+            std::to_string(pt_data->header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx) +
+            " expecting " + std::to_string(syscall_idx);
         return false;
     }
 
     /* Convert the PT Data to DR IR. */
     drir_t drir(GLOBAL_DCONTEXT);
     pt2ir_convert_status_t pt2ir_convert_status =
-        tdata->pt2ir.convert(pt_data.get(), pt_data_size, drir);
+        tdata->pt2ir.convert(pt_data->data.get(), pt_data_size, drir);
     if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
         tdata->error = "Failed to convert PT raw trace to DR IR [error status: " +
             std::to_string(pt2ir_convert_status) + "]";
@@ -969,6 +1000,12 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     if (entries.size() == 2) {
         tdata->error = "No trace entries generated from PT data";
         return false;
+    }
+
+    accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODED, 1);
+    for (const auto &entry : entries) {
+        if (type_is_instr(static_cast<trace_type_t>(entry.type)))
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
     }
 
     if (!tdata->out_file->write(reinterpret_cast<const char *>(entries.data()),
@@ -1215,6 +1252,8 @@ raw2trace_t::do_conversion()
             latest_trace_timestamp_ = std::max(latest_trace_timestamp_,
                                                thread_data_[i]->latest_trace_timestamp);
             final_trace_instr_count_ += thread_data_[i]->final_trace_instr_count;
+            kernel_instr_count_ += thread_data_[i]->kernel_instr_count;
+            syscall_traces_decoded_ += thread_data_[i]->syscall_traces_decoded;
         }
     } else {
         // The files can be converted concurrently.
@@ -1240,6 +1279,8 @@ raw2trace_t::do_conversion()
             latest_trace_timestamp_ =
                 std::max(latest_trace_timestamp_, tdata->latest_trace_timestamp);
             final_trace_instr_count_ += tdata->final_trace_instr_count;
+            kernel_instr_count_ += tdata->kernel_instr_count;
+            syscall_traces_decoded_ += tdata->syscall_traces_decoded;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -1258,6 +1299,9 @@ raw2trace_t::do_conversion()
            (latest_trace_timestamp_ - earliest_trace_timestamp_) / 1000000.0);
     VPRINT(1, "Final trace instr count: " UINT64_FORMAT_STRING ".\n",
            final_trace_instr_count_);
+    VPRINT(1, "Kernel instr count " UINT64_FORMAT_STRING "\n", kernel_instr_count_);
+    VPRINT(1, "System call PT traces decoded " UINT64_FORMAT_STRING "\n",
+           syscall_traces_decoded_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
@@ -3534,6 +3578,10 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT:
         tdata->final_trace_instr_count += value;
         break;
+    case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: tdata->kernel_instr_count += value; break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED:
+        tdata->syscall_traces_decoded += value;
+        break;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false);
     }
@@ -3551,6 +3599,8 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP: return earliest_trace_timestamp_;
     case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP: return latest_trace_timestamp_;
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT: return final_trace_instr_count_;
+    case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: return kernel_instr_count_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED: return syscall_traces_decoded_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
     }

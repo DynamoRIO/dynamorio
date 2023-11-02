@@ -62,9 +62,6 @@ configure_extension(drx OFF)
 use_DynamoRIO_extension(drx drcontainers)
 use_DynamoRIO_extension(drx drmgr)
 use_DynamoRIO_extension(drx drreg)
-if (AARCH64)
-    use_DynamoRIO_extension(drx drutil)
-endif ()
 
 # While we use drmgr in our implementation of drx, we only use pieces that
 # do not rely on drmgr's 4 phases or event orderings, and we do not include
@@ -87,9 +84,6 @@ configure_extension(drx_static ON)
 use_DynamoRIO_extension(drx_static drcontainers)
 use_DynamoRIO_extension(drx_static drmgr_static)
 use_DynamoRIO_extension(drx_static drreg_static)
-if (AARCH64)
-    use_DynamoRIO_extension(drx_static drutil_static)
-endif ()
 configure_drx_target(drx_static)
 
 install_ext_header(drx.h)
