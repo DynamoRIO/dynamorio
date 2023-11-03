@@ -45,8 +45,8 @@ namespace drmemtrace {
 
 bool
 trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
-                                         std::string *error, int *version,
-                                         offline_file_type_t *file_type)
+                                         OUT std::string *error, OUT int *version,
+                                         OUT offline_file_type_t *file_type)
 {
     *error = "";
     if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
@@ -104,7 +104,7 @@ trace_metadata_reader_t::check_entry_thread_start(const offline_entry_t *entry)
 
 drmemtrace_status_t
 drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size,
-                                            uint64 *timestamp)
+                                            OUT uint64 *timestamp)
 {
     if (trace == nullptr || timestamp == nullptr)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
@@ -139,6 +139,5 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
     return DRMEMTRACE_SUCCESS;
 }
 
-
-}  // namespace drmemtrace
-}  // namespace dynamorio
+} // namespace drmemtrace
+} // namespace dynamorio
