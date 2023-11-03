@@ -18,16 +18,26 @@
 #    error Only use this file on Linux
 #endif
 
-#ifdef DR_HOST_X86
-#    include "syscall_linux_x86.h"
-#elif defined(DR_HOST_ARM)
-#    include "syscall_linux_arm.h"
-#elif defined(DR_HOST_AARCH64)
-#    include "syscall_linux_uapi.h"
-#elif defined(DR_HOST_RISCV64)
-#    include "syscall_linux_riscv64.h"
+#ifdef DR_HOST_NOT_TARGET
+#    ifdef TARGET_X86
+#        include "syscall_linux_x86.h"
+#    elif TARGET_AARCH64
+#        include "syscall_linux_uapi.h"
+#    else
+#        error Unknown platform.
+#    endif
 #else
-#    error Unknown platform.
+#    ifdef DR_HOST_X86
+#        include "syscall_linux_x86.h"
+#    elif defined(DR_HOST_ARM)
+#        include "syscall_linux_arm.h"
+#    elif defined(DR_HOST_AARCH64)
+#        include "syscall_linux_uapi.h"
+#    elif defined(DR_HOST_RISCV64)
+#        include "syscall_linux_riscv64.h"
+#    else
+#        error Unknown platform.
+#    endif
 #endif
 
 #endif /* _SYSCALL_H_ */
