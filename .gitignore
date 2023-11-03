@@ -12,4 +12,6 @@ CMakeLists.txt.user
 tags
 cscope.out
 
-01112023/
+01112023/*.txt
+01112023/*.csv
+01112023/parsed_traces/*.csv
