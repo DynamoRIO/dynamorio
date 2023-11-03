@@ -3,6 +3,7 @@
 mkdir build
 cd build
 cmake --configure ..
+cd ..
 cmake .
 make
 bin64/drrun -t drcachesim  -simulator_type elam -- ls
