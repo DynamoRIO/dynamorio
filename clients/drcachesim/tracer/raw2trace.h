@@ -67,6 +67,7 @@
 #include "drmemtrace.h"
 #include "hashtable.h"
 #include "instru.h"
+#include "raw2trace_shared.h"
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
@@ -401,17 +402,6 @@ struct trace_metadata_writer_t {
     write_tid(byte *buffer, thread_id_t tid);
     static int
     write_timestamp(byte *buffer, uint64 timestamp);
-};
-
-/**
- * Functions for decoding and verifying raw memtrace data headers.
- */
-struct trace_metadata_reader_t {
-    static bool
-    is_thread_start(const offline_entry_t *entry, OUT std::string *error,
-                    OUT int *version, OUT offline_file_type_t *file_type);
-    static std::string
-    check_entry_thread_start(const offline_entry_t *entry);
 };
 
 /**

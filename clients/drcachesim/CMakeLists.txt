@@ -208,6 +208,7 @@ endif (BUILD_PT_POST_PROCESSOR)
 
 set(raw2trace_srcs
   tracer/raw2trace.cpp
+  tracer/raw2trace_shared.cpp
   tracer/raw2trace_directory.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
@@ -347,6 +348,7 @@ install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
+install_client_nonDR_header(drmemtrace tracer/raw2trace_shared.h)
 install_client_nonDR_header(drmemtrace scheduler/scheduler.h)
 install_client_nonDR_header(drmemtrace scheduler/speculator.h)
 
