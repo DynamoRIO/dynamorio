@@ -961,8 +961,13 @@ protected:
     /**
      * The trace_entry_t buffer returned by get_write_buffer() is assumed to be at least
      * #WRITE_BUFFER_SIZE large.
+     *
+     * Some of the AArch64 SVE scatter/gather instructions have a lot of memref entries.
+     * For example ld4b loads 4 registers with byte sized elements, so that is
+     *     (vl_bits / 8) * 4
+     * entries. With a 512-bit vector length that is (512 / 4 * 8) = 256 memref entries.
      */
-    static const uint WRITE_BUFFER_SIZE = 64;
+    static const uint WRITE_BUFFER_SIZE = 260;
 
     struct block_summary_t {
         block_summary_t(app_pc start, int instr_count)
