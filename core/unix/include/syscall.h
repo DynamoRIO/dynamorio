@@ -21,11 +21,11 @@
 #ifdef DR_HOST_NOT_TARGET
 #    ifdef X86
 #        include "syscall_linux_x86.h"
-#    elif ARM
+#    elif defined(ARM)
 #        include "syscall_linux_arm.h"
-#    elif AARCH64
+#    elif defined(AARCH64)
 #        include "syscall_linux_uapi.h"
-#    elif RISCV64
+#    elif defined(RISCV64)
 #        include "syscall_linux_riscv64.h"
 #    else
 #        error Unknown platform.
