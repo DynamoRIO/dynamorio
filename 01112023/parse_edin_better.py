@@ -25,8 +25,9 @@ with open('output.csv', 'w', newline='') as csv_file:
         
         data_miss = 1 if miss_type_next == "DATA" else 0
         inst_miss = 1 if miss_type_next == "INST" else 0
-                 
+        
         if miss_type == "":
+            line = float(int(line))/len(lines)
             writer.writerow({'Line': line, 'Operation': operation, 'ByteCount': byte_count, 'Address': address, 'Instruction': instruction,
                             'DATA_MISS': data_miss, 'INST_MISS': inst_miss})
     
