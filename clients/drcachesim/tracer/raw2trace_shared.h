@@ -36,6 +36,11 @@
 #ifndef _RAW2TRACE_SHARED_H_
 #define _RAW2TRACE_SHARED_H_ 1
 
+/**
+ * @file drmemtrace/raw2trace_shared.h
+ * @brief DrMemtrace routines and structs shared between raw2trace and tracer.
+ */
+
 #include "dr_api.h"
 #include "drmemtrace.h"
 #include "trace_entry.h"
@@ -54,8 +59,7 @@ struct trace_metadata_reader_t {
     check_entry_thread_start(const offline_entry_t *entry);
 };
 
+} // namespace drmemtrace
+} // namespace dynamorio
 
-}  // namespace drmemtrace
-}  // namespace dynamorio
 #endif /* _RAW2TRACE_SHARED_H_ */
-
