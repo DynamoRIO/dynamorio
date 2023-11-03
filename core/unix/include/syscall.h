@@ -19,10 +19,14 @@
 #endif
 
 #ifdef DR_HOST_NOT_TARGET
-#    ifdef TARGET_X86
+#    ifdef X86
 #        include "syscall_linux_x86.h"
-#    elif TARGET_AARCH64
+#    elif ARM
+#        include "syscall_linux_arm.h"
+#    elif AARCH64
 #        include "syscall_linux_uapi.h"
+#    elif RISCV64
+#        include "syscall_linux_riscv64.h"
 #    else
 #        error Unknown platform.
 #    endif
