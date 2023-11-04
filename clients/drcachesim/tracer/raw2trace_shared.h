@@ -48,6 +48,8 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+#define OUTFILE_SUBDIR "raw"
+
 /**
  * Functions for decoding and verifying raw memtrace data headers.
  */
