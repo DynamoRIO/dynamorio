@@ -761,7 +761,7 @@ instr_is_opnd_store_source(instr_t *store_instr, int source_ordinal)
      * identifying which sources flow into the (typically unique) memory
      * destination is a key piece of information we do try to provide.  We do
      * not yet go as far as labeling this in the IR decoding codec/table info
-     * sources and rely on operand ordering conventions.  If these heuristics
+     * sources and thus rely on operand ordering conventions.  If these heuristics
      * prove too fragile we can move toward more direct support, but by
      * providing an official helper function here now we at least get all users
      * using the same code we can update later.
@@ -818,7 +818,8 @@ instr_is_opnd_store_source(instr_t *store_instr, int source_ordinal)
         /* Is the last dest an address register? */
         opnd_t last_dst = instr_get_dst(store_instr, instr_num_dsts(store_instr) - 1);
         if (opnd_is_reg(last_dst) &&
-            opnd_uses_reg(instr_get_dst(store_instr, 0), opnd_get_reg(last_dst))) {
+            /* See whether the memory operation uses the last dest reg. */
+            opnd_uses_reg(memop, opnd_get_reg(last_dst))) {
             /* Is there an identical source operand register, at the end or prior to
              * an immed that is at the end?
              */
