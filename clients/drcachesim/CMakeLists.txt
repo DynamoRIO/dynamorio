@@ -768,6 +768,14 @@ if (BUILD_TESTS)
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests)
   set_tests_properties(tool.scheduler.unit_tests PROPERTIES TIMEOUT ${test_seconds})
 
+  add_executable(tool.drcacheoff.flexible_queue_tests tests/flexible_queue_tests.cpp)
+  add_win32_flags(tool.drcacheoff.flexible_queue_tests)
+  target_link_libraries(tool.drcacheoff.flexible_queue_tests test_helpers)
+  add_test(NAME tool.drcacheoff.flexible_queue_tests
+    COMMAND tool.drcacheoff.flexible_queue_tests)
+  set_tests_properties(tool.drcacheoff.flexible_queue_tests PROPERTIES TIMEOUT
+    ${test_seconds})
+
   add_executable(tool.drcachesim.core_sharded tests/core_sharded_test.cpp
     # XXX: Better to put these into libraries but that requires a bigger cleanup:
     analyzer_multi.cpp ${client_and_sim_srcs} reader/ipc_reader.cpp
