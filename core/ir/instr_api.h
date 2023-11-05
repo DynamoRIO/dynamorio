@@ -864,6 +864,18 @@ DR_API
 void
 instr_set_target(instr_t *cti_instr, opnd_t target);
 
+DR_API
+/**
+ * If \p store_instr is not a store (instr_writes_memory() returns false), returns
+ * false.  If \p store_instr is a store (instr_writes_memory() returns true), returns
+ * whether its source operand with index \p source_ordinal (as passed to
+ * instr_get_src()) is a source for the value that is stored.  (If not, it may be an
+ * address register that is updated for pre-index or post-index writeback forms, or
+ * some other source that does not directly affect the value written to memory.)
+ */
+bool
+instr_is_opnd_store_source(instr_t *store_instr, int source_ordinal);
+
 INSTR_INLINE_INTERNALLY
 DR_API
 /** Returns true iff \p instr's operands are up to date. */
