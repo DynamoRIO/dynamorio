@@ -37,25 +37,8 @@
 #include "trace_entry.h"
 #include "raw2trace_shared.h"
 
-#include <memory>
-
 namespace dynamorio {
 namespace drmemtrace {
-
-#define FATAL_ERROR(msg, ...)                               \
-    do {                                                    \
-        fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__); \
-        fflush(stderr);                                     \
-        exit(1);                                            \
-    } while (0)
-
-#define CHECK(cond, msg, ...)             \
-    do {                                  \
-        if (!(cond)) {                    \
-            fprintf(stderr, "%s\n", msg); \
-            return false;                 \
-        }                                 \
-    } while (0)
 
 offline_entry_t
 make_header(int version = OFFLINE_FILE_VERSION,
@@ -83,15 +66,6 @@ make_deprecated_header(int version, offline_file_type_t file_type)
 }
 
 offline_entry_t
-make_memref(uint64_t addr)
-{
-    offline_entry_t entry;
-    entry.addr.type = OFFLINE_TYPE_MEMREF;
-    entry.addr.addr = addr;
-    return entry;
-}
-
-offline_entry_t
 make_timestamp(uint64_t value)
 {
     offline_entry_t entry;
@@ -109,11 +83,11 @@ test_get_timestamp()
             bad_buffer, BUFFER_SIZE_BYTES(bad_buffer), &timestamp) !=
         DRMEMTRACE_ERROR_INVALID_PARAMETER)
         return false;
-    offline_entry_t buffer[2] = { make_header(), make_timestamp(1) };
+    offline_entry_t buffer[2] = { make_header(), make_timestamp(123) };
     if (drmemtrace_get_timestamp_from_offline_trace(buffer, BUFFER_SIZE_BYTES(buffer),
                                                     &timestamp) != DRMEMTRACE_SUCCESS)
         return false;
-    return timestamp != 0;
+    return timestamp == 123;
 }
 
 bool
