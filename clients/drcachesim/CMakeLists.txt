@@ -474,13 +474,13 @@ macro(add_drmemtrace name type)
       )
   endif ()
 
-  # All implementation shared between the online tracer and offline raw2trace
-  # should be in the separate raw2trace_shared files. This is so that we can
-  # keep the online tracing library smaller. The following is a non-exhaustive
-  # condition that flags when raw2trace implementation is accidentally added.
-  # Including raw2trace.cpp would necessitate inclusion of various other
-  # implementations (like for the trace reader_t), which should all be avoided
-  # here.
+  # i#6412: All implementation shared between the online tracer and offline
+  # raw2trace should be in the separate raw2trace_shared files. This is so that
+  # we can keep the online tracing library smaller. The following is a
+  # non-exhaustive condition that flags when raw2trace implementation is
+  # accidentally added. Including raw2trace.cpp would necessitate inclusion of
+  # various other implementations (like for the trace reader_t), which should
+  # all be avoided here.
   list (FIND drmemtrace_srcs "tracer/raw2trace.cpp" _raw2trace_index)
   if (${_raw2trace_index} GREATER -1)
     message(FATAL_ERROR
