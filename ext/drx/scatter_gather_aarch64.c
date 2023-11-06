@@ -68,7 +68,7 @@ typedef struct _per_thread_t {
  * This corresponds to the spill slot storage in per_thread_t.
  */
 typedef struct _spill_slot_state_t {
-#define NUM_PRED_SLOTS 1
+#define NUM_PRED_SLOTS 2
     reg_id_t pred_slots[NUM_PRED_SLOTS];
 
 #define NUM_VECTOR_SLOTS 1
@@ -621,11 +621,36 @@ static void
 expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
                   const scatter_gather_info_t *sg_info, reg_id_t new_base,
                   reg_id_t scalar_index, reg_id_t scalar_src_or_dst,
-                  reg_id_t scratch_pred, reg_id_t scratch_vec, app_pc orig_app_pc)
+                  reg_id_t scratch_pred, reg_id_t governing_pred, reg_id_t scratch_vec,
+                  app_pc orig_app_pc)
 {
 #define EMIT(op, ...)    \
     instrlist_preinsert( \
         bb, sg_instr, INSTR_XL8(INSTR_CREATE_##op(drcontext, __VA_ARGS__), orig_app_pc))
+
+    if (sg_info->is_replicating && proc_get_vector_length_bytes() > 16) {
+        /* This instruction loads a fixed size 16-byte vector which is replicated to
+         * all quadword elements on hardware with a vector length > 16 bytes.
+         * Only the bottom 16 bits of the governing predicate register are used so we
+         * need to mask out any higher bits than that.
+         */
+        DR_ASSERT(sg_info->scatter_gather_size == OPSZ_16);
+
+        /* Set scratch_pred to a value with the first 16 elements active */
+        /* ptrue    scratch_pred.b, vl16 */
+        EMIT(ptrue_sve, opnd_create_reg_element_vector(scratch_pred, OPSZ_1),
+             opnd_create_immed_pred_constr(DR_PRED_CONSTR_VL16));
+
+        /* Create a new governing predicate by applying the mask we created in
+         * scratch_pred to the instruction's mask_reg.
+         */
+
+        /* and      governing_pred.b, mask_reg/z, mask_reg.b, scratch_pred.b */
+        EMIT(and_sve_pred_b, opnd_create_reg_element_vector(governing_pred, OPSZ_1),
+             opnd_create_predicate_reg(sg_info->mask_reg, /*merging=*/false),
+             opnd_create_reg_element_vector(sg_info->mask_reg, OPSZ_1),
+             opnd_create_reg_element_vector(scratch_pred, OPSZ_1));
+    }
 
     /* Calculate the new base address in scratch_gpr0.
      * Note that we can't use drutil_insert_get_mem_addr() here because we don't want the
@@ -686,6 +711,7 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
     } else {
         /* scalar+scalar: Keep the original modifier copied from sg_info */
     }
+    modified_sg_info.mask_reg = governing_pred;
 
     /* Note that modified_sg_info might not describe a valid SVE instruction.
      * For example if we are expanding:
@@ -702,6 +728,21 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
     /* Expand the instruction as if it were a scalar+vector scatter/gather instruction */
     expand_scatter_gather(drcontext, bb, sg_instr, &modified_sg_info, scalar_index,
                           scalar_src_or_dst, scratch_pred, orig_app_pc);
+
+    if (sg_info->is_replicating && proc_get_vector_length_bytes() > 16) {
+        /* All supported replicating loads load a 16-byte vector. */
+        DR_ASSERT(sg_info->scatter_gather_size == OPSZ_16);
+
+        /* Replicate the first quadword element (16 bytes) to the other elements in the
+         * vector.
+         */
+
+        /* dup gather_dst.q, gather_dst.q[0]*/
+        EMIT(dup_sve_idx,
+             opnd_create_reg_element_vector(sg_info->gather_dst_reg, OPSZ_16),
+             opnd_create_reg_element_vector(sg_info->gather_dst_reg, OPSZ_16),
+             opnd_create_immed_uint(0, OPSZ_2b));
+    }
 #undef EMIT
 }
 
@@ -713,13 +754,20 @@ expand_contiguous(void *drcontext, instrlist_t *bb, instr_t *sg_instr,
 reg_id_t
 reserve_sve_register(void *drcontext, instrlist_t *bb, instr_t *where,
                      reg_id_t scratch_gpr0, reg_id_t min_register, reg_id_t max_register,
-                     size_t slot_tls_offset, opnd_size_t reg_size, uint slot_num)
+                     size_t slot_tls_offset, opnd_size_t reg_size, uint slot_num,
+                     reg_id_t *already_allocated_regs, uint num_already_allocated)
 {
     /* Search the instruction for an unused register we will use as a temp. */
     reg_id_t reg;
     for (reg = min_register; reg <= max_register; ++reg) {
-        if (!instr_uses_reg(where, reg))
-            break;
+        if (!instr_uses_reg(where, reg)) {
+            bool reg_already_allocated = false;
+            for (uint i = 0; !reg_already_allocated && i < num_already_allocated; i++) {
+                reg_already_allocated = already_allocated_regs[i] == reg;
+            }
+            if (!reg_already_allocated)
+                break;
+        }
     }
     DR_ASSERT(!instr_uses_reg(where, reg));
 
@@ -759,10 +807,11 @@ reserve_pred_register(void *drcontext, instrlist_t *bb, instr_t *where,
     /* Some instructions require the predicate to be in the range p0 - p7. This includes
      * LASTB which we use to extract elements from the vector register.
      */
-    const reg_id_t reg = reserve_sve_register(
-        drcontext, bb, where, scratch_gpr0, DR_REG_P0, DR_REG_P7,
-        offsetof(per_thread_t, scratch_pred_spill_slots),
-        opnd_size_from_bytes(proc_get_vector_length_bytes() / 8), slot);
+    const reg_id_t reg =
+        reserve_sve_register(drcontext, bb, where, scratch_gpr0, DR_REG_P0, DR_REG_P7,
+                             offsetof(per_thread_t, scratch_pred_spill_slots),
+                             opnd_size_from_bytes(proc_get_vector_length_bytes() / 8),
+                             slot, slot_state->pred_slots, slot);
 
     slot_state->pred_slots[slot] = reg;
     return reg;
@@ -783,7 +832,8 @@ reserve_vector_register(void *drcontext, instrlist_t *bb, instr_t *where,
     const reg_id_t reg =
         reserve_sve_register(drcontext, bb, where, scratch_gpr0, DR_REG_Z0, DR_REG_Z31,
                              offsetof(per_thread_t, scratch_vector_spill_slots_aligned),
-                             opnd_size_from_bytes(proc_get_vector_length_bytes()), slot);
+                             opnd_size_from_bytes(proc_get_vector_length_bytes()), slot,
+                             slot_state->vector_slots, slot);
 
     slot_state->vector_slots[slot] = reg;
     return reg;
@@ -897,10 +947,6 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
         /* TODO i#5036: Add support for first-fault and non-fault accesses. */
         return true;
     }
-    if (sg_info.is_replicating) {
-        /* TODO i#5036: Add support for ld1rq* replicating loads. */
-        return true;
-    }
 
     const bool is_contiguous =
         !(reg_is_z(sg_info.base_reg) || reg_is_z(sg_info.index_reg));
@@ -967,6 +1013,12 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
                                               &spill_slot_state);
     }
 
+    reg_id_t governing_pred = sg_info.mask_reg;
+    if (sg_info.is_replicating) {
+        governing_pred = reserve_pred_register(drcontext, bb, sg_instr, scratch_gpr,
+                                               &spill_slot_state);
+    }
+
     const app_pc orig_app_pc = instr_get_app_pc(sg_instr);
 
     emulated_instr_t emulated_instr;
@@ -980,8 +1032,8 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
     if (is_contiguous) {
         /* scalar+scalar or scalar+immediate predicated contiguous access */
         expand_contiguous(drcontext, bb, sg_instr, &sg_info, contiguous_new_base,
-                          scratch_gpr, scalar_src_or_dst, scratch_pred, scratch_vec,
-                          orig_app_pc);
+                          scratch_gpr, scalar_src_or_dst, scratch_pred, governing_pred,
+                          scratch_vec, orig_app_pc);
     } else {
         /* scalar+vector or vector+immediate scatter/gather */
         expand_scatter_gather(drcontext, bb, sg_instr, &sg_info, scratch_gpr,
@@ -990,13 +1042,21 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, DR_PARAM_OUT bool *e
 
     drmgr_insert_emulation_end(drcontext, bb, sg_instr);
 
-    if (scratch_vec != DR_REG_INVALID) {
-        unreserve_vector_register(drcontext, bb, sg_instr, scratch_gpr, scratch_vec,
-                                  &spill_slot_state);
+    for (uint i = 0; i < NUM_VECTOR_SLOTS; i++) {
+        const reg_id_t reg = spill_slot_state.vector_slots[i];
+        if (reg != DR_REG_NULL) {
+            unreserve_vector_register(drcontext, bb, sg_instr, scratch_gpr, reg,
+                                      &spill_slot_state);
+        }
     }
 
-    unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr, scratch_pred,
-                            &spill_slot_state);
+    for (uint i = 0; i < NUM_PRED_SLOTS; i++) {
+        const reg_id_t reg = spill_slot_state.pred_slots[i];
+        if (reg != DR_REG_NULL) {
+            unreserve_pred_register(drcontext, bb, sg_instr, scratch_gpr, reg,
+                                    &spill_slot_state);
+        }
+    }
 
     if (drreg_unreserve_register(drcontext, bb, sg_instr, scratch_gpr) != DRREG_SUCCESS) {
         DR_ASSERT_MSG(false, "drreg_unreserve_register should not fail");
