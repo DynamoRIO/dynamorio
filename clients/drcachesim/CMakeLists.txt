@@ -347,8 +347,8 @@ install_client_nonDR_header(drmemtrace simulator/cache_simulator_create.h)
 install_client_nonDR_header(drmemtrace simulator/tlb_simulator_create.h)
 install_client_nonDR_header(drmemtrace tools/view_create.h)
 install_client_nonDR_header(drmemtrace tools/func_view_create.h)
-# XXX: Create a separate directory for non-tracer headers so that we can
-# more cleanly separate tracer and raw2trace code.
+# TODO i#6412: Create a separate directory for non-tracer headers so that
+# we can more cleanly separate online tracer and raw2trace code.
 install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 install_client_nonDR_header(drmemtrace tracer/raw2trace_shared.h)
 install_client_nonDR_header(drmemtrace scheduler/scheduler.h)
