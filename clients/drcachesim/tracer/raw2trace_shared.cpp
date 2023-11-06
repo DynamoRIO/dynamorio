@@ -53,7 +53,6 @@ trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
     if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
         (entry->extended.ext != OFFLINE_EXT_TYPE_HEADER_DEPRECATED &&
          entry->extended.ext != OFFLINE_EXT_TYPE_HEADER)) {
-        *error = "Did not find header entry";
         return false;
     }
     int ver;
@@ -62,14 +61,12 @@ trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
         ver = static_cast<int>(entry->extended.valueA);
         type = static_cast<offline_file_type_t>(entry->extended.valueB);
         if (ver >= OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP) {
-            *error = "Found deprecated header entry in newer trace version.";
             return false;
         }
     } else {
         ver = static_cast<int>(entry->extended.valueB);
         type = static_cast<offline_file_type_t>(entry->extended.valueA);
         if (ver < OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP) {
-            *error = "Did not find deprecated header entry in older trace version.";
             return false;
         }
     }

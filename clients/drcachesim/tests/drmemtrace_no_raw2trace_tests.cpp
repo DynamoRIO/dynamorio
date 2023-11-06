@@ -77,11 +77,13 @@ make_timestamp(uint64_t value)
 bool
 test_get_timestamp()
 {
-    offline_entry_t bad_buffer[1] = { make_timestamp(1) };
+    offline_entry_t bad_buffer[1] = { make_timestamp(456) };
     uint64 timestamp = 0;
     if (drmemtrace_get_timestamp_from_offline_trace(
             bad_buffer, BUFFER_SIZE_BYTES(bad_buffer), &timestamp) !=
-        DRMEMTRACE_ERROR_INVALID_PARAMETER)
+        DRMEMTRACE_SUCCESS)
+        return false;
+    if (timestamp != 456)
         return false;
     offline_entry_t buffer[2] = { make_header(), make_timestamp(123) };
     if (drmemtrace_get_timestamp_from_offline_trace(buffer, BUFFER_SIZE_BYTES(buffer),
