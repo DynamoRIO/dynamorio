@@ -293,6 +293,13 @@ use_DynamoRIO_extension(drcachesim drutil_static)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/simulator)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/reader)
+# TODO i#6412: raw2trace.h and related headers that are used only in raw2trace
+# conversion are also a part of this directory. Ideally we'd like for online
+# tracing code to not be able to include those headers. Today, raw2trace
+# implementation that is shared between the online tracer and raw2trace is
+# extracted into raw2trace_shared files, and raw2trace.cpp is disallowed in
+# drmemtrace and drmemtrace_static sources (a non-exhaustive check) to achieve
+# some separation.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tracer)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/scheduler)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -471,6 +478,9 @@ macro(add_drmemtrace name type)
   # should be in the separate raw2trace_shared files. This is so that we can
   # keep the online tracing library smaller. The following is a non-exhaustive
   # condition that flags when raw2trace implementation is accidentally added.
+  # Including raw2trace.cpp would necessitate inclusion of various other
+  # implementations (like for the trace reader_t), which should all be avoided
+  # here.
   list (FIND drmemtrace_srcs "tracer/raw2trace.cpp" _raw2trace_index)
   if (${_raw2trace_index} GREATER -1)
     message(FATAL_ERROR
