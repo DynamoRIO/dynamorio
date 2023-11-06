@@ -447,6 +447,7 @@ macro(add_drmemtrace name type)
     tracer/instru_online.cpp
     tracer/physaddr.cpp
     tracer/func_trace.cpp
+    tracer/raw2trace_shared.cpp
     ${client_and_sim_srcs}
     )
   if (BUILD_PT_TRACER)
@@ -463,6 +464,17 @@ macro(add_drmemtrace name type)
       common/crc32c.cpp
       )
   endif ()
+
+  # All implementation shared between the online tracer and offline raw2trace
+  # should be in the separate raw2trace_shared files. This is so that we can
+  # keep the online tracing library smaller. The following is a non-exhaustive
+  # condition that flags that raw2trace code is not included.
+  list (FIND drmemtrace_srcs "tracer/raw2trace.cpp" _raw2trace_index)
+  if (${_raw2trace_index} GREATER -1)
+    message(FATAL_ERROR
+            "drmemtrace should use raw2trace_shared for shared implementation.")
+  endif()
+
   add_library(${name} ${type} ${drmemtrace_srcs})
   configure_DynamoRIO_client(${name})
   use_DynamoRIO_extension(${name} drmgr${ext_sfx})
@@ -1081,6 +1093,19 @@ if (BUILD_TESTS)
     set_tests_properties(tool.drcacheoff.skip_unit_tests PROPERTIES
       TIMEOUT ${test_seconds})
   endif ()
+
+  add_executable(drmemtrace_no_raw2trace_tests
+                 tests/drmemtrace_no_raw2trace_tests.cpp)
+  configure_DynamoRIO_standalone(drmemtrace_no_raw2trace_tests)
+  # This should not include raw2trace code. We have a check in add_drmemtrace
+  # that would fail if drmemtrace_static includes raw2trace.cpp.
+  target_link_libraries(drmemtrace_no_raw2trace_tests drmemtrace_static
+                        test_helpers)
+  add_win32_flags(drmemtrace_no_raw2trace_tests)
+  add_test(NAME drmemtrace_no_raw2trace_tests
+           COMMAND drmemtrace_no_raw2trace_tests)
+  set_tests_properties(drmemtrace_no_raw2trace_tests PROPERTIES
+    TIMEOUT ${test_seconds})
 endif ()
 
 ##################################################
