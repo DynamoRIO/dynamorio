@@ -1612,11 +1612,6 @@ if (BUILD_TESTS)
   include(CTest)
 endif (BUILD_TESTS)
 
-# TODO i#5365: auto set this using CHECK_C_COMPILER_FLAG once any new test failures have been investigated
-if (AARCH64)
-  option(BUILD_TESTS_SVE "Build tests with SVE enabled and high optimization (-O3)" OFF)
-endif (AARCH64)
-
 if (BUILD_CORE)
   add_subdirectory(core)
 endif (BUILD_CORE)

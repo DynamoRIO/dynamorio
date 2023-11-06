@@ -474,6 +474,49 @@ function(append_link_flags target newflags)
     LINK_FLAGS "${cur_ldflags} ${newflags}")
 endfunction(append_link_flags)
 
+set(  sve_tests
+      simple_app api.ir api.ir_negative api.ir_v81 api.ir_v82 api.ir_v83 api.ir_v84 api.ir_v86
+      api.ir_sve api.ir_sve2 api.ir-static api.drdecode common.broadfun common.fib common.nzcv
+      common.getretaddr common.segfault common.allasm_aarch64_isa common.allasm_aarch64_cache
+      allasm_aarch64_prefetch allasm_aarch64_flush libutil.frontend_test libutil.drconfig_test
+      client.call-retarget client.modules client.annotation-concurrency client.partial_module_map
+      client.execfault client.events client.events_cpp client.timer client.mangle_suspend
+      client.syscall-mod client.signal client.cleancallsig client.file_io client.cleancall-opt-1
+      client.inline client.null_instrument client.large_options client.stolen-reg-index
+      client.gonative client.drmgr-test client.drx_buf-test client.drbbdup-drwrap-test
+      client.drbbdup-emul-test client.process-id client.drreg-test client.low_on_memory client.tls
+      client.drx-scattergather client.drwrap-test client.drwrap-drreg-test drstatecmp-fuzz-app
+      client.drutil-test client.stolen-reg client.ldstex api.dis-a64 api.reenc-a64 api.opnd
+      api.detach api.detach_state api.detach_signal api.detach_spawn api.detach_spawn_stress_FLAKY
+      api.detach_spawn_quick_exit api.ibl-stress api.ibl-stress-aarch64-far-link_LONG
+      api.static_startstop api.static_noclient api.static_noinit api.static_detach
+      api.static_prepop api.static_reattach_client_flags api.static_crash api.static_sideline_FLAKY
+      api.static_symbols api.static_maps_mixup_yesvars api.static_maps_mixup_novars_FLAKY
+      api.thread_churn client.app_args client.destructor builtin_prefetch tool.multiproc
+      stride_benchmark tool.fib_plus tool.heap_test tool.drcacheoff.gencode linux.eintr
+      linux.execve-sub linux.execve-null linux.execve-config linux.execv linux.execve-rec
+      linux.exit linux.fork linux.fork-sleep linux.infinite linux.longjmp linux.prctl linux.mmap
+      linux.zero-length-mem-ranges linux.sigaction linux.syscall_pwait linux.sigaction_nosignals
+      linux.thread linux.threadexit linux.threadexit2 linux.signalfd linux.alarm
+      linux.signal_racesys linux.signal_pre_syscall linux.bad-signal-stack linux.sigsuspend
+      linux.sigmask linux.mangle_asynch linux.app_tls linux.readlink
+      linux.fib-conflict linux.fib-static linux.fib-pie linux.vfork pthreads.pthreads
+      pthreads.pthreads_exit pthreads.ptsig pthreads.pthreads_fork_FLAKY security-linux.trampoline
+      linux.infloop linux.rseq_disable security-common.codemod security-common.ret_noncall_trace
+      security-common.retnonexisting security-common.TestAllocWE
+      security-common.TestMemProtChg_FLAKY client.drx-test
+     )
+
+function(add_sve_flags target)
+  if (proc_supports_sve)
+    if (target IN_LIST sve_tests)
+      target_compile_options(${target} PRIVATE
+        -march=armv8.4-a+crypto+rcpc+sha3+sm4+sve+rng+ssbs+nodotprod
+        -O3)
+    endif()
+  endif()
+endfunction(add_sve_flags)
+
 function(add_exe test source)
   get_filename_component(srcbase ${source} NAME_WE)
   get_filename_component(srcpath ${source} PATH)
@@ -554,25 +597,9 @@ function(add_exe test source)
     add_dependencies(${test} ${gen_asm_tgt})
   endif ()
 
-  # TODO i#5365: auto set this using CHECK_C_COMPILER_FLAG once any new test failures have been investigated
-  if (BUILD_TESTS_SVE)
-    target_compile_options(${test} PRIVATE
-      "-march=armv8.4-a+crypto+rcpc+sha3+sm4+sve+rng+ssbs+nodotprod")
-
-    # Some tests give very obscure build errors when built with "-O3"
-    # FIXME i#5365: fix build issues due to optimisation, unless no
-    # optimisation is a requirement for a test case.
-    if (
-      NOT ${test} STREQUAL "api.rseq" AND
-      NOT ${test} STREQUAL "linux.rseq" AND
-      NOT ${test} STREQUAL "linux.rseq_table" AND
-      NOT ${test} STREQUAL "linux.rseq_noarray" AND
-      NOT ${test} STREQUAL "linux.clone" AND
-      NOT ${test} STREQUAL "linux.clone-pie"
-    )
-      target_compile_options(${test} PRIVATE "-O3")
-    endif()
-  endif(BUILD_TESTS_SVE)
+  if (AARCH64)
+    add_sve_flags(${test})
+  endif(AARCH64)
 endfunction(add_exe)
 
 # normal app
