@@ -72,8 +72,7 @@ make_header(int version = OFFLINE_FILE_VERSION,
 }
 
 offline_entry_t
-make_deprecated_header(int version,
-                       offline_file_type_t file_type)
+make_deprecated_header(int version, offline_file_type_t file_type)
 {
     offline_entry_t entry;
     entry.extended.type = OFFLINE_TYPE_EXTENDED;
