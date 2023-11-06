@@ -84,22 +84,11 @@ namespace drmemtrace {
 #    define DEBUG_ASSERT(x) /* nothing */
 #endif
 
-#define OUTFILE_SUFFIX "raw"
 #ifdef BUILD_PT_POST_PROCESSOR
 #    define OUTFILE_SUFFIX_PT "raw.pt"
 #endif
-#ifdef HAS_ZLIB
-#    define OUTFILE_SUFFIX_GZ "raw.gz"
-#    define OUTFILE_SUFFIX_ZLIB "raw.zlib"
-#endif
-#ifdef HAS_SNAPPY
-#    define OUTFILE_SUFFIX_SZ "raw.sz"
-#endif
-#ifdef HAS_LZ4
-#    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
-#endif
+
 #define WINDOW_SUBDIR_PREFIX "window"
-#define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
 #define WINDOW_SUBDIR_FIRST "window.0000"
 #define TRACE_SUBDIR "trace"
 
