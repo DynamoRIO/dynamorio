@@ -47,17 +47,7 @@
 #include "utils.h"
 #ifdef LINUX
 // XXX: We should have the core export this to an include dir.
-#    ifdef X86
-#        include "../../core/unix/include/syscall_linux_x86.h"
-#    elif defined(ARM)
-#        include "../../core/unix/include/syscall_linux_arm.h"
-#    elif defined(AARCH64)
-#        include "../../core/unix/include/syscall_linux_uapi.h"
-#    elif defined(RISCV64)
-#        include "../../core/unix/include/syscall_linux_riscv64.h"
-#    else
-#        error Unknown platform.
-#    endif
+#    include "../../core/unix/include/syscall_target.h"
 #endif
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include <unistd.h>
