@@ -208,6 +208,7 @@ endif (BUILD_PT_POST_PROCESSOR)
 
 set(raw2trace_srcs
   tracer/raw2trace.cpp
+  tracer/raw2trace_shared.cpp
   tracer/raw2trace_directory.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
