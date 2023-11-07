@@ -51,8 +51,7 @@
 #endif
 #ifdef BUILD_PT_POST_PROCESSOR
 #    include <unistd.h>
-#    include "../common/options.h"
-#    include "../drpt2trace/ir2trace.h"
+#    include "ir2trace.h"
 #endif
 
 #include <algorithm>
@@ -586,62 +585,12 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             uintptr_t marker_val = 0;
             if (!get_marker_value(tdata, &in_entry, &marker_val))
                 return false;
-            buf += trace_metadata_writer_t::write_marker(
-                buf, (trace_marker_type_t)in_entry->extended.valueB, marker_val);
-            if (in_entry->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT) {
-                log(4, "Signal/exception between bbs\n");
-                // An rseq side exit may next hit a signal which is then the
-                // boundary of the rseq region.
-                if (tdata->rseq_past_end_) {
-                    if (!adjust_and_emit_rseq_buffer(tdata, marker_val))
-                        return false;
-                }
-            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT) {
-                log(4, "Rseq abort %d\n", tdata->rseq_past_end_);
-                if (!adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val))
-                    return false;
-            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
-                if (tdata->rseq_want_rollback_) {
-                    if (tdata->rseq_buffering_enabled_) {
-                        // Our rollback schemes do the minimal rollback: for a side
-                        // exit, taking the last branch.  This means we don't need the
-                        // prior iterations in the buffer.
-                        log(4, "Rseq was already buffered: assuming loop; emitting\n");
-                        if (!adjust_and_emit_rseq_buffer(tdata, marker_val))
-                            return false;
-                    }
-                    log(4,
-                        "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
-                        marker_val);
-                    if (!tdata->rseq_ever_saw_entry_)
-                        tdata->rseq_ever_saw_entry_ = true;
-                    tdata->rseq_buffering_enabled_ = true;
-                    tdata->rseq_end_pc_ = marker_val;
-                }
-            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
-                log(2, "Reached filter endpoint\n");
-
-                // The file type needs to be updated during the switch to correctly
-                // process the entries that follow after. This does not affect the
-                // written-out type.
-                int file_type = get_file_type(tdata);
-                // We do not remove OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP here
-                // because that still stands true for this trace.
-                file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
-                               OFFLINE_FILE_TYPE_DFILTERED);
-                set_file_type(tdata, (offline_file_type_t)file_type);
-
-                // For the full trace, the cache contains block-level info unlike the
-                // filtered trace which contains instr-level info. Since we cannot use
-                // the decode cache entries after the transition, we need to flush the
-                // cache here.
-                *flush_decode_cache = true;
-            } else if (in_entry->extended.valueB == TRACE_MARKER_TYPE_SYSCALL &&
-                       is_maybe_blocking_syscall(marker_val)) {
-                log(2, "Maybe-blocking syscall %zu\n", marker_val);
-                buf += trace_metadata_writer_t::write_marker(
-                    buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
-            }
+            trace_marker_type_t marker_type =
+                static_cast<trace_marker_type_t>(in_entry->extended.valueB);
+            buf += trace_metadata_writer_t::write_marker(buf, marker_type, marker_val);
+            if (!process_marker_additionally(tdata, marker_type, marker_val, buf,
+                                             flush_decode_cache))
+                return false;
             // If there is currently a delayed branch that has not been emitted yet,
             // delay most markers since intra-block markers can cause issues with
             // tools that do not expect markers amid records for a single instruction
@@ -650,14 +599,13 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
             // OFFLINE_TYPE_TIMESTAMP which is handled at a higher level in
             // process_next_thread_buffer() so there is no need to have a separate
             // check for it here.
-            if (in_entry->extended.valueB != TRACE_MARKER_TYPE_CPU_ID) {
+            if (marker_type != TRACE_MARKER_TYPE_CPU_ID) {
                 if (delayed_branches_exist(tdata)) {
                     return write_delayed_branches(tdata, buf_base,
                                                   reinterpret_cast<trace_entry_t *>(buf));
                 }
             }
-            log(3, "Appended marker type %u value " PIFX "\n",
-                (trace_marker_type_t)in_entry->extended.valueB,
+            log(3, "Appended marker type %u value " PIFX "\n", marker_type,
                 (uintptr_t)in_entry->extended.valueA);
         } else {
             std::stringstream ss;
@@ -715,6 +663,68 @@ raw2trace_t::process_offline_entry(raw2trace_thread_data_t *tdata,
     }
     if (size > 0) {
         return write(tdata, buf_base, reinterpret_cast<trace_entry_t *>(buf));
+    }
+    return true;
+}
+
+bool
+raw2trace_t::process_marker_additionally(raw2trace_thread_data_t *tdata,
+                                         trace_marker_type_t marker_type,
+                                         uintptr_t marker_val, byte *&buf,
+                                         OUT bool *flush_decode_cache)
+{
+    if (marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) {
+        log(4, "Signal/exception between bbs\n");
+        // An rseq side exit may next hit a signal which is then the
+        // boundary of the rseq region.
+        if (tdata->rseq_past_end_) {
+            if (!adjust_and_emit_rseq_buffer(tdata, marker_val))
+                return false;
+        }
+    } else if (marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+        log(4, "Rseq abort %d\n", tdata->rseq_past_end_);
+        if (!adjust_and_emit_rseq_buffer(tdata, marker_val, marker_val))
+            return false;
+    } else if (marker_type == TRACE_MARKER_TYPE_RSEQ_ENTRY) {
+        if (tdata->rseq_want_rollback_) {
+            if (tdata->rseq_buffering_enabled_) {
+                // Our rollback schemes do the minimal rollback: for a side
+                // exit, taking the last branch.  This means we don't need the
+                // prior iterations in the buffer.
+                log(4, "Rseq was already buffered: assuming loop; emitting\n");
+                if (!adjust_and_emit_rseq_buffer(tdata, marker_val))
+                    return false;
+            }
+            log(4, "--- Reached rseq entry (end=0x%zx): buffering all output ---\n",
+                marker_val);
+            if (!tdata->rseq_ever_saw_entry_)
+                tdata->rseq_ever_saw_entry_ = true;
+            tdata->rseq_buffering_enabled_ = true;
+            tdata->rseq_end_pc_ = marker_val;
+        }
+    } else if (marker_type == TRACE_MARKER_TYPE_FILTER_ENDPOINT) {
+        log(2, "Reached filter endpoint\n");
+
+        // The file type needs to be updated during the switch to correctly
+        // process the entries that follow after. This does not affect the
+        // written-out type.
+        int file_type = get_file_type(tdata);
+        // We do not remove OFFLINE_FILE_TYPE_BIMODAL_FILTERED_WARMUP here
+        // because that still stands true for this trace.
+        file_type &= ~(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_IFILTERED |
+                       OFFLINE_FILE_TYPE_DFILTERED);
+        set_file_type(tdata, (offline_file_type_t)file_type);
+
+        // For the full trace, the cache contains block-level info unlike the
+        // filtered trace which contains instr-level info. Since we cannot use
+        // the decode cache entries after the transition, we need to flush the
+        // cache here.
+        *flush_decode_cache = true;
+    } else if (marker_type == TRACE_MARKER_TYPE_SYSCALL &&
+               is_maybe_blocking_syscall(marker_val)) {
+        log(2, "Maybe-blocking syscall %zu\n", marker_val);
+        buf += trace_metadata_writer_t::write_marker(
+            buf, TRACE_MARKER_TYPE_MAYBE_BLOCKING_SYSCALL, 0);
     }
     return true;
 }
@@ -845,42 +855,93 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 }
 
 #ifdef BUILD_PT_POST_PROCESSOR
+
+std::unique_ptr<pt_data_buf_t>
+raw2trace_t::get_next_kernel_entry(raw2trace_thread_data_t *tdata,
+                                   std::unique_ptr<pt_metadata_buf_t> &pt_metadata,
+                                   uint64_t expected_syscall_idx)
+{
+    DR_ASSERT(tdata->kthread_file != nullptr);
+    if (tdata->kthread_file->eof())
+        return nullptr;
+    if (!tdata->pt_metadata_processed) {
+        log(2, "Reading PT metadata for tid " INT64_FORMAT_STRING "\n", tdata->tid);
+        pt_metadata = std::unique_ptr<pt_metadata_buf_t>(new pt_metadata_buf_t());
+        if (!tdata->kthread_file->read(reinterpret_cast<char *>(&pt_metadata->header[0]),
+                                       PT_METADATA_PDB_HEADER_SIZE)) {
+            tdata->error = "Unable to read the PDB header of PT metadata from kernel "
+                           "thread log file";
+            return nullptr;
+        }
+
+        if (!tdata->kthread_file->read(reinterpret_cast<char *>(&pt_metadata->metadata),
+                                       sizeof(pt_metadata->metadata))) {
+            tdata->error = "Unable to read the PT metadata from kernel thread log file";
+            return nullptr;
+        }
+    }
+    log(2,
+        "Reading PT data header for tid " INT64_FORMAT_STRING
+        " expected syscall idx " INT64_FORMAT_STRING "\n",
+        tdata->tid, expected_syscall_idx);
+    std::unique_ptr<pt_data_buf_t> pt_data(new pt_data_buf_t);
+    if (!tdata->kthread_file->read(reinterpret_cast<char *>(&pt_data->header[0]),
+                                   PT_DATA_PDB_HEADER_SIZE)) {
+        if (tdata->kthread_file->eof()) {
+            VPRINT(1, "Finished decoding all PT data for thread %d\n", tdata->tid);
+            return nullptr;
+        }
+        tdata->error = "Unable to read the PDB header of next syscall's PT data "
+                       "from kernel thread log file";
+        return nullptr;
+    }
+    uint64_t pid = pt_data->header[PDB_HEADER_PID_IDX].pid.pid;
+    uint64_t tid = pt_data->header[PDB_HEADER_TID_IDX].tid.tid;
+    uint64_t syscall_idx = pt_data->header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx;
+    uint64_t sysnum = pt_data->header[PDB_HEADER_SYSNUM_IDX].sysnum.sysnum;
+    uint64_t syscall_args_num =
+        pt_data->header[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num;
+    uint64_t pt_data_size =
+        pt_data->header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.data_size -
+        PT_DATA_PDB_HEADER_SIZE - syscall_args_num * sizeof(uint64_t);
+
+    log(2,
+        "Reading PT data for syscall_idx " INT64_FORMAT_STRING
+        " size " INT64_FORMAT_STRING " tid " INT64_FORMAT_STRING
+        " pid " INT64_FORMAT_STRING " num " INT64_FORMAT_STRING "\n",
+        syscall_idx, pt_data_size, tid, pid, sysnum);
+    pt_data->data.reset(new uint8_t[pt_data_size]);
+    if (!tdata->kthread_file->read((char *)pt_data->data.get(), pt_data_size)) {
+        tdata->error = "Unable to read the PT data of syscall sysnum " +
+            std::to_string(sysnum) + " from kernel thread log file";
+        return nullptr;
+    }
+    return pt_data;
+}
+
 bool
 raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall_idx)
 {
-    DR_ASSERT(tdata->kthread_file != nullptr);
     DR_ASSERT(TESTANY(OFFLINE_FILE_TYPE_KERNEL_SYSCALLS, tdata->file_type));
-
+    std::unique_ptr<pt_metadata_buf_t> pt_metadata;
+    std::unique_ptr<pt_data_buf_t> pt_data =
+        get_next_kernel_entry(tdata, pt_metadata, syscall_idx);
     if (!tdata->pt_metadata_processed) {
         DR_ASSERT(syscall_idx == 0);
-        syscall_pt_entry_t header[PT_METADATA_PDB_HEADER_ENTRY_NUM];
-        if (!tdata->kthread_file->read((char *)&header[0], PT_METADATA_PDB_HEADER_SIZE)) {
-            tdata->error = "Unable to read the PDB header of PT metadate form kernel "
-                           "thread log file";
+        if (pt_metadata == nullptr) {
+            if (tdata->error.empty())
+                tdata->error = "Did not find PT metadata";
             return false;
         }
-        if (header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type !=
+        if (pt_metadata->header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_metadata_boundary.type !=
             SYSCALL_PT_ENTRY_TYPE_PT_METADATA_BOUNDARY) {
             tdata->error = "Invalid PT raw trace format";
             return false;
         }
 
-        struct {
-            uint16_t cpu_family;
-            uint8_t cpu_model;
-            uint8_t cpu_stepping;
-            uint16_t time_shift;
-            uint32_t time_mult;
-            uint64_t time_zero;
-        } __attribute__((__packed__)) metadata;
-        if (!tdata->kthread_file->read((char *)&metadata, sizeof(metadata))) {
-            tdata->error = "Unable to read the PT metadate form kernel thread log file";
-            return false;
-        }
-
         pt2ir_config_t config = {};
         config.elf_file_path = kcore_path_;
-        config.init_with_metadata(&metadata);
+        config.init_with_metadata(&pt_metadata->metadata);
 
         /* Set the buffer size to be at least the maximum stream data size.
          */
@@ -894,55 +955,36 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
         tdata->pt_metadata_processed = true;
     }
 
-    if (tdata->pre_read_pt_entries.empty() && tdata->kthread_file->eof()) {
+    if (pt_data == nullptr) {
+        if (!tdata->error.empty())
+            return false;
         VPRINT(1, "Finished decoding all PT data for thread %d\n", tdata->tid);
         return true;
     }
+    uint64_t syscall_args_num =
+        pt_data->header[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num;
+    uint64_t pt_data_size =
+        pt_data->header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.data_size -
+        PT_DATA_PDB_HEADER_SIZE - syscall_args_num * sizeof(uint64_t);
 
-    if (tdata->pre_read_pt_entries.empty()) {
-        syscall_pt_entry_t header[PT_DATA_PDB_HEADER_ENTRY_NUM];
-        if (!tdata->kthread_file->read((char *)&header[0], PT_DATA_PDB_HEADER_SIZE)) {
-            if (tdata->kthread_file->eof()) {
-                VPRINT(1, "Finished decoding all PT data for thread %d\n", tdata->tid);
-                return true;
-            }
-            tdata->error = "Unable to read the PDB header of next syscall's PT data "
-                           "form kernel thread log file";
-            return false;
-        }
-        tdata->pre_read_pt_entries.insert(tdata->pre_read_pt_entries.end(), header,
-                                          header + PT_DATA_PDB_HEADER_ENTRY_NUM);
-    }
-
-    if (tdata->pre_read_pt_entries[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.type !=
-            SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY ||
-        tdata->pre_read_pt_entries[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.type !=
-            SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX ||
-        tdata->pre_read_pt_entries[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx !=
-            syscall_idx) {
+    if (pt_data->header[PDB_HEADER_DATA_BOUNDARY_IDX].pt_data_boundary.type !=
+        SYSCALL_PT_ENTRY_TYPE_PT_DATA_BOUNDARY) {
         tdata->error = "Invalid PT raw trace format";
         return false;
     }
-
-    uint64_t sysnum = tdata->pre_read_pt_entries[PDB_HEADER_SYSNUM_IDX].sysnum.sysnum;
-    uint64_t syscall_args_num =
-        tdata->pre_read_pt_entries[PDB_HEADER_NUM_ARGS_IDX].syscall_args_num.args_num;
-    uint64_t pt_data_size = tdata->pre_read_pt_entries[PDB_HEADER_DATA_BOUNDARY_IDX]
-                                .pt_data_boundary.data_size -
-        SYSCALL_METADATA_SIZE - syscall_args_num * sizeof(uint64_t);
-    tdata->pre_read_pt_entries.clear();
-    std::unique_ptr<uint8_t[]> pt_data(new uint8_t[pt_data_size]);
-    if (!tdata->kthread_file->read((char *)pt_data.get(), pt_data_size)) {
-        tdata->error = "Unable to read the PT data of syscall " +
-            std::to_string(syscall_idx) + " sysnum " + std::to_string(sysnum) +
-            " form kernel thread log file";
+    if (pt_data->header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.type !=
+            SYSCALL_PT_ENTRY_TYPE_SYSCALL_IDX ||
+        pt_data->header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx != syscall_idx) {
+        tdata->error = "Found unexpected syscall idx " +
+            std::to_string(pt_data->header[PDB_HEADER_SYSCALL_IDX_IDX].syscall_idx.idx) +
+            " expecting " + std::to_string(syscall_idx);
         return false;
     }
 
     /* Convert the PT Data to DR IR. */
     drir_t drir(GLOBAL_DCONTEXT);
     pt2ir_convert_status_t pt2ir_convert_status =
-        tdata->pt2ir.convert(pt_data.get(), pt_data_size, drir);
+        tdata->pt2ir.convert(pt_data->data.get(), pt_data_size, drir);
     if (pt2ir_convert_status != PT2IR_CONV_SUCCESS) {
         tdata->error = "Failed to convert PT raw trace to DR IR [error status: " +
             std::to_string(pt2ir_convert_status) + "]";
@@ -969,6 +1011,12 @@ raw2trace_t::process_syscall_pt(raw2trace_thread_data_t *tdata, uint64_t syscall
     if (entries.size() == 2) {
         tdata->error = "No trace entries generated from PT data";
         return false;
+    }
+
+    accumulate_to_statistic(tdata, RAW2TRACE_STAT_SYSCALL_TRACES_DECODED, 1);
+    for (const auto &entry : entries) {
+        if (type_is_instr(static_cast<trace_type_t>(entry.type)))
+            accumulate_to_statistic(tdata, RAW2TRACE_STAT_KERNEL_INSTR_COUNT, 1);
     }
 
     if (!tdata->out_file->write(reinterpret_cast<const char *>(entries.data()),
@@ -1215,6 +1263,8 @@ raw2trace_t::do_conversion()
             latest_trace_timestamp_ = std::max(latest_trace_timestamp_,
                                                thread_data_[i]->latest_trace_timestamp);
             final_trace_instr_count_ += thread_data_[i]->final_trace_instr_count;
+            kernel_instr_count_ += thread_data_[i]->kernel_instr_count;
+            syscall_traces_decoded_ += thread_data_[i]->syscall_traces_decoded;
         }
     } else {
         // The files can be converted concurrently.
@@ -1240,6 +1290,8 @@ raw2trace_t::do_conversion()
             latest_trace_timestamp_ =
                 std::max(latest_trace_timestamp_, tdata->latest_trace_timestamp);
             final_trace_instr_count_ += tdata->final_trace_instr_count;
+            kernel_instr_count_ += tdata->kernel_instr_count;
+            syscall_traces_decoded_ += tdata->syscall_traces_decoded;
         }
     }
     error = aggregate_and_write_schedule_files();
@@ -1258,6 +1310,9 @@ raw2trace_t::do_conversion()
            (latest_trace_timestamp_ - earliest_trace_timestamp_) / 1000000.0);
     VPRINT(1, "Final trace instr count: " UINT64_FORMAT_STRING ".\n",
            final_trace_instr_count_);
+    VPRINT(1, "Kernel instr count " UINT64_FORMAT_STRING "\n", kernel_instr_count_);
+    VPRINT(1, "System call PT traces decoded " UINT64_FORMAT_STRING "\n",
+           syscall_traces_decoded_);
     VPRINT(1, "Successfully converted %zu thread files\n", thread_data_.size());
     return "";
 }
@@ -3534,6 +3589,10 @@ raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT:
         tdata->final_trace_instr_count += value;
         break;
+    case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: tdata->kernel_instr_count += value; break;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED:
+        tdata->syscall_traces_decoded += value;
+        break;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false);
     }
@@ -3551,6 +3610,8 @@ raw2trace_t::get_statistic(raw2trace_statistic_t stat)
     case RAW2TRACE_STAT_EARLIEST_TRACE_TIMESTAMP: return earliest_trace_timestamp_;
     case RAW2TRACE_STAT_LATEST_TRACE_TIMESTAMP: return latest_trace_timestamp_;
     case RAW2TRACE_STAT_FINAL_TRACE_INSTRUCTION_COUNT: return final_trace_instr_count_;
+    case RAW2TRACE_STAT_KERNEL_INSTR_COUNT: return kernel_instr_count_;
+    case RAW2TRACE_STAT_SYSCALL_TRACES_DECODED: return syscall_traces_decoded_;
     case RAW2TRACE_STAT_MAX:
     default: DR_ASSERT(false); return 0;
     }
@@ -3578,6 +3639,9 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     case SYS_creat:
 #    endif
     case SYS_epoll_pwait:
+#    ifdef SYS_epoll_pwait2
+    case SYS_epoll_pwait2:
+#    endif
 #    ifdef SYS_epoll_wait
     case SYS_epoll_wait:
 #    endif
@@ -3589,6 +3653,7 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     case SYS_getpmsg:
 #    endif
     case SYS_ioctl:
+    case SYS_membarrier:
     case SYS_mq_open:
     case SYS_msgrcv:
     case SYS_msgsnd:
@@ -3622,6 +3687,7 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
     case SYS_read:
     case SYS_readv:
     case SYS_recvfrom:
+    case SYS_recvmmsg:
     case SYS_recvmsg:
     case SYS_sched_yield:
 #    ifdef SYS_select
@@ -3632,6 +3698,7 @@ raw2trace_t::is_maybe_blocking_syscall(uintptr_t number)
 #    ifdef SYS_semop
     case SYS_semop:
 #    endif
+    case SYS_sendmmsg:
     case SYS_sendmsg:
     case SYS_sendto:
 #    ifdef SYS_wait4

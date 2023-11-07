@@ -2942,20 +2942,21 @@
  * Creates an LDR immediate instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rt      The output register.
- * \param Xn      The input register or stack pointer
+ * \param Xn      The input register or stack pointer.
  * \param Rn      The input memory disposition.
  * \param imm     Immediate int of the input register offset
  */
 #define INSTR_CREATE_ldr_imm(dc, Rt, Xn, Rn, imm) \
     instr_create_2dst_3src(dc, OP_ldr, Rt, Xn, Rn, Xn, imm)
 
+/* XXX: This should auto-extract the base reg and the immediate from the memop! */
 /**
  * Creates a STR immediate instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rt      The output memory disposition.
- * \param Xt      The input register or stack pointer.
- * \param Xn      The output register
- * \param imm     Immediate int of the output register offset
+ * \param Xt      The input register or stack pointer to store.
+ * \param Xn      The output register which must be the address base register.
+ * \param imm     Immediate int of the output register offset.
  */
 #define INSTR_CREATE_str_imm(dc, Rt, Xt, Xn, imm) \
     instr_create_2dst_3src(dc, OP_str, Rt, Xn, Xt, Xn, imm)

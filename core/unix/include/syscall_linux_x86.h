@@ -26,7 +26,7 @@
 
 #ifdef X64
 
-/* From Debian GLIBC 2.32-4 on kernel 5.10.46
+/* From Debian GLIBC 2.37-12 on kernel 6.4.4
  * /usr/include/{x86_64-linux-gnu,i386-linux-gnu}/asm/unistd_64.h
  */
 #    define __NR_read 0
@@ -381,10 +381,21 @@
 #    define __NR_pidfd_getfd 438
 #    define __NR_faccessat2 439
 #    define __NR_process_madvise 440
+#    define __NR_epoll_pwait2 441
+#    define __NR_mount_setattr 442
+#    define __NR_quotactl_fd 443
+#    define __NR_landlock_create_ruleset 444
+#    define __NR_landlock_add_rule 445
+#    define __NR_landlock_restrict_self 446
+#    define __NR_memfd_secret 447
+#    define __NR_process_mrelease 448
+#    define __NR_futex_waitv 449
+#    define __NR_set_mempolicy_home_node 450
+#    define __NR_cachestat 451
 
 #else
 
-/* From Debian GLIBC 2.32-4 on kernel 5.10.46
+/* From Debian GLIBC 2.37-12 on kernel 6.4.4
  * /usr/include/{x86_64-linux-gnu,i386-linux-gnu}/asm/unistd_32.h
  */
 #    define __NR_restart_syscall 0
@@ -817,9 +828,20 @@
 #    define __NR_pidfd_getfd 438
 #    define __NR_faccessat2 439
 #    define __NR_process_madvise 440
+#    define __NR_epoll_pwait2 441
+#    define __NR_mount_setattr 442
+#    define __NR_quotactl_fd 443
+#    define __NR_landlock_create_ruleset 444
+#    define __NR_landlock_add_rule 445
+#    define __NR_landlock_restrict_self 446
+#    define __NR_memfd_secret 447
+#    define __NR_process_mrelease 448
+#    define __NR_futex_waitv 449
+#    define __NR_set_mempolicy_home_node 450
+#    define __NR_cachestat 451
 #endif
 
-/* From Debian GLIBC 2.32-4 on kernel 5.10.46
+/* From Debian GLIBC 2.37-12 on kernel 6.4.4
  * /usr/include/x86_64-linux-gnu/bits/syscall.h
  */
 
@@ -1043,6 +1065,10 @@
 #    define SYS_close __NR_close
 #endif
 
+#ifdef __NR_close_range
+#    define SYS_close_range __NR_close_range
+#endif
+
 #ifdef __NR_cmpxchg_badaddr
 #    define SYS_cmpxchg_badaddr __NR_cmpxchg_badaddr
 #endif
@@ -1103,6 +1129,10 @@
 #    define SYS_epoll_pwait __NR_epoll_pwait
 #endif
 
+#ifdef __NR_epoll_pwait2
+#    define SYS_epoll_pwait2 __NR_epoll_pwait2
+#endif
+
 #ifdef __NR_epoll_wait
 #    define SYS_epoll_wait __NR_epoll_wait
 #endif
@@ -1145,6 +1175,10 @@
 
 #ifdef __NR_faccessat
 #    define SYS_faccessat __NR_faccessat
+#endif
+
+#ifdef __NR_faccessat2
+#    define SYS_faccessat2 __NR_faccessat2
 #endif
 
 #ifdef __NR_fadvise64
@@ -1297,6 +1331,10 @@
 
 #ifdef __NR_futex_time64
 #    define SYS_futex_time64 __NR_futex_time64
+#endif
+
+#ifdef __NR_futex_waitv
+#    define SYS_futex_waitv __NR_futex_waitv
 #endif
 
 #ifdef __NR_futimesat
@@ -1611,6 +1649,18 @@
 #    define SYS_kill __NR_kill
 #endif
 
+#ifdef __NR_landlock_add_rule
+#    define SYS_landlock_add_rule __NR_landlock_add_rule
+#endif
+
+#ifdef __NR_landlock_create_ruleset
+#    define SYS_landlock_create_ruleset __NR_landlock_create_ruleset
+#endif
+
+#ifdef __NR_landlock_restrict_self
+#    define SYS_landlock_restrict_self __NR_landlock_restrict_self
+#endif
+
 #ifdef __NR_lchown
 #    define SYS_lchown __NR_lchown
 #endif
@@ -1691,6 +1741,10 @@
 #    define SYS_memfd_create __NR_memfd_create
 #endif
 
+#ifdef __NR_memfd_secret
+#    define SYS_memfd_secret __NR_memfd_secret
+#endif
+
 #ifdef __NR_memory_ordering
 #    define SYS_memory_ordering __NR_memory_ordering
 #endif
@@ -1745,6 +1799,10 @@
 
 #ifdef __NR_mount
 #    define SYS_mount __NR_mount
+#endif
+
+#ifdef __NR_mount_setattr
+#    define SYS_mount_setattr __NR_mount_setattr
 #endif
 
 #ifdef __NR_move_mount
@@ -1909,6 +1967,10 @@
 
 #ifdef __NR_openat2
 #    define SYS_openat2 __NR_openat2
+#endif
+
+#ifdef __NR_or1k_atomic
+#    define SYS_or1k_atomic __NR_or1k_atomic
 #endif
 
 #ifdef __NR_osf_adjtime
@@ -2451,6 +2513,14 @@
 #    define SYS_prlimit64 __NR_prlimit64
 #endif
 
+#ifdef __NR_process_madvise
+#    define SYS_process_madvise __NR_process_madvise
+#endif
+
+#ifdef __NR_process_mrelease
+#    define SYS_process_mrelease __NR_process_mrelease
+#endif
+
 #ifdef __NR_process_vm_readv
 #    define SYS_process_vm_readv __NR_process_vm_readv
 #endif
@@ -2501,6 +2571,10 @@
 
 #ifdef __NR_quotactl
 #    define SYS_quotactl __NR_quotactl
+#endif
+
+#ifdef __NR_quotactl_fd
+#    define SYS_quotactl_fd __NR_quotactl_fd
 #endif
 
 #ifdef __NR_read
@@ -2769,6 +2843,10 @@
 
 #ifdef __NR_set_mempolicy
 #    define SYS_set_mempolicy __NR_set_mempolicy
+#endif
+
+#ifdef __NR_set_mempolicy_home_node
+#    define SYS_set_mempolicy_home_node __NR_set_mempolicy_home_node
 #endif
 
 #ifdef __NR_set_robust_list
@@ -3313,16 +3391,6 @@
 
 #ifdef __NR_writev
 #    define SYS_writev __NR_writev
-#endif
-
-/* The following SYS_* constants are defined manually for some of the above
- * __NR_* constants that do not have a corresponding SYS_* constant defined
- * in the header files yet. This is so that we can add support for the
- * corresponding syscall. These entries should be deleted when the above
- * list is updated with a newer header file that contains them already.
- */
-#ifdef __NR_close_range
-#    define SYS_close_range __NR_close_range
 #endif
 
 #endif /* _SYSCALL_LINUX_X86_H_ */

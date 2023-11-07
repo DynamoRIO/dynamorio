@@ -201,6 +201,47 @@ test_categories(void)
     ASSERT(cat == DR_INSTR_CATEGORY_UNCATEGORIZED);
 }
 
+static void
+test_store_source(void)
+{
+    instr_t *in = XINST_CREATE_store(GD, OPND_CREATE_MEMPTR(DR_REG_R0, 42),
+                                     opnd_create_reg(DR_REG_R1));
+    ASSERT(!instr_is_opnd_store_source(in, -1)); /* Out of bounds. */
+    ASSERT(instr_is_opnd_store_source(in, 0));   /* r1. */
+    ASSERT(!instr_is_opnd_store_source(in, 1));  /* Out of bounds. */
+    instr_destroy(GD, in);
+
+    in = INSTR_CREATE_str_imm(GD, OPND_CREATE_MEMPTR(DR_REG_R0, 16),
+                              opnd_create_reg(DR_REG_R1), opnd_create_reg(DR_REG_R0),
+                              OPND_CREATE_INT(16));
+    ASSERT(instr_is_opnd_store_source(in, 0));  /* r1. */
+    ASSERT(!instr_is_opnd_store_source(in, 1)); /* r0. */
+    ASSERT(!instr_is_opnd_store_source(in, 2)); /* immed. */
+    instr_destroy(GD, in);
+
+    /* Test data==addr reg. */
+    in = INSTR_CREATE_str_imm(GD, OPND_CREATE_MEMPTR(DR_REG_R0, 16),
+                              opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R0),
+                              OPND_CREATE_INT(16));
+    ASSERT(instr_is_opnd_store_source(in, 0));  /* r0. */
+    ASSERT(!instr_is_opnd_store_source(in, 1)); /* r0 address. */
+    ASSERT(!instr_is_opnd_store_source(in, 2)); /* immed. */
+    instr_destroy(GD, in);
+
+    in = INSTR_CREATE_stp(GD, OPND_CREATE_MEMPTR(DR_REG_R0, 0),
+                          opnd_create_reg(DR_REG_R1), opnd_create_reg(DR_REG_R2));
+    ASSERT(instr_is_opnd_store_source(in, 0)); /* r1. */
+    ASSERT(instr_is_opnd_store_source(in, 1)); /* r2. */
+    instr_destroy(GD, in);
+
+    /* Test data==addr reg. */
+    in = INSTR_CREATE_stp(GD, OPND_CREATE_MEMPTR(DR_REG_R0, 0),
+                          opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1));
+    ASSERT(instr_is_opnd_store_source(in, 0)); /* r0. */
+    ASSERT(instr_is_opnd_store_source(in, 1)); /* r1. */
+    instr_destroy(GD, in);
+}
+
 int
 main()
 {
@@ -211,6 +252,8 @@ main()
     test_mov_instr_addr();
 
     test_categories();
+
+    test_store_source();
 
     print("done\n");
 
