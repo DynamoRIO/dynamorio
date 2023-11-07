@@ -84,14 +84,6 @@ namespace drmemtrace {
 #    define DEBUG_ASSERT(x) /* nothing */
 #endif
 
-#ifdef BUILD_PT_POST_PROCESSOR
-#    define OUTFILE_SUFFIX_PT "raw.pt"
-#endif
-
-#define WINDOW_SUBDIR_PREFIX "window"
-#define WINDOW_SUBDIR_FIRST "window.0000"
-#define TRACE_SUBDIR "trace"
-
 #ifdef HAS_LZ4
 #    define TRACE_SUFFIX_LZ4 "trace.lz4"
 #endif
