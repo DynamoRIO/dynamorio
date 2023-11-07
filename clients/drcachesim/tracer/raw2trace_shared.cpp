@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-#include "raw2trace_shared.h"
+#include "raw2trace.h"
 
 #include <cstddef>
 #include <string>
@@ -44,9 +44,8 @@ namespace dynamorio {
 namespace drmemtrace {
 
 bool
-trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
-                                         std::string *error, int *version,
-                                         offline_file_type_t *file_type)
+trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry, std::string *error,
+                                         int *version, offline_file_type_t *file_type)
 {
     *error = "";
     if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
@@ -139,6 +138,5 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
     return DRMEMTRACE_SUCCESS;
 }
 
-
-}  // namespace drmemtrace
-}  // namespace dynamorio
+} // namespace drmemtrace
+} // namespace dynamorio
