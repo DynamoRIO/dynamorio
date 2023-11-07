@@ -184,6 +184,11 @@ typedef struct _spill_state_t {
     reg_t ldstex_flags;
 #    endif
     /* TODO i#1575: coarse-grain NYI on ARM */
+#elif defined(RISCV64)
+    /* State for converting LR/SC pair into compare-and-swap. */
+    ptr_uint_t lrsc_addr;
+    ptr_uint_t lrsc_value;
+    ptr_uint_t lrsc_size;
 #endif
 } spill_state_t;
 
@@ -238,6 +243,7 @@ typedef struct _local_state_extended_t {
 #    define SCRATCH_REG1 DR_REG_A1
 #    define SCRATCH_REG2 DR_REG_A2
 #    define SCRATCH_REG3 DR_REG_A3
+#    define SCRATCH_REG_LAST DR_REG_A3
 #endif /* X86/ARM */
 #define IBL_TARGET_REG SCRATCH_REG2
 #define IBL_TARGET_SLOT TLS_REG2_SLOT
@@ -253,6 +259,9 @@ typedef struct _local_state_extended_t {
 #    endif
 #elif defined(RISCV64)
 #    define TLS_FCACHE_RETURN_SLOT ((ushort)offsetof(spill_state_t, fcache_return))
+#    define TLS_LRSC_ADDR_SLOT ((ushort)offsetof(spill_state_t, lrsc_addr))
+#    define TLS_LRSC_VALUE_SLOT ((ushort)offsetof(spill_state_t, lrsc_value))
+#    define TLS_LRSC_SIZE_SLOT ((ushort)offsetof(spill_state_t, lrsc_size))
 #endif
 
 #define TABLE_OFFSET (offsetof(local_state_extended_t, table_space))

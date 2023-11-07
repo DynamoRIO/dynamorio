@@ -479,8 +479,10 @@ DR_API
 bool
 instr_is_exclusive_load(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    switch (instr_get_opcode(instr)) {
+    case OP_lr_w:
+    case OP_lr_d: return true;
+    }
     return false;
 }
 
@@ -488,8 +490,10 @@ DR_API
 bool
 instr_is_exclusive_store(instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    switch (instr_get_opcode(instr)) {
+    case OP_sc_w:
+    case OP_sc_d: return true;
+    }
     return false;
 }
 

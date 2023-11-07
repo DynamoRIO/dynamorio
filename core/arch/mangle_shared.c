@@ -1689,10 +1689,11 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
             continue;
         }
 #endif
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
         if (instr_is_app(instr) &&
-            (instr_is_exclusive_load(instr) || instr_is_exclusive_store(instr) ||
-             instr_get_opcode(instr) == OP_clrex)) {
+            (instr_is_exclusive_load(instr) ||
+             instr_is_exclusive_store(instr)
+                 IF_AARCHXX(|| instr_get_opcode(instr) == OP_clrex))) {
             instr_t *res =
                 mangle_exclusive_monitor_op(dcontext, ilist, instr, next_instr);
             if (res != NULL) {
@@ -1701,18 +1702,21 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
             } /* Else, fall through. */
         }
 #endif
-#ifdef AARCH64
+#if defined(AARCH64)
         if (!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen))
             next_instr = mangle_special_registers(dcontext, ilist, instr, next_instr);
-#endif
-#ifdef ARM
+#elif defined(ARM)
         /* Our stolen reg model is to expose to the client.  We assume that any
          * meta instrs using it are using it as TLS.  Ditto w/ use of PC.
          */
         if (!instr_is_meta(instr) &&
             (instr_uses_reg(instr, DR_REG_PC) || instr_uses_reg(instr, dr_reg_stolen)))
             next_instr = mangle_special_registers(dcontext, ilist, instr, next_instr);
-#endif /* ARM */
+#elif defined(RISCV64)
+        if (!instr_is_meta(instr) &&
+            (instr_uses_reg(instr, dr_reg_stolen) || instr_uses_reg(instr, DR_REG_TP)))
+            next_instr = mangle_special_registers(dcontext, ilist, instr, next_instr);
+#endif /* AARCH64/ARM/RISCV64 */
 
         if (instr_is_exit_cti(instr)) {
 #ifdef X86
