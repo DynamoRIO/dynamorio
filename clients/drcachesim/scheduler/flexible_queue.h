@@ -58,7 +58,9 @@ namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure names
 template <typename T, class comparator_t = std::less<T>> class flexible_queue_t {
 public:
     typedef typename std::vector<T>::size_type index_t;
-    static constexpr index_t INVALID_INDEX = std::numeric_limits<index_t>::max();
+    // Wrap max in parens to work around Visual Studio compiler issues with the
+    // max macro (even despite NOMINMAX defined above).
+    static constexpr index_t INVALID_INDEX = (std::numeric_limits<index_t>::max)();
 
     flexible_queue_t() = default;
     explicit flexible_queue_t(int verbose)
