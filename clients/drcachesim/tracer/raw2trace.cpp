@@ -3473,65 +3473,6 @@ raw2trace_t::~raw2trace_t()
         dr_standalone_exit();
 }
 
-bool
-trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
-                                         OUT std::string *error, OUT int *version,
-                                         OUT offline_file_type_t *file_type)
-{
-    *error = "";
-    if (entry->extended.type != OFFLINE_TYPE_EXTENDED ||
-        (entry->extended.ext != OFFLINE_EXT_TYPE_HEADER_DEPRECATED &&
-         entry->extended.ext != OFFLINE_EXT_TYPE_HEADER)) {
-        return false;
-    }
-    int ver;
-    offline_file_type_t type;
-    if (entry->extended.ext == OFFLINE_EXT_TYPE_HEADER_DEPRECATED) {
-        ver = static_cast<int>(entry->extended.valueA);
-        type = static_cast<offline_file_type_t>(entry->extended.valueB);
-        if (ver >= OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP)
-            return false;
-    } else {
-        ver = static_cast<int>(entry->extended.valueB);
-        type = static_cast<offline_file_type_t>(entry->extended.valueA);
-        if (ver < OFFLINE_FILE_VERSION_HEADER_FIELDS_SWAP)
-            return false;
-    }
-    type = static_cast<offline_file_type_t>(static_cast<int>(type) |
-                                            OFFLINE_FILE_TYPE_ENCODINGS);
-    if (version != nullptr)
-        *version = ver;
-    if (file_type != nullptr)
-        *file_type = type;
-    if (ver < OFFLINE_FILE_VERSION_OLDEST_SUPPORTED || ver > OFFLINE_FILE_VERSION) {
-        std::stringstream ss;
-        ss << "Version mismatch: found " << ver << " but we require between "
-           << OFFLINE_FILE_VERSION_OLDEST_SUPPORTED << " and " << OFFLINE_FILE_VERSION;
-        *error = ss.str();
-        return false;
-    }
-    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, type) &&
-        !TESTANY(build_target_arch_type(), type)) {
-        std::stringstream ss;
-        ss << "Architecture mismatch: trace recorded on " << trace_arch_string(type)
-           << " but tools built for " << trace_arch_string(build_target_arch_type());
-        *error = ss.str();
-        return false;
-    }
-    return true;
-}
-
-std::string
-trace_metadata_reader_t::check_entry_thread_start(const offline_entry_t *entry)
-{
-    std::string error;
-    if (is_thread_start(entry, &error, nullptr, nullptr))
-        return "";
-    if (error.empty())
-        return "Thread log file is corrupted: missing version entry";
-    return error;
-}
-
 void
 raw2trace_t::accumulate_to_statistic(raw2trace_thread_data_t *tdata,
                                      raw2trace_statistic_t stat, uint64 value)
