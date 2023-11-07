@@ -566,12 +566,14 @@ mangle_cbr_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr
     instr_set_translation(instr, instrlist_get_translation_target(ilist));
 
     PRE(ilist, next_instr, fall);
-    if (instr_uses_tp)
+    if (instr_uses_tp) {
         PRE(ilist, next_instr,
             instr_create_restore_from_tls(dcontext, scratch_reg1, slot1));
-    if (instr_uses_reg_stolen)
+    }
+    if (instr_uses_reg_stolen) {
         PRE(ilist, next_instr,
             instr_create_restore_from_tls(dcontext, scratch_reg2, slot2));
+    }
 }
 
 instr_t *
