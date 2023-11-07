@@ -4,7 +4,7 @@ import math
 #### TODO: this hasn't been modified yet. Must fix stuff before the linear idea can be tested. But certainly, there is possibility there.
 
 def parse_file(filename, cache_size, matrix_size):
-    parsed_filename = "./parsed_traces/"+filename.strip(".txt") + "_parsed.csv"
+    parsed_filename = "./parsed_traces/"+filename.strip(".txt") + "_parsed_binary_class.csv"
     writeline = "\[.*\]write(.*)"
     readline = "\[.*\]read(.*)"
     ifetch = "\[(\d+)\]ifetch.*@(.*)"
