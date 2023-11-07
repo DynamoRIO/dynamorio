@@ -277,7 +277,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
       if: ${{ github.event_name == 'pull_request' }}
 
-    - run: git fetch --no-tags --depth=1 origin master
+    - run: git fetch origin master
 
     # Install multilib for non-cross-compiling Linux build.
     - name: Create Build Environment
