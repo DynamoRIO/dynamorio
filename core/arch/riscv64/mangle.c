@@ -223,8 +223,24 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool returns, bool precise,
                      reg_id_t scratch, instr_t **inlined_tgt_instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* A scratch register is required for holding the jump target. */
+    ASSERT(scratch != REG_NULL);
+
+    /* Load target into scratch register. */
+    insert_mov_immed_ptrsz(dcontext,
+                           (ptr_int_t)PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), target),
+                           opnd_create_reg(scratch), ilist, where, NULL, NULL);
+
+    /* Even if it's a call, if it doesn't return, we use jump. */
+    if (!jmp && returns) {
+        /* jalr ra, 0(scratch) */
+        PRE(ilist, where, XINST_CREATE_call_reg(dcontext, opnd_create_reg(scratch)));
+    } else {
+        /* jalr zero, 0(scratch) */
+        PRE(ilist, where, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(scratch)));
+    }
+
+    /* Always use an indirect branch for RISC-V. */
     return false;
 }
 
