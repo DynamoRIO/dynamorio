@@ -40,6 +40,7 @@
  * @brief DrMemtrace flexible priority queue.
  */
 
+#define NOMINMAX // Avoid windows.h messing up std::max.
 #include <iostream>
 #include <limits>
 #include <string>
