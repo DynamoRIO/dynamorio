@@ -45,7 +45,7 @@ namespace {
 bool
 test_basics()
 {
-    // Create a max-heap queue.
+    // Create a min-heap queue.
     flexible_queue_t<int, std::greater<int>> q(/*verbose=*/1);
     assert(!q.find(4));
     q.push(4);

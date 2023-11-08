@@ -54,8 +54,12 @@ namespace drmemtrace { /**< DrMemtrace tracing + simulation infrastructure names
 
 /**
  * A priority queue with constant-time search and removal from the middle.
+ * The type T must support the << operator.
+ * We follow std::priority_queue convention where comparator_t(a,b) returning true
+ * means that a is lower priority (worse) than b.
  */
-template <typename T, class comparator_t = std::less<T>> class flexible_queue_t {
+template <typename T, class comparator_t = std::less<T>, class hash_t = std::hash<T>>
+class flexible_queue_t {
 public:
     typedef typename std::vector<T>::size_type index_t;
     // Wrap max in parens to work around Visual Studio compiler issues with the
@@ -76,7 +80,7 @@ public:
         index_t node = entries_.size() - 1;
         entry2index_[entry] = node;
         percolate_up(node);
-        print("after push");
+        vprint(1, "after push");
         return true;
     }
 
@@ -130,17 +134,23 @@ public:
         entries_.pop_back();
         percolate_down(node);
         percolate_up(node);
-        print("after erase");
+        vprint(1, "after erase");
         return true;
     }
 
 private:
     void
-    print(const std::string &message)
+    vprint(int verbose_threshold, const std::string &message)
     {
-        if (verbose_ <= 0)
+        if (verbose_ < verbose_threshold)
             return;
         std::cout << message << "\n";
+        print();
+    }
+
+    void
+    print()
+    {
         for (index_t i = 0; i < entries_.size(); ++i) {
             std::cout << i << ": " << entries_[i] << " @ " << entry2index_[entries_[i]]
                       << "\n";
@@ -208,8 +218,10 @@ private:
     }
 
     std::vector<T> entries_;
+    // We follow std::priority_queue convention where compare_(a,b) returning true
+    // means that a is lower priority (worse) than b.
     comparator_t compare_;
-    std::unordered_map<T, index_t> entry2index_;
+    std::unordered_map<T, index_t, hash_t> entry2index_;
     int verbose_ = 0;
 };
 
