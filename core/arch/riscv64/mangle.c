@@ -241,6 +241,8 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
     }
 
     /* Always use an indirect branch for RISC-V. */
+    /* XXX i#3544: JAL can target a ±1 MiB range, can we use it for a better performance?
+     */
     return false;
 }
 
