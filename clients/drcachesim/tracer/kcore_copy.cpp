@@ -196,17 +196,17 @@ kcore_copy_t::~kcore_copy_t()
 }
 
 bool
-kcore_copy_t::copy(const char *to_dir)
+kcore_copy_t::copy(const char *kcore_path, const char *kallsyms_path)
 {
     if (!read_code_segments()) {
         ASSERT(false, "failed to read code segments");
         return false;
     }
-    if (!copy_kcore(to_dir)) {
+    if (!copy_kcore(kcore_path)) {
         ASSERT(false, "failed to copy " DRMEMTRACE_KCORE_FILENAME);
         return false;
     }
-    if (!copy_kallsyms(to_dir)) {
+    if (!copy_kallsyms(kallsyms_path)) {
         ASSERT(false, "failed to copy " DRMEMTRACE_KALLSYMS_FILENAME);
         return false;
     }
@@ -229,12 +229,8 @@ kcore_copy_t::read_code_segments()
 }
 
 bool
-kcore_copy_t::copy_kcore(const char *to_dir)
+kcore_copy_t::copy_kcore(const char *to_kcore_path)
 {
-    char to_kcore_path[MAXIMUM_PATH];
-    dr_snprintf(to_kcore_path, BUFFER_SIZE_ELEMENTS(to_kcore_path), "%s/%s", to_dir,
-                DRMEMTRACE_KCORE_FILENAME);
-    NULL_TERMINATE_BUFFER(to_kcore_path);
     /* We use drmemtrace file operations functions to dump out code segments in kcore. */
     file_autoclose_t fd(to_kcore_path, DR_FILE_WRITE_OVERWRITE, open_file_func_,
                         close_file_func_, nullptr /*read_file_func*/, write_file_func_,
@@ -303,7 +299,7 @@ kcore_copy_t::copy_kcore(const char *to_dir)
 }
 
 bool
-kcore_copy_t::copy_kallsyms(const char *to_dir)
+kcore_copy_t::copy_kallsyms(const char *to_kallsyms_path)
 {
     /* We use DynamoRIO default file operations functions to open and read /proc/kallsyms.
      */
@@ -315,14 +311,9 @@ kcore_copy_t::copy_kallsyms(const char *to_dir)
         return false;
     }
 
-    char to_kallsyms_file_path[MAXIMUM_PATH];
-    dr_snprintf(to_kallsyms_file_path, BUFFER_SIZE_ELEMENTS(to_kallsyms_file_path),
-                "%s%s%s", to_dir, DIRSEP, DRMEMTRACE_KALLSYMS_FILENAME);
-    NULL_TERMINATE_BUFFER(to_kallsyms_file_path);
-
     /* We use drmemtrace file operations functions to store the output kallsyms. */
     file_autoclose_t to_kallsyms_fd(
-        to_kallsyms_file_path, DR_FILE_WRITE_OVERWRITE, open_file_func_, close_file_func_,
+        to_kallsyms_path, DR_FILE_WRITE_OVERWRITE, open_file_func_, close_file_func_,
         nullptr /* read_file_func */, write_file_func_, nullptr /* seek_file_func */);
     if (!to_kallsyms_fd.is_open()) {
         ASSERT(false, "failed to open " DRMEMTRACE_KALLSYMS_FILENAME " for writing");

@@ -421,7 +421,7 @@ func_trace_init(func_trace_append_entry_vec_t append_entry_vec_,
                 ssize_t (*write_file)(file_t file, const void *data, size_t count),
                 file_t funclist_file)
 {
-    // Online is not supported as we have no mechanism to pass the funclist_file
+    // i#6376: Online is not supported as we have no mechanism to pass the funclist_file
     // data to the simulator.
     if (!op_offline.get_value())
         return false;

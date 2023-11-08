@@ -67,7 +67,7 @@
 #include "options.h"
 #include "output.h"
 #include "physaddr.h"
-#include "raw2trace.h"
+#include "raw2trace_shared.h"
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
@@ -106,7 +106,7 @@ using ::dynamorio::droption::DROPTION_SCOPE_CLIENT;
 
 char logsubdir[MAXIMUM_PATH];
 #ifdef BUILD_PT_TRACER
-char kernel_pt_logsubdir[MAXIMUM_PATH];
+char kernel_trace_logsubdir[MAXIMUM_PATH];
 #endif
 char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 
@@ -225,6 +225,11 @@ struct file_ops_func_t file_ops_func;
 static char modlist_path[MAXIMUM_PATH];
 static char funclist_path[MAXIMUM_PATH];
 static char encoding_path[MAXIMUM_PATH];
+
+#ifdef BUILD_PT_TRACER
+static char kallsyms_path[MAXIMUM_PATH];
+static char kcore_path[MAXIMUM_PATH];
+#endif
 
 static void
 append_timestamp_and_cpu_marker(per_thread_t *data)
@@ -1632,23 +1637,24 @@ event_post_syscall(void *drcontext, int sysnum)
         if (hashtable_lookup(&syscall2args,
                              reinterpret_cast<void *>(static_cast<ptr_int_t>(sysnum))) !=
             nullptr) {
-            dr_syscall_result_info_t info = {
-                sizeof(info),
-            };
+            dr_syscall_result_info_t info = {};
+            info.size = sizeof(info);
+            info.use_errno = true;
             dr_syscall_get_result_ex(drcontext, &info);
             BUF_PTR(data->seg_base) += instru->append_marker(
                 BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_ID,
                 static_cast<uintptr_t>(func_trace_t::TRACE_FUNC_ID_SYSCALL_BASE) +
                     IF_X64_ELSE(sysnum, (sysnum & 0xffff)));
-            /* XXX i#5843: Return values are complex and can include more than just
-             * the primary register value.  Since we care mostly just about failure,
-             * we use the "succeeded" field.  However, this is not accurate for all
-             * syscalls.  Plus, would the scheduler want to know about various
-             * successful return values which indicate how many waiters were woken
-             * up and other data?
-             */
             BUF_PTR(data->seg_base) += instru->append_marker(
-                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_RETVAL, info.succeeded);
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_FUNC_RETVAL, info.value);
+            if (!info.succeeded) {
+                // On Mac you can't tell success from just the return value so we
+                // include a failure indicator.  Since mmap is also complex, and
+                // to reduce Mac-only code, we provide this for all platforms.
+                BUF_PTR(data->seg_base) += instru->append_marker(
+                    BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_SYSCALL_FAILED,
+                    info.errno_value);
+            }
         }
     }
 #endif
@@ -1783,14 +1789,17 @@ init_thread_in_process(void *drcontext)
 
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        data->syscall_pt_trace.init(
-            drcontext, kernel_pt_logsubdir,
-            // XXX i#5505: This should be per-thread and per-window; once we've
-            // finalized the PT output scheme we should pass those parameters.
-            [](const char *fname, uint mode_flags) {
-                return file_ops_func.open_process_file(fname, mode_flags);
-            },
-            file_ops_func.write_file, file_ops_func.close_file);
+        if (!data->syscall_pt_trace.init(
+                drcontext, kernel_trace_logsubdir,
+                [](const char *fname, uint mode_flags, thread_id_t thread_id,
+                   int64 window_id) {
+                    return file_ops_func.call_open_file(fname, mode_flags, thread_id,
+                                                        window_id);
+                },
+                file_ops_func.write_file, file_ops_func.close_file)) {
+            FATAL("Failed to init syscall_pt_trace_t for kernel raw files at %s\n",
+                  kernel_trace_logsubdir);
+        }
     }
 #endif
     // XXX i#1729: gather and store an initial callstack for the thread.
@@ -1905,12 +1914,15 @@ event_exit(void)
 #ifdef BUILD_PT_TRACER
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
         drpttracer_exit();
-        /* Copy kcore and kallsyms to {kernel_pt_logsubdir}. */
-        kcore_copy_t kcore_copy(file_ops_func.open_file, file_ops_func.write_file,
-                                file_ops_func.close_file);
-        if (!kcore_copy.copy(kernel_pt_logsubdir)) {
+        /* Copy kcore and kallsyms to {kernel_trace_logsubdir}. */
+        kcore_copy_t kcore_copy(
+            [](const char *fname, uint mode_flags) {
+                return file_ops_func.open_process_file(fname, mode_flags);
+            },
+            file_ops_func.write_file, file_ops_func.close_file);
+        if (!kcore_copy.copy(kcore_path, kallsyms_path)) {
             NOTIFY(0, "WARNING: failed to copy kcore and kallsyms to %s\n",
-                   kernel_pt_logsubdir);
+                   kernel_trace_logsubdir);
         }
     }
 #endif
@@ -2027,13 +2039,20 @@ init_offline_dir(void)
         return false;
 
 #ifdef BUILD_PT_TRACER
-    dr_snprintf(kernel_pt_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_pt_logsubdir), "%s%s%s",
-                buf, DIRSEP, DRMEMTRACE_KERNEL_PT_SUBDIR);
-    NULL_TERMINATE_BUFFER(kernel_pt_logsubdir);
+    dr_snprintf(kernel_trace_logsubdir, BUFFER_SIZE_ELEMENTS(kernel_trace_logsubdir),
+                "%s%s%s", buf, DIRSEP, DRMEMTRACE_KERNEL_TRACE_SUBDIR);
+    NULL_TERMINATE_BUFFER(kernel_trace_logsubdir);
     if (op_offline.get_value() && op_enable_kernel_tracing.get_value()) {
-        if (!file_ops_func.create_dir(kernel_pt_logsubdir))
+        if (!file_ops_func.create_dir(kernel_trace_logsubdir))
             return false;
     }
+    dr_snprintf(kcore_path, BUFFER_SIZE_ELEMENTS(kcore_path), "%s%s%s",
+                kernel_trace_logsubdir, DIRSEP, DRMEMTRACE_KCORE_FILENAME);
+    NULL_TERMINATE_BUFFER(kcore_path);
+
+    dr_snprintf(kallsyms_path, BUFFER_SIZE_ELEMENTS(kallsyms_path), "%s%s%s",
+                kernel_trace_logsubdir, DIRSEP, DRMEMTRACE_KALLSYMS_FILENAME);
+    NULL_TERMINATE_BUFFER(kallsyms_path);
 #endif
     if (has_tracing_windows())
         open_new_window_dir(tracing_window.load(std::memory_order_acquire));
@@ -2166,6 +2185,35 @@ drmemtrace_get_output_path(OUT const char **path)
     *path = logsubdir;
     return DRMEMTRACE_SUCCESS;
 }
+
+#ifdef BUILD_PT_TRACER
+drmemtrace_status_t
+drmemtrace_get_kcore_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = kcore_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_get_kallsyms_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = kallsyms_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_get_kernel_trace_output_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = kernel_trace_logsubdir;
+    return DRMEMTRACE_SUCCESS;
+}
+#endif
 
 drmemtrace_status_t
 drmemtrace_get_modlist_path(OUT const char **path)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2023 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2023 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,73 +30,56 @@
  * DAMAGE.
  */
 
-/* ir2trace: convert DynamoRIO's IR format to trace entries. */
-
-#ifndef _IR2TRACE_H_
-#define _IR2TRACE_H_ 1
-
-/**
- * @file ir2trace.h
- * @brief Offline DynamoRIO's IR converter. Converts DynamoRIO's IR format to trace
- * entries.
+/* Functions and structs extracted from raw2trace.h for sharing with the tracer.
  */
 
-#include <vector>
-#include <mutex>
-#include "drir.h"
+#ifndef _RAW2TRACE_SHARED_H_
+#define _RAW2TRACE_SHARED_H_ 1
+
+/**
+ * @file drmemtrace/raw2trace_shared.h
+ * @brief DrMemtrace routines and structs shared between raw2trace and tracer.
+ */
+
+#include "dr_api.h"
+#include "drmemtrace.h"
 #include "trace_entry.h"
 
 namespace dynamorio {
 namespace drmemtrace {
 
-#ifndef IN
-#    define IN // nothing
+#define OUTFILE_SUFFIX "raw"
+#ifdef BUILD_PT_POST_PROCESSOR
+#    define OUTFILE_SUFFIX_PT "raw.pt"
 #endif
-#ifndef OUT
-#    define OUT // nothing
+#ifdef HAS_ZLIB
+#    define OUTFILE_SUFFIX_GZ "raw.gz"
+#    define OUTFILE_SUFFIX_ZLIB "raw.zlib"
 #endif
-#ifndef INOUT
-#    define INOUT // nothing
+#ifdef HAS_SNAPPY
+#    define OUTFILE_SUFFIX_SZ "raw.sz"
 #endif
+#ifdef HAS_LZ4
+#    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
+#endif
+#define OUTFILE_SUBDIR "raw"
+#define WINDOW_SUBDIR_PREFIX "window"
+#define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
+#define WINDOW_SUBDIR_FIRST "window.0000"
+#define TRACE_SUBDIR "trace"
 
 /**
- * The type of ir2trace_t::convert() return value.
+ * Functions for decoding and verifying raw memtrace data headers.
  */
-enum ir2trace_convert_status_t {
-    /** The conversion process succeeded. */
-    IR2TRACE_CONV_SUCCESS = 0,
-    /** The conversion process failed: invalid parameter. */
-    IR2TRACE_CONV_ERROR_INVALID_PARAMETER
-};
-
-/**
- * ir2trace_t is a class that can convert DynamoRIO's IR format to trace entries.
- */
-class ir2trace_t {
-public:
-    ir2trace_t()
-    {
-    }
-    ~ir2trace_t()
-    {
-    }
-
-    /**
-     * Converts DynamoRIO's IR format to trace entries.
-     * @param drir DynamoRIO's IR format.
-     * @param trace The converted trace entries.
-     * @param verbosity  The verbosity level for notifications. If set to 0, only error
-     * logs are printed. If set to 1, all logs are printed. Default value is 0.
-     * @return ir2trace_convert_status_t If the conversion is successful, the function
-     * returns #IR2TRACE_CONV_SUCCESS. Otherwise, the function returns the corresponding
-     * error code.
-     */
-    static ir2trace_convert_status_t
-    convert(IN drir_t &drir, INOUT std::vector<trace_entry_t> &trace,
-            IN int verbosity = 0);
+struct trace_metadata_reader_t {
+    static bool
+    is_thread_start(const offline_entry_t *entry, OUT std::string *error,
+                    OUT int *version, OUT offline_file_type_t *file_type);
+    static std::string
+    check_entry_thread_start(const offline_entry_t *entry);
 };
 
 } // namespace drmemtrace
 } // namespace dynamorio
 
-#endif /* _IR2TRACE_H_ */
+#endif /* _RAW2TRACE_SHARED_H_ */
