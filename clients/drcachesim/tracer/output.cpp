@@ -54,7 +54,7 @@
 #include "named_pipe.h"
 #include "options.h"
 #include "physaddr.h"
-#include "raw2trace.h"
+#include "raw2trace_shared.h"
 #include "trace_entry.h"
 #include "tracer.h"
 #include "utils.h"
