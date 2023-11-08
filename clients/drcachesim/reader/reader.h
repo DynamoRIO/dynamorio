@@ -191,8 +191,11 @@ public:
     is_record_synthetic() const override
     {
         if (cur_ref_.marker.type == TRACE_TYPE_MARKER &&
-            cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_WAIT)
+            cur_ref_.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
+            // These are synthetic records not part of the input and not
+            // counting toward ordinals.
             return true;
+        }
         return suppress_ref_count_ >= 0;
     }
 

@@ -424,11 +424,12 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
             std::cerr << "<marker: system call trace end>\n";
             break;
         case TRACE_MARKER_TYPE_BRANCH_TARGET:
-            // These are not expected to be visible but we handle nonetheless.
+            // These are not expected to be visible (since the reader adds them
+            // to memref.instr.indirect_branch_target) but we handle nonetheless.
             std::cerr << "<marker: indirect branch target 0x" << std::hex
                       << memref.marker.marker_value << std::dec << ">\n";
             break;
-        case TRACE_MARKER_TYPE_WAIT:
+        case TRACE_MARKER_TYPE_CORE_WAIT:
             std::cerr << "<marker: wait for another core>\n";
             break;
         default:

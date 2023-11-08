@@ -123,12 +123,13 @@ analyzer_t::record_is_timestamp(const memref_t &record)
 }
 
 template <>
-void
-analyzer_t::set_wait_record(memref_t &record)
+memref_t
+analyzer_t::create_wait_marker()
 {
+    memref_t record = {}; // Zero the other fields.
     record.marker.type = TRACE_TYPE_MARKER;
-    record.marker.marker_type = TRACE_MARKER_TYPE_WAIT;
-    record.marker.marker_value = 0;
+    record.marker.marker_type = TRACE_MARKER_TYPE_CORE_WAIT;
+    return record;
 }
 
 /******************************************************************************
@@ -170,12 +171,14 @@ record_analyzer_t::record_is_timestamp(const trace_entry_t &record)
 }
 
 template <>
-void
-record_analyzer_t::set_wait_record(trace_entry_t &record)
+trace_entry_t
+record_analyzer_t::create_wait_marker()
 {
+    trace_entry_t record;
     record.type = TRACE_TYPE_MARKER;
-    record.size = TRACE_MARKER_TYPE_WAIT;
-    record.addr = 0;
+    record.size = TRACE_MARKER_TYPE_CORE_WAIT;
+    record.addr = 0; // Marker value has no meaning so we zero it.
+    return record;
 }
 
 /********************************************************************
@@ -531,7 +534,7 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
             // We let tools know about waits so they can analyze the schedule.
             // We synthesize a record here.  If we wanted this to count toward output
             // stream ordinals we would need to add a scheduler API to inject it.
-            set_wait_record(record);
+            record = create_wait_marker();
         } else if (status != sched_type_t::STATUS_OK) {
             if (status == sched_type_t::STATUS_REGION_INVALID) {
                 worker->error =

@@ -209,10 +209,13 @@ test_wait_records()
     }
 
     // Synthesize a cpu-schedule file with some waits in it, if run in lockstep.
+    // In pure lockstep it looks like this with a - for a wait and . for a
+    // non-instruction record, to help understand the file entries below:
+    //   core0: "EEE-AAA-CCCAAACCCBBB.DDD."
+    //   core1: "---EEE.BBBDDDBBBDDDAAA.CCC."
     std::string cpu_fname = "tmp_test_wait_records.zip";
-    static const char *const CORE0_SCHED_STRING = "EEE-AAA-CCCAAACCCBBB.DDD.";
-    static const char *const CORE1_SCHED_STRING = "---EEE.BBBDDDBBBDDDAAA.CCC.";
     {
+        // Instr counts are 1-based, but the first lists 0 (really starts at 1).
         std::vector<schedule_entry_t> sched0;
         sched0.emplace_back(TID_BASE + 4, 10, CPU0, 0);
         sched0.emplace_back(TID_BASE, 101, CPU0, 0);
@@ -320,7 +323,7 @@ test_wait_records()
             ++shard->records;
             ++global_records_;
             if (memref.marker.type == TRACE_TYPE_MARKER &&
-                memref.marker.marker_type == TRACE_MARKER_TYPE_WAIT) {
+                memref.marker.marker_type == TRACE_MARKER_TYPE_CORE_WAIT) {
                 shard->schedule += '-';
                 return true;
             }
@@ -352,6 +355,8 @@ test_wait_records()
     for (const auto &sched : schedule_strings) {
         std::cerr << "Schedule: " << sched << "\n";
     }
+    // Due to non-determinism we can't put too many restrictions here so we
+    // just ensure we saw at least one wait at the start.
     assert(schedule_strings[1][0] == '-');
 #endif
     return true;
