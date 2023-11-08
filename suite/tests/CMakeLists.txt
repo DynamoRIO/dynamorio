@@ -5775,5 +5775,3 @@ if (RISCV64)
     code_api|api.ir-static
     PROPERTIES LABELS RISCV64)
 endif ()
-
-set_tests_properties(code_api|tool.drcacheoff.burst_traceopts PROPERTIES LABELS TMATE_DEBUG)#NOCHECK

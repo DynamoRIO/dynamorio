@@ -1,0 +1,333 @@
+# **********************************************************
+# Copyright (c) 2020-2023 Google, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of Google, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Github Actions workflow for x86 Continuous Integration testing.
+
+name: ci-x86
+on:
+  # Run on pushes to master and on pull request changes, including from a
+  # forked repo with no "push" trigger, while avoiding duplicate triggers.
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, reopened, synchronize]
+  merge_group:
+
+  # Manual trigger using the Actions page. May remove when integration complete.
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+  # We'd like to add common initial steps for all jobs, but that's not supported.
+  # Composite Run Steps can help, but we don't have that many common steps -- just
+  # checkout and fetch for now.
+  # https://docs.github.com/en/free-pro-team@latest/actions/creating-actions/about-actions#composite-run-steps-actions
+  # https://github.community/t/reusing-sharing-inheriting-steps-between-jobs-declarations
+
+jobs:
+  # 32-bit Linux build with gcc and run tests:
+  x86-32:
+    runs-on: ubuntu-20.04
+
+    # When checking out the repository that triggered a workflow, actions/checkout@v2
+    # defaults to the reference or SHA for that event. See documentation for ref at
+    # https://github.com/actions/checkout
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    # We also need origin/master for pre-commit source file checks in runsuite.cmake.
+    # But fetching multiple branches isn't supported yet: actions/checkout#214
+    # Pending PR that adds this support actions/checkout#155
+    # TODO i#4549: When necessary support is available, remove/replace the
+    # workaround here and from every job in other Github Actions CI workflows.
+    - run: git fetch --no-tags --depth=1 origin master
+
+    # Install multilib for non-cross-compiling Linux build.
+    # GA CI uses packages.microsoft.com which is missing i386 packages, and
+    # attempts at using apt with us.archive-ubuntu.com hit dep issues:
+    # so we manually install the i386 packages we need.
+    - name: Create Build Environment
+      run: |
+        sudo apt update
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          liblz4-dev g++-multilib libunwind-dev
+        sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
+        apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        sudo rsync -av ../extract/usr/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
+        sudo rsync -av ../extract/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
+        sudo rsync -av ../extract/usr/include/i386-linux-gnu/ /usr/include/
+        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+
+    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
+    - name: Setup newer cmake
+      uses: jwlawson/actions-setup-cmake@v1.8
+      with:
+        cmake-version: '3.19.7'
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/x86-32
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
+
+  # 64-bit Linux build with gcc and run tests.
+  x86-64:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    # Install multilib for non-cross-compiling Linux build.
+    - name: Create Build Environment
+      run: |
+        sudo apt update
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          liblz4-dev g++-multilib libunwind-dev
+        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+
+    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
+    - name: Setup newer cmake
+      uses: jwlawson/actions-setup-cmake@v1.8
+      with:
+        cmake-version: '3.19.7'
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/x86-64
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
+
+  # Ubuntu22 64-bit Linux build with gcc and run tests.
+  # XXX: A matrix could combine this with the 20.04 but our auto-cancel
+  # step cancels the 2nd job so we need to solve that first.
+  x86-64-ubuntu22:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    # Install multilib for non-cross-compiling Linux build.
+    - name: Create Build Environment
+      run: |
+        sudo apt update
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          liblz4-dev g++-multilib libunwind-dev
+        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+
+    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
+    - name: Setup newer cmake
+      uses: jwlawson/actions-setup-cmake@v1.8
+      with:
+        cmake-version: '3.19.7'
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/x86-64-ubuntu22
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
+
+  # Ubuntu22 64-bit Linux build with gcc and run tests.
+  # XXX: A matrix could combine this with the 20.04 but our auto-cancel
+  # step cancels the 2nd job so we need to solve that first.
+  x86-32-ubuntu22:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    # Install multilib for non-cross-compiling Linux build.
+    - name: Create Build Environment
+      run: |
+        sudo apt update
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          liblz4-dev g++-multilib libunwind-dev
+        sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
+        apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        sudo rsync -av ../extract/usr/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
+        sudo rsync -av ../extract/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
+        sudo rsync -av ../extract/usr/include/i386-linux-gnu/ /usr/include/
+        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+
+    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
+    - name: Setup newer cmake
+      uses: jwlawson/actions-setup-cmake@v1.8
+      with:
+        cmake-version: '3.19.7'
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/x86-32-ubuntu22
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI

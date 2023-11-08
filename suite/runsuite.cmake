@@ -93,7 +93,6 @@ if (UNIX AND NOT APPLE AND NOT ANDROID)
     set(arg_debug_only ON)
   endif ()
 endif ()
-set(extra_ctest_args INCLUDE_LABEL TMATE_DEBUG)#NOCHECK
 
 set(build_tests "BUILD_TESTS:BOOL=ON")
 
