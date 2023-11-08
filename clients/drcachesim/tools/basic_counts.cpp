@@ -129,7 +129,8 @@ basic_counts_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     per_shard_t *per_shard = reinterpret_cast<per_shard_t *>(shard_data);
     counters_t *counters = &per_shard->counters[per_shard->counters.size() - 1];
-    if (memref.instr.tid != per_shard->last_tid_) {
+    if (memref.instr.tid != INVALID_THREAD_ID &&
+        memref.instr.tid != per_shard->last_tid_) {
         counters->unique_threads.insert(memref.instr.tid);
         per_shard->last_tid_ = memref.instr.tid;
     }
