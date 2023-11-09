@@ -46,6 +46,19 @@
 namespace dynamorio {
 namespace drmemtrace {
 
+// Helper macro to make test failures more verbose.
+#define TEST_EQ(A, B)                                             \
+    {                                                             \
+        auto aa = A;                                              \
+        auto bb = B;                                              \
+        if (aa != bb) {                                           \
+            std::cerr << "ERROR: " << #A << " != " << #B << "\n"; \
+            std::cerr << "  " << #A << " = " << aa << "\n";       \
+            std::cerr << "  " << #B << " = " << bb << "\n";       \
+        }                                                         \
+        assert(aa == bb);                                         \
+    }
+
 static cache_simulator_knobs_t
 make_test_knobs()
 {
@@ -59,6 +72,16 @@ make_test_knobs()
     knobs.LL_assoc = 32;
     knobs.data_prefetcher = "none";
     return knobs;
+}
+
+memref_t
+make_memref(addr_t address, trace_type_t type = TRACE_TYPE_READ, int size = 4)
+{
+    memref_t ref;
+    ref.data.type = type;
+    ref.data.size = size;
+    ref.data.addr = address;
+    return ref;
 }
 
 void
@@ -311,6 +334,129 @@ LLC {
            num_accesses - 1);
     assert(cache_sim.get_cache_metric(metric_name_t::CHILD_HITS, 3, 0) ==
            num_accesses - 1);
+}
+
+void
+unit_test_exclusive_cache()
+{
+    // Create simple 3-level cache with exclusive LLC.
+    std::string config = R"MYCONFIG(// 3-level with exclusive LLC.
+num_cores       1
+line_size       64
+coherent        true
+
+L1I {
+  type            instruction
+  core            0
+  size            256
+  assoc           1
+  prefetcher      none
+  parent          L2
+}
+L1D {
+  type            data
+  core            0
+  size            256
+  assoc           1
+  prefetcher      none
+  parent          L2
+}
+L2 {
+  size            4K
+  assoc           4
+  inclusive       true
+  prefetcher      none
+  parent          LLC
+}
+LLC {
+  size            64K
+  assoc           4
+  exclusive       true
+  prefetcher      none
+  parent          memory
+}
+)MYCONFIG";
+    std::istringstream config_in(config);
+    cache_simulator_t cache_sim(&config_in);
+
+    // The cache config specified coherence, and the only level with
+    // multiple caches is L1.  So there should be 2 snooped caches.
+    TEST_EQ(cache_sim.get_num_snooped_caches(), 2);
+
+    // L1s are 1-way, while L2 and LLC are both 4-way.
+    // If we cycle through 4 conflicting lines multiple times, the L2 will
+    // hold all four lines and never evict anything to LLC: we expect all
+    // misses in L1, 4 misses and many hits in L2, 4 misses and no hits
+    // in LLC.
+
+    // Test 4 conflicting lines.
+    const int NUM_LOOPS = 16;
+    const int L2_ASSOC = 4;
+    const int LLC_ASSOC = 4;
+    const int LLC_SIZE = 64 * 1024;
+    const int ADDR_STRIDE = LLC_SIZE; // Maximize conflicts.
+    const int CONFLICTING_ADDRESSES = 4;
+    for (int n = 0; n < NUM_LOOPS; n++) {
+        for (int i = 0; i < CONFLICTING_ADDRESSES; ++i) {
+            if (!cache_sim.process_memref(make_memref(ADDR_STRIDE * i))) {
+                std::cerr << "drcachesim failed: " << cache_sim.get_error_string()
+                          << "\n";
+                exit(1);
+            }
+        }
+    }
+
+    // Define stats helper functions that are specific to this test config.
+    auto get_l2_metric = [&](metric_name_t metric) {
+        return cache_sim.get_cache_metric(metric, /*level=*/2, /*core=*/0,
+                                          cache_split_t::DATA);
+    };
+    auto get_llc_metric = [&](metric_name_t metric) {
+        return cache_sim.get_cache_metric(metric, /*level=*/3, /*core=*/0,
+                                          cache_split_t::DATA);
+    };
+
+    int l2_misses = get_l2_metric(metric_name_t::MISSES);
+    int l2_hits = get_l2_metric(metric_name_t::HITS);
+    int llc_misses = get_llc_metric(metric_name_t::MISSES);
+    int llc_hits = get_llc_metric(metric_name_t::HITS);
+
+    TEST_EQ(l2_misses, CONFLICTING_ADDRESSES);
+    TEST_EQ(l2_hits, (NUM_LOOPS - 1) * CONFLICTING_ADDRESSES);
+    TEST_EQ(llc_misses, l2_misses);
+    TEST_EQ(llc_hits, 0);
+
+    // Increasing to 8 conflicting lines means neither L2 nor LLC can hold all
+    // of the lines, but as a victim cache the LLC is additive and should hold
+    // L2's conflict evictions:  we expect 4 hits (from prior test) and the rest
+    // misses in L2, but 4 (new) misses and the rest hits in LLC.
+    const int MORE_CONFLICTING_ADDRESSES = 8;
+    for (int n = 0; n < NUM_LOOPS; n++) {
+        for (int i = 0; i < MORE_CONFLICTING_ADDRESSES; ++i) {
+            if (!cache_sim.process_memref(make_memref(ADDR_STRIDE * i))) {
+                std::cerr << "drcachesim unit_test_child_hits failed: "
+                          << cache_sim.get_error_string() << "\n";
+                exit(1);
+            }
+        }
+    }
+
+    std::cerr << "Results from second exclusive-cache sequence.\n";
+    cache_sim.print_results();
+
+    int new_l2_misses = get_l2_metric(metric_name_t::MISSES);
+    int new_l2_hits = get_l2_metric(metric_name_t::HITS);
+    int new_llc_misses = get_llc_metric(metric_name_t::MISSES);
+    int new_llc_hits = get_llc_metric(metric_name_t::HITS);
+
+    // Subtract out the counts from the prior accesses.
+    TEST_EQ(new_l2_misses - l2_misses,
+            NUM_LOOPS * MORE_CONFLICTING_ADDRESSES - CONFLICTING_ADDRESSES);
+    TEST_EQ(new_l2_hits - l2_hits, CONFLICTING_ADDRESSES);
+
+    TEST_EQ(new_llc_misses - llc_misses,
+            MORE_CONFLICTING_ADDRESSES - CONFLICTING_ADDRESSES);
+    TEST_EQ(new_llc_hits - llc_hits, (NUM_LOOPS - 1) * MORE_CONFLICTING_ADDRESSES);
 }
 
 // Generate a sequence of read accesses to a cache in a 2-D access pattern.
@@ -566,8 +712,13 @@ unit_test_cache_accessors()
         for (int set_count : TEST_SET_COUNTS) {
             for (int line_size : TEST_LINE_SIZES) {
                 // Just cycle through these combinations.  No need to be exhaustive.
-                bool inclusive = TESTANY(0x1, loop_count);
-                bool coherent = TESTANY(0x2, loop_count);
+                bool coherent = TESTANY(0x1, loop_count);
+                bool inclusive = TESTANY(0x2, loop_count);
+                bool exclusive = !inclusive && TESTANY(0x4, loop_count);
+                cache_inclusion_policy_t policy = inclusive
+                    ? cache_inclusion_policy_t::INCLUSIVE
+                    : exclusive ? cache_inclusion_policy_t::EXCLUSIVE
+                                : cache_inclusion_policy_t::NINE;
                 ++loop_count;
 
                 int total_size = associativity * set_count * line_size;
@@ -576,10 +727,9 @@ unit_test_cache_accessors()
                 // Only test LRU here.  Other replacement policy accessors are
                 // tested in the cache_replacement_policy_unit_test.
                 cache_lru_t cache(cache_name);
-                bool initialized =
-                    cache.init(associativity, line_size, total_size,
-                               /*parent=*/nullptr, &stats,
-                               /*prefetcher=*/nullptr, inclusive, coherent);
+                bool initialized = cache.init(associativity, line_size, total_size,
+                                              /*parent=*/nullptr, &stats,
+                                              /*prefetcher=*/nullptr, policy, coherent);
                 assert(initialized);
                 assert(cache.get_stats() == &stats);
                 assert(stats.get_caching_device() == &cache);
@@ -590,6 +740,7 @@ unit_test_cache_accessors()
                 assert(cache.get_block_size() == line_size);
                 assert(cache.get_num_blocks() == total_size / line_size);
                 assert(cache.is_inclusive() == inclusive);
+                assert(cache.is_exclusive() == exclusive);
                 assert(cache.is_coherent() == coherent);
             }
         }
@@ -602,6 +753,7 @@ test_main(int argc, const char *argv[])
     // Takes in a path to the tests/ src dir.
     assert(argc == 2);
 
+    unit_test_exclusive_cache();
     unit_test_cache_accessors();
     unit_test_config_reader(argv[1]);
     unit_test_cache_associativity();

@@ -56,7 +56,8 @@ public:
     bool
     init(int associativity, int line_size, int total_size, caching_device_t *parent,
          caching_device_stats_t *stats, prefetcher_t *prefetcher = nullptr,
-         bool inclusive = false, bool coherent_cache = false, int id_ = -1,
+         cache_inclusion_policy_t inclusion_policy = cache_inclusion_policy_t::NINE,
+         bool coherent_cache = false, int id_ = -1,
          snoop_filter_t *snoop_filter_ = nullptr,
          const std::vector<caching_device_t *> &children = {}) override;
 

@@ -147,7 +147,7 @@ config_reader_t::configure(std::istream *config_file, cache_simulator_knobs_t &k
                 ERRMSG("Error reading verbose from the configuration file\n");
                 return false;
             }
-        } else if (param == "coherence") {
+        } else if (param == "coherence" || param == "coherent") {
             // Whether to simulate coherence
             std::string bool_val;
             if (!(*fin_ >> bool_val)) {
@@ -203,7 +203,7 @@ config_reader_t::configure_cache(cache_params_t &cache)
         return false;
     }
     if (c != '{') {
-        ERRMSG("Expected '{' before cache params\n");
+        ERRMSG("Expected '{' between '%s' and cache params\n", cache.name.c_str());
         return false;
     }
 
@@ -273,14 +273,35 @@ config_reader_t::configure_cache(cache_params_t &cache)
             // Is the cache inclusive of its children.
             std::string bool_val;
             if (!(*fin_ >> bool_val)) {
-                ERRMSG("Error reading cache inclusivity from "
+                ERRMSG("Error reading cache inclusion policy from "
                        "the configuration file\n");
                 return false;
             }
             if (is_true(bool_val)) {
+                if (cache.exclusive) {
+                    ERRMSG("Cache cannot be both inclusive AND exclusive.\n");
+                    return false;
+                }
                 cache.inclusive = true;
             } else {
                 cache.inclusive = false;
+            }
+        } else if (param == "exclusive") {
+            // Is the cache exclusive of its children.
+            std::string bool_val;
+            if (!(*fin_ >> bool_val)) {
+                ERRMSG("Error reading cache inclusion policy from "
+                       "the configuration file\n");
+                return false;
+            }
+            if (is_true(bool_val)) {
+                if (cache.inclusive) {
+                    ERRMSG("Cache cannot be both inclusive AND exclusive.\n");
+                    return false;
+                }
+                cache.exclusive = true;
+            } else {
+                cache.exclusive = false;
             }
         } else if (param == "parent") {
             // Name of the cache's parent. LLC's parent is main memory
