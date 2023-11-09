@@ -2609,11 +2609,19 @@ test_stats_timestamp_instr_count(void *drcontext)
 bool
 test_is_maybe_blocking_syscall(void *drcontext)
 {
+    std::cerr
+        << "\n===============\nTesting raw2trace maybe blocking syscall function.\n";
 #ifdef LINUX
 #    ifdef X86
+#        ifdef X64
     const uintptr_t syscall_futex = 202;
     const uintptr_t syscall_sendmsg = 46;
     const uintptr_t syscall_write = 1;
+#        else
+    const uintptr_t syscall_futex = 240;
+    const uintptr_t syscall_sendmsg = 370;
+    const uintptr_t syscall_write = 4;
+#        endif
 #    elif defined(ARM)
     const uintptr_t syscall_futex = 240;
     const uintptr_t syscall_sendmsg = 296;
@@ -2632,8 +2640,11 @@ test_is_maybe_blocking_syscall(void *drcontext)
     raw2trace_test_t raw2trace(input, output, modules, drcontext);
 
     for (const uintptr_t &syscall : { syscall_futex, syscall_sendmsg, syscall_write }) {
-        if (!raw2trace.is_maybe_blocking_syscall(syscall))
+        if (!raw2trace.is_maybe_blocking_syscall(syscall)) {
+            std::cerr << "Syscall " << syscall
+                      << " should be marked as maybe blocking.\n";
             return false;
+        }
     }
     return true;
 #endif
