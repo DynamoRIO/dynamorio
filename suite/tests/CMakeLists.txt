@@ -1770,7 +1770,7 @@ function(use_MD_not_MTd source_file)
   endif ()
 endfunction()
 
-# The -O3 flag is removed above with the 
+# The -O3 flag is removed above with the
 # string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 # line. -O3 is then selectively re-added with this function or add_sve_flags().
 # It will be desirable to one day remove the "REGEX REPLACE" line and just
