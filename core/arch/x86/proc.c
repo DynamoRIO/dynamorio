@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2023 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -244,6 +244,16 @@ get_processor_specific_info(void)
         SYSLOG_INTERNAL_ERROR("Running on unknown processor type");
         LOG(GLOBAL, LOG_TOP, 1, "cpuid returned " PFX " " PFX " " PFX " " PFX "\n",
             res_eax, res_ebx, res_ecx, res_edx);
+    }
+    if (standalone_library) {
+        /* For separate decoding, keep a base default and do not target the
+         * underlying processor (xref i#431, i#6420, i#5725).
+         * The user can use proc_set_vendor() to override.
+         * This affects various decoding corner cases and is important to set.
+         * We leave all the other cache info, etc. pointing to the current hardware.
+         */
+        LOG(GLOBAL, LOG_TOP, 1, "For standalone decoding, assuming Intel target.\n");
+        cpu_info.vendor = VENDOR_INTEL;
     }
 
     /* Try to get extended cpuid information */
