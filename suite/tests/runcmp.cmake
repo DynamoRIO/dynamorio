@@ -120,8 +120,7 @@ if (NOT lists_identical)
     set(tmp2 "${cmp}-expect")
     file(WRITE "${tmp}" "${output}")
     file(WRITE "${tmp2}" "${filtered_expect}")
-    set(diffcmd "diff")
-    execute_process(COMMAND ${diffcmd} ${tmp} ${tmp2}
+    execute_process(COMMAND ${DIFF_CMD} ${tmp} ${tmp2}
       OUTPUT_VARIABLE dcmd_out)
     message(STATUS "diff: ${dcmd_out}")
   endif ()
