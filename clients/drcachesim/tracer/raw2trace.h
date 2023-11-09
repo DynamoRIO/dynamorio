@@ -67,6 +67,7 @@
 #include "drmemtrace.h"
 #include "hashtable.h"
 #include "instru.h"
+#include "raw2trace_shared.h"
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
@@ -82,26 +83,6 @@ namespace drmemtrace {
 #else
 #    define DEBUG_ASSERT(x) /* nothing */
 #endif
-
-#define OUTFILE_SUFFIX "raw"
-#ifdef BUILD_PT_POST_PROCESSOR
-#    define OUTFILE_SUFFIX_PT "raw.pt"
-#endif
-#ifdef HAS_ZLIB
-#    define OUTFILE_SUFFIX_GZ "raw.gz"
-#    define OUTFILE_SUFFIX_ZLIB "raw.zlib"
-#endif
-#ifdef HAS_SNAPPY
-#    define OUTFILE_SUFFIX_SZ "raw.sz"
-#endif
-#ifdef HAS_LZ4
-#    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
-#endif
-#define OUTFILE_SUBDIR "raw"
-#define WINDOW_SUBDIR_PREFIX "window"
-#define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
-#define WINDOW_SUBDIR_FIRST "window.0000"
-#define TRACE_SUBDIR "trace"
 
 #ifdef HAS_LZ4
 #    define TRACE_SUFFIX_LZ4 "trace.lz4"
@@ -401,17 +382,6 @@ struct trace_metadata_writer_t {
     write_tid(byte *buffer, thread_id_t tid);
     static int
     write_timestamp(byte *buffer, uint64 timestamp);
-};
-
-/**
- * Functions for decoding and verifying raw memtrace data headers.
- */
-struct trace_metadata_reader_t {
-    static bool
-    is_thread_start(const offline_entry_t *entry, OUT std::string *error,
-                    OUT int *version, OUT offline_file_type_t *file_type);
-    static std::string
-    check_entry_thread_start(const offline_entry_t *entry);
 };
 
 /**

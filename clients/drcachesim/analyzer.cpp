@@ -122,6 +122,17 @@ analyzer_t::record_is_timestamp(const memref_t &record)
         record.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP;
 }
 
+template <>
+memref_t
+analyzer_t::create_wait_marker()
+{
+    memref_t record = {}; // Zero the other fields.
+    record.marker.type = TRACE_TYPE_MARKER;
+    record.marker.marker_type = TRACE_MARKER_TYPE_CORE_WAIT;
+    record.marker.tid = INVALID_THREAD_ID;
+    return record;
+}
+
 /******************************************************************************
  * Specializations for analyzer_tmpl_t<record_reader_t>, aka record_analyzer_t.
  */
@@ -158,6 +169,17 @@ bool
 record_analyzer_t::record_is_timestamp(const trace_entry_t &record)
 {
     return record.type == TRACE_TYPE_MARKER && record.size == TRACE_MARKER_TYPE_TIMESTAMP;
+}
+
+template <>
+trace_entry_t
+record_analyzer_t::create_wait_marker()
+{
+    trace_entry_t record;
+    record.type = TRACE_TYPE_MARKER;
+    record.size = TRACE_MARKER_TYPE_CORE_WAIT;
+    record.addr = 0; // Marker value has no meaning so we zero it.
+    return record;
 }
 
 /********************************************************************
@@ -510,11 +532,10 @@ analyzer_tmpl_t<RecordType, ReaderType>::process_tasks(analyzer_worker_data_t *w
         if (sched_by_time_)
             cur_micros = get_current_microseconds();
         if (status == sched_type_t::STATUS_WAIT) {
-            // TODO i#5694: We'd like the forthcoming schedule_stats tool to know about
-            // waits and idle periods (to record "-" in its string): should the analyzer
-            // insert a new marker type that doesn't count toward ordinals (or else it
-            // needs a scheduler API to inject it)?
-            continue;
+            // We let tools know about waits so they can analyze the schedule.
+            // We synthesize a record here.  If we wanted this to count toward output
+            // stream ordinals we would need to add a scheduler API to inject it.
+            record = create_wait_marker();
         } else if (status != sched_type_t::STATUS_OK) {
             if (status == sched_type_t::STATUS_REGION_INVALID) {
                 worker->error =
