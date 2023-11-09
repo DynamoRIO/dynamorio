@@ -829,21 +829,21 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  *
  * (Read more on the Volume I: RISC-V Unprivileged ISA V20191213 at page 51.)
  *
- * This is essentially the same to ARM/AArch64's exclusive monitor, quote from ldstex.dox:
- * "Since dynamic instrumentation routinely adds additional memory loads and stores in
- * between application instructions, it is in danger of breaking every monitor in the
- * application."
+ * This is essentially the same situation as ARM/AArch64's exclusive monitors, quote from
+ * ldstex.dox: "Since dynamic instrumentation routinely adds additional memory loads and
+ * stores in between application instructions, it is in danger of breaking every monitor
+ * in the application."
  *
  * On a Unmatched RISC-V SBC, without this mangling, any application linked with libc
  * would hang on startup.
  *
- * So for the LR/SC sequence, a similar approach to AArch64's exclusive monitor is
+ * So for the LR/SC sequence, a similar approach to AArch64's exclusive monitors is
  * adopted: mangling LR to a normal load, and SC to a compare-and-swap.
  *
  * While this introduces ABA problems, quote again from ldstex.dox: "the difference almost
  * never matters for real programs".
  *
- * Here is an example of how we do the tranformation:
+ * Here is an example of how we do the transformation:
  *
  * # Original code sequence
  * 1:
