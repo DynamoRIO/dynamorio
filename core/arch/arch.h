@@ -598,8 +598,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif
 #if defined(AARCHXX) || defined(RISCV64)
 /* For ARM, mangle app instr accessing registers pc and dr_reg_stolen;
-   for AArch64, mangle app instr accessing register dr_reg_stolen;
-   for RISC-V, mangle app instr accessing registers tp and dr_reg_stolen.
+ * for AArch64, mangle app instr accessing register dr_reg_stolen;
+ * for RISC-V, mangle app instr accessing registers tp and dr_reg_stolen.
  */
 instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,

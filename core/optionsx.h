@@ -633,7 +633,7 @@ OPTION_DEFAULT_INTERNAL(bool, unsafe_build_ldstex, false,
                         "replace blocks using exclusive load/store with a "
                         "macro-instruction (unsafe)")
 #endif
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 /* TODO i#1698: ARM is still missing the abilty to convert the following:
  * + ldrexd..strexd.
  * + Predicated exclusive loads or stores.

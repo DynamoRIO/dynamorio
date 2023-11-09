@@ -418,6 +418,8 @@ static void
 mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              instr_t *next_instr)
 {
+    ASSERT_NOT_TESTED();
+
     ushort slot;
     reg_id_t scratch_reg = DR_REG_NULL;
     opnd_t curop;
@@ -443,10 +445,12 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == DR_REG_TP)
                 instr_set_dst(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_TP) {
-                instr_set_dst(instr, i,
-                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                    opnd_get_disp(curop),
-                                                    opnd_get_size(curop)));
+                instr_set_dst(
+                    instr, i,
+                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                         opnd_get_disp(curop),
+                                                         opnd_get_size(curop)),
+                                   DR_OPND_IMM_PRINT_DECIMAL));
             }
         }
         for (i = 0; i < instr_num_srcs(instr); i++) {
@@ -454,10 +458,12 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == DR_REG_TP)
                 instr_set_src(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == DR_REG_TP) {
-                instr_set_src(instr, i,
-                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                    opnd_get_disp(curop),
-                                                    opnd_get_size(curop)));
+                instr_set_src(
+                    instr, i,
+                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                         opnd_get_disp(curop),
+                                                         opnd_get_size(curop)),
+                                   DR_OPND_IMM_PRINT_DECIMAL));
             }
         }
         instr_set_translation(instr, instrlist_get_translation_target(ilist));
@@ -485,10 +491,12 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == dr_reg_stolen)
                 instr_set_dst(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == dr_reg_stolen) {
-                instr_set_dst(instr, i,
-                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                    opnd_get_disp(curop),
-                                                    opnd_get_size(curop)));
+                instr_set_dst(
+                    instr, i,
+                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                         opnd_get_disp(curop),
+                                                         opnd_get_size(curop)),
+                                   DR_OPND_IMM_PRINT_DECIMAL));
             }
         }
         for (i = 0; i < instr_num_srcs(instr); i++) {
@@ -496,10 +504,12 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
             if (opnd_is_reg(curop) && opnd_get_reg(curop) == dr_reg_stolen)
                 instr_set_src(instr, i, opnd_create_reg(scratch_reg));
             else if (opnd_is_base_disp(curop) && opnd_get_base(curop) == dr_reg_stolen) {
-                instr_set_src(instr, i,
-                              opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
-                                                    opnd_get_disp(curop),
-                                                    opnd_get_size(curop)));
+                instr_set_src(
+                    instr, i,
+                    opnd_add_flags(opnd_create_base_disp(scratch_reg, DR_REG_NULL, 0,
+                                                         opnd_get_disp(curop),
+                                                         opnd_get_size(curop)),
+                                   DR_OPND_IMM_PRINT_DECIMAL));
             }
         }
         instr_set_translation(instr, instrlist_get_translation_target(ilist));
@@ -511,10 +521,28 @@ mangle_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     }
 }
 
+/* Mangle a cbr that uses stolen register and tp register as follows:
+ *
+ *      beq  tp, t3, target         # t3 is the stolen register
+ * =>
+ *      sd   a0, a0_slot(t3)        # spill a0
+ *      ld   a0, tp_slot(t3)        # load app's tp from memory
+ *      sd   a1, a1_slot(t3)        # spill a1
+ *      ld   a1, stolen_slot(t3)    # laod app's t3 from memory
+ *      bne  a0, a1, fall
+ *      ld   a0, a0_slot(t3)        # restore a0 (original branch taken)
+ *      ld   a1, a1_slot(t3)        # restore a1
+ *      j    target
+ * fall:
+ *      ld   a0, a0_slot(t3)        # restore a0 (original branch not taken)
+ *      ld   a1, a1_slot(t3)        # restore a1
+ */
 static void
 mangle_cbr_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                  instr_t *next_instr)
 {
+    ASSERT_NOT_TESTED();
+
     instr_t *fall = INSTR_CREATE_label(dcontext);
     reg_id_t scratch_reg1 = DR_REG_NULL, scratch_reg2 = DR_REG_NULL;
     int opcode = instr_get_opcode(instr);
@@ -539,6 +567,7 @@ mangle_cbr_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr
             instr_create_restore_from_tls(dcontext, scratch_reg2, TLS_REG_STOLEN_SLOT));
     }
 
+    ASSERT(instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 3);
     instr_t *reversed_cbr =
         instr_create_0dst_3src(dcontext, opcode, opnd_create_instr(fall),
                                instr_get_src(instr, 1), instr_get_src(instr, 2));
@@ -552,11 +581,13 @@ mangle_cbr_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr
     }
     PRE(ilist, instr, reversed_cbr);
 
+    /* Restore scratch regs on the fall-through (taken, pre-inversion) path. */
     if (instr_uses_tp)
         PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch_reg1, slot1));
     if (instr_uses_reg_stolen)
         PRE(ilist, instr, instr_create_restore_from_tls(dcontext, scratch_reg2, slot2));
 
+    /* Replace original cbr with an unconditional jump to its target. */
     opnd = instr_get_src(instr, 0);
     instr_reset(dcontext, instr);
     instr_set_opcode(instr, OP_jal);
@@ -565,6 +596,7 @@ mangle_cbr_stolen_reg_and_tp_reg(dcontext_t *dcontext, instrlist_t *ilist, instr
     instr_set_src(instr, 0, opnd);
     instr_set_translation(instr, instrlist_get_translation_target(ilist));
 
+    /* Restore scratch regs on the taken (fall-through, pre-inversion) path. */
     PRE(ilist, next_instr, fall);
     if (instr_uses_tp) {
         PRE(ilist, next_instr,
@@ -624,7 +656,7 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 
     /* Keep the release semantics if needed. */
-    if (aqrl & LRSC_ORDERING_RL_MASK) {
+    if (TESTALL(LRSC_ORDERING_RL_MASK, aqrl)) {
         /* fence rw, rw */
         PRE(ilist, instr,
             INSTR_CREATE_fence(dcontext,
@@ -656,7 +688,7 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_set_translation(instr, instrlist_get_translation_target(ilist));
 
     /* Keep the acquire semantics if needed. */
-    if (aqrl & LRSC_ORDERING_AQ_MASK) {
+    if (TESTALL(LRSC_ORDERING_AQ_MASK, aqrl)) {
         /* fence rw, rw */
         PRE(ilist, next_instr,
             INSTR_CREATE_fence(dcontext,
@@ -700,7 +732,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     opnd_t dst, src0;
     opnd_size_t opsz;
     instr_t *fail = INSTR_CREATE_label(dcontext), *final = INSTR_CREATE_label(dcontext),
-            *loop = INSTR_CREATE_label(dcontext), *end = INSTR_CREATE_label(dcontext);
+            *loop = INSTR_CREATE_label(dcontext);
     ASSERT(instr_is_exclusive_store(instr));
     ASSERT(instr_num_dsts(instr) == 1 && instr_num_srcs(instr) == 3);
 
@@ -748,15 +780,14 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_create_1dst_2src(dcontext, opcode, opnd_create_reg(scratch_reg2), src0,
                                opnd_create_immed_int(0b11, OPSZ_2b)));
     PRE(ilist, instr,
-        INSTR_CREATE_bne(dcontext, opnd_create_instr(end), opnd_create_reg(scratch_reg1),
-                         opnd_create_reg(scratch_reg2)));
+        INSTR_CREATE_bne(dcontext, opnd_create_instr(final),
+                         opnd_create_reg(scratch_reg1), opnd_create_reg(scratch_reg2)));
 
     /* instr is here. */
 
     PRE(ilist, next_instr,
         INSTR_CREATE_bne(dcontext, opnd_create_instr(loop), dst,
                          opnd_create_reg(DR_REG_ZERO)));
-    PRE(ilist, next_instr, end);
     /* End of the LR/SC sequence. */
 
     PRE(ilist, next_instr, XINST_CREATE_jump(dcontext, opnd_create_instr(final)));
@@ -769,12 +800,14 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                              DR_OPND_IMM_PRINT_DECIMAL)));
 
     PRE(ilist, next_instr, final);
+
+    /* Invalidate reservation regardless of success or failure. Doing that by writing
+     * -1 to the lrsc address slot since -1 is never a valid address.
+     */
     PRE(ilist, next_instr,
         XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch_reg1),
                               opnd_add_flags(opnd_create_immed_int(-1, OPSZ_12b),
                                              DR_OPND_IMM_PRINT_DECIMAL)));
-
-    /* Invalidate reservation regardless of success or failure. */
     PRE(ilist, next_instr,
         instr_create_save_to_tls(dcontext, scratch_reg1, TLS_LRSC_ADDR_SLOT));
 
@@ -784,10 +817,89 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     return next_instr;
 }
 
+/* RISC-V provides LR/SC (load-reserved / store-conditional) pair to perform complex
+ * atomic memory operations. The way it works is that while LR is doing memory load, it
+ * will register a reservation set -- a set of bytes that subsumes the bytes in the
+ * addressed word. SC conditionally writes a word to the address only if the reservation
+ * is still valid and the reservation set contains the bytes being written.
+ *
+ * Under cache consistency protocol, LR/SC can be implemented by simply adding a mark to
+ * the corresponding cache line. But this also puts many restrictions for instructions
+ * between LR/SC. For example, memory access instructions are not allowed.
+ *
+ * (Read more on the Volume I: RISC-V Unprivileged ISA V20191213 at page 51.)
+ *
+ * This is essentially the same to ARM/AArch64's exclusive monitor, quote from ldstex.dox:
+ * "Since dynamic instrumentation routinely adds additional memory loads and stores in
+ * between application instructions, it is in danger of breaking every monitor in the
+ * application."
+ *
+ * On a Unmatched RISC-V SBC, without this mangling, any application linked with libc
+ * would hang on startup.
+ *
+ * So for the LR/SC sequence, a similar approach to AArch64's exclusive monitor is
+ * adopted: mangling LR to a normal load, and SC to a compare-and-swap.
+ *
+ * While this introduces ABA problems, quote again from ldstex.dox: "the difference almost
+ * never matters for real programs".
+ *
+ * Here is an example of how we do the tranformation:
+ *
+ * # Original code sequence
+ * 1:
+ *      lr.w.aqrl   a5, (a3)
+ *      bne         a5, a4, 1f
+ *      sc.w.rl     a1, a2, (a3)
+ *      bnez        a1, 1b
+ * 1:
+ *
+ * # After mangling
+ * <block 1>
+ * 1:
+ *      sd          a0, a0_slot(t3)         # save scratch register
+ *      fence       rw, rw                  # keep release semantics
+ *      lw          a5, 0(a3)               # replace lr with a normal load
+ *      fence       rw, rw                  # keep acquire semantics
+ *      sd          a3, lrsc_addr_slot(t3)  # save address
+ *      sd          a5, lrsc_val_slot(t3)   # save value
+ *      li          a0, 4
+ *      sd          a0, lrsc_size_slot(t3)  # save size (4 bytes)
+ *      ld          a0, a0_slot(t3)         # restore scratch register
+ *      bne         a5, a4, 1f
+ *
+ * <block 2>
+ * 1:
+ *      sd          a0, a0_slot(t3)         # save scratch register 1
+ *      sd          a4, a4_slot(t3)         # save scratch register 2
+ *      ld          a0, lrsc_addr_slot(t3)  # load saved address
+ *      bne         a0, a3, fail            # check address
+ *      ld          a0, lrsc_size_slot(t3)  # load saved size
+ *      li          a4, 4
+ *      bne         a0, a4, fail            # check size
+ *      ld          a0, lrsc_val_slot(t3)   # load saved value
+ * loop:
+ *      lr.w.aqrl   a4, (a3)                # begin of the CAS sequence
+ *      bne         a0, a4, final
+ *      sc.w.rl     a1, a2, (a3)
+ *      bne         a1, zero, loop          # retry on failure, end of the sequence
+ *      j           final
+ * fail:
+ *      li          a1, 1                   # sets non-zero value to dst on failure
+ * final:
+ *      li          a0, -1
+ *      sd          a0, lrsc_addr_slot(t3)  # invalidate reservation
+ *      ld          a0, a0_slot(t3)         # restore scratch register 1
+ *      ld          a4, a4_slot(t3)         # restore scratch register 2
+ */
 instr_t *
 mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                             instr_t *next_instr)
 {
+    ASSERT_NOT_TESTED();
+
+    if (!INTERNAL_OPTION(ldstex2cas))
+        return NULL;
+
     if (instr_is_exclusive_load(instr)) {
         return mangle_exclusive_load(dcontext, ilist, instr, next_instr);
     } else if (instr_is_exclusive_store(instr)) {
