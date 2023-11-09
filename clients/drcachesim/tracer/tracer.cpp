@@ -176,10 +176,6 @@ static void *trace_thread_cb_user_data;
 static bool thread_filtering_enabled;
 bool attached_midway;
 
-#ifdef AARCH64
-static bool reported_sg_warning = false;
-#endif
-
 // We may be able to safely use std::unordered_map as at runtime we only need
 // to do lookups which shouldn't need heap or locks, but to be safe we use
 // the DR hashtable.
@@ -1352,22 +1348,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         for (i = 0; i < instr_num_srcs(instr_operands); i++) {
             const opnd_t src = instr_get_src(instr_operands, i);
             if (opnd_is_memory_reference(src)) {
-#ifdef AARCH64
-                /* TODO i#5036: Memory references involving SVE registers are not
-                 * supported yet. To be implemented as part of scatter/gather work.
-                 */
-                if (opnd_is_base_disp(src) &&
-                    (reg_is_z(opnd_get_base(src)) || reg_is_z(opnd_get_index(src)))) {
-                    if (!reported_sg_warning) {
-                        NOTIFY(
-                            0,
-                            "WARNING: Scatter/gather is not supported, results will be "
-                            "inaccurate\n");
-                        reported_sg_warning = true;
-                    }
-                    continue;
-                }
-#endif
                 adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
                                            instr_operands, src, i, false, pred, mode);
             }
@@ -1376,22 +1356,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         for (i = 0; i < instr_num_dsts(instr_operands); i++) {
             const opnd_t dst = instr_get_dst(instr_operands, i);
             if (opnd_is_memory_reference(dst)) {
-#ifdef AARCH64
-                /* TODO i#5036: Memory references involving SVE registers are not
-                 * supported yet. To be implemented as part of scatter/gather work.
-                 */
-                if (opnd_is_base_disp(dst) &&
-                    (reg_is_z(opnd_get_base(dst)) || reg_is_z(opnd_get_index(dst)))) {
-                    if (!reported_sg_warning) {
-                        NOTIFY(
-                            0,
-                            "WARNING: Scatter/gather is not supported, results will be "
-                            "inaccurate\n");
-                        reported_sg_warning = true;
-                    }
-                    continue;
-                }
-#endif
                 adjust = instrument_memref(drcontext, ud, bb, where, reg_ptr, adjust,
                                            instr_operands, dst, i, true, pred, mode);
             }
