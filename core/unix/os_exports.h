@@ -531,11 +531,11 @@ get_clone_record_app_xsp(void *record);
 byte *
 get_clone_record_dstack(void *record);
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 reg_t
 get_clone_record_stolen_value(void *record);
 
-#    ifndef AARCH64
+#    ifdef ARM
 uint /* dr_isa_mode_t but we have a header ordering problem */
 get_clone_record_isa_mode(void *record);
 #    endif

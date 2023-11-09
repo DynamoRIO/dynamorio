@@ -426,8 +426,9 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
     gencode->do_syscall = pc;
     pc = emit_do_syscall(GLOBAL_DCONTEXT, gencode, pc, gencode->fcache_return,
                          true /*shared*/, 0, &gencode->do_syscall_offs);
-#    ifdef AARCHXX
-    /* ARM has no thread-private gencode, so our clone syscall is shared */
+#    if defined(AARCHXX) || defined(RISCV64)
+    /* ARM/AArch64/RISC-V has no thread-private gencode, so our clone syscall is shared.
+     */
     gencode->do_clone_syscall = pc;
     pc = emit_do_clone_syscall(GLOBAL_DCONTEXT, gencode, pc, gencode->fcache_return,
                                true /*shared*/, &gencode->do_clone_syscall_offs);
@@ -726,7 +727,10 @@ d_r_arch_init(void)
 
 #ifdef AARCHXX
     dr_reg_stolen = DR_REG_R0 + DYNAMO_OPTION(steal_reg);
-    ASSERT(dr_reg_stolen >= DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX)
+    ASSERT(dr_reg_stolen >= DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX);
+#elif defined(RISCV64)
+    dr_reg_stolen = DR_REG_X0 + DYNAMO_OPTION(steal_reg);
+    ASSERT(dr_reg_stolen >= DR_REG_STOLEN_MIN && dr_reg_stolen <= DR_REG_STOLEN_MAX);
 #endif
 
     /* Ensure we have no unexpected padding inside structs that include
@@ -1206,7 +1210,7 @@ arch_thread_init(dcontext_t *dcontext)
     return;
 #endif
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     /* Store addresses we access via TLS from exit stubs and gencode. */
     get_local_state_extended()->spill_space.fcache_return =
         PC_AS_JMP_TGT(isa_mode, fcache_return_shared_routine());
@@ -3105,14 +3109,11 @@ hook_vsyscall_return:
     instr_free(dcontext, &instr);
     return res;
 #        undef CHECK
-#    elif defined(AARCHXX)
-    /* No vsyscall support needed for our ARM targets -- still called on
+#    elif defined(AARCHXX) || defined(RISCV64)
+    /* No vsyscall support needed for our ARM/AArch64/RISC-V targets -- still called on
      * os_process_under_dynamorio().
      */
     ASSERT(!method_changing);
-    return false;
-#    elif defined(RISCV64)
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    endif /* X86/ARM/RISCV64 */
 }
@@ -3152,11 +3153,8 @@ unhook_vsyscall(void)
         ASSERT(res);
     }
     return true;
-#    elif defined(AARCHXX)
+#    elif defined(AARCHXX) || defined(RISCV64)
     ASSERT_NOT_IMPLEMENTED(get_syscall_method() != SYSCALL_METHOD_SYSENTER);
-    return false;
-#    elif defined(RISCV64)
-    ASSERT_NOT_IMPLEMENTED(false);
     return false;
 #    endif /* X86/ARM/RISCV64 */
 }
@@ -3856,7 +3854,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 #endif
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 reg_t
 get_stolen_reg_val(priv_mcontext_t *mc)
 {

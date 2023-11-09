@@ -64,9 +64,8 @@ dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc)
 byte *
 decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_t flags)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    *usage = 0; /* No eflags on RISC-V. */
+    return decode_next_pc(drcontext, pc);
 }
 
 byte *
@@ -92,9 +91,8 @@ decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 byte *
 decode_cti(void *drcontext, byte *pc, instr_t *instr)
 {
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    return decode(dcontext, pc, instr);
 }
 
 byte *

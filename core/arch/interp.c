@@ -5467,6 +5467,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
 
         /* XXX i#5062 In the future this call should be placed inside mangle_trace() */
         IF_AARCH64(fixup_indirect_trace_exit(dcontext, ilist));
+        IF_RISCV64(ASSERT_NOT_IMPLEMENTED(false));
 
         /* PR 214962: re-apply client changes, this time storing translation
          * info for modified instrs
@@ -6278,8 +6279,8 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     instr_destroy(dcontext, targeter);
     added_size -= AARCH64_INSTR_SIZE;
 
-#elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
+#else
+    /* FIXME i#1551: NYI on ARM/RISCV64 */
     ASSERT_NOT_IMPLEMENTED(false);
 #endif /* X86/ARM */
     return added_size;

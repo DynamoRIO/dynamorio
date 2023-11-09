@@ -217,13 +217,13 @@ typedef struct _clone_record_t {
     thread_sig_info_t info;
     thread_sig_info_t *parent_info;
     void *pcprofile_info;
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     /* To ensure we have the right value as of the point of the clone, we
      * store it here (we'll have races if we try to get it during new thread
      * init).
      */
     reg_t app_stolen_value;
-#    ifndef AARCH64
+#    ifdef ARM
     dr_isa_mode_t isa_mode;
 #    endif
     /* To ensure we have the right app lib tls base in child thread,
@@ -846,9 +846,9 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     record->info.app_sigstack.ss_flags = SS_DISABLE;
     record->parent_info = (thread_sig_info_t *)dcontext->signal_field;
     record->pcprofile_info = dcontext->pcprofile_field;
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
     record->app_stolen_value = get_stolen_reg_val(get_mcontext(dcontext));
-#    ifndef AARCH64
+#    ifdef ARM
     record->isa_mode = dr_get_isa_mode(dcontext);
 #    endif
     /* If the child thread shares the same TLS with parent by not setting
@@ -972,7 +972,7 @@ get_clone_record_dstack(void *record)
     return ((clone_record_t *)record)->dstack;
 }
 
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 reg_t
 get_clone_record_stolen_value(void *record)
 {
@@ -980,7 +980,7 @@ get_clone_record_stolen_value(void *record)
     return ((clone_record_t *)record)->app_stolen_value;
 }
 
-#    ifndef AARCH64
+#    ifdef ARM
 uint /* dr_isa_mode_t but we have a header ordering problem */
 get_clone_record_isa_mode(void *record)
 {
@@ -2784,6 +2784,8 @@ sig_full_initialize(sig_full_cxt_t *sc_full, kernel_ucontext_t *ucxt)
 #elif defined(AARCH64)
     sc_full->fp_simd_state =
         &ucxt->IF_MACOS64_ELSE(uc_mcontext64->__ns, uc_mcontext.__reserved);
+#elif defined(RISCV64)
+    sc_full->fp_simd_state = &ucxt->uc_mcontext.sc_fpregs;
 #else
     ASSERT_NOT_IMPLEMENTED(false);
 #endif
@@ -3330,8 +3332,7 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
      */
     return false;
 #    elif defined(RISCV64)
-    /* FIXME i#3544: Not implemented */
-    ASSERT_NOT_IMPLEMENTED(false);
+    /* FIXME i#3544: Is this same as AArch64? */
     return false;
 #    endif
     if (info->sighand->action[sig]->restorer == NULL)
@@ -4065,6 +4066,8 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
     /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
     set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
 #    endif
+#elif defined(RISCV64)
+    ASSERT_NOT_IMPLEMENTED(false);
 #endif
 
 #if defined(X64) || defined(ARM)
@@ -4285,8 +4288,17 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target
 #    else
 #        error NYI on AArch64
 #    endif
+#elif defined(RISCV64)
+                      "  pc=" PFX " ra=" PFX " sp =" PFX " gp =" PFX "\n"
+                      "\ttp=" PFX " t0=" PFX " t1 =" PFX " t2 =" PFX "\n"
+                      "\ts0=" PFX " s1=" PFX " a0 =" PFX " a1 =" PFX "\n"
+                      "\ta2=" PFX " a3=" PFX " a4 =" PFX " a5 =" PFX "\n"
+                      "\ta6=" PFX " a7=" PFX " s2 =" PFX " s3 =" PFX "\n"
+                      "\ts4=" PFX " s5=" PFX " s6 =" PFX " s7 =" PFX "\n"
+                      "\ts8=" PFX " s9=" PFX " s10=" PFX " s11=" PFX "\n"
+                      "\tt3=" PFX " t4=" PFX " t5 =" PFX " t6 =" PFX "\n"
 #endif /* X86/ARM */
-                      "\teflags=" PFX;
+        IF_NOT_RISCV64("\teflags=" PFX);
 
 #if defined(STATIC_LIBRARY) && defined(LINUX)
     /* i#2119: if we're invoking an app handler, disable a fatal coredump. */
@@ -7376,6 +7388,8 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
     set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
 #        endif
+#    elif defined(RISCV64)
+    ASSERT_NOT_IMPLEMENTED(false);
 #    endif
 #endif
 

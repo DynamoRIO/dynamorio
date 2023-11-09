@@ -1168,7 +1168,7 @@ bool
 opnd_is_memory_reference(opnd_t opnd)
 {
     return (opnd_is_base_disp(opnd) IF_X86_64(|| opnd_is_abs_addr(opnd)) ||
-#if defined(X64) || defined(ARM)
+#if (defined(X64) || defined(ARM)) && !defined(RISCV64)
             opnd_is_rel_addr(opnd) ||
 #endif
             opnd_is_mem_instr(opnd));
@@ -2376,11 +2376,8 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
         default: scaled_index = index_val;
         }
 #elif defined(RISCV64)
-        /* FIXME i#3544: Not implemented */
         /* Marking as unused to silence -Wunused-variable. */
-        CLIENT_ASSERT(false, "Not implemented");
         (void)index;
-        return NULL;
 #endif
     }
     return opnd_compute_address_helper(opnd, mc, scaled_index);

@@ -191,8 +191,10 @@
 #define FRAG_ISA_MODE(flags)                                                        \
     IF_X86_ELSE(                                                                    \
         IF_X64_ELSE((FRAG_IS_32(flags)) ? DR_ISA_IA32 : DR_ISA_AMD64, DR_ISA_IA32), \
-        IF_X64_ELSE(DR_ISA_ARM_A64,                                                 \
-                    (TEST(FRAG_THUMB, (flags)) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32)))
+        IF_AARCH64_ELSE(IF_X64_ELSE(DR_ISA_ARM_A64,                                 \
+                                    (TEST(FRAG_THUMB, (flags)) ? DR_ISA_ARM_THUMB   \
+                                                               : DR_ISA_ARM_A32)),  \
+                        DR_ISA_RV64IMAFDC))
 
 static inline uint
 frag_flags_from_isa_mode(dr_isa_mode_t mode)

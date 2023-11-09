@@ -1801,11 +1801,14 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
          * But the stolen reg was restored to the application value during
          * translate_mcontext.
          */
-        IF_AARCHXX({
-            /* Preserve the translated value from mc before we clobber it. */
-            dcontext->local_state->spill_space.reg_stolen = get_stolen_reg_val(mc);
-            set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
-        });
+#ifdef AARCHXX
+        /* Preserve the translated value from mc before we clobber it. */
+        dcontext->local_state->spill_space.reg_stolen = get_stolen_reg_val(mc);
+        set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
+#elif defined(RISCV64)
+        ASSERT_NOT_IMPLEMENTED(false);
+#endif
+
 #ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
          * in TEB, and fcache_return blindly copies into app fls: so swap to app

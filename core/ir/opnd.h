@@ -332,6 +332,11 @@ extern reg_id_t dr_reg_stolen;
 #    define DR_REG_STOLEN_MAX DR_REG_X31
 /* DR's stolen register for TLS access. */
 extern reg_id_t dr_reg_stolen;
+#elif defined(RISCV64)
+/* DR's stolen register for TLS access */
+#    define DR_REG_STOLEN_MIN DR_REG_X18 /* DR_REG_SYSNUM + 1 */
+#    define DR_REG_STOLEN_MAX DR_REG_X31
+extern reg_id_t dr_reg_stolen;
 #endif
 
 #endif /* _OPND_H_ */
