@@ -94,6 +94,7 @@ if (UNIX AND NOT APPLE AND NOT ANDROID)
   endif ()
 endif ()
 
+set(extra_ctest_args INCLUDE_LABEL TMATE_DEBUG)#NOCHECK
 set(build_tests "BUILD_TESTS:BOOL=ON")
 
 if (arg_automated_ci)
@@ -608,3 +609,24 @@ endfunction (error_string)
 
 set(build_package ${arg_package})
 include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_post.cmake")
+
+set_tests_properties(code_api|linux.signal0000 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal0001 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal0010 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal0011 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal0100 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal0101 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal0110 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal0111 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal1000 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal1001 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal1010 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal1011 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal1100 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal1101 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal1110 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal1111 PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signalfd PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal_race PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal_racesys PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
+set_tests_properties(code_api|linux.signal_pre_syscall PROPERTIES LABELS TMATE_DEBUG)#NOCHECK
