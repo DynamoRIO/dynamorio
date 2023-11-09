@@ -482,12 +482,12 @@ endfunction(append_link_flags)
 # line above and instead selectively remove -O3 from tests that cannot
 # support it.
 # This was investigated and proved to be non trivial as the client tests
-# use _DR_set_compile_flags() to set the compile flags whereas the core 
+# use _DR_set_compile_flags() to set the compile flags whereas the core
 # tests use set_cflags(). _DR_set_compile_flags() is a public function and we
 # didn't want to add a blocklist in there.
 # For now we create a list of tests that can be built with -O3.
 # This is for AARCH64 UNIX only.
-# TODO change this allowlist to a blocklist
+# TODO i#6429 Optimization flags are removed for all tests.
 set(sve_tests
       simple_app api.ir api.ir_negative api.ir_v81 api.ir_v82 api.ir_v83 api.ir_v84
       api.ir_v86 api.ir_sve api.ir_sve2 api.ir-static api.drdecode common.broadfun
@@ -533,9 +533,9 @@ function(add_sve_flags target)
     if (target IN_LIST sve_tests)
       target_compile_options(${target} PRIVATE
         -march=armv8.4-a+crypto+rcpc+sha3+sm4+sve+rng+ssbs+nodotprod
-        # reinstate the -03 flag which is removed with the 
+        # Reinstate the -03 flag which is removed with the 
         # string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-        # line above
+        # line above.
         -O3)
     endif()
   endif()
@@ -1770,9 +1770,9 @@ function(use_MD_not_MTd source_file)
   endif ()
 endfunction()
 
-# the -O3 flag is removed above with the 
+# The -O3 flag is removed above with the 
 # string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-# line. -O3 is then selectively readded with this function or add_sve_flags().
+# line. -O3 is then selectively re-added with this function or add_sve_flags().
 # It will be desirable to one day remove the "REGEX REPLACE" line and just
 # remove -O3 for targets that cannot support it.
 function(optimize target)
