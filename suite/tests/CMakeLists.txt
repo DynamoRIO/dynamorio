@@ -533,7 +533,7 @@ function(add_sve_flags target)
     if (target IN_LIST sve_tests)
       target_compile_options(${target} PRIVATE
         -march=armv8.4-a+crypto+rcpc+sha3+sm4+sve+rng+ssbs+nodotprod
-        # Reinstate the -03 flag which is removed with the 
+        # Reinstate the -03 flag which is removed with the
         # string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
         # line above.
         -O3)
