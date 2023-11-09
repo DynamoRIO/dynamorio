@@ -380,38 +380,6 @@ test_ldar(void *dc)
     test_instr_encoding(dc, OP_ldarh, instr);
 }
 
-/* TODO: Add this to a new suite/tests/api/ir_aarch64_v83.c file */
-static void
-test_ldapr(void *dc)
-{
-    byte *pc;
-    instr_t *instr;
-
-    /* LDAPR <Wt>, [<Xn|SP>{,#0}] */
-    instr = INSTR_CREATE_ldapr(
-        dc, opnd_create_reg(DR_REG_W0),
-        opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_4));
-    test_instr_encoding(dc, OP_ldapr, instr);
-
-    /* LDAPR <Xt>, [<Xn|SP>{,#0}] */
-    instr = INSTR_CREATE_ldapr(
-        dc, opnd_create_reg(DR_REG_X2),
-        opnd_create_base_disp_aarch64(DR_REG_X3, DR_REG_NULL, 0, false, 0, 0, OPSZ_8));
-    test_instr_encoding(dc, OP_ldapr, instr);
-
-    /* LDAPRB <Wt>, [<Xn|SP>{,#0}] */
-    instr = INSTR_CREATE_ldaprb(
-        dc, opnd_create_reg(DR_REG_W4),
-        opnd_create_base_disp_aarch64(DR_REG_X5, DR_REG_NULL, 0, false, 0, 0, OPSZ_1));
-    test_instr_encoding(dc, OP_ldaprb, instr);
-
-    /* LDAPRH <Wt>, [<Xn|SP>{,#0}] */
-    instr = INSTR_CREATE_ldaprh(
-        dc, opnd_create_reg(DR_REG_W6),
-        opnd_create_base_disp_aarch64(DR_REG_X7, DR_REG_NULL, 0, false, 0, 0, OPSZ_2));
-    test_instr_encoding(dc, OP_ldaprh, instr);
-}
-
 static void
 ld2_simdfp_multiple_structures_no_offset(void *dc)
 {
@@ -6973,9 +6941,6 @@ main(int argc, char *argv[])
 
     test_ldar(dcontext);
     print("test_ldar complete\n");
-
-    test_ldapr(dcontext);
-    print("test_ldapr complete\n");
 
     test_ldur_stur(dcontext);
     print("test_ldur_stur complete\n");
