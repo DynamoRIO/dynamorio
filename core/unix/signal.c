@@ -6422,15 +6422,15 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         mcontext->lr = (reg_t)dynamorio_sigreturn;
 #elif defined(RISCV64)
     /* FIXME i#3544: Check if xsp is cast correctly? */
-    sc->SC_A0 = sig;
+    mcontext->a0 = sig;
     if (IS_RT_FOR_APP(info, sig)) {
-        sc->SC_A1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
-        sc->SC_A2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+        mcontext->a1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+        mcontext->a2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
     }
     if (sig_has_restorer(info, sig))
-        sc->SC_RA = (reg_t)info->sighand->action[sig]->restorer;
+        mcontext->ra = (reg_t)info->sighand->action[sig]->restorer;
     else
-        sc->SC_RA = (reg_t)dynamorio_sigreturn;
+        mcontext->ra = (reg_t)dynamorio_sigreturn;
 #endif
 #ifdef X86
     /* Clear eflags DF (signal handler should match function entry ABI) */
