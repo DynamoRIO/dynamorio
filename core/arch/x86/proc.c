@@ -245,16 +245,6 @@ get_processor_specific_info(void)
         LOG(GLOBAL, LOG_TOP, 1, "cpuid returned " PFX " " PFX " " PFX " " PFX "\n",
             res_eax, res_ebx, res_ecx, res_edx);
     }
-    if (standalone_library) {
-        /* For separate decoding, keep a base default and do not target the
-         * underlying processor (xref i#431, i#6420, i#5725).
-         * The user can use proc_set_vendor() to override.
-         * This affects various decoding corner cases and is important to set.
-         * We leave all the other cache info, etc. pointing to the current hardware.
-         */
-        LOG(GLOBAL, LOG_TOP, 1, "For standalone decoding, assuming Intel target.\n");
-        cpu_info.vendor = VENDOR_INTEL;
-    }
 
     /* Try to get extended cpuid information */
     our_cpuid(cpuid_res_local, 0x80000000, 0);
@@ -342,6 +332,21 @@ get_processor_specific_info(void)
         our_cpuid((int *)&cpu_info.brand_string[0], 0x80000002, 0);
         our_cpuid((int *)&cpu_info.brand_string[4], 0x80000003, 0);
         our_cpuid((int *)&cpu_info.brand_string[8], 0x80000004, 0);
+    }
+
+    if (standalone_library) {
+        /* For separate decoding, keep a base default and do not target the
+         * underlying processor (xref i#431, i#6420, i#5725).
+         * The user can use proc_set_vendor() to override.
+         * This affects various decoding corner cases and is important to set.
+         * We leave all the other cache info, etc. pointing to the current hardware.
+         * We set this at the end here to avoid errors in getting other
+         * cpuid values with the wrong magic parameters.
+         * XXX: This is still potentially fragile; should the decoder have
+         * a separate vendor value?
+         */
+        LOG(GLOBAL, LOG_TOP, 1, "For standalone decoding, assuming Intel target.\n");
+        cpu_info.vendor = VENDOR_INTEL;
     }
 }
 
