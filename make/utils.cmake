@@ -344,26 +344,26 @@ function (check_sve_processor_and_compiler_support out)
 endfunction (check_sve_processor_and_compiler_support)
 
 function (get_processor_vendor out)
-  set(vendor "<unknown>")
+  set(cpu_vendor "<unknown>")
   if (APPLE)
     find_program(SYSCTL NAMES sysctl PATHS /usr/sbin)
     if (SYSCTL)
       execute_process(COMMAND ${SYSCTL} -n machdep.cpu.vendor
-        OUTPUT_VARIABLE vendor OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE err)
-      if ("${vendor}" STREQUAL "")
+        OUTPUT_VARIABLE cpu_vendor OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE err)
+      if ("${cpu_vendor}" STREQUAL "")
         execute_process(COMMAND ${SYSCTL} -n machdep.cpu.brand_string
-          OUTPUT_VARIABLE vendor OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE err)
+          OUTPUT_VARIABLE cpu_vendor OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE err)
       endif ()
     endif ()
   elseif (WIN32)
-    get_filename_component(vendor
+    get_filename_component(cpu_vendor
       "[HKEY_LOCAL_MACHINE\\Hardware\\Description\\System\\CentralProcessor\\0;VendorIdentifier]"
-      NAME CACHE)
+      NAME)
   elseif (EXISTS "/proc/cpuinfo")
     file(READ "/proc/cpuinfo" contents)
     string(REGEX REPLACE ".*vendor_id[ \t]*:[ \t]+([a-zA-Z0-9_-]+).*" "\\1"
-      vendor "${contents}")
+      cpu_vendor "${contents}")
   endif ()
-  message(STATUS "Processor vendor is ${vendor}")
-  set(${out} ${vendor} PARENT_SCOPE)
+  message(STATUS "Processor vendor is ${cpu_vendor}")
+  set(${out} ${cpu_vendor} PARENT_SCOPE)
 endfunction ()
