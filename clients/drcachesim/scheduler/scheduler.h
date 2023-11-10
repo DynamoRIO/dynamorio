@@ -59,6 +59,7 @@
 
 #include "archive_istream.h"
 #include "archive_ostream.h"
+#include "flexible_queue.h"
 #include "memref.h"
 #include "memtrace_stream.h"
 #include "reader.h"
@@ -1278,9 +1279,7 @@ protected:
     // dependencies are requested.  We use the timestamp delta from the first observed
     // timestamp in each workload in order to mix inputs from different workloads in the
     // same queue.  FIFO ordering is used for same-priority entries.
-    std::priority_queue<input_info_t *, std::vector<input_info_t *>,
-                        InputTimestampComparator>
-        ready_priority_;
+    flexible_queue_t<input_info_t *, InputTimestampComparator> ready_priority_;
     // Global ready queue counter used to provide FIFO for same-priority inputs.
     uint64_t ready_counter_ = 0;
 };

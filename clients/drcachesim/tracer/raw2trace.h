@@ -67,6 +67,7 @@
 #include "drmemtrace.h"
 #include "hashtable.h"
 #include "instru.h"
+#include "raw2trace_shared.h"
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
@@ -82,26 +83,6 @@ namespace drmemtrace {
 #else
 #    define DEBUG_ASSERT(x) /* nothing */
 #endif
-
-#define OUTFILE_SUFFIX "raw"
-#ifdef BUILD_PT_POST_PROCESSOR
-#    define OUTFILE_SUFFIX_PT "raw.pt"
-#endif
-#ifdef HAS_ZLIB
-#    define OUTFILE_SUFFIX_GZ "raw.gz"
-#    define OUTFILE_SUFFIX_ZLIB "raw.zlib"
-#endif
-#ifdef HAS_SNAPPY
-#    define OUTFILE_SUFFIX_SZ "raw.sz"
-#endif
-#ifdef HAS_LZ4
-#    define OUTFILE_SUFFIX_LZ4 "raw.lz4"
-#endif
-#define OUTFILE_SUBDIR "raw"
-#define WINDOW_SUBDIR_PREFIX "window"
-#define WINDOW_SUBDIR_FORMAT "window.%04zd" /* ptr_int_t is the window number type. */
-#define WINDOW_SUBDIR_FIRST "window.0000"
-#define TRACE_SUBDIR "trace"
 
 #ifdef HAS_LZ4
 #    define TRACE_SUFFIX_LZ4 "trace.lz4"
@@ -401,17 +382,6 @@ struct trace_metadata_writer_t {
     write_tid(byte *buffer, thread_id_t tid);
     static int
     write_timestamp(byte *buffer, uint64 timestamp);
-};
-
-/**
- * Functions for decoding and verifying raw memtrace data headers.
- */
-struct trace_metadata_reader_t {
-    static bool
-    is_thread_start(const offline_entry_t *entry, OUT std::string *error,
-                    OUT int *version, OUT offline_file_type_t *file_type);
-    static std::string
-    check_entry_thread_start(const offline_entry_t *entry);
 };
 
 /**
@@ -1133,6 +1103,15 @@ protected:
                           OUT bool *last_bb_handled, OUT bool *flush_decode_cache);
 
     /**
+     * Performs any additional actions for the marker "marker_type" with value
+     * "marker_val", beyond writing out a marker record.  New records can be written to
+     * "buf".  Returns whether successful.
+     */
+    virtual bool
+    process_marker_additionally(raw2trace_thread_data_t *tdata,
+                                trace_marker_type_t marker_type, uintptr_t marker_val,
+                                byte *&buf, OUT bool *flush_decode_cache);
+    /**
      * Read the header of a thread, by calling get_next_entry() successively to
      * populate the header values. The timestamp field is populated only
      * for legacy traces.
@@ -1265,6 +1244,10 @@ protected:
     {
         modmap_ptr_ = modmap;
     }
+
+    /** Returns whether this system number *might* block. */
+    virtual bool
+    is_maybe_blocking_syscall(uintptr_t number);
 
     const module_mapper_t *modmap_ptr_ = nullptr;
 
@@ -1491,9 +1474,6 @@ private:
 
     bool
     should_omit_syscall(raw2trace_thread_data_t *tdata);
-
-    bool
-    is_maybe_blocking_syscall(uintptr_t number);
 
     int worker_count_;
     std::vector<std::vector<raw2trace_thread_data_t *>> worker_tasks_;

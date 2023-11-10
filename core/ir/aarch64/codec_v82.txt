@@ -72,10 +72,6 @@
 0001111011100000001000xxxxx11000  w   108  FP16     fcmpe      : h5 zero_fp_const
 00011110111xxxxx001000xxxxx10000  w   108  FP16     fcmpe      : h5 h16
 00011110111xxxxxxxxx11xxxxxxxxxx  r   109  FP16     fcsel  fcsel_h
-0001111000100011110000xxxxxxxxxx  n   110  FP16      fcvt   h0 : s5
-0001111001100011110000xxxxxxxxxx  n   110  FP16      fcvt   h0 : d5
-0001111011100010010000xxxxxxxxxx  n   110  FP16      fcvt   s0 : h5
-0001111011100010110000xxxxxxxxxx  n   110  FP16      fcvt   d0 : h5
 0x00111001111001110010xxxxxxxxxx  n   111  FP16    fcvtas  dq0 : dq5 h_sz
 0101111001111001110010xxxxxxxxxx  n   111  FP16    fcvtas   h0 : h5
 0001111011100100000000xxxxxxxxxx  n   111  FP16    fcvtas   w0 : h5

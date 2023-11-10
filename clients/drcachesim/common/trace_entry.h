@@ -560,6 +560,25 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_SYSCALL_FAILED,
 
+    /**
+     * This marker is emitted prior to a system call that causes an immediate switch to
+     * another thread on the same core (with the current thread entering an unscheduled
+     * state), bypassing the kernel scheduler's normal dynamic switch code based on run
+     * queues.  The marker value holds the thread id of the target thread.
+     */
+    TRACE_MARKER_TYPE_DIRECT_THREAD_SWITCH,
+
+    /**
+     * This marker is used for core-sharded analyses to indicate that the current
+     * core is waiting on another core.  This is primarily only useful for analyses
+     * studying the scheduling of threads onto cores.  A new marker is emitted each
+     * time the tool analysis framework requests a new record from the scheduler and
+     * is given a wait status.  There are no units of time here but each repetition
+     * is roughly the time where a regular record could have been read and passed
+     * along.
+     */
+    TRACE_MARKER_TYPE_CORE_WAIT,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...

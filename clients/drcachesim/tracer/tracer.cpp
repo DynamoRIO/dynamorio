@@ -67,7 +67,7 @@
 #include "options.h"
 #include "output.h"
 #include "physaddr.h"
-#include "raw2trace.h"
+#include "raw2trace_shared.h"
 #include "reader.h"
 #include "trace_entry.h"
 #include "utils.h"
