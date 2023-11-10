@@ -15,3 +15,4 @@ cscope.out
 01112023/*.txt
 01112023/*.csv
 01112023/parsed_traces/*.csv
+01112023/parsed_traces/deprecated/*.csv

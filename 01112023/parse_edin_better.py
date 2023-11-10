@@ -14,7 +14,11 @@ def parse_write_out_csv_file(path: str, cache_size_in_k: int, matrix_size: int) 
     )
 
     # Create a CSV file for writing
-    with open(f"{cache_size_in_k}k_l1d_matmult_{matrix_size}_parsed_total.csv", "w", newline="") as csv_file:
+    with open(
+        f"./parsed_traces/{cache_size_in_k}k_l1d_matmult_{matrix_size}_parsed_total.csv",
+        "w",
+        newline="",
+    ) as csv_file:
         fieldnames = [
             "Line",
             "Operation",
@@ -22,7 +26,8 @@ def parse_write_out_csv_file(path: str, cache_size_in_k: int, matrix_size: int) 
             "Address",
             "Instruction",
             "CacheSize",
-            "MatrixSize" "DATA_MISS",
+            "MatrixSize",
+            "DATA_MISS",
             "INST_MISS",
         ]
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -66,8 +71,8 @@ def parse_write_out_csv_file(path: str, cache_size_in_k: int, matrix_size: int) 
     print(f"CSV file {csv_file.name} has been created.")
 
 
-cache_sizes = [1,2,8,128,256,512]
-matrix_sizes = [10,20,50,80,100]
+cache_sizes = [1, 2, 8, 128, 256, 512]
+matrix_sizes = [10, 20, 50, 80, 100]
 
 
 for cache in cache_sizes:
