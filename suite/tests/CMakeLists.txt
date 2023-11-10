@@ -487,7 +487,7 @@ endfunction(append_link_flags)
 # didn't want to add a blocklist in there.
 # For now we create a list of tests that can be built with -O3.
 # This is for AARCH64 UNIX only.
-# TODO i#6429 Optimization flags are removed for all tests.
+# TODO i#6429 Change this allowlist to a blocklist.
 set(sve_tests
       simple_app api.ir api.ir_negative api.ir_v81 api.ir_v82 api.ir_v83 api.ir_v84
       api.ir_v86 api.ir_sve api.ir_sve2 api.ir-static api.drdecode common.broadfun
