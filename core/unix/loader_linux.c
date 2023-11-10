@@ -267,7 +267,7 @@ privload_mod_tls_init(privmod_t *mod)
         ALIGN_FORWARD(offset + opd->tls_block_size + first_byte, opd->tls_align);
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
-#    else
+#    else /* RISCV64 */
     opd->tls_offset = offset;
     tls_info.offs[tls_info.num_mods] = offset;
     offset = ALIGN_FORWARD(offset + opd->tls_block_size, opd->tls_align);

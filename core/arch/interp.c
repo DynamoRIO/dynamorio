@@ -6197,6 +6197,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
         }
     }
 #    endif
+/* end of X86 */
 #elif defined(AARCH64)
     instr_t *instr;
     reg_id_t jump_target_reg;
@@ -6278,11 +6279,11 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     instrlist_remove(trace, targeter);
     instr_destroy(dcontext, targeter);
     added_size -= AARCH64_INSTR_SIZE;
-
+/* end of AARCH64 */
 #else
-    /* FIXME i#1551: NYI on ARM/RISCV64 */
+    /* FIXME i#1551 i#3544: NYI on ARM/RISCV64 */
     ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
+#endif /* X86/ARM/RISCV64 */
     return added_size;
 }
 
