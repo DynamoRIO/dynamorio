@@ -168,10 +168,12 @@ protected:
 
         uint64_t cur_interval_index;
         uint64_t cur_interval_init_instr_count;
-        // Identifier for the shard. Currently, shards map only to threads, so this is
-        // the thread id.
+        // Identifier for the shard (thread or core id).
         int64_t shard_id;
+        // Ordinal for the shard.
+        int shard_index = 0;
         std::vector<analyzer_tool_shard_data_t> tool_data;
+        bool exited = false;
 
     private:
         // Delete copy constructor and assignment operator to avoid overhead of

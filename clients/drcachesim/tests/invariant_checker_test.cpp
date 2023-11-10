@@ -926,7 +926,6 @@ check_rseq()
 {
 #ifdef UNIX
     std::cerr << "Testing rseq\n";
-    constexpr memref_tid_t TID_A = 1;
     // Roll back rseq final instr.
     {
         std::vector<memref_t> memrefs = {
@@ -991,7 +990,6 @@ bool
 check_function_markers()
 {
     std::cerr << "Testing function markers\n";
-    constexpr memref_tid_t TID_A = 1;
     constexpr addr_t CALL_PC = 2;
     constexpr size_t CALL_SZ = 2;
     // Incorrectly between instr and memref.
@@ -1637,11 +1635,11 @@ check_duplicate_syscall_with_same_pc()
             gen_instr_encoded(ADDR + 2, { 0x0f, 0x05 }), // 0x7fcf3b9dd9eb: 0f 05 syscall
 #    elif defined(ARM_64)
             gen_instr_encoded(ADDR, 0xd4000001,
-                              2), // 0x7fcf3b9d: 0xd4000001 svc #0x0
+                              TID_A), // 0x7fcf3b9d: 0xd4000001 svc #0x0
             gen_marker(TID_A, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_marker(TID_A, TRACE_MARKER_TYPE_CPU_ID, 3),
             gen_instr_encoded(ADDR + 4, 0xd4000001,
-                              2), // 0x7fcf3b9dd9eb: 0xd4000001 svc #0x0
+                              TID_A), // 0x7fcf3b9dd9eb: 0xd4000001 svc #0x0
 #    else
         // TODO i#5871: Add AArch32 (and RISC-V) encodings.
 #    endif
@@ -1683,7 +1681,6 @@ check_syscalls()
     instrlist_append(ilist, sys);
     instrlist_append(ilist, move1);
     static constexpr addr_t BASE_ADDR = 0x123450;
-    static constexpr memref_tid_t TID_A = 1;
     static constexpr uintptr_t FILE_TYPE =
         OFFLINE_FILE_TYPE_ENCODINGS | OFFLINE_FILE_TYPE_SYSCALL_NUMBERS;
     bool res = true;
@@ -2487,7 +2484,6 @@ bool
 check_filter_endpoint()
 {
     std::cerr << "Testing filter end-point marker and file type\n";
-    static constexpr memref_tid_t TID_A = 1;
     // Matching marker and file type: correct.
     {
         std::vector<memref_t> memrefs = {
