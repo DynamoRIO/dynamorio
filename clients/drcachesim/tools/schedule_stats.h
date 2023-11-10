@@ -110,7 +110,7 @@ protected:
     struct per_shard_t {
         std::string error;
         memtrace_stream_t *stream = nullptr;
-        int core = 0; // We target core-sharded.
+        int64_t core = 0; // We target core-sharded.
         counters_t counters;
         int64_t prev_input = -1;
         // These are cleared when an instruction is seen.
