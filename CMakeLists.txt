@@ -320,6 +320,13 @@ if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
   endif ()
 endif ()
 
+get_processor_vendor(CPU_VENDOR)
+if ("${CPU_VENDOR}" STREQUAL "GenuineIntel")
+  set(CPU_INTEL ON)
+elseif ("${CPU_VENDOR}" STREQUAL "AuthenticAMD")
+  set(CPU_AMD ON)
+endif ()
+
 # Support for running cross-compiled tests under emulation.
 if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
   find_program(QEMU_BINARY qemu-${CMAKE_SYSTEM_PROCESSOR} DOC "QEMU emulation tool")
