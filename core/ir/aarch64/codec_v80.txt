@@ -297,6 +297,10 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90   BASE        eor            wx0 : wx5 
 000111100x1xxxxxxxxx11xxxxxxxxxx  r   109  BASE      fcsel       fcsel_sd
 0001111000100010110000xxxxxxxxxx  n   110  BASE       fcvt             d0 : s5
 0001111001100010010000xxxxxxxxxx  n   110  BASE       fcvt             s0 : d5
+0001111000100011110000xxxxxxxxxx  n   110  BASE       fcvt             h0 : s5
+0001111001100011110000xxxxxxxxxx  n   110  BASE       fcvt             h0 : d5
+0001111011100010010000xxxxxxxxxx  n   110  BASE       fcvt             s0 : h5
+0001111011100010110000xxxxxxxxxx  n   110  BASE       fcvt             d0 : h5
 0001111000100100000000xxxxxxxxxx  n   111  BASE     fcvtas             w0 : s5
 1001111000100100000000xxxxxxxxxx  n   111  BASE     fcvtas             x0 : s5
 0001111001100100000000xxxxxxxxxx  n   111  BASE     fcvtas             w0 : d5
