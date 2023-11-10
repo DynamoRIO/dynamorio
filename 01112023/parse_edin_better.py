@@ -1,41 +1,76 @@
 import re
 import csv
 
-# Read the input text file
-with open('/home/edin/drio-data-collection/framework/dynamorio/01112023/1k_l1d_matmult_10.txt', 'r') as file:
-    text = file.read()
 
-# Define regular expressions for pattern matching
-pattern = re.compile(r'\[(\d+)\](\w+)\s+(\d+)\s+byte\(s\)\s+@'
-                     r'\s+0x([\da-fA-F]+)\s+(.*?)\n|(.*?) MISS\n|(.*?) MISS\n')
+def parse_write_out_csv_file(path: str, cache_size_in_k: int, matrix_size: int) -> None:
+    # Read the input text file
+    with open(path, "r") as file:
+        text = file.read()
 
-# Create a CSV file for writing
-with open('output.csv', 'w', newline='') as csv_file:
-    fieldnames = ['Line', 'Operation', 'ByteCount', 'Address', 'Instruction', "DATA_MISS", 'INST_MISS']
-    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-    writer.writeheader()
+    # Define regular expressions for pattern matching
+    pattern = re.compile(
+        r"\[(\d+)\](\w+)\s+(\d+)\s+byte\(s\)\s+@"
+        r"\s+0x([\da-fA-F]+)\s+(.*?)\n|(.*?) MISS\n|(.*?) MISS\n"
+    )
 
-    lines = pattern.findall(text)
-    data_miss = False
-    inst_miss = False
+    # Create a CSV file for writing
+    with open(f"{cache_size_in_k}k_l1d_matmult_{matrix_size}_parsed_total.csv", "w", newline="") as csv_file:
+        fieldnames = [
+            "Line",
+            "Operation",
+            "ByteCount",
+            "Address",
+            "Instruction",
+            "CacheSize",
+            "MatrixSize" "DATA_MISS",
+            "INST_MISS",
+        ]
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
 
-    for i in range(len(lines)-1):
-        line, operation, byte_count, address, instruction, miss_type,miss_type_2 = lines[i]
-        line_next, operation_next, byte_count_next, address_next, instruction_next, miss_type_next,miss_type_2_next = lines[i+1]   
-        
-        data_miss = 1 if miss_type_next == "DATA" else 0
-        inst_miss = 1 if miss_type_next == "INST" else 0
-        
-        if miss_type == "":
-            line = float(int(line))/len(lines)
-            writer.writerow({'Line': line, 'Operation': operation, 'ByteCount': byte_count, 'Address': address, 'Instruction': instruction,
-                            'DATA_MISS': data_miss, 'INST_MISS': inst_miss})
-    
-    # for line, operation, byte_count, address, instruction in lines:
-    #     data_miss_flag = 1 if "DATA MISS" in line else 0
-    #     inst_miss_flag = 1 if "INST MISS" in line else 0
+        lines = pattern.findall(text)
+        data_miss = False
+        inst_miss = False
 
-    #     writer.writerow({'Line': line, 'Operation': operation, 'ByteCount': byte_count, 'Address': address, 'Instruction': instruction,
-    #                      'DATA_MISS': data_miss_flag, 'INST_MISS': inst_miss_flag})
+        for i in range(len(lines) - 1):
+            (
+                line,
+                operation,
+                byte_count,
+                address,
+                instruction,
+                miss_type,
+                miss_type_2,
+            ) = lines[i]
+            _, _, _, _, _, miss_type_next, _ = lines[i + 1]
 
-print("CSV file has been created.")
+            data_miss = 1 if miss_type_next == "DATA" else 0
+            inst_miss = 1 if miss_type_next == "INST" else 0
+
+            if miss_type == "":
+                line = float(int(line)) / len(lines)
+                writer.writerow(
+                    {
+                        "Line": line,
+                        "Operation": operation,
+                        "ByteCount": byte_count,
+                        "Address": address,
+                        "Instruction": instruction,
+                        "CacheSize": cache_size_in_k,
+                        "MatrixSize": matrix_size,
+                        "DATA_MISS": data_miss,
+                        "INST_MISS": inst_miss,
+                    }
+                )
+
+    print(f"CSV file {csv_file.name} has been created.")
+
+
+cache_sizes = [1,2,8,128,256,512]
+matrix_sizes = [10,20,50,80,100]
+
+
+for cache in cache_sizes:
+    for matrix_size in matrix_sizes:
+        filename = f"./{cache}k_l1d_matmult_{matrix_size}.txt"
+        parse_write_out_csv_file(filename, cache, matrix_size)
