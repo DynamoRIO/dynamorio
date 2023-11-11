@@ -450,7 +450,7 @@ void
 dr_mcontext_init(dr_mcontext_t *mc);
 void
 dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml);
-#ifdef AARCHXX
+#if defined(AARCHXX) || defined(RISCV64)
 reg_t
 get_stolen_reg_val(priv_mcontext_t *context);
 void

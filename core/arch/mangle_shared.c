@@ -898,7 +898,10 @@ mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
     insert_mov_immed_ptrsz(dcontext, EXIT_REASON_RSEQ_ABORT, opnd_create_reg(scratch2),
                            ilist, insert_at, NULL, NULL);
 #    endif
+#    ifdef RISCV64
     /* FIXME i#3544: Not implemented */
+    ASSERT_NOT_IMPLEMENTED(false);
+#    endif
     PRE(ilist, insert_at,
         XINST_CREATE_store_2bytes(
             dcontext,
