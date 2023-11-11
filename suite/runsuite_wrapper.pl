@@ -50,7 +50,7 @@ my $mydir = dirname(abs_path($0));
 my $is_CI = 0;
 my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
 my $is_x86_64 = $Config{archname} =~ /x86_64/;
-my $is_riscv64 = $Config(archname) =~ /riscv64/;
+my $is_riscv64 = $Config{archname} =~ /riscv64/;
 my $is_long = $ENV{'CI_TRIGGER'} eq 'push' && $ENV{'CI_BRANCH'} eq 'refs/heads/master';
 
 # Forward args to runsuite.cmake:
